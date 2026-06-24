@@ -83,7 +83,6 @@ def tx(pre: Alloc, caller_address: Address) -> Transaction:
     """
     return Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         to=caller_address,
         value=1,
     )
@@ -118,7 +117,6 @@ def test_blobbasefee_stack_overflow(
         ),
     }
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post=post,
@@ -154,7 +152,6 @@ def test_blobbasefee_out_of_gas(
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=1_000_000,
         to=caller_address,
         value=1,
     )
@@ -167,12 +164,7 @@ def test_blobbasefee_out_of_gas(
             balance=0,
         ),
     }
-    state_test(
-        env=Environment(),
-        pre=pre,
-        tx=tx,
-        post=post,
-    )
+    state_test(pre=pre, tx=tx, post=post)
 
 
 @pytest.mark.parametrize("caller_pre_storage", [{1: 1}], ids=[""])
@@ -258,7 +250,6 @@ def test_blobbasefee_during_fork(
         ),
     }
     blockchain_test(
-        genesis_environment=Environment(),
         pre=pre,
         blocks=blocks,
         post=post,

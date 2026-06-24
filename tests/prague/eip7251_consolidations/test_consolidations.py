@@ -376,7 +376,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
                                 fee=Spec.get_fee(0),
-                                gas_limit=6_000_000,
                             )
                             for i in range(
                                 Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK * 5
@@ -458,7 +457,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ConsolidationRequest(
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
-                                gas_limit=1_000_000,
                                 fee=Spec.get_fee(0),
                                 valid=True,
                             )
@@ -481,7 +479,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=i * 2,
                                 target_pubkey=i * 2 + 1,
                                 fee=Spec.get_fee(0),
-                                gas_limit=1_000_000,
                                 valid=True,
                             )
                             for i in range(

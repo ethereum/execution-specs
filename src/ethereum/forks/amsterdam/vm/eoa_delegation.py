@@ -10,7 +10,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSignatureError
-from ethereum.state import Address
+from ethereum.state import EMPTY_CODE_HASH, Account, Address
 
 from ..fork_types import Authorization
 from ..state_tracker import (
@@ -21,14 +21,16 @@ from ..state_tracker import (
     set_code,
 )
 from ..utils.hexadecimal import hex_to_address
-from ..vm.gas import GasCosts
+from ..vm.gas import (
+    GasCosts,
+    StateGasCosts,
+)
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
 EOA_DELEGATION_MARKER = b"\xef\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
-REFUND_AUTH_PER_EXISTING_ACCOUNT = 12500
 NULL_ADDRESS = hex_to_address("0x0000000000000000000000000000000000000000")
 
 
@@ -48,12 +50,10 @@ def is_valid_delegation(code: bytes) -> bool:
         False otherwise.
 
     """
-    if (
+    return (
         len(code) == EOA_DELEGATED_CODE_LENGTH
         and code[:EOA_DELEGATION_MARKER_LENGTH] == EOA_DELEGATION_MARKER
-    ):
-        return True
-    return False
+    )
 
 
 def get_delegated_code_address(code: bytes) -> Optional[Address]:
@@ -159,9 +159,55 @@ def calculate_delegation_cost(
     return True, delegated_address, delegation_gas_cost
 
 
-def set_delegation(message: Message) -> U256:
+def validate_authorization(
+    message: Message, auth: Authorization
+) -> None | Tuple[Address, Account]:
+    """
+    Check if the given `Authorization` is valid against the current state.
+
+    Returns the `authority` address and its `Account`, or `None` if the
+    validation was unsuccessful.
+    """
+    tx_state = message.tx_env.state
+
+    if auth.chain_id not in (message.block_env.chain_id, U256(0)):
+        return None
+
+    if auth.nonce >= U64.MAX_VALUE:
+        return None
+
+    try:
+        authority = recover_authority(auth)
+    except InvalidSignatureError:
+        return None
+
+    message.accessed_addresses.add(authority)
+
+    authority_account = get_account(tx_state, authority)
+    authority_code = get_code(
+        tx_state,
+        authority_account.code_hash,
+        authority,
+    )
+
+    if authority_code and not is_valid_delegation(authority_code):
+        return None
+
+    authority_nonce = authority_account.nonce
+    if authority_nonce != auth.nonce:
+        return None
+
+    return (authority, authority_account)
+
+
+def set_delegation(message: Message) -> Uint:
     """
     Set the delegation code for the authorities in the message.
+
+    Refills `StateGasCosts.NEW_ACCOUNT` when the authority's account
+    leaf already exists, and `StateGasCosts.AUTH_BASE` when its code
+    slot already holds a delegation indicator. The total is returned
+    so block accounting can subtract it from `tx_state_gas`.
 
     Parameters
     ----------
@@ -170,45 +216,34 @@ def set_delegation(message: Message) -> U256:
 
     Returns
     -------
-    refund_counter: `U256`
-        Refund from authority which already exists in state.
+    state_refund : `Uint`
+        Total state gas refunded across all processed authorizations.
 
     """
     tx_state = message.tx_env.state
-    refund_counter = U256(0)
+    state_refund = Uint(0)
     for auth in message.tx_env.authorizations:
-        if auth.chain_id not in (message.block_env.chain_id, U256(0)):
-            continue
-
-        if auth.nonce >= U64.MAX_VALUE:
-            continue
-
-        try:
-            authority = recover_authority(auth)
-        except InvalidSignatureError:
-            continue
-
-        message.accessed_addresses.add(authority)
-
-        authority_account = get_account(tx_state, authority)
-        authority_code = get_code(
-            tx_state,
-            authority_account.code_hash,
-            authority,
-        )
-
-        if authority_code and not is_valid_delegation(authority_code):
-            continue
-
-        authority_nonce = authority_account.nonce
-        if authority_nonce != auth.nonce:
-            continue
+        match validate_authorization(message, auth):
+            case None:
+                continue
+            case (authority, authority_account):
+                pass
 
         if account_exists(tx_state, authority):
-            refund_counter += U256(
-                GasCosts.AUTH_PER_EMPTY_ACCOUNT
-                - REFUND_AUTH_PER_EXISTING_ACCOUNT
-            )
+            refund = StateGasCosts.NEW_ACCOUNT
+            message.state_gas_reservoir += refund
+            state_refund += refund
+
+        # No new delegation indicator bytes are written: either the
+        # authority already has one (overwrite in place / clear) or
+        # this auth clears against an authority with no prior code.
+        if (
+            authority_account.code_hash != EMPTY_CODE_HASH
+            or auth.address == NULL_ADDRESS
+        ):
+            refund = StateGasCosts.AUTH_BASE
+            message.state_gas_reservoir += refund
+            state_refund += refund
 
         if auth.address == NULL_ADDRESS:
             code_to_set = b""
@@ -227,4 +262,4 @@ def set_delegation(message: Message) -> U256:
         message.code_address,
     )
 
-    return refund_counter
+    return state_refund

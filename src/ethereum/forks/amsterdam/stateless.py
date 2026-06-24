@@ -4,7 +4,7 @@ Stateless validation interfaces.
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -29,6 +29,7 @@ from .vm.gas import (
 from .witness_state import WitnessState, build_code_db, build_node_db
 
 
+@final
 @slotted_freezable
 @dataclass
 class ExecutionWitness:
@@ -54,6 +55,7 @@ class ExecutionWitness:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class ExecutionPayloadHeader:
@@ -64,6 +66,7 @@ class ExecutionPayloadHeader:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class NewPayloadRequestHeader:
@@ -132,6 +135,7 @@ class UnsupportedForkConfigError(ChainConfigValidationError):
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class ForkActivation:
@@ -143,6 +147,7 @@ class ForkActivation:
     timestamp: U64 | None
 
 
+@final
 @slotted_freezable
 @dataclass
 class BlobSchedule:
@@ -155,6 +160,7 @@ class BlobSchedule:
     base_fee_update_fraction: U64
 
 
+@final
 @slotted_freezable
 @dataclass
 class ForkConfig:
@@ -167,6 +173,7 @@ class ForkConfig:
     blob_schedule: BlobSchedule | None
 
 
+@final
 @slotted_freezable
 @dataclass
 class ChainConfig:
@@ -178,6 +185,7 @@ class ChainConfig:
     active_fork: ForkConfig
 
 
+@final
 @slotted_freezable
 @dataclass
 class StatelessInput:
@@ -209,6 +217,7 @@ class StatelessInput:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class StatelessValidationResult:

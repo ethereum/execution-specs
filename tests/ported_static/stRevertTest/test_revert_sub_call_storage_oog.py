@@ -3,6 +3,9 @@ Test_revert_sub_call_storage_oog.
 
 Ported from:
 state_tests/stRevertTest/RevertSubCallStorageOOGFiller.json
+@manually-enhanced: Do not overwrite. tx_gas[1] is tuned to barely
+fit 3 fresh SSTOREs on Cancun; on Amsterdam each fresh slot spills
+state-gas, so lift the budget by Fork.oog_budget_lift.
 """
 
 import pytest
@@ -76,7 +79,6 @@ def test_revert_sub_call_storage_oog(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     # Source: raw
@@ -116,7 +118,7 @@ def test_revert_sub_call_storage_oog(
     tx_data = [
         Bytes("c0406226"),
     ]
-    tx_gas = [81000, 181000]
+    tx_gas = [81000, 181000 + fork.oog_budget_lift(sstores_before_oog=3)]
     tx_value = [0, 1]
 
     tx = Transaction(

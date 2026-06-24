@@ -59,7 +59,6 @@ def test_genesis_hash_available(
                     Transaction(
                         sender=sender,
                         to=contract,
-                        gas_limit=100_000,
                         protected=fork.supports_protected_txs(),
                     )
                 ]
@@ -75,7 +74,6 @@ def test_genesis_hash_available(
                     Transaction(
                         sender=sender,
                         to=contract,
-                        gas_limit=100_000,
                         protected=fork.supports_protected_txs(),
                     )
                 ]

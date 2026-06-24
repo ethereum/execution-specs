@@ -12,6 +12,7 @@ from execution_testing import (
     Requests,
     Transaction,
 )
+from execution_testing.base_types import HexNumber
 
 from .helpers import DepositInteractionBase, DepositRequest
 
@@ -30,12 +31,21 @@ def prepared_requests(
 
 @pytest.fixture
 def txs(
+    fork: Fork,
     prepared_requests: List[DepositInteractionBase],
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
+    floor_cost = fork.transaction_data_floor_cost_calculator()
     txs = []
     for r in prepared_requests:
         txs += r.transactions()
+    for tx in txs:
+        if "gas_limit" in tx.model_fields_set and tx.error is None:
+            # Keep explicit limits above the fork's calldata floor
+            # (EIP-8037 repricing). Error tests keep their exact limit.
+            tx.gas_limit = HexNumber(
+                max(int(tx.gas_limit), floor_cost(data=tx.data) + 1)
+            )
     return txs
 
 

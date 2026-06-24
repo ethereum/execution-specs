@@ -116,7 +116,6 @@ def test_delegate_call_targets(
             sender=sender_address,
             to=None,
             data=caller_contract,
-            gas_limit=4_000_000,
         )
         calling_contract_address = tx.created_contract
     else:
@@ -127,7 +126,6 @@ def test_delegate_call_targets(
         tx = Transaction(
             sender=sender_address,
             to=calling_contract_address,
-            gas_limit=4_000_000,
         )
 
     calling_storage = {

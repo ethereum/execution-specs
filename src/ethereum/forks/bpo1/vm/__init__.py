@@ -13,7 +13,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
@@ -31,6 +31,7 @@ from ..transactions import LegacyTransaction
 __all__ = ("Environment", "Evm", "Message")
 
 
+@final
 @dataclass
 class BlockEnvironment:
     """
@@ -50,6 +51,7 @@ class BlockEnvironment:
     parent_beacon_block_root: Hash32
 
 
+@final
 @dataclass
 class BlockOutput:
     """
@@ -92,10 +94,11 @@ class BlockOutput:
     requests: List[Bytes] = field(default_factory=list)
 
 
+@final
 @dataclass
 class TransactionEnvironment:
     """
-    Items that are used by contract creation or message call.
+    Items that are used while processing a transaction.
     """
 
     origin: Address
@@ -110,6 +113,7 @@ class TransactionEnvironment:
     tx_hash: Optional[Hash32]
 
 
+@final
 @dataclass
 class Message:
     """
@@ -135,6 +139,7 @@ class Message:
     parent_evm: Optional["Evm"]
 
 
+@final
 @dataclass
 class Evm:
     """The internal state of the virtual machine."""

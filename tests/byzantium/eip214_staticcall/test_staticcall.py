@@ -146,7 +146,6 @@ def test_staticcall_reentrant_call_to_precompile(
     tx = Transaction(
         sender=alice,
         to=target,
-        gas_limit=1_000_000,
         value=tx_value,
         protected=True,
     )
@@ -313,7 +312,6 @@ def test_staticcall_call_to_precompile(
         tx=Transaction(
             sender=alice,
             to=contract_a,
-            gas_limit=500_000,
             value=tx_value,
             protected=True,
         ),
@@ -447,7 +445,6 @@ def test_staticcall_nested_call_to_precompile(
         tx=Transaction(
             sender=alice,
             to=contract_b,
-            gas_limit=500_000,
             value=tx_value,
             protected=True,
         ),
@@ -648,7 +645,6 @@ def test_staticcall_call_to_precompile_from_contract_init(
         tx=Transaction(
             sender=alice,
             to=contract_a,
-            gas_limit=4_000_000,
             value=tx_value,
             data=bytes(initcode),
             protected=True,

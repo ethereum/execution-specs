@@ -32,6 +32,7 @@ from execution_testing.execution import (
 )
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
+    BlockchainEngineStatefulFixture,
     BlockchainEngineXFixture,
     BlockchainFixture,
     FixtureFormat,
@@ -318,6 +319,7 @@ class BenchmarkTest(BaseTest):
         BlockchainFixture,
         BlockchainEngineFixture,
         BlockchainEngineXFixture,
+        BlockchainEngineStatefulFixture,
     ]
 
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [

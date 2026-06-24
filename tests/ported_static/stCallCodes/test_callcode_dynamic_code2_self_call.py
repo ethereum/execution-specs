@@ -3,6 +3,16 @@ Callcode happen to a contract that is dynamically created from within...
 
 Ported from:
 state_tests/stCallCodes/callcodeDynamicCode2SelfCallFiller.json
+
+
+@manually-enhanced: Do not overwrite. Hardcoded inner-CALL gas values
+from the original filler (100k / 800k / 150k / 50k) were tuned to the
+pre-EIP-8037 gas budget. On Amsterdam each SSTORE in the inner
+callee adds the EIP-8037 per-storage state-gas (37 568 wei of
+regular gas), and the inner CALL OoGs before the test's SSTORE
+markers fire. Bumped uniformly with extra headroom; older forks are
+unaffected because only the requested gas changes, the actual
+consumption is identical.
 """
 
 import pytest
@@ -58,6 +68,15 @@ def test_callcode_dynamic_code2_self_call(
     v: int,
 ) -> None:
     """Callcode happen to a contract that is dynamically created from..."""
+    # EIP-8037 inner-CALL gas bumps (original gas values restored for
+    # pre-EIP-8037 forks; bumped values cover the per-storage state-gas
+    # spill into regular gas on Amsterdam).
+    inner_call_gas = 0x186A0
+    outer_call_gas = 0xC3500
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 0xF4240
+        outer_call_gas = 0x1E8480
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x1100000000000000000000000000000000000000)
     contract_1 = Address(0xA000000000000000000000000000000000000000)
@@ -80,7 +99,7 @@ def test_callcode_dynamic_code2_self_call(
     # { (CALL 800000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
-            gas=0xC3500,
+            gas=outer_call_gas,
             address=Op.CALLDATALOAD(offset=0x0),
             value=0x0,
             args_offset=0x0,
@@ -119,7 +138,7 @@ def test_callcode_dynamic_code2_self_call(
         + Op.SSTORE(
             key=0xB,
             value=Op.CALLCODE(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=Op.SLOAD(key=0xA),
                 value=0x0,
                 args_offset=0x0,
@@ -133,7 +152,7 @@ def test_callcode_dynamic_code2_self_call(
         + Op.SSTORE(
             key=0x7A,
             value=Op.CALLCODE(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=0x13136008B64FF592819B2FA6D43F2835C452020E,
                 value=0x0,
                 args_offset=0x0,

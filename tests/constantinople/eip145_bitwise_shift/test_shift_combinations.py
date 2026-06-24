@@ -83,7 +83,6 @@ def test_combinations(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=address_to,
-        gas_limit=5_000_000,
     )
 
     state_test(pre=pre, post={address_to: Account(storage=result)}, tx=tx)

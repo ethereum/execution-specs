@@ -104,26 +104,22 @@ def test_tx_selfdestruct_balance_bug(
                     sender=sender,
                     to=cc_address,
                     data=aa_code,
-                    gas_limit=1000000,
                 ),
                 # Dummy tx to store balance of 0xaa after first TX.
                 Transaction(
                     sender=sender,
                     to=balance_address_1,
-                    gas_limit=100000,
                 ),
                 # Sender calls 0xaa with 5 wei.
                 Transaction(
                     sender=sender,
                     to=aa_location,
-                    gas_limit=100000,
                     value=5,
                 ),
                 # Dummy tx to store balance of 0xaa after second TX.
                 Transaction(
                     sender=sender,
                     to=balance_address_2,
-                    gas_limit=100000,
                 ),
             ],
         ),

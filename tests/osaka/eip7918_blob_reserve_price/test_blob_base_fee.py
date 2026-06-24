@@ -34,7 +34,7 @@ pytestmark = pytest.mark.valid_from("Osaka")
 @pytest.fixture
 def sender(pre: Alloc) -> Address:
     """Sender account with enough balance for tests."""
-    return pre.fund_eoa(10**18)
+    return pre.fund_eoa()
 
 
 @pytest.fixture
@@ -42,12 +42,6 @@ def destination_account(pre: Alloc) -> Address:
     """Contract that stores the blob base fee for verification."""
     code = Op.SSTORE(0, Op.BLOBBASEFEE)
     return pre.deploy_contract(code)
-
-
-@pytest.fixture
-def tx_gas() -> int:
-    """Gas limit for transactions sent during test."""
-    return 100_000
 
 
 @pytest.fixture
@@ -69,7 +63,6 @@ def blob_hashes_per_tx(blobs_per_tx: int) -> List[Hash]:
 def tx(
     sender: Address,
     destination_account: Address,
-    tx_gas: int,
     tx_value: int,
     blob_hashes_per_tx: List[Hash],
     block_base_fee_per_gas: int,
@@ -81,7 +74,6 @@ def tx(
         sender=sender,
         to=destination_account,
         value=tx_value,
-        gas_limit=tx_gas,
         max_fee_per_gas=block_base_fee_per_gas,
         max_priority_fee_per_gas=0,
         max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
@@ -149,8 +141,8 @@ def test_reserve_price_various_base_fee_scenarios(
     post: Dict[Address, Account],
 ) -> None:
     """
-    Test reserve price mechanism across various block base fee and excess blob
-    gas scenarios.
+    Test reserve price enforcement across various base fee and excess blob gas
+    combinations within a single fork.
     """
     blockchain_test(
         pre=pre,

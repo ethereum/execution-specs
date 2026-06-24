@@ -575,7 +575,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
         ),
         pytest.param(
             True,
-            Transaction().with_signature_and_sender(),
+            Transaction(gas_limit=0x5208).with_signature_and_sender(),
             {
                 "type": "0x0",
                 "chainId": "0x1",
@@ -596,6 +596,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             True,
             Transaction(
                 to=None,
+                gas_limit=0x5208,
             ).with_signature_and_sender(),
             {
                 "type": "0x0",
@@ -617,6 +618,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             True,
             Transaction(
                 to="",
+                gas_limit=0x5208,
             ).with_signature_and_sender(),
             {
                 "type": "0x0",
@@ -638,6 +640,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             True,
             Transaction(
                 to=0x1234,
+                gas_limit=0x5208,
                 data=b"\x01\x00",
                 access_list=[
                     AccessList(
@@ -954,7 +957,7 @@ def test_model_copy(model: CopyValidateModel) -> None:
     "value, expected",
     [
         pytest.param(
-            Transaction().with_signature_and_sender(),
+            Transaction(gas_limit=0x5208).with_signature_and_sender(),
             Bytes(
                 "0xf85f800a8252089400000000000000000000000000000000000000aa808026a0cc61d852649c34"
                 "cc0b71803115f38036ace257d2914f087bf885e6806a664fbda02020cb35f5d7731ab540d6261450"
@@ -964,6 +967,7 @@ def test_model_copy(model: CopyValidateModel) -> None:
         ),
         pytest.param(
             Transaction(
+                gas_limit=0x5208,
                 access_list=[AccessList(address=0, storage_keys=[0, 1])],
             ).with_signature_and_sender(),
             Bytes(
@@ -978,6 +982,7 @@ def test_model_copy(model: CopyValidateModel) -> None:
         pytest.param(
             Transaction(
                 access_list=[AccessList(address=0, storage_keys=[0, 1])],
+                gas_limit=0x5208,
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
             ).with_signature_and_sender(),
@@ -993,6 +998,7 @@ def test_model_copy(model: CopyValidateModel) -> None:
         pytest.param(
             Transaction(
                 access_list=[AccessList(address=1, storage_keys=[2, 3])],
+                gas_limit=0x5208,
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
                 max_fee_per_blob_gas=20,
@@ -1012,6 +1018,7 @@ def test_model_copy(model: CopyValidateModel) -> None:
         pytest.param(
             Transaction(
                 access_list=[AccessList(address=0, storage_keys=[0, 1])],
+                gas_limit=0x5208,
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
                 authorization_list=[
@@ -1036,6 +1043,7 @@ def test_model_copy(model: CopyValidateModel) -> None:
         pytest.param(
             Transaction(
                 access_list=[AccessList(address=0, storage_keys=[0, 1])],
+                gas_limit=0x5208,
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
                 authorization_list=[

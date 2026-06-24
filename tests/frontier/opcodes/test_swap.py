@@ -74,7 +74,6 @@ def test_swap(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract_address,
-        gas_limit=500_000,
         protected=fork.supports_protected_txs(),
     )
 
@@ -145,7 +144,6 @@ def test_stack_underflow(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract,
-        gas_limit=500_000,
         protected=fork.supports_protected_txs(),
     )
 

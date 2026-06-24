@@ -429,11 +429,9 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         post[selfdestruct_recipient_address] = Account.NONEXISTENT  # type: ignore
 
     tx = Transaction(
-        value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
     expected_block_access_list = None
@@ -597,7 +595,6 @@ def test_selfdestruct_not_created_in_same_tx_with_revert(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)

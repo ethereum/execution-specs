@@ -49,12 +49,10 @@ def is_valid_delegation(code: bytes) -> bool:
         False otherwise.
 
     """
-    if (
+    return (
         len(code) == EOA_DELEGATED_CODE_LENGTH
         and code[:EOA_DELEGATION_MARKER_LENGTH] == EOA_DELEGATION_MARKER
-    ):
-        return True
-    return False
+    )
 
 
 def get_delegated_code_address(code: bytes) -> Optional[Address]:
@@ -155,6 +153,43 @@ def access_delegation(
     return True, address, code, access_gas_cost
 
 
+def validate_authorization(
+    message: Message, auth: Authorization
+) -> None | Address:
+    """
+    Check if the given `Authorization` is valid against the current state.
+
+    Returns the `authority` address or `None` if the validation was
+    unsuccessful.
+    """
+    tx_state = message.tx_env.state
+
+    if auth.chain_id not in (message.block_env.chain_id, U256(0)):
+        return None
+
+    if auth.nonce >= U64.MAX_VALUE:
+        return None
+
+    try:
+        authority = recover_authority(auth)
+    except InvalidSignatureError:
+        return None
+
+    message.accessed_addresses.add(authority)
+
+    authority_account = get_account(tx_state, authority)
+    authority_code = get_code(tx_state, authority_account.code_hash)
+
+    if authority_code and not is_valid_delegation(authority_code):
+        return None
+
+    authority_nonce = authority_account.nonce
+    if authority_nonce != auth.nonce:
+        return None
+
+    return authority
+
+
 def set_delegation(message: Message) -> U256:
     """
     Set the delegation code for the authorities in the message.
@@ -173,28 +208,11 @@ def set_delegation(message: Message) -> U256:
     tx_state = message.tx_env.state
     refund_counter = U256(0)
     for auth in message.tx_env.authorizations:
-        if auth.chain_id not in (message.block_env.chain_id, U256(0)):
-            continue
-
-        if auth.nonce >= U64.MAX_VALUE:
-            continue
-
-        try:
-            authority = recover_authority(auth)
-        except InvalidSignatureError:
-            continue
-
-        message.accessed_addresses.add(authority)
-
-        authority_account = get_account(tx_state, authority)
-        authority_code = get_code(tx_state, authority_account.code_hash)
-
-        if authority_code and not is_valid_delegation(authority_code):
-            continue
-
-        authority_nonce = authority_account.nonce
-        if authority_nonce != auth.nonce:
-            continue
+        match validate_authorization(message, auth):
+            case None:
+                continue
+            case authority:
+                pass
 
         if account_exists(tx_state, authority):
             refund_counter += U256(

@@ -180,6 +180,10 @@ def test_static_create_contract_suicide_during_init(
         + Op.SELFDESTRUCT(address=contract_0),
     ]
     tx_gas = [150000]
+    if fork.is_eip_enabled(8037):
+        tx_gas[0] += fork.gas_costs().NEW_ACCOUNT + Op.SSTORE(
+            new_value=1
+        ).state_cost(fork)
 
     tx = Transaction(
         sender=sender,

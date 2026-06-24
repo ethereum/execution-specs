@@ -29,7 +29,6 @@ def test_double_kill(
     initcode = Initcode(deploy_code=deploy_code)
 
     create_tx = Transaction(
-        gas_limit=100_000,
         protected=False,
         to=None,
         data=initcode,
@@ -39,14 +38,12 @@ def test_double_kill(
     block_1 = Block(txs=[create_tx])
 
     first_kill = Transaction(
-        gas_limit=100_000,
         protected=False,
         to=create_tx.created_contract,
         sender=sender,
     )
 
     second_kill = Transaction(
-        gas_limit=100_000,
         protected=False,
         to=create_tx.created_contract,
         sender=sender,

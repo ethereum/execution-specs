@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -80,6 +80,7 @@ BOMB_DELAY_BLOCKS = 10700000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
+@final
 @dataclass
 class BlockChain:
     """
@@ -818,10 +819,7 @@ def process_transaction(
     transaction_fee = tx_gas_used_after_refund * priority_fee_per_gas
 
     # refund gas
-    sender_balance_after_refund = get_account(tx_state, sender).balance + U256(
-        gas_refund_amount
-    )
-    set_account_balance(tx_state, sender, sender_balance_after_refund)
+    create_ether(tx_state, sender, U256(gas_refund_amount))
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(

@@ -77,7 +77,6 @@ def test_create2_revert_preserves_balance(
         tx=Transaction(
             sender=sender,
             to=factory,
-            gas_limit=1_000_000,
             data=initcode,
         ),
     )
@@ -95,7 +94,6 @@ def test_create2_succeeds_after_reverted_create2(
     Inner call does CREATE2 then REVERTs. Outer call then does the same
     CREATE2 which should succeed since the first was rolled back.
     """
-    env = Environment()
     storage = Storage()
     salt = 1
 
@@ -129,7 +127,6 @@ def test_create2_succeeds_after_reverted_create2(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.POP(
             Op.CALL(
-                gas=200_000,
                 address=creator,
                 args_size=Op.CALLDATASIZE,
             )
@@ -144,7 +141,6 @@ def test_create2_succeeds_after_reverted_create2(
         + Op.SSTORE(
             storage.store_next(0, "reverter_call_result"),
             Op.CALL(
-                gas=300_000,
                 address=reverter,
                 args_size=Op.CALLDATASIZE,
             ),
@@ -153,7 +149,6 @@ def test_create2_succeeds_after_reverted_create2(
         + Op.SSTORE(
             storage.store_next(1, "creator_call_result"),
             Op.CALL(
-                gas=300_000,
                 address=creator,
                 args_size=Op.CALLDATASIZE,
             ),
@@ -165,7 +160,6 @@ def test_create2_succeeds_after_reverted_create2(
     sender = pre.fund_eoa()
 
     state_test(
-        env=env,
         pre=pre,
         post={
             outer: Account(storage=storage),
@@ -177,7 +171,6 @@ def test_create2_succeeds_after_reverted_create2(
         tx=Transaction(
             sender=sender,
             to=outer,
-            gas_limit=2_000_000,
             data=initcode,
         ),
     )

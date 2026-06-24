@@ -24,6 +24,7 @@ from typing import (
     Optional,
     Tuple,
     Union,
+    final,
 )
 
 from ethereum_rlp import Extended, rlp
@@ -44,6 +45,7 @@ from ethereum.merkle_patricia_trie import (
 from ethereum.state import Account, Address, Root
 
 
+@final
 @dataclass
 class MutableLeafNode:
     """Mutable leaf node in the Merkle Trie for in-place updates."""
@@ -55,6 +57,7 @@ class MutableLeafNode:
     _dirty: bool = False
 
 
+@final
 @dataclass
 class MutableExtensionNode:
     """Mutable extension node in the Merkle Trie for in-place updates."""
@@ -66,6 +69,7 @@ class MutableExtensionNode:
     _dirty: bool = False
 
 
+@final
 @dataclass
 class MutableBranchNode:
     """Mutable branch node in the Merkle Trie for in-place updates."""
@@ -77,6 +81,7 @@ class MutableBranchNode:
     _dirty: bool = False
 
 
+@final
 @dataclass
 class HashedNode:
     """Placeholder for a trie subtree known only by its hash."""
@@ -93,6 +98,7 @@ MutableNode = Union[
 ]
 
 
+@final
 @dataclass
 class Witness:
     """Track nodes accessed during trie operations for witness generation."""
@@ -100,6 +106,7 @@ class Witness:
     accessed_nodes: Dict[Bytes, Bytes] = field(default_factory=dict)
 
 
+@final
 @dataclass
 class IncrementalMPT(Generic[K, V]):
     """

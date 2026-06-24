@@ -62,7 +62,6 @@ def test_precompile_absence(
 
     tx = Transaction(
         to=entry_point_address,
-        gas_limit=10_000_000,
         sender=pre.fund_eoa(),
         protected=True,
     )

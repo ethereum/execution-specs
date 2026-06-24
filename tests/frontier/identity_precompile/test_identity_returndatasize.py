@@ -4,7 +4,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Environment,
     Op,
     StateTestFiller,
     Storage,
@@ -37,10 +36,9 @@ def test_identity_precompile_returndata(
     expected_returndatasize: int,
 ) -> None:
     """
-    Test identity precompile RETURNDATA is sized correctly based on the input
-    size.
+    Test identity precompile RETURNDATASIZE matches the input size regardless
+    of the output buffer size.
     """
-    env = Environment()
     storage = Storage()
 
     account = pre.deploy_contract(
@@ -69,10 +67,9 @@ def test_identity_precompile_returndata(
     tx = Transaction(
         to=account,
         sender=pre.fund_eoa(),
-        gas_limit=200_000,
         protected=True,
     )
 
     post = {account: Account(storage=storage)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

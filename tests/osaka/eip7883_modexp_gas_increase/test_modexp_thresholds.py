@@ -398,7 +398,6 @@ def test_modexp_used_in_transaction_entry_points(
     pre: Alloc,
     tx: Transaction,
     modexp_input: bytes,
-    tx_gas_limit: int,
     call_values: int,
 ) -> None:
     """
@@ -409,7 +408,6 @@ def test_modexp_used_in_transaction_entry_points(
         to=Spec.MODEXP_ADDRESS,
         sender=pre.fund_eoa(),
         data=bytes(modexp_input),
-        gas_limit=tx_gas_limit,
         value=call_values,
     )
     state_test(pre=pre, tx=tx, post={})
@@ -470,9 +468,7 @@ def test_contract_creation_transaction(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=1_000_000,
         to=None,
-        value=0,
         data=contract_bytecode + bytes(modexp_input),
     )
 
@@ -503,6 +499,7 @@ def test_contract_initcode(
     pre: Alloc,
     post: dict,
     tx: Transaction,
+    fork: Fork,
     modexp_input: bytes,
     modexp_expected: bytes,
     opcode: Op,
@@ -559,9 +556,7 @@ def test_contract_initcode(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=200_000,
         to=factory_contract_address,
-        value=0,
         data=call_modexp_bytecode + bytes(modexp_input),
     )
 

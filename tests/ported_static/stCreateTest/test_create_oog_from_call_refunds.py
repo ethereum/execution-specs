@@ -231,7 +231,6 @@ def test_create_oog_from_call_refunds(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=4294967296,
     )
 
     pre[sender] = Account(balance=0x3D0900, nonce=1)
@@ -936,7 +935,37 @@ def test_create_oog_from_call_refunds(
         address=Address(0x000000000000000000000000000000000000007A),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_entries_: list[dict] = []
+    if fork.is_eip_enabled(8037):
+        expect_entries_.append(
+            {
+                "indexes": {
+                    "data": [
+                        1,
+                        2,
+                        4,
+                        5,
+                        7,
+                        8,
+                        10,
+                        11,
+                        13,
+                        14,
+                        16,
+                        17,
+                        19,
+                        20,
+                        22,
+                        23,
+                    ],
+                    "gas": -1,
+                    "value": -1,
+                },
+                "network": [">=Cancun"],
+                "result": {sender: Account(nonce=2)},
+            }
+        )
+    expect_entries_ += [
         {
             "indexes": {"data": [0, 9, 3, 6], "gas": -1, "value": -1},
             "network": [">=Cancun"],

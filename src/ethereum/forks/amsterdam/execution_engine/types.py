@@ -3,7 +3,7 @@ Execution engine data structures and aliases.
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -24,6 +24,7 @@ PayloadId = Bytes8
 _ZERO_HASH32 = Hash32(b"\x00" * 32)
 
 
+@final
 @slotted_freezable
 @dataclass
 class ExecutionPayload:
@@ -59,6 +60,7 @@ class ExecutionPayload:
     slot_number: U64
 
 
+@final
 @slotted_freezable
 @dataclass
 class NewPayloadRequest:
@@ -82,6 +84,7 @@ class NewPayloadRequest:
     execution_requests: ExecutionRequests
 
 
+@final
 @slotted_freezable
 @dataclass
 class PayloadAttributes:
@@ -97,6 +100,7 @@ class PayloadAttributes:
     parent_beacon_block_root: Root
 
 
+@final
 @slotted_freezable
 @dataclass
 class BlobsBundle:
@@ -109,6 +113,7 @@ class BlobsBundle:
     blobs: Tuple[Bytes, ...]
 
 
+@final
 @slotted_freezable
 @dataclass
 class GetPayloadResponse:

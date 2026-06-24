@@ -12,9 +12,11 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -28,6 +30,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_revert_opcode_in_create_returns(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Test_revert_opcode_in_create_returns."""
@@ -40,7 +43,6 @@ def test_revert_opcode_in_create_returns(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=42949672960,
     )
 
     # Source: lll
@@ -64,7 +66,7 @@ def test_revert_opcode_in_create_returns(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=100000,
+        gas_limit=2100000 if fork >= Amsterdam else 100000,
     )
 
     post = {target: Account(storage={0: 32})}

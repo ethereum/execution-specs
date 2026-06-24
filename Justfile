@@ -163,10 +163,19 @@ json-loader *args:
         --output="tests/json_loader/fixtures" \
         --cov-config=pyproject.toml \
         --cov=ethereum \
+        --cov-branch \
+        --cov-report=term \
+        --durations=50 \
         --cov-fail-under=85
     uv run pytest \
         -m "not slow" \
-        -n auto --maxprocesses 6 --dist=loadfile \
+        -n {{ xdist_workers }} --dist=loadfile \
+        --cov-config=pyproject.toml \
+        --cov=ethereum \
+        --cov-branch \
+        --cov-report=term \
+        --cov-report "xml:{{ output_dir }}/json-loader/coverage.xml" \
+        --durations=50 \
         --basetemp="{{ output_dir }}/json-loader/tmp" \
         "$@" \
         tests/json_loader
@@ -212,10 +221,11 @@ test-ci-scripts *args:
 
 # --- Benchmarks ---
 
-# Fill benchmark tests with --gas-benchmark-values
+# Fill benchmark tests with --gas-benchmark-values, then verify with EELS
 [group('benchmark tests')]
 bench-gas *args:
     @mkdir -p "{{ output_dir }}/bench-gas/tmp" "{{ output_dir }}/bench-gas/logs"
+    @echo "==> Step 1/2: Filling benchmark fixtures with configured EVM (EVM_BIN={{ evm_bin }})"
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
@@ -229,6 +239,15 @@ bench-gas *args:
         --clean \
         "$@" \
         tests/benchmark/compute
+    @echo "==> Step 2/2: Running filled fixtures against EELS via json_loader"
+    @rm -rf tests/json_loader/bench_gas_fixtures
+    ln -sfn "{{ output_dir }}/bench-gas/fixtures" tests/json_loader/bench_gas_fixtures
+    cd tests/json_loader && uv run --python pypy3.11 pytest \
+        --fork Osaka \
+        --allow-post-state-hash \
+        -n auto --maxprocesses 10 --dist=loadfile \
+        --basetemp="{{ output_dir }}/bench-gas/json-loader-tmp" \
+        bench_gas_fixtures
 
 # Fill benchmark tests with --fixed-opcode-count 1
 [group('benchmark tests')]

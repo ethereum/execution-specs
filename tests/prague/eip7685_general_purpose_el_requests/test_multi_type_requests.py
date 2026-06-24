@@ -416,7 +416,6 @@ def test_valid_multi_type_request_from_same_tx(
     )
 
     tx: Transaction = Transaction(
-        gas_limit=10_000_000,
         to=contract_address,
         value=total_value,
         data=calldata,

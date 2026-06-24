@@ -5,7 +5,7 @@ transactions are the events that move between states.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, TypeGuard
+from typing import Tuple, TypeGuard, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -25,6 +25,23 @@ from .exceptions import InitCodeTooLargeError, TransactionTypeError
 from .fork_types import Authorization, VersionedHash
 
 
+@final
+@dataclass
+class IntrinsicGasCost:
+    """Intrinsic gas costs for a transaction, split by gas type."""
+
+    regular: Uint
+    """Regular execution gas (calldata, base cost, access list, etc.)."""
+
+    calldata_floor: Uint
+    """
+    Minimum gas cost based on calldata size per [EIP-7623].
+
+    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    """
+
+
+@final
 @slotted_freezable
 @dataclass
 class LegacyTransaction:
@@ -87,6 +104,7 @@ class LegacyTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Access:
@@ -106,6 +124,7 @@ class Access:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class AccessListTransaction:
@@ -178,6 +197,7 @@ class AccessListTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class FeeMarketTransaction:
@@ -255,6 +275,7 @@ class FeeMarketTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class BlobTransaction:
@@ -343,6 +364,7 @@ class BlobTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class SetCodeTransaction:
@@ -455,6 +477,19 @@ See [`has_access_list`][hal] and [`Access`][a] for more details.
 """
 
 
+FeeMarketCapableTransaction = (
+    FeeMarketTransaction | BlobTransaction | SetCodeTransaction
+)
+"""
+Transaction types that include the [EIP-1559]-style fee structure.
+
+See [`FeeMarketTransaction`][fmt] for more details.
+
+[EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+[fmt]: ref:ethereum.forks.prague.transactions.FeeMarketTransaction
+"""
+
+
 def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
     """
     Encode a transaction into its RLP or typed transaction format.
@@ -500,7 +535,7 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
         return tx
 
 
-def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
+def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
     """
     Verifies a transaction.
 
@@ -531,18 +566,18 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
-    intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
-    if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
+    intrinsic = calculate_intrinsic_cost(tx)
+    if max(intrinsic.regular, intrinsic.calldata_floor) > tx.gas:
         raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
 
-    return intrinsic_gas, calldata_floor_gas_cost
+    return intrinsic
 
 
-def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
+def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     """
     Calculates the gas that is charged before execution is started.
 
@@ -599,15 +634,15 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             GasCosts.AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations)
         )
 
-    return (
-        Uint(
+    return IntrinsicGasCost(
+        regular=Uint(
             GasCosts.TX_BASE
             + data_cost
             + create_cost
             + access_list_cost
             + auth_cost
         ),
-        calldata_floor_gas_cost,
+        calldata_floor=calldata_floor_gas_cost,
     )
 
 

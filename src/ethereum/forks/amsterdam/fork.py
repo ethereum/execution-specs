@@ -12,10 +12,10 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Final, List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
@@ -42,7 +42,6 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from . import vm
 from .block_access_lists import (
-    BlockAccessIndex,
     BlockAccessListBuilder,
     build_block_access_list,
     hash_block_access_list,
@@ -61,7 +60,7 @@ from .exceptions import (
     PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
 )
-from .fork_types import Authorization, VersionedHash
+from .fork_types import Authorization, BlockAccessIndex, VersionedHash
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
@@ -72,7 +71,6 @@ from .requests import (
 from .state_tracker import (
     BlockState,
     TransactionState,
-    account_exists_and_is_empty,
     create_ether,
     destroy_account,
     extract_block_diff,
@@ -84,8 +82,9 @@ from .state_tracker import (
     track_ancestor_access,
 )
 from .transactions import (
+    TX_MAX_GAS_LIMIT,
     BlobTransaction,
-    FeeMarketTransaction,
+    FeeMarketCapableTransaction,
     LegacyTransaction,
     SetCodeTransaction,
     Transaction,
@@ -103,6 +102,7 @@ from .vm import Message
 from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
     GasCosts,
+    StateGasCosts,
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
@@ -118,7 +118,14 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
+SYSTEM_MAX_SSTORES_PER_CALL = Uint(16)
+"""
+Upper bound on the number of new storage slots a single system call is
+expected to write.
+"""
+MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
+    GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
+)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 GWEI_TO_WEI = U256(10**9)
 
@@ -137,6 +144,7 @@ MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
 BLOB_COUNT_LIMIT = 6
 
 
+@final
 @slotted_freezable
 @dataclass
 class ChainContext:
@@ -154,6 +162,7 @@ class ChainContext:
     """Parent header used for header validation and system contracts."""
 
 
+@final
 @dataclass
 class BlockChain:
     """
@@ -349,10 +358,12 @@ def execute_block(
         block_output.block_access_list
     )
 
-    if block_output.block_gas_used != block.header.gas_used:
-        raise InvalidBlock(
-            f"{block_output.block_gas_used} != {block.header.gas_used}"
-        )
+    block_gas_used = max(
+        block_output.block_gas_used,
+        block_output.block_state_gas_used,
+    )
+    if block_gas_used != block.header.gas_used:
+        raise InvalidBlock(f"{block_gas_used} != {block.header.gas_used}")
     if transactions_root != block.header.transactions_root:
         raise InvalidBlock
     if block_state_root != block.header.state_root:
@@ -562,11 +573,20 @@ def check_transaction(
         is empty.
 
     """
-    gas_available = block_env.block_gas_limit - block_output.block_gas_used
+    regular_gas_available = (
+        block_env.block_gas_limit - block_output.block_gas_used
+    )
+    state_gas_available = (
+        block_env.block_gas_limit - block_output.block_state_gas_used
+    )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if tx.gas > gas_available:
-        raise GasUsedExceedsLimitError("gas used exceeds limit")
+    # EIP-8037 per-dimension inclusion check.
+    if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
+        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
+
+    if tx.gas > state_gas_available:
+        raise GasUsedExceedsLimitError("state gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
@@ -580,9 +600,7 @@ def check_transaction(
         )
     sender_account = get_account(tx_state, sender_address)
 
-    if isinstance(
-        tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
-    ):
+    if isinstance(tx, FeeMarketCapableTransaction):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
             raise PriorityFeeGreaterThanMaxFeeError(
                 "priority fee greater than max fee"
@@ -796,6 +814,9 @@ def process_unchecked_system_transaction(
         origin=SYSTEM_ADDRESS,
         gas_price=block_env.base_fee_per_gas,
         gas=SYSTEM_TRANSACTION_GAS,
+        state_gas_reservoir=(
+            StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
+        ),
         access_list_addresses=set(),
         access_list_storage_keys=set(),
         state=system_tx_state,
@@ -803,6 +824,8 @@ def process_unchecked_system_transaction(
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
+        intrinsic_regular_gas=Uint(0),
+        intrinsic_state_gas=Uint(0),
     )
 
     system_tx_message = Message(
@@ -811,6 +834,9 @@ def process_unchecked_system_transaction(
         caller=SYSTEM_ADDRESS,
         target=target_address,
         gas=SYSTEM_TRANSACTION_GAS,
+        state_gas_reservoir=(
+            StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
+        ),
         value=U256(0),
         data=data,
         code=system_contract_code,
@@ -996,7 +1022,9 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic_gas, calldata_floor_gas_cost = validate_transaction(tx)
+    intrinsic = validate_transaction(tx)
+
+    intrinsic_gas = intrinsic.regular + intrinsic.state
     sender_public_key = None
     if block_env.transaction_public_keys is not None:
         sender_public_key = block_env.transaction_public_keys[int(index)]
@@ -1023,7 +1051,12 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * effective_gas_price
 
-    gas = tx.gas - intrinsic_gas
+    # Split execution gas into gas_left (capped by remaining regular gas
+    # budget) and state_gas_reservoir.
+    execution_gas = tx.gas - intrinsic_gas
+    regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
+    gas = min(regular_gas_budget, execution_gas)
+    state_gas_reservoir = Uint(execution_gas - gas)
 
     increment_nonce(tx_state, sender)
 
@@ -1049,6 +1082,7 @@ def process_transaction(
         origin=sender,
         gas_price=effective_gas_price,
         gas=gas,
+        state_gas_reservoir=state_gas_reservoir,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
         state=tx_state,
@@ -1056,6 +1090,8 @@ def process_transaction(
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
+        intrinsic_regular_gas=intrinsic.regular,
+        intrinsic_state_gas=intrinsic.state,
     )
 
     message = prepare_message(
@@ -1066,9 +1102,16 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
-    # For EIP-7623 we first calculate the execution_gas_used, which includes
-    # the execution gas refund.
-    tx_gas_used_before_refund = tx.gas - tx_output.gas_left
+    if isinstance(tx.to, Bytes0) and (
+        tx_output.error is not None or tx_output.created_target_alive
+    ):
+        new_account_refund = StateGasCosts.NEW_ACCOUNT
+        tx_output.state_gas_left += new_account_refund
+        tx_output.state_refund += new_account_refund
+
+    tx_gas_used_before_refund = (
+        tx.gas - tx_output.gas_left - tx_output.state_gas_left
+    )
     tx_gas_refund = min(
         tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)
     )
@@ -1076,10 +1119,7 @@ def process_transaction(
 
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
-    tx_gas_used = max(tx_gas_used_after_refund, calldata_floor_gas_cost)
-    block_gas_used_in_tx = max(
-        tx_gas_used_before_refund, calldata_floor_gas_cost
-    )
+    tx_gas_used = max(tx_gas_used_after_refund, intrinsic.calldata_floor)
 
     tx_gas_left = tx.gas - tx_gas_used
     gas_refund_amount = tx_gas_left * effective_gas_price
@@ -1089,19 +1129,10 @@ def process_transaction(
     transaction_fee = tx_gas_used * priority_fee_per_gas
 
     # refund gas
-    sender_balance_after_refund = get_account(tx_state, sender).balance + U256(
-        gas_refund_amount
-    )
-    set_account_balance(tx_state, sender, sender_balance_after_refund)
+    create_ether(tx_state, sender, U256(gas_refund_amount))
 
     # transfer miner fees
-    coinbase_balance_after_mining_fee = get_account(
-        tx_state, block_env.coinbase
-    ).balance + U256(transaction_fee)
-
-    set_account_balance(
-        tx_state, block_env.coinbase, coinbase_balance_after_mining_fee
-    )
+    create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
     # EIP-7708: Emit burn logs for balances held by accounts marked for
     # deletion AFTER miner fee transfer.
@@ -1123,15 +1154,19 @@ def process_transaction(
 
     all_logs = tx_output.logs + tuple(finalization_logs)
 
-    if coinbase_balance_after_mining_fee == 0 and account_exists_and_is_empty(
-        tx_state, block_env.coinbase
-    ):
-        destroy_account(tx_state, block_env.coinbase)
-
-    block_output.cumulative_gas_used += tx_gas_used
-    block_output.block_gas_used += block_gas_used_in_tx
+    tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
+    tx_state_gas = (
+        int(tx_env.intrinsic_state_gas)
+        + tx_output.state_gas_used
+        - int(tx_output.state_refund)
+    )
+    block_output.block_gas_used += max(
+        tx_regular_gas, intrinsic.calldata_floor
+    )
+    block_output.block_state_gas_used += Uint(max(0, tx_state_gas))
     block_output.blob_gas_used += tx_blob_gas_used
 
+    block_output.cumulative_gas_used += tx_gas_used
     receipt = make_receipt(
         tx,
         tx_output.error,

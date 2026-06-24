@@ -8,6 +8,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytecode,
     CodeGasMeasure,
     Fork,
     Initcode,
@@ -52,7 +53,6 @@ def test_max_code_size(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
     )
 
     post: dict[Any, Account | None] = {}
@@ -109,7 +109,6 @@ def test_max_code_size_via_create(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=fork.transaction_gas_limit_cap(),
     )
 
     created = code_size <= fork.max_code_size()
@@ -191,7 +190,6 @@ def test_max_code_size_with_max_initcode(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
     )
 
     post = {create_address: Account(code=deploy_code)}
@@ -349,6 +347,129 @@ def test_warm_after_failed_create_over_max_code_size(
         creator_address: Account(storage={0: 0}),
         checker_address: Account(storage={1: warm_balance.gas_cost(fork)}),
         contract_address: Account.NONEXISTENT,
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.parametrize(
+    "valid_jumpdest",
+    [
+        pytest.param(True, id="valid_high_jumpdest"),
+        pytest.param(False, id="invalid_high_dest"),
+    ],
+)
+def test_max_code_size_high_jumpdest(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    valid_jumpdest: bool,
+) -> None:
+    """
+    Ensure jump destination validity is enforced past the old size limits.
+
+    Deploy a `MAX_CODE_SIZE` contract that stores a sentinel and then jumps
+    near the new limit, far beyond the old 24 KiB code and 48 KiB initcode
+    limits, then call it through a caller that records the call's success:
+
+    - ``valid_high_jumpdest``: the target byte is a real ``JUMPDEST``, so the
+      jump succeeds, the frame returns, and the sentinel store is kept.
+    - ``invalid_high_dest``: the target byte is a ``STOP`` (not a
+      ``JUMPDEST``), so the jump is rejected, the frame reverts, and the
+      sentinel store is discarded.
+
+    A client whose jumpdest analysis or code execution does not cover the
+    full new code range fails one of the two cases. No existing test
+    executes a contract at a program counter beyond the old limit.
+    """
+    if valid_jumpdest:
+        tail = Op.JUMPDEST
+    else:
+        # A bare STOP, not a JUMPDEST: jumping here is invalid. A client that
+        # wrongly accepts it halts normally and keeps the prefix store (1).
+        tail = Op.STOP
+
+    dest = fork.max_code_size() - len(tail)
+    push_size = (dest.bit_length() + 7) // 8
+    push_op = getattr(Op, f"PUSH{push_size}")
+    prefix = Op.SSTORE(0, 1) + push_op(dest) + Op.JUMP
+    target_code = prefix + Op.INVALID * (dest - len(prefix)) + tail
+    assert len(target_code) == fork.max_code_size()
+
+    target = pre.deploy_contract(target_code)
+    caller = pre.deploy_contract(
+        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
+
+    # Valid: jump completes, call succeeds (1), and the store is kept.
+    # Invalid: jump reverts, call fails (0), and nothing is stored.
+    stored = 1 if valid_jumpdest else 0
+    post = {
+        caller: Account(storage={0: stored}),
+        target: Account(storage={0: stored}),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.parametrize(
+    "tail,accepted",
+    [
+        pytest.param(Op.PUSH1(0x5B), False, id="push1_data_rejected"),
+        pytest.param(Op.DUPN[b"\x5b"], True, id="dupn_immediate_accepted"),
+        pytest.param(Op.SWAPN[b"\x5b"], True, id="swapn_immediate_accepted"),
+        pytest.param(
+            Op.EXCHANGE[b"\x5b"], True, id="exchange_immediate_accepted"
+        ),
+    ],
+)
+def test_max_code_size_jumpdest_in_immediate(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tail: Bytecode,
+    accepted: bool,
+) -> None:
+    """
+    Ensure jumpdest analysis classifies a `0x5B` immediate byte correctly at
+    the new max code size.
+
+    A `0x5B` sits as the last byte of a `MAX_CODE_SIZE` contract, right after
+    an immediate-carrying opcode, and the contract jumps to it:
+
+    - ``push1_data_rejected``: the `0x5B` is `PUSH` data, always skipped by
+      the analysis, so it is not a `JUMPDEST` and the jump is rejected.
+    - ``dupn``/``swapn``/``exchange``: per EIP-8024 `0x5B` is an *invalid*
+      immediate for these opcodes, so it is not skipped and stays a valid
+      `JUMPDEST`, and the jump is accepted.
+
+    Exercises the immediate-skipping branches of jumpdest analysis well past
+    the old 24 KiB code and 48 KiB initcode limits.
+    """
+    jump_target = fork.max_code_size() - 1  # the 0x5B is the last byte
+    push_size = (jump_target.bit_length() + 7) // 8
+    push_op = getattr(Op, f"PUSH{push_size}")
+    prefix = Op.SSTORE(0, 1) + push_op(jump_target) + Op.JUMP
+    filler_len = fork.max_code_size() - len(prefix) - len(tail)
+    target_code = prefix + Op.INVALID * filler_len + tail
+    assert len(target_code) == fork.max_code_size()
+    assert bytes(target_code)[jump_target] == 0x5B
+
+    target = pre.deploy_contract(target_code)
+    caller = pre.deploy_contract(
+        Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
+
+    # Accepted: jump completes, the call succeeds (1), the store is kept.
+    # Rejected: jump reverts, the call fails (0), nothing is stored.
+    stored = 1 if accepted else 0
+    post = {
+        caller: Account(storage={0: stored}),
+        target: Account(storage={0: stored}),
     }
 
     state_test(pre=pre, tx=tx, post=post)

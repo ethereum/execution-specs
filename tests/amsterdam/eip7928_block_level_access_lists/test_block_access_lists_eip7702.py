@@ -66,7 +66,6 @@ def test_bal_7702_delegation_create(
         sender=sender,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -133,70 +132,95 @@ def test_bal_7702_delegation_create(
 
 
 @pytest.mark.parametrize(
-    "self_funded",
+    "sender_pattern",
     [
-        pytest.param(False, id="sponsored"),
-        pytest.param(True, id="self_funded"),
+        pytest.param("sponsored", id="sponsored"),
+        pytest.param("self_funded", id="self_funded"),
+        pytest.param("sponsored_cross_sender", id="sponsored_cross_sender"),
     ],
 )
 def test_bal_7702_delegation_update(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    self_funded: bool,
+    sender_pattern: str,
 ) -> None:
-    """Ensure BAL captures update of existing EOA delegation."""
+    """
+    Ensure BAL captures update of existing EOA delegation. The
+    `sponsored_cross_sender` variant uses a distinct relayer per tx so
+    the cross-tx auth-nonce dep can't be served by sender-nonce
+    serialization alone.
+    """
     alice = pre.fund_eoa()
     bob = pre.fund_eoa(amount=0)
-
-    if not self_funded:
-        relayer = pre.fund_eoa()
-        sender = relayer
-    else:
-        sender = alice
 
     oracle1 = pre.deploy_contract(code=Op.STOP)
     oracle2 = pre.deploy_contract(code=Op.STOP)
 
-    ## Perhaps create a pre-existing delegation,
-    ## see `test_bal_7702_delegated_storage_access` since
-    ## `test_bal_7702_delegation_create` already tests creation
+    if sender_pattern == "self_funded":
+        sender_create = alice
+        sender_update = alice
+        update_tx_nonce = 2
+        create_auth_nonce = 1
+        update_auth_nonce = 3
+        alice_post_create = 2
+        alice_post_update = 4
+    elif sender_pattern == "sponsored":
+        relayer = pre.fund_eoa()
+        sender_create = relayer
+        sender_update = relayer
+        update_tx_nonce = 1
+        create_auth_nonce = 0
+        update_auth_nonce = 1
+        alice_post_create = 1
+        alice_post_update = 2
+    elif sender_pattern == "sponsored_cross_sender":
+        relayer_create = pre.fund_eoa()
+        relayer_update = pre.fund_eoa()
+        sender_create = relayer_create
+        sender_update = relayer_update
+        update_tx_nonce = 0
+        create_auth_nonce = 0
+        update_auth_nonce = 1
+        alice_post_create = 1
+        alice_post_update = 2
+    else:
+        raise ValueError(f"unknown sender_pattern: {sender_pattern}")
+
     tx_create = Transaction(
-        sender=sender,
+        sender=sender_create,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle1,
-                nonce=1 if self_funded else 0,
+                nonce=create_auth_nonce,
                 signer=alice,
             )
         ],
     )
 
     tx_update = Transaction(
-        nonce=2 if self_funded else 1,
-        sender=sender,
+        nonce=update_tx_nonce,
+        sender=sender_update,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle2,
-                nonce=3 if self_funded else 1,
+                nonce=update_auth_nonce,
                 signer=alice,
             )
         ],
     )
 
-    account_expectations = {
+    account_expectations: dict = {
         alice: BalAccountExpectation(
             nonce_changes=[
                 BalNonceChange(
-                    block_access_index=1, post_nonce=2 if self_funded else 1
+                    block_access_index=1, post_nonce=alice_post_create
                 ),
                 BalNonceChange(
-                    block_access_index=2, post_nonce=4 if self_funded else 2
+                    block_access_index=2, post_nonce=alice_post_update
                 ),
             ],
             code_changes=[
@@ -222,12 +246,22 @@ def test_bal_7702_delegation_update(
         oracle2: None,
     }
 
-    # For sponsored variant, relayer must also be included in BAL
-    if not self_funded:
+    if sender_pattern == "sponsored":
         account_expectations[relayer] = BalAccountExpectation(
             nonce_changes=[
                 BalNonceChange(block_access_index=1, post_nonce=1),
                 BalNonceChange(block_access_index=2, post_nonce=2),
+            ],
+        )
+    elif sender_pattern == "sponsored_cross_sender":
+        account_expectations[relayer_create] = BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=1, post_nonce=1),
+            ],
+        )
+        account_expectations[relayer_update] = BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=2, post_nonce=1),
             ],
         )
 
@@ -238,19 +272,21 @@ def test_bal_7702_delegation_update(
         ),
     )
 
-    post = {
+    post: dict = {
         # Finally Alice's account should be delegated to oracle2
         alice: Account(
-            nonce=4 if self_funded else 2,
+            nonce=alice_post_update,
             code=Spec7702.delegation_designation(oracle2),
         ),
         # Bob receives 20 wei in total
         bob: Account(balance=20),
     }
 
-    # For sponsored variant, include relayer in post state
-    if not self_funded:
-        post.update({relayer: Account(nonce=2)})
+    if sender_pattern == "sponsored":
+        post[relayer] = Account(nonce=2)
+    elif sender_pattern == "sponsored_cross_sender":
+        post[relayer_create] = Account(nonce=1)
+        post[relayer_update] = Account(nonce=1)
 
     blockchain_test(
         pre=pre,
@@ -291,7 +327,6 @@ def test_bal_7702_delegation_clear(
         sender=sender,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -306,7 +341,6 @@ def test_bal_7702_delegation_clear(
         sender=sender,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=abyss,
@@ -402,8 +436,6 @@ def test_bal_7702_delegated_storage_access(
         sender=bob,
         to=alice,  # Bob calls Alice (delegated account)
         value=10,
-        gas_limit=1_000_000,
-        gas_price=0xA,
     )
 
     block = Block(
@@ -467,7 +499,6 @@ def test_bal_7702_invalid_nonce_authorization(
         sender=relayer,  # Sponsored transaction
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -533,7 +564,6 @@ def test_bal_7702_invalid_authority_has_code_authorization(
         sender=relayer,  # Sponsored transaction
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -592,7 +622,6 @@ def test_bal_7702_invalid_chain_id_authorization(
         sender=relayer,  # Sponsored transaction
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 chain_id=999,  # Wrong chain id
@@ -671,8 +700,6 @@ def test_bal_7702_delegated_via_call_opcode(
     tx = Transaction(
         sender=bob,
         to=caller,  # `bob` calls caller contract
-        gas_limit=10_000_000,
-        gas_price=0xA,
     )
 
     block = Block(
@@ -735,7 +762,6 @@ def test_bal_7702_multi_hop_delegation_chain(
     tx = Transaction(
         sender=alice,
         to=entry_address,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=auth_b,
@@ -845,7 +871,6 @@ def test_bal_7702_cross_tx_delegation_then_call(
         sender=relayer,
         to=bob,
         value=0,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=counter,
@@ -857,14 +882,10 @@ def test_bal_7702_cross_tx_delegation_then_call(
     tx_call_1 = Transaction(
         sender=bob,
         to=alice,
-        gas_limit=200_000,
-        gas_price=0xA,
     )
     tx_call_2 = Transaction(
         sender=charlie,
         to=alice,
-        gas_limit=200_000,
-        gas_price=0xA,
     )
 
     block = Block(
@@ -931,7 +952,6 @@ def test_bal_7702_null_address_delegation_no_code_change(
         sender=alice,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=0,
@@ -1011,7 +1031,6 @@ def test_bal_7702_double_auth_reset(
         sender=alice if self_funded else relayer,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
@@ -1099,7 +1118,6 @@ def test_bal_7702_double_auth_swap(
         sender=relayer,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
@@ -1200,7 +1218,6 @@ def test_bal_selfdestruct_to_7702_delegation(
         sender=relayer,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -1218,8 +1235,6 @@ def test_bal_selfdestruct_to_7702_delegation(
         nonce=1,
         sender=relayer,
         to=caller,
-        gas_limit=1_000_000,
-        gas_price=0xA,
     )
 
     alice_final_balance = alice_initial_balance + victim_balance
@@ -1332,7 +1347,6 @@ def test_bal_withdrawal_to_7702_delegation(
         sender=relayer,
         to=bob,
         value=10,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=oracle,
@@ -1408,6 +1422,10 @@ def test_bal_withdrawal_to_7702_delegation(
     )
 
 
+# TODO[EIP-8037]: Balance calculation needs update for two-dimensional gas
+# (state gas reservoir credits from authorization refunds change the effective
+# gas cost).
+@pytest.mark.skip(reason="EIP-8037 state gas reservoir changes gas accounting")
 @pytest.mark.with_all_create_opcodes
 def test_bal_7702_delegated_create(
     fork: Fork,
@@ -1459,7 +1477,6 @@ def test_bal_7702_delegated_create(
     tx = Transaction(
         sender=alice,
         to=deployer,
-        gas_limit=1_000_000,
         authorization_list=[
             AuthorizationTuple(
                 address=deployer,

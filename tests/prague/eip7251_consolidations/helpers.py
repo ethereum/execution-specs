@@ -27,7 +27,7 @@ class ConsolidationRequest(ConsolidationRequestBase):
     """Fee to be paid to the system contract for the consolidation request."""
     valid: bool = True
     """Whether the consolidation request is valid or not."""
-    gas_limit: int = 1_000_000
+    gas_limit: int | None = None
     """Gas limit for the call."""
     calldata_modifier: Callable[[bytes], bytes] = lambda x: x
     """Calldata modifier function."""
@@ -68,8 +68,6 @@ class ConsolidationRequestInteractionBase:
     Base class for all types of consolidation transactions we want to test.
     """
 
-    sender_balance: int = 1_000_000_000_000_000_000
-    """Balance of the account that sends the transaction."""
     sender_account: EOA | None = None
     """Account that will send the transaction."""
     requests: List[ConsolidationRequest]
@@ -109,21 +107,30 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
         assert self.sender_account is not None, (
             "Sender account not initialized"
         )
-        return [
-            Transaction(
-                gas_limit=request.gas_limit,
-                gas_price=1_000_000_000,
-                to=request.interaction_contract_address,
-                value=request.value,
-                data=request.calldata,
-                sender=self.sender_account,
-            )
-            for request in self.requests
-        ]
+        txs: List[Transaction] = []
+        for request in self.requests:
+            gas_limit = request.gas_limit
+            if gas_limit is not None:
+                tx = Transaction(
+                    gas_limit=gas_limit,
+                    to=request.interaction_contract_address,
+                    value=request.value,
+                    data=request.calldata,
+                    sender=self.sender_account,
+                )
+            else:
+                tx = Transaction(
+                    to=request.interaction_contract_address,
+                    value=request.value,
+                    data=request.calldata,
+                    sender=self.sender_account,
+                )
+            txs.append(tx)
+        return txs
 
     def update_pre(self, pre: Alloc) -> Self:
         """Return a copy of self with `sender_account` populated."""
-        return replace(self, sender_account=pre.fund_eoa(self.sender_balance))
+        return replace(self, sender_account=pre.fund_eoa())
 
     def valid_requests(
         self, current_minimum_fee: int
@@ -142,9 +149,6 @@ class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
 @dataclass(kw_only=True, frozen=True)
 class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
     """Class used to describe a consolidation originated from a contract."""
-
-    tx_gas_limit: int = 10_000_000
-    """Gas limit for the transaction."""
 
     contract_balance: int = 1_000_000_000_000_000_000
     """
@@ -177,7 +181,7 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
                 0, current_offset, len(r.calldata)
             ) + Op.POP(
                 self.call_type(
-                    Op.GAS if r.gas_limit == -1 else r.gas_limit,
+                    Op.GAS if r.gas_limit is None else r.gas_limit,
                     r.interaction_contract_address,
                     *value_arg,
                     0,
@@ -194,8 +198,6 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
         assert self.entry_address is not None, "Entry address not initialized"
         return [
             Transaction(
-                gas_limit=self.tx_gas_limit,
-                gas_price=1_000_000_000,
                 to=self.entry_address,
                 value=0,
                 data=b"".join(r.calldata for r in self.requests),
@@ -208,7 +210,7 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
         Return a copy of self with the allocated sender/contract/entry
         addresses populated.
         """
-        sender_account = pre.fund_eoa(self.sender_balance)
+        sender_account = pre.fund_eoa()
         contract_address = pre.deploy_contract(
             code=self.contract_code, balance=self.contract_balance
         )

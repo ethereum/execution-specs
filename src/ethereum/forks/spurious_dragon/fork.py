@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Set, Tuple
+from typing import List, Set, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes32
@@ -66,6 +66,7 @@ MINIMUM_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = Uint(6)
 
 
+@final
 @dataclass
 class BlockChain:
     """
@@ -676,10 +677,7 @@ def process_transaction(
     transaction_fee = tx_gas_used_after_refund * tx.gas_price
 
     # refund gas
-    sender_balance_after_refund = get_account(tx_state, sender).balance + U256(
-        gas_refund_amount
-    )
-    set_account_balance(tx_state, sender, sender_balance_after_refund)
+    create_ether(tx_state, sender, U256(gas_refund_amount))
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = get_account(

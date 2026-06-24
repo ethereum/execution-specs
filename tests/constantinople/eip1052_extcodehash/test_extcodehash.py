@@ -60,17 +60,9 @@ def test_extcodehash_self(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
-    state_test(
-        pre=pre,
-        post={code_address: Account(storage=storage)},
-        tx=tx,
-    )
+    state_test(pre=pre, post={code_address: Account(storage=storage)}, tx=tx)
 
 
 @pytest.mark.ported_from(
@@ -106,12 +98,7 @@ def test_extcodehash_of_empty(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
-    tx = Transaction(
-        sender=(pre.fund_eoa()),
-        to=code_address,
-        value=1,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address, value=1)
 
     state_test(
         pre=pre,
@@ -160,11 +147,7 @@ def test_extcodehash_empty_send_value(
         code, balance=10**18, storage=storage.canary()
     )
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -272,12 +255,7 @@ def test_extcodehash_empty_account_variants(
         code, balance=10**18, storage=storage.canary()
     )
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        value=1,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address, value=1)
 
     state_test(
         pre=pre,
@@ -347,11 +325,7 @@ def test_extcodehash_empty_contract_creation(
     )
     storage[created_slot] = created_address
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -405,11 +379,7 @@ def test_extcodehash_codeless_with_storage(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=100_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -540,7 +510,6 @@ def test_extcodehash_dynamic_account_overwrite(
         sender=sender,
         to=caller_address,
         data=bytes(target_address).rjust(32, b"\0"),
-        gas_limit=400_000,
     )
 
     state_test(
@@ -586,11 +555,7 @@ def test_extcodehash_precompile(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -657,11 +622,7 @@ def test_extcodehash_new_account(
     )
     storage[created_slot] = created_address
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -724,11 +685,7 @@ def test_extcodehash_via_call(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -829,11 +786,7 @@ def test_extcodehash_after_selfdestruct(
         )
         storage[created_slot] = target_address
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     post: dict[Address, Account | None] = {
         code_address: Account(storage=storage),
@@ -896,11 +849,7 @@ def test_extcodehash_changed_account(
         code, balance=1, storage=storage.canary()
     )
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -952,11 +901,7 @@ def test_extcodehash_max_code_size(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -1011,7 +956,6 @@ def test_extcodehash_in_init_code(
             sender=sender,
             to=None,
             data=initcode,
-            gas_limit=400_000,
         )
         created = compute_create_address(
             address=sender,
@@ -1033,7 +977,6 @@ def test_extcodehash_in_init_code(
             sender=pre.fund_eoa(),
             to=factory,
             data=initcode,
-            gas_limit=400_000,
         )
         created = compute_create_address(
             address=factory,
@@ -1091,7 +1034,6 @@ def test_extcodehash_self_in_init(
             sender=sender,
             to=None,
             data=initcode,
-            gas_limit=400_000,
         )
         created = compute_create_address(
             address=sender,
@@ -1112,7 +1054,6 @@ def test_extcodehash_self_in_init(
             sender=pre.fund_eoa(),
             to=factory,
             data=initcode,
-            gas_limit=400_000,
         )
         created = compute_create_address(
             address=factory,
@@ -1197,7 +1138,6 @@ def test_extcodehash_dynamic_argument(
         sender=pre.fund_eoa(),
         to=code_address,
         data=bytes(target_address).rjust(32, b"\0"),
-        gas_limit=400_000,
     )
 
     state_test(
@@ -1238,11 +1178,7 @@ def test_extcodehash_call_to_nonexistent(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -1283,7 +1219,7 @@ def test_extcodehash_call_to_selfdestruct(
 
     code = Op.SSTORE(
         storage.store_next(int(call_succeeds)),
-        call_opcode(address=target, gas=165_000),
+        call_opcode(address=target),
     ) + Op.SSTORE(
         storage.store_next(target_code.keccak256()),
         Op.EXTCODEHASH(target),
@@ -1291,11 +1227,7 @@ def test_extcodehash_call_to_selfdestruct(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     # Pre-Cancun, CALLCODE/DELEGATECALL execute SELFDESTRUCT in the
     # caller's context, destroying the test contract at end of tx.
@@ -1393,11 +1325,7 @@ def test_extcodehash_created_and_deleted(
     )
     storage[created_slot] = created
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     post: dict[Address, Account | None] = {
         code_address: Account(storage=storage),
@@ -1499,11 +1427,7 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     )
     outer = pre.deploy_contract(outer_code, storage=outer_storage.canary())
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=outer,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=outer)
 
     post: dict[Address, Account | None] = {
         inner: Account(storage=inner_storage),
@@ -1559,7 +1483,6 @@ def test_extcodehash_subcall_selfdestruct(
 
     # A: executes C's code in A's context via CALLCODE/DELEGATECALL
     a_code = call_opcode(
-        gas=350_000,
         address=target_c,
         ret_size=32,
     )
@@ -1600,12 +1523,12 @@ def test_extcodehash_subcall_selfdestruct(
     code += extcode_checks(a_target)
     code += Op.SSTORE(
         storage.store_next(1),
-        Op.CALL(gas=350_000, address=a_target),
+        Op.CALL(address=a_target),
     )
     code += extcode_checks(a_target)
     code += Op.SSTORE(
         storage.store_next(1),
-        Op.CALL(gas=350_000, address=a_target),
+        Op.CALL(address=a_target),
     )
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
@@ -1614,11 +1537,7 @@ def test_extcodehash_subcall_selfdestruct(
         a = compute_create_address(address=code_address, nonce=1)
         storage[created_slot] = a
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=500_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     # Pre-Cancun, CALLCODE/DELEGATECALL executes SELFDESTRUCT in A's
     # context, deleting A at end of transaction.
@@ -1691,7 +1610,6 @@ def test_extcodehash_subcall_create2_oog(
             storage.store_next(int(not oog), "call_result"),
             call_opcode(
                 address=factory,
-                gas=200_000,
                 ret_offset=0,
                 ret_size=32,
             ),
@@ -1730,7 +1648,6 @@ def test_extcodehash_subcall_create2_oog(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=500_000,
         data=created.rjust(32, b"\0"),
     )
 
@@ -1794,11 +1711,7 @@ def test_extcodecopy_zero_code(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     state_test(
         pre=pre,
@@ -1872,11 +1785,7 @@ def test_codecopy_zero_in_create2(
     # First 32 bytes of initcode — what CODECOPY(0,0,32) returns.
     initcode_word0 = bytes(initcode)[:32]
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=caller,
-        gas_limit=1_400_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     state_test(
         pre=pre,

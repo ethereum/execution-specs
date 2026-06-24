@@ -36,6 +36,7 @@ from execution_testing import (
 from execution_testing.test_types.block_access_list.modifiers import (
     append_account,
     append_change,
+    append_empty_slot,
     append_storage,
     duplicate_account,
     duplicate_balance_change,
@@ -87,7 +88,6 @@ def test_bal_invalid_missing_nonce(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -132,7 +132,6 @@ def test_bal_invalid_nonce_value(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -180,11 +179,7 @@ def test_bal_invalid_storage_value(
         storage=storage.canary(),
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=contract,
-        gas_limit=100_000,
-    )
+    tx = Transaction(sender=sender, to=contract)
 
     blockchain_test(
         pre=pre,
@@ -259,14 +254,12 @@ def test_bal_invalid_tx_order(
         sender=sender1,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     tx2 = Transaction(
         sender=sender2,
         to=receiver,
         value=2 * 10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -332,7 +325,6 @@ def test_bal_invalid_account(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -390,7 +382,6 @@ def test_bal_invalid_duplicate_account(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -442,7 +433,6 @@ def test_bal_invalid_account_order(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -494,17 +484,12 @@ def test_bal_invalid_complex_corruption(
         storage=storage.canary(),
     )
 
-    tx1 = Transaction(
-        sender=sender,
-        to=contract,
-        gas_limit=100_000,
-    )
+    tx1 = Transaction(sender=sender, to=contract)
 
     tx2 = Transaction(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -603,7 +588,6 @@ def test_bal_invalid_missing_account(
             sender=sender,
             to=omitted,
             value=10**15,
-            gas_limit=21_000,
         )
         post: dict = {
             sender: Account(balance=10**18, nonce=0),
@@ -620,11 +604,7 @@ def test_bal_invalid_missing_account(
     elif scenario == "access_only":
         omitted = pre.fund_eoa(amount=1)
         checker = pre.deploy_contract(code=Op.BALANCE(omitted))
-        tx = Transaction(
-            sender=sender,
-            to=checker,
-            gas_limit=100_000,
-        )
+        tx = Transaction(sender=sender, to=checker)
         post = {
             sender: Account(balance=10**18, nonce=0),
             omitted: Account(balance=1),
@@ -677,7 +657,6 @@ def test_bal_invalid_missing_withdrawal_account(
         sender=alice,
         to=bob,
         value=5,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -832,7 +811,6 @@ def test_bal_invalid_balance_value(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -1006,7 +984,6 @@ def test_bal_invalid_extraneous_entries(
         sender=alice,
         to=oracle,
         value=transfer_value,
-        gas_limit=1_000_000,
     )
 
     blockchain_test(
@@ -1048,6 +1025,72 @@ def test_bal_invalid_extraneous_entries(
                         charlie=charlie,
                     )
                 ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "pre_storage,oracle_expectation,slot_to_inject",
+    [
+        pytest.param(
+            {},
+            BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x42
+                            )
+                        ],
+                    )
+                ],
+            ),
+            1,
+            id="unrelated_slot",
+        ),
+        pytest.param(
+            {0: 0x42},
+            BalAccountExpectation(storage_reads=[0]),
+            0,
+            id="demoted_noop",
+        ),
+    ],
+)
+def test_bal_invalid_empty_slot_changes(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    pre_storage: dict,
+    oracle_expectation: BalAccountExpectation,
+    slot_to_inject: int,
+) -> None:
+    """Reject BAL containing a SlotChanges with an empty slot_changes list."""
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.SSTORE(0, 0x42), storage=pre_storage)
+    tx = Transaction(sender=alice, to=oracle, gas_limit=1_000_000)
+
+    blockchain_test(
+        pre=pre,
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        oracle: oracle_expectation,
+                    }
+                ).modify(append_empty_slot(oracle, slot=slot_to_inject)),
             )
         ],
     )
@@ -1121,7 +1164,6 @@ def test_bal_invalid_duplicate_entries(
         sender=alice,
         to=oracle,
         value=100,
-        gas_limit=2_000_000,
     )
 
     blockchain_test(
@@ -1205,7 +1247,6 @@ def test_bal_invalid_hash_mismatch(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -1289,7 +1330,6 @@ def test_bal_invalid_field_entries(
         sender=alice,
         to=oracle,
         value=100,
-        gas_limit=2_000_000,
     )
 
     blockchain_test(

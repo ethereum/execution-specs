@@ -42,6 +42,7 @@ from execution_testing.exceptions import (
 from execution_testing.logging import (
     get_logger,
 )
+from execution_testing.rpc.rpc_types import GetPayloadResponse
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -158,6 +159,7 @@ class TransactionTraces(CamelModel):
     traces: List[TraceLine]
     output: str | None = None
     gas_used: HexNumber | None = None
+    error: str | None = None
 
     @classmethod
     def from_file(cls, trace_file_path: Path) -> Self:
@@ -648,12 +650,30 @@ class TransitionToolInput:
 
 
 @dataclass
+class EnginePayloadMetadata:
+    """
+    Engine API payload + versions captured from ``testing_buildBlockV1``.
+
+    Carried in :class:`TransitionToolOutput` so ``make_stateful_fixture``
+    can record what the client built without side-channel state.
+    """
+
+    payload_response: GetPayloadResponse
+    new_payload_version: int
+    forkchoice_updated_version: int
+    parent_beacon_block_root: Hash | None
+
+
+@dataclass
 class TransitionToolOutput:
     """Transition tool output."""
 
     alloc: LazyAlloc
     result: Result
     body: Bytes | None = None
+    # Populated by ``ClientBackend.evaluate`` (live-client path). Always
+    # ``None`` from the classical t8n path.
+    engine_payload: EnginePayloadMetadata | None = None
 
     @classmethod
     def model_validate_files(

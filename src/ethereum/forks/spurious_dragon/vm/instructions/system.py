@@ -11,15 +11,17 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 
+from dataclasses import dataclass
+from typing import final
+
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.state import Address
 
 from ...state_tracker import (
+    account_deployable,
     account_exists_and_is_empty,
-    account_has_code_or_nonce,
-    account_has_storage,
     get_account,
     get_code,
     increment_nonce,
@@ -92,9 +94,7 @@ def create(evm: Evm) -> None:
     ):
         push(evm.stack, U256(0))
         evm.gas_left += create_message_gas
-    elif account_has_code_or_nonce(
-        evm.message.tx_env.state, contract_address
-    ) or account_has_storage(evm.message.tx_env.state, contract_address):
+    elif not account_deployable(evm.message.tx_env.state, contract_address):
         increment_nonce(evm.message.tx_env.state, evm.message.current_target)
         push(evm.stack, U256(0))
     else:
@@ -167,47 +167,56 @@ def return_(evm: Evm) -> None:
     pass
 
 
-def generic_call(
-    evm: Evm,
-    gas: Uint,
-    value: U256,
-    caller: Address,
-    to: Address,
-    code_address: Address,
-    should_transfer_value: bool,
-    memory_input_start_position: U256,
-    memory_input_size: U256,
-    memory_output_start_position: U256,
-    memory_output_size: U256,
-) -> None:
+@final
+@dataclass
+class GenericCall:
+    """
+    Parameters for the core logic of the `CALL*` family of opcodes.
+    """
+
+    gas: Uint
+    value: U256
+    caller: Address
+    to: Address
+    code_address: Address
+    should_transfer_value: bool
+    memory_input_start_position: U256
+    memory_input_size: U256
+    memory_output_start_position: U256
+    memory_output_size: U256
+
+
+def generic_call(evm: Evm, params: GenericCall) -> None:
     """
     Perform the core logic of the `CALL*` family of opcodes.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
-        evm.gas_left += gas
+        evm.gas_left += params.gas
         push(evm.stack, U256(0))
         return
 
     call_data = memory_read_bytes(
-        evm.memory, memory_input_start_position, memory_input_size
+        evm.memory,
+        params.memory_input_start_position,
+        params.memory_input_size,
     )
-    account = get_account(evm.message.tx_env.state, code_address)
+    account = get_account(evm.message.tx_env.state, params.code_address)
     code = get_code(evm.message.tx_env.state, account.code_hash)
     child_message = Message(
         block_env=evm.message.block_env,
         tx_env=evm.message.tx_env,
-        caller=caller,
-        target=to,
-        gas=gas,
-        value=value,
+        caller=params.caller,
+        target=params.to,
+        gas=params.gas,
+        value=params.value,
         data=call_data,
         code=code,
-        current_target=to,
+        current_target=params.to,
         depth=evm.message.depth + Uint(1),
-        code_address=code_address,
-        should_transfer_value=should_transfer_value,
+        code_address=params.code_address,
+        should_transfer_value=params.should_transfer_value,
         parent_evm=evm,
     )
     child_evm = process_message(child_message)
@@ -219,10 +228,12 @@ def generic_call(
         incorporate_child_on_success(evm, child_evm)
         push(evm.stack, U256(1))
 
-    actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
+    actual_output_size = min(
+        params.memory_output_size, U256(len(child_evm.output))
+    )
     memory_write(
         evm.memory,
-        memory_output_start_position,
+        params.memory_output_start_position,
         child_evm.output[:actual_output_size],
     )
 
@@ -265,8 +276,10 @@ def call(evm: Evm) -> None:
         value,
         gas,
         Uint(evm.gas_left),
-        extend_memory.cost,
-        GasCosts.OPCODE_CALL_BASE + create_gas_cost + transfer_gas_cost,
+        memory_cost=extend_memory.cost,
+        extra_gas=GasCosts.OPCODE_CALL_BASE
+        + create_gas_cost
+        + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
@@ -281,16 +294,18 @@ def call(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            message_call_gas.sub_call,
-            value,
-            evm.message.current_target,
-            to,
-            code_address,
-            True,
-            memory_input_start_position,
-            memory_input_size,
-            memory_output_start_position,
-            memory_output_size,
+            GenericCall(
+                gas=message_call_gas.sub_call,
+                value=value,
+                caller=evm.message.current_target,
+                to=to,
+                code_address=code_address,
+                should_transfer_value=True,
+                memory_input_start_position=memory_input_start_position,
+                memory_input_size=memory_input_size,
+                memory_output_start_position=memory_output_start_position,
+                memory_output_size=memory_output_size,
+            ),
         )
 
     # PROGRAM COUNTER
@@ -347,16 +362,18 @@ def callcode(evm: Evm) -> None:
     else:
         generic_call(
             evm,
-            message_call_gas.sub_call,
-            value,
-            evm.message.current_target,
-            to,
-            code_address,
-            True,
-            memory_input_start_position,
-            memory_input_size,
-            memory_output_start_position,
-            memory_output_size,
+            GenericCall(
+                gas=message_call_gas.sub_call,
+                value=value,
+                caller=evm.message.current_target,
+                to=to,
+                code_address=code_address,
+                should_transfer_value=True,
+                memory_input_start_position=memory_input_start_position,
+                memory_input_size=memory_input_size,
+                memory_output_start_position=memory_output_start_position,
+                memory_output_size=memory_output_size,
+            ),
         )
 
     # PROGRAM COUNTER
@@ -471,16 +488,18 @@ def delegatecall(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     generic_call(
         evm,
-        message_call_gas.sub_call,
-        evm.message.value,
-        evm.message.caller,
-        evm.message.current_target,
-        code_address,
-        False,
-        memory_input_start_position,
-        memory_input_size,
-        memory_output_start_position,
-        memory_output_size,
+        GenericCall(
+            gas=message_call_gas.sub_call,
+            value=evm.message.value,
+            caller=evm.message.caller,
+            to=evm.message.current_target,
+            code_address=code_address,
+            should_transfer_value=False,
+            memory_input_start_position=memory_input_start_position,
+            memory_input_size=memory_input_size,
+            memory_output_start_position=memory_output_start_position,
+            memory_output_size=memory_output_size,
+        ),
     )
 
     # PROGRAM COUNTER

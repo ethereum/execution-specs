@@ -157,7 +157,6 @@ def test_use_value_in_contract(
         Transaction(
             sender=sender,
             value=0,
-            gas_limit=100_000,
             to=contract_address,
         )
         for _ in range(2)
@@ -213,7 +212,6 @@ def test_balance_within_block(
             txs=[
                 Transaction(
                     sender=sender,
-                    gas_limit=100000,
                     to=contract_address,
                     data=Hash(recipient, left_padding=True),
                 )
@@ -231,7 +229,6 @@ def test_balance_within_block(
             txs=[
                 Transaction(
                     sender=sender,
-                    gas_limit=100000,
                     to=contract_address,
                     data=Hash(recipient, left_padding=True),
                 )
@@ -538,12 +535,10 @@ def test_no_evm_execution(
             txs=[
                 Transaction(
                     sender=sender,
-                    gas_limit=100000,
                     to=contracts[2],
                 ),
                 Transaction(
                     sender=sender,
-                    gas_limit=100000,
                     to=contracts[3],
                 ),
             ],
@@ -566,12 +561,10 @@ def test_no_evm_execution(
             txs=[
                 Transaction(
                     sender=sender,
-                    gas_limit=100000,
                     to=contracts[0],
                 ),
                 Transaction(
                     sender=sender,
-                    gas_limit=100000,
                     to=contracts[1],
                 ),
             ],

@@ -15,6 +15,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Self,
     Set,
     Tuple,
     Type,
@@ -801,12 +802,14 @@ class ValidityMarker(ABC):
         for marker in markers:
             for marker_name in ALL_VALIDITY_MARKERS:
                 if marker.name == marker_name:
-                    if marker_name in markers_dict:
-                        raise Exception(
-                            f"Too many '{marker_name}' markers applied to test"
-                        )
                     cls = ALL_VALIDITY_MARKERS[marker.name]
-                    markers_dict[marker_name] = cls(mark=marker)
+                    new_marker = cls(mark=marker)
+                    try:
+                        existing_marker = markers_dict[marker_name]
+                    except KeyError:
+                        markers_dict[marker_name] = new_marker
+                    else:
+                        existing_marker.update(new_marker)
 
         for cls in ALL_VALIDITY_MARKERS.values():
             if cls.flag and cls.marker_name not in markers_dict:
@@ -915,6 +918,26 @@ class ValidityMarker(ABC):
         """
         pass
 
+    def update(self, other: Self) -> None:
+        """
+        Update `self` to be the more strict of `self` or `other`.
+
+        For example:
+
+        >>> first = ValidFrom("Frontier")
+        >>> second = ValidFrom("Osaka")
+        >>> first.update(second)
+        >>> print(first)
+        ValidFrom("Osaka")
+
+        If `self` cannot be updated (no merging is possible/implemented),
+        raises an exception.
+        """
+        del other
+        raise Exception(
+            f"Too many '{self.marker_name}' markers applied to test"
+        )
+
 
 class ValidFrom(ValidityMarker):
     """
@@ -949,6 +972,21 @@ class ValidFrom(ValidityMarker):
         for fork in forks:
             resulting_set |= {f for f in ALL_FORKS if f >= fork}
         return resulting_set
+
+    def update(self, other: Self) -> None:
+        """Replace `self` with `other` if `other` is more restrictive."""
+        if self.mark is None:
+            self.mark = other.mark
+            return
+
+        if other.mark is None:
+            return
+
+        ours = len(self._process_with_marker_args(*self.mark.args))
+        theirs = len(other._process_with_marker_args(*other.mark.args))
+
+        if theirs < ours:
+            self.mark = other.mark
 
 
 class ValidUntil(ValidityMarker):

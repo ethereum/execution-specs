@@ -45,6 +45,12 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 - `fork.gas_costs()` returns `GasCosts` dataclass with constants like `G_WARM_SLOAD`, `G_COLD_ACCOUNT_ACCESS`, `G_BASE`, etc.
 - `fork.transaction_intrinsic_cost_calculator()` for computing tx intrinsic gas
 
+## Transactions
+
+- Rule: omit `gas_limit`. It auto-fills so the transaction executes in full without running out of gas.
+- Exception: set `gas_limit` explicitly for gas-sensitive tests (intrinsic-gas boundaries, OOG, code-deposit limits, or gas metering).
+- Anti-pattern: the `gas_limit=fork.transaction_gas_limit_cap()` boilerplate is now redundant.
+
 ## Exception Testing
 
 - Pass `error=TransactionException.INTRINSIC_GAS_TOO_LOW` to `Transaction`

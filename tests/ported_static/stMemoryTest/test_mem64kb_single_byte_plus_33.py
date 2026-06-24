@@ -3,6 +3,8 @@ Test_mem64kb_single_byte_plus_33.
 
 Ported from:
 state_tests/stMemoryTest/mem64kb_singleByte+33Filler.json
+
+@manually-enhanced: Do not overwrite. tx `gas_limit` has been removed.
 """
 
 import pytest
@@ -40,7 +42,6 @@ def test_mem64kb_single_byte_plus_33(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=42949672960,
     )
 
     # Source: lll
@@ -53,13 +54,7 @@ def test_mem64kb_single_byte_plus_33(
         nonce=0,
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=100000,
-        value=10,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""), value=10)
 
     post = {
         target: Account(storage={0: 64064}, nonce=0),

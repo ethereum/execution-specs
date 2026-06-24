@@ -327,7 +327,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                             ),
                         ],
                         call_depth=264,
-                        tx_gas_limit=16_777_216,
                     ),
                 ],
             ],
@@ -438,7 +437,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 amount=Spec.MAX_AMOUNT - 1
                                 if i % 2 == 0
                                 else 0,
-                                gas_limit=1_000_000,
                                 fee=Spec.get_fee(0),
                                 valid=True,
                             )
@@ -462,7 +460,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 if i % 2 == 0
                                 else 0,
                                 fee=Spec.get_fee(0),
-                                gas_limit=1_000_000,
                                 valid=True,
                             )
                             for i in range(

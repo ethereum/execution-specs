@@ -105,11 +105,12 @@ def blocks(
         included_requests,
         fillvalue=[],
     ):
-        header_verify: Header | None = None
-        if fork.fork_at(
+        block_fork = fork.fork_at(
             block_number=len(blocks) + 1,
             timestamp=timestamp,
-        ).header_requests_required():
+        )
+        header_verify: Header | None = None
+        if block_fork.header_requests_required():
             header_verify = Header(
                 requests_hash=Requests(
                     *block_included_requests,

@@ -12,7 +12,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -146,7 +145,6 @@ def revert_contract_address(
 )
 def test_reentrancy_selfdestruct_revert(
     pre: Alloc,
-    env: Environment,
     sender: EOA,
     fork: Fork,
     first_selfdestruct: Op,
@@ -261,9 +259,7 @@ def test_reentrancy_selfdestruct_revert(
     tx = Transaction(
         sender=sender,
         to=executor_contract_address,
-        gas_limit=500_000,
-        value=0,
         expected_receipt=expected_receipt,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

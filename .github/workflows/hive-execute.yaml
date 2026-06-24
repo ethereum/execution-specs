@@ -52,6 +52,14 @@ jobs:
           ref: master
           path: hive
 
+      # Redirect Go's caches to a per-job temp dir so the setup-go cache
+      # restore doesn't collide with a persistent $GOMODCACHE on
+      # self-hosted runners (see build-benchmark-genesis/action.yaml).
+      - name: Use ephemeral Go cache dirs
+        shell: bash
+        run: |
+          echo "GOMODCACHE=${{ runner.temp }}/go/mod" >> "$GITHUB_ENV"
+          echo "GOCACHE=${{ runner.temp }}/go/build" >> "$GITHUB_ENV"
       - name: Setup Go
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:

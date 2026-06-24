@@ -158,6 +158,29 @@ class EngineWitnessEndpointNotImplementedError(Exception):
         )
 
 
+class NewPayloadTimeoutError(Exception):
+    """Raised when ``engine_newPayload`` stays SYNCING past the retry limit."""
+
+    def __init__(
+        self,
+        attempts: int,
+        elapsed: float,
+        interval: float,
+        final_status: PayloadStatusEnum,
+    ):
+        """Initialize with retry statistics and final status."""
+        self.attempts = attempts
+        self.elapsed = elapsed
+        self.interval = interval
+        self.final_status = final_status
+        msg = (
+            f"new_payload stayed SYNCING after {attempts} attempts over "
+            f"{elapsed:.1f}s (interval: {interval}s), final status: "
+            f"{final_status}"
+        )
+        super().__init__(msg)
+
+
 class PeerConnectionTimeoutError(Exception):
     """Raised when peer connection is not established within retry limits."""
 
@@ -627,6 +650,22 @@ class EthRPC(BaseRPC):
         ]
         responses = self.post_batch_request(calls=calls)
         return [int(r.result_or_raise(), 16) for r in responses]
+
+    def estimate_gas(
+        self,
+        transaction: Dict[str, Any],
+        block_number: BlockNumberType = "latest",
+    ) -> int:
+        """`eth_estimateGas`: Return the gas required to execute a tx."""
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
+        response = self.post_request(
+            request=RPCCall(method="estimateGas", params=[transaction, block])
+        ).result_or_raise()
+        return int(response, 16)
 
     def get_code(
         self, address: Address, block_number: BlockNumberType = "latest"
@@ -1184,6 +1223,12 @@ class DebugRPC(EthRPC):
             request=RPCCall(method="traceCall", params=params)
         ).result_or_raise()
 
+    def set_head(self, block_number: str) -> None:
+        """`debug_setHead`: Reset chain head to the given block."""
+        self.post_request(
+            request=RPCCall(method="setHead", params=[block_number])
+        ).result_or_raise()
+
 
 class EngineRPC(BaseJwtRPC):
     """
@@ -1223,6 +1268,53 @@ class EngineRPC(BaseJwtRPC):
         ).result_or_raise()
 
         return NewPayloadWithWitnessResponse.from_json_rpc_result(result)
+
+    def new_payload_with_retry(
+        self,
+        *params: Any,
+        version: int,
+        max_attempts: int = 10,
+        wait_fixed: float = 1.0,
+    ) -> PayloadStatus:
+        """
+        Send ``engine_newPayloadVX``, retrying while SYNCING.
+
+        Mirrors :meth:`forkchoice_updated_with_retry`: returns immediately on
+        any terminal status (VALID / INVALID / ACCEPTED / INVALID_BLOCK_HASH);
+        only loops while the client returns SYNCING. Raises
+        :class:`NewPayloadTimeoutError` if the budget runs out.
+        """
+        attempts = 0
+        start_time = time.time()
+        last_status: PayloadStatusEnum | None = None
+
+        def _on_retry(retry_state: RetryCallState) -> None:
+            logger.debug(
+                f"newPayload attempt {retry_state.attempt_number}: "
+                f"status={last_status}, retrying in {wait_fixed}s..."
+            )
+
+        @retry(
+            stop=stop_after_attempt(max_attempts),
+            wait=wait_fixed_tenacity(wait_fixed),
+            before_sleep=_on_retry,
+            reraise=True,
+        )
+        def _do() -> PayloadStatus:
+            nonlocal attempts, last_status
+            attempts += 1
+            response = self.new_payload(*params, version=version)
+            last_status = response.status
+            if response.status == PayloadStatusEnum.SYNCING:
+                raise NewPayloadTimeoutError(
+                    attempts=attempts,
+                    elapsed=time.time() - start_time,
+                    interval=wait_fixed,
+                    final_status=response.status,
+                )
+            return response
+
+        return _do()
 
     def forkchoice_updated(
         self,
@@ -1565,4 +1657,14 @@ class AdminRPC(BaseRPC):
         """`admin_addPeer`: Add a peer by enode URL."""
         return self.post_request(
             request=RPCCall(method="addPeer", params=[enode])
+        ).result_or_raise()
+
+
+class Web3RPC(BaseRPC, namespace="web3"):
+    """Represents the web3 namespace RPC class."""
+
+    def client_version(self) -> str:
+        """`web3_clientVersion`: Return the client's version identifier."""
+        return self.post_request(
+            request=RPCCall(method="clientVersion", params=[])
         ).result_or_raise()

@@ -13,7 +13,7 @@ benchmark_fast:
   fill-params: --fork=Osaka --generate-all-formats --gas-benchmark-values 100 ./tests/benchmark/compute
   feature_only: true
 
-bal:
+glamsterdam-devnet:
   evm-type: eels
   fill-params: --fork=Amsterdam
   feature_only: true

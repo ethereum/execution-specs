@@ -3,6 +3,8 @@ Test_callcodecall_10_suicide_end.
 
 Ported from:
 state_tests/stCallDelegateCodesHomestead/callcodecall_10_SuicideEndFiller.json
+
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -59,7 +61,6 @@ def test_callcodecall_10_suicide_end(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
-                gas=0x249F0,
                 address=0xF741CFEE7B7FB1025DCCEF3DB5A3CBC8FFB776F8,
                 args_offset=0x0,
                 args_size=0x40,
@@ -78,7 +79,6 @@ def test_callcodecall_10_suicide_end(
         code=Op.SSTORE(
             key=0x1,
             value=Op.CALL(
-                gas=0xC350,
                 address=0x703B936FD4D674F0FF5D6957F61097152F8781B8,
                 value=0x0,
                 args_offset=0x0,
@@ -94,12 +94,7 @@ def test_callcodecall_10_suicide_end(
         address=Address(0xF741CFEE7B7FB1025DCCEF3DB5A3CBC8FFB776F8),  # noqa: E501
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=3000000,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""))
 
     post = {
         target: Account(storage={0: 1, 1: 1}, balance=0xDE0B6B3A7640000),

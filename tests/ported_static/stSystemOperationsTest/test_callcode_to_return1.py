@@ -3,6 +3,8 @@ Test_callcode_to_return1.
 
 Ported from:
 state_tests/stSystemOperationsTest/callcodeToReturn1Filler.json
+
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -66,7 +68,6 @@ def test_callcode_to_return1(
         + Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
-                gas=0xC350,
                 address=addr,
                 value=0x17,
                 args_offset=0x0,
@@ -80,13 +81,7 @@ def test_callcode_to_return1(
         nonce=0,
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=3000000,
-        value=0x186A0,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""), value=0x186A0)
 
     post = {target: Account(storage={0: 1, 1: 1}, nonce=0)}
 

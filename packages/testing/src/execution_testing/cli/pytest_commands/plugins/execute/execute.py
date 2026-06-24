@@ -2,7 +2,6 @@
 Test execution plugin for pytest, to run Ethereum tests on live networks.
 """
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Type
@@ -12,12 +11,14 @@ from pytest_metadata.plugin import metadata_key
 
 from execution_testing.base_types import Account
 from execution_testing.base_types import Alloc as BaseAlloc
+from execution_testing.base_types.base_types import HexNumber
 from execution_testing.execution import BaseExecute
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.test_types import (
+    Environment,
     EnvironmentDefaults,
 )
 
@@ -43,133 +44,15 @@ def default_html_report_file_path() -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Add command-line options to pytest."""
-    execute_group = parser.getgroup(
-        "execute", "Arguments defining test execution behavior"
-    )
-    execute_group.addoption(
-        "--default-gas-price",
-        action="store",
-        dest="default_gas_price",
-        type=int,
-        default=None,
-        help=(
-            "Default gas price used for transactions, unless overridden by "
-            "the test. Default=None (1.5x current network gas price)"
-        ),
-    )
-    execute_group.addoption(
-        "--default-max-fee-per-gas",
-        action="store",
-        dest="default_max_fee_per_gas",
-        type=int,
-        default=None,
-        help=(
-            "Default max fee per gas used for transactions, unless overridden "
-            "by the test. Default=None (1.5x current network max fee per gas)"
-        ),
-    )
-    execute_group.addoption(
-        "--default-max-priority-fee-per-gas",
-        action="store",
-        dest="default_max_priority_fee_per_gas",
-        type=int,
-        default=None,
-        help=(
-            "Default max priority fee per gas used for transactions, "
-            "unless overridden by the test. "
-            "Default=None (1.5x current network max priority fee per gas)"
-        ),
-    )
-    execute_group.addoption(
-        "--default-max-fee-per-blob-gas",
-        action="store",
-        dest="default_max_fee_per_blob_gas",
-        type=int,
-        default=None,
-        help=(
-            "Default max fee per blob gas used for transactions, unless "
-            "overridden by the test. Default=None (1.5x current network max "
-            "fee per blob gas)"
-        ),
-    )
-    execute_group.addoption(
-        "--transaction-gas-limit",
-        action="store",
-        dest="transaction_gas_limit",
-        default=EnvironmentDefaults.gas_limit // 4,
-        type=int,
-        help=(
-            "Maximum gas used to execute a single transaction. Will be used "
-            "as ceiling for tests that attempt to consume the entire block "
-            f"gas limit. (Default: {EnvironmentDefaults.gas_limit // 4})"
-        ),
-    )
-    execute_group.addoption(
-        "--transactions-per-block",
-        action="store",
-        dest="transactions_per_block",
-        type=int,
-        default=None,
-        help=(
-            "Number of transactions to send before producing the next block."
-        ),
-    )
-    execute_group.addoption(
-        "--get-payload-wait-time",
-        action="store",
-        dest="get_payload_wait_time",
-        type=float,
-        default=0.3,
-        help=(
-            "Time to wait after sending a forkchoice_updated before getting "
-            "the payload."
-        ),
-    )
-    execute_group.addoption(
-        "--max-gas-per-test",
-        action="store",
-        dest="max_gas_per_test",
-        default=None,
-        type=int,
-        help=(
-            "Maximum gas limit for all transactions in a test. Default=None "
-            "(No limit)"
-        ),
-    )
-    execute_group.addoption(
-        "--dry-run",
-        action="store_true",
-        dest="dry_run",
-        default=False,
-        help=(
-            "Don't send transactions, just print the minimum balance required "
-            "per test."
-        ),
-    )
-    execute_group.addoption(
-        "--max-tx-per-batch",
-        action="store",
-        dest="max_tx_per_batch",
-        type=int,
-        default=None,
-        help=(
-            "Maximum number of transactions to send in a single batch to the "
-            "RPC. Default=750. Higher values may cause RPC instability."
-        ),
-    )
-    execute_group.addoption(
-        "--use-testing-build-block",
-        action="store_true",
-        dest="use_testing_build_block",
-        default=False,
-        help=(
-            "Use testing_buildBlockV1 to build blocks with transactions "
-            "directly, instead of the standard Engine API flow. "
-            "Only for clients that implement this endpoint."
-        ),
-    )
+    """
+    Add execute-specific command-line options.
 
+    The live-client flag set (``--default-gas-price``, ``--get-payload-
+    wait-time``, ``--dry-run``, ...) now lives in
+    :mod:`plugins.shared.live_client_flags`, which this plugin requires.
+    Both ``pytest-execute*.ini`` and ``pytest-fill-stateful.ini`` load the
+    shared plugin ahead of this one.
+    """
     report_group = parser.getgroup(
         "tests", "Arguments defining html report behavior"
     )
@@ -304,241 +187,14 @@ def pytest_html_report_title(report: Any) -> None:
     report.title = "Execute Test Report"
 
 
-@pytest.fixture(scope="session")
-def transactions_per_block(
-    request: pytest.FixtureRequest,
-) -> int:
-    """
-    Return the number of transactions to send before producing the next block.
-    """
-    if transactions_per_block := request.config.getoption(
-        "transactions_per_block"
-    ):
-        return transactions_per_block
-
-    # Get the number of workers for the test
-    worker_count_env = os.environ.get("PYTEST_XDIST_WORKER_COUNT")
-    if not worker_count_env:
-        return 1
-    return max(int(worker_count_env), 1)
-
-
-@pytest.fixture(scope="session")
-def default_gas_price(request: pytest.FixtureRequest) -> int | None:
-    """Return default gas price used for transactions."""
-    gas_price = request.config.getoption("default_gas_price")
-    if gas_price is not None:
-        assert gas_price > 0, "Gas price must be greater than 0"
-        logger.debug(
-            f"Using configured default gas price: {gas_price / 10**9:.2f} Gwei"
-        )
-    else:
-        logger.debug(
-            "No default gas price configured, will use network gas price * 1.5"
-        )
-    return gas_price
-
-
-@pytest.fixture(scope="session")
-def dry_run(request: pytest.FixtureRequest) -> bool:
-    """Return True if the test is a dry run."""
-    return request.config.getoption("dry_run")
-
-
-@pytest.fixture(scope="session")
-def max_transactions_per_batch(request: pytest.FixtureRequest) -> int | None:
-    """Return max number of transactions per batch, or None for default."""
-    return request.config.getoption("max_tx_per_batch")
-
-
-@pytest.fixture(scope="session")
-def use_testing_build_block(
-    request: pytest.FixtureRequest,
-) -> bool:
-    """Return whether to use testing_buildBlockV1 for block building."""
-    return request.config.getoption("use_testing_build_block")
-
-
-@pytest.fixture(scope="session")
-def default_max_fee_per_gas(
-    request: pytest.FixtureRequest,
-) -> int | None:
-    """Return default max fee per gas used for transactions."""
-    max_fee_per_gas = request.config.getoption("default_max_fee_per_gas")
-    if max_fee_per_gas is not None:
-        fee_gwei = max_fee_per_gas / 10**9
-        logger.debug(
-            f"Using configured default max fee per gas: {fee_gwei:.2f} Gwei"
-        )
-    else:
-        logger.debug(
-            "No default max fee per gas configured, "
-            "will use network gas price * 1.5"
-        )
-    return max_fee_per_gas
-
-
-@pytest.fixture(scope="session")
-def default_max_priority_fee_per_gas(
-    request: pytest.FixtureRequest,
-) -> int | None:
-    """Return default max priority fee per gas used for transactions."""
-    max_priority_fee_per_gas = request.config.getoption(
-        "default_max_priority_fee_per_gas"
-    )
-    if max_priority_fee_per_gas is not None:
-        prio_fee_gwei = max_priority_fee_per_gas / 10**9
-        logger.debug(
-            f"Using configured default max priority fee per gas: "
-            f"{prio_fee_gwei:.2f} Gwei"
-        )
-    else:
-        logger.debug(
-            "No default max priority fee per gas configured, "
-            "will use network max priority fee * 1.5"
-        )
-    return max_priority_fee_per_gas
-
-
-@pytest.fixture(scope="session")
-def default_max_fee_per_blob_gas(
-    request: pytest.FixtureRequest,
-) -> int | None:
-    """Return default max fee per blob gas used for transactions."""
-    max_fee_per_blob_gas = request.config.getoption(
-        "default_max_fee_per_blob_gas"
-    )
-    if max_fee_per_blob_gas is not None:
-        blob_fee_gwei = max_fee_per_blob_gas / 10**9
-        logger.debug(
-            f"Using configured default max fee per blob gas: "
-            f"{blob_fee_gwei:.2f} Gwei"
-        )
-    else:
-        logger.debug(
-            "No default max fee per blob gas configured, "
-            "will use network blob base fee * 1.5"
-        )
-    return max_fee_per_blob_gas
-
-
-@pytest.fixture(scope="function")
-def max_priority_fee_per_gas(
-    eth_rpc: EthRPC,
-    default_max_priority_fee_per_gas: int | None,
-) -> int:
-    """Return max priority fee per gas for transactions in a given test."""
-    max_priority_fee_per_gas = default_max_priority_fee_per_gas
-    if max_priority_fee_per_gas is None:
-        network_max_priority_fee = eth_rpc.max_priority_fee_per_gas()
-        max_priority_fee_per_gas = int(network_max_priority_fee * 1.5)
-        net_gwei = network_max_priority_fee / 10**9
-        calc_gwei = max_priority_fee_per_gas / 10**9
-        logger.info(
-            f"Calculated max priority fee per gas from network: "
-            f"{net_gwei:.2f} Gwei * 1.5 = {calc_gwei:.2f} Gwei"
-        )
-    else:
-        prio_gwei = max_priority_fee_per_gas / 10**9
-        logger.info(
-            f"Using default max priority fee per gas: {prio_gwei:.2f} Gwei"
-        )
-    return max_priority_fee_per_gas
-
-
-@pytest.fixture(scope="function")
-def max_fee_per_gas(
-    eth_rpc: EthRPC,
-    default_max_fee_per_gas: int | None,
-    max_priority_fee_per_gas: int,
-) -> int:
-    """Return max fee per gas used for transactions in a given test."""
-    max_fee_per_gas = default_max_fee_per_gas
-    if max_fee_per_gas is None:
-        network_gas_price = eth_rpc.gas_price()
-        max_fee_per_gas = int(network_gas_price * 1.5)
-        net_gwei = network_gas_price / 10**9
-        calc_gwei = max_fee_per_gas / 10**9
-        logger.info(
-            f"Calculated max fee per gas from network: "
-            f"{net_gwei:.2f} Gwei * 1.5 = {calc_gwei:.2f} Gwei"
-        )
-    else:
-        fee_gwei = max_fee_per_gas / 10**9
-        logger.info(f"Using default max fee per gas: {fee_gwei:.2f} Gwei")
-    if max_priority_fee_per_gas > max_fee_per_gas:
-        # Depending on the timing of the request, the priority fee may be
-        # greater than the max fee. This is a workaround to ensure that the
-        # transaction is valid.
-        prio_gwei = max_priority_fee_per_gas / 10**9
-        fee_gwei = max_fee_per_gas / 10**9
-        adj_gwei = (max_priority_fee_per_gas + 1) / 10**9
-        logger.warning(
-            f"Max priority fee per gas ({prio_gwei:.2f} Gwei) is greater "
-            f"than max fee per gas ({fee_gwei:.2f} Gwei), "
-            f"adjusting max fee per gas to {adj_gwei:.2f} Gwei"
-        )
-        max_fee_per_gas = max_priority_fee_per_gas + 1
-    final_gwei = max_fee_per_gas / 10**9
-    prio_gwei = max_priority_fee_per_gas / 10**9
-    logger.debug(
-        f"Final max fee per gas: {final_gwei:.2f} Gwei, "
-        f"max priority fee per gas: {prio_gwei:.2f} Gwei"
-    )
-    return max_fee_per_gas
-
-
-@pytest.fixture(scope="function")
-def max_fee_per_blob_gas(
-    eth_rpc: EthRPC,
-    default_max_fee_per_blob_gas: int | None,
-) -> int:
-    """Return max fee per blob gas used for transactions in a given test."""
-    max_fee_per_blob_gas = default_max_fee_per_blob_gas
-    if max_fee_per_blob_gas is None:
-        network_blob_base_fee = eth_rpc.blob_base_fee()
-        max_fee_per_blob_gas = int(network_blob_base_fee * 1.5)
-        net_gwei = network_blob_base_fee / 10**9
-        calc_gwei = max_fee_per_blob_gas / 10**9
-        logger.info(
-            f"Calculated max fee per blob gas from network: "
-            f"{net_gwei:.2f} Gwei * 1.5 = {calc_gwei:.2f} Gwei"
-        )
-    else:
-        blob_gwei = max_fee_per_blob_gas / 10**9
-        logger.info(
-            f"Using default max fee per blob gas: {blob_gwei:.2f} Gwei"
-        )
-    return max_fee_per_blob_gas
-
-
-@pytest.fixture(scope="function")
-def gas_price(max_fee_per_gas: int, max_priority_fee_per_gas: int) -> int:
-    """Return gas price used for transactions in a given test."""
-    calculated_gas_price = max_fee_per_gas + max_priority_fee_per_gas
-    fee_gwei = max_fee_per_gas / 10**9
-    prio_gwei = max_priority_fee_per_gas / 10**9
-    total_gwei = calculated_gas_price / 10**9
-    logger.debug(
-        f"Calculated gas price: {fee_gwei:.2f} Gwei (max fee) + "
-        f"{prio_gwei:.2f} Gwei (max priority fee) = {total_gwei:.2f} Gwei"
-    )
-    return calculated_gas_price
-
-
-@pytest.fixture()
-def max_gas_limit_per_test(request: pytest.FixtureRequest) -> int | None:
-    """Return the total gas limit for all transactions in a given test."""
-    max_gas_limit = request.config.getoption("max_gas_per_test")
-    if max_gas_limit is not None:
-        logger.info(
-            f"Using configured max gas limit per test: {max_gas_limit}"
-        )
-    else:
-        logger.debug(
-            "No max gas limit per test configured, no limit will be enforced"
-        )
-    return max_gas_limit
+# NOTE: ``transactions_per_block``, ``default_gas_price``, ``dry_run``,
+# ``max_transactions_per_batch``, ``use_testing_build_block``,
+# ``default_max_fee_per_gas``, ``default_max_priority_fee_per_gas``,
+# ``default_max_fee_per_blob_gas``, ``max_priority_fee_per_gas``,
+# ``max_fee_per_gas``, ``max_fee_per_blob_gas``, ``gas_price``, and
+# ``max_gas_limit_per_test`` now live in
+# :mod:`plugins.shared.live_client_flags` so fill-stateful can reuse them
+# without loading this plugin's parametrizer/hooks.
 
 
 @dataclass(kw_only=True)
@@ -617,6 +273,17 @@ def gas_limit_accumulator() -> Generator[GasInfoAccumulator, None, None]:
     logger.info(f"Total minimum balance: {total_min_eth:.18f}")
 
 
+@pytest.fixture(scope="session")
+def env_gas_limit(eth_rpc: EthRPC) -> HexNumber:
+    """
+    Return the environment gas limit derived from the head block before
+    tests start running.
+    """
+    head_block = eth_rpc.get_block_by_number()
+    assert head_block is not None, "Unable to obtain head block from RPC"
+    return HexNumber(head_block["gasLimit"])
+
+
 def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     """
     Generate pytest.fixture for a given BaseTest subclass.
@@ -634,7 +301,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     )
     def base_test_parametrizer_func(
         request: Any,
-        fork: Fork | TransitionFork,
+        fork: Fork,
         pre: Alloc,
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
@@ -648,6 +315,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         max_fee_per_blob_gas: int,
         max_gas_limit_per_test: int | None,
         gas_limit_accumulator: GasInfoAccumulator,
+        env_gas_limit: HexNumber,
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
     ) -> Type[BaseTest]:
@@ -694,24 +362,23 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     if p not in kwargs
                 }
 
-                # TODO: get values from network
-                timestamp = 0
-                block_number = 0
-
                 request.node.config.sender_address = str(pre._sender)
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
                 execute = self.execute(execute_format=execute_format)
 
-                # get balances of required sender accounts
-                required_balances = execute.get_required_sender_balances(
+                execute.prepare_transactions(
+                    env=Environment(gas_limit=env_gas_limit),
                     gas_price=gas_price,
                     max_fee_per_gas=max_fee_per_gas,
                     max_priority_fee_per_gas=max_priority_fee_per_gas,
                     max_fee_per_blob_gas=max_fee_per_blob_gas,
-                    fork=fork.fork_at(
-                        block_number=block_number, timestamp=timestamp
-                    ),
+                    fork=fork,
+                )
+
+                # get balances of required sender accounts
+                required_balances = execute.get_required_sender_balances(
+                    fork=fork,
                 )
 
                 pre.resolve_deferred_checks()
@@ -778,9 +445,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 )
 
                 execute_result = execute.execute(
-                    fork=fork.fork_at(
-                        block_number=block_number, timestamp=timestamp
-                    ),
+                    fork=fork,
                     eth_rpc=eth_rpc,
                     engine_rpc=engine_rpc,
                     request=request,

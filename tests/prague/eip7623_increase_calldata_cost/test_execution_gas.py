@@ -65,7 +65,12 @@ class TestGasConsumption:
             pytest.param(1, True, None, id="type_1"),
             pytest.param(2, True, None, id="type_2"),
             pytest.param(3, True, None, id="type_3"),
-            pytest.param(4, True, [Address(1)], id="type_4"),
+            pytest.param(
+                4,
+                True,
+                [Address(1)],
+                id="type_4",
+            ),
         ],
         indirect=["authorization_list"],
     )

@@ -44,7 +44,6 @@ def test_identity_return_overwrite(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract_address,
-        gas_limit=100_000,
     )
 
     post = {
@@ -92,7 +91,6 @@ def test_identity_return_buffer_modify(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract_address,
-        gas_limit=100_000,
     )
 
     post = {

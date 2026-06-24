@@ -12,9 +12,11 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -28,6 +30,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_call_lose_gas_oog(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Recursive call."""
@@ -40,7 +43,6 @@ def test_call_lose_gas_oog(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     addr = pre.fund_eoa(amount=7000)  # noqa: F841
@@ -73,7 +75,7 @@ def test_call_lose_gas_oog(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=200000,
+        gas_limit=2200000 if fork >= Amsterdam else 200000,
         value=10,
     )
 

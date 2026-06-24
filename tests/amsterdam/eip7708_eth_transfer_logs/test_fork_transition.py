@@ -124,7 +124,6 @@ def test_burn_log_at_fork_transition(
                 Transaction(
                     to=targets[i],
                     sender=sender,
-                    gas_limit=200_000,
                     expected_receipt=TransactionReceipt(logs=expected_logs[i]),
                 )
             ],
@@ -156,7 +155,6 @@ def test_transfer_log_fork_transition(
                     to=recipient,
                     sender=sender,
                     value=100,
-                    gas_limit=21_000,
                     expected_receipt=TransactionReceipt(logs=[]),
                 )
             ],
@@ -168,7 +166,6 @@ def test_transfer_log_fork_transition(
                     to=recipient,
                     sender=sender,
                     value=100,
-                    gas_limit=21_000,
                     expected_receipt=TransactionReceipt(
                         logs=[transfer_log(sender, recipient, 100)]
                     ),
@@ -182,7 +179,6 @@ def test_transfer_log_fork_transition(
                     to=recipient,
                     sender=sender,
                     value=100,
-                    gas_limit=21_000,
                     expected_receipt=TransactionReceipt(
                         logs=[transfer_log(sender, recipient, 100)]
                     ),

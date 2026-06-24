@@ -60,7 +60,7 @@ class TestFillingSession:
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
-        assert session.phase_manager.is_single_phase_fill
+        assert session.filling_phase == FixtureFillingPhase.FILL
         assert session.pre_alloc_group_builders is None
 
     def test_init_pre_alloc_generation(self) -> None:
@@ -73,7 +73,9 @@ class TestFillingSession:
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
-        assert session.phase_manager.is_pre_alloc_generation
+        assert (
+            session.filling_phase == FixtureFillingPhase.PRE_ALLOC_GENERATION
+        )
         assert session.pre_alloc_group_builders is not None
         assert len(session.pre_alloc_group_builders.root) == 0
 
@@ -104,7 +106,10 @@ class TestFillingSession:
                 ):
                     session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
-        assert session.phase_manager.is_fill_after_pre_alloc
+        assert (
+            session.filling_phase
+            == FixtureFillingPhase.FILL_AFTER_PRE_ALLOC_GENERATION
+        )
         assert session.pre_alloc_groups is mock_groups
 
     def test_init_use_pre_alloc_missing_folder(self) -> None:
@@ -134,7 +139,10 @@ class TestFillingSession:
 
         # Mock fixture format
         class MockFormat:
-            format_phases = {FixtureFillingPhase.FILL}
+            format_phases = {
+                FixtureFillingPhase.FILL,
+                FixtureFillingPhase.FILL_AFTER_PRE_ALLOC_GENERATION,
+            }
 
         assert session.should_generate_format(MockFormat())  # type: ignore[arg-type]
 
@@ -158,7 +166,10 @@ class TestFillingSession:
 
         # Mock fixture format that normally wouldn't generate in phase 2
         class MockFormat:
-            format_phases = {FixtureFillingPhase.FILL}
+            format_phases = {
+                FixtureFillingPhase.FILL,
+                FixtureFillingPhase.FILL_AFTER_PRE_ALLOC_GENERATION,
+            }
 
         # Should generate because generate_all=True
         assert session.should_generate_format(MockFormat())  # type: ignore[arg-type]
@@ -225,57 +236,6 @@ class TestFillingSession:
         ):
             session.get_pre_alloc_group("any_hash")
 
-    def test_update_pre_alloc_group(self) -> None:
-        """Test updating a pre-alloc group."""
-        config = MockConfig(generate_pre_alloc_groups=True)
-
-        with patch(
-            "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
-            MockFixtureOutput,
-        ):
-            session = FillingSession.from_config(config)  # type: ignore[arg-type]
-
-        test_group_builder = PreAllocGroupBuilder(
-            pre=Alloc().model_dump(mode="json"),
-            environment=Environment()
-            .set_fork_requirements(Prague)
-            .model_dump(mode="json", exclude={"parent_hash"}),
-            fork=Prague.name(),
-        )
-        session.update_pre_alloc_group_builder("test_hash", test_group_builder)
-
-        assert session.pre_alloc_group_builders is not None
-        assert "test_hash" in session.pre_alloc_group_builders.root
-        assert (
-            session.pre_alloc_group_builders.root["test_hash"]
-            is test_group_builder
-        )
-
-    def test_update_pre_alloc_group_wrong_phase(self) -> None:
-        """Test updating pre-alloc group in wrong phase."""
-        config = MockConfig()  # Normal fill
-
-        with patch(
-            "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
-            MockFixtureOutput,
-        ):
-            session = FillingSession.from_config(config)  # type: ignore[arg-type]
-
-        test_group_builder = PreAllocGroupBuilder(
-            pre=Alloc().model_dump(mode="json"),
-            environment=Environment()
-            .set_fork_requirements(Prague)
-            .model_dump(mode="json", exclude={"parent_hash"}),
-            fork=Prague.name(),
-        )
-        with pytest.raises(
-            ValueError,
-            match="Can only update pre-alloc groups in generation phase",
-        ):
-            session.update_pre_alloc_group_builder(
-                "test_hash", test_group_builder
-            )
-
     def test_save_pre_alloc_groups(self) -> None:
         """Test saving pre-alloc groups to disk."""
         config = MockConfig(generate_pre_alloc_groups=True)
@@ -286,17 +246,21 @@ class TestFillingSession:
         ):
             session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
-        # Add a test group
-        test_group_builder = PreAllocGroupBuilder(
-            pre=Alloc().model_dump(mode="json"),
-            environment=Environment()
-            .set_fork_requirements(Prague)
-            .model_dump(mode="json", exclude={"parent_hash"}),
-            fork=Prague.name(),
+        # Seed a single group directly — production seeds via
+        # PreAllocGroupBuilders.add_test_pre from the per-test fill hook;
+        # here we only need a non-empty mapping for save_pre_alloc_groups
+        # to exercise its mkdir/to_folder path.
+        assert session.pre_alloc_group_builders is not None
+        session.pre_alloc_group_builders.root["test_hash"] = (
+            PreAllocGroupBuilder(
+                pre=Alloc().model_dump(mode="json"),
+                environment=Environment()
+                .set_fork_requirements(Prague)
+                .model_dump(mode="json", exclude={"parent_hash"}),
+                fork=Prague.name(),
+            )
         )
-        session.update_pre_alloc_group_builder("test_hash", test_group_builder)
 
-        # Mock file operations
         with patch.object(Path, "mkdir") as mock_mkdir:
             with patch.object(
                 PreAllocGroupBuilders, "to_folder"

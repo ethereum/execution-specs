@@ -6,7 +6,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Environment,
     Op,
     StateTestFiller,
     Storage,
@@ -121,14 +120,12 @@ def test_call_identity_precompile(
     call_args: CallArgs,
     memory_values: Tuple[int, ...],
     call_succeeds: bool,
-    tx_gas_limit: int,
     contract_balance: int,
 ) -> None:
     """
     Test identity precompile RETURNDATA is sized correctly based on the input
     size.
     """
-    env = Environment()
     storage = Storage()
 
     contract_bytecode = generate_identity_call_bytecode(
@@ -145,15 +142,11 @@ def test_call_identity_precompile(
         balance=contract_balance,
     )
 
-    tx = Transaction(
-        to=account,
-        sender=pre.fund_eoa(),
-        gas_limit=tx_gas_limit,
-    )
+    tx = Transaction(to=account, sender=pre.fund_eoa())
 
     post = {account: Account(storage=storage)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.ported_from(
@@ -192,7 +185,6 @@ def test_call_identity_precompile(
         ),
     ],
 )
-@pytest.mark.parametrize("tx_gas_limit", [10_000_000])
 def test_call_identity_precompile_large_params(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -200,10 +192,8 @@ def test_call_identity_precompile_large_params(
     call_args: CallArgs,
     memory_values: Tuple[int, ...],
     call_succeeds: bool,
-    tx_gas_limit: int,
 ) -> None:
     """Test identity precompile when out of gas occurs."""
-    env = Environment()
     storage = Storage()
 
     contract_bytecode = generate_identity_call_bytecode(
@@ -219,12 +209,8 @@ def test_call_identity_precompile_large_params(
         storage=storage.canary(),
     )
 
-    tx = Transaction(
-        to=account,
-        sender=pre.fund_eoa(),
-        gas_limit=tx_gas_limit,
-    )
+    tx = Transaction(to=account, sender=pre.fund_eoa())
 
     post = {account: Account(storage=storage)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

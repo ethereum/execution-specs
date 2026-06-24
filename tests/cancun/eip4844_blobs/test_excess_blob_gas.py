@@ -106,32 +106,6 @@ def tx_blob_data_cost(
 
 
 @pytest.fixture
-def tx_gas_limit() -> int:  # noqa: D103
-    return 45000
-
-
-@pytest.fixture
-def tx_exact_cost(
-    tx_value: int,
-    tx_max_fee_per_gas: int,
-    tx_blob_data_cost: int,
-    tx_gas_limit: int,
-    new_blobs: int,
-    fork: Fork,
-) -> int:
-    """Calculate exact cost for all transactions."""
-    if new_blobs == 0:
-        num_transactions = 1
-    else:
-        num_transactions = (
-            new_blobs + fork.max_blobs_per_tx() - 1
-        ) // fork.max_blobs_per_tx()
-    base_cost_per_tx = (tx_gas_limit * tx_max_fee_per_gas) + tx_value
-    total_base_cost = base_cost_per_tx * num_transactions
-    return total_base_cost + tx_blob_data_cost
-
-
-@pytest.fixture
 def destination_account_bytecode() -> Bytecode:  # noqa: D103
     # Verify that the BLOBBASEFEE opcode reflects the current blob gas cost
     return Op.SSTORE(0, Op.BLOBBASEFEE)
@@ -146,8 +120,8 @@ def destination_account(  # noqa: D103
 
 
 @pytest.fixture
-def sender(pre: Alloc, tx_exact_cost: int) -> Address:  # noqa: D103
-    return pre.fund_eoa(tx_exact_cost)
+def sender(pre: Alloc) -> Address:  # noqa: D103
+    return pre.fund_eoa()
 
 
 @pytest.fixture
@@ -156,7 +130,6 @@ def txs(  # noqa: D103
     new_blobs: int,
     tx_max_fee_per_gas: int,
     tx_max_fee_per_blob_gas: int,
-    tx_gas_limit: int,
     destination_account: Address,
     fork: Fork,
 ) -> List[Transaction]:
@@ -168,7 +141,6 @@ def txs(  # noqa: D103
                 sender=sender,
                 to=destination_account,
                 value=1,
-                gas_limit=tx_gas_limit,
                 max_fee_per_gas=tx_max_fee_per_gas,
                 max_priority_fee_per_gas=0,
                 access_list=[],
@@ -187,7 +159,6 @@ def txs(  # noqa: D103
                 sender=sender,
                 to=destination_account,
                 value=1,
-                gas_limit=tx_gas_limit,
                 max_fee_per_gas=tx_max_fee_per_gas,
                 max_priority_fee_per_gas=0,
                 max_fee_per_blob_gas=tx_max_fee_per_blob_gas,

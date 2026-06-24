@@ -34,6 +34,9 @@ from execution_testing import (
     extend_with_defaults,
 )
 
+from ...amsterdam.eip8037_state_creation_gas_cost_increase.spec import (
+    Spec as Spec8037,
+)
 from .helpers import AddressType, ChainIDType
 from .spec import Spec, ref_spec_7702
 
@@ -794,13 +797,27 @@ def gas_test_parameter_args(
         ]
 
     if include_many:
-        # Fit as many authorizations as possible within the transaction gas
-        # limit.
-        max_gas = 16_777_216 - 21_000
+        # Fit as many authorizations as possible within the
+        # transaction gas limit cap. Under EIP-8037 the per-auth
+        # intrinsic grows with cpsb; on older forks it is
+        # `Spec.AUTH_PER_EMPTY_ACCOUNT`. Divide by the larger so the
+        # count fits at any fork — older forks simply exercise fewer
+        # authorizations than the cap allows.
+        eip_8037_auth_cost = (
+            Spec8037.PER_AUTH_BASE_COST
+            + (
+                Spec8037.STATE_BYTES_PER_NEW_ACCOUNT
+                + Spec8037.STATE_BYTES_PER_AUTH_BASE
+            )
+            * Spec8037.COST_PER_STATE_BYTE
+        )
+        max_gas = Spec8037.TX_MAX_GAS_LIMIT - 21_000  # TX_BASE
         if execution_gas_allowance:
             # Leave some gas for the execution of the test code.
             max_gas -= 1_000_000
-        many_authorizations_count = max_gas // Spec.AUTH_PER_EMPTY_ACCOUNT
+        many_authorizations_count = max_gas // max(
+            Spec.AUTH_PER_EMPTY_ACCOUNT, eip_8037_auth_cost
+        )
         cases += [
             pytest.param(
                 {
@@ -841,6 +858,11 @@ def gas_test_parameter_args(
     )
 )
 @pytest.mark.slow()
+# TODO[EIP-8037]: discount accounting here uses Prague refund_counter
+# mechanics (with the EIP-3529 1/5 cap). On Amsterdam the existing-authority
+# refund flows through state_gas_reservoir / state_refund and is not capped
+# the same way. Needs a fork-aware rewrite before this can run on Amsterdam.
+@pytest.mark.valid_before("EIP8037")
 def test_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1089,7 +1111,6 @@ def test_account_warming(
     )
 
     tx = Transaction(
-        gas_limit=1_000_000,
         to=callee_address,
         authorization_list=authorization_list if authorization_list else None,
         access_list=access_list,
@@ -1193,7 +1214,6 @@ def test_self_set_code_cost(
     callee_storage[slot_call_cost] = 200 if not pre_authorized else 2700
 
     tx = Transaction(
-        gas_limit=1_000_000,
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(

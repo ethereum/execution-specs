@@ -36,6 +36,7 @@ from execution_testing.test_types import (
     EOA,
     AuthorizationTuple,
     ChainConfig,
+    TestPhase,
     Transaction,
     TransactionTestMetadata,
     compute_deterministic_create2_address,
@@ -151,13 +152,16 @@ def execute_required_contracts(
     Deploy required contracts for the execute command.
 
     - Deterministic deployment proxy
+
+    Proxy deploy failure doesn't abort the session.
+    Tests skip deterministic deploys on use.
+    Details check `(see Alloc._resolve_deterministic_deploys)`.
     """
     base_lock_file = session_temp_folder / "execute_required_contracts.lock"
     with FileLock(base_lock_file):
         logger.info(
             "Checking if deterministic factory contract is already deployed"
         )
-        tx_index = 0
         if (
             check_deterministic_factory_deployment(
                 eth_rpc=eth_rpc, fork=session_fork
@@ -165,19 +169,19 @@ def execute_required_contracts(
             is None
         ):
             try:
-                tx_index = deploy_deterministic_factory_contract(
+                deploy_deterministic_factory_contract(
                     eth_rpc=eth_rpc,
                     seed_key=session_worker_key,
                     gas_price=sender_funding_transactions_gas_price,
-                    tx_index=tx_index,
                 )
             except Exception as e:
-                raise RuntimeError(
-                    f"Error deploying deterministic deployment contract:\n{e}"
-                    "\nTry deploying the contract manually using a different "
-                    "RPC endpoint with the following command:\n"
-                    "uv run execute deploy-required-contracts"
-                ) from e
+                logger.warning(
+                    "Could not deploy the deterministic deployment proxy; "
+                    "tests that require it will be skipped. To deploy it "
+                    "manually against a different RPC endpoint run "
+                    "`uv run execute deploy-required-contracts`. "
+                    f"Reason: {e}"
+                )
 
 
 class PendingTransaction(Transaction):
@@ -221,6 +225,58 @@ class _DeferredFundAddress:
     minimum_balance: bool
 
 
+def _compute_deploy_gas_limit(
+    fork: Fork,
+    *,
+    deploy_code_size: int,
+    initcode: Bytes | Initcode,
+    storage_slots: int = 0,
+) -> Tuple[int, int]:
+    """
+    Compute the deploy transaction gas limit, returning both the regular
+    gas portion bound by the EIP 7825 cap and the total regular plus
+    state gas used as the transaction gas field. Under EIP 8037 the cap
+    binds only the regular portion while state gas comes from the block
+    reservoir and may push the total above the cap, and before Amsterdam
+    the state gas is zero so the total equals the regular gas. The regular
+    portion is doubled as a safety buffer since gas estimation is
+    approximate while the state portion is exact.
+    """
+    gas_costs = fork.gas_costs()
+    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+
+    sstore = Op.SSTORE(new_value=1)
+    sstore_state_gas = sstore.state_cost(fork)
+    sstore_regular_gas = sstore.gas_cost(fork) - sstore_state_gas
+
+    # Back out the state gas folded into TX_CREATE.
+    intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
+        contract_creation=True
+    )
+    intrinsic_regular_gas = (
+        intrinsic_gas_calculator(calldata=initcode, contract_creation=True)
+        - intrinsic_state_gas
+    )
+
+    # Regular portion, bound by the gas cap.
+    regular_gas = intrinsic_regular_gas
+    regular_gas += deploy_code_size * gas_costs.CODE_DEPOSIT_PER_BYTE
+    regular_gas += memory_expansion_gas_calculator(
+        new_bytes=len(bytes(initcode))
+    )
+    regular_gas += storage_slots * sstore_regular_gas
+    regular_gas *= 2
+
+    # State portion, from the block reservoir.
+    state_gas = intrinsic_state_gas
+    state_gas += fork.code_deposit_state_gas(code_size=deploy_code_size)
+    state_gas += storage_slots * sstore_state_gas
+
+    deploy_gas_limit = regular_gas + state_gas
+    return regular_gas, deploy_gas_limit
+
+
 class Alloc(SharedAlloc):
     """A custom class that inherits from the original Alloc class."""
 
@@ -257,6 +313,7 @@ class Alloc(SharedAlloc):
         address_stubs: AddressStubs | None = None,
         block_number: int = 0,
         timestamp: int = 0,
+        funding_gas_limit: int = 200_000,
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc with the given parameters."""
@@ -269,6 +326,7 @@ class Alloc(SharedAlloc):
         self._address_stubs = address_stubs or AddressStubs(root={})
         self._block_number = block_number
         self._timestamp = timestamp
+        self._funding_gas_limit = funding_gas_limit
 
     def code_pre_processor(self, code: Bytecode) -> Bytecode:
         """Pre-processes the code before setting it."""
@@ -290,6 +348,11 @@ class Alloc(SharedAlloc):
         pending_tx = PendingTransaction(
             **kwargs,
         )
+        # Pending txs are setup by definition; override Transaction's
+        # test_phase default (sourced from TestPhaseManager) so a
+        # ``pre.fund_eoa`` call inside ``TestPhaseManager.execution()``
+        # doesn't bleed an EXECUTION phase onto a setup tx.
+        pending_tx.test_phase = TestPhase.SETUP
         pending_tx.metadata = TransactionTestMetadata(
             test_id=self._node_id,
             phase="setup",
@@ -321,11 +384,6 @@ class Alloc(SharedAlloc):
         fork = self._fork.fork_at(
             block_number=self._block_number, timestamp=self._timestamp
         )
-        gas_costs = fork.gas_costs()
-        memory_expansion_gas_calculator = (
-            fork.memory_expansion_gas_calculator()
-        )
-        calldata_gas_calculator = fork.calldata_gas_calculator()
         if not isinstance(deploy_code, Bytes):
             deploy_code = Bytes(deploy_code)
         if initcode is None:
@@ -348,18 +406,18 @@ class Alloc(SharedAlloc):
             raise ValueError(
                 f"initcode too large {len(initcode)} > {max_initcode_size}"
             )
-        deploy_gas_limit = gas_costs.TX_BASE + gas_costs.TX_CREATE
-        deploy_gas_limit += len(deploy_code) * gas_costs.CODE_DEPOSIT_PER_BYTE
-        deploy_gas_limit += memory_expansion_gas_calculator(
-            new_bytes=len(initcode)
+        regular_gas, deploy_gas_limit = _compute_deploy_gas_limit(
+            fork,
+            deploy_code_size=len(deploy_code),
+            initcode=initcode,
         )
-        deploy_gas_limit += calldata_gas_calculator(data=initcode)
-        deploy_gas_limit = deploy_gas_limit * 2
+        # Per EIP-8037, the per-tx 2^24 cap (EIP-7825) binds only the
+        # regular-gas portion; state gas is drawn from the block reservoir.
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
+        if tx_gas_limit_cap and regular_gas > tx_gas_limit_cap:
             raise ValueError(
-                f"deterministic deploy gas limit exceeds the transaction "
-                f"gas limit cap: {deploy_gas_limit} > {tx_gas_limit_cap}"
+                f"deterministic deploy regular gas exceeds the transaction "
+                f"gas limit cap: {regular_gas} > {tx_gas_limit_cap}"
             )
 
         # Defer the on-chain check; the deploy tx (if needed) and the
@@ -403,11 +461,6 @@ class Alloc(SharedAlloc):
         fork = self._fork.fork_at(
             block_number=self._block_number, timestamp=self._timestamp
         )
-        gas_costs = fork.gas_costs()
-        memory_expansion_gas_calculator = (
-            fork.memory_expansion_gas_calculator()
-        )
-        calldata_gas_calculator = fork.calldata_gas_calculator()
 
         if not isinstance(storage, Storage):
             storage = Storage(storage)  # type: ignore
@@ -443,13 +496,10 @@ class Alloc(SharedAlloc):
 
         initcode_prefix = Bytecode()
 
-        deploy_gas_limit = gas_costs.TX_BASE + gas_costs.TX_CREATE
-
         if len(storage.root) > 0:
             initcode_prefix += sum(
                 Op.SSTORE(key, value) for key, value in storage.root.items()
             )
-            deploy_gas_limit += len(storage.root) * 22_600
 
         assert isinstance(code, Bytecode), (
             f"incompatible code type: {type(code)}"
@@ -460,13 +510,8 @@ class Alloc(SharedAlloc):
         if len(code) > max_code_size:
             raise ValueError(f"code too large: {len(code)} > {max_code_size}")
 
-        deploy_gas_limit += len(code) * gas_costs.CODE_DEPOSIT_PER_BYTE
-
         prepared_initcode = Initcode(
             deploy_code=code, initcode_prefix=initcode_prefix
-        )
-        deploy_gas_limit += memory_expansion_gas_calculator(
-            new_bytes=len(bytes(prepared_initcode))
         )
 
         max_initcode_size = fork.max_initcode_size()
@@ -476,14 +521,19 @@ class Alloc(SharedAlloc):
                 f"initcode too large {initcode_len} > {max_initcode_size}"
             )
 
-        deploy_gas_limit += calldata_gas_calculator(data=prepared_initcode)
-
-        deploy_gas_limit = deploy_gas_limit * 2
+        regular_gas, deploy_gas_limit = _compute_deploy_gas_limit(
+            fork,
+            deploy_code_size=len(code),
+            initcode=prepared_initcode,
+            storage_slots=len(storage.root),
+        )
+        # Per EIP-8037, the per-tx 2^24 cap (EIP-7825) binds only the
+        # regular-gas portion; state gas is drawn from the block reservoir.
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
+        if tx_gas_limit_cap and regular_gas > tx_gas_limit_cap:
             raise ValueError(
-                f"deploy gas limit exceeds the transaction gas limit cap: "
-                f"{deploy_gas_limit} > {tx_gas_limit_cap}"
+                f"deploy regular gas exceeds the transaction gas limit cap: "
+                f"{regular_gas} > {tx_gas_limit_cap}"
             )
 
         deploy_tx = self._add_pending_tx(
@@ -557,6 +607,11 @@ class Alloc(SharedAlloc):
         # Send a transaction to fund the EOA
         fund_tx: PendingTransaction | None = None
         if delegation is not None or storage is not None:
+            fork = self._fork.fork_at(
+                block_number=self._block_number, timestamp=self._timestamp
+            )
+            intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+
             if storage is not None:
                 if not isinstance(storage, Storage):
                     storage = Storage.model_validate(storage)
@@ -564,14 +619,24 @@ class Alloc(SharedAlloc):
                     f"Deploying storage contract for EOA {eoa} "
                     f"with {len(storage)} storage slots"
                 )
-                sstore_address = self.deploy_contract(
-                    code=(
-                        sum(
-                            Op.SSTORE(key, value)
-                            for key, value in storage.items()
+
+                storage_init_code = (
+                    sum(
+                        Op.SSTORE(
+                            key,
+                            value,
+                            # gas accounting
+                            key_warm=False,
+                            original_value=0,
+                            current_value=0,
+                            new_value=1,
                         )
-                        + Op.STOP
+                        for key, value in storage.items()
                     )
+                    + Op.STOP
+                )
+                sstore_address = self.deploy_contract(
+                    code=storage_init_code,
                 )
                 logger.debug(
                     f"Storage contract deployed at {sstore_address} "
@@ -591,7 +656,11 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=100_000,
+                    gas_limit=(
+                        intrinsic_calc(authorization_list_or_count=1)
+                        + storage_init_code.gas_cost(fork)
+                        + 500_000
+                    ),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
 
@@ -616,7 +685,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=100_000,
+                    gas_limit=(intrinsic_calc(authorization_list_or_count=1)),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
             else:
@@ -634,7 +703,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=100_000,
+                    gas_limit=intrinsic_calc(authorization_list_or_count=1),
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
 
@@ -645,6 +714,7 @@ class Alloc(SharedAlloc):
                     target=label,
                     to=eoa,
                     value=amount,
+                    gas_limit=self._funding_gas_limit,
                 )
 
         if fund_tx is not None:
@@ -748,12 +818,17 @@ class Alloc(SharedAlloc):
                 )
             else:
                 if not factory_checked:
-                    assert (
+                    if (
                         check_deterministic_factory_deployment(
                             eth_rpc=self._eth_rpc, fork=fork
                         )
-                        is not None
-                    ), "Deployment contract code is not found"
+                        is None
+                    ):
+                        pytest.skip(
+                            "deterministic deployment proxy is not available "
+                            "on this network; skipping test that requires a "
+                            "deterministic contract deployment"
+                        )
                     factory_checked = True
 
                 logger.info(
@@ -862,6 +937,7 @@ class Alloc(SharedAlloc):
                     target=d.address.label,
                     to=d.address,
                     value=d.amount - current_balance,
+                    gas_limit=self._funding_gas_limit,
                 )
                 new_balance = d.amount
             else:
@@ -876,6 +952,7 @@ class Alloc(SharedAlloc):
                     target=d.address.label,
                     to=d.address,
                     value=d.amount,
+                    gas_limit=self._funding_gas_limit,
                 )
                 new_balance = current_balance + d.amount
 
@@ -930,6 +1007,7 @@ class Alloc(SharedAlloc):
                 max_priority_fee_per_gas=max_priority_fee_per_gas,
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
             )
+            assert "gas_limit" in tx.model_fields_set, "tx gas limit not set"
             gas_consumption += tx.gas_limit
             minimum_balance += tx.signer_minimum_balance(fork=fork)
         return minimum_balance + gas_consumption * gas_price, gas_consumption
@@ -952,6 +1030,23 @@ class Alloc(SharedAlloc):
         for response in responses:
             logger.debug(f"Transaction response: {response.model_dump_json()}")
         return responses
+
+    def pending_transactions(self) -> List[Transaction]:
+        """
+        Return the queued setup transactions, signed; clears the queue.
+
+        Used by fill-stateful to materialise ``pre.fund_eoa`` /
+        ``pre.deploy_contract`` calls into a synthetic setup block.
+        Unset ``value`` is coerced to ``0`` (live-send path would default
+        it before broadcast).
+        """
+        txs: List[Transaction] = []
+        for tx in self._pending_txs:
+            if tx.value is None:
+                tx.value = HexNumber(0)
+            txs.append(tx.with_signature_and_sender())
+        self._pending_txs.clear()
+        return txs
 
 
 @pytest.fixture(scope="function")
@@ -985,6 +1080,7 @@ def pre(
     max_fee_per_gas: int,
     max_priority_fee_per_gas: int,
     dry_run: bool,
+    sender_fund_refund_gas_limit: int,
     request: pytest.FixtureRequest,
 ) -> Generator[Alloc, None, None]:
     """Return default pre allocation for all tests (Empty alloc)."""
@@ -1009,6 +1105,7 @@ def pre(
         chain_id=chain_config.chain_id,
         node_id=request.node.nodeid,
         address_stubs=address_stubs,
+        funding_gas_limit=sender_fund_refund_gas_limit,
     )
 
     # Yield the pre-alloc for usage during the test
@@ -1034,7 +1131,7 @@ def pre(
     # Build refund transactions
     refund_txs: List[Transaction] = []
     skipped_refunds = 0
-    refund_gas_limit = 21_000
+    refund_gas_limit = sender_fund_refund_gas_limit
     tx_cost = refund_gas_limit * max_fee_per_gas
     for idx, eoa in enumerate(funded_eoas):
         account = eth_rpc.get_account(eoa, skip_code=True)

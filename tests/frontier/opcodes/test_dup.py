@@ -4,7 +4,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -51,7 +50,6 @@ def test_dup(
     vmTests/dup.json](https://github.com/ethereum/tests/blob/
     v14.0/GeneralStateTests/VMTests/vmTests/dup.json) by Ori Pomerantz.
     """
-    env = Environment()
     sender = pre.fund_eoa()
     post = {}
 
@@ -67,12 +65,8 @@ def test_dup(
     account = pre.deploy_contract(account_code)
 
     tx = Transaction(
-        ty=0x0,
         to=account,
-        gas_limit=500000,
-        gas_price=10,
         protected=fork.supports_protected_txs(),
-        data="",
         sender=sender,
     )
 
@@ -107,4 +101,4 @@ def test_dup(
 
     post[account] = Account(storage=s)
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

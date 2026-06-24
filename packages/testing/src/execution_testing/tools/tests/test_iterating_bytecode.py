@@ -325,7 +325,8 @@ def test_tx_iterations_by_total_iteration_count_raises_on_impossible() -> None:
 
     with pytest.raises(
         ValueError,
-        match="Single iteration gas cost is greater than gas limit.",
+        match="Single iteration gas cost exceeds gas_limit "
+        "or compute_gas_limit.",
     ):
         list(
             bytecode.tx_iterations_by_total_iteration_count(

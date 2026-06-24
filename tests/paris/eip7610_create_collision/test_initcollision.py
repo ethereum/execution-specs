@@ -22,7 +22,7 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7610.md"
 REFERENCE_SPEC_VERSION = "80ef48d0bbb5a4939ade51caaaac57b5df6acd4e"
 
 pytestmark = [
-    pytest.mark.valid_from("Paris"),
+    pytest.mark.valid_from("Frontier"),
     pytest.mark.ported_from(
         [
             "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stSStoreTest/InitCollisionFiller.json",
@@ -81,7 +81,7 @@ def test_init_collision_create_tx(
         ty=tx_type,
         to=None,
         data=initcode,
-        gas_limit=200_000,
+        protected=False,
     )
 
     created_contract_address = tx.created_contract
@@ -114,7 +114,15 @@ def test_init_collision_create_tx(
     )
 
 
-@pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.CREATE,
+        pytest.param(
+            Op.CREATE2, marks=pytest.mark.valid_from("Constantinople")
+        ),
+    ],
+)
 def test_init_collision_create_opcode(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -130,14 +138,37 @@ def test_init_collision_create_opcode(
     """
     assert len(initcode) <= 32
     contract_creator_code = (
+        # Reverts if and only if contract creation fails. In Frontier/Homestead
+        # this runs out of gas, and every other fork jumps to a non-JUMPDEST.
         Op.MSTORE(0, Op.PUSH32(bytes(initcode).ljust(32, b"\0")))
-        + Op.SSTORE(0x01, opcode(value=0, offset=0, size=len(initcode)))
+        + Op.JUMPI(
+            condition=Op.ISZERO(opcode(value=0, offset=0, size=len(initcode))),
+            pc=0,
+        )
         + Op.STOP
     )
-    contract_creator_address = pre.deploy_contract(
-        contract_creator_code,
-        storage={0x01: 0x01},
+    contract_creator_address = pre.deploy_contract(contract_creator_code)
+
+    gas_limiter_code = (
+        # Calls the contract creator, reserving some gas to SSTORE the result.
+        Op.SSTORE(
+            0x01,
+            Op.CALL(
+                gas=Op.SUB(Op.GAS, 50_000),
+                address=contract_creator_address,
+                value=0,
+                args_offset=0,
+                args_size=0,
+                ret_offset=0,
+                ret_size=0,
+            ),
+        )
     )
+    gas_limiter_address = pre.deploy_contract(
+        gas_limiter_code,
+        storage={0x01: 0x02},
+    )
+
     created_contract_address = compute_create_address(
         address=contract_creator_address,
         nonce=1,
@@ -148,9 +179,8 @@ def test_init_collision_create_opcode(
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        to=contract_creator_address,
-        data=initcode,
-        gas_limit=2_000_000,
+        to=gas_limiter_address,
+        protected=False,
     )
 
     pre[created_contract_address] = Account(
@@ -166,7 +196,7 @@ def test_init_collision_create_opcode(
             created_contract_address: Account(
                 storage={0x01: 0x01},
             ),
-            contract_creator_address: Account(storage={0x01: 0x00}),
+            gas_limiter_address: Account(storage={0x01: 0x00}),
         },
         tx=tx,
     )

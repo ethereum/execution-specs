@@ -378,7 +378,6 @@ def test_create_selfdestruct_same_tx(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
     assert tx.created_contract == entry_code_address
@@ -524,7 +523,6 @@ def test_self_destructing_initcode(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
     entry_code_address = tx.created_contract
@@ -604,7 +602,6 @@ def test_self_destructing_initcode_create_tx(
         value=tx_value,
         data=selfdestruct_code,
         to=None,
-        gas_limit=500_000,
     )
     selfdestruct_contract_address = tx.created_contract
     if selfdestruct_contract_initial_balance > 0:
@@ -783,7 +780,6 @@ def test_recreate_self_destructed_contract_different_txs(
                 data=Hash(i),
                 sender=sender,
                 to=entry_code_address,
-                gas_limit=500_000,
                 expected_receipt=expected_receipt,
             )
         )
@@ -1002,7 +998,6 @@ def test_selfdestruct_pre_existing(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
     assert tx.created_contract == entry_code_address
@@ -1172,7 +1167,6 @@ def test_selfdestruct_created_same_block_different_tx(
             data=selfdestruct_contract_initcode,
             sender=sender,
             to=None,
-            gas_limit=500_000,
             expected_receipt=tx1_receipt,
         ),
         Transaction(
@@ -1180,7 +1174,6 @@ def test_selfdestruct_created_same_block_different_tx(
             data=entry_code,
             sender=sender,
             to=None,
-            gas_limit=500_000,
             expected_receipt=tx2_receipt,
         ),
     ]
@@ -1328,7 +1321,6 @@ def test_calling_from_new_contract_to_pre_existing_contract(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
     if fork.is_eip_enabled(7708):
@@ -1492,7 +1484,6 @@ def test_calling_from_pre_existing_contract_to_new_contract(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
     entry_code_address = tx.created_contract
@@ -1737,7 +1728,6 @@ def test_create_selfdestruct_same_tx_increased_nonce(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
     )
 
     assert tx.created_contract == entry_code_address
@@ -1879,11 +1869,9 @@ def test_create_and_destroy_multiple_contracts_same_tx(
     entry_code += Op.RETURN(32, 1)
 
     tx = Transaction(
-        value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
     )
 
     post: Dict[Address, Account] = {
@@ -2058,13 +2046,11 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
         Transaction(
             sender=sender,
             to=entry_code_address,
-            gas_limit=1_000_000,
             expected_receipt=tx1_receipt,
         ),
         Transaction(
             sender=sender,
             to=tx2_caller,
-            gas_limit=500_000,
             expected_receipt=tx2_receipt,
         ),
     ]
@@ -2188,11 +2174,9 @@ def test_parent_creates_child_selfdestruct_one(
     entry_code += Op.RETURN(32, 1)
 
     tx = Transaction(
-        value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
     )
 
     post: Dict[Address, Account] = {
@@ -2365,11 +2349,9 @@ def test_recursive_contract_creation_and_selfdestruct(
     entry_code += Op.RETURN(32, 1)
 
     tx = Transaction(
-        value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=2_000_000,
     )
 
     post: Dict[Address, Account] = {

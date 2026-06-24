@@ -12,7 +12,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Final, List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -63,6 +63,7 @@ from .state_tracker import (
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,
+    FeeMarketCapableTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
     Transaction,
@@ -92,10 +93,11 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = U64(786432)
+MAX_BLOB_GAS_PER_BLOCK: Final[U64] = U64(786432)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 
+@final
 @dataclass
 class BlockChain:
     """
@@ -447,7 +449,7 @@ def check_transaction(
     sender_address = recover_sender(block_env.chain_id, tx)
     sender_account = get_account(tx_state, sender_address)
 
-    if isinstance(tx, (FeeMarketTransaction, BlobTransaction)):
+    if isinstance(tx, FeeMarketCapableTransaction):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
             raise PriorityFeeGreaterThanMaxFeeError(
                 "priority fee greater than max fee"
@@ -769,18 +771,10 @@ def process_transaction(
     transaction_fee = tx_gas_used_after_refund * priority_fee_per_gas
 
     # refund gas
-    sender_balance_after_refund = get_account(tx_state, sender).balance + U256(
-        gas_refund_amount
-    )
-    set_account_balance(tx_state, sender, sender_balance_after_refund)
+    create_ether(tx_state, sender, U256(gas_refund_amount))
 
     # transfer miner fees
-    coinbase_balance_after_mining_fee = get_account(
-        tx_state, block_env.coinbase
-    ).balance + U256(transaction_fee)
-    set_account_balance(
-        tx_state, block_env.coinbase, coinbase_balance_after_mining_fee
-    )
+    create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
     for address in tx_output.accounts_to_delete:
         destroy_account(tx_state, address)

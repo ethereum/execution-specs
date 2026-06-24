@@ -176,8 +176,13 @@ def tx_data(
     `FLOOR_GAS_COST_LESS_THAN_OR_EQUAL_TO_INTRINSIC_GAS`
     """
 
+    # Encode `tokens` as `tokens` zero bytes: each zero byte is 1
+    # EIP-7623 token, and byte count grows linearly with `tokens` so
+    # both EIP-7623 (per-token) and EIP-7976 (per-byte) floor costs
+    # are monotonic — required for the `find_floor_cost_threshold`
+    # binary search.
     def tokens_to_data(tokens: int) -> Bytes:
-        return Bytes(b"\x01" * (tokens // 4) + b"\x00" * (tokens % 4))
+        return Bytes(b"\x00" * tokens)
 
     fork_intrinsic_cost_calculator = (
         fork.transaction_intrinsic_cost_calculator()

@@ -13,7 +13,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
@@ -39,6 +39,7 @@ SYSTEM_ADDRESS = Address(
 CALL_SUCCESS = U256(1)
 
 
+@final
 @dataclass
 class BlockEnvironment:
     """
@@ -61,6 +62,7 @@ class BlockEnvironment:
     transaction_public_keys: Optional[Tuple[Bytes, ...]] = None
 
 
+@final
 @dataclass
 class BlockOutput:
     """
@@ -70,6 +72,10 @@ class BlockOutput:
 
     block_gas_used : `ethereum.base_types.Uint`
         Gas used for executing all transactions.
+    block_state_gas_used : `ethereum.base_types.Uint`
+        State gas used for executing all transactions.
+    cumulative_gas_used : `ethereum.base_types.Uint`
+        Cumulative gas paid by users (post-refund, post-floor).
     transactions_trie : `ethereum.fork_types.Root`
         Trie of all the transactions in the block.
     receipts_trie : `ethereum.fork_types.Root`
@@ -90,6 +96,7 @@ class BlockOutput:
     """
 
     block_gas_used: Uint = Uint(0)
+    block_state_gas_used: Uint = Uint(0)
     cumulative_gas_used: Uint = Uint(0)
     transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = (
         field(default_factory=lambda: Trie(secured=False, default=None))
@@ -107,15 +114,17 @@ class BlockOutput:
     block_access_list: BlockAccessList = field(default_factory=list)
 
 
+@final
 @dataclass
 class TransactionEnvironment:
     """
-    Items that are used by contract creation or message call.
+    Items that are used while processing a transaction.
     """
 
     origin: Address
     gas_price: Uint
     gas: Uint
+    state_gas_reservoir: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
     state: TransactionState
@@ -123,8 +132,11 @@ class TransactionEnvironment:
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
+    intrinsic_regular_gas: Uint
+    intrinsic_state_gas: Uint
 
 
+@final
 @dataclass
 class Message:
     """
@@ -137,6 +149,7 @@ class Message:
     target: Bytes0 | Address
     current_target: Address
     gas: Uint
+    state_gas_reservoir: Uint
     value: U256
     data: Bytes
     code_address: Optional[Address]
@@ -150,6 +163,7 @@ class Message:
     parent_evm: Optional["Evm"]
 
 
+@final
 @dataclass
 class Evm:
     """The internal state of the virtual machine."""
@@ -159,6 +173,7 @@ class Evm:
     memory: bytearray
     code: Bytes
     gas_left: Uint
+    state_gas_left: Uint
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     refund_counter: int
@@ -170,6 +185,33 @@ class Evm:
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    regular_gas_used: Uint = Uint(0)
+    state_gas_used: int = 0
+    state_gas_spilled: Uint = Uint(0)
+
+
+def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
+    """
+    Credit a state gas refund to the local frame, in LIFO order.
+
+    State-gas charges draw from the reservoir first and from `gas_left`
+    last, so refills credit the pool charged last first: `gas_left` up
+    to `state_gas_spilled`, then the reservoir. This restores the
+    exact pools the charge drew from, so the two never drift.
+
+    Parameters
+    ----------
+    evm :
+        The frame crediting the refund.
+    amount :
+        The refund amount to credit.
+
+    """
+    from_gas_left = min(amount, evm.state_gas_spilled)
+    evm.gas_left += from_gas_left
+    evm.state_gas_spilled -= from_gas_left
+    evm.state_gas_left += amount - from_gas_left
+    evm.state_gas_used -= int(amount)
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -185,16 +227,53 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
+    evm.state_gas_left += child_evm.state_gas_left
+    evm.state_gas_spilled += child_evm.state_gas_spilled
     evm.logs += child_evm.logs
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
+    evm.regular_gas_used += child_evm.regular_gas_used
+    evm.state_gas_used += child_evm.state_gas_used
 
 
-def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
+def refill_frame_state_gas(evm: Evm) -> None:
+    """
+    Roll back the frame's state gas in LIFO order on revert or halt.
+
+    The frame's state changes are undone, so the state gas it consumed
+    is credited back to `gas_left` first and then to the reservoir,
+    restoring the pools the charges drew from.
+
+    Parameters
+    ----------
+    evm :
+        The frame whose state gas is rolled back.
+
+    """
+    evm.gas_left += evm.state_gas_spilled
+    evm.state_gas_left = Uint(
+        int(evm.state_gas_left)
+        + evm.state_gas_used
+        - int(evm.state_gas_spilled)
+    )
+    evm.state_gas_used = 0
+    evm.state_gas_spilled = Uint(0)
+
+
+def incorporate_child_on_error(
+    evm: Evm,
+    child_evm: Evm,
+) -> None:
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
+
+    The child rolls back its own state gas via `refill_frame_state_gas`
+    before returning (on both reverts and exceptional halts), so its
+    `gas_left` and reservoir already reflect the LIFO refill and its
+    `state_gas_used` is zero. The parent therefore only reabsorbs the
+    child's `gas_left` and reservoir.
 
     Parameters
     ----------
@@ -205,6 +284,8 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
+    evm.state_gas_left += child_evm.state_gas_left
+    evm.regular_gas_used += child_evm.regular_gas_used
 
 
 def emit_transfer_log(

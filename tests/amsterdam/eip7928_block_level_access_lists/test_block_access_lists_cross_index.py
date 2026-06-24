@@ -14,7 +14,10 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountAbsentValues,
     BalAccountExpectation,
+    BalBalanceChange,
+    BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
     Block,
@@ -25,6 +28,8 @@ from execution_testing import (
     Transaction,
 )
 
+from ...prague.eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
+from ...prague.eip7251_consolidations.spec import Spec as Spec7251
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -33,10 +38,10 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 WITHDRAWAL_REQUEST_ADDRESS = Address(
-    0x00000961EF480EB55E80D19AD83579A64C007002
+    Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
 )
 CONSOLIDATION_REQUEST_ADDRESS = Address(
-    0x0000BBDDC7CE488642FB579F8B00F3A590007251
+    Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
 )
 
 
@@ -64,7 +69,6 @@ def test_bal_withdrawal_contract_cross_index(
         to=WITHDRAWAL_REQUEST_ADDRESS,
         value=1,
         data=withdrawal_calldata,
-        gas_limit=1_000_000,
     )
 
     blockchain_test(
@@ -137,7 +141,6 @@ def test_bal_consolidation_contract_cross_index(
         to=CONSOLIDATION_REQUEST_ADDRESS,
         value=1,
         data=consolidation_calldata,
-        gas_limit=1_000_000,
     )
 
     blockchain_test(
@@ -218,11 +221,7 @@ def test_bal_noop_write_filtering(
         storage={3: 100, 4: 150},
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=test_address,
-        gas_limit=100_000,
-    )
+    tx = Transaction(sender=sender, to=test_address)
 
     # Expected BAL should only show actual changes
     expected_block_access_list = BlockAccessListExpectation(
@@ -264,6 +263,97 @@ def test_bal_noop_write_filtering(
     )
 
 
+def test_bal_intra_tx_round_trip_after_prior_tx_write(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Verify a per-tx no-op SSTORE round-trip is not recorded as a storage
+    change when an earlier tx in the same block wrote the slot.
+
+    Per EIP-7928 §Storage, a write is compared against "the storage value
+    as of immediately before the current `block_access_index` (i.e., the
+    cumulative state from all prior indices, falling back to the pre-block
+    state)", and "a no-op write MUST NOT remove `storage_changes` entries
+    from earlier indices for the same slot".
+
+    Both txs call the same contract whose runtime SSTOREs 0xff then 0x42
+    to slot 1. Tx 1 changes slot 1 from 0 to 0x42 (real change). Tx 1's
+    write becomes tx 2's baseline, so tx 2's 0x42 -> 0xff -> 0x42 nets to
+    a no-op and only tx 1 appears in `storage_changes` (with tx 1's entry
+    left intact).
+    """
+    # Runtime: write 0xff to slot 1, then write 0x42 to slot 1, STOP.
+    # The two SSTOREs hit the journal at every call, but the net effect
+    # on the slot is `pre_value -> 0x42` — a no-op when pre_value == 0x42.
+    contract_code = Bytecode(Op.SSTORE(1, 0xFF) + Op.SSTORE(1, 0x42) + Op.STOP)
+    contract = pre.deploy_contract(code=contract_code)
+
+    sender_a = pre.fund_eoa()
+    sender_b = pre.fund_eoa()
+
+    # Both txs go into the same block; tx 1 makes the real 0 -> 0x42
+    # change, tx 2 starts from 0x42 and ends at 0x42 (per-tx no-op).
+    tx_1 = Transaction(sender=sender_a, to=contract)
+    tx_2 = Transaction(sender=sender_b, to=contract)
+
+    expected_block_access_list = BlockAccessListExpectation(
+        account_expectations={
+            contract: BalAccountExpectation(
+                # Only tx 1's real change appears. Tx 2's same-value
+                # round-trip MUST be classified as a read for tx 2.
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x42
+                            ),
+                        ],
+                    ),
+                ],
+                # `storage_changes` is only verified as a sub-sequence
+                # at fill time, so this additional check guards against a
+                # reference regression that emits tx 2's no-op as a
+                # spurious index-2 change.
+                absent_values=BalAccountAbsentValues(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=1,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=2, post_value=0x42
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ),
+            sender_a: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                ],
+            ),
+            sender_b: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=2, post_nonce=1),
+                ],
+            ),
+        }
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx_1, tx_2],
+                expected_block_access_list=expected_block_access_list,
+            ),
+        ],
+        post={contract: Account(storage={1: 0x42})},
+    )
+
+
 def test_bal_system_contract_noop_filtering(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -285,7 +375,6 @@ def test_bal_system_contract_noop_filtering(
         sender=sender,
         to=receiver,
         value=100,
-        gas_limit=21_000,
     )
 
     # withdrawal and consolidation contracts should NOT have any storage
@@ -314,5 +403,113 @@ def test_bal_system_contract_noop_filtering(
         ],
         post={
             receiver: Account(balance=100),
+        },
+    )
+
+
+def test_bal_withdrawal_predeploy_balance_observed_cross_tx(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Test that a subsequent transaction observes the post-state balance of the
+    withdrawal predeploy after a prior transaction in the same block paid the
+    withdrawal fee.
+
+    Within one block:
+      - tx 0: EOA sends `fee` wei to WITHDRAWAL_REQUEST_PREDEPLOY with a valid
+        withdrawal-request calldata. The predeploy retains the fee, so its
+        balance transitions 0 -> fee (BAL balance_change at index 1).
+      - tx 1: calls a reader contract that performs
+        `SSTORE(0, BALANCE(WITHDRAWAL_REQUEST_PREDEPLOY))`.
+
+    Per EIP-7928, the BAL prefix consumed by tx 1's execution must include
+    tx 0's balance change for the predeploy, so the BALANCE opcode returns
+    `fee` and slot 0 of the reader ends at `fee`. The predeploy is also
+    touched by the prepare-block system call (storage reads at slots 0-3),
+    making its address one whose pre-block snapshot would otherwise mask the
+    BAL overlay if consulted ahead of the BAL prefix.
+    """
+    fee = 1  # Spec7002.get_fee(0) is 1 when excess == 0; one request fits.
+    withdrawal_calldata = (
+        (b"\x01" + b"\x00" * 47)  # 48-byte validator pubkey
+        + (b"\x00" * 8)  # 8-byte amount
+    )
+
+    sender_0 = pre.fund_eoa()
+    sender_1 = pre.fund_eoa()
+
+    reader = pre.deploy_contract(
+        code=Bytecode(
+            Op.SSTORE(
+                0,
+                Op.BALANCE(WITHDRAWAL_REQUEST_ADDRESS),
+            )
+            + Op.STOP
+        ),
+    )
+
+    tx_pay_fee = Transaction(
+        sender=sender_0,
+        to=WITHDRAWAL_REQUEST_ADDRESS,
+        value=fee,
+        data=withdrawal_calldata,
+    )
+
+    tx_read_balance = Transaction(sender=sender_1, to=reader)
+
+    expected_block_access_list = BlockAccessListExpectation(
+        account_expectations={
+            # Predeploy: tx 0 records the fee as a BAL balance_change at
+            # index 1; the framework also verifies the system-call storage
+            # behaviour through its own post-execution invariants.
+            WITHDRAWAL_REQUEST_ADDRESS: BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(
+                        block_access_index=1,
+                        post_balance=fee,
+                    ),
+                ],
+            ),
+            # Reader: tx 1 stores the predeploy balance at slot 0.
+            # If the consumed BAL prefix did not surface tx 0's balance
+            # change to BALANCE, post_value would be 0 and the assertion
+            # below would fail.
+            reader: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=2,
+                                post_value=fee,
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+            sender_0: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                ],
+            ),
+            sender_1: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=2, post_nonce=1),
+                ],
+            ),
+        }
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx_pay_fee, tx_read_balance],
+                expected_block_access_list=expected_block_access_list,
+            ),
+        ],
+        post={
+            reader: Account(storage={0: fee}),
         },
     )

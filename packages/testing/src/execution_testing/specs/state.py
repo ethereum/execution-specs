@@ -377,7 +377,11 @@ class StateTest(BaseTest):
         )
 
         env = self.env.set_fork_requirements(fork)
-        tx = self.tx.with_signature_and_sender(keep_secret_key=True)
+        tx = self.tx.with_gas_limit(
+            max_gas_limit=env.gas_limit,
+            transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+            state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+        ).with_signature_and_sender(keep_secret_key=True)
         pre_alloc = Alloc.merge(
             Alloc.model_validate(fork.pre_allocation()),
             self.pre,
@@ -436,18 +440,20 @@ class StateTest(BaseTest):
             # First try reducing the gas limit only by one, if the validation
             # fails, it means that the traces change even with the slightest
             # modification to the gas.
+            tx_gas_limit = int(tx.gas_limit)
+
             if self.verify_modified_gas_limit(
                 t8n=t8n,
                 base_tool_result=base_tool_result,
                 base_tool_alloc=base_tool_alloc,
                 fork=fork,
-                current_gas_limit=self.tx.gas_limit - 1,
+                current_gas_limit=tx_gas_limit - 1,
                 pre_alloc=pre_alloc,
                 env=env,
                 ignore_gas_differences=ignore_gas_differences,
             ):
                 minimum_gas_limit = 0
-                maximum_gas_limit = int(self.tx.gas_limit)
+                maximum_gas_limit = tx_gas_limit
                 while minimum_gas_limit < maximum_gas_limit:
                     current_gas_limit = (
                         maximum_gas_limit + minimum_gas_limit

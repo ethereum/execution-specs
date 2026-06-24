@@ -61,7 +61,12 @@ class TransactionDataFloorCostCalculator(Protocol):
     Calculate the transaction floor cost due to its calldata for a given fork.
     """
 
-    def __call__(self, *, data: BytesConvertible) -> int:
+    def __call__(
+        self,
+        *,
+        data: BytesConvertible,
+        access_list: List[AccessList] | None = None,
+    ) -> int:
         """Return transaction gas cost of calldata given its contents."""
         pass
 
@@ -465,6 +470,47 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def opcode_state_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state gas costs.
+
+        An int value is a multiplier of `cost_per_state_byte`. A
+        callable takes the opcode instance with metadata and returns
+        the full state gas cost.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their gas refunds.
+
+        An int value is a direct gas refund. A callable takes the
+        opcode instance with metadata and returns the gas refund.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_state_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state refunds.
+
+        An int value is a multiplier of `cost_per_state_byte`. A
+        callable takes the opcode instance with metadata and returns
+        the state refund.
+        """
+        pass
+
     # Gas calculation helpers
     @classmethod
     @abstractmethod
@@ -592,6 +638,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def cost_per_state_byte(cls) -> int:
+        """
+        Return the cost per state byte for this fork.
+        """
+        pass
+
     # Fee helpers
     @classmethod
     @abstractmethod
@@ -633,6 +687,25 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         for the fork.
         """
         pass
+
+    @classmethod
+    def transaction_intrinsic_state_gas(
+        cls,
+        *,
+        contract_creation: bool = False,
+        authorization_count: int = 0,
+    ) -> int:
+        """Return intrinsic state gas (zero pre-Amsterdam)."""
+        del contract_creation, authorization_count
+        return 0
+
+    @classmethod
+    def system_call_gas_limit(cls) -> int:
+        """
+        Return the total gas budget the system transaction grants the
+        target contract.
+        """
+        return 0
 
     @classmethod
     @abstractmethod
@@ -768,6 +841,46 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         Return the transaction gas limit cap, or None if no limit is imposed.
         """
         pass
+
+    @classmethod
+    @abstractmethod
+    def state_gas_reservoir_enabled(cls) -> bool:
+        """
+        Return True if the fork enables a state gas reservoir.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def code_deposit_state_gas(cls, *, code_size: int) -> int:
+        """Return state gas for code deposit of the given size."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def create_state_gas(cls, *, code_size: int = 0) -> int:
+        """Return total state gas for CREATE."""
+        pass
+
+    @classmethod
+    def oog_budget_lift(
+        cls,
+        *,
+        sstores_before_oog: int = 0,
+        creates_before_oog: int = 0,
+        deploy_code_size: int = 0,
+    ) -> int:
+        """
+        Return the extra regular gas an out of gas budget needs to
+        stop at the same point on this fork: the state gas EIP-8037
+        spills into regular gas for the given SSTOREs, CREATEs, and
+        deployed bytes. Zero before EIP-8037, so no fork guard needed.
+        """
+        return (
+            sstores_before_oog * Opcodes.SSTORE(new_value=1).state_cost(cls)
+            + creates_before_oog * cls.create_state_gas()
+            + cls.code_deposit_state_gas(code_size=deploy_code_size)
+        )
 
     @classmethod
     @abstractmethod

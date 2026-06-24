@@ -317,7 +317,6 @@ def test_blobhash_opcode_contexts(
         tx=Transaction(
             ty=Spec.BLOB_TX_TYPE,
             to=tx_to,
-            gas_limit=500_000,
             max_fee_per_blob_gas=fork.min_base_fee_per_blob_gas() * 10,
             blob_versioned_hashes=simple_blob_hashes,
             sender=pre.fund_eoa(),

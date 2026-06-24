@@ -3,6 +3,8 @@ Test_create_name_registrator.
 
 Ported from:
 state_tests/stSystemOperationsTest/createNameRegistratorFiller.json
+
+@manually-enhanced: Do not overwrite. tx `gas_limit` has been removed.
 """
 
 import pytest
@@ -61,11 +63,7 @@ def test_create_name_registrator(
     )
 
     tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=300000,
-        value=0x186A0,
+        sender=sender, to=contract_0, data=Bytes(""), value=0x186A0
     )
 
     post = {

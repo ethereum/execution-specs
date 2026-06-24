@@ -45,29 +45,24 @@ def test_calldatasize(
     81862e4848585a438d64f911a19b3825f0f4cd95/src/
     GeneralStateTestsFiller/VMTests/vmTests/calldatasizeFiller.yml
     """
-    contract_address = pre.deploy_contract(
-        Op.SSTORE(key=0x0, value=Op.CALLDATASIZE)
-    )
+    contract_code = Op.SSTORE(key=0x0, value=Op.CALLDATASIZE)
+    contract_address = pre.deploy_contract(contract_code)
     calldata = b"\x01" * args_size
 
+    outer_call_reserve = 256
     if calldata_source == "contract":
-        to = pre.deploy_contract(
-            code=(
-                Om.MSTORE(calldata, 0x0)
-                + Op.CALL(
-                    gas=Op.SUB(Op.GAS(), 0x100),
-                    address=contract_address,
-                    value=0x0,
-                    args_offset=0x0,
-                    args_size=args_size,
-                    ret_offset=0x0,
-                    ret_size=0x0,
-                )
-            )
+        outer_code = Om.MSTORE(calldata, 0x0) + Op.CALL(
+            gas=Op.SUB(Op.GAS(), outer_call_reserve),
+            address=contract_address,
+            value=0x0,
+            args_offset=0x0,
+            args_size=args_size,
+            ret_offset=0x0,
+            ret_size=0x0,
         )
+        to = pre.deploy_contract(code=outer_code)
 
         tx = Transaction(
-            gas_limit=100_000,
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=to,
@@ -76,7 +71,6 @@ def test_calldatasize(
     else:
         tx = Transaction(
             data=calldata,
-            gas_limit=100_000,
             protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=contract_address,

@@ -1,0 +1,700 @@
+"""
+Test the core EIP-8037 state gas pricing and charge mechanism.
+
+`cost_per_state_byte` is a fixed parameter (CPSB = 1530) derived from
+a 150M reference block gas limit and a 120 GiB/year target state
+growth. The state gas cost of any operation is its byte footprint
+multiplied by CPSB.
+
+The `charge_state_gas()` function draws from the state gas reservoir
+first, then spills into gas_left. If both pools are insufficient, the
+transaction runs out of gas.
+
+Tests for [EIP-8037: State Creation Gas Cost Increase]
+(https://eips.ethereum.org/EIPS/eip-8037).
+"""
+
+import pytest
+from execution_testing import (
+    AccessList,
+    Account,
+    Address,
+    Alloc,
+    AuthorizationTuple,
+    Environment,
+    Fork,
+    Op,
+    StateTestFiller,
+    Storage,
+    Transaction,
+    TransactionException,
+)
+from execution_testing.checklists import EIPChecklist
+
+from .spec import ref_spec_8037
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8037.version
+
+BLOCK_GAS_LIMITS = [
+    pytest.param(1_000_000, id="1M"),
+    pytest.param(30_000_000, id="30M"),
+    pytest.param(36_000_000, id="36M"),
+    pytest.param(60_000_000, id="60M"),
+    pytest.param(100_000_000, id="100M"),
+    pytest.param(120_000_000, id="120M"),
+    pytest.param(200_000_000, id="200M"),
+    pytest.param(300_000_000, id="300M"),
+    pytest.param(500_000_000, id="500M"),
+    pytest.param(1_000_000_000, id="1G"),
+]
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_pricing_at_various_gas_limits(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test SSTORE succeeds at various block gas limits.
+
+    EIP-8037 prices state gas at a constant `cost_per_state_byte`,
+    independent of block gas limit. At each block size, an SSTORE
+    zero-to-nonzero should succeed when given sufficient total gas.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    tx_gas = min(gas_limit_cap + sstore_state_gas, block_gas_limit)
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(storage.store_next(1), 1),
+    )
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_charge_draws_entirely_from_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test state gas is drawn entirely from the reservoir.
+
+    When the reservoir has enough gas for the SSTORE state cost,
+    gas_left should not be reduced by the state charge. Verify by
+    performing a regular-gas-heavy computation after the SSTORE.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=(
+            # SSTORE draws state gas from reservoir
+            Op.SSTORE(storage.store_next(1), 1)
+            # Remaining gas_left is available for regular ops
+            + Op.SSTORE(
+                storage.store_next(1),
+                Op.ADD(1, 0),  # Cheap regular-gas op
+            )
+        ),
+    )
+
+    # Provide exact state gas in the reservoir
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=sstore_state_gas * 2,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_charge_spills_to_gas_left(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test state gas spills from reservoir to gas_left.
+
+    When the reservoir has some gas but not enough to cover the full
+    state charge, the remainder is taken from gas_left. The SSTORE
+    should still succeed.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(storage.store_next(1), 1),
+    )
+
+    # Provide half the state gas in the reservoir, rest from gas_left
+    half_state_gas = sstore_state_gas // 2
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=half_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.valid_from("EIP8037")
+def test_charge_oog_both_pools_insufficient(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test OOG when both reservoir and gas_left are insufficient.
+
+    Provide just enough gas for intrinsic + SSTORE regular gas but
+    not enough for the state gas charge. Neither the reservoir (empty
+    at TX_MAX_GAS_LIMIT) nor gas_left can cover the cost.
+    """
+    gas_costs = fork.gas_costs()
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(0, 1),
+    )
+
+    # Tight gas: intrinsic + SSTORE regular gas only
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    gas_limit = intrinsic_cost() + gas_costs.COLD_STORAGE_WRITE
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    # OOG — storage unchanged
+    post = {contract: Account(storage={0: 0})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
+@pytest.mark.valid_from("EIP8037")
+def test_refund_cap_includes_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test the 1/5 refund cap includes state gas used from gas_left.
+
+    When state gas is drawn from gas_left (no reservoir), it counts
+    toward tx_gas_used_before_refund. The 1/5 refund cap applies to
+    the combined total of regular + state gas consumed. This test
+    performs an SSTORE zero-to-nonzero-to-zero sequence to generate
+    a refund and verifies the transaction succeeds.
+    """
+    contract = pre.deploy_contract(
+        code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
+    )
+
+    # No reservoir — all gas from gas_left, refund cap applies
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    # Slot 0 restored to zero
+    post = {contract: Account(storage={0: 0})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
+@pytest.mark.valid_from("EIP8037")
+def test_refund_with_reservoir_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test refund when state gas is drawn from reservoir.
+
+    When state gas comes from the reservoir, the refund still applies.
+    The refund_counter accumulates state + regular gas refunds, and
+    the 1/5 cap uses tx_gas_used_before_refund which accounts for
+    both dimensions. An SSTORE zero-to-nonzero-to-zero sequence
+    should refund correctly.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+
+    contract = pre.deploy_contract(
+        code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
+    )
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    # Slot 0 restored to zero
+    post = {contract: Account(storage={0: 0})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def _access_list_over_regular_cap(
+    fork: Fork, cap: int, *, margin_num: int = 1, margin_den: int = 1
+) -> list[AccessList]:
+    """
+    Build an access list whose intrinsic *regular* gas exceeds ``cap`` by
+    roughly the factor ``margin_num / margin_den``.
+
+    Each access-list address adds a fixed amount to the regular intrinsic
+    (the EIP-2930 address cost plus the EIP-7981 floor-token surcharge) and
+    a much smaller amount to the calldata floor, so the list raises the
+    regular operand of ``max(intrinsic_regular, calldata_floor)`` over the
+    cap while the floor stays below it. No state gas is incurred.
+    """
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    base_regular = intrinsic(return_cost_deducted_prior_execution=True)
+    per_address_regular = (
+        intrinsic(
+            access_list=[AccessList(address=Address(0x100), storage_keys=[])],
+            return_cost_deducted_prior_execution=True,
+        )
+        - base_regular
+    )
+    assert per_address_regular > 0
+    num_entries = (cap * margin_num) // (per_address_regular * margin_den) + 1
+    return [
+        AccessList(address=Address(0x10000 + i), storage_keys=[])
+        for i in range(num_entries)
+    ]
+
+
+@pytest.mark.exception_test
+@pytest.mark.valid_from("EIP8037")
+def test_intrinsic_regular_gas_exceeds_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Reject a transaction whose intrinsic *regular* gas exceeds the cap.
+
+    EIP-8037 enforces ``max(intrinsic_regular, calldata_floor) <=
+    TX_MAX_GAS_LIMIT`` after the separate sufficiency check
+    ``max(intrinsic_total, calldata_floor) <= tx.gas``. A large access list
+    raises the regular intrinsic over the cap while adding no state gas and
+    keeping the calldata floor below the cap. ``gas_limit`` is set above the
+    total intrinsic so the sufficiency check passes and the cap is the only
+    reason the transaction is rejected; a client that compares the intrinsic
+    against ``tx.gas`` but never against the cap would wrongly accept it.
+    """
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    floor_cost = fork.transaction_data_floor_cost_calculator()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+
+    access_list = _access_list_over_regular_cap(fork, cap)
+    regular = intrinsic(
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = floor_cost(data=b"", access_list=access_list)
+    state = fork.transaction_intrinsic_state_gas()
+    tx_gas = regular + state + 1_000_000
+
+    assert max(regular, floor) > cap, "cap check must fire"
+    assert regular + state <= tx_gas, "sufficiency check must not fire"
+    assert floor <= tx_gas
+
+    tx = Transaction(
+        ty=1,
+        to=pre.deploy_contract(code=Op.STOP),
+        gas_limit=tx_gas,
+        access_list=access_list,
+        sender=pre.fund_eoa(),
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+    )
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.exception_test
+@pytest.mark.valid_from("EIP8037")
+def test_intrinsic_regular_gas_exceeds_cap_with_floor_below_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Reject when intrinsic *regular* gas exceeds the cap while the calldata
+    floor stays below it, isolating the regular operand of
+    ``max(intrinsic_regular, calldata_floor)``.
+
+    A large access list with no calldata pushes the regular intrinsic over
+    the cap while the floor stays well below it, and ``gas_limit`` covers
+    the total intrinsic so the sufficiency check passes. The explicit
+    ``floor < cap`` assertion guarantees the rejection comes from the
+    regular operand, so a client that compares only the calldata floor
+    against the cap would wrongly accept the transaction.
+    """
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    floor_cost = fork.transaction_data_floor_cost_calculator()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+
+    access_list = _access_list_over_regular_cap(
+        fork, cap, margin_num=5, margin_den=4
+    )
+    regular = intrinsic(
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = floor_cost(data=b"", access_list=access_list)
+    state = fork.transaction_intrinsic_state_gas()
+    tx_gas = regular + state + 1_000_000
+
+    assert regular > cap, "regular operand must exceed the cap"
+    assert floor < cap, "calldata floor must stay below the cap"
+    assert regular + state <= tx_gas, "sufficiency check must not fire"
+
+    tx = Transaction(
+        ty=1,
+        to=pre.deploy_contract(code=Op.STOP),
+        gas_limit=tx_gas,
+        access_list=access_list,
+        sender=pre.fund_eoa(),
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+    )
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_intrinsic_within_cap_gas_limit_above_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Accept a transaction whose ``gas_limit`` exceeds the cap when both
+    intrinsic operands stay below it.
+
+    EIP-8037 relaxes the EIP-7825 cap on ``tx.gas`` itself; only
+    ``max(intrinsic_regular, calldata_floor)`` is capped. This positive
+    control sets ``gas_limit`` above the cap with a small access list so
+    both operands are far below it, and the transaction must execute. It is
+    the accepting counterpart to the cap-rejection tests above.
+    """
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    floor_cost = fork.transaction_data_floor_cost_calculator()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+
+    access_list = [
+        AccessList(address=Address(0x10000 + i), storage_keys=[])
+        for i in range(16)
+    ]
+    regular = intrinsic(
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = floor_cost(data=b"", access_list=access_list)
+    assert regular <= cap
+    assert floor <= cap
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(storage.store_next(1), 1),
+    )
+
+    tx = Transaction(
+        ty=1,
+        to=contract,
+        gas_limit=cap + 3_000_000,
+        access_list=access_list,
+        sender=pre.fund_eoa(),
+    )
+    state_test(pre=pre, post={contract: Account(storage=storage)}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "above_floor",
+    [
+        pytest.param(
+            False,
+            id="below_floor",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(True, id="at_floor"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_calldata_floor_enforced_with_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    above_floor: bool,
+) -> None:
+    """
+    Test EIP-7623 calldata floor is enforced when EIP-8037 is active.
+
+    Send 100 non-zero calldata bytes to a call transaction so the
+    regular intrinsic cost is below the calldata floor. A gas_limit
+    at the floor succeeds; one below the floor is rejected.
+    """
+    calldata = b"\x01" * 100
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    floor_cost = fork.transaction_data_floor_cost_calculator()
+
+    regular_gas = intrinsic_cost(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor_gas = floor_cost(data=calldata)
+    assert floor_gas > regular_gas, "floor must exceed regular for test"
+
+    if above_floor:
+        gas_limit = floor_gas
+        error = None
+    else:
+        # Between regular and floor: satisfies regular but not floor
+        gas_limit = (regular_gas + floor_gas) // 2
+        error = TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+
+    tx = Transaction(
+        to=pre.fund_eoa(0),
+        data=calldata,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        error=error,
+    )
+
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_create_state_gas_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test CREATE new-account state gas scales with block gas limit.
+
+    State gas for a CREATE is 120 * cpsb (new account) plus
+    code_size * cpsb (code deposit).
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    create_state_gas = fork.create_state_gas(code_size=1)
+
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                storage.store_next(1, "create_success"),
+                Op.GT(Op.CREATE(0, 0, 1), 0),
+            )
+        ),
+    )
+
+    tx_gas = min(gas_limit_cap + create_state_gas, block_gas_limit)
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_call_new_account_state_gas_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test CALL value transfer to empty account scales with block gas limit.
+
+    Sending value to a non-existent account charges 120 * cpsb
+    of state gas for account creation.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
+
+    empty = pre.fund_eoa(0)
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                storage.store_next(1, "call_success"),
+                Op.CALL(gas=100_000, address=empty, value=1),
+            )
+        ),
+        balance=1,
+    )
+
+    tx_gas = min(gas_limit_cap + new_account_state_gas, block_gas_limit)
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_new_beneficiary_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test SELFDESTRUCT to new beneficiary scales with block gas limit.
+
+    Destructing to a non-existent address with balance charges
+    120 * cpsb of state gas for the new beneficiary account.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.NEW_ACCOUNT
+
+    beneficiary = pre.fund_eoa(0)
+    storage = Storage()
+    caller = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                storage.store_next(1, "selfdestruct_ran"),
+                1,
+            )
+            + Op.SELFDESTRUCT(beneficiary)
+        ),
+        balance=1,
+    )
+
+    tx_gas = min(gas_limit_cap + new_account_state_gas, block_gas_limit)
+    tx = Transaction(
+        to=caller,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {caller: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_sstore_refund_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test SSTORE restoration refund scales with block gas limit.
+
+    Zero-to-nonzero-to-zero in the same tx refunds the state gas
+    (64 * cpsb) via refund_counter.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+
+    contract = pre.deploy_contract(
+        code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
+    )
+
+    tx_gas = min(gas_limit_cap + sstore_state_gas, block_gas_limit)
+    tx = Transaction(
+        to=contract,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {contract: Account(storage={0: 0})}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
+def test_auth_state_gas_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test SetCode authorization state gas scales with block gas limit.
+
+    A type-4 tx with one authorization charges
+    (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE) * cpsb
+    of intrinsic state gas for the new account delegation.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+    auth_state_gas = fork.transaction_intrinsic_state_gas(
+        authorization_count=1,
+    )
+
+    delegate = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    signer = pre.fund_eoa()
+
+    storage = Storage()
+    target = pre.deploy_contract(
+        code=Op.SSTORE(
+            storage.store_next(1, "delegated_call_success"),
+            Op.CALL(gas=100_000, address=signer),
+        ),
+    )
+
+    tx_gas = min(gas_limit_cap + auth_state_gas, block_gas_limit)
+    tx = Transaction(
+        ty=4,
+        to=target,
+        gas_limit=tx_gas,
+        sender=pre.fund_eoa(),
+        authorization_list=[
+            AuthorizationTuple(
+                address=delegate,
+                nonce=0,
+                signer=signer,
+            ),
+        ],
+    )
+
+    post = {target: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)

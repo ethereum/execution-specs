@@ -3,6 +3,12 @@ Collision with the contract that already has the same init code that we...
 
 Ported from:
 state_tests/stCreate2/create2collisionCode2Filler.json
+
+@manually-enhanced: Do not overwrite. `tx_gas` raised on Amsterdam to
+cover EIP-8037 NEW_ACCOUNT state-gas spill into regular gas. Pre-
+EIP-8037 keeps the original 400 000 budget; post-state expectations
+unchanged on all forks.
+
 """
 
 import pytest
@@ -120,7 +126,12 @@ def test_create2collision_code2(
         + Op.CREATE2(value=0x1, offset=0x14, size=0xC, salt=0x0)
         + Op.STOP,
     ]
-    tx_gas = [400000]
+    # EIP-8037 NEW_ACCOUNT state-gas spill on Amsterdam exceeds
+    # the original 400 000 budget. Pre-EIP-8037 keeps the original.
+    outer_tx_gas = 400000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 1_000_000
+    tx_gas = [outer_tx_gas]
     tx_value = [1]
 
     tx = Transaction(

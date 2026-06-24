@@ -1,11 +1,11 @@
 """Tests for EIP-7843 (SLOTNUM)."""
 
-from dataclasses import dataclass
-
 import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Environment,
     Fork,
     Op,
@@ -13,19 +13,7 @@ from execution_testing import (
     Transaction,
 )
 
-
-@dataclass(frozen=True)
-class ReferenceSpec:
-    """Reference specification."""
-
-    git_path: str
-    version: str
-
-
-ref_spec_7843 = ReferenceSpec(
-    git_path="EIPS/eip-7843.md",
-    version="6bc5d6b7acbc016a79fa573f98975093b5c2ca52",
-)
+from .spec import ref_spec_7843
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7843.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7843.version
@@ -60,7 +48,6 @@ def test_slotnum_value(
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=100_000,
         to=code_address,
     )
 
@@ -108,7 +95,6 @@ def test_slotnum_gas_cost(
 
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=100_000,
         to=caller_address,
     )
 
@@ -124,3 +110,39 @@ def test_slotnum_gas_cost(
         tx=tx,
         post=post,
     )
+
+
+def test_slotnum_distinct_per_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that SLOTNUM returns each block's own slot number.
+
+    Runs four consecutive blocks with deliberately non-monotonic slot
+    numbers to disprove any caching or ordering assumption in the opcode
+    implementation. Each block runs the same contract, which keys storage
+    by block ``NUMBER`` so every block's outcome is independently visible
+    in the final post-state.
+    """
+    sender = pre.fund_eoa()
+    contract = pre.deploy_contract(Op.SSTORE(Op.NUMBER, Op.SLOTNUM) + Op.STOP)
+
+    # Non-monotonic on purpose: decrease, increase, jump to large value.
+    slot_numbers = [100, 42, 7, 2**32]
+
+    blocks = [
+        Block(
+            slot_number=slot,
+            txs=[Transaction(sender=sender, to=contract)],
+        )
+        for slot in slot_numbers
+    ]
+
+    post = {
+        contract: Account(
+            storage={i + 1: slot for i, slot in enumerate(slot_numbers)},
+        ),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)

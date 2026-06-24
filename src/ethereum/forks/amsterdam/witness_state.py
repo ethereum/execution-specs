@@ -5,7 +5,7 @@ Implement the ``PreState`` protocol using execution witness data
 """
 
 from dataclasses import dataclass, field
-from typing import AbstractSet, Dict, List, Optional, Tuple
+from typing import AbstractSet, Dict, List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
@@ -126,6 +126,7 @@ def _decode_account_from_leaf(
     return account, storage_root
 
 
+@final
 @dataclass
 class WitnessState:
     """

@@ -314,6 +314,9 @@ class Result:
         """
         skip_stateless = getattr(t8n.options, "no_stateless", False)
         self.gas_used = block_output.block_gas_used
+        if hasattr(block_output, "block_state_gas_used"):
+            if block_output.block_state_gas_used > self.gas_used:
+                self.gas_used = block_output.block_state_gas_used
         self.tx_root = root(block_output.transactions_trie)
         self.receipt_root = root(block_output.receipts_trie)
         self.bloom = t8n.fork.logs_bloom(block_output.block_logs)

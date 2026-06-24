@@ -19,7 +19,16 @@ within a single transaction and supports copy-on-write rollback.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    final,
+)
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -43,6 +52,7 @@ CodeRead = Tuple[Address, Hash32]
 """Code read keyed by account address and code hash."""
 
 
+@final
 @dataclass
 class BlockState:
     """
@@ -69,6 +79,7 @@ class BlockState:
     oldest_ancestor_offset: Optional[Uint] = None
 
 
+@final
 @dataclass
 class TransactionState:
     """
@@ -298,28 +309,18 @@ def account_exists(tx_state: TransactionState, address: Address) -> bool:
     return get_account_optional(tx_state, address) is not None
 
 
-def account_has_code_or_nonce(
-    tx_state: TransactionState, address: Address
-) -> bool:
+def account_deployable(tx_state: TransactionState, address: Address) -> bool:
     """
-    Check if an account has non-zero nonce or non-empty code.
-
-    Parameters
-    ----------
-    tx_state :
-        The transaction state.
-    address :
-        Address of the account that needs to be checked.
-
-    Returns
-    -------
-    has_code_or_nonce : ``bool``
-        True if the account has non-zero nonce or non-empty code,
-        False otherwise.
-
+    Check if an account's code can be written to.
     """
     account = get_account(tx_state, address)
-    return account.nonce != Uint(0) or account.code_hash != EMPTY_CODE_HASH
+    if account.nonce != Uint(0) or account.code_hash != EMPTY_CODE_HASH:
+        return False
+
+    if account_has_storage(tx_state, address):
+        return False
+
+    return True
 
 
 def account_has_storage(tx_state: TransactionState, address: Address) -> bool:

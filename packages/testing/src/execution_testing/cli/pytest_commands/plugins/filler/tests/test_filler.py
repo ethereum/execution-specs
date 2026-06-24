@@ -64,13 +64,13 @@ test_module_paris = textwrap.dedent(
     @pytest.mark.valid_until("Shanghai")
     def test_paris_one(state_test) -> None:
         state_test(env=Environment(),
-                    pre={TestAddress: Account(balance=1_000_000)}, post={}, tx=Transaction())
+                    pre={TestAddress: Account(balance=1_000_000)}, post={}, tx=Transaction(gas_limit=0x5208))
 
     @pytest.mark.valid_from("Paris")
     @pytest.mark.valid_until("Shanghai")
     def test_paris_two(state_test) -> None:
         state_test(env=Environment(),
-                    pre={TestAddress: Account(balance=1_000_000)}, post={}, tx=Transaction())
+                    pre={TestAddress: Account(balance=1_000_000)}, post={}, tx=Transaction(gas_limit=0x5208))
     """
 )
 test_count_paris = 4
@@ -85,14 +85,14 @@ test_module_shanghai = textwrap.dedent(
     @pytest.mark.valid_until("Shanghai")
     def test_shanghai_one(state_test) -> None:
         state_test(env=Environment(),
-                    pre={TestAddress: Account(balance=1_000_000)}, post={}, tx=Transaction())
+                    pre={TestAddress: Account(balance=1_000_000)}, post={}, tx=Transaction(gas_limit=0x5208))
 
     @pytest.mark.parametrize("x", [1, 2, 3])
     @pytest.mark.valid_from("Paris")
     @pytest.mark.valid_until("Shanghai")
     def test_shanghai_two(state_test, x) -> None:
         state_test(env=Environment(),
-                    pre={TestAddress: Account(balance=1_000_000)}, post={}, tx=Transaction())
+                    pre={TestAddress: Account(balance=1_000_000)}, post={}, tx=Transaction(gas_limit=0x5208))
     """
 )
 
@@ -1629,7 +1629,7 @@ test_module_benchmark = textwrap.dedent(
             env=Environment(),
             pre={TestAddress: Account(balance=1_000_000)},
             post={},
-            tx=Transaction(),
+            tx=Transaction(gas_limit=0x5208),
         )
     """
 )

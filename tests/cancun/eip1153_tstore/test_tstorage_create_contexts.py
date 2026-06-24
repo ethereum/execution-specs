@@ -244,7 +244,6 @@ class TestTransientStorageInContractCreation:
             sender=sender,
             to=creator_address,
             data=initcode,
-            gas_limit=1_000_000,
         )
 
         post = {
@@ -332,7 +331,6 @@ def test_tstore_rollback_on_failed_create(
     tx = Transaction(
         sender=sender,
         to=caller_address,
-        gas_limit=16_000_000,
         access_list=[
             AccessList(address=caller_address, storage_keys=[0, 1]),
         ],

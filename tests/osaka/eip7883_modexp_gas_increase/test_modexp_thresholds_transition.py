@@ -10,7 +10,6 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     EIPChecklist,
-    Environment,
     Fork,
     Op,
     Transaction,
@@ -42,7 +41,6 @@ pytestmark = pytest.mark.valid_at_transition_to("Osaka")
 def test_modexp_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    env: Environment,
     fork: TransitionFork,
     gas_old: int,
     gas_new: int,
@@ -94,10 +92,6 @@ def test_modexp_fork_transition(
         )
         return code
 
-    def calc_tx_gas_limit(fork: Fork) -> int:
-        tx_gas_limit_cap = fork.transaction_gas_limit_cap() or env.gas_limit
-        return tx_gas_limit_cap
-
     timestamps = [14_999, 15_000, 15_001]
     contracts = [
         pre.deploy_contract(generate_code(fork.fork_at(timestamp=t)))
@@ -110,10 +104,7 @@ def test_modexp_fork_transition(
             timestamp=ts,
             txs=[
                 Transaction(
-                    to=contract,
-                    data=modexp_input,
-                    sender=pre.fund_eoa(),
-                    gas_limit=calc_tx_gas_limit(fork.fork_at(timestamp=ts)),
+                    to=contract, data=modexp_input, sender=pre.fund_eoa()
                 )
             ],
         )

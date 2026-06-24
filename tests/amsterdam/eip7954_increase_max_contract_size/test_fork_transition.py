@@ -38,7 +38,9 @@ def test_max_code_size_fork_transition(
     fork: TransitionFork,
 ) -> None:
     """Ensure the new max code size limit activates at the fork boundary."""
-    code_size = fork.transitions_to().max_code_size()
+    parent = fork.transitions_from()
+    assert parent is not None, "Parent fork must be defined for this test"
+    code_size = parent.max_code_size() + 1
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
 
@@ -56,7 +58,6 @@ def test_max_code_size_fork_transition(
                     sender=alice,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -67,7 +68,6 @@ def test_max_code_size_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -89,7 +89,9 @@ def test_max_code_size_via_create_fork_transition(
     create_opcode: Op,
 ) -> None:
     """Ensure the new max code size limit activates at the fork via opcodes."""
-    code_size = fork.transitions_to().max_code_size()
+    parent = fork.transitions_from()
+    assert parent is not None, "Parent fork must be defined for this test"
+    code_size = parent.max_code_size() + 1
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
     initcode_bytes = bytes(initcode)
@@ -137,7 +139,6 @@ def test_max_code_size_via_create_fork_transition(
                     sender=alice,
                     to=factory_pre,
                     data=initcode_bytes,
-                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -148,7 +149,6 @@ def test_max_code_size_via_create_fork_transition(
                     sender=bob,
                     to=factory_post,
                     data=initcode_bytes,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -191,7 +191,6 @@ def test_max_initcode_size_fork_transition(
                     sender=alice,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                     error=initcode_too_large,
                 )
             ],
@@ -205,7 +204,6 @@ def test_max_initcode_size_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -275,7 +273,6 @@ def test_max_initcode_size_via_create_fork_transition(
                     sender=alice,
                     to=factory_pre,
                     data=initcode_bytes,
-                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -286,7 +283,6 @@ def test_max_initcode_size_via_create_fork_transition(
                     sender=bob,
                     to=factory_post,
                     data=initcode_bytes,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -332,7 +328,6 @@ def test_max_code_size_with_max_initcode_fork_transition(
                     sender=alice,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                     error=initcode_too_large,
                 )
             ],
@@ -345,7 +340,6 @@ def test_max_code_size_with_max_initcode_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -385,7 +379,6 @@ def test_parent_max_code_size_across_fork(
                     sender=alice,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -396,7 +389,6 @@ def test_parent_max_code_size_across_fork(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),

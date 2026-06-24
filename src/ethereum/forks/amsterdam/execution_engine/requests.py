@@ -10,7 +10,7 @@ the boundary codecs (mirrors CL's ``get_execution_requests_list()``).
 """
 
 from dataclasses import dataclass
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes32, Bytes48, Bytes96
 from ethereum_types.frozen import slotted_freezable
@@ -30,6 +30,7 @@ WITHDRAWAL_REQUEST_SIZE = 20 + 48 + 8
 CONSOLIDATION_REQUEST_SIZE = 20 + 48 + 48
 
 
+@final
 @slotted_freezable
 @dataclass
 class DepositRequest:
@@ -42,6 +43,7 @@ class DepositRequest:
     index: U64
 
 
+@final
 @slotted_freezable
 @dataclass
 class WithdrawalRequest:
@@ -52,6 +54,7 @@ class WithdrawalRequest:
     amount: U64
 
 
+@final
 @slotted_freezable
 @dataclass
 class ConsolidationRequest:
@@ -62,6 +65,7 @@ class ConsolidationRequest:
     target_pubkey: Bytes48
 
 
+@final
 @slotted_freezable
 @dataclass
 class ExecutionRequests:

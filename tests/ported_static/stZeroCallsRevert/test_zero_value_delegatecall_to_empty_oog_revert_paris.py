@@ -42,7 +42,6 @@ def test_zero_value_delegatecall_to_empty_oog_revert_paris(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     addr = pre.fund_eoa(amount=10)  # noqa: F841
