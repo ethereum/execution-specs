@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 252
+# Total entries: 243
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -244,17 +244,6 @@ stMemoryTest/test_call_data_copy_offset.py::test_call_data_copy_offset[fork_Amst
 stMemoryTest/test_code_copy_offset.py::test_code_copy_offset[fork_Amsterdam]
 stMemoryTest/test_oog.py::test_oog[fork_Amsterdam-success14]
 stMemoryTest/test_oog.py::test_oog[fork_Amsterdam-success15]
-
-# stNonZeroCallsTest (9)
-stNonZeroCallsTest/test_non_zero_value_call_to_empty_paris.py::test_non_zero_value_call_to_empty_paris[fork_Amsterdam]
-stNonZeroCallsTest/test_non_zero_value_call_to_one_storage_key_paris.py::test_non_zero_value_call_to_one_storage_key_paris[fork_Amsterdam]
-stNonZeroCallsTest/test_non_zero_value_callcode.py::test_non_zero_value_callcode[fork_Amsterdam]
-stNonZeroCallsTest/test_non_zero_value_callcode_to_empty_paris.py::test_non_zero_value_callcode_to_empty_paris[fork_Amsterdam]
-stNonZeroCallsTest/test_non_zero_value_callcode_to_one_storage_key_paris.py::test_non_zero_value_callcode_to_one_storage_key_paris[fork_Amsterdam]
-stNonZeroCallsTest/test_non_zero_value_delegatecall.py::test_non_zero_value_delegatecall[fork_Amsterdam]
-stNonZeroCallsTest/test_non_zero_value_delegatecall_to_empty_paris.py::test_non_zero_value_delegatecall_to_empty_paris[fork_Amsterdam]
-stNonZeroCallsTest/test_non_zero_value_delegatecall_to_non_non_zero_balance.py::test_non_zero_value_delegatecall_to_non_non_zero_balance[fork_Amsterdam]
-stNonZeroCallsTest/test_non_zero_value_delegatecall_to_one_storage_key_paris.py::test_non_zero_value_delegatecall_to_one_storage_key_paris[fork_Amsterdam]
 
 # stRefundTest (7)
 stRefundTest/test_refund50_2.py::test_refund50_2[fork_Amsterdam]
