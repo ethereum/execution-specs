@@ -21,7 +21,10 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Fork,
+    Header,
     Op,
     RecipientType,
     StateTestFiller,
@@ -157,6 +160,78 @@ def test_top_frame_state_charge_empty_precompile(
     }
 
     state_test(pre=pre, tx=tx, post=post)
+
+
+def test_top_frame_new_account_charged_as_state_gas(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    The top-frame ``NEW_ACCOUNT`` charge for a value transfer to an
+    empty recipient is *state* gas, not regular gas. This pins the
+    dimension via the block header ``gas_used``, which the spec
+    computes as ``max(block_regular_gas, block_state_gas)``.
+
+    Correctly attributed, the ``NEW_ACCOUNT`` state gas dominates the
+    small regular intrinsic, so ``gas_used == NEW_ACCOUNT``. A
+    regression mis-classifying the charge as regular gas would instead
+    yield ``intrinsic_regular + NEW_ACCOUNT``.
+
+    ``state_test``-based balance assertions (e.g.
+    ``test_top_frame_state_charge``) only observe the *sum* of the two
+    dimensions, so they cannot distinguish this; a block-level
+    ``gas_used`` assertion is required.
+    """
+    sender = pre.fund_eoa(10**18)
+    target = pre.fund_eoa(amount=0)
+    value = 1
+
+    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        return_cost_deducted_prior_execution=True,
+    )
+    new_account_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    # The state charge must dominate the regular intrinsic for the
+    # header ``gas_used`` to distinguish a state vs regular
+    # mis-classification.
+    assert new_account_state_gas > intrinsic_regular, (
+        "test only distinguishes the dimension when NEW_ACCOUNT "
+        f"({new_account_state_gas}) dominates the regular intrinsic "
+        f"({intrinsic_regular})"
+    )
+
+    # No EVM bytecode runs (empty recipient), so the only regular gas
+    # is the intrinsic and the only state gas is the top-frame
+    # ``NEW_ACCOUNT`` charge.
+    expected_gas_used = max(intrinsic_regular, new_account_state_gas)
+
+    gas_price = 10**9
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        value=value,
+        gas_limit=intrinsic_regular + new_account_state_gas + 1000,
+        gas_price=gas_price,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={
+            sender: Account(nonce=1),
+            target: Account(balance=value),
+        },
+    )
 
 
 @pytest.mark.parametrize("outcome", ["oog", "success", "evm_reverts"])
