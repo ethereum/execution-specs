@@ -6,8 +6,9 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 
 - All test imports come from `execution_testing` — it is the public API
 - Core fixtures: `pre: Alloc` (pre-state builder), `state_test: StateTestFiller`, `blockchain_test: BlockchainTestFiller`, `fork: Fork`
-- Prefer `state_test` for single-tx tests (simpler, avoids block-building false positives); `fill` auto-generates a `blockchain_test` from every `state_test`
-- Use `blockchain_test` only for multi-block scenarios
+- Rule: use `state_test` for single-transaction tests; `fill` auto-derives a `blockchain_test` from each, so no coverage is lost.
+- Exception: use `blockchain_test` when the test needs more than one transaction (a `state_test` holds exactly one) or more than one block (e.g. transaction-ordering or fork-transition tests).
+- Anti-pattern: wrapping one transaction in a `Block` to reach `blockchain_test`. A `state_test` can assert the transaction's gas used and receipt logs (the tx's `expected_receipt=TransactionReceipt(cumulative_gas_used=...)`), reserve state gas (the tx's `state_gas_reservoir=`), and other block-header fields (`blockchain_test_header_verify=Header(...)`) without it.
 
 ## Pre-State Setup
 
