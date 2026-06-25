@@ -101,7 +101,8 @@ def test_tx_nonce(
 @pytest.mark.eels_base_coverage
 def test_tx_max_nonce(state_test: StateTestFiller, pre: Alloc) -> None:
     """
-    Tests that the tx nonce matches the account nonce.
+    Test that a transaction that exceeds the maximum allowed value for the
+    nonce (U64.MAX_VALUE) is rejected.
     """
     sender = pre.fund_eoa()
     to = pre.nonexistent_account()
