@@ -229,7 +229,10 @@ ties a `CREATE`'s `size` operand to the memory/gas math that depends on it.
   the gas charge (e.g. an origin `BALANCE` read mid-execution equals
   `sender_balance - gas_limit * effective_gas_price`), express it as that formula
   rather than a hardcoded number. Such a test is gas-sensitive — keep an explicit
-  `gas_limit` (step 10), since the observable depends on it. Validated on
+  `gas_limit` (step 10), since the observable depends on it, but **derive that
+  `gas_limit` too** — `fork.transaction_intrinsic_cost_calculator()() +
+  code.gas_cost(fork) + buffer` (conservative metadata so it can't undershoot) —
+  so it is neither a magic number nor fork-fragile. Validated on
   `test_sender_balance` (EIP-1559 effective-vs-max price).
 
 ### 10. (Gas-subject / gas-snapshot tests) Replace hardcoded gas with dynamic calculation
@@ -294,10 +297,14 @@ Attach the callee's opcode metadata (e.g. SSTORE `key_warm`/`original_value`/
 `new_value`) so its `gas_cost` is right, and decompose against the callee's
 *actual* bytecode rather than a reconstruction — a value supplied by `GAS` costs
 2, not a `PUSH`'s 3, and that off-by-3 is a real trap. A callee-side gas snapshot
-(`SSTORE(k, GAS)`) stores `forward_gas - Op.GAS.gas_cost(fork)`. Forward enough
-gas that the callee's state op commits on every fork — under EIP-8037 a cold
-zero->non-zero SSTORE can cost ~100k — and set `state_gas_reservoir=0` so that
-state gas is captured. Validated on `test_raw_call_gas`.
+(`SSTORE(k, GAS)`) stores `forward_gas - Op.GAS.gas_cost(fork)`. Derive the
+forwarded gas dynamically — `forward_gas = callee_store.gas_cost(fork) + buffer`
+— rather than a magic number; under EIP-8037 a cold zero->non-zero SSTORE can
+cost ~100k, so a fixed value is both fork-fragile and brittle. (Size the SSTORE
+with a placeholder `new_value`: its cost depends only on the zero->non-zero
+transition, not the magnitude — which also breaks the `forward_gas`/`new_value`
+circularity.) Set `state_gas_reservoir=0` so the state gas is captured.
+Validated on `test_raw_call_gas`.
 
 **Error paths are tricky.** A failed `CREATE`/`CALL` still charges some costs
 (memory, init-code words) but forwards no gas — so the delta is gas-limit

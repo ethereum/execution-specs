@@ -14,6 +14,7 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -30,12 +31,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_sender_balance(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Origin balance during execution reflects the effective gas price."""
     base_fee = 11
     priority_fee = 100
     max_fee = 1000
-    gas_limit = 200000
     sender_balance = 0xDE0B6B3A7640000
 
     # The effective gas price is base + priority (kept below max_fee, so the
@@ -46,8 +47,24 @@ def test_sender_balance(
     sender = pre.fund_eoa(amount=sender_balance)
 
     # Source: yul: { sstore(0, balance(caller())) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.BALANCE(address=Op.CALLER)) + Op.STOP,
+    target_code = (
+        Op.SSTORE(
+            key=0x0,
+            value=Op.BALANCE(address=Op.CALLER, address_warm=False),
+            key_warm=False,
+            original_value=0,
+            new_value=1,
+        )
+        + Op.STOP
+    )
+    target = pre.deploy_contract(code=target_code)
+
+    # Size the gas limit to the work done, so the upfront charge (and thus the
+    # observed balance) tracks the fork's costs rather than a magic number.
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + target_code.gas_cost(fork)
+        + 1000
     )
 
     tx = Transaction(
