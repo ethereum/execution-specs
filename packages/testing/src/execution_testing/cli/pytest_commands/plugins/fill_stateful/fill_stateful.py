@@ -730,8 +730,8 @@ def _reset_chain_between_tests(
     Rewind to start_block after each test so the chain is identical for
     every fill. Uses ``debug_setHead`` (by number) when available, else
     falls back to ``debug_resetHead`` (by hash) for clients like
-    Nethermind. After the rewind we re-fetch ``latest`` and fail loudly
-    if the hash drifted (e.g. live reorg of a same-numbered block).
+    Nethermind. Afterwards we verify the block at the start_block number
+    matches and fail loudly if it drifted (e.g. a live reorg).
     """
     yield
     if client_backend.start_block is None:
@@ -743,12 +743,16 @@ def _reset_chain_between_tests(
     if current_head is not None and current_head["hash"] == expected_hash:
         return
     try:
-        debug_rpc.rewind_head(
-            block_number=start_hex, block_hash=expected_hash
-        )
+        debug_rpc.rewind_head(block_number=start_hex, block_hash=expected_hash)
     except Exception as e:
         pytest.exit(f"head rewind failed — subsequent fixtures invalid: {e}")
-    head = eth_rpc.get_block_by_number("latest")
+    # Verify the rewind landed by querying the block at the expected
+    # start_block number, not "latest": nethermind's debug_resetHead restores
+    # the build head but leaves the `latest` pointer at the previous test's
+    # tip, so "latest" is unreliable there. The block at start_block's number
+    # is the start block on both geth (debug_setHead moves latest) and
+    # nethermind (resetHead leaves it stale).
+    head = eth_rpc.get_block_by_number(start_hex)
     if head is None or head["hash"] != expected_hash:
         observed = head["hash"] if head is not None else "<none>"
         pytest.exit(
