@@ -139,10 +139,14 @@ def test_tx_type(
     monkeypatch.setattr(StateTestProvider, "get_context", get_mock_context)
 
     ## Generate ##
+    # catch_exceptions=False lets any error from gentest propagate with its
+    # full traceback instead of being hidden behind a non-zero exit code.
     gentest_result = runner.invoke(
-        generate, [transaction_hash, generated_py_file]
+        generate,
+        [transaction_hash, generated_py_file],
+        catch_exceptions=False,
     )
-    assert gentest_result.exit_code == 0
+    assert gentest_result.exit_code == 0, gentest_result.output
 
     ## Fill ##
     with open(generated_py_file, "r") as f:
