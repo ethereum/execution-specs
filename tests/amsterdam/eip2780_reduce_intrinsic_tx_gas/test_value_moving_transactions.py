@@ -322,30 +322,6 @@ def test_value_move_to_precompiles(
 
     tx_data = _precompile_calldata(precompile)
 
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-        calldata=tx_data,
-        sends_value=bool(value),
-        recipient_type=RecipientType.PRECOMPILE,
-        return_cost_deducted_prior_execution=True,
-    )
-    # A value transfer to an empty (not pre-funded) precompile fires the
-    # top-frame ``NEW_ACCOUNT`` state charge, modelled via
-    # ``EMPTY_ACCOUNT``; a pre-funded precompile is alive and exempt.
-    state_recipient_type = (
-        RecipientType.PRECOMPILE if pre_funded else RecipientType.EMPTY_ACCOUNT
-    )
-    top_frame_state_gas = fork.transaction_top_frame_state_gas(
-        sends_value=bool(value),
-        recipient_type=state_recipient_type,
-    )
-
-    # Precompile execution gas varies per precompile and input; pick a
-    # buffer large enough to cover the most expensive precompile in the
-    # matrix on top of the intrinsic and the (spilled) state charge.
-    precompile_execution_budget = 100_000
-    tx_gas_limit = (
-        intrinsic_gas + top_frame_state_gas + precompile_execution_budget
-    )
     gas_price = 1_000_000_000
 
     tx = Transaction(
@@ -353,7 +329,6 @@ def test_value_move_to_precompiles(
         to=precompile,
         value=value,
         data=tx_data,
-        gas_limit=tx_gas_limit,
         gas_price=gas_price,
     )
 
