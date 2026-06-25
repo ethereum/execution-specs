@@ -43,6 +43,7 @@ from .rpc_types import (
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
     GetPayloadResponse,
+    JSONRPCError,
     JSONRPCRequest,
     JSONRPCResponse,
     PayloadAttributes,
@@ -1183,6 +1184,17 @@ class DebugRPC(EthRPC):
     used within EEST based hive simulators.
     """
 
+    # JSON-RPC "method not found" error code.
+    _METHOD_NOT_FOUND = -32601
+
+    # JSON-RPC "internal error" code. Nethermind registers debug_setHead
+    # but throws NotImplementedException, surfaced as this code.
+    _METHOD_NOT_IMPLEMENTED = -32603
+
+    # Which head-rewind method the client supports; resolved on first use
+    # so the fallback probe runs only once per session.
+    _rewind_method: str | None = None
+
     def trace_call(self, tr: dict[str, str], block_number: str) -> Any | None:
         """`debug_traceCall`: Returns pre state required for transaction."""
         params = [tr, block_number, {"tracer": "prestateTracer"}]
@@ -1191,10 +1203,63 @@ class DebugRPC(EthRPC):
         ).result_or_raise()
 
     def set_head(self, block_number: str) -> None:
-        """`debug_setHead`: Reset chain head to the given block."""
+        """`debug_setHead`: Reset chain head to the given block number."""
         self.post_request(
             request=RPCCall(method="setHead", params=[block_number])
         ).result_or_raise()
+
+    def reset_head(self, block_hash: str) -> None:
+        """`debug_resetHead`: Reset chain head to the given block hash."""
+        self.post_request(
+            request=RPCCall(method="resetHead", params=[block_hash])
+        ).result_or_raise()
+
+    def rewind_head(self, *, block_number: str, block_hash: str) -> None:
+        """
+        Rewind the chain head to a given block.
+
+        Prefer geth's ``debug_setHead`` (takes a block number); if the
+        client does not expose it (e.g. Nethermind, which returns a
+        "method not found"/"not implemented" error), fall back to
+        ``debug_resetHead`` (takes a block hash). If the client implements
+        neither, give up gracefully (``"none"``): each per-test block is
+        built on its explicit start_block parent, so the client reorgs onto
+        it without a debug rewind. The chosen method is cached after the
+        first call so the probe runs only once.
+
+        Note ``debug_setHead`` truncates the chain (geth), keeping the block
+        tree small, whereas ``debug_resetHead`` only repoints the head on
+        Nethermind — there per-test forks still accumulate as under
+        ``"none"``.
+        """
+        if self._rewind_method is None:
+            try:
+                self.set_head(block_number)
+                self._rewind_method = "setHead"
+                return
+            except JSONRPCError as e:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
+                    raise
+            try:
+                self.reset_head(block_hash)
+                self._rewind_method = "resetHead"
+                return
+            except JSONRPCError as e:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
+                    raise
+                self._rewind_method = "none"
+                return
+        if self._rewind_method == "setHead":
+            self.set_head(block_number)
+        elif self._rewind_method == "resetHead":
+            self.reset_head(block_hash)
+        # "none": no debug rewind available; the explicit-parent build reorgs.
 
 
 class EngineRPC(BaseJwtRPC):
