@@ -130,13 +130,10 @@ def test_clz_gas_cost(
 ) -> None:
     """Test CLZ opcode gas cost."""
     contract_address = pre.deploy_contract(
-        Op.SSTORE(
-            0,
-            CodeGasMeasure(
-                code=Op.CLZ(Op.PUSH1(1)),
-                extra_stack_items=1,
-                overhead_cost=Op.PUSH1.gas_cost(fork),
-            ),
+        CodeGasMeasure(
+            code=Op.CLZ(Op.PUSH1(1)),
+            extra_stack_items=1,
+            overhead_cost=Op.PUSH1.gas_cost(fork),
         ),
         storage={"0x00": "0xdeadbeef"},
     )
