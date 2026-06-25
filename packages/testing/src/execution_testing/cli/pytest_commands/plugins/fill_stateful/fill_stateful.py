@@ -729,9 +729,11 @@ def _reset_chain_between_tests(
     """
     Rewind to start_block after each test so the chain is identical for
     every fill. Uses ``debug_setHead`` (by number) when available, else
-    falls back to ``debug_resetHead`` (by hash) for clients like
-    Nethermind. Afterwards we verify the block at the start_block number
-    matches and fail loudly if it drifted (e.g. a live reorg).
+    ``debug_resetHead`` (by hash) for clients like Nethermind, else nothing
+    — each test's first block is built on its explicit start_block parent,
+    so the client reorgs onto it even without a debug rewind. Afterwards we
+    verify the block at the start_block number matches and fail loudly if it
+    drifted (e.g. a live reorg).
     """
     yield
     if client_backend.start_block is None:

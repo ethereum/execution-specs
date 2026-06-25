@@ -1220,9 +1220,17 @@ class DebugRPC(EthRPC):
 
         Prefer geth's ``debug_setHead`` (takes a block number); if the
         client does not expose it (e.g. Nethermind, which returns a
-        "method not found" error), fall back to ``debug_resetHead``
-        (takes a block hash). The chosen method is cached after the
+        "method not found"/"not implemented" error), fall back to
+        ``debug_resetHead`` (takes a block hash). If the client implements
+        neither, give up gracefully (``"none"``): each per-test block is
+        built on its explicit start_block parent, so the client reorgs onto
+        it without a debug rewind. The chosen method is cached after the
         first call so the probe runs only once.
+
+        Note ``debug_setHead`` truncates the chain (geth), keeping the block
+        tree small, whereas ``debug_resetHead`` only repoints the head on
+        Nethermind — there per-test forks still accumulate as under
+        ``"none"``.
         """
         if self._rewind_method is None:
             try:
@@ -1235,11 +1243,23 @@ class DebugRPC(EthRPC):
                     self._METHOD_NOT_IMPLEMENTED,
                 ):
                     raise
+            try:
+                self.reset_head(block_hash)
                 self._rewind_method = "resetHead"
+                return
+            except JSONRPCError as e:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
+                    raise
+                self._rewind_method = "none"
+                return
         if self._rewind_method == "setHead":
             self.set_head(block_number)
-        else:
+        elif self._rewind_method == "resetHead":
             self.reset_head(block_hash)
+        # "none": no debug rewind available; the explicit-parent build reorgs.
 
 
 class EngineRPC(BaseJwtRPC):
