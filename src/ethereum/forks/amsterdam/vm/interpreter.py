@@ -317,16 +317,11 @@ def process_message(message: Message) -> Evm:
         # opcode runs. Reads pre-value-transfer state so the
         # EIP-161-empty check sees the recipient as it was at the start
         # of the frame. Gated to non-create top-level frames; creates
-        # pay the equivalent NEW_ACCOUNT state gas. Precompile
-        # recipients are exempt from the NEW_ACCOUNT charge: they are
-        # protocol-inherent rather than created by a value transfer.
+        # pay the equivalent NEW_ACCOUNT state gas.
         if message.depth == Uint(0) and message.target != Bytes0(b""):
             recipient = message.current_target
-            recipient_is_precompile = recipient in PRE_COMPILED_CONTRACTS
-            if (
-                message.value > U256(0)
-                and not recipient_is_precompile
-                and not is_account_alive(tx_state, recipient)
+            if message.value > U256(0) and not is_account_alive(
+                tx_state, recipient
             ):
                 charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
             recipient_code = get_code(
