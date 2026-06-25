@@ -19,6 +19,7 @@ charge but reverting from the delegated code.
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Fork,
     Op,
@@ -99,6 +100,60 @@ def test_top_frame_state_charge(
     post = {
         sender: Account(nonce=1, balance=sender_final_balance),
         target: expected_target,
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_top_frame_state_charge_empty_precompile(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    An empty precompile recipient is still empty per EIP-161, so a
+    value-moving transaction to it must pay the top-frame
+    ``NEW_ACCOUNT`` state-gas charge.
+
+    The gas limit is one short of covering that state charge. Without
+    the charge, the transaction would reach the identity precompile and
+    transfer value, which makes this a direct regression test for a
+    precompile carve-out.
+    """
+    sender_initial_balance = 10**18
+    sender = pre.fund_eoa(sender_initial_balance)
+    identity_precompile = Address(0x04)
+
+    value = 1
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.PRECOMPILE,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    assert top_frame_state_gas > 0, (
+        "top-frame state gas must be non-zero for empty recipients"
+    )
+
+    gas_price = 1_000_000_000
+    gas_limit = intrinsic_gas + top_frame_state_gas - 1
+    tx = Transaction(
+        sender=sender,
+        to=identity_precompile,
+        value=value,
+        gas_limit=gas_limit,
+        gas_price=gas_price,
+    )
+
+    post = {
+        sender: Account(
+            nonce=1,
+            balance=sender_initial_balance - gas_limit * gas_price,
+        ),
+        identity_precompile: None,
     }
 
     state_test(pre=pre, tx=tx, post=post)
