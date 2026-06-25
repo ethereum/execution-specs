@@ -234,6 +234,68 @@ def test_top_frame_new_account_charged_as_state_gas(
     )
 
 
+@pytest.mark.pre_alloc_mutable
+def test_top_frame_new_account_skipped_for_nonce_only_recipient(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    A recipient that is alive only by its nonce (``nonce=1``, zero
+    balance, no code) is not empty per EIP-161, so a value transfer to
+    it does *not* incur the top-frame ``NEW_ACCOUNT`` charge. This pins
+    that the gate keys on ``is_account_alive``, not ``balance == 0``.
+
+    Such an account is reachable on-chain: any EOA that has sent a
+    transaction (nonce bumped) and been fully drained sits at
+    ``nonce>0, balance=0, no code``.
+
+    The gas limit is pinned to exactly the intrinsic, leaving no room
+    for any extra charge: an implementation that wrongly charged
+    ``NEW_ACCOUNT`` (keying on the zero balance) would out-of-gas
+    rather than succeed. The recipient has no code, so no EVM runs and
+    the intrinsic is fully consumed with nothing to refund.
+    """
+    sender_initial_balance = 10**18
+    sender = pre.fund_eoa(sender_initial_balance)
+    # Alive via nonce only: not empty per EIP-161 because nonce != 0.
+    target = pre.fund_eoa(amount=0, nonce=1)
+    value = 1
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+    )
+    assert top_frame_state_gas == 0, (
+        "a nonce-only-alive recipient must not incur the NEW_ACCOUNT charge"
+    )
+
+    gas_price = 1_000_000_000
+    gas_limit = intrinsic_gas
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        value=value,
+        gas_limit=gas_limit,
+        gas_price=gas_price,
+    )
+
+    sender_final_balance = (
+        sender_initial_balance - value - intrinsic_gas * gas_price
+    )
+    post = {
+        sender: Account(nonce=1, balance=sender_final_balance),
+        target: Account(nonce=1, balance=value),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
 @pytest.mark.parametrize("outcome", ["oog", "success", "evm_reverts"])
 @pytest.mark.parametrize(
     "value",
