@@ -300,18 +300,17 @@ def test_value_move_to_precompiles(
     intrinsic time as any other non-self target -- access lists do
     not warm transaction-level accounts. A value transfer to a
     precompile additionally pays the transfer-log and value-transfer
-    charges. The top-frame ``NEW_ACCOUNT`` state charge is suppressed
-    for precompile recipients: they are protocol-inherent rather than
-    created by a value transfer.
+    charges.
 
-    The ``pre_funded`` parameter exercises both pre-tx states of the
-    precompile address: the ``empty`` variant proves the carve-out is
-    explicit -- without it, a value transfer to an empty precompile
-    would trip the ``NEW_ACCOUNT`` charge that ``is_account_alive``
-    would otherwise demand. The gas limit is pinned to
-    ``intrinsic_gas`` plus a buffer that covers the precompile
-    execution body, so a miscalculated intrinsic or a missing
-    carve-out would trip the gas budget rather than pass silently.
+    The top-frame ``NEW_ACCOUNT`` state charge keys solely on EIP-161
+    emptiness; a precompile address is not special-cased. The
+    ``pre_funded`` parameter exercises both pre-tx states:
+
+    - ``not_funded``: the precompile address is empty per EIP-161, so a
+      value transfer creates it and pays ``NEW_ACCOUNT`` -- exactly
+      like any other empty recipient.
+    - ``pre_funded``: the precompile already holds a balance and is
+      therefore alive, so no ``NEW_ACCOUNT`` charge applies.
     """
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)
@@ -329,13 +328,24 @@ def test_value_move_to_precompiles(
         recipient_type=RecipientType.PRECOMPILE,
         return_cost_deducted_prior_execution=True,
     )
+    # A value transfer to an empty (not pre-funded) precompile fires the
+    # top-frame ``NEW_ACCOUNT`` state charge, modelled via
+    # ``EMPTY_ACCOUNT``; a pre-funded precompile is alive and exempt.
+    state_recipient_type = (
+        RecipientType.PRECOMPILE if pre_funded else RecipientType.EMPTY_ACCOUNT
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=bool(value),
+        recipient_type=state_recipient_type,
+    )
 
-    # Precompile execution gas varies per precompile and input; pick
-    # a buffer large enough to cover the most expensive precompile in
-    # the matrix but still well under the ``NEW_ACCOUNT`` state
-    # charge, so a missing carve-out OOGs the ``empty`` variants.
+    # Precompile execution gas varies per precompile and input; pick a
+    # buffer large enough to cover the most expensive precompile in the
+    # matrix on top of the intrinsic and the (spilled) state charge.
     precompile_execution_budget = 100_000
-    tx_gas_limit = intrinsic_gas + precompile_execution_budget
+    tx_gas_limit = (
+        intrinsic_gas + top_frame_state_gas + precompile_execution_budget
+    )
     gas_price = 1_000_000_000
 
     tx = Transaction(
