@@ -322,6 +322,23 @@ def test_value_move_to_precompiles(
 
     tx_data = _precompile_calldata(precompile)
 
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=tx_data,
+        sends_value=bool(value),
+        recipient_type=RecipientType.PRECOMPILE,
+        return_cost_deducted_prior_execution=True,
+    )
+    # A value transfer to an empty (not pre-funded) precompile fires the
+    # top-frame ``NEW_ACCOUNT`` state charge, modelled via
+    # ``EMPTY_ACCOUNT``; a pre-funded precompile is alive and exempt.
+    state_recipient_type = (
+        RecipientType.PRECOMPILE if pre_funded else RecipientType.EMPTY_ACCOUNT
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=bool(value),
+        recipient_type=state_recipient_type,
+    )
+
     gas_price = 1_000_000_000
 
     tx = Transaction(
@@ -332,16 +349,36 @@ def test_value_move_to_precompiles(
         gas_price=gas_price,
     )
 
-    # Exact sender balance is not checked because precompile execution
-    # gas varies; verify value receipt and sender nonce instead.
+    # Exact sender balance is generally not checked because precompile
+    # execution gas varies across the matrix. For identity with empty
+    # calldata, the execution gas is deterministic, so pin the exact
+    # balance to make the empty-precompile ``NEW_ACCOUNT`` charge a
+    # source-level assertion.
     final_precompile_balance = pre_funded_amount + value
     expected_precompile: Account | None
     if final_precompile_balance > 0:
         expected_precompile = Account(balance=final_precompile_balance)
     else:
         expected_precompile = None
+    expected_sender = Account(nonce=1)
+    if precompile == Address(0x04):
+        gas_costs = fork.gas_costs()
+        precompile_execution_gas = (
+            gas_costs.PRECOMPILE_IDENTITY_BASE
+            + gas_costs.PRECOMPILE_IDENTITY_PER_WORD
+            * ((len(tx_data) + 31) // 32)
+        )
+        total_gas_cost = (
+            intrinsic_gas + top_frame_state_gas + precompile_execution_gas
+        )
+        expected_sender = Account(
+            nonce=1,
+            balance=(
+                sender_initial_balance - value - total_gas_cost * gas_price
+            ),
+        )
     post = {
-        sender: Account(nonce=1),
+        sender: expected_sender,
         precompile: expected_precompile,
     }
 
