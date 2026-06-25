@@ -339,13 +339,6 @@ def test_value_move_to_precompiles(
         recipient_type=state_recipient_type,
     )
 
-    # Precompile execution gas varies per precompile and input; pick a
-    # buffer large enough to cover the most expensive precompile in the
-    # matrix on top of the intrinsic and the (spilled) state charge.
-    precompile_execution_budget = 100_000
-    tx_gas_limit = (
-        intrinsic_gas + top_frame_state_gas + precompile_execution_budget
-    )
     gas_price = 1_000_000_000
 
     tx = Transaction(
@@ -353,20 +346,39 @@ def test_value_move_to_precompiles(
         to=precompile,
         value=value,
         data=tx_data,
-        gas_limit=tx_gas_limit,
         gas_price=gas_price,
     )
 
-    # Exact sender balance is not checked because precompile execution
-    # gas varies; verify value receipt and sender nonce instead.
+    # Exact sender balance is generally not checked because precompile
+    # execution gas varies across the matrix. For identity with empty
+    # calldata, the execution gas is deterministic, so pin the exact
+    # balance to make the empty-precompile ``NEW_ACCOUNT`` charge a
+    # source-level assertion.
     final_precompile_balance = pre_funded_amount + value
     expected_precompile: Account | None
     if final_precompile_balance > 0:
         expected_precompile = Account(balance=final_precompile_balance)
     else:
         expected_precompile = None
+    expected_sender = Account(nonce=1)
+    if precompile == Address(0x04):
+        gas_costs = fork.gas_costs()
+        precompile_execution_gas = (
+            gas_costs.PRECOMPILE_IDENTITY_BASE
+            + gas_costs.PRECOMPILE_IDENTITY_PER_WORD
+            * ((len(tx_data) + 31) // 32)
+        )
+        total_gas_cost = (
+            intrinsic_gas + top_frame_state_gas + precompile_execution_gas
+        )
+        expected_sender = Account(
+            nonce=1,
+            balance=(
+                sender_initial_balance - value - total_gas_cost * gas_price
+            ),
+        )
     post = {
-        sender: Account(nonce=1),
+        sender: expected_sender,
         precompile: expected_precompile,
     }
 
