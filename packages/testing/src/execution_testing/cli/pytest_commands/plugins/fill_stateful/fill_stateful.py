@@ -394,9 +394,26 @@ def session_worker_key(seed_key: EOA) -> EOA:
 
 
 @pytest.fixture(scope="function")
-def worker_key(eth_rpc: EthRPC, session_worker_key: EOA) -> EOA:
+def worker_key(
+    eth_rpc: EthRPC,
+    session_worker_key: EOA,
+    client_backend: ClientBackend,
+) -> EOA:
     """Sync seed key nonce before each test."""
-    account = eth_rpc.get_account(session_worker_key, skip_code=True)
+    # Read the nonce at the reset head (start_block), not "latest": a client
+    # whose rewind restores the build state but leaves the `latest` pointer at
+    # the previous test's tip (e.g. nethermind's debug_resetHead) would
+    # otherwise report a stale, too-high nonce and get every funding tx
+    # rejected ("Invalid nonce - expected 0").
+    start = client_backend.start_block
+    if start is None:
+        account = eth_rpc.get_account(session_worker_key, skip_code=True)
+    else:
+        account = eth_rpc.get_account(
+            session_worker_key,
+            block_number=int(start["number"], 16),
+            skip_code=True,
+        )
     session_worker_key.nonce = Number(account.nonce)
     return session_worker_key
 
