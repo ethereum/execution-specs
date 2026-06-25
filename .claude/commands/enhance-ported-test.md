@@ -191,6 +191,16 @@ pure function of the discriminating index.
   - Drop the verbose `pytest.param(..., id=...)` wrapping when the bare values
     already give good ids.
 
+### 7b. Consolidate near-identical sibling files
+Ported fillers often arrive as a fan of files with near-identical names that
+differ in one axis — `test_non_zero_value_{call,callcode,delegatecall}` ×
+`{,_to_empty,_to_one_storage_key,…}`. Once enhanced to the same shape, **join
+them into one parametrized test** (`parametrize("opcode, target_kind", …)` with
+ids matching the old filenames), set up the varying piece (call op, target
+pre-state) from the params, and merge every source into a single `ported_from`
+list. One readable file replaces N. Validated: 10 `NonZeroValue_*` files →
+`test_non_zero_value.py`.
+
 ### 8. Strengthen post-state verification
 Co-locating bytecode and post (step 7) often exposes that the ported test barely
 verifies anything. Improve coupling and observability:
