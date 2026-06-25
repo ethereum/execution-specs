@@ -146,15 +146,10 @@ class EIP2780(BaseFork):
         """
         Return the state gas charged at the top-level transaction
         frame. Charges ``NEW_ACCOUNT`` when value is transferred to an
-        empty recipient; zero otherwise. Precompile recipients are
-        exempt: they are protocol-inherent rather than created by a
-        value transfer, so they never trigger ``NEW_ACCOUNT`` even
-        when state-empty.
+        empty recipient; zero otherwise.
         """
         gas_costs = cls.gas_costs()
         if contract_creation:
-            return 0
-        if recipient_type == RecipientType.PRECOMPILE:
             return 0
         if sends_value and recipient_type == RecipientType.EMPTY_ACCOUNT:
             return gas_costs.NEW_ACCOUNT
