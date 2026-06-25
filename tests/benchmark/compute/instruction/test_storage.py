@@ -364,6 +364,10 @@ def test_storage_access_cold(
                 expected_gas_used += exec_tx.gas_limit
             else:
                 expected_gas_used += exec_tx.gas_cost
+        if tx_result != TransactionResult.SUCCESS:
+            expected_gas_used -= (
+                num_target_slots * executor_code.iterating.state_cost(fork)
+            )
 
     blocks.append(Block(txs=exec_txs))
 
