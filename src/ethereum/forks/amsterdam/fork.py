@@ -50,7 +50,6 @@ from .exceptions import (
     InsufficientMaxFeePerGasError,
     InvalidBlobVersionedHashError,
     NoBlobDataError,
-    PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
     WrongChainIdError,
 )
@@ -583,10 +582,6 @@ def check_transaction(
     sender_account = get_account(tx_state, sender)
 
     if isinstance(tx, FeeMarketCapableTransaction):
-        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
-            raise PriorityFeeGreaterThanMaxFeeError(
-                "priority fee greater than max fee"
-            )
         if tx.max_fee_per_gas < block_env.base_fee_per_gas:
             raise InsufficientMaxFeePerGasError(
                 tx.max_fee_per_gas, block_env.base_fee_per_gas
