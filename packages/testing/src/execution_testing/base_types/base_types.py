@@ -13,7 +13,6 @@ from typing import (
     TypeVar,
 )
 
-from ethereum.crypto.hash import keccak256 as _keccak256
 from pydantic import GetCoreSchemaHandler, StringConstraints
 from pydantic_core.core_schema import (
     PlainValidatorFunctionSchema,
@@ -201,6 +200,12 @@ class Bytes(bytes, ToStringSchema):
 
     def keccak256(self) -> "Hash":
         """Return the keccak256 hash of the opcode byte representation."""
+        # Imported lazily so that merely importing the test framework does not
+        # import the `ethereum` package: on xdist workers that import would
+        # happen before pytest-cov starts the worker's coverage session,
+        # making coverage report `ethereum` as "module-not-measured".
+        from ethereum.crypto.hash import keccak256 as _keccak256
+
         return Hash(_keccak256(self))
 
     def sha256(self) -> "Hash":
