@@ -2,10 +2,12 @@
 Test CALL state gas reservoir passing under EIP-8037.
 
 The full state gas reservoir is passed to child call frames with no
-63/64 rule. On child success, remaining state gas returns to the
-parent. On child revert or exceptional halt, all state gas, both
-reservoir and any that spilled into `gas_left`, is restored to the
-parent's reservoir (only CPU gas is consumed for the failed frame).
+63/64 rule. On child success, remaining state gas returns to the parent.
+On revert, the frame's state gas is refilled in LIFO order: the portion
+that spilled into `gas_left` returns there and the reservoir-funded
+portion restores the reservoir. An exceptional halt likewise resets the
+reservoir to its start-of-frame value, but the spilled portion stays
+consumed as regular gas with the rest of `gas_left`.
 
 All CALL-family opcodes (CALL, DELEGATECALL, STATICCALL) pass the
 full reservoir to child frames.
@@ -1690,4 +1692,128 @@ def test_call_value_precompile_halt_refunds_new_account_state_gas(
     )
 
     post = {probe: Account(storage=probe_storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("target_kind", ["new_account", "precompile"])
+@pytest.mark.parametrize("reservoir", ["in_cap", "over_cap"])
+@pytest.mark.valid_from("EIP8037")
+def test_call_value_new_account_state_gas_consumed_on_caller_halt(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    reservoir: str,
+    target_kind: str,
+) -> None:
+    """
+    Consume a spilled NEW_ACCOUNT charge when the caller exceptionally halts.
+
+    The caller value-CALLs a zero-balance `target`, charging `NEW_ACCOUNT`
+    state gas in its own frame; with an empty reservoir the charge spills into
+    `gas_left`. Two child outcomes share identical accounting: a plain new
+    account, where the CALL materializes it and succeeds, and the bn256
+    pairing precompile forwarded only the value stipend, where the CALL fails
+    in the child and the charge is refilled to `gas_left` in LIFO order. The
+    caller then hits `INVALID`; the halt burns all of `gas_left`, including
+    the spilled charge, and resets the reservoir to its start-of-frame value.
+    The sender pays the full regular budget: the whole `gas_limit` in-cap, or
+    the EIP-7825 gas cap over-cap (the restored reservoir is refunded). The
+    value transfer is rolled back, leaving `target` absent and the caller
+    balance intact.
+    """
+    value = 1
+    # gas=0 forwards only the value stipend: ignored by the empty account
+    # (CALL succeeds), far below the precompile base cost (CALL fails).
+    target = (
+        Address(0x08)
+        if target_kind == "precompile"
+        else pre.nonexistent_account()
+    )
+    caller = pre.deploy_contract(
+        code=Op.CALL(gas=0, address=target, value=value) + Op.INVALID,
+        balance=value,
+    )
+    sender = pre.fund_eoa()
+
+    if reservoir == "over_cap":
+        tx = Transaction(
+            to=caller,
+            sender=sender,
+            state_gas_reservoir=fork.gas_costs().NEW_ACCOUNT // 2,
+            expected_receipt=TransactionReceipt(
+                cumulative_gas_used=fork.transaction_gas_limit_cap()
+            ),
+        )
+    else:
+        gas_limit = 1_000_000
+        tx = Transaction(
+            to=caller,
+            sender=sender,
+            gas_limit=gas_limit,
+            expected_receipt=TransactionReceipt(cumulative_gas_used=gas_limit),
+        )
+
+    post = {
+        caller: Account(balance=value),
+        target: Account.NONEXISTENT,
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("reservoir", ["in_cap", "over_cap"])
+@pytest.mark.valid_from("EIP8037")
+def test_call_value_new_account_state_gas_returned_on_caller_revert(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    reservoir: str,
+) -> None:
+    """
+    Return a spilled NEW_ACCOUNT charge when the caller cleanly reverts.
+
+    Same value CALL to the absent account `target` as the halt case, but the
+    caller ends with `REVERT`. A revert refills the frame state gas in LIFO
+    order: the spilled portion returns to `gas_left` and the reservoir-funded
+    portion restores the reservoir, both refunded to the sender. The sender
+    pays only the regular execution gas, the same value in-cap and over-cap,
+    and the value transfer is rolled back.
+    """
+    value = 1
+    target = pre.nonexistent_account()
+    caller_code = Op.CALL(gas=0, address=target, value=value) + Op.REVERT(0, 0)
+    caller = pre.deploy_contract(code=caller_code, balance=value)
+    sender = pre.fund_eoa()
+
+    gas_costs = fork.gas_costs()
+    # Only regular execution is billed: the spilled and reservoir-funded parts
+    # of the NEW_ACCOUNT charge are both refunded, so the cost matches in-cap
+    # and over-cap. `gas_cost` covers the pushes and cold access; the value
+    # transfer is added on top and the empty child returns its stipend unused.
+    expected_gas_used = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + caller_code.gas_cost(fork)
+        + gas_costs.CALL_VALUE
+        - gas_costs.CALL_STIPEND
+    )
+    receipt = TransactionReceipt(cumulative_gas_used=expected_gas_used)
+
+    if reservoir == "over_cap":
+        tx = Transaction(
+            to=caller,
+            sender=sender,
+            state_gas_reservoir=gas_costs.NEW_ACCOUNT // 2,
+            expected_receipt=receipt,
+        )
+    else:
+        tx = Transaction(
+            to=caller,
+            sender=sender,
+            gas_limit=1_000_000,
+            expected_receipt=receipt,
+        )
+
+    post = {
+        caller: Account(balance=value),
+        target: Account.NONEXISTENT,
+    }
     state_test(pre=pre, post=post, tx=tx)
