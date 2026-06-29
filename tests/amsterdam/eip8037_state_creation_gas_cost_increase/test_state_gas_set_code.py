@@ -1760,9 +1760,7 @@ def test_same_authority_increasing_nonce_net_once(
     account_write = fork.gas_costs().ACCOUNT_WRITE
     auth_base_refund = per_auth_state - new_account_refund
 
-    targets = [
-        pre.deploy_contract(code=Op.STOP) for _ in range(num_auths)
-    ]
+    targets = [pre.deploy_contract(code=Op.STOP) for _ in range(num_auths)]
     call_target = pre.deploy_contract(code=Op.STOP)
 
     signer = pre.fund_eoa(amount=0)

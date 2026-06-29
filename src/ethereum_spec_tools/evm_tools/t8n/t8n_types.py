@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ethereum_rlp import Simple, rlp
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes8
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import InvalidBlock
 from ethereum.merkle_patricia_trie import root, trie_get
 from ethereum.state import EMPTY_CODE_HASH, apply_changes_to_state
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
@@ -276,6 +277,9 @@ class Result:
     block_exception: Optional[str] = None
     block_access_list: Optional[Any] = None
     block_access_list_hash: Optional[Hash32] = None
+    execution_witness: Optional[Any] = None
+    stateless_input_bytes: Optional[bytes] = None
+    stateless_output_bytes: Optional[bytes] = None
 
     def get_receipts_from_output(
         self,
@@ -308,6 +312,7 @@ class Result:
         """
         Update the result after processing the inputs.
         """
+        skip_stateless = getattr(t8n.options, "no_stateless", False)
         self.gas_used = block_output.block_gas_used
         if hasattr(block_output, "block_state_gas_used"):
             if block_output.block_state_gas_used > self.gas_used:
@@ -325,6 +330,20 @@ class Result:
             )
         )
         self.state_root = state_root_value
+
+        # Build witness between state root and apply_changes_to_state:
+        # the witness reads pre-state tries that apply_changes mutates.
+        # This is safe because compute_state_root_and_trie_changes
+        # does not mutate state (it makes transient copies of MPTs).
+        if t8n.fork.has_execution_witness and not skip_stateless:
+            self.execution_witness = t8n.fork.build_execution_witness(
+                block_env.state,
+                expected_post_state_root=state_root_value,
+                pre_state_accounts_data=(t8n.alloc.state._main_trie),
+                pre_state_storages_data=(t8n.alloc.state._storage_tries),
+                blockchain_headers=t8n.env.block_headers,
+            )
+
         # Apply diffs to pre-state for alloc output
         apply_changes_to_state(t8n.alloc.state, block_diff)
         self.receipts = self.get_receipts_from_output(t8n, block_output)
@@ -347,6 +366,93 @@ class Result:
             self.block_access_list_hash = t8n.fork.hash_block_access_list(
                 block_output.block_access_list
             )
+
+        if self.execution_witness is not None and not t8n.options.state_test:
+            withdrawals = (
+                tuple(t8n.env.withdrawals) if t8n.env.withdrawals else ()
+            )
+
+            # Build the block header from execution results.
+            bh = block_env.block_hashes
+            assert bh and bh[-1] is not None
+            header = t8n.fork.Header(
+                parent_hash=Hash32(bytes(bh[-1])),
+                ommers_hash=keccak256(rlp.encode([])),
+                coinbase=block_env.coinbase,
+                state_root=self.state_root,
+                transactions_root=self.tx_root,
+                receipt_root=self.receipt_root,
+                bloom=self.bloom,
+                difficulty=Uint(0),
+                number=block_env.number,
+                gas_limit=block_env.block_gas_limit,
+                gas_used=self.gas_used,
+                timestamp=block_env.time,
+                extra_data=Bytes(b""),
+                prev_randao=block_env.prev_randao,
+                nonce=Bytes8(b"\x00" * 8),
+                base_fee_per_gas=block_env.base_fee_per_gas,
+                withdrawals_root=self.withdrawals_root,
+                blob_gas_used=block_output.blob_gas_used,
+                excess_blob_gas=block_env.excess_blob_gas,
+                parent_beacon_block_root=block_env.parent_beacon_block_root,
+                requests_hash=self.requests_hash,
+                block_access_list_hash=self.block_access_list_hash,
+                slot_number=block_env.slot_number,
+            )
+
+            payload_txs = []
+            for tx_index in range(len(t8n.txs.transactions)):
+                key = rlp.encode(Uint(tx_index))
+                tx = trie_get(block_output.transactions_trie, key)
+                assert tx is not None
+                payload_txs.append(tx)
+
+            block = t8n.fork.Block(
+                header=header,
+                transactions=tuple(payload_txs),
+                ommers=(),
+                withdrawals=withdrawals,
+            )
+
+            assert self.requests is not None
+            try:
+                typed_requests = t8n.fork.decode_execution_requests(
+                    tuple(self.requests)
+                )
+            except InvalidBlock:
+                # The wire form does not parse as a typed
+                # ``ExecutionRequests`` Container. This only happens for
+                # spec tests that mock predeploys to return non-canonical
+                # data; canonical predeploy bytecode always emits
+                # spec-compliant wire. Skip stateless validation in that
+                # case — re-running the guest over un-decodable input
+                # would just fail.
+                return
+            stateless_input = t8n.fork.build_stateless_input(
+                block,
+                execution_witness=self.execution_witness,
+                execution_requests=typed_requests,
+                block_access_list=self.block_access_list,
+                chain_id=block_env.chain_id,
+            )
+            stateless_input_bytes = t8n.fork.serialize_stateless_input(
+                stateless_input
+            )
+            stateless_output_bytes = t8n.fork.run_stateless_guest(
+                stateless_input_bytes
+            )
+            result = t8n.fork.deserialize_stateless_output(
+                stateless_output_bytes
+            )
+            if t8n.txs.rejected_txs or self.block_exception:
+                assert not result.successful_validation
+            else:
+                assert result.successful_validation, (
+                    "Stateless validation failed"
+                )
+            self.stateless_input_bytes = bytes(stateless_input_bytes)
+            self.stateless_output_bytes = bytes(stateless_output_bytes)
 
     def json_encode_receipts(self) -> Any:
         """
@@ -438,6 +544,24 @@ class Result:
         if self.block_access_list_hash is not None:
             data["blockAccessListHash"] = encode_to_hex(
                 self.block_access_list_hash
+            )
+
+        if self.execution_witness is not None:
+            ew = self.execution_witness
+            data["executionWitness"] = {
+                "state": ["0x" + s.hex() for s in ew.state],
+                "codes": ["0x" + c.hex() for c in ew.codes],
+                "headers": ["0x" + h.hex() for h in ew.headers],
+            }
+
+        if self.stateless_input_bytes is not None:
+            data["statelessInputBytes"] = (
+                "0x" + self.stateless_input_bytes.hex()
+            )
+
+        if self.stateless_output_bytes is not None:
+            data["statelessOutputBytes"] = (
+                "0x" + self.stateless_output_bytes.hex()
             )
 
         return data

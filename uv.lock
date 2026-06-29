@@ -778,6 +778,15 @@ wheels = [
 ]
 
 [[package]]
+name = "eth-remerkleable"
+version = "0.1.29"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/16/b91f3fc0c46f8ff597f26fbbbc1d8fbe7ab8d5103e00546417455298b449/eth_remerkleable-0.1.29.tar.gz", hash = "sha256:2418b008cd7471d0f5ab37e5a9784ef4184e503192e6f38c223fe25b7cbbcac3", size = 49252, upload-time = "2026-02-18T00:01:54.205Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/59/c0/f9d34d93b36563482368a60b09b839fd879dcbb36882ed8bb597d4dd9768/eth_remerkleable-0.1.29-py3-none-any.whl", hash = "sha256:0763da127f49795a3f98e424bfea008f26c75d8970a65ebef73d09c4b7ba4973", size = 56855, upload-time = "2026-02-18T00:01:52.631Z" },
+]
+
+[[package]]
 name = "eth-typing"
 version = "5.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -832,6 +841,7 @@ source = { editable = "." }
 dependencies = [
     { name = "coincurve" },
     { name = "cryptography" },
+    { name = "eth-remerkleable" },
     { name = "ethereum-rlp" },
     { name = "ethereum-types" },
     { name = "libcst" },
@@ -942,6 +952,7 @@ test = [
 requires-dist = [
     { name = "coincurve", specifier = ">=20,<21" },
     { name = "cryptography", specifier = ">=45.0.1,<46" },
+    { name = "eth-remerkleable", specifier = ">=0.1.29,<0.2" },
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
     { name = "ethereum-rlp", specifier = ">=0.1.6,<0.2" },
     { name = "ethereum-types", specifier = ">=0.4.1,<0.5" },

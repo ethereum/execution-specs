@@ -142,7 +142,11 @@ def calculate_delegation_cost(
     """
     tx_state = evm.message.tx_env.state
 
-    code = get_code(tx_state, get_account(tx_state, address).code_hash)
+    code = get_code(
+        tx_state,
+        get_account(tx_state, address).code_hash,
+        address,
+    )
 
     if not is_valid_delegation(code):
         return False, address, Uint(0)
@@ -182,7 +186,11 @@ def validate_authorization(
     message.accessed_addresses.add(authority)
 
     authority_account = get_account(tx_state, authority)
-    authority_code = get_code(tx_state, authority_account.code_hash)
+    authority_code = get_code(
+        tx_state,
+        authority_account.code_hash,
+        authority,
+    )
 
     if authority_code and not is_valid_delegation(authority_code):
         return None
@@ -246,7 +254,9 @@ def set_delegation(message: Message) -> Tuple[Uint, Uint]:
             tx_state, authority
         )
         pre_state_authority_code = get_code(
-            tx_state, pre_state_authority_account.code_hash
+            tx_state,
+            pre_state_authority_account.code_hash,
+            authority,
         )
 
         delegated_before_tx = is_valid_delegation(pre_state_authority_code)
@@ -277,6 +287,7 @@ def set_delegation(message: Message) -> Tuple[Uint, Uint]:
     message.code = get_code(
         tx_state,
         get_account(tx_state, message.code_address).code_hash,
+        message.code_address,
     )
 
     return state_refund, regular_refund

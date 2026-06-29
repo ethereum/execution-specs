@@ -159,6 +159,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.code = get_code(
                 tx_state,
                 get_account(tx_state, delegated_address).code_hash,
+                delegated_address,
             )
             message.code_address = delegated_address
 
@@ -320,7 +321,9 @@ def process_message(message: Message) -> Evm:
             ):
                 charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
             recipient_code = get_code(
-                tx_state, get_account(tx_state, recipient).code_hash
+                tx_state,
+                get_account(tx_state, recipient).code_hash,
+                recipient,
             )
             delegated_address = get_delegated_code_address(recipient_code)
             if delegated_address is not None:

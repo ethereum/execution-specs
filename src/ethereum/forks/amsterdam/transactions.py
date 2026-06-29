@@ -12,7 +12,10 @@ from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
-from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
+from ethereum.crypto.elliptic_curve import (
+    SECP256K1N,
+    secp256k1_recover,
+)
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     InsufficientTransactionGasError,
@@ -53,6 +56,7 @@ class IntrinsicGasCost:
 
 
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
+SECP256K1_UNCOMPRESSED_PUBLIC_KEY_PREFIX = b"\x04"
 
 ACCESS_LIST_ADDRESS_FLOOR_TOKENS = Uint(80)
 """
@@ -768,6 +772,57 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     the address of the sender of the transaction. It raises an
     `InvalidSignatureError` if the signature values (r, s, v) are invalid.
     """
+    public_key = recover_transaction_public_key(chain_id, tx)
+    return _sender_address_from_public_key(public_key)
+
+
+def recover_transaction_public_key(chain_id: U64, tx: Transaction) -> Bytes:
+    """
+    Recover the canonical uncompressed SEC1 public key for a transaction.
+    """
+    r, s, recovery_id, signing_hash = _signature_recovery_parameters(
+        chain_id, tx
+    )
+    return Bytes(
+        SECP256K1_UNCOMPRESSED_PUBLIC_KEY_PREFIX
+        + secp256k1_recover(r, s, recovery_id, signing_hash)
+    )
+
+
+def recover_sender_from_public_key(
+    chain_id: U64, tx: Transaction, public_key: Bytes
+) -> Address:
+    """
+    Verify that ``public_key`` is the transaction sender's canonical
+    uncompressed SEC1 public key.
+
+    This reference implementation verifies the supplied key by recovering the
+    canonical public key from the transaction signature and comparing the two.
+    Optimized implementations may avoid full public-key recovery, but must
+    still verify that the supplied key validates the signature and is
+    consistent with the transaction's recovery id / y-parity bit. Otherwise,
+    another valid recovery candidate could derive a different sender address.
+
+    Returns the sender address derived from the verified public key.
+    """
+    if public_key != recover_transaction_public_key(chain_id, tx):
+        raise InvalidSignatureError
+    return _sender_address_from_public_key(public_key)
+
+
+def _sender_address_from_public_key(public_key: Bytes) -> Address:
+    """
+    Derive the sender address from an uncompressed SEC1 public key.
+    """
+    return Address(keccak256(bytes(public_key)[1:])[12:32])
+
+
+def _signature_recovery_parameters(
+    chain_id: U64, tx: Transaction
+) -> Tuple[U256, U256, U256, Hash32]:
+    """
+    Validate the transaction signature fields and return recovery inputs.
+    """
     r, s = tx.r, tx.s
     if U256(0) >= r or r >= SECP256K1N:
         raise InvalidSignatureError("bad r")
@@ -777,14 +832,17 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     if isinstance(tx, LegacyTransaction):
         v = tx.v
         if v == 27 or v == 28:
-            public_key = secp256k1_recover(
-                r, s, v - U256(27), signing_hash_pre155(tx)
+            return (
+                r,
+                s,
+                v - U256(27),
+                signing_hash_pre155(tx),
             )
         else:
             chain_id_x2 = U256(chain_id) * U256(2)
             if v != U256(35) + chain_id_x2 and v != U256(36) + chain_id_x2:
                 raise InvalidSignatureError("bad v")
-            public_key = secp256k1_recover(
+            return (
                 r,
                 s,
                 v - U256(35) - chain_id_x2,
@@ -793,29 +851,41 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     elif isinstance(tx, AccessListTransaction):
         if tx.y_parity not in (U256(0), U256(1)):
             raise InvalidSignatureError("bad y_parity")
-        public_key = secp256k1_recover(
-            r, s, tx.y_parity, signing_hash_2930(tx)
+        return (
+            r,
+            s,
+            tx.y_parity,
+            signing_hash_2930(tx),
         )
     elif isinstance(tx, FeeMarketTransaction):
         if tx.y_parity not in (U256(0), U256(1)):
             raise InvalidSignatureError("bad y_parity")
-        public_key = secp256k1_recover(
-            r, s, tx.y_parity, signing_hash_1559(tx)
+        return (
+            r,
+            s,
+            tx.y_parity,
+            signing_hash_1559(tx),
         )
     elif isinstance(tx, BlobTransaction):
         if tx.y_parity not in (U256(0), U256(1)):
             raise InvalidSignatureError("bad y_parity")
-        public_key = secp256k1_recover(
-            r, s, tx.y_parity, signing_hash_4844(tx)
+        return (
+            r,
+            s,
+            tx.y_parity,
+            signing_hash_4844(tx),
         )
     elif isinstance(tx, SetCodeTransaction):
         if tx.y_parity not in (U256(0), U256(1)):
             raise InvalidSignatureError("bad y_parity")
-        public_key = secp256k1_recover(
-            r, s, tx.y_parity, signing_hash_7702(tx)
+        return (
+            r,
+            s,
+            tx.y_parity,
+            signing_hash_7702(tx),
         )
-
-    return Address(keccak256(public_key)[12:32])
+    else:
+        raise InvalidSignatureError("unsupported transaction type")
 
 
 def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
