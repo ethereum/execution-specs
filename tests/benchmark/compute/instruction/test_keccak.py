@@ -19,6 +19,7 @@ from execution_testing import (
 KECCAK_RATE = 136
 
 
+@pytest.mark.slow("Searches for the max-permutation input size")
 def test_keccak_max_permutations(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
