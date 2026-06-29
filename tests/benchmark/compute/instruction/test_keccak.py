@@ -31,6 +31,34 @@ def test_keccak_max_permutations(
 
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
 
+    # The per-call gas of `POP(SHA3(PUSH0, DUP1, data_size=i))` is affine in
+    # the keccak word count `(i + 31) // 32`: only SHA3's dynamic per-word
+    # cost depends on the input size `i`. Precompute the `i`-independent base
+    # once and add the per-word cost arithmetically below, rather than
+    # rebuilding the bytecode and recomputing its gas cost on every iteration
+    # (which dominated the search runtime). This keeps the discovered
+    # `optimal_input_length`, and therefore the filled fixture, unchanged.
+    base_iteration_gas_cost = Op.POP(
+        Op.SHA3(Op.PUSH0, Op.DUP1, data_size=0)
+    ).gas_cost(fork)
+    keccak_word_gas_cost = fork.gas_costs().OPCODE_KECCAK256_PER_WORD
+
+    def per_call_gas_cost(input_length: int) -> int:
+        """Return the per-call gas of the keccak attack block."""
+        word_count = (input_length + 31) // 32
+        return base_iteration_gas_cost + keccak_word_gas_cost * word_count
+
+    # Guard the affine model: if a future fork reprices keccak non-linearly,
+    # fail here instead of silently discovering a different optimum. The
+    # samples straddle the per-word boundary (32) and span the search range.
+    for sample_length in (1, 31, 32, 33, KECCAK_RATE, 999_999):
+        assert per_call_gas_cost(sample_length) == Op.POP(
+            Op.SHA3(Op.PUSH0, Op.DUP1, data_size=sample_length)
+        ).gas_cost(fork), (
+            "keccak gas is no longer affine in the input word count; the "
+            "analytic search optimization is invalid for this fork"
+        )
+
     # Discover the optimal input size to maximize keccak-permutations,
     # not to maximize keccak calls.
     # The complication of the discovery arises from
@@ -38,9 +66,8 @@ def test_keccak_max_permutations(
     max_keccak_perm_per_block = 0
     optimal_input_length = 0
     for i in range(1, 1_000_000, 32):
-        # Iteration cost disregarding memory expansion
-        iteration_bytecode = Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1, data_size=i))
-        iteration_gas_cost = iteration_bytecode.gas_cost(fork)
+        # Iteration cost disregarding memory expansion.
+        iteration_gas_cost = per_call_gas_cost(i)
         # From the available gas, we subtract the mem expansion costs
         # considering we know the current input size length i.
         available_gas_after_expansion = max(
