@@ -221,17 +221,30 @@ test-ci-scripts *args:
 
 # --- Benchmarks ---
 
-# Fill benchmark tests with --gas-benchmark-values, then verify with EELS
+# Smoke-test benchmark tests: fill blockchain_test fixtures, then verify against EELS.
 [group('benchmark tests')]
 bench-gas *args:
     @mkdir -p "{{ output_dir }}/bench-gas/tmp" "{{ output_dir }}/bench-gas/logs"
-    @echo "==> Step 1/2: Filling benchmark fixtures with configured EVM (EVM_BIN={{ evm_bin }})"
+    @echo "==> Step 1/3: Generating pre-alloc groups (smoke-tests the BlockchainEngineX path)"
+    uv run fill \
+        --generate-pre-alloc-groups \
+        --evm-bin="{{ evm_bin }}" \
+        --gas-benchmark-values 1 \
+        --fork Osaka \
+        -m "not slow" \
+        -n auto --maxprocesses 10 --dist=loadgroup \
+        --output="{{ output_dir }}/bench-gas/pre-alloc" \
+        --basetemp="{{ output_dir }}/bench-gas/tmp" \
+        --log-to "{{ output_dir }}/bench-gas/logs" \
+        --clean \
+        "$@" \
+        tests/benchmark/compute
+    @echo "==> Step 2/3: Filling blockchain_test fixtures with configured EVM (EVM_BIN={{ evm_bin }})"
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
-        --generate-all-formats \
         --fork Osaka \
-        -m "not slow" \
+        -m "blockchain_test and (not derived_test) and (not slow)" \
         -n auto --maxprocesses 10 --dist=loadgroup \
         --output="{{ output_dir }}/bench-gas/fixtures" \
         --basetemp="{{ output_dir }}/bench-gas/tmp" \
@@ -239,10 +252,10 @@ bench-gas *args:
         --clean \
         "$@" \
         tests/benchmark/compute
-    @echo "==> Step 2/2: Running filled fixtures against EELS via json_loader"
+    @echo "==> Step 3/3: Running filled fixtures against EELS via json_loader"
     @rm -rf tests/json_loader/bench_gas_fixtures
     ln -sfn "{{ output_dir }}/bench-gas/fixtures" tests/json_loader/bench_gas_fixtures
-    cd tests/json_loader && uv run --python pypy3.11 pytest \
+    cd tests/json_loader && uv run --python pypy3.11 --no-dev --group test pytest \
         --fork Osaka \
         --allow-post-state-hash \
         -n auto --maxprocesses 10 --dist=loadfile \
