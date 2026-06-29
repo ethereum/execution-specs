@@ -12,6 +12,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    FrozenSet,
     Iterable,
     Iterator,
     List,
@@ -622,18 +623,46 @@ def pytest_configure(config: pytest.Config) -> None:
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
 
-    config.unsupported_forks: Set[Fork | TransitionFork] = set()  # type: ignore
+    # The set of unsupported forks is computed lazily (see
+    # `get_unsupported_forks`) rather than here: querying the t8n tool imports
+    # the `ethereum` package, and on xdist workers `pytest_configure` runs
+    # before pytest-cov starts the worker's coverage session, which would make
+    # coverage report `ethereum` as "module-not-measured".
+
+
+def get_unsupported_forks(
+    config: pytest.Config,
+) -> FrozenSet[Fork | TransitionFork]:
+    """
+    Return the selected forks not supported by the configured t8n tool.
+
+    The result is computed once and cached on ``config``. Computation is
+    deferred out of ``pytest_configure`` (where it previously lived) so that
+    the ``ethereum`` package, imported when the t8n tool is queried, is only
+    imported after pytest-cov has started the xdist worker's coverage session.
+    Importing it earlier left it "previously imported, but not measured".
+    """
+    cached: FrozenSet[Fork | TransitionFork] | None = getattr(
+        config, "_unsupported_forks", None
+    )
+    if cached is not None:
+        return cached
+
+    selected_fork_set: Set[Fork | TransitionFork] = config.selected_fork_set  # type: ignore[attr-defined]
     t8n: TransitionTool | None = getattr(config, "t8n", None)
-    if t8n:
-        config.unsupported_forks = frozenset(  # type: ignore
+    if t8n is None:
+        unsupported_forks: FrozenSet[Fork | TransitionFork] = frozenset()
+    else:
+        unsupported_forks = frozenset(
             fork
             for fork in selected_fork_set
             if not t8n.is_fork_supported(fork.transitions_from())
             or not t8n.is_fork_supported(fork.transitions_to())
         )
-        logger.debug(
-            f"List of unsupported forks: {list(config.unsupported_forks)}"  # type: ignore
-        )
+        logger.debug(f"List of unsupported forks: {list(unsupported_forks)}")
+
+    config._unsupported_forks = unsupported_forks  # type: ignore[attr-defined]
+    return unsupported_forks
 
 
 @pytest.hookimpl(trylast=True)
@@ -653,7 +682,7 @@ def pytest_report_header(config: pytest.Config, start_path: Any) -> List[str]:
             + reset
         ),
     ]
-    unsupported_forks: Set[Fork | TransitionFork] = config.unsupported_forks  # type: ignore[attr-defined]
+    unsupported_forks = get_unsupported_forks(config)
     if unsupported_forks:
         t8n_name = config.t8n.__class__.__name__  # type: ignore[attr-defined]
         excluded = ", ".join(f.name() for f in sorted(unsupported_forks))
@@ -1293,10 +1322,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if "fork" not in metafunc.fixturenames:
         return
 
-    unsupported_forks: Set[Fork | TransitionFork] = (
-        metafunc.config.unsupported_forks  # type: ignore
-    )
-    intersection_set -= unsupported_forks
+    intersection_set -= get_unsupported_forks(metafunc.config)
 
     if not intersection_set:
         if metafunc.config.getoption("verbose") >= 2:
