@@ -139,7 +139,7 @@ def account_access_params() -> list:
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("cache_strategy", CacheStrategy.NO_CACHE)
+@pytest.mark.parametrize("cache_strategy", [CacheStrategy.NO_CACHE])
 @pytest.mark.parametrize(
     "opcode,value_sent,account_mode,overhead_baseline", account_access_params()
 )
