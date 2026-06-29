@@ -9,7 +9,9 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytes,
     ExecutionWitnessCodesExpectation,
+    Fork,
     Op,
+    RecipientType,
     Transaction,
 )
 
@@ -261,29 +263,36 @@ def test_witness_codes_extcodehash_only(
     )
 
 
-# Intrinsic tx cost (21000) + PUSH20 (3) + EXTCODESIZE cold (2600).
-GAS_EXACT_EXTCODESIZE_COLD = 21_000 + 3 + 2600
+def gas_exact_extcodesize_cold(fork: Fork) -> int:
+    """Return execution gas through PUSH20 and cold EXTCODESIZE."""
+    gas_costs = fork.gas_costs()
+    return (
+        gas_costs.VERY_LOW
+        + gas_costs.COLD_ACCOUNT_ACCESS
+        + gas_costs.WARM_ACCESS
+    )
 
 
 @pytest.mark.parametrize(
-    "gas_limit,expect_in_witness",
+    "execution_gas_delta,expect_in_witness",
     [
         pytest.param(
-            GAS_EXACT_EXTCODESIZE_COLD - 1,
+            -1,
             False,
             id="oog",
         ),
         pytest.param(
-            GAS_EXACT_EXTCODESIZE_COLD,
+            0,
             True,
             id="just_enough",
         ),
     ],
 )
 def test_witness_codes_extcodesize_cold_gas_boundary(
+    fork: Fork,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    gas_limit: int,
+    execution_gas_delta: int,
     expect_in_witness: bool,
 ) -> None:
     """
@@ -303,6 +312,13 @@ def test_witness_codes_extcodesize_cold_gas_boundary(
     caller = pre.deploy_contract(code=caller_code)
 
     sender = pre.fund_eoa()
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=RecipientType.CONTRACT,
+        return_cost_deducted_prior_execution=True,
+    )
+    gas_limit = (
+        intrinsic_gas + gas_exact_extcodesize_cold(fork) + execution_gas_delta
+    )
     tx = Transaction(
         sender=sender,
         to=caller,

@@ -83,7 +83,7 @@ def test_invalid_stateless_input_bytes_are_rejected(
 ) -> None:
     """Invalid stateless input bytes fail guest validation."""
     sender = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=0)
+    recipient = pre.fund_eoa(amount=1)
     tx = Transaction(sender=sender, to=recipient, value=1, gas_limit=21_000)
 
     blockchain_test(
@@ -97,6 +97,6 @@ def test_invalid_stateless_input_bytes_are_rejected(
         ],
         post={
             sender: Account(nonce=1),
-            recipient: Account(balance=1),
+            recipient: Account(balance=2),
         },
     )

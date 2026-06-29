@@ -1664,6 +1664,14 @@ class Amsterdam(
                 label="CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS",
             ),
             Address(
+                0x0000884D2AA32EAA155F59A2F24EFA73D9008282,
+                label="BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+            Address(
+                0x000014574A74C805590AFF9499FC7A690F008282,
+                label="BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+            Address(
                 0x0000F90827F1C53A10CB7A02335B175320002935,
                 label="HISTORY_STORAGE_ADDRESS",
             ),

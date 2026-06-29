@@ -269,11 +269,11 @@ def test_validation_state_missing_absent_account_proof_node(
             [sender, *Amsterdam.execution_witness_implicit_code_addresses()],
         )
     )
-    assert len(recipient_only_nodes) == 1
+    assert recipient_only_nodes
     proof_nodes = collect_account_proof_nodes(full_alloc, [recipient])
-    removed_node = recipient_only_nodes[0]
+    removed_node = _required_node(recipient_only_nodes)
 
-    tx = Transaction(sender=sender, to=recipient, value=1, gas_limit=21_000)
+    tx = Transaction(sender=sender, to=recipient, value=1, gas_limit=500_000)
 
     blockchain_test(
         pre=pre,

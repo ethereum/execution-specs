@@ -27,7 +27,7 @@ def test_witness_state_structural_invariants(
     order even when no explicit state nodes are listed.
     """
     sender = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=0)
+    recipient = pre.fund_eoa(amount=1)
     tx = Transaction(sender=sender, to=recipient, value=1, gas_limit=21_000)
 
     blockchain_test(
@@ -42,6 +42,6 @@ def test_witness_state_structural_invariants(
         ],
         post={
             sender: Account(nonce=1),
-            recipient: Account(balance=1),
+            recipient: Account(balance=2),
         },
     )

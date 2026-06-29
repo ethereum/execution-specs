@@ -112,7 +112,7 @@ def test_validation_chain_config_wrong_chain_id_legacy_signature(
 ) -> None:
     """A protected legacy signature for chain 1 fails under chain 2."""
     sender = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=0)
+    recipient = pre.fund_eoa(amount=1)
     tx = Transaction(
         chain_id=1,
         sender=sender,
@@ -134,6 +134,6 @@ def test_validation_chain_config_wrong_chain_id_legacy_signature(
         ],
         post={
             sender: Account(nonce=1),
-            recipient: Account(balance=1),
+            recipient: Account(balance=2),
         },
     )

@@ -238,6 +238,8 @@ def test_amsterdam_execution_witness_implicit_code_addresses() -> None:
         "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
         "0x00000961ef480eb55e80d19ad83579a64c007002",
         "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+        "0x0000884d2aa32eaa155f59a2f24efa73d9008282",
+        "0x000014574a74c805590aff9499fc7a690f008282",
         "0x0000f90827f1c53a10cb7a02335b175320002935",
     ]
     assert "0x00000000219ab540356cbb839cbe05303d7705fa" not in addresses
