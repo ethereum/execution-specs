@@ -35,13 +35,11 @@ def test_keccak_max_permutations(
         """Return the keccak attack block hashing `input_length` bytes."""
         return Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1, data_size=input_length))
 
-    # The per-call gas of `POP(SHA3(PUSH0, DUP1, data_size=i))` is affine in
-    # the keccak word count `(i + 31) // 32`: only SHA3's dynamic per-word
-    # cost depends on the input size `i`. Precompute the `i`-independent base
-    # once and add the per-word cost arithmetically below, rather than
-    # rebuilding the bytecode and recomputing its gas cost on every iteration
-    # (which dominated the search runtime). This keeps the discovered
-    # `optimal_input_length`, and therefore the filled fixture, unchanged.
+    # Only SHA3's per-word cost varies with the input size, so the attack
+    # block's per-call gas is affine in the keccak word count. Precompute
+    # the size-independent base once instead of rebuilding the bytecode and
+    # recomputing its gas each iteration (the search's bottleneck); the
+    # discovered `optimal_input_length`, and so the fixture, is unchanged.
     base_iteration_gas_cost = attack_block_for(0).gas_cost(fork)
     keccak_word_gas_cost = fork.gas_costs().OPCODE_KECCAK256_PER_WORD
 
@@ -55,7 +53,7 @@ def test_keccak_max_permutations(
 
     # Guard the affine model: if a future fork reprices keccak non-linearly,
     # fail here instead of silently discovering a different optimum. The
-    # samples straddle the per-word boundary (32) and span the search range.
+    # samples straddle the 32-byte word boundary and span the search range.
     for sample_length in (1, 31, 32, 33, KECCAK_RATE, search_lengths[-1]):
         assert per_call_gas_cost(sample_length) == attack_block_for(
             sample_length
