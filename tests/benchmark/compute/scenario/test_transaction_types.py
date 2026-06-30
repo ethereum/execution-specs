@@ -280,7 +280,7 @@ def total_cost_standard_per_token(fork: Fork) -> int:
 def calldata_generator(
     gas_amount: int,
     zero_byte: int,
-    total_cost_floor_per_token: int,
+    fork: Fork,
 ) -> bytes:
     """Calculate the calldata based on the gas amount and zero byte."""
     # Gas cost calculation based on EIP-7683: (https://eips.ethereum.org/EIPS/eip-7683)
@@ -301,20 +301,9 @@ def calldata_generator(
     #       max(TX_DATA_TOKEN_STANDARD, TX_DATA_TOKEN_FLOOR)
     #   tx.gasUsed = 21000 + tokens_in_calldata * max_token_cost
     #
-    # Since max(TX_DATA_TOKEN_STANDARD, TX_DATA_TOKEN_FLOOR) = 10:
-    #   tx.gasUsed = 21000 + tokens_in_calldata * 10
-    #
-    # Token accounting:
-    #   tokens_in_calldata = zero_bytes + 4 * non_zero_bytes
-    #
-    # So we calculate how many bytes we can fit into calldata based on
-    # available gas.
-    max_tokens_in_calldata = gas_amount // total_cost_floor_per_token
-    num_of_bytes = (
-        max_tokens_in_calldata if zero_byte else max_tokens_in_calldata // 4
-    )
     byte_data = b"\x00" if zero_byte else b"\xff"
-    return byte_data * num_of_bytes
+    gas_per_byte = fork.calldata_gas_calculator()(data=byte_data, floor=True)
+    return byte_data * (gas_amount // gas_per_byte)
 
 
 @pytest.mark.parametrize("zero_byte", [True, False])
@@ -323,7 +312,6 @@ def test_block_full_data(
     pre: Alloc,
     zero_byte: bool,
     intrinsic_cost: int,
-    total_cost_floor_per_token: int,
     gas_benchmark_value: int,
     tx_gas_limit: int,
     fork: Fork,
@@ -339,11 +327,8 @@ def test_block_full_data(
         # Max calldata bytes at 99% of limit (Osaka: 8,388,608 * 0.99 ≈ 8.3 MB)
         safe_calldata_bytes = int(block_rlp_limit * 0.99)
 
-        # convert to gas: zero bytes = 10 gas/byte, non-zero = 40 gas/byte
-        gas_per_byte = (
-            total_cost_floor_per_token
-            if zero_byte
-            else total_cost_floor_per_token * 4
+        gas_per_byte = fork.calldata_gas_calculator()(
+            data=b"\x00" if zero_byte else b"\xff", floor=True
         )
         # For zero bytes: 8.3MB * 10 = 83M gas just for calldata
         max_calldata_gas = safe_calldata_bytes * gas_per_byte
@@ -363,7 +348,7 @@ def test_block_full_data(
         data = calldata_generator(
             gas_available,
             zero_byte,
-            total_cost_floor_per_token,
+            fork,
         )
 
         total_gas_used += fork.transaction_intrinsic_cost_calculator()(
@@ -618,6 +603,18 @@ def test_auth_transaction(
         if fork.is_eip_enabled(7778)
         else total_gas_used - total_refund
     )
+
+    # Authorization state gas refunded to the reservoir per EIP-8037
+    per_auth_state_gas = fork.transaction_intrinsic_state_gas(
+        authorization_count=1
+    )
+    if not empty_authority:
+        per_auth_state_refund = per_auth_state_gas
+    elif zero_delegation:
+        per_auth_state_refund = per_auth_state_gas - fork.create_state_gas()
+    else:
+        per_auth_state_refund = 0
+    expected_gas_usage -= per_auth_state_refund * sum(authorizations_per_tx)
 
     benchmark_test(
         pre=pre,
