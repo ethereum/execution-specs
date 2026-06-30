@@ -110,15 +110,14 @@ class FeeSystemContractRequest(SystemContractRequest):
     @classmethod
     def get_n_fee_increments(cls, n: int) -> List[int]:
         """Get the first N excess request counts that increase the fee."""
-        excess_request_counts = []
+        excess_request_counts: List[int] = []
         last_fee = 1
         i = 0
-        while True:
-            if cls.get_fee(i) > last_fee:
+        while len(excess_request_counts) < n:
+            fee = cls.get_fee(i)
+            if fee > last_fee:
                 excess_request_counts.append(i)
-                last_fee = cls.get_fee(i)
-            if len(excess_request_counts) == n:
-                break
+                last_fee = fee
             i += 1
         return excess_request_counts
 
