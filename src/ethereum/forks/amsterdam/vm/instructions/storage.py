@@ -81,8 +81,25 @@ def sstore(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
 
-    # check we have at least the stipend gas
-    check_gas(evm, GasCosts.CALL_STIPEND + Uint(1))
+    gas_cost = Uint(0)
+
+    # Access cost: cold or warm, always charged.
+    is_cold_access = (
+        evm.message.current_target,
+        key,
+    ) not in evm.accessed_storage_keys
+    if is_cold_access:
+        gas_cost += GasCosts.COLD_STORAGE_ACCESS
+    else:
+        gas_cost += GasCosts.WARM_ACCESS
+
+    # Gas must cover the access cost before the state access below
+    # records the slot read in the Block Access List. Post-repricing the
+    # access cost can exceed the stipend, so the EIP-2200 stipend sentry
+    # (`gas_left > CALL_STIPEND`) is no longer sufficient on its own.
+    check_gas(evm, max(gas_cost, GasCosts.CALL_STIPEND + Uint(1)))
+    if is_cold_access:
+        evm.accessed_storage_keys.add((evm.message.current_target, key))
 
     tx_state = evm.message.tx_env.state
     original_value = get_storage_original(
@@ -90,15 +107,7 @@ def sstore(evm: Evm) -> None:
     )
     current_value = get_storage(tx_state, evm.message.current_target, key)
 
-    gas_cost = Uint(0)
     state_gas = StateGas(Uint(0))
-
-    # Access cost: cold or warm, always charged.
-    if (evm.message.current_target, key) not in evm.accessed_storage_keys:
-        evm.accessed_storage_keys.add((evm.message.current_target, key))
-        gas_cost += GasCosts.COLD_STORAGE_ACCESS
-    else:
-        gas_cost += GasCosts.WARM_ACCESS
 
     # Write cost: charged on the first change to the slot this transaction.
     if original_value == current_value and current_value != new_value:

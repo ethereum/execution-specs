@@ -421,15 +421,20 @@ def test_sstore_stipend_check_excludes_reservoir(
     gas_above_stipend: int,
 ) -> None:
     """
-    Verify SSTORE stipend check uses gas_left only, not the reservoir.
+    Verify the SSTORE gas check uses gas_left only, not the reservoir.
 
     A child frame has gas_left at or just below the stipend threshold
     (GAS_CALL_STIPEND + 1) while the reservoir holds ample state gas.
-    The stipend check must fail when gas_left < stipend, regardless
-    of the reservoir balance.
+    The check must fail when gas_left is too low, regardless of the
+    reservoir balance.
 
-    With below_stipend: SSTORE fails (gas_left < 2301, reservoir ignored).
-    With at_stipend: SSTORE passes the stipend check and proceeds.
+    Post-8038 the cold access cost (COLD_STORAGE_ACCESS = 3000) exceeds
+    the stipend (2300), so for this cold slot the access cost is the
+    binding gate and the stipend sentry is subsumed. The reservoir is
+    excluded either way, which is what this test pins down.
+
+    With below_stipend: SSTORE fails (gas_left too low, reservoir ignored).
+    With at_stipend: SSTORE has full regular gas and proceeds.
     """
     gas_costs = fork.gas_costs()
     stipend = gas_costs.CALL_STIPEND + 1
