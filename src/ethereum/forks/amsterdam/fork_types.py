@@ -39,6 +39,8 @@ RegularGas = NewType("RegularGas", Uint)
 StateGas = NewType("StateGas", Uint)
 
 
+@slotted_freezable
+@dataclass
 class StateGasPerByte:
     """
     State gas charged per byte of state growth, per [EIP-8037].
@@ -50,8 +52,7 @@ class StateGasPerByte:
     [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     """
 
-    def __init__(self, rate: Uint) -> None:
-        self.rate = rate
+    rate: Uint
 
     def __mul__(self, num_bytes: Uint) -> StateGas:
         """Return the state gas for `num_bytes` charged at this rate."""
