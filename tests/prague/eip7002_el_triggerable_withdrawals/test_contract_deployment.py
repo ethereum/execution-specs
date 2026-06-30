@@ -43,7 +43,6 @@ def test_system_contract_deployment(
     withdrawal_request = WithdrawalRequest(
         validator_pubkey=0x01,
         amount=1,
-        fee=Spec.get_fee(0),
         source_address=sender,
     )
     intrinsic_gas_calculator = (

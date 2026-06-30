@@ -43,7 +43,6 @@ def test_system_contract_deployment(
     consolidation_request = ConsolidationRequest(
         source_pubkey=0x01,
         target_pubkey=0x02,
-        fee=Spec.get_fee(0),
         source_address=sender,
     )
     intrinsic_gas_calculator = (
