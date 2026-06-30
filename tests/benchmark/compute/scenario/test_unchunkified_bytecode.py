@@ -149,6 +149,12 @@ def test_unchunkified_bytecode(
                     nonce=1
                 )
 
+    total_deployment_gas = sum(
+        int(tx.gas_limit) for tx in contracts_deployment_txs
+    )
+    if total_deployment_gas > gas_benchmark_value:
+        pytest.skip("contract deployment exceeds the gas benchmark value")
+
     with TestPhaseManager.execution():
         attack_sender = pre.fund_eoa()
         if fixed_opcode_count is not None:
