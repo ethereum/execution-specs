@@ -20,6 +20,7 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.state import Address
 from ethereum.utils.numeric import ceil32
 
+from ...fork_types import StateGas
 from ...state_tracker import (
     account_deployable,
     get_account,
@@ -668,7 +669,7 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    state_gas = Uint(0)
+    state_gas = StateGas(Uint(0))
     if (
         not is_account_alive(tx_state, beneficiary)
         and get_account(tx_state, evm.message.current_target).balance != 0

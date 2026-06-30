@@ -25,7 +25,12 @@ from .exceptions import (
     InitCodeTooLargeError,
     TransactionTypeError,
 )
-from .fork_types import Authorization, VersionedHash
+from .fork_types import (
+    Authorization,
+    RegularGas,
+    StateGas,
+    VersionedHash,
+)
 
 
 @final
@@ -33,10 +38,10 @@ from .fork_types import Authorization, VersionedHash
 class IntrinsicGasCost:
     """Intrinsic gas costs for a transaction, split by gas type."""
 
-    regular: Uint
+    regular: RegularGas
     """Regular execution gas (calldata, base cost, access list, etc.)."""
 
-    state: Uint
+    state: StateGas
     """
     State growth gas (account creation, storage set, authorization) per
     [EIP-8037].
@@ -44,7 +49,7 @@ class IntrinsicGasCost:
     [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     """
 
-    calldata_floor: Uint
+    calldata_floor: RegularGas
     """
     Minimum gas cost based on calldata size per [EIP-7623].
 
@@ -605,7 +610,7 @@ def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
     intrinsic = calculate_intrinsic_cost(tx)
-    intrinsic_gas = intrinsic.regular + intrinsic.state
+    intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
     if intrinsic_gas > tx.gas:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
     if intrinsic.calldata_floor > tx.gas:
@@ -717,9 +722,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     intrinsic_state_gas = create_state_gas + auth_state_gas
 
     return IntrinsicGasCost(
-        regular=intrinsic_regular_gas,
-        state=intrinsic_state_gas,
-        calldata_floor=data_floor_gas_cost,
+        regular=RegularGas(intrinsic_regular_gas),
+        state=StateGas(intrinsic_state_gas),
+        calldata_floor=RegularGas(data_floor_gas_cost),
     )
 
 

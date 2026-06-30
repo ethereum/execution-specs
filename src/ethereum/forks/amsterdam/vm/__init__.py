@@ -26,7 +26,7 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import Authorization, VersionedHash
+from ..fork_types import Authorization, StateGas, VersionedHash
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
 
@@ -189,7 +189,7 @@ class Evm:
     state_gas_spilled: Uint = Uint(0)
 
 
-def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
+def credit_state_gas_refund(evm: Evm, amount: StateGas) -> None:
     """
     Credit a state gas refund to the local frame, in LIFO order.
 

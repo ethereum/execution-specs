@@ -21,6 +21,7 @@ from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
+from ..fork_types import StateGas, StateGasPerByte
 from ..transactions import BlobTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
@@ -36,17 +37,19 @@ class StateGasCosts:
     state-byte counts that convert into gas via `COST_PER_STATE_BYTE`.
     """
 
-    COST_PER_STATE_BYTE: Final[Uint] = Uint(1530)
+    COST_PER_STATE_BYTE: Final[StateGasPerByte] = StateGasPerByte(Uint(1530))
     STATE_BYTES_PER_NEW_ACCOUNT: Final[Uint] = Uint(120)
     STATE_BYTES_PER_STORAGE_SET: Final[Uint] = Uint(64)
     STATE_BYTES_PER_AUTH_BASE: Final[Uint] = Uint(23)
-    STORAGE_SET: Final[Uint] = (
+    STORAGE_SET: Final[StateGas] = (
         STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE
     )
-    NEW_ACCOUNT: Final[Uint] = (
+    NEW_ACCOUNT: Final[StateGas] = (
         STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
     )
-    AUTH_BASE: Final[Uint] = STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
+    AUTH_BASE: Final[StateGas] = (
+        STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
+    )
 
 
 # These values may be patched at runtime by a future gas repricing utility
@@ -290,7 +293,7 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
     evm.regular_gas_used += amount
 
 
-def charge_state_gas(evm: Evm, amount: Uint) -> None:
+def charge_state_gas(evm: Evm, amount: StateGas) -> None:
     """
     Subtracts `amount` from the state gas reservoir, then from
     `evm.gas_left` when the reservoir is empty. Records state gas usage.
