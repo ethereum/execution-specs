@@ -50,10 +50,13 @@ def test_keccak_max_permutations(
         word_count = (input_length + 31) // 32
         return base_iteration_gas_cost + keccak_word_gas_cost * word_count
 
+    # The input lengths examined by the discovery search below.
+    search_lengths = range(1, 1_000_000, 32)
+
     # Guard the affine model: if a future fork reprices keccak non-linearly,
     # fail here instead of silently discovering a different optimum. The
     # samples straddle the per-word boundary (32) and span the search range.
-    for sample_length in (1, 31, 32, 33, KECCAK_RATE, 999_999):
+    for sample_length in (1, 31, 32, 33, KECCAK_RATE, search_lengths[-1]):
         assert per_call_gas_cost(sample_length) == attack_block_for(
             sample_length
         ).gas_cost(fork), (
@@ -67,7 +70,7 @@ def test_keccak_max_permutations(
     # the non-linear gas cost of memory expansion.
     max_keccak_perm_per_block = 0
     optimal_input_length = 0
-    for i in range(1, 1_000_000, 32):
+    for i in search_lengths:
         # Iteration cost disregarding memory expansion.
         iteration_gas_cost = per_call_gas_cost(i)
         # From the available gas, we subtract the mem expansion costs
