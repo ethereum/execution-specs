@@ -10,4 +10,4 @@ static:
 benchmark:
   impl: geth
   repo: ethereum/go-ethereum
-  ref: master
+  ref: bal-devnet-7
