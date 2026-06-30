@@ -2282,6 +2282,45 @@ def test_create_tx_collision_refunds_reservoir(
     )
 
 
+@pytest.mark.pre_alloc_mutable()
+@pytest.mark.valid_from("EIP8037")
+def test_create_onto_alive_refunds_to_gas_left(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a refunded CREATE NEW_ACCOUNT charge returns to gas_left.
+
+    A CREATE2 onto an already-alive (pre-funded, code-less) address
+    spills the NEW_ACCOUNT charge from the empty reservoir into
+    gas_left, succeeds, and refunds it. `gas_limit` leaves exactly
+    `NEW_ACCOUNT` after the create, so the following SSTORE runs only
+    if the refund returned to gas_left (LIFO) rather than the reservoir.
+    """
+    salt = 0
+    create = Op.POP(Op.CREATE2(0, 0, 0, salt))
+    storage = Storage()
+    contract = pre.deploy_contract(
+        code=create + Op.SSTORE(storage.store_next(1), 1)
+    )
+    target = compute_create2_address(address=contract, salt=salt, initcode=b"")
+    pre[target] = Account(balance=1)
+
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + create.regular_cost(fork)
+        + fork.gas_costs().NEW_ACCOUNT
+    )
+    tx = Transaction(to=contract, gas_limit=gas_limit, sender=pre.fund_eoa())
+
+    post = {
+        contract: Account(storage=storage),
+        target: Account(nonce=1, balance=1),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
 @pytest.mark.parametrize(
     "initcode_size_delta",
     [
