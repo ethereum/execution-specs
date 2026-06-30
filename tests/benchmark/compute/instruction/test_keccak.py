@@ -31,16 +31,46 @@ def test_keccak_max_permutations(
 
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
 
+    def attack_block_for(input_length: int) -> Bytecode:
+        """Return the keccak attack block hashing `input_length` bytes."""
+        return Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1, data_size=input_length))
+
+    # Only SHA3's per-word cost varies with the input size, so the attack
+    # block's per-call gas is affine in the keccak word count. Precompute
+    # the size-independent base once instead of rebuilding the bytecode and
+    # recomputing its gas each iteration (the search's bottleneck); the
+    # discovered `optimal_input_length`, and so the fixture, is unchanged.
+    base_iteration_gas_cost = attack_block_for(0).gas_cost(fork)
+    keccak_word_gas_cost = fork.gas_costs().OPCODE_KECCAK256_PER_WORD
+
+    def per_call_gas_cost(input_length: int) -> int:
+        """Return the per-call gas of the keccak attack block."""
+        word_count = (input_length + 31) // 32
+        return base_iteration_gas_cost + keccak_word_gas_cost * word_count
+
+    # The input lengths examined by the discovery search below.
+    search_lengths = range(1, 1_000_000, 32)
+
+    # Guard the affine model: if a future fork reprices keccak non-linearly,
+    # fail here instead of silently discovering a different optimum. The
+    # samples straddle the 32-byte word boundary and span the search range.
+    for sample_length in (1, 31, 32, 33, KECCAK_RATE, search_lengths[-1]):
+        assert per_call_gas_cost(sample_length) == attack_block_for(
+            sample_length
+        ).gas_cost(fork), (
+            "keccak gas is no longer affine in the input word count; the "
+            "analytic search optimization is invalid for this fork"
+        )
+
     # Discover the optimal input size to maximize keccak-permutations,
     # not to maximize keccak calls.
     # The complication of the discovery arises from
     # the non-linear gas cost of memory expansion.
     max_keccak_perm_per_block = 0
     optimal_input_length = 0
-    for i in range(1, 1_000_000, 32):
-        # Iteration cost disregarding memory expansion
-        iteration_bytecode = Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1, data_size=i))
-        iteration_gas_cost = iteration_bytecode.gas_cost(fork)
+    for i in search_lengths:
+        # Iteration cost disregarding memory expansion.
+        iteration_gas_cost = per_call_gas_cost(i)
         # From the available gas, we subtract the mem expansion costs
         # considering we know the current input size length i.
         available_gas_after_expansion = max(
@@ -61,9 +91,7 @@ def test_keccak_max_permutations(
         target_opcode=Op.SHA3,
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH20[optimal_input_length],
-            attack_block=Op.POP(
-                Op.SHA3(Op.PUSH0, Op.DUP1, data_size=optimal_input_length)
-            ),
+            attack_block=attack_block_for(optimal_input_length),
         ),
     )
 
