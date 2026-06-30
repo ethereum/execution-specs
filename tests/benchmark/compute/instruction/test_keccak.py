@@ -31,6 +31,10 @@ def test_keccak_max_permutations(
 
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
 
+    def attack_block_for(input_length: int) -> Bytecode:
+        """Return the keccak attack block hashing `input_length` bytes."""
+        return Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1, data_size=input_length))
+
     # The per-call gas of `POP(SHA3(PUSH0, DUP1, data_size=i))` is affine in
     # the keccak word count `(i + 31) // 32`: only SHA3's dynamic per-word
     # cost depends on the input size `i`. Precompute the `i`-independent base
@@ -38,9 +42,7 @@ def test_keccak_max_permutations(
     # rebuilding the bytecode and recomputing its gas cost on every iteration
     # (which dominated the search runtime). This keeps the discovered
     # `optimal_input_length`, and therefore the filled fixture, unchanged.
-    base_iteration_gas_cost = Op.POP(
-        Op.SHA3(Op.PUSH0, Op.DUP1, data_size=0)
-    ).gas_cost(fork)
+    base_iteration_gas_cost = attack_block_for(0).gas_cost(fork)
     keccak_word_gas_cost = fork.gas_costs().OPCODE_KECCAK256_PER_WORD
 
     def per_call_gas_cost(input_length: int) -> int:
@@ -52,8 +54,8 @@ def test_keccak_max_permutations(
     # fail here instead of silently discovering a different optimum. The
     # samples straddle the per-word boundary (32) and span the search range.
     for sample_length in (1, 31, 32, 33, KECCAK_RATE, 999_999):
-        assert per_call_gas_cost(sample_length) == Op.POP(
-            Op.SHA3(Op.PUSH0, Op.DUP1, data_size=sample_length)
+        assert per_call_gas_cost(sample_length) == attack_block_for(
+            sample_length
         ).gas_cost(fork), (
             "keccak gas is no longer affine in the input word count; the "
             "analytic search optimization is invalid for this fork"
@@ -88,9 +90,7 @@ def test_keccak_max_permutations(
         target_opcode=Op.SHA3,
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH20[optimal_input_length],
-            attack_block=Op.POP(
-                Op.SHA3(Op.PUSH0, Op.DUP1, data_size=optimal_input_length)
-            ),
+            attack_block=attack_block_for(optimal_input_length),
         ),
     )
 
