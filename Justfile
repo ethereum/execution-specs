@@ -246,6 +246,7 @@ bench-gas *args:
         --fork Osaka \
         -m "blockchain_test and (not derived_test) and (not slow)" \
         -n auto --maxprocesses 10 --dist=loadgroup \
+        --durations=20 \
         --output="{{ output_dir }}/bench-gas/fixtures" \
         --basetemp="{{ output_dir }}/bench-gas/tmp" \
         --log-to "{{ output_dir }}/bench-gas/logs" \
@@ -259,6 +260,7 @@ bench-gas *args:
         --fork Osaka \
         --allow-post-state-hash \
         -n auto --maxprocesses 10 --dist=loadfile \
+        --durations=20 \
         --basetemp="{{ output_dir }}/bench-gas/json-loader-tmp" \
         bench_gas_fixtures
 
