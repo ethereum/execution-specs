@@ -405,15 +405,13 @@ def test_mod_arithmetic(
         )
         + Op.POP
     )
-    # Construct the final code. Because of the usage of PUSH32 the code segment
-    # is very long, so don't try to include multiple of these.
-    code = (
-        code_constant_pool
-        + Op.JUMPDEST
-        + code_segment
-        + Op.JUMP(len(code_constant_pool))
-    )
-    assert (max_code_size - len(code_segment)) < len(code) <= max_code_size
+
+    code_prefix = code_constant_pool + Op.JUMPDEST
+    code_suffix = Op.JUMP(len(code_constant_pool))
+    overhead = len(code_prefix) + len(code_suffix)
+    num_segments = (max_code_size - overhead) // len(code_segment)
+    code = code_prefix + code_segment * num_segments + code_suffix
+    assert len(code) <= max_code_size
 
     tx = Transaction(
         to=pre.deploy_contract(code=code),
