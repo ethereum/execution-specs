@@ -26,6 +26,10 @@ from execution_testing import (
     TestAddress,
 )
 
+from ...amsterdam.eip8282_builder_execution_requests.helpers import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
+)
 from ..eip6110_deposits.helpers import DepositRequest
 from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
 from ..eip7251_consolidations.helpers import ConsolidationRequest
@@ -44,6 +48,8 @@ REQUEST_TYPES: List[type[SystemContractRequest]] = [
     DepositRequest,
     WithdrawalRequest,
     ConsolidationRequest,
+    BuilderDepositRequest,
+    BuilderExitRequest,
 ]
 REQUEST_TYPE_BY_ADDRESS = {
     rt.interaction_contract_address: rt for rt in REQUEST_TYPES
@@ -151,7 +157,9 @@ def test_valid_multi_type_requests(
     EOAs and from relay contracts, including per-type maximums.
     """
     blockchain_test(
-        genesis_environment=Environment(),
+        genesis_environment=Environment(
+            gas_limit=500_000_000  # We could also bump the global gas limit
+        ),
         pre=pre,
         post={},
         blocks=blocks,

@@ -62,6 +62,8 @@ from .exceptions import (
 )
 from .fork_types import Authorization, BlockAccessIndex, VersionedHash
 from .requests import (
+    BUILDER_DEPOSIT_REQUEST_TYPE,
+    BUILDER_EXIT_REQUEST_TYPE,
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
     WITHDRAWAL_REQUEST_TYPE,
@@ -133,6 +135,12 @@ WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
 )
 CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
     "0x0000BBdDc7CE488642fb579F8B00f3a590007251"
+)
+BUILDER_DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
+    "0x0000884d2AA32eAa155F59A2f24eFa73D9008282"
+)
+BUILDER_EXIT_CONTRACT_ADDRESS = hex_to_address(
+    "0x000014574A74c805590AFF9499fc7A690f008282"
 )
 HISTORY_STORAGE_ADDRESS = hex_to_address(
     "0x0000F90827F1C53a10cb7A02335B175320002935"
@@ -955,6 +963,30 @@ def process_general_purpose_requests(
         requests_from_execution.append(
             CONSOLIDATION_REQUEST_TYPE
             + system_consolidation_tx_output.return_data
+        )
+
+    system_builder_deposit_tx_output = process_checked_system_transaction(
+        block_env=block_env,
+        target_address=BUILDER_DEPOSIT_CONTRACT_ADDRESS,
+        data=b"",
+    )
+
+    if len(system_builder_deposit_tx_output.return_data) > 0:
+        requests_from_execution.append(
+            BUILDER_DEPOSIT_REQUEST_TYPE
+            + system_builder_deposit_tx_output.return_data
+        )
+
+    system_builder_exit_tx_output = process_checked_system_transaction(
+        block_env=block_env,
+        target_address=BUILDER_EXIT_CONTRACT_ADDRESS,
+        data=b"",
+    )
+
+    if len(system_builder_exit_tx_output.return_data) > 0:
+        requests_from_execution.append(
+            BUILDER_EXIT_REQUEST_TYPE
+            + system_builder_exit_tx_output.return_data
         )
 
 

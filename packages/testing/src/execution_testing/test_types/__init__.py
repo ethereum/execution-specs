@@ -35,6 +35,8 @@ from .helpers import (
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import TransactionLog, TransactionReceipt
 from .request_types import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
     ConsolidationRequest,
     DepositRequest,
     Requests,
@@ -74,6 +76,8 @@ __all__ = (
     "Blob",
     "BlockAccessList",
     "BlockAccessListExpectation",
+    "BuilderDepositRequest",
+    "BuilderExitRequest",
     "ChainConfig",
     "ChainConfigDefaults",
     "ConsolidationRequest",
