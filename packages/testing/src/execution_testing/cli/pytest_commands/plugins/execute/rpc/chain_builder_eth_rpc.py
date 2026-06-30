@@ -347,3 +347,65 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 new_payload,
                 payload_attributes.parent_beacon_block_root,
             )
+
+    def bump_block_gas_limit(
+        self,
+        block_count: int,
+    ) -> List[EnginePayloadMetadata]:
+        """
+        Build empty block to increase the block gas limit to target.
+        """
+        if block_count <= 0:
+            return []
+        assert self.testing_rpc is not None, (
+            "bump_block_gas_limit requires testing_rpc"
+        )
+        captured: List[EnginePayloadMetadata] = []
+        with self.block_building_lock:
+            for _ in range(block_count):
+                head_block = self.get_block_by_number("latest")
+                assert head_block is not None
+                next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
+                payload_attributes = self._payload_attributes(
+                    next_timestamp=next_timestamp,
+                )
+                new_payload = self.testing_rpc.build_block(
+                    parent_block_hash=Hash(head_block["hash"]),
+                    payload_attributes=payload_attributes,
+                    transactions=[],
+                    extra_data=Bytes(b""),
+                )
+                captured.append(
+                    self._finalize_payload(
+                        new_payload,
+                        payload_attributes.parent_beacon_block_root,
+                    )
+                )
+        return captured
+
+    def set_canonical_head(self, head_block_hash: Hash) -> None:
+        """
+        Reorg the canonical head to head_block_hash via
+        ``engine_forkchoiceUpdated``.
+        """
+        head_block = self.get_block_by_hash(head_block_hash)
+        assert head_block is not None, (
+            f"cannot reset head to unknown block {head_block_hash}"
+        )
+        head_fork = self.fork.fork_at(
+            block_number=HexNumber(head_block["number"]),
+            timestamp=HexNumber(head_block["timestamp"]),
+        )
+        fcu_version = head_fork.engine_forkchoice_updated_version()
+        assert fcu_version is not None, (
+            "Fork does not support engine forkchoice_updated"
+        )
+        response = self.engine_rpc.forkchoice_updated(
+            ForkchoiceState(head_block_hash=head_block_hash),
+            None,
+            version=fcu_version,
+        )
+        assert response.payload_status.status == PayloadStatusEnum.VALID, (
+            f"forkchoice_updated reset to {head_block_hash} was not VALID "
+            f"(got {response.payload_status.status})"
+        )

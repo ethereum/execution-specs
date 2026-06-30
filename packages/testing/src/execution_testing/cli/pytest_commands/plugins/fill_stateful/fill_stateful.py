@@ -15,11 +15,13 @@ setup-phase block prepended to ``self.blocks``.
 
 import os
 import secrets
+import time
 from pathlib import Path
-from typing import Any, Generator, List
+from typing import Any, Generator, List, Tuple
 from urllib.parse import urlparse, urlunparse
 
 import pytest
+from ethereum.crypto.hash import keccak256
 from filelock import FileLock
 
 from execution_testing.base_types import (
@@ -36,34 +38,32 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.forks import (
     Fork,
-    ForkSetAdapter,
-    InvalidForkError,
     TransitionFork,
 )
 from execution_testing.logging import get_logger
-from execution_testing.rpc import DebugRPC, EngineRPC, EthRPC
+from execution_testing.rpc import EthRPC
 from execution_testing.specs.blockchain import (
     payload_metadata_to_fixture,
 )
 from execution_testing.test_types import EOA
-from execution_testing.test_types.chain_config_types import (
-    ChainConfigDefaults,
-)
 
 from ..execute import contracts
 from ..execute.rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
-from ..execute.rpc.hive import (
-    build_client_files,
-    build_client_genesis_dict,
-    build_genesis_header,
-    build_hive_environment,
-)
+from ..shared import profile
 from ..shared.helpers import is_help_or_collectonly_mode
 from ..shared.live_client_flags import FEE_BUMP_MULTIPLIER
+from .hive_session import configure_hive, teardown_hive
+from .stub_account import DEFAULT_CHAINSPEC_PATH
 
-# 1 billion ETH. Withdrawals are Gwei (u64-capped); much higher risks
-# overflow on some clients, this is plenty for any single fill session.
+# 1B ETH for seed account
 SEED_FUNDING_WEI = 10**9 * 10**18
+
+# 1 ETH per deterministic sender-pool account.
+POOL_FUNDING_WEI = 10**18
+
+SENDER_BASE_KEY = int.from_bytes(
+    keccak256(b"gas-repricings-private-key"), "big"
+)
 
 logger = get_logger(__name__)
 
@@ -107,6 +107,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--chainspec",
+        action="store",
+        dest="chainspec",
+        default=str(DEFAULT_CHAINSPEC_PATH),
+        type=str,
+        help=(
+            "Path to a chainspec JSON file for --hive-mode; its stub "
+            "accounts are merged into the genesis pre-state. Defaults to "
+            f"the bundled {DEFAULT_CHAINSPEC_PATH.name}."
+        ),
+    )
+    group.addoption(
         "--rpc-seed-key",
         action="store",
         dest="rpc_seed_key",
@@ -115,6 +127,30 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Private key for signing transactions. Optional — a random "
             "key is generated and funded via CL withdrawal if omitted."
+        ),
+    )
+    group.addoption(
+        "--gas-bump-blocks",
+        action="store",
+        dest="gas_bump_blocks",
+        default=0,
+        type=int,
+        help=(
+            "Empty blocks at start to increase block gas limit "
+            "(parent_gas_limit/1024 per block). Default: 0 — hive-mode "
+            "bakes a 1 G genesis gas limit so no ramp is needed. Raise "
+            "this only if your tests need more than 1 G per block."
+        ),
+    )
+    group.addoption(
+        "--sender-pool-size",
+        action="store",
+        dest="sender_pool_size",
+        default=15000,
+        type=int,
+        help=(
+            "Sender-pool accounts to fund via CL withdrawals for 1 ETH"
+            "Default: 15000."
         ),
     )
     group.addoption(
@@ -131,122 +167,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "by hash. The produced fixtures are anchored by hash regardless."
         ),
     )
-
-
-def _resolve_session_fork(
-    config: pytest.Config,
-) -> Fork | TransitionFork:
-    """
-    Resolve the single fork from ``--fork`` in hive mode.
-
-    Runs in ``pytest_configure`` before forks.py populates
-    ``selected_fork_set``, so we can't use ``session_fork`` here — the
-    hive genesis/ruleset must be built before remote.py's pytest_configure
-    pings the (not-yet-started) client.
-    """
-    fork_arg = config.getoption("single_fork", default="")
-    if not fork_arg:
-        pytest.exit(
-            "--fork is required in --hive-mode (single-fork only).",
-            returncode=pytest.ExitCode.USAGE_ERROR,
-        )
-    try:
-        fork_set = ForkSetAdapter.validate_python(fork_arg)
-    except InvalidForkError:
-        pytest.exit(
-            f"Unsupported fork provided to --fork: {fork_arg!r}",
-            returncode=pytest.ExitCode.USAGE_ERROR,
-        )
-    if len(fork_set) != 1:
-        pytest.exit(
-            f"Expected exactly one fork in --hive-mode, got {len(fork_set)} "
-            f"({sorted(f.name() for f in fork_set)}).",
-            returncode=pytest.ExitCode.USAGE_ERROR,
-        )
-    return next(iter(fork_set))
-
-
-def _hive_chain_id(config: pytest.Config) -> int:
-    """Resolve chain id from CLI/env, defaulting to ChainConfigDefaults."""
-    cli_value = config.getoption("chain_id", default=None)
-    if cli_value is not None:
-        return int(cli_value)
-    env_value = os.environ.get("CHAIN_ID")
-    if env_value is not None:
-        return int(env_value)
-    return ChainConfigDefaults.chain_id
-
-
-def _configure_hive(config: pytest.Config) -> None:
-    """
-    Start a hive simulator session and a single execution client, then
-    rewrite ``config.option`` so the rest of the plugin stack (remote.py
-    in particular) connects to the hive-managed client.
-    """
-    hive_simulator_url = config.getoption("hive_simulator")
-    if hive_simulator_url is None:
-        pytest.exit(
-            "The HIVE_SIMULATOR environment variable is not set.\n\n"
-            "If running locally, start hive in --dev mode, for example:\n"
-            "./hive --dev --client go-ethereum\n\n"
-            "and set the HIVE_SIMULATOR to the reported URL. For example, "
-            "in bash:\n"
-            "export HIVE_SIMULATOR=http://127.0.0.1:3000\n"
-            "or in fish:\n"
-            "set -x HIVE_SIMULATOR http://127.0.0.1:3000"
-        )
-    from hive.simulation import Simulation
-
-    session_fork = _resolve_session_fork(config)
-    chain_id = _hive_chain_id(config)
-
-    simulator = Simulation(url=hive_simulator_url)
-    suite = simulator.start_suite(
-        name="fill-stateful test suite",
-        description="Test suite used to drive a fill-stateful session",
-    )
-    config.hive_test_suite = suite  # type: ignore[attr-defined]
-    base_test = suite.start_test(
-        name="fill-stateful base test",
-        description=(
-            "Base test in the fill-stateful suite hosting the long-lived "
-            "execution client."
-        ),
-    )
-    config.hive_base_test = base_test  # type: ignore[attr-defined]
-
-    # base_pre=None: seed key funded via CL withdrawal and deterministic
-    # factory deployed on-chain by ``_session_pre_run``, so genesis only
-    # needs the fork's required system contracts.
-    pre_alloc, genesis_header = build_genesis_header(session_fork, None)
-    genesis_dict = build_client_genesis_dict(pre_alloc, genesis_header)
-
-    client_type = simulator.client_types()[0]
-    client = base_test.start_client(
-        client_type=client_type,
-        environment=build_hive_environment(session_fork, chain_id),
-        files=build_client_files(genesis_dict),
-    )
-    if client is None:
-        pytest.exit(
-            f"Unable to start hive client {client_type.name}. Check the "
-            "hive server logs for more information."
-        )
-    config.hive_client = client  # type: ignore[attr-defined]
-    logger.info(
-        f"Started hive client {client_type.name} at {client.ip} "
-        f"(fork={session_fork.name()}, chain_id={chain_id})"
-    )
-
-    config.option.rpc_endpoint = f"http://{client.ip}:8545"
-    config.option.engine_endpoint = f"http://{client.ip}:8551"
-    if (
-        config.getoption("engine_jwt_secret", default=None) is None
-        and config.getoption("engine_jwt_secret_file", default=None) is None
-    ):
-        config.option.engine_jwt_secret = EngineRPC.DEFAULT_JWT_SECRET
-    if config.getoption("chain_id", default=None) is None:
-        config.option.chain_id = chain_id
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -280,7 +200,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config.hive_base_test = None  # type: ignore[attr-defined]
     config.hive_client = None  # type: ignore[attr-defined]
     if config.getoption("hive_mode", default=False):
-        _configure_hive(config)
+        configure_hive(config)
     else:
         if not config.getoption("rpc_endpoint", default=None):
             config.option.rpc_endpoint = "http://localhost:8545"
@@ -298,43 +218,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 def pytest_unconfigure(config: pytest.Config) -> None:
     """Tear down hive resources started in ``pytest_configure``."""
-    client = getattr(config, "hive_client", None)
-    if client is not None:
-        try:
-            client.stop()
-        except Exception as e:
-            logger.warning(f"Failed to stop hive client: {e}")
-        config.hive_client = None  # type: ignore[attr-defined]
-
-    base_test = getattr(config, "hive_base_test", None)
-    if base_test is not None:
-        from hive.testing import HiveTestResult
-
-        test_pass = (
-            getattr(config, "_fill_stateful_session_failed", False) is False
-        )
-        try:
-            base_test.end(
-                result=HiveTestResult(
-                    test_pass=test_pass,
-                    details=(
-                        "fill-stateful session complete"
-                        if test_pass
-                        else "fill-stateful session had failures"
-                    ),
-                )
-            )
-        except Exception as e:
-            logger.warning(f"Failed to end hive base test: {e}")
-        config.hive_base_test = None  # type: ignore[attr-defined]
-
-    suite = getattr(config, "hive_test_suite", None)
-    if suite is not None:
-        try:
-            suite.end()
-        except Exception as e:
-            logger.warning(f"Failed to end hive test suite: {e}")
-        config.hive_test_suite = None  # type: ignore[attr-defined]
+    teardown_hive(config)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
@@ -344,10 +228,21 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         session.config._fill_stateful_session_failed = True  # type: ignore[attr-defined]
 
 
-def pytest_runtest_call(item: pytest.Item) -> None:
-    """Fail in the call phase (→ FAILED, not ERROR) on ``missing_stubs``."""
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
+    """Fail on ``missing_stubs``; time each parametrization's call phase."""
     for marker in item.iter_markers("missing_stubs"):
         pytest.fail(marker.args[0], pytrace=False)
+    profile.write("test starting", nodeid=item.nodeid)
+    t0 = time.perf_counter()
+    outcome = yield
+    elapsed = time.perf_counter() - t0
+    profile.write(
+        "test done",
+        nodeid=item.nodeid,
+        elapsed_s=f"{elapsed:.3f}",
+        outcome="PASS" if outcome.excinfo is None else "FAIL",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -433,21 +328,9 @@ def max_gas_limit_per_test(
     return fork_at_genesis.transaction_gas_limit_cap()
 
 
-# Other live-client fixtures (``max_transactions_per_batch``,
-# ``default_*``, fee fields, ``dry_run``, ...) come from
-# ``shared.live_client_flags``. ``skip_cleanup`` from ``execute.pre_alloc``;
-# we force it on in ``pytest_configure``.
-
-
 # ---------------------------------------------------------------------------
 # Backend + session setup
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="session")
-def debug_rpc(eth_rpc: EthRPC) -> DebugRPC:
-    """DebugRPC on the same endpoint as eth_rpc (for debug_setHead)."""
-    return DebugRPC(eth_rpc.url)
 
 
 @pytest.fixture(scope="session")
@@ -568,40 +451,55 @@ def _session_pre_run(
     request: pytest.FixtureRequest,
 ) -> None:
     """
-    Session pre-run: capture snapshot, fund seed, deploy factory, capture
-    start block, write ``pre_run/<start_block_hash>.json``.
-
-    The file is named after the start block hash so per-test
-    ``BlockchainEngineStatefulFixture`` instances reference their setup
-    file implicitly via their own ``start_block_hash`` field — leaves
-    room for multiple pre-run files (e.g. different setup variants off
-    one snapshot) without coordinating filenames.
-
-    Pre-run helpers return their built ``EnginePayloadMetadata`` directly;
-    we collect them into ``captured`` and serialise via
-    ``payload_metadata_to_fixture``.
+    # 1. Snapshot anchor via client-returned hash (survives reorg).
+    # 2. Ramp gas limit with empty blocks before funding/setup.
+    # 3. Fund seed key via CL withdrawal.
+    # 4. Deploy deterministic factory if needed.
+    # 5. Capture start block (head after setup).
+    # 6. Write to pre_run/<start_block_hash>.json for implicit lookup.
     """
     if is_help_or_collectonly_mode(request.config):
         return
 
-    # 1. Snapshot anchor. Either way, the client-returned hash is what we
-    #    record — a later reorg can't silently re-anchor by block number.
+    # Anchor snapshot (client hash, reorg-safe).
     client_backend.snapshot_block = snapshot_block
     logger.info(
         f"Snapshot block {snapshot_block['number']} "
         f"hash={snapshot_block['hash'][:20]}..."
     )
 
-    # 2. Fund seed key via CL withdrawal; helper returns the built payload.
     captured: List[EnginePayloadMetadata] = []
-    fund_payload = eth_rpc.fund_via_withdrawals(
-        [(Address(session_worker_key), SEED_FUNDING_WEI)]
-    )
+
+    # Ramp gas limit (empty blocks) via empty blocks.
+    gas_bump_blocks = request.config.getoption("gas_bump_blocks")
+    with profile.phase(
+        "empty-block gas-limit ramp", requested_blocks=gas_bump_blocks
+    ):
+        bump_payloads = eth_rpc.bump_block_gas_limit(gas_bump_blocks)
+    captured.extend(bump_payloads)
+    if bump_payloads:
+        logger.info(
+            f"Ramped block gas limit with {len(bump_payloads)} empty blocks"
+        )
+
+    # Fund the seed key and the deterministic sender pool
+    pool_size = request.config.getoption("sender_pool_size")
+    funding_targets: List[Tuple[Address, int]] = [
+        (Address(session_worker_key), SEED_FUNDING_WEI)
+    ]
+    funding_targets += [
+        (Address(EOA(key=SENDER_BASE_KEY + i)), POOL_FUNDING_WEI)
+        for i in range(pool_size)
+    ]
+    with profile.phase(
+        "fund_via_withdrawals", recipients=len(funding_targets)
+    ):
+        fund_payload = eth_rpc.fund_via_withdrawals(funding_targets)
     if fund_payload is not None:
         captured.append(fund_payload)
-    logger.info(f"Funded {Address(session_worker_key)} via withdrawal")
+    logger.info(f"Funded seed key and {pool_size} sender pool accounts")
 
-    # 3. Deploy deterministic factory if not already present.
+    # 4. Deploy deterministic factory if needed.
     lock_file = session_temp_folder / "fill_stateful_setup.lock"
     with FileLock(lock_file):
         if (
@@ -610,17 +508,18 @@ def _session_pre_run(
             )
             is None
         ):
-            _, deploy_payloads = (
-                contracts.deploy_deterministic_factory_contract(
-                    eth_rpc=eth_rpc,
-                    seed_key=session_worker_key,
-                    gas_price=sender_funding_transactions_gas_price,
-                    tx_index=0,
+            with profile.phase("deploy_deterministic_factory"):
+                _, deploy_payloads = (
+                    contracts.deploy_deterministic_factory_contract(
+                        eth_rpc=eth_rpc,
+                        seed_key=session_worker_key,
+                        gas_price=sender_funding_transactions_gas_price,
+                        tx_index=0,
+                    )
                 )
-            )
             captured.extend(deploy_payloads)
 
-    # 4. Capture start block (head after global setup).
+    # 5. Capture start block.
     start_block = eth_rpc.get_block_by_number("latest")
     assert start_block is not None, "Failed to fetch start block"
     client_backend.start_block = start_block
@@ -629,9 +528,7 @@ def _session_pre_run(
         f"hash={start_block['hash'][:20]}..."
     )
 
-    # 5. Persist captured payloads to pre_run/<start_block_hash>.json.
-    #    Per-test fixtures already carry start_block_hash; naming the
-    #    pre-run file after that hash makes lookup a direct path build.
+    # Write pre_run/<start_block_hash>.json.
     if captured:
         output_dir = Path(request.config.getoption("output"))
         pre_run_dir = (
@@ -693,35 +590,32 @@ def t8n(
 @pytest.fixture(autouse=True, scope="function")
 def _reset_chain_between_tests(
     client_backend: ClientBackend,
-    debug_rpc: DebugRPC,
     eth_rpc: "ChainBuilderEthRPC",
 ) -> Generator[None, None, None]:
     """
-    Rewind to start_block after each test so the chain is identical for
-    every fill. ``debug_setHead`` only takes a number, so after the
-    rewind we re-fetch ``latest`` and fail loudly if the hash drifted
-    (e.g. live reorg of a same-numbered block).
+    # Rewind to start_block after each test via engine_forkchoiceUpdated.
+    # Re-fetch latest and fail if hash drifted (detects live reorgs).
     """
     yield
     if client_backend.start_block is None:
         return
-    start_hex = client_backend.start_block["number"]
     expected_hash = client_backend.start_block["hash"]
-    # Skip when head already at start (geth rejects same-block setHead).
+
     current_head = eth_rpc.get_block_by_number("latest")
     if current_head is not None and current_head["hash"] == expected_hash:
         return
     try:
-        debug_rpc.set_head(start_hex)
+        eth_rpc.set_canonical_head(Hash(expected_hash))
     except Exception as e:
-        pytest.exit(f"debug_setHead failed — subsequent fixtures invalid: {e}")
+        pytest.exit(
+            f"forkchoice reset failed, subsequent fixtures invalid: {e}"
+        )
     head = eth_rpc.get_block_by_number("latest")
     if head is None or head["hash"] != expected_hash:
         observed = head["hash"] if head is not None else "<none>"
         pytest.exit(
-            f"debug_setHead landed on hash {observed} but expected "
-            f"{expected_hash} (start_block at number {start_hex}). The "
-            "live chain may have reorged out from under fill-stateful; "
-            "rerun against a quiescent client or use --snapshot-block "
-            "with an explicit hash."
+            f"forkchoice reset landed on hash {observed} but expected "
+            f"{expected_hash}. The live chain may have reorged out from "
+            "under fill-stateful; rerun against a quiescent client or use "
+            "--snapshot-block with an explicit hash."
         )

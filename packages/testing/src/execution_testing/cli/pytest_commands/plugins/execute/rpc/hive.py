@@ -2,6 +2,7 @@
 
 import io
 import json
+import time
 from dataclasses import asdict, replace
 from pathlib import Path
 from random import randint
@@ -12,6 +13,8 @@ from filelock import FileLock
 from hive.client import Client, ClientType
 from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
+
+from ...shared import profile as _profile
 
 from execution_testing.base_types import (
     Account,
@@ -150,7 +153,13 @@ def build_genesis_header(
         pre_alloc = Alloc.merge(pre_alloc, base_pre)
     if empty_accounts := pre_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")
+    _state_root_t0 = time.perf_counter()
     state_root = pre_alloc.state_root()
+    _profile.write(
+        "Alloc.state_root",
+        accounts=len(pre_alloc.root),
+        elapsed_s=f"{time.perf_counter() - _state_root_t0:.3f}",
+    )
     genesis = FixtureHeader(
         parent_hash=0,
         ommers_hash=EmptyOmmersRoot,
