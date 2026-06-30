@@ -238,6 +238,70 @@ def test_selfdestruct_new_beneficiary_header_gas_used(
     )
 
 
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_new_beneficiary_state_gas_spilled(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify SELFDESTRUCT bills a spilled NEW_ACCOUNT charge as state gas.
+
+    With an empty reservoir (in-cap tx) the charge spills into
+    `gas_left` and is consumed on the successful self-destruct halt, so
+    the beneficiary is created and the block bills the full state cost.
+    """
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
+    beneficiary = 0xDEAD
+
+    contract = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(beneficiary), balance=1
+    )
+    tx = Transaction(to=contract, sender=pre.fund_eoa())
+
+    state_test(
+        pre=pre,
+        post={beneficiary: Account(balance=1), contract: Account(balance=0)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=new_account_state_gas),
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify SELFDESTRUCT state gas is refilled when an ancestor reverts.
+
+    The inner frame spills the NEW_ACCOUNT charge and self-destructs
+    successfully, then the caller reverts: the beneficiary creation
+    rolls back and the spilled charge is refilled, so only regular gas
+    is billed.
+    """
+    beneficiary = 0xDEAD
+    inner_code = Op.SELFDESTRUCT(beneficiary)
+    inner = pre.deploy_contract(code=inner_code, balance=1)
+    caller_code = Op.POP(Op.CALL(gas=Op.GAS, address=inner)) + Op.REVERT(0, 0)
+    caller = pre.deploy_contract(code=caller_code)
+
+    expected_regular = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + caller_code.gas_cost(fork)
+        + inner_code.gas_cost(fork)
+    )
+    tx = Transaction(to=caller, sender=pre.fund_eoa())
+
+    state_test(
+        pre=pre,
+        post={beneficiary: Account.NONEXISTENT, inner: Account(balance=1)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_regular),
+    )
+
+
 @pytest.mark.parametrize(
     "num_slots",
     [
