@@ -39,6 +39,7 @@ RegularGas = NewType("RegularGas", Uint)
 StateGas = NewType("StateGas", Uint)
 
 
+@final
 @slotted_freezable
 @dataclass
 class StateGasPerByte:
