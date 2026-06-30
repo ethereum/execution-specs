@@ -17,7 +17,6 @@ ref_spec_2930 = ReferenceSpec(
 
 
 # Constants
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-2930 specifications as defined at

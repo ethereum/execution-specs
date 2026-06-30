@@ -29,7 +29,6 @@ ref_spec_8037 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Constants and helpers for the EIP-8037 State Creation Gas Cost

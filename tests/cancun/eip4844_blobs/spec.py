@@ -53,7 +53,6 @@ ref_spec_4844 = ReferenceSpec(
 
 
 # Constants
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-4844 specifications as defined at

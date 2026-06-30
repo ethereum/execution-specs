@@ -17,7 +17,6 @@ ref_spec_7825 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Constants and helpers for the EIP-7825 Transaction Gas Limit Cap tests.

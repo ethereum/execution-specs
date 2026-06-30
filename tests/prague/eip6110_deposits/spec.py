@@ -16,7 +16,6 @@ ref_spec_6110 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-6110 specifications as defined at

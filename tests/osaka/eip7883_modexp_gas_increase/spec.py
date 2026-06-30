@@ -26,7 +26,6 @@ def ceiling_division(a: int, b: int) -> int:
     return -(a // -b)
 
 
-@dataclass(frozen=True)
 class Spec:
     """Constants and helpers for the ModExp gas cost calculation."""
 

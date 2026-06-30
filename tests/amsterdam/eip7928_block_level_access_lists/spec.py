@@ -17,7 +17,6 @@ ref_spec_7928 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """Constants and parameters from EIP-7928."""
 

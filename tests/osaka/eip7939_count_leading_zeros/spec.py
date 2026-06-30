@@ -16,7 +16,6 @@ ref_spec_7939 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """Constants and helpers for the CLZ opcode."""
 

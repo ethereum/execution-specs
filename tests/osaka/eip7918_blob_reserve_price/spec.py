@@ -21,7 +21,6 @@ ref_spec_7918 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec(EIP4844Spec):
     """
     Parameters from the EIP-7918 specifications. Extends EIP-4844 spec with the
