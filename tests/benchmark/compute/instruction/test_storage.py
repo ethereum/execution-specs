@@ -259,6 +259,7 @@ def test_storage_access_cold(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     tx_result: TransactionResult,
+    fixed_opcode_count: float | None,
 ) -> None:
     """
     Benchmark cold storage slot accesses using EIP-7702 delegation.
@@ -283,12 +284,16 @@ def test_storage_access_cold(
         return Hash(start_iteration) + Hash(iteration_count)
 
     # Number of slots that can be processed in the execution phase
-    num_target_slots = sum(
-        executor_code.tx_iterations_by_gas_limit(
-            fork=fork,
-            gas_limit=gas_benchmark_value,
-            calldata=calldata_generator,
+    num_target_slots = (
+        sum(
+            executor_code.tx_iterations_by_gas_limit(
+                fork=fork,
+                gas_limit=gas_benchmark_value,
+                calldata=calldata_generator,
+            )
         )
+        if fixed_opcode_count is None
+        else int(fixed_opcode_count * 1000)
     )
 
     blocks = []
@@ -350,22 +355,39 @@ def test_storage_access_cold(
         tx_gas_limit_delta = (
             -1 if tx_result == TransactionResult.OUT_OF_GAS else 0
         )
-        exec_txs = list(
-            executor_code.transactions_by_gas_limit(
-                fork=fork,
-                gas_limit=gas_benchmark_value,
-                sender=pre.fund_eoa(),
-                to=authority,
-                calldata=calldata_generator,
-                start_iteration=1,
-                tx_gas_limit_delta=tx_gas_limit_delta,
+        if fixed_opcode_count is not None:
+            exec_txs = list(
+                executor_code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=num_target_slots,
+                    sender=pre.fund_eoa(),
+                    to=authority,
+                    calldata=calldata_generator,
+                    start_iteration=1,
+                    tx_gas_limit_delta=tx_gas_limit_delta,
+                )
             )
-        )
+        else:
+            exec_txs = list(
+                executor_code.transactions_by_gas_limit(
+                    fork=fork,
+                    gas_limit=gas_benchmark_value,
+                    sender=pre.fund_eoa(),
+                    to=authority,
+                    calldata=calldata_generator,
+                    start_iteration=1,
+                    tx_gas_limit_delta=tx_gas_limit_delta,
+                )
+            )
         for exec_tx in exec_txs:
             if tx_result == TransactionResult.OUT_OF_GAS:
                 expected_gas_used += exec_tx.gas_limit
             else:
                 expected_gas_used += exec_tx.gas_cost
+        if tx_result != TransactionResult.SUCCESS:
+            expected_gas_used -= (
+                num_target_slots * executor_code.iterating.state_cost(fork)
+            )
 
     blocks.append(Block(txs=exec_txs))
 
@@ -422,6 +444,7 @@ def test_storage_access_warm(
     storage_action: StorageAction,
     gas_benchmark_value: int,
     tx_gas_limit: int,
+    fixed_opcode_count: float | None,
 ) -> None:
     """Benchmark warm storage slot accesses."""
     blocks = []
@@ -463,7 +486,11 @@ def test_storage_access_warm(
     contract_address = compute_create_address(address=sender_addr, nonce=0)
 
     with TestPhaseManager.execution():
-        num_exec_txs = math.ceil(gas_benchmark_value / tx_gas_limit)
+        num_exec_txs = (
+            math.ceil(gas_benchmark_value / tx_gas_limit)
+            if fixed_opcode_count is None
+            else 1
+        )
         txs = []
         for i in range(num_exec_txs):
             gas_limit = min(
