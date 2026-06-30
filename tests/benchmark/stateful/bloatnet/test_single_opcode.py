@@ -30,7 +30,9 @@ from execution_testing import (
     Hash,
     IteratingBytecode,
     JumpLoopGenerator,
+    NoTraceErrors,
     Op,
+    ReceiptStatusExpected,
     SequentialAddressLayout,
     Storage,
     TestPhaseManager,
@@ -206,7 +208,7 @@ def run_bloated_eoa_benchmark(
         pre=pre,
         blocks=blocks,
         skip_gas_used_validation=True,
-        expected_receipt_status=True,
+        verifications=[ReceiptStatusExpected()],
     )
 
 
@@ -810,7 +812,7 @@ def test_sload_erc20_generic(
         pre=pre,
         blocks=blocks,
         skip_gas_used_validation=True,
-        expected_receipt_status=True,
+        verifications=[ReceiptStatusExpected()],
     )
 
 
@@ -946,7 +948,7 @@ def test_sstore_erc20_generic(
         pre=pre,
         blocks=blocks,
         skip_gas_used_validation=True,
-        expected_receipt_status=True,
+        verifications=[ReceiptStatusExpected()],
     )
 
 
@@ -1750,5 +1752,5 @@ def test_account_access(
         blocks=blocks,
         target_opcode=opcode,
         skip_gas_used_validation=True,
-        expected_receipt_status=1,
+        verifications=[ReceiptStatusExpected(), NoTraceErrors()],
     )

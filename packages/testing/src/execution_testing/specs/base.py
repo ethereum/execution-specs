@@ -36,10 +36,8 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
+from execution_testing.specs.verifications import BlockVerification
 from execution_testing.test_types import Environment, Withdrawal
-from execution_testing.test_types.receipt_types import (
-    TransactionReceipt,
-)
 
 
 class HashMismatchExceptionError(Exception):
@@ -115,7 +113,7 @@ class BaseTest(BaseModel):
     gas_optimization_max_gas_limit: int | None = None
     expected_benchmark_gas_used: int | None = None
     skip_gas_used_validation: bool = False
-    expected_receipt_status: int | None = None
+    verifications: List[BlockVerification] = Field(default_factory=list)
     is_tx_gas_heavy_test: bool = False
     is_exception_test: bool = False
 
@@ -295,32 +293,23 @@ class BaseTest(BaseModel):
             f"{gas_benchmark_value}"
         )
 
-    def validate_receipt_status(
+    def run_block_verifications(
         self,
         *,
-        receipts: List[TransactionReceipt],
+        result: Result,
         block_number: int,
     ) -> None:
         """
-        Validate receipt status for every transaction in a block.
+        Run all block verification rules.
 
-        When expected_receipt_status is set, verify that all
-        receipts match. Catches silent OOG failures that roll
-        back state and invalidate benchmarks.
+        Dispatch every rule in ``self.verifications``
+        against the transition tool result for a block.
         """
-        if "expected_receipt_status" not in self.model_fields_set:
-            return
-        for i, receipt in enumerate(receipts):
-            if receipt.status is not None and (
-                int(receipt.status) != self.expected_receipt_status
-            ):
-                raise Exception(
-                    f"Transaction {i} in block "
-                    f"{block_number} has receipt "
-                    f"status {int(receipt.status)}, "
-                    f"expected "
-                    f"{self.expected_receipt_status}."
-                )
+        for v in self.verifications:
+            v.verify(
+                result=result,
+                block_number=block_number,
+            )
 
 
 TestSpec = Callable[[Fork], Generator[BaseTest, None, None]]

@@ -39,10 +39,14 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
 )
 from execution_testing.forks import Fork, TransitionFork
+from execution_testing.specs.verifications import BlockVerification
 from execution_testing.test_types import Alloc, Environment, Transaction
 from execution_testing.vm import Bytecode, Op
 
-from .base import BaseTest, FillResult
+from .base import (
+    BaseTest,
+    FillResult,
+)
 from .blockchain import Block, BlockchainTest
 
 
@@ -309,6 +313,7 @@ class BenchmarkTest(BaseTest):
     expected_opcode_count: int | None = None
     target_opcode: Op | OpcodeTarget | None = None
     code_generator: BenchmarkCodeGenerator | None = None
+    verifications: List[BlockVerification] = Field(default_factory=list)
     # By default, benchmark tests require neither of these
     include_full_post_state_in_output: bool = False
     include_tx_receipts_in_output: bool = False

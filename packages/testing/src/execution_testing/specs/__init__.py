@@ -1,6 +1,15 @@
 """Test spec definitions and utilities."""
 
-from .base import BaseTest, TestSpec
+from execution_testing.specs.verifications import (
+    BlockVerification,
+    NoTraceErrors,
+    ReceiptStatusExpected,
+)
+
+from .base import (
+    BaseTest,
+    TestSpec,
+)
 from .base_static import BaseStaticTest
 from .benchmark import (
     BenchmarkTest,
@@ -27,6 +36,7 @@ from .transaction import (
 __all__ = (
     "BaseStaticTest",
     "BaseTest",
+    "BlockVerification",
     "BenchmarkTest",
     "BenchmarkTestFiller",
     "BenchmarkTestSpec",
@@ -40,7 +50,9 @@ __all__ = (
     "BlockchainTestSpec",
     "Block",
     "Header",
+    "NoTraceErrors",
     "OpcodeTarget",
+    "ReceiptStatusExpected",
     "StateStaticTest",
     "StateTest",
     "StateTestFiller",
