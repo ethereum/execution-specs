@@ -448,6 +448,9 @@ class CustomSizedContractFactory(IteratingBytecode):
             iterating=iterating,
             iterating_subcall=initcode,
             cleanup=cleanup,
+            iterating_state_gas=(
+                iterating.state_cost(fork) + initcode.state_cost(fork)
+            ),
         )
         instance.initcode = initcode
         # Cache the address to avoid expensive recomputation
@@ -474,8 +477,10 @@ class CustomSizedContractFactory(IteratingBytecode):
     ) -> Generator[ContractDeploymentTransaction, None, None]:
         """
         Create a list of transactions calling the factory to create the
-        given number of contracts, each capped tx properly capped by the
-        gas limit cap of the fork.
+        given number of contracts, each transaction capped by the fork's
+        regular-gas limit cap (EIP-7825). Under EIP-8037 the per-byte code
+        deposit is state gas drawn from a separate reservoir, so the split
+        bounds regular gas only and lets the combined gas exceed the cap.
         """
         to = self.address()
 
