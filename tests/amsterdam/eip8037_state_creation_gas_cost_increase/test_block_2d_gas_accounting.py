@@ -884,4 +884,58 @@ def test_base_fee_per_gas_follows_dominant_dimension(
             ),
         ],
         post=post,
+@pytest.mark.exception_test
+@pytest.mark.valid_from("EIP8037")
+def test_cumulative_block_state_gas_rejection(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Reject a tx whose gas exceeds the remaining block state-gas budget.
+
+    Both txs fit the block alone. tx1's SSTORE-sets consume the block's
+    state budget down to a small remainder; tx2's gas_limit exceeds that
+    remainder while the regular budget still has ample room, so tx2 is
+    rejected on the state dimension and the block is invalid. The
+    regular-dimension cumulative gate is covered by
+    test_multi_transaction_gas_accounting (EIP-7778).
+    """
+    storage_set = Op.SSTORE(new_value=1).state_cost(fork)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    n = 6
+
+    set_op = Op.SSTORE.with_metadata(
+        key_warm=False, original_value=0, current_value=0, new_value=1
+    )
+    sstore_code = sum((set_op(i, 1) for i in range(n)), Bytecode()) + Op.STOP
+    tx1_regular = intrinsic + sstore_code.regular_cost(fork)
+    # tx1 exactly fills the block; the leftover state budget is tx1_regular.
+    block_gas_limit = tx1_regular + n * storage_set
+    # tx2 stays within the remaining regular budget, so only the state
+    # dimension can reject it.
+    assert tx1_regular + 1 <= block_gas_limit - tx1_regular
+
+    sstore_contract = pre.deploy_contract(code=sstore_code)
+
+    tx1 = Transaction(
+        to=sstore_contract, gas_limit=block_gas_limit, sender=pre.fund_eoa()
+    )
+    tx2 = Transaction(
+        to=sstore_contract,
+        gas_limit=tx1_regular + 1,
+        sender=pre.fund_eoa(),
+        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2],
+                exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+            )
+        ],
+        post={},
     )
