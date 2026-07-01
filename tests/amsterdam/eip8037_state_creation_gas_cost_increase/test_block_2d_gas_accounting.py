@@ -605,6 +605,9 @@ def test_tx_gas_limit_block_boundary(
         pytest.param(1, id="exceeds", marks=pytest.mark.exception_test),
     ],
 )
+# Cumulative block-gas inclusion is a pre-existing rule, not an
+# EIP-8037 novelty. Floor is Osaka only because the gas-cap guard
+# below relies on EIP-7825's transaction_gas_limit_cap().
 @pytest.mark.valid_from("Osaka")
 def test_tx_inclusion_at_regular_gas_block_limit_small(
     blockchain_test: BlockchainTestFiller,
