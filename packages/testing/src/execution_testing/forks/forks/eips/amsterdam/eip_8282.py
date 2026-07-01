@@ -14,17 +14,17 @@ from execution_testing.base_types import Address
 from ....base_fork import BaseFork
 from ....bytecode import load_contract_bytecode
 
-BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS = (
+BUILDER_DEPOSIT_CONTRACT_ADDRESS = (
     0x0000884D2AA32EAA155F59A2F24EFA73D9008282
 )
-BUILDER_DEPOSIT_REQUEST_PREDEPLOY_BYTECODE = load_contract_bytecode(
+BUILDER_DEPOSIT_CONTRACT_BYTECODE = load_contract_bytecode(
     __name__, "builder_deposit_request.bin"
 )
 
-BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS = (
+BUILDER_EXIT_CONTRACT_ADDRESS = (
     0x000014574A74C805590AFF9499FC7A690F008282
 )
-BUILDER_EXIT_REQUEST_PREDEPLOY_BYTECODE = load_contract_bytecode(
+BUILDER_EXIT_CONTRACT_BYTECODE = load_contract_bytecode(
     __name__, "builder_exit_request.bin"
 )
 
@@ -51,12 +51,12 @@ class EIP8282(BaseFork):
         """Add the builder deposit and exit request predeploy contracts."""
         return [
             Address(
-                BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS,
-                label="BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS",
+                BUILDER_DEPOSIT_CONTRACT_ADDRESS,
+                label="BUILDER_DEPOSIT_CONTRACT_ADDRESS",
             ),
             Address(
-                BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS,
-                label="BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS",
+                BUILDER_EXIT_CONTRACT_ADDRESS,
+                label="BUILDER_EXIT_CONTRACT_ADDRESS",
             ),
         ] + super(EIP8282, cls).system_contracts()
 
@@ -64,13 +64,13 @@ class EIP8282(BaseFork):
     def pre_allocation_blockchain(cls) -> Mapping:
         """Pre-allocate the builder deposit and exit request contracts."""
         return {
-            BUILDER_DEPOSIT_REQUEST_PREDEPLOY_ADDRESS: {
+            BUILDER_DEPOSIT_CONTRACT_ADDRESS: {
                 "nonce": 1,
-                "code": BUILDER_DEPOSIT_REQUEST_PREDEPLOY_BYTECODE,
+                "code": BUILDER_DEPOSIT_CONTRACT_BYTECODE,
             },
-            BUILDER_EXIT_REQUEST_PREDEPLOY_ADDRESS: {
+            BUILDER_EXIT_CONTRACT_ADDRESS: {
                 "nonce": 1,
-                "code": BUILDER_EXIT_REQUEST_PREDEPLOY_BYTECODE,
+                "code": BUILDER_EXIT_CONTRACT_BYTECODE,
             },
             **super(EIP8282, cls).pre_allocation_blockchain(),
         }
