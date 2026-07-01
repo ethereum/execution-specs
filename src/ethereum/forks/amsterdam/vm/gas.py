@@ -293,7 +293,7 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
 def charge_state_gas(evm: Evm, amount: Uint) -> None:
     """
     Subtracts `amount` from the state gas reservoir, then from
-    `evm.gas_left` when the reservoir is empty, tracking any spill.
+    `evm.gas_left` when the reservoir is empty, tracking any [spill].
 
     Parameters
     ----------
@@ -301,6 +301,8 @@ def charge_state_gas(evm: Evm, amount: Uint) -> None:
         The current EVM.
     amount :
         The amount of state gas the current operation requires.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.Evm.state_gas_spilled
 
     """
     evm_trace(evm, StateGasAndRefund(int(amount)))

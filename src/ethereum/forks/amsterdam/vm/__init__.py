@@ -186,6 +186,12 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_spilled: Uint = Uint(0)
+    """
+    Running total of state gas that _spilled_ into `gas_left`: the amount
+    charged against `gas_left` because the `state_gas_left` reservoir was
+    empty at the time of the charge. Repaid to `gas_left` first when
+    refunds or frame rollback unwind those charges.
+    """
 
 
 def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
@@ -255,16 +261,19 @@ def refill_frame_state_gas(evm: Evm) -> None:
 
 def frame_state_gas_used(evm: Evm) -> int:
     """
-    Return the net state gas a finished frame consumed.
+    Return the net state gas consumed by a finished frame.
 
-    Equal to the reservoir drawn down (`state_gas_reservoir` at entry
-    minus the reservoir now) plus `state_gas_spilled`. May be negative
+    Equal to the reservoir drawn down ([`state_gas_reservoir`][sgr] at entry
+    minus the reservoir now) plus [`state_gas_spilled`][sgs]. May be negative
     when refunds exceed charges.
 
     Parameters
     ----------
     evm :
         The finished frame.
+
+    [sgr]: ref:ethereum.forks.amsterdam.vm.Message.state_gas_reservoir
+    [sgs]: ref:ethereum.forks.amsterdam.vm.Evm.state_gas_spilled
 
     """
     return (
