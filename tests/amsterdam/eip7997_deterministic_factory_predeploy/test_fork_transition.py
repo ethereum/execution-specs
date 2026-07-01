@@ -16,6 +16,13 @@ from execution_testing import (
     Transaction,
     compute_create2_address,
 )
+from execution_testing.test_types.block_access_list.account_changes import (
+    BalNonceChange,
+)
+from execution_testing.test_types.block_access_list.expectations import (
+    BalAccountExpectation,
+    BlockAccessListExpectation,
+)
 
 from .spec import Spec, ref_spec_7997
 
@@ -50,14 +57,14 @@ def test_factory_deploys_across_transition(
     )
     sender = pre.fund_eoa()
 
-    runtime_code = Op.RETURN(0, 1)  # Deploys contract only contains Op.STOP
+    runtime_code = Op.RETURN(0, 1)
     initcode = Initcode(deploy_code=runtime_code)
 
-    timestamps = [FORK_TIMESTAMP - 1, FORK_TIMESTAMP]
+    timestamps = [FORK_TIMESTAMP - 1, FORK_TIMESTAMP, FORK_TIMESTAMP + 1]
 
     blocks = []
     deployed = {}
-    for timestamp in timestamps:
+    for i, timestamp in enumerate(timestamps):
         blocks.append(
             Block(
                 timestamp=timestamp,
@@ -68,6 +75,18 @@ def test_factory_deploys_across_transition(
                         data=Hash(timestamp) + bytes(initcode),
                     )
                 ],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        factory: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1,
+                                    post_nonce=pre_fork_nonce + i + 1,
+                                )
+                            ],
+                        ),
+                    }
+                ),
             )
         )
         deployed[compute_create2_address(factory, timestamp, initcode)] = (
