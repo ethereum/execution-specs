@@ -186,12 +186,6 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_spilled: Uint = Uint(0)
-    """
-    Running total of state gas that _spilled_ into `gas_left`: the amount
-    charged against `gas_left` because the `state_gas_left` reservoir was
-    empty at the time of the charge. Repaid to `gas_left` first when
-    refunds or frame rollback unwind those charges.
-    """
 
 
 def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
