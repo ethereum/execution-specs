@@ -34,6 +34,10 @@ FORK_RANGES_CONFIG = Path(".github/configs/fork-ranges.yaml")
 
 VERSION_RE = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 
+# Devnet release branches follow `devnets/<feat-or-fork>/<n>`, e.g.
+# `devnets/bal/7` or `devnets/glamsterdam/6`; `<n>` is the devnet number.
+DEVNET_BRANCH_RE = re.compile(r"^devnets/[^/]+/([0-9]+)$")
+
 # Canonical fork ordering used to filter fork ranges per feature.
 FORK_ORDER = [
     "Frontier",
@@ -86,7 +90,7 @@ def validate_inputs(feature: str, version: str, branch: str) -> None:
 
     For `<feat>-devnet` releases the major version (`X` of `vX.Y.Z`)
     must equal the devnet number encoded in the release branch, so a
-    `bal-devnet` release from `bal-devnet-7` must be tagged `v7.*.*`.
+    `bal-devnet` release from `devnets/bal/7` must be tagged `v7.*.*`.
     """
     if not feature:
         fail("feature name is empty")
@@ -111,13 +115,13 @@ def validate_inputs(feature: str, version: str, branch: str) -> None:
         if not branch:
             fail(
                 "devnet releases require a 'branch' input, "
-                "e.g. branch=bal-devnet-7"
+                "e.g. branch=devnets/bal/7"
             )
-        match = re.search(r"(\d+)$", branch)
+        match = DEVNET_BRANCH_RE.match(branch)
         if not match:
             fail(
                 f"could not parse a devnet number from branch '{branch}' "
-                "(expected a trailing number, e.g. bal-devnet-7)"
+                "(expected devnets/<feat>/<n>, e.g. devnets/bal/7)"
             )
         devnet_number = int(match.group(1))
         major = int(version.lstrip("v").split(".")[0])

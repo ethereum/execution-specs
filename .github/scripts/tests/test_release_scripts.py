@@ -71,7 +71,7 @@ class TestGenerateBuildMatrix:
     def test_devnet_name_resolves_to_shared_feature(self):
         """Verify a <feat>-devnet name resolves to the devnet feature."""
         result = run_script(
-            BUILD_MATRIX_SCRIPT, "bal-devnet", "v7.0.0", "bal-devnet-7"
+            BUILD_MATRIX_SCRIPT, "bal-devnet", "v7.0.0", "devnets/bal/7"
         )
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
@@ -121,7 +121,7 @@ class TestValidateInputs:
     def test_bare_devnet_fails(self):
         """Verify a bare `devnet` feature name is rejected."""
         result = run_script(
-            BUILD_MATRIX_SCRIPT, "devnet", "v7.0.0", "bal-devnet-7"
+            BUILD_MATRIX_SCRIPT, "devnet", "v7.0.0", "devnets/bal/7"
         )
         assert result.returncode == 1
         assert "require a <feat>- prefix" in result.stderr
@@ -129,7 +129,7 @@ class TestValidateInputs:
     def test_devnet_index_in_feature_name_fails(self):
         """Verify `<feat>-devnet-<n>` is rejected with a suggestion."""
         result = run_script(
-            BUILD_MATRIX_SCRIPT, "bal-devnet-7", "v7.0.0", "bal-devnet-7"
+            BUILD_MATRIX_SCRIPT, "bal-devnet-7", "v7.0.0", "devnets/bal/7"
         )
         assert result.returncode == 1
         assert "did you mean feature=bal-devnet version=v7.0.0" in (
@@ -142,10 +142,10 @@ class TestValidateInputs:
         assert result.returncode == 1
         assert "require a 'branch' input" in result.stderr
 
-    def test_devnet_branch_without_number_fails(self):
-        """Verify a devnet branch with no trailing number is rejected."""
+    def test_devnet_branch_wrong_shape_fails(self):
+        """Verify a branch outside `devnets/<feat>/<n>` is rejected."""
         result = run_script(
-            BUILD_MATRIX_SCRIPT, "bal-devnet", "v7.0.0", "bal-devnet"
+            BUILD_MATRIX_SCRIPT, "bal-devnet", "v7.0.0", "bal-devnet-7"
         )
         assert result.returncode == 1
         assert "could not parse a devnet number" in result.stderr
@@ -153,7 +153,7 @@ class TestValidateInputs:
     def test_devnet_major_must_match_branch_number(self):
         """Verify the major version must equal the branch devnet number."""
         result = run_script(
-            BUILD_MATRIX_SCRIPT, "bal-devnet", "v3.0.0", "bal-devnet-7"
+            BUILD_MATRIX_SCRIPT, "bal-devnet", "v3.0.0", "devnets/bal/7"
         )
         assert result.returncode == 1
         assert "must equal the devnet number" in result.stderr
@@ -163,8 +163,8 @@ class TestValidateInputs:
         result = run_script(
             BUILD_MATRIX_SCRIPT,
             "glamsterdam-devnet",
-            "v5.0.0",
-            "glamsterdam-devnet-5",
+            "v6.0.0",
+            "devnets/glamsterdam/6",
         )
         assert result.returncode == 0
         out = parse_matrix_output(result.stdout)
