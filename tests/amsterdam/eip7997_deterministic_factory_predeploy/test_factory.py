@@ -515,7 +515,6 @@ def test_factory_access_list_prewarming(
             overhead_cost=overhead,
             extra_stack_items=1,
             sstore_key=first_slot,
-            stop=False,
         )
         + CodeGasMeasure(
             code=measured_code,
