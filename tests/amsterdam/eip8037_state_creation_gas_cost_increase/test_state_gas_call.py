@@ -28,6 +28,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
     compute_create2_address,
     compute_create_address,
 )
@@ -1508,15 +1509,20 @@ def test_call_new_account_state_gas_boundary(
         + gas_costs.CALL_VALUE
         + gas_costs.NEW_ACCOUNT
     )
-    tx = Transaction(
-        to=caller, gas_limit=exact_fit + gas_delta, sender=pre.fund_eoa()
-    )
-
     post: dict
     if gas_delta == 0:
+        gas_used = exact_fit - gas_costs.CALL_STIPEND
         post = {target: Account(balance=1), caller: Account(balance=0)}
     else:
+        gas_used = exact_fit + gas_delta
         post = {target: Account.NONEXISTENT, caller: Account(balance=1)}
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=exact_fit + gas_delta,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
+    )
 
     state_test(pre=pre, post=post, tx=tx)
 
