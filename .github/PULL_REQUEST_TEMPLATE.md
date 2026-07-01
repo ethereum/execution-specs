@@ -13,12 +13,15 @@ N/A.
     ```console
     just static
     ```
-- [ ] All: PR title adheres to the [repo standard](https://eest.ethereum.org/main/getting_started/contributing/?h=contri#commit-messages-issue-and-pr-titles) - it will be used as the squash commit message and should start `type(scope):`.
+- [ ] All: PR title have the form `<type>(<area>):`, where `<type>` and `<area>` come from an approrpriate `C-<type>`, respectively `A-<area>`, label. The title should match the a target squash commit message.
 - [ ] All: Considered updating the online docs in the [./docs/](/ethereum/execution-specs/blob/HEAD/docs/) directory.
 - [ ] All: Set appropriate labels for the changes (only maintainers can apply labels).
-- [ ] Tests: Ran `mkdocs serve` locally and verified the auto-generated docs for new tests in the [Test Case Reference](https://eest.ethereum.org/main/tests/) are correctly formatted.
 - [ ] Tests: For PRs implementing a missed test case, update the [post-mortem document](/ethereum/execution-specs/blob/HEAD/docs/writing_tests/post_mortems.md) to add an entry the list.
-- [ ] Ported Tests: All converted JSON/YML tests from [ethereum/tests](/ethereum/tests) or [tests/static](/ethereum/execution-specs/blob/HEAD/tests/static) have been assigned `@ported_from` marker.
+- [ ] Ported Tests: Add the following docstring to manually enhanced tests from `./tests/ported_static/`:
+    ```text
+	@manually-enhanced: Do not overwrite. Post-state expectations corrected
+	manually (see PR #2784).
+	````
 
 #### Cute Animal Picture
 
