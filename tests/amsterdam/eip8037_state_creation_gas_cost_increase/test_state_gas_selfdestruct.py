@@ -33,13 +33,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
-@pytest.mark.parametrize(
-    "funding",
-    [
-        pytest.param("reservoir", id="reservoir"),
-        pytest.param("spill", id="spill"),
-    ],
-)
+@pytest.mark.parametrize("funding", ["reservoir", "spill"])
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_new_beneficiary_state_gas(
     state_test: StateTestFiller,
