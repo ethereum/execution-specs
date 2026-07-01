@@ -308,7 +308,7 @@ export DYLD_FALLBACK_LIBRARY_PATH := if os() == "macos" { "/opt/homebrew/lib" } 
 
 # Generate documentation for EELS using docc
 [group('docs')]
-docs-spec $DOCC_SKIP_DIFFS="":
+docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
     uv run docc --output "{{ output_dir }}/docs-spec"
     uv run python -c 'import pathlib; print("documentation available under file://{0}".format(pathlib.Path(r"{{ output_dir }}") / "docs-spec" / "index.html"))'
 
