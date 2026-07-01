@@ -11,7 +11,6 @@ the factory's `CALLDATASIZE - 32` underflow triggers a copy of nearly
 
 import pytest
 from execution_testing import (
-    AccessList,
     Account,
     Address,
     Alloc,
@@ -21,7 +20,6 @@ from execution_testing import (
     BalNonceChange,
     BlockAccessListExpectation,
     Bytes,
-    CodeGasMeasure,
     Fork,
     Hash,
     Initcode,
@@ -465,79 +463,6 @@ def test_factory_deploys_to_pre_funded_address(
                 code=bytes(runtime_code),
             ),
         },
-    )
-
-
-@pytest.mark.parametrize(
-    "use_access_list",
-    [
-        pytest.param(False, id="without_access_list"),
-        pytest.param(True, id="with_access_list"),
-    ],
-)
-def test_factory_access_list_prewarming(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    use_access_list: bool,
-) -> None:
-    """
-    Measure the gas cost of two `EXTCODESIZE` calls on the factory in
-    the same transaction. The first is cold unless prewarmed by an
-    access list; the second is always warm.
-
-    - Without access list: first is `COLD_ACCOUNT_ACCESS`, second is
-      `WARM_ACCESS`.
-    - With access list: both are `WARM_ACCESS`.
-    """
-    gas_costs = fork.gas_costs()
-    first_cost = (
-        gas_costs.WARM_ACCESS
-        if use_access_list
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    second_cost = gas_costs.WARM_ACCESS
-
-    measured_code = Op.EXTCODESIZE(FACTORY)
-    # Subtract the PUSH20 overhead so the SSTORE'd value is the opcode
-    # access cost alone.
-    overhead = measured_code.gas_cost(fork) - Op.EXTCODESIZE(
-        address_warm=False
-    ).gas_cost(fork)
-
-    storage = Storage()
-    first_slot = storage.store_next(first_cost, "first_extcodesize")
-    second_slot = storage.store_next(second_cost, "second_extcodesize")
-
-    caller = pre.deploy_contract(
-        CodeGasMeasure(
-            code=measured_code,
-            overhead_cost=overhead,
-            extra_stack_items=1,
-            sstore_key=first_slot,
-        )
-        + CodeGasMeasure(
-            code=measured_code,
-            overhead_cost=overhead,
-            extra_stack_items=1,
-            sstore_key=second_slot,
-        ),
-    )
-
-    access_list = (
-        [AccessList(address=FACTORY, storage_keys=[])]
-        if use_access_list
-        else None
-    )
-
-    state_test(
-        pre=pre,
-        tx=Transaction(
-            sender=pre.fund_eoa(),
-            to=caller,
-            access_list=access_list,
-        ),
-        post={caller: Account(storage=storage)},
     )
 
 

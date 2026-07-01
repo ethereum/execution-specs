@@ -7,12 +7,10 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Hash,
-    Initcode,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
-    compute_create2_address,
 )
 
 from .spec import Spec, ref_spec_7997
@@ -22,30 +20,43 @@ REFERENCE_SPEC_VERSION = ref_spec_7997.version
 
 pytestmark = [pytest.mark.valid_at("EIP7997"), pytest.mark.mainnet]
 
+FACTORY = Spec.FACTORY_ADDRESS
+
 
 def test_eip_7997(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """
-    Deploy a contract via the deterministic factory by sending
-    `salt || initcode` from an EOA directly to the factory address.
+    The factory bytecode is present at the canonical Arachnid factory
+    address with nonce 1. Verifies EVM-observable views of
+    the predeploy via `EXTCODESIZE`, `EXTCODEHASH` and `EXTCODECOPY`.
     """
-    salt = 0x42
-    runtime = Op.PUSH1(0x01) + Op.PUSH1(0x00) + Op.RETURN
-    initcode = Initcode(deploy_code=runtime)
-    expected_address = compute_create2_address(
-        Spec.FACTORY_ADDRESS, salt, initcode
+    storage = Storage()
+    extcodesize_slot = storage.store_next(
+        len(Spec.FACTORY_BYTECODE), "extcodesize"
     )
-
+    extcodehash_slot = storage.store_next(
+        Spec.FACTORY_BYTECODE.keccak256(), "extcodehash"
+    )
+    extcodecopy_hash_slot = storage.store_next(
+        Spec.FACTORY_BYTECODE.keccak256(), "extcodecopy_hash"
+    )
+    caller = pre.deploy_contract(
+        Op.SSTORE(extcodesize_slot, Op.EXTCODESIZE(FACTORY))
+        + Op.SSTORE(extcodehash_slot, Op.EXTCODEHASH(FACTORY))
+        + Op.EXTCODECOPY(FACTORY, 0, 0, Op.EXTCODESIZE(FACTORY))
+        + Op.SSTORE(extcodecopy_hash_slot, Op.SHA3(0, Op.EXTCODESIZE(FACTORY)))
+        + Op.STOP,
+    )
     state_test(
         pre=pre,
         tx=Transaction(
             sender=pre.fund_eoa(),
-            to=Spec.FACTORY_ADDRESS,
-            data=Hash(salt) + bytes(initcode),
+            to=caller,
         ),
         post={
-            expected_address: Account(nonce=1, code=bytes(runtime)),
+            FACTORY: Account(code=Spec.FACTORY_BYTECODE),
+            caller: Account(storage=storage),
         },
     )

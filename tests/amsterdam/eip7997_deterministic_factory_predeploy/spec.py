@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from execution_testing import Bytes
+
 
 @dataclass(frozen=True)
 class ReferenceSpec:
@@ -22,7 +24,7 @@ class Spec:
     """Constants from EIP-7997."""
 
     FACTORY_ADDRESS: int = 0x4E59B44847B379578588920CA78FBF26C0B4956C
-    FACTORY_BYTECODE: bytes = bytes.fromhex(
+    FACTORY_BYTECODE: Bytes = Bytes(
         "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0"
         "3601600081602082378035828234f58015156039578182fd"
         "5b8082525050506014600cf3"
