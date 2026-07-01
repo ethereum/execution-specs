@@ -791,10 +791,12 @@ def test_base_fee_per_gas_follows_dominant_dimension(
     dominant_dimension: str,
 ) -> None:
     """
-    Verify the next block's base fee tracks the bottleneck dimension.
+    Verify the child block's base fee follows the bottleneck dimension.
 
-    Block 1 is pushed above the gas target by one dimension only, so its
-    header gas_used = max(regular, state) drives block 2's base fee up.
+    Block 1 exceeds the gas target on one dimension only: state, via
+    SSTORE-set txs that spill, or regular, via STOP txs. Its header
+    gas_used = max(regular, state) is then set by that dimension alone,
+    which lifts empty block 2's base fee under the EIP-1559 update.
     """
     genesis_base_fee = 10**9
     max_fee_per_gas = 10**10
