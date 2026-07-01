@@ -627,11 +627,8 @@ def pytest_configure(config: pytest.Config) -> None:
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
 
-    # The set of unsupported forks is computed lazily (see
-    # `get_unsupported_forks`) rather than here: querying the t8n tool imports
-    # the `ethereum` package, and on xdist workers `pytest_configure` runs
-    # before pytest-cov starts the worker's coverage session, which would make
-    # coverage report `ethereum` as "module-not-measured".
+    # The unsupported-fork set is computed lazily in `get_unsupported_forks`
+    # (see its docstring for why it is deferred out of `pytest_configure`).
 
 
 def get_unsupported_forks(
