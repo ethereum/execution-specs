@@ -24,7 +24,7 @@ from typing import (
 
 import pytest
 from _pytest.mark.structures import ParameterSet
-from pytest import Mark, Metafunc
+from pytest import Mark, Metafunc, StashKey
 
 from execution_testing.client_clis import TransitionTool
 from execution_testing.forks import (
@@ -45,6 +45,10 @@ from execution_testing.logging import (
 )
 
 logger = get_logger(__name__)
+
+# Session-scoped cache for the lazily-computed unsupported-fork set
+# (see `get_unsupported_forks`).
+unsupported_forks_key: StashKey[FrozenSet[Fork | TransitionFork]] = StashKey()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -636,15 +640,13 @@ def get_unsupported_forks(
     """
     Return the selected forks not supported by the configured t8n tool.
 
-    The result is computed once and cached on ``config``. Computation is
+    The result is computed once and cached in ``config.stash``. Computation is
     deferred out of ``pytest_configure`` (where it previously lived) so that
     the ``ethereum`` package, imported when the t8n tool is queried, is only
     imported after pytest-cov has started the xdist worker's coverage session.
     Importing it earlier left it "previously imported, but not measured".
     """
-    cached: FrozenSet[Fork | TransitionFork] | None = getattr(
-        config, "_unsupported_forks", None
-    )
+    cached = config.stash.get(unsupported_forks_key, None)
     if cached is not None:
         return cached
 
@@ -661,7 +663,7 @@ def get_unsupported_forks(
         )
         logger.debug(f"List of unsupported forks: {list(unsupported_forks)}")
 
-    config._unsupported_forks = unsupported_forks  # type: ignore[attr-defined]
+    config.stash[unsupported_forks_key] = unsupported_forks
     return unsupported_forks
 
 
