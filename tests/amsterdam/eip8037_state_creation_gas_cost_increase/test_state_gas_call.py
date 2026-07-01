@@ -28,6 +28,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
     compute_create2_address,
     compute_create_address,
 )
@@ -1478,6 +1479,52 @@ def test_call_new_account_no_regular_account_creation_cost(
     )
 
     state_test(pre=pre, post={target: Account(balance=1)}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "gas_delta",
+    [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_call_new_account_state_gas_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_delta: int,
+) -> None:
+    """
+    Pin the CALL new-account state charge at its exact-fit spill
+    boundary. At `exact_fit` the charge just fits and the target is
+    materialized; one gas short the caller frame goes out of gas, so
+    nothing is created and the value transfer is rolled back.
+    """
+    gas_costs = fork.gas_costs()
+    target = 0xDEAD
+    caller_code = Op.CALL(gas=0, address=target, value=1) + Op.STOP
+    caller = pre.deploy_contract(code=caller_code, balance=1)
+
+    exact_fit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + caller_code.gas_cost(fork)
+        + gas_costs.CALL_VALUE
+        + gas_costs.NEW_ACCOUNT
+    )
+    post: dict
+    if gas_delta == 0:
+        gas_used = exact_fit - gas_costs.CALL_STIPEND
+        post = {target: Account(balance=1), caller: Account(balance=0)}
+    else:
+        gas_used = exact_fit + gas_delta
+        post = {target: Account.NONEXISTENT, caller: Account(balance=1)}
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=exact_fit + gas_delta,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
+    )
+
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
