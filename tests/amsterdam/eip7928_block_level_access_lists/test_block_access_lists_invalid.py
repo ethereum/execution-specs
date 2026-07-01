@@ -21,7 +21,9 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Bytes,
     EIPChecklist,
+    EngineAPIError,
     Environment,
     Fork,
     Hash,
@@ -1624,6 +1626,79 @@ def test_bal_invalid_extraneous_coinbase(
                     append_account(BalAccountChange(address=coinbase)),
                     sort_accounts_by_address(),
                 ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
+def test_bal_invalid_engine_payload_empty_bytes_encoding(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a `newPayload` whose `blockAccessList` is the empty byte string
+    `0x` rather than a valid RLP list (an empty BAL is `0xc0`).
+    """
+    sender = pre.fund_eoa(amount=10**18)
+    receiver = pre.fund_eoa(amount=0)
+
+    tx = Transaction(
+        sender=sender,
+        to=receiver,
+        value=10**15,
+        gas_limit=21_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={
+            sender: Account(balance=10**18, nonce=0),
+            receiver: None,
+        },
+        blocks=[
+            Block(
+                txs=[tx],
+                engine_new_payload_block_access_list=Bytes(b""),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                engine_api_error_code=EngineAPIError.InvalidParams,
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
+def test_bal_invalid_engine_payload_missing_field(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """Reject a `newPayload` whose `blockAccessList` field is omitted."""
+    sender = pre.fund_eoa(amount=10**18)
+    receiver = pre.fund_eoa(amount=0)
+
+    tx = Transaction(
+        sender=sender,
+        to=receiver,
+        value=10**15,
+        gas_limit=21_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={
+            sender: Account(balance=10**18, nonce=0),
+            receiver: None,
+        },
+        blocks=[
+            Block(
+                txs=[tx],
+                engine_new_payload_block_access_list=Header.REMOVE_FIELD,
+                exception=BlockException.INCORRECT_BLOCK_FORMAT,
+                engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],
     )

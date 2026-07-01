@@ -210,3 +210,30 @@ class TestDeriveEnginePayloadModifier:
             )
             is None
         )
+
+
+class TestEnginePayloadBalOverrideModifier:
+    """
+    Verify the explicit engine-payload `block_access_list` override that
+    negative tests use to corrupt only the `engine_newPayload` body.
+    """
+
+    def test_no_override_returns_none(self) -> None:
+        """No override → no engine payload modifier."""
+        assert BuiltBlock.engine_payload_bal_override_modifier(None) is None
+
+    def test_empty_bytes_override_sends_raw_body(self) -> None:
+        """Raw `Bytes` (e.g. the invalid `0x`) are sent verbatim."""
+        modifier = BuiltBlock.engine_payload_bal_override_modifier(Bytes(b""))
+        assert isinstance(modifier, FixtureExecutionPayloadModifier)
+        assert modifier.block_access_list == Bytes(b"")
+
+    def test_remove_field_override_omits_body(self) -> None:
+        """A `Removable` omits the payload field entirely."""
+        modifier = BuiltBlock.engine_payload_bal_override_modifier(
+            Header.REMOVE_FIELD
+        )
+        assert isinstance(modifier, FixtureExecutionPayloadModifier)
+        assert modifier.block_access_list is (
+            FixtureExecutionPayloadModifier.REMOVE_FIELD
+        )

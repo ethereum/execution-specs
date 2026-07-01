@@ -306,6 +306,8 @@ class Block(Header):
     """Post state for verification after block execution in BlockchainTest"""
     block_access_list: Bytes | None = Field(None)
     """EIP-7928: Block-level access lists (serialized)."""
+    engine_new_payload_block_access_list: Removable | Bytes | None = None
+    """EIP-7928: override only the engine newPayload blockAccessList field."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
 
@@ -385,6 +387,11 @@ class Block(Header):
 class BuiltBlock(CamelModel):
     """Model that contains all properties to build a full block or payload."""
 
+    model_config = ConfigDict(
+        **CamelModel.model_config,
+        arbitrary_types_allowed=True,
+    )
+
     header: FixtureHeader
     env: Environment
     alloc: LazyAlloc
@@ -399,6 +406,7 @@ class BuiltBlock(CamelModel):
     rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
+    engine_new_payload_block_access_list: Removable | Bytes | None = None
 
     def get_fixture_block(
         self, *, include_receipts: bool = True
@@ -483,8 +491,36 @@ class BuiltBlock(CamelModel):
             )
         return None
 
+    @staticmethod
+    def engine_payload_bal_override_modifier(
+        override: Removable | Bytes | None,
+    ) -> "FixtureExecutionPayloadModifier | None":
+        """
+        Map a block access list override to an engine payload modifier.
+
+        Raw `Bytes` are sent verbatim as the payload body (e.g. `0x` for the
+        invalid empty-byte-string encoding); a `Removable` omits the field.
+        `None` means no override.
+        """
+        if override is None:
+            return None
+        return FixtureExecutionPayloadModifier(
+            block_access_list=(
+                FixtureExecutionPayloadModifier.REMOVE_FIELD
+                if isinstance(override, Removable)
+                else override
+            ),
+        )
+
     def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:
         """Get a FixtureEngineNewPayload from the built block."""
+        # An explicit block access list override targets only the engine
+        # payload body and takes precedence over the header-derived modifier.
+        execution_payload_modifier = self.engine_payload_bal_override_modifier(
+            self.engine_new_payload_block_access_list
+        ) or self.derive_engine_payload_modifier(
+            self.rlp_modifier, self.block_access_list
+        )
         return FixtureEngineNewPayload.from_fixture_header(
             fork=self.fork,
             header=self.header,
@@ -494,9 +530,7 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
-            execution_payload_modifier=self.derive_engine_payload_modifier(
-                self.rlp_modifier, self.block_access_list
-            ),
+            execution_payload_modifier=execution_payload_modifier,
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
         )
@@ -850,6 +884,9 @@ class BlockchainTest(BaseTest):
             rlp_modifier=block.rlp_modifier,
             fork=fork,
             block_access_list=bal,
+            engine_new_payload_block_access_list=(
+                block.engine_new_payload_block_access_list
+            ),
         )
 
         try:
@@ -861,6 +898,7 @@ class BlockchainTest(BaseTest):
                 and block.rlp_modifier is None
                 and block.requests is None
                 and not block.skip_exception_verification
+                and block.engine_new_payload_block_access_list is None
                 and not (
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list._modifier is not None
@@ -871,9 +909,11 @@ class BlockchainTest(BaseTest):
                 # exceptions. - No RLP modifier was specified, because the
                 # modifier is what normally produces the block exception. - No
                 # requests were specified, because modified requests are also
-                # what normally produces the block exception. - No BAL modifier
-                # was specified, because modified BAL also produces block
-                # exceptions.
+                # what normally produces the block exception. - No engine
+                # payload BAL override was specified, because it corrupts only
+                # the engine payload after the transition tool has run. - No
+                # BAL modifier was specified, because modified BAL also
+                # produces block exceptions.
                 built_block.verify_block_exception(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )
