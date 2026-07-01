@@ -10,7 +10,11 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Hash,
+    Initcode,
+    Op,
     Transaction,
+    compute_create2_address,
 )
 
 from .spec import Spec, ref_spec_7997
@@ -24,25 +28,20 @@ FORK_TIMESTAMP = 15_000
 @pytest.mark.valid_at_transition_to("Amsterdam")
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize("pre_fork_nonce", [1, 2, 32])
-def test_existing_factory_preserved_across_transition(
+def test_factory_deploys_across_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     pre_fork_nonce: int,
 ) -> None:
     """
-    A factory already present at `FACTORY_ADDRESS` must be left untouched by
-    the Amsterdam transition.
+    A pre-existing factory keeps deploying contracts across the Amsterdam
+    transition, with its nonce accruing normally.
 
-    EIP-7997 requires the chain state to include the factory with nonce 1 and
-    the canonical runtime code, but its Backwards Compatibility section states
-    that on chains which already have the factory, satisfying the requirement
-    is a no-op. A client that re-applies the requirement at the transition -
-    resetting the nonce of an already-deployed (and possibly already-used)
-    factory back to 1 - corrupts the state root at the transition block.
-
-    The factory is seeded pre-fork with `pre_fork_nonce` (1 being the EIP
-    value, and 2/32 representing nonces accrued from earlier CREATE2
-    deployments) and must keep that exact nonce once the fork activates.
+    Asserting that final nonce is what catches the glamsterdam-devnet-6 bug: a
+    client that re-injects EIP-7997 at the transition resets the already-used
+    factory back to nonce 1, diverging the post-state root. Deployment success
+    alone cannot catch it, since the `CREATE2` address does not depend on the
+    factory nonce.
     """
     factory = pre.deploy_contract(
         code=Spec.FACTORY_BYTECODE,
@@ -50,27 +49,39 @@ def test_existing_factory_preserved_across_transition(
         nonce=pre_fork_nonce,
     )
     sender = pre.fund_eoa()
-    receiver = pre.fund_eoa(amount=0)
 
-    blocks = [
-        Block(  # pre-fork block
-            timestamp=FORK_TIMESTAMP - 1,
-            txs=[
-                Transaction(sender=sender, to=receiver, value=1, gas_price=10)
-            ],
-        ),
-        Block(  # Amsterdam transition block
-            timestamp=FORK_TIMESTAMP,
-            txs=[
-                Transaction(sender=sender, to=receiver, value=1, gas_price=10)
-            ],
-        ),
-    ]
+    runtime_code = Op.RETURN(0, 1)  # Deploys contract only contains Op.STOP
+    initcode = Initcode(deploy_code=runtime_code)
+
+    timestamps = [FORK_TIMESTAMP - 1, FORK_TIMESTAMP]
+
+    blocks = []
+    deployed = {}
+    for timestamp in timestamps:
+        blocks.append(
+            Block(
+                timestamp=timestamp,
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        to=factory,
+                        data=Hash(timestamp) + bytes(initcode),
+                    )
+                ],
+            )
+        )
+        deployed[compute_create2_address(factory, timestamp, initcode)] = (
+            Account(nonce=1, code=bytes(runtime_code))
+        )
 
     blockchain_test(
         pre=pre,
         blocks=blocks,
         post={
-            factory: Account(nonce=pre_fork_nonce, code=Spec.FACTORY_BYTECODE),
+            **deployed,
+            factory: Account(
+                nonce=pre_fork_nonce + len(timestamps),
+                code=Spec.FACTORY_BYTECODE,
+            ),
         },
     )
