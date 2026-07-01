@@ -207,6 +207,13 @@ def test_value_contract_creation_tx(
         sender_value_delta = value
         expected_target = Account(code=code_to_deploy, balance=value)
 
+    expected_target_address = compute_create_address(address=sender, nonce=0)
+
+    if value > 0 and not tx_reverts:
+        expected_logs = [transfer_log(sender, expected_target_address, value)]
+    else:
+        expected_logs = []
+
     gas_price = 1_000_000_000
     gas_limit = intrinsic_gas + execution_gas + 1000
 
@@ -217,9 +224,9 @@ def test_value_contract_creation_tx(
         data=call_data,
         gas_limit=gas_limit,
         gas_price=gas_price,
+        expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
-    expected_target_address = compute_create_address(address=sender, nonce=0)
     sender_final_balance = (
         sender_initial_balance - sender_value_delta - gas_used * gas_price
     )
@@ -355,6 +362,11 @@ def test_value_move_to_precompiles(
         recipient_type=state_recipient_type,
     )
 
+    if value > 0:
+        expected_logs = [transfer_log(sender, precompile, value)]
+    else:
+        expected_logs = []
+
     gas_price = 1_000_000_000
 
     tx = Transaction(
@@ -363,6 +375,7 @@ def test_value_move_to_precompiles(
         value=value,
         data=tx_data,
         gas_price=gas_price,
+        expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
     # Exact sender balance is generally not checked because precompile

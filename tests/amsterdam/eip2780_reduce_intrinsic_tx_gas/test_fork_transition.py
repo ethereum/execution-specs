@@ -22,6 +22,7 @@ pre-fork ``TX_BASE`` of 21_000 as follows:
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -80,7 +81,7 @@ def test_intrinsic_reduction_across_amsterdam_transition(
     constants, so a calculator regression fails here with a clear
     message rather than only as a downstream balance mismatch.
     """
-    gas_price = 10**9
+    gas_price = 1_000_000_000
     recipient_type = RecipientType.SELF if self_transfer else RecipientType.EOA
 
     pre_fork = fork.fork_at(timestamp=PRE_FORK_TIMESTAMP)
@@ -103,7 +104,7 @@ def test_intrinsic_reduction_across_amsterdam_transition(
     timestamps = [PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP]
     expected_intrinsics = [expected_pre, expected_post]
     blocks = []
-    post: dict = {}
+    post: dict[Address, Account] = {}
 
     for timestamp, expected_intrinsic in zip(
         timestamps, expected_intrinsics, strict=True

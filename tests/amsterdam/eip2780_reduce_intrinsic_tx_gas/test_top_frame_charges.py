@@ -163,9 +163,9 @@ def test_top_frame_state_charge_empty_precompile(
 
 
 def test_top_frame_new_account_charged_as_state_gas(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
     fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
     The top-frame ``NEW_ACCOUNT`` charge for a value transfer to an
@@ -210,7 +210,7 @@ def test_top_frame_new_account_charged_as_state_gas(
     # ``NEW_ACCOUNT`` charge.
     expected_gas_used = max(intrinsic_regular, new_account_state_gas)
 
-    gas_price = 10**9
+    gas_price = 1_000_000_000
     tx = Transaction(
         sender=sender,
         to=target,

@@ -1,20 +1,4 @@
-"""
-EIP-2780 interaction with the EIP-7623/7976 calldata floor.
-
-A transaction's gas accounting uses ``max(intrinsic, calldata_floor)``.
-EIP-2780 decomposes the intrinsic (``TX_BASE`` + recipient access +
-value-transfer charges) and lowers ``TX_BASE`` to 12_000; that lowered
-base also feeds the calldata floor. These tests pin the data-heavy
-regime where the floor dominates:
-
-- The floor binds, so ``gas_used`` equals the floor and the
-  recipient/value charges folded into the intrinsic are masked: the
-  gas paid is identical for a zero-value and a value-bearing
-  transaction of the same calldata size.
-- One gas below the floor, the transaction is rejected with
-  ``INTRINSIC_GAS_BELOW_FLOOR_GAS_COST`` even though it covers the
-  (smaller) decomposed intrinsic.
-"""
+"""EIP-2780 interaction with the EIP-7623/7976 calldata floor."""
 
 import pytest
 from execution_testing import (
@@ -77,12 +61,12 @@ def _floor_dominating_calldata(fork: Fork) -> Bytes:
 
 
 @pytest.mark.parametrize(
-    "outcome",
+    "gas_modifier",
     [
-        pytest.param("floor_binds", id="floor_binds"),
+        pytest.param(0, id="at_floor"),
         pytest.param(
-            "below_floor",
-            id="below_floor_rejected",
+            -1,
+            id="below_floor",
             marks=pytest.mark.exception_test,
         ),
     ],
@@ -98,17 +82,16 @@ def test_calldata_floor(
     fork: Fork,
     pre: Alloc,
     state_test: StateTestFiller,
-    outcome: str,
+    gas_modifier: int,
     value: int,
 ) -> None:
     """
     A data-heavy transaction to an existing EOA whose calldata floor
     exceeds the decomposed value-transfer intrinsic.
 
-    - ``floor_binds``: with a gas limit above the floor, ``gas_used``
+    - ``at_floor``: with a gas limit exactly at the floor, ``gas_used``
       pins to the floor, so the value-transfer charges
       (``TRANSFER_LOG_COST + TX_VALUE_COST``) folded into the intrinsic
-      are masked -- the gas paid is identical at ``value == 0`` and
       ``value == 1`` and only the moved wei differs.
     - ``below_floor``: a gas limit one short of the floor still covers
       the (smaller) decomposed intrinsic, so the floor -- built on the
@@ -126,42 +109,35 @@ def test_calldata_floor(
     gas_price = 1_000_000_000
 
     post: dict[Address, Account] = {}
-    if outcome == "below_floor":
-        # ``gas_limit`` one short of the floor still covers the
-        # decomposed intrinsic, so the floor is the only thing that can
-        # reject it; the post state is empty (transaction rejected).
-        intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-            calldata=calldata,
-            sends_value=bool(value),
-            recipient_type=RecipientType.EOA,
-            return_cost_deducted_prior_execution=True,
-        )
-        gas_limit = calldata_floor - 1
-        assert intrinsic_gas <= gas_limit, (
-            "gas_limit must still cover the decomposed intrinsic so the "
-            "rejection is pinned to the calldata floor"
-        )
-        tx = Transaction(
-            sender=sender,
-            to=target,
-            value=value,
-            data=calldata,
-            gas_limit=gas_limit,
-            gas_price=gas_price,
-            error=TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
-        )
-    else:
-        # ``floor_binds``: no explicit gas limit (auto-fills above the
-        # floor). The gas component is the floor regardless of value
-        # (charges masked); only the transferred wei changes the
-        # balance.
-        tx = Transaction(
-            sender=sender,
-            to=target,
-            value=value,
-            data=calldata,
-            gas_price=gas_price,
-        )
+    gas_limit = calldata_floor + gas_modifier
+    # Even at the reduced limit the decomposed intrinsic is still
+    # covered, so the calldata floor is the sole gate on the
+    # transaction.
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        sends_value=bool(value),
+        recipient_type=RecipientType.EOA,
+        return_cost_deducted_prior_execution=True,
+    )
+    assert intrinsic_gas <= gas_limit, (
+        "gas_limit must still cover the decomposed intrinsic so the "
+        "outcome is pinned to the calldata floor"
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        value=value,
+        data=calldata,
+        gas_limit=gas_limit,
+        gas_price=gas_price,
+        error=(
+            TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+            if gas_modifier < 0
+            else None
+        ),
+    )
+    if gas_modifier == 0:
         sender_final_balance = (
             sender_initial_balance - value - calldata_floor * gas_price
         )
