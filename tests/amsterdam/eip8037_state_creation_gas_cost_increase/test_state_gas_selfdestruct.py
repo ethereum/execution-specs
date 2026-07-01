@@ -33,37 +33,52 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
+@pytest.mark.parametrize(
+    "funding",
+    [
+        pytest.param("reservoir", id="reservoir"),
+        pytest.param("spill", id="spill"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
-def test_selfdestruct_new_beneficiary_charges_state_gas(
+def test_selfdestruct_new_beneficiary_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    funding: str,
 ) -> None:
     """
-    Test SELFDESTRUCT to non-existent beneficiary charges state gas.
+    Test SELFDESTRUCT to a non-existent beneficiary bills NEW_ACCOUNT.
 
-    When the beneficiary does not exist and the originator has nonzero
-    balance, SELFDESTRUCT charges new-account state gas for
-    creating the new beneficiary account.
+    A contract with nonzero balance self-destructs to a non-alive
+    beneficiary, charging new-account state gas. The charge is billed
+    identically whether drawn from the reservoir (out-of-cap tx) or
+    spilled into `gas_left` (in-cap tx): the block bills NEW_ACCOUNT in
+    the state dimension and the beneficiary is created.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
-    # Non-existent beneficiary
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     beneficiary = 0xDEAD
 
     contract = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(beneficiary),
-        balance=1,
+        code=Op.SELFDESTRUCT(beneficiary), balance=1
     )
-
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
+        state_gas_reservoir=(
+            new_account_state_gas if funding == "reservoir" else 0
+        ),
     )
 
-    state_test(pre=pre, post={}, tx=tx)
+    state_test(
+        pre=pre,
+        post={
+            beneficiary: Account(balance=1),
+            contract: Account(balance=0),
+        },
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=new_account_state_gas),
+    )
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -116,37 +131,6 @@ def test_selfdestruct_zero_balance_no_state_gas(
     tx = Transaction(
         to=contract,
         state_gas_reservoir=0,
-        sender=pre.fund_eoa(),
-    )
-
-    state_test(pre=pre, post={}, tx=tx)
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_selfdestruct_state_gas_from_reservoir(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Test SELFDESTRUCT state gas drawn from reservoir.
-
-    Provide gas above TX_MAX_GAS_LIMIT so the new account state gas
-    for the non-existent beneficiary is drawn from the reservoir.
-    """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
-    beneficiary = 0xDEAD
-
-    contract = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(beneficiary),
-        balance=1,
-    )
-
-    tx = Transaction(
-        to=contract,
-        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -235,35 +219,6 @@ def test_selfdestruct_new_beneficiary_header_gas_used(
             Block(txs=[tx]),
         ],
         post={caller: Account(storage=storage)},
-    )
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_selfdestruct_new_beneficiary_state_gas_spilled(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Verify SELFDESTRUCT bills a spilled NEW_ACCOUNT charge as state gas.
-
-    With an empty reservoir (in-cap tx) the charge spills into
-    `gas_left` and is consumed on the successful self-destruct halt, so
-    the beneficiary is created and the block bills the full state cost.
-    """
-    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
-    beneficiary = 0xDEAD
-
-    contract = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(beneficiary), balance=1
-    )
-    tx = Transaction(to=contract, sender=pre.fund_eoa())
-
-    state_test(
-        pre=pre,
-        post={beneficiary: Account(balance=1), contract: Account(balance=0)},
-        tx=tx,
-        blockchain_test_header_verify=Header(gas_used=new_account_state_gas),
     )
 
 
