@@ -9,7 +9,7 @@ N/A.
 ## ✅ Checklist
 <!-- Please check off all required items. For those that don't apply remove them accordingly. -->
 
-- [ ] All: Ran fast static checks to avoid unnecessary CI fails, see also [Code Standards](https://eest.ethereum.org/main/getting_started/code_standards/) and [Verifying Changes](https://steel.ethereum.foundation/docs/execution-specs/getting_started/verifying_changes/):
+- [ ] All: Ran fast static checks to avoid unnecessary CI fails, see also [Code Standards](https://steel.ethereum.foundation/docs/execution-specs/getting_started/code_standards/) and [Verifying Changes](https://steel.ethereum.foundation/docs/execution-specs/getting_started/verifying_changes/):
     ```console
     just static
     ```
