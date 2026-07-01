@@ -433,7 +433,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help=(
             "Path to an evm executable (or name of an executable in the "
-            "PATH) that provides `t8n`. Default: `ethereum-spec-evm-resolver`."
+            "PATH) that provides `t8n`. Defaults to the in-repo EELS "
+            "Python spec (`src/ethereum/`)."
         ),
     )
     evm_group.addoption(
