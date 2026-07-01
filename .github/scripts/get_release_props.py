@@ -22,8 +22,14 @@ def get_release_props(release: str) -> None:
     with open(RELEASE_PROPS_FILE) as f:
         data = yaml.safe_load(f)
     if release not in data:
-        print(f"Error: Release {release} not found in {RELEASE_PROPS_FILE}.")
-        sys.exit(1)
+        # `<feat>-devnet` releases (e.g. bal-devnet) share the `devnet` entry.
+        if release.endswith("-devnet") and "devnet" in data:
+            release = "devnet"
+        else:
+            print(
+                f"Error: Release {release} not found in {RELEASE_PROPS_FILE}."
+            )
+            sys.exit(1)
     print("\n".join(f"{key}={value}" for key, value in data[release].items()))
 
 
