@@ -71,6 +71,11 @@ class ExecutionSpecsTransitionTool(TransitionTool):
 
     def version(self) -> str:
         """Version of the t8n tool."""
+        # Read the version from the installed package metadata instead of
+        # `ethereum.__version__`. This method is called during the filler's
+        # `pytest_configure`, which on xdist workers runs before pytest-cov
+        # starts measuring; importing `ethereum` here (even lazily) would make
+        # coverage report it as "module-not-measured".
         from importlib.metadata import version
 
         return version("ethereum-execution")
