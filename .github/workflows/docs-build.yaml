@@ -36,6 +36,7 @@ on:
       - "mkdocs.yml"
       - "uv.lock"
       - "pyproject.toml"
+      - "Justfile"
       - ".github/workflows/docs-build.yaml"
       - ".github/configs/docs-branches.yaml"
 
