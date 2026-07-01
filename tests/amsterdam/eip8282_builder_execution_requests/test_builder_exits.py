@@ -10,7 +10,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Environment,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
 )
@@ -162,9 +161,4 @@ def test_builder_exit_requests(
     and verifying they are dequeued into the block's requests, with
     `source_address` set to the caller.
     """
-    blockchain_test(
-        genesis_environment=Environment(),
-        pre=pre,
-        post={},
-        blocks=blocks,
-    )
+    blockchain_test(pre=pre, post={}, blocks=blocks)

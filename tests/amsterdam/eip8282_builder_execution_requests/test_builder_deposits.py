@@ -10,7 +10,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Environment,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
 )
@@ -257,9 +256,4 @@ def test_builder_deposit_requests(
     Test submitting valid builder deposit requests to the builder deposit
     predeploy and verifying they are dequeued into the block's requests.
     """
-    blockchain_test(
-        genesis_environment=Environment(),
-        pre=pre,
-        post={},
-        blocks=blocks,
-    )
+    blockchain_test(pre=pre, post={}, blocks=blocks)
