@@ -605,7 +605,7 @@ def test_tx_gas_limit_block_boundary(
         pytest.param(1, id="exceeds", marks=pytest.mark.exception_test),
     ],
 )
-@pytest.mark.valid_from("EIP8037")
+@pytest.mark.valid_from("Osaka")
 def test_tx_inclusion_at_regular_gas_block_limit_small(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -656,6 +656,9 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
                 txs=filler_txs + [excess_tx],
                 gas_limit=block_gas_limit,
                 exception=error,
+                header_verify=Header(gas_used=block_gas_limit)
+                if not error
+                else None,
             )
         ],
         post={},
