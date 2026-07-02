@@ -63,6 +63,7 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.pre_alloc_groups import (
     _get_worker_id,
     merge_partial_group_files,
+    pack_pre_alloc_groups,
 )
 from execution_testing.forks import (
     Fork,
@@ -159,6 +160,11 @@ class FillingSession:
     filling_phase: FixtureFillingPhase
     pre_alloc_groups: PreAllocGroups | None = None
     pre_alloc_group_builders: PreAllocGroupBuilders | None = None
+    # Phase 2 reverse index: test id -> packed pre-alloc group hash. Packing
+    # (see pack_pre_alloc_groups) makes a group's hash depend on the whole set
+    # of tests it holds, so it can no longer be recomputed per-test; a test
+    # finds its group through the authoritative `testIds` lists instead.
+    _test_group_index: Dict[str, str] | None = field(default=None, repr=False)
 
     @classmethod
     def from_config(
@@ -287,6 +293,34 @@ class FillingSession:
             )
 
         return self.pre_alloc_groups[hash_key]
+
+    def group_hash_for_test(self, test_id: str) -> str:
+        """
+        Return the packed pre-alloc group hash that owns ``test_id``.
+
+        Built once (per worker) by inverting the ``testIds`` lists of the
+        packed group files written at the end of phase 1.
+        """
+        if self._test_group_index is None:
+            self._test_group_index = self._build_test_group_index()
+        try:
+            return self._test_group_index[test_id]
+        except KeyError:
+            raise ValueError(
+                f"Test {test_id!r} was not assigned to any pre-allocation "
+                "group. Ensure phase 1 (--generate-pre-alloc-groups) ran over "
+                "the same test selection as phase 2."
+            ) from None
+
+    def _build_test_group_index(self) -> Dict[str, str]:
+        """Map every test id to the hash of the group file that contains it."""
+        folder = self.fixture_output.pre_alloc_groups_folder_path
+        index: Dict[str, str] = {}
+        for file in folder.glob("*.json"):
+            data = json.loads(file.read_text())
+            for test_id in data.get("testIds", []):
+                index[test_id] = file.stem
+        return index
 
     def save_pre_alloc_groups(self) -> None:
         """Save pre-allocation groups to disk as partial files."""
@@ -1653,11 +1687,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     FixtureFillingPhase.PRE_ALLOC_GENERATION
                     in fixture_format.format_phases
                 ):
-                    pre_alloc_hash = pre.compute_pre_alloc_group_hash(
-                        fork=fork,
-                        genesis_environment=self.get_genesis_environment(),
-                        group_salt=group_salt,
-                    )
+                    # Groups are packed after phase 1, so a test's group hash
+                    # can no longer be recomputed from its own pre; look it up
+                    # by test id instead.
+                    test_id = _strip_xdist_group_suffix(request.node.nodeid)
+                    pre_alloc_hash = session.group_hash_for_test(test_id)
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre
                 fill_result: FillResult | None = None
@@ -2103,6 +2137,13 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             merge_partial_group_files(pre_alloc_folder)
             _log_timing(
                 f"Phase 1 (master): merge done in {time.time() - t0:.1f}s"
+            )
+            # Pack the fine-grained groups into fewer, larger ones so Engine X
+            # boots one client for many tests instead of one per test.
+            t0 = time.time()
+            pack_pre_alloc_groups(pre_alloc_folder)
+            _log_timing(
+                f"Phase 1 (master): pack done in {time.time() - t0:.1f}s"
             )
         else:
             # Workers: clear in-memory state to reduce memory pressure while
