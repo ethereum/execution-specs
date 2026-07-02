@@ -9,10 +9,14 @@ from execution_testing.base_types import (
     Hash,
     HeaderNonce,
 )
+from execution_testing.client_clis import Result
+from execution_testing.client_clis.cli_types import LazyAllocStr
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayloadModifier,
     FixtureHeader,
 )
+from execution_testing.forks import Amsterdam
+from execution_testing.test_types import Environment
 from execution_testing.test_types.block_access_list import BlockAccessList
 
 from ..blockchain import BuiltBlock, Header
@@ -38,6 +42,15 @@ fixture_header_ones = FixtureHeader(
     blob_gas_used=1,
     excess_blob_gas=1,
     # hash=Hash(1),
+)
+result_empty = Result(
+    state_root=0,
+    transactions_trie=0,
+    receipts_root=0,
+    logs_hash=0,
+    logs_bloom=0,
+    receipts=[],
+    gas_used=0,
 )
 
 
@@ -145,6 +158,30 @@ def test_fixture_header_join(
     assert modifier.apply(fixture_header) == fixture_header_expected
 
 
+def built_block(
+    *,
+    rlp_modifier: Header | None = None,
+    block_access_list: BlockAccessList | None = None,
+    engine_new_payload_block_access_list: Bytes | None = None,
+) -> BuiltBlock:
+    """Generate a dummy built block with all default values."""
+    return BuiltBlock(
+        header=fixture_header_ones,
+        env=Environment(),
+        alloc=LazyAllocStr(raw="", _state_root=Hash(0)),
+        state_root=Hash(0),
+        txs=[],
+        ommers=[],
+        withdrawals=None,
+        requests=None,
+        result=result_empty,
+        fork=Amsterdam,
+        rlp_modifier=rlp_modifier,
+        block_access_list=block_access_list,
+        engine_new_payload_block_access_list=engine_new_payload_block_access_list,
+    )
+
+
 class TestDeriveEnginePayloadModifier:
     """
     Verify the auto-propagation from ``rlp_modifier``'s header-only changes
@@ -156,29 +193,30 @@ class TestDeriveEnginePayloadModifier:
     def test_no_rlp_modifier_returns_none(self) -> None:
         """No modifier → no engine payload override."""
         assert (
-            BuiltBlock.derive_engine_payload_modifier(
+            built_block(
                 rlp_modifier=None,
                 block_access_list=None,
-            )
+                engine_new_payload_block_access_list=None,
+            ).engine_payload_modifier()
             is None
         )
 
     def test_rlp_modifier_unrelated_field_returns_none(self) -> None:
         """A modifier that doesn't touch BAL hash leaves the payload alone."""
         assert (
-            BuiltBlock.derive_engine_payload_modifier(
+            built_block(
                 rlp_modifier=Header(state_root=Hash(100)),
                 block_access_list=None,
-            )
+            ).engine_payload_modifier()
             is None
         )
 
     def test_remove_bal_hash_removes_body_from_payload(self) -> None:
         """Removing the header's BAL hash also removes the payload body."""
-        modifier = BuiltBlock.derive_engine_payload_modifier(
+        modifier = built_block(
             rlp_modifier=Header(block_access_list_hash=Header.REMOVE_FIELD),
             block_access_list=BlockAccessList(),
-        )
+        ).engine_payload_modifier()
         assert isinstance(modifier, FixtureExecutionPayloadModifier)
         assert modifier.block_access_list is (
             FixtureExecutionPayloadModifier.REMOVE_FIELD
@@ -190,10 +228,10 @@ class TestDeriveEnginePayloadModifier:
         triggers a body to be added to the engine payload, so a payload-
         version mismatch is detectable.
         """
-        modifier = BuiltBlock.derive_engine_payload_modifier(
+        modifier = built_block(
             rlp_modifier=Header(block_access_list_hash=Hash(0)),
             block_access_list=None,
-        )
+        ).engine_payload_modifier()
         assert isinstance(modifier, FixtureExecutionPayloadModifier)
         assert modifier.block_access_list == Bytes(b"")
 
@@ -204,9 +242,17 @@ class TestDeriveEnginePayloadModifier:
         what triggers the client rejection in that scenario.
         """
         assert (
-            BuiltBlock.derive_engine_payload_modifier(
+            built_block(
                 rlp_modifier=Header(block_access_list_hash=Hash(0)),
                 block_access_list=BlockAccessList(),
-            )
+            ).engine_payload_modifier()
             is None
         )
+
+    def test_empty_bytes_override_sends_raw_body(self) -> None:
+        """Raw `Bytes` (e.g. the invalid `0x`) are sent verbatim."""
+        modifier = built_block(
+            engine_new_payload_block_access_list=Bytes(b"")
+        ).engine_payload_modifier()
+        assert isinstance(modifier, FixtureExecutionPayloadModifier)
+        assert modifier.block_access_list == Bytes(b"")
