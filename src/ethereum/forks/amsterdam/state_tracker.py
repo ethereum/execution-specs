@@ -105,7 +105,7 @@ def get_pre_state_account_optional(
 
     [`EMPTY_ACCOUNT`]: ref:ethereum.state.EMPTY_ACCOUNT
     [pre]: ref:ethereum.forks.amsterdam.state_tracker.get_pre_state_account
-    
+
     Parameters
     ----------
     tx_state :
