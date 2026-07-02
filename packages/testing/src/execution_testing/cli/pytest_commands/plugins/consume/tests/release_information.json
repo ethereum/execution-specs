@@ -1,5 +1,29 @@
 [
   {
+    "html_url": "https://github.com/ethereum/execution-spec-tests/releases/tag/v4.5.0",
+    "id": 900012,
+    "tag_name": "v4.5.0",
+    "name": "v4.5.0",
+    "created_at": "2025-02-01T10:00:00Z",
+    "published_at": "2025-02-01T10:00:00Z",
+    "assets": [
+      {
+        "browser_download_url": "https://github.com/ethereum/execution-spec-tests/releases/download/v4.5.0/fixtures_stable.tar.gz",
+        "id": 9000120,
+        "name": "fixtures_stable.tar.gz",
+        "content_type": "application/gzip",
+        "size": 1000000
+      },
+      {
+        "browser_download_url": "https://github.com/ethereum/execution-spec-tests/releases/download/v4.5.0/fixtures_develop.tar.gz",
+        "id": 9000121,
+        "name": "fixtures_develop.tar.gz",
+        "content_type": "application/gzip",
+        "size": 1000000
+      }
+    ]
+  },
+  {
     "html_url": "https://github.com/ethereum/execution-specs/releases/tag/tests%40v20.0.0",
     "id": 900003,
     "tag_name": "tests@v20.0.0",

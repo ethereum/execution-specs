@@ -104,19 +104,47 @@ def test_eels_release_parsing(
     )
 
 
+# TODO: Remove with the legacy `stable`/`develop` support and the `v4.5.0`
+# manifest entry after 2026-08 (see #3085).
+@pytest.mark.parametrize(
+    "release_name,expected_release_download_url",
+    [
+        (
+            "stable@latest",
+            "v4.5.0/fixtures_stable.tar.gz",
+        ),
+        (
+            "develop@v4.5.0",
+            "v4.5.0/fixtures_develop.tar.gz",
+        ),
+    ],
+)
+def test_legacy_release_parsing(
+    release_name: str,
+    expected_release_download_url: str,
+    release_information: List[ReleaseInformation],
+) -> None:
+    """Test legacy `stable`/`develop` releases still resolve."""
+    assert (
+        "https://github.com/ethereum/execution-spec-tests/releases/download/"
+        + expected_release_download_url
+    ) == get_release_url_from_release_information(
+        release_name, release_information
+    )
+
+
 @pytest.mark.parametrize(
     "release_name",
     [
-        # Legacy pre-`tests`-tag release names must no longer resolve.
-        "stable@latest",
-        "stable@v4.5.0",
-        "develop@latest",
         # A bare `vX.Y.Z` is shorthand for `tests@vX.Y.Z` and must never
         # fall back to the spec-package release tagged plain `v2.20.0` in
         # the manifest, even though it is the most recently published
         # release and its version exists.
         "v2.20.0",
         "tests@v2.20.0",
+        # The legacy `stable`/`develop` fallback matches bare `vX.Y.Z`
+        # tags, but the asset check must still exclude the decoy.
+        "stable@v2.20.0",
     ],
 )
 def test_non_fixture_releases_do_not_resolve(
@@ -124,7 +152,7 @@ def test_non_fixture_releases_do_not_resolve(
     release_information: List[ReleaseInformation],
 ) -> None:
     """
-    Test that legacy and spec-package releases never resolve.
+    Test that spec-package releases never resolve.
 
     The manifest contains a spec-package decoy tagged `v2.20.0` whose only
     asset is the Python package sdist. It must be excluded twice over: its

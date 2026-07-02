@@ -46,6 +46,11 @@ TESTS_FEATURE_NAME = "tests"
 
 BARE_VERSION_RE = re.compile(r"^v\d+\.\d+\.\d+$")
 
+# TODO: Legacy EEST `stable`/`develop` releases (bare `vX.Y.Z` git tags on
+# the archived ethereum/execution-spec-tests repo) remain resolvable so
+# existing consumers don't break; remove after 2026-08 (see #3085).
+LEGACY_FEATURE_NAMES = {"stable", "develop"}
+
 
 @dataclass(kw_only=True)
 class ReleaseTag:
@@ -102,6 +107,12 @@ class ReleaseTag:
         friendly feature name (`bal-devnet@v7.0.0`) and the full tag
         (`tests-bal-devnet@v7.0.0`) are accepted as input.
         """
+        if self.feature_name in LEGACY_FEATURE_NAMES:
+            # Legacy releases tag as bare `vX.Y.Z`; the asset name check
+            # in `ReleaseInformation.__contains__` selects the feature.
+            if self.version is not None:
+                return tag == self.version
+            return BARE_VERSION_RE.match(tag) is not None
         if self.version is not None:
             return tag in (
                 f"{self.tag_name}@{self.version}",
@@ -206,7 +217,14 @@ def parse_release_information(
     release_information: List,
 ) -> List[ReleaseInformation]:
     """Parse the release information from the Github API."""
-    return Releases.model_validate(release_information).root
+    # Skip drafts (only visible with maintainer credentials): they have no
+    # `published_at` and their assets are not downloadable.
+    published = [
+        release
+        for release in release_information
+        if not release.get("draft", False)
+    ]
+    return Releases.model_validate(published).root
 
 
 def download_release_information(
