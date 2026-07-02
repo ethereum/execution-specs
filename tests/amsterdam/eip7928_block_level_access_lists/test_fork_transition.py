@@ -11,6 +11,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Bytes,
     EIPChecklist,
     EngineAPIError,
     Environment,
@@ -113,6 +114,42 @@ def test_invalid_pre_fork_block_with_bal_hash_field(
                 txs=[tx],
                 rlp_modifier=Header(block_access_list_hash=Hash(0)),
                 exception=BlockException.INVALID_BLOCK_HASH,
+            ),
+        ],
+    )
+
+
+@pytest.mark.valid_at_transition_to("Amsterdam")
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
+def test_bal_invalid_engine_payload_field_before_fork(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a pre-Amsterdam `newPayload` that carries a `blockAccessList`.
+
+    The block and its header are otherwise valid, so the spurious payload
+    field is the only defect: clients that silently drop unknown
+    `newPayloadV4` fields would answer VALID and must fail this test.
+    """
+    sender = pre.fund_eoa()
+    receiver = pre.fund_eoa(amount=0)
+
+    tx = Transaction(sender=sender, to=receiver, value=100, gas_price=10)
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                timestamp=FORK_TIMESTAMP - 1,
+                txs=[tx],
+                # A valid empty-BAL encoding: field presence alone, not
+                # decodability, must trigger the rejection.
+                engine_new_payload_block_access_list=Bytes(b"\xc0"),
+                exception=BlockException.INCORRECT_BLOCK_FORMAT,
+                engine_api_error_code=EngineAPIError.InvalidParams,
             ),
         ],
     )
