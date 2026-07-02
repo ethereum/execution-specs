@@ -185,19 +185,24 @@ def test_charge_spill_boundary(
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
     regular = code.regular_cost(fork)
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    gas_limit = intrinsic + regular + sstore_state_gas + gas_delta
 
     tx = Transaction(
         to=contract,
-        gas_limit=intrinsic + regular + sstore_state_gas + gas_delta,
+        gas_limit=gas_limit,
         sender=pre.fund_eoa(),
     )
 
-    header = Header(gas_used=max(intrinsic + regular, sstore_state_gas))
+    header = Header(
+        gas_used=max(intrinsic + regular, sstore_state_gas)
+        if gas_delta == 0
+        else gas_limit
+    )
     state_test(
         pre=pre,
         post={contract: Account(storage={0: 1 if gas_delta == 0 else 0})},
         tx=tx,
-        blockchain_test_header_verify=header if gas_delta == 0 else None,
+        blockchain_test_header_verify=header,
     )
 
 
