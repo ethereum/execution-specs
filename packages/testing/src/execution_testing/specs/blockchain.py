@@ -306,7 +306,7 @@ class Block(Header):
     """Post state for verification after block execution in BlockchainTest"""
     block_access_list: Bytes | None = Field(None)
     """EIP-7928: Block-level access lists (serialized)."""
-    engine_new_payload_block_access_list: Removable | Bytes | None = None
+    engine_new_payload_block_access_list: Bytes | None = None
     """EIP-7928: override only the engine newPayload blockAccessList field."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
@@ -406,7 +406,7 @@ class BuiltBlock(CamelModel):
     rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
-    engine_new_payload_block_access_list: Removable | Bytes | None = None
+    engine_new_payload_block_access_list: Bytes | None = None
 
     def get_fixture_block(
         self, *, include_receipts: bool = True
@@ -457,10 +457,8 @@ class BuiltBlock(CamelModel):
         """Get the RLP of the block."""
         return self.get_fixture_block().rlp
 
-    @staticmethod
-    def derive_engine_payload_modifier(
-        rlp_modifier: Header | None,
-        block_access_list: BlockAccessList | None,
+    def engine_payload_modifier(
+        self,
     ) -> "FixtureExecutionPayloadModifier | None":
         """
         Propagate ``rlp_modifier``'s header changes to the engine payload.
@@ -470,9 +468,13 @@ class BuiltBlock(CamelModel):
         the ``block_access_list`` body. So a header modifier that touches the
         BAL hash needs to drive a matching change on the payload body.
         """
-        if rlp_modifier is None:
+        if self.engine_new_payload_block_access_list is not None:
+            return FixtureExecutionPayloadModifier(
+                block_access_list=self.engine_new_payload_block_access_list,
+            )
+        if self.rlp_modifier is None:
             return None
-        bal_hash_override = rlp_modifier.block_access_list_hash
+        bal_hash_override = self.rlp_modifier.block_access_list_hash
         if bal_hash_override is None:
             return None
         if bal_hash_override is Header.REMOVE_FIELD:
@@ -485,42 +487,14 @@ class BuiltBlock(CamelModel):
         # payload by forcing a body to be present. Its exact value is
         # irrelevant for negative tests — a non-``None`` value is enough to
         # make a payload-version mismatch detectable.
-        if block_access_list is None:
+        if self.block_access_list is None:
             return FixtureExecutionPayloadModifier(
                 block_access_list=Bytes(b""),
             )
         return None
 
-    @staticmethod
-    def engine_payload_bal_override_modifier(
-        override: Removable | Bytes | None,
-    ) -> "FixtureExecutionPayloadModifier | None":
-        """
-        Map a block access list override to an engine payload modifier.
-
-        Raw `Bytes` are sent verbatim as the payload body (e.g. `0x` for the
-        invalid empty-byte-string encoding); a `Removable` omits the field.
-        `None` means no override.
-        """
-        if override is None:
-            return None
-        return FixtureExecutionPayloadModifier(
-            block_access_list=(
-                FixtureExecutionPayloadModifier.REMOVE_FIELD
-                if isinstance(override, Removable)
-                else override
-            ),
-        )
-
     def get_fixture_engine_new_payload(self) -> FixtureEngineNewPayload:
         """Get a FixtureEngineNewPayload from the built block."""
-        # An explicit block access list override targets only the engine
-        # payload body and takes precedence over the header-derived modifier.
-        execution_payload_modifier = self.engine_payload_bal_override_modifier(
-            self.engine_new_payload_block_access_list
-        ) or self.derive_engine_payload_modifier(
-            self.rlp_modifier, self.block_access_list
-        )
         return FixtureEngineNewPayload.from_fixture_header(
             fork=self.fork,
             header=self.header,
@@ -530,7 +504,7 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
-            execution_payload_modifier=execution_payload_modifier,
+            execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
         )

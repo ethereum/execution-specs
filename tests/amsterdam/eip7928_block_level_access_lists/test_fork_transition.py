@@ -134,9 +134,9 @@ def test_bal_invalid_engine_payload_field_before_fork(
     `newPayloadV4` fields would answer VALID and must fail this test.
     """
     sender = pre.fund_eoa()
-    receiver = pre.fund_eoa(amount=0)
+    receiver = pre.nonexistent_account()
 
-    tx = Transaction(sender=sender, to=receiver, value=100, gas_price=10)
+    tx = Transaction(sender=sender, to=receiver, value=100)
 
     blockchain_test(
         pre=pre,

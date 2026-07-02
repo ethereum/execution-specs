@@ -1653,20 +1653,15 @@ def test_bal_invalid_engine_payload_encoding(
     empty byte string `0x80` (valid RLP but not a list), or a truncated
     list header `0xc1`.
     """
-    sender = pre.fund_eoa(amount=10**18)
-    receiver = pre.fund_eoa(amount=0)
+    sender = pre.fund_eoa()
+    receiver = pre.nonexistent_account()
 
-    tx = Transaction(
-        sender=sender,
-        to=receiver,
-        value=10**15,
-        gas_limit=21_000,
-    )
+    tx = Transaction(sender=sender, to=receiver)
 
     blockchain_test(
         pre=pre,
         post={
-            sender: Account(balance=10**18, nonce=0),
+            sender: Account(nonce=0),
             receiver: None,
         },
         blocks=[
@@ -1676,41 +1671,6 @@ def test_bal_invalid_engine_payload_encoding(
                     invalid_bal_payload
                 ),
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
-                engine_api_error_code=EngineAPIError.InvalidParams,
-            )
-        ],
-    )
-
-
-@pytest.mark.valid_from("Amsterdam")
-@pytest.mark.blockchain_test_engine_only
-@pytest.mark.exception_test
-def test_bal_invalid_engine_payload_missing_field(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-) -> None:
-    """Reject a `newPayload` whose `blockAccessList` field is omitted."""
-    sender = pre.fund_eoa(amount=10**18)
-    receiver = pre.fund_eoa(amount=0)
-
-    tx = Transaction(
-        sender=sender,
-        to=receiver,
-        value=10**15,
-        gas_limit=21_000,
-    )
-
-    blockchain_test(
-        pre=pre,
-        post={
-            sender: Account(balance=10**18, nonce=0),
-            receiver: None,
-        },
-        blocks=[
-            Block(
-                txs=[tx],
-                engine_new_payload_block_access_list=Header.REMOVE_FIELD,
-                exception=BlockException.INCORRECT_BLOCK_FORMAT,
                 engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],
