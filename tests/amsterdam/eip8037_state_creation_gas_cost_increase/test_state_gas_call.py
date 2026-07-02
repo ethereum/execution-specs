@@ -92,8 +92,9 @@ def test_delegatecall_child_spill_not_double_charged(
     """
     Test DELEGATECALL child state gas paid from `gas_left` is not recharged.
 
-    With gas below the Amsterdam tx gas cap, the top-level frame starts with
-    no state gas reservoir and the child pays for SSTOREs by spilling from
+    With the gas limit pinned to the Amsterdam tx gas cap and no requested
+    reservoir (`state_gas_reservoir=0`), the top-level frame starts with no
+    state gas reservoir and the child pays for SSTOREs by spilling from
     `gas_left`. The parent frame must not charge the same state growth again
     at frame end.
     """
@@ -115,7 +116,7 @@ def test_delegatecall_child_spill_not_double_charged(
 
     tx = Transaction(
         to=caller,
-        gas_limit=700_000,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 

@@ -144,6 +144,11 @@ class TestTokenCalculation:
         expected_intrinsic_cost = gas_costs.TX_BASE + (
             expected_standard_tokens * gas_costs.TX_DATA_TOKEN_STANDARD
         )
+        if fork.is_eip_enabled(2780):
+            # EIP-2780 surfaces an explicit recipient-access charge for
+            # non-self, non-create transactions; the ``to`` fixture
+            # defaults to a deployed contract, so the charge applies.
+            expected_intrinsic_cost += gas_costs.COLD_ACCOUNT_ACCESS
         assert intrinsic_cost_before_execution == expected_intrinsic_cost, (
             f"Intrinsic cost mismatch for {description}: "
             f"{intrinsic_cost_before_execution} != {expected_intrinsic_cost} "

@@ -409,7 +409,6 @@ def generate_system_contract_error_test(
             test_tx = Transaction(
                 to=value_receiver,
                 value=1,
-                gas_limit=100_000,
                 sender=pre.fund_eoa(),
             )
             post = Alloc()
