@@ -213,16 +213,17 @@ def download_release_information(
     destination_file: Path | None,
 ) -> List[ReleaseInformation]:
     """
-    Download all releases from the GitHub API, handling pagination properly.
+    Download recent releases from the GitHub API, following pagination.
 
-    GitHub's API returns releases in pages of 30 by default. This function
-    follows the pagination links to ensure we get every release, which is
-    crucial for finding older versions or latest releases.
+    Request pages of 100 releases (the API maximum) and follow the
+    pagination links up to `max_pages` pages, so resolution sees the 200
+    most recent releases per repo. Older releases fall outside this
+    window and cannot be resolved.
     """
     all_releases = []
     for repo in SUPPORTED_REPOS:
         current_url: str | None = (
-            f"https://api.github.com/repos/{repo}/releases"
+            f"https://api.github.com/repos/{repo}/releases?per_page=100"
         )
         max_pages = 2
         while current_url and max_pages > 0:
