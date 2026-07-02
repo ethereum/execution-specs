@@ -1720,6 +1720,10 @@ def test_call_value_new_account_state_gas_consumed_on_caller_halt(
     the EIP-7825 gas cap over-cap (the restored reservoir is refunded). The
     value transfer is rolled back, leaving `target` absent and the caller
     balance intact.
+
+    Both `target_kind` variants assert the same totals by design; the
+    child-failure refill itself is pinned by the probe in
+    `test_call_value_precompile_halt_refunds_new_account_state_gas`.
     """
     value = 1
     # gas=0 forwards only the value stipend: ignored by the empty account
@@ -1735,23 +1739,25 @@ def test_call_value_new_account_state_gas_consumed_on_caller_halt(
     )
     sender = pre.fund_eoa()
 
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
     if reservoir == "over_cap":
-        tx = Transaction(
-            to=caller,
-            sender=sender,
-            state_gas_reservoir=fork.gas_costs().NEW_ACCOUNT // 2,
-            expected_receipt=TransactionReceipt(
-                cumulative_gas_used=fork.transaction_gas_limit_cap()
-            ),
-        )
+        # The excess over the EIP-7825 cap becomes the reservoir.
+        gas_limit = gas_limit_cap + fork.gas_costs().NEW_ACCOUNT // 2
+        expected_gas_used = gas_limit_cap
     else:
         gas_limit = 1_000_000
-        tx = Transaction(
-            to=caller,
-            sender=sender,
-            gas_limit=gas_limit,
-            expected_receipt=TransactionReceipt(cumulative_gas_used=gas_limit),
-        )
+        expected_gas_used = gas_limit
+
+    tx = Transaction(
+        to=caller,
+        sender=sender,
+        gas_limit=gas_limit,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
 
     post = {
         caller: Account(balance=value),
@@ -1797,20 +1803,20 @@ def test_call_value_new_account_state_gas_returned_on_caller_revert(
     )
     receipt = TransactionReceipt(cumulative_gas_used=expected_gas_used)
 
-    if reservoir == "over_cap":
-        tx = Transaction(
-            to=caller,
-            sender=sender,
-            state_gas_reservoir=gas_costs.NEW_ACCOUNT // 2,
-            expected_receipt=receipt,
-        )
-    else:
-        tx = Transaction(
-            to=caller,
-            sender=sender,
-            gas_limit=1_000_000,
-            expected_receipt=receipt,
-        )
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    gas_limit = (
+        gas_limit_cap + gas_costs.NEW_ACCOUNT // 2
+        if reservoir == "over_cap"
+        else 1_000_000
+    )
+
+    tx = Transaction(
+        to=caller,
+        sender=sender,
+        gas_limit=gas_limit,
+        expected_receipt=receipt,
+    )
 
     post = {
         caller: Account(balance=value),
