@@ -269,18 +269,24 @@ def test_calldata_floor_binds_with_reservoir(
     regular and state separately, so the header gas_used is the state
     dimension (not the floor).
     """
-    storage_set = Op.SSTORE(new_value=1).state_cost(fork)
+    storage = Storage()
+    code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
+    state_cost = code.state_cost(fork)
+    regular_cost = code.regular_cost(fork)
+
     # Sized so the floor binds while block-regular stays under storage_set.
     calldata = b"\x00" * 5000
     floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    assert floor > regular_cost + state_cost, (
+        "calldata floor must exceed execution cost"
+    )
 
-    storage = Storage()
-    contract = pre.deploy_contract(code=Op.SSTORE(storage.store_next(1), 1))
+    contract = pre.deploy_contract(code=code)
 
     tx = Transaction(
         to=contract,
         data=calldata,
-        state_gas_reservoir=storage_set,
+        state_gas_reservoir=state_cost,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(gas_used=floor),
     )
@@ -288,5 +294,5 @@ def test_calldata_floor_binds_with_reservoir(
         pre=pre,
         post={contract: Account(storage=storage)},
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=storage_set),
+        blockchain_test_header_verify=Header(gas_used=state_cost),
     )
