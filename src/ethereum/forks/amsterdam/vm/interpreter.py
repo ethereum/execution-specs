@@ -154,12 +154,13 @@ def process_message_call(message: Message) -> MessageCallOutput:
             )
     else:
         if message.tx_env.authorizations != ():
-            state_refund += set_delegation(message)
+            auth_state_refund, auth_regular_refund = set_delegation(message)
+            state_refund += auth_state_refund
+            refund_counter += U256(auth_regular_refund)
 
         delegated_address = get_delegated_code_address(message.code)
         if delegated_address is not None:
             message.disable_precompiles = True
-            message.accessed_addresses.add(delegated_address)
             message.code = get_code(
                 tx_state,
                 get_account(tx_state, delegated_address).code_hash,
@@ -309,20 +310,42 @@ def process_message(message: Message) -> Evm:
 
     snapshot = copy_tx_state(tx_state)
 
-    if message.should_transfer_value and message.value != 0:
-        move_ether(
-            tx_state,
-            message.caller,
-            message.current_target,
-            message.value,
-        )
-        if message.caller != message.current_target:
-            emit_transfer_log(
-                evm, message.caller, message.current_target, message.value
-            )
-
     # Execute message code and handle errors
     try:
+        # EIP-2780 top-frame charges: applied at the top of a
+        # transaction's call frame, after authorizations and before any
+        # opcode runs. Reads pre-value-transfer state so the
+        # EIP-161-empty check sees the recipient as it was at the start
+        # of the frame. Gated to non-create top-level frames; creates
+        # pay the equivalent NEW_ACCOUNT state gas.
+        if message.depth == Uint(0) and message.target != Bytes0(b""):
+            recipient = message.current_target
+            if message.value > U256(0) and not is_account_alive(
+                tx_state, recipient
+            ):
+                charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
+            recipient_code = get_code(
+                tx_state, get_account(tx_state, recipient).code_hash
+            )
+            delegated_address = get_delegated_code_address(recipient_code)
+            if delegated_address is not None:
+                charge_gas(evm, GasCosts.COLD_ACCOUNT_ACCESS)
+                evm.accessed_addresses.add(delegated_address)
+
+        if message.should_transfer_value and message.value != 0:
+            move_ether(
+                tx_state,
+                message.caller,
+                message.current_target,
+                message.value,
+            )
+            if message.caller != message.current_target:
+                emit_transfer_log(
+                    evm,
+                    message.caller,
+                    message.current_target,
+                    message.value,
+                )
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
             if not message.disable_precompiles:
                 evm_trace(evm, PrecompileStart(evm.message.code_address))

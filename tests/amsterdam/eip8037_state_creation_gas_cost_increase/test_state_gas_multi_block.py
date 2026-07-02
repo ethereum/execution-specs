@@ -58,6 +58,10 @@ def test_exact_coinbase_fee_simple_sstore(
     # Gas breakdown for tx 1 (SSTORE zero-to-nonzero, no calldata):
     # PUSH1(1) + PUSH1(0) + SSTORE(cold, zero-to-nonzero) + STOP
     intrinsic_regular = gas_costs.TX_BASE
+    if fork.is_eip_enabled(2780):
+        # EIP-2780 surfaces an explicit recipient-access charge for
+        # non-self, non-create transactions on top of ``TX_BASE``.
+        intrinsic_regular += gas_costs.COLD_ACCOUNT_ACCESS
     evm_regular = (
         2 * gas_costs.VERY_LOW  # PUSH1 + PUSH1
         + gas_costs.COLD_STORAGE_WRITE  # SSTORE cold zero-to-nonzero

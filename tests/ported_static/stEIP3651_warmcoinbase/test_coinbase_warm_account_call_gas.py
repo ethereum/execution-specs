@@ -3,6 +3,8 @@ Test_coinbase_warm_account_call_gas.
 
 Ported from:
 state_tests/Shanghai/stEIP3651_warmcoinbase/coinbaseWarmAccountCallGasFiller.yml
+@manually-enhanced: Do not overwrite. When EIP-8038 is enabled,
+EXTCODESIZE and EXTCODECOPY charge an extra warm code-read.
 """
 
 import pytest
@@ -278,6 +280,11 @@ def test_coinbase_warm_account_call_gas(
         nonce=1,
     )
 
-    post = {target: Account(storage={0: 100})}
+    warm_access = fork.gas_costs().WARM_ACCESS
+    # EIP-8038 charges EXTCODESIZE (d0) and EXTCODECOPY (d1) a second
+    # WARM_ACCESS for the account code read; other opcodes are unchanged.
+    ext_code_read = d in (0, 1) and fork.is_eip_enabled(8038)
+    expected_gas = warm_access + (warm_access if ext_code_read else 0)
+    post = {target: Account(storage={0: expected_gas})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

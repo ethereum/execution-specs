@@ -120,6 +120,8 @@ class TransactionEnvironment:
     """
 
     origin: Address
+    recipient: Bytes0 | Address
+    value: U256
     gas_price: Uint
     gas: Uint
     state_gas_reservoir: Uint

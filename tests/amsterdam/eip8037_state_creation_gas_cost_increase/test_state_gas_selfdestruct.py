@@ -227,8 +227,9 @@ def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
 
     The inner frame spills the NEW_ACCOUNT charge and self-destructs
     successfully, then the caller reverts: the beneficiary creation
-    rolls back and the spilled charge is refilled, so only regular gas
-    is billed.
+    rolls back and the spilled state charge is refilled. The EIP-8038
+    regular account-write charge for the attempted empty-account value
+    transfer remains billed.
     """
     beneficiary = 0xDEAD
     inner_code = Op.SELFDESTRUCT(beneficiary)
@@ -240,6 +241,7 @@ def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
         fork.transaction_intrinsic_cost_calculator()()
         + caller_code.gas_cost(fork)
         + inner_code.gas_cost(fork)
+        + fork.gas_costs().ACCOUNT_WRITE
     )
     tx = Transaction(to=caller, sender=pre.fund_eoa())
 
@@ -714,34 +716,30 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_selfdestruct_new_beneficiary_no_regular_account_creation_cost(
+def test_selfdestruct_new_beneficiary_account_write_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify SELFDESTRUCT to a new beneficiary does not charge a
-    regular account-creation cost on top of state gas.
+    Verify SELFDESTRUCT to a new beneficiary charges `ACCOUNT_WRITE`
+    regular gas plus the account-creation state gas, and not the
+    legacy combined regular account-creation cost.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     beneficiary = pre.fund_eoa(amount=0)
 
-    victim_code = Op.SELFDESTRUCT(beneficiary)
+    victim_code = Op.SELFDESTRUCT(beneficiary, account_new=True)
     victim = pre.deploy_contract(code=victim_code, balance=1)
 
-    # Tight budget: slack is less than the old pre-Amsterdam regular
-    # account-creation cost, so any extra regular draw would OOG.
+    # Tight budget: slack is less than the legacy 25,000 regular
+    # account-creation cost minus `ACCOUNT_WRITE`, so any regular draw
+    # beyond `ACCOUNT_WRITE` would OOG. The opcode metadata folds the
+    # `ACCOUNT_WRITE` regular cost and the account-creation state gas
+    # into `gas_cost`.
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
     tx = Transaction(
         to=victim,
-        gas_limit=(
-            intrinsic
-            + victim_code.gas_cost(fork)
-            + new_account_state_gas
-            + 20_000
-        ),
+        gas_limit=(intrinsic + victim_code.gas_cost(fork) + 4_000),
         sender=pre.fund_eoa(),
     )
 

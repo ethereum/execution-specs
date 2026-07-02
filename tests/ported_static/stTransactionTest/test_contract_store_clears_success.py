@@ -3,6 +3,18 @@ Test_contract_store_clears_success.
 
 Ported from:
 state_tests/stTransactionTest/ContractStoreClearsSuccessFiller.json
+
+@manually-enhanced: Do not overwrite. The contract clears 10 cold
+storage slots (each 12 -> 0) and the transaction sends value alongside,
+so the asserted post is the cleared storage plus the received value.
+EIP-8038 raises the cold SSTORE-clear charge from 5000 to 13000, so the
+10 clears no longer fit in the original gas limit and the contract runs
+out of gas before clearing the storage or keeping the transfer. Bump the
+gas limit by the per-clear charge delta times the 10 clears so every
+clear still lands at Amsterdam. The delta is derived from the fork gas
+model and is exactly 0 pre-EIP-8037; do not hardcode the Amsterdam
+value. The post asserts only the target account (cleared storage and the
+received value), which holds at every fork once the gas fits.
 """
 
 import pytest
@@ -15,6 +27,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +42,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_contract_store_clears_success(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_contract_store_clears_success."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
@@ -72,11 +86,21 @@ def test_contract_store_clears_success(
         nonce=0,
     )
 
+    # EIP-8038 raises the cold SSTORE-clear charge; bump the gas limit by
+    # the per-clear charge delta times the 10 clears so all of them still
+    # land instead of running out of gas before clearing the storage.
+    cold_clear_delta = (
+        Op.SSTORE.with_metadata(
+            key_warm=False, original_value=1, current_value=1, new_value=0
+        ).gas_cost(fork)
+        - 5000
+    )
+
     tx = Transaction(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=130000,
+        gas_limit=130000 + 10 * cold_clear_delta,
         value=10,
     )
 

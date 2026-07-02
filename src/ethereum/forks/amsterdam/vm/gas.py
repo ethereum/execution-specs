@@ -67,23 +67,21 @@ class GasCosts:
 
     # Access
     WARM_ACCESS: Final[Uint] = Uint(100)
-    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(2600)
-    COLD_STORAGE_ACCESS: Final[Uint] = Uint(2100)
+    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(3000)
+    COLD_STORAGE_ACCESS: Final[Uint] = Uint(3000)
 
     # Storage
-    COLD_STORAGE_WRITE: Final[Uint] = Uint(5000)
+    STORAGE_WRITE: Final[Uint] = Uint(10000)
 
     # Call
-    CALL_VALUE: Final[Uint] = Uint(9000)
+    CALL_VALUE: Final[Uint] = Uint(10300)  # ACCOUNT_WRITE + CALL_STIPEND
     CALL_STIPEND: Final[Uint] = Uint(2300)
+    ACCOUNT_WRITE: Final[Uint] = Uint(8000)
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
     CODE_INIT_PER_WORD: Final[Uint] = Uint(2)
-    REGULAR_GAS_CREATE: Final[Uint] = Uint(9000)
-
-    # Authorization
-    PER_AUTH_BASE_COST: Final[Uint] = Uint(7500)
+    CREATE_ACCESS: Final[Uint] = ACCOUNT_WRITE + COLD_STORAGE_ACCESS
 
     # Utility
     ZERO: Final[Uint] = Uint(0)
@@ -91,7 +89,9 @@ class GasCosts:
     FAST_STEP: Final[Uint] = Uint(5)
 
     # Refunds
-    REFUND_STORAGE_CLEAR: Final[int] = 4800
+    REFUND_STORAGE_CLEAR: Final[int] = int(
+        (STORAGE_WRITE + COLD_STORAGE_ACCESS) * Uint(4800) // Uint(5000)
+    )
 
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
@@ -128,12 +128,37 @@ class GasCosts:
     BLOCK_ACCESS_LIST_ITEM: Final[Uint] = Uint(2000)
 
     # Transactions
-    TX_BASE: Final[Uint] = Uint(21000)
+    TX_BASE: Final[Uint] = Uint(12000)
     TX_CREATE: Final[Uint] = Uint(32000)
+    TX_VALUE_COST: Final[Uint] = Uint(4244)
+    TRANSFER_LOG_COST: Final[Uint] = Uint(1756)
     TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
-    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(2400)
-    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(1900)
+    TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS
+    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = COLD_STORAGE_ACCESS
+
+    # Authorization
+    AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
+    """
+    Calldata bytes charged for one [EIP-7702] authorization tuple.
+
+    Counts the tuple's fields: the chain id, authority address, nonce,
+    signature parity, and the two signature scalars. Charged at the
+    calldata floor rate (`TX_DATA_TOKEN_FLOOR`).
+
+    [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
+    """
+
+    REGULAR_PER_AUTH_BASE_COST: Final[Uint] = (
+        AUTH_TUPLE_BYTES * TX_DATA_TOKEN_FLOOR
+        + PRECOMPILE_ECRECOVER
+        + COLD_ACCOUNT_ACCESS
+        + Uint(2) * WARM_ACCESS
+    )
+    """
+    Regular gas charged per EIP-7702 authorization, in addition to
+    `ACCOUNT_WRITE`.
+    """
 
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
@@ -199,6 +224,25 @@ class GasCosts:
     OPCODE_DUPN: Final[Uint] = VERY_LOW
     OPCODE_SWAPN: Final[Uint] = VERY_LOW
     OPCODE_EXCHANGE: Final[Uint] = VERY_LOW
+    OPCODE_TLOAD: Final[Uint] = Uint(100)
+    """
+    Cost of the opcode that reads from transient storage.
+
+    Transient storage is in-memory only; its cost is independent of
+    state-access pricing ([EIP-7971] proposes dedicated values).
+
+    [EIP-7971]: https://eips.ethereum.org/EIPS/eip-7971
+    """
+
+    OPCODE_TSTORE: Final[Uint] = Uint(100)
+    """
+    Cost of the opcode that writes to transient storage.
+
+    Transient storage is in-memory only; its cost is independent of
+    state-access pricing ([EIP-7971] proposes dedicated values).
+
+    [EIP-7971]: https://eips.ethereum.org/EIPS/eip-7971
+    """
 
     # Dynamic Opcode Components
     OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW

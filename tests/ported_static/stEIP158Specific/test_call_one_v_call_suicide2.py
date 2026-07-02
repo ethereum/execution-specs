@@ -3,6 +3,15 @@ Test_call_one_v_call_suicide2.
 
 Ported from:
 state_tests/stEIP158Specific/CALL_OneVCallSuicide2Filler.json
+
+@manually-enhanced: Do not overwrite. The measured slot captures the
+regular gas of a value-1 CALL to a cold contract that then
+SELFDESTRUCTs (with a zero balance) to a cold, alive beneficiary.
+EIP-8038 reprices the CALL's cold account access and value transfer,
+plus the SELFDESTRUCT beneficiary's cold access; the beneficiary is
+alive so there is no new-account write. The delta is therefore
+`2 * (COLD_ACCOUNT_ACCESS - 2600) + (CALL_VALUE - 9000)`, exactly 0
+before EIP-8038.
 """
 
 import pytest
@@ -16,6 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,8 +40,15 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_one_v_call_suicide2(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_one_v_call_suicide2."""
+    # EIP-8038 deltas, each 0 before EIP-8038. The CALL pays the cold
+    # account reprice and the value-transfer reprice; the cold
+    # SELFDESTRUCT beneficiary pays a second cold account reprice.
+    gas_costs = fork.gas_costs()
+    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
+    call_value_delta = gas_costs.CALL_VALUE - 9000
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     addr_2 = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
     sender = EOA(
@@ -90,7 +107,10 @@ def test_call_one_v_call_suicide2(
 
     post = {
         addr: Account(storage={}, balance=0),
-        target: Account(storage={100: 16937}, balance=99),
+        target: Account(
+            storage={100: 16937 + 2 * cold_account_delta + call_value_delta},
+            balance=99,
+        ),
         addr_2: Account(balance=1),
     }
 

@@ -36,6 +36,7 @@ from execution_testing import (
     Hash,
     Initcode,
     Op,
+    RecipientType,
     Requests,
     StateTestFiller,
     Storage,
@@ -1470,6 +1471,7 @@ def test_ext_code_on_self_set_code(
 def test_set_code_address_and_authority_warm_state(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     set_code_address_first: bool,
 ) -> None:
     """
@@ -1512,13 +1514,18 @@ def test_set_code_address_and_authority_warm_state(
     callee_code += Op.SSTORE(slot_call_success, 1) + Op.STOP
 
     callee_address = pre.deploy_contract(callee_code)
+    gas_costs = fork.gas_costs()
+    cold_account_cost = gas_costs.COLD_ACCOUNT_ACCESS
+    warm_account_cost = gas_costs.WARM_ACCESS
     callee_storage = Storage()
     callee_storage[slot_call_success] = 1
     callee_storage[slot_set_code_to_warm_state] = (
-        2_600 if set_code_address_first else 100
+        cold_account_cost if set_code_address_first else warm_account_cost
     )
     callee_storage[slot_authority_warm_state] = (
-        200 if set_code_address_first else 2_700
+        2 * warm_account_cost
+        if set_code_address_first
+        else warm_account_cost + cold_account_cost
     )
 
     tx = Transaction(
@@ -3995,13 +4002,16 @@ def test_many_delegations(
         max_gas = tx_gas_limit_cap
     else:
         max_gas = env.gas_limit
-    gas_for_delegations = max_gas - 21_000 - 20_000 - (3 * 2)
+
+    success_slot = 1
+    entry_code = Op.SSTORE(success_slot, 1) + Op.STOP
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    entry_code_gas = entry_code.gas_cost(fork)
+    gas_for_delegations = max_gas - intrinsic_gas - entry_code_gas
 
     gas_costs = fork.gas_costs()
     delegation_count = gas_for_delegations // gas_costs.AUTH_PER_EMPTY_ACCOUNT
 
-    success_slot = 1
-    entry_code = Op.SSTORE(success_slot, 1) + Op.STOP
     entry_address = pre.deploy_contract(entry_code)
 
     signers = [pre.fund_eoa(signer_balance) for _ in range(delegation_count)]
@@ -4092,6 +4102,7 @@ def test_invalid_transaction_after_authorization(
 def test_authorization_reusing_nonce(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test an authorization reusing the same nonce as a prior transaction
@@ -4100,11 +4111,34 @@ def test_authorization_reusing_nonce(
     auth_signer = pre.fund_eoa()
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
+
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    # Tx1: value transfer to an empty recipient -- pays the intrinsic
+    # value-transfer surcharges plus the top-frame ``NEW_ACCOUNT``
+    # state-gas charge.
+    tx1_intrinsic = intrinsic_gas_calculator(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+    )
+    tx1_top_frame_state = fork.transaction_top_frame_state_gas(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+    )
+    tx1_gas = tx1_intrinsic + tx1_top_frame_state
+
+    # Tx2: recipient is now alive (received 1 wei in tx1), so the
+    # recipient is an EOA and no top-frame charge fires. The auth
+    # list adds one ``AUTH_PER_EMPTY_ACCOUNT`` to intrinsic.
+    tx2_gas = intrinsic_gas_calculator(
+        recipient_type=RecipientType.EOA,
+        authorization_list_or_count=1,
+    )
+
     txs = [
         Transaction(
             sender=auth_signer,
             nonce=0,
-            gas_limit=21_000,
+            gas_limit=tx1_gas,
             to=recipient,
             value=1,
         ),
@@ -4112,6 +4146,7 @@ def test_authorization_reusing_nonce(
             sender=sender,
             to=recipient,
             value=0,
+            gas_limit=tx2_gas,
             authorization_list=[
                 AuthorizationTuple(
                     address=Address(1),

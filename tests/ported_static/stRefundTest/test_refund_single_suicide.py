@@ -3,6 +3,15 @@ Test_refund_single_suicide.
 
 Ported from:
 state_tests/stRefundTest/refund_singleSuicideFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts the sender
+balance, which the original fixture hardcoded. EIP-2780 decomposes the
+intrinsic and lowers it for this non-self, non-value tx, so the balance
+is derived from the fork: ``intrinsic_delta`` subtracts the pre-EIP-2780
+baseline intrinsic 21_000 from the fork's intrinsic calculator (the
+literal 21_000 is the old TX_BASE), making the delta 0 pre-EIP-2780 and
+negative on Amsterdam. The sender balance is then adjusted by
+``gas_price * intrinsic_delta`` (base fee 10). Do not hardcode it.
 """
 
 import pytest
@@ -15,6 +24,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +39,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_refund_single_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_refund_single_suicide."""
     coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
@@ -126,10 +137,14 @@ def test_refund_single_suicide(
         gas_limit=300000,
     )
 
+    # EIP-2780 lowers the intrinsic for non-self non-value txs; the
+    # delta is negative on Amsterdam and raises the sender balance by
+    # ``gas_price * |delta|``.
+    intrinsic_delta = fork.transaction_intrinsic_cost_calculator()() - 21_000
     post = {
         target: Account(balance=0xDE0B6B3A7640000),
         coinbase: Account(balance=0),
-        sender: Account(balance=0x1C5AF34, nonce=1),
+        sender: Account(balance=0x1C5AF34 - 10 * intrinsic_delta, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

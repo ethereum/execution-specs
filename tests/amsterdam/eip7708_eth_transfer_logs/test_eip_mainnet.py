@@ -9,6 +9,7 @@ from execution_testing import (
     Alloc,
     Fork,
     Op,
+    RecipientType,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
@@ -25,17 +26,29 @@ pytestmark = [pytest.mark.valid_at("EIP7708"), pytest.mark.mainnet]
 def test_simple_transfer_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test that a simple ETH transfer emits a transfer log on mainnet."""
     sender = pre.fund_eoa()
     recipient = pre.nonexistent_account()
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    gas_limit = intrinsic_gas + top_frame_state_gas
 
     tx = Transaction(
         ty=0x02,
         sender=sender,
         to=recipient,
         value=1,
-        gas_limit=21_000,
+        gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(sender, recipient, 1)]
         ),

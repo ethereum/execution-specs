@@ -577,7 +577,7 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
         return tx
 
 
-def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
+def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     """
     Verifies a transaction.
 
@@ -609,7 +609,7 @@ def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
-    intrinsic = calculate_intrinsic_cost(tx)
+    intrinsic = calculate_intrinsic_cost(tx, sender)
     intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
     if intrinsic_gas > tx.gas:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
@@ -631,7 +631,9 @@ def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
     return intrinsic
 
 
-def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
+def calculate_intrinsic_cost(
+    tx: Transaction, sender: Address
+) -> IntrinsicGasCost:
     """
     Calculates the gas that is charged before execution is started.
 
@@ -645,12 +647,18 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (`TX_BASE`)
-    2. Cost for data (zero and non-zero bytes)
-    3. Cost for contract creation (if applicable)
-    4. Cost for access list entries (if applicable)
-    5. Cost for authorizations (if applicable)
+    1. Sender cost (`TX_BASE`).
+    2. Recipient cost (`COLD_ACCOUNT_ACCESS` for a non-self-transfer
+       call, or `CREATE_ACCESS` plus `NEW_ACCOUNT` state gas for a
+       contract creation).
+    3. Value cost (`TRANSFER_LOG_COST`, plus `TX_VALUE_COST` for a
+       non-self-transfer call) when ``tx.value > 0``.
+    4. Calldata cost (zero and non-zero bytes).
+    5. Access list entries (if applicable).
+    6. Authorizations (if applicable).
 
+    Self-transfers (``sender == tx.to``) skip the recipient and value
+    charges.
 
     This function takes a transaction and gas_limit as parameters and
     returns the intrinsic regular gas cost, intrinsic state gas cost, and the
@@ -666,13 +674,24 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
 
     data_cost = tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
 
-    create_regular_gas = Uint(0)
-    create_state_gas = Uint(0)
-    if tx.to == Bytes0(b""):
-        create_state_gas = StateGasCosts.NEW_ACCOUNT
-        create_regular_gas = GasCosts.REGULAR_GAS_CREATE + init_code_cost(
+    is_create = tx.to == Bytes0(b"")
+    is_self_transfer = tx.to == sender
+
+    recipient_regular_gas = Uint(0)
+    recipient_state_gas = Uint(0)
+    if is_create:
+        recipient_regular_gas = GasCosts.CREATE_ACCESS + init_code_cost(
             ulen(tx.data)
         )
+        recipient_state_gas = StateGasCosts.NEW_ACCOUNT
+        if tx.value > U256(0):
+            recipient_regular_gas += GasCosts.TRANSFER_LOG_COST
+    elif not is_self_transfer:
+        recipient_regular_gas = GasCosts.COLD_ACCOUNT_ACCESS
+        if tx.value > U256(0):
+            recipient_regular_gas += (
+                GasCosts.TRANSFER_LOG_COST + GasCosts.TX_VALUE_COST
+            )
 
     access_list_cost = Uint(0)
     tokens_in_access_list = Uint(0)
@@ -693,9 +712,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     auth_regular_gas = Uint(0)
     auth_state_gas = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_regular_gas = GasCosts.PER_AUTH_BASE_COST * ulen(
-            tx.authorizations
-        )
+        auth_regular_gas = (
+            GasCosts.ACCOUNT_WRITE + GasCosts.REGULAR_PER_AUTH_BASE_COST
+        ) * ulen(tx.authorizations)
         auth_state_gas = (
             StateGasCosts.NEW_ACCOUNT + StateGasCosts.AUTH_BASE
         ) * ulen(tx.authorizations)
@@ -714,12 +733,12 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     intrinsic_regular_gas = (
         GasCosts.TX_BASE
         + data_cost
-        + create_regular_gas
+        + recipient_regular_gas
         + access_list_cost
         + auth_regular_gas
     )
 
-    intrinsic_state_gas = create_state_gas + auth_state_gas
+    intrinsic_state_gas = recipient_state_gas + auth_state_gas
 
     return IntrinsicGasCost(
         regular=RegularGas(intrinsic_regular_gas),
