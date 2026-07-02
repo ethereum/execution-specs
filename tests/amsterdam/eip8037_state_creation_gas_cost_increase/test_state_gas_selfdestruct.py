@@ -227,8 +227,9 @@ def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
 
     The inner frame spills the NEW_ACCOUNT charge and self-destructs
     successfully, then the caller reverts: the beneficiary creation
-    rolls back and the spilled charge is refilled, so only regular gas
-    is billed.
+    rolls back and the spilled state charge is refilled. The EIP-8038
+    regular account-write charge for the attempted empty-account value
+    transfer remains billed.
     """
     beneficiary = 0xDEAD
     inner_code = Op.SELFDESTRUCT(beneficiary)
@@ -240,6 +241,7 @@ def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
         fork.transaction_intrinsic_cost_calculator()()
         + caller_code.gas_cost(fork)
         + inner_code.gas_cost(fork)
+        + fork.gas_costs().ACCOUNT_WRITE
     )
     tx = Transaction(to=caller, sender=pre.fund_eoa())
 
