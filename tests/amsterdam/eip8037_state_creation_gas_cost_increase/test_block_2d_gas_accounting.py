@@ -884,49 +884,69 @@ def test_base_fee_per_gas_follows_dominant_dimension(
             ),
         ],
         post=post,
-@pytest.mark.exception_test
+    )
+
+
+@pytest.mark.parametrize(
+    "delta",
+    [
+        pytest.param(0, id="exact_fit"),
+        pytest.param(1, id="exceeded", marks=pytest.mark.exception_test),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
-def test_cumulative_block_state_gas_rejection(
+def test_cumulative_block_state_gas_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
+    delta: int,
 ) -> None:
     """
-    Reject a tx whose gas exceeds the remaining block state-gas budget.
+    Probe the block state-gas inclusion gate with spill-funded usage.
 
-    Both txs fit the block alone. tx1's SSTORE-sets consume the block's
-    state budget down to a small remainder; tx2's gas_limit exceeds that
-    remainder while the regular budget still has ample room, so tx2 is
-    rejected on the state dimension and the block is invalid. The
-    regular-dimension cumulative gate is covered by
-    test_multi_transaction_gas_accounting (EIP-7778).
+    tx1 gets no state-gas reservoir (small gas_limit), so its SSTORE-set
+    state gas reaches block_state_gas_used only via spillover, and its
+    gas_limit exactly fills the block. tx2's gas_limit is the remaining
+    state budget plus delta, below both the per-tx cap and the remaining
+    regular budget, so only the state gate can reject it: delta=0 must
+    be accepted (strict >) and delta=1 rejected.
+    test_block_state_gas_limit_boundary covers this gate with a
+    reservoir-funded tx1 and an above-cap tx2.
     """
-    storage_set = Op.SSTORE(new_value=1).state_cost(fork)
-    intrinsic = fork.transaction_intrinsic_cost_calculator()()
     n = 6
-
-    set_op = Op.SSTORE.with_metadata(
-        key_warm=False, original_value=0, current_value=0, new_value=1
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    sstore_code = (
+        sum((Op.SSTORE(i, 1) for i in range(n)), Bytecode()) + Op.STOP
     )
-    sstore_code = sum((set_op(i, 1) for i in range(n)), Bytecode()) + Op.STOP
     tx1_regular = intrinsic + sstore_code.regular_cost(fork)
+    tx1_state = sstore_code.state_cost(fork)
     # tx1 exactly fills the block; the leftover state budget is tx1_regular.
-    block_gas_limit = tx1_regular + n * storage_set
+    block_gas_limit = tx1_regular + tx1_state
     # tx2 stays within the remaining regular budget, so only the state
     # dimension can reject it.
     assert tx1_regular + 1 <= block_gas_limit - tx1_regular
 
     sstore_contract = pre.deploy_contract(code=sstore_code)
+    stop_contract = pre.deploy_contract(code=Op.STOP)
 
+    error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
     tx1 = Transaction(
         to=sstore_contract, gas_limit=block_gas_limit, sender=pre.fund_eoa()
     )
     tx2 = Transaction(
-        to=sstore_contract,
-        gas_limit=tx1_regular + 1,
+        to=stop_contract,
+        gas_limit=tx1_regular + delta,
         sender=pre.fund_eoa(),
-        error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+        error=error,
     )
+
+    post: dict = {}
+    header_verify: Header | None = None
+    if not delta:
+        post = {sstore_contract: Account(storage=dict.fromkeys(range(n), 1))}
+        header_verify = Header(
+            gas_used=max(tx1_regular + intrinsic, tx1_state)
+        )
 
     blockchain_test(
         genesis_environment=Environment(gas_limit=block_gas_limit),
@@ -934,8 +954,9 @@ def test_cumulative_block_state_gas_rejection(
         blocks=[
             Block(
                 txs=[tx1, tx2],
-                exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
+                exception=error,
+                header_verify=header_verify,
             )
         ],
-        post={},
+        post=post,
     )
