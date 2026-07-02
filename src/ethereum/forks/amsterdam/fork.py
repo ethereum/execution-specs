@@ -1106,7 +1106,6 @@ def process_transaction(
     # transfer miner fees
     create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
-    tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
     tx_state_gas = (
         int(tx_env.intrinsic_state_gas)
         + tx_output.state_gas_used
