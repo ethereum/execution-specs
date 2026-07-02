@@ -1,7 +1,9 @@
 """Pre-allocation group models for test fixture generation."""
 
+import hashlib
 import json
 import os
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
@@ -175,6 +177,106 @@ def merge_partial_group_files(folder: Path) -> None:
         if merged_builder is not None:
             target_path.write_text(
                 merged_builder.model_dump_json(
+                    by_alias=True, exclude_none=True, indent=2
+                )
+            )
+
+
+def _environment_group_key(environment: Environment) -> str:
+    """
+    Return a stable string identifying a genesis environment.
+
+    Two groups can only share a client if they share a genesis block, so the
+    environment is part of every packing bucket. The canonical JSON dump
+    matches the equality semantics of `Environment` (which compares the
+    alias-keyed, none-excluded dump).
+    """
+    return json.dumps(
+        environment.model_dump(mode="json", by_alias=True, exclude_none=True),
+        sort_keys=True,
+    )
+
+
+def _packed_group_hash(test_ids: List[str]) -> str:
+    """Return a deterministic ``0x``-prefixed id for a packed group."""
+    digest = hashlib.sha256("\n".join(test_ids).encode("utf-8")).digest()
+    return f"0x{int.from_bytes(digest[:8], byteorder='big'):016x}"
+
+
+def pack_pre_alloc_groups(folder: Path) -> None:
+    """
+    Merge fine-grained pre-allocation groups into fewer, larger ones.
+
+    Phase 1 keys every test's group on the exact content of any hard-coded
+    accounts it sets (`modified_accounts_salt`), so a test that pins accounts
+    to fixed addresses lands in its own group even when it could safely share a
+    genesis with others. This is conservative: it splits far more than the
+    genuine address conflicts require. `groupstats` shows this dominates the
+    group count, with most groups a single test.
+
+    This pass reclaims that. It buckets the already-merged Phase 1 groups by
+    everything that must match for a shared genesis (fork, chain id, and
+    environment) and greedily packs each bucket's groups into as few
+    super-groups as possible, only keeping two apart when their pre-allocations
+    genuinely conflict (the same address needing two different accounts).
+
+    The packing is deterministic: buckets and their members are processed in
+    sorted order and each super-group's id is derived from its sorted test ids,
+    so a re-fill of the same tests reproduces the same groups.
+
+    Called on the master process after `merge_partial_group_files`, replacing
+    the fine-grained files in `folder` with the packed ones.
+    """
+    files = sorted(folder.glob("*.json"))
+    if not files:
+        return
+
+    builders: List[Tuple[str, PreAllocGroupBuilder]] = [
+        (file.stem, PreAllocGroupBuilder.model_validate_json(file.read_text()))
+        for file in files
+    ]
+
+    buckets: Dict[
+        Tuple[str, int, str], List[Tuple[str, PreAllocGroupBuilder]]
+    ] = defaultdict(list)
+    for stem, builder in builders:
+        bucket_key = (
+            builder.fork.name(),
+            builder.chain_id,
+            _environment_group_key(builder.environment),
+        )
+        buckets[bucket_key].append((stem, builder))
+
+    # Drop the fine-grained files up front; the packed files written below are
+    # named by content hash and never clash with the (now stale) originals.
+    for file in files:
+        file.unlink()
+
+    for bucket_key in sorted(buckets):
+        # Sort members by their (deterministic) Phase 1 hash for a stable
+        # first-fit order.
+        members = sorted(buckets[bucket_key], key=lambda item: item[0])
+        super_groups: List[PreAllocGroupBuilder] = []
+        for _stem, builder in members:
+            candidate = builder.pre.root
+            for super_group in super_groups:
+                accounts = super_group.pre.root
+                if any(
+                    address in accounts and accounts[address] != account
+                    for address, account in candidate.items()
+                ):
+                    continue  # Real conflict: try the next super-group.
+                accounts.update(candidate)
+                super_group.test_ids.extend(builder.test_ids)
+                break
+            else:
+                super_groups.append(builder)
+
+        for super_group in super_groups:
+            super_group.test_ids.sort()
+            packed_hash = _packed_group_hash(super_group.test_ids)
+            (folder / f"{packed_hash}.json").write_text(
+                super_group.model_dump_json(
                     by_alias=True, exclude_none=True, indent=2
                 )
             )
