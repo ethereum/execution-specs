@@ -15,8 +15,8 @@ class ReferenceSpec:
     version: str
 
 
-# EIP-8282 is a Draft; its addresses, request-type bytes, and predeploy
-# bytecode are placeholders pending the EIP's final, audit-frozen values.
+# EIP-8282 is not yet merged into ethereum/EIPs (ethereum/EIPs#11760);
+# pin the version once it lands.
 ref_spec_8282 = ReferenceSpec(
     git_path="EIPS/eip-8282.md",
     version="0000000000000000000000000000000000000000",
@@ -24,14 +24,10 @@ ref_spec_8282 = ReferenceSpec(
 
 
 class Spec:
-    """
-    Constants and parameters from EIP-8282. Addresses are the
-    glamsterdam-devnet-6 values; request-type bytes remain placeholders
-    pending the EIP's final allocation.
-    """
+    """Constants and parameters from EIP-8282."""
 
     BUILDER_DEPOSIT_CONTRACT_ADDRESS = (
-        0x0000884D2AA32EAA155F59A2F24EFA73D9008282
+        0x00006AE84ED173D4394DE5E28F9ED56B28008282
     )
     BUILDER_EXIT_CONTRACT_ADDRESS = 0x000014574A74C805590AFF9499FC7A690F008282
 
@@ -41,9 +37,9 @@ class Spec:
     SYSTEM_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
     SYSTEM_CALL_GAS_LIMIT = 30_000_000
 
-    # Shared request-bus parameters (identical to EIP-7002 / EIP-7251).
-    MAX_DEPOSIT_REQUESTS_PER_BLOCK = 256
-    TARGET_DEPOSIT_REQUESTS_PER_BLOCK = 32
+    # Request-bus parameters.
+    MAX_DEPOSIT_REQUESTS_PER_BLOCK = 64
+    TARGET_DEPOSIT_REQUESTS_PER_BLOCK = 8
     MAX_EXIT_REQUESTS_PER_BLOCK = 16
     TARGET_EXIT_REQUESTS_PER_BLOCK = 2
     MIN_REQUEST_FEE = 1

@@ -14,7 +14,7 @@ from execution_testing.base_types import Address
 from ....base_fork import BaseFork
 from ....bytecode import load_contract_bytecode
 
-BUILDER_DEPOSIT_CONTRACT_ADDRESS = 0x0000884D2AA32EAA155F59A2F24EFA73D9008282
+BUILDER_DEPOSIT_CONTRACT_ADDRESS = 0x00006AE84ED173D4394DE5E28F9ED56B28008282
 BUILDER_DEPOSIT_CONTRACT_BYTECODE = load_contract_bytecode(
     __name__, "builder_deposit_request.bin"
 )
