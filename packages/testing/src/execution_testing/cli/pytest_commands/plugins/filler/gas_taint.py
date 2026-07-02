@@ -50,7 +50,7 @@ import pytest
 
 from execution_testing.specs.base import BaseTest
 from execution_testing.specs.benchmark import BenchmarkTest
-from execution_testing.specs.blockchain import Block, BlockchainTest
+from execution_testing.specs.blockchain import Block, BlockchainTest, Header
 from execution_testing.specs.state import StateTest
 from execution_testing.test_types.account_types import Alloc
 from execution_testing.test_types.transaction_types import Transaction
@@ -346,24 +346,31 @@ def _walk_receipt(hits: List[dict], tx: Transaction | None) -> None:
     _record_present(hits, "receipt", "blob_gas_used", receipt.blob_gas_used)
 
 
+def _walk_header(
+    hits: List[dict], header: Header | None, location_prefix: str
+) -> None:
+    """Record ``gas_used`` and ``blob_gas_used`` from a verified header."""
+    if header is None:
+        return
+    _record_present(
+        hits, "header", f"{location_prefix}.gas_used", header.gas_used
+    )
+    # blob_gas_used is ``Removable | HexNumber | None`` — the
+    # ``Removable`` sentinel means "delete this from the verified
+    # header" and is not a gas assertion.
+    blob_gas_used = header.blob_gas_used
+    if not isinstance(blob_gas_used, Removable):
+        _record_present(
+            hits,
+            "header",
+            f"{location_prefix}.blob_gas_used",
+            blob_gas_used,
+        )
+
+
 def _walk_header_and_block(hits: List[dict], block: Block, i: int) -> None:
     """Header gas fields and expected_gas_used are self-identifying."""
-    header_verify = block.header_verify
-    if header_verify is not None:
-        _record_present(
-            hits, "header", f"block[{i}].gas_used", header_verify.gas_used
-        )
-        # blob_gas_used is ``Removable | HexNumber | None`` — the
-        # ``Removable`` sentinel means "delete this from the verified
-        # header" and is not a gas assertion.
-        blob_gas_used = header_verify.blob_gas_used
-        if not isinstance(blob_gas_used, Removable):
-            _record_present(
-                hits,
-                "header",
-                f"block[{i}].blob_gas_used",
-                blob_gas_used,
-            )
+    _walk_header(hits, block.header_verify, f"block[{i}]")
     _record_present(
         hits,
         "block_expected_gas_used",
@@ -394,6 +401,15 @@ def collect_taint_hits(test: BaseTest, node: pytest.Item | None) -> List[dict]:
     if isinstance(test, StateTest):
         _walk_storage(hits, test.post)
         _walk_receipt(hits, test.tx)
+        # A StateTest can carry a header assertion that only fires when
+        # the framework promotes it to a blockchain test. The field is
+        # copied verbatim onto the generated Block's ``header_verify``,
+        # so treat it as the same sink here.
+        _walk_header(
+            hits,
+            test.blockchain_test_header_verify,
+            "blockchain_test_header_verify",
+        )
     elif isinstance(test, BlockchainTest):
         _walk_storage(hits, test.post)
         for i, block in enumerate(test.blocks):

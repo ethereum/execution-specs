@@ -406,6 +406,26 @@ class TestHeaderAndBlockSinks:
             "block[1].expected_gas_used",
         }
 
+    def test_state_test_blockchain_header_verify(self) -> None:
+        """StateTest.blockchain_test_header_verify is walked too."""
+        # A StateTest can carry a header assertion that fires only when
+        # promoted to a blockchain test. The walker treats it the same
+        # as a Block.header_verify sink.
+        test = StateTest(
+            fork=Cancun,
+            pre=Alloc(),
+            post=Alloc(),
+            tx=Transaction(),
+            blockchain_test_header_verify=Header(gas_used=HexNumber(21000)),
+        )
+        hits = collect_taint_hits(test, None)
+        assert len(hits) == 1
+        assert hits[0]["kind"] == "header"
+        assert hits[0]["location"] == (
+            "blockchain_test_header_verify.gas_used"
+        )
+        assert hits[0]["value"] == 21000
+
 
 class TestBenchmarkSink:
     """``expected_benchmark_gas_used`` is recorded only on BenchmarkTest."""
