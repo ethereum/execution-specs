@@ -31,7 +31,7 @@ def setup_target(
         case RecipientType.CONTRACT:
             return pre.deploy_contract(code=Op.STOP)
         case RecipientType.EMPTY_ACCOUNT:
-            return pre.fund_eoa(amount=0)
+            return pre.nonexistent_account()
         case RecipientType.SELF:
             return sender
         case RecipientType.DELEGATION_7702:
