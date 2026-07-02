@@ -233,6 +233,7 @@ def test_code_deposit_state_gas_scales_with_size(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     ("funding", "gas_delta"),
     [
@@ -2907,6 +2908,7 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "target",
     [

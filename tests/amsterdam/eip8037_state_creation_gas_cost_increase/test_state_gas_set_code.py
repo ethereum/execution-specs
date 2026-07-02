@@ -1095,6 +1095,7 @@ def test_auth_refund_bypasses_one_fifth_cap(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_auths",
     [
@@ -1157,6 +1158,7 @@ def test_existing_account_auth_header_gas_used_reflects_refund(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_existing,num_new",
     [
@@ -1234,6 +1236,7 @@ def test_mixed_auths_header_gas_used_reflects_existing_refunds(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_existing_auth_refund_survives_top_level_revert(
     state_test: StateTestFiller,
@@ -1307,6 +1310,7 @@ def test_existing_auth_refund_survives_top_level_revert(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "failure_mode",
     [

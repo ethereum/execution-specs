@@ -1483,6 +1483,7 @@ def test_call_new_account_no_regular_account_creation_cost(
     state_test(pre=pre, post={target: Account(balance=1)}, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "gas_delta",
     [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
@@ -1529,6 +1530,7 @@ def test_call_new_account_state_gas_boundary(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "call_opcode,charge_via",
     [
@@ -1698,6 +1700,7 @@ def test_call_value_precompile_halt_refunds_new_account_state_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize("target_kind", ["new_account", "precompile"])
 @pytest.mark.parametrize("reservoir", ["in_cap", "over_cap"])
 @pytest.mark.valid_from("EIP8037")
@@ -1769,6 +1772,7 @@ def test_call_value_new_account_state_gas_consumed_on_caller_halt(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize("reservoir", ["in_cap", "over_cap"])
 @pytest.mark.valid_from("EIP8037")
 def test_call_value_new_account_state_gas_returned_on_caller_revert(

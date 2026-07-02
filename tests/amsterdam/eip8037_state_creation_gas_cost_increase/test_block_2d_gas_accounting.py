@@ -605,6 +605,7 @@ def test_tx_gas_limit_block_boundary(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "delta",
     [
@@ -801,6 +802,7 @@ def test_receipt_cumulative_differs_from_header_gas_used(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize("dominant_dimension", ["state", "regular"])
 @pytest.mark.parametrize(
     "single_tx",

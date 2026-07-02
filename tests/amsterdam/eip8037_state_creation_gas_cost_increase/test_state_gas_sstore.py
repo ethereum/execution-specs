@@ -919,6 +919,7 @@ def test_sstore_restoration_sub_frame_revert(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.gas_check
 @pytest.mark.with_all_call_opcodes(
     selector=lambda call_opcode: call_opcode != Op.STATICCALL
 )
@@ -1020,6 +1021,7 @@ def test_sstore_restoration_ancestor_revert(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.with_all_call_opcodes(
     selector=lambda call_opcode: call_opcode in (Op.DELEGATECALL, Op.CALLCODE)
 )

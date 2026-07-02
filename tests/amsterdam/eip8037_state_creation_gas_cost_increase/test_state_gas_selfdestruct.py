@@ -33,6 +33,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize("funding", ["reservoir", "spill"])
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_new_beneficiary_state_gas(
@@ -216,6 +217,7 @@ def test_selfdestruct_new_beneficiary_header_gas_used(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
     state_test: StateTestFiller,
