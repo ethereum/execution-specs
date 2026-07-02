@@ -36,20 +36,9 @@ class GasCosts:
     CALL_VALUE: int
     CALL_STIPEND: int
     NEW_ACCOUNT: int
-    # Surcharge for the first write to an account leaf; 0 before the
-    # state-access repricing introduces it as a standalone parameter.
     ACCOUNT_WRITE: int = 0
-    # Access cost for a contract-creation slot; 0 before the
-    # state-access repricing introduces it as a standalone parameter.
     CREATE_ACCESS: int = 0
-    # Per-transfer log cost charged when a value-transferring
-    # transaction emits the synthetic transfer log; 0 before the
-    # intrinsic gas decomposition introduces it.
     TRANSFER_LOG_COST: int = 0
-    # Per-transfer value cost charged on top of the transfer log when a
-    # non-create transaction transfers a non-zero value to an account
-    # other than the sender; 0 before the intrinsic gas decomposition
-    # introduces it.
     TX_VALUE_COST: int = 0
 
     # Contract Creation
