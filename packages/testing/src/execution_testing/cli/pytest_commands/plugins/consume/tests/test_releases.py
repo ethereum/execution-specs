@@ -8,6 +8,7 @@ import pytest
 
 from ..releases import (
     SUPPORTED_REPOS,
+    NoSuchReleaseError,
     ReleaseInformation,
     get_release_url_from_release_information,
     is_release_url,
@@ -101,6 +102,38 @@ def test_eels_release_parsing(
     ) == get_release_url_from_release_information(
         release_name, release_information
     )
+
+
+@pytest.mark.parametrize(
+    "release_name",
+    [
+        # Legacy pre-`tests`-tag release names must no longer resolve.
+        "stable@latest",
+        "stable@v4.5.0",
+        "develop@latest",
+        # A bare `vX.Y.Z` is shorthand for `tests@vX.Y.Z` and must never
+        # fall back to the spec-package release tagged plain `v2.20.0` in
+        # the manifest, even though it is the most recently published
+        # release and its version exists.
+        "v2.20.0",
+        "tests@v2.20.0",
+    ],
+)
+def test_non_fixture_releases_do_not_resolve(
+    release_name: str,
+    release_information: List[ReleaseInformation],
+) -> None:
+    """
+    Test that legacy and spec-package releases never resolve.
+
+    The manifest contains a spec-package decoy tagged `v2.20.0` whose only
+    asset is the Python package sdist. It must be excluded twice over: its
+    tag lacks the `tests` namespace, and it ships no fixture tarball.
+    """
+    with pytest.raises(NoSuchReleaseError):
+        get_release_url_from_release_information(
+            release_name, release_information
+        )
 
 
 @pytest.mark.parametrize(

@@ -134,5 +134,22 @@
         "size": 1000000
       }
     ]
+  },
+  {
+    "html_url": "https://github.com/ethereum/execution-specs/releases/tag/v2.20.0",
+    "id": 900012,
+    "tag_name": "v2.20.0",
+    "name": "v2.20.0",
+    "created_at": "2026-07-21T10:00:00Z",
+    "published_at": "2026-07-21T10:00:00Z",
+    "assets": [
+      {
+        "browser_download_url": "https://github.com/ethereum/execution-specs/releases/download/v2.20.0/ethereum_execution_specs-2.20.0.tar.gz",
+        "id": 9000120,
+        "name": "ethereum_execution_specs-2.20.0.tar.gz",
+        "content_type": "application/gzip",
+        "size": 1000000
+      }
+    ]
   }
 ]
