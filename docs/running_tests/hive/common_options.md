@@ -6,12 +6,12 @@ All execution-specs (EELS) Hive simulators share common command-line options and
 
 While they may be omitted, it's recommended to specify the `fixtures` and `branch` simulator build arguments when running execution-specs simulators.
 
-For example, this runs "stable" fixtures from the v4.3.0 [latest stable release](../releases.md#standard-releases) and builds the simulator at the v4.3.0 tag:
+For example, this runs fixtures from the [`tests@v20.0.0` release](../releases.md#test-release-types) and builds the simulator at a pinned ref:
 
 ```bash
 ./hive --sim ethereum/eels/consume-engine \
-  --sim.buildarg fixtures=stable@v4.3.0 \
-  --sim.buildarg branch=v4.3.0 \
+  --sim.buildarg fixtures=tests@v20.0.0 \
+  --sim.buildarg branch=forks/amsterdam \
   --client go-ethereum
 ```
 
@@ -29,8 +29,8 @@ The `collectonly:` prefix can be used to inspect which tests would match an expr
 
 ```bash
 ./hive --sim ethereum/eels/consume-engine \
-     --sim.buildarg fixtures=stable@v4.3.0 \
-     --sim.buildarg branch=v4.3.0 \
+     --sim.buildarg fixtures=tests@v20.0.0 \
+     --sim.buildarg branch=forks/amsterdam \
      --docker.output \
      --sim.limit="collectonly:.*eip4844.*"
 ```
@@ -41,8 +41,8 @@ The `id:` prefix can be used to select a single test via its ID (this will autom
 
 ```console
 ./hive --sim ethereum/eels/consume-engine \
-     --sim.buildarg fixtures=stable@v4.3.0 \
-     --sim.buildarg branch=v4.3.0 \
+     --sim.buildarg fixtures=tests@v20.0.0 \
+     --sim.buildarg branch=forks/amsterdam \
      --docker.output \
      --sim.limit "id:tests/cancun/eip4844_blobs/test_blob_txs.py::test_sufficient_balance_blob_tx"
 ```

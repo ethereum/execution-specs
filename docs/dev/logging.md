@@ -69,7 +69,7 @@ logger.fail("Test failure or similar issue")
 You can adjust the log level when running pytest with the `--eest-log-level` option:
 
 ```bash
-consume engine --input=latest@stable --eest-log-level=VERBOSE -s --sim.limit=".*chainid.*"
+consume engine --input=tests@v20.0.0 --eest-log-level=VERBOSE -s --sim.limit=".*chainid.*"
 ```
 
 The argument accepts both log level names (e.g., "DEBUG", "VERBOSE", "INFO") and numeric values.

@@ -42,6 +42,16 @@ class AssetNotFoundError(Exception):
         super().__init__(f"Asset not found: {release_string}")
 
 
+TESTS_FEATURE_NAME = "tests"
+
+BARE_VERSION_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+
+# TODO: Legacy EEST `stable`/`develop` releases (bare `vX.Y.Z` git tags on
+# the archived ethereum/execution-spec-tests repo) remain resolvable so
+# existing consumers don't break; remove after 2026-08 (see #3085).
+LEGACY_FEATURE_NAMES = {"stable", "develop"}
+
+
 @dataclass(kw_only=True)
 class ReleaseTag:
     """A descriptor for a release."""
@@ -55,13 +65,20 @@ class ReleaseTag:
         Create a release descriptor from a string.
 
         The release source can be in the format `tag_name@version` or just
-        `tag_name`.
+        `tag_name`. A bare `latest` or `vX.Y.Z` resolves to the mainnet
+        `tests` release.
         """
         version: str | None
         if "@" in release_string:
             tag_name, version = release_string.split("@")
             if version == "" or version.lower() == "latest":
                 version = None
+        elif release_string.lower() == "latest":
+            tag_name = TESTS_FEATURE_NAME
+            version = None
+        elif BARE_VERSION_RE.match(release_string):
+            tag_name = TESTS_FEATURE_NAME
+            version = release_string
         else:
             tag_name = release_string
             version = None
@@ -70,28 +87,52 @@ class ReleaseTag:
     @staticmethod
     def is_release_string(release_string: str) -> bool:
         """Check if the release string is in the correct format."""
-        return "@" in release_string
+        return (
+            "@" in release_string
+            or release_string.lower() == "latest"
+            or BARE_VERSION_RE.match(release_string) is not None
+        )
 
-    def __eq__(self, value: object) -> bool:
-        """
-        Check if the release descriptor matches the string value.
+    @property
+    def feature_name(self) -> str:
+        """Get the feature name, without the `tests-` git tag prefix."""
+        return self.tag_name.removeprefix("tests-")
 
-        Returns True if the value is the same as the tag name or the tag name
-        and version.
+    def matches_tag(self, tag: str) -> bool:
         """
-        assert isinstance(value, str), f"Expected a string, but got: {value}"
+        Check whether a release git tag matches this descriptor.
+
+        Fixture releases are tagged `tests-<feature>@vX.Y.Z`, except the
+        default `tests` feature which tags as `tests@vX.Y.Z`. Both the
+        friendly feature name (`bal-devnet@v7.0.0`) and the full tag
+        (`tests-bal-devnet@v7.0.0`) are accepted as input.
+        """
+        if self.feature_name in LEGACY_FEATURE_NAMES:
+            # Legacy releases tag as bare `vX.Y.Z`; the asset name check
+            # in `ReleaseInformation.__contains__` selects the feature.
+            if self.version is not None:
+                return tag == self.version
+            return BARE_VERSION_RE.match(tag) is not None
         if self.version is not None:
-            # normal release, e.g., stable@v4.0.0
-            normal_release_match = value == self.version
-            # pre release, e.g., pectra-devnet-6@v1.0.0
-            pre_release_match = value == f"{self.tag_name}@{self.version}"
-            return normal_release_match or pre_release_match
-        return value.startswith(self.tag_name)
+            return tag in (
+                f"{self.tag_name}@{self.version}",
+                f"tests-{self.feature_name}@{self.version}",
+            )
+        return tag.startswith(
+            (f"{self.tag_name}@", f"tests-{self.feature_name}@")
+        )
 
     @property
     def asset_name(self) -> str:
-        """Get the asset name."""
-        return f"fixtures_{self.tag_name}.tar.gz"
+        """
+        Get the asset name for this feature.
+
+        The default `tests` feature ships a plain `fixtures.tar.gz`; every
+        other feature ships `fixtures_<feature>.tar.gz`.
+        """
+        if self.feature_name == TESTS_FEATURE_NAME:
+            return "fixtures.tar.gz"
+        return f"fixtures_{self.feature_name}.tar.gz"
 
 
 class Asset(BaseModel):
@@ -129,12 +170,12 @@ class ReleaseInformation(BaseModel):
 
     def __contains__(self, release_descriptor: ReleaseTag) -> bool:
         """Check if the release information contains the release descriptor."""
-        if release_descriptor.version is not None:
-            return release_descriptor == self.tag_name
-        for asset in self.assets.root:
-            if asset.name == release_descriptor.asset_name:
-                return True
-        return False
+        # Require the expected asset too, so a matching tag whose fixture
+        # tarball is missing is skipped rather than resolved.
+        return release_descriptor.matches_tag(self.tag_name) and any(
+            asset.name == release_descriptor.asset_name
+            for asset in self.assets.root
+        )
 
     def get_asset(self, release_descriptor: ReleaseTag) -> Asset:
         """Get the asset URL."""
@@ -176,23 +217,31 @@ def parse_release_information(
     release_information: List,
 ) -> List[ReleaseInformation]:
     """Parse the release information from the Github API."""
-    return Releases.model_validate(release_information).root
+    # Skip drafts (only visible with maintainer credentials): they have no
+    # `published_at` and their assets are not downloadable.
+    published = [
+        release
+        for release in release_information
+        if not release.get("draft", False)
+    ]
+    return Releases.model_validate(published).root
 
 
 def download_release_information(
     destination_file: Path | None,
 ) -> List[ReleaseInformation]:
     """
-    Download all releases from the GitHub API, handling pagination properly.
+    Download recent releases from the GitHub API, following pagination.
 
-    GitHub's API returns releases in pages of 30 by default. This function
-    follows the pagination links to ensure we get every release, which is
-    crucial for finding older versions or latest releases.
+    Request pages of 100 releases (the API maximum) and follow the
+    pagination links up to `max_pages` pages, so resolution sees the 200
+    most recent releases per repo. Older releases fall outside this
+    window and cannot be resolved.
     """
     all_releases = []
     for repo in SUPPORTED_REPOS:
         current_url: str | None = (
-            f"https://api.github.com/repos/{repo}/releases"
+            f"https://api.github.com/repos/{repo}/releases?per_page=100"
         )
         max_pages = 2
         while current_url and max_pages > 0:
@@ -225,15 +274,48 @@ def parse_release_information_from_file(
     return parse_release_information(release_information)
 
 
+RELEASE_VERSION_RE = re.compile(r"@v(\d+)\.(\d+)\.(\d+)")
+
+
+def find_release(
+    release_string: str, release_information: List[ReleaseInformation]
+) -> ReleaseInformation:
+    """
+    Find the release matching the release descriptor string.
+
+    When multiple releases match (a `latest` version), return the highest
+    version, tie-broken by publish time, so a patch published on an older
+    release line never wins over a newer line.
+    """
+    release_descriptor = ReleaseTag.from_string(release_string)
+    matches = [
+        release
+        for release in release_information
+        if release_descriptor in release
+    ]
+    if not matches:
+        raise NoSuchReleaseError(release_string)
+
+    def sort_key(
+        release: ReleaseInformation,
+    ) -> tuple[tuple[int, ...], datetime]:
+        version = RELEASE_VERSION_RE.search(release.tag_name)
+        numbers = (
+            tuple(int(number) for number in version.groups())
+            if version
+            else (0, 0, 0)
+        )
+        return (numbers, release.published_at)
+
+    return max(matches, key=sort_key)
+
+
 def get_release_url_from_release_information(
     release_string: str, release_information: List[ReleaseInformation]
 ) -> str:
     """Get the URL for a specific release."""
-    release_descriptor = ReleaseTag.from_string(release_string)
-    for release in release_information:
-        if release_descriptor in release:
-            return release.get_asset(release_descriptor).url
-    raise NoSuchReleaseError(release_string)
+    release = find_release(release_string, release_information)
+    return release.get_asset(ReleaseTag.from_string(release_string)).url
 
 
 def get_release_page_url(release_string: str) -> str:
@@ -241,11 +323,11 @@ def get_release_page_url(release_string: str) -> str:
     Return the GitHub Release page URL for a specific release descriptor.
 
     This function can handle:
-    - A standard release string (e.g., "eip7692@latest") from
-      execution-spec-tests only.
+    - A release string (e.g., "tests@latest" or "bal-devnet@v7.0.0") from
+      any repo in `SUPPORTED_REPOS`.
     - A direct asset download link (e.g.,
-      "https://github.com/ethereum/execution-spec-tests/releases/
-      download/v4.0.0/fixtures_eip7692.tar.gz").
+      "https://github.com/ethereum/execution-specs/releases/
+      download/tests%40v20.0.0/fixtures.tar.gz").
     """
     release_information = get_release_information()
 
@@ -263,14 +345,8 @@ def get_release_page_url(release_string: str) -> str:
         )
 
     # Case 2: Otherwise, treat it as a release descriptor (e.g.,
-    # "eip7692@latest")
-    release_descriptor = ReleaseTag.from_string(release_string)
-    for release in release_information:
-        if release_descriptor in release:
-            return release.url
-
-    # If nothing matched, raise
-    raise NoSuchReleaseError(release_string)
+    # "tests@latest")
+    return find_release(release_string, release_information).url
 
 
 def get_release_information() -> List[ReleaseInformation]:
