@@ -823,8 +823,9 @@ def test_base_fee_per_gas_follows_dominant_dimension(
         tx_gas_limit = tx_regular + tx_state
         assert block_state > target > block_regular
     else:
-        num_txs = 15
         tx_gas_limit = fork.transaction_intrinsic_cost_calculator()()
+        # Enough STOP txs that regular gas alone clears the target.
+        num_txs = target // tx_gas_limit + 1
         block_regular = num_txs * tx_gas_limit
         block_state = 0
         stop_contract = pre.deploy_contract(code=Op.STOP)
