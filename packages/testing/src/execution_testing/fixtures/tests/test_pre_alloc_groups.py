@@ -178,3 +178,105 @@ def test_pack_is_deterministic(tmp_path: Path) -> None:
     pack_pre_alloc_groups(second)
 
     assert set(_packed(first)) == set(_packed(second))
+
+
+def test_pack_isolates_funded_precompile(tmp_path: Path) -> None:
+    """
+    A precompile funded by one test is never merged into a test that
+    assumes it empty (precompiles are in the reserved range).
+    """
+    env = Environment()
+    _write_group(
+        tmp_path,
+        "0x01",
+        "tests/a.py::test_a",
+        {0x02: Account(balance=1), 0x9000: Account(balance=1)},
+        environment=env,
+    )
+    _write_group(
+        tmp_path,
+        "0x02",
+        "tests/b.py::test_b",
+        {0x9001: Account(balance=2)},
+        environment=env,
+    )
+
+    pack_pre_alloc_groups(tmp_path)
+
+    packed = _packed(tmp_path)
+    assert len(packed) == 2
+    with_precompile = [
+        g
+        for g in packed.values()
+        if "0x0000000000000000000000000000000000000002" in g["pre"]
+    ]
+    assert len(with_precompile) == 1
+    assert with_precompile[0]["testIds"] == ["tests/a.py::test_a"]
+
+
+def test_pack_merges_when_shared_address_agrees(tmp_path: Path) -> None:
+    """
+    Groups that agree on a shared (canonical) address and differ only in
+    test-private addresses still merge into one.
+    """
+    env = Environment()
+    shared = Account(balance=1, nonce=1)
+    for stem, test_id, private in [
+        ("0x01", "tests/a.py::test_a", 0xA000),
+        ("0x02", "tests/b.py::test_b", 0xB000),
+        ("0x03", "tests/c.py::test_c", 0xC000),
+    ]:
+        _write_group(
+            tmp_path,
+            stem,
+            test_id,
+            {0x9000: shared, private: Account(balance=2)},
+            environment=env,
+        )
+
+    pack_pre_alloc_groups(tmp_path)
+
+    assert len(_packed(tmp_path)) == 1
+
+
+def test_pack_isolates_disagreeing_shared_address(tmp_path: Path) -> None:
+    """
+    A shared address present in some groups but absent from others keeps
+    them apart, so it is never leaked into a test that omits it.
+    """
+    env = Environment()
+    shared = Account(balance=1, nonce=1)
+    _write_group(
+        tmp_path,
+        "0x01",
+        "tests/a.py::test_a",
+        {0x9000: shared, 0xA000: Account(balance=2)},
+        environment=env,
+    )
+    _write_group(
+        tmp_path,
+        "0x02",
+        "tests/b.py::test_b",
+        {0x9000: shared, 0xB000: Account(balance=2)},
+        environment=env,
+    )
+    _write_group(
+        tmp_path,
+        "0x03",
+        "tests/c.py::test_c",
+        {0xC000: Account(balance=2)},
+        environment=env,
+    )
+
+    pack_pre_alloc_groups(tmp_path)
+
+    packed = _packed(tmp_path)
+    assert len(packed) == 2
+    all_ids = sorted(
+        tid for group in packed.values() for tid in group["testIds"]
+    )
+    assert all_ids == [
+        "tests/a.py::test_a",
+        "tests/b.py::test_b",
+        "tests/c.py::test_c",
+    ]

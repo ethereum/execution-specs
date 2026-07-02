@@ -16,6 +16,7 @@ from typing import (
     Literal,
     Optional,
     Self,
+    Set,
     Tuple,
 )
 
@@ -203,6 +204,61 @@ def _packed_group_hash(test_ids: List[str]) -> str:
     return f"0x{int.from_bytes(digest[:8], byteorder='big'):016x}"
 
 
+# Addresses below this value are precompiles / the reserved range. A ported
+# state test can call them without ever declaring them in its pre, so an
+# account introduced there by another test in the group silently changes its
+# execution.
+_RESERVED_ADDRESS_CEILING = 0x100
+
+
+def _reserved_addresses(builders: List["PreAllocGroupBuilder"]) -> Set[str]:
+    """
+    Return the addresses that are unsafe to introduce via a merge.
+
+    A shared genesis leaks every account it holds to every test in the group.
+    A ported state test only declares the accounts it sets and assumes all
+    other addresses are empty, so introducing an account at an address it
+    quietly depends on (a precompile, a canonical scratch contract, ...)
+    changes its result. Two kinds of address are therefore reserved: the low
+    precompile range, and any address more than one group allocates (i.e. a
+    shared/canonical address rather than one private to a single test).
+    """
+    frequency: Dict[str, int] = defaultdict(int)
+    for builder in builders:
+        for address in builder.pre.root:
+            frequency[str(address)] += 1
+    return {
+        address
+        for address, count in frequency.items()
+        if count > 1 or int(address, 16) < _RESERVED_ADDRESS_CEILING
+    }
+
+
+def _reserved_signature(
+    builder: "PreAllocGroupBuilder", reserved: Set[str]
+) -> Tuple[Tuple[str, str], ...]:
+    """
+    Return a group's reserved-address footprint as a hashable signature.
+
+    Groups may only merge when this matches exactly, so every test in a packed
+    group sees identical reserved accounts (and identically absent ones).
+    """
+    return tuple(
+        sorted(
+            (
+                str(address),
+                "null"
+                if account is None
+                else json.dumps(
+                    account.model_dump(mode="json"), sort_keys=True
+                ),
+            )
+            for address, account in builder.pre.root.items()
+            if str(address) in reserved
+        )
+    )
+
+
 def pack_pre_alloc_groups(folder: Path) -> None:
     """
     Merge fine-grained pre-allocation groups into fewer, larger ones.
@@ -214,15 +270,18 @@ def pack_pre_alloc_groups(folder: Path) -> None:
     genuine address conflicts require. `groupstats` shows this dominates the
     group count, with most groups a single test.
 
-    This pass reclaims that. It buckets the already-merged Phase 1 groups by
-    everything that must match for a shared genesis (fork, chain id, and
-    environment) and greedily packs each bucket's groups into as few
-    super-groups as possible, only keeping two apart when their pre-allocations
-    genuinely conflict (the same address needing two different accounts).
+    This pass reclaims that while preserving each test's isolation. Groups are
+    bucketed by everything a shared genesis requires (fork, chain id, and
+    environment) and then by their reserved-address footprint (see
+    `_reserved_addresses`), so two tests only share a genesis when they agree
+    on every precompile and shared address. Within a bucket the reserved
+    accounts are identical and the remaining (test-private) addresses are
+    unique to one group, so the union is always conflict-free and the whole
+    bucket collapses to a single group.
 
-    The packing is deterministic: buckets and their members are processed in
-    sorted order and each super-group's id is derived from its sorted test ids,
-    so a re-fill of the same tests reproduces the same groups.
+    The packing is deterministic: buckets are processed in sorted order and
+    each group's id is derived from its sorted test ids, so a re-fill of the
+    same tests reproduces the same groups.
 
     Called on the master process after `merge_partial_group_files`, replacing
     the fine-grained files in `folder` with the packed ones.
@@ -231,52 +290,47 @@ def pack_pre_alloc_groups(folder: Path) -> None:
     if not files:
         return
 
-    builders: List[Tuple[str, PreAllocGroupBuilder]] = [
-        (file.stem, PreAllocGroupBuilder.model_validate_json(file.read_text()))
+    builders = [
+        PreAllocGroupBuilder.model_validate_json(file.read_text())
         for file in files
     ]
 
-    buckets: Dict[
-        Tuple[str, int, str], List[Tuple[str, PreAllocGroupBuilder]]
-    ] = defaultdict(list)
-    for stem, builder in builders:
-        bucket_key = (
-            builder.fork.name(),
-            builder.chain_id,
-            _environment_group_key(builder.environment),
-        )
-        buckets[bucket_key].append((stem, builder))
+    genesis_buckets: Dict[Tuple[str, int, str], List[PreAllocGroupBuilder]] = (
+        defaultdict(list)
+    )
+    for builder in builders:
+        genesis_buckets[
+            (
+                builder.fork.name(),
+                builder.chain_id,
+                _environment_group_key(builder.environment),
+            )
+        ].append(builder)
 
     # Drop the fine-grained files up front; the packed files written below are
     # named by content hash and never clash with the (now stale) originals.
     for file in files:
         file.unlink()
 
-    for bucket_key in sorted(buckets):
-        # Sort members by their (deterministic) Phase 1 hash for a stable
-        # first-fit order.
-        members = sorted(buckets[bucket_key], key=lambda item: item[0])
-        super_groups: List[PreAllocGroupBuilder] = []
-        for _stem, builder in members:
-            candidate = builder.pre.root
-            for super_group in super_groups:
-                accounts = super_group.pre.root
-                if any(
-                    address in accounts and accounts[address] != account
-                    for address, account in candidate.items()
-                ):
-                    continue  # Real conflict: try the next super-group.
-                accounts.update(candidate)
-                super_group.test_ids.extend(builder.test_ids)
-                break
-            else:
-                super_groups.append(builder)
+    for genesis_key in sorted(genesis_buckets):
+        bucket = genesis_buckets[genesis_key]
+        reserved = _reserved_addresses(bucket)
 
-        for super_group in super_groups:
-            super_group.test_ids.sort()
-            packed_hash = _packed_group_hash(super_group.test_ids)
+        packed: Dict[Tuple[Tuple[str, str], ...], PreAllocGroupBuilder] = {}
+        for builder in bucket:
+            signature = _reserved_signature(builder, reserved)
+            if signature in packed:
+                merged = packed[signature]
+                merged.pre.root.update(builder.pre.root)
+                merged.test_ids.extend(builder.test_ids)
+            else:
+                packed[signature] = builder
+
+        for merged in packed.values():
+            merged.test_ids.sort()
+            packed_hash = _packed_group_hash(merged.test_ids)
             (folder / f"{packed_hash}.json").write_text(
-                super_group.model_dump_json(
+                merged.model_dump_json(
                     by_alias=True, exclude_none=True, indent=2
                 )
             )
