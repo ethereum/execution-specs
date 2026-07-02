@@ -12,7 +12,6 @@ from execution_testing.base_types import Account, Address, Hash
 from execution_testing.exceptions import BlockException
 from execution_testing.forks import Berlin, Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
-from execution_testing.recipient_type import RecipientType
 from execution_testing.specs import BlockchainTestFiller, StateTestFiller
 from execution_testing.specs.blockchain import Block
 from execution_testing.test_types import Alloc, Transaction
