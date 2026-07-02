@@ -11,6 +11,7 @@ import pytest
 from execution_testing import (
     Alloc,
     Fork,
+    Op,
     RecipientType,
     StateTestFiller,
     Transaction,
@@ -61,6 +62,51 @@ def test_intrinsic_gas_floor_boundary(
         sender=sender,
         to=target,
         value=value,
+        gas_limit=intrinsic_gas - 1,
+        gas_price=1_000_000_000,
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+    )
+
+    state_test(pre=pre, tx=tx, post={})
+
+
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(0, id="zero_value"),
+        pytest.param(1, id="non-zero_value"),
+    ],
+)
+def test_intrinsic_gas_floor_boundary_contract_creation(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    value: int,
+) -> None:
+    """
+    Reject a contract-creation transaction when
+    ``gas_limit = intrinsic_gas - 1``.
+
+    A creation tx's intrinsic includes the ``NEW_ACCOUNT`` state gas, so
+    the pre-execution check rejects against the combined
+    ``regular + state`` intrinsic. The init code never runs.
+    """
+    sender = pre.fund_eoa(10**18)
+    init_code = Op.STOP
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=init_code,
+        contract_creation=True,
+        sends_value=bool(value),
+        return_cost_deducted_prior_execution=True,
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        value=value,
+        data=init_code,
         gas_limit=intrinsic_gas - 1,
         gas_price=1_000_000_000,
         error=TransactionException.INTRINSIC_GAS_TOO_LOW,
