@@ -389,3 +389,141 @@ class SystemContractInteractionContract(SystemContractInteractionBase):
             contract_address=contract_address,
             entry_address=entry_address,
         )
+
+
+# Scratch memory offsets for the out-of-gas measurement, placed above the
+# largest supported request calldata so they never overlap the copied calldata.
+_MEASURE_TOTAL_SLOT = 0x400
+_MEASURE_OVERHEAD_SLOT = 0x420
+
+
+@dataclass(kw_only=True, frozen=True)
+class SystemContractInteractionMeasuredOutOfGasContract(
+    SystemContractInteractionContract
+):
+    """
+    Relay-contract interaction that self-measures each request's gas cost and
+    forces the requests marked invalid (`valid=False`) out of gas by forwarding
+    one gas less than required, independent of the fork's gas schedule.
+
+    Reuses `SystemContractInteractionContract` for the driving transaction and
+    pre-state allocation.
+    """
+
+    @property
+    def contract_code(self) -> Bytecode:
+        """
+        Build a relay contract that measures, at runtime, the gas each system
+        contract request needs, then forces the requests marked invalid out of
+        gas by forwarding one gas less than required.
+
+        Like `relay_contract_code`, the contract reads the concatenated request
+        calldata from its own calldata. It then issues, in order:
+
+        1. A warm-up call for the first valid request, warming the predeploy
+           account and its storage slots so the measurement reflects the warm
+           cost.
+        2. A measured call for the second valid request, capturing `GAS` around
+           the call to record its total cost (CALL base cost + value transfer
+           + the gas value stipend + the callee's own consumption).
+        3. Full-gas calls for any remaining valid requests.
+        4. An overhead probe: a call identical to (2) that forwards only
+           minimal gas so the callee runs out, isolating everything except the
+           callee's own consumption. Subtracting it from (2) yields the gas
+           that must be forwarded for the callee to succeed.
+        5. A call for each invalid request forwarding `(total - overhead) - 1`
+           gas, one short of the requirement, so it runs out of gas and is not
+           enqueued.
+
+        Because steps (2) and (4) use byte-identical op sequences (including a
+        same-width gas `PUSH`), every base-opcode cost cancels in the
+        subtraction, making the forced out-of-gas independent of the fork's
+        gas schedule.
+
+        All requests must share the same calldata length and a non-zero call
+        value so the measured overhead applies uniformly to each call.
+        """
+        valid_indices = [i for i, r in enumerate(self.requests) if r.valid]
+        invalid_indices = [
+            i for i, r in enumerate(self.requests) if not r.valid
+        ]
+        assert len(valid_indices) >= 2, (
+            "measured_out_of_gas_relay_code needs at least two valid requests"
+        )
+        assert invalid_indices, (
+            "measured_out_of_gas_relay_code needs at least one invalid request"
+        )
+        assert len({len(r.calldata) for r in self.requests}) == 1, (
+            "all requests must share the same calldata length"
+        )
+        assert all(r.value > 0 for r in self.requests), (
+            "all requests must have a non-zero call value"
+        )
+
+        offsets: List[int] = []
+        current = 0
+        for r in self.requests:
+            offsets.append(current)
+            current += len(r.calldata)
+
+        def issue(
+            *,
+            index: int,
+            gas_argument: Bytecode | Op,
+            measure_into: int | None = None,
+        ) -> Bytecode:
+            r = self.requests[index]
+            copy = Op.CALLDATACOPY(0, offsets[index], len(r.calldata))
+            call = Op.CALL(
+                gas_argument,
+                r.interaction_contract_address,
+                r.value,
+                0,
+                len(r.calldata),
+                0,
+                0,
+            )
+            if measure_into is None:
+                return copy + Op.POP(call)
+            return (
+                copy
+                + Op.GAS
+                + call
+                + Op.POP
+                + Op.GAS
+                + Op.SWAP1
+                + Op.SUB
+                + Op.PUSH2(measure_into)
+                + Op.MSTORE
+            )
+
+        warmup_index = valid_indices[0]
+        probe_index = valid_indices[1]
+
+        code = issue(index=warmup_index, gas_argument=Op.GAS)
+        code += issue(
+            index=probe_index,
+            # Forward all gas using the same PUSH opcode in both calls:
+            # Op.GAS and Op.PUSH0 could diverge in gas cost in the future.
+            gas_argument=Op.PUSH4[0xFFFFFFFF],
+            measure_into=_MEASURE_TOTAL_SLOT,
+        )
+        for i in valid_indices[2:]:
+            code += issue(index=i, gas_argument=Op.GAS)
+        # The overhead probe reuses the second valid request so its call value
+        # and calldata size (hence CALL base cost) match the total measurement
+        # exactly.
+        code += issue(
+            index=probe_index,
+            gas_argument=Op.PUSH4[0],
+            measure_into=_MEASURE_OVERHEAD_SLOT,
+        )
+        forwarded_gas = Op.SUB(
+            Op.SUB(
+                Op.MLOAD(_MEASURE_TOTAL_SLOT), Op.MLOAD(_MEASURE_OVERHEAD_SLOT)
+            ),
+            1,
+        )
+        for i in invalid_indices:
+            code += issue(index=i, gas_argument=forwarded_gas)
+        return code + self.extra_code

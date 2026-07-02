@@ -35,6 +35,8 @@ from .helpers import (
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import TransactionLog, TransactionReceipt
 from .request_types import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
     ConsolidationRequest,
     DepositRequest,
     Requests,
@@ -44,6 +46,7 @@ from .system_contract_request_types import (
     FeeSystemContractRequest,
     SystemContractInteractionBase,
     SystemContractInteractionContract,
+    SystemContractInteractionMeasuredOutOfGasContract,
     SystemContractInteractionTransaction,
     SystemContractRequest,
     relay_contract_code,
@@ -74,6 +77,8 @@ __all__ = (
     "Blob",
     "BlockAccessList",
     "BlockAccessListExpectation",
+    "BuilderDepositRequest",
+    "BuilderExitRequest",
     "ChainConfig",
     "ChainConfigDefaults",
     "ConsolidationRequest",
@@ -87,6 +92,7 @@ __all__ = (
     "Requests",
     "SystemContractInteractionBase",
     "SystemContractInteractionContract",
+    "SystemContractInteractionMeasuredOutOfGasContract",
     "SystemContractInteractionTransaction",
     "SystemContractRequest",
     "TestParameterGroup",
