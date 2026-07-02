@@ -167,7 +167,7 @@ def test_access_list_slot_warmth_survives_failed_create2(
         condition=Op.ISZERO(Op.CALLVALUE),
         if_true=Op.REVERT(offset=0, size=0),
         if_false=CodeGasMeasure(
-            code=Op.SLOAD(0),
+            code=Op.SLOAD(Op.PUSH1(0)),
             overhead_cost=sload_push_cost,
             extra_stack_items=1,
             sstore_key=1,
@@ -178,20 +178,18 @@ def test_access_list_slot_warmth_survives_failed_create2(
 
     creator = pre.deploy_contract(
         code=Op.EXTCODECOPY(holder, 0, 0, len(initcode))
-        + Op.POP(Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0))
-        + Op.POP(Op.CREATE2(value=1, offset=0, size=len(initcode), salt=0)),
+        + Op.POP(Op.CREATE2(value=0, size=len(initcode)))
+        + Op.POP(Op.CREATE2(value=1, size=len(initcode))),
         balance=1,
     )
     created = compute_create2_address(creator, 0, initcode)
 
     state_test(
-        env=Environment(),
         pre=pre,
         post={created: Account(balance=1, storage={1: warm_sload_cost})},
         tx=Transaction(
             sender=pre.fund_eoa(),
             to=creator,
-            gas_limit=1_000_000,
             access_list=[AccessList(address=created, storage_keys=[Hash(0)])],
         ),
     )
