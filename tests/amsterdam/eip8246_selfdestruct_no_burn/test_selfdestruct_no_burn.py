@@ -9,7 +9,9 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Hash,
+    Initcode,
     Op,
+    StateTestFiller,
     Storage,
     Transaction,
     compute_create_address,
@@ -225,3 +227,136 @@ def test_selfdestructing_initcode_preserves_balance(
         },
         blocks=[Block(txs=[selfdestruct_tx, probe_tx])],
     )
+
+
+def create_and_call_contract(
+    pre: Alloc, runtime_code: Bytecode, value: int
+) -> tuple[Address, Address]:
+    """
+    Deploy a factory that CREATEs a `runtime_code` contract funded with
+    `value` and immediately calls it, so the contract is created and
+    self-destructed in one transaction. Return (factory, created).
+    """
+    initcode = Initcode(deploy_code=runtime_code)
+    holder = pre.deploy_contract(code=initcode)
+    factory = pre.deploy_contract(
+        code=Op.EXTCODECOPY(holder, 0, 0, len(initcode))
+        + Op.CALL(
+            gas=Op.GAS,
+            address=Op.CREATE(value=value, offset=0, size=len(initcode)),
+        )
+    )
+    return factory, compute_create_address(address=factory, nonce=1)
+
+
+@pytest.mark.parametrize(
+    "initial_balance",
+    [pytest.param(1, id="kept"), pytest.param(0, id="removed")],
+)
+def test_deployed_contract_selfdestruct_clears_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    initial_balance: int,
+) -> None:
+    """
+    Same-tx SELFDESTRUCT of a deployed contract clears its code.
+
+    The created contract carries runtime code (unlike the
+    initcode-selfdestruct case) and self-destructs to itself, so EIP-8246
+    keeps its balance. A nonzero-balance account survives as a
+    balance-only account with empty code; a zero-balance account is
+    removed by EIP-161.
+    """
+    factory, created = create_and_call_contract(
+        pre, Op.SELFDESTRUCT(Op.ADDRESS), initial_balance
+    )
+    tx = Transaction(sender=pre.fund_eoa(), to=factory, value=initial_balance)
+    post = {
+        created: (
+            Account(balance=initial_balance, nonce=0, code=b"", storage={})
+            if initial_balance
+            else Account.NONEXISTENT
+        )
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "self_beneficiary",
+    [
+        pytest.param(False, id="drained_removed"),
+        pytest.param(True, id="self_kept"),
+    ],
+)
+def test_selfdestruct_removes_prefunded_create_address(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    self_beneficiary: bool,
+) -> None:
+    """
+    Same-tx SELFDESTRUCT clears a pre-funded create address from state.
+
+    The contract is created at an address already funded in genesis, so
+    the delete path must remove that pre-existing entry, not merely skip
+    it. Draining to another beneficiary leaves balance 0 and the address
+    is removed; self-destructing to self keeps the combined balance as a
+    balance-only account.
+    """
+    prefund = 100
+    endowment = 1
+    total = prefund + endowment
+    beneficiary = Address(keccak256(b"eip-8246-t4-beneficiary")[-20:])
+
+    target = Op.ADDRESS if self_beneficiary else beneficiary
+    factory, created = create_and_call_contract(
+        pre, Op.SELFDESTRUCT(target), endowment
+    )
+    pre.fund_address(created, prefund)
+
+    tx = Transaction(sender=pre.fund_eoa(), to=factory, value=endowment)
+    post = {
+        created: (
+            Account(balance=total, nonce=0, code=b"", storage={})
+            if self_beneficiary
+            else Account.NONEXISTENT
+        ),
+    }
+    if not self_beneficiary:
+        post[beneficiary] = Account(balance=total)
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [pytest.param(1, id="kept"), pytest.param(0, id="removed")],
+)
+def test_create_transaction_initcode_selfdestruct(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    value: int,
+) -> None:
+    """
+    Depth-0 creation-tx initcode SELFDESTRUCT keeps balance per EIP-8246.
+
+    A creation transaction (``tx.to is None``) whose initcode
+    self-destructs to itself exercises the depth-0 create path. A nonzero
+    endowment is kept as a balance-only account; a zero endowment is
+    removed.
+    """
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=sender, nonce=sender.nonce)
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        value=value,
+        data=Op.SELFDESTRUCT(Op.ADDRESS),
+    )
+    post = {
+        created: (
+            Account(balance=value, nonce=0, code=b"", storage={})
+            if value
+            else Account.NONEXISTENT
+        )
+    }
+    state_test(pre=pre, post=post, tx=tx)
