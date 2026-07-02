@@ -21,7 +21,10 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Fork,
+    Header,
     Op,
     RecipientType,
     StateTestFiller,
@@ -154,6 +157,140 @@ def test_top_frame_state_charge_empty_precompile(
             balance=sender_initial_balance - gas_limit * gas_price,
         ),
         identity_precompile: None,
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_top_frame_new_account_charged_as_state_gas(
+    fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    The top-frame ``NEW_ACCOUNT`` charge for a value transfer to an
+    empty recipient is *state* gas, not regular gas. This pins the
+    dimension via the block header ``gas_used``, which the spec
+    computes as ``max(block_regular_gas, block_state_gas)``.
+
+    Correctly attributed, the ``NEW_ACCOUNT`` state gas dominates the
+    small regular intrinsic, so ``gas_used == NEW_ACCOUNT``. A
+    regression mis-classifying the charge as regular gas would instead
+    yield ``intrinsic_regular + NEW_ACCOUNT``.
+
+    ``state_test``-based balance assertions (e.g.
+    ``test_top_frame_state_charge``) only observe the *sum* of the two
+    dimensions, so they cannot distinguish this; a block-level
+    ``gas_used`` assertion is required.
+    """
+    sender = pre.fund_eoa(10**18)
+    target = pre.fund_eoa(amount=0)
+    value = 1
+
+    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        return_cost_deducted_prior_execution=True,
+    )
+    new_account_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    # The state charge must dominate the regular intrinsic for the
+    # header ``gas_used`` to distinguish a state vs regular
+    # mis-classification.
+    assert new_account_state_gas > intrinsic_regular, (
+        "test only distinguishes the dimension when NEW_ACCOUNT "
+        f"({new_account_state_gas}) dominates the regular intrinsic "
+        f"({intrinsic_regular})"
+    )
+
+    # No EVM bytecode runs (empty recipient), so the only regular gas
+    # is the intrinsic and the only state gas is the top-frame
+    # ``NEW_ACCOUNT`` charge.
+    expected_gas_used = max(intrinsic_regular, new_account_state_gas)
+
+    gas_price = 1_000_000_000
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        value=value,
+        gas_limit=intrinsic_regular + new_account_state_gas + 1000,
+        gas_price=gas_price,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(gas_used=expected_gas_used),
+            ),
+        ],
+        post={
+            sender: Account(nonce=1),
+            target: Account(balance=value),
+        },
+    )
+
+
+@pytest.mark.pre_alloc_mutable
+def test_top_frame_new_account_skipped_for_nonce_only_recipient(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    A recipient that is alive only by its nonce (``nonce=1``, zero
+    balance, no code) is not empty per EIP-161, so a value transfer to
+    it does *not* incur the top-frame ``NEW_ACCOUNT`` charge. This pins
+    that the gate keys on ``is_account_alive``, not ``balance == 0``.
+
+    Such an account is reachable on-chain: any EOA that has sent a
+    transaction (nonce bumped) and been fully drained sits at
+    ``nonce>0, balance=0, no code``.
+
+    The gas limit is pinned to exactly the intrinsic, leaving no room
+    for any extra charge: an implementation that wrongly charged
+    ``NEW_ACCOUNT`` (keying on the zero balance) would out-of-gas
+    rather than succeed. The recipient has no code, so no EVM runs and
+    the intrinsic is fully consumed with nothing to refund.
+    """
+    sender_initial_balance = 10**18
+    sender = pre.fund_eoa(sender_initial_balance)
+    # Alive via nonce only: not empty per EIP-161 because nonce != 0.
+    target = pre.fund_eoa(amount=0, nonce=1)
+    value = 1
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+    )
+    assert top_frame_state_gas == 0, (
+        "a nonce-only-alive recipient must not incur the NEW_ACCOUNT charge"
+    )
+
+    gas_price = 1_000_000_000
+    gas_limit = intrinsic_gas
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        value=value,
+        gas_limit=gas_limit,
+        gas_price=gas_price,
+    )
+
+    sender_final_balance = (
+        sender_initial_balance - value - intrinsic_gas * gas_price
+    )
+    post = {
+        sender: Account(nonce=1, balance=sender_final_balance),
+        target: Account(nonce=1, balance=value),
     }
 
     state_test(pre=pre, tx=tx, post=post)
