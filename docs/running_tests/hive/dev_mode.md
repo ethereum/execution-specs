@@ -47,7 +47,7 @@ This avoids running the simulator in a dockerized environment and has several ad
 
     ```bash
     uv run consume engine --input ./fixtures -k "test_chainid"
-    uv run consume rlp --input stable@latest
+    uv run consume rlp --input latest
     ```
 
 ## Hive Dev Setup on macOS

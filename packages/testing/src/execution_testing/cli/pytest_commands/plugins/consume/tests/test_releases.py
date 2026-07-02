@@ -29,36 +29,74 @@ def release_information() -> List[ReleaseInformation]:
 @pytest.mark.parametrize(
     "release_name,expected_release_download_url",
     [
+        # The `tests` feature tags as `tests@vX.Y.Z` and ships a plain
+        # `fixtures.tar.gz` asset.
         (
-            "pectra-devnet-5",
-            "pectra-devnet-5%40v1.0.0/fixtures_pectra-devnet-5.tar.gz",
+            "tests@v20.0.0",
+            "tests%40v20.0.0/fixtures.tar.gz",
         ),
         (
-            "pectra-devnet-4@v1.0.0",
-            "pectra-devnet-4%40v1.0.0/fixtures_pectra-devnet-4.tar.gz",
+            "tests@latest",
+            "tests%40v20.0.0/fixtures.tar.gz",
+        ),
+        # A bare `latest` or `vX.Y.Z` resolves the mainnet `tests` release.
+        (
+            "latest",
+            "tests%40v20.0.0/fixtures.tar.gz",
         ),
         (
-            "stable",
-            "v3.0.0/fixtures_stable.tar.gz",
+            "v20.0.0",
+            "tests%40v20.0.0/fixtures.tar.gz",
+        ),
+        # Other features tag as `tests-<feature>@vX.Y.Z`; both the friendly
+        # feature name and the full tag are accepted.
+        (
+            "bal@v7.3.1",
+            "tests-bal%40v7.3.1/fixtures_bal.tar.gz",
         ),
         (
-            "develop",
-            "v3.0.0/fixtures_develop.tar.gz",
+            "tests-bal@v7.3.2",
+            "tests-bal%40v7.3.2/fixtures_bal.tar.gz",
         ),
         (
-            "eip7692-prague",
-            "eip7692%40v1.1.1/fixtures_eip7692-prague.tar.gz",
+            "bal@latest",
+            "tests-bal%40v7.3.2/fixtures_bal.tar.gz",
+        ),
+        (
+            "bal-devnet@v8.0.0",
+            "tests-bal-devnet%40v8.0.0/fixtures_bal-devnet.tar.gz",
+        ),
+        (
+            "benchmark@latest",
+            "tests-benchmark%40v0.0.9/fixtures_benchmark.tar.gz",
+        ),
+        (
+            "tests-benchmark@latest",
+            "tests-benchmark%40v0.0.9/fixtures_benchmark.tar.gz",
+        ),
+        (
+            "tests-glamsterdam-devnet@v6.1.0",
+            "tests-glamsterdam-devnet%40v6.1.0/"
+            "fixtures_glamsterdam-devnet.tar.gz",
+        ),
+        # `latest` resolves the highest version, not the most recently
+        # published: v6.0.1 is published after v6.1.0 in the manifest but
+        # must not win over the newer v6.1 line.
+        (
+            "glamsterdam-devnet@latest",
+            "tests-glamsterdam-devnet%40v6.1.0/"
+            "fixtures_glamsterdam-devnet.tar.gz",
         ),
     ],
 )
-def test_release_parsing(
+def test_eels_release_parsing(
     release_name: str,
     expected_release_download_url: str,
     release_information: List[ReleaseInformation],
 ) -> None:
-    """Test release parsing."""
+    """Test parsing of the `tests[-<feature>]@vX.Y.Z` tag scheme."""
     assert (
-        "https://github.com/ethereum/execution-spec-tests/releases/download/"
+        "https://github.com/ethereum/execution-specs/releases/download/"
         + expected_release_download_url
     ) == get_release_url_from_release_information(
         release_name, release_information
