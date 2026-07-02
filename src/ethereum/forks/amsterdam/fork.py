@@ -1024,9 +1024,6 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    # `chain_id` also validates a legacy signature's `v` (raising
-    # `InvalidSignatureError` when `v` is neither 27/28 nor >= 35), so it
-    # must be called before `recover_sender`.
     tx_chain_id = chain_id(tx)
     if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
         raise WrongChainIdError(

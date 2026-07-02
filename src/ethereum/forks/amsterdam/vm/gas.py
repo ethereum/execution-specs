@@ -139,26 +139,12 @@ class GasCosts:
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
-    """
-    Calldata bytes charged for one [EIP-7702] authorization tuple.
-
-    Counts the tuple's fields: the chain id, authority address, nonce,
-    signature parity, and the two signature scalars. Charged at the
-    calldata floor rate (`TX_DATA_TOKEN_FLOOR`).
-
-    [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
-    """
-
     REGULAR_PER_AUTH_BASE_COST: Final[Uint] = (
         AUTH_TUPLE_BYTES * TX_DATA_TOKEN_FLOOR
         + PRECOMPILE_ECRECOVER
         + COLD_ACCOUNT_ACCESS
         + Uint(2) * WARM_ACCESS
     )
-    """
-    Regular gas charged per EIP-7702 authorization, in addition to
-    `ACCOUNT_WRITE`.
-    """
 
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
@@ -225,24 +211,7 @@ class GasCosts:
     OPCODE_SWAPN: Final[Uint] = VERY_LOW
     OPCODE_EXCHANGE: Final[Uint] = VERY_LOW
     OPCODE_TLOAD: Final[Uint] = Uint(100)
-    """
-    Cost of the opcode that reads from transient storage.
-
-    Transient storage is in-memory only; its cost is independent of
-    state-access pricing ([EIP-7971] proposes dedicated values).
-
-    [EIP-7971]: https://eips.ethereum.org/EIPS/eip-7971
-    """
-
     OPCODE_TSTORE: Final[Uint] = Uint(100)
-    """
-    Cost of the opcode that writes to transient storage.
-
-    Transient storage is in-memory only; its cost is independent of
-    state-access pricing ([EIP-7971] proposes dedicated values).
-
-    [EIP-7971]: https://eips.ethereum.org/EIPS/eip-7971
-    """
 
     # Dynamic Opcode Components
     OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW

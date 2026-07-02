@@ -52,11 +52,6 @@ class BlockState:
     """
 
     pre_state: PreState
-    """
-    Accounts, storage, and code as they existed before the beginning of the
-    block.
-    """
-
     account_reads: Set[Address] = field(default_factory=set)
     account_writes: Dict[Address, Optional[Account]] = field(
         default_factory=dict
@@ -110,6 +105,19 @@ def get_pre_state_account_optional(
 
     [`EMPTY_ACCOUNT`]: ref:ethereum.state.EMPTY_ACCOUNT
     [pre]: ref:ethereum.forks.amsterdam.state_tracker.get_pre_state_account
+    
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address to look up.
+
+    Returns
+    -------
+    account : ``Optional[Account]``
+        Account at address before the current transaction.
+
     """
     tx_state.account_reads.add(address)
     if address in tx_state.parent.account_writes:
@@ -130,6 +138,19 @@ def get_pre_state_account(
 
     [`EMPTY_ACCOUNT`]: ref:ethereum.state.EMPTY_ACCOUNT
     [opt]: ref:ethereum.forks.amsterdam.state_tracker.get_pre_state_account_optional
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address to look up.
+
+    Returns
+    -------
+    account : ``Account``
+        Account at address before the current transaction.
+
     """  # noqa: E501
     account = get_pre_state_account_optional(tx_state, address)
     if account is None:

@@ -312,12 +312,6 @@ def process_message(message: Message) -> Evm:
 
     # Execute message code and handle errors
     try:
-        # EIP-2780 top-frame charges: applied at the top of a
-        # transaction's call frame, after authorizations and before any
-        # opcode runs. Reads pre-value-transfer state so the
-        # EIP-161-empty check sees the recipient as it was at the start
-        # of the frame. Gated to non-create top-level frames; creates
-        # pay the equivalent NEW_ACCOUNT state gas.
         if message.depth == Uint(0) and message.target != Bytes0(b""):
             recipient = message.current_target
             if message.value > U256(0) and not is_account_alive(

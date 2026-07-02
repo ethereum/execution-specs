@@ -674,7 +674,6 @@ def selfdestruct(evm: Evm) -> None:
         and get_account(tx_state, evm.message.current_target).balance != 0
     ):
         state_gas = StateGasCosts.NEW_ACCOUNT
-        # EIP-8038: positive balance sent to an empty account.
         account_write_gas = GasCosts.ACCOUNT_WRITE
 
     # Charge regular gas before state gas so that a regular-gas OOG
