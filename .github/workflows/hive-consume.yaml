@@ -13,19 +13,6 @@ on:
       - "docs/**"
       - "mkdocs.yml"
   pull_request:
-    paths:
-      - ".github/workflows/hive-consume.yaml"
-      - ".github/actions/start-hive-dev/**"
-      - ".github/actions/cache-docker-images/**"
-      - ".github/actions/load-docker-images/**"
-      - ".github/configs/hive/**"
-      - "packages/testing/src/execution_testing/cli/pytest_commands/consume.py"
-      - "packages/testing/src/execution_testing/cli/pytest_commands/build_block.py"
-      - "packages/testing/src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
-      - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/consume/**"
-      - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/pytest_hive/**"
-      - "packages/testing/src/execution_testing/fixtures/consume.py"
-      - "packages/testing/src/execution_testing/rpc/**"
   workflow_dispatch:
     inputs:
       docker_images:
@@ -67,9 +54,41 @@ env:
   FIXTURES_URL: https://github.com/ethereum/execution-spec-tests/releases/download/v5.3.0/fixtures_develop.tar.gz
 
 jobs:
+  # Job-level path filter: the workflow must always run on PRs so its
+  # gate can be a required status check (skipped workflows never report).
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant || 'true' }}
+    steps:
+      - name: Filter relevant paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            relevant:
+              - ".github/workflows/hive-consume.yaml"
+              - ".github/actions/start-hive-dev/**"
+              - ".github/actions/cache-docker-images/**"
+              - ".github/actions/load-docker-images/**"
+              - ".github/configs/hive/**"
+              - "packages/testing/src/execution_testing/cli/pytest_commands/consume.py"
+              - "packages/testing/src/execution_testing/cli/pytest_commands/build_block.py"
+              - "packages/testing/src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
+              - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/consume/**"
+              - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/pytest_hive/**"
+              - "packages/testing/src/execution_testing/fixtures/consume.py"
+              - "packages/testing/src/execution_testing/rpc/**"
+
   cache-docker-images:
     name: Cache Docker Images
     runs-on: [self-hosted-ghr, size-l-x64]
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     steps:
       - name: Checkout execution-specs
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -223,3 +242,19 @@ jobs:
           name: hive-logs-${{ matrix.name }}
           path: hive/workspace/
           retention-days: 7
+
+  gate:
+    name: hive-consume-gate
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - cache-docker-images
+      - test-hive
+    if: always()
+    steps:
+      - name: Check that all jobs passed or were skipped
+        env:
+          NEEDS: ${{ toJson(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e \
+            '[.[].result] | all(. == "success" or . == "skipped")'

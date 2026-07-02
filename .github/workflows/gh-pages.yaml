@@ -5,7 +5,7 @@ on:
     branches:
       - mainnet
       - 'forks/**'
-    paths: &render_paths
+    paths:
       - 'src/ethereum/**'
       - 'static/**'
       - '.github/workflows/gh-pages.yaml'
@@ -14,16 +14,41 @@ on:
       - 'src/ethereum_spec_tools/forks.py'
   workflow_dispatch:
   pull_request:
-    paths: *render_paths
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 jobs:
+  # Job-level path filter: the workflow must always run on PRs so its
+  # gate can be a required status check (skipped workflows never report).
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant || 'true' }}
+    steps:
+      - name: Filter relevant paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            relevant:
+              - 'src/ethereum/**'
+              - 'static/**'
+              - '.github/workflows/gh-pages.yaml'
+              - 'uv.lock'
+              - 'src/ethereum_spec_tools/docc.py'
+              - 'src/ethereum_spec_tools/forks.py'
+
   build:
     name: "Build Documentation"
     runs-on: "ubuntu-latest"
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -66,3 +91,19 @@ jobs:
         id: deployment
         # TODO: Still on node20 — update when upstream releases a node22+ version
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+
+  gate:
+    name: render-gate
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - build
+      - deploy
+    if: always()
+    steps:
+      - name: Check that all jobs passed or were skipped
+        env:
+          NEEDS: ${{ toJson(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e \
+            '[.[].result] | all(. == "success" or . == "skipped")'

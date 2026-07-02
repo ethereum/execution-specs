@@ -5,14 +5,13 @@ on:
     branches:
       - master
       - mainnet
-    paths: &checklist_paths
+    paths:
       - "docs/writing_tests/checklist_templates/**"
       - "packages/testing/src/execution_testing/checklists/eip_checklist.py"
       - "packages/testing/src/execution_testing/checklists/eip_checklist.pyi"
       - "packages/testing/src/execution_testing/checklists/tests/test_checklist_template_consistency.py"
       - ".github/workflows/test-checklist.yaml"
   pull_request:
-    paths: *checklist_paths
   workflow_dispatch:
 
 concurrency:
@@ -20,12 +19,52 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 jobs:
+  # Job-level path filter: the workflow must always run on PRs so its
+  # gate can be a required status check (skipped workflows never report).
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant || 'true' }}
+    steps:
+      - name: Filter relevant paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            relevant:
+              - "docs/writing_tests/checklist_templates/**"
+              - "packages/testing/src/execution_testing/checklists/eip_checklist.py"
+              - "packages/testing/src/execution_testing/checklists/eip_checklist.pyi"
+              - "packages/testing/src/execution_testing/checklists/tests/test_checklist_template_consistency.py"
+              - ".github/workflows/test-checklist.yaml"
+
   checklist-consistency:
     name: Test checklist template consistency
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     steps:
       - name: Checkout ethereum/execution-specs
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
       - name: Run checklist consistency test
         run: just test-tests -k test_checklist_template_consistency
+
+  gate:
+    name: checklist-gate
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - checklist-consistency
+    if: always()
+    steps:
+      - name: Check that all jobs passed or were skipped
+        env:
+          NEEDS: ${{ toJson(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e \
+            '[.[].result] | all(. == "success" or . == "skipped")'

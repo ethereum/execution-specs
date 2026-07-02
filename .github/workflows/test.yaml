@@ -16,22 +16,43 @@ on:
       - "mkdocs.yml"
   workflow_dispatch:
   pull_request:
-    paths-ignore:
-      - "**.md"
-      - "LICENSE*"
-      - ".gitignore"
-      - ".vscode/**"
-      - "whitelist.txt"
-      - "docs/**"
-      - "mkdocs.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 jobs:
+  # Job-level path filter: the workflow must always run on PRs so its
+  # gate can be a required status check (skipped workflows never report).
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant || 'true' }}
+    steps:
+      - name: Filter relevant paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          predicate-quantifier: "every"
+          filters: |
+            relevant:
+              - "**"
+              - "!**/*.md"
+              - "!LICENSE*"
+              - "!.gitignore"
+              - "!.vscode/**"
+              - "!whitelist.txt"
+              - "!docs/**"
+              - "!mkdocs.yml"
+
   static:
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -186,3 +207,23 @@ jobs:
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
+
+  gate:
+    name: specs-gate
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - static
+      - fill
+      - fill-pypy
+      - json-loader
+      - test-tests
+      - test-tests-pypy
+    if: always()
+    steps:
+      - name: Check that all jobs passed or were skipped
+        env:
+          NEEDS: ${{ toJson(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e \
+            '[.[].result] | all(. == "success" or . == "skipped")'

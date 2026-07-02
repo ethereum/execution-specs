@@ -11,14 +11,6 @@ on:
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/**"
       - ".github/workflows/benchmark.yaml"
   pull_request:
-    paths-ignore:
-      - "**.md"
-      - "LICENSE*"
-      - ".gitignore"
-      - ".vscode/**"
-      - "whitelist.txt"
-      - "docs/**"                                                                                                                     
-      - "mkdocs.yml"
   workflow_dispatch:
 
 concurrency:
@@ -26,9 +18,38 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 jobs:
+  # Job-level path filter: the workflow must always run on PRs so its
+  # gate can be a required status check (skipped workflows never report).
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant || 'true' }}
+    steps:
+      - name: Filter relevant paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          predicate-quantifier: "every"
+          filters: |
+            relevant:
+              - "**"
+              - "!**/*.md"
+              - "!LICENSE*"
+              - "!.gitignore"
+              - "!.vscode/**"
+              - "!whitelist.txt"
+              - "!docs/**"
+              - "!mkdocs.yml"
+
   unit-tests:
     name: Benchmark Unit Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -103,3 +124,20 @@ jobs:
       - uses: ./.github/actions/build-fixtures
         with:
           release_name: benchmark_fast
+
+  gate:
+    name: benchmark-gate
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - unit-tests
+      - sanity-checks
+      - build-artifact
+    if: always()
+    steps:
+      - name: Check that all jobs passed or were skipped
+        env:
+          NEEDS: ${{ toJson(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e \
+            '[.[].result] | all(. == "success" or . == "skipped")'

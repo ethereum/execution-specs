@@ -10,11 +10,6 @@ on:
       - ".github/workflows/hive-execute.yaml"
       - ".github/actions/start-hive-dev/**"
   pull_request:
-    paths:
-      - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/execute/**"
-      - "packages/testing/src/execution_testing/rpc/**"
-      - ".github/workflows/hive-execute.yaml"
-      - ".github/actions/start-hive-dev/**"
   workflow_dispatch:
 
 concurrency:
@@ -22,9 +17,33 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 jobs:
+  # Job-level path filter: the workflow must always run on PRs so its
+  # gate can be a required status check (skipped workflows never report).
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant || 'true' }}
+    steps:
+      - name: Filter relevant paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            relevant:
+              - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/execute/**"
+              - "packages/testing/src/execution_testing/rpc/**"
+              - ".github/workflows/hive-execute.yaml"
+              - ".github/actions/start-hive-dev/**"
+
   cache-docker-images:
     name: Cache Docker Images
     runs-on: [self-hosted-ghr, size-l-x64]
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     steps:
       - name: Checkout execution-specs
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -103,3 +122,19 @@ jobs:
             -v \
             -p execution_testing.cli.pytest_commands.plugins.concurrency \
             src/execution_testing/cli/pytest_commands/plugins/execute/tests/test_execute_remote.py
+
+  gate:
+    name: hive-execute-gate
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - cache-docker-images
+      - test-execute-remote
+    if: always()
+    steps:
+      - name: Check that all jobs passed or were skipped
+        env:
+          NEEDS: ${{ toJson(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e \
+            '[.[].result] | all(. == "success" or . == "skipped")'

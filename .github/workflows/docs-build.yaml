@@ -25,7 +25,7 @@ on:
     branches:
       - mainnet
       - forks/amsterdam
-    paths: &docs_paths
+    paths:
       - "src/ethereum/**"
       - "src/ethereum_spec_tools/docc.py"
       - "src/ethereum_spec_tools/forks.py"
@@ -41,7 +41,6 @@ on:
       - ".github/configs/docs-branches.yaml"
 
   pull_request:
-    paths: *docs_paths
 
   workflow_dispatch:
     inputs:
@@ -64,9 +63,42 @@ permissions:
   contents: read
 
 jobs:
+  # Job-level path filter: the workflow must always run on PRs so its
+  # gate can be a required status check (skipped workflows never report).
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant || 'true' }}
+    steps:
+      - name: Filter relevant paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            relevant:
+              - "src/ethereum/**"
+              - "src/ethereum_spec_tools/docc.py"
+              - "src/ethereum_spec_tools/forks.py"
+              - "static/**"
+              - "docs/**"
+              - "packages/testing/**"
+              - "*.md"
+              - "mkdocs.yml"
+              - "uv.lock"
+              - "pyproject.toml"
+              - "Justfile"
+              - ".github/workflows/docs-build.yaml"
+              - ".github/configs/docs-branches.yaml"
+
   lint-md:
     name: "Lint Markdown"
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       # TODO: Still on node20 — update when upstream releases a node22+ version
@@ -374,3 +406,23 @@ jobs:
           echo "  Branch: $BRANCH"
           echo "  SHA: ${{ github.sha }}"
           echo "  Run ID: ${{ github.run_id }}"
+
+  gate:
+    name: docs-gate
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - lint-md
+      - check-should-publish
+      - html-docs
+      - spec-docs
+      - combine
+      - trigger-aggregator
+    if: always()
+    steps:
+      - name: Check that all jobs passed or were skipped
+        env:
+          NEEDS: ${{ toJson(needs) }}
+        run: |
+          echo "$NEEDS" | jq -e \
+            '[.[].result] | all(. == "success" or . == "skipped")'

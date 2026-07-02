@@ -1,0 +1,37 @@
+name: Yolo Merge
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  yolo-merge:
+    name: yolo-merge
+    runs-on: ubuntu-latest
+    # Base prefixes must match the branches whose ruleset requires the
+    # gate checks; arming auto-merge on an unprotected base merges
+    # without CI.
+    if: >-
+      github.event.review.state == 'approved' &&
+      !github.event.pull_request.draft &&
+      (startsWith(github.event.pull_request.base.ref, 'forks/') ||
+       startsWith(github.event.pull_request.base.ref, 'devnets/') ||
+       startsWith(github.event.pull_request.base.ref, 'eips/'))
+    steps:
+      - name: Enable auto-merge
+        env:
+          # Prefer a PAT/App token: merges performed with github.token do
+          # not trigger push workflows (docs deploy, fixture builds) on the
+          # target branch.
+          GH_TOKEN: ${{ secrets.YOLO_MERGE_TOKEN || github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          gh pr merge "$PR_NUMBER" \
+            --squash --auto \
+            --subject "$PR_TITLE (#$PR_NUMBER)"
