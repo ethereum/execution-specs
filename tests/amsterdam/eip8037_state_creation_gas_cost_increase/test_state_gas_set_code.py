@@ -1464,3 +1464,71 @@ def test_auth_sender_billing_after_failure(
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
+
+
+@pytest.mark.parametrize(
+    "gas_delta",
+    [
+        pytest.param(0, id="exact_fit"),
+        pytest.param(-1, id="one_short"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_auth_refund_reservoir_cannot_fund_regular_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_delta: int,
+) -> None:
+    """
+    Verify the auth NEW_ACCOUNT refund funds state gas only, not regular.
+
+    A set_code tx on a pre-existing authority refunds NEW_ACCOUNT to the
+    reservoir. The target's SSTORE-set pays its state charge from that
+    refund but its regular charge from gas_left: at exactly the SSTORE
+    regular cost the write lands, one gas short it runs out of gas.
+    """
+    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=1,
+    )
+    set_op = Op.SSTORE.with_metadata(
+        key_warm=False, original_value=0, current_value=0, new_value=1
+    )
+    storage = Storage()
+    target_code = set_op(storage.store_next(1), 1)
+    sstore_regular = target_code.regular_cost(fork)
+
+    # In-cap so the reservoir's only state gas is the refunded NEW_ACCOUNT.
+    gas_limit = total_intrinsic + sstore_regular + gas_delta
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    assert gas_limit <= gas_limit_cap
+
+    target = pre.deploy_contract(code=target_code)
+    authority = pre.fund_eoa()
+    tx = Transaction(
+        to=target,
+        gas_limit=gas_limit,
+        authorization_list=[
+            AuthorizationTuple(address=target, nonce=0, signer=authority),
+        ],
+        sender=pre.fund_eoa(),
+    )
+    fits = gas_delta >= 0
+    intrinsic_state = fork.transaction_intrinsic_state_gas(
+        authorization_count=1,
+    )
+    auth_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
+    state_used = (
+        intrinsic_state
+        - auth_refund
+        + (target_code.state_cost(fork) if fits else 0)
+    )
+    state_test(
+        pre=pre,
+        post={target: Account(storage=storage if fits else {})},
+        tx=tx,
+        blockchain_test_header_verify=Header(
+            gas_used=max(gas_limit - intrinsic_state, state_used),
+        ),
+    )
