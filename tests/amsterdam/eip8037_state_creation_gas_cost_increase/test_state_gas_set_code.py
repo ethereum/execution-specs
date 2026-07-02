@@ -1515,8 +1515,20 @@ def test_auth_refund_reservoir_cannot_fund_regular_gas(
         sender=pre.fund_eoa(),
     )
     fits = gas_delta >= 0
+    intrinsic_state = fork.transaction_intrinsic_state_gas(
+        authorization_count=1,
+    )
+    auth_refund = fork.gas_costs().REFUND_AUTH_PER_EXISTING_ACCOUNT
+    state_used = (
+        intrinsic_state
+        - auth_refund
+        + (target_code.state_cost(fork) if fits else 0)
+    )
     state_test(
         pre=pre,
         post={target: Account(storage=storage if fits else {})},
         tx=tx,
+        blockchain_test_header_verify=Header(
+            gas_used=max(gas_limit - intrinsic_state, state_used),
+        ),
     )
