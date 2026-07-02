@@ -423,10 +423,9 @@ def destroy_account(tx_state: TransactionState, address: Address) -> None:
     """
     Completely remove the account at ``address`` and all of its storage.
 
-    This function is made available exclusively for the ``SELFDESTRUCT``
-    opcode. It is expected that ``SELFDESTRUCT`` will be disabled in a
-    future hardfork and this function will be removed. Only supports same
-    transaction destruction.
+    Invoked by ``modify_state`` (and the coinbase fee-credit path) to
+    clean up an account that has become empty (zero nonce, empty
+    code, and zero balance) so it does not appear in the post-state.
 
     Parameters
     ----------
@@ -438,6 +437,30 @@ def destroy_account(tx_state: TransactionState, address: Address) -> None:
     """
     destroy_storage(tx_state, address)
     set_account(tx_state, address, None)
+
+
+def clear_account_preserving_balance(
+    tx_state: TransactionState, address: Address
+) -> None:
+    """
+    Clear an account's nonce, code, and storage while preserving its
+    balance.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account to modify.
+
+    """
+
+    def clear_account(account: Account) -> None:
+        account.nonce = Uint(0)
+        account.code_hash = EMPTY_CODE_HASH
+
+    destroy_storage(tx_state, address)
+    modify_state(tx_state, address, clear_account)
 
 
 def destroy_storage(tx_state: TransactionState, address: Address) -> None:

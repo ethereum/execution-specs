@@ -389,7 +389,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         0,  # ret length
     )
 
-    post: Dict[Address, Account] = {
+    post: Dict[Address, Account | None] = {
         entry_code_address: Account(
             code="0x",
             storage=Storage(
@@ -408,7 +408,15 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
     }
 
     if selfdestruct_on_outer_call > 0:
-        post[selfdestruct_with_transfer_contract_address] = Account.NONEXISTENT  # type: ignore
+        if selfdestruct_on_outer_call == 1 and fork.is_eip_enabled(8246):
+            # per EIP-8246
+            post[selfdestruct_with_transfer_contract_address] = Account(
+                balance=1,
+            )
+        else:
+            post[selfdestruct_with_transfer_contract_address] = (
+                Account.NONEXISTENT
+            )
         post[selfdestruct_recipient_address] = Account(
             balance=1 if selfdestruct_on_outer_call == 1 else 2,
         )
@@ -426,7 +434,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
                 }
             ),
         )
-        post[selfdestruct_recipient_address] = Account.NONEXISTENT  # type: ignore
+        post[selfdestruct_recipient_address] = Account.NONEXISTENT
 
     tx = Transaction(
         data=entry_code,
@@ -439,15 +447,29 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         account_expectations = {}
 
         if selfdestruct_on_outer_call > 0:
-            account_expectations[
-                selfdestruct_with_transfer_contract_address
-            ] = BalAccountExpectation(
-                storage_reads=[0, 1],  # Storage was accessed
-                nonce_changes=[],
-                balance_changes=[],
-                code_changes=[],
-                storage_changes=[],
-            )
+            if selfdestruct_on_outer_call == 1 and fork.is_eip_enabled(8246):
+                # per EIP-8246
+                account_expectations[
+                    selfdestruct_with_transfer_contract_address
+                ] = BalAccountExpectation(
+                    storage_reads=[0, 1],  # Storage was accessed
+                    nonce_changes=[],
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=1)
+                    ],
+                    code_changes=[],
+                    storage_changes=[],
+                )
+            else:
+                account_expectations[
+                    selfdestruct_with_transfer_contract_address
+                ] = BalAccountExpectation(
+                    storage_reads=[0, 1],  # Storage was accessed
+                    nonce_changes=[],
+                    balance_changes=[],
+                    code_changes=[],
+                    storage_changes=[],
+                )
             account_expectations[selfdestruct_recipient_address] = (
                 BalAccountExpectation(
                     balance_changes=[
