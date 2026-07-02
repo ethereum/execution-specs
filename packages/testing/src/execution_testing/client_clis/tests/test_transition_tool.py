@@ -44,9 +44,9 @@ def test_default_tool() -> None:
             GethTransitionTool,
         ),
         (
-            Path("evmone-t8n"),
-            "evmone-t8n",
-            "evmone-t8n 0.11.0-dev+commit.93997506",
+            Path("evmone"),
+            "evmone",
+            "evmone 0.22.0",
             EvmOneTransitionTool,
         ),
         pytest.param(
