@@ -387,11 +387,6 @@ class Block(Header):
 class BuiltBlock(CamelModel):
     """Model that contains all properties to build a full block or payload."""
 
-    model_config = ConfigDict(
-        **CamelModel.model_config,
-        arbitrary_types_allowed=True,
-    )
-
     header: FixtureHeader
     env: Environment
     alloc: LazyAlloc
