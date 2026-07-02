@@ -71,10 +71,10 @@ def test_calldata_floor_independent_of_state_gas(
     """
     Test calldata floor applies only to regular gas dimension.
 
-    The calldata floor inflates regular gas used for block accounting
-    but does not affect the state gas dimension. A transaction with
-    high calldata and no state operations should succeed even when
-    the floor exceeds actual execution gas.
+    The calldata floor applies only to the sender's bill and does not
+    affect the state gas dimension. A transaction with high calldata
+    and no state operations should succeed even when the floor exceeds
+    actual execution gas.
     """
     contract = pre.deploy_contract(code=Op.STOP)
 
@@ -277,8 +277,16 @@ def test_calldata_floor_binds_with_reservoir(
     # Sized so the floor binds while block-regular stays under storage_set.
     calldata = b"\x00" * 5000
     floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
-    assert floor > regular_cost + state_cost, (
-        "calldata floor must exceed execution cost"
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    tx_regular = intrinsic + regular_cost
+    assert floor > tx_regular + state_cost, (
+        "calldata floor must exceed the sender's pre-floor bill"
+    )
+    assert tx_regular < state_cost, (
+        "block-regular must stay under the state dimension"
     )
 
     contract = pre.deploy_contract(code=code)
@@ -288,7 +296,7 @@ def test_calldata_floor_binds_with_reservoir(
         data=calldata,
         state_gas_reservoir=state_cost,
         sender=pre.fund_eoa(),
-        expected_receipt=TransactionReceipt(gas_used=floor),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=floor),
     )
     state_test(
         pre=pre,
