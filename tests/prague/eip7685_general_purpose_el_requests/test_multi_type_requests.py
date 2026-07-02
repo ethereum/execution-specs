@@ -158,7 +158,8 @@ def test_valid_multi_type_requests(
     """
     blockchain_test(
         genesis_environment=Environment(
-            gas_limit=500_000_000  # We could also bump the global gas limit
+            # Per-type maximums exceed the default block gas limit.
+            gas_limit=500_000_000
         ),
         pre=pre,
         post={},
