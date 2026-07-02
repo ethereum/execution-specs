@@ -2282,7 +2282,6 @@ def test_create_tx_collision_refunds_reservoir(
     )
 
 
-@pytest.mark.pre_alloc_mutable()
 @pytest.mark.valid_from("EIP8037")
 def test_create_onto_alive_refunds_to_gas_left(
     state_test: StateTestFiller,
@@ -2305,7 +2304,7 @@ def test_create_onto_alive_refunds_to_gas_left(
         code=create + Op.SSTORE(storage.store_next(1), 1)
     )
     target = compute_create2_address(address=contract, salt=salt, initcode=b"")
-    pre[target] = Account(balance=1)
+    pre.fund_address(target, amount=1)
 
     gas_limit = (
         fork.transaction_intrinsic_cost_calculator()()
