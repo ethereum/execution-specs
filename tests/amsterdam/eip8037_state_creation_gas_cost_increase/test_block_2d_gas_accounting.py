@@ -41,9 +41,9 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 def sstore_tx_gas(fork: Fork, num_sstores: int = 1) -> tuple[int, int]:
     """Return (regular, state) gas for a tx with N cold SSTOREs."""
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
-    evm_total = num_sstores * Op.SSTORE(0, 1).gas_cost(fork)
+    evm_total = num_sstores * Op.SSTORE(0, 1).regular_cost(fork)
     state = num_sstores * Op.SSTORE(new_value=1).state_cost(fork)
-    return intrinsic_gas + evm_total - state, state
+    return intrinsic_gas + evm_total, state
 
 
 def sstore_txs(
@@ -793,18 +793,26 @@ def test_receipt_cumulative_differs_from_header_gas_used(
 
 
 @pytest.mark.parametrize("dominant_dimension", ["state", "regular"])
+@pytest.mark.parametrize(
+    "single_tx",
+    [
+        pytest.param(True, id="single_tx"),
+        pytest.param(False, id="multiple_txs"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_base_fee_per_gas_follows_dominant_dimension(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     dominant_dimension: str,
+    single_tx: bool,
 ) -> None:
     """
     Verify the child block's base fee follows the bottleneck dimension.
 
     Block 1 exceeds the gas target on one dimension only: state, via
-    SSTORE-set txs that spill, or regular, via STOP txs. Its header
+    SSTORE-set txs that spill, or regular, via STOP/MSTORE txs. Its header
     gas_used = max(regular, state) is then set by that dimension alone,
     which lifts empty block 2's base fee under the EIP-1559 update.
     """
@@ -815,30 +823,53 @@ def test_base_fee_per_gas_follows_dominant_dimension(
 
     txs: list[Transaction] = []
     post: dict = {}
+    num_sstores = 0
     if dominant_dimension == "state":
-        num_txs = 5
-        tx_regular, tx_state = sstore_tx_gas(fork)
+        if single_tx:
+            num_txs = 1
+            num_sstores = target // sstore_tx_gas(fork, num_sstores=1)[1] + 1
+            tx_regular, tx_state = sstore_tx_gas(fork, num_sstores=num_sstores)
+        else:
+            num_sstores = 1
+            tx_regular, tx_state = sstore_tx_gas(fork, num_sstores=num_sstores)
+            while tx_regular >= tx_state:
+                num_sstores += 1
+                tx_regular, tx_state = sstore_tx_gas(
+                    fork, num_sstores=num_sstores
+                )
+            num_txs = target // tx_state + 1
         block_regular = num_txs * tx_regular
         block_state = num_txs * tx_state
         tx_gas_limit = tx_regular + tx_state
         assert block_state > target > block_regular
     else:
-        num_txs = 15
-        tx_gas_limit = fork.transaction_intrinsic_cost_calculator()()
+        if single_tx:
+            num_txs = 1
+            # Just consume all gas
+            regular_contract = pre.deploy_contract(
+                code=Op.MSTORE(offset=2**256 - 1, value=1) + Op.STOP
+            )
+            tx_gas_limit = target + 1
+        else:
+            tx_gas_limit = fork.transaction_intrinsic_cost_calculator()()
+            # Enough STOP txs that regular gas alone clears the target.
+            regular_contract = pre.deploy_contract(code=Op.STOP)
+            num_txs = target // tx_gas_limit + 1
         block_regular = num_txs * tx_gas_limit
         block_state = 0
-        stop_contract = pre.deploy_contract(code=Op.STOP)
         assert block_regular > target > block_state
 
     for _ in range(num_txs):
         if dominant_dimension == "state":
             storage = Storage()
-            contract = pre.deploy_contract(
-                code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
-            )
+            code = Bytecode()
+            for _ in range(num_sstores):
+                code += Op.SSTORE(storage.store_next(1), 1)
+            code += Op.STOP
+            contract = pre.deploy_contract(code=code)
             post[contract] = Account(storage=storage)
         else:
-            contract = stop_contract
+            contract = regular_contract
         txs.append(
             Transaction(
                 to=contract,
@@ -850,6 +881,10 @@ def test_base_fee_per_gas_follows_dominant_dimension(
         )
 
     block_1_gas_used = max(block_regular, block_state)
+    assert block_1_gas_used < gas_limit, (
+        "test needs update: gas_limit reached by usage, simply raise the "
+        "anchored gas_limit value"
+    )
     base_fee_calc = fork.base_fee_per_gas_calculator()
     block_1_base_fee = base_fee_calc(
         parent_base_fee_per_gas=genesis_base_fee,

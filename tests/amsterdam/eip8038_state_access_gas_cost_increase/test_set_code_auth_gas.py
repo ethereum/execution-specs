@@ -327,27 +327,28 @@ def test_mixed_validity_multi_auth_receipt_gas(
     one invalid authorization.
 
     Every authorization tuple, valid or invalid, is charged the full
-    regular + state per-authorization intrinsic. Refunds, however, fire
-    only for the *valid* authorization whose authority leaf already
-    exists: it refills ``NEW_ACCOUNT`` on the state channel (uncapped,
-    subtracted first) and returns ``ACCOUNT_WRITE`` on the regular
-    channel (one-fifth capped). The invalid tuple is silently skipped
-    during ``set_delegation`` and contributes no refund on either
-    channel.
+    regular + state per-authorization intrinsic. The valid
+    authorization whose authority leaf already exists refills
+    ``NEW_ACCOUNT`` on the state channel (uncapped, subtracted first)
+    and returns ``ACCOUNT_WRITE`` on the regular channel (one-fifth
+    capped). The invalid tuple is silently skipped during
+    ``set_delegation``, refilling the full per-auth state intrinsic and
+    returning its regular ``ACCOUNT_WRITE`` charge.
 
     The dual-channel accounting mirrors ``process_transaction`` and the
     sibling ``test_set_code_auth_refunds`` module: the state refill is
     subtracted from ``gas_before_regular_refund`` first and uncapped,
     then the regular refund clamps to
     ``min(k * ACCOUNT_WRITE, gas_before_regular_refund // 5)`` where
-    ``k`` is the number of refundable (valid, existing-leaf)
-    authorizations. With no EVM execution, ``gas_before_regular_refund``
-    reduces to the full per-authorization intrinsic less the state
-    refill, and the exact result is asserted via ``expected_receipt``.
+    ``k`` is the number of authorizations that return the regular
+    account-write charge. With no EVM execution,
+    ``gas_before_regular_refund`` reduces to the full per-authorization
+    intrinsic less the state refill, and the exact result is asserted
+    via ``expected_receipt``.
 
     Each ``invalidity`` kind (``INVALID_NONCE``, ``INVALID_CHAIN_ID``,
     ``REPEATED_NONCE``, ``AUTHORITY_IS_CONTRACT``) yields one valid and
-    one invalid tuple, so ``n = 2`` and ``k = 1`` uniformly and every
+    one invalid tuple, so ``n = 2`` and ``k = 2`` uniformly and every
     kind pins the same receipt gas. This is the numeric-receipt
     companion to ``test_invalid_auth_charged_intrinsic`` (which asserts
     only post state).
@@ -418,7 +419,7 @@ def test_mixed_validity_multi_auth_receipt_gas(
         raise ValueError(f"unknown invalidity: {invalidity!r}")
 
     n = len(authorization_list)
-    refundable = 1  # exactly one valid, existing-leaf authorization
+    regular_refundable = 2
 
     total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=n,
@@ -426,22 +427,25 @@ def test_mixed_validity_multi_auth_receipt_gas(
     intrinsic_state = fork.transaction_intrinsic_state_gas(
         authorization_count=n,
     )
-    # Only the valid existing-leaf authorization refills the state
-    # channel (NEW_ACCOUNT); the invalid tuple refunds nothing. The
-    # refill is subtracted first and is not subject to the one-fifth cap.
-    state_refund = gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT * refundable
+    # The valid existing-leaf authorization refills NEW_ACCOUNT. The
+    # invalid skipped tuple refills the full per-auth state intrinsic.
+    # State refills are subtracted first and are not subject to the
+    # one-fifth cap.
+    state_refund = gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT + (
+        intrinsic_state // n
+    )
 
     # No EVM execution (the target is a STOP), so the regular and state
     # execution gas are both zero and ``gas_before_regular_refund``
     # reduces to the full per-auth intrinsic less the state refill.
     gas_before_regular_refund = total_intrinsic - state_refund
     regular_refund = min(
-        refundable * account_write,
+        regular_refundable * account_write,
         gas_before_regular_refund // fork.max_refund_quotient(),
     )
-    # With only a single refundable authorization the one-fifth cap is
-    # generous, so the full ACCOUNT_WRITE clears on the regular channel.
-    assert regular_refund == refundable * account_write
+    # The one-fifth cap is generous, so both ACCOUNT_WRITE refunds clear
+    # on the regular channel.
+    assert regular_refund == regular_refundable * account_write
     cumulative_gas_used = gas_before_regular_refund - regular_refund
 
     tx = Transaction(
