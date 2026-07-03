@@ -637,9 +637,7 @@ def test_auth_transaction(
 
         # Regular gas billed (gross of refund) is the combined intrinsic minus
         # the authorization state gas folded into it.
-        regular_gross = (
-            combined_auth - per_auth_state_gas * auths_in_this_tx
-        )
+        regular_gross = combined_auth - per_auth_state_gas * auths_in_this_tx
 
         if empty_authority:
             auth_state_net = (
