@@ -27,6 +27,9 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
 )
+from execution_testing import (
+    Macros as Om,
+)
 
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
@@ -1363,7 +1366,9 @@ def test_auth_state_gas_in_header_after_failure(
     elif failure_mode == "halt":
         target = pre.deploy_contract(code=Op.INVALID)
     else:
-        target = pre.deploy_contract(code=Op.JUMPDEST + Op.JUMP(0x0))
+        # Consume all remaining gas at once (a spin loop would execute
+        # millions of ops in the EVM and slow down filling).
+        target = pre.deploy_contract(code=Om.OOG)
 
     if authority_exists:
         signer = pre.fund_eoa()
