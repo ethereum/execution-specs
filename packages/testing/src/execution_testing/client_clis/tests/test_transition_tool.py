@@ -519,7 +519,7 @@ def test_transition_tool_output_parses_inclusion_list_satisfaction() -> None:
                 "logsBloom": Bloom(0).hex(),
                 "receipts": [],
                 "gasUsed": hex(0),
-                "isInclusionListSatisfied": False,
+                "inclusionListSatisfied": False,
             },
         }
     )
