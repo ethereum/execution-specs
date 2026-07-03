@@ -15,6 +15,8 @@ responses.
 
 from typing import Union
 
+from hive.client import Client
+
 from execution_testing.exceptions import UndefinedException
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
@@ -46,6 +48,8 @@ def test_blockchain_via_engine(
     timing_data: TimingData,
     eth_rpc: EthRPC,
     engine_rpc: EngineRPC,
+    client: Client,
+    genesis_verified_clients: set[str],
     fixture: Union[BlockchainEngineFixture, BlockchainEngineXFixture],
     strict_exception_matching: bool,
     genesis_header: FixtureHeader,
@@ -60,7 +64,9 @@ def test_blockchain_via_engine(
     Both modes follow the same test sequence for equivalence:
 
     1. Send initial FCU to genesis to establish the chain head.
-    2. Verify the client genesis block hash matches genesis_header.
+    2. Verify the client genesis block hash matches genesis_header. Genesis
+       is immutable per client, so in shared-client (enginex) mode this is
+       done once per client and skipped for later tests in the group.
     3. Execute test fixture blocks using engine_newPayloadVX.
     4. For valid payloads, send FCU to advance the chain head.
     """
@@ -87,21 +93,27 @@ def test_blockchain_via_engine(
                 f"Timed out waiting for forkchoice update to genesis: {e}"
             ) from None
 
-    with timing_data.time("Get genesis block"):
-        logger.info("Calling getBlockByNumber to get genesis block...")
-        genesis_block = eth_rpc.get_block_by_number(0)
-        assert genesis_block is not None, "genesis_block is None"
-        if genesis_block["hash"] != str(genesis_header.block_hash):
-            expected = genesis_header.block_hash
-            got = genesis_block["hash"]
-            logger.fail(
-                f"Genesis block hash mismatch. "
-                f"Expected: {expected}, Got: {got}"
-            )
-            raise GenesisBlockMismatchExceptionError(
-                expected_header=genesis_header,
-                got_genesis_block=genesis_block,
-            )
+    if client.id not in genesis_verified_clients:
+        with timing_data.time("Get genesis block"):
+            logger.info("Calling getBlockByNumber to get genesis block...")
+            genesis_block = eth_rpc.get_block_by_number(0)
+            assert genesis_block is not None, "genesis_block is None"
+            if genesis_block["hash"] != str(genesis_header.block_hash):
+                expected = genesis_header.block_hash
+                got = genesis_block["hash"]
+                logger.fail(
+                    f"Genesis block hash mismatch. "
+                    f"Expected: {expected}, Got: {got}"
+                )
+                raise GenesisBlockMismatchExceptionError(
+                    expected_header=genesis_header,
+                    got_genesis_block=genesis_block,
+                )
+        # Genesis is immutable per client, so verify it once per client. In
+        # shared-client (enginex) mode the same client serves every test in a
+        # pre-alloc group, so later tests skip the redundant getBlockByNumber
+        # round-trip; per-test clients get a fresh id each test and re-verify.
+        genesis_verified_clients.add(client.id)
 
     with timing_data.time("Payloads execution") as total_payload_timing:
         logger.info(
