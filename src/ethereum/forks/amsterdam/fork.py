@@ -1147,6 +1147,8 @@ def process_transaction(
         + tx_output.state_gas_used
         - int(tx_output.state_refund)
     )
+    # Defensive guard for Uint conversion: State refunds never exceed
+    # the state charges so the value is non-negative.
     tx_regular_gas = tx_gas_used_before_refund - Uint(max(0, tx_state_gas))
     block_output.block_gas_used += tx_regular_gas
     block_output.block_state_gas_used += Uint(max(0, tx_state_gas))

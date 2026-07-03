@@ -688,7 +688,7 @@ def selfdestruct(evm: Evm) -> None:
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
 
-    # Emit transfer or burn log
+    # Emit transfer log
     if beneficiary != originator:
         emit_transfer_log(evm, originator, beneficiary, originator_balance)
 
