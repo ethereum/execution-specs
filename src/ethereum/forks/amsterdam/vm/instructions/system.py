@@ -162,9 +162,12 @@ def generic_create(
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
-        incorporate_child_on_success(evm, child_evm)
         if target_alive:
+            # Target already existed: no new account, refund the state gas.
+            # Credit before incorporating the child so the refund reverses
+            # the parent's own spill only (as the error path does).
             credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
+        incorporate_child_on_success(evm, child_evm)
         evm.return_data = b""
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
 
