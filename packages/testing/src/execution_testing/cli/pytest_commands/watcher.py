@@ -1,6 +1,5 @@
 """File watcher implementation for --watch flag functionality."""
 
-import os
 import subprocess
 import time
 from pathlib import Path
@@ -84,7 +83,7 @@ class FileWatcher:
 
                 if current_mtimes != file_mtimes:
                     if not self.verbose:
-                        os.system("clear" if os.name != "nt" else "cls")
+                        self.console.clear()
                     self.console.print(
                         "[yellow]File changes detected, "
                         "re-running...[/yellow]\n"
