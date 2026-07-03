@@ -447,6 +447,6 @@ class Result:
             )
 
         if self.inclusion_list_satisfied is not None:
-            data["isInclusionListSatisfied"] = self.inclusion_list_satisfied
+            data["inclusionListSatisfied"] = self.inclusion_list_satisfied
 
         return data
