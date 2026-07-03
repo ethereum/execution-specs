@@ -1,4 +1,9 @@
-"""Tests for [EIP-8246: Remove SELFDESTRUCT balance burn](https://eips.ethereum.org/EIPS/eip-8246)."""
+"""
+Tests for [EIP-8246: Remove SELFDESTRUCT balance burn](https://eips.ethereum.org/EIPS/eip-8246).
+
+Further fork-aware EIP-8246 coverage lives in the EIP-6780 selfdestruct
+tests (``tests/cancun/eip6780_selfdestruct``).
+"""
 
 import pytest
 from execution_testing import (
@@ -10,6 +15,7 @@ from execution_testing import (
     Bytecode,
     Hash,
     Op,
+    StateTestFiller,
     Storage,
     Transaction,
     compute_create_address,
@@ -225,3 +231,39 @@ def test_selfdestructing_initcode_preserves_balance(
         },
         blocks=[Block(txs=[selfdestruct_tx, probe_tx])],
     )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [pytest.param(1, id="kept"), pytest.param(0, id="removed")],
+)
+def test_create_transaction_initcode_selfdestruct(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    value: int,
+) -> None:
+    """
+    Depth-0 creation-tx initcode SELFDESTRUCT keeps balance per EIP-8246.
+
+    A creation transaction (``tx.to is None``) whose initcode
+    self-destructs to itself exercises the depth-0 create path. A nonzero
+    endowment is kept as a balance-only account; a zero endowment is
+    removed.
+    """
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=sender, nonce=sender.nonce)
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        value=value,
+        data=Op.SELFDESTRUCT(Op.ADDRESS),
+    )
+    post = {
+        created: (
+            Account(balance=value, nonce=0, code=b"", storage={})
+            if value
+            else Account.NONEXISTENT
+        )
+    }
+    state_test(pre=pre, post=post, tx=tx)
