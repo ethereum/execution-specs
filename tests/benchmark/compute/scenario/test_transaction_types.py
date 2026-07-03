@@ -615,6 +615,7 @@ def test_auth_transaction(
         authorization_count=1
     )
     new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
+    account_write_refund = fork.gas_costs().ACCOUNT_WRITE
 
     expected_gas_usage = 0
     txs = []
@@ -648,11 +649,16 @@ def test_auth_transaction(
         else:
             auth_state_net = 0
 
-        # Gas that lands: regular plus the state gas the trie keeps. The
-        # EIP-3529 refund (existing authority only) caps at a fifth of it.
+        # Gas that lands: regular plus the state gas the trie keeps, less the
+        # existing-authority refund (EIP-3529 caps it at a fixed fraction).
         gross_consumed = regular_gross + auth_state_net + receiver_state_gas
         refund = (
-            0 if empty_authority else gross_consumed // max_refund_quotient
+            0
+            if empty_authority
+            else min(
+                account_write_refund * auths_in_this_tx,
+                gross_consumed // max_refund_quotient,
+            )
         )
         expected_gas_usage += gross_consumed - refund
 
