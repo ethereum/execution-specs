@@ -8,7 +8,16 @@ import time
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pprint import pprint
-from typing import Any, Callable, ClassVar, Dict, List, Literal, Sequence
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Self,
+    Sequence,
+)
 
 import requests
 from jwt import encode
@@ -209,6 +218,24 @@ class BaseRPC:
         self.request_id_counter = count(1)
         self.response_validation_context = response_validation_context
         self.session = requests.Session()
+
+    def close(self) -> None:
+        """
+        Close the underlying HTTP session, releasing its pooled sockets.
+
+        RPC instances are typically created per test; closing the session
+        on teardown prevents file descriptors from accumulating across a
+        client that serves many tests.
+        """
+        self.session.close()
+
+    def __enter__(self) -> Self:
+        """Enter the runtime context, returning this RPC instance."""
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Close the HTTP session on context-manager exit."""
+        self.close()
 
     def __init_subclass__(cls, namespace: str | None = None) -> None:
         """
