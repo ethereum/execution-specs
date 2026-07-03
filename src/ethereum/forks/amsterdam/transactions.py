@@ -615,6 +615,8 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
     if intrinsic.calldata_floor > tx.gas:
         raise InsufficientTransactionGasError("Insufficient calldata floor")
+    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
+        raise InitCodeTooLargeError("Code size too large")
     if intrinsic.regular > TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
             "Intrinsic regular gas exceeds TX_MAX_GAS_LIMIT"
@@ -625,8 +627,6 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
         )
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
-    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
-        raise InitCodeTooLargeError("Code size too large")
 
     return intrinsic
 

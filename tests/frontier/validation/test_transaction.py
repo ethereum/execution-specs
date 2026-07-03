@@ -76,9 +76,8 @@ def test_tx_gas_limit(
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.eels_base_coverage
 def test_tx_nonce(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
-    env: Environment,
     nonce_diff: int,
     expected_exception: TransactionException | None,
 ) -> None:
@@ -96,12 +95,28 @@ def test_tx_nonce(
         error=expected_exception,
     )
 
-    block = Block(
-        txs=[tx],
-        exception=expected_exception,
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.exception_test
+@pytest.mark.eels_base_coverage
+def test_tx_max_nonce(state_test: StateTestFiller, pre: Alloc) -> None:
+    """
+    Test that a transaction that exceeds the maximum allowed value for the
+    nonce (U64.MAX_VALUE) is rejected.
+    """
+    sender = pre.fund_eoa()
+    to = pre.nonexistent_account()
+
+    tx = Transaction(
+        to=to,
+        nonce=2**64,
+        sender=sender,
+        protected=False,
+        error=TransactionException.NONCE_IS_MAX,
     )
 
-    blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)
+    state_test(pre=pre, post={sender: Account(nonce=0)}, tx=tx)
 
 
 @pytest.mark.parametrize(
