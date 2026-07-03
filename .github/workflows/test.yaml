@@ -105,9 +105,14 @@ jobs:
           python-version: "3.14"
       - uses: ./.github/actions/setup-env
       - name: Run fill (${{ matrix.label }})
-        run: just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+        run: >
+          just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+          -m "not slow
+          and not (state_test and not state_test_only)
+          and not (blockchain_test_engine and not blockchain_test_engine_only)"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+          COVERAGE_CORE: sysmon
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
@@ -147,6 +152,7 @@ jobs:
         run: just json-loader
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+          COVERAGE_CORE: sysmon
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:

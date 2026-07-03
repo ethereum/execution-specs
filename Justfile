@@ -185,13 +185,18 @@ json-loader *args:
 # Run the testing package unit tests (with Python)
 [group('unit tests')]
 test-tests *args:
-    @mkdir -p "{{ output_dir }}/test-tests/tmp"
+    @mkdir -p "{{ output_dir }}/test-tests/tmp" "{{ output_dir }}/test-tests/tmp-evm-tools"
     cd packages/testing && uv run pytest \
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/test-tests/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
         "$@" \
         src
+    uv run pytest \
+        -n {{ xdist_workers }} \
+        --basetemp="{{ output_dir }}/test-tests/tmp-evm-tools" \
+        --ignore=tests/evm_tools/test_count_opcodes.py \
+        tests/evm_tools
 
 # Run the testing package unit tests (with PyPy)
 [group('unit tests')]
