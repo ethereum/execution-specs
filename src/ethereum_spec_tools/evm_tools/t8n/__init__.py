@@ -524,8 +524,8 @@ class T8N(Load):
                     U256(self.options.state_reward), block_env
                 )
 
-        if self.fork.has_is_inclusion_list_satisfied:
-            block_output.is_inclusion_list_satisfied = (
+        if self.fork.has_inclusion_list_satisfied:
+            block_output.inclusion_list_satisfied = (
                 self.fork.check_inclusion_list_transactions(
                     block_env,
                     block_output,

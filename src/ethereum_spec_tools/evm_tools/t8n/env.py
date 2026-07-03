@@ -340,8 +340,8 @@ class Env:
         """
         self.inclusion_list_transactions = None
 
-        if not t8n.fork.has_is_inclusion_list_satisfied:
-            print("Block does not have an 'is_inclusion_list_satisfied' field")
+        if not t8n.fork.has_inclusion_list_satisfied:
+            print("Block does not have an 'inclusion_list_satisfied' field")
             return
 
         inclusion_list_transactions = []
