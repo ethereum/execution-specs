@@ -124,6 +124,23 @@ fill *args:
         "$@" \
         tests
 
+# Fill all tests (slow included) in all fixture formats
+[group('consensus tests')]
+fill-nightly *args:
+    @mkdir -p "{{ output_dir }}/fill-nightly/tmp" "{{ output_dir }}/fill-nightly/logs"
+    uv run fill \
+        -n {{ xdist_workers }} --dist=loadgroup \
+        --skip-index \
+        --generate-all-formats \
+        --output="{{ output_dir }}/fill-nightly/fixtures" \
+        --basetemp="{{ output_dir }}/fill-nightly/tmp" \
+        --log-to "{{ output_dir }}/fill-nightly/logs" \
+        --clean \
+        --until "{{ latest_fork }}" \
+        --durations=100 \
+        "$@" \
+        tests
+
 # --- Integration Tests ---
 
 # Fill the base coverage consensus tests using EELS with PyPy

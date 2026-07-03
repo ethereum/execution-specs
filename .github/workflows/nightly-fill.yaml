@@ -1,0 +1,74 @@
+name: Nightly Fill
+
+# Runs at 02:00 UTC: the self-hosted runners are past the EU/US daytime
+# peaks and results are ready before the EU morning.
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Check for new commits
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Check for commits in the last 25 hours
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          since=$(date -u -d "25 hours ago" +%Y-%m-%dT%H:%M:%SZ)
+          count=$(gh api "repos/${GITHUB_REPOSITORY}/commits?sha=${GITHUB_SHA}&since=${since}&per_page=1" --jq length)
+          if [ "$count" -gt 0 ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No new commits since $since; skipping nightly fill."
+          fi
+
+  fill-nightly:
+    name: fill-nightly (${{ matrix.label }})
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
+    timeout-minutes: 720
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: pre-shanghai
+            from_fork: Frontier
+            until_fork: Paris
+          - label: shanghai-cancun
+            from_fork: Shanghai
+            until_fork: Cancun
+          - label: prague
+            from_fork: Prague
+            until_fork: Prague
+          - label: osaka
+            from_fork: Osaka
+            until_fork: Osaka
+          - label: amsterdam
+            from_fork: Amsterdam
+            until_fork: Amsterdam
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - uses: ./.github/actions/setup-env
+      - name: Run nightly fill (${{ matrix.label }})
+        run: just fill-nightly --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
