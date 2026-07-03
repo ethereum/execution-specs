@@ -22,7 +22,10 @@ plugins:
             members_order: source
             group_by_category: false
   - search
-  - social
+  # Social cards render a PNG per page (~2m for the full site) and need
+  # native cairo; only publish builds enable them (see docs-build.yaml).
+  - social:
+      enabled: !ENV [DOCS_SOCIAL_CARDS, false]
   - gen-files:
       scripts:
         - docs/scripts/copy_repo_docs_to_mkdocs.py

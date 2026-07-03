@@ -77,6 +77,8 @@ docc.FixIndexTransform
 docc.FixIndexTransform.transform
 docc.MinimizeDiffsTransform
 docc.MinimizeDiffsTransform.transform
+docc.PruneReferencesTransform
+docc.PruneReferencesTransform.transform
 docc._FixIndexVisitor.enter
 docc._DoccAdapter.shallow_equals
 docc._DoccAdapter.shallow_hash
