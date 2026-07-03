@@ -999,7 +999,7 @@ class IteratingBytecode(Bytecode):
         fork: Fork,
         iteration_count: int,
         start_iteration: int,
-        gas_limit: int,
+        gas_limit: int | None,
         compute_gas_limit: int | None = None,
         **intrinsic_cost_kwargs: Any,
     ) -> bool:
@@ -1008,7 +1008,10 @@ class IteratingBytecode(Bytecode):
 
         Returns True when both:
           - The combined regular+state gas (i.e. tx.gas) is <=
-            gas_limit (block-budget constraint).
+            gas_limit (block-budget constraint). A `gas_limit` of None
+            means the combined gas is unbounded, which under EIP-8037 lets
+            the state-gas reservoir grow past the EIP-7825 cap (that cap
+            only applies to regular gas, see `compute_gas_limit`).
           - The regular gas, computed as
             combined - iteration_count * iterating_state_gas,
             respects the compute_gas_limit.
@@ -1021,7 +1024,7 @@ class IteratingBytecode(Bytecode):
             start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
         )
-        if combined > gas_limit:
+        if gas_limit is not None and combined > gas_limit:
             return False
         if compute_gas_limit is not None:
             compute = combined - iteration_count * self.iterating_state_gas
@@ -1033,7 +1036,7 @@ class IteratingBytecode(Bytecode):
         self,
         *,
         fork: Fork,
-        gas_limit: int,
+        gas_limit: int | None,
         start_iteration: int,
         compute_gas_limit: int | None = None,
         **intrinsic_cost_kwargs: Any,
@@ -1158,6 +1161,12 @@ class IteratingBytecode(Bytecode):
             # No limit, all iterations fit in a single transaction.
             yield total_iterations
             return
+        # Under EIP-8037 the EIP-7825 cap is a regular-gas limit only; state
+        # gas is bounded separately by `tx.gas`, so leave the combined gas
+        # uncapped and let the regular-gas check (compute_gas_limit) bind.
+        combined_gas_limit = (
+            None if fork.state_gas_reservoir_enabled() else gas_limit_cap
+        )
         remaining_iterations = total_iterations
         best_iterations: int | None = None
         constant_intrinsic_gas_cost = self._intrinsic_cost_is_constant(
@@ -1168,7 +1177,7 @@ class IteratingBytecode(Bytecode):
             if best_iterations is None or not constant_intrinsic_gas_cost:
                 best_iterations, _ = self._binary_search_iterations(
                     fork=fork,
-                    gas_limit=gas_limit_cap,
+                    gas_limit=combined_gas_limit,
                     compute_gas_limit=gas_limit_cap,
                     start_iteration=start_iteration,
                     **intrinsic_cost_kwargs,
