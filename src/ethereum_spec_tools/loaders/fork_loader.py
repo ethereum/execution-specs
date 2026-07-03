@@ -207,11 +207,11 @@ class ForkLoad:
         return self._module("fork").check_inclusion_list_transactions
 
     @property
-    def has_is_inclusion_list_satisfied(self) -> bool:
+    def has_inclusion_list_satisfied(self) -> bool:
         """
-        Check if the block output has an `is_inclusion_list_satisfied` field.
+        Check if the block output has an `inclusion_list_satisfied` field.
         """
-        return hasattr(self.BlockOutput, "is_inclusion_list_satisfied")
+        return hasattr(self.BlockOutput, "inclusion_list_satisfied")
 
     @property
     def Block(self) -> Any:

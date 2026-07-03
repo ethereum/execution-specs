@@ -98,7 +98,7 @@ class BlockOutput:
         Hash of all the requests in the block.
     block_access_list: `BlockAccessList`
         The block access list for the block.
-    is_inclusion_list_satisfied : `bool`
+    inclusion_list_satisfied : `bool`
         Whether the block satisfies the inclusion list constraints.
     """
 
@@ -119,7 +119,7 @@ class BlockOutput:
     blob_gas_used: U64 = U64(0)
     requests: List[Bytes] = field(default_factory=list)
     block_access_list: BlockAccessList = field(default_factory=list)
-    is_inclusion_list_satisfied: bool = True
+    inclusion_list_satisfied: bool = True
 
 
 @final

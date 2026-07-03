@@ -849,13 +849,11 @@ def apply_body(
         process_transaction(block_env, block_output, tx, Uint(i))
 
     # Check if the block satisfies the inclusion list constraints (EIP-7805)
-    block_output.is_inclusion_list_satisfied = (
-        check_inclusion_list_transactions(
-            block_env=block_env,
-            block_output=block_output,
-            transactions=transactions,
-            inclusion_list_transactions=inclusion_list_transactions,
-        )
+    block_output.inclusion_list_satisfied = check_inclusion_list_transactions(
+        block_env=block_env,
+        block_output=block_output,
+        transactions=transactions,
+        inclusion_list_transactions=inclusion_list_transactions,
     )
 
     # EIP-7928: Post-execution operations use index N+1
@@ -1215,7 +1213,7 @@ def check_inclusion_list_transactions(
 
     Returns
     -------
-    is_inclusion_list_satisfied : `bool`
+    inclusion_list_satisfied : `bool`
         True if the block passes the inclusion list check, False otherwise.
 
     """

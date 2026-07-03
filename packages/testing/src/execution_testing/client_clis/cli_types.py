@@ -403,7 +403,7 @@ class Result(CamelModel):
     requests: List[Bytes] | None = None
     block_access_list: Bytes | None = None
     block_access_list_hash: Hash | None = None
-    is_inclusion_list_satisfied: bool | None = None
+    inclusion_list_satisfied: bool | None = None
     block_exception: Annotated[
         BlockExceptionWithMessage | UndefinedException | None,
         ExceptionMapperValidator,

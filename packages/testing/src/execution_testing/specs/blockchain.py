@@ -597,7 +597,7 @@ class BuiltBlock(CamelModel):
             validation_error=self.expected_exception,
             status=(
                 PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value
-                if self.result.is_inclusion_list_satisfied is False
+                if self.result.inclusion_list_satisfied is False
                 else None
             ),
             error_code=self.engine_api_error_code,
