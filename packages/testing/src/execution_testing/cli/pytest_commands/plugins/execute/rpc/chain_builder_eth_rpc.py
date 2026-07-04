@@ -19,6 +19,7 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis.cli_types import EnginePayloadMetadata
 from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks.transition_base_fork import TransitionBaseClass
 from execution_testing.rpc import EngineRPC, TestingRPC
 from execution_testing.rpc import EthRPC as BaseEthRPC
 from execution_testing.rpc.rpc_types import (
@@ -38,7 +39,10 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
     pending transactions or a block generation interval.
     """
 
-    fork: Fork | TransitionFork
+    fork: Fork
+    fcu_version: int
+    new_payload_version: int
+    get_payload_version: int
     engine_rpc: EngineRPC
     get_payload_wait_time: float
     block_building_lock: FileLock
@@ -63,7 +67,25 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             transaction_wait_timeout=transaction_wait_timeout,
             max_transactions_per_batch=max_transactions_per_batch,
         )
+        assert not issubclass(fork, TransitionBaseClass), (
+            "ChainBuilderEthRPC does not support transition forks"
+        )
         self.fork = fork
+        fcu_version = fork.engine_forkchoice_updated_version()
+        assert fcu_version is not None, (
+            "Fork does not support engine forkchoice_updated"
+        )
+        self.fcu_version = fcu_version
+        new_payload_version = fork.engine_new_payload_version()
+        assert new_payload_version is not None, (
+            "Fork does not support engine new_payload"
+        )
+        self.new_payload_version = new_payload_version
+        get_payload_version = fork.engine_get_payload_version()
+        assert get_payload_version is not None, (
+            "Fork does not support engine get_payload"
+        )
+        self.get_payload_version = get_payload_version
         self.engine_rpc = engine_rpc
         parsed = urlparse(rpc_endpoint)
         self.block_building_lock = FileLock(
@@ -87,26 +109,15 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 # Get the head block hash
                 head_block = self.get_block_by_number("latest")
                 assert head_block is not None
-                block_number = HexNumber(head_block["number"])
-                timestamp = HexNumber(head_block["timestamp"])
-                head_fork = self.fork.fork_at(
-                    block_number=block_number, timestamp=timestamp
-                )
                 # Send initial forkchoice updated
                 forkchoice_state = ForkchoiceState(
                     head_block_hash=head_block["hash"],
-                )
-                forkchoice_version = (
-                    head_fork.engine_forkchoice_updated_version()
-                )
-                assert forkchoice_version is not None, (
-                    "Fork does not support engine forkchoice_updated"
                 )
                 for _ in range(initial_forkchoice_update_retries):
                     response = self.engine_rpc.forkchoice_updated(
                         forkchoice_state,
                         None,
-                        version=forkchoice_version,
+                        version=self.fcu_version,
                     )
                     if (
                         response.payload_status.status
@@ -137,9 +148,8 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         withdrawals: List[Withdrawal] | None = None,
     ) -> PayloadAttributes:
         """Build payload attributes for a block at ``next_timestamp``."""
-        next_fork = self.fork.fork_at(block_number=0, timestamp=next_timestamp)
         return PayloadAttributes.for_fork(
-            next_fork,
+            self.fork,
             timestamp=next_timestamp,
             withdrawals=withdrawals,
         )
@@ -164,40 +174,28 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             new_payload_args.append(parent_beacon_block_root)
         if payload.execution_requests is not None:
             new_payload_args.append(payload.execution_requests)
-        payload_fork = self.fork.fork_at(
-            block_number=payload.execution_payload.number,
-            timestamp=payload.execution_payload.timestamp,
-        )
-        new_payload_version = payload_fork.engine_new_payload_version()
-        assert new_payload_version is not None, (
-            "Fork does not support engine new_payload"
-        )
         new_payload_response = self.engine_rpc.new_payload(
-            *new_payload_args, version=new_payload_version
+            *new_payload_args, version=self.new_payload_version
         )
         assert new_payload_response.status == PayloadStatusEnum.VALID, (
             "Payload was invalid"
         )
 
-        fcu_version = payload_fork.engine_forkchoice_updated_version()
-        assert fcu_version is not None, (
-            "Fork does not support engine forkchoice_updated"
-        )
         new_forkchoice_state = ForkchoiceState(
             head_block_hash=(payload.execution_payload.block_hash),
         )
         response = self.engine_rpc.forkchoice_updated(
             new_forkchoice_state,
             None,
-            version=fcu_version,
+            version=self.fcu_version,
         )
         assert response.payload_status.status == PayloadStatusEnum.VALID, (
             "Payload was invalid"
         )
         return EnginePayloadMetadata(
             payload_response=payload,
-            new_payload_version=new_payload_version,
-            forkchoice_updated_version=fcu_version,
+            new_payload_version=self.new_payload_version,
+            forkchoice_updated_version=self.fcu_version,
             parent_beacon_block_root=parent_beacon_block_root,
         )
 
@@ -210,20 +208,13 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             head_block_hash=head_block["hash"],
         )
         next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
-        next_fork = self.fork.fork_at(block_number=0, timestamp=next_timestamp)
         payload_attributes = self._payload_attributes(
             next_timestamp=next_timestamp
-        )
-        forkchoice_updated_version = (
-            next_fork.engine_forkchoice_updated_version()
-        )
-        assert forkchoice_updated_version is not None, (
-            "Fork does not support engine forkchoice_updated"
         )
         response = self.engine_rpc.forkchoice_updated(
             forkchoice_state,
             payload_attributes,
-            version=forkchoice_updated_version,
+            version=self.fcu_version,
         )
         assert response.payload_status.status == PayloadStatusEnum.VALID, (
             "Payload was invalid"
@@ -232,13 +223,9 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             "payload_id was not returned by the client"
         )
         time.sleep(self.get_payload_wait_time)
-        get_payload_version = next_fork.engine_get_payload_version()
-        assert get_payload_version is not None, (
-            "Fork does not support engine get_payload"
-        )
         new_payload = self.engine_rpc.get_payload(
             response.payload_id,
-            version=get_payload_version,
+            version=self.get_payload_version,
         )
         self._finalize_payload(
             new_payload,
@@ -347,3 +334,62 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 new_payload,
                 payload_attributes.parent_beacon_block_root,
             )
+
+    def bump_block_gas_limit(
+        self,
+        target_gas_limit: int,
+    ) -> List[EnginePayloadMetadata]:
+        """
+        Build empty block to increase the block gas limit to target.
+        """
+        assert self.testing_rpc is not None, (
+            "bump_block_gas_limit requires testing_rpc"
+        )
+        captured: List[EnginePayloadMetadata] = []
+        with self.block_building_lock:
+            head_block = self.get_block_by_number("latest")
+            assert head_block is not None
+            parent_hash = Hash(head_block["hash"])
+            parent_timestamp = int(HexNumber(head_block["timestamp"]))
+            gas_limit = int(HexNumber(head_block["gasLimit"]))
+            while gas_limit < target_gas_limit:
+                payload_attributes = self._payload_attributes(
+                    next_timestamp=parent_timestamp + 1,
+                )
+                new_payload = self.testing_rpc.build_block(
+                    parent_block_hash=parent_hash,
+                    payload_attributes=payload_attributes,
+                    transactions=[],
+                    extra_data=Bytes(b""),
+                )
+                captured.append(
+                    self._finalize_payload(
+                        new_payload,
+                        payload_attributes.parent_beacon_block_root,
+                    )
+                )
+                new_gas_limit = int(new_payload.execution_payload.gas_limit)
+                assert new_gas_limit > gas_limit, (
+                    f"block gas limit stalled at {new_gas_limit} before "
+                    f"reaching target {target_gas_limit};"
+                )
+                gas_limit = new_gas_limit
+                parent_hash = new_payload.execution_payload.block_hash
+                parent_timestamp = int(new_payload.execution_payload.timestamp)
+        return captured
+
+    def set_canonical_head(self, head_block_hash: Hash) -> None:
+        """
+        Reorg the canonical head to head_block_hash via
+        ``engine_forkchoiceUpdated``.
+        """
+        response = self.engine_rpc.forkchoice_updated(
+            ForkchoiceState(head_block_hash=head_block_hash),
+            None,
+            version=self.fcu_version,
+        )
+        assert response.payload_status.status == PayloadStatusEnum.VALID, (
+            f"forkchoice_updated reset to {head_block_hash} was not VALID "
+            f"(got {response.payload_status.status}; SYNCING usually means "
+            "the block is unknown to the client)"
+        )

@@ -497,3 +497,9 @@ class Alloc(BaseAlloc):
         raise NotImplementedError(
             "nonexistent_account is not implemented in the base class"
         )
+
+    def uncached_eoa(self) -> EOA:
+        """Return the next EOA from the session-funded uncached pool."""
+        raise NotImplementedError(
+            "uncached_eoa is not implemented in the base class"
+        )
