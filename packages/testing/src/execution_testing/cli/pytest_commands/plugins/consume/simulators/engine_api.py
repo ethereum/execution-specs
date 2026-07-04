@@ -1,5 +1,7 @@
 """Pytest fixtures for Engine API RPC clients."""
 
+from typing import Generator
+
 import pytest
 from hive.client import Client
 
@@ -10,7 +12,7 @@ from execution_testing.rpc import EngineRPC
 @pytest.fixture(scope="function")
 def engine_rpc(
     client: Client, client_exception_mapper: ExceptionMapper | None
-) -> EngineRPC:
+) -> Generator[EngineRPC, None, None]:
     """
     Initialize Engine RPC client for the execution client under test.
 
@@ -20,19 +22,24 @@ def engine_rpc(
     validation to map client-specific error messages to standard
     exception types.
 
+    The session is closed on teardown.
+
     Args:
         client: The Hive client instance to connect to.
         client_exception_mapper: Optional exception mapper.
 
-    Returns:
+    Yields:
         Configured EngineRPC instance for making Engine API calls.
 
     """
     if client_exception_mapper:
-        return EngineRPC(
+        rpc = EngineRPC(
             f"http://{client.ip}:8551",
             response_validation_context={
                 "exception_mapper": client_exception_mapper,
             },
         )
-    return EngineRPC(f"http://{client.ip}:8551")
+    else:
+        rpc = EngineRPC(f"http://{client.ip}:8551")
+    with rpc:
+        yield rpc

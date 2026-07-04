@@ -1,7 +1,7 @@
 """Common pytest fixtures for the Hive simulators."""
 
 from pathlib import Path
-from typing import Dict, Literal
+from typing import Dict, Generator, Literal
 
 import pytest
 from hive.client import Client
@@ -20,9 +20,10 @@ from ..consume import FixturesSource
 
 
 @pytest.fixture(scope="function")
-def eth_rpc(client: Client) -> EthRPC:
+def eth_rpc(client: Client) -> Generator[EthRPC, None, None]:
     """Initialize ethereum RPC client for the execution client under test."""
-    return EthRPC(f"http://{client.ip}:8545")
+    with EthRPC(f"http://{client.ip}:8545") as rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="function")
