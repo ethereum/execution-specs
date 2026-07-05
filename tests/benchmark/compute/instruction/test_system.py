@@ -84,7 +84,6 @@ def test_contract_calling_many_addresses(
         setup=setup,
         iterating=iterating,
         cleanup=Op.STOP,
-        iterating_state_gas=iterating.state_cost(fork),
     )
 
     contract_address = pre.deploy_contract(
@@ -284,9 +283,6 @@ def test_create(
         iterating=loop,
         iterating_subcall=initcode_body,
         cleanup=Op.STOP,
-        iterating_state_gas=(
-            loop.state_cost(fork) + initcode_body.state_cost(fork)
-        ),
     )
 
     contract_address = pre.deploy_contract(

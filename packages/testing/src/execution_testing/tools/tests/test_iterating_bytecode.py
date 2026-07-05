@@ -4,7 +4,7 @@ from typing import Self, Type
 
 import pytest
 
-from execution_testing.forks import Osaka
+from execution_testing.forks import Amsterdam, Osaka
 from execution_testing.vm import Op
 
 from ..tools_code import FixedIterationsBytecode, IteratingBytecode
@@ -94,7 +94,7 @@ def test_iterating_bytecode_gas_cost(
     iterating_bytecode: IteratingBytecode, iterations: int, expected_cost: int
 ) -> None:
     """Test the gas cost calculating function of an iterating bytecode."""
-    calculated_cost = iterating_bytecode.gas_cost_by_iteration_count(
+    calculated_cost = iterating_bytecode.regular_gas_cost_by_iteration_count(
         fork=Osaka, iteration_count=iterations
     )
     assert calculated_cost == expected_cost, (
@@ -146,7 +146,7 @@ def test_with_fixed_iteration_count() -> None:
     assert fixed.iteration_count == 10
     assert fixed.gas_cost(
         Osaka
-    ) == iterating_bytecode.gas_cost_by_iteration_count(
+    ) == iterating_bytecode.regular_gas_cost_by_iteration_count(
         fork=Osaka, iteration_count=10
     )
 
@@ -158,24 +158,26 @@ def test_tx_gas_cost_by_iteration_count() -> None:
     )
     intrinsic_gas_cost_calc = Osaka.transaction_intrinsic_cost_calculator()
 
-    tx_gas = bytecode.tx_gas_cost_by_iteration_count(
+    tx_gas = bytecode.tx_regular_gas_cost_by_iteration_count(
         fork=Osaka,
         iteration_count=5,
     )
 
     expected = (
-        bytecode.gas_cost_by_iteration_count(fork=Osaka, iteration_count=5)
+        bytecode.regular_gas_cost_by_iteration_count(
+            fork=Osaka, iteration_count=5
+        )
         + intrinsic_gas_cost_calc()
     )
     assert tx_gas == expected
 
     # With calldata
-    tx_gas = bytecode.tx_gas_cost_by_iteration_count(
+    tx_gas = bytecode.tx_regular_gas_cost_by_iteration_count(
         fork=Osaka,
         iteration_count=5,
         calldata=b"hello",
     )
-    expected = bytecode.gas_cost_by_iteration_count(
+    expected = bytecode.regular_gas_cost_by_iteration_count(
         fork=Osaka, iteration_count=5
     ) + intrinsic_gas_cost_calc(
         calldata=b"hello", return_cost_deducted_prior_execution=True
@@ -193,13 +195,15 @@ def test_tx_gas_limit_by_iteration_count() -> None:
     tx_gas_limit = bytecode.tx_gas_limit_by_iteration_count(
         fork=Osaka,
         iteration_count=5,
+        include_state_gas_reservoir=True,
     )
-    tx_gas_cost = bytecode.tx_gas_cost_by_iteration_count(
+    tx_gas_cost = bytecode.tx_regular_gas_cost_by_iteration_count(
         fork=Osaka,
         iteration_count=5,
     )
     reserve = bytecode.iterating_subcall_reserve(fork=Osaka)
 
+    # Osaka has no state-gas reservoir, so the limit is regular + reserve.
     assert tx_gas_limit == tx_gas_cost + reserve
 
 
@@ -248,7 +252,7 @@ def test_tx_iterations_by_gas_limit(
     # Check total gas used is close to target
     total_gas = sum(
         bytecode.tx_gas_limit_by_iteration_count(
-            fork=fork, iteration_count=iters
+            fork=fork, iteration_count=iters, include_state_gas_reservoir=True
         )
         for iters in result
     )
@@ -258,7 +262,9 @@ def test_tx_iterations_by_gas_limit(
     if gas_limit_cap is not None:
         for iters in result:
             tx_gas = bytecode.tx_gas_limit_by_iteration_count(
-                fork=fork, iteration_count=iters
+                fork=fork,
+                iteration_count=iters,
+                include_state_gas_reservoir=True,
             )
             assert tx_gas <= gas_limit_cap
 
@@ -311,7 +317,9 @@ def test_tx_iterations_by_total_iteration_count(
     if gas_limit_cap is not None:
         for iters in result:
             tx_gas = bytecode.tx_gas_limit_by_iteration_count(
-                fork=Osaka, iteration_count=iters
+                fork=Osaka,
+                iteration_count=iters,
+                include_state_gas_reservoir=True,
             )
             assert tx_gas <= gas_limit_cap
 
@@ -325,8 +333,7 @@ def test_tx_iterations_by_total_iteration_count_raises_on_impossible() -> None:
 
     with pytest.raises(
         ValueError,
-        match="Single iteration gas cost exceeds gas_limit "
-        "or compute_gas_limit.",
+        match="Single iteration gas cost is greater than gas constraints.",
     ):
         list(
             bytecode.tx_iterations_by_total_iteration_count(
@@ -334,3 +341,90 @@ def test_tx_iterations_by_total_iteration_count_raises_on_impossible() -> None:
                 total_iterations=10,
             )
         )
+
+
+class CustomAmsterdam(Amsterdam):
+    """Amsterdam fork with a configurable transaction gas limit cap."""
+
+    tx_gas_limit_cap: int | None = 1_000_000
+
+    @classmethod
+    def with_tx_gas_limit_cap(cls, tx_gas_limit_cap: int | None) -> Type[Self]:
+        """Return a new fork with the given transaction gas limit cap."""
+        return type(
+            cls.__name__, (cls,), {"tx_gas_limit_cap": tx_gas_limit_cap}
+        )
+
+    @classmethod
+    def transaction_gas_limit_cap(cls) -> int | None:
+        """Return the transaction gas limit cap."""
+        return cls.tx_gas_limit_cap
+
+
+def test_tx_gas_limit_includes_state_gas_reservoir() -> None:
+    """
+    Under EIP-8037 ``include_state_gas_reservoir`` adds the per-iteration
+    state gas to the transaction gas limit; otherwise the limit is the
+    regular gas plus the 63/64 subcall reserve only.
+    """
+    # SSTORE of a fresh slot from zero charges STORAGE_SET state gas.
+    bytecode = IteratingBytecode(iterating=Op.SSTORE(0, 1))
+
+    regular = bytecode.tx_regular_gas_cost_by_iteration_count(
+        fork=Amsterdam, iteration_count=5
+    )
+    state = bytecode.state_gas_cost_by_iteration_count(
+        fork=Amsterdam, iteration_count=5
+    )
+    reserve = bytecode.iterating_subcall_reserve(fork=Amsterdam)
+    assert state > 0, "SSTORE-set should charge state gas under EIP-8037"
+
+    without_state = bytecode.tx_gas_limit_by_iteration_count(
+        fork=Amsterdam,
+        iteration_count=5,
+        include_state_gas_reservoir=False,
+    )
+    with_state = bytecode.tx_gas_limit_by_iteration_count(
+        fork=Amsterdam,
+        iteration_count=5,
+        include_state_gas_reservoir=True,
+    )
+
+    assert without_state == regular + reserve
+    assert with_state == regular + reserve + state
+
+
+def test_state_reservoir_lets_tx_gas_exceed_regular_gas_limit_cap() -> None:
+    """
+    Under EIP-8037 the EIP-7825 transaction gas limit cap binds regular gas
+    only. A state-heavy transaction can therefore pack more iterations than
+    that cap alone would allow, because its state gas draws from a separate
+    reservoir and the combined ``tx.gas`` grows past the cap.
+    """
+    cap = 5_000_000
+    fork = CustomAmsterdam.with_tx_gas_limit_cap(cap)
+    bytecode = IteratingBytecode(iterating=Op.SSTORE(0, 1))
+
+    total_iterations = 200
+    counts = list(
+        bytecode.tx_iterations_by_total_iteration_count(
+            fork=fork, total_iterations=total_iterations
+        )
+    )
+
+    # Regular gas stays under the cap, so all iterations fit in one tx even
+    # though their combined (regular + state) gas far exceeds the cap.
+    assert counts == [total_iterations]
+
+    regular = bytecode.tx_regular_gas_cost_by_iteration_count(
+        fork=fork, iteration_count=total_iterations
+    )
+    combined = bytecode.tx_gas_limit_by_iteration_count(
+        fork=fork,
+        iteration_count=total_iterations,
+        include_state_gas_reservoir=True,
+    )
+    assert regular <= cap, "regular gas must respect the EIP-7825 cap"
+    assert combined > cap, (
+        "combined tx.gas exceeds the cap via state reservoir"
+    )

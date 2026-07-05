@@ -691,7 +691,6 @@ def test_sstore_bloated(
         setup=setup,
         iterating=loop,
         cleanup=Op.STOP,
-        iterating_state_gas=loop.state_cost(fork),
     )
 
     authority = pre.stub_eoa(token_name)

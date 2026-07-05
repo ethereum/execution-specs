@@ -219,28 +219,19 @@ def build_delegated_storage_setup(
         )
         authority_nonce += 1
 
-        # Calculate max slots per transaction based on gas cost
-        iteration_cost = initializer_code.tx_gas_limit_by_iteration_count(
-            fork=fork,
-            iteration_count=1,
-            start_iteration=1,
-            calldata=initializer_calldata_generator,
-        )
-        iteration_count = max(1, tx_gas_limit // iteration_cost)
-
-        init_txs: list[Transaction] = []
-        for start in range(1, num_target_slots + 1, iteration_count):
-            chunk_size = min(iteration_count, num_target_slots - start + 1)
-            init_txs.extend(
-                initializer_code.transactions_by_total_iteration_count(
-                    fork=fork,
-                    total_iterations=chunk_size,
-                    sender=pre.fund_eoa(),
-                    to=authority,
-                    start_iteration=start,
-                    calldata=initializer_calldata_generator,
-                )
+        # transactions_by_total_iteration_count splits the slots across
+        # transactions capped by the fork gas limit, so no manual chunking
+        # is required.
+        init_txs: list[Transaction] = list(
+            initializer_code.transactions_by_total_iteration_count(
+                fork=fork,
+                total_iterations=num_target_slots,
+                sender=pre.fund_eoa(),
+                to=authority,
+                start_iteration=1,
+                calldata=initializer_calldata_generator,
             )
+        )
 
         # Pack init transactions into blocks
         blocks.extend(pack_transactions_into_blocks(init_txs, tx_gas_limit))
@@ -424,27 +415,18 @@ def build_sequential_storage_init(
             sequential_initializer_calldata_generator,
             offset=r.offset,
         )
-        iteration_cost = initializer_code.tx_gas_limit_by_iteration_count(
-            fork=fork,
-            iteration_count=1,
-            start_iteration=max(1, r.start_slot),
-            calldata=calldata_gen,
-        )
-        iteration_count = max(1, tx_gas_limit // iteration_cost)
-
-        end_slot = r.start_slot + r.num_slots
-        for start in range(r.start_slot, end_slot, iteration_count):
-            chunk = min(iteration_count, end_slot - start)
-            init_txs.extend(
-                initializer_code.transactions_by_total_iteration_count(
-                    fork=fork,
-                    total_iterations=chunk,
-                    sender=pre.fund_eoa(),
-                    to=authority,
-                    start_iteration=start,
-                    calldata=calldata_gen,
-                )
+        # transactions_by_total_iteration_count splits the range across
+        # transactions capped by the fork gas limit; no manual chunking needed.
+        init_txs.extend(
+            initializer_code.transactions_by_total_iteration_count(
+                fork=fork,
+                total_iterations=r.num_slots,
+                sender=pre.fund_eoa(),
+                to=authority,
+                start_iteration=r.start_slot,
+                calldata=calldata_gen,
             )
+        )
 
     blocks: list[Block] = [Block(txs=[auth_tx])]
     blocks.extend(pack_transactions_into_blocks(init_txs, tx_gas_limit))

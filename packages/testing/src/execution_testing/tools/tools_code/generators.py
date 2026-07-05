@@ -770,7 +770,47 @@ class SequentialAddressLayout(Bytecode):
 class TransactionWithCost(Transaction):
     """Transaction object that can include the expected gas to be consumed."""
 
-    gas_cost: int = Field(..., exclude=True)
+    regular_cost: int = Field(..., exclude=True)
+    state_cost: int = Field(..., exclude=True)
+
+    @property
+    def gas_cost(self) -> int:
+        """
+        Combined gas across all dimensions (regular + state), i.e. the value
+        the receipt's ``cumulativeGasUsed`` reflects. Use for
+        ``expected_benchmark_gas_used``.
+        """
+        return self.regular_cost + self.state_cost
+
+    @property
+    def block_gas_cost(self) -> int:
+        """
+        Return the gas this transaction contributes to the block-header gas.
+
+        The block-header gas is the maximum across the independent gas
+        dimensions (EIP-8037: ``max(regular, state)``), not their sum, so this
+        is the right per-transaction quantity for block-fitting decisions
+        (e.g. how many transactions fit under a gas target). Written as a
+        ``max`` over the dimensions so it keeps holding if further gas
+        dimensions are added.
+
+        Summing this over a block is exact only when a single dimension
+        dominates every transaction uniformly (the common benchmark shape);
+        for a mixed block the exact occupancy is
+        ``max(sum(regular_cost), sum(state_cost))``.
+        """
+        return max(self.regular_cost, self.state_cost)
+
+
+@dataclass(kw_only=True, slots=True)
+class GasCaps:
+    """
+    Small helper class to represent multidimensional gas caps.
+    """
+
+    regular: int
+    state: int | None
+    gas_limit: int | None
 
 
 class IteratingBytecode(Bytecode):
@@ -806,10 +846,6 @@ class IteratingBytecode(Bytecode):
     """
     cleanup: Bytecode
     """Bytecode executed once at the end after all iterations complete."""
-    iterating_state_gas: int
-    """
-    State-gas portion (EIP-8037) charged per loop iteration.
-    """
 
     def __new__(
         cls,
@@ -819,7 +855,6 @@ class IteratingBytecode(Bytecode):
         cleanup: Bytecode | None = None,
         warm_iterating: Bytecode | None = None,
         iterating_subcall: Bytecode | int | None = None,
-        iterating_state_gas: int = 0,
     ) -> Self:
         """
         Create a new iterating bytecode.
@@ -838,8 +873,6 @@ class IteratingBytecode(Bytecode):
                 calculation. The value can also be an integer, in which case it
                 represents the gas cost of the subcall (e.g. the subcall is a
                 precompiled contract).
-            iterating_state_gas: EIP-8037 state-gas portion charged
-                per iteration, defaults to 0.
 
         Returns:
             A new IteratingBytecode instance.
@@ -867,7 +900,6 @@ class IteratingBytecode(Bytecode):
         if cleanup is None:
             cleanup = Bytecode()
         instance.cleanup = cleanup
-        instance.iterating_state_gas = iterating_state_gas
         return instance
 
     def iterating_subcall_gas_cost(
@@ -876,7 +908,15 @@ class IteratingBytecode(Bytecode):
         """Return the gas cost of the iterating subcall."""
         if isinstance(self.iterating_subcall, int):
             return self.iterating_subcall
-        return self.iterating_subcall.gas_cost(fork=fork)
+        return self.iterating_subcall.regular_cost(fork=fork)
+
+    def iterating_subcall_state_gas_cost(
+        self, *, fork: Type[ForkOpcodeInterface]
+    ) -> int:
+        """Return the gas cost of the iterating subcall."""
+        if isinstance(self.iterating_subcall, int):
+            return 0
+        return self.iterating_subcall.state_cost(fork=fork)
 
     def iterating_subcall_reserve(
         self, *, fork: Type[ForkOpcodeInterface]
@@ -890,16 +930,16 @@ class IteratingBytecode(Bytecode):
             iterating_subcall_gas_cost * 64 // 63
         ) - iterating_subcall_gas_cost
 
-    def gas_cost_by_iteration_count(
+    def regular_gas_cost_by_iteration_count(
         self, *, fork: Type[ForkOpcodeInterface], iteration_count: int
     ) -> int:
         """Return the cost of iterating through the bytecode N times."""
         loop_gas_cost = 0
         if iteration_count > 0:
             # Cold cost is just charged for the first iteration
-            loop_gas_cost = self.iterating.gas_cost(fork=fork)
+            loop_gas_cost = self.iterating.regular_cost(fork=fork)
             # Warm cost is charged for all iterations except the first
-            loop_gas_cost += self.warm_iterating.gas_cost(fork=fork) * (
+            loop_gas_cost += self.warm_iterating.regular_cost(fork=fork) * (
                 iteration_count - 1
             )
             # Subcall cost is charged for all iterations.
@@ -907,9 +947,32 @@ class IteratingBytecode(Bytecode):
                 self.iterating_subcall_gas_cost(fork=fork) * iteration_count
             )
         return (
-            self.setup.gas_cost(fork=fork)
+            self.setup.regular_cost(fork=fork)
             + loop_gas_cost
-            + self.cleanup.gas_cost(fork=fork)
+            + self.cleanup.regular_cost(fork=fork)
+        )
+
+    def state_gas_cost_by_iteration_count(
+        self, *, fork: Type[ForkOpcodeInterface], iteration_count: int
+    ) -> int:
+        """Return the cost of iterating through the bytecode N times."""
+        loop_gas_cost = 0
+        if iteration_count > 0:
+            # Cold cost is just charged for the first iteration
+            loop_gas_cost = self.iterating.state_cost(fork=fork)
+            # Warm cost is charged for all iterations except the first
+            loop_gas_cost += self.warm_iterating.state_cost(fork=fork) * (
+                iteration_count - 1
+            )
+            # Subcall cost is charged for all iterations.
+            loop_gas_cost += (
+                self.iterating_subcall_state_gas_cost(fork=fork)
+                * iteration_count
+            )
+        return (
+            self.setup.state_cost(fork=fork)
+            + loop_gas_cost
+            + self.cleanup.state_cost(fork=fork)
         )
 
     def with_fixed_iteration_count(
@@ -930,7 +993,7 @@ class IteratingBytecode(Bytecode):
     # Methods to calculate transactions that call a contract containing the
     # iterating bytecode.
 
-    def tx_gas_cost_by_iteration_count(
+    def tx_regular_gas_cost_by_iteration_count(
         self,
         *,
         fork: Fork,
@@ -967,7 +1030,7 @@ class IteratingBytecode(Bytecode):
                     iteration_count=iteration_count,
                     start_iteration=start_iteration,
                 )
-        return self.gas_cost_by_iteration_count(
+        return self.regular_gas_cost_by_iteration_count(
             fork=fork, iteration_count=iteration_count
         ) + intrinsic_gas_cost_calc(**intrinsic_cost_kwargs)
 
@@ -977,6 +1040,7 @@ class IteratingBytecode(Bytecode):
         fork: Fork,
         iteration_count: int,
         start_iteration: int = 0,
+        include_state_gas_reservoir: bool,
         **intrinsic_cost_kwargs: Any,
     ) -> int:
         """
@@ -986,86 +1050,87 @@ class IteratingBytecode(Bytecode):
         The gas limit is calculated by adding the required extra gas for the
         last iteration due to the 63/64 rule.
         """
-        return self.tx_gas_cost_by_iteration_count(
-            fork=fork,
-            iteration_count=iteration_count,
-            start_iteration=start_iteration,
-            **intrinsic_cost_kwargs,
-        ) + self.iterating_subcall_reserve(fork=fork)
-
-    def _iterations_fit_within_gas_limits(
-        self,
-        *,
-        fork: Fork,
-        iteration_count: int,
-        start_iteration: int,
-        gas_limit: int | None,
-        compute_gas_limit: int | None = None,
-        **intrinsic_cost_kwargs: Any,
-    ) -> bool:
-        """
-        Check whether iteration_count iterations fit within the gas limits.
-
-        Returns True when both:
-          - The combined regular+state gas (i.e. tx.gas) is <=
-            gas_limit (block-budget constraint). A `gas_limit` of None
-            means the combined gas is unbounded, which under EIP-8037 lets
-            the state-gas reservoir grow past the EIP-7825 cap (that cap
-            only applies to regular gas, see `compute_gas_limit`).
-          - The regular gas, computed as
-            combined - iteration_count * iterating_state_gas,
-            respects the compute_gas_limit.
-        """
-        if iteration_count <= 0:
-            return True
-        combined = self.tx_gas_limit_by_iteration_count(
+        tx_gas_limit = self.tx_regular_gas_cost_by_iteration_count(
             fork=fork,
             iteration_count=iteration_count,
             start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
         )
-        if gas_limit is not None and combined > gas_limit:
-            return False
-        if compute_gas_limit is not None:
-            compute = combined - iteration_count * self.iterating_state_gas
-            if compute > compute_gas_limit:
-                return False
-        return True
+        tx_gas_limit += self.iterating_subcall_reserve(fork=fork)
+        if include_state_gas_reservoir:
+            tx_gas_limit += self.state_gas_cost_by_iteration_count(
+                fork=fork, iteration_count=iteration_count
+            )
+        return tx_gas_limit
+
+    def _iteration_count_exceeds_caps(
+        self,
+        fork: Fork,
+        iteration_count: int,
+        caps: GasCaps,
+        start_iteration: int,
+        **intrinsic_cost_kwargs: Any,
+    ) -> bool:
+        """
+        Evaluate whether the iteration count exceeds any of the constraints.
+        """
+        tx_regular_gas_cost = self.tx_regular_gas_cost_by_iteration_count(
+            fork=fork,
+            iteration_count=iteration_count,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        )
+
+        if tx_regular_gas_cost > caps.regular:
+            return True
+
+        if caps.gas_limit is not None and (
+            self.iterating_subcall_reserve(fork=fork) + tx_regular_gas_cost
+            > caps.gas_limit
+        ):
+            return True
+
+        if caps.state is not None and (
+            self.state_gas_cost_by_iteration_count(
+                fork=fork, iteration_count=iteration_count
+            )
+            > caps.state
+        ):
+            return True
+        return False
 
     def _binary_search_iterations(
         self,
         *,
         fork: Fork,
-        gas_limit: int | None,
+        caps: GasCaps,
         start_iteration: int,
-        compute_gas_limit: int | None = None,
         **intrinsic_cost_kwargs: Any,
-    ) -> Tuple[int, int]:
+    ) -> Tuple[int, int, int]:
         """
-        Binary search for the maximum iterations that fit within a gas limit.
+        Binary search for the maximum iterations that fit within the regular
+        gas, state gas and gas limit cap constraints.
         """
-        fits_kwargs: Dict[str, Any] = {
-            "fork": fork,
-            "start_iteration": start_iteration,
-            "gas_limit": gas_limit,
-            "compute_gas_limit": compute_gas_limit,
+        if self._iteration_count_exceeds_caps(
+            fork=fork,
+            iteration_count=1,
+            caps=caps,
+            start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
-        }
-
-        if not self._iterations_fit_within_gas_limits(
-            iteration_count=1, **fits_kwargs
         ):
             raise ValueError(
-                "Single iteration gas cost exceeds gas_limit "
-                "or compute_gas_limit."
+                "Single iteration gas cost is greater than gas constraints."
             )
-
         low = 1
         high = 2
 
         # Exponential search to find upper bound
-        while self._iterations_fit_within_gas_limits(
-            iteration_count=high, **fits_kwargs
+        while not self._iteration_count_exceeds_caps(
+            fork=fork,
+            iteration_count=high,
+            caps=caps,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
         ):
             low = high
             high *= 2
@@ -1073,21 +1138,35 @@ class IteratingBytecode(Bytecode):
         # Binary search for exact fit
         while low < high:
             mid = (low + high) // 2
-            if not self._iterations_fit_within_gas_limits(
-                iteration_count=mid, **fits_kwargs
+
+            if self._iteration_count_exceeds_caps(
+                fork=fork,
+                iteration_count=mid,
+                caps=caps,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
             ):
                 high = mid
             else:
                 low = mid + 1
 
         best_iterations = low - 1
-        best_iterations_gas = self.tx_gas_limit_by_iteration_count(
-            fork=fork,
-            iteration_count=best_iterations,
-            start_iteration=start_iteration,
-            **intrinsic_cost_kwargs,
+        best_iterations_regular_gas = (
+            self.tx_regular_gas_cost_by_iteration_count(
+                fork=fork,
+                iteration_count=best_iterations,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
         )
-        return best_iterations, best_iterations_gas
+        best_iterations_state_gas = self.state_gas_cost_by_iteration_count(
+            fork=fork, iteration_count=best_iterations
+        )
+        return (
+            best_iterations,
+            best_iterations_regular_gas,
+            best_iterations_state_gas,
+        )
 
     def tx_iterations_by_gas_limit(
         self,
@@ -1112,27 +1191,41 @@ class IteratingBytecode(Bytecode):
         gas_limit_cap = fork.transaction_gas_limit_cap()
         remaining_gas = gas_limit
 
-        while remaining_gas >= self.tx_gas_limit_by_iteration_count(
+        while not self._iteration_count_exceeds_caps(
             fork=fork,
             iteration_count=1,
+            caps=GasCaps(
+                regular=remaining_gas,
+                state=remaining_gas,
+                gas_limit=gas_limit_cap,
+            ),
             start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
         ):
-            best_iterations, best_iterations_gas = (
-                self._binary_search_iterations(
-                    fork=fork,
-                    gas_limit=remaining_gas,
-                    compute_gas_limit=gas_limit_cap,
-                    start_iteration=start_iteration,
-                    **intrinsic_cost_kwargs,
-                )
+            # Binary search for the maximum number of iterations that fits
+            # within remaining_gas
+            (
+                best_iterations,
+                best_iterations_regular_gas,
+                best_iterations_state_gas,
+            ) = self._binary_search_iterations(
+                fork=fork,
+                caps=GasCaps(
+                    regular=remaining_gas,
+                    state=remaining_gas,
+                    gas_limit=gas_limit_cap,
+                ),
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
             )
             yield best_iterations
-            remaining_gas -= best_iterations_gas
+            remaining_gas -= max(
+                best_iterations_regular_gas, best_iterations_state_gas
+            )
             start_iteration += best_iterations
 
+    @staticmethod
     def _intrinsic_cost_is_constant(
-        self,
         intrinsic_cost_kwargs: Dict[str, Any],
     ) -> bool:
         """If none of the kwarg values is callable, return True."""
@@ -1161,12 +1254,6 @@ class IteratingBytecode(Bytecode):
             # No limit, all iterations fit in a single transaction.
             yield total_iterations
             return
-        # Under EIP-8037 the EIP-7825 cap is a regular-gas limit only; state
-        # gas is bounded separately by `tx.gas`, so leave the combined gas
-        # uncapped and let the regular-gas check (compute_gas_limit) bind.
-        combined_gas_limit = (
-            None if fork.state_gas_reservoir_enabled() else gas_limit_cap
-        )
         remaining_iterations = total_iterations
         best_iterations: int | None = None
         constant_intrinsic_gas_cost = self._intrinsic_cost_is_constant(
@@ -1175,10 +1262,13 @@ class IteratingBytecode(Bytecode):
 
         while remaining_iterations > 0:
             if best_iterations is None or not constant_intrinsic_gas_cost:
-                best_iterations, _ = self._binary_search_iterations(
+                best_iterations, _, _ = self._binary_search_iterations(
                     fork=fork,
-                    gas_limit=combined_gas_limit,
-                    compute_gas_limit=gas_limit_cap,
+                    caps=GasCaps(
+                        regular=gas_limit_cap,
+                        state=None,
+                        gas_limit=gas_limit_cap,
+                    ),
                     start_iteration=start_iteration,
                     **intrinsic_cost_kwargs,
                 )
@@ -1236,13 +1326,17 @@ class IteratingBytecode(Bytecode):
                 fork=fork,
                 iteration_count=iteration_count,
                 start_iteration=start_iteration,
+                include_state_gas_reservoir=True,
                 **intrinsic_cost_kwargs,
             )
-            tx_gas_cost = self.tx_gas_cost_by_iteration_count(
+            tx_regular_cost = self.tx_regular_gas_cost_by_iteration_count(
                 fork=fork,
                 iteration_count=iteration_count,
                 start_iteration=start_iteration,
                 **intrinsic_cost_kwargs,
+            )
+            tx_state_cost = self.state_gas_cost_by_iteration_count(
+                fork=fork, iteration_count=iteration_count
             )
             current_tx_kwargs = tx_kwargs.copy()
 
@@ -1256,7 +1350,8 @@ class IteratingBytecode(Bytecode):
                 to=to,
                 gas_limit=tx_gas_limit + tx_gas_limit_delta,
                 sender=sender,
-                gas_cost=tx_gas_cost,
+                regular_cost=tx_regular_cost,
+                state_cost=tx_state_cost,
                 **current_tx_kwargs,
             )
             start_iteration += iteration_count
@@ -1304,13 +1399,17 @@ class IteratingBytecode(Bytecode):
                 fork=fork,
                 iteration_count=iteration_count,
                 start_iteration=start_iteration,
+                include_state_gas_reservoir=True,
                 **intrinsic_cost_kwargs,
             )
-            tx_gas_cost = self.tx_gas_cost_by_iteration_count(
+            tx_regular_cost = self.tx_regular_gas_cost_by_iteration_count(
                 fork=fork,
                 iteration_count=iteration_count,
                 start_iteration=start_iteration,
                 **intrinsic_cost_kwargs,
+            )
+            tx_state_cost = self.state_gas_cost_by_iteration_count(
+                fork=fork, iteration_count=iteration_count
             )
             current_tx_kwargs = tx_kwargs.copy()
 
@@ -1324,7 +1423,8 @@ class IteratingBytecode(Bytecode):
                 to=to,
                 gas_limit=tx_gas_limit + tx_gas_limit_delta,
                 sender=sender,
-                gas_cost=tx_gas_cost,
+                regular_cost=tx_regular_cost,
+                state_cost=tx_state_cost,
                 **current_tx_kwargs,
             )
             start_iteration += iteration_count
@@ -1390,7 +1490,7 @@ class FixedIterationsBytecode(IteratingBytecode):
 
     def gas_cost(self, fork: Type[ForkOpcodeInterface]) -> int:
         """Return the cost of iterating through the bytecode N times."""
-        return self.gas_cost_by_iteration_count(
+        return self.regular_gas_cost_by_iteration_count(
             fork=fork,
             iteration_count=self.iteration_count,
         )
