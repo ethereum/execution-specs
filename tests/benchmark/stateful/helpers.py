@@ -16,6 +16,7 @@ from execution_testing import (
     Hash,
     IteratingBytecode,
     Op,
+    RecipientType,
     Transaction,
 )
 from execution_testing.base_types.base_types import Number
@@ -230,6 +231,7 @@ def build_delegated_storage_setup(
                 to=authority,
                 start_iteration=1,
                 calldata=initializer_calldata_generator,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 
@@ -425,6 +427,7 @@ def build_sequential_storage_init(
                 to=authority,
                 start_iteration=r.start_slot,
                 calldata=calldata_gen,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 

@@ -23,6 +23,7 @@ from execution_testing import (
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
+    RecipientType,
     TestPhaseManager,
     Transaction,
     While,
@@ -288,6 +289,7 @@ def test_storage_access_cold(
             fork=fork,
             gas_limit=gas_benchmark_value,
             calldata=calldata_generator,
+            recipient_type=RecipientType.DELEGATION_7702,
         )
     )
 
@@ -323,6 +325,7 @@ def test_storage_access_cold(
                     to=authority,
                     start_iteration=1,
                     calldata=calldata_generator,
+                    recipient_type=RecipientType.DELEGATION_7702,
                 )
             )
 
@@ -358,6 +361,7 @@ def test_storage_access_cold(
                 to=authority,
                 calldata=calldata_generator,
                 start_iteration=1,
+                recipient_type=RecipientType.DELEGATION_7702,
                 tx_gas_limit_delta=tx_gas_limit_delta,
             )
         )
