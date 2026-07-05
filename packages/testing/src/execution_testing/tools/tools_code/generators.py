@@ -813,6 +813,15 @@ class GasCaps:
     gas_limit: int | None
 
 
+TOP_FRAME_COST_KWARGS = ("contract_creation", "sends_value", "recipient_type")
+"""
+Keyword arguments that describe the transaction for gas-cost calculation but
+are not ``Transaction`` fields. They feed the intrinsic and top-frame gas
+calculators (e.g. ``recipient_type=RecipientType.DELEGATION_7702``) and must
+be stripped before constructing the ``Transaction``.
+"""
+
+
 class IteratingBytecode(Bytecode):
     """
     Bytecode composed of distinct execution phases: setup, iteration, and
@@ -1030,9 +1039,20 @@ class IteratingBytecode(Bytecode):
                     iteration_count=iteration_count,
                     start_iteration=start_iteration,
                 )
-        return self.regular_gas_cost_by_iteration_count(
-            fork=fork, iteration_count=iteration_count
-        ) + intrinsic_gas_cost_calc(**intrinsic_cost_kwargs)
+        top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+            **{
+                key: intrinsic_cost_kwargs[key]
+                for key in TOP_FRAME_COST_KWARGS
+                if key in intrinsic_cost_kwargs
+            }
+        )
+        return (
+            self.regular_gas_cost_by_iteration_count(
+                fork=fork, iteration_count=iteration_count
+            )
+            + intrinsic_gas_cost_calc(**intrinsic_cost_kwargs)
+            + top_frame_gas
+        )
 
     def tx_gas_limit_by_iteration_count(
         self,
@@ -1316,6 +1336,8 @@ class IteratingBytecode(Bytecode):
             tx_kwargs["data"] = tx_kwargs.pop("calldata")
         if "return_cost_deducted_prior_execution" in tx_kwargs:
             tx_kwargs.pop("return_cost_deducted_prior_execution")
+        for cost_only_key in TOP_FRAME_COST_KWARGS:
+            tx_kwargs.pop(cost_only_key, None)
         for iteration_count in self.tx_iterations_by_gas_limit(
             fork=fork,
             gas_limit=gas_limit,
@@ -1389,6 +1411,8 @@ class IteratingBytecode(Bytecode):
             tx_kwargs["data"] = tx_kwargs.pop("calldata")
         if "return_cost_deducted_prior_execution" in tx_kwargs:
             tx_kwargs.pop("return_cost_deducted_prior_execution")
+        for cost_only_key in TOP_FRAME_COST_KWARGS:
+            tx_kwargs.pop(cost_only_key, None)
         for iteration_count in self.tx_iterations_by_total_iteration_count(
             fork=fork,
             total_iterations=total_iterations,
