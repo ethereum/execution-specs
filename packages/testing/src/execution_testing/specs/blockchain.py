@@ -473,6 +473,17 @@ class BuiltBlock(CamelModel):
             return int(self.result.gas_used)
         return int(cumulative_gas_used)
 
+    def block_gas_used(self) -> int:
+        """
+        Return the block-header gas used.
+
+        Under EIP-8037 this is the maximum across the independent gas
+        dimensions (regular vs state), i.e. the value that counts against the
+        block gas limit, as opposed to ``cumulative_gas_used`` which is their
+        combined sum.
+        """
+        return int(self.result.gas_used)
+
     def get_fixture_block(
         self, *, include_receipts: bool = True
     ) -> FixtureBlock | InvalidFixtureBlock:
@@ -1117,6 +1128,7 @@ class BlockchainTest(BaseTest):
         head = genesis.header.block_hash
         invalid_blocks = 0
         benchmark_gas_used: int | None = None
+        benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
         for block in self.blocks:
             # This is the most common case, the RLP needs to be constructed
@@ -1132,6 +1144,7 @@ class BlockchainTest(BaseTest):
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = built_block.cumulative_gas_used()
+                benchmark_block_gas_used = built_block.block_gas_used()
                 benchmark_opcode_count = built_block.result.opcode_count
             if built_block.result.receipts:
                 self.validate_receipt_status(
@@ -1197,6 +1210,7 @@ class BlockchainTest(BaseTest):
             fixture=fixture,
             gas_optimization=None,
             benchmark_gas_used=benchmark_gas_used,
+            benchmark_block_gas_used=benchmark_block_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
@@ -1219,6 +1233,7 @@ class BlockchainTest(BaseTest):
         head_hash = genesis.header.block_hash
         invalid_blocks = 0
         benchmark_gas_used: int | None = None
+        benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
         for block in self.blocks:
             built_block = self.generate_block_data(
@@ -1231,6 +1246,7 @@ class BlockchainTest(BaseTest):
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = built_block.cumulative_gas_used()
+                benchmark_block_gas_used = built_block.block_gas_used()
                 benchmark_opcode_count = built_block.result.opcode_count
             if built_block.result.receipts:
                 self.validate_receipt_status(
@@ -1343,6 +1359,7 @@ class BlockchainTest(BaseTest):
             fixture=fixture,
             gas_optimization=None,
             benchmark_gas_used=benchmark_gas_used,
+            benchmark_block_gas_used=benchmark_block_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
@@ -1476,6 +1493,7 @@ class BlockchainTest(BaseTest):
         execution_payloads: List[FixtureEngineNewPayload] = []
         head_hash = start_block_hash
         benchmark_gas_used: int | None = None
+        benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
         # Alloc is not authoritative in stateful mode; pass self.pre as a
         # placeholder — ClientBackend ignores it.
@@ -1500,6 +1518,7 @@ class BlockchainTest(BaseTest):
                 execution_payloads.append(payload)
                 if self.operation_mode == OpMode.BENCHMARKING:
                     benchmark_gas_used = built_block.cumulative_gas_used()
+                    benchmark_block_gas_used = built_block.block_gas_used()
                     benchmark_opcode_count = built_block.result.opcode_count
             # Overwrite the block_hash apply_new_parent just recorded —
             # it's the FixtureHeader-recomputed RLP hash, which diverges
@@ -1538,6 +1557,7 @@ class BlockchainTest(BaseTest):
             fixture=fixture,
             gas_optimization=None,
             benchmark_gas_used=benchmark_gas_used,
+            benchmark_block_gas_used=benchmark_block_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
