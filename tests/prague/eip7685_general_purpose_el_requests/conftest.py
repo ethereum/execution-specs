@@ -4,15 +4,12 @@ from typing import List, SupportsBytes
 
 import pytest
 from execution_testing import (
-    Alloc,
     Block,
     BlockException,
     Bytes,
     EngineAPIError,
     Header,
-    Requests,
     SystemContractInteractionBase,
-    SystemContractRequest,
 )
 
 from ...common.system_contract_request_fixtures import (
@@ -92,8 +89,7 @@ def engine_api_error_code(
 
 @pytest.fixture
 def override_blocks(
-    pre: Alloc,
-    requests: List[SystemContractInteractionBase],
+    blocks: List[Block],  # noqa: F811
     block_body_override_requests: List[Bytes | SupportsBytes] | None,
     correct_requests_hash_in_header: bool,
     exception: BlockException | None,
@@ -102,25 +98,20 @@ def override_blocks(
     """
     Single block whose request body / header can be overridden, used by the
     negative tests to inject invalid requests and expect a block exception.
+
+    The block's transactions and expected requests hash are taken from the
+    shared `blocks` fixture; only the block body requests / header are
+    overridden here.
     """
-    valid_requests_list: List[SystemContractRequest] = []
-    # Every request here is constructed with a sufficient value, so no fee
-    # filter is needed: each interaction returns all of its `valid` requests.
-    prepared = [r.update_pre(pre) for r in requests]
-    for r in prepared:
-        valid_requests_list += r.valid_requests()
-
-    valid_requests = Requests(*valid_requests_list)
-
+    assert len(blocks) == 2
+    requests_block = blocks[0]
     rlp_modifier: Header | None = None
     if correct_requests_hash_in_header:
-        rlp_modifier = Header(
-            requests_hash=valid_requests,
-        )
+        rlp_modifier = requests_block.header_verify
     return [
         Block(
-            txs=sum((r.transactions() for r in prepared), []),
-            header_verify=Header(requests_hash=valid_requests),
+            txs=requests_block.txs,
+            header_verify=requests_block.header_verify,
             requests=block_body_override_requests,
             exception=exception,
             rlp_modifier=rlp_modifier,

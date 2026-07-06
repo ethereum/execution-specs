@@ -12,6 +12,7 @@ for with its own rules.
 """
 
 from collections import defaultdict
+from copy import deepcopy
 from itertools import zip_longest
 from typing import Dict, List, Type
 
@@ -19,6 +20,7 @@ import pytest
 from execution_testing import (
     Alloc,
     Block,
+    BlockException,
     FeeSystemContractRequest,
     Fork,
     Header,
@@ -185,5 +187,37 @@ def blocks(
         Block(
             header_verify=Header(requests_hash=Requests()),
             timestamp=timestamp,
+        )
+    ]
+
+
+@pytest.fixture
+def override_blocks(
+    blocks: List[Block],
+    block_body_override_requests: List[SystemContractRequest] | None,
+    exception: BlockException | None,
+) -> List[Block]:
+    """
+    Return a single block for negative tests where the requests in the block
+    body do not match the requests that actually happened in the block's
+    transactions.
+
+    The transactions and expected requests hash are taken from the shared
+    `blocks` fixture; only the block body's requests list is overridden with
+    `block_body_override_requests` and the block is expected to fail with
+    `exception`.
+    """
+    assert len(blocks) == 2
+    requests_block = blocks[0]
+    return [
+        Block(
+            txs=requests_block.txs,
+            header_verify=requests_block.header_verify,
+            requests=(
+                Requests(*block_body_override_requests).requests_list
+                if block_body_override_requests is not None
+                else None
+            ),
+            exception=exception,
         )
     ]
