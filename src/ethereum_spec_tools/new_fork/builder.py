@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from contextlib import ExitStack, chdir
 from dataclasses import dataclass, field
 from pathlib import Path
-from shutil import copytree, rmtree
+from shutil import copytree, ignore_patterns, rmtree
 from tempfile import TemporaryDirectory
 from typing import Final, NamedTuple
 
@@ -444,17 +444,19 @@ class ForkBuilder:
         fork_directory.rename(self.new_fork_path)
 
     def _copy(self, fork_directory: Path) -> None:
-        # TODO: Filter out __pycache__ and similar files that shouldn't be
-        #       copied.
         template_path = self.template_fork.path
         if template_path is None:
             raise Exception(
                 f"fork `{self.template_fork.short_name}` has no path"
             )
 
+        # Skip `__pycache__`: copying compiled bytecode into a new fork is
+        # pointless, and its transient `.pyc.<id>` files race with concurrent
+        # bytecode writes, breaking `copytree` under parallel test runs.
         copytree(
             template_path,
             fork_directory,
+            ignore=ignore_patterns("__pycache__", "*.pyc"),
             dirs_exist_ok=True,
         )
 
