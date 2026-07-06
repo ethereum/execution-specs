@@ -20,12 +20,14 @@ def _write_group(
     pre: Dict[int, Account],
     *,
     environment: Environment,
+    group_salt: str | None = None,
 ) -> None:
     """Write a single fine-grained group file, as Phase 1 would."""
     builder = PreAllocGroupBuilder(
         test_ids=[test_id],
         environment=environment,
         fork=Prague,
+        group_salt=group_salt,
         pre=Alloc(
             {Address(address): account for address, account in pre.items()}
         ),
@@ -154,6 +156,78 @@ def test_pack_separates_distinct_environments(tmp_path: Path) -> None:
     pack_pre_alloc_groups(tmp_path)
 
     assert len(_packed(tmp_path)) == 2
+
+
+def test_pack_respects_group_salt(tmp_path: Path) -> None:
+    """
+    A group salted via the `pre_alloc_group` marker never merges with an
+    unsalted group or a group carrying a different salt.
+    """
+    env = Environment()
+    _write_group(
+        tmp_path,
+        "0x01",
+        "tests/a.py::test_a",
+        {0x1000: Account(balance=1)},
+        environment=env,
+    )
+    _write_group(
+        tmp_path,
+        "0x02",
+        "tests/b.py::test_b",
+        {0x2000: Account(balance=2)},
+        environment=env,
+        group_salt="isolated",
+    )
+    _write_group(
+        tmp_path,
+        "0x03",
+        "tests/c.py::test_c",
+        {0x3000: Account(balance=3)},
+        environment=env,
+        group_salt="other",
+    )
+
+    pack_pre_alloc_groups(tmp_path)
+
+    packed = _packed(tmp_path)
+    assert len(packed) == 3
+    all_ids = sorted(
+        tid for group in packed.values() for tid in group["testIds"]
+    )
+    assert all_ids == [
+        "tests/a.py::test_a",
+        "tests/b.py::test_b",
+        "tests/c.py::test_c",
+    ]
+
+
+def test_pack_merges_groups_with_matching_salt(tmp_path: Path) -> None:
+    """Groups sharing the same explicit salt still pack together."""
+    env = Environment()
+    _write_group(
+        tmp_path,
+        "0x01",
+        "tests/a.py::test_a",
+        {0x1000: Account(balance=1)},
+        environment=env,
+        group_salt="shared",
+    )
+    _write_group(
+        tmp_path,
+        "0x02",
+        "tests/b.py::test_b",
+        {0x2000: Account(balance=2)},
+        environment=env,
+        group_salt="shared",
+    )
+
+    pack_pre_alloc_groups(tmp_path)
+
+    packed = _packed(tmp_path)
+    assert len(packed) == 1
+    (group,) = packed.values()
+    assert group["groupSalt"] == "shared"
 
 
 def test_pack_is_deterministic(tmp_path: Path) -> None:

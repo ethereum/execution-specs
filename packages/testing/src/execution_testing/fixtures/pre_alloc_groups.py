@@ -43,6 +43,13 @@ class PreAllocGroupBuilder(CamelModel):
     )
     fork: Fork | TransitionFork = Field(..., alias="network")
     chain_id: int = DEFAULT_CHAIN_ID
+    group_salt: str | None = Field(
+        None,
+        description=(
+            "Explicit isolation salt from the `pre_alloc_group` marker; "
+            "groups only pack with groups carrying the same salt."
+        ),
+    )
     pre: Alloc
 
     def get_pre_account_count(self) -> int:
@@ -77,6 +84,7 @@ class PreAllocGroupBuilder(CamelModel):
             environment=self.environment,
             fork=self.fork,
             chain_id=self.chain_id,
+            group_salt=self.group_salt,
             pre=self.pre.model_dump(),
             pre_account_count=self.get_pre_account_count(),
             test_count=self.get_test_count(),
@@ -270,14 +278,15 @@ def pack_pre_alloc_groups(folder: Path) -> None:
     genuine address conflicts require. `groupstats` shows this dominates the
     group count, with most groups a single test.
 
-    This pass reclaims that while preserving each test's isolation. Groups are
-    bucketed by everything a shared genesis requires (fork, chain id, and
-    environment) and then by their reserved-address footprint (see
-    `_reserved_addresses`), so two tests only share a genesis when they agree
-    on every precompile and shared address. Within a bucket the reserved
-    accounts are identical and the remaining (test-private) addresses are
-    unique to one group, so the union is always conflict-free and the whole
-    bucket collapses to a single group.
+    This pass reclaims that while preserving each test's isolation. Groups
+    are bucketed by everything a shared genesis requires (fork, chain id, and
+    environment), by the explicit `pre_alloc_group` marker salt (so a test
+    that demands its own genesis keeps it), and then by their
+    reserved-address footprint (see `_reserved_addresses`), so two tests only
+    share a genesis when they agree on every precompile and shared address.
+    Within a bucket the reserved accounts are identical and the remaining
+    (test-private) addresses are unique to one group, so the union is always
+    conflict-free and the whole bucket collapses to a single group.
 
     The packing is deterministic: buckets are processed in sorted order and
     each group's id is derived from its sorted test ids, so a re-fill of the
@@ -295,14 +304,15 @@ def pack_pre_alloc_groups(folder: Path) -> None:
         for file in files
     ]
 
-    genesis_buckets: Dict[Tuple[str, int, str], List[PreAllocGroupBuilder]] = (
-        defaultdict(list)
-    )
+    genesis_buckets: Dict[
+        Tuple[str, int, str, str], List[PreAllocGroupBuilder]
+    ] = defaultdict(list)
     for builder in builders:
         genesis_buckets[
             (
                 builder.fork.name(),
                 builder.chain_id,
+                builder.group_salt or "",
                 _environment_group_key(builder.environment),
             )
         ].append(builder)
@@ -368,6 +378,7 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
         chain_id: int,
         environment: Environment,
         pre: Alloc,
+        group_salt: str | None = None,
     ) -> None:
         """Adds a single test to the appropriate group based on the hash."""
         if pre_alloc_hash in self.root:
@@ -379,6 +390,9 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
             assert group.chain_id == chain_id, (
                 f"Incompatible chain id: {group.chain_id}!={chain_id}"
             )
+            assert group.group_salt == group_salt, (
+                f"Incompatible group salt: {group.group_salt}!={group_salt}"
+            )
             group.add_test_alloc(test_id, pre)
         else:
             # Create new group - use Environment instead of expensive genesis
@@ -388,6 +402,7 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
                 fork=fork,
                 chain_id=chain_id,
                 environment=environment,
+                group_salt=group_salt,
                 pre=Alloc.merge(
                     Alloc.model_validate(
                         fork.transitions_to().pre_allocation_blockchain()

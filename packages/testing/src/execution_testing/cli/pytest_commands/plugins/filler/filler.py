@@ -1678,6 +1678,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         chain_id=ChainConfigDefaults.chain_id,
                         environment=genesis_environment,
                         pre=pre,
+                        group_salt=group_salt,
                     )
                     return  # Skip fixture generation in phase 1
 
