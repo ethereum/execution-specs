@@ -140,7 +140,7 @@ def _normalize_tx_json(tx: Dict[str, Any]) -> Dict[str, Any]:
        reject it. Default the components to zero,; leaving them unset
        would make ``Transaction.rlp`` try to auto-sign a key-less tx
        and die on an assertion.
-   """
+    """
     auth_list = tx.get("authorizationList")
     if isinstance(auth_list, list):
         tx["authorizationList"] = [
