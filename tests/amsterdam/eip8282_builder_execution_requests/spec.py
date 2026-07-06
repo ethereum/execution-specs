@@ -46,6 +46,10 @@ class Spec:
     REQUEST_FEE_UPDATE_FRACTION = 17
     EXCESS_INHIBITOR = 2**256 - 1
 
+    # Storage slot holding the excess deposit request count. Seeding it with
+    # `EXCESS_INHIBITOR` disables the queue; the next system call resets it.
+    EXCESS_DEPOSIT_REQUESTS_STORAGE_SLOT = 0
+
     # Minimum credited stake for a builder deposit, in wei (1 ETH).
     BUILDER_MIN_DEPOSIT = 1_000_000_000_000_000_000
 
