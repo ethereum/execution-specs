@@ -917,6 +917,29 @@ class EthRPC(BaseRPC):
                 str(e), tx_rlp=transaction_rlp
             ) from e
 
+    def _transaction_is_known(
+        self, transaction: TransactionProtocol, error: Exception
+    ) -> bool:
+        """
+        Check whether the client knows `transaction` despite a send error.
+
+        A retried `eth_sendRawTransaction` whose first delivery succeeded
+        is answered with a duplicate-transaction error; if the client can
+        return the transaction by hash, the send in fact succeeded. Lookup
+        failures count as unknown so that the original send error
+        propagates.
+        """
+        try:
+            known = self.get_transaction_by_hash(transaction.hash) is not None
+        except Exception:
+            return False
+        if known:
+            logger.warning(
+                f"Client answered eth_sendRawTransaction with '{error}' "
+                "but knows the transaction; treating the send as success."
+            )
+        return known
+
     def send_transaction(self, transaction: TransactionProtocol) -> Hash:
         """
         Convenience method to send a single transaction to the client via
@@ -936,6 +959,8 @@ class EthRPC(BaseRPC):
             assert result_hash is not None
             return transaction.hash
         except Exception as e:
+            if self._transaction_is_known(transaction, e):
+                return transaction.hash
             raise SendTransactionExceptionError(str(e), tx=transaction) from e
 
     def send_transactions(
@@ -966,6 +991,9 @@ class EthRPC(BaseRPC):
                 assert result_hash is not None
                 results.append(tx.hash)
             except Exception as e:
+                if self._transaction_is_known(tx, e):
+                    results.append(tx.hash)
+                    continue
                 raise SendTransactionExceptionError(str(e), tx=tx) from e
         return results
 
