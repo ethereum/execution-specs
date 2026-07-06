@@ -6,6 +6,10 @@ contiguous shards, each overlapping its predecessor by one fork so a
 fork's reference to the previous fork resolves within its shard. One
 ``docc`` process renders each shard concurrently; the per-shard outputs
 are not merged.
+
+Forward references (a fork referencing a later fork) fall outside their
+shard and are pruned, so they are validated only by the serial
+default-branch ``docs-spec`` build that gates the docs deploy.
 """
 
 import argparse
