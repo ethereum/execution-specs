@@ -16,11 +16,13 @@ from execution_testing import (
     Bytes,
     Environment,
     Frame,
+    FrameReceipt,
     FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
 )
 
 from .helpers import approve_bytecode
@@ -63,6 +65,13 @@ def test_transfer_with_default_code(
                 value=transfer_value,
             ),
         ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS, logs=[]),
+                FrameReceipt(status=Spec.STATUS_SUCCESS),
+            ],
+        ),
     )
 
     state_test(
@@ -106,6 +115,13 @@ def test_contract_sender_approves(
                 gas_limit=200_000,
             ),
         ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS),
+                FrameReceipt(status=Spec.STATUS_SUCCESS),
+            ],
+        ),
     )
 
     state_test(
@@ -164,6 +180,14 @@ def test_eoa_paymaster(
                 secret_key=payer.key,
             ),
         ],
+        expected_receipt=TransactionReceipt(
+            payer=payer,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS),
+                FrameReceipt(status=Spec.STATUS_SUCCESS),
+                FrameReceipt(status=Spec.STATUS_SUCCESS),
+            ],
+        ),
     )
 
     state_test(
@@ -178,18 +202,63 @@ def test_eoa_paymaster(
     )
 
 
+@pytest.mark.parametrize(
+    "revert_position",
+    [
+        pytest.param("last", id="unrolls_executed_frames"),
+        pytest.param("first", id="skips_remaining_frames"),
+    ],
+)
 def test_atomic_batch_rollback(
     state_test: StateTestFiller,
     pre: Alloc,
+    revert_position: str,
 ) -> None:
     """
-    Roll back an atomic batch: a `SENDER` frame with the atomic batch
-    flag writes storage, and the subsequent frame terminating the batch
-    reverts, discarding the write.
+    Roll back an atomic batch containing a reverting frame.
+
+    When the batch terminator reverts, the storage write of the
+    already executed batch frame is unrolled and both frames report
+    failure. When the first batch frame reverts, the remaining batch
+    frame is skipped with status `0x3` and no gas consumed. In both
+    cases the storage write is discarded.
     """
     sender = pre.fund_eoa()
     target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)
     reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
+
+    store_frame_flags = (
+        Spec.ATOMIC_BATCH_FLAG if revert_position == "last" else 0
+    )
+    revert_frame_flags = (
+        Spec.ATOMIC_BATCH_FLAG if revert_position == "first" else 0
+    )
+    store_frame = Frame(
+        mode=Spec.MODE_SENDER,
+        flags=store_frame_flags,
+        target=target,
+        gas_limit=200_000,
+    )
+    revert_frame = Frame(
+        mode=Spec.MODE_SENDER,
+        flags=revert_frame_flags,
+        target=reverter,
+        gas_limit=100_000,
+    )
+    if revert_position == "last":
+        batch = [store_frame, revert_frame]
+        expected_frame_receipts = [
+            FrameReceipt(status=Spec.STATUS_SUCCESS),
+            FrameReceipt(status=Spec.STATUS_FAILURE),
+            FrameReceipt(status=Spec.STATUS_FAILURE),
+        ]
+    else:
+        batch = [revert_frame, store_frame]
+        expected_frame_receipts = [
+            FrameReceipt(status=Spec.STATUS_SUCCESS),
+            FrameReceipt(status=Spec.STATUS_FAILURE),
+            FrameReceipt(status=Spec.STATUS_SKIPPED, gas_used=0),
+        ]
 
     tx = Transaction(
         sender=sender,
@@ -199,18 +268,12 @@ def test_atomic_batch_rollback(
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
                 gas_limit=100_000,
             ),
-            Frame(
-                mode=Spec.MODE_SENDER,
-                flags=Spec.ATOMIC_BATCH_FLAG,
-                target=target,
-                gas_limit=200_000,
-            ),
-            Frame(
-                mode=Spec.MODE_SENDER,
-                target=reverter,
-                gas_limit=100_000,
-            ),
+            *batch,
         ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=expected_frame_receipts,
+        ),
     )
 
     state_test(
