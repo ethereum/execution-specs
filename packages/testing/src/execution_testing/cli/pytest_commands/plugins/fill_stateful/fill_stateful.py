@@ -41,6 +41,7 @@ from execution_testing.forks import (
     TransitionFork,
 )
 from execution_testing.logging import get_logger
+from execution_testing.recipient_type import RecipientType
 from execution_testing.rpc import DebugRPC, EngineRPC, EthRPC
 from execution_testing.specs.blockchain import (
     payload_metadata_to_fixture,
@@ -413,7 +414,14 @@ def sender_fund_refund_gas_limit(
 ) -> int:
     """Intrinsic gas for the funding tx, derived from the fork."""
     fork = session_fork.fork_at(block_number=0, timestamp=0)
-    return fork.transaction_intrinsic_cost_calculator()()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    return intrinsic + fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
 
 
 @pytest.fixture()
