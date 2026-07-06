@@ -183,13 +183,13 @@ json-loader *args:
         "$@" \
         tests/json_loader
 
-# Run the evm_tools spec tests (lint and new-fork tooling)
+# Run the spec-tools tests (lint and new-fork tooling)
 [group('integration tests')]
-evm-tools *args:
-    @mkdir -p "{{ output_dir }}/evm-tools/tmp"
+spec-tools *args:
+    @mkdir -p "{{ output_dir }}/spec-tools/tmp"
     uv run pytest \
         -n {{ xdist_workers }} \
-        --basetemp="{{ output_dir }}/evm-tools/tmp" \
+        --basetemp="{{ output_dir }}/spec-tools/tmp" \
         --ignore=tests/evm_tools/test_count_opcodes.py \
         "$@" \
         tests/evm_tools

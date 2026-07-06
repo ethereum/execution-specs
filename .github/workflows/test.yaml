@@ -156,7 +156,7 @@ jobs:
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  evm-tools:
+  spec-tools:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -167,8 +167,8 @@ jobs:
         with:
           python-version: "3.14"
       - uses: ./.github/actions/setup-env
-      - name: Run evm_tools tests
-        run: just evm-tools
+      - name: Run spec-tools tests
+        run: just spec-tools
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
