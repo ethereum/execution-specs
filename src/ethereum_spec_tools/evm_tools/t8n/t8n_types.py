@@ -337,6 +337,7 @@ class Result:
         # Apply diffs to pre-state for alloc output
         apply_changes_to_state(t8n.alloc.state, block_diff)
         self.receipts = self.get_receipts_from_output(t8n, block_output)
+        self._logs_bloom = t8n.fork.logs_bloom
 
         if hasattr(block_env, "base_fee_per_gas"):
             self.base_fee = block_env.base_fee_per_gas
@@ -397,11 +398,14 @@ class Result:
                 receipt_dict["logs"] = all_logs
 
                 # Derive success and bloom for tooling compatibility.
-                receipt_dict["succeeded"] = all(
-                    int(frame_receipt.status) == 1
-                    for frame_receipt in receipt.frame_receipts
-                )
-                receipt_dict["bloom"] = "0x" + ("00" * 256)
+                # Frame transactions that make it into a block are valid,
+                # regardless of individual frame results.
+                receipt_dict["succeeded"] = True
+                frame_logs = []
+                for frame_receipt in receipt.frame_receipts:
+                    frame_logs.extend(frame_receipt.logs)
+                bloom = self._logs_bloom(tuple(frame_logs))
+                receipt_dict["bloom"] = "0x" + bloom.hex()
                 receipts_json.append(receipt_dict)
                 continue
 

@@ -1496,11 +1496,12 @@ def execute_frame(
 
     # As with an ordinary `CALL`, a frame whose caller cannot cover the
     # transferred value reverts without executing.
-    caller_balance = get_account(tx_state, frame_caller).balance
-    if U256(caller_balance) < frame.value:
-        return default_code_output(
-            frame, error=Revert("insufficient balance for frame value")
-        )
+    if frame.value != 0:
+        caller_balance = get_account(tx_state, frame_caller).balance
+        if U256(caller_balance) < frame.value:
+            return default_code_output(
+                frame, error=Revert("insufficient balance for frame value")
+            )
 
     frame_accessed_addresses = set(accessed_addresses)
     frame_accessed_addresses.add(resolved_target)
