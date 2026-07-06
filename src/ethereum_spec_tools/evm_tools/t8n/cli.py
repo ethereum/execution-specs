@@ -119,7 +119,7 @@ def _normalize_tx_json(tx: Dict[str, Any]) -> Dict[str, Any]:
     """
     Drop fields that the testing ``Transaction`` model rejects.
 
-    Two boundary mismatches to smooth over:
+    Three boundary mismatches to smooth over:
 
     1. ``yParity`` on authorization tuples. The testing
        ``AuthorizationTuple`` serializer emits both ``v`` and
@@ -133,6 +133,13 @@ def _normalize_tx_json(tx: Dict[str, Any]) -> Dict[str, Any]:
        the model rejects the pair with
        ``InvalidSignaturePrivateKeyError``. Strip ``secretKey``
        whenever ``v`` is set (i.e. the tx is already signed).
+    3. A tx with no signature material at all. Filled state tests
+       store a tx whose signature is deliberately invalid without
+       ``v``/``r``/``s`` or ``secretKey`` (the fixture format cannot
+       express explicit signature values), expecting the fork to
+       reject it. Default the components to zero, like the previous
+       parser did; leaving them unset would make ``Transaction.rlp``
+       try to auto-sign a key-less tx and die on an assertion.
     """
     auth_list = tx.get("authorizationList")
     if isinstance(auth_list, list):
@@ -144,6 +151,13 @@ def _normalize_tx_json(tx: Dict[str, Any]) -> Dict[str, Any]:
         ]
     if "secretKey" in tx and tx.get("v") is not None:
         tx = {k: v for k, v in tx.items() if k != "secretKey"}
+    if not any(
+        tx.get(key) is not None
+        for key in ("secretKey", "v", "yParity", "r", "s")
+    ):
+        tx["v"] = "0x00"
+        tx["r"] = "0x00"
+        tx["s"] = "0x00"
     return tx
 
 
