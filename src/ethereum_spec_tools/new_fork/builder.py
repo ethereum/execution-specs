@@ -28,6 +28,26 @@ from ethereum.fork_criteria import (
 from ..forks import Hardfork
 
 
+def _source_file_for(fork_root: Path, qualified_name: str) -> Path:
+    """
+    Resolve the source file that defines `qualified_name` within `fork_root`.
+
+    Walk the dotted name from its longest module prefix to its shortest,
+    returning the first prefix that resolves to a module file (or package
+    `__init__.py`). Fall back to the fork's `__init__.py` for names bound
+    directly in the package. Used to scope constant codemods to a single file
+    instead of re-parsing the whole fork.
+    """
+    parts = qualified_name.split(".")
+    for length in range(len(parts) - 1, 0, -1):
+        module = fork_root.joinpath(*parts[:length])
+        if module.with_suffix(".py").is_file():
+            return module.with_suffix(".py")
+        if (module / "__init__.py").is_file():
+            return module / "__init__.py"
+    return fork_root / "__init__.py"
+
+
 @dataclass
 class CodemodArgs(ABC):
     """
@@ -56,7 +76,6 @@ class RenameFork(CodemodArgs):
         commands = [
             [
                 "codemod",
-                "-j1",
                 "rename.RenameCommand",
                 "--no-format",
                 "--old_name",
@@ -94,7 +113,6 @@ class RenameFork(CodemodArgs):
         commands.append(
             [
                 "codemod",
-                "-j1",
                 "rename.RenameCommand",
                 "--no-format",
                 "--old_name",
@@ -142,6 +160,9 @@ class ReplaceValue(CodemodArgs, ABC):
             f"ethereum.{fork_builder.new_fork}.{qualified_name}"
         )
 
+        fork_root = working_directory / "ethereum" / fork_builder.new_fork
+        target = _source_file_for(fork_root, qualified_name)
+
         command = [
             "codemod",
             "-j1",
@@ -151,7 +172,7 @@ class ReplaceValue(CodemodArgs, ABC):
             fully_qualified_name,
             "--value",
             value,
-            str(working_directory),
+            str(target),
         ]
 
         for module, identifier in imports:
@@ -238,14 +259,12 @@ class ReplaceForkName(CodemodArgs):
         commands = [
             [
                 "codemod",
-                "-j1",
                 "--no-format",
                 "string_replace.StringReplaceCommand",
             ]
             + common,
             [
                 "codemod",
-                "-j1",
                 "--no-format",
                 "comment.CommentReplaceCommand",
             ]
