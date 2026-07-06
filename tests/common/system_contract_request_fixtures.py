@@ -12,7 +12,7 @@ for with its own rules.
 """
 
 from collections import defaultdict
-from copy import deepcopy
+from dataclasses import replace
 from itertools import zip_longest
 from typing import Dict, List, Type
 
@@ -40,11 +40,25 @@ def system_contract_interactions_per_block_copy(
     ],
 ) -> List[List[SystemContractInteractionBase]]:
     """
-    Return a copy of `system_contract_interactions_per_block` that can be
-    safely overwritten by fixtures in the test.
+    Return a copy of `system_contract_interactions_per_block` whose requests
+    can be safely mutated by fixtures in the test.
+
+    Each interaction's requests are copied because `included_requests` writes
+    the per-block fee onto individual requests in place; sharing them would
+    leak those mutations back into the parametrize value. A full `deepcopy` is
+    avoided because relay-contract interactions embed opcode objects that are
+    not copyable.
     """
     return [
-        block_interactions[:]
+        [
+            replace(
+                interaction,
+                requests=[
+                    request.model_copy() for request in interaction.requests
+                ],
+            )
+            for interaction in block_interactions
+        ]
         for block_interactions in system_contract_interactions_per_block
     ]
 
