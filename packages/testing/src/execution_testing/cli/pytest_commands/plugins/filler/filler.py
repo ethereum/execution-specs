@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, List, Self, Set, Type
 import pytest
 import xdist
 from _pytest.compat import NotSetType
+from _pytest.mark.structures import ParameterSet
 from _pytest.terminal import TerminalReporter
 from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
@@ -1779,20 +1780,36 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     FillerFile.collect() in ./static_filler.py for more details.
     """
     session: FillingSession = metafunc.config.filling_session  # type: ignore[attr-defined]
+    markers = list(metafunc.definition.iter_markers())
     for test_type in BaseTest.spec_types.values():
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
-            parameters = []
-            for i, format_with_or_without_label in enumerate(
-                test_type.supported_fixture_formats
-            ):
+            parameters: List[ParameterSet] = []
+            for (
+                format_with_or_without_label
+            ) in test_type.supported_fixture_formats:
                 if not session.should_generate_format(
                     format_with_or_without_label
+                ):
+                    continue
+                fixture_format = (
+                    format_with_or_without_label.format
+                    if isinstance(
+                        format_with_or_without_label, LabeledFixtureFormat
+                    )
+                    else format_with_or_without_label
+                )
+                if test_type.discard_fixture_format_by_marks(
+                    fixture_format, markers
                 ):
                     continue
                 parameter = labeled_format_parameter_set(
                     format_with_or_without_label
                 )
-                if i > 0:
+                # The first surviving format is the test's primary; the
+                # rest are derived from it (e.g. a BlockchainTest derived
+                # from a StateTest) and can be deselected with
+                # `-m "not derived_test"`.
+                if parameters:
                     parameter.marks.append(pytest.mark.derived_test)  # type: ignore
                 parameters.append(parameter)
             metafunc.parametrize(
@@ -1857,9 +1874,9 @@ def pytest_collection_modifyitems(
         if fixture_format.discard_fixture_format_by_marks(fork, markers):
             items_for_removal.append(i)
             continue
-        if spec_type.discard_fixture_format_by_marks(
-            fixture_format, fork, markers
-        ):
+        # Only static tests can be discarded here: dynamic tests never
+        # generate discarded formats (see pytest_generate_tests above).
+        if spec_type.discard_fixture_format_by_marks(fixture_format, markers):
             items_for_removal.append(i)
             continue
         for marker in markers:

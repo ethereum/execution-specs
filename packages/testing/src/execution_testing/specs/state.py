@@ -46,7 +46,7 @@ from execution_testing.fixtures.state import (
     FixtureTransaction,
     FixtureTransactionReceipt,
 )
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork
 from execution_testing.logging import (
     get_logger,
 )
@@ -233,15 +233,12 @@ class StateTest(BaseTest):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
         Discard a fixture format from filling if the appropriate marker is
         used.
         """
-        del fork
-
         if "state_test_only" in [m.name for m in markers]:
             return fixture_format != StateFixture
         return False
