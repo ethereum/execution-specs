@@ -107,10 +107,9 @@ jobs:
       - name: Run fill (${{ matrix.label }})
         run: >
           just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
-          -m "not slow and (blockchain_test or state_test_only or blockchain_test_engine_only)"
+          -m "not slow and not derived_test"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
-          COVERAGE_CORE: sysmon
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
@@ -150,13 +149,28 @@ jobs:
         run: just json-loader
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
-          COVERAGE_CORE: sysmon
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           files: .just/json-loader/coverage.xml
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  evm-tools:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - uses: ./.github/actions/setup-env
+      - name: Run evm_tools tests
+        run: just evm-tools
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
   test-tests:
     runs-on: [self-hosted-ghr, size-xl-x64]
