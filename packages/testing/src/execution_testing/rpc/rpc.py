@@ -1533,6 +1533,8 @@ class TestingRPC(BaseRPC):
     testing-only methods like ``testing_buildBlockV1``.
     """
 
+    __test__ = False  # stop pytest from collecting this class as a test
+
     def build_block(
         self,
         parent_block_hash: Hash,
