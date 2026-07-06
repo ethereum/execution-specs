@@ -64,6 +64,13 @@ from .rpc_types import (
 
 logger = get_logger(__name__)
 BlockNumberType = int | Literal["latest", "earliest", "pending"]
+TimeoutType = float | tuple[float, float] | None
+
+# Default (connect, read) timeout for JSON-RPC requests. Without one, a
+# request whose packets are silently dropped (e.g. by docker network
+# churn in hive) blocks until the kernel abandons TCP retransmission,
+# which takes ~15 minutes on Linux.
+DEFAULT_REQUEST_TIMEOUT: TimeoutType = (10.0, 300.0)
 
 
 class SendTransactionExceptionError(Exception):
@@ -206,17 +213,25 @@ class BaseRPC:
 
     namespace: ClassVar[str]
     response_validation_context: Any | None
+    request_timeout: TimeoutType
 
     def __init__(
         self,
         url: str,
         *,
         response_validation_context: Any | None = None,
+        request_timeout: TimeoutType = DEFAULT_REQUEST_TIMEOUT,
     ):
-        """Initialize BaseRPC class with the given url."""
+        """
+        Initialize BaseRPC class with the given url.
+
+        `request_timeout` bounds every request made through this client;
+        `None` disables the bound.
+        """
         self.url = url
         self.request_id_counter = count(1)
         self.response_validation_context = response_validation_context
+        self.request_timeout = request_timeout
         self.session = requests.Session()
 
     def close(self) -> None:
@@ -250,7 +265,11 @@ class BaseRPC:
 
     @retry(
         retry=retry_if_exception_type(
-            (requests.ConnectionError, ConnectionRefusedError)
+            (
+                requests.ConnectionError,
+                requests.Timeout,
+                ConnectionRefusedError,
+            )
         ),
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=0.5, min=0.5, max=4.0),
@@ -262,15 +281,16 @@ class BaseRPC:
         url: str,
         json_payload: dict[str, Any] | list[dict[str, Any]],
         headers: dict[str, str],
-        timeout: int | None,
+        timeout: TimeoutType,
     ) -> requests.Response:
         """
-        Make HTTP POST request with retry logic for connection errors only.
+        Make HTTP POST request with retry logic for transport errors only.
 
-        This method only retries network-level connection failures
-        (ConnectionError, ConnectionRefusedError). HTTP status errors (4xx/5xx)
-        are handled by the caller using response.raise_for_status() WITHOUT
-        retries because:
+        This method only retries network-level failures: connection errors
+        (ConnectionError, ConnectionRefusedError) and timeouts. Re-sending
+        after a timeout is safe because the JSON-RPC methods used here are
+        idempotent. HTTP status errors (4xx/5xx) are handled by the caller
+        using response.raise_for_status() WITHOUT retries because:
         - 4xx errors are client errors (permanent failures, no point retrying)
         - 5xx errors are server errors that typically indicate
           application-level issues rather than transient network problems
@@ -311,14 +331,18 @@ class BaseRPC:
         *,
         request: RPCCall,
         extra_headers: Dict[str, str] | None = None,
-        timeout: int | None = None,
+        timeout: TimeoutType = None,
     ) -> JSONRPCResponse:
         """
         Send JSON-RPC POST request to the client RPC server at port defined in
         the url.
+
+        A `timeout` of `None` applies the client's `request_timeout`.
         """
         if extra_headers is None:
             extra_headers = {}
+        if timeout is None:
+            timeout = self.request_timeout
 
         json_rpc_request = self._build_json_rpc_request(request)
         base_header = {
@@ -343,14 +367,18 @@ class BaseRPC:
         *,
         calls: Sequence[RPCCall],
         extra_headers: Dict[str, str] | None = None,
-        timeout: int | None = None,
+        timeout: TimeoutType = None,
     ) -> List[JSONRPCResponse]:
         """
         Send a JSON-RPC batch POST request to the client RPC server at port
         defined in the url.
+
+        A `timeout` of `None` applies the client's `request_timeout`.
         """
         if extra_headers is None:
             extra_headers = {}
+        if timeout is None:
+            timeout = self.request_timeout
 
         json_rpc_requests = [
             self._build_json_rpc_request(call) for call in calls
