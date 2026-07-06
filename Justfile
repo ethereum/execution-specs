@@ -13,6 +13,9 @@ xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 evm_bin := env("EVM_BIN", "evm")
 latest_fork := "Amsterdam"
 
+# Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
+export COVERAGE_CORE := "sysmon"
+
 # --- Static Analysis ---
 
 # Auto-fix formatting and lint issues
@@ -179,6 +182,17 @@ json-loader *args:
         --basetemp="{{ output_dir }}/json-loader/tmp" \
         "$@" \
         tests/json_loader
+
+# Run the spec-tools tests (lint and new-fork tooling)
+[group('integration tests')]
+spec-tools *args:
+    @mkdir -p "{{ output_dir }}/spec-tools/tmp"
+    uv run pytest \
+        -n {{ xdist_workers }} \
+        --basetemp="{{ output_dir }}/spec-tools/tmp" \
+        --ignore=tests/evm_tools/test_count_opcodes.py \
+        "$@" \
+        tests/evm_tools
 
 # --- Unit Tests ---
 
