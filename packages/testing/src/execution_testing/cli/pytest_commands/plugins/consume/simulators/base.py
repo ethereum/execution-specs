@@ -26,6 +26,18 @@ def eth_rpc(client: Client) -> Generator[EthRPC, None, None]:
         yield rpc
 
 
+@pytest.fixture(scope="session")
+def genesis_verified_clients() -> set[str]:
+    """
+    Return the set of client ids whose genesis block has been verified.
+
+    Genesis is immutable per client, so the `getBlockByNumber(0)` check only
+    needs to run once per client. In enginex mode a client is reused across a
+    pre-alloc group, letting later tests skip the redundant check.
+    """
+    return set()
+
+
 @pytest.fixture(scope="function")
 def check_live_port(test_suite_name: str) -> Literal[8545, 8551]:
     """Port used by hive to check for liveness of the client."""
