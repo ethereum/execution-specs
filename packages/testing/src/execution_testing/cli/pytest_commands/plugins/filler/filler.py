@@ -60,6 +60,10 @@ from execution_testing.fixtures import (
     merge_partial_fixture_files,
     strip_fixture_format_from_node,
 )
+from execution_testing.fixtures.engine_x_checks import (
+    ENGINE_X_FIXTURES_DIR,
+    verify_engine_x_execution,
+)
 from execution_testing.fixtures.pre_alloc_groups import (
     _get_worker_id,
     merge_partial_group_files,
@@ -2200,6 +2204,25 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         for file in lock_files:
             file.unlink()
         _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
+
+    # Loudly fail the fill if pre-alloc group packing changed any Engine X
+    # test's execution (raises on drift, like a pre-alloc collision).
+    _log_timing("verify_engine_x_execution: starting...")
+    t0 = time.time()
+    engine_x_check_summary = verify_engine_x_execution(
+        fixture_output.directory
+    )
+    if engine_x_check_summary is not None:
+        logger.info(engine_x_check_summary)
+    elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
+        logger.warning(
+            "Engine X execution consistency check skipped: this fill "
+            "generated no blockchain_tests_engine fixtures to compare "
+            "against (e.g. filling with `-m blockchain_test_engine_x`). "
+            "Leaks from pre-alloc group packing are not verified for this "
+            "output."
+        )
+    _log_timing(f"verify_engine_x_execution: done in {time.time() - t0:.1f}s")
 
     # Verify fixtures after merge if verification is enabled
     if session.config.getoption("verify_fixtures"):
