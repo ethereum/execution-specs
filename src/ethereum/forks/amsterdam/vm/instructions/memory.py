@@ -16,6 +16,7 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.utils.numeric import ceil32
 
+from ...fork_types import ExecutionGas
 from .. import Evm
 from ..gas import (
     GasCosts,
@@ -159,7 +160,7 @@ def mcopy(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(length)) // Uint(32)
-    copy_gas_cost = GasCosts.OPCODE_COPY_PER_WORD * words
+    copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
 
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(source, length), (destination, length)]
