@@ -137,7 +137,7 @@ def _normalize_tx_json(tx: Dict[str, Any]) -> Dict[str, Any]:
        store a tx whose signature is deliberately invalid without
        ``v``/``r``/``s`` or ``secretKey`` (the fixture format cannot
        express explicit signature values), expecting the fork to
-       reject it. Default the components to zero,; leaving them unset
+       reject it. Default the components to zero; leaving them unset
        would make ``Transaction.rlp`` try to auto-sign a key-less tx
        and die on an assertion.
     """
