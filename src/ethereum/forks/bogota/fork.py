@@ -116,6 +116,7 @@ from .transactions import (
     SetCodeTransaction,
     StandardTransaction,
     Transaction,
+    calculate_frame_transaction_calldata_floor,
     chain_id,
     compute_frame_signature_hash,
     decode_transaction,
@@ -1775,7 +1776,14 @@ def process_frame_transaction(
     tx_gas_refund = min(
         tx_gas_used_before_refund // Uint(5), Uint(refund_counter)
     )
-    tx_gas_used = tx_gas_used_before_refund - tx_gas_refund
+    tx_gas_used_after_refund = tx_gas_used_before_refund - tx_gas_refund
+
+    # Transactions with less gas used than the floor pay at the floor
+    # cost.
+    tx_gas_used = max(
+        tx_gas_used_after_refund,
+        calculate_frame_transaction_calldata_floor(tx),
+    )
 
     # Refund the payer everything beyond the actual transaction fee.
     actual_fee = tx_gas_used * effective_gas_price + blob_gas_fee

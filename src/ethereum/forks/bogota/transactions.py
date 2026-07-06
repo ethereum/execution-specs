@@ -1484,7 +1484,11 @@ def validate_frame_transaction(tx: FrameTransaction) -> Uint:
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
 
-    return calculate_frame_transaction_gas_limit(tx)
+    tx_gas_limit = calculate_frame_transaction_gas_limit(tx)
+    if calculate_frame_transaction_calldata_floor(tx) > tx_gas_limit:
+        raise InsufficientTransactionGasError("Insufficient calldata floor")
+
+    return tx_gas_limit
 
 
 def tx_signature_scheme_is_protocol_validated(
@@ -1544,6 +1548,27 @@ def calculate_frame_transaction_gas_limit(tx: FrameTransaction) -> Uint:
         + calldata_cost
         + signature_gas
         + total_frame_gas
+    )
+
+
+def calculate_frame_transaction_calldata_floor(tx: FrameTransaction) -> Uint:
+    """
+    Calculate the minimum gas cost of a frame transaction based on the
+    size of the encoded signature and frame lists, per [EIP-7623] and
+    [EIP-7976]. Like ordinary calldata, every encoded byte counts as a
+    standard token and is priced at the floor token cost.
+
+    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    [EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
+    """
+    from .vm.gas import GasCosts
+
+    floor_tokens = (
+        ulen(rlp.encode(tx.signatures)) + ulen(rlp.encode(tx.frames))
+    ) * GasCosts.TX_DATA_TOKEN_STANDARD
+
+    return (
+        floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + FRAME_TX_INTRINSIC_COST
     )
 
 
