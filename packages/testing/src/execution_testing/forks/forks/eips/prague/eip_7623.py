@@ -67,8 +67,11 @@ class EIP7623(BaseFork):
             *,
             data: BytesConvertible,
             access_list: List[AccessList] | None = None,
+            contract_creation: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
-            del access_list
+            del access_list, contract_creation, sends_value, recipient_type
             return (
                 calldata_gas_calculator(data=data, floor=True)
                 + gas_costs.TX_BASE

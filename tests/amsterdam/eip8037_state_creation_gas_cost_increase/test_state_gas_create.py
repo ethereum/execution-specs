@@ -2156,6 +2156,13 @@ def test_failed_create_tx_refunds_intrinsic_new_account(
 
     expected_gas_used = intrinsic_regular + regular_consumed
     expected_cumulative = intrinsic_total + regular_consumed - create_state_gas
+    # A tiny init code can leave the decomposed calldata floor above the
+    # regular gas consumed, pinning gas_used to the floor.
+    floor = fork.transaction_data_floor_cost_calculator()(
+        data=bytes(init_code), contract_creation=True
+    )
+    expected_gas_used = max(expected_gas_used, floor)
+    expected_cumulative = max(expected_cumulative, floor)
 
     tx = Transaction(
         to=None,

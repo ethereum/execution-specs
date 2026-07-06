@@ -161,8 +161,10 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     floor_cost = fork.transaction_data_floor_cost_calculator()
 
     floor_token = gas_costs.TX_DATA_TOKEN_FLOOR
-    tx_base = gas_costs.TX_BASE
-    max_tokens = (cap - tx_base) // floor_token
+    # EIP-2780 anchors the floor on the decomposed intrinsic base; the tx
+    # targets a contract, so the base includes the recipient-access charge.
+    floor_base = gas_costs.TX_BASE + gas_costs.COLD_ACCOUNT_ACCESS
+    max_tokens = (cap - floor_base) // floor_token
 
     if fork.is_eip_enabled(7976):
         # EIP-7976: all bytes contribute 4 floor tokens regardless of

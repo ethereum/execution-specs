@@ -67,6 +67,9 @@ class TransactionDataFloorCostCalculator(Protocol):
         *,
         data: BytesConvertible,
         access_list: List[AccessList] | None = None,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
     ) -> int:
         """Return transaction gas cost of calldata given its contents."""
         pass

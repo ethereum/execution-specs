@@ -679,10 +679,10 @@ def calculate_intrinsic_cost(
 
     recipient_regular_gas = Uint(0)
     recipient_state_gas = Uint(0)
+    init_code_gas = Uint(0)
     if is_create:
-        recipient_regular_gas = GasCosts.CREATE_ACCESS + init_code_cost(
-            ulen(tx.data)
-        )
+        recipient_regular_gas = GasCosts.CREATE_ACCESS
+        init_code_gas = init_code_cost(ulen(tx.data))
         recipient_state_gas = StateGasCosts.NEW_ACCOUNT
         if tx.value > U256(0):
             recipient_regular_gas += GasCosts.TRANSFER_LOG_COST
@@ -725,15 +725,22 @@ def calculate_intrinsic_cost(
     # Total floor tokens.
     total_floor_tokens = floor_tokens_in_calldata + tokens_in_access_list
 
+    # Decomposed regular-gas intrinsic base (EIP-2780): sender, recipient
+    # access, and value primitives, excluding calldata, init code, access
+    # list, and authorizations.
+    base_regular_gas = GasCosts.TX_BASE + recipient_regular_gas
+
     # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
+    # Anchored on the decomposed base so the floor never undercuts the
+    # transaction's own intrinsic base.
     data_floor_gas_cost = (
-        total_floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + GasCosts.TX_BASE
+        total_floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + base_regular_gas
     )
 
     intrinsic_regular_gas = (
-        GasCosts.TX_BASE
+        base_regular_gas
+        + init_code_gas
         + data_cost
-        + recipient_regular_gas
         + access_list_cost
         + auth_regular_gas
     )

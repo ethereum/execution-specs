@@ -105,6 +105,8 @@ def test_calldata_floor(
     calldata = _floor_dominating_calldata(fork)
     calldata_floor = fork.transaction_data_floor_cost_calculator()(
         data=calldata,
+        sends_value=bool(value),
+        recipient_type=RecipientType.EOA,
     )
     gas_price = 1_000_000_000
 

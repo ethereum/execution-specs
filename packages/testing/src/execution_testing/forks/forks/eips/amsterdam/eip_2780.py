@@ -18,6 +18,7 @@ from .....recipient_type import RecipientType
 from ....base_fork import (
     BaseFork,
     TopFrameGasCalculator,
+    TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
 from ....gas_costs import GasCosts
@@ -40,6 +41,48 @@ class EIP2780(BaseFork):
             TRANSFER_LOG_COST=1_756,
             TX_VALUE_COST=4_244,
         )
+
+    @classmethod
+    def transaction_data_floor_cost_calculator(
+        cls,
+    ) -> TransactionDataFloorCostCalculator:
+        """
+        Anchor the calldata floor on the decomposed regular-gas intrinsic
+        base (EIP-2780).
+
+        The inherited floor base is ``TX_BASE`` alone; add the recipient
+        access and value-transfer primitives so the floor never undercuts
+        the transaction's own intrinsic base. Calldata, init code, access
+        list, and authorizations are excluded.
+        """
+        super_fn = super(EIP2780, cls).transaction_data_floor_cost_calculator()
+        gas_costs = cls.gas_costs()
+
+        def fn(
+            *,
+            data: BytesConvertible,
+            access_list: List[AccessList] | None = None,
+            contract_creation: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
+        ) -> int:
+            floor = super_fn(data=data, access_list=access_list)
+            is_self_transfer = recipient_type == RecipientType.SELF
+            if contract_creation:
+                # CREATE_ACCESS regular gas; TX_CREATE folds in the
+                # NEW_ACCOUNT state gas, which the floor excludes.
+                floor += gas_costs.TX_CREATE - gas_costs.NEW_ACCOUNT
+                if sends_value:
+                    floor += gas_costs.TRANSFER_LOG_COST
+            elif not is_self_transfer:
+                floor += gas_costs.COLD_ACCOUNT_ACCESS
+                if sends_value:
+                    floor += (
+                        gas_costs.TRANSFER_LOG_COST + gas_costs.TX_VALUE_COST
+                    )
+            return floor
+
+        return fn
 
     @classmethod
     def transaction_intrinsic_cost_calculator(
@@ -96,7 +139,11 @@ class EIP2780(BaseFork):
             )
             transaction_floor_data_cost = (
                 transaction_data_floor_cost_calculator(
-                    data=calldata, access_list=access_list
+                    data=calldata,
+                    access_list=access_list,
+                    contract_creation=contract_creation,
+                    sends_value=sends_value,
+                    recipient_type=recipient_type,
                 )
             )
             return max(intrinsic_cost, transaction_floor_data_cost)

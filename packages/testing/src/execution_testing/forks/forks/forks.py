@@ -849,8 +849,12 @@ class Frontier(
             *,
             data: BytesConvertible,
             access_list: List[AccessList] | None = None,
+            contract_creation: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
             del data, access_list
+            del contract_creation, sends_value, recipient_type
             return 0
 
         return fn
