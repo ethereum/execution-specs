@@ -38,7 +38,7 @@ from execution_testing.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork
 from execution_testing.test_types import Alloc, Environment, Transaction
 from execution_testing.vm import Bytecode, Op
 
@@ -421,15 +421,12 @@ class BenchmarkTest(BaseTest):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
         Discard a fixture format from filling if the
         appropriate marker is used.
         """
-        del fork
-
         if "blockchain_test_only" in [m.name for m in markers]:
             return fixture_format != BlockchainFixture
         if "blockchain_test_engine_only" in [m.name for m in markers]:

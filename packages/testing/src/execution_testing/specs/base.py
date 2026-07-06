@@ -142,14 +142,13 @@ class BaseTest(BaseModel):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
         Discard a fixture format from filling if the appropriate marker is
         used.
         """
-        del fork, fixture_format, markers
+        del fixture_format, markers
         return False
 
     @classmethod
