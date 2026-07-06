@@ -13,53 +13,73 @@ concurrency:
 
 permissions:
   contents: read
+  # Needed to look up the last successful nightly run and to download the
+  # per-range fixture artifacts in the `combine` job.
+  actions: read
 
 jobs:
-  changes:
-    name: Check for new commits
+  setup:
+    name: Check commits and build fork matrix
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.check.outputs.run }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - name: Check for commits in the last 25 hours
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: false
+      - name: List commits since the last successful nightly fill
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          since=$(date -u -d "25 hours ago" +%Y-%m-%dT%H:%M:%SZ)
-          count=$(gh api "repos/${GITHUB_REPOSITORY}/commits?sha=${GITHUB_SHA}&since=${since}&per_page=1" --jq length)
+          # Head SHA of the last nightly run that filled successfully. Using
+          # the last *success* (rather than a fixed time window) means a
+          # nightly that fails or is skipped keeps re-running until it goes
+          # green, and no commit slips through unfilled.
+          last_sha=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/nightly-fill.yaml/runs?status=success&per_page=1" \
+            --jq '.workflow_runs[0].head_sha // ""')
+
+          if [ -n "$last_sha" ]; then
+            commits=$(gh api \
+              "repos/${GITHUB_REPOSITORY}/compare/${last_sha}...${GITHUB_SHA}" \
+              --jq '.commits[] | "- \(.sha[0:7]) \(.commit.message | split("\n")[0])"')
+          else
+            # No prior successful run recorded; fill to establish a baseline.
+            commits="- (no previous successful nightly fill found)"
+          fi
+
+          count=$(printf '%s\n' "$commits" | grep -c . || true)
           if [ "$count" -gt 0 ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Commits since last successful nightly fill"
+              printf '%s\n' "$commits"
+            } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "No new commits since $since; skipping nightly fill."
+            echo "No new commits since the last successful nightly fill; skipping." \
+              >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Build fork matrix from the shared config
+        id: matrix
+        # Reuse .github/configs/fork-ranges.yaml (the same split the release
+        # workflow uses) so the fork coverage is defined in one place.
+        run: |
+          echo "matrix=$(yq -o=json -I=0 '.' .github/configs/fork-ranges.yaml)" >> "$GITHUB_OUTPUT"
 
   fill-nightly:
     name: fill-nightly (${{ matrix.label }})
     runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: changes
-    if: needs.changes.outputs.run == 'true'
+    needs: setup
+    if: needs.setup.outputs.run == 'true'
     timeout-minutes: 720
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - label: pre-shanghai
-            from_fork: Frontier
-            until_fork: Paris
-          - label: shanghai-cancun
-            from_fork: Shanghai
-            until_fork: Cancun
-          - label: prague
-            from_fork: Prague
-            until_fork: Prague
-          - label: osaka
-            from_fork: Osaka
-            until_fork: Osaka
-          - label: amsterdam
-            from_fork: Amsterdam
-            until_fork: Amsterdam
+        include: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -69,6 +89,50 @@ jobs:
           python-version: "3.14"
       - uses: ./.github/actions/setup-env
       - name: Run nightly fill (${{ matrix.label }})
-        run: just fill-nightly --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+        run: just fill-nightly --from ${{ matrix.from }} --until ${{ matrix.until }}
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+      - name: Upload per-range fixtures (${{ matrix.label }})
+        # Intermediate split, merged into a single artifact by `combine`.
+        # Uploaded even on failure so a regressed fill can still be inspected.
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: fixtures__${{ matrix.label }}
+          path: .just/fill-nightly/fixtures
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 1
+
+  combine:
+    name: Combine fixtures
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: [setup, fill-nightly]
+    # Run even if some ranges failed, so partial fixtures are still published.
+    if: ${{ !cancelled() && needs.setup.outputs.run == 'true' }}
+    steps:
+      - name: Resolve short commit SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA:0:8}" >> "$GITHUB_OUTPUT"
+      - name: Download per-range fixtures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ github.run_id }}" -p "fixtures__*" --dir split \
+            || echo "No per-range fixture artifacts found."
+      - name: Merge into a single fixtures tree
+        run: |
+          mkdir -p "fixtures_${{ steps.sha.outputs.short }}"
+          for d in split/fixtures__*/; do
+            [ -d "$d" ] || continue
+            rsync -a "$d" "fixtures_${{ steps.sha.outputs.short }}/"
+          done
+      - name: Upload combined fixtures
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          # Keyed by commit so a downloaded set maps back to what filled it.
+          name: fixtures_${{ steps.sha.outputs.short }}
+          path: fixtures_${{ steps.sha.outputs.short }}
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 5
