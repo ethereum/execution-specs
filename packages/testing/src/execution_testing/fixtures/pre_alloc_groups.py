@@ -212,6 +212,31 @@ def _packed_group_hash(test_ids: List[str]) -> str:
     return f"0x{int.from_bytes(digest[:8], byteorder='big'):016x}"
 
 
+# The test id -> group hash index written next to the group files by
+# `pack_pre_alloc_groups`. Deliberately not a `*.json` name: every consumer
+# of the folder (including this module) discovers group files by that glob.
+TEST_GROUP_INDEX_FILE = "test_group_index"
+
+
+def read_test_group_index(folder: Path) -> Dict[str, str]:
+    """
+    Map every test id to the hash of the pre-alloc group that contains it.
+
+    Prefer the index file written by `pack_pre_alloc_groups`; fall back to
+    scanning every group file's ``testIds`` for folders produced without a
+    packing pass (e.g. by an older framework version).
+    """
+    index_file = folder / TEST_GROUP_INDEX_FILE
+    if index_file.exists():
+        return json.loads(index_file.read_text())
+    index: Dict[str, str] = {}
+    for file in folder.glob("*.json"):
+        data = json.loads(file.read_text())
+        for test_id in data.get("testIds", []):
+            index[test_id] = file.stem
+    return index
+
+
 # Addresses below this value are precompiles / the reserved range. A ported
 # state test can call them without ever declaring them in its pre, so an
 # account introduced there by another test in the group silently changes its
@@ -293,7 +318,9 @@ def pack_pre_alloc_groups(folder: Path) -> None:
     same tests reproduces the same groups.
 
     Called on the master process after `merge_partial_group_files`, replacing
-    the fine-grained files in `folder` with the packed ones.
+    the fine-grained files in `folder` with the packed ones. Also writes a
+    test id -> group hash index file (see `read_test_group_index`), so phase
+    2 workers can find a test's group without scanning every group file.
     """
     files = sorted(folder.glob("*.json"))
     if not files:
@@ -322,6 +349,7 @@ def pack_pre_alloc_groups(folder: Path) -> None:
     for file in files:
         file.unlink()
 
+    test_group_index: Dict[str, str] = {}
     for genesis_key in sorted(genesis_buckets):
         bucket = genesis_buckets[genesis_key]
         reserved = _reserved_addresses(bucket)
@@ -344,6 +372,12 @@ def pack_pre_alloc_groups(folder: Path) -> None:
                     by_alias=True, exclude_none=True, indent=2
                 )
             )
+            for test_id in merged.test_ids:
+                test_group_index[test_id] = packed_hash
+
+    (folder / TEST_GROUP_INDEX_FILE).write_text(
+        json.dumps(test_group_index, sort_keys=True, indent=2)
+    )
 
 
 class PreAllocGroupBuilders(EthereumTestRootModel):

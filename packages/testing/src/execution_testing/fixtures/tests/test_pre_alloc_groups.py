@@ -6,8 +6,10 @@ from typing import Dict
 
 from execution_testing.base_types import Account, Address
 from execution_testing.fixtures.pre_alloc_groups import (
+    TEST_GROUP_INDEX_FILE,
     PreAllocGroupBuilder,
     pack_pre_alloc_groups,
+    read_test_group_index,
 )
 from execution_testing.forks import Prague
 from execution_testing.test_types import Alloc, Environment
@@ -228,6 +230,76 @@ def test_pack_merges_groups_with_matching_salt(tmp_path: Path) -> None:
     assert len(packed) == 1
     (group,) = packed.values()
     assert group["groupSalt"] == "shared"
+
+
+def test_pack_writes_test_group_index(tmp_path: Path) -> None:
+    """
+    Packing writes a test id -> group hash index that matches the packed
+    files' ``testIds`` and is not picked up as a group file itself.
+    """
+    env = Environment()
+    _write_group(
+        tmp_path,
+        "0x01",
+        "tests/a.py::test_a",
+        {0x1000: Account(balance=1)},
+        environment=env,
+    )
+    _write_group(
+        tmp_path,
+        "0x02",
+        "tests/b.py::test_b",
+        {0x2000: Account(balance=2)},
+        environment=env,
+    )
+    _write_group(
+        tmp_path,
+        "0x03",
+        "tests/c.py::test_c",
+        {0x1000: Account(balance=3)},
+        environment=env,
+    )
+
+    pack_pre_alloc_groups(tmp_path)
+
+    assert (tmp_path / TEST_GROUP_INDEX_FILE).exists()
+    packed = _packed(tmp_path)
+    assert TEST_GROUP_INDEX_FILE not in packed
+    index = read_test_group_index(tmp_path)
+    assert sorted(index) == [
+        "tests/a.py::test_a",
+        "tests/b.py::test_b",
+        "tests/c.py::test_c",
+    ]
+    for test_id, group_hash in index.items():
+        assert test_id in packed[group_hash]["testIds"]
+
+
+def test_read_test_group_index_falls_back_to_scanning(
+    tmp_path: Path,
+) -> None:
+    """A folder without an index file (unpacked/legacy) is scanned."""
+    env = Environment()
+    _write_group(
+        tmp_path,
+        "0x01",
+        "tests/a.py::test_a",
+        {0x1000: Account(balance=1)},
+        environment=env,
+    )
+    _write_group(
+        tmp_path,
+        "0x02",
+        "tests/b.py::test_b",
+        {0x2000: Account(balance=2)},
+        environment=env,
+    )
+
+    assert not (tmp_path / TEST_GROUP_INDEX_FILE).exists()
+    assert read_test_group_index(tmp_path) == {
+        "tests/a.py::test_a": "0x01",
+        "tests/b.py::test_b": "0x02",
+    }
 
 
 def test_pack_is_deterministic(tmp_path: Path) -> None:

@@ -64,6 +64,7 @@ from execution_testing.fixtures.pre_alloc_groups import (
     _get_worker_id,
     merge_partial_group_files,
     pack_pre_alloc_groups,
+    read_test_group_index,
 )
 from execution_testing.forks import (
     Fork,
@@ -163,7 +164,8 @@ class FillingSession:
     # Phase 2 reverse index: test id -> packed pre-alloc group hash. Packing
     # (see pack_pre_alloc_groups) makes a group's hash depend on the whole set
     # of tests it holds, so it can no longer be recomputed per-test; a test
-    # finds its group through the authoritative `testIds` lists instead.
+    # finds its group through the packed index file instead (see
+    # read_test_group_index).
     _test_group_index: Dict[str, str] | None = field(default=None, repr=False)
 
     @classmethod
@@ -298,11 +300,13 @@ class FillingSession:
         """
         Return the packed pre-alloc group hash that owns ``test_id``.
 
-        Built once (per worker) by inverting the ``testIds`` lists of the
-        packed group files written at the end of phase 1.
+        Loaded once (per worker) from the index file written by
+        `pack_pre_alloc_groups` at the end of phase 1.
         """
         if self._test_group_index is None:
-            self._test_group_index = self._build_test_group_index()
+            self._test_group_index = read_test_group_index(
+                self.fixture_output.pre_alloc_groups_folder_path
+            )
         try:
             return self._test_group_index[test_id]
         except KeyError:
@@ -311,16 +315,6 @@ class FillingSession:
                 "group. Ensure phase 1 (--generate-pre-alloc-groups) ran over "
                 "the same test selection as phase 2."
             ) from None
-
-    def _build_test_group_index(self) -> Dict[str, str]:
-        """Map every test id to the hash of the group file that contains it."""
-        folder = self.fixture_output.pre_alloc_groups_folder_path
-        index: Dict[str, str] = {}
-        for file in folder.glob("*.json"):
-            data = json.loads(file.read_text())
-            for test_id in data.get("testIds", []):
-                index[test_id] = file.stem
-        return index
 
     def save_pre_alloc_groups(self) -> None:
         """Save pre-allocation groups to disk as partial files."""
