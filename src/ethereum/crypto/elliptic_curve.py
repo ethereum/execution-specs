@@ -73,8 +73,7 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
     except ValueError as e:
         raise InvalidSignatureError from e
 
-    public_key = public_key.format(compressed=False)[1:]
-    return public_key
+    return public_key.format(compressed=False)[1:]
 
 
 SECP256R1N = U256(

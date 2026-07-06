@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "pycryptodome>=3.22,<4",
-    "coincurve>=20,<21",
+    "coincurve>=21,<22",
     "typing_extensions>=4.4",
     "py-ecc>=8.0.0b2,<9",
     "ethereum-types>=0.4.1,<0.5",
