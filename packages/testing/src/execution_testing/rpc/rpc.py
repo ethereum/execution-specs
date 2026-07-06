@@ -288,13 +288,17 @@ class BaseRPC:
 
         This method only retries network-level failures: connection errors
         (ConnectionError, ConnectionRefusedError) and timeouts. Re-sending
-        after a timeout is safe because the JSON-RPC methods used here are
-        idempotent. HTTP status errors (4xx/5xx) are handled by the caller
+        cannot corrupt state: the methods used here either read state or
+        re-broadcast the same signed payload. A re-sent transaction may
+        however be answered with a duplicate-transaction error rather than
+        its hash. HTTP status errors (4xx/5xx) are handled by the caller
         using response.raise_for_status() WITHOUT retries because:
         - 4xx errors are client errors (permanent failures, no point retrying)
         - 5xx errors are server errors that typically indicate
           application-level issues rather than transient network problems
         """
+        if timeout is None:
+            timeout = self.request_timeout
         logger.debug(f"Making HTTP request to {url}, timeout={timeout}")
         return self.session.post(
             url, json=json_payload, headers=headers, timeout=timeout
@@ -341,8 +345,6 @@ class BaseRPC:
         """
         if extra_headers is None:
             extra_headers = {}
-        if timeout is None:
-            timeout = self.request_timeout
 
         json_rpc_request = self._build_json_rpc_request(request)
         base_header = {
@@ -352,7 +354,7 @@ class BaseRPC:
 
         logger.debug(
             f"Sending RPC request to {self.url}, "
-            f"method={json_rpc_request.method}, timeout={timeout}..."
+            f"method={json_rpc_request.method}..."
         )
 
         response = self._make_request(
@@ -377,8 +379,6 @@ class BaseRPC:
         """
         if extra_headers is None:
             extra_headers = {}
-        if timeout is None:
-            timeout = self.request_timeout
 
         json_rpc_requests = [
             self._build_json_rpc_request(call) for call in calls
@@ -391,7 +391,7 @@ class BaseRPC:
 
         logger.debug(
             f"Sending batch RPC request to {self.url}, "
-            f"{len(json_rpc_requests)} calls, timeout={timeout}..."
+            f"{len(json_rpc_requests)} calls..."
         )
 
         response = self._make_request(self.url, payload, headers, timeout)
