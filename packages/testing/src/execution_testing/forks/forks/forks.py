@@ -1645,3 +1645,12 @@ class Amsterdam(
     #  live on mainnet.
 
     pass
+
+
+class Bogota(Amsterdam, deployed=False):
+    """Bogota fork."""
+
+    @classmethod
+    def tx_types(cls) -> List[int]:
+        """At Bogota, frame transactions (type 6) are introduced."""
+        return super(Bogota, cls).tx_types() + [6]

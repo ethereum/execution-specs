@@ -127,6 +127,47 @@ class TransactionLoad:
             for blob_hash in self.raw.get("blobVersionedHashes")
         ]
 
+    def json_to_sender(self) -> Any:
+        """Get the explicit sender address of a frame transaction."""
+        return self.fork.hex_to_address(self.raw.get("sender"))
+
+    def json_to_frames(self) -> Any:
+        """Get the frames of a frame transaction."""
+        frames = []
+        for frame_data in self.raw.get("frames", []):
+            target_raw = frame_data.get("target")
+            if target_raw is None or target_raw in ("", "0x"):
+                target: Any = Bytes0(b"")
+            else:
+                target = self.fork.hex_to_address(target_raw)
+            frames.append(
+                self.fork.Frame(
+                    mode=parse_hex_or_int(frame_data.get("mode", 0), Uint),
+                    flags=parse_hex_or_int(frame_data.get("flags", 0), Uint),
+                    target=target,
+                    gas_limit=parse_hex_or_int(
+                        frame_data.get("gasLimit", 0), Uint
+                    ),
+                    value=parse_hex_or_int(frame_data.get("value", 0), U256),
+                    data=hex_to_bytes(frame_data.get("data", "0x")),
+                )
+            )
+        return tuple(frames)
+
+    def json_to_signatures(self) -> Any:
+        """Get the signature entries of a frame transaction."""
+        signatures = []
+        for sig_data in self.raw.get("signatures", []):
+            signatures.append(
+                self.fork.TransactionSignature(
+                    scheme=parse_hex_or_int(sig_data.get("scheme", 0), Uint),
+                    signer=hex_to_bytes(sig_data.get("signer", "0x")),
+                    msg=hex_to_bytes(sig_data.get("msg", "0x")),
+                    signature=hex_to_bytes(sig_data.get("signature", "0x")),
+                )
+            )
+        return tuple(signatures)
+
     def json_to_v(self) -> U256:
         """Get the v value of the transaction."""
         return hex_to_u256(
@@ -177,7 +218,12 @@ class TransactionLoad:
         """Convert json transaction data to a transaction object."""
         if "type" in self.raw:
             tx_type = parse_hex_or_int(self.raw.get("type"), Uint)
-            if tx_type == Uint(4):
+            if tx_type == Uint(6):
+                if not self.fork.supports_tx_type(6):
+                    raise self.unsupported_tx_type(6)
+                tx_cls = self.fork.FrameTransaction
+                tx_byte_prefix = b"\x06"
+            elif tx_type == Uint(4):
                 if not self.fork.supports_tx_type(4):
                     raise self.unsupported_tx_type(4)
                 tx_cls = self.fork.SetCodeTransaction

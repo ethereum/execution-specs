@@ -17,6 +17,7 @@ from ..forks.forks import (
     BPO5,
     Amsterdam,
     Berlin,
+    Bogota,
     Cancun,
     Frontier,
     Homestead,
@@ -57,8 +58,8 @@ from ..transition_base_fork import TransitionBaseClass, transition_fork
 
 FIRST_DEPLOYED = Frontier
 LAST_DEPLOYED = Osaka
-LAST_DEVELOPMENT = Amsterdam
-DEVELOPMENT_FORKS = [Amsterdam]
+LAST_DEVELOPMENT = Bogota
+DEVELOPMENT_FORKS = [Amsterdam, Bogota]
 
 
 def test_transition_forks() -> None:

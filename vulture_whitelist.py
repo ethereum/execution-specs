@@ -114,6 +114,9 @@ TransactionLoad.json_to_chain_id
 TransactionLoad.json_to_nonce
 TransactionLoad.json_to_gas
 TransactionLoad.json_to_to
+TransactionLoad.json_to_sender
+TransactionLoad.json_to_frames
+TransactionLoad.json_to_signatures
 TransactionLoad.json_to_value
 TransactionLoad.json_to_data
 TransactionLoad.json_to_access_list
@@ -122,6 +125,9 @@ TransactionLoad.json_to_max_fee_per_gas
 TransactionLoad.json_to_max_priority_fee_per_gas
 TransactionLoad.json_to_max_fee_per_blob_gas
 TransactionLoad.json_to_blob_versioned_hashes
+TransactionLoad.json_to_sender
+TransactionLoad.json_to_frames
+TransactionLoad.json_to_signatures
 TransactionLoad.json_to_v
 TransactionLoad.json_to_y_parity
 TransactionLoad.json_to_r

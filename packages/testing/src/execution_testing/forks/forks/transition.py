@@ -8,6 +8,7 @@ from .forks import (
     BPO4,
     Amsterdam,
     Berlin,
+    Bogota,
     Cancun,
     London,
     Osaka,
@@ -74,6 +75,13 @@ class BPO2ToAmsterdamAtTime15k(TransitionBaseClass):
     # TODO: We may need to adjust which BPO Amsterdam inherits from as the
     #  related Amsterdam specs change over time, and before Amsterdam is
     #  live on mainnet.
+
+    pass
+
+
+@transition_fork(to_fork=Bogota, from_fork=Amsterdam, at_timestamp=15_000)
+class AmsterdamToBogotaAtTime15k(TransitionBaseClass):
+    """Amsterdam to Bogota transition at Timestamp 15k."""
 
     pass
 

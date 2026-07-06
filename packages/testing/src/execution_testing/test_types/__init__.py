@@ -33,7 +33,7 @@ from .helpers import (
     eoa_from_hash,
 )
 from .phase_manager import TestPhase, TestPhaseManager
-from .receipt_types import TransactionLog, TransactionReceipt
+from .receipt_types import FrameReceipt, TransactionLog, TransactionReceipt
 from .request_types import (
     BuilderDepositRequest,
     BuilderExitRequest,
@@ -53,6 +53,8 @@ from .system_contract_request_types import (
 )
 from .transaction_types import (
     AuthorizationTuple,
+    Frame,
+    FrameSignature,
     NetworkWrappedTransaction,
     Transaction,
     TransactionDefaults,
@@ -86,6 +88,9 @@ __all__ = (
     "Environment",
     "EnvironmentDefaults",
     "EOA",
+    "Frame",
+    "FrameReceipt",
+    "FrameSignature",
     "FeeSystemContractRequest",
     "NetworkWrappedTransaction",
     "Removable",
