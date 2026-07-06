@@ -277,6 +277,7 @@ whitelist = "ethereum_spec_tools.whitelist:main"
 "ethereum_spec_tools.docc.build" = "ethereum_spec_tools.docc:EthereumBuilder"
 "ethereum_spec_tools.docc.fix-indexes" = "ethereum_spec_tools.docc:FixIndexTransform"
 "ethereum_spec_tools.docc.minimize-diffs" = "ethereum_spec_tools.docc:MinimizeDiffsTransform"
+"ethereum_spec_tools.docc.prune-references" = "ethereum_spec_tools.docc:PruneReferencesTransform"
 
 [project.entry-points."docc.plugins.html"]
 "ethereum_spec_tools.docc:DiffNode" = "ethereum_spec_tools.docc:render_diff"
@@ -341,6 +342,9 @@ transform = [
     "ethereum_spec_tools.docc.fix-indexes",
     "ethereum_spec_tools.docc.minimize-diffs",
     "docc.references.index",
+    # prune-references must run after the index is populated and before
+    # any transform that resolves references (search, html).
+    "ethereum_spec_tools.docc.prune-references",
     "docc.search.transform",
     "docc.html.transform",
 ]

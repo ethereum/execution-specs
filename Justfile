@@ -330,6 +330,12 @@ docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
 [group('docs')]
 docs-spec-fast: (docs-spec "1")
 
+# Build spec docs in parallel shards for fast PR validation
+[group('docs')]
+docs-spec-parallel shards="4":
+    uv run python -m ethereum_spec_tools.docc_shards \
+        -n {{ shards }} -o "{{ output_dir }}/docs-spec-parallel"
+
 # Build HTML site documentation with mkdocs
 [group('docs')]
 docs *args:
