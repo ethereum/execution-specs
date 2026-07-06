@@ -316,36 +316,11 @@ docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
 [group('docs')]
 docs-spec-fast: (docs-spec "1")
 
-# Build spec docs in parallel shards of consecutive forks (PR validation).
-# Each shard overlaps its predecessor fork by one so every previous-fork
-# reference is validated in some shard; outputs are per-shard and not merged.
+# Build spec docs in parallel shards for fast PR validation
 [group('docs')]
 docs-spec-parallel shards="4":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    read -ra forks <<< "$(uv run python -c 'from ethereum_spec_tools.forks import Hardfork; print(" ".join(h.short_name for h in Hardfork.discover()))')"
-    total=${#forks[@]}
-    n={{ shards }}
-    per=$(( (total + n - 1) / n ))
-    pids=()
-    for ((i = 0; i < n; i++)); do
-        start=$(( i * per ))
-        [ "$start" -ge "$total" ] && break
-        end=$(( start + per ))
-        [ "$end" -gt "$total" ] && end=$total
-        s=$start
-        [ "$s" -gt 0 ] && s=$(( s - 1 ))
-        shard=$(IFS=,; echo "${forks[*]:$s:$(( end - s ))}")
-        echo "shard $i: $shard"
-        DOCC_SKIP_DIFFS=1 DOCC_ONLY_FORKS="$shard" \
-            uv run docc --output "{{ output_dir }}/docs-spec-parallel/shard-$i" &
-        pids+=($!)
-    done
-    fail=0
-    for pid in "${pids[@]}"; do
-        wait "$pid" || fail=1
-    done
-    exit $fail
+    uv run python -m ethereum_spec_tools.docc_shards \
+        -n {{ shards }} -o "{{ output_dir }}/docs-spec-parallel"
 
 # Build HTML site documentation with mkdocs
 [group('docs')]
