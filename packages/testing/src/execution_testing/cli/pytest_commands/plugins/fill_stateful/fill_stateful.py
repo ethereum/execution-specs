@@ -132,6 +132,19 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "by hash. The produced fixtures are anchored by hash regardless."
         ),
     )
+    group.addoption(
+        "--extract-opcode-count",
+        action="store_true",
+        dest="extract_opcode_count",
+        default=False,
+        help=(
+            "Trace each built block via debug_traceBlockByHash (a JS "
+            "opcode-counting tracer) and record per-opcode execution counts "
+            "in the fixture's _info.metadata.opcode_count. Requires the "
+            "client to expose the `debug` namespace with JS tracer support. "
+            "Adds a full re-execution trace per block — slow; opt-in."
+        ),
+    )
 
 
 def _resolve_session_fork(
@@ -477,7 +490,9 @@ def debug_rpc(eth_rpc: EthRPC) -> DebugRPC:
 
 @pytest.fixture(scope="session")
 def client_backend(
+    request: pytest.FixtureRequest,
     eth_rpc: ChainBuilderEthRPC,
+    debug_rpc: DebugRPC,
     session_fork: Fork | TransitionFork,
     default_gas_price: int | None,
     default_max_fee_per_gas: int | None,
@@ -501,6 +516,10 @@ def client_backend(
         engine_rpc=eth_rpc.engine_rpc,
         eth_rpc=eth_rpc,
         fork=session_fork,
+        debug_rpc=debug_rpc,
+        extract_opcode_count=request.config.getoption(
+            "extract_opcode_count", default=False
+        ),
     )
 
     priority_fee = default_max_priority_fee_per_gas
@@ -719,7 +738,8 @@ def session_t8n(
 def t8n(
     session_t8n: ClientBackend,
 ) -> Generator[ClientBackend, None, None]:
-    """Override: no per-test reset needed for ClientBackend."""
+    """Override: zero per-test opcode counts (no-op unless enabled)."""
+    session_t8n.reset_opcode_count()
     yield session_t8n
 
 

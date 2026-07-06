@@ -17,7 +17,13 @@ from typing import Any, ClassVar, Dict, List, Optional
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
 from execution_testing.forks import Fork, TransitionFork
-from execution_testing.rpc import EngineRPC, EthRPC, TestingRPC, Web3RPC
+from execution_testing.rpc import (
+    DebugRPC,
+    EngineRPC,
+    EthRPC,
+    TestingRPC,
+    Web3RPC,
+)
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     GetPayloadResponse,
@@ -37,6 +43,23 @@ from .cli_types import (
     TransitionToolOutput,
 )
 from .transition_tool import TransitionTool
+
+# JS tracer for ``debug_traceBlockByHash`` that tallies executed opcodes
+# per transaction. There is no built-in opcode-count tracer, so we count
+# ``log.op`` names ourselves and return the aggregate dict. Used by
+# fill-stateful's ``--extract-opcode-count`` to populate
+# ``_info.metadata.opcode_count``.
+OPCODE_COUNT_TRACER_JS = (
+    "{"
+    "counts: {}, "
+    "step: function(log) { "
+    "var op = log.op.toString(); "
+    "this.counts[op] = (this.counts[op] || 0) + 1; "
+    "}, "
+    "fault: function() {}, "
+    "result: function() { return this.counts; }"
+    "}"
+)
 
 
 class ClientBackendExceptionMapper(ExceptionMapper):
@@ -89,12 +112,18 @@ class ClientBackend:
         engine_rpc: EngineRPC,
         eth_rpc: EthRPC,
         fork: Fork | TransitionFork,
+        debug_rpc: DebugRPC | None = None,
+        extract_opcode_count: bool = False,
     ) -> None:
         """Initialize with the RPC clients and the session fork."""
         self.testing_rpc = testing_rpc
         self.engine_rpc = engine_rpc
         self.eth_rpc = eth_rpc
         self.fork = fork
+        # Optional debug namespace + flag for --extract-opcode-count: when
+        # enabled, each built block is traced via debug_traceBlockByHash.
+        self.debug_rpc = debug_rpc
+        self.extract_opcode_count = extract_opcode_count
         self.exception_mapper = ClientBackendExceptionMapper()
         self.snapshot_block = None
         self.start_block = None
@@ -126,8 +155,15 @@ class ClientBackend:
         return
 
     def reset_opcode_count(self) -> None:
-        """No-op — opcode counting not supported."""
-        return
+        """
+        Zero the per-test opcode tally when extraction is enabled.
+
+        Mirrors ``TransitionTool.reset_opcode_count`` so the filler writes
+        ``_info.metadata.opcode_count``. Left ``None`` when disabled, which
+        makes the filler skip the metadata key entirely.
+        """
+        if self.extract_opcode_count:
+            self.opcode_count = OpcodeCount({})
 
     def set_cache(self, *, key: str) -> bool:
         """No-op — caching not meaningful for a live client."""
@@ -208,6 +244,36 @@ class ClientBackend:
                 ),
             ),
         )
+
+    def extract_block_opcode_count(
+        self, block_hash: Hash
+    ) -> OpcodeCount | None:
+        """
+        Trace a finalized block via ``debug_traceBlockByHash`` and tally
+        executed opcodes across its transactions.
+
+        Returns ``None`` when ``--extract-opcode-count`` is off or no
+        ``debug`` RPC is wired — so callers can invoke it unconditionally
+        and it stays free when disabled. Called per execution-phase block
+        by ``make_stateful_fixture``. The tracer runs a full re-execution
+        of the block, so it is opt-in and can be slow on large blocks.
+        """
+        if not self.extract_opcode_count or self.debug_rpc is None:
+            return None
+        traces = self.debug_rpc.trace_block_by_hash(
+            str(block_hash),
+            {"tracer": OPCODE_COUNT_TRACER_JS},
+        )
+        counts: Dict[str, int] = {}
+        for entry in traces or []:
+            if not isinstance(entry, dict):
+                continue
+            tx_counts = entry.get("result")
+            if not isinstance(tx_counts, dict):
+                continue
+            for opcode, count in tx_counts.items():
+                counts[opcode] = counts.get(opcode, 0) + int(count)
+        return OpcodeCount.model_validate(counts)
 
     def _payload_attributes(
         self,

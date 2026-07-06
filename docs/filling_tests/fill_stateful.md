@@ -13,7 +13,7 @@ The target client must expose:
 
 - `testing` (`testing_buildBlockV1`) — block construction with explicit transaction ordering.
 - `engine` — `engine_newPayloadVX`, `engine_forkchoiceUpdatedVX`.
-- `eth`, `debug` — chain queries and `debug_setHead` (or `debug_resetHead` on clients like Nethermind that lack `debug_setHead`) for between-test rewind.
+- `eth`, `debug` — chain queries and `debug_setHead` (or `debug_resetHead` on clients like Nethermind that lack `debug_setHead`) for between-test rewind. `--extract-opcode-count` additionally needs `debug_traceBlockByHash` with JS tracer support.
 - `web3` (optional) — `web3_clientVersion` is recorded into the fixture's `_info.filling-transition-tool` for traceability.
 
 The production-ready filler is `ethpandaops/geth:master`.
@@ -122,6 +122,7 @@ Optional:
 - `--default-{gas-price,max-fee-per-gas,max-priority-fee-per-gas,max-fee-per-blob-gas}` — pin per-session fees; defaults bump live-query values by `1.5×`.
 - `--output PATH` — default `./fixtures`.
 - `--clean` — wipe the output dir before filling.
+- `--extract-opcode-count` — after building each block, trace it via `debug_traceBlockByHash` (a JS opcode-counting tracer) and record per-opcode execution counts (execution-phase blocks only) in the fixture's `_info.metadata.opcode_count`, matching what the standard `fill` benchmark path emits. Requires the `debug` namespace with JS tracer support. Adds a full re-execution trace per block, so it is slow and opt-in.
 
 ## Output layout
 
@@ -135,7 +136,7 @@ Optional:
             └── <test>.json         # per-test setup + execution payloads
 ```
 
-Each `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`) is replayed once per `benchmarkoor` run. Per-test fixtures (`BlockchainEngineStatefulFixture`) reference their setup file by hash: a fixture with `startBlockHash = 0xabc...` is preceded by `pre_run/0xabc....json`. Each per-test fixture carries `snapshotBlockNumber`/`Hash`, `startBlockNumber`/`Hash`, `setupEngineNewPayloads`, `engineNewPayloads`, plus a `benchmarkGasUsed` field and the EL build in `_info.filling-transition-tool`. The hash-based filename leaves room for multiple pre-run files (e.g. different setup variants off one snapshot) without coordinating names.
+Each `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`) is replayed once per `benchmarkoor` run. Per-test fixtures (`BlockchainEngineStatefulFixture`) reference their setup file by hash: a fixture with `startBlockHash = 0xabc...` is preceded by `pre_run/0xabc....json`. Each per-test fixture carries `snapshotBlockNumber`/`Hash`, `startBlockNumber`/`Hash`, `setupEngineNewPayloads`, `engineNewPayloads`, plus a `benchmarkGasUsed` field and the EL build in `_info.filling-transition-tool`. With `--extract-opcode-count`, it also carries `_info.metadata.opcode_count` (per-opcode execution counts across the execution-phase blocks). The hash-based filename leaves room for multiple pre-run files (e.g. different setup variants off one snapshot) without coordinating names.
 
 !!! warning "Snapshot anchoring"
     `--snapshot-block` accepts a hash on purpose. Anchoring to `latest` works against a quiescent client, but a live reorg between session start and fixture write would silently re-anchor the fixture to a different block. The hash form rejects that.

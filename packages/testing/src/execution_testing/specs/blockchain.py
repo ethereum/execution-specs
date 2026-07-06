@@ -1485,21 +1485,32 @@ class BlockchainTest(BaseTest):
             payload = payload_metadata_to_fixture(
                 built_block.engine_payload, phase=block.phase
             )
+            # The client's authoritative block hash (the FixtureHeader RLP
+            # hash diverges — the client picks fields like gas_limit).
+            client_hash = Hash(
+                built_block.engine_payload.payload_response.execution_payload.block_hash
+            )
             if payload.phase == TestPhase.SETUP:
                 setup_payloads.append(payload)
             else:
                 execution_payloads.append(payload)
                 if self.operation_mode == OpMode.BENCHMARKING:
                     benchmark_gas_used = int(built_block.result.gas_used)
-                    benchmark_opcode_count = built_block.result.opcode_count
-            # Overwrite the block_hash apply_new_parent just recorded —
-            # it's the FixtureHeader-recomputed RLP hash, which diverges
-            # from the client's authoritative hash (client picks fields
-            # like gas_limit). The next block's parent_hash must point at
-            # what the client actually built.
-            client_hash = Hash(
-                built_block.engine_payload.payload_response.execution_payload.block_hash
-            )
+                # Trace + accumulate opcode counts for execution-phase
+                # blocks only (fill-stateful's --extract-opcode-count) so
+                # the filler emits _info.metadata.opcode_count, mirroring
+                # the t8n path. Setup blocks are skipped — no wasted trace.
+                block_opcode_count = t8n.extract_block_opcode_count(
+                    client_hash
+                )
+                if (
+                    t8n.opcode_count is not None
+                    and block_opcode_count is not None
+                ):
+                    t8n.opcode_count += block_opcode_count
+                    benchmark_opcode_count = block_opcode_count
+            # apply_new_parent records the RLP hash; the next block's
+            # parent_hash must point at what the client actually built.
             env = apply_new_parent(built_block.env, built_block.header)
             env = env.copy(
                 block_hashes={
