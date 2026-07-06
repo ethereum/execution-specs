@@ -18,7 +18,7 @@ from ethereum_types.numeric import Uint
 from ethereum.state import Address
 
 from ..state_tracker import get_account, get_code
-from ..transactions import Transaction
+from ..transactions import StandardTransaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
@@ -27,7 +27,7 @@ from .address import compute_contract_address
 def prepare_message(
     block_env: BlockEnvironment,
     tx_env: TransactionEnvironment,
-    tx: Transaction,
+    tx: StandardTransaction,
 ) -> Message:
     """
     Execute a transaction against the provided environment.

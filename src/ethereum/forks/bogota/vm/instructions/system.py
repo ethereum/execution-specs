@@ -29,6 +29,7 @@ from ...state_tracker import (
     is_account_alive,
     move_ether,
 )
+from ...transactions import resolve_frame_target
 from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
@@ -41,12 +42,19 @@ from .. import (
     CALL_SUCCESS,
     Evm,
     Message,
+    attempt_frame_approval,
     credit_state_gas_refund,
     emit_transfer_log,
     incorporate_child_on_error,
     incorporate_child_on_success,
+    pending_frame_approval_state,
 )
-from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
+from ..exceptions import (
+    InvalidParameter,
+    OutOfGasError,
+    Revert,
+    WriteInStaticContext,
+)
 from ..gas import (
     GasCosts,
     StateGasCosts,
@@ -272,6 +280,69 @@ def create2(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
+
+
+def approve(evm: Evm) -> None:
+    """
+    Exit the current call successfully while updating the
+    transaction-scoped approval context of the executing frame
+    transaction, as defined in [EIP-8141].
+
+    The instruction reverts unless the executing account is the
+    resolved target of the current frame and the requested scope is
+    allowed by the frame's flags. On payment approval the sender's
+    nonce is incremented and the maximum transaction cost is collected
+    from the resolved target.
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    """
+    # STACK
+    memory_start_position = pop(evm.stack)
+    memory_size = pop(evm.stack)
+    scope = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_position, memory_size)]
+    )
+    charge_gas(evm, GasCosts.OPCODE_APPROVE + extend_memory.cost)
+
+    # OPERATION
+    frame_context = evm.message.tx_env.frame_context
+    if frame_context is None:
+        raise InvalidParameter("no frame transaction context")
+    tx = frame_context.tx
+    frame = tx.frames[int(frame_context.current_frame_index)]
+    resolved_target = resolve_frame_target(tx, frame)
+
+    if evm.message.current_target != resolved_target:
+        evm.output = Bytes(b"")
+        raise Revert("APPROVE outside the frame's resolved target")
+
+    sender_approved, payer = pending_frame_approval_state(evm)
+    approval = attempt_frame_approval(
+        frame_context=frame_context,
+        scope=Uint(scope),
+        frame_flags=frame.flags,
+        resolved_target=resolved_target,
+        sender_approved=sender_approved,
+        payer=payer,
+        tx_state=evm.message.tx_env.state,
+    )
+    if approval is None:
+        evm.output = Bytes(b"")
+        raise Revert("approval not granted")
+
+    evm.approvals += (approval,)
+    evm.memory += b"\x00" * extend_memory.expand_by
+    evm.output = memory_read_bytes(
+        evm.memory, memory_start_position, memory_size
+    )
+
+    evm.running = False
+
+    # PROGRAM COUNTER
+    pass
 
 
 def return_(evm: Evm) -> None:

@@ -208,6 +208,14 @@ class Ops(enum.Enum):
     LOG3 = 0xA3
     LOG4 = 0xA4
 
+    # Frame Transaction Operations
+    APPROVE = 0xAA
+    TXPARAM = 0xB0
+    FRAMEDATALOAD = 0xB1
+    FRAMEDATACOPY = 0xB2
+    FRAMEPARAM = 0xB3
+    SIGPARAM = 0xB4
+
     # System Operations
     CREATE = 0xF0
     CALL = 0xF1
@@ -365,6 +373,12 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.LOG2: log_instructions.log2,
     Ops.LOG3: log_instructions.log3,
     Ops.LOG4: log_instructions.log4,
+    Ops.APPROVE: system_instructions.approve,
+    Ops.TXPARAM: environment_instructions.txparam,
+    Ops.FRAMEDATALOAD: environment_instructions.framedataload,
+    Ops.FRAMEDATACOPY: environment_instructions.framedatacopy,
+    Ops.FRAMEPARAM: environment_instructions.frameparam,
+    Ops.SIGPARAM: environment_instructions.sigparam,
     Ops.CREATE: system_instructions.create,
     Ops.RETURN: system_instructions.return_,
     Ops.CALL: system_instructions.call,

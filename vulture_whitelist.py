@@ -11,6 +11,10 @@ from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.forks.bogota.transactions import (
+    EXPIRY_VERIFIER_CODE,
+    FRAME_MODE_DEFAULT,
+)
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
@@ -46,6 +50,10 @@ Withdrawal.validator_index
 
 # src/ethereum/fork_criteria.py
 Unscheduled
+
+# src/ethereum/forks/bogota/transactions.py
+EXPIRY_VERIFIER_CODE
+FRAME_MODE_DEFAULT
 
 # src/ethereum/ethash.py
 ethash.generate_dataset

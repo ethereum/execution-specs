@@ -22,7 +22,7 @@ from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
 from ..fork_types import StateGas, StateGasPerByte
-from ..transactions import BlobTransaction, Transaction
+from ..transactions import BlobTransaction, FrameTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
 
@@ -212,11 +212,18 @@ class GasCosts:
     OPCODE_EXCHANGE: Final[Uint] = VERY_LOW
     OPCODE_TLOAD: Final[Uint] = Uint(100)
     OPCODE_TSTORE: Final[Uint] = Uint(100)
+    OPCODE_APPROVE: Final[Uint] = ZERO
+    OPCODE_TXPARAM: Final[Uint] = BASE
+    OPCODE_FRAMEDATALOAD: Final[Uint] = VERY_LOW
+    OPCODE_FRAMEPARAM: Final[Uint] = BASE
+    OPCODE_SIGPARAM: Final[Uint] = BASE
 
     # Dynamic Opcode Components
     OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW
     OPCODE_RETURNDATACOPY_PER_WORD: Final[Uint] = Uint(3)
     OPCODE_CALLDATACOPY_BASE: Final[Uint] = VERY_LOW
+    OPCODE_FRAMEDATACOPY_BASE: Final[Uint] = VERY_LOW
+    OPCODE_SIGPARAM_COPY_BASE: Final[Uint] = VERY_LOW
     OPCODE_CODECOPY_BASE: Final[Uint] = VERY_LOW
     OPCODE_MCOPY_BASE: Final[Uint] = VERY_LOW
     OPCODE_MLOAD_BASE: Final[Uint] = VERY_LOW
@@ -546,7 +553,7 @@ def calculate_total_blob_gas(tx: Transaction) -> U64:
         The total blob gas for the transaction.
 
     """
-    if isinstance(tx, BlobTransaction):
+    if isinstance(tx, (BlobTransaction, FrameTransaction)):
         return GasCosts.PER_BLOB * U64(len(tx.blob_versioned_hashes))
     else:
         return U64(0)

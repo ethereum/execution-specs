@@ -4,7 +4,7 @@ Exceptions specific to this fork.
 
 from typing import TYPE_CHECKING, Final
 
-from ethereum_types.numeric import U64, Uint
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.exceptions import InvalidBlock, InvalidTransaction
 
@@ -20,7 +20,7 @@ class WrongChainIdError(InvalidTransaction):
     [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     """
 
-    def __init__(self, expected: U64, actual: U64):
+    def __init__(self, expected: U64, actual: U64 | U256):
         super().__init__(f"expected chain_id `{expected}` but got `{actual}`")
         self.expected = expected
         self.actual = actual
@@ -152,4 +152,35 @@ class BlockAccessListGasLimitExceededError(InvalidBlock):
     Introduced in [EIP-7928].
 
     [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
+    """
+
+
+class FrameTransactionFormatError(InvalidTransaction):
+    """
+    A frame transaction violates one of the static constraints defined
+    in [EIP-8141], such as an invalid frame count, mode, flags, or
+    signature entry structure.
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    """
+
+
+class FrameTransactionSignatureError(InvalidTransaction):
+    """
+    A signature entry of a frame transaction failed validation, as
+    defined in [EIP-8141].
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    """
+
+
+class FrameTransactionExecutionError(InvalidTransaction):
+    """
+    Frame execution rendered the whole frame transaction invalid: a
+    `SENDER` frame ran before execution approval, a `VERIFY` frame
+    reverted, or no frame approved gas payment.
+
+    See [EIP-8141] for the frame execution rules.
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
     """

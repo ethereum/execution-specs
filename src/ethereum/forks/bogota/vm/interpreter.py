@@ -56,6 +56,7 @@ from ..vm.gas import (
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import (
     Evm,
+    FrameApproval,
     emit_transfer_log,
     frame_state_gas_used,
     refill_frame_state_gas,
@@ -99,6 +100,8 @@ class MessageCallOutput:
              matches the receipt `cumulative_gas_used`.
           10. `created_target_alive`: Whether a top-level creation
               transaction targeted an already-existent account.
+          11. `approvals`: Approvals granted by the `APPROVE`
+              instruction that survived until the end of the call.
     """
 
     gas_left: Uint
@@ -112,6 +115,7 @@ class MessageCallOutput:
     state_gas_used: int
     state_refund: Uint
     created_target_alive: bool
+    approvals: Tuple[FrameApproval, ...] = ()
 
 
 def process_message_call(message: Message) -> MessageCallOutput:
@@ -172,10 +176,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
     if evm.error:
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
+        approvals: Tuple[FrameApproval, ...] = ()
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
         refund_counter += U256(evm.refund_counter)
+        approvals = evm.approvals
 
     tx_end = TransactionEnd(
         int(message.gas) - int(evm.gas_left), evm.output, evm.error
@@ -194,6 +200,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         state_gas_used=frame_state_gas_used(evm),
         state_refund=state_refund,
         created_target_alive=target_alive,
+        approvals=approvals,
     )
 
 

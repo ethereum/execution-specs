@@ -18,10 +18,17 @@ from ethereum.state import EMPTY_ACCOUNT
 from ethereum.utils.numeric import ceil32
 
 from ...state_tracker import get_account, get_code
+from ...transactions import (
+    APPROVE_SCOPE_MASK,
+    ATOMIC_BATCH_FLAG,
+    SIGNATURE_SCHEME_ARBITRARY,
+    resolve_frame_target,
+    tx_signature_scheme_is_protocol_validated,
+)
 from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
-from .. import Evm
-from ..exceptions import OutOfBoundsRead
+from .. import Evm, FrameTransactionContext
+from ..exceptions import InvalidParameter, OutOfBoundsRead
 from ..gas import (
     GasCosts,
     calculate_blob_gas_price,
@@ -606,6 +613,291 @@ def blob_base_fee(evm: Evm) -> None:
         evm.message.block_env.excess_blob_gas
     )
     push(evm.stack, U256(blob_base_fee))
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def active_frame_transaction_context(evm: Evm) -> FrameTransactionContext:
+    """
+    Return the context of the executing frame transaction.
+
+    An exceptional halt occurs when the current transaction is not a
+    frame transaction.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    frame_context = evm.message.tx_env.frame_context
+    if frame_context is None:
+        raise InvalidParameter("no frame transaction context")
+    return frame_context
+
+
+def txparam(evm: Evm) -> None:
+    """
+    Push a transaction-scoped parameter of the executing frame
+    transaction onto the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    param = pop(evm.stack)
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_TXPARAM)
+
+    # OPERATION
+    frame_context = active_frame_transaction_context(evm)
+    tx = frame_context.tx
+    if param == U256(0x00):
+        value = U256(0x06)
+    elif param == U256(0x01):
+        value = U256(tx.nonce)
+    elif param == U256(0x02):
+        value = U256.from_be_bytes(tx.sender)
+    elif param == U256(0x03):
+        value = U256(tx.max_priority_fee_per_gas)
+    elif param == U256(0x04):
+        value = U256(tx.max_fee_per_gas)
+    elif param == U256(0x05):
+        value = tx.max_fee_per_blob_gas
+    elif param == U256(0x06):
+        value = U256(frame_context.max_cost)
+    elif param == U256(0x07):
+        value = U256(len(tx.blob_versioned_hashes))
+    elif param == U256(0x08):
+        value = U256.from_be_bytes(frame_context.sig_hash)
+    elif param == U256(0x09):
+        value = U256(len(tx.frames))
+    elif param == U256(0x0A):
+        value = U256(frame_context.current_frame_index)
+    elif param == U256(0x0B):
+        value = U256(len(tx.signatures))
+    else:
+        raise InvalidParameter("undefined TXPARAM parameter")
+    push(evm.stack, value)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def framedataload(evm: Evm) -> None:
+    """
+    Push a word (32 bytes) of the data of the chosen frame onto the
+    stack, with `CALLDATALOAD` semantics.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    start_index = pop(evm.stack)
+    frame_index = pop(evm.stack)
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_FRAMEDATALOAD)
+
+    # OPERATION
+    frame_context = active_frame_transaction_context(evm)
+    if Uint(frame_index) >= ulen(frame_context.tx.frames):
+        raise OutOfBoundsRead("frame index out of bounds")
+    frame = frame_context.tx.frames[int(frame_index)]
+    value = buffer_read(frame.data, start_index, U256(32))
+    push(evm.stack, U256.from_be_bytes(value))
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def framedatacopy(evm: Evm) -> None:
+    """
+    Copy a portion of the data of the chosen frame to memory, with
+    `CALLDATACOPY` semantics.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    memory_start_index = pop(evm.stack)
+    data_start_index = pop(evm.stack)
+    size = pop(evm.stack)
+    frame_index = pop(evm.stack)
+
+    # GAS
+    words = ceil32(Uint(size)) // Uint(32)
+    copy_gas_cost = GasCosts.OPCODE_COPY_PER_WORD * words
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_index, size)]
+    )
+    charge_gas(
+        evm,
+        GasCosts.OPCODE_FRAMEDATACOPY_BASE
+        + copy_gas_cost
+        + extend_memory.cost,
+    )
+
+    # OPERATION
+    frame_context = active_frame_transaction_context(evm)
+    if Uint(frame_index) >= ulen(frame_context.tx.frames):
+        raise OutOfBoundsRead("frame index out of bounds")
+    frame = frame_context.tx.frames[int(frame_index)]
+    evm.memory += b"\x00" * extend_memory.expand_by
+    value = buffer_read(frame.data, data_start_index, size)
+    memory_write(evm.memory, memory_start_index, value)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def frameparam(evm: Evm) -> None:
+    """
+    Push a frame-scoped parameter of the chosen frame onto the stack.
+
+    Accessing the return status of the current frame or a future frame
+    results in an exceptional halt.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    frame_index = pop(evm.stack)
+    param = pop(evm.stack)
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_FRAMEPARAM)
+
+    # OPERATION
+    frame_context = active_frame_transaction_context(evm)
+    if Uint(frame_index) >= ulen(frame_context.tx.frames):
+        raise OutOfBoundsRead("frame index out of bounds")
+    frame = frame_context.tx.frames[int(frame_index)]
+    if param == U256(0x00):
+        value = U256.from_be_bytes(
+            resolve_frame_target(frame_context.tx, frame)
+        )
+    elif param == U256(0x01):
+        value = U256(frame.gas_limit)
+    elif param == U256(0x02):
+        value = U256(frame.mode)
+    elif param == U256(0x03):
+        value = U256(frame.flags)
+    elif param == U256(0x04):
+        value = U256(len(frame.data))
+    elif param == U256(0x05):
+        if Uint(frame_index) >= frame_context.current_frame_index:
+            raise OutOfBoundsRead("status of current or future frame")
+        value = U256(frame_context.frame_statuses[int(frame_index)])
+    elif param == U256(0x06):
+        value = U256(frame.flags & APPROVE_SCOPE_MASK)
+    elif param == U256(0x07):
+        value = U256((frame.flags & ATOMIC_BATCH_FLAG) >> Uint(2))
+    elif param == U256(0x08):
+        value = frame.value
+    else:
+        raise InvalidParameter("undefined FRAMEPARAM parameter")
+    push(evm.stack, value)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def sigparam(evm: Evm) -> None:
+    """
+    Push signature-scoped metadata of the chosen signature entry onto
+    the stack, or copy the raw bytes of an `ARBITRARY` signature entry
+    to memory.
+
+    The raw signature bytes of protocol-validated schemes are not
+    accessible from the EVM.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    signature_index = pop(evm.stack)
+    param = pop(evm.stack)
+
+    if param == U256(0x04):
+        size = pop(evm.stack)
+        data_start_index = pop(evm.stack)
+        memory_start_index = pop(evm.stack)
+
+        # GAS
+        words = ceil32(Uint(size)) // Uint(32)
+        copy_gas_cost = GasCosts.OPCODE_COPY_PER_WORD * words
+        extend_memory = calculate_gas_extend_memory(
+            evm.memory, [(memory_start_index, size)]
+        )
+        charge_gas(
+            evm,
+            GasCosts.OPCODE_SIGPARAM_COPY_BASE
+            + copy_gas_cost
+            + extend_memory.cost,
+        )
+
+        # OPERATION
+        frame_context = active_frame_transaction_context(evm)
+        if Uint(signature_index) >= ulen(frame_context.tx.signatures):
+            raise OutOfBoundsRead("signature index out of bounds")
+        sig = frame_context.tx.signatures[int(signature_index)]
+        if sig.scheme != SIGNATURE_SCHEME_ARBITRARY:
+            raise InvalidParameter(
+                "signature bytes of protocol-validated schemes are not "
+                "accessible"
+            )
+        evm.memory += b"\x00" * extend_memory.expand_by
+        value = buffer_read(sig.signature, data_start_index, size)
+        memory_write(evm.memory, memory_start_index, value)
+
+        # PROGRAM COUNTER
+        evm.pc += Uint(1)
+        return
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_SIGPARAM)
+
+    # OPERATION
+    frame_context = active_frame_transaction_context(evm)
+    if Uint(signature_index) >= ulen(frame_context.tx.signatures):
+        raise OutOfBoundsRead("signature index out of bounds")
+    sig = frame_context.tx.signatures[int(signature_index)]
+    if param == U256(0x00):
+        if not tx_signature_scheme_is_protocol_validated(sig):
+            raise InvalidParameter(
+                "arbitrary signature entries have no effective signer"
+            )
+        result = U256.from_be_bytes(sig.signer)
+    elif param == U256(0x01):
+        result = U256(sig.scheme)
+    elif param == U256(0x02):
+        if len(sig.msg) == 0:
+            result = U256(0)
+        else:
+            result = U256.from_be_bytes(sig.msg)
+    elif param == U256(0x03):
+        result = U256(len(sig.signature))
+    else:
+        raise InvalidParameter("undefined SIGPARAM parameter")
+    push(evm.stack, result)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

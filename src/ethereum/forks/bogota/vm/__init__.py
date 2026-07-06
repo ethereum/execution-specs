@@ -27,8 +27,20 @@ from ethereum.utils.byte import left_pad_zero_bytes
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Authorization, StateGas, VersionedHash
-from ..state_tracker import BlockState, TransactionState
-from ..transactions import LegacyTransaction
+from ..state_tracker import (
+    BlockState,
+    TransactionState,
+    get_account,
+    increment_nonce,
+    set_account_balance,
+)
+from ..transactions import (
+    APPROVE_EXECUTION,
+    APPROVE_PAYMENT,
+    APPROVE_SCOPE_MASK,
+    FrameTransaction,
+    LegacyTransaction,
+)
 
 __all__ = ("Environment", "Evm", "Message")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
@@ -114,6 +126,180 @@ class BlockOutput:
 
 @final
 @dataclass
+class FrameApproval:
+    """
+    A pending approval granted by the `APPROVE` instruction.
+
+    Approvals accumulate on the [`Evm`] like logs: they propagate to the
+    parent call on success and are discarded when the granting call
+    reverts. They are applied to the [`FrameTransactionContext`][ctx]
+    once the frame completes successfully.
+
+    [`Evm`]: ref:ethereum.forks.bogota.vm.Evm
+    [ctx]: ref:ethereum.forks.bogota.vm.FrameTransactionContext
+    """
+
+    scope: Uint
+    """
+    The approval scope granted: a bitmask of [`APPROVE_PAYMENT`][pay]
+    and [`APPROVE_EXECUTION`][exe].
+
+    [pay]: ref:ethereum.forks.bogota.transactions.APPROVE_PAYMENT
+    [exe]: ref:ethereum.forks.bogota.transactions.APPROVE_EXECUTION
+    """
+
+    approver: Address
+    """
+    The resolved target of the frame that granted the approval. Becomes
+    the payer when the scope includes payment approval.
+    """
+
+
+@final
+@dataclass
+class FrameTransactionContext:
+    """
+    Transaction-scoped context of an executing frame transaction, as
+    defined in [EIP-8141]. Shared by all frames of the transaction.
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    """
+
+    tx: FrameTransaction
+    """
+    The frame transaction being executed.
+    """
+
+    sig_hash: Hash32
+    """
+    The canonical signature hash of the transaction.
+    """
+
+    max_cost: Uint
+    """
+    The maximum cost of the transaction, collected from the payer upon
+    payment approval: the total gas limit priced at `max_fee_per_gas`
+    plus the blob fees priced at `max_fee_per_blob_gas`.
+    """
+
+    sender_approved: bool = False
+    """
+    Whether a frame has approved execution on behalf of the sender.
+    """
+
+    payer: Optional[Address] = None
+    """
+    The account that approved payment and was charged the maximum
+    transaction cost, or `None` while payment is unapproved.
+    """
+
+    current_frame_index: Uint = Uint(0)
+    """
+    The index of the currently executing frame.
+    """
+
+    frame_statuses: List[Uint] = field(default_factory=list)
+    """
+    Status codes of the frames executed so far.
+    """
+
+
+def apply_frame_approval(
+    frame_context: FrameTransactionContext, approval: FrameApproval
+) -> None:
+    """
+    Apply a committed approval to the frame transaction context.
+
+    Parameters
+    ----------
+    frame_context :
+        The context of the executing frame transaction.
+    approval :
+        The approval to apply.
+
+    """
+    if approval.scope & APPROVE_EXECUTION:
+        frame_context.sender_approved = True
+    if approval.scope & APPROVE_PAYMENT:
+        frame_context.payer = approval.approver
+
+
+def attempt_frame_approval(
+    frame_context: FrameTransactionContext,
+    scope: Uint,
+    frame_flags: Uint,
+    resolved_target: Address,
+    sender_approved: bool,
+    payer: Optional[Address],
+    tx_state: TransactionState,
+) -> Optional[FrameApproval]:
+    """
+    Validate and perform an `APPROVE` of `scope`, returning the granted
+    approval or `None` when the request must revert the calling frame.
+
+    On payment approval the sender's nonce is incremented and the
+    maximum transaction cost is collected from the resolved target.
+    These state changes are journaled by the calling EVM frame and roll
+    back together with the returned approval if that frame later
+    reverts.
+
+    Parameters
+    ----------
+    frame_context :
+        The context of the executing frame transaction.
+    scope :
+        The requested approval scope.
+    frame_flags :
+        The flags of the frame requesting approval; bits 0-1 hold the
+        allowed approval scope.
+    resolved_target :
+        The resolved target of the frame requesting approval.
+    sender_approved :
+        Whether execution approval is in effect, including pending
+        approvals of the calling frame.
+    payer :
+        The payment approver in effect, including pending approvals of
+        the calling frame.
+    tx_state :
+        The transaction state.
+
+    Returns
+    -------
+    approval : `Optional[FrameApproval]`
+        The granted approval, or `None` if the request is not allowed.
+
+    """
+    tx_sender = frame_context.tx.sender
+    allowed_scope = frame_flags & APPROVE_SCOPE_MASK
+    if scope == 0 or int(scope) & ~int(allowed_scope) != 0:
+        return None
+
+    if scope & APPROVE_EXECUTION:
+        if sender_approved:
+            return None
+        if resolved_target != tx_sender:
+            return None
+
+    if scope & APPROVE_PAYMENT:
+        if payer is not None:
+            return None
+        approver_balance = get_account(tx_state, resolved_target).balance
+        if Uint(approver_balance) < frame_context.max_cost:
+            return None
+        if not (sender_approved or scope & APPROVE_EXECUTION):
+            return None
+        increment_nonce(tx_state, tx_sender)
+        set_account_balance(
+            tx_state,
+            resolved_target,
+            U256(Uint(approver_balance) - frame_context.max_cost),
+        )
+
+    return FrameApproval(scope=scope, approver=resolved_target)
+
+
+@final
+@dataclass
 class TransactionEnvironment:
     """
     Items that are used while processing a transaction.
@@ -134,6 +320,7 @@ class TransactionEnvironment:
     tx_hash: Optional[Hash32]
     intrinsic_regular_gas: Uint
     intrinsic_state_gas: Uint
+    frame_context: Optional[FrameTransactionContext] = None
 
 
 @final
@@ -187,6 +374,53 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_spilled: Uint = Uint(0)
+    approvals: Tuple[FrameApproval, ...] = ()
+
+
+def pending_frame_approval_state(
+    evm: Evm,
+) -> Tuple[bool, Optional[Address]]:
+    """
+    Return the approval state visible to the given EVM frame.
+
+    Combines the committed approvals of the
+    [`FrameTransactionContext`][ctx] with the pending approvals
+    journaled along the call chain of `evm`, so that an `APPROVE` in a
+    child call is visible to later `APPROVE` checks in the same frame
+    while still rolling back if an enclosing call reverts.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Returns
+    -------
+    approval_state : `Tuple[bool, Optional[Address]]`
+        Whether execution is approved, and the payment approver if any.
+
+    [ctx]: ref:ethereum.forks.bogota.vm.FrameTransactionContext
+
+    """
+    frame_context = evm.message.tx_env.frame_context
+    assert frame_context is not None
+    sender_approved = frame_context.sender_approved
+    payer = frame_context.payer
+
+    lineage = []
+    ancestor: Optional[Evm] = evm
+    while ancestor is not None:
+        lineage.append(ancestor)
+        ancestor = ancestor.message.parent_evm
+
+    for ancestor in reversed(lineage):
+        for approval in ancestor.approvals:
+            if approval.scope & APPROVE_EXECUTION:
+                sender_approved = True
+            if approval.scope & APPROVE_PAYMENT:
+                payer = approval.approver
+
+    return sender_approved, payer
 
 
 def credit_state_gas_refund(evm: Evm, amount: StateGas) -> None:
@@ -233,6 +467,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
     evm.regular_gas_used += child_evm.regular_gas_used
+    evm.approvals += child_evm.approvals
 
 
 def refill_frame_state_gas(evm: Evm) -> None:
