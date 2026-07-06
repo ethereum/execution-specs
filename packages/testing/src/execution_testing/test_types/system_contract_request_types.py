@@ -237,26 +237,6 @@ class SystemContractInteractionBase:
         """
         raise NotImplementedError
 
-    def valid_requests(
-        self, current_minimum_fee: int | None = None
-    ) -> List[SystemContractRequest]:
-        """
-        Return the list of requests that should be included in the block.
-
-        `current_minimum_fee` filters out requests whose value is below it
-        (e.g. the per-block fee). When `None`, no fee filter is applied and
-        every request marked `valid` is returned, trusting the caller to
-        ensure each request's value is sufficient.
-        """
-        source = self.request_source_address
-        assert source is not None, "Source address not initialized"
-        return [
-            r.with_source_address(source)
-            for r in self.requests
-            if r.valid
-            and (current_minimum_fee is None or r.value >= current_minimum_fee)
-        ]
-
 
 @dataclass(kw_only=True, frozen=True)
 class SystemContractInteractionTransaction(SystemContractInteractionBase):
