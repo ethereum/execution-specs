@@ -12,7 +12,7 @@ request types in one transaction.
 
 from abc import abstractmethod
 from dataclasses import dataclass, field, replace
-from typing import Any, Callable, ClassVar, List, Self, Sequence
+from typing import Callable, ClassVar, List, Literal, Self, Sequence
 
 from execution_testing.base_types import Address, CamelModel
 from execution_testing.forks.forks.helpers import fake_exponential
@@ -85,12 +85,8 @@ class FeeSystemContractRequest(SystemContractRequest):
     """Target requests per block; excess above this raises the fee."""
     max_per_block: ClassVar[int]
     """Maximum number of requests dequeued into a single block."""
-
-    def model_post_init(self, __context: Any) -> None:
-        """Default an unset fee to the base fee (the fee at zero excess)."""
-        super().model_post_init(__context)
-        if "fee" not in self.model_fields_set:
-            self.fee = type(self).get_fee(0)
+    excess_fee_processing: ClassVar[Literal["block", "call"]] = "block"
+    """When the excess fee is recalculated."""
 
     @property
     def value(self) -> int:

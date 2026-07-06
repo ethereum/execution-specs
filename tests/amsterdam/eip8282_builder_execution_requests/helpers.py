@@ -1,6 +1,6 @@
 """Helpers for the EIP-8282 builder execution request tests."""
 
-from typing import ClassVar, Self
+from typing import ClassVar, Literal, Self
 
 from execution_testing import Address, FeeSystemContractRequest
 from execution_testing import (
@@ -31,6 +31,7 @@ class BuilderDepositRequest(
     update_fraction: ClassVar[int] = Spec.REQUEST_FEE_UPDATE_FRACTION
     target_per_block: ClassVar[int] = Spec.TARGET_DEPOSIT_REQUESTS_PER_BLOCK
     max_per_block: ClassVar[int] = Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK
+    excess_fee_processing: ClassVar[Literal["block", "call"]] = "call"
 
     extra_wei: int = 0
     """

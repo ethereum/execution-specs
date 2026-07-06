@@ -18,7 +18,7 @@ from execution_testing import (
 from ...common.system_contract_request_fixtures import (
     blocks,  # noqa: F401
     included_requests,  # noqa: F401
-    prepared_system_contract_interactions_per_block,  # noqa: F401
+    system_contract_interactions_per_block_copy,  # noqa: F401
     timestamp,  # noqa: F401
 )
 from ..eip6110_deposits.helpers import DepositRequest

@@ -171,6 +171,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 validator_pubkey=0x01,
                                 amount=0,
                                 fee=0,
+                                valid=False,
                             ),
                             WithdrawalRequest(
                                 validator_pubkey=0x02,
@@ -195,6 +196,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 validator_pubkey=0x02,
                                 amount=Spec.MAX_AMOUNT - 1,
                                 fee=0,
+                                valid=False,
                             ),
                         ]
                     ),
@@ -296,6 +298,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 validator_pubkey=1,
                                 amount=Spec.MAX_AMOUNT,
                                 fee=0,
+                                valid=False,
                             )
                         ]
                         + [
@@ -343,6 +346,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                     else 0
                                 ),
                                 fee=0,
+                                valid=False,
                             )
                         ],
                     ),

@@ -32,27 +32,25 @@ RequestType = Type[SystemContractRequest]
 
 
 @pytest.fixture
-def prepared_system_contract_interactions_per_block(
-    pre: Alloc,
+def system_contract_interactions_per_block_copy(
     system_contract_interactions_per_block: List[
         List[SystemContractInteractionBase]
     ],
 ) -> List[List[SystemContractInteractionBase]]:
     """
-    Allocate accounts/contracts for each interaction in `pre` and return copies
-    with the allocated state populated. The parametrize value
-    `system_contract_interactions_per_block` is not mutated, so it stays
-    pristine across fixture format runs.
+    Return a copy of `system_contract_interactions_per_block` that can be
+    safely overwritten by fixtures in the test.
     """
     return [
-        [r.update_pre(pre) for r in block_interactions]
+        block_interactions[:]
         for block_interactions in system_contract_interactions_per_block
     ]
 
 
 @pytest.fixture
 def included_requests(
-    prepared_system_contract_interactions_per_block: List[
+    pre: Alloc,
+    system_contract_interactions_per_block_copy: List[
         List[SystemContractInteractionBase]
     ],
 ) -> List[List[SystemContractRequest]]:
@@ -67,23 +65,42 @@ def included_requests(
     seen_types: List[RequestType] = []
     per_block_included: List[List[SystemContractRequest]] = []
 
-    for block_interactions in prepared_system_contract_interactions_per_block:
+    for block_interactions in system_contract_interactions_per_block_copy:
         # Group this block's valid requests by type. Fee requests are kept only
         # if they meet their type's current (per-block) fee; fee-less requests
         # (e.g. deposits) are always included.
         current: Dict[RequestType, List[SystemContractRequest]] = defaultdict(
             list
         )
-        for interaction in block_interactions:
-            for request in interaction.valid_requests():
+        for i in range(len(block_interactions)):
+            # Update the fee in all interaction's requests
+            for request in block_interactions[i].requests:
                 request_type = type(request)
                 if request_type not in seen_types:
                     seen_types.append(request_type)
                 if isinstance(request, FeeSystemContractRequest):
+                    # Write the correct fee if unset regardless of validity
                     minimum_fee = type(request).get_fee(excess[request_type])
-                    if request.value < minimum_fee:
-                        continue
-                current[request_type].append(request)
+                    if "fee" not in request.model_fields_set:
+                        request.fee = minimum_fee
+                    if request.fee < minimum_fee and request.valid:
+                        raise Exception(
+                            "Invalid request marked as valid: "
+                            f"{request.model_dump_json()}"
+                        )
+
+            # With the correct fee, now update the pre.
+            block_interactions[i] = block_interactions[i].update_pre(pre=pre)
+
+            # Finally, append the valid requests with the source address
+            source_address = block_interactions[i].request_source_address
+            assert source_address is not None
+            for request in block_interactions[i].requests:
+                if not request.valid:
+                    continue
+                current[type(request)].append(
+                    request.with_source_address(source_address)
+                )
 
         block_included: List[SystemContractRequest] = []
         for request_type in seen_types:
@@ -126,7 +143,7 @@ def timestamp() -> int:
 @pytest.fixture
 def blocks(
     fork: Fork | TransitionFork,
-    prepared_system_contract_interactions_per_block: List[
+    system_contract_interactions_per_block_copy: List[
         List[SystemContractInteractionBase]
     ],
     included_requests: List[List[SystemContractRequest]],
@@ -136,7 +153,7 @@ def blocks(
     blocks: List[Block] = []
 
     for block_interactions, block_included_requests in zip_longest(  # type: ignore
-        prepared_system_contract_interactions_per_block,
+        system_contract_interactions_per_block_copy,
         included_requests,
         fillvalue=[],
     ):

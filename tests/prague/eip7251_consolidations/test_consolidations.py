@@ -201,6 +201,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
                                 fee=0,
+                                valid=False,
                             ),
                             ConsolidationRequest(
                                 source_pubkey=0x03,
@@ -225,6 +226,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=0x03,
                                 target_pubkey=0x04,
                                 fee=0,
+                                valid=False,
                             ),
                         ]
                     ),
@@ -330,6 +332,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=0x00,
                                 target_pubkey=0x01,
                                 fee=0,
+                                valid=False,
                             )
                         ]
                         + [
@@ -365,6 +368,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 source_pubkey=-1,
                                 target_pubkey=-2,
                                 fee=0,
+                                valid=False,
                             )
                         ],
                     ),
@@ -542,12 +546,7 @@ def test_consolidation_requests(
     pre: Alloc,
 ) -> None:
     """Test making a consolidation request to the beacon chain."""
-    blockchain_test(
-        genesis_environment=Environment(),
-        pre=pre,
-        post={},
-        blocks=blocks,
-    )
+    blockchain_test(pre=pre, post={}, blocks=blocks)
 
 
 @pytest.mark.parametrize(
