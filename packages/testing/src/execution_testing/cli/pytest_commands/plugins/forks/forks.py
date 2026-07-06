@@ -627,8 +627,6 @@ def pytest_configure(config: pytest.Config) -> None:
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
 
-    # The unsupported-fork set is computed lazily in `get_unsupported_forks`
-    # (see its docstring for why it is deferred out of `pytest_configure`).
 
 
 def get_unsupported_forks(
