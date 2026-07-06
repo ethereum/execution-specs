@@ -54,6 +54,9 @@ class ErigonExceptionMapper(ExceptionMapper):
         TransactionException.NONCE_MISMATCH_TOO_HIGH: "nonce too high",
         TransactionException.GAS_ALLOWANCE_EXCEEDED: "gas limit reached",
         TransactionException.INVALID_CHAINID: "invalid chain id for signer",
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            "invalid transaction v, r, s values"
+        ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
             "blob txn is not supported by signer"
         ),
