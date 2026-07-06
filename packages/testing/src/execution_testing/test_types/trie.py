@@ -18,12 +18,25 @@ from typing import (
     cast,
 )
 
-from ethereum.crypto.hash import keccak256
 from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
 from typing_extensions import assert_type
+
+
+def keccak256(buffer: bytes | bytearray) -> Bytes32:
+    """
+    Compute the keccak256 hash of ``buffer``.
+
+    The spec implementation is imported lazily so that importing this module
+    does not import the ``ethereum`` package: on xdist workers that import
+    would otherwise happen before pytest-cov starts the worker's coverage
+    session, making coverage report ``ethereum`` as "module-not-measured".
+    """
+    from ethereum.crypto.hash import keccak256 as _keccak256
+
+    return _keccak256(buffer)
 
 
 @slotted_freezable
