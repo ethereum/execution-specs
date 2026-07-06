@@ -1,16 +1,23 @@
-"""Test the HTTP request timeout behavior of `BaseRPC` clients."""
+"""Test the HTTP request timeout and retry behavior of `BaseRPC` clients."""
 
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 
+from execution_testing.base_types import Hash
 from execution_testing.cli.pytest_commands.plugins.execute.rpc.chain_builder_eth_rpc import (  # noqa: E501
     ChainBuilderEthRPC,
 )
 from execution_testing.forks import Cancun
-from execution_testing.rpc import DEFAULT_REQUEST_TIMEOUT, EthRPC, RPCCall
+from execution_testing.rpc import (
+    DEFAULT_REQUEST_TIMEOUT,
+    EthRPC,
+    RPCCall,
+    SendTransactionExceptionError,
+)
 from execution_testing.rpc.rpc_types import PayloadStatusEnum
 
 
@@ -23,6 +30,26 @@ def response_mock(
     response = MagicMock()
     response.json.return_value = json_value
     return response
+
+
+def duplicate_error_response() -> MagicMock:
+    """Return a mock duplicate-transaction JSON-RPC error response."""
+    return response_mock(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {"code": -32000, "message": "already known"},
+        }
+    )
+
+
+def transaction_mock(index: int = 0) -> Any:
+    """Return a mock signed transaction for send tests."""
+    transaction: Any = MagicMock()
+    transaction.hash = Hash(index + 1)
+    transaction.rlp.return_value = bytes([index + 1])
+    transaction.metadata_string.return_value = f"tx-{index}"
+    return transaction
 
 
 def test_default_timeout_is_applied() -> None:
@@ -119,3 +146,70 @@ def test_chain_builder_accepts_request_timeout(tmp_path: Path) -> None:
             request_timeout=5.0,
         )
     assert rpc.request_timeout == 5.0
+
+
+def test_resent_transaction_duplicate_error_is_success() -> None:
+    """A re-sent transaction answered "already known" counts as sent."""
+    rpc = EthRPC("http://localhost:8545")
+    transaction = transaction_mock()
+    with (
+        patch("time.sleep"),
+        patch.object(
+            rpc.session,
+            "post",
+            side_effect=[
+                requests.ReadTimeout("read timed out"),
+                duplicate_error_response(),
+            ],
+        ) as post,
+        patch.object(
+            EthRPC, "get_transaction_by_hash", return_value=MagicMock()
+        ) as get_transaction,
+    ):
+        result = rpc.send_transaction(transaction)
+    assert result == transaction.hash
+    assert post.call_count == 2
+    get_transaction.assert_called_once_with(transaction.hash)
+
+
+def test_send_transaction_error_raises_when_transaction_unknown() -> None:
+    """A send error for a transaction the client does not know raises."""
+    rpc = EthRPC("http://localhost:8545")
+    transaction = transaction_mock()
+    with (
+        patch.object(
+            rpc.session, "post", return_value=duplicate_error_response()
+        ),
+        patch.object(EthRPC, "get_transaction_by_hash", return_value=None),
+        pytest.raises(SendTransactionExceptionError),
+    ):
+        rpc.send_transaction(transaction)
+
+
+def test_send_transactions_recover_duplicate_batch_items() -> None:
+    """Duplicate errors in a re-sent batch count as sent per item."""
+    rpc = EthRPC("http://localhost:8545")
+    transactions = [transaction_mock(0), transaction_mock(1)]
+    batch_response = response_mock(
+        [
+            {
+                "jsonrpc": "2.0",
+                "id": "tx-0",
+                "error": {"code": -32000, "message": "already known"},
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": "tx-1",
+                "result": f"{transactions[1].hash}",
+            },
+        ]
+    )
+    with (
+        patch.object(rpc.session, "post", return_value=batch_response),
+        patch.object(
+            EthRPC, "get_transaction_by_hash", return_value=MagicMock()
+        ) as get_transaction,
+    ):
+        results = rpc.send_transactions(transactions)
+    assert results == [tx.hash for tx in transactions]
+    get_transaction.assert_called_once_with(transactions[0].hash)
