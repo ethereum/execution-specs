@@ -628,7 +628,6 @@ def pytest_configure(config: pytest.Config) -> None:
         )
 
 
-
 def get_unsupported_forks(
     config: pytest.Config,
 ) -> FrozenSet[Fork | TransitionFork]:
