@@ -58,6 +58,8 @@ class OutOfGasAt(Enum):
 
     EIP_2200_STIPEND = "oog_at_eip2200_stipend"
     EIP_2200_STIPEND_PLUS_1 = "oog_at_eip2200_stipend_plus_1"
+    COLD_ACCESS_COST_MINUS_1 = "oog_at_cold_access_cost_minus_1"
+    COLD_ACCESS_COST = "oog_at_cold_access_cost"
     EXACT_GAS_MINUS_1 = "oog_at_exact_gas_minus_1"
 
 
@@ -96,6 +98,8 @@ class OutOfGasBoundary(Enum):
     [
         OutOfGasAt.EIP_2200_STIPEND,
         OutOfGasAt.EIP_2200_STIPEND_PLUS_1,
+        OutOfGasAt.COLD_ACCESS_COST_MINUS_1,
+        OutOfGasAt.COLD_ACCESS_COST,
         OutOfGasAt.EXACT_GAS_MINUS_1,
         None,  # no oog, successful sstore
     ],
@@ -110,10 +114,14 @@ def test_bal_sstore_and_oog(
     """
     Test BAL recording with SSTORE at various OOG boundaries and success.
 
-    1. OOG at EIP-2200 stipend check & implicit SLOAD -> no BAL changes
-    2. OOG post EIP-2200 stipend check & implicit SLOAD -> storage read in BAL
-    3. OOG at exact gas minus 1 -> storage read in BAL
-    4. exact gas (success) -> storage write in BAL
+    1. OOG at EIP-2200 stipend check -> no BAL entry
+    2. OOG at stipend + 1 -> no BAL entry (access cost not covered;
+       the stipend sentry alone is not enough)
+    3. OOG at cold access cost - 1 -> no BAL entry (same rule)
+    4. OOG at exactly the cold access cost -> storage read in BAL
+       (implicit SLOAD done, then charge_gas fails on the write cost)
+    5. OOG at exact gas minus 1 -> storage read in BAL
+    6. exact gas (success) -> storage write in BAL
     """
     alice = pre.fund_eoa()
 
@@ -136,13 +144,21 @@ def test_bal_sstore_and_oog(
     # CALL_STIPEND is a threshold check, not a gas cost
     # Keep from gas_costs
     stipend = fork.gas_costs().CALL_STIPEND
+    cold_access_cost = fork.gas_costs().COLD_STORAGE_ACCESS
 
     if out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND:
         # 2300 after PUSHes (fails stipend check: 2300 <= 2300)
         tx_gas_limit = intrinsic_gas_cost + push_cost + stipend
     elif out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND_PLUS_1:
-        # 2301 after PUSHes (passes stipend, does SLOAD, fails charge_gas)
+        # 2301 after PUSHes (passes stipend, fails the access cost check)
         tx_gas_limit = intrinsic_gas_cost + push_cost + stipend + 1
+    elif out_of_gas_at == OutOfGasAt.COLD_ACCESS_COST_MINUS_1:
+        # cold access cost - 1 after PUSHes (fails the access cost check)
+        tx_gas_limit = intrinsic_gas_cost + push_cost + cold_access_cost - 1
+    elif out_of_gas_at == OutOfGasAt.COLD_ACCESS_COST:
+        # exactly the cold access cost after PUSHes (implicit SLOAD
+        # done, then OOG at charge_gas on the write cost)
+        tx_gas_limit = intrinsic_gas_cost + push_cost + cold_access_cost
     elif out_of_gas_at == OutOfGasAt.EXACT_GAS_MINUS_1:
         # fail at charge_gas() at exact gas - 1 (boundary condition)
         tx_gas_limit = intrinsic_gas_cost + full_cost - 1
@@ -156,10 +172,11 @@ def test_bal_sstore_and_oog(
         gas_limit=tx_gas_limit,
     )
 
-    # Storage read recorded only if we pass the stipend check and reach
-    # implicit SLOAD (STIPEND_PLUS_1 and EXACT_GAS_MINUS_1)
+    # Storage read recorded only when the frame covers the slot's
+    # access cost before the implicit SLOAD; the stipend sentry alone
+    # is not enough since COLD_STORAGE_ACCESS exceeds CALL_STIPEND
     expect_storage_read = out_of_gas_at in (
-        OutOfGasAt.EIP_2200_STIPEND_PLUS_1,
+        OutOfGasAt.COLD_ACCESS_COST,
         OutOfGasAt.EXACT_GAS_MINUS_1,
     )
     expect_storage_write = out_of_gas_at is None

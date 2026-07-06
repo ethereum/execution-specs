@@ -84,21 +84,25 @@ def sstore(evm: Evm) -> None:
     # check we have at least the stipend gas
     check_gas(evm, GasCosts.CALL_STIPEND + Uint(1))
 
+    # Access cost: cold or warm, always charged. Checked before the
+    # implicit read because COLD_STORAGE_ACCESS exceeds CALL_STIPEND:
+    # a slot the frame cannot afford to access must not be read or
+    # recorded in the block access list.
+    if (evm.message.current_target, key) not in evm.accessed_storage_keys:
+        access_cost = GasCosts.COLD_STORAGE_ACCESS
+    else:
+        access_cost = GasCosts.WARM_ACCESS
+    check_gas(evm, access_cost)
+    evm.accessed_storage_keys.add((evm.message.current_target, key))
+
     tx_state = evm.message.tx_env.state
     original_value = get_storage_original(
         tx_state, evm.message.current_target, key
     )
     current_value = get_storage(tx_state, evm.message.current_target, key)
 
-    gas_cost = Uint(0)
+    gas_cost = access_cost
     state_gas = StateGas(Uint(0))
-
-    # Access cost: cold or warm, always charged.
-    if (evm.message.current_target, key) not in evm.accessed_storage_keys:
-        evm.accessed_storage_keys.add((evm.message.current_target, key))
-        gas_cost += GasCosts.COLD_STORAGE_ACCESS
-    else:
-        gas_cost += GasCosts.WARM_ACCESS
 
     # Write cost: charged on the first change to the slot this transaction.
     if original_value == current_value and current_value != new_value:
