@@ -110,6 +110,10 @@ jobs:
     needs: [setup, fill-nightly]
     # Run even if some ranges failed, so partial fixtures are still published.
     if: ${{ !cancelled() && needs.setup.outputs.run == 'true' }}
+    permissions:
+      contents: read
+      # Write is needed to delete superseded fixture artifacts (rotation).
+      actions: write
     steps:
       - name: Resolve short commit SHA
         id: sha
@@ -135,4 +139,25 @@ jobs:
           path: fixtures_${{ steps.sha.outputs.short }}
           include-hidden-files: true
           if-no-files-found: warn
-          retention-days: 5
+          # Outer bound only; the real policy is "keep the last 5 builds",
+          # enforced by the rotation step below.
+          retention-days: 90
+      - name: Rotate — keep only the last 5 nightly fixture sets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Combined nightly artifacts are named `fixtures_<8-hex-sha>`. List
+          # them newest-first and delete everything past the 5 most recent.
+          # Release artifacts (`fixtures_<feature>`) and per-range splits
+          # (`fixtures__<label>`) don't match the sha pattern, so are untouched.
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts" \
+            --jq '.artifacts[]
+                  | select(.expired == false)
+                  | select(.name | test("^fixtures_[0-9a-f]{8}$"))
+                  | "\(.created_at) \(.id)"' \
+            | sort -r \
+            | awk 'NR>5 {print $2}' \
+            | while read -r id; do
+                echo "Deleting superseded fixture artifact id=${id}"
+                gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}"
+              done
