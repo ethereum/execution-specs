@@ -8,6 +8,8 @@ from typing import ClassVar, Iterator, Optional
 class TestPhase(str, Enum):
     """Test phase for state and blockchain tests."""
 
+    __test__ = False  # stop pytest from collecting this class as a test
+
     SETUP = "setup"
     # TODO: Change string to "execution", remain as "testing" for backwards
     # compatibility
