@@ -2929,7 +2929,7 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     )
 
     # CPSB-agnostic baseline: block_state_gas is zero for this tx (the
-    # collision refunds the NEW_ACCOUNT state charge), so header.gas_used
+    # existent collision target is not charged), so header.gas_used
     # equals the regular-gas total. Decompose the parent + inner frame
     # accounting from fork APIs so the baseline tracks future cost
     # changes automatically.
@@ -2951,23 +2951,21 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     )
     # MSTORE writes the initcode at memory[0:32] (one word).
     memory_expansion = fork.memory_expansion_gas_calculator()(new_bytes=32)
-    # gas_left at the moment NEW_ACCOUNT spills into the regular pool
-    # (reservoir is empty for tx_gas_limit < TX_MAX_GAS_LIMIT).
-    gas_at_create_after_state = (
+    # gas_left at the CREATE split. The collision target is existent, so no
+    # account-creation charge is applied before the 63/64 split.
+    gas_at_create = (
         gas_limit
         - intrinsic
         - factory_pre_create
         - memory_expansion
         - create_base
-        - new_account
     )
     # Inner burns 63/64 of the available gas on collision; the parent
-    # retains 1/64. The state-spill of NEW_ACCOUNT is refunded back to
-    # gas_left on collision (nets zero). Post-CREATE consumes from the
-    # retained pool. A mutation that drops the burned forwarded gas
-    # from regular accounting would reduce this baseline.
-    retained = gas_at_create_after_state // 64
-    baseline_gas_used = gas_limit - retained - new_account + post_create_static
+    # retains 1/64. Post-CREATE consumes from the retained pool. A
+    # mutation that drops the burned forwarded gas from regular
+    # accounting would reduce this baseline.
+    retained = gas_at_create // 64
+    baseline_gas_used = gas_limit - retained + post_create_static
 
     blockchain_test(
         pre=pre,

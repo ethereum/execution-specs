@@ -84,23 +84,11 @@ def generic_create(
     if memory_size > U256(MAX_INIT_CODE_SIZE):
         raise OutOfGasError
 
-    # Charge state gas for account creation (pay-before-execute).
-    # Refunded to the reservoir on any failure path below.
-    charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
-
     tx_state = evm.message.tx_env.state
 
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
-
-    create_message_gas = max_message_call_gas(Uint(evm.gas_left))
-    evm.gas_left -= create_message_gas
-
-    # Move full reservoir to child (no 63/64 rule for state gas). Parent's
-    # `state_gas_left` is zeroed and restored when the child returns.
-    create_message_state_gas_reservoir = evm.state_gas_left
-    evm.state_gas_left = Uint(0)
 
     evm.return_data = b""
 
@@ -112,26 +100,32 @@ def generic_create(
         or sender.nonce == Uint(2**64 - 1)
         or evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT
     ):
-        evm.gas_left += create_message_gas
-        evm.state_gas_left += create_message_state_gas_reservoir
-        credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
 
     evm.accessed_addresses.add(contract_address)
 
     if not account_deployable(tx_state, contract_address):
-        increment_nonce(tx_state, evm.message.current_target)
+        increment_nonce(tx_state, sender_address)
+        create_message_gas = max_message_call_gas(Uint(evm.gas_left))
+        evm.gas_left -= create_message_gas
         evm.regular_gas_used += create_message_gas
-        evm.state_gas_left += create_message_state_gas_reservoir
-        # Address collision — no account created, refund state gas.
-        credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
 
-    target_alive = is_account_alive(tx_state, contract_address)
+    new_account_charged = not is_account_alive(tx_state, contract_address)
+    if new_account_charged:
+        charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
 
-    increment_nonce(tx_state, evm.message.current_target)
+    create_message_gas = max_message_call_gas(Uint(evm.gas_left))
+    evm.gas_left -= create_message_gas
+
+    # Move full reservoir to child (no 63/64 rule for state gas). Parent's
+    # `state_gas_left` is zeroed and restored when the child returns.
+    create_message_state_gas_reservoir = evm.state_gas_left
+    evm.state_gas_left = Uint(0)
+
+    increment_nonce(tx_state, sender_address)
 
     child_message = Message(
         block_env=evm.message.block_env,
@@ -157,14 +151,12 @@ def generic_create(
 
     if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
-        # No account created, refund parent's CREATE state gas.
-        credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
+        if new_account_charged:
+            credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
         incorporate_child_on_success(evm, child_evm)
-        if target_alive:
-            credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         evm.return_data = b""
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
 
