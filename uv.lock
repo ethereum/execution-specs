@@ -12,6 +12,7 @@ members = [
     "ethereum-execution",
     "ethereum-execution-testing",
 ]
+build-constraints = [{ name = "scikit-build-core", specifier = "<0.10" }]
 
 [[package]]
 name = "actionlint-py"
