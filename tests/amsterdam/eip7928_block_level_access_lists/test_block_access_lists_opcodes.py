@@ -57,6 +57,7 @@ class OutOfGasAt(Enum):
     """
 
     EIP_2200_STIPEND = "oog_at_eip2200_stipend"
+    EIP_2200_STIPEND_PLUS_1 = "oog_at_eip2200_stipend_plus_1"
     ABOVE_STIPEND_BELOW_ACCESS = "oog_above_stipend_below_access"
     AT_ACCESS_COST = "oog_at_access_cost"
     EXACT_GAS_MINUS_1 = "oog_at_exact_gas_minus_1"
@@ -96,6 +97,7 @@ class OutOfGasBoundary(Enum):
     "out_of_gas_at",
     [
         OutOfGasAt.EIP_2200_STIPEND,
+        OutOfGasAt.EIP_2200_STIPEND_PLUS_1,
         OutOfGasAt.ABOVE_STIPEND_BELOW_ACCESS,
         OutOfGasAt.AT_ACCESS_COST,
         OutOfGasAt.EXACT_GAS_MINUS_1,
@@ -115,10 +117,12 @@ def test_bal_sstore_and_oog(
     The slot read is recorded in the BAL only once the cold access cost
     is covered. Post-repricing that cost (COLD_STORAGE_ACCESS) exceeds the
     EIP-2200 stipend, so clearing the stipend sentry alone no longer
-    records the read.
+    records the read. The stipend + 1 case pins the old sentry boundary
+    against regressions to sentry-gated recording.
 
     1. OOG at the stipend, below the access cost -> no BAL changes
-    2. OOG above the stipend but below the access cost -> no BAL changes
+    2. OOG above the stipend but below access cost (probed at
+       stipend + 1 and access cost - 1) -> no BAL changes
     3. OOG at the access cost, write unaffordable -> storage read in BAL
     4. OOG at exact gas minus 1 -> storage read in BAL
     5. exact gas (success) -> storage write in BAL
@@ -149,6 +153,10 @@ def test_bal_sstore_and_oog(
     if out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND:
         # gas_left == stipend: fails the check, below the access cost.
         tx_gas_limit = intrinsic_gas_cost + push_cost + stipend
+    elif out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND_PLUS_1:
+        # gas_left == stipend + 1: clears the stipend sentry by one but
+        # cannot afford the access, so OOG before the read.
+        tx_gas_limit = intrinsic_gas_cost + push_cost + stipend + 1
     elif out_of_gas_at == OutOfGasAt.ABOVE_STIPEND_BELOW_ACCESS:
         # gas_left == access cost - 1: clears the stipend sentry but
         # cannot afford the access, so OOG before the read.
