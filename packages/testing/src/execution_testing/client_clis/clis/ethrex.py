@@ -61,6 +61,11 @@ class EthrexExceptionMapper(ExceptionMapper):
         ),
     }
     mapping_regex = {
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            r"Couldn't recover addresses with error: invalid signature|"
+            r"Error decoding field 'signature_y_parity' of type bool: "
+            r"MalformedBoolean"
+        ),
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             r"(?i)priority fee.* is greater than max fee.*"
         ),
