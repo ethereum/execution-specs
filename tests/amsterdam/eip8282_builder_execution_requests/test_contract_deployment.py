@@ -24,11 +24,6 @@ from .spec import Spec, ref_spec_8282
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
-pytestmark = pytest.mark.skip(
-    reason="EIP-8282 draft: builder predeploy deploy transactions are not yet "
-    "defined (placeholder devnet-7 genesis addresses)."
-)
-
 MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
 
 
