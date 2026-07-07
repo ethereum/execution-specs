@@ -256,11 +256,14 @@ def test_code_deposit_state_gas_exact_fit_boundary(
 
     A CREATE tx deploys ``code_size`` bytes with ``gas_limit`` set so the
     deposit lands exactly at the available gas (deploys) or one gas short
-    (halts: state restored, NEW_ACCOUNT refilled, no code). The two
-    regimes pin the halt billing: over-cap ``reservoir`` rolls the
-    reservoir back so the sender pays the cap; in-cap ``spill`` burns
-    ``gas_left`` and bills ``gas_limit - NEW_ACCOUNT``. The scaling
-    tests assert success only.
+    (halts: state restored, the top-frame ``NEW_ACCOUNT`` refilled, no
+    code). Under EIP-2780 the created account's ``NEW_ACCOUNT`` state gas
+    is charged at the top frame (not bundled in the intrinsic), so
+    ``exact_fit_gas`` includes it explicitly. The two regimes pin the halt
+    billing: over-cap ``reservoir`` rolls the reservoir back so the sender
+    pays the cap; in-cap ``spill`` refills the spilled state gas into
+    ``gas_left`` and burns it all, billing the full ``gas_limit``. The
+    scaling tests assert success only.
     """
     gas_costs = fork.gas_costs()
     cap = fork.transaction_gas_limit_cap()
@@ -275,13 +278,19 @@ def test_code_deposit_state_gas_exact_fit_boundary(
     keccak_gas = gas_costs.OPCODE_KECCAK256_PER_WORD * words
     deposit_state_gas = fork.code_deposit_state_gas(code_size=code_size)
 
-    intrinsic_total = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
         calldata=bytes(init_code),
         contract_creation=True,
         return_cost_deducted_prior_execution=True,
     )
+    # The fresh target's NEW_ACCOUNT is a top-frame state charge under
+    # EIP-2780, no longer folded into the intrinsic.
     exact_fit_gas = (
-        intrinsic_total + init_exec_regular + keccak_gas + deposit_state_gas
+        intrinsic_regular
+        + gas_costs.NEW_ACCOUNT
+        + init_exec_regular
+        + keccak_gas
+        + deposit_state_gas
     )
     if funding == "reservoir":
         assert exact_fit_gas > cap
@@ -297,11 +306,10 @@ def test_code_deposit_state_gas_exact_fit_boundary(
         receipt_gas_used = exact_fit_gas
         post = {created: Account(code=b"\x00" * code_size)}
     else:
-        receipt_gas_used = (
-            cap
-            if funding == "reservoir"
-            else gas_limit - gas_costs.NEW_ACCOUNT
-        )
+        # reservoir: the deposit OOG refills the reservoir, so the sender
+        # pays the regular cap. spill: the refilled NEW_ACCOUNT lands in
+        # gas_left and is burned, so the sender pays the full gas_limit.
+        receipt_gas_used = cap if funding == "reservoir" else gas_limit
         post = {created: Account.NONEXISTENT}
 
     tx = Transaction(
@@ -588,10 +596,10 @@ def test_create_tx_intrinsic_gas_boundary(
 
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
-    "extra_gas",
+    "initcode",
     [
-        pytest.param(0, id="at_regular_intrinsic"),
-        pytest.param(1, id="one_above_regular_intrinsic"),
+        pytest.param(Bytecode(), id="empty_initcode"),
+        pytest.param(Op.RETURN(0, 0), id="return_initcode"),
     ],
 )
 @pytest.mark.valid_from("EIP8037")
@@ -599,31 +607,36 @@ def test_create_tx_below_total_intrinsic(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    extra_gas: int,
+    initcode: Bytecode,
 ) -> None:
     """
-    Reject CREATE tx when gas_limit covers regular but not state intrinsic.
+    Reject a creation tx one gas below the (now regular-only) intrinsic.
 
-    EIP-8037 splits the CREATE intrinsic into regular and state
-    components (`STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE`).
-    `test_create_tx_intrinsic_gas_boundary` pins the upper boundary
-    (`total - 1`); this pins the lower end — `intrinsic_regular` and
-    one gas above — to catch implementations that omit the state
-    component from the pre-validate check.
+    Under EIP-2780 the created account's ``NEW_ACCOUNT`` cost moved out
+    of the transaction intrinsic and into the top frame, so the creation
+    intrinsic is entirely regular:
+    ``fork.transaction_intrinsic_cost_calculator()(contract_creation=True,
+    calldata=initcode)``. Pinning ``gas_limit`` at ``intrinsic - 1`` must
+    be rejected as intrinsic-gas-too-low, mirroring the set_code case in
+    ``test_set_code_tx_below_total_intrinsic``.
+
+    This now overlaps ``test_create_tx_intrinsic_gas_boundary``
+    (``gas_delta=-1``), but additionally sweeps the initcode so the
+    per-word init-code cost folded into the regular intrinsic is
+    exercised.
     """
-    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
         contract_creation=True,
+        calldata=bytes(initcode),
     )
-    intrinsic_state = fork.transaction_intrinsic_state_gas(
-        contract_creation=True,
+    assert fork.transaction_intrinsic_state_gas(contract_creation=True) == 0, (
+        "creation intrinsic is regular-only under EIP-2780"
     )
-    intrinsic_regular = total_intrinsic - intrinsic_state
-    gas_limit = intrinsic_regular + extra_gas
-    assert gas_limit < total_intrinsic
 
     tx = Transaction(
         to=None,
-        gas_limit=gas_limit,
+        data=bytes(initcode),
+        gas_limit=intrinsic - 1,
         sender=pre.fund_eoa(),
         error=TransactionException.INTRINSIC_GAS_TOO_LOW,
     )
@@ -1317,12 +1330,12 @@ def test_create_tx_header_gas_used(
     header. Catches bugs where clients report gas_limit instead of
     actual consumed gas.
 
-    For a fresh target the NEW_ACCOUNT state gas is charged and
+    For a fresh target the top-frame NEW_ACCOUNT state gas is charged and
     dominates the regular gas, so gas_used == NEW_ACCOUNT. For a
-    pre-existing balance-only leaf the NEW_ACCOUNT charge is refunded,
-    so net state gas is zero and the regular intrinsic gas dominates.
-    The expected value subtracts NEW_ACCOUNT and so fails if the
-    refund regresses.
+    pre-existing balance-only leaf the target is not EMPTY pre-tx, so the
+    top-frame NEW_ACCOUNT is never charged: net state gas is zero and the
+    regular intrinsic gas dominates. The expected value therefore equals
+    the regular intrinsic and fails if a stray NEW_ACCOUNT is charged.
     """
     gas_costs = fork.gas_costs()
     initcode = Op.STOP
@@ -1332,7 +1345,8 @@ def test_create_tx_header_gas_used(
         sender = pre.fund_eoa(nonce=0)
         contract_address = compute_create_address(address=sender, nonce=0)
         # Balance-only leaf: alive and deployable, so the creation
-        # succeeds and the intrinsic NEW_ACCOUNT charge is refunded.
+        # succeeds and (being non-EMPTY pre-tx) the top-frame NEW_ACCOUNT
+        # is never charged.
         pre.fund_address(contract_address, amount=1)
     else:
         sender = pre.fund_eoa()
@@ -1347,16 +1361,11 @@ def test_create_tx_header_gas_used(
     # block_gas_used = max(block_regular, block_state)
     if target == "existing":
         intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-        intrinsic_total = intrinsic_cost(
+        # Regular-only creation intrinsic; STOP initcode deploys empty
+        # code (zero deposit) and the pre-existing target adds no state
+        # gas, so the regular intrinsic dominates.
+        expected_gas_used = intrinsic_cost(
             calldata=bytes(initcode), contract_creation=True
-        )
-        # Block regular gas applies the calldata floor, which tops up
-        # the small regular remainder left after the NEW_ACCOUNT refund.
-        expected_gas_used = max(
-            intrinsic_total - gas_costs.NEW_ACCOUNT,
-            fork.transaction_data_floor_cost_calculator()(
-                data=bytes(initcode), contract_creation=True
-            ),
         )
     else:
         # For a minimal CREATE tx deploying Op.STOP (1 byte),
@@ -2137,57 +2146,74 @@ def test_create_account_charge_reduces_child_gas(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_failed_create_tx_refunds_intrinsic_new_account(
+def test_failed_create_tx_refills_top_frame_new_account(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     init_code: Bytecode,
 ) -> None:
     """
-    Verify the NEW_ACCOUNT × CPSB portion of intrinsic_state_gas is
-    refunded on creation-tx revert/halt. Block state-gas excludes it
-    so header gas_used reflects only the regular component, and the
-    sender's receipt reflects the same refund via cumulative_gas_used.
+    Verify the top-frame NEW_ACCOUNT of a creation tx is refilled when the
+    initcode fails.
 
-    Gas consumed must be above the floor for the test to work, hence
-    the increased memory consumption in some of the initcodes.
+    Under EIP-2780 the created account's ``NEW_ACCOUNT`` state gas is
+    charged in the top-frame preparation (not the intrinsic), so
+    ``gas_limit`` must cover it for the initcode to run at all. When the
+    initcode then fails the whole creation rolls back and no account
+    persists:
+
+    * REVERT preserves ``gas_left`` and ``refill_frame_state_gas`` returns
+      the spilled ``NEW_ACCOUNT`` to it, so the state block nets to zero
+      and the sender pays only ``intrinsic_regular + revert_regular``.
+    * HALT (INVALID) refills the spilled ``NEW_ACCOUNT`` to ``gas_left``
+      and then burns all of it, so the sender pays the full ``gas_limit``.
     """
+    gas_costs = fork.gas_costs()
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    create_state_gas = fork.create_state_gas(code_size=0)
 
-    intrinsic_total = intrinsic_calc(
+    intrinsic_regular = intrinsic_calc(
         calldata=bytes(init_code), contract_creation=True
     )
-    intrinsic_regular = intrinsic_total - create_state_gas
-    gas_limit = intrinsic_total + init_code.regular_cost(fork) + 1000
+    # gas_limit must cover the top-frame NEW_ACCOUNT and the initcode's own
+    # regular execution so the initcode runs to completion.
+    gas_limit = (
+        intrinsic_regular
+        + gas_costs.NEW_ACCOUNT
+        + init_code.regular_cost(fork)
+        + 1000
+    )
 
     if init_code == Op.INVALID:
-        regular_consumed = gas_limit - intrinsic_total
+        # Exceptional halt burns all gas_left (the refilled NEW_ACCOUNT
+        # included).
+        expected_gas_used = gas_limit
     else:
-        regular_consumed = init_code.regular_cost(fork)
+        # REVERT refills the spilled NEW_ACCOUNT, netting the state block
+        # to zero, so only the regular consumption is billed.
+        expected_gas_used = intrinsic_regular + init_code.regular_cost(fork)
+        # A tiny init code can leave the decomposed calldata floor above
+        # the regular gas consumed, pinning gas_used to the floor.
+        floor = fork.transaction_data_floor_cost_calculator()(
+            data=bytes(init_code), contract_creation=True
+        )
+        expected_gas_used = max(expected_gas_used, floor)
 
-    expected_gas_used = intrinsic_regular + regular_consumed
-    expected_cumulative = intrinsic_total + regular_consumed - create_state_gas
-    # A tiny init code can leave the decomposed calldata floor above the
-    # regular gas consumed, pinning gas_used to the floor.
-    data_floor_calc = fork.transaction_data_floor_cost_calculator()
-    floor = data_floor_calc(data=init_code, contract_creation=True)
-    assert expected_gas_used > floor
-    assert expected_cumulative > floor
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=sender, nonce=0)
 
     tx = Transaction(
         to=None,
         data=init_code,
         gas_limit=gas_limit,
-        sender=pre.fund_eoa(),
+        sender=sender,
         expected_receipt=TransactionReceipt(
-            cumulative_gas_used=expected_cumulative,
+            cumulative_gas_used=expected_gas_used,
         ),
     )
 
     state_test(
         pre=pre,
-        post={},
+        post={created: Account.NONEXISTENT},
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
@@ -2195,31 +2221,37 @@ def test_failed_create_tx_refunds_intrinsic_new_account(
 
 @pytest.mark.pre_alloc_mutable()
 @pytest.mark.valid_from("EIP8037")
-def test_create_tx_collision_refunds_intrinsic_new_account(
+def test_create_tx_collision_no_new_account_charge(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify the NEW_ACCOUNT × CPSB portion of intrinsic_state_gas is
-    refunded on creation-tx address collision, so block state-gas
-    excludes it and header gas_used reflects only the regular
-    consumption (full forwarded gas, no initcode runs).
+    Verify a creation-tx address collision charges no NEW_ACCOUNT.
+
+    Under EIP-2780 the created account's ``NEW_ACCOUNT`` is a top-frame
+    charge, but on an address collision the target already exists
+    pre-tx, the create path returns ``AddressCollision`` before the top
+    frame is prepared, and no ``NEW_ACCOUNT`` is ever charged. The full
+    forwarded gas is burned as regular (no initcode runs) and block
+    state-gas is zero, so header ``gas_used`` equals the whole
+    ``gas_limit``.
     """
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    create_state_gas = fork.create_state_gas(code_size=0)
 
     init_code = Op.STOP
-    intrinsic_total = intrinsic_calc(
+    intrinsic_regular = intrinsic_calc(
         calldata=bytes(init_code), contract_creation=True
     )
-    gas_limit = intrinsic_total + 1000
+    gas_limit = intrinsic_regular + 1000
 
     sender = pre.fund_eoa()
     collision_target = compute_create_address(address=sender, nonce=0)
     pre[collision_target] = Account(nonce=1)
 
-    expected_gas_used = gas_limit - create_state_gas
+    # Collision burns the full forwarded gas as regular; state block is
+    # zero (no NEW_ACCOUNT charged).
+    expected_gas_used = gas_limit
 
     tx = Transaction(
         to=None,
@@ -2236,7 +2268,7 @@ def test_create_tx_collision_refunds_intrinsic_new_account(
                 header_verify=Header(gas_used=expected_gas_used),
             ),
         ],
-        post={},
+        post={collision_target: Account(nonce=1)},
     )
 
 
@@ -2478,6 +2510,12 @@ def test_selfdestruct_in_create_tx_initcode(
     """
     Verify state gas accounting when a creation tx's initcode
     immediately SELFDESTRUCTs to a new beneficiary.
+
+    Under EIP-2780 the created contract's ``NEW_ACCOUNT`` is charged at
+    the top frame from ``gas_left`` (not the intrinsic), so ``gas_limit``
+    must cover it on top of the initcode. The block state gas is the
+    created contract's ``NEW_ACCOUNT`` plus the fresh beneficiary's
+    ``NEW_ACCOUNT`` charged by the SELFDESTRUCT.
     """
     gas_costs = fork.gas_costs()
     create_state_gas = fork.create_state_gas(code_size=0)
@@ -2489,14 +2527,16 @@ def test_selfdestruct_in_create_tx_initcode(
 
     sender = pre.fund_eoa()
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_total = intrinsic_calc(
+    intrinsic_regular = intrinsic_calc(
         calldata=bytes(initcode), contract_creation=True, sends_value=True
     )
 
+    # State: the created contract's top-frame NEW_ACCOUNT plus the fresh
+    # beneficiary's NEW_ACCOUNT from the SELFDESTRUCT.
     expected_state = create_state_gas + gas_costs.NEW_ACCOUNT
 
     initcode_gas = initcode.gas_cost(fork)
-    gas_limit = intrinsic_total + initcode_gas + 1000
+    gas_limit = intrinsic_regular + gas_costs.NEW_ACCOUNT + initcode_gas + 1000
 
     tx = Transaction(
         sender=sender,
@@ -2536,8 +2576,14 @@ def test_inner_create_succeeds_code_deposit_state_gas(
     outer_outcome: str,
 ) -> None:
     """
-    Verify state gas accumulation and top-level failure refund in a
+    Verify state gas accumulation and top-level failure handling in a
     creation tx whose initcode runs a successful inner CREATE.
+
+    Under EIP-2780 the outer (tx-level) created account's ``NEW_ACCOUNT``
+    is charged at the top frame from ``gas_left`` (not the intrinsic), so
+    ``gas_limit`` must cover it on top of the inner CREATE's own state
+    gas. On success the block state gas is the outer ``NEW_ACCOUNT`` plus
+    the inner account creation and code deposit.
     """
     gas_costs = fork.gas_costs()
     outer_state_gas = fork.create_state_gas(code_size=0)
@@ -2579,7 +2625,16 @@ def test_inner_create_succeeds_code_deposit_state_gas(
         initcode_gas = initcode.regular_cost(fork)
     else:
         initcode_gas = initcode.gas_cost(fork)
-    gas_limit = intrinsic_total + initcode_gas + inner_code_deposit + 1000
+    # The outer created account's NEW_ACCOUNT is a top-frame state charge
+    # under EIP-2780; gas_limit must cover it alongside the initcode and
+    # the inner code deposit.
+    gas_limit = (
+        intrinsic_total
+        + gas_costs.NEW_ACCOUNT
+        + initcode_gas
+        + inner_code_deposit
+        + 1000
+    )
 
     create_address = compute_create_address(address=sender, nonce=0)
 

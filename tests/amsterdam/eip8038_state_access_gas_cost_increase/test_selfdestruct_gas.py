@@ -541,13 +541,13 @@ def test_same_tx_created_selfdestruct_self_burn(
     the balance stays in the (otherwise emptied) originator and no log is
     emitted.
 
-    No net state gas is charged either way: the only state cost is the
-    intrinsic creation ``NEW_ACCOUNT``, but the pre-funded created target
-    is alive at message entry, so EIP-8037 refunds it (the create-tx
-    ``created_target_alive`` refund). The block ``gas_used`` is therefore
-    the pure regular consumption regardless of the burn behavior.
+    No net state gas is charged either way: under EIP-2780 the create-tx
+    ``NEW_ACCOUNT`` is a top-frame charge levied only when the target is
+    ``EMPTY`` pre-tx, but the pre-funded created target already has a
+    balance, so it is never charged. The self-burn adds no state gas, so
+    the block ``gas_used`` is the pure regular consumption regardless of
+    the burn behavior.
     """
-    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
 
     amount = 1
@@ -555,8 +555,8 @@ def test_same_tx_created_selfdestruct_self_burn(
     created = compute_create_address(address=sender, nonce=0)
     # Pre-fund the created address so its balance is present without an
     # in-tx value transfer (which would emit its own Transfer log). The
-    # pre-funded target is alive at message entry, so the create-tx
-    # intrinsic NEW_ACCOUNT is refunded (EIP-8037).
+    # pre-funded target is not EMPTY pre-tx, so the top-frame NEW_ACCOUNT
+    # is never charged.
     pre.fund_address(created, amount)
 
     # Self is the executing account, warm on entry: no cold surcharge.
@@ -567,12 +567,12 @@ def test_same_tx_created_selfdestruct_self_burn(
     regular = _selfdestruct_regular(fork, warm=True, account_new=False)
     assert regular == fork.gas_costs().OPCODE_SELFDESTRUCT_BASE
 
-    intrinsic_total = intrinsic_calc(
+    # Creation intrinsic is regular-only under EIP-2780; the pre-existing
+    # target adds no top-frame NEW_ACCOUNT and the self-burn adds no state
+    # gas, so net state gas is zero.
+    intrinsic_regular = intrinsic_calc(
         calldata=bytes(init_code), contract_creation=True
     )
-    # The creation NEW_ACCOUNT is refunded (target alive at entry) and the
-    # self-burn adds no state gas, so net state gas is zero.
-    intrinsic_regular = intrinsic_total - new_account_state_gas
     expected_regular = intrinsic_regular + init_code.regular_cost(fork)
     expected_gas_used = expected_regular
 

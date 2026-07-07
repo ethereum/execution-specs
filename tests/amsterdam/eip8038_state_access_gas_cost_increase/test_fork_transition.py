@@ -451,11 +451,14 @@ def test_auth_intrinsic_at_transition(
     fork: Fork,
 ) -> None:
     """
-    The ``7702`` authorization intrinsic rises across the boundary. A tx
-    whose ``gas_limit`` equals the pre-fork single-authorization
-    intrinsic is valid before the fork but is rejected with
-    ``INTRINSIC_GAS_TOO_LOW`` after, because the EIP-8038 auth intrinsic
-    is strictly larger.
+    The ``7702`` authorization intrinsic *falls* across the boundary.
+    EIP-2780 moves the state-dependent authorization costs (account
+    creation and the delegation-write base) out of the intrinsic and into
+    the top frame, leaving only the regular ``REGULAR_PER_AUTH_BASE_COST``
+    in the intrinsic. The post-fork single-authorization intrinsic is
+    therefore strictly smaller than the pre-fork one, so a tx whose
+    ``gas_limit`` equals the (lower) post-fork intrinsic is rejected with
+    ``INTRINSIC_GAS_TOO_LOW`` before the fork but valid after.
     """
     before = fork.fork_at(timestamp=BEFORE_TS)
     after = fork.fork_at(timestamp=AFTER_TS)
@@ -468,10 +471,10 @@ def test_auth_intrinsic_at_transition(
         authorization_list_or_count=1,
         return_cost_deducted_prior_execution=True,
     )
-    # The pre-fork intrinsic is below the post-fork one, so the same
+    # The post-fork intrinsic is below the pre-fork one, so the same
     # gas_limit straddles validity at the boundary.
-    assert intrinsic_before < intrinsic_after
-    gas_limit = intrinsic_before
+    assert intrinsic_after < intrinsic_before
+    gas_limit = intrinsic_after
 
     target_before = pre.deploy_contract(code=Op.STOP)
     target_after = pre.deploy_contract(code=Op.STOP)
@@ -480,7 +483,8 @@ def test_auth_intrinsic_at_transition(
     auth_after = pre.fund_eoa()
 
     blocks = [
-        # Before the fork: gas_limit covers the old auth intrinsic.
+        # Before the fork: gas_limit is below the (higher) old auth
+        # intrinsic, so the tx is rejected.
         Block(
             timestamp=BEFORE_TS,
             txs=[
@@ -495,10 +499,15 @@ def test_auth_intrinsic_at_transition(
                         ),
                     ],
                     sender=pre.fund_eoa(),
+                    error=TransactionException.INTRINSIC_GAS_TOO_LOW,
                 ),
             ],
+            exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
         ),
-        # After the fork: identical gas_limit is now below intrinsic.
+        # After the fork: the auth intrinsic dropped to exactly this
+        # gas_limit, so the tx is now valid (included). It has no gas left
+        # for the top-frame delegation, so execution runs out of gas and
+        # the delegation rolls back, but the block itself is valid.
         Block(
             timestamp=AFTER_TS,
             txs=[
@@ -513,10 +522,8 @@ def test_auth_intrinsic_at_transition(
                         ),
                     ],
                     sender=pre.fund_eoa(),
-                    error=TransactionException.INTRINSIC_GAS_TOO_LOW,
                 ),
             ],
-            exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
         ),
     ]
 
