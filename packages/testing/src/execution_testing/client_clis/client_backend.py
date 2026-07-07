@@ -11,12 +11,14 @@ from the same test definitions that the compute path fills via t8n — phase
 info, block boundaries, and pre-alloc declarations flow unchanged.
 """
 
+import re
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
 from execution_testing.forks import Fork, TransitionFork
+from execution_testing.logging import get_logger
 from execution_testing.rpc import (
     DebugRPC,
     EngineRPC,
@@ -41,8 +43,11 @@ from .cli_types import (
     Result,
     Traces,
     TransitionToolOutput,
+    validate_opcode,
 )
 from .transition_tool import TransitionTool
+
+logger = get_logger(__name__)
 
 # JS tracer for ``debug_traceBlockByHash`` that tallies executed opcodes
 # per transaction. There is no built-in opcode-count tracer, so we count
@@ -257,13 +262,24 @@ class ClientBackend:
         and it stays free when disabled. Called per execution-phase block
         by ``make_stateful_fixture``. The tracer runs a full re-execution
         of the block, so it is opt-in and can be slow on large blocks.
+
+        Failures are non-fatal: a trace RPC error or an unrecognized
+        opcode name is logged and skipped rather than aborting the fill,
+        since this is an opt-in analysis feature.
         """
         if not self.extract_opcode_count or self.debug_rpc is None:
             return None
-        traces = self.debug_rpc.trace_block_by_hash(
-            str(block_hash),
-            {"tracer": OPCODE_COUNT_TRACER_JS},
-        )
+        try:
+            traces = self.debug_rpc.trace_block_by_hash(
+                str(block_hash),
+                {"tracer": OPCODE_COUNT_TRACER_JS},
+            )
+        except Exception as e:
+            logger.warning(
+                f"opcode trace failed for block {block_hash}: {e}; "
+                "skipping opcode count for this block"
+            )
+            return None
         counts: Dict[str, int] = {}
         for entry in traces or []:
             if not isinstance(entry, dict):
@@ -272,8 +288,32 @@ class ClientBackend:
             if not isinstance(tx_counts, dict):
                 continue
             for opcode, count in tx_counts.items():
-                counts[opcode] = counts.get(opcode, 0) + int(count)
+                key = self._normalize_opcode_name(opcode)
+                if key is None:
+                    continue
+                counts[key] = counts.get(key, 0) + int(count)
         return OpcodeCount.model_validate(counts)
+
+    @staticmethod
+    def _normalize_opcode_name(name: str) -> str | None:
+        """
+        Map a tracer opcode name to one ``OpcodeCount`` accepts.
+
+        Mnemonics (``PUSH1``) and hex (``0x0c``) pass through. Geth emits
+        ``"opcode 0xNN not defined"`` for undefined opcodes — reduce that
+        to the bare ``0xNN`` that validates as an ``UndefinedOpcode``.
+        Anything still unrecognized is logged and dropped (returns
+        ``None``) so one stray name never aborts the whole fill.
+        """
+        try:
+            validate_opcode(name)
+            return name
+        except Exception:
+            match = re.search(r"0x[0-9a-fA-F]+", name)
+            if match is not None:
+                return match.group(0)
+            logger.warning(f"opcode trace: dropping unrecognized {name!r}")
+            return None
 
     def _payload_attributes(
         self,

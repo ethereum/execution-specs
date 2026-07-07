@@ -1500,6 +1500,10 @@ class BlockchainTest(BaseTest):
                 # blocks only (fill-stateful's --extract-opcode-count) so
                 # the filler emits _info.metadata.opcode_count, mirroring
                 # the t8n path. Setup blocks are skipped — no wasted trace.
+                # We only feed the metadata accumulator, not
+                # benchmark_opcode_count: the live-client trace is recorded
+                # for analysis, not used to drive target-opcode
+                # verification (that stays a t8n-path concern).
                 block_opcode_count = t8n.extract_block_opcode_count(
                     client_hash
                 )
@@ -1508,7 +1512,6 @@ class BlockchainTest(BaseTest):
                     and block_opcode_count is not None
                 ):
                     t8n.opcode_count += block_opcode_count
-                    benchmark_opcode_count = block_opcode_count
             # apply_new_parent records the RLP hash; the next block's
             # parent_hash must point at what the client actually built.
             env = apply_new_parent(built_block.env, built_block.header)
