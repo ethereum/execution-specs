@@ -1517,4 +1517,7 @@ class FixedIterationsBytecode(IteratingBytecode):
         return self.regular_gas_cost_by_iteration_count(
             fork=fork,
             iteration_count=self.iteration_count,
+        ) + self.state_gas_cost_by_iteration_count(
+            fork=fork,
+            iteration_count=self.iteration_count,
         )

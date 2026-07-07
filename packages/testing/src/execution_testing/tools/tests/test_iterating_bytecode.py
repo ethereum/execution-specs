@@ -344,7 +344,9 @@ def test_tx_iterations_by_total_iteration_count_raises_on_impossible() -> None:
 
 
 class CustomAmsterdam(Amsterdam):
-    """Amsterdam fork with a configurable transaction gas limit cap."""
+    """
+    Amsterdam fork with a configurable EIP-7825 transaction gas limit cap.
+    """
 
     tx_gas_limit_cap: int | None = 1_000_000
 
@@ -405,7 +407,7 @@ def test_state_reservoir_lets_tx_gas_exceed_regular_gas_limit_cap() -> None:
     fork = CustomAmsterdam.with_tx_gas_limit_cap(cap)
     bytecode = IteratingBytecode(iterating=Op.SSTORE(0, 1))
 
-    total_iterations = 200
+    total_iterations = (cap // Op.SSTORE(0, 1).regular_cost(fork=fork)) - 1
     counts = list(
         bytecode.tx_iterations_by_total_iteration_count(
             fork=fork, total_iterations=total_iterations
