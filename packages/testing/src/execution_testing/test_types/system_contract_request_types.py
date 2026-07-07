@@ -57,6 +57,15 @@ class SystemContractRequest(RequestBase, CamelModel):
         """Return a copy of the request with its source address set."""
         ...
 
+    def set_source_address(self, source_address: Address) -> None:
+        """
+        Record `source_address` on the request in place, for request types
+        that carry one (e.g. withdrawals, consolidations). A no-op for request
+        types whose serialized form omits the source (e.g. deposits).
+        """
+        if "source_address" in type(self).model_fields:
+            self.source_address = source_address
+
     @classmethod
     @abstractmethod
     def from_index(cls, index: int) -> Self:

@@ -47,7 +47,7 @@ def system_contract_interactions_per_block_copy(
     the per-block fee onto individual requests in place; sharing them would
     leak those mutations back into the parametrize value. A full `deepcopy` is
     avoided because relay-contract interactions embed opcode objects that are
-    not copyable.
+    not copiable.
     """
     return [
         [
@@ -95,8 +95,20 @@ def included_requests(
                 if request_type not in seen_types:
                     seen_types.append(request_type)
                 if isinstance(request, FeeSystemContractRequest):
+                    current_excess = excess[request_type]
+                    if request.excess_fee_processing == "call":
+                        # Compute the excess request based on the requests
+                        # processed for the current block.
+                        if current_excess > 0:
+                            current_excess += len(current[request_type])
+                        else:
+                            current_excess = max(
+                                len(current[request_type])
+                                - request.target_per_block,
+                                0,
+                            )
+                    minimum_fee = request.get_fee(current_excess)
                     # Write the correct fee if unset regardless of validity
-                    minimum_fee = type(request).get_fee(excess[request_type])
                     if "fee" not in request.model_fields_set:
                         request.fee = minimum_fee
                     if request.fee < minimum_fee and request.valid:
@@ -104,19 +116,19 @@ def included_requests(
                             "Invalid request marked as valid: "
                             f"{request.model_dump_json()}"
                         )
+                if request.valid:
+                    current[request_type].append(request)
 
             # With the correct fee, now update the pre.
             block_interactions[i] = block_interactions[i].update_pre(pre=pre)
 
-            # Finally, append the valid requests with the source address
+            # Finally, set the source address in the valid requests
             source_address = block_interactions[i].request_source_address
             assert source_address is not None
             for request in block_interactions[i].requests:
                 if not request.valid:
                     continue
-                current[type(request)].append(
-                    request.with_source_address(source_address)
-                )
+                request.set_source_address(source_address)
 
         block_included: List[SystemContractRequest] = []
         for request_type in seen_types:
