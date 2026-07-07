@@ -138,6 +138,27 @@ def test_iterating_subcall_reserve() -> None:
     assert reserve == 100
 
 
+def test_iterating_subcall_reserve_includes_state_gas() -> None:
+    """
+    The 63/64 reserve covers the subcall's state gas too: once the state
+    reservoir is exhausted, the child pays its state charges (e.g. the
+    EIP-8037 per-byte code deposit) from forwarded regular gas.
+    """
+    # Initcode depositing 2 bytes: tiny regular cost, 2 * 1530 state gas.
+    initcode = Op.RETURN(0, 2, code_deposit_size=2)
+    bytecode = IteratingBytecode(
+        iterating=Op.CREATE2(offset=0, size=2, salt=0),
+        iterating_subcall=initcode,
+    )
+    combined = initcode.regular_cost(fork=Amsterdam) + initcode.state_cost(
+        fork=Amsterdam
+    )
+    assert initcode.state_cost(fork=Amsterdam) == 2 * 1530
+    reserve = bytecode.iterating_subcall_reserve(fork=Amsterdam)
+    assert reserve == (combined * 64 // 63) - combined
+    assert reserve > 0, "state-charging subcall must have a reserve"
+
+
 def test_with_fixed_iteration_count() -> None:
     """Test conversion to FixedIterationsBytecode."""
     iterating_bytecode = IteratingBytecode(

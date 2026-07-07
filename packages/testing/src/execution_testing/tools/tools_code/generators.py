@@ -976,6 +976,9 @@ class IteratingBytecode(Bytecode):
         iterating_subcall_gas_cost = self.iterating_subcall_gas_cost(
             fork=fork
         ) + self.iterating_subcall_state_gas_cost(fork=fork)
+        iterating_subcall_gas_cost = self.iterating_subcall_gas_cost(
+            fork=fork
+        ) + self.iterating_subcall_state_gas_cost(fork=fork)
         return (
             iterating_subcall_gas_cost * 64 // 63
         ) - iterating_subcall_gas_cost
