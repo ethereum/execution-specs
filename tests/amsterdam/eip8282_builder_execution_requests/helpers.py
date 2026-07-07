@@ -93,6 +93,7 @@ class BuilderExitRequest(BuilderExitRequestBase, FeeSystemContractRequest):
     update_fraction: ClassVar[int] = Spec.REQUEST_FEE_UPDATE_FRACTION
     target_per_block: ClassVar[int] = Spec.TARGET_EXIT_REQUESTS_PER_BLOCK
     max_per_block: ClassVar[int] = Spec.MAX_EXIT_REQUESTS_PER_BLOCK
+    excess_fee_processing: ClassVar[Literal["block", "call"]] = "call"
 
     @property
     def calldata(self) -> bytes:
