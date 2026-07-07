@@ -72,6 +72,7 @@ from execution_testing import (
     Bytecode,
     Conditional,
     Create2PreimageLayout,
+    Fork,
     Op,
     Storage,
     Transaction,
@@ -96,6 +97,10 @@ def get_factory_stub_name(size_kb: float) -> str:
         return "bloatnet_factory_10kb"
     elif size_kb == 24.0:
         return "bloatnet_factory_24kb"
+    elif size_kb == 64.0:
+        # EIP-7954 max-size contracts; requires the bloatnet tooling to
+        # have deployed this factory and its targets on the devnet.
+        return "bloatnet_factory_64kb"
     else:
         raise ValueError(f"Unsupported size: {size_kb}KB")
 
@@ -166,13 +171,14 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
 
 @pytest.mark.parametrize(
     "bytecode_size_kb",
-    [0.5, 1.0, 2.0, 5.0, 10.0, 24.0],
+    [0.5, 1.0, 2.0, 5.0, 10.0, 24.0, 64.0],
     ids=lambda size: f"{size}KB",
 )
 @pytest.mark.valid_from("Prague")
 def test_extcodesize_bytecode_sizes(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     bytecode_size_kb: float,
     gas_benchmark_value: int,
     tx_gas_limit: int,
@@ -189,6 +195,8 @@ def test_extcodesize_bytecode_sizes(
     expected bytecode size (last EXTCODESIZE result).
     """
     expected_size_bytes = int(bytecode_size_kb * 1024)
+    if expected_size_bytes > fork.max_code_size():
+        pytest.skip("bytecode size exceeds the fork's max code size")
 
     # Get factory stub name for this size
     factory_stub = get_factory_stub_name(bytecode_size_kb)
