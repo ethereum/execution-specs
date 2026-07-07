@@ -122,7 +122,7 @@ Optional:
 - `--default-{gas-price,max-fee-per-gas,max-priority-fee-per-gas,max-fee-per-blob-gas}` — pin per-session fees; defaults bump live-query values by `1.5×`.
 - `--output PATH` — default `./fixtures`.
 - `--clean` — wipe the output dir before filling.
-- `--extract-opcode-count` — after building each block, trace it via `debug_traceBlockByHash` (a JS opcode-counting tracer) and record per-opcode execution counts (execution-phase blocks only) in the fixture's `_info.metadata.opcode_count`, matching what the standard `fill` benchmark path emits. Requires the `debug` namespace with JS tracer support. Adds a full re-execution trace per block, so it is slow and opt-in.
+- `--extract-opcode-count` — after building each block, trace it via `debug_traceBlockByHash` (a JS opcode-counting tracer) and record per-opcode execution counts (execution-phase blocks only) in the fixture's `_info.metadata.opcode_count`, matching what the standard `fill` benchmark path emits. When a benchmark test declares a target opcode count (`fixed_opcode_count`/`expected_opcode_count`), the live-client count is verified against it and the fill fails on >5% divergence. Requires the `debug` namespace with JS tracer support. Adds a full re-execution trace per block, so it is slow and opt-in.
 
 ## Output layout
 

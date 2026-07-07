@@ -1494,16 +1494,10 @@ class BlockchainTest(BaseTest):
                 setup_payloads.append(payload)
             else:
                 execution_payloads.append(payload)
-                if self.operation_mode == OpMode.BENCHMARKING:
-                    benchmark_gas_used = int(built_block.result.gas_used)
                 # Trace + accumulate opcode counts for execution-phase
                 # blocks only (fill-stateful's --extract-opcode-count) so
                 # the filler emits _info.metadata.opcode_count, mirroring
                 # the t8n path. Setup blocks are skipped — no wasted trace.
-                # We only feed the metadata accumulator, not
-                # benchmark_opcode_count: the live-client trace is recorded
-                # for analysis, not used to drive target-opcode
-                # verification (that stays a t8n-path concern).
                 block_opcode_count = t8n.extract_block_opcode_count(
                     client_hash
                 )
@@ -1512,6 +1506,14 @@ class BlockchainTest(BaseTest):
                     and block_opcode_count is not None
                 ):
                     t8n.opcode_count += block_opcode_count
+                if self.operation_mode == OpMode.BENCHMARKING:
+                    benchmark_gas_used = int(built_block.result.gas_used)
+                    # Feed the traced count to benchmark opcode
+                    # verification: with --extract-opcode-count on, a
+                    # live-client opcode count that diverges from the
+                    # test's declared target fails the fill. Stays None
+                    # when the flag is off, which skips verification.
+                    benchmark_opcode_count = block_opcode_count
             # apply_new_parent records the RLP hash; the next block's
             # parent_hash must point at what the client actually built.
             env = apply_new_parent(built_block.env, built_block.header)
