@@ -14,12 +14,12 @@ from execution_testing.base_types import Address
 from ....base_fork import BaseFork
 from ....bytecode import load_contract_bytecode
 
-BUILDER_DEPOSIT_CONTRACT_ADDRESS = 0x82fd414bcC3d584692B631FdfF9fADc1dFE4dddd
+BUILDER_DEPOSIT_CONTRACT_ADDRESS = 0x0000BFF46984E3725691FA540A8C7589300D8282
 BUILDER_DEPOSIT_CONTRACT_BYTECODE = load_contract_bytecode(
     __name__, "builder_deposit_request.bin"
 )
 
-BUILDER_EXIT_CONTRACT_ADDRESS = 0x82901077fe13BeCc6F5B2e84Cae8072751ADeEEe
+BUILDER_EXIT_CONTRACT_ADDRESS = 0x000064D678505AD48F8CCB093BC65613800E8282
 BUILDER_EXIT_CONTRACT_BYTECODE = load_contract_bytecode(
     __name__, "builder_exit_request.bin"
 )

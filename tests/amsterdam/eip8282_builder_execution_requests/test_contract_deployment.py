@@ -30,8 +30,8 @@ MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
 @pytest.mark.eels_base_coverage
 @generate_system_contract_deploy_test(
     fork=Amsterdam,
-    tx_json_path=Path(realpath(__file__)).parent
-    / "builder_deposit_deploy_tx.json",
+    factory_json_path=Path(realpath(__file__)).parent
+    / "builder_deposit_factory_deploy.json",
     expected_deploy_address=Address(Spec.BUILDER_DEPOSIT_CONTRACT_ADDRESS),
     fail_on_empty_code=True,
 )
@@ -66,8 +66,8 @@ def test_builder_deposit_contract_deployment(
 @pytest.mark.eels_base_coverage
 @generate_system_contract_deploy_test(
     fork=Amsterdam,
-    tx_json_path=Path(realpath(__file__)).parent
-    / "builder_exit_deploy_tx.json",
+    factory_json_path=Path(realpath(__file__)).parent
+    / "builder_exit_factory_deploy.json",
     expected_deploy_address=Address(Spec.BUILDER_EXIT_CONTRACT_ADDRESS),
     fail_on_empty_code=True,
 )
