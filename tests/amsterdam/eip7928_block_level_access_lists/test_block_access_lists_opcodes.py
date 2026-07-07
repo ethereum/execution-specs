@@ -59,7 +59,7 @@ class OutOfGasAt(Enum):
     EIP_2200_STIPEND = "oog_at_eip2200_stipend"
     EIP_2200_STIPEND_PLUS_1 = "oog_at_eip2200_stipend_plus_1"
     ABOVE_STIPEND_BELOW_ACCESS = "oog_above_stipend_below_access"
-    AT_ACCESS_COST = "oog_at_access_cost"
+    ACCESS_COVERED_OOG_ON_WRITE = "access_covered_oog_on_write"
     EXACT_GAS_MINUS_1 = "oog_at_exact_gas_minus_1"
 
 
@@ -99,7 +99,7 @@ class OutOfGasBoundary(Enum):
         OutOfGasAt.EIP_2200_STIPEND,
         OutOfGasAt.EIP_2200_STIPEND_PLUS_1,
         OutOfGasAt.ABOVE_STIPEND_BELOW_ACCESS,
-        OutOfGasAt.AT_ACCESS_COST,
+        OutOfGasAt.ACCESS_COVERED_OOG_ON_WRITE,
         OutOfGasAt.EXACT_GAS_MINUS_1,
         None,  # no oog, successful sstore
     ],
@@ -161,7 +161,7 @@ def test_bal_sstore_and_oog(
         # gas_left == access cost - 1: clears the stipend sentry but
         # cannot afford the access, so OOG before the read.
         tx_gas_limit = intrinsic_gas_cost + push_cost + cold_access - 1
-    elif out_of_gas_at == OutOfGasAt.AT_ACCESS_COST:
+    elif out_of_gas_at == OutOfGasAt.ACCESS_COVERED_OOG_ON_WRITE:
         # gas_left == access cost: access affordable (read recorded),
         # then OOG on the write cost.
         tx_gas_limit = intrinsic_gas_cost + push_cost + cold_access
@@ -181,7 +181,7 @@ def test_bal_sstore_and_oog(
     # The read is recorded only once the access cost is covered: the
     # frame reaches the implicit SLOAD before any later OOG.
     expect_storage_read = out_of_gas_at in (
-        OutOfGasAt.AT_ACCESS_COST,
+        OutOfGasAt.ACCESS_COVERED_OOG_ON_WRITE,
         OutOfGasAt.EXACT_GAS_MINUS_1,
     )
     expect_storage_write = out_of_gas_at is None
