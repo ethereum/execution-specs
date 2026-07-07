@@ -43,12 +43,6 @@ class ConsolidationRequest(ConsolidationRequestBase, FeeSystemContractRequest):
         return self.copy(source_address=source_address)
 
     @classmethod
-    def from_index(cls, index: int, fee: int | None = None) -> Self:
+    def from_index(cls, index: int) -> Self:
         """Build a consolidation request from a sequential index."""
-        if fee is None:
-            fee = cls.get_fee(0)
-        return cls(
-            source_pubkey=index * 2,
-            target_pubkey=index * 2 + 1,
-            fee=fee,
-        )
+        return cls(source_pubkey=index * 2, target_pubkey=index * 2 + 1)

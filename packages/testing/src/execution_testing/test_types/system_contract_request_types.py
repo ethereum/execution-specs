@@ -59,7 +59,7 @@ class SystemContractRequest(RequestBase, CamelModel):
 
     @classmethod
     @abstractmethod
-    def from_index(cls, index: int, fee: int | None = None) -> Self:
+    def from_index(cls, index: int) -> Self:
         """Build a request from a sequential index, paying `fee`."""
         ...
 
@@ -145,7 +145,7 @@ class FeeSystemContractRequest(SystemContractRequest):
                 [
                     SystemContractInteractionContract(
                         requests=[
-                            cls.from_index(i, fee)
+                            cls.from_index(i)
                             for i in range(
                                 request_index,
                                 request_index + requests_required,

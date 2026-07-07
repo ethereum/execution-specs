@@ -47,11 +47,6 @@ class BuilderDepositRequest(
         """
         return self.fee + self.amount * 10**9 + self.extra_wei
 
-    @classmethod
-    def get_per_request_fee(cls, index: int, excess: int = 0) -> int:
-        """Return the fee for the index-th deposit stored in a block."""
-        return cls.get_fee(excess + max(0, index - cls.target_per_block))
-
     @property
     def calldata(self) -> bytes:
         """
@@ -73,16 +68,13 @@ class BuilderDepositRequest(
         return self.copy()
 
     @classmethod
-    def from_index(cls, index: int, fee: int | None = None) -> Self:
+    def from_index(cls, index: int) -> Self:
         """Build a builder deposit request from a sequential index."""
-        if fee is None:
-            fee = cls.get_per_request_fee(index)
         return cls(
             pubkey=index * 3,
             withdrawal_credentials=(index * 3) + 1,
             amount=Spec.BUILDER_MIN_DEPOSIT // 10**9,
             signature=(index * 3) + 2,
-            fee=fee,
         )
 
 
@@ -114,8 +106,6 @@ class BuilderExitRequest(BuilderExitRequestBase, FeeSystemContractRequest):
         return self.copy(source_address=source_address)
 
     @classmethod
-    def from_index(cls, index: int, fee: int | None = None) -> Self:
+    def from_index(cls, index: int) -> Self:
         """Build a builder exit request from a sequential index."""
-        if fee is None:
-            fee = cls.get_fee(0)
-        return cls(pubkey=index, fee=fee)
+        return cls(pubkey=index)
