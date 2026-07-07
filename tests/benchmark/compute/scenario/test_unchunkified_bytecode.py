@@ -1,6 +1,15 @@
 """
 Benchmark operations that force the inclusion of max size bytecodes.
 This scenario is relevant in forks that have unchunkified bytecode.
+
+Each target contract carries unique, address-seeded code, so clients
+cannot deduplicate the reads by code hash. The distinct-target set is
+bounded: every byte of unique code must exist in the fixture (in the
+pre-allocation or, for on-chain deployment, in the EIP-7928 block access
+list), so an unbounded set produces gigabyte fixtures. The bounded set
+benchmarks the per-access mechanics (cold account access plus a full
+unchunkified code read); sustained cache-busting reads over state larger
+than client caches are covered by the bloatnet stateful benchmarks.
 """
 
 from typing import List
@@ -23,6 +32,14 @@ from execution_testing import (
 
 from ..helpers import ContractDeploymentTransaction, CustomSizedContractFactory
 
+DISTINCT_TARGET_CONTRACTS = 64
+"""
+Number of distinct max-size target contracts. Transactions cycle through
+the set, so every access stays cold (EIP-2929 warmth resets per
+transaction) while the fixture carries only this many unique code blobs
+(~131KB each in the EIP-7928 block access list).
+"""
+
 
 @pytest.mark.parametrize(
     "opcode",
@@ -36,6 +53,11 @@ from ..helpers import ContractDeploymentTransaction, CustomSizedContractFactory
         Op.EXTCODECOPY,
     ],
 )
+@pytest.mark.execute(
+    pytest.mark.skip(
+        reason="deployment transactions exceed devnet block state gas"
+    )
+)
 def test_unchunkified_bytecode(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -44,12 +66,7 @@ def test_unchunkified_bytecode(
     gas_benchmark_value: int,
     fixed_opcode_count: float | None,
 ) -> None:
-    """Benchmark scenario of accessing max-code size bytecode."""
-    # The attack gas limit represents the transaction gas limit cap or
-    # the block gas limit. If eip-7825 is applied, the test will create
-    # multiple transactions for contract deployment. It should account
-    # for the 200 gas per byte cost and the quadratic memory-expansion
-    # costs, which must be paid each time memory is initialized.
+    """Benchmark cold accesses to max-code-size, unique-code contracts."""
     attack_gas_limit = gas_benchmark_value
 
     # Create the max-sized fork-dependent contract factory.
@@ -97,8 +114,12 @@ def test_unchunkified_bytecode(
             )
         )
 
+    # CALLDATA[0:32] = start salt, CALLDATA[32:64] = end salt.
+    setup_code += Op.ADD(1, Op.CALLDATALOAD(32)) + Op.CALLDATALOAD(0)
+
     loop_code = While(
         body=attack_call + create2_preimage.increment_salt_op(),
+        condition=Op.PUSH1(1) + Op.ADD + Op.DUP1 + Op.DUP3 + Op.GT,
     )
 
     attack_code = IteratingBytecode(
@@ -107,29 +128,18 @@ def test_unchunkified_bytecode(
         # Since the target contract is guaranteed to have a STOP as the first
         # instruction, we can use a STOP as the iterating subcall code.
         iterating_subcall=Op.STOP,
+        cleanup=Op.STOP,
     )
 
-    # Calldata generator for each transaction of the iterating bytecode.
+    # Every transaction cycles through the same target set from salt zero;
+    # warmth resets per transaction, so each access stays cold.
     def calldata(iteration_count: int, start_iteration: int) -> bytes:
-        del iteration_count
-        # We only pass the start iteration index as calldata for this bytecode
-        return Hash(start_iteration)
+        del start_iteration
+        return Hash(0) + Hash(iteration_count - 1)
 
     attack_address = pre.deploy_contract(code=attack_code)
 
-    # Calculate the number of contracts to be targeted.
-    if fixed_opcode_count is not None:
-        # Fixed opcode count mode
-        num_contracts = int(fixed_opcode_count * 1000)
-    else:
-        # Gas limit mode
-        num_contracts = sum(
-            attack_code.tx_iterations_by_gas_limit(
-                fork=fork,
-                gas_limit=attack_gas_limit,
-                calldata=calldata,
-            )
-        )
+    num_contracts = DISTINCT_TARGET_CONTRACTS
 
     # Deploy num_contracts via multiple txs (each capped by tx gas limit).
     post = {}
@@ -149,12 +159,6 @@ def test_unchunkified_bytecode(
                     nonce=1
                 )
 
-    total_deployment_gas = sum(
-        tx.block_gas_cost for tx in contracts_deployment_txs
-    )
-    if total_deployment_gas > gas_benchmark_value:
-        pytest.skip("contract deployment gas exceeds the benchmark gas value")
-
     with TestPhaseManager.execution():
         attack_sender = pre.fund_eoa()
         if fixed_opcode_count is not None:
@@ -166,6 +170,7 @@ def test_unchunkified_bytecode(
                     sender=attack_sender,
                     to=attack_address,
                     calldata=calldata,
+                    max_iterations_per_tx=num_contracts,
                 )
             )
         else:
@@ -176,9 +181,13 @@ def test_unchunkified_bytecode(
                     sender=attack_sender,
                     to=attack_address,
                     calldata=calldata,
+                    max_iterations_per_tx=num_contracts,
                 )
             )
         total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
+
+    if not attack_txs:
+        pytest.skip("Benchmark gas value cannot cover a single target access.")
 
     benchmark_test(
         pre=pre,
