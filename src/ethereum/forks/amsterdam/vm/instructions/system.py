@@ -105,20 +105,24 @@ def generic_create(
 
     evm.accessed_addresses.add(contract_address)
 
-    if not account_deployable(tx_state, contract_address):
-        increment_nonce(tx_state, sender_address)
-        create_message_gas = max_message_call_gas(Uint(evm.gas_left))
-        evm.gas_left -= create_message_gas
-        evm.regular_gas_used += create_message_gas
-        push(evm.stack, U256(0))
-        return
-
+    # The charge is decided by existence alone, independently of the
+    # collision outcome.
     new_account_charged = not is_account_alive(tx_state, contract_address)
     if new_account_charged:
         charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
+
+    if not account_deployable(tx_state, contract_address):
+        increment_nonce(tx_state, sender_address)
+        evm.regular_gas_used += create_message_gas
+        # A storage-only collision target is non-existent: charged
+        # above, refilled here.
+        if new_account_charged:
+            credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
+        push(evm.stack, U256(0))
+        return
 
     # Move full reservoir to child (no 63/64 rule for state gas). Parent's
     # `state_gas_left` is zeroed and restored when the child returns.
