@@ -1,6 +1,7 @@
 """Code generating classes and functions."""
 
 from dataclasses import dataclass
+from enum import Enum, auto
 from typing import Any, Dict, Generator, List, Self, SupportsBytes, Tuple, Type
 
 from pydantic import Field
@@ -767,20 +768,49 @@ class SequentialAddressLayout(Bytecode):
         )
 
 
+class TxOutcome(Enum):
+    """
+    Expected outcome of a generated transaction.
+
+    Under EIP-8037 the outcome decides how gas is billed: on success the
+    sender pays regular plus state gas, on revert the runtime state gas is
+    rolled back into the reservoir and refunded, and on an exceptional halt
+    the whole declared gas limit burns in the regular dimension.
+    """
+
+    SUCCESS = auto()
+    REVERT = auto()
+    OUT_OF_GAS = auto()
+
+
 class TransactionWithCost(Transaction):
     """Transaction object that can include the expected gas to be consumed."""
 
     regular_cost: int = Field(..., exclude=True)
     state_cost: int = Field(..., exclude=True)
+    outcome: TxOutcome = Field(TxOutcome.SUCCESS, exclude=True)
 
     @property
     def gas_cost(self) -> int:
         """
-        Combined gas across all dimensions (regular + state), i.e. the value
-        the receipt's ``cumulativeGasUsed`` reflects. Use for
-        ``expected_benchmark_gas_used``.
+        Gas billed to the sender, i.e. the value the receipt's
+        `cumulativeGasUsed` reflects. Use for
+        `expected_benchmark_gas_used`.
+
+        On success this is the combined regular + state gas. On revert only
+        the regular gas is billed (runtime state gas is refunded; intrinsic
+        state gas, e.g. for authorizations, is not modeled here). On an
+        exceptional halt the whole gas limit burns: the generators size
+        out-of-gas transactions below the EIP-7825 cap, where the state
+        reservoir is empty.
         """
-        return self.regular_cost + self.state_cost
+        match self.outcome:
+            case TxOutcome.REVERT:
+                return self.regular_cost
+            case TxOutcome.OUT_OF_GAS:
+                return int(self.gas_limit)
+            case _:
+                return self.regular_cost + self.state_cost
 
     @property
     def block_gas_cost(self) -> int:
@@ -788,18 +818,24 @@ class TransactionWithCost(Transaction):
         Return the gas this transaction contributes to the block-header gas.
 
         The block-header gas is the maximum across the independent gas
-        dimensions (EIP-8037: ``max(regular, state)``), not their sum, so this
+        dimensions (EIP-8037: `max(regular, state)`), not their sum, so this
         is the right per-transaction quantity for block-fitting decisions
-        (e.g. how many transactions fit under a gas target). Written as a
-        ``max`` over the dimensions so it keeps holding if further gas
-        dimensions are added.
+        (e.g. how many transactions fit under a gas target). On revert only
+        the regular gas lands; on an exceptional halt the whole gas limit
+        lands in the regular dimension.
 
         Summing this over a block is exact only when a single dimension
         dominates every transaction uniformly (the common benchmark shape);
         for a mixed block the exact occupancy is
-        ``max(sum(regular_cost), sum(state_cost))``.
+        `max(sum(regular_cost), sum(state_cost))`.
         """
-        return max(self.regular_cost, self.state_cost)
+        match self.outcome:
+            case TxOutcome.REVERT:
+                return self.regular_cost
+            case TxOutcome.OUT_OF_GAS:
+                return int(self.gas_limit)
+            case _:
+                return max(self.regular_cost, self.state_cost)
 
 
 @dataclass(kw_only=True, slots=True)
@@ -1199,6 +1235,7 @@ class IteratingBytecode(Bytecode):
         fork: Fork,
         gas_limit: int,
         start_iteration: int = 0,
+        outcome: TxOutcome = TxOutcome.SUCCESS,
         **intrinsic_cost_kwargs: Any,
     ) -> Generator[int, None, None]:
         """
@@ -1212,18 +1249,39 @@ class IteratingBytecode(Bytecode):
         list will contain one item per transaction that represents the
         iteration count for that transaction, and no transaction will exceed
         the gas limit cap.
+
+        The gas each transaction counts against the budget follows its
+        expected outcome (see `TransactionWithCost.block_gas_cost`): the
+        max-dimension gas on success, the regular gas only on revert (state
+        gas is refunded), and the whole gas limit including the subcall
+        reserve on out-of-gas.
         """
         gas_limit_cap = fork.transaction_gas_limit_cap()
         remaining_gas = gas_limit
+        # An out-of-gas transaction burns its whole gas limit, including
+        # the 63/64 subcall reserve, so the reserve counts against the
+        # budget too.
+        reserve = (
+            self.iterating_subcall_reserve(fork=fork)
+            if outcome is TxOutcome.OUT_OF_GAS
+            else 0
+        )
+
+        def current_caps() -> GasCaps:
+            return GasCaps(
+                regular=remaining_gas - reserve,
+                # State gas only counts against the block budget when the
+                # transaction succeeds; on revert or halt it is refunded.
+                state=(
+                    remaining_gas if outcome is TxOutcome.SUCCESS else None
+                ),
+                gas_limit=gas_limit_cap,
+            )
 
         while not self._iteration_count_exceeds_caps(
             fork=fork,
             iteration_count=1,
-            caps=GasCaps(
-                regular=remaining_gas,
-                state=remaining_gas,
-                gas_limit=gas_limit_cap,
-            ),
+            caps=current_caps(),
             start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
         ):
@@ -1235,18 +1293,21 @@ class IteratingBytecode(Bytecode):
                 best_iterations_state_gas,
             ) = self._binary_search_iterations(
                 fork=fork,
-                caps=GasCaps(
-                    regular=remaining_gas,
-                    state=remaining_gas,
-                    gas_limit=gas_limit_cap,
-                ),
+                caps=current_caps(),
                 start_iteration=start_iteration,
                 **intrinsic_cost_kwargs,
             )
             yield best_iterations
-            remaining_gas -= max(
-                best_iterations_regular_gas, best_iterations_state_gas
-            )
+            match outcome:
+                case TxOutcome.REVERT:
+                    remaining_gas -= best_iterations_regular_gas
+                case TxOutcome.OUT_OF_GAS:
+                    remaining_gas -= best_iterations_regular_gas + reserve
+                case _:
+                    remaining_gas -= max(
+                        best_iterations_regular_gas,
+                        best_iterations_state_gas,
+                    )
             start_iteration += best_iterations
 
     @staticmethod
@@ -1317,6 +1378,7 @@ class IteratingBytecode(Bytecode):
         sender: EOA,
         to: Address | None,
         tx_gas_limit_delta: int = 0,
+        outcome: TxOutcome = TxOutcome.SUCCESS,
         **tx_kwargs: Any,
     ) -> Generator[TransactionWithCost, None, None]:
         """
@@ -1333,7 +1395,13 @@ class IteratingBytecode(Bytecode):
         dynamically by passing a callable to the calldata keyword argument.
 
         The returned object also contains an extra field with the expected
-        gas cost of the transaction by the end of execution.
+        gas cost of the transaction by the end of execution, billed
+        according to `outcome`.
+
+        Out-of-gas transactions are sized without the state gas allowance,
+        so the whole gas limit burns as regular gas and the billed amount is
+        exact; the caller must still make the bytecode inexhaustible (e.g.
+        with a negative `tx_gas_limit_delta` or a loop with no exit).
         """
         intrinsic_cost_kwargs = tx_kwargs.copy()
 
@@ -1347,13 +1415,16 @@ class IteratingBytecode(Bytecode):
             fork=fork,
             gas_limit=gas_limit,
             start_iteration=start_iteration,
+            outcome=outcome,
             **intrinsic_cost_kwargs,
         ):
             tx_gas_limit = self.tx_gas_limit_by_iteration_count(
                 fork=fork,
                 iteration_count=iteration_count,
                 start_iteration=start_iteration,
-                include_state_gas_reservoir=True,
+                include_state_gas_reservoir=(
+                    outcome is not TxOutcome.OUT_OF_GAS
+                ),
                 **intrinsic_cost_kwargs,
             )
             tx_regular_cost = self.tx_regular_gas_cost_by_iteration_count(
@@ -1379,6 +1450,7 @@ class IteratingBytecode(Bytecode):
                 sender=sender,
                 regular_cost=tx_regular_cost,
                 state_cost=tx_state_cost,
+                outcome=outcome,
                 **current_tx_kwargs,
             )
             start_iteration += iteration_count

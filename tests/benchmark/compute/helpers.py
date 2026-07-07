@@ -18,6 +18,7 @@ from execution_testing import (
     Op,
     OpcodeTarget,
     TransactionWithCost,
+    TxOutcome,
     While,
     compute_create2_address,
     compute_deterministic_create2_address,
@@ -69,12 +70,8 @@ class StorageAction:
     WRITE_NEW_VALUE = auto()
 
 
-class TransactionResult:
-    """Enum for the possible transaction outcomes."""
-
-    SUCCESS = auto()
-    OUT_OF_GAS = auto()
-    REVERT = auto()
+TransactionResult = TxOutcome
+"""Alias for the framework outcome enum used to bill transaction gas."""
 
 
 class ReturnDataStyle(Enum):

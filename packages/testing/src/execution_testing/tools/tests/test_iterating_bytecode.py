@@ -7,7 +7,12 @@ import pytest
 from execution_testing.forks import Amsterdam, Osaka
 from execution_testing.vm import Op
 
-from ..tools_code import FixedIterationsBytecode, IteratingBytecode
+from ..tools_code import (
+    FixedIterationsBytecode,
+    IteratingBytecode,
+    TransactionWithCost,
+    TxOutcome,
+)
 
 OSAKA_GAS_COSTS = Osaka.gas_costs()
 
@@ -429,4 +434,87 @@ def test_state_reservoir_lets_tx_gas_exceed_regular_gas_limit_cap() -> None:
     assert regular <= cap, "regular gas must respect the EIP-7825 cap"
     assert combined > cap, (
         "combined tx.gas exceeds the cap via state reservoir"
+    )
+
+
+@pytest.mark.parametrize(
+    "outcome,expected_billed,expected_block",
+    [
+        pytest.param(TxOutcome.SUCCESS, 100_000, 60_000, id="success"),
+        pytest.param(TxOutcome.REVERT, 60_000, 60_000, id="revert"),
+        pytest.param(TxOutcome.OUT_OF_GAS, 150_000, 150_000, id="out_of_gas"),
+    ],
+)
+def test_transaction_with_cost_billing_by_outcome(
+    outcome: TxOutcome, expected_billed: int, expected_block: int
+) -> None:
+    """
+    Billed gas and block-header contribution follow the expected outcome:
+    combined regular + state on success, regular only on revert (state gas
+    is refunded), and the whole gas limit on an exceptional halt.
+    """
+    tx = TransactionWithCost(
+        gas_limit=150_000,
+        regular_cost=60_000,
+        state_cost=40_000,
+        outcome=outcome,
+    )
+    assert tx.gas_cost == expected_billed
+    assert tx.block_gas_cost == expected_block
+
+
+def test_tx_iterations_by_gas_limit_outcome_packing() -> None:
+    """
+    The block budget is consumed according to the expected outcome: the
+    max-dimension gas on success, the regular gas only on revert, and the
+    whole gas limit (including the subcall reserve, without any state
+    allowance) on out-of-gas.
+    """
+    budget = 1_000_000
+    fork = CustomAmsterdam.with_tx_gas_limit_cap(16_777_216)
+    # SSTORE of a fresh slot from zero: state gas dominates regular gas.
+    bytecode = IteratingBytecode(
+        iterating=Op.SSTORE(0, 1), iterating_subcall=6300
+    )
+    reserve = bytecode.iterating_subcall_reserve(fork=fork)
+    assert reserve > 0
+
+    def regular(iterations: int) -> int:
+        return bytecode.tx_regular_gas_cost_by_iteration_count(
+            fork=fork, iteration_count=iterations
+        )
+
+    def state(iterations: int) -> int:
+        return bytecode.state_gas_cost_by_iteration_count(
+            fork=fork, iteration_count=iterations
+        )
+
+    success = list(
+        bytecode.tx_iterations_by_gas_limit(fork=fork, gas_limit=budget)
+    )
+    revert = list(
+        bytecode.tx_iterations_by_gas_limit(
+            fork=fork, gas_limit=budget, outcome=TxOutcome.REVERT
+        )
+    )
+    out_of_gas = list(
+        bytecode.tx_iterations_by_gas_limit(
+            fork=fork, gas_limit=budget, outcome=TxOutcome.OUT_OF_GAS
+        )
+    )
+
+    # Success packing is bound by the dominant (state) dimension.
+    assert sum(max(regular(i), state(i)) for i in success) <= budget
+    assert state(sum(success) + 1) > budget, (
+        "one more iteration should overflow the state dimension"
+    )
+
+    # Revert packing bills regular gas only, so far more iterations fit.
+    assert sum(revert) > sum(success)
+    assert sum(regular(i) for i in revert) <= budget
+
+    # Out-of-gas packing counts the whole gas limit, reserve included.
+    assert sum(regular(i) + reserve for i in out_of_gas) <= budget
+    assert regular(sum(out_of_gas) + 1) + reserve > budget, (
+        "one more iteration should overflow the regular budget"
     )
