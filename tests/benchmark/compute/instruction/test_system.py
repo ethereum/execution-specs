@@ -394,7 +394,13 @@ def test_creates_collisions(
     )
     proxy_contract = pre.deploy_contract(code=proxy_contract_code)
 
-    min_gas_required = proxy_contract_code.regular_cost(fork)
+    # The proxy must also be lent the NEW_ACCOUNT state gas: EIP-8037
+    # charges it before the collision check, and with no reservoir it
+    # spills from the frame's regular gas. On collision it is refunded,
+    # so the same allowance is re-lent on every iteration.
+    min_gas_required = proxy_contract_code.regular_cost(
+        fork
+    ) + proxy_contract_code.state_cost(fork)
     setup = Op.PUSH20(proxy_contract) + Op.PUSH3(min_gas_required)
     attack_block = Op.POP(
         # DUP7 refers to the PUSH3 above.
@@ -425,7 +431,6 @@ def test_creates_collisions(
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=attack_block
         ),
-        skip_gas_used_validation=True,
     )
 
 
