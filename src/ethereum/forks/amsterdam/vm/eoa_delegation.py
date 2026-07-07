@@ -2,18 +2,17 @@
 Set EOA account code.
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Set, Tuple
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
-from ethereum.exceptions import InvalidBlock, InvalidSignatureError
+from ethereum.exceptions import InvalidSignatureError
 from ethereum.state import Address
 
-from ..fork_types import Authorization, StateGas
+from ..fork_types import Authorization
 from ..state_tracker import (
     account_exists,
     get_account,
@@ -26,6 +25,8 @@ from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import (
     GasCosts,
     StateGasCosts,
+    charge_gas,
+    charge_state_gas,
 )
 from . import Evm, Message
 
@@ -159,12 +160,12 @@ def calculate_delegation_cost(
 
 def validate_authorization(
     message: Message, auth: Authorization
-) -> None | Tuple[Address, Bytes]:
+) -> Optional[Address]:
     """
     Check if the given `Authorization` is valid against the current state.
 
-    Returns the `authority` address and its code, or `None` if the
-    validation was unsuccessful.
+    Returns the `authority` address, or `None` if the validation was
+    unsuccessful.
     """
     tx_state = message.tx_env.state
 
@@ -191,56 +192,65 @@ def validate_authorization(
     if authority_nonce != auth.nonce:
         return None
 
-    return (authority, authority_code)
+    return authority
 
 
-def set_delegation(message: Message) -> Tuple[Uint, Uint]:
+def set_delegation(evm: Evm) -> None:
     """
-    Set the delegation code for the authorities in the message.
+    Apply the EIP-7702 authorizations and charge their state-dependent
+    costs at the top frame.
 
-    Refills `StateGasCosts.NEW_ACCOUNT` when the authority's account
-    leaf already exists, and `StateGasCosts.AUTH_BASE` when its code
-    slot already holds a delegation indicator. When the authority leaf
-    already exists, the worst-case `GasCosts.ACCOUNT_WRITE` charged in
-    the intrinsic cost is also refunded to the regular-gas refund
-    counter. The totals are returned so block accounting can subtract
-    the state refill from `tx_state_gas` and apply the regular refund.
+    Each valid authorization is charged, on top of the
+    state-independent ``GasCosts.REGULAR_PER_AUTH_BASE_COST`` already
+    paid in the intrinsic cost:
+
+    - ``StateGasCosts.NEW_ACCOUNT`` (state) when the authority's
+      account leaf does not yet exist.
+    - ``GasCosts.ACCOUNT_WRITE`` (regular) when applying the
+      authorization is the transaction's first write to the authority's
+      leaf. The sender's leaf was already written at inclusion (priced
+      into ``TX_BASE``), so a self-sponsored authority pays no
+      ``ACCOUNT_WRITE``, and repeated authorizations on one authority
+      pay it once.
+    - ``StateGasCosts.AUTH_BASE`` (state) when a net-new delegation
+      indicator is written: the authority held no delegation before the
+      transaction, none was set for it earlier in the transaction, and
+      this authorization sets one. It is charged at most once per
+      authority and is never credited back -- a delegation set and then
+      cleared in the same transaction keeps its charge.
+
+    These costs depend on the authority's current state and so cannot
+    be charged in the intrinsic cost. Insufficient gas raises an
+    ``OutOfGasError``; the caller rolls back the authorizations applied
+    so far and halts the top frame.
 
     Parameters
     ----------
-    message :
-        Transaction specific items.
-
-    Returns
-    -------
-    state_refund : `Uint`
-        Total state gas refunded across all processed authorizations.
-    regular_refund : `Uint`
-        Total regular gas (`ACCOUNT_WRITE`) refunded for authorities
-        whose account leaf already existed.
+    evm :
+        The top-level transaction frame.
 
     """
+    message = evm.message
     tx_state = message.tx_env.state
-    state_refund = Uint(0)
-    regular_refund = Uint(0)
+    # Accounts this transaction has already written: the sender's leaf
+    # was written at inclusion (nonce bump and fee deduction). The
+    # recipient is not written until the frame is dispatched.
+    written_accounts: Set[Address] = {message.tx_env.origin}
+    # Authorities a delegation was set for earlier in this transaction.
+    delegation_set_for: Set[Address] = set()
     for auth in message.tx_env.authorizations:
         match validate_authorization(message, auth):
             case None:
-                refund = StateGasCosts.AUTH_BASE + StateGasCosts.NEW_ACCOUNT
-                message.state_gas_reservoir += refund
-                state_refund += refund
-                regular_refund += GasCosts.ACCOUNT_WRITE
                 continue
-            case (authority, authority_code):
+            case authority:
                 pass
 
-        refund = StateGas(Uint(0))
+        if not account_exists(tx_state, authority):
+            charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
 
-        if account_exists(tx_state, authority):
-            refund += StateGasCosts.NEW_ACCOUNT
-            # The new-account ACCOUNT_WRITE charged at intrinsic time is
-            # not needed: refund it to the regular refund counter.
-            regular_refund += GasCosts.ACCOUNT_WRITE
+        if authority not in written_accounts:
+            charge_gas(evm, GasCosts.ACCOUNT_WRITE)
+            written_accounts.add(authority)
 
         pre_state_authority_account = get_pre_state_account(
             tx_state, authority
@@ -248,35 +258,15 @@ def set_delegation(message: Message) -> Tuple[Uint, Uint]:
         pre_state_authority_code = get_code(
             tx_state, pre_state_authority_account.code_hash
         )
-
         delegated_before_tx = is_valid_delegation(pre_state_authority_code)
-        delegated_now = is_valid_delegation(authority_code)
 
         if auth.address == NULL_ADDRESS:
-            refund += StateGasCosts.AUTH_BASE
-
-            if delegated_now and not delegated_before_tx:
-                refund += StateGasCosts.AUTH_BASE
-
             code_to_set = b""
         else:
+            if not delegated_before_tx and authority not in delegation_set_for:
+                charge_state_gas(evm, StateGasCosts.AUTH_BASE)
+            delegation_set_for.add(authority)
             code_to_set = EOA_DELEGATION_MARKER + auth.address
-
-            if delegated_now or delegated_before_tx:
-                refund += StateGasCosts.AUTH_BASE
 
         set_code(tx_state, authority, code_to_set)
         increment_nonce(tx_state, authority)
-
-        message.state_gas_reservoir += refund
-        state_refund += refund
-
-    if message.code_address is None:
-        raise InvalidBlock("Invalid type 4 transaction: no target")
-
-    message.code = get_code(
-        tx_state,
-        get_account(tx_state, message.code_address).code_hash,
-    )
-
-    return state_refund, regular_refund

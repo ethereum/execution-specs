@@ -649,13 +649,17 @@ def calculate_intrinsic_cost(
     The intrinsic cost includes:
     1. Sender cost (`TX_BASE`).
     2. Recipient cost (`COLD_ACCOUNT_ACCESS` for a non-self-transfer
-       call, or `CREATE_ACCESS` plus `NEW_ACCOUNT` state gas for a
-       contract creation).
+       call, or `CREATE_ACCESS` for a contract creation). The created
+       account's `NEW_ACCOUNT` state gas is state-dependent and is
+       charged at the top frame, not here.
     3. Value cost (`TRANSFER_LOG_COST`, plus `TX_VALUE_COST` for a
        non-self-transfer call) when ``tx.value > 0``.
     4. Calldata cost (zero and non-zero bytes).
     5. Access list entries (if applicable).
-    6. Authorizations (if applicable).
+    6. Authorizations (if applicable): only the state-independent base
+       cost (`REGULAR_PER_AUTH_BASE_COST`) per tuple. The
+       state-dependent account-creation and delegation-write costs are
+       charged at the top frame by `set_delegation`.
 
     Self-transfers (``sender == tx.to``) skip the recipient and value
     charges.
@@ -669,7 +673,6 @@ def calculate_intrinsic_cost(
     """
     from .vm.gas import (
         GasCosts,
-        StateGasCosts,
         init_code_cost,
     )
 
@@ -686,7 +689,6 @@ def calculate_intrinsic_cost(
     if is_create:
         recipient_regular_gas = GasCosts.CREATE_ACCESS
         init_code_gas = init_code_cost(ulen(tx.data))
-        recipient_state_gas = StateGasCosts.NEW_ACCOUNT
         if tx.value > U256(0):
             recipient_regular_gas += GasCosts.TRANSFER_LOG_COST
     elif not is_self_transfer:
@@ -715,12 +717,9 @@ def calculate_intrinsic_cost(
     auth_regular_gas = Uint(0)
     auth_state_gas = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_regular_gas = (
-            GasCosts.ACCOUNT_WRITE + GasCosts.REGULAR_PER_AUTH_BASE_COST
-        ) * ulen(tx.authorizations)
-        auth_state_gas = (
-            StateGasCosts.NEW_ACCOUNT + StateGasCosts.AUTH_BASE
-        ) * ulen(tx.authorizations)
+        auth_regular_gas = GasCosts.REGULAR_PER_AUTH_BASE_COST * ulen(
+            tx.authorizations
+        )
 
     # EIP-7976 floor tokens: all calldata bytes count uniformly.
     floor_tokens_in_calldata = ulen(tx.data) * GasCosts.TX_DATA_TOKEN_STANDARD

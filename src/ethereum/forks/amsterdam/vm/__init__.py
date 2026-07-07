@@ -187,6 +187,7 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_spilled: Uint = Uint(0)
+    auth_state_gas_used: int = 0
 
 
 def credit_state_gas_refund(evm: Evm, amount: StateGas) -> None:
