@@ -138,6 +138,41 @@ def test_no_engine_x_fixtures_skips_check(tmp_path: Path) -> None:
     assert verify_engine_x_execution(tmp_path) is None
 
 
+def test_single_fixture_per_file_sibling_lookup(tmp_path: Path) -> None:
+    """
+    A `--single-fixture-per-file` fill embeds the fixture format name in
+    every file name; the sibling is still found under its own basename.
+    """
+    payload = _payload(gas_used="0x5208", state_root="0x01", block_hash="0x02")
+    sibling_file = (
+        tmp_path
+        / SIBLING_FIXTURES_DIR
+        / "prague"
+        / "module"
+        / "a__fork_Prague_blockchain_test_engine_from_state_test.json"
+    )
+    sibling_file.parent.mkdir(parents=True, exist_ok=True)
+    sibling_file.write_text(
+        json.dumps({SIBLING_ID: {"engineNewPayloads": [payload]}})
+    )
+    engine_x_file = (
+        tmp_path
+        / ENGINE_X_FIXTURES_DIR
+        / "prague"
+        / "module"
+        / "a__fork_Prague_blockchain_test_engine_x_from_state_test.json"
+    )
+    engine_x_file.parent.mkdir(parents=True, exist_ok=True)
+    engine_x_file.write_text(
+        json.dumps({ENGINE_X_ID: {"engineNewPayloads": [payload]}})
+    )
+
+    summary = verify_engine_x_execution(tmp_path)
+
+    assert summary is not None
+    assert "1 Engine X fixtures execute identically" in summary
+
+
 def test_missing_sibling_fixture_is_skipped(tmp_path: Path) -> None:
     """A test filtered from the sibling format is skipped, not failed."""
     payload = _payload(gas_used="0x5208", state_root="0x01", block_hash="0x02")

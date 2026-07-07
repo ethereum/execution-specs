@@ -110,6 +110,14 @@ def verify_engine_x_execution(output_dir: Path) -> Optional[str]:
         if "pre_alloc" in engine_x_file.parts:
             continue
         sibling_file = sibling_dir / engine_x_file.relative_to(engine_x_dir)
+        if not sibling_file.exists():
+            # A --single-fixture-per-file fill embeds the fixture format
+            # name in every file name, so the sibling's basename differs.
+            sibling_file = sibling_file.with_name(
+                sibling_file.name.replace(
+                    "blockchain_test_engine_x", "blockchain_test_engine"
+                )
+            )
         sibling_fixtures = (
             json.loads(sibling_file.read_text())
             if sibling_file.exists()
