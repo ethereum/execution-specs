@@ -4,11 +4,15 @@ import json
 from pathlib import Path
 from typing import Dict
 
+import pytest
+
 from execution_testing.base_types import Account, Address
 from execution_testing.fixtures.pre_alloc_groups import (
     TEST_GROUP_INDEX_FILE,
+    GroupIndexEntry,
     PreAllocGroupBuilder,
     pack_pre_alloc_groups,
+    packed_group_hash_for_test,
     read_test_group_index,
 )
 from execution_testing.forks import Prague
@@ -271,8 +275,12 @@ def test_pack_writes_test_group_index(tmp_path: Path) -> None:
         "tests/b.py::test_b",
         "tests/c.py::test_c",
     ]
-    for test_id, group_hash in index.items():
-        assert test_id in packed[group_hash]["testIds"]
+    for test_id, entry in index.items():
+        assert test_id in packed[entry.group_hash]["testIds"]
+    # Every entry records the test's fine-grained phase 1 hash.
+    assert index["tests/a.py::test_a"].phase1_hash == "0x01"
+    assert index["tests/b.py::test_b"].phase1_hash == "0x02"
+    assert index["tests/c.py::test_c"].phase1_hash == "0x03"
 
 
 def test_read_test_group_index_falls_back_to_scanning(
@@ -297,9 +305,65 @@ def test_read_test_group_index_falls_back_to_scanning(
 
     assert not (tmp_path / TEST_GROUP_INDEX_FILE).exists()
     assert read_test_group_index(tmp_path) == {
-        "tests/a.py::test_a": "0x01",
-        "tests/b.py::test_b": "0x02",
+        "tests/a.py::test_a": GroupIndexEntry("0x01", None),
+        "tests/b.py::test_b": GroupIndexEntry("0x02", None),
     }
+
+
+def test_packed_group_hash_lookup_validates_phase1_hash(
+    tmp_path: Path,
+) -> None:
+    """
+    A phase 2 lookup verifies the recomputed phase 1 hash against the
+    index fingerprint, so a stale pre-alloc folder fails loudly instead
+    of silently filling a changed test against its old genesis.
+    """
+    env = Environment()
+    _write_group(
+        tmp_path,
+        "0x01",
+        "tests/a.py::test_a",
+        {0x1000: Account(balance=1)},
+        environment=env,
+    )
+    pack_pre_alloc_groups(tmp_path)
+    index = read_test_group_index(tmp_path)
+
+    packed_hash = packed_group_hash_for_test(
+        index, "tests/a.py::test_a", phase1_hash="0x01"
+    )
+    assert packed_hash == index["tests/a.py::test_a"].group_hash
+
+    with pytest.raises(ValueError, match="stale"):
+        packed_group_hash_for_test(
+            index, "tests/a.py::test_a", phase1_hash="0xff"
+        )
+    with pytest.raises(ValueError, match="not assigned"):
+        packed_group_hash_for_test(
+            index, "tests/b.py::test_b", phase1_hash="0x02"
+        )
+
+
+def test_packed_group_hash_lookup_without_fingerprint(
+    tmp_path: Path,
+) -> None:
+    """A scanned (legacy) index has no fingerprints to validate against."""
+    env = Environment()
+    _write_group(
+        tmp_path,
+        "0x01",
+        "tests/a.py::test_a",
+        {0x1000: Account(balance=1)},
+        environment=env,
+    )
+
+    index = read_test_group_index(tmp_path)
+    assert (
+        packed_group_hash_for_test(
+            index, "tests/a.py::test_a", phase1_hash="0xff"
+        )
+        == "0x01"
+    )
 
 
 def test_pack_is_deterministic(tmp_path: Path) -> None:

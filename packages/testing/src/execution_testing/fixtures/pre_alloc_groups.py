@@ -14,6 +14,7 @@ from typing import (
     KeysView,
     List,
     Literal,
+    NamedTuple,
     Optional,
     Self,
     Set,
@@ -218,23 +219,75 @@ def _packed_group_hash(test_ids: List[str]) -> str:
 TEST_GROUP_INDEX_FILE = "test_group_index"
 
 
-def read_test_group_index(folder: Path) -> Dict[str, str]:
+class GroupIndexEntry(NamedTuple):
     """
-    Map every test id to the hash of the pre-alloc group that contains it.
+    A test's entry in the test id -> pre-alloc group index.
+
+    ``group_hash`` names the (packed) group that holds the test.
+    ``phase1_hash`` is the test's fine-grained phase 1 group hash, which
+    phase 2 recomputes from the test's own fork, genesis environment, and
+    pre-allocation to detect a stale group folder (see
+    `packed_group_hash_for_test`); it is ``None`` when the index was
+    reconstructed by scanning group files.
+    """
+
+    group_hash: str
+    phase1_hash: str | None
+
+
+def read_test_group_index(folder: Path) -> Dict[str, GroupIndexEntry]:
+    """
+    Map every test id to the pre-alloc group that contains it.
 
     Prefer the index file written by `pack_pre_alloc_groups`; fall back to
     scanning every group file's ``testIds`` for folders produced without a
-    packing pass (e.g. by an older framework version).
+    packing pass (e.g. by an older framework version). Scanned entries
+    carry no phase 1 fingerprint.
     """
     index_file = folder / TEST_GROUP_INDEX_FILE
     if index_file.exists():
-        return json.loads(index_file.read_text())
-    index: Dict[str, str] = {}
+        return {
+            test_id: GroupIndexEntry(entry["group"], entry["phase1"])
+            for test_id, entry in json.loads(index_file.read_text()).items()
+        }
+    index: Dict[str, GroupIndexEntry] = {}
     for file in folder.glob("*.json"):
         data = json.loads(file.read_text())
         for test_id in data.get("testIds", []):
-            index[test_id] = file.stem
+            index[test_id] = GroupIndexEntry(file.stem, None)
     return index
+
+
+def packed_group_hash_for_test(
+    index: Dict[str, GroupIndexEntry],
+    test_id: str,
+    phase1_hash: str,
+) -> str:
+    """
+    Return the packed group hash owning ``test_id``, verifying freshness.
+
+    ``phase1_hash`` is the test's fine-grained phase 1 group hash,
+    recomputed by phase 2 from the test's current fork, genesis
+    environment, and pre-allocation. A mismatch with the fingerprint
+    recorded by `pack_pre_alloc_groups` means the groups on disk were
+    built from a different version of the test, so phase 2 would fill it
+    against the wrong genesis.
+    """
+    entry = index.get(test_id)
+    if entry is None:
+        raise ValueError(
+            f"Test {test_id!r} was not assigned to any pre-allocation "
+            "group. Ensure phase 1 (--generate-pre-alloc-groups) ran over "
+            "the same test selection as phase 2."
+        )
+    if entry.phase1_hash is not None and entry.phase1_hash != phase1_hash:
+        raise ValueError(
+            f"The pre-allocation groups are stale for test {test_id!r}: "
+            "its pre-allocation or genesis environment changed after they "
+            "were generated. Re-run phase 1 (--generate-pre-alloc-groups) "
+            "to regenerate them."
+        )
+    return entry.group_hash
 
 
 # Addresses below this value are precompiles / the reserved range. A ported
@@ -319,17 +372,22 @@ def pack_pre_alloc_groups(folder: Path) -> None:
 
     Called on the master process after `merge_partial_group_files`, replacing
     the fine-grained files in `folder` with the packed ones. Also writes a
-    test id -> group hash index file (see `read_test_group_index`), so phase
-    2 workers can find a test's group without scanning every group file.
+    test id -> group index file (see `read_test_group_index`), so phase 2
+    workers can find a test's group without scanning every group file; each
+    entry records the test's fine-grained phase 1 hash as a fingerprint so a
+    stale folder is detected (see `packed_group_hash_for_test`).
     """
     files = sorted(folder.glob("*.json"))
     if not files:
         return
 
-    builders = [
-        PreAllocGroupBuilder.model_validate_json(file.read_text())
-        for file in files
-    ]
+    builders = []
+    phase1_hash_by_test: Dict[str, str] = {}
+    for file in files:
+        builder = PreAllocGroupBuilder.model_validate_json(file.read_text())
+        for test_id in builder.test_ids:
+            phase1_hash_by_test[test_id] = file.stem
+        builders.append(builder)
 
     genesis_buckets: Dict[
         Tuple[str, int, str, str], List[PreAllocGroupBuilder]
@@ -349,7 +407,7 @@ def pack_pre_alloc_groups(folder: Path) -> None:
     for file in files:
         file.unlink()
 
-    test_group_index: Dict[str, str] = {}
+    test_group_index: Dict[str, GroupIndexEntry] = {}
     for genesis_key in sorted(genesis_buckets):
         bucket = genesis_buckets[genesis_key]
         reserved = _reserved_addresses(bucket)
@@ -373,10 +431,22 @@ def pack_pre_alloc_groups(folder: Path) -> None:
                 )
             )
             for test_id in merged.test_ids:
-                test_group_index[test_id] = packed_hash
+                test_group_index[test_id] = GroupIndexEntry(
+                    packed_hash, phase1_hash_by_test[test_id]
+                )
 
     (folder / TEST_GROUP_INDEX_FILE).write_text(
-        json.dumps(test_group_index, sort_keys=True, indent=2)
+        json.dumps(
+            {
+                test_id: {
+                    "group": entry.group_hash,
+                    "phase1": entry.phase1_hash,
+                }
+                for test_id, entry in test_group_index.items()
+            },
+            sort_keys=True,
+            indent=2,
+        )
     )
 
 

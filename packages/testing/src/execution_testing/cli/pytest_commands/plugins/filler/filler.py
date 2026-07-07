@@ -65,9 +65,11 @@ from execution_testing.fixtures.engine_x_checks import (
     verify_engine_x_execution,
 )
 from execution_testing.fixtures.pre_alloc_groups import (
+    GroupIndexEntry,
     _get_worker_id,
     merge_partial_group_files,
     pack_pre_alloc_groups,
+    packed_group_hash_for_test,
     read_test_group_index,
 )
 from execution_testing.forks import (
@@ -165,12 +167,14 @@ class FillingSession:
     filling_phase: FixtureFillingPhase
     pre_alloc_groups: PreAllocGroups | None = None
     pre_alloc_group_builders: PreAllocGroupBuilders | None = None
-    # Phase 2 reverse index: test id -> packed pre-alloc group hash. Packing
+    # Phase 2 reverse index: test id -> packed pre-alloc group. Packing
     # (see pack_pre_alloc_groups) makes a group's hash depend on the whole set
     # of tests it holds, so it can no longer be recomputed per-test; a test
     # finds its group through the packed index file instead (see
     # read_test_group_index).
-    _test_group_index: Dict[str, str] | None = field(default=None, repr=False)
+    _test_group_index: Dict[str, GroupIndexEntry] | None = field(
+        default=None, repr=False
+    )
 
     @classmethod
     def from_config(
@@ -300,25 +304,23 @@ class FillingSession:
 
         return self.pre_alloc_groups[hash_key]
 
-    def group_hash_for_test(self, test_id: str) -> str:
+    def group_hash_for_test(self, test_id: str, phase1_hash: str) -> str:
         """
         Return the packed pre-alloc group hash that owns ``test_id``.
 
         Loaded once (per worker) from the index file written by
-        `pack_pre_alloc_groups` at the end of phase 1.
+        `pack_pre_alloc_groups` at the end of phase 1. ``phase1_hash`` is
+        the test's fine-grained group hash recomputed from its current
+        content, so a stale pre-alloc folder fails loudly (see
+        `packed_group_hash_for_test`).
         """
         if self._test_group_index is None:
             self._test_group_index = read_test_group_index(
                 self.fixture_output.pre_alloc_groups_folder_path
             )
-        try:
-            return self._test_group_index[test_id]
-        except KeyError:
-            raise ValueError(
-                f"Test {test_id!r} was not assigned to any pre-allocation "
-                "group. Ensure phase 1 (--generate-pre-alloc-groups) ran over "
-                "the same test selection as phase 2."
-            ) from None
+        return packed_group_hash_for_test(
+            self._test_group_index, test_id, phase1_hash
+        )
 
     def save_pre_alloc_groups(self) -> None:
         """Save pre-allocation groups to disk as partial files."""
@@ -1688,9 +1690,19 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 ):
                     # Groups are packed after phase 1, so a test's group hash
                     # can no longer be recomputed from its own pre; look it up
-                    # by test id instead.
+                    # by test id instead, fingerprinted by the recomputed
+                    # phase 1 hash so a stale group folder fails loudly.
                     test_id = _strip_xdist_group_suffix(request.node.nodeid)
-                    pre_alloc_hash = session.group_hash_for_test(test_id)
+                    pre_alloc_hash = session.group_hash_for_test(
+                        test_id,
+                        phase1_hash=pre.compute_pre_alloc_group_hash(
+                            fork=fork,
+                            genesis_environment=(
+                                self.get_genesis_environment()
+                            ),
+                            group_salt=group_salt,
+                        ),
+                    )
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre
                 fill_result: FillResult | None = None
