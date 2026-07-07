@@ -10,6 +10,7 @@ top-frame charge tests in ``test_top_frame_charges.py``.
 import pytest
 from execution_testing import (
     Alloc,
+    AuthorizationTuple,
     Fork,
     Op,
     RecipientType,
@@ -18,7 +19,11 @@ from execution_testing import (
     TransactionException,
 )
 
-from .helpers import RECIPIENT_TYPES_NON_CREATE, setup_target
+from .helpers import (
+    EOA_INITIAL_BALANCE,
+    RECIPIENT_TYPES_NON_CREATE,
+    setup_target,
+)
 from .spec import ref_spec_2780
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2780.git_path
@@ -113,3 +118,62 @@ def test_intrinsic_gas_floor_boundary_contract_creation(
     )
 
     state_test(pre=pre, tx=tx, post={})
+
+
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "authorization_count",
+    [
+        pytest.param(1, id="one_authorization"),
+        pytest.param(2, id="two_authorizations"),
+    ],
+)
+def test_intrinsic_gas_floor_boundary_with_authorizations(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    authorization_count: int,
+) -> None:
+    """
+    Reject a type-4 transaction when ``gas_limit = intrinsic_gas - 1``,
+    where the intrinsic includes ``REGULAR_PER_AUTH_BASE_COST`` per
+    authorization.
+
+    EIP-2780 keeps only the state-independent per-authorization base
+    cost in the intrinsic (the state-dependent remainder moved to the
+    top frame). The calldata floor does not count authorization tuples,
+    so the intrinsic -- which scales with the authorization count -- is
+    the binding minimum. The transaction is rejected before
+    ``set_delegation`` runs, so no authority is mutated.
+    """
+    sender = pre.fund_eoa(10**18)
+    target = pre.fund_eoa(amount=EOA_INITIAL_BALANCE)
+    delegate_to = pre.deploy_contract(code=Op.STOP)
+
+    authorization_list = [
+        AuthorizationTuple(
+            address=delegate_to,
+            nonce=0,
+            signer=pre.fund_eoa(),
+        )
+        for _ in range(authorization_count)
+    ]
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=RecipientType.EOA,
+        authorization_list_or_count=authorization_list,
+        return_cost_deducted_prior_execution=True,
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        value=0,
+        authorization_list=authorization_list,
+        gas_limit=intrinsic_gas - 1,
+        max_fee_per_gas=1_000_000_000,
+        max_priority_fee_per_gas=1_000_000_000,
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+    )
+
+    state_test(pre=pre, tx=tx, post=pre)
