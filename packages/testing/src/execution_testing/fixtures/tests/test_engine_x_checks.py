@@ -71,10 +71,11 @@ def test_identical_execution_passes(tmp_path: Path) -> None:
         [_payload(gas_used="0x5208", state_root="0xaa", block_hash="0xbb")],
     )
 
-    summary = verify_engine_x_execution(tmp_path)
+    result = verify_engine_x_execution(tmp_path)
 
-    assert summary is not None
-    assert "1 Engine X fixtures execute identically" in summary
+    assert result is not None
+    assert result.compared == 1
+    assert "1 Engine X fixtures execute identically" in result.summary
 
 
 def test_execution_drift_raises(tmp_path: Path) -> None:
@@ -167,10 +168,11 @@ def test_single_fixture_per_file_sibling_lookup(tmp_path: Path) -> None:
         json.dumps({ENGINE_X_ID: {"engineNewPayloads": [payload]}})
     )
 
-    summary = verify_engine_x_execution(tmp_path)
+    result = verify_engine_x_execution(tmp_path)
 
-    assert summary is not None
-    assert "1 Engine X fixtures execute identically" in summary
+    assert result is not None
+    assert result.compared == 1
+    assert result.skipped == 0
 
 
 def test_missing_sibling_fixture_is_skipped(tmp_path: Path) -> None:
@@ -186,7 +188,26 @@ def test_missing_sibling_fixture_is_skipped(tmp_path: Path) -> None:
         json.dumps({other_engine_x_id: {"engineNewPayloads": [payload]}})
     )
 
-    summary = verify_engine_x_execution(tmp_path)
+    result = verify_engine_x_execution(tmp_path)
 
-    assert summary is not None
-    assert "1 skipped" in summary
+    assert result is not None
+    assert result.compared == 1
+    assert result.skipped == 1
+    assert "1 skipped" in result.summary
+
+
+def test_no_matching_siblings_reports_skip_count(tmp_path: Path) -> None:
+    """
+    Sibling fixtures exist but none match: The check reports the skip
+    count instead of pretending no siblings were generated.
+    """
+    payload = _payload(gas_used="0x5208", state_root="0x01", block_hash="0x02")
+    other_sibling_id = SIBLING_ID.replace("test_a[", "test_b[")
+    _write_fixture(tmp_path, SIBLING_FIXTURES_DIR, other_sibling_id, [payload])
+    _write_fixture(tmp_path, ENGINE_X_FIXTURES_DIR, ENGINE_X_ID, [payload])
+
+    result = verify_engine_x_execution(tmp_path)
+
+    assert result is not None
+    assert result.compared == 0
+    assert result.skipped == 1

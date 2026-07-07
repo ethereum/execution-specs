@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 ENGINE_X_FIXTURES_DIR = "blockchain_tests_engine_x"
 SIBLING_FIXTURES_DIR = "blockchain_tests_engine"
@@ -45,6 +45,24 @@ class EngineXExecutionDriftError(Exception):
         )
 
 
+class EngineXCheckResult(NamedTuple):
+    """Comparison counts from a completed Engine X execution check."""
+
+    compared: int
+    skipped: int
+
+    @property
+    def summary(self) -> str:
+        """Return a one-line summary of the check for the fill log."""
+        summary = (
+            f"{self.compared} Engine X fixtures execute identically "
+            "against their packed group's genesis"
+        )
+        if self.skipped:
+            summary += f" ({self.skipped} skipped: no sibling engine fixture)"
+        return summary
+
+
 def _scrubbed_payloads(fixture: Dict[str, Any]) -> List[Any]:
     """Return the fixture's payload entries minus state-root-derived fields."""
     payloads = []
@@ -81,7 +99,9 @@ def _describe_mismatch(base: List[Any], packed: List[Any]) -> str:
     return "payloads differ"
 
 
-def verify_engine_x_execution(output_dir: Path) -> Optional[str]:
+def verify_engine_x_execution(
+    output_dir: Path,
+) -> Optional[EngineXCheckResult]:
     """
     Verify that pre-alloc group packing did not change any test's execution.
 
@@ -92,9 +112,9 @@ def verify_engine_x_execution(output_dir: Path) -> Optional[str]:
     Engine X fixtures never share the transition tool output cache). All
     payload fields except the state-root-derived ones must match exactly.
 
-    Return a summary string, or ``None`` when the check cannot run (no
-    Engine X fixtures, or no sibling fixtures to compare against, e.g. when
-    filling with ``-m blockchain_test_engine_x``).
+    Return the comparison counts, or ``None`` when one of the two fixture
+    format trees was not generated at all (e.g. when filling with
+    ``-m blockchain_test_engine_x``, which produces no siblings).
 
     Raise `EngineXExecutionDriftError` if any test executed differently.
     """
@@ -139,12 +159,4 @@ def verify_engine_x_execution(output_dir: Path) -> Optional[str]:
 
     if mismatches:
         raise EngineXExecutionDriftError(mismatches, compared)
-    if compared == 0:
-        return None
-    summary = (
-        f"{compared} Engine X fixtures execute identically against their "
-        "packed group's genesis"
-    )
-    if skipped:
-        summary += f" ({skipped} skipped: no sibling engine fixture)"
-    return summary
+    return EngineXCheckResult(compared=compared, skipped=skipped)
