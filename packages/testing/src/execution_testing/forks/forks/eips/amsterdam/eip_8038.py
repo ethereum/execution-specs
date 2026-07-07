@@ -74,6 +74,7 @@ class EIP8038(BaseFork):
             OPCODE_CREATE_BASE=create_access,
             TX_CREATE=create_access,
             AUTH_PER_EMPTY_ACCOUNT=account_write + regular_per_auth_base_cost,
+            REGULAR_PER_AUTH_BASE_COST=regular_per_auth_base_cost,
         )
 
     @classmethod
