@@ -599,6 +599,7 @@ def test_selfdestruct_existing(
                 sender=setup_sender,
                 to=factory_address,
                 calldata=factory_calldata,
+                tx_gas_limit_delta=100,
             )
         )
 

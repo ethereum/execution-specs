@@ -376,6 +376,7 @@ def test_storage_access_cold(
     benchmark_test(
         blocks=blocks,
         expected_benchmark_gas_used=expected_gas_used,
+        skip_gas_used_validation=(tx_result == TransactionResult.OUT_OF_GAS),
     )
 
 
