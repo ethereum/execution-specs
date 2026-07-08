@@ -21,6 +21,7 @@ from execution_testing import (
     Fork,
     Initcode,
     Op,
+    RecipientType,
     Transaction,
     Withdrawal,
     compute_create_address,
@@ -482,6 +483,67 @@ def test_bal_7702_delegated_storage_access(
         pre=pre,
         blocks=[block],
         post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        pytest.param("oog", id="oog_at_delegation_charge"),
+        pytest.param("success", id="success"),
+    ],
+)
+def test_bal_7702_top_frame_delegation_oog(
+    fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    outcome: str,
+) -> None:
+    """
+    Ensure the delegation target of a delegated ``tx.to`` enters the
+    BAL only when gas covers the top-frame delegation charge.
+    """
+    sender = pre.fund_eoa()
+
+    delegated_to = pre.deploy_contract(code=Op.STOP)
+    target = pre.fund_eoa(amount=0, delegation=delegated_to)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=RecipientType.DELEGATION_7702,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+        recipient_type=RecipientType.DELEGATION_7702,
+    )
+
+    if outcome == "oog":
+        gas_limit = intrinsic_gas + top_frame_gas - 1
+        # The delegation charge fails, so the target is never accessed.
+        delegated_to_expectation = None
+    else:
+        gas_limit = intrinsic_gas + top_frame_gas + 1000
+        delegated_to_expectation = BalAccountExpectation.empty()
+
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        gas_limit=gas_limit,
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                target: BalAccountExpectation.empty(),
+                delegated_to: delegated_to_expectation,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={sender: Account(nonce=1)},
     )
 
 
