@@ -13,7 +13,7 @@ The target client must expose:
 
 - `testing` (`testing_buildBlockV1`) — block construction with explicit transaction ordering.
 - `engine` — `engine_newPayloadVX`, `engine_forkchoiceUpdatedVX`.
-- `eth`, `debug` — chain queries and `debug_setHead` for between-test rewind.
+- `eth`, `debug` — chain queries and `debug_setHead` (or `debug_resetHead` on clients like Nethermind that lack `debug_setHead`) for between-test rewind.
 - `web3` (optional) — `web3_clientVersion` is recorded into the fixture's `_info.filling-transition-tool` for traceability.
 
 The production-ready filler is `ethpandaops/geth:master`.
@@ -213,7 +213,7 @@ Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `Client
     2. `_split_blocks_by_phase` splits any mixed-phase blocks (e.g. EIP-7702 SETUP + benchmark TEST).
     3. For each block, `ClientBackend.evaluate` builds + finalises it; payload partitioned by `Block.phase` into `setupEngineNewPayloads` vs `engineNewPayloads`.
     4. Write `<test>.json` (a `BlockchainEngineStatefulFixture`).
-3. **Per-test reset** (`_reset_chain_between_tests`): `debug_setHead(start_block.number)`, re-fetch `latest`, abort if hash drifted.
+3. **Per-test reset** (`_reset_chain_between_tests`): `debug_setHead(start_block.number)` — or `debug_resetHead(start_block.hash)` on clients without `debug_setHead`, e.g. Nethermind — re-fetch `latest`, abort if hash drifted.
 
 ### Fixture types
 
@@ -239,7 +239,7 @@ pristine snapshot ───copy──▶ datadir ───▶ geth ───▶ 
                                                        └── for each test fixture:
                                                             ├── replay setupEngineNewPayloads
                                                             ├── replay engineNewPayloads (timed)
-                                                            ├── debug_setHead → start_block
+                                                            ├── debug_setHead/resetHead → start_block
                                                             └── re-fetch latest, verify hash
 ```
 
