@@ -277,6 +277,24 @@ def test_ether_transfers(
     )
 
 
+EMPTY_INPUT_PRECOMPILE_GAS: dict[int, int] = {
+    0x01: 3_000,  # ECRECOVER charges fully, recovers nothing.
+    0x02: 60,  # SHA2-256 base cost.
+    0x03: 600,  # RIPEMD-160 base cost.
+    0x04: 15,  # IDENTITY base cost.
+    0x05: 500,  # MODEXP minimum (EIP-7883).
+    0x06: 150,  # BN128ADD (zero-padded input adds two infinities).
+    0x07: 6_000,  # BN128MUL.
+    0x08: 45_000,  # BN128PAIRING base (zero pairs).
+    0x100: 6_900,  # P256VERIFY charges fully, verifies nothing.
+}
+"""
+Gas each precompile consumes for empty calldata. Precompiles absent from
+this map (BLAKE2F, POINT_EVALUATION, the BLS12-381 family) reject empty
+input outright, so a plain transfer to them reverts by construction.
+"""
+
+
 @pytest.mark.with_all_precompiles
 @pytest.mark.parametrize("transfer_amount", [0, 1])
 def test_ether_transfers_to_precompile(
@@ -288,11 +306,28 @@ def test_ether_transfers_to_precompile(
     transfer_amount: int,
 ) -> None:
     """Test a block full of ether transfers to a precompile address."""
-    # A precompile already exists, so a value transfer pays the EIP-2780
-    # value-transfer charge but never the new-account state gas.
-    iteration_cost = fork.transaction_intrinsic_cost_calculator()(
-        sends_value=transfer_amount > 0,
-        recipient_type=RecipientType.PRECOMPILE,
+    precompile_id = int.from_bytes(bytes(Address(precompile)), "big")
+    if precompile_id not in EMPTY_INPUT_PRECOMPILE_GAS:
+        pytest.skip(
+            "precompile rejects empty input, so the transfer cannot succeed"
+        )
+    sends_value = transfer_amount > 0
+    if sends_value:
+        # Pre-fund the precompile so its account already exists. Otherwise
+        # the first transfer would bring an empty account to life and pay
+        # the one-time EIP-8037 new-account state gas (183,600), which has
+        # no reservoir below the state-gas cap and OOGs the transaction.
+        # Funding it up front keeps every transfer the same uniform cost.
+        pre.fund_address(Address(precompile), 1)
+    # The precompile still executes with empty calldata, so each
+    # transaction must also budget (and is billed) its empty-input cost on
+    # top of the intrinsic value-transfer charge.
+    iteration_cost = (
+        fork.transaction_intrinsic_cost_calculator()(
+            sends_value=sends_value,
+            recipient_type=RecipientType.PRECOMPILE,
+        )
+        + EMPTY_INPUT_PRECOMPILE_GAS[precompile_id]
     )
     iteration_count = gas_benchmark_value // iteration_cost
     txs = []
