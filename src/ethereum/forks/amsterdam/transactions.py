@@ -660,9 +660,12 @@ def calculate_intrinsic_cost(
     Self-transfers (``sender == tx.to``) skip the recipient and value
     charges.
 
-    This function takes a transaction and gas_limit as parameters and
-    returns the intrinsic regular gas cost, intrinsic state gas cost, and the
-    minimum gas cost used by the transaction based on the calldata size.
+    This function takes a transaction and its sender as parameters and
+    returns the intrinsic regular gas cost, the intrinsic state gas cost,
+    and the minimum (floor) gas cost based on the calldata size. The floor
+    is anchored on the regular-gas portion of items 1 to 3 above rather
+    than `TX_BASE` alone, so it never undercuts the transaction's own
+    intrinsic base.
     """
     from .vm.gas import (
         GasCosts,
@@ -725,14 +728,11 @@ def calculate_intrinsic_cost(
     # Total floor tokens.
     total_floor_tokens = floor_tokens_in_calldata + tokens_in_access_list
 
-    # Decomposed regular-gas intrinsic base (EIP-2780): sender, recipient
-    # access, and value primitives, excluding calldata, init code, access
-    # list, and authorizations.
+    # Decomposed regular-gas intrinsic base (EIP-2780), which also anchors
+    # the calldata floor.
     base_regular_gas = GasCosts.TX_BASE + recipient_regular_gas
 
     # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
-    # Anchored on the decomposed base so the floor never undercuts the
-    # transaction's own intrinsic base.
     data_floor_gas_cost = (
         total_floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + base_regular_gas
     )
