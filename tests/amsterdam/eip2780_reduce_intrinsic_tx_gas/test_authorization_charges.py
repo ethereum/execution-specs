@@ -1,28 +1,4 @@
-"""
-Charge accounting for EIP-7702 authorizations under EIP-2780.
-
-Under EIP-2780 an authorization pays a fixed
-``REGULAR_PER_AUTH_BASE_COST`` in the intrinsic and its state-dependent
-remainder at the top frame in ``set_delegation``:
-
-- ``NEW_ACCOUNT`` (state) when the authority's account leaf must be
-  created,
-- ``ACCOUNT_WRITE`` (regular) when applying the authorization is the
-  transaction's first write to the authority's leaf (the sender is
-  written at inclusion, so a self-sponsored authority pays none), and
-- ``AUTH_BASE`` (state) when a net-new delegation is set: none before
-  the transaction, none set earlier in the transaction, charged at
-  most once per authority and never credited back.
-
-These tests isolate the authorization charge by delegating a
-third-party authority (never ``tx.to``), so the recipient top-frame
-charge stays out of the picture. The recipient is a plain contract and
-no value is transferred, so the transaction's cost is exactly
-``intrinsic + top_frame_regular + top_frame_state`` and every scenario
-differs only in the authorization's own charges. The post-state
-cross-checks that ``set_delegation`` applied each authorization exactly
-as its ``creates_account`` / ``writes_delegation`` annotations model.
-"""
+"""Charge accounting for EIP-7702 authorizations under EIP-2780."""
 
 import pytest
 from execution_testing import (
@@ -267,7 +243,6 @@ def test_account_write_first_write_of_authority(
       still this transaction's first write to it, so ``ACCOUNT_WRITE``
       is charged all the same (plus ``AUTH_BASE``).
     """
-    gas_costs = fork.gas_costs()
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)
     recipient = pre.deploy_contract(code=Op.STOP)
@@ -276,19 +251,13 @@ def test_account_write_first_write_of_authority(
         scenario = build_authorization(
             pre, AuthorizationAction.CREATES_ACCOUNT
         )
-        top_frame_gas = (
-            gas_costs.NEW_ACCOUNT
-            + gas_costs.ACCOUNT_WRITE
-            + gas_costs.AUTH_BASE
-        )
     else:
         scenario = build_authorization(
             pre, AuthorizationAction.SETS_NEW_DELEGATION
         )
-        top_frame_gas = gas_costs.ACCOUNT_WRITE + gas_costs.AUTH_BASE
 
     authorization_list = [scenario.authorization]
-    total_gas_cost = _intrinsic_gas(fork, 1) + top_frame_gas
+    total_gas_cost = authorization_transaction_cost(fork, authorization_list)
 
     tx = Transaction(
         sender=sender,
@@ -328,7 +297,6 @@ def test_account_write_authority_is_sender(
     against over-charging accounts the transaction has already paid to
     write.
     """
-    gas_costs = fork.gas_costs()
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)
     recipient = pre.deploy_contract(code=Op.STOP)
@@ -340,10 +308,10 @@ def test_account_write_authority_is_sender(
         address=delegation_target,
         nonce=1,
         signer=sender,
+        first_write=False,
     )
 
-    top_frame_gas = gas_costs.AUTH_BASE
-    total_gas_cost = _intrinsic_gas(fork, 1) + top_frame_gas
+    total_gas_cost = authorization_transaction_cost(fork, [authorization])
 
     tx = Transaction(
         sender=sender,
@@ -380,20 +348,30 @@ def test_account_write_authority_is_recipient(
     value: int,
 ) -> None:
     """
-    An authority that is also ``tx.to`` pays ``ACCOUNT_WRITE``: at
-    authorization-processing time the recipient has not been written
-    yet (the value transfer only happens at dispatch), so the
-    delegation write is the first write to it within the transaction.
+    An authority that is also ``tx.to`` pays ``ACCOUNT_WRITE`` only when
+    the transaction moves no value to it.
 
-    This pins the resolution of the EIP text's "(i.e. the authority
-    differs from ``tx.to``)" parenthetical: the rule is first-write
-    tracking, and ``tx.to`` is not pre-written -- only the sender is.
+    The charge depends on whether the transaction transfers value:
 
-    After the authorization applies, the recipient is delegated, so the
-    top frame additionally resolves the delegation target at the cold
-    rate before dispatching its code (a ``STOP``).
+    - ``zero_value``: no value is transferred, so at
+      authorization-processing time ``tx.to`` has not been written yet
+      (only the sender is written at inclusion). The delegation write
+      is the transaction's first write to it, so ``ACCOUNT_WRITE`` is
+      charged.
+    - ``non-zero_value``: the transaction already pays to write
+      ``tx.to`` when it transfers value to it, so the delegation write
+      is not the first write and no ``ACCOUNT_WRITE`` accrues.
+
+    This resolves the EIP text's "(i.e. the authority differs from
+    ``tx.to``)" parenthetical: the rule is first-write tracking, and
+    ``tx.to`` counts as pre-written only when the transaction moves
+    value to it.
+
+    Either way the authorization writes a net-new delegation indicator
+    (``AUTH_BASE``), and after it applies the recipient is delegated, so
+    the top frame additionally resolves the delegation target at the
+    cold rate before dispatching its code (a ``STOP``).
     """
-    gas_costs = fork.gas_costs()
     sender_initial_balance = 10**18
     authority_initial_balance = 100
     sender = pre.fund_eoa(sender_initial_balance)
@@ -404,22 +382,34 @@ def test_account_write_authority_is_recipient(
         address=delegation_target,
         nonce=0,
         signer=recipient,
+        first_write=not bool(value),
     )
 
-    intrinsic_gas = _intrinsic_gas(
-        fork,
-        1,
-        recipient_type=RecipientType.EOA,
-        sends_value=bool(value),
+    # The recipient is delegated by the time the top frame resolves it,
+    # so model it as a 7702 delegation: the framework then charges the
+    # cold delegation-target access on top of the intrinsic recipient
+    # access, matching the spec's resolution of the freshly-set
+    # delegation.
+    recipient_type = RecipientType.DELEGATION_7702
+    authorizations = [authorization]
+    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+        recipient_type=recipient_type,
+        authorizations=authorizations,
     )
-    top_frame_gas = (
-        gas_costs.ACCOUNT_WRITE
-        + gas_costs.AUTH_BASE
-        # The recipient is delegated by the time the top frame resolves
-        # it; the delegation target is cold.
-        + gas_costs.COLD_ACCOUNT_ACCESS
+    top_frame_state = fork.transaction_top_frame_state_gas(
+        recipient_type=recipient_type,
+        authorizations=authorizations,
     )
-    total_gas_cost = intrinsic_gas + top_frame_gas
+    total_gas_cost = (
+        _intrinsic_gas(
+            fork,
+            1,
+            recipient_type=recipient_type,
+            sends_value=bool(value),
+        )
+        + top_frame_regular
+        + top_frame_state
+    )
 
     tx = Transaction(
         sender=sender,
@@ -489,7 +479,6 @@ def test_auth_base_net_new_only(
       ``AUTH_BASE`` and one ``ACCOUNT_WRITE`` are paid even though the
       authority ends the transaction with no delegation.
     """
-    gas_costs = fork.gas_costs()
     sender_initial_balance = 10**18
     authority_initial_balance = 100
     sender = pre.fund_eoa(sender_initial_balance)
@@ -507,7 +496,9 @@ def test_auth_base_net_new_only(
         auth_specs = [target_a]
         first_nonce = 1
         expected_code = Spec7702.delegation_designation(target_a)
-        auth_base_count = 0
+        # Delegated before the transaction, so the re-point is not
+        # net-new: no AUTH_BASE.
+        net_new = [False]
     elif scenario == "pre_tx_delegated_clear_then_set":
         old_target = pre.deploy_contract(code=Op.STOP)
         authority = pre.fund_eoa(
@@ -516,35 +507,40 @@ def test_auth_base_net_new_only(
         auth_specs = [NULL_ADDRESS, target_a]
         first_nonce = 1
         expected_code = Spec7702.delegation_designation(target_a)
-        auth_base_count = 0
+        # Delegated before the transaction, so neither the clear nor
+        # the re-set is net-new.
+        net_new = [False, False]
     elif scenario == "multiple_sets":
         authority = pre.fund_eoa(amount=authority_initial_balance)
         auth_specs = [target_a, target_b]
         first_nonce = 0
         expected_code = Spec7702.delegation_designation(target_b)
-        auth_base_count = 1
+        # Only the first set is net-new; the re-point is not.
+        net_new = [True, False]
     else:  # set_clear_cycles
         authority = pre.fund_eoa(amount=authority_initial_balance)
         auth_specs = [target_a, NULL_ADDRESS, target_b, NULL_ADDRESS]
         first_nonce = 0
         expected_code = b""
-        auth_base_count = 1
+        # Only the first set is net-new; the clears credit nothing and
+        # the second set is not net-new (already set in this tx).
+        net_new = [True, False, False, False]
 
     authorization_list = [
         AuthorizationTuple(
             address=address,
             nonce=first_nonce + offset,
             signer=authority,
+            creates_account=False,
+            writes_delegation=net_new[offset],
+            # Only the first authorization writes the authority's leaf;
+            # later ones on the same authority are not first writes.
+            first_write=(offset == 0),
         )
         for offset, address in enumerate(auth_specs)
     ]
 
-    top_frame_gas = (
-        gas_costs.ACCOUNT_WRITE + auth_base_count * gas_costs.AUTH_BASE
-    )
-    total_gas_cost = (
-        _intrinsic_gas(fork, len(authorization_list)) + top_frame_gas
-    )
+    total_gas_cost = authorization_transaction_cost(fork, authorization_list)
 
     tx = Transaction(
         sender=sender,

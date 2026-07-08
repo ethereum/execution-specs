@@ -71,8 +71,13 @@ def test_tx_installs_delegation_on_funded_recipient(
     ``tx.to``.
 
     The authority (``tx.to``) already exists, so it pays no
-    ``NEW_ACCOUNT``/``ACCOUNT_WRITE``; it has no prior code, so writing
-    the delegation indicator pays ``AUTH_BASE``. The top-frame
+    ``NEW_ACCOUNT``; it has no prior code, so writing the delegation
+    indicator pays ``AUTH_BASE``. Whether it pays ``ACCOUNT_WRITE``
+    depends on the value transfer: with ``zero_value`` the delegation
+    write is the transaction's first write to ``tx.to`` and
+    ``ACCOUNT_WRITE`` is charged; with ``non-zero_value`` the
+    transaction already pays to write ``tx.to`` when it transfers value
+    to it, so no ``ACCOUNT_WRITE`` accrues. The top-frame
     ``COLD_ACCOUNT_ACCESS`` charge for the now-delegated recipient (its
     fresh delegation target is cold) still fires.
     """
@@ -89,6 +94,7 @@ def test_tx_installs_delegation_on_funded_recipient(
         signer=target,
         # Funded authority already exists, so no NEW_ACCOUNT.
         creates_account=False,
+        first_write=not bool(value),
     )
     authorization_list = [auth]
 
@@ -162,13 +168,18 @@ def test_tx_installs_delegation_on_empty_recipient(
     transaction's authorization installs delegation on ``tx.to``.
 
     The authority's account leaf does not exist, so the authorization
-    pays ``NEW_ACCOUNT`` + ``ACCOUNT_WRITE`` (account creation) and
-    ``AUTH_BASE`` (net-new delegation indicator). ``set_delegation``
-    runs before the recipient top-frame check and makes the recipient
-    alive, so the recipient ``NEW_ACCOUNT`` charge a value transfer
-    would otherwise incur is suppressed (the per-authorization
-    ``NEW_ACCOUNT`` accounts for the leaf). The ``COLD_ACCOUNT_ACCESS``
-    charge for the now-delegated recipient still fires.
+    pays ``NEW_ACCOUNT`` (account creation) and ``AUTH_BASE`` (net-new
+    delegation indicator). Whether it also pays ``ACCOUNT_WRITE``
+    depends on the value transfer: with ``zero_value`` the delegation
+    write is the transaction's first write to ``tx.to`` and
+    ``ACCOUNT_WRITE`` is charged; with ``non-zero_value`` the
+    transaction already pays to write ``tx.to`` when it transfers value
+    to it, so no ``ACCOUNT_WRITE`` accrues. ``set_delegation`` runs
+    before the recipient top-frame check and makes the recipient alive,
+    so the recipient ``NEW_ACCOUNT`` charge a value transfer would
+    otherwise incur is suppressed (the per-authorization ``NEW_ACCOUNT``
+    accounts for the leaf). The ``COLD_ACCOUNT_ACCESS`` charge for the
+    now-delegated recipient still fires.
     """
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)
@@ -182,6 +193,7 @@ def test_tx_installs_delegation_on_empty_recipient(
         signer=target,
         # Empty authority leaf must be created.
         creates_account=True,
+        first_write=not bool(value),
     )
     authorization_list = [auth]
 

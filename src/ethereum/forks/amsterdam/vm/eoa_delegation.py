@@ -234,8 +234,10 @@ def set_delegation(evm: Evm) -> None:
     tx_state = message.tx_env.state
     # Accounts this transaction has already written: the sender's leaf
     # was written at inclusion (nonce bump and fee deduction). The
-    # recipient is not written until the frame is dispatched.
+    # recipient is written when value is transferred.
     written_accounts: Set[Address] = {message.tx_env.origin}
+    if evm.message.tx_env.value > U256(0):
+        written_accounts.add(evm.message.current_target)
     # Authorities a delegation was set for earlier in this transaction.
     delegation_set_for: Set[Address] = set()
     for auth in message.tx_env.authorizations:
