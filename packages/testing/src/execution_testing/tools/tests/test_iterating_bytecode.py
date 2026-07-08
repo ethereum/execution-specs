@@ -159,51 +159,6 @@ def test_iterating_subcall_reserve_includes_state_gas() -> None:
     assert reserve > 0, "state-charging subcall must have a reserve"
 
 
-def test_max_iterations_per_tx_clamps_transactions() -> None:
-    """
-    `max_iterations_per_tx` caps every transaction's iteration count, both
-    when packing by gas budget and when splitting a fixed total.
-    """
-    bytecode = IteratingBytecode(iterating=Op.ADD(1, 2))
-    fork = CustomOsaka.with_tx_gas_limit_cap(1_000_000)
-
-    by_gas = list(
-        bytecode.tx_iterations_by_gas_limit(
-            fork=fork,
-            gas_limit=500_000,
-            max_iterations_per_tx=100,
-        )
-    )
-    assert len(by_gas) > 1
-    assert all(i <= 100 for i in by_gas)
-    total_gas = sum(
-        bytecode.tx_gas_limit_by_iteration_count(
-            fork=fork, iteration_count=i, include_state_gas_reservoir=True
-        )
-        for i in by_gas
-    )
-    assert total_gas <= 500_000
-
-    by_count = list(
-        bytecode.tx_iterations_by_total_iteration_count(
-            fork=fork,
-            total_iterations=250,
-            max_iterations_per_tx=100,
-        )
-    )
-    assert by_count == [100, 100, 50]
-
-    # The clamp also applies when the fork has no gas limit cap.
-    uncapped = list(
-        bytecode.tx_iterations_by_total_iteration_count(
-            fork=CustomOsaka.with_tx_gas_limit_cap(None),
-            total_iterations=250,
-            max_iterations_per_tx=100,
-        )
-    )
-    assert uncapped == [100, 100, 50]
-
-
 def test_with_fixed_iteration_count() -> None:
     """Test conversion to FixedIterationsBytecode."""
     iterating_bytecode = IteratingBytecode(

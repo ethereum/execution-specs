@@ -1239,7 +1239,6 @@ class IteratingBytecode(Bytecode):
         gas_limit: int,
         start_iteration: int = 0,
         outcome: TxOutcome = TxOutcome.SUCCESS,
-        max_iterations_per_tx: int | None = None,
         **intrinsic_cost_kwargs: Any,
     ) -> Generator[int, None, None]:
         """
@@ -1259,10 +1258,6 @@ class IteratingBytecode(Bytecode):
         max-dimension gas on success, the regular gas only on revert (state
         gas is refunded), and the whole gas limit including the subcall
         reserve on out-of-gas.
-
-        `max_iterations_per_tx` caps the iterations of each transaction,
-        e.g. when iterations cycle through a fixed set of targets that must
-        each stay cold within a transaction.
         """
         gas_limit_cap = fork.transaction_gas_limit_cap()
         remaining_gas = gas_limit
@@ -1305,24 +1300,6 @@ class IteratingBytecode(Bytecode):
                 start_iteration=start_iteration,
                 **intrinsic_cost_kwargs,
             )
-            if (
-                max_iterations_per_tx is not None
-                and best_iterations > max_iterations_per_tx
-            ):
-                best_iterations = max_iterations_per_tx
-                best_iterations_regular_gas = (
-                    self.tx_regular_gas_cost_by_iteration_count(
-                        fork=fork,
-                        iteration_count=best_iterations,
-                        start_iteration=start_iteration,
-                        **intrinsic_cost_kwargs,
-                    )
-                )
-                best_iterations_state_gas = (
-                    self.state_gas_cost_by_iteration_count(
-                        fork=fork, iteration_count=best_iterations
-                    )
-                )
             yield best_iterations
             match outcome:
                 case TxOutcome.REVERT:
@@ -1352,7 +1329,6 @@ class IteratingBytecode(Bytecode):
         fork: Fork,
         total_iterations: int,
         start_iteration: int = 0,
-        max_iterations_per_tx: int | None = None,
         **intrinsic_cost_kwargs: Any,
     ) -> Generator[int, None, None]:
         """
@@ -1363,7 +1339,7 @@ class IteratingBytecode(Bytecode):
         for that transaction, and the sum equals total_iterations.
         """
         gas_limit_cap = fork.transaction_gas_limit_cap()
-        if gas_limit_cap is None and max_iterations_per_tx is None:
+        if gas_limit_cap is None:
             # No limit, all iterations fit in a single transaction.
             yield total_iterations
             return
@@ -1375,24 +1351,16 @@ class IteratingBytecode(Bytecode):
 
         while remaining_iterations > 0:
             if best_iterations is None or not constant_intrinsic_gas_cost:
-                if gas_limit_cap is not None:
-                    best_iterations, _, _ = self._binary_search_iterations(
-                        fork=fork,
-                        caps=GasCaps(
-                            regular=gas_limit_cap,
-                            state=None,
-                            gas_limit=gas_limit_cap,
-                        ),
-                        start_iteration=start_iteration,
-                        **intrinsic_cost_kwargs,
-                    )
-                else:
-                    best_iterations = remaining_iterations
-                if (
-                    max_iterations_per_tx is not None
-                    and best_iterations > max_iterations_per_tx
-                ):
-                    best_iterations = max_iterations_per_tx
+                best_iterations, _, _ = self._binary_search_iterations(
+                    fork=fork,
+                    caps=GasCaps(
+                        regular=gas_limit_cap,
+                        state=None,
+                        gas_limit=gas_limit_cap,
+                    ),
+                    start_iteration=start_iteration,
+                    **intrinsic_cost_kwargs,
+                )
             if best_iterations >= remaining_iterations:
                 yield remaining_iterations
                 return
@@ -1414,7 +1382,6 @@ class IteratingBytecode(Bytecode):
         to: Address | None,
         tx_gas_limit_delta: int = 0,
         outcome: TxOutcome = TxOutcome.SUCCESS,
-        max_iterations_per_tx: int | None = None,
         **tx_kwargs: Any,
     ) -> Generator[TransactionWithCost, None, None]:
         """
@@ -1452,7 +1419,6 @@ class IteratingBytecode(Bytecode):
             gas_limit=gas_limit,
             start_iteration=start_iteration,
             outcome=outcome,
-            max_iterations_per_tx=max_iterations_per_tx,
             **intrinsic_cost_kwargs,
         ):
             tx_gas_limit = self.tx_gas_limit_by_iteration_count(
@@ -1501,7 +1467,6 @@ class IteratingBytecode(Bytecode):
         sender: EOA,
         to: Address | None,
         tx_gas_limit_delta: int = 0,
-        max_iterations_per_tx: int | None = None,
         **tx_kwargs: Any,
     ) -> Generator[TransactionWithCost, None, None]:
         """
@@ -1532,7 +1497,6 @@ class IteratingBytecode(Bytecode):
             fork=fork,
             total_iterations=total_iterations,
             start_iteration=start_iteration,
-            max_iterations_per_tx=max_iterations_per_tx,
             **intrinsic_cost_kwargs,
         ):
             tx_gas_limit = self.tx_gas_limit_by_iteration_count(

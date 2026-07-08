@@ -72,7 +72,6 @@ from execution_testing import (
     Bytecode,
     Conditional,
     Create2PreimageLayout,
-    Fork,
     Op,
     Storage,
     Transaction,
@@ -97,10 +96,6 @@ def get_factory_stub_name(size_kb: float) -> str:
         return "bloatnet_factory_10kb"
     elif size_kb == 24.0:
         return "bloatnet_factory_24kb"
-    elif size_kb == 64.0:
-        # EIP-7954 max-size contracts; requires the bloatnet tooling to
-        # have deployed this factory and its targets on the devnet.
-        return "bloatnet_factory_64kb"
     else:
         raise ValueError(f"Unsupported size: {size_kb}KB")
 
@@ -169,92 +164,15 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
     )
 
 
-def build_extcodecopy_attack_contract(
-    factory_address: Address, copy_size: int
-) -> Bytecode:
-    """
-    Benchmark full-code EXTCODECOPY calls with gas-based loop exit.
-
-    Same layout and exit strategy as `build_attack_contract`, but each
-    iteration copies the target's entire code instead of only reading its
-    size. EXTCODESIZE may be answerable from account metadata or a
-    size-by-hash cache on some clients; copying the full code is the
-    guaranteed read of every byte.
-
-    The copy destination starts at memory offset 192, past the CREATE2
-    preimage (11-95), the factory config (96-159) and the last-size
-    scratch word (160-191); memory is expanded once up front so the loop
-    cost stays constant.
-    """
-    gas_reserve = 50_000  # Reserve for 2x SSTORE + cleanup
-    num_deployed_offset = 96
-    init_code_hash_offset = num_deployed_offset + 32
-    return_size = 64
-    copy_dest_offset = 192
-    return (
-        # Call factory.getConfig() -> (num_deployed, init_code_hash)
-        Conditional(
-            condition=Op.STATICCALL(
-                gas=Op.GAS,
-                address=factory_address,
-                args_offset=0,
-                args_size=0,
-                ret_offset=num_deployed_offset,
-                ret_size=return_size,
-            ),
-            if_false=Op.REVERT(0, 0),
-        )
-        + (
-            create2_preimage := Create2PreimageLayout(
-                factory_address=factory_address,
-                salt=Op.SLOAD(0),
-                init_code_hash=Op.MLOAD(init_code_hash_offset),
-                old_memory_size=num_deployed_offset + return_size,
-            )
-        )
-        + Op.MSTORE(160, 0)  # Initialize last_size
-        # Expand memory for the copy destination once, up front.
-        + Op.MSTORE8(copy_dest_offset + copy_size - 1, 0)
-        + While(
-            body=(
-                Op.EXTCODECOPY(
-                    address=create2_preimage.address_op(),
-                    dest_offset=copy_dest_offset,
-                    offset=0,
-                    size=copy_size,
-                )
-                # The target is warm after the copy; record its size for
-                # the post-state check.
-                + Op.MSTORE(160, Op.EXTCODESIZE(create2_preimage.address_op()))
-                + create2_preimage.increment_salt_op()
-            ),
-            condition=(
-                Op.AND(
-                    Op.GT(Op.GAS, gas_reserve),
-                    # num_deployed > salt
-                    Op.GT(
-                        Op.MLOAD(num_deployed_offset),
-                        Op.MLOAD(create2_preimage.salt_offset),
-                    ),
-                )
-            ),
-        )
-        + Op.SSTORE(0, Op.MLOAD(32))  # Save final salt
-        + Op.SSTORE(1, Op.MLOAD(160))  # Save last result
-        + Op.STOP
-    )
-
-
 @pytest.mark.parametrize(
     "bytecode_size_kb",
-    [0.5, 1.0, 2.0, 5.0, 10.0, 24.0, 64.0],
+    [0.5, 1.0, 2.0, 5.0, 10.0, 24.0],
     ids=lambda size: f"{size}KB",
 )
 @pytest.mark.valid_from("Prague")
 def test_extcodesize_bytecode_sizes(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
     bytecode_size_kb: float,
     gas_benchmark_value: int,
     tx_gas_limit: int,
@@ -271,8 +189,6 @@ def test_extcodesize_bytecode_sizes(
     expected bytecode size (last EXTCODESIZE result).
     """
     expected_size_bytes = int(bytecode_size_kb * 1024)
-    if expected_size_bytes > fork.max_code_size():
-        pytest.skip("bytecode size exceeds the fork's max code size")
 
     # Get factory stub name for this size
     factory_stub = get_factory_stub_name(bytecode_size_kb)
@@ -324,71 +240,4 @@ def test_extcodesize_bytecode_sizes(
         pre=pre,
         post=post,
         blocks=[block],
-    )
-
-
-@pytest.mark.parametrize(
-    "bytecode_size_kb",
-    [0.5, 1.0, 2.0, 5.0, 10.0, 24.0, 64.0],
-    ids=lambda size: f"{size}KB",
-)
-@pytest.mark.valid_from("Prague")
-def test_extcodecopy_bytecode_sizes(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    bytecode_size_kb: float,
-    gas_benchmark_value: int,
-    tx_gas_limit: int,
-) -> None:
-    """
-    Execute full-code EXTCODECOPY benchmark against pre-deployed contracts.
-
-    The guaranteed-full-read variant of `test_extcodesize_bytecode_sizes`:
-    every iteration copies the target's whole code, so the client must
-    materialize every byte regardless of how it stores code sizes. Uses
-    the same factories, salt-resume cursor and post-state verification.
-    """
-    expected_size_bytes = int(bytecode_size_kb * 1024)
-    if expected_size_bytes > fork.max_code_size():
-        pytest.skip("bytecode size exceeds the fork's max code size")
-
-    factory_stub = get_factory_stub_name(bytecode_size_kb)
-    factory_address = pre.deploy_contract(
-        code=Bytecode(),  # Empty bytecode - address from stub
-        stub=factory_stub,
-    )
-
-    attack_code = build_extcodecopy_attack_contract(
-        factory_address, expected_size_bytes
-    )
-    attack_address = pre.deploy_contract(code=attack_code)
-
-    num_attack_txs = gas_benchmark_value // tx_gas_limit
-    if num_attack_txs == 0:
-        num_attack_txs = 1
-
-    sender = pre.fund_eoa()
-    txs = [
-        Transaction(
-            gas_limit=tx_gas_limit,
-            to=attack_address,
-            sender=sender,
-        )
-        for _ in range(num_attack_txs)
-    ]
-
-    # Attack contract slot 1 = expected size (last EXTCODESIZE result)
-    # Slot 0 can be any value (final salt depends on gas used)
-    attack_storage = Storage({1: expected_size_bytes})  # type: ignore[dict-item]
-    attack_storage.set_expect_any(0)
-
-    post = {
-        attack_address: Account(storage=attack_storage),
-    }
-
-    blockchain_test(
-        pre=pre,
-        post=post,
-        blocks=[Block(txs=txs)],
     )

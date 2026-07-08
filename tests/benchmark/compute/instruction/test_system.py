@@ -700,8 +700,7 @@ def test_selfdestruct_created(
     attack_code = IteratingBytecode(
         setup=setup,
         iterating=loop,
-        iterating_subcall=selfdestructable_contract.gas_cost(fork)
-        + initcode.gas_cost(fork),
+        iterating_subcall=initcode + selfdestructable_contract,
         cleanup=Op.STOP,
     )
 
