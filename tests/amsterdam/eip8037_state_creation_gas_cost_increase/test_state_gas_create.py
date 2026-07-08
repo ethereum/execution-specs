@@ -1363,9 +1363,12 @@ def test_create_tx_header_gas_used(
         intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
         # Regular-only creation intrinsic; STOP initcode deploys empty
         # code (zero deposit) and the pre-existing target adds no state
-        # gas, so the regular intrinsic dominates.
+        # gas, so the regular intrinsic dominates. Block regular gas
+        # excludes any calldata-floor top-up, so use the raw intrinsic.
         expected_gas_used = intrinsic_cost(
-            calldata=bytes(initcode), contract_creation=True
+            calldata=bytes(initcode),
+            contract_creation=True,
+            return_cost_deducted_prior_execution=True,
         )
     else:
         # For a minimal CREATE tx deploying Op.STOP (1 byte),
@@ -2162,7 +2165,8 @@ def test_failed_create_tx_refills_top_frame_new_account(
 
     * REVERT preserves ``gas_left`` and ``refill_frame_state_gas`` returns
       the spilled ``NEW_ACCOUNT`` to it, so the state block nets to zero
-      and the sender pays only ``intrinsic_regular + revert_regular``.
+      and the sender pays only the regular consumption (pinned to the
+      calldata floor).
     * HALT (INVALID) refills the spilled ``NEW_ACCOUNT`` to ``gas_left``
       and then burns all of it, so the sender pays the full ``gas_limit``.
     """
@@ -2170,7 +2174,9 @@ def test_failed_create_tx_refills_top_frame_new_account(
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
 
     intrinsic_regular = intrinsic_calc(
-        calldata=bytes(init_code), contract_creation=True
+        calldata=bytes(init_code),
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
     )
     # gas_limit must cover the top-frame NEW_ACCOUNT so the initcode runs.
     gas_limit = intrinsic_regular + gas_costs.NEW_ACCOUNT + 1000
@@ -2178,11 +2184,19 @@ def test_failed_create_tx_refills_top_frame_new_account(
     if init_code == Op.INVALID:
         # Exceptional halt burns all gas_left (the refilled NEW_ACCOUNT
         # included).
-        expected_gas_used = gas_limit
+        expected_header_gas = expected_receipt_gas = gas_limit
     else:
         # REVERT refills the spilled NEW_ACCOUNT, netting the state block
-        # to zero, so only the regular consumption is billed.
-        expected_gas_used = intrinsic_regular + init_code.regular_cost(fork)
+        # to zero, so only the regular consumption is billed. The tiny
+        # initcode pins the receipt to the calldata floor, which block
+        # regular gas excludes.
+        expected_header_gas = intrinsic_regular + init_code.regular_cost(fork)
+        expected_receipt_gas = max(
+            expected_header_gas,
+            fork.transaction_data_floor_cost_calculator()(
+                data=init_code, contract_creation=True
+            ),
+        )
 
     sender = pre.fund_eoa()
     created = compute_create_address(address=sender, nonce=0)
@@ -2193,7 +2207,7 @@ def test_failed_create_tx_refills_top_frame_new_account(
         gas_limit=gas_limit,
         sender=sender,
         expected_receipt=TransactionReceipt(
-            cumulative_gas_used=expected_gas_used,
+            cumulative_gas_used=expected_receipt_gas,
         ),
     )
 
@@ -2201,7 +2215,7 @@ def test_failed_create_tx_refills_top_frame_new_account(
         pre=pre,
         post={created: Account.NONEXISTENT},
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+        blockchain_test_header_verify=Header(gas_used=expected_header_gas),
     )
 
 
@@ -2271,11 +2285,12 @@ def test_create_tx_collision_refunds_reservoir(
     address collision when `gas_limit > TX_MAX_GAS_LIMIT`.
 
     EIP-8037 splits `gas_limit` into the capped regular budget and a
-    state-gas reservoir. On collision the inner regular gas is burnt
-    and `intrinsic_state_gas` is refunded; the reservoir must also
-    be refunded to the sender. `header.gas_used` is fixed at the
-    regular cap regardless of reservoir handling, so the sender's
-    post-balance is the primary discriminating assertion.
+    state-gas reservoir seeded with the create component. On collision
+    the inner regular gas is burnt and the alive target is never
+    charged; the full reservoir must be returned to the sender.
+    `header.gas_used` is fixed at the regular cap regardless of
+    reservoir handling, so the sender's post-balance is the primary
+    discriminating assertion.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -2900,7 +2915,7 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     )
 
     # CPSB-agnostic baseline: block_state_gas is zero for this tx (the
-    # collision refunds the NEW_ACCOUNT state charge), so header.gas_used
+    # existent collision target is not charged), so header.gas_used
     # equals the regular-gas total. Decompose the parent + inner frame
     # accounting from fork APIs so the baseline tracks future cost
     # changes automatically.
@@ -2922,23 +2937,21 @@ def test_create_collision_burned_gas_counted_in_block_regular(
     )
     # MSTORE writes the initcode at memory[0:32] (one word).
     memory_expansion = fork.memory_expansion_gas_calculator()(new_bytes=32)
-    # gas_left at the moment NEW_ACCOUNT spills into the regular pool
-    # (reservoir is empty for tx_gas_limit < TX_MAX_GAS_LIMIT).
-    gas_at_create_after_state = (
+    # gas_left at the CREATE split. The collision target is existent, so no
+    # account-creation charge is applied before the 63/64 split.
+    gas_at_create = (
         gas_limit
         - intrinsic
         - factory_pre_create
         - memory_expansion
         - create_base
-        - new_account
     )
     # Inner burns 63/64 of the available gas on collision; the parent
-    # retains 1/64. The state-spill of NEW_ACCOUNT is refunded back to
-    # gas_left on collision (nets zero). Post-CREATE consumes from the
-    # retained pool. A mutation that drops the burned forwarded gas
-    # from regular accounting would reduce this baseline.
-    retained = gas_at_create_after_state // 64
-    baseline_gas_used = gas_limit - retained - new_account + post_create_static
+    # retains 1/64. Post-CREATE consumes from the retained pool. A
+    # mutation that drops the burned forwarded gas from regular
+    # accounting would reduce this baseline.
+    retained = gas_at_create // 64
+    baseline_gas_used = gas_limit - retained + post_create_static
 
     blockchain_test(
         pre=pre,

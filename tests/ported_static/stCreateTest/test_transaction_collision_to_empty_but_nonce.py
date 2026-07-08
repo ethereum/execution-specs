@@ -105,16 +105,17 @@ def test_transaction_collision_to_empty_but_nonce(
         contract_0: Account(storage={1: 0}, nonce=1),
     }
 
-    # On collision, all execution gas is reclassified to regular and the
-    # tx-time state reservoir is restored. Under EIP-8037 2D gas this
-    # gives header.gas_used = max(intrinsic_regular + execution_gas,
-    # intrinsic_state); pre-EIP-8037 the state component is zero, so the
-    # same expression collapses to tx.gas.
+    # On collision, all execution gas is burned as regular. Under
+    # EIP-2780 the creation NEW_ACCOUNT is a top-frame runtime charge,
+    # never levied on collision, and the intrinsic state component is
+    # zero, so the expression collapses to tx.gas on every fork.
     intrinsic_total = fork.transaction_intrinsic_cost_calculator()(
         calldata=bytes(tx_data[d]),
         contract_creation=True,
     )
-    intrinsic_state = fork.create_state_gas()
+    intrinsic_state = fork.transaction_intrinsic_state_gas(
+        contract_creation=True
+    )
     intrinsic_regular = intrinsic_total - intrinsic_state
     execution_gas = tx_gas[g] - intrinsic_total
     expected_header_gas_used = max(
