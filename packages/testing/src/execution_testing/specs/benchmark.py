@@ -64,6 +64,23 @@ class OpcodeTarget:
         return self.name
 
 
+STATE_CHANGING_OPCODES = (
+    Op.SSTORE,
+    Op.TSTORE,
+    Op.CREATE,
+    Op.CREATE2,
+    Op.CALL,
+    Op.CALLCODE,
+    Op.SELFDESTRUCT,
+    Op.LOG0,
+    Op.LOG1,
+    Op.LOG2,
+    Op.LOG3,
+    Op.LOG4,
+)
+"""Opcodes that are illegal inside a static context (EIP-214)."""
+
+
 @dataclass(kw_only=True)
 class BenchmarkCodeGenerator(ABC):
     """Abstract base class for generating benchmark bytecode."""
@@ -81,6 +98,18 @@ class BenchmarkCodeGenerator(ABC):
     def deploy_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
         """Deploy any contracts needed for the benchmark."""
         ...
+
+    def uses_state_changing_opcode(self) -> bool:
+        """
+        Return whether the setup or attack block contains an opcode that
+        is illegal in a static context, in which case the target contract
+        must be entered via CALL instead of STATICCALL (a STATICCALL'd
+        frame faults on the first such opcode and executes nothing).
+        """
+        target_code = bytes(self.setup) + bytes(self.attack_block)
+        return any(
+            bytes(opcode) in target_code for opcode in STATE_CHANGING_OPCODES
+        )
 
     def deploy_fix_count_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
         """Deploy the contract with a fixed opcode count."""
@@ -107,27 +136,10 @@ class BenchmarkCodeGenerator(ABC):
             Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE
         ) + Op.PUSH4(iterations)
 
-        is_state_changing_set = [
-            Op.SSTORE,
-            Op.TSTORE,
-            Op.CREATE,
-            Op.CREATE2,
-            Op.CALL,
-            Op.CALLCODE,
-            Op.SELFDESTRUCT,
-            Op.LOG0,
-            Op.LOG1,
-            Op.LOG2,
-            Op.LOG3,
-            Op.LOG4,
-        ]
-
         # Select CALL for state-changing opcodes, STATICCALL otherwise
-        uses_state_changing_opcode = any(
-            bytes(opcode) in bytes(self.attack_block)
-            for opcode in is_state_changing_set
+        call_opcode = (
+            Op.CALL if self.uses_state_changing_opcode() else Op.STATICCALL
         )
-        call_opcode = Op.CALL if uses_state_changing_opcode else Op.STATICCALL
 
         opcode = (
             prefix

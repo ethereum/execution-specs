@@ -100,19 +100,26 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
 
         # Create caller contract that repeatedly calls the target contract
         # attack = POP(
-        #             STATICCALL(GAS, target_contract_address, 0, 0, 0, 0)
+        #             (STATIC)CALL(GAS, target_contract_address, ...)
         #          )
         #
         # setup + JUMPDEST + attack + attack + ... + attack +
         # JUMP(setup_length)
+        #
+        # The target must be entered via CALL when it contains
+        # state-changing opcodes: a STATICCALL'd frame faults on the
+        # first one and the target executes nothing.
+        call_opcode = (
+            Op.CALL if self.uses_state_changing_opcode() else Op.STATICCALL
+        )
         code_sequence = Op.POP(
-            Op.STATICCALL(
-                Op.GAS,
-                self._target_contract_address,
-                Op.PUSH0,
-                Op.CALLDATASIZE,
-                Op.PUSH0,
-                Op.PUSH0,
+            call_opcode(
+                gas=Op.GAS,
+                address=self._target_contract_address,
+                args_offset=Op.PUSH0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=Op.PUSH0,
+                ret_size=Op.PUSH0,
             )
         )
 
