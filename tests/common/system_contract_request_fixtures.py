@@ -97,16 +97,13 @@ def included_requests(
                 if isinstance(request, FeeSystemContractRequest):
                     current_excess = excess[request_type]
                     if request.excess_fee_processing == "call":
-                        # Compute the excess request based on the requests
-                        # processed for the current block.
-                        if current_excess > 0:
-                            current_excess += len(current[request_type])
-                        else:
-                            current_excess = max(
-                                len(current[request_type])
-                                - request.target_per_block,
-                                0,
-                            )
+                        # The contract adds the requests already queued this
+                        # block beyond the target onto the stored excess.
+                        current_excess += max(
+                            len(current[request_type])
+                            - request.target_per_block,
+                            0,
+                        )
                     minimum_fee = request.get_fee(current_excess)
                     # Write the correct fee if unset regardless of validity
                     if "fee" not in request.model_fields_set:

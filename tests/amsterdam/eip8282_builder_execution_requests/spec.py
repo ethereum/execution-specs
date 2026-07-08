@@ -15,11 +15,9 @@ class ReferenceSpec:
     version: str
 
 
-# EIP-8282 is not yet merged into ethereum/EIPs (ethereum/EIPs#11760);
-# pin the version once it lands.
 ref_spec_8282 = ReferenceSpec(
     git_path="EIPS/eip-8282.md",
-    version="0000000000000000000000000000000000000000",
+    version="445c4dd68cc42942581ded083c37d1a334760db8",
 )
 
 
@@ -46,9 +44,15 @@ class Spec:
     REQUEST_FEE_UPDATE_FRACTION = 17
     EXCESS_INHIBITOR = 2**256 - 1
 
-    # Storage slot holding the excess deposit request count. Seeding it with
-    # `EXCESS_INHIBITOR` disables the queue; the next system call resets it.
-    EXCESS_DEPOSIT_REQUESTS_STORAGE_SLOT = 0
+    # Storage layout shared by both predeploys (the EIP-7002 request-bus
+    # pattern): queued records are stored as 32-byte words from the queue
+    # offset onward. Seeding the excess slot with `EXCESS_INHIBITOR` disables
+    # the queue; the next system call resets it.
+    EXCESS_STORAGE_SLOT = 0
+    COUNT_STORAGE_SLOT = 1
+    QUEUE_HEAD_STORAGE_SLOT = 2
+    QUEUE_TAIL_STORAGE_SLOT = 3
+    QUEUE_STORAGE_OFFSET = 4
 
     # Minimum credited stake for a builder deposit, in wei (1 ETH).
     BUILDER_MIN_DEPOSIT = 1_000_000_000_000_000_000
