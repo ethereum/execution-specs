@@ -9,14 +9,16 @@ https://eips.ethereum.org/EIPS/eip-2780
 """
 
 from dataclasses import replace
-from typing import List, Sized
+from typing import List, Sequence, Sized
 
 from execution_testing.base_types import AccessList
 from execution_testing.base_types.conversions import BytesConvertible
 
 from .....recipient_type import RecipientType
 from ....base_fork import (
+    AuthorizationGasInfo,
     BaseFork,
+    RefundTypes,
     TopFrameGasCalculator,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
@@ -112,17 +114,39 @@ class EIP2780(BaseFork):
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
+            # Only the state-independent base cost per authorization is
+            # charged in the intrinsic; the state-dependent
+            # account-creation and delegation-write costs are charged at
+            # the top frame. Exclude the base-fork authorization cost
+            # and re-add the base cost here.
+            authorization_count = 0
+            if authorization_list_or_count is not None:
+                authorization_count = (
+                    len(authorization_list_or_count)
+                    if isinstance(authorization_list_or_count, Sized)
+                    else authorization_list_or_count
+                )
+
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
                 contract_creation=contract_creation,
                 access_list=access_list,
-                authorization_list_or_count=authorization_list_or_count,
+                authorization_list_or_count=None,
                 return_cost_deducted_prior_execution=True,
+            )
+            intrinsic_cost += (
+                authorization_count * gas_costs.REGULAR_PER_AUTH_BASE_COST
             )
 
             is_self_transfer = recipient_type == RecipientType.SELF
 
             if contract_creation:
+                # EIP-2780: the created account's NEW_ACCOUNT state gas
+                # is charged at the top frame, not deducted in the
+                # intrinsic. The base-fork intrinsic bundles it in, so
+                # remove it here, mirroring value transfer to an empty
+                # account whose NEW_ACCOUNT is likewise top-frame.
+                intrinsic_cost -= gas_costs.NEW_ACCOUNT
                 if sends_value:
                     intrinsic_cost += gas_costs.TRANSFER_LOG_COST
             elif not is_self_transfer:
@@ -152,6 +176,28 @@ class EIP2780(BaseFork):
         return fn
 
     @classmethod
+    def transaction_intrinsic_state_gas(
+        cls,
+        *,
+        contract_creation: bool = False,
+        authorization_count: int = 0,
+    ) -> int:
+        """
+        Return the intrinsic state gas for a transaction.
+
+        Under EIP-2780 neither authorizations nor contract creation
+        contribute intrinsic state gas: the authority account-creation
+        and delegation-write costs and the created account's
+        ``NEW_ACCOUNT`` are all state-dependent and charged at the top
+        frame instead.
+        """
+        del contract_creation, authorization_count
+        return super(EIP2780, cls).transaction_intrinsic_state_gas(
+            contract_creation=False,
+            authorization_count=0,
+        )
+
+    @classmethod
     def transaction_top_frame_gas_calculator(
         cls,
     ) -> TopFrameGasCalculator:
@@ -160,10 +206,14 @@ class EIP2780(BaseFork):
         transaction frame, after intrinsic gas is deducted but before
         the EVM dispatches.
 
-        Charges ``COLD_ACCOUNT_ACCESS`` when the recipient is an
-        existing delegated account. The empty-recipient
-        ``NEW_ACCOUNT`` charge is state gas, returned separately by
-        ``transaction_top_frame_state_gas``.
+        Charges the delegation-target access when the recipient is an
+        existing delegated account: ``WARM_ACCESS`` when the target is
+        already warm, otherwise ``COLD_ACCOUNT_ACCESS``. Each
+        authorization whose application is the transaction's first
+        write to its authority's leaf (``first_write``) adds
+        ``ACCOUNT_WRITE``. The state-gas portions (empty-recipient and
+        per-authorization ``NEW_ACCOUNT``, plus ``AUTH_BASE``) are
+        returned separately by ``transaction_top_frame_state_gas``.
         """
         gas_costs = cls.gas_costs()
 
@@ -172,14 +222,24 @@ class EIP2780(BaseFork):
             contract_creation: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            delegation_warm: bool = False,
+            authorizations: Sequence[AuthorizationGasInfo] = (),
         ) -> int:
             del sends_value
             if contract_creation:
                 return 0
 
+            regular = 0
             if recipient_type == RecipientType.DELEGATION_7702:
-                return gas_costs.COLD_ACCOUNT_ACCESS
-            return 0
+                regular += (
+                    gas_costs.WARM_ACCESS
+                    if delegation_warm
+                    else gas_costs.COLD_ACCOUNT_ACCESS
+                )
+            for auth in authorizations:
+                if auth.first_write:
+                    regular += gas_costs.ACCOUNT_WRITE
+            return regular
 
         return fn
 
@@ -190,15 +250,43 @@ class EIP2780(BaseFork):
         contract_creation: bool = False,
         sends_value: bool = False,
         recipient_type: RecipientType = RecipientType.CONTRACT,
+        authorizations: Sequence[AuthorizationGasInfo] = (),
     ) -> int:
         """
         Return the state gas charged at the top-level transaction
-        frame. Charges ``NEW_ACCOUNT`` when value is transferred to an
-        empty recipient; zero otherwise.
+        frame. A contract creation charges the created account's
+        ``NEW_ACCOUNT`` here (state-dependent, no longer intrinsic),
+        assuming a fresh target. Otherwise, charges ``NEW_ACCOUNT`` when
+        value is transferred to an empty recipient, and each
+        authorization adds ``NEW_ACCOUNT`` when its authority's account
+        leaf must be created and ``AUTH_BASE`` when it writes a net-new
+        delegation indicator.
         """
         gas_costs = cls.gas_costs()
         if contract_creation:
-            return 0
-        if sends_value and recipient_type == RecipientType.EMPTY_ACCOUNT:
             return gas_costs.NEW_ACCOUNT
-        return 0
+        state = 0
+        if sends_value and recipient_type == RecipientType.EMPTY_ACCOUNT:
+            state += gas_costs.NEW_ACCOUNT
+        for auth in authorizations:
+            if auth.creates_account:
+                state += gas_costs.NEW_ACCOUNT
+            if auth.writes_delegation:
+                state += gas_costs.AUTH_BASE
+        return state
+
+    @classmethod
+    def refund_types(cls) -> List[RefundTypes]:
+        """
+        Drop the existing-authority authorization refund.
+
+        EIP-2780 charges each authorization's state-dependent cost at the
+        top frame, keyed on the authority's pre-transaction state, with no
+        refund. The Prague-era ``AUTHORIZATION_EXISTING_AUTHORITY`` refund
+        therefore no longer applies.
+        """
+        return [
+            refund
+            for refund in super(EIP2780, cls).refund_types()
+            if refund != RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY
+        ]

@@ -165,12 +165,11 @@ def test_value_contract_creation_tx(
     intrinsic plus the execution gas.
 
     When the init code reverts, the deploy is rolled back: no code is
-    set, the value transfer is reversed, and the intrinsic
-    ``NEW_ACCOUNT`` state-gas charge is refilled to the reservoir.
-    Under the default zero state-gas reservoir, the refill cancels
-    the spilled-to-regular portion of the intrinsic exactly, so the
-    sender pays only the regular portion of the intrinsic plus the
-    few EVM gas units spent before the revert.
+    set, the value transfer is reversed, and the top-frame
+    ``NEW_ACCOUNT`` state-gas charge for the created account is
+    refilled. The sender therefore pays only the regular intrinsic
+    plus the few EVM gas units spent before the revert -- the
+    ``NEW_ACCOUNT`` charge does not appear on the receipt.
     """
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)
@@ -191,14 +190,17 @@ def test_value_contract_creation_tx(
         return_cost_deducted_prior_execution=True,
     )
 
+    # EIP-2780: the created account's ``NEW_ACCOUNT`` state gas is
+    # charged at the top frame (not the intrinsic). It must be covered
+    # by the gas limit; it is consumed on a successful deploy and
+    # refilled if the init code reverts.
+    new_account_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True,
+    )
     if tx_reverts:
-        # The ``NEW_ACCOUNT`` state portion of the intrinsic is
-        # refilled to the reservoir on revert, so it does not appear
-        # on the receipt.
-        new_account_refund = fork.transaction_intrinsic_state_gas(
-            contract_creation=True,
-        )
-        gas_used = intrinsic_gas + execution_gas - new_account_refund
+        # The deploy is rolled back, so the ``NEW_ACCOUNT`` charge is
+        # refilled and does not appear on the receipt.
+        gas_used = intrinsic_gas + execution_gas
         # A tiny init code can leave the decomposed calldata floor above
         # the regular gas actually consumed; gas_used then pins to the
         # floor, which EIP-2780 anchors on the create intrinsic base.
@@ -214,7 +216,7 @@ def test_value_contract_creation_tx(
         sender_value_delta = 0
         expected_target = None
     else:
-        gas_used = intrinsic_gas + execution_gas
+        gas_used = intrinsic_gas + new_account_state_gas + execution_gas
         sender_value_delta = value
         expected_target = Account(code=code_to_deploy, balance=value)
 
@@ -226,7 +228,7 @@ def test_value_contract_creation_tx(
         expected_logs = []
 
     gas_price = 1_000_000_000
-    gas_limit = intrinsic_gas + execution_gas + 1000
+    gas_limit = intrinsic_gas + new_account_state_gas + execution_gas + 1000
 
     tx = Transaction(
         sender=sender,

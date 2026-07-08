@@ -697,71 +697,93 @@ class TestAuthorizationListGasCost:
         num_authorizations: int,
     ) -> None:
         """
-        Verify authorization list gas costs are included in intrinsic gas.
+        Verify the authorization-list intrinsic cost under EIP-2780.
 
-        Each authorization in the list adds a fixed gas cost to the
-        intrinsic gas. This should be accounted for before comparing
-        with floor cost.
+        Each authorization adds exactly ``REGULAR_PER_AUTH_BASE_COST`` to
+        the (regular) intrinsic; the state-dependent authorization costs
+        moved to the top frame. Measured on the *raw* intrinsic (before
+        the EIP-7623 calldata floor is applied) the per-authorization
+        delta is exactly ``num_authorizations *
+        REGULAR_PER_AUTH_BASE_COST`` -- even when the floor would
+        otherwise mask it (e.g. a single authorization whose base cost
+        stays below the floor). Each existing authority then pays the
+        first-write ``ACCOUNT_WRITE`` (regular) and ``AUTH_BASE``
+        (state) at the top frame, so with a STOP recipient the receipt
+        is ``max(intrinsic_regular + num_authorizations *
+        (ACCOUNT_WRITE + AUTH_BASE), floor_cost)``.
         """
-        # Create authorization list
+        gas_costs = fork.gas_costs()
+
+        # Existing authorities each gaining a fresh delegation. An
+        # existing leaf pays the first-write ACCOUNT_WRITE and the
+        # top-frame AUTH_BASE (no NEW_ACCOUNT), keeping the billing
+        # clean.
         authorization_list = [
             AuthorizationTuple(
-                signer=pre.fund_eoa(0),
+                signer=pre.fund_eoa(),
                 address=Address(i + 1),
+                nonce=0,
+                creates_account=False,
+                writes_delegation=True,
             )
             for i in range(num_authorizations)
         ]
 
-        # Use calldata that triggers floor cost
+        # Use calldata that triggers the floor cost.
         calldata = Bytes(b"\x01" * 500)
 
-        # Calculate costs
         intrinsic_cost_calculator = (
             fork.transaction_intrinsic_cost_calculator()
         )
-        intrinsic_cost_with_auth = intrinsic_cost_calculator(
+        # Raw intrinsic (no floor max) isolates the per-authorization base
+        # cost even when the calldata floor dominates the floored value.
+        intrinsic_with_auth = intrinsic_cost_calculator(
             calldata=calldata,
-            contract_creation=False,
-            access_list=None,
             authorization_list_or_count=authorization_list,
+            return_cost_deducted_prior_execution=True,
         )
-
-        intrinsic_cost_without_auth = intrinsic_cost_calculator(
+        intrinsic_without_auth = intrinsic_cost_calculator(
             calldata=calldata,
-            contract_creation=False,
-            access_list=None,
             authorization_list_or_count=None,
+            return_cost_deducted_prior_execution=True,
         )
 
-        floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
-        floor_cost = floor_cost_calculator(data=calldata)
-
-        # Each authorization adds calldata cost for the authorization tuple
-        # plus G_AUTHORIZATION gas cost. The difference we see should be
-        # primarily from the authorization gas but may include calldata costs
-        # for encoding the authorization list.
-        actual_auth_cost = (
-            intrinsic_cost_with_auth - intrinsic_cost_without_auth
-        )
-        # Just verify that there is a positive cost increase
-        assert actual_auth_cost > 0, (
-            f"Authorization should add gas cost, got: {actual_auth_cost}"
+        actual_auth_cost = intrinsic_with_auth - intrinsic_without_auth
+        assert actual_auth_cost == (
+            num_authorizations * gas_costs.REGULAR_PER_AUTH_BASE_COST
+        ), (
+            "auth intrinsic must be n * REGULAR_PER_AUTH_BASE_COST, got: "
+            f"{actual_auth_cost}"
         )
 
-        # The transaction should pay max(intrinsic_with_auth, floor_cost)
-        expected_gas = max(intrinsic_cost_with_auth, floor_cost)
+        floor_cost = fork.transaction_data_floor_cost_calculator()(
+            data=calldata
+        )
+        # Existing authorities pay the first-write ACCOUNT_WRITE
+        # (regular) and AUTH_BASE (state) each at the top frame; the
+        # STOP recipient does no execution, so the receipt is
+        # max(regular + state, floor).
+        top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+            authorizations=authorization_list,
+        )
+        top_frame_state = fork.transaction_top_frame_state_gas(
+            authorizations=authorization_list,
+        )
+        expected_gas = max(
+            intrinsic_with_auth + top_frame_regular + top_frame_state,
+            floor_cost,
+        )
 
         tx = Transaction(
             ty=4,  # Type 4 supports authorization lists
             sender=sender,
             to=to,
             data=calldata,
-            gas_limit=expected_gas,
+            gas_limit=expected_gas + 10_000,
             authorization_list=authorization_list,
-        )
-
-        tx.expected_receipt = TransactionReceipt(
-            cumulative_gas_used=expected_gas
+            expected_receipt=TransactionReceipt(
+                cumulative_gas_used=expected_gas
+            ),
         )
 
         state_test(

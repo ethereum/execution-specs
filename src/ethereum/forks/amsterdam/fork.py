@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Final, List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes0
+from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
@@ -1058,19 +1058,11 @@ def process_transaction(
     effective_gas_fee = tx.gas * effective_gas_price
 
     # Split execution gas into gas_left (capped by remaining regular gas
-    # budget) and state_gas_reservoir. The contract-creation component
-    # of the intrinsic state gas is seeded into the reservoir rather
-    # than pre-consumed; it funds the conditional charge at the
-    # deployment-address access.
+    # budget) and state_gas_reservoir.
     execution_gas = tx.gas - intrinsic_gas
     regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
     gas = min(regular_gas_budget, execution_gas)
-    create_state_gas = (
-        Uint(StateGasCosts.NEW_ACCOUNT)
-        if isinstance(tx.to, Bytes0)
-        else Uint(0)
-    )
-    state_gas_reservoir = Uint(execution_gas - gas) + create_state_gas
+    state_gas_reservoir = Uint(execution_gas - gas)
 
     increment_nonce(tx_state, sender)
 
@@ -1143,14 +1135,7 @@ def process_transaction(
     # transfer miner fees
     create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
-    tx_state_gas = (
-        int(tx_env.intrinsic_state_gas)
-        - int(create_state_gas)
-        + tx_output.state_gas_used
-        - int(tx_output.state_refund)
-    )
-    # Defensive guard for Uint conversion: State refunds never exceed
-    # the state charges so the value is non-negative.
+    tx_state_gas = int(tx_env.intrinsic_state_gas) + tx_output.state_gas_used
     tx_regular_gas = tx_gas_used_before_refund - Uint(max(0, tx_state_gas))
     block_output.block_gas_used += tx_regular_gas
     block_output.block_state_gas_used += Uint(max(0, tx_state_gas))

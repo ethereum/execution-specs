@@ -92,6 +92,7 @@ class EIP8037(BaseFork):
                 parent.STORAGE_SET + STATE_BYTES_PER_STORAGE_SET * cpsb
             ),
             NEW_ACCOUNT=new_acct,
+            AUTH_BASE=STATE_BYTES_PER_AUTH_BASE * cpsb,
             TX_CREATE=parent.TX_CREATE + new_acct,
             AUTH_PER_EMPTY_ACCOUNT=(
                 parent.AUTH_PER_EMPTY_ACCOUNT

@@ -289,8 +289,13 @@ class TestCreateTxGasBoundary:
         self, fork: Fork, exact_intrinsic_gas: int, initcode: Initcode
     ) -> int:
         """
-        Return the total execution gas: intrinsic plus the initcode
-        execution gas plus the code-deposit gas.
+        Return the total execution gas: intrinsic plus the top-frame
+        ``NEW_ACCOUNT`` plus the initcode execution gas plus the
+        code-deposit gas.
+
+        Under EIP-2780 the created account's ``NEW_ACCOUNT`` state gas
+        moved out of the intrinsic and into the top frame, so it is added
+        explicitly here (the intrinsic is regular-only).
 
         ``deployment_gas`` is fork-aware: under EIP-8037 it splits the
         deposit into the keccak word cost (regular) and the per-byte cost
@@ -298,7 +303,8 @@ class TestCreateTxGasBoundary:
         flat regular per-byte deposit cost. The single call is therefore
         correct in either regime.
         """
-        execution = exact_intrinsic_gas + initcode.execution_gas(fork)
+        execution = exact_intrinsic_gas + fork.gas_costs().NEW_ACCOUNT
+        execution += initcode.execution_gas(fork)
         execution += initcode.deployment_gas(fork)
         return execution
 
@@ -362,26 +368,26 @@ class TestCreateTxGasBoundary:
             sender=sender,
         )
 
-        # 2D block accounting: gas_used = max(regular, state). The state
-        # axis carries the intrinsic NEW_ACCOUNT and (when the deposit
-        # succeeds) the per-byte code-deposit gas.
+        # 2D block accounting: gas_used = max(regular, state). Under
+        # EIP-2780 the state axis carries the fresh target's top-frame
+        # NEW_ACCOUNT and (when the deposit succeeds) the per-byte
+        # code-deposit gas.
         if tx_error is not None:
             header_verify = None
-        else:
-            intrinsic_state = (
-                fork.transaction_intrinsic_state_gas(contract_creation=True)
-                if hasattr(fork, "transaction_intrinsic_state_gas")
-                else 0
+        elif succeeds:
+            # Fresh target: top-frame NEW_ACCOUNT plus the per-byte code
+            # deposit are the state-gas axis; the rest is regular.
+            state_used = fork.gas_costs().NEW_ACCOUNT
+            state_used += fork.code_deposit_state_gas(
+                code_size=len(initcode.deploy_code)
             )
-            regular_used = gas_limit - intrinsic_state
-            state_used = intrinsic_state
-            if succeeds:
-                code_deposit_state = fork.code_deposit_state_gas(
-                    code_size=len(initcode.deploy_code)
-                )
-                state_used += code_deposit_state
-                regular_used -= code_deposit_state
+            regular_used = gas_limit - state_used
             header_verify = Header(gas_used=max(regular_used, state_used))
+        else:
+            # exact_intrinsic / too_little_execution: the top-frame
+            # NEW_ACCOUNT (and any deposit) cannot be covered, the whole
+            # preparation rolls back, and all gas is burned as regular.
+            header_verify = Header(gas_used=gas_limit)
 
         state_test(
             pre=pre,
