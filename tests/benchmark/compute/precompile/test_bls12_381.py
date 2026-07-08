@@ -299,19 +299,26 @@ def _g2add_calldata(seed: int) -> Bytes:
     return Bytes(_generate_bls12_g2_point(seed) + bls12381_spec.Spec.P2)
 
 
+# Full-width scalar just below the subgroup order. Using Q itself would be
+# congruent to 0 mod the subgroup order, so Q * P == O and the output fed
+# back into the next call would multiply the point at infinity forever. Q - 2
+# keeps every call a real scalar multiplication over a long, non-repeating
+# sequence of distinct points (its order mod Q exceeds any per-block
+# iteration count), preserving both the workload and the anti-caching intent.
+_MSM_SCALAR = bls12381_spec.Spec.Q - 2
+
+
 def _g1msm_calldata(seed: int) -> Bytes:
     """Generate G1MSM calldata with unique point."""
     return Bytes(
-        _generate_bls12_g1_point(seed)
-        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
+        _generate_bls12_g1_point(seed) + bls12381_spec.Scalar(_MSM_SCALAR)
     )
 
 
 def _g2msm_calldata(seed: int) -> Bytes:
     """Generate G2MSM calldata with unique point."""
     return Bytes(
-        _generate_bls12_g2_point(seed)
-        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
+        _generate_bls12_g2_point(seed) + bls12381_spec.Scalar(_MSM_SCALAR)
     )
 
 
