@@ -629,16 +629,6 @@ def test_deploy_then_interact(
 
     runtime_code, setup_gas, _, reserve_gas = _build_keccak_chain(fork)
 
-    creation_code = Initcode(
-        deploy_code=runtime_code,
-        initcode_prefix=Op.SSTORE(0, 1),
-    )
-
-    intrinsic_gas_create = intrinsic_gas_calculator(
-        calldata=bytes(creation_code),
-        contract_creation=True,
-    )
-
     initcode_sstore = Op.SSTORE(
         0,
         1,
@@ -647,12 +637,22 @@ def test_deploy_then_interact(
         current_value=0,
         new_value=1,
     )
-    initcode_exec_gas = initcode_sstore.gas_cost(fork)
-    code_deposit_gas = 200 * len(runtime_code)
+    creation_code = Initcode(
+        deploy_code=runtime_code,
+        initcode_prefix=initcode_sstore,
+    )
 
-    # Buffer for Initcode wrapper overhead (CODECOPY + RETURN + memory).
+    intrinsic_gas_create = intrinsic_gas_calculator(
+        calldata=bytes(creation_code),
+        contract_creation=True,
+    )
+
+    # Initcode.gas_cost covers the prefix SSTORE, the CODECOPY/RETURN
+    # wrapper, and the code deposit — which under EIP-8037 is state gas
+    # (1,530 per byte) that spills from the regular budget when the
+    # transaction has no reservoir. Small buffer for memory expansion.
     deploy_gas_limit = (
-        intrinsic_gas_create + initcode_exec_gas + code_deposit_gas + 10000
+        intrinsic_gas_create + creation_code.gas_cost(fork) + 10000
     )
 
     min_call_gas = intrinsic_gas + setup_gas + reserve_gas
