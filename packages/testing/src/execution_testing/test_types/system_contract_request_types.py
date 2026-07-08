@@ -69,7 +69,7 @@ class SystemContractRequest(RequestBase, CamelModel):
     @classmethod
     @abstractmethod
     def from_index(cls, index: int) -> Self:
-        """Build a request from a sequential index, paying `fee`."""
+        """Build a request from a sequential index."""
         ...
 
 

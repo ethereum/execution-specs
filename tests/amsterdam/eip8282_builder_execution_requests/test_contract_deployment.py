@@ -11,6 +11,7 @@ from execution_testing import (
     Address,
     Alloc,
     Block,
+    Header,
     Requests,
     Transaction,
     TransitionFork,
@@ -48,6 +49,7 @@ def test_builder_deposit_contract_deployment(
         withdrawal_credentials=0x02,
         amount=MIN_DEPOSIT_GWEI,
         signature=0x03,
+        fee=BuilderDepositRequest.get_fee(0),
     )
 
     test_transaction = Transaction(
@@ -59,7 +61,7 @@ def test_builder_deposit_contract_deployment(
 
     yield Block(
         txs=[test_transaction],
-        requests_hash=Requests(deposit_request),
+        header_verify=Header(requests_hash=Requests(deposit_request)),
     )
 
 
@@ -82,6 +84,7 @@ def test_builder_exit_contract_deployment(
     exit_request = BuilderExitRequest(
         pubkey=0x01,
         source_address=sender,
+        fee=BuilderExitRequest.get_fee(0),
     )
 
     test_transaction = Transaction(
@@ -93,5 +96,5 @@ def test_builder_exit_contract_deployment(
 
     yield Block(
         txs=[test_transaction],
-        requests_hash=Requests(exit_request),
+        header_verify=Header(requests_hash=Requests(exit_request)),
     )

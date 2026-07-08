@@ -200,7 +200,7 @@ class DepositRequest(DepositRequestBase, SystemContractRequest):
 
     @classmethod
     def from_index(cls, index: int) -> Self:
-        """Build a request from a sequential index, paying `fee`."""
+        """Build a request from a sequential index."""
         return cls(
             pubkey=(index * 3),
             withdrawal_credentials=(index * 3) + 1,
