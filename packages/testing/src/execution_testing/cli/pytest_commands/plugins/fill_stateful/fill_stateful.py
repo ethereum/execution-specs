@@ -138,11 +138,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="extract_opcode_count",
         default=False,
         help=(
-            "Trace each built block via debug_traceBlockByHash (a JS "
-            "opcode-counting tracer) and record per-opcode execution counts "
-            "in the fixture's _info.metadata.opcode_count. Requires the "
-            "client to expose the `debug` namespace with JS tracer support. "
-            "Adds a full re-execution trace per block — slow; opt-in."
+            "Trace each built block via debug_traceBlockByHash and record "
+            "per-opcode execution counts in the fixture's "
+            "_info.metadata.opcode_count. Uses a client-side JS tracer where "
+            "supported (geth/nethermind/erigon/reth) and falls back to the "
+            "struct-log tracer otherwise (besu). Requires the `debug` "
+            "namespace. Adds a full re-execution trace per block — slow; "
+            "opt-in."
         ),
     )
 
