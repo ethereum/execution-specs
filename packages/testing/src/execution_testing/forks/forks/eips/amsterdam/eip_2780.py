@@ -52,8 +52,9 @@ class EIP2780(BaseFork):
 
         The inherited floor base is ``TX_BASE`` alone; add the recipient
         access and value-transfer primitives so the floor never undercuts
-        the transaction's own intrinsic base. Calldata, init code, access
-        list, and authorizations are excluded.
+        the transaction's own intrinsic base. Calldata and access-list
+        floor tokens still accrue via the inherited calculator; init code
+        and authorization costs do not enter the floor.
         """
         super_fn = super(EIP2780, cls).transaction_data_floor_cost_calculator()
         gas_costs = cls.gas_costs()
