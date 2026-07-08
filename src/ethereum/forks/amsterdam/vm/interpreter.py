@@ -97,8 +97,6 @@ class MessageCallOutput:
              authorities that already existed in state. Subtracted from
              `tx_state_gas` in block accounting so `block.gas_used`
              matches the receipt `cumulative_gas_used`.
-          10. `created_target_alive`: Whether a top-level creation
-              transaction targeted an already-existent account.
     """
 
     gas_left: Uint
@@ -111,7 +109,6 @@ class MessageCallOutput:
     regular_gas_used: Uint
     state_gas_used: int
     state_refund: Uint
-    created_target_alive: bool
 
 
 def process_message_call(message: Message) -> MessageCallOutput:
@@ -133,12 +130,23 @@ def process_message_call(message: Message) -> MessageCallOutput:
     tx_state = message.tx_env.state
     refund_counter = U256(0)
     state_refund = Uint(0)
-    target_alive = False
+    new_account_charged = False
     if message.target == Bytes0(b""):
+        # The charge is decided by existence alone, independently of
+        # the collision outcome. The reservoir seeding guarantees the
+        # charge is always covered.
+        new_account_charged = not is_account_alive(
+            tx_state, message.current_target
+        )
+        if new_account_charged:
+            message.state_gas_reservoir -= Uint(StateGasCosts.NEW_ACCOUNT)
         if account_deployable(tx_state, message.current_target):
-            target_alive = is_account_alive(tx_state, message.current_target)
             evm = process_create_message(message)
         else:
+            if new_account_charged:
+                # A storage-only collision target is non-existent:
+                # charged above, refilled here.
+                message.state_gas_reservoir += Uint(StateGasCosts.NEW_ACCOUNT)
             return MessageCallOutput(
                 gas_left=Uint(0),
                 refund_counter=U256(0),
@@ -150,7 +158,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 regular_gas_used=message.gas,
                 state_gas_used=0,
                 state_refund=Uint(0),
-                created_target_alive=False,
             )
     else:
         if message.tx_env.authorizations != ():
@@ -182,6 +189,15 @@ def process_message_call(message: Message) -> MessageCallOutput:
     )
     evm_trace(evm, tx_end)
 
+    state_gas_used = frame_state_gas_used(evm)
+    if new_account_charged:
+        if evm.error:
+            # Account creation rolled back: refill the charge taken at
+            # the deployment-address access.
+            evm.state_gas_left += Uint(StateGasCosts.NEW_ACCOUNT)
+        else:
+            state_gas_used += int(StateGasCosts.NEW_ACCOUNT)
+
     return MessageCallOutput(
         gas_left=evm.gas_left,
         refund_counter=refund_counter,
@@ -191,9 +207,8 @@ def process_message_call(message: Message) -> MessageCallOutput:
         return_data=evm.output,
         state_gas_left=evm.state_gas_left,
         regular_gas_used=evm.regular_gas_used,
-        state_gas_used=frame_state_gas_used(evm),
+        state_gas_used=state_gas_used,
         state_refund=state_refund,
-        created_target_alive=target_alive,
     )
 
 

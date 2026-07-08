@@ -1058,11 +1058,19 @@ def process_transaction(
     effective_gas_fee = tx.gas * effective_gas_price
 
     # Split execution gas into gas_left (capped by remaining regular gas
-    # budget) and state_gas_reservoir.
+    # budget) and state_gas_reservoir. The contract-creation component
+    # of the intrinsic state gas is seeded into the reservoir rather
+    # than pre-consumed; it funds the conditional charge at the
+    # deployment-address access.
     execution_gas = tx.gas - intrinsic_gas
     regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
     gas = min(regular_gas_budget, execution_gas)
-    state_gas_reservoir = Uint(execution_gas - gas)
+    create_state_gas = (
+        Uint(StateGasCosts.NEW_ACCOUNT)
+        if isinstance(tx.to, Bytes0)
+        else Uint(0)
+    )
+    state_gas_reservoir = Uint(execution_gas - gas) + create_state_gas
 
     increment_nonce(tx_state, sender)
 
@@ -1110,13 +1118,6 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
-    if isinstance(tx.to, Bytes0) and (
-        tx_output.error is not None or tx_output.created_target_alive
-    ):
-        new_account_refund = StateGasCosts.NEW_ACCOUNT
-        tx_output.state_gas_left += new_account_refund
-        tx_output.state_refund += new_account_refund
-
     tx_gas_used_before_refund = (
         tx.gas - tx_output.gas_left - tx_output.state_gas_left
     )
@@ -1144,6 +1145,7 @@ def process_transaction(
 
     tx_state_gas = (
         int(tx_env.intrinsic_state_gas)
+        - int(create_state_gas)
         + tx_output.state_gas_used
         - int(tx_output.state_refund)
     )
