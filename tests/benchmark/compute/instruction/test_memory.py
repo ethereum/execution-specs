@@ -20,7 +20,12 @@ from execution_testing import (
 
 
 @pytest.mark.repricing(mem_size=1)
-@pytest.mark.parametrize("mem_size", [0, 1, 1_000, 100_000, 1_000_000])
+# MSIZE is O(1), so its cost does not vary with memory size. mem_size only
+# controls the one-time expansion in setup; capping it at 100_000 keeps that
+# expansion a minority of the measured gas. A larger value (e.g. 1_000_000)
+# would make the quadratic expansion dwarf the MSIZE loop, benchmarking
+# expansion rather than MSIZE.
+@pytest.mark.parametrize("mem_size", [0, 1, 1_000, 100_000])
 def test_msize(
     benchmark_test: BenchmarkTestFiller,
     mem_size: int,
