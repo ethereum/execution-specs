@@ -191,7 +191,11 @@ def tx_data(
     )
 
     def transaction_data_floor_cost_calculator(byte_count: int) -> int:
-        return fork_data_floor_cost_calculator(data=bytes_to_data(byte_count))
+        return fork_data_floor_cost_calculator(
+            data=bytes_to_data(byte_count),
+            contract_creation=contract_creating_tx,
+            access_list=access_list,
+        )
 
     # Start with zero data and check the difference in the gas calculator
     # between the intrinsic gas cost and the floor gas cost.
@@ -296,12 +300,18 @@ def tx_intrinsic_gas_cost_including_floor_data_cost(
 def tx_floor_data_cost(
     fork: Fork,
     tx_data: Bytes,
+    contract_creating_tx: bool,
+    access_list: List[AccessList] | None,
 ) -> int:
     """Floor data cost for the given transaction data."""
     fork_data_floor_cost_calculator = (
         fork.transaction_data_floor_cost_calculator()
     )
-    return fork_data_floor_cost_calculator(data=tx_data)
+    return fork_data_floor_cost_calculator(
+        data=tx_data,
+        contract_creation=contract_creating_tx,
+        access_list=access_list,
+    )
 
 
 @pytest.fixture

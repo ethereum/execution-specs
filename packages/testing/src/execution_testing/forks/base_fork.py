@@ -67,8 +67,18 @@ class TransactionDataFloorCostCalculator(Protocol):
         *,
         data: BytesConvertible,
         access_list: List[AccessList] | None = None,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
     ) -> int:
-        """Return transaction gas cost of calldata given its contents."""
+        """
+        Return transaction gas cost of calldata given its contents.
+
+        The defaults model a zero-value call to another account. Forks
+        that anchor the floor on the transaction's intrinsic base
+        (EIP-2780) add gas for these arguments, so create, value-bearing,
+        and self-transfer transactions must pass them explicitly.
+        """
         pass
 
 

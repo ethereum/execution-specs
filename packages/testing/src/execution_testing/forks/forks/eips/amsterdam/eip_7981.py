@@ -56,9 +56,17 @@ class EIP7981(BaseFork):
             *,
             data: BytesConvertible,
             access_list: List[AccessList] | None = None,
+            contract_creation: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
             return (
-                super_fn(data=data)
+                super_fn(
+                    data=data,
+                    contract_creation=contract_creation,
+                    sends_value=sends_value,
+                    recipient_type=recipient_type,
+                )
                 + cls._access_list_floor_tokens(access_list)
                 * gas_costs.TX_DATA_TOKEN_FLOOR
             )

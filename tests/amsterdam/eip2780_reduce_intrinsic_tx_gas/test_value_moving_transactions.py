@@ -199,6 +199,17 @@ def test_value_contract_creation_tx(
             contract_creation=True,
         )
         gas_used = intrinsic_gas + execution_gas - new_account_refund
+        # A tiny init code can leave the decomposed calldata floor above
+        # the regular gas actually consumed; gas_used then pins to the
+        # floor, which EIP-2780 anchors on the create intrinsic base.
+        gas_used = max(
+            gas_used,
+            fork.transaction_data_floor_cost_calculator()(
+                data=call_data,
+                contract_creation=True,
+                sends_value=bool(value),
+            ),
+        )
         # Value transfer rolled back.
         sender_value_delta = 0
         expected_target = None

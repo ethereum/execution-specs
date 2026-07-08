@@ -121,6 +121,9 @@ def test_access_list_token_calculation(
     expected_floor_cost = (
         expected_floor_tokens * gas_costs.TX_DATA_TOKEN_FLOOR
         + gas_costs.TX_BASE
+        # EIP-2780 anchors the floor on the decomposed intrinsic base; the
+        # tx targets a non-self account, adding the recipient-access charge.
+        + gas_costs.COLD_ACCOUNT_ACCESS
     )
     actual_floor_cost = fork.transaction_data_floor_cost_calculator()(
         data=b"", access_list=access_list
