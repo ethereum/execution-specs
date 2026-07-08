@@ -199,9 +199,8 @@ class DepositRequest(DepositRequestBase, SystemContractRequest):
         return self.copy()
 
     @classmethod
-    def from_index(cls, index: int, fee: int | None = None) -> Self:
-        """Build a request from a sequential index, paying `fee`."""
-        assert fee is None, f"Deposit requests do not require any fee: {fee}"
+    def from_index(cls, index: int) -> Self:
+        """Build a request from a sequential index."""
         return cls(
             pubkey=(index * 3),
             withdrawal_credentials=(index * 3) + 1,

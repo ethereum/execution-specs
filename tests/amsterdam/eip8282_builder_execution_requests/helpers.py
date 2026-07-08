@@ -1,6 +1,6 @@
 """Helpers for the EIP-8282 builder execution request tests."""
 
-from typing import ClassVar, Self
+from typing import ClassVar, Literal, Self
 
 from execution_testing import Address, FeeSystemContractRequest
 from execution_testing import (
@@ -31,6 +31,7 @@ class BuilderDepositRequest(
     update_fraction: ClassVar[int] = Spec.REQUEST_FEE_UPDATE_FRACTION
     target_per_block: ClassVar[int] = Spec.TARGET_DEPOSIT_REQUESTS_PER_BLOCK
     max_per_block: ClassVar[int] = Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK
+    excess_fee_processing: ClassVar[Literal["block", "call"]] = "call"
 
     extra_wei: int = 0
     """
@@ -67,16 +68,13 @@ class BuilderDepositRequest(
         return self.copy()
 
     @classmethod
-    def from_index(cls, index: int, fee: int | None = None) -> Self:
+    def from_index(cls, index: int) -> Self:
         """Build a builder deposit request from a sequential index."""
-        if fee is None:
-            fee = cls.get_fee(0)
         return cls(
             pubkey=index * 3,
             withdrawal_credentials=(index * 3) + 1,
             amount=Spec.BUILDER_MIN_DEPOSIT // 10**9,
             signature=(index * 3) + 2,
-            fee=fee,
         )
 
 
@@ -95,6 +93,7 @@ class BuilderExitRequest(BuilderExitRequestBase, FeeSystemContractRequest):
     update_fraction: ClassVar[int] = Spec.REQUEST_FEE_UPDATE_FRACTION
     target_per_block: ClassVar[int] = Spec.TARGET_EXIT_REQUESTS_PER_BLOCK
     max_per_block: ClassVar[int] = Spec.MAX_EXIT_REQUESTS_PER_BLOCK
+    excess_fee_processing: ClassVar[Literal["block", "call"]] = "call"
 
     @property
     def calldata(self) -> bytes:
@@ -108,8 +107,6 @@ class BuilderExitRequest(BuilderExitRequestBase, FeeSystemContractRequest):
         return self.copy(source_address=source_address)
 
     @classmethod
-    def from_index(cls, index: int, fee: int | None = None) -> Self:
+    def from_index(cls, index: int) -> Self:
         """Build a builder exit request from a sequential index."""
-        if fee is None:
-            fee = cls.get_fee(0)
-        return cls(pubkey=index, fee=fee)
+        return cls(pubkey=index)

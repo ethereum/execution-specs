@@ -11,6 +11,7 @@ from execution_testing import (
     Address,
     Alloc,
     Block,
+    Header,
     Requests,
     Transaction,
     TransitionFork,
@@ -24,19 +25,14 @@ from .spec import Spec, ref_spec_8282
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
-pytestmark = pytest.mark.skip(
-    reason="EIP-8282 draft: builder predeploy deploy transactions are not yet "
-    "defined (placeholder devnet-6 genesis addresses)."
-)
-
 MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
 
 
 @pytest.mark.eels_base_coverage
 @generate_system_contract_deploy_test(
     fork=Amsterdam,
-    tx_json_path=Path(realpath(__file__)).parent
-    / "builder_deposit_deploy_tx.json",
+    factory_json_path=Path(realpath(__file__)).parent
+    / "builder_deposit_factory_deploy.json",
     expected_deploy_address=Address(Spec.BUILDER_DEPOSIT_CONTRACT_ADDRESS),
     fail_on_empty_code=True,
 )
@@ -53,6 +49,7 @@ def test_builder_deposit_contract_deployment(
         withdrawal_credentials=0x02,
         amount=MIN_DEPOSIT_GWEI,
         signature=0x03,
+        fee=BuilderDepositRequest.get_fee(0),
     )
 
     test_transaction = Transaction(
@@ -64,15 +61,15 @@ def test_builder_deposit_contract_deployment(
 
     yield Block(
         txs=[test_transaction],
-        requests_hash=Requests(deposit_request),
+        header_verify=Header(requests_hash=Requests(deposit_request)),
     )
 
 
 @pytest.mark.eels_base_coverage
 @generate_system_contract_deploy_test(
     fork=Amsterdam,
-    tx_json_path=Path(realpath(__file__)).parent
-    / "builder_exit_deploy_tx.json",
+    factory_json_path=Path(realpath(__file__)).parent
+    / "builder_exit_factory_deploy.json",
     expected_deploy_address=Address(Spec.BUILDER_EXIT_CONTRACT_ADDRESS),
     fail_on_empty_code=True,
 )
@@ -87,6 +84,7 @@ def test_builder_exit_contract_deployment(
     exit_request = BuilderExitRequest(
         pubkey=0x01,
         source_address=sender,
+        fee=BuilderExitRequest.get_fee(0),
     )
 
     test_transaction = Transaction(
@@ -98,5 +96,5 @@ def test_builder_exit_contract_deployment(
 
     yield Block(
         txs=[test_transaction],
-        requests_hash=Requests(exit_request),
+        header_verify=Header(requests_hash=Requests(exit_request)),
     )

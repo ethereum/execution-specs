@@ -368,9 +368,9 @@ EXPECTED_AMSTERDAM = json.loads("""
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
     "BUILDER_DEPOSIT_CONTRACT_ADDRESS":
-                           "0x0000884d2aa32eaa155f59a2f24efa73d9008282",
+                           "0x0000bff46984e3725691fa540a8c7589300d8282",
     "BUILDER_EXIT_CONTRACT_ADDRESS":
-                           "0x000014574a74c805590aff9499fc7a690f008282",
+                           "0x000064d678505ad48f8ccb093bc65613800e8282",
     "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
                            "0x0000bbddc7ce488642fb579f8b00f3a590007251",
     "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",

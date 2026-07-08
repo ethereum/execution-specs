@@ -12,7 +12,7 @@ request types in one transaction.
 
 from abc import abstractmethod
 from dataclasses import dataclass, field, replace
-from typing import Any, Callable, ClassVar, List, Self, Sequence
+from typing import Callable, ClassVar, List, Literal, Self, Sequence
 
 from execution_testing.base_types import Address, CamelModel
 from execution_testing.forks.forks.helpers import fake_exponential
@@ -57,10 +57,19 @@ class SystemContractRequest(RequestBase, CamelModel):
         """Return a copy of the request with its source address set."""
         ...
 
+    def set_source_address(self, source_address: Address) -> None:
+        """
+        Record `source_address` on the request in place, for request types
+        that carry one (e.g. withdrawals, consolidations). A no-op for request
+        types whose serialized form omits the source (e.g. deposits).
+        """
+        if "source_address" in type(self).model_fields:
+            self.source_address = source_address
+
     @classmethod
     @abstractmethod
-    def from_index(cls, index: int, fee: int | None = None) -> Self:
-        """Build a request from a sequential index, paying `fee`."""
+    def from_index(cls, index: int) -> Self:
+        """Build a request from a sequential index."""
         ...
 
 
@@ -85,12 +94,8 @@ class FeeSystemContractRequest(SystemContractRequest):
     """Target requests per block; excess above this raises the fee."""
     max_per_block: ClassVar[int]
     """Maximum number of requests dequeued into a single block."""
-
-    def model_post_init(self, __context: Any) -> None:
-        """Default an unset fee to the base fee (the fee at zero excess)."""
-        super().model_post_init(__context)
-        if "fee" not in self.model_fields_set:
-            self.fee = type(self).get_fee(0)
+    excess_fee_processing: ClassVar[Literal["block", "call"]] = "block"
+    """When the excess fee is recalculated."""
 
     @property
     def value(self) -> int:
@@ -149,7 +154,7 @@ class FeeSystemContractRequest(SystemContractRequest):
                 [
                     SystemContractInteractionContract(
                         requests=[
-                            cls.from_index(i, fee)
+                            cls.from_index(i)
                             for i in range(
                                 request_index,
                                 request_index + requests_required,
@@ -240,26 +245,6 @@ class SystemContractInteractionBase:
         parametrize value remains pristine across fixture format runs.
         """
         raise NotImplementedError
-
-    def valid_requests(
-        self, current_minimum_fee: int | None = None
-    ) -> List[SystemContractRequest]:
-        """
-        Return the list of requests that should be included in the block.
-
-        `current_minimum_fee` filters out requests whose value is below it
-        (e.g. the per-block fee). When `None`, no fee filter is applied and
-        every request marked `valid` is returned, trusting the caller to
-        ensure each request's value is sufficient.
-        """
-        source = self.request_source_address
-        assert source is not None, "Source address not initialized"
-        return [
-            r.with_source_address(source)
-            for r in self.requests
-            if r.valid
-            and (current_minimum_fee is None or r.value >= current_minimum_fee)
-        ]
 
 
 @dataclass(kw_only=True, frozen=True)

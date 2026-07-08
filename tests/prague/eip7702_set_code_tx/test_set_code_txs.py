@@ -32,6 +32,7 @@ from execution_testing import (
     Conditional,
     EIPChecklist,
     Environment,
+    FeeSystemContractRequest,
     Fork,
     Hash,
     Initcode,
@@ -3211,6 +3212,10 @@ def test_set_code_to_system_contract(
     if Address(system_contract) in REQUEST_TYPE_BY_ADDRESS:
         rt = REQUEST_TYPE_BY_ADDRESS[Address(system_contract)]
         request = rt.from_index(0)
+        if isinstance(request, FeeSystemContractRequest):
+            # `from_index` leaves the fee unset; pay the zero-excess fee the
+            # delegated contract charges.
+            request.fee = request.get_fee(0)
         caller_payload = request.calldata
         call_value = request.value
     else:

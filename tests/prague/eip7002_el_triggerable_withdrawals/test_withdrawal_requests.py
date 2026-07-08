@@ -11,13 +11,8 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
-    Environment,
-    Fork,
-    Header,
     Macros,
     Op,
-    Requests,
-    SystemContractInteractionBase,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
     TestAddress,
@@ -171,6 +166,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 validator_pubkey=0x01,
                                 amount=0,
                                 fee=0,
+                                valid=False,
                             ),
                             WithdrawalRequest(
                                 validator_pubkey=0x02,
@@ -195,6 +191,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 validator_pubkey=0x02,
                                 amount=Spec.MAX_AMOUNT - 1,
                                 fee=0,
+                                valid=False,
                             ),
                         ]
                     ),
@@ -296,6 +293,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 validator_pubkey=1,
                                 amount=Spec.MAX_AMOUNT,
                                 fee=0,
+                                valid=False,
                             )
                         ]
                         + [
@@ -343,6 +341,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                     else 0
                                 ),
                                 fee=0,
+                                valid=False,
                             )
                         ],
                     ),
@@ -524,19 +523,14 @@ def test_withdrawal_requests(
     pre: Alloc,
 ) -> None:
     """Test making a withdrawal request to the beacon chain."""
-    blockchain_test(
-        genesis_environment=Environment(),
-        pre=pre,
-        post={},
-        blocks=blocks,
-    )
+    blockchain_test(pre=pre, post={}, blocks=blocks)
 
 
 @pytest.mark.parametrize(
-    "requests,block_body_override_requests,exception",
+    "system_contract_interactions_per_block,block_body_override_requests,exception",
     [
         pytest.param(
-            [],
+            [[]],
             [
                 WithdrawalRequest(
                     validator_pubkey=0x01,
@@ -549,14 +543,16 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                SystemContractInteractionTransaction(
-                    requests=[
-                        WithdrawalRequest(
-                            validator_pubkey=0x01,
-                            amount=0,
-                        ),
-                    ]
-                ),
+                [
+                    SystemContractInteractionTransaction(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                            ),
+                        ]
+                    ),
+                ]
             ],
             [],
             BlockException.INVALID_REQUESTS,
@@ -564,14 +560,16 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                SystemContractInteractionTransaction(
-                    requests=[
-                        WithdrawalRequest(
-                            validator_pubkey=0x01,
-                            amount=0,
-                        ),
-                    ]
-                ),
+                [
+                    SystemContractInteractionTransaction(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                            ),
+                        ]
+                    ),
+                ]
             ],
             [
                 WithdrawalRequest(
@@ -585,14 +583,16 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                SystemContractInteractionTransaction(
-                    requests=[
-                        WithdrawalRequest(
-                            validator_pubkey=0x01,
-                            amount=0,
-                        )
-                    ],
-                ),
+                [
+                    SystemContractInteractionTransaction(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                            )
+                        ],
+                    ),
+                ]
             ],
             [
                 WithdrawalRequest(
@@ -606,14 +606,16 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                SystemContractInteractionTransaction(
-                    requests=[
-                        WithdrawalRequest(
-                            validator_pubkey=0x01,
-                            amount=0,
-                        )
-                    ],
-                ),
+                [
+                    SystemContractInteractionTransaction(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                            )
+                        ],
+                    ),
+                ]
             ],
             [
                 WithdrawalRequest(
@@ -627,18 +629,20 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                SystemContractInteractionTransaction(
-                    requests=[
-                        WithdrawalRequest(
-                            validator_pubkey=0x01,
-                            amount=0,
-                        ),
-                        WithdrawalRequest(
-                            validator_pubkey=0x02,
-                            amount=0,
-                        ),
-                    ],
-                ),
+                [
+                    SystemContractInteractionTransaction(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                            ),
+                            WithdrawalRequest(
+                                validator_pubkey=0x02,
+                                amount=0,
+                            ),
+                        ],
+                    ),
+                ]
             ],
             [
                 WithdrawalRequest(
@@ -657,14 +661,16 @@ def test_withdrawal_requests(
         ),
         pytest.param(
             [
-                SystemContractInteractionTransaction(
-                    requests=[
-                        WithdrawalRequest(
-                            validator_pubkey=0x01,
-                            amount=0,
-                        )
-                    ],
-                ),
+                [
+                    SystemContractInteractionTransaction(
+                        requests=[
+                            WithdrawalRequest(
+                                validator_pubkey=0x01,
+                                amount=0,
+                            )
+                        ],
+                    ),
+                ]
             ],
             [
                 WithdrawalRequest(
@@ -685,48 +691,12 @@ def test_withdrawal_requests(
 )
 @pytest.mark.exception_test
 def test_withdrawal_requests_negative(
-    pre: Alloc,
-    fork: Fork,
     blockchain_test: BlockchainTestFiller,
-    requests: List[SystemContractInteractionBase],
-    block_body_override_requests: List[WithdrawalRequest],
-    exception: BlockException,
+    override_blocks: List[Block],
+    pre: Alloc,
 ) -> None:
     """
     Test blocks where the requests list and the actual withdrawal requests that
     happened in the block's transactions do not match.
     """
-    prepared = [d.update_pre(pre) for d in requests]
-
-    # No previous block so fee is the base
-    fee = 1
-    current_block_requests = []
-    for w in prepared:
-        current_block_requests += w.valid_requests(fee)
-    included_requests = current_block_requests[
-        : Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
-    ]
-
-    blockchain_test(
-        genesis_environment=Environment(),
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=sum((r.transactions() for r in prepared), []),
-                header_verify=Header(
-                    requests_hash=Requests(
-                        *included_requests,
-                    ),
-                ),
-                requests=(
-                    Requests(
-                        *block_body_override_requests,
-                    ).requests_list
-                    if block_body_override_requests is not None
-                    else None
-                ),
-                exception=exception,
-            )
-        ],
-    )
+    blockchain_test(pre=pre, post={}, blocks=override_blocks)

@@ -8,7 +8,13 @@ from typing import Any, Callable, Dict, Generator, List, Protocol
 
 import pytest
 
-from execution_testing.base_types import Account, Address, Hash
+from execution_testing.base_types import (
+    Account,
+    Address,
+    Bytes,
+    CamelModel,
+    Hash,
+)
 from execution_testing.exceptions import BlockException
 from execution_testing.forks import Berlin, Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
@@ -87,10 +93,22 @@ class SystemContractDeployTestFunction(Protocol):
         pass
 
 
+class FactoryDeployment(CamelModel):
+    """
+    Information required to deploy a system contract using the factory
+    deployment method.
+    """
+
+    factory: Address
+    salt: Hash
+    initcode: Bytes
+
+
 def generate_system_contract_deploy_test(
     *,
     fork: Fork,
-    tx_json_path: Path,
+    tx_json_path: Path | None = None,
+    factory_json_path: Path | None = None,
     expected_deploy_address: Address,
     fail_on_empty_code: bool,
     expected_system_contract_storage: Dict | None = None,
@@ -128,10 +146,11 @@ def generate_system_contract_deploy_test(
 
     Arguments:
       fork (Fork): The fork to test.
-      tx_json_path (Path): Path to the JSON file with the transaction to
-                           deploy the system contract. Providing a JSON
-                           file is useful to copy-paste the transaction
-                           from the EIP.
+      tx_json_path (Path | None): Path to the JSON file with the transaction to
+               deploy the system contract. Providing a JSON file is useful to
+               copy-paste the transaction from the EIP.
+      factory_json_path (Path | None): Path to the JSON file with the factory
+               deployment details.
       expected_deploy_address (Address): The expected address of the deployed
                                          contract.
       fail_on_empty_code (bool): If True, the test is expected to fail
@@ -145,22 +164,26 @@ def generate_system_contract_deploy_test(
             "fork parameter of generate_system_contract_deploy_test must be "
             "a subclass of Fork"
         )
-    with open(tx_json_path, mode="r") as f:
-        tx_json = json.loads(f.read())
-    if "gasLimit" not in tx_json and "gas" in tx_json:
-        tx_json["gasLimit"] = tx_json["gas"]
-        del tx_json["gas"]
-    if "protected" not in tx_json:
-        tx_json["protected"] = False
-    deploy_tx = Transaction.model_validate(tx_json).with_signature_and_sender()
-    gas_price = deploy_tx.gas_price
-    assert gas_price is not None
-    deployer_required_balance = deploy_tx.gas_limit * gas_price
-    deployer_address = deploy_tx.sender
-    if "hash" in tx_json:
-        assert deploy_tx.hash == Hash(tx_json["hash"])
-    if "sender" in tx_json:
-        assert deploy_tx.sender == Address(tx_json["sender"])
+
+    tx_json: Dict | None = None
+    factory_json: FactoryDeployment | None = None
+
+    if tx_json_path is not None:
+        with open(tx_json_path, mode="r") as f:
+            tx_json = json.loads(f.read())
+        if "gasLimit" not in tx_json and "gas" in tx_json:
+            tx_json["gasLimit"] = tx_json["gas"]
+            del tx_json["gas"]
+        if "protected" not in tx_json:
+            tx_json["protected"] = False
+    elif factory_json_path is not None:
+        with open(factory_json_path, mode="r") as f:
+            factory_json = FactoryDeployment.model_validate_json(f.read())
+    else:
+        raise Exception(
+            "Either `tx_json_path` or `factory_json_path` have to "
+            "be provided to generate a system contract deploy test"
+        )
 
     def decorator(func: SystemContractDeployTestFunction) -> Callable:
         @pytest.mark.parametrize(
@@ -198,8 +221,33 @@ def generate_system_contract_deploy_test(
                 "Block number based transition forks are not supported by "
                 "generate_system_contract_deploy_test"
             )
-            assert deployer_address is not None
-            assert deploy_tx.created_contract == expected_deploy_address
+            if tx_json is not None:
+                deploy_tx = Transaction.model_validate(
+                    tx_json
+                ).with_signature_and_sender()
+                gas_price = deploy_tx.gas_price
+                assert gas_price is not None
+                deployer_required_balance = deploy_tx.gas_limit * gas_price
+                deployer_address = deploy_tx.sender
+                assert deployer_address is not None
+                pre.fund_address(deployer_address, deployer_required_balance)
+                if "hash" in tx_json:
+                    assert deploy_tx.hash == Hash(tx_json["hash"])
+                if "sender" in tx_json:
+                    assert deploy_tx.sender == Address(tx_json["sender"])
+                assert deploy_tx.created_contract == expected_deploy_address
+            elif factory_json is not None:
+                deployer_address = pre.fund_eoa()
+                deploy_tx = Transaction(
+                    to=factory_json.factory,
+                    data=factory_json.salt + factory_json.initcode,
+                    sender=deployer_address,
+                )
+            else:
+                raise Exception(
+                    "Either `tx_json_path` or `factory_json_path` have to "
+                    "be provided to generate a system contract deploy test"
+                )
             blocks: List[Block] = []
 
             if test_type == DeploymentTestType.DEPLOY_BEFORE_FORK:
@@ -258,7 +306,6 @@ def generate_system_contract_deploy_test(
                 nonce=0,
                 balance=balance,
             )
-            pre.fund_address(deployer_address, deployer_required_balance)
 
             expected_deploy_address_int = int.from_bytes(
                 expected_deploy_address, "big"
