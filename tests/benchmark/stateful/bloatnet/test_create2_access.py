@@ -165,22 +165,17 @@ def test_create2_immediate_access(
         )
     ] = Account.NONEXISTENT
 
-    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
-    code_deposit_state_gas = code_size * fork.cost_per_state_byte()
-    expected_state_gas = total_iterations * (
-        new_account_state_gas + code_deposit_state_gas
-    )
+    expected_block_gas_used = sum(tx.block_gas_cost for tx in txs)
+    expected_benchmark_gas_used = sum(tx.gas_cost for tx in txs)
 
     block = Block(
         txs=txs,
-        header_verify=Header(gas_used=expected_state_gas),
+        header_verify=Header(gas_used=expected_block_gas_used),
     )
 
     benchmark_test(
         pre=pre,
         post=post,
         blocks=[block],
-        expected_benchmark_gas_used=(
-            expected_state_gas + sum(tx.regular_cost for tx in txs)
-        ),
+        expected_benchmark_gas_used=expected_benchmark_gas_used,
     )
