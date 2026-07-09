@@ -305,8 +305,6 @@ def prepare_dispatch(evm: Evm) -> None:
             )
         else:
             message.code = recipient_code
-        evm.code = message.code
-        evm.valid_jump_destinations = get_valid_jump_destinations(message.code)
 
 
 def process_message(message: Message) -> Evm:
@@ -328,16 +326,14 @@ def process_message(message: Message) -> Evm:
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
-    code = message.code
-    valid_jump_destinations = get_valid_jump_destinations(code)
     evm = Evm(
         pc=Uint(0),
         stack=[],
         memory=bytearray(),
-        code=code,
+        code=Bytes(b""),
         gas_left=message.gas,
         state_gas_left=message.state_gas_reservoir,
-        valid_jump_destinations=valid_jump_destinations,
+        valid_jump_destinations=set(),
         logs=(),
         refund_counter=0,
         running=True,
@@ -373,6 +369,10 @@ def process_message(message: Message) -> Evm:
             evm.gas_left = Uint(0)
             evm.error = error
             return evm
+
+    assert message.code is not None
+    evm.code = message.code
+    evm.valid_jump_destinations = get_valid_jump_destinations(message.code)
 
     snapshot = copy_tx_state(tx_state)
 

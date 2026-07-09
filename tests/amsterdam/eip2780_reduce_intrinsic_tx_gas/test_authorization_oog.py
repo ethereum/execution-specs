@@ -162,10 +162,10 @@ def test_set_delegation_oog_charge_point(
     state. The sender pays the full ``gas_limit`` and its nonce is not
     rolled back.
 
-    The recipient and both authorities were accessed before the halt
-    (the recipient at inclusion, the authorities during validation), so
-    per EIP-7928 all three must still appear in the block access list,
-    with no recorded changes.
+    Both authorities are read during authorization validation before
+    the halt, so per EIP-7928 they still appear in the block access
+    list with no recorded changes. The recipient is only loaded by the
+    top-frame dispatch, which the halt precedes, so it must be absent.
     """
     gas_costs = fork.gas_costs()
     sender_initial_balance = 10**18
@@ -230,10 +230,11 @@ def test_set_delegation_oog_charge_point(
     }
 
     # An implementation recording accesses only for dispatched frames
-    # would drop these entries and fork on the BAL hash.
+    # would drop the authority entries; one recording the recipient at
+    # inclusion would add it. Either forks on the BAL hash.
     expected_block_access_list = BlockAccessListExpectation(
         account_expectations={
-            recipient: BalAccountExpectation.empty(),
+            recipient: None,
             first.authority: BalAccountExpectation.empty(),
             second.authority: BalAccountExpectation.empty(),
         }
@@ -284,9 +285,9 @@ def test_set_delegation_oog_rolls_back_first_auth(
     The creation-first case is covered by
     ``test_set_delegation_oog_charge_point[new_account]``.
 
-    The recipient and both authorities were accessed before the halt,
-    so per EIP-7928 all three must still appear in the block access
-    list, with no recorded changes.
+    Both authorities are read during validation before the halt and
+    stay in the block access list with no recorded changes; the
+    recipient, never loaded before the halt, must be absent.
     """
     gas_costs = fork.gas_costs()
     sender_initial_balance = 10**18
@@ -330,7 +331,7 @@ def test_set_delegation_oog_rolls_back_first_auth(
 
     expected_block_access_list = BlockAccessListExpectation(
         account_expectations={
-            recipient: BalAccountExpectation.empty(),
+            recipient: None,
             first.authority: BalAccountExpectation.empty(),
             second.authority: BalAccountExpectation.empty(),
         }

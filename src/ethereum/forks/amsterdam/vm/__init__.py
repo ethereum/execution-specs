@@ -151,7 +151,7 @@ class Message:
     value: U256
     data: Bytes
     code_address: Optional[Address]
-    code: Bytes
+    code: Optional[Bytes]
     depth: Uint
     should_transfer_value: bool
     is_static: bool
