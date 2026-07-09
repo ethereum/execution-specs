@@ -42,7 +42,6 @@ def test_call_large_offset_mstore(
         overhead_cost=call_push_cost,
         extra_stack_items=1,  # Because CALL pushes 1 item to the stack
         sstore_key=0,
-        stop=False,  # Because it's the first CodeGasMeasure
     )
     mstore_measure = CodeGasMeasure(
         code=Op.MSTORE(offset=mem_offset, value=1),
@@ -110,8 +109,6 @@ def test_call_memory_expands_on_early_revert(
         # Because CALL pushes 1 item to the stack
         extra_stack_items=1,
         sstore_key=0,
-        # Because it's the first CodeGasMeasure
-        stop=False,
     )
     mstore_measure = CodeGasMeasure(
         # Low offset for not expanding memory

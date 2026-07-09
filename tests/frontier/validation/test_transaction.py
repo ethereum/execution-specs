@@ -8,6 +8,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    add_kzg_version,
 )
 from execution_testing.base_types.base_types import ZeroPaddedHexNumber
 from execution_testing.exceptions.exceptions import TransactionException
@@ -75,9 +76,8 @@ def test_tx_gas_limit(
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.eels_base_coverage
 def test_tx_nonce(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Alloc,
-    env: Environment,
     nonce_diff: int,
     expected_exception: TransactionException | None,
 ) -> None:
@@ -95,12 +95,28 @@ def test_tx_nonce(
         error=expected_exception,
     )
 
-    block = Block(
-        txs=[tx],
-        exception=expected_exception,
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.exception_test
+@pytest.mark.eels_base_coverage
+def test_tx_max_nonce(state_test: StateTestFiller, pre: Alloc) -> None:
+    """
+    Test that a transaction that exceeds the maximum allowed value for the
+    nonce (U64.MAX_VALUE) is rejected.
+    """
+    sender = pre.fund_eoa()
+    to = pre.nonexistent_account()
+
+    tx = Transaction(
+        to=to,
+        nonce=2**64,
+        sender=sender,
+        protected=False,
+        error=TransactionException.NONCE_IS_MAX,
     )
 
-    blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)
+    state_test(pre=pre, post={sender: Account(nonce=0)}, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -194,5 +210,63 @@ def test_sender_balance_insufficient_state_test(
         pre=pre,
         # Transaction rejected: contract storage stays empty.
         post={contract: Account(storage=storage)},
+        tx=tx,
+    )
+
+
+SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+
+
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.exception_test
+@pytest.mark.eels_base_coverage
+@pytest.mark.with_all_tx_types
+@pytest.mark.parametrize(
+    ("v", "r", "s"),
+    [
+        # Other than 27/28, anything less than 35 for v is invalid.
+        (34, 1, 1),
+        # Equal to or above these values are invalid.
+        (27, SECP256K1N, 1),
+        pytest.param(27, 1, SECP256K1N, id="s=SECP256K1N"),
+        pytest.param(
+            27,
+            1,
+            (SECP256K1N // 2) + 1,
+            id="s=SECP256K1N//2+1",
+            marks=pytest.mark.valid_from("Homestead"),
+        ),
+    ],
+)
+def test_bad_v_r_s(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_type: int,
+    v: int,
+    r: int,
+    s: int,
+) -> None:
+    """
+    The v/y_parity component of a signature must be 35 or greater (if it isn't
+    27/28).
+    """
+    to = pre.fund_eoa(0xDEADBEEE)
+
+    blob_versioned_hashes = add_kzg_version([0], 1) if tx_type == 3 else None
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=to,
+        error=TransactionException.INVALID_SIGNATURE_VRS,
+        ty=tx_type,
+        blob_versioned_hashes=blob_versioned_hashes,
+        value=1,
+        v=v,
+        r=r,
+        s=s,
+    )
+
+    state_test(
+        pre=pre,
+        post={to: Account(balance=0xDEADBEEE)},
         tx=tx,
     )

@@ -20,6 +20,7 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.state import Address
 from ethereum.utils.numeric import ceil32
 
+from ...fork_types import StateGas
 from ...state_tracker import (
     account_deployable,
     get_account,
@@ -27,7 +28,6 @@ from ...state_tracker import (
     increment_nonce,
     is_account_alive,
     move_ether,
-    set_account_balance,
 )
 from ...utils.address import (
     compute_contract_address,
@@ -42,7 +42,6 @@ from .. import (
     Evm,
     Message,
     credit_state_gas_refund,
-    emit_burn_log,
     emit_transfer_log,
     incorporate_child_on_error,
     incorporate_child_on_success,
@@ -195,7 +194,7 @@ def create(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GasCosts.REGULAR_GAS_CREATE + extend_memory.cost + init_code_gas,
+        GasCosts.CREATE_ACCESS + extend_memory.cost + init_code_gas,
     )
 
     # OPERATION
@@ -249,7 +248,7 @@ def create2(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GasCosts.REGULAR_GAS_CREATE
+        GasCosts.CREATE_ACCESS
         + GasCosts.OPCODE_KECCAK256_PER_WORD * call_data_words
         + extend_memory.cost
         + init_code_gas,
@@ -329,6 +328,7 @@ class GenericCall:
     memory_output_size: U256
     code: Bytes
     disable_precompiles: bool
+    new_account_charged: bool = False
 
 
 def generic_call(evm: Evm, params: GenericCall) -> None:
@@ -342,6 +342,8 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
     if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
         evm.gas_left += params.gas
         evm.state_gas_left += params.state_gas_reservoir
+        if params.new_account_charged:
+            credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
 
@@ -376,6 +378,8 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
 
     if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
+        if params.new_account_charged:
+            credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
@@ -461,7 +465,9 @@ def call(evm: Evm) -> None:
     code = get_code(tx_state, code_hash, code_address)
 
     charge_gas(evm, extra_gas + extend_memory.cost)
-    if value != 0 and not is_account_alive(tx_state, to):
+    has_value = value != 0
+    new_account_charged = has_value and not is_account_alive(tx_state, to)
+    if new_account_charged:
         charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
 
     message_call_gas = calculate_message_call_gas(
@@ -487,6 +493,8 @@ def call(evm: Evm) -> None:
         evm.return_data = b""
         evm.gas_left += message_call_gas.sub_call
         evm.state_gas_left += call_state_gas_reservoir
+        if new_account_charged:
+            credit_state_gas_refund(evm, StateGasCosts.NEW_ACCOUNT)
     else:
         generic_call(
             evm,
@@ -505,6 +513,7 @@ def call(evm: Evm) -> None:
                 memory_output_size=memory_output_size,
                 code=code,
                 disable_precompiles=is_delegated,
+                new_account_charged=new_account_charged,
             ),
         )
 
@@ -658,17 +667,19 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    state_gas = Uint(0)
+    state_gas = StateGas(Uint(0))
+    account_write_gas = Uint(0)
     if (
         not is_account_alive(tx_state, beneficiary)
         and get_account(tx_state, evm.message.current_target).balance != 0
     ):
         state_gas = StateGasCosts.NEW_ACCOUNT
+        account_write_gas = GasCosts.ACCOUNT_WRITE
 
     # Charge regular gas before state gas so that a regular-gas OOG
     # does not consume state gas that would inflate the parent's
     # reservoir on frame failure.
-    charge_gas(evm, gas_cost)
+    charge_gas(evm, gas_cost + account_write_gas)
     charge_state_gas(evm, state_gas)
 
     originator = evm.message.current_target
@@ -677,16 +688,12 @@ def selfdestruct(evm: Evm) -> None:
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
 
-    # Emit transfer or burn log
-    if originator in tx_state.created_accounts and beneficiary == originator:
-        emit_burn_log(evm, originator, originator_balance)
-    elif beneficiary != originator:
+    # Emit transfer log
+    if beneficiary != originator:
         emit_transfer_log(evm, originator, beneficiary, originator_balance)
 
     # Register account for deletion iff created in same transaction
     if originator in tx_state.created_accounts:
-        # If beneficiary and originator are the same then the ether is burnt.
-        set_account_balance(tx_state, originator, U256(0))
         evm.accounts_to_delete.add(originator)
 
     # HALT the execution

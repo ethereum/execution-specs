@@ -1009,8 +1009,18 @@ def test_selfdestruct_to_self(
     if fork.is_eip_enabled(7928):
         if same_tx:
             if is_success:
-                # Created and destroyed in same tx - no net changes for victim
-                victim_expectation = BalAccountExpectation.empty()
+                # per EIP-8246
+                if fork.is_eip_enabled(8246) and originator_balance > 0:
+                    victim_expectation = BalAccountExpectation(
+                        balance_changes=[
+                            BalBalanceChange(
+                                block_access_index=1,
+                                post_balance=originator_balance,
+                            )
+                        ],
+                    )
+                else:
+                    victim_expectation = BalAccountExpectation.empty()
             else:
                 # OOG: CREATE succeeded but SELFDESTRUCT failed
                 victim_expectation = BalAccountExpectation(
@@ -1090,8 +1100,19 @@ def test_selfdestruct_to_self(
                 victim: Account(balance=originator_balance, code=victim_code),
             }
     else:
-        contract_destroyed = fork < Cancun or same_tx
-        if contract_destroyed:
+        # per EIP-8246
+        if fork.is_eip_enabled(8246) and same_tx and originator_balance > 0:
+            post = {
+                alice: Account(nonce=1),
+                caller: Account(nonce=caller_nonce),
+                victim: Account(
+                    balance=originator_balance,
+                    nonce=0,
+                    code=b"",
+                    storage={},
+                ),
+            }
+        elif fork < Cancun or same_tx:
             post = {
                 alice: Account(nonce=1),
                 caller: Account(nonce=caller_nonce),
@@ -1171,6 +1192,19 @@ def test_initcode_selfdestruct_to_self(
                 BalBalanceChange(block_access_index=1, post_balance=0)
             )
 
+        # per EIP-8246
+        if fork.is_eip_enabled(8246) and originator_balance > 0:
+            victim_initcode_expectation = BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(
+                        block_access_index=1,
+                        post_balance=originator_balance,
+                    )
+                ],
+            )
+        else:
+            victim_initcode_expectation = BalAccountExpectation.empty()
+
         expected_bal = BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
@@ -1179,15 +1213,22 @@ def test_initcode_selfdestruct_to_self(
                     ],
                 ),
                 caller: caller_expectation,
-                victim: BalAccountExpectation.empty(),
+                victim: victim_initcode_expectation,
             }
         )
 
-    # Contract was created and destroyed in same tx
+    # per EIP-8246
+    victim_post: Account | None
+    if fork.is_eip_enabled(8246) and originator_balance > 0:
+        victim_post = Account(
+            balance=originator_balance, nonce=0, code=b"", storage={}
+        )
+    else:
+        victim_post = Account.NONEXISTENT
     post: dict = {
         alice: Account(nonce=1),
         caller: Account(nonce=2),
-        victim: Account.NONEXISTENT,
+        victim: victim_post,
     }
 
     blockchain_test(

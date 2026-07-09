@@ -1,0 +1,225 @@
+name: Create Fixture Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      feature:
+        description: "Feature name, e.g. tests, benchmark, bal-devnet"
+        required: true
+        type: string
+      version:
+        description: "Release version, e.g. v20.0.0"
+        required: true
+        type: string
+      branch:
+        description: "Branch to release from, e.g. devnets/bal/7 (required for *-devnet features)"
+        required: false
+        type: string
+      evm:
+        description: "Override the evm impl (e.g. geth, evmone). Defaults to the feature's evm-type."
+        required: false
+        type: string
+      evm_repo:
+        description: "Override the t8n tool repo (e.g. ethereum/go-ethereum)"
+        required: false
+        type: string
+      evm_ref:
+        description: "Override the t8n tool branch / tag / commit"
+        required: false
+        type: string
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      build_matrix: ${{ steps.matrix.outputs.build_matrix }}
+      feature_name: ${{ steps.matrix.outputs.feature_name }}
+      combine_labels: ${{ steps.matrix.outputs.combine_labels }}
+      target_sha: ${{ steps.target_sha.outputs.sha }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: false
+          ref: ${{ inputs.branch }}
+      - name: Resolve target SHA
+        id: target_sha
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-uv
+
+      - name: Validate input and generate build matrix
+        id: matrix
+        shell: bash
+        env:
+          INPUT_FEATURE: ${{ inputs.feature }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_EVM: ${{ inputs.evm }}
+        run: |
+          # An `evm` override must name a key in evm.yaml; the feature,
+          # version and devnet-branch validation lives in (and is unit-tested
+          # via) generate_build_matrix.py.
+          if [ -n "$INPUT_EVM" ] && ! grep -qE "^${INPUT_EVM}:" .github/configs/evm.yaml; then
+            echo "::error::evm '$INPUT_EVM' is not a key in .github/configs/evm.yaml"
+            exit 1
+          fi
+
+          uv run -q .github/scripts/generate_build_matrix.py \
+            "$INPUT_FEATURE" "$INPUT_VERSION" "$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: fill (${{ matrix.label || matrix.feature }})
+    needs: setup
+    runs-on: [self-hosted-ghr, size-gigachungus-x64]
+    timeout-minutes: 1440
+    strategy:
+      fail-fast: true
+      matrix:
+        include: ${{ fromJson(needs.setup.outputs.build_matrix) }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: true
+          ref: ${{ needs.setup.outputs.target_sha }}
+
+      - uses: ./.github/actions/build-fixtures
+        with:
+          release_name: ${{ matrix.feature }}
+          from_fork: ${{ matrix.from_fork }}
+          until_fork: ${{ matrix.until_fork }}
+          split_label: ${{ matrix.label }}
+          evm: ${{ inputs.evm }}
+          evm_repo: ${{ inputs.evm_repo }}
+          evm_ref: ${{ inputs.evm_ref }}
+
+  combine:
+    name: combine (${{ needs.setup.outputs.feature_name }})
+    needs: [setup, build]
+    if: needs.setup.outputs.combine_labels != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: false
+          ref: ${{ needs.setup.outputs.target_sha }}
+      - uses: ./.github/actions/setup-uv
+      - name: Install pigz
+        run: sudo apt-get install -y pigz
+      - name: Download and merge split artifacts
+        shell: bash
+        run: |
+          mkdir -p combined
+          for label in ${{ needs.setup.outputs.combine_labels }}; do
+            echo "Downloading: fixtures__${label}"
+            if gh run download ${{ github.run_id }} -n "fixtures__${label}" --dir "split_artifacts/fixtures__${label}"; then
+              cp -r "split_artifacts/fixtures__${label}"/* combined/
+            else
+              echo "No artifact for ${label} (no tests collected, skipping)"
+            fi
+          done
+          echo "Combined directory contents:"
+          find combined -maxdepth 3 -type d | head -30 || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Merge split index files
+        shell: bash
+        run: |
+          SPLIT_DIRS=()
+          for label in ${{ needs.setup.outputs.combine_labels }}; do
+            dir="split_artifacts/fixtures__${label}"
+            if [ -d "$dir" ]; then
+              SPLIT_DIRS+=("$dir")
+            fi
+          done
+          if [ ${#SPLIT_DIRS[@]} -gt 0 ]; then
+            uv run python .github/scripts/merge_index_files.py combined/.meta/index.json "${SPLIT_DIRS[@]}"
+          fi
+      - name: Free disk space
+        run: rm -rf split_artifacts/
+      - name: Create release tarball
+        id: tarball
+        shell: bash
+        env:
+          FEATURE_NAME: ${{ needs.setup.outputs.feature_name }}
+        run: |
+          if [ "$FEATURE_NAME" = "tests" ]; then
+            TARBALL="fixtures.tar.gz"
+          else
+            TARBALL="fixtures_${FEATURE_NAME}.tar.gz"
+          fi
+          uv run -q .github/scripts/create_release_tarball.py combined "$TARBALL"
+          echo "path=$TARBALL" >> "$GITHUB_OUTPUT"
+      - name: Upload combined fixture tarball
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: fixtures_${{ needs.setup.outputs.feature_name }}
+          path: ${{ steps.tarball.outputs.path }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [setup, build, combine]
+    if: always() && needs.build.result == 'success' && (needs.combine.result == 'success' || needs.combine.result == 'skipped')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: false
+          fetch-depth: 0
+          ref: ${{ needs.setup.outputs.target_sha }}
+
+      - name: Download release artifacts
+        shell: bash
+        run: |
+          gh run download ${{ github.run_id }} -p "fixtures_*" --dir ./artifacts
+          rm -rf ./artifacts/fixtures__*/
+          gh run download ${{ github.run_id }} -p "benchmark_genesis_*" --dir ./artifacts || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Draft release
+        shell: bash
+        env:
+          INPUT_FEATURE: ${{ inputs.feature }}
+          INPUT_VERSION: ${{ inputs.version }}
+          TARGET_SHA: ${{ needs.setup.outputs.target_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RELEASE_NAME="${INPUT_FEATURE}@${INPUT_VERSION}"
+          # Git tags namespace fixture releases under `tests-<feature>@`, except
+          # the default `tests` feature which tags as `tests@vX.Y.Z` (no doubled
+          # prefix). The release title matches the git tag.
+          if [ "$INPUT_FEATURE" = "tests" ]; then
+            TAG_NAME="$RELEASE_NAME"
+            TAG_GLOB="tests@v*"
+          else
+            TAG_NAME="tests-${RELEASE_NAME}"
+            TAG_GLOB="tests-${INPUT_FEATURE}@v*"
+          fi
+
+          # Use the prior release of the same feature as the notes baseline.
+          PREV_TAG=$(
+            git tag --list "$TAG_GLOB" --sort=-v:refname \
+              | grep -v "^${TAG_NAME}$" \
+              | head -n 1 \
+            || true
+          )
+
+          # Pin the tag to the single SHA resolved in `setup` so the tag
+          # lands on the same commit every job built from.
+          TARGET="$TARGET_SHA"
+
+          # All fixture releases are drafted as prereleases; publish manually.
+          RELEASE_ARGS=(
+            --draft
+            --prerelease
+            --generate-notes
+            --target "$TARGET"
+            --title "$TAG_NAME"
+          )
+          if [ -n "$PREV_TAG" ]; then
+            RELEASE_ARGS+=(--notes-start-tag "$PREV_TAG")
+          fi
+
+          # Creates the tag on the target commit and the release on success.
+          gh release create "$TAG_NAME" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz

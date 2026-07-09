@@ -95,7 +95,6 @@ class Scalar(BytesConcatenation):
         return self.x.to_bytes(32, byteorder="big")
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-2537 specifications as defined at

@@ -12,6 +12,7 @@ from typing import List, Sized
 from execution_testing.base_types import AccessList, Bytes
 from execution_testing.base_types.conversions import BytesConvertible
 
+from .....recipient_type import RecipientType
 from ....base_fork import (
     BaseFork,
     CalldataGasCalculator,
@@ -66,8 +67,11 @@ class EIP7623(BaseFork):
             *,
             data: BytesConvertible,
             access_list: List[AccessList] | None = None,
+            contract_creation: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
-            del access_list
+            del access_list, contract_creation, sends_value, recipient_type
             return (
                 calldata_gas_calculator(data=data, floor=True)
                 + gas_costs.TX_BASE
@@ -95,7 +99,11 @@ class EIP7623(BaseFork):
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
             return_cost_deducted_prior_execution: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
+            del sends_value, recipient_type
+
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
                 contract_creation=contract_creation,

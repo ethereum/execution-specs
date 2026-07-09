@@ -134,6 +134,10 @@ class TestTokenCalculation:
         expected_floor_cost = gas_costs.TX_BASE + (
             expected_floor_tokens * floor_token_cost
         )
+        # EIP-2780 anchors the floor on the decomposed intrinsic base,
+        # which includes the recipient-access charge for a non-self,
+        # non-create transaction (the ``to`` fixture is a contract).
+        expected_floor_cost += gas_costs.COLD_ACCOUNT_ACCESS
         assert floor_cost == expected_floor_cost, (
             f"Floor cost mismatch for {description}: "
             f"{floor_cost} != {expected_floor_cost} "
@@ -144,6 +148,11 @@ class TestTokenCalculation:
         expected_intrinsic_cost = gas_costs.TX_BASE + (
             expected_standard_tokens * gas_costs.TX_DATA_TOKEN_STANDARD
         )
+        if fork.is_eip_enabled(2780):
+            # EIP-2780 surfaces an explicit recipient-access charge for
+            # non-self, non-create transactions; the ``to`` fixture
+            # defaults to a deployed contract, so the charge applies.
+            expected_intrinsic_cost += gas_costs.COLD_ACCOUNT_ACCESS
         assert intrinsic_cost_before_execution == expected_intrinsic_cost, (
             f"Intrinsic cost mismatch for {description}: "
             f"{intrinsic_cost_before_execution} != {expected_intrinsic_cost} "
@@ -442,6 +451,9 @@ class TestNestedContractCalls:
         expected_floor_cost = gas_costs.TX_BASE + (
             tokens_tx * gas_costs.TX_DATA_TOKEN_FLOOR
         )
+        # EIP-2780 anchors the floor on the decomposed intrinsic base;
+        # the tx targets a contract, adding the recipient-access charge.
+        expected_floor_cost += gas_costs.COLD_ACCOUNT_ACCESS
         assert floor_cost == expected_floor_cost
 
         tx = Transaction(

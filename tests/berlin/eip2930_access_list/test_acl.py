@@ -235,6 +235,7 @@ def test_transaction_intrinsic_gas_cost(
         calldata=tx_data,
         contract_creation=contract_creation,
         access_list=access_lists,
+        sends_value=True,
     )
     if not enough_gas:
         tx_gas_limit -= 1
@@ -288,7 +289,6 @@ def test_repeated_address_acl(
         overhead_cost=sload_push_cost,
         extra_stack_items=1,  # SLOAD pushes 1 item to the stack
         sstore_key=0,
-        stop=False,  # Because it's the first CodeGasMeasure
     )
 
     sload1_measure = CodeGasMeasure(

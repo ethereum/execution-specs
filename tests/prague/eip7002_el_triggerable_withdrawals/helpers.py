@@ -1,18 +1,8 @@
 """Helpers for the EIP-7002 withdrawal tests."""
 
-from dataclasses import dataclass, field, replace
-from functools import cached_property
-from itertools import count
-from typing import Callable, ClassVar, List, Self
+from typing import ClassVar, Self
 
-from execution_testing import (
-    EOA,
-    Address,
-    Alloc,
-    Bytecode,
-    Op,
-    Transaction,
-)
+from execution_testing import Address, FeeSystemContractRequest
 from execution_testing import (
     WithdrawalRequest as WithdrawalRequestBase,
 )
@@ -20,36 +10,20 @@ from execution_testing import (
 from .spec import Spec
 
 
-class WithdrawalRequest(WithdrawalRequestBase):
+class WithdrawalRequest(WithdrawalRequestBase, FeeSystemContractRequest):
     """Class used to describe a withdrawal request in a test."""
-
-    fee: int = 0
-    """
-    Fee to be paid to the system contract for the withdrawal request. This is
-    different from `amount` which is the amount of gwei to be withdrawn on the
-    beacon chain.
-
-    """
-    valid: bool = True
-    """Whether the withdrawal request is valid or not."""
-    gas_limit: int | None = None
-    """Gas limit for the call."""
-    calldata_modifier: Callable[[bytes], bytes] = lambda x: x
-    """Calldata modifier function."""
 
     interaction_contract_address: ClassVar[Address] = Address(
         Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
     )
+    min_fee: ClassVar[int] = Spec.MIN_WITHDRAWAL_REQUEST_FEE
+    update_fraction: ClassVar[int] = (
+        Spec.WITHDRAWAL_REQUEST_FEE_UPDATE_FRACTION
+    )
+    target_per_block: ClassVar[int] = Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
+    max_per_block: ClassVar[int] = Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
 
     @property
-    def value(self) -> int:
-        """
-        Return the value of the call to the withdrawal request contract, equal
-        to the fee to be paid.
-        """
-        return self.fee
-
-    @cached_property
     def calldata(self) -> bytes:
         """
         Return the calldata needed to call the withdrawal request contract and
@@ -68,249 +42,7 @@ class WithdrawalRequest(WithdrawalRequestBase):
         """
         return self.copy(source_address=source_address)
 
-
-@dataclass(kw_only=True, frozen=True)
-class WithdrawalRequestInteractionBase:
-    """Base class for all types of withdrawal transactions we want to test."""
-
-    sender_account: EOA | None = None
-    """Account that will send the transaction."""
-    requests: List[WithdrawalRequest]
-    """Withdrawal request to be included in the block."""
-
-    def transactions(self) -> List[Transaction]:
-        """Return a transaction for the withdrawal request."""
-        raise NotImplementedError
-
-    def update_pre(self, pre: Alloc) -> Self:
-        """
-        Allocate accounts/contracts in `pre` and return a new instance with
-        the allocated state populated. Does not mutate `self`, so the
-        parametrize value remains pristine across fixture format runs.
-        """
-        raise NotImplementedError
-
-    def valid_requests(
-        self, current_minimum_fee: int
-    ) -> List[WithdrawalRequest]:
-        """
-        Return the list of withdrawal requests that should be valid in the
-        block.
-        """
-        raise NotImplementedError
-
-
-@dataclass(kw_only=True, frozen=True)
-class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
-    """
-    Class used to describe a withdrawal request originated from an externally
-    owned account.
-    """
-
-    def transactions(self) -> List[Transaction]:
-        """Return a transaction for the withdrawal request."""
-        assert self.sender_account is not None, (
-            "Sender account not initialized"
-        )
-        txs: List[Transaction] = []
-        for request in self.requests:
-            gas_limit = request.gas_limit
-            if gas_limit is not None:
-                tx = Transaction(
-                    gas_limit=request.gas_limit,
-                    to=request.interaction_contract_address,
-                    value=request.value,
-                    data=request.calldata,
-                    sender=self.sender_account,
-                )
-            else:
-                tx = Transaction(
-                    to=request.interaction_contract_address,
-                    value=request.value,
-                    data=request.calldata,
-                    sender=self.sender_account,
-                )
-            txs.append(tx)
-        return txs
-
-    def update_pre(self, pre: Alloc) -> Self:
-        """Return a copy of self with `sender_account` populated."""
-        return replace(self, sender_account=pre.fund_eoa())
-
-    def valid_requests(
-        self, current_minimum_fee: int
-    ) -> List[WithdrawalRequest]:
-        """Return the list of withdrawal requests that are valid."""
-        assert self.sender_account is not None, (
-            "Sender account not initialized"
-        )
-        return [
-            request.with_source_address(self.sender_account)
-            for request in self.requests
-            if request.valid and request.fee >= current_minimum_fee
-        ]
-
-
-@dataclass(kw_only=True, frozen=True)
-class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
-    """Class used to describe a withdrawal originated from a contract."""
-
-    contract_balance: int = 1_000_000_000_000_000_000
-    """
-    Balance of the contract that will make the call to the pre-deploy contract.
-    """
-    contract_address: Address | None = None
-    """
-    Address of the contract that will make the call to the pre-deploy contract.
-    """
-    entry_address: Address | None = None
-    """Address to send the transaction to."""
-
-    call_type: Op = field(default_factory=lambda: Op.CALL)
-    """Type of call to be used to make the withdrawal request."""
-    call_depth: int = 2
-    """Frame depth of the pre-deploy contract when it executes the call."""
-    extra_code: Bytecode = field(default_factory=Bytecode)
-    """Extra code to be added to the contract code."""
-
-    @property
-    def contract_code(self) -> Bytecode:
-        """Contract code used by the relay contract."""
-        code = Bytecode()
-        current_offset = 0
-        for r in self.requests:
-            value_arg = (
-                [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []
-            )
-            code += Op.CALLDATACOPY(
-                0, current_offset, len(r.calldata)
-            ) + Op.POP(
-                self.call_type(
-                    Op.GAS if r.gas_limit is None else r.gas_limit,
-                    r.interaction_contract_address,
-                    *value_arg,
-                    0,
-                    len(r.calldata),
-                    0,
-                    0,
-                )
-            )
-            current_offset += len(r.calldata)
-        return code + self.extra_code
-
-    def transactions(self) -> List[Transaction]:
-        """Return a transaction for the withdrawal request."""
-        assert self.entry_address is not None, "Entry address not initialized"
-        return [
-            Transaction(
-                to=self.entry_address,
-                data=b"".join(r.calldata for r in self.requests),
-                sender=self.sender_account,
-            )
-        ]
-
-    def update_pre(self, pre: Alloc) -> Self:
-        """
-        Return a copy of self with the allocated sender/contract/entry
-        addresses populated.
-        """
-        sender_account = pre.fund_eoa()
-        contract_address = pre.deploy_contract(
-            code=self.contract_code, balance=self.contract_balance
-        )
-        entry_address = contract_address
-        if self.call_depth > 2:
-            for _ in range(1, self.call_depth - 1):
-                entry_address = pre.deploy_contract(
-                    code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-                    + Op.POP(
-                        Op.CALL(
-                            Op.GAS,
-                            entry_address,
-                            0,
-                            0,
-                            Op.CALLDATASIZE,
-                            0,
-                            0,
-                        )
-                    )
-                )
-        return replace(
-            self,
-            sender_account=sender_account,
-            contract_address=contract_address,
-            entry_address=entry_address,
-        )
-
-    def valid_requests(
-        self, current_minimum_fee: int
-    ) -> List[WithdrawalRequest]:
-        """Return the list of withdrawal requests that are valid."""
-        assert self.contract_address is not None, (
-            "Contract address not initialized"
-        )
-        return [
-            r.with_source_address(self.contract_address)
-            for r in self.requests
-            if r.valid and r.value >= current_minimum_fee
-        ]
-
-
-def get_n_fee_increments(n: int) -> List[int]:
-    """Get the first N excess withdrawal requests that increase the fee."""
-    excess_withdrawal_requests_counts = []
-    last_fee = 1
-    for i in count(0):
-        if Spec.get_fee(i) > last_fee:
-            excess_withdrawal_requests_counts.append(i)
-            last_fee = Spec.get_fee(i)
-        if len(excess_withdrawal_requests_counts) == n:
-            break
-    return excess_withdrawal_requests_counts
-
-
-def get_n_fee_increment_blocks(
-    n: int,
-) -> List[List[WithdrawalRequestContract]]:
-    """
-    Return N blocks that should be included in the test such that each
-    subsequent block has an increasing fee for the withdrawal requests.
-
-    This is done by calculating the number of withdrawals required to reach the
-    next fee increment and creating a block with that number of withdrawal
-    requests plus the number of withdrawals required to reach the target.
-    """
-    blocks = []
-    previous_excess = 0
-    withdrawal_index = 0
-    previous_fee = 0
-    for required_excess_withdrawals in get_n_fee_increments(n):
-        withdrawals_required = (
-            required_excess_withdrawals
-            + Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
-            - previous_excess
-        )
-        fee = Spec.get_fee(previous_excess)
-        assert fee > previous_fee
-        blocks.append(
-            [
-                WithdrawalRequestContract(
-                    requests=[
-                        WithdrawalRequest(
-                            validator_pubkey=i,
-                            amount=0,
-                            fee=fee,
-                        )
-                        for i in range(
-                            withdrawal_index,
-                            withdrawal_index + withdrawals_required,
-                        )
-                    ],
-                )
-            ],
-        )
-        previous_fee = fee
-        withdrawal_index += withdrawals_required
-        previous_excess = required_excess_withdrawals
-
-    return blocks
+    @classmethod
+    def from_index(cls, index: int) -> Self:
+        """Build a withdrawal request from a sequential index."""
+        return cls(validator_pubkey=index, amount=0)

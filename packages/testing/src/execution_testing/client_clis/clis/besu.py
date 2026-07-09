@@ -326,6 +326,9 @@ class BesuExceptionMapper(ExceptionMapper):
             "transaction invalid max priority fee per gas cannot be greater "
             "than max fee per gas"
         ),
+        TransactionException.INVALID_CHAINID: (
+            "transaction invalid transaction was meant for chain id"
+        ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "Invalid versionedHash"
         ),

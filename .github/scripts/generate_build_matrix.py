@@ -7,25 +7,36 @@
 # ]
 # ///
 """
-Generate the build matrix for release fixture workflows.
+Validate release inputs and generate the build matrix for release
+fixture workflows.
 
-Read `.github/configs/feature.yaml` and emit a flat JSON build matrix
-suitable for ``strategy.matrix`` in GitHub Actions.
+Usage: `generate_build_matrix.py <feature> <version> [branch]`.
 
-Features whose ``fill-params`` contain ``--until`` are split across the
+First validate the dispatch inputs (see `validate_inputs`), then read
+`.github/configs/feature.yaml` and emit a flat JSON build matrix suitable
+for `strategy.matrix` in GitHub Actions.
+
+Features whose `fill-params` contain `--until` are split across the
 shared fork ranges defined in `.github/configs/fork-ranges.yaml`.
-Features using ``--fork`` (single fork) produce a single unsplit entry.
+Features using `--fork` (single fork) produce a single unsplit entry.
 """
 
 import json
 import re
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 import yaml
 
 FEATURE_CONFIG = Path(".github/configs/feature.yaml")
 FORK_RANGES_CONFIG = Path(".github/configs/fork-ranges.yaml")
+
+VERSION_RE = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
+
+# Devnet release branches follow `devnets/<feat-or-fork>/<n>`, e.g.
+# `devnets/bal/7` or `devnets/glamsterdam/6`; `<n>` is the devnet number.
+DEVNET_BRANCH_RE = re.compile(r"^devnets/[^/]+/([0-9]+)$")
 
 # Canonical fork ordering used to filter fork ranges per feature.
 FORK_ORDER = [
@@ -49,6 +60,9 @@ FORK_ORDER = [
     "Osaka",
     "BPO1",
     "BPO2",
+    "BPO3",
+    "BPO4",
+    "BPO5",
     "Amsterdam",
 ]
 
@@ -61,11 +75,70 @@ def load_config(path: Path) -> dict:
         return yaml.safe_load(f)
 
 
+def fail(message: str) -> NoReturn:
+    """Print an error to stderr and exit non-zero."""
+    print(f"Error: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def validate_inputs(feature: str, version: str, branch: str) -> None:
+    """
+    Validate the release dispatch inputs before building a matrix.
+
+    Centralize the feature/version checks here so they are unit-testable
+    rather than living as inline bash in the release workflow.
+
+    For `<feat>-devnet` releases the major version (`X` of `vX.Y.Z`)
+    must equal the devnet number encoded in the release branch, so a
+    `bal-devnet` release from `devnets/bal/7` must be tagged `v7.*.*`.
+    """
+    if not feature:
+        fail("feature name is empty")
+    if not VERSION_RE.match(version):
+        fail(f"version '{version}' must match vX.Y.Z (e.g. v20.0.0)")
+
+    # A bare `devnet` has no friendly `<feat>-` prefix to tag with.
+    if feature in ("devnet", "-devnet"):
+        fail("devnet releases require a <feat>- prefix, e.g. bal-devnet")
+
+    # `<feat>-devnet-<n>`: the devnet index belongs in the version (X of
+    # vX.Y.Z), not in the feature name.
+    if "-devnet-" in feature:
+        suggested_feature, _, suggested_index = feature.rpartition("-")
+        fail(
+            "devnet index must go in 'version', not the feature name; "
+            f"did you mean feature={suggested_feature} "
+            f"version=v{suggested_index}.0.0?"
+        )
+
+    if feature.endswith("-devnet"):
+        if not branch:
+            fail(
+                "devnet releases require a 'branch' input, "
+                "e.g. branch=devnets/bal/7"
+            )
+        match = DEVNET_BRANCH_RE.match(branch)
+        if not match:
+            fail(
+                f"could not parse a devnet number from branch '{branch}' "
+                "(expected devnets/<feat>/<n>, e.g. devnets/bal/7)"
+            )
+        devnet_number = int(match.group(1))
+        major = int(version.lstrip("v").split(".")[0])
+        if major != devnet_number:
+            minor_patch = version.split(".", 1)[1]
+            fail(
+                f"version major (v{major}) must equal the devnet number "
+                f"({devnet_number}) from branch '{branch}'; "
+                f"did you mean version=v{devnet_number}.{minor_patch}?"
+            )
+
+
 def parse_until_fork(fill_params: str) -> str | None:
     """
-    Extract the ``--until`` value from fill-params.
+    Extract the `--until` value from fill-params.
 
-    Return ``None`` when ``--fork`` is used instead (single-fork
+    Return `None` when `--fork` is used instead (single-fork
     feature that should not be split).
     """
     if re.search(r"--fork\b", fill_params):
@@ -76,9 +149,9 @@ def parse_until_fork(fill_params: str) -> str | None:
 
 def applicable_ranges(fork_ranges: list[dict], until_fork: str) -> list[dict]:
     """
-    Return fork ranges whose ``from`` is at or before *until_fork*.
+    Return fork ranges whose `from` is at or before *until_fork*.
 
-    Clamp the last applicable range's ``until`` to *until_fork* so we
+    Clamp the last applicable range's `until` to *until_fork* so we
     never fill beyond the feature's declared boundary.
     """
     limit = FORK_INDEX[until_fork]
@@ -130,26 +203,38 @@ def build_matrix(
 
 
 def main() -> None:
-    """Entry point."""
-    if len(sys.argv) != 2:
+    """Validate the inputs and print the build matrix to stdout."""
+    args = sys.argv[1:]
+    if len(args) < 2:
         print(
-            "Usage: generate_build_matrix.py <feature>",
+            "Usage: generate_build_matrix.py <feature> <version> [branch]",
             file=sys.stderr,
         )
         sys.exit(1)
+
+    name = args[0]
+    version = args[1]
+    branch = args[2] if len(args) > 2 else ""
+
+    validate_inputs(name, version, branch)
 
     config = load_config(FEATURE_CONFIG)
     fork_ranges = load_config(FORK_RANGES_CONFIG) or []
-    name = sys.argv[1]
 
-    if name not in config or not isinstance(config[name], dict):
+    # `<feat>-devnet` releases (e.g. bal-devnet) share the `devnet` entry,
+    # while keeping their friendly name in the matrix and artifact outputs.
+    lookup = (
+        "devnet" if name.endswith("-devnet") and "devnet" in config else name
+    )
+
+    if lookup not in config or not isinstance(config[lookup], dict):
         print(
-            f"Error: feature '{name}' not found in {FEATURE_CONFIG}.",
+            f"Error: feature '{lookup}' not found in {FEATURE_CONFIG}.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    build, labels = build_matrix(config[name], name, fork_ranges)
+    build, labels = build_matrix(config[lookup], name, fork_ranges)
 
     print(f"build_matrix={json.dumps(build)}")
     print(f"feature_name={name}")

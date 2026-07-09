@@ -77,7 +77,6 @@ def test_delegatecode_dynamic_code(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=453081,
     )
 
     post = {

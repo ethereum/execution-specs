@@ -16,7 +16,6 @@ ref_spec_145 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-145 specifications as defined at

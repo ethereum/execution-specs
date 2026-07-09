@@ -21,6 +21,7 @@ from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
+from ..fork_types import StateGas, StateGasPerByte
 from ..transactions import BlobTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
@@ -36,17 +37,19 @@ class StateGasCosts:
     state-byte counts that convert into gas via `COST_PER_STATE_BYTE`.
     """
 
-    COST_PER_STATE_BYTE: Final[Uint] = Uint(1530)
+    COST_PER_STATE_BYTE: Final[StateGasPerByte] = StateGasPerByte(Uint(1530))
     STATE_BYTES_PER_NEW_ACCOUNT: Final[Uint] = Uint(120)
     STATE_BYTES_PER_STORAGE_SET: Final[Uint] = Uint(64)
     STATE_BYTES_PER_AUTH_BASE: Final[Uint] = Uint(23)
-    STORAGE_SET: Final[Uint] = (
+    STORAGE_SET: Final[StateGas] = (
         STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE
     )
-    NEW_ACCOUNT: Final[Uint] = (
+    NEW_ACCOUNT: Final[StateGas] = (
         STATE_BYTES_PER_NEW_ACCOUNT * COST_PER_STATE_BYTE
     )
-    AUTH_BASE: Final[Uint] = STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
+    AUTH_BASE: Final[StateGas] = (
+        STATE_BYTES_PER_AUTH_BASE * COST_PER_STATE_BYTE
+    )
 
 
 # These values may be patched at runtime by a future gas repricing utility
@@ -64,23 +67,21 @@ class GasCosts:
 
     # Access
     WARM_ACCESS: Final[Uint] = Uint(100)
-    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(2600)
-    COLD_STORAGE_ACCESS: Final[Uint] = Uint(2100)
+    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(3000)
+    COLD_STORAGE_ACCESS: Final[Uint] = Uint(3000)
 
     # Storage
-    COLD_STORAGE_WRITE: Final[Uint] = Uint(5000)
+    STORAGE_WRITE: Final[Uint] = Uint(10000)
 
     # Call
-    CALL_VALUE: Final[Uint] = Uint(9000)
+    CALL_VALUE: Final[Uint] = Uint(10300)  # ACCOUNT_WRITE + CALL_STIPEND
     CALL_STIPEND: Final[Uint] = Uint(2300)
+    ACCOUNT_WRITE: Final[Uint] = Uint(8000)
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
     CODE_INIT_PER_WORD: Final[Uint] = Uint(2)
-    REGULAR_GAS_CREATE: Final[Uint] = Uint(9000)
-
-    # Authorization
-    PER_AUTH_BASE_COST: Final[Uint] = Uint(7500)
+    CREATE_ACCESS: Final[Uint] = ACCOUNT_WRITE + COLD_STORAGE_ACCESS
 
     # Utility
     ZERO: Final[Uint] = Uint(0)
@@ -88,7 +89,9 @@ class GasCosts:
     FAST_STEP: Final[Uint] = Uint(5)
 
     # Refunds
-    REFUND_STORAGE_CLEAR: Final[int] = 4800
+    REFUND_STORAGE_CLEAR: Final[int] = int(
+        (STORAGE_WRITE + COLD_STORAGE_ACCESS) * Uint(4800) // Uint(5000)
+    )
 
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
@@ -125,12 +128,23 @@ class GasCosts:
     BLOCK_ACCESS_LIST_ITEM: Final[Uint] = Uint(2000)
 
     # Transactions
-    TX_BASE: Final[Uint] = Uint(21000)
+    TX_BASE: Final[Uint] = Uint(12000)
     TX_CREATE: Final[Uint] = Uint(32000)
+    TX_VALUE_COST: Final[Uint] = Uint(4244)
+    TRANSFER_LOG_COST: Final[Uint] = Uint(1756)
     TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
-    TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(2400)
-    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(1900)
+    TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS
+    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = COLD_STORAGE_ACCESS
+
+    # Authorization
+    AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
+    REGULAR_PER_AUTH_BASE_COST: Final[Uint] = (
+        AUTH_TUPLE_BYTES * TX_DATA_TOKEN_FLOOR
+        + PRECOMPILE_ECRECOVER
+        + COLD_ACCOUNT_ACCESS
+        + Uint(2) * WARM_ACCESS
+    )
 
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
@@ -196,6 +210,8 @@ class GasCosts:
     OPCODE_DUPN: Final[Uint] = VERY_LOW
     OPCODE_SWAPN: Final[Uint] = VERY_LOW
     OPCODE_EXCHANGE: Final[Uint] = VERY_LOW
+    OPCODE_TLOAD: Final[Uint] = Uint(100)
+    OPCODE_TSTORE: Final[Uint] = Uint(100)
 
     # Dynamic Opcode Components
     OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW
@@ -295,10 +311,10 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
     evm.regular_gas_used += amount
 
 
-def charge_state_gas(evm: Evm, amount: Uint) -> None:
+def charge_state_gas(evm: Evm, amount: StateGas) -> None:
     """
     Subtracts `amount` from the state gas reservoir, then from
-    `evm.gas_left` when the reservoir is empty. Records state gas usage.
+    `evm.gas_left` when the reservoir is empty, tracking any [spill].
 
     Parameters
     ----------
@@ -306,6 +322,8 @@ def charge_state_gas(evm: Evm, amount: Uint) -> None:
         The current EVM.
     amount :
         The amount of state gas the current operation requires.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.Evm.state_gas_spilled
 
     """
     evm_trace(evm, StateGasAndRefund(int(amount)))
@@ -319,8 +337,6 @@ def charge_state_gas(evm: Evm, amount: Uint) -> None:
         evm.state_gas_spilled += remainder
     else:
         raise OutOfGasError
-
-    evm.state_gas_used += int(amount)
 
 
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:

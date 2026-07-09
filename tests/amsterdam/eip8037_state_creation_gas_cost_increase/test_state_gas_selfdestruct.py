@@ -33,37 +33,46 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
+@pytest.mark.parametrize("funding", ["reservoir", "spill"])
 @pytest.mark.valid_from("EIP8037")
-def test_selfdestruct_new_beneficiary_charges_state_gas(
+def test_selfdestruct_new_beneficiary_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    funding: str,
 ) -> None:
     """
-    Test SELFDESTRUCT to non-existent beneficiary charges state gas.
+    Test SELFDESTRUCT to a non-existent beneficiary bills NEW_ACCOUNT.
 
-    When the beneficiary does not exist and the originator has nonzero
-    balance, SELFDESTRUCT charges new-account state gas for
-    creating the new beneficiary account.
+    A contract with nonzero balance self-destructs to a non-alive
+    beneficiary, charging new-account state gas. The charge is billed
+    identically whether drawn from the reservoir (out-of-cap tx) or
+    spilled into `gas_left` (in-cap tx): the block bills NEW_ACCOUNT in
+    the state dimension and the beneficiary is created.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
-    # Non-existent beneficiary
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     beneficiary = 0xDEAD
 
     contract = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(beneficiary),
-        balance=1,
+        code=Op.SELFDESTRUCT(beneficiary), balance=1
     )
-
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
+        state_gas_reservoir=(
+            new_account_state_gas if funding == "reservoir" else 0
+        ),
     )
 
-    state_test(pre=pre, post={}, tx=tx)
+    state_test(
+        pre=pre,
+        post={
+            beneficiary: Account(balance=1),
+            contract: Account(balance=0),
+        },
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=new_account_state_gas),
+    )
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -116,37 +125,6 @@ def test_selfdestruct_zero_balance_no_state_gas(
     tx = Transaction(
         to=contract,
         state_gas_reservoir=0,
-        sender=pre.fund_eoa(),
-    )
-
-    state_test(pre=pre, post={}, tx=tx)
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_selfdestruct_state_gas_from_reservoir(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Test SELFDESTRUCT state gas drawn from reservoir.
-
-    Provide gas above TX_MAX_GAS_LIMIT so the new account state gas
-    for the non-existent beneficiary is drawn from the reservoir.
-    """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
-    beneficiary = 0xDEAD
-
-    contract = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(beneficiary),
-        balance=1,
-    )
-
-    tx = Transaction(
-        to=contract,
-        state_gas_reservoir=new_account_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -235,6 +213,43 @@ def test_selfdestruct_new_beneficiary_header_gas_used(
             Block(txs=[tx]),
         ],
         post={caller: Account(storage=storage)},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify SELFDESTRUCT state gas is refilled when an ancestor reverts.
+
+    The inner frame spills the NEW_ACCOUNT charge and self-destructs
+    successfully, then the caller reverts: the beneficiary creation
+    rolls back and the spilled state charge is refilled. The EIP-8038
+    regular account-write charge for the attempted empty-account value
+    transfer remains billed.
+    """
+    beneficiary = 0xDEAD
+    inner_code = Op.SELFDESTRUCT(beneficiary)
+    inner = pre.deploy_contract(code=inner_code, balance=1)
+    caller_code = Op.POP(Op.CALL(gas=Op.GAS, address=inner)) + Op.REVERT(0, 0)
+    caller = pre.deploy_contract(code=caller_code)
+
+    expected_regular = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + caller_code.gas_cost(fork)
+        + inner_code.gas_cost(fork)
+        + fork.gas_costs().ACCOUNT_WRITE
+    )
+    tx = Transaction(to=caller, sender=pre.fund_eoa())
+
+    state_test(
+        pre=pre,
+        post={beneficiary: Account.NONEXISTENT, inner: Account(balance=1)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_regular),
     )
 
 
@@ -701,34 +716,30 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_selfdestruct_new_beneficiary_no_regular_account_creation_cost(
+def test_selfdestruct_new_beneficiary_account_write_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify SELFDESTRUCT to a new beneficiary does not charge a
-    regular account-creation cost on top of state gas.
+    Verify SELFDESTRUCT to a new beneficiary charges `ACCOUNT_WRITE`
+    regular gas plus the account-creation state gas, and not the
+    legacy combined regular account-creation cost.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     beneficiary = pre.fund_eoa(amount=0)
 
-    victim_code = Op.SELFDESTRUCT(beneficiary)
+    victim_code = Op.SELFDESTRUCT(beneficiary, account_new=True)
     victim = pre.deploy_contract(code=victim_code, balance=1)
 
-    # Tight budget: slack is less than the old pre-Amsterdam regular
-    # account-creation cost, so any extra regular draw would OOG.
+    # Tight budget: slack is less than the legacy 25,000 regular
+    # account-creation cost minus `ACCOUNT_WRITE`, so any regular draw
+    # beyond `ACCOUNT_WRITE` would OOG. The opcode metadata folds the
+    # `ACCOUNT_WRITE` regular cost and the account-creation state gas
+    # into `gas_cost`.
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
     tx = Transaction(
         to=victim,
-        gas_limit=(
-            intrinsic
-            + victim_code.gas_cost(fork)
-            + new_account_state_gas
-            + 20_000
-        ),
+        gas_limit=(intrinsic + victim_code.gas_cost(fork) + 4_000),
         sender=pre.fund_eoa(),
     )
 

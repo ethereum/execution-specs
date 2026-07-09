@@ -58,6 +58,8 @@ class OutOfGasAt(Enum):
 
     EIP_2200_STIPEND = "oog_at_eip2200_stipend"
     EIP_2200_STIPEND_PLUS_1 = "oog_at_eip2200_stipend_plus_1"
+    ABOVE_STIPEND_BELOW_ACCESS = "oog_above_stipend_below_access"
+    ACCESS_COVERED_OOG_ON_WRITE = "access_covered_oog_on_write"
     EXACT_GAS_MINUS_1 = "oog_at_exact_gas_minus_1"
 
 
@@ -96,6 +98,8 @@ class OutOfGasBoundary(Enum):
     [
         OutOfGasAt.EIP_2200_STIPEND,
         OutOfGasAt.EIP_2200_STIPEND_PLUS_1,
+        OutOfGasAt.ABOVE_STIPEND_BELOW_ACCESS,
+        OutOfGasAt.ACCESS_COVERED_OOG_ON_WRITE,
         OutOfGasAt.EXACT_GAS_MINUS_1,
         None,  # no oog, successful sstore
     ],
@@ -110,10 +114,18 @@ def test_bal_sstore_and_oog(
     """
     Test BAL recording with SSTORE at various OOG boundaries and success.
 
-    1. OOG at EIP-2200 stipend check & implicit SLOAD -> no BAL changes
-    2. OOG post EIP-2200 stipend check & implicit SLOAD -> storage read in BAL
-    3. OOG at exact gas minus 1 -> storage read in BAL
-    4. exact gas (success) -> storage write in BAL
+    The slot read is recorded in the BAL only once the cold access cost
+    is covered. Post-repricing that cost (COLD_STORAGE_ACCESS) exceeds the
+    EIP-2200 stipend, so clearing the stipend sentry alone no longer
+    records the read. The stipend + 1 case pins the old sentry boundary
+    against regressions to sentry-gated recording.
+
+    1. OOG at the stipend, below the access cost -> no BAL changes
+    2. OOG above the stipend but below access cost (probed at
+       stipend + 1 and access cost - 1) -> no BAL changes
+    3. OOG at the access cost, write unaffordable -> storage read in BAL
+    4. OOG at exact gas minus 1 -> storage read in BAL
+    5. exact gas (success) -> storage write in BAL
     """
     alice = pre.fund_eoa()
 
@@ -129,22 +141,32 @@ def test_bal_sstore_and_oog(
     # Full cost: PUSHes + SSTORE (COLD_STORAGE_ACCESS + STORAGE_SET)
     full_cost = storage_contract_code.gas_cost(fork)
 
-    # Push cost for stipend boundary calculations
+    # Push cost for the gas-boundary calculations below.
     push_code = Op.PUSH1(0x42) + Op.PUSH1(0x01)
     push_cost = push_code.gas_cost(fork)
 
-    # CALL_STIPEND is a threshold check, not a gas cost
-    # Keep from gas_costs
+    # CALL_STIPEND is a threshold check, not a gas cost. The cold access
+    # cost gates the read into the BAL and now exceeds the stipend.
     stipend = fork.gas_costs().CALL_STIPEND
+    cold_access = fork.gas_costs().COLD_STORAGE_ACCESS
 
     if out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND:
-        # 2300 after PUSHes (fails stipend check: 2300 <= 2300)
+        # gas_left == stipend: fails the check, below the access cost.
         tx_gas_limit = intrinsic_gas_cost + push_cost + stipend
     elif out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND_PLUS_1:
-        # 2301 after PUSHes (passes stipend, does SLOAD, fails charge_gas)
+        # gas_left == stipend + 1: clears the stipend sentry by one but
+        # cannot afford the access, so OOG before the read.
         tx_gas_limit = intrinsic_gas_cost + push_cost + stipend + 1
+    elif out_of_gas_at == OutOfGasAt.ABOVE_STIPEND_BELOW_ACCESS:
+        # gas_left == access cost - 1: clears the stipend sentry but
+        # cannot afford the access, so OOG before the read.
+        tx_gas_limit = intrinsic_gas_cost + push_cost + cold_access - 1
+    elif out_of_gas_at == OutOfGasAt.ACCESS_COVERED_OOG_ON_WRITE:
+        # gas_left == access cost: access affordable (read recorded),
+        # then OOG on the write cost.
+        tx_gas_limit = intrinsic_gas_cost + push_cost + cold_access
     elif out_of_gas_at == OutOfGasAt.EXACT_GAS_MINUS_1:
-        # fail at charge_gas() at exact gas - 1 (boundary condition)
+        # fail at the final charge at exact gas - 1 (boundary condition).
         tx_gas_limit = intrinsic_gas_cost + full_cost - 1
     else:
         # exact gas for successful SSTORE
@@ -156,10 +178,10 @@ def test_bal_sstore_and_oog(
         gas_limit=tx_gas_limit,
     )
 
-    # Storage read recorded only if we pass the stipend check and reach
-    # implicit SLOAD (STIPEND_PLUS_1 and EXACT_GAS_MINUS_1)
+    # The read is recorded only once the access cost is covered: the
+    # frame reaches the implicit SLOAD before any later OOG.
     expect_storage_read = out_of_gas_at in (
-        OutOfGasAt.EIP_2200_STIPEND_PLUS_1,
+        OutOfGasAt.ACCESS_COVERED_OOG_ON_WRITE,
         OutOfGasAt.EXACT_GAS_MINUS_1,
     )
     expect_storage_write = out_of_gas_at is None
@@ -2838,13 +2860,18 @@ def test_bal_create_selfdestruct_to_self_with_call(
                 ),
                 # Created address: ephemeral (created and destroyed same tx)
                 # - storage_reads for slot 0x01 (aborted write becomes read)
-                # - NO nonce/code/storage/balance changes
+                # - NO nonce/code/storage changes
+                # - Balance remains per eip-8246
                 created_address: BalAccountExpectation(
                     storage_reads=[0x01],
                     storage_changes=[],
                     nonce_changes=[],
                     code_changes=[],
-                    balance_changes=[],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=endowment
+                        )
+                    ],
                 ),
             }
         ),
@@ -2857,8 +2884,9 @@ def test_bal_create_selfdestruct_to_self_with_call(
             alice: Account(nonce=1),
             factory: Account(nonce=2, balance=factory_balance - endowment),
             oracle: Account(storage={0x01: 0x42}),
-            # Created address doesn't exist - destroyed in same tx
-            created_address: Account.NONEXISTENT,
+            created_address: Account(
+                balance=endowment, nonce=0, code=b"", storage={}
+            ),
         },
     )
 

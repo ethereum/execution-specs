@@ -119,7 +119,6 @@ def test_static_callcodecallcallcode_101_oogm_after(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=172000,
     )
 
     post = {target: Account(storage={0: 0, 1: 1})}

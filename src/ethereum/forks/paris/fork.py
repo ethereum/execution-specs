@@ -41,6 +41,7 @@ from .bloom import logs_bloom
 from .exceptions import (
     InsufficientMaxFeePerGasError,
     PriorityFeeGreaterThanMaxFeeError,
+    WrongChainIdError,
 )
 from .state_tracker import (
     BlockState,
@@ -58,6 +59,7 @@ from .transactions import (
     FeeMarketTransaction,
     LegacyTransaction,
     Transaction,
+    chain_id,
     decode_transaction,
     encode_transaction,
     get_transaction_hash,
@@ -389,7 +391,14 @@ def check_transaction(
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     if tx.gas > gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
-    sender_address = recover_sender(block_env.chain_id, tx)
+    tx_chain_id = chain_id(tx)
+    if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
+        raise WrongChainIdError(
+            expected=block_env.chain_id,
+            actual=tx_chain_id,
+        )
+
+    sender_address = recover_sender(tx)
     sender_account = get_account(tx_state, sender_address)
 
     if isinstance(tx, FeeMarketTransaction):

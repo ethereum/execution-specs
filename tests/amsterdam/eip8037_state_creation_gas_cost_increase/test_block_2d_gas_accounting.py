@@ -41,9 +41,9 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 def sstore_tx_gas(fork: Fork, num_sstores: int = 1) -> tuple[int, int]:
     """Return (regular, state) gas for a tx with N cold SSTOREs."""
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
-    evm_total = num_sstores * Op.SSTORE(0, 1).gas_cost(fork)
+    evm_total = num_sstores * Op.SSTORE(0, 1).regular_cost(fork)
     state = num_sstores * Op.SSTORE(new_value=1).state_cost(fork)
-    return intrinsic_gas + evm_total - state, state
+    return intrinsic_gas + evm_total, state
 
 
 def sstore_txs(
@@ -605,7 +605,10 @@ def test_tx_gas_limit_block_boundary(
         pytest.param(1, id="exceeds", marks=pytest.mark.exception_test),
     ],
 )
-@pytest.mark.valid_from("EIP8037")
+# Cumulative block-gas inclusion is a pre-existing rule, not an
+# EIP-8037 novelty. Floor is Osaka only because the gas-cap guard
+# below relies on EIP-7825's transaction_gas_limit_cap().
+@pytest.mark.valid_from("Osaka")
 def test_tx_inclusion_at_regular_gas_block_limit_small(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -622,24 +625,32 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
-
-    block_gas_limit = intrinsic_gas * 2
-
-    filler = pre.deploy_contract(code=Op.STOP)
-    filler_tx = Transaction(
-        to=filler,
-        gas_limit=intrinsic_gas,
-        sender=pre.fund_eoa(),
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
     )
 
-    second_gas_limit = intrinsic_gas + delta
-    assert second_gas_limit < gas_limit_cap
+    filler_tx_count = (fork.minimum_block_gas_limit() // intrinsic_gas) + 1
+    block_gas_limit = intrinsic_gas * (filler_tx_count + 1)
+
+    dest_contract = pre.deploy_contract(code=Op.STOP)
+    filler_sender = pre.fund_eoa()
+    filler_txs = [
+        Transaction(
+            to=dest_contract,
+            gas_limit=intrinsic_gas,
+            value=1,
+            sender=filler_sender,
+        )
+        for _ in range(filler_tx_count)
+    ]
+
+    excess_tx_gas_limit = intrinsic_gas + delta
+    assert excess_tx_gas_limit < gas_limit_cap
     error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
-    second = pre.deploy_contract(code=Op.STOP)
-    second_tx = Transaction(
-        to=second,
-        gas_limit=second_gas_limit,
+    excess_tx = Transaction(
+        to=dest_contract,
+        gas_limit=excess_tx_gas_limit,
+        value=1,
         sender=pre.fund_eoa(),
         error=error,
     )
@@ -649,9 +660,12 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
         pre=pre,
         blocks=[
             Block(
-                txs=[filler_tx, second_tx],
+                txs=filler_txs + [excess_tx],
                 gas_limit=block_gas_limit,
                 exception=error,
+                header_verify=Header(gas_used=block_gas_limit)
+                if not error
+                else None,
             )
         ],
         post={},
@@ -773,6 +787,215 @@ def test_receipt_cumulative_differs_from_header_gas_used(
                 txs=txs,
                 header_verify=Header(gas_used=header_gas_used),
             ),
+        ],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize("dominant_dimension", ["state", "regular"])
+@pytest.mark.parametrize(
+    "single_tx",
+    [
+        pytest.param(True, id="single_tx"),
+        pytest.param(False, id="multiple_txs"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_base_fee_per_gas_follows_dominant_dimension(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    dominant_dimension: str,
+    single_tx: bool,
+) -> None:
+    """
+    Verify the child block's base fee follows the bottleneck dimension.
+
+    Block 1 exceeds the gas target on one dimension only: state, via
+    SSTORE-set txs that spill, or regular, via STOP/MSTORE txs. Its header
+    gas_used = max(regular, state) is then set by that dimension alone,
+    which lifts empty block 2's base fee under the EIP-1559 update.
+    """
+    genesis_base_fee = 10**9
+    max_fee_per_gas = 10**10
+    gas_limit = 600_000
+    target = gas_limit // fork.base_fee_elasticity_multiplier()
+
+    txs: list[Transaction] = []
+    post: dict = {}
+    num_sstores = 0
+    if dominant_dimension == "state":
+        if single_tx:
+            num_txs = 1
+            num_sstores = target // sstore_tx_gas(fork, num_sstores=1)[1] + 1
+            tx_regular, tx_state = sstore_tx_gas(fork, num_sstores=num_sstores)
+        else:
+            num_sstores = 1
+            tx_regular, tx_state = sstore_tx_gas(fork, num_sstores=num_sstores)
+            while tx_regular >= tx_state:
+                num_sstores += 1
+                tx_regular, tx_state = sstore_tx_gas(
+                    fork, num_sstores=num_sstores
+                )
+            num_txs = target // tx_state + 1
+        block_regular = num_txs * tx_regular
+        block_state = num_txs * tx_state
+        tx_gas_limit = tx_regular + tx_state
+        assert block_state > target > block_regular
+    else:
+        if single_tx:
+            num_txs = 1
+            # Just consume all gas
+            regular_contract = pre.deploy_contract(
+                code=Op.MSTORE(offset=2**256 - 1, value=1) + Op.STOP
+            )
+            tx_gas_limit = target + 1
+        else:
+            tx_gas_limit = fork.transaction_intrinsic_cost_calculator()()
+            # Enough STOP txs that regular gas alone clears the target.
+            regular_contract = pre.deploy_contract(code=Op.STOP)
+            num_txs = target // tx_gas_limit + 1
+        block_regular = num_txs * tx_gas_limit
+        block_state = 0
+        assert block_regular > target > block_state
+
+    for _ in range(num_txs):
+        if dominant_dimension == "state":
+            storage = Storage()
+            code = Bytecode()
+            for _ in range(num_sstores):
+                code += Op.SSTORE(storage.store_next(1), 1)
+            code += Op.STOP
+            contract = pre.deploy_contract(code=code)
+            post[contract] = Account(storage=storage)
+        else:
+            contract = regular_contract
+        txs.append(
+            Transaction(
+                to=contract,
+                gas_limit=tx_gas_limit,
+                max_fee_per_gas=max_fee_per_gas,
+                max_priority_fee_per_gas=0,
+                sender=pre.fund_eoa(),
+            )
+        )
+
+    block_1_gas_used = max(block_regular, block_state)
+    assert block_1_gas_used < gas_limit, (
+        "test needs update: gas_limit reached by usage, simply raise the "
+        "anchored gas_limit value"
+    )
+    base_fee_calc = fork.base_fee_per_gas_calculator()
+    block_1_base_fee = base_fee_calc(
+        parent_base_fee_per_gas=genesis_base_fee,
+        parent_gas_used=0,
+        parent_gas_limit=gas_limit,
+    )
+    block_2_base_fee = base_fee_calc(
+        parent_base_fee_per_gas=block_1_base_fee,
+        parent_gas_used=block_1_gas_used,
+        parent_gas_limit=gas_limit,
+    )
+    assert block_2_base_fee > block_1_base_fee
+
+    blockchain_test(
+        genesis_environment=Environment(
+            gas_limit=gas_limit,
+            base_fee_per_gas=genesis_base_fee,
+        ),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                gas_limit=gas_limit,
+                header_verify=Header(
+                    gas_used=block_1_gas_used,
+                    base_fee_per_gas=block_1_base_fee,
+                ),
+            ),
+            Block(
+                txs=[],
+                gas_limit=gas_limit,
+                header_verify=Header(
+                    gas_used=0,
+                    base_fee_per_gas=block_2_base_fee,
+                ),
+            ),
+        ],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "delta",
+    [
+        pytest.param(0, id="exact_fit"),
+        pytest.param(1, id="exceeded", marks=pytest.mark.exception_test),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_cumulative_block_state_gas_boundary(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    delta: int,
+) -> None:
+    """
+    Probe the block state-gas inclusion gate with spill-funded usage.
+
+    tx1 gets no state-gas reservoir (small gas_limit), so its SSTORE-set
+    state gas reaches block_state_gas_used only via spillover, and its
+    gas_limit exactly fills the block. tx2's gas_limit is the remaining
+    state budget plus delta, below both the per-tx cap and the remaining
+    regular budget, so only the state gate can reject it: delta=0 must
+    be accepted (strict >) and delta=1 rejected.
+    test_block_state_gas_limit_boundary covers this gate with a
+    reservoir-funded tx1 and an above-cap tx2.
+    """
+    n = 6
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    sstore_code = (
+        sum((Op.SSTORE(i, 1) for i in range(n)), Bytecode()) + Op.STOP
+    )
+    tx1_regular = intrinsic + sstore_code.regular_cost(fork)
+    tx1_state = sstore_code.state_cost(fork)
+    # tx1 exactly fills the block; the leftover state budget is tx1_regular.
+    block_gas_limit = tx1_regular + tx1_state
+    # tx2 stays within the remaining regular budget, so only the state
+    # dimension can reject it.
+    assert tx1_regular + 1 <= block_gas_limit - tx1_regular
+
+    sstore_contract = pre.deploy_contract(code=sstore_code)
+    stop_contract = pre.deploy_contract(code=Op.STOP)
+
+    error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
+    tx1 = Transaction(
+        to=sstore_contract, gas_limit=block_gas_limit, sender=pre.fund_eoa()
+    )
+    tx2 = Transaction(
+        to=stop_contract,
+        gas_limit=tx1_regular + delta,
+        sender=pre.fund_eoa(),
+        error=error,
+    )
+
+    post: dict = {}
+    header_verify: Header | None = None
+    if not delta:
+        post = {sstore_contract: Account(storage=dict.fromkeys(range(n), 1))}
+        header_verify = Header(
+            gas_used=max(tx1_regular + intrinsic, tx1_state)
+        )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2],
+                exception=error,
+                header_verify=header_verify,
+            )
         ],
         post=post,
     )

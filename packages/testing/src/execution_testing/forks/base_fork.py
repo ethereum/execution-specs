@@ -32,6 +32,7 @@ from execution_testing.vm import (
     Opcodes,
 )
 
+from ..recipient_type import RecipientType
 from .gas_costs import GasCosts
 
 
@@ -66,8 +67,18 @@ class TransactionDataFloorCostCalculator(Protocol):
         *,
         data: BytesConvertible,
         access_list: List[AccessList] | None = None,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
     ) -> int:
-        """Return transaction gas cost of calldata given its contents."""
+        """
+        Return transaction gas cost of calldata given its contents.
+
+        The defaults model a zero-value call to another account. Forks
+        that anchor the floor on the transaction's intrinsic base
+        (EIP-2780) add gas for these arguments, so create, value-bearing,
+        and self-transfer transactions must pass them explicitly.
+        """
         pass
 
 
@@ -116,6 +127,8 @@ class TransactionIntrinsicCostCalculator(Protocol):
         access_list: List[AccessList] | None = None,
         authorization_list_or_count: Sized | int | None = None,
         return_cost_deducted_prior_execution: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
     ) -> int:
         """
         Return the intrinsic gas cost of a transaction given its properties.
@@ -135,8 +148,59 @@ class TransactionIntrinsicCostCalculator(Protocol):
                                                 that is deducted from the gas
                                                 limit before the transaction
                                                 starts execution.
+          sends_value: Whether the transaction transfers a non-zero value.
+                       Forks that itemize the value-transfer charge in
+                       intrinsic gas use this flag; ignored by older forks.
+          recipient_type: Category of the transaction recipient. Forks
+                          that vary intrinsic gas by recipient kind
+                          (e.g. no access cost for precompiles, no value
+                          charge for self-transfers) use this; ignored
+                          by older forks.
 
         Returns: Gas cost of a transaction
+
+        """
+        pass
+
+
+class TopFrameGasCalculator(Protocol):
+    """
+    A protocol to calculate the additional regular gas charged at the
+    top-level transaction frame, after intrinsic gas is deducted but
+    before EVM execution begins.
+
+    Returns only the regular-gas portion of the post-intrinsic
+    state-aware preparation (e.g. the delegated-recipient access
+    charge). The state-gas portion is exposed separately by
+    ``BaseFork.transaction_top_frame_state_gas`` so tests can model the
+    two-dimensional reservoir explicitly or sum the two via
+    ``oog_budget_lift`` when targeting the spillover boundary.
+
+    Returns 0 for forks that do not perform any such preparation.
+    """
+
+    def __call__(
+        self,
+        *,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
+    ) -> int:
+        """
+        Return the regular gas consumed by top-frame preparation for a
+        transaction at this fork.
+
+        Args:
+          contract_creation: Whether the transaction creates a contract.
+                             Top-frame charges are zero for creates;
+                             equivalent charges are paid via intrinsic
+                             gas.
+          sends_value: Whether the transaction transfers a non-zero
+                       value.
+          recipient_type: Category of the transaction recipient.
+                          Drives the conditional charges.
+
+        Returns: Regular gas added by top-frame preparation.
 
         """
         pass
@@ -457,6 +521,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def minimum_block_gas_limit(cls) -> int:
+        """Return the minimum block gas limit for it to be considered valid."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def opcode_gas_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
@@ -697,6 +767,51 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     ) -> int:
         """Return intrinsic state gas (zero pre-Amsterdam)."""
         del contract_creation, authorization_count
+        return 0
+
+    @classmethod
+    def transaction_top_frame_gas_calculator(
+        cls,
+    ) -> TopFrameGasCalculator:
+        """
+        Return a callable that calculates the additional regular gas
+        charged at the top-level transaction frame, after intrinsic
+        gas is deducted but before EVM execution begins.
+
+        Defaults to returning 0 for forks that do not perform such
+        post-intrinsic preparation.
+        """
+
+        def fn(
+            *,
+            contract_creation: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
+        ) -> int:
+            del contract_creation, sends_value, recipient_type
+            return 0
+
+        return fn
+
+    @classmethod
+    def transaction_top_frame_state_gas(
+        cls,
+        *,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
+    ) -> int:
+        """
+        Return the state gas charged at the top-level transaction
+        frame, after intrinsic gas is deducted but before EVM execution
+        begins. Companion to ``transaction_top_frame_gas_calculator``;
+        tests targeting the spillover boundary feed this through
+        ``oog_budget_lift`` to get the equivalent regular-gas budget.
+
+        Defaults to 0 for forks that do not perform such
+        post-intrinsic preparation.
+        """
+        del contract_creation, sends_value, recipient_type
         return 0
 
     @classmethod

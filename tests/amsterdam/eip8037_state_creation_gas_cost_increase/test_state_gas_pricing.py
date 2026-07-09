@@ -23,6 +23,7 @@ from execution_testing import (
     AuthorizationTuple,
     Environment,
     Fork,
+    Header,
     Op,
     StateTestFiller,
     Storage,
@@ -158,28 +159,33 @@ def test_charge_spills_to_gas_left(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "gas_delta",
+    [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
+)
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
-def test_charge_oog_both_pools_insufficient(
+def test_charge_spill_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    gas_delta: int,
 ) -> None:
     """
-    Test OOG when both reservoir and gas_left are insufficient.
+    Test the SSTORE-set state charge at its exact-fit spill boundary.
 
-    Provide just enough gas for intrinsic + SSTORE regular gas but
-    not enough for the state gas charge. Neither the reservoir (empty
-    at TX_MAX_GAS_LIMIT) nor gas_left can cover the cost.
+    With an empty reservoir (in-cap tx) the full state charge spills
+    into gas_left. Sized to exactly the charge the SSTORE succeeds and
+    the block bills it as state gas; one gas short, neither pool can
+    cover the charge and the frame runs out of gas with the slot unset.
     """
-    gas_costs = fork.gas_costs()
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(0, 1),
-    )
+    code = Op.SSTORE(0, 1)
+    contract = pre.deploy_contract(code=code)
 
-    # Tight gas: intrinsic + SSTORE regular gas only
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = intrinsic_cost() + gas_costs.COLD_STORAGE_WRITE
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    regular = code.regular_cost(fork)
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    gas_limit = intrinsic + regular + sstore_state_gas + gas_delta
 
     tx = Transaction(
         to=contract,
@@ -187,9 +193,17 @@ def test_charge_oog_both_pools_insufficient(
         sender=pre.fund_eoa(),
     )
 
-    # OOG — storage unchanged
-    post = {contract: Account(storage={0: 0})}
-    state_test(pre=pre, post=post, tx=tx)
+    header = Header(
+        gas_used=max(intrinsic + regular, sstore_state_gas)
+        if gas_delta == 0
+        else gas_limit
+    )
+    state_test(
+        pre=pre,
+        post={contract: Account(storage={0: 1 if gas_delta == 0 else 0})},
+        tx=tx,
+        blockchain_test_header_verify=header,
+    )
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()

@@ -429,7 +429,7 @@ def test_return_bounds(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [150000, 500000, 15000000]
+    tx_gas = [150000, None if fork.is_eip_enabled(8037) else 500000, 15000000]
     tx_value = [1]
 
     tx = Transaction(

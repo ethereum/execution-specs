@@ -36,6 +36,7 @@ on:
       - "mkdocs.yml"
       - "uv.lock"
       - "pyproject.toml"
+      - "Justfile"
       - ".github/workflows/docs-build.yaml"
       - ".github/configs/docs-branches.yaml"
 
@@ -226,6 +227,8 @@ jobs:
       - name: Build MkDocs documentation
         env:
           SITE_URL: ${{ needs.check-should-publish.outputs.site_url }}
+          # Social cards are publish-only; PR builds skip them for speed.
+          DOCS_SOCIAL_CARDS: ${{ github.event_name != 'pull_request' }}
         run: |
           echo "Building MkDocs with SITE_URL=$SITE_URL"
           just docs
@@ -254,7 +257,12 @@ jobs:
 
       - uses: ./.github/actions/setup-uv
 
+      - name: Build spec documentation (parallel shards)
+        if: github.event_name == 'pull_request'
+        run: just docs-spec-parallel
+
       - name: Build spec documentation
+        if: github.event_name != 'pull_request'
         run: just docs-spec
         env:
           DOCC_SKIP_DIFFS: ${{ case(github.event_name == 'push' && github.ref_name == github.event.repository.default_branch, '', '1') }}

@@ -254,7 +254,7 @@ def test_static_check_opcodes4(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [50000, 335000]
+    tx_gas = [50000, None if fork.is_eip_enabled(8037) else 335000]
     tx_value = [0, 100]
 
     tx = Transaction(

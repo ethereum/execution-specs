@@ -18,7 +18,6 @@ ref_spec_7708 = ReferenceSpec(
 )
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-7708 specifications as defined at
@@ -46,16 +45,4 @@ def transfer_log(
             Hash(bytes(recipient).rjust(32, b"\x00")),
         ],
         data=Bytes(amount.to_bytes(32, "big")),
-    )
-
-
-def burn_log(contract_address: Address, amount: int | None) -> TransactionLog:
-    """Create an expected Burn log for EIP-7708."""
-    return TransactionLog(
-        address=Spec.SYSTEM_ADDRESS,
-        topics=[
-            Spec.BURN_TOPIC,
-            Hash(bytes(contract_address).rjust(32, b"\x00")),
-        ],
-        data=Bytes(amount.to_bytes(32, "big")) if amount is not None else None,
     )

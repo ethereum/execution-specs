@@ -434,9 +434,10 @@ def authorize_to_address(
             return pre.fund_eoa(1)
         case AddressType.CONTRACT:
             return pre.deploy_contract(Op.STOP)
-    raise ValueError(
-        f"Unsupported authorization address case: {request.param}"
-    )
+        case _:
+            raise ValueError(
+                f"Unsupported authorization address case: {request.param}"
+            )
 
 
 @pytest.fixture()
@@ -972,6 +973,7 @@ def test_gas_cost(
 def test_account_warming(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     authorization_list_with_properties: List[AuthorizationWithProperties],
     authorization_list: List[AuthorizationTuple],
     access_list: List[AccessList],
@@ -987,8 +989,9 @@ def test_account_warming(
     # check.
     overhead_cost = 3 * len(Op.CALL.kwargs)
 
-    cold_account_cost = 2600
-    warm_account_cost = 100
+    gas_costs = fork.gas_costs()
+    cold_account_cost = gas_costs.COLD_ACCOUNT_ACCESS
+    warm_account_cost = gas_costs.WARM_ACCESS
 
     access_list_addresses = {
         access_list.address for access_list in access_list
@@ -1099,7 +1102,6 @@ def test_account_warming(
                 overhead_cost=overhead_cost,
                 extra_stack_items=1,
                 sstore_key=check_address,
-                stop=False,
             )
             for check_address in addresses_to_check
         )
@@ -1190,6 +1192,7 @@ def test_intrinsic_gas_cost(
 def test_self_set_code_cost(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     pre_authorized: bool,
 ) -> None:
     """Test set to code account access cost when it delegates to itself."""
@@ -1199,6 +1202,10 @@ def test_self_set_code_cost(
         auth_signer = pre.fund_eoa(0)
 
     slot_call_cost = 1
+
+    gas_costs = fork.gas_costs()
+    cold_account_cost = gas_costs.COLD_ACCOUNT_ACCESS
+    warm_account_cost = gas_costs.WARM_ACCESS
 
     overhead_cost = 3 * len(Op.CALL.kwargs)
 
@@ -1211,7 +1218,11 @@ def test_self_set_code_cost(
 
     callee_address = pre.deploy_contract(callee_code)
     callee_storage = Storage()
-    callee_storage[slot_call_cost] = 200 if not pre_authorized else 2700
+    callee_storage[slot_call_cost] = (
+        2 * warm_account_cost
+        if not pre_authorized
+        else cold_account_cost + warm_account_cost
+    )
 
     tx = Transaction(
         to=callee_address,

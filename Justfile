@@ -13,6 +13,9 @@ xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 evm_bin := env("EVM_BIN", "evm")
 latest_fork := "Amsterdam"
 
+# Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
+export COVERAGE_CORE := "sysmon"
+
 # --- Static Analysis ---
 
 # Auto-fix formatting and lint issues
@@ -130,7 +133,7 @@ fill *args:
 [group('integration tests')]
 fill-pypy *args:
     @mkdir -p "{{ output_dir }}/fill-pypy/tmp" "{{ output_dir }}/fill-pypy/logs"
-    uv run --python pypy3.11 fill \
+    uv run --python pypy3.11 --no-dev --group test fill \
         --skip-index \
         --output="{{ output_dir }}/fill-pypy/fixtures" \
         --no-html \
@@ -180,6 +183,17 @@ json-loader *args:
         "$@" \
         tests/json_loader
 
+# Run the spec-tools tests (lint and new-fork tooling)
+[group('integration tests')]
+spec-tools *args:
+    @mkdir -p "{{ output_dir }}/spec-tools/tmp"
+    uv run pytest \
+        -n {{ xdist_workers }} \
+        --basetemp="{{ output_dir }}/spec-tools/tmp" \
+        --ignore=tests/evm_tools/test_count_opcodes.py \
+        "$@" \
+        tests/evm_tools
+
 # --- Unit Tests ---
 
 # Run the testing package unit tests (with Python)
@@ -197,7 +211,7 @@ test-tests *args:
 [group('unit tests')]
 test-tests-pypy *args:
     @mkdir -p "{{ output_dir }}/test-tests-pypy/tmp"
-    cd packages/testing && uv run --python pypy3.11 pytest \
+    cd packages/testing && uv run --python pypy3.11 --no-dev --group test pytest \
         -n auto --maxprocesses 6 \
         --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
@@ -221,31 +235,46 @@ test-ci-scripts *args:
 
 # --- Benchmarks ---
 
-# Fill benchmark tests with --gas-benchmark-values, then verify with EELS
+# Smoke-test benchmark tests: fill blockchain_test fixtures, then verify against EELS.
 [group('benchmark tests')]
 bench-gas *args:
     @mkdir -p "{{ output_dir }}/bench-gas/tmp" "{{ output_dir }}/bench-gas/logs"
-    @echo "==> Step 1/2: Filling benchmark fixtures with configured EVM (EVM_BIN={{ evm_bin }})"
+    @echo "==> Step 1/3: Generating pre-alloc groups (smoke-tests the BlockchainEngineX path)"
     uv run fill \
+        --generate-pre-alloc-groups \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
-        --generate-all-formats \
         --fork Osaka \
         -m "not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
+        --output="{{ output_dir }}/bench-gas/pre-alloc" \
+        --basetemp="{{ output_dir }}/bench-gas/tmp" \
+        --log-to "{{ output_dir }}/bench-gas/logs" \
+        --clean \
+        "$@" \
+        tests/benchmark/compute
+    @echo "==> Step 2/3: Filling blockchain_test fixtures with configured EVM (EVM_BIN={{ evm_bin }})"
+    uv run fill \
+        --evm-bin="{{ evm_bin }}" \
+        --gas-benchmark-values 1 \
+        --fork Osaka \
+        -m "blockchain_test and (not derived_test) and (not slow)" \
+        -n auto --maxprocesses 10 --dist=loadgroup \
+        --durations=20 \
         --output="{{ output_dir }}/bench-gas/fixtures" \
         --basetemp="{{ output_dir }}/bench-gas/tmp" \
         --log-to "{{ output_dir }}/bench-gas/logs" \
         --clean \
         "$@" \
         tests/benchmark/compute
-    @echo "==> Step 2/2: Running filled fixtures against EELS via json_loader"
+    @echo "==> Step 3/3: Running filled fixtures against EELS via json_loader"
     @rm -rf tests/json_loader/bench_gas_fixtures
     ln -sfn "{{ output_dir }}/bench-gas/fixtures" tests/json_loader/bench_gas_fixtures
-    cd tests/json_loader && uv run --python pypy3.11 pytest \
+    cd tests/json_loader && uv run --python pypy3.11 --no-dev --group test pytest \
         --fork Osaka \
         --allow-post-state-hash \
         -n auto --maxprocesses 10 --dist=loadfile \
+        --durations=20 \
         --basetemp="{{ output_dir }}/bench-gas/json-loader-tmp" \
         bench_gas_fixtures
 
@@ -293,13 +322,19 @@ export DYLD_FALLBACK_LIBRARY_PATH := if os() == "macos" { "/opt/homebrew/lib" } 
 
 # Generate documentation for EELS using docc
 [group('docs')]
-docs-spec $DOCC_SKIP_DIFFS="":
+docs-spec $DOCC_SKIP_DIFFS=env_var_or_default("DOCC_SKIP_DIFFS", ""):
     uv run docc --output "{{ output_dir }}/docs-spec"
     uv run python -c 'import pathlib; print("documentation available under file://{0}".format(pathlib.Path(r"{{ output_dir }}") / "docs-spec" / "index.html"))'
 
 # Generate documentation for EELS using docc, skipping the slow per-fork diff render
 [group('docs')]
 docs-spec-fast: (docs-spec "1")
+
+# Build spec docs in parallel shards for fast PR validation
+[group('docs')]
+docs-spec-parallel shards="4":
+    uv run python -m ethereum_spec_tools.docc_shards \
+        -n {{ shards }} -o "{{ output_dir }}/docs-spec-parallel"
 
 # Build HTML site documentation with mkdocs
 [group('docs')]

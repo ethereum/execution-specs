@@ -38,6 +38,7 @@ from ethereum.state import (
 from . import vm
 from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
+from .exceptions import WrongChainIdError
 from .state_tracker import (
     BlockState,
     TransactionState,
@@ -53,6 +54,7 @@ from .state_tracker import (
 )
 from .transactions import (
     Transaction,
+    chain_id,
     get_transaction_hash,
     recover_sender,
     validate_transaction,
@@ -394,7 +396,14 @@ def check_transaction(
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
     if tx.gas > gas_available:
         raise GasUsedExceedsLimitError("gas used exceeds limit")
-    sender_address = recover_sender(block_env.chain_id, tx)
+    tx_chain_id = chain_id(tx)
+    if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
+        raise WrongChainIdError(
+            expected=block_env.chain_id,
+            actual=tx_chain_id,
+        )
+
+    sender_address = recover_sender(tx)
     sender_account = get_account(tx_state, sender_address)
 
     max_gas_fee = tx.gas * tx.gas_price

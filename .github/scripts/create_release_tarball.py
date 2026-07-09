@@ -7,11 +7,11 @@
 """
 Create a release tarball from a merged fixture directory.
 
-Archive all ``.json`` and ``.ini`` files under a ``fixtures/`` prefix,
+Archive all `.json` and `.ini` files under a `fixtures/` prefix,
 matching the structure produced by
-``execution_testing.cli.pytest_commands.plugins.shared.fixture_output``.
+`execution_testing.cli.pytest_commands.plugins.shared.fixture_output`.
 
-Use ``pigz`` for parallel compression when available, otherwise fall
+Use `pigz` for parallel compression when available, otherwise fall
 back to Python's built-in gzip.
 """
 

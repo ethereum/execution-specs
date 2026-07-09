@@ -213,13 +213,11 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         Hash(addr_3, left_padding=True),
         Hash(addr_4, left_padding=True),
     ]
-    tx_gas = [172000]
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         error=_exc,
     )
 

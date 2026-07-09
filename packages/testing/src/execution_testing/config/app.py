@@ -19,10 +19,15 @@ class AppConfig(BaseModel):
 
     @property
     def version(self) -> str:
-        """Get the current version from releases."""
-        spec = "stable@latest"
-        release_url = releases.get_release_url(spec)
-        return release_url.split("/v")[-1].split("/")[0]
+        """Get the version of the latest mainnet `tests` release."""
+        spec = f"{releases.TESTS_FEATURE_NAME}@latest"
+        try:
+            release = releases.find_release(
+                spec, releases.get_release_information()
+            )
+        except releases.NoSuchReleaseError:
+            return "unknown"
+        return release.tag_name.split("@v")[-1]
 
     DEFAULT_LOGS_DIR: Path = (
         Path(__file__).resolve().parent.parent.parent / "logs"

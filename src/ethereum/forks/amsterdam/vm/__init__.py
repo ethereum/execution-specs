@@ -26,13 +26,12 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import Authorization, VersionedHash
+from ..fork_types import Authorization, StateGas, VersionedHash
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
 
 __all__ = ("Environment", "Evm", "Message")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
-BURN_TOPIC = keccak256(b"Burn(address,uint256)")
 SYSTEM_ADDRESS = Address(
     bytes.fromhex("fffffffffffffffffffffffffffffffffffffffe")
 )
@@ -122,6 +121,8 @@ class TransactionEnvironment:
     """
 
     origin: Address
+    recipient: Bytes0 | Address
+    value: U256
     gas_price: Uint
     gas: Uint
     state_gas_reservoir: Uint
@@ -186,11 +187,10 @@ class Evm:
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
-    state_gas_used: int = 0
     state_gas_spilled: Uint = Uint(0)
 
 
-def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
+def credit_state_gas_refund(evm: Evm, amount: StateGas) -> None:
     """
     Credit a state gas refund to the local frame, in LIFO order.
 
@@ -211,7 +211,6 @@ def credit_state_gas_refund(evm: Evm, amount: Uint) -> None:
     evm.gas_left += from_gas_left
     evm.state_gas_spilled -= from_gas_left
     evm.state_gas_left += amount - from_gas_left
-    evm.state_gas_used -= int(amount)
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -235,7 +234,6 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
     evm.regular_gas_used += child_evm.regular_gas_used
-    evm.state_gas_used += child_evm.state_gas_used
 
 
 def refill_frame_state_gas(evm: Evm) -> None:
@@ -253,13 +251,32 @@ def refill_frame_state_gas(evm: Evm) -> None:
 
     """
     evm.gas_left += evm.state_gas_spilled
-    evm.state_gas_left = Uint(
-        int(evm.state_gas_left)
-        + evm.state_gas_used
-        - int(evm.state_gas_spilled)
-    )
-    evm.state_gas_used = 0
+    evm.state_gas_left = evm.message.state_gas_reservoir
     evm.state_gas_spilled = Uint(0)
+
+
+def frame_state_gas_used(evm: Evm) -> int:
+    """
+    Return the net state gas consumed by a finished frame.
+
+    Equal to the reservoir drawn down ([`state_gas_reservoir`][sgr] at entry
+    minus the reservoir now) plus [`state_gas_spilled`][sgs]. May be negative
+    when refunds exceed charges.
+
+    Parameters
+    ----------
+    evm :
+        The finished frame.
+
+    [sgr]: ref:ethereum.forks.amsterdam.vm.Message.state_gas_reservoir
+    [sgs]: ref:ethereum.forks.amsterdam.vm.Evm.state_gas_spilled
+
+    """
+    return (
+        int(evm.message.state_gas_reservoir)
+        - int(evm.state_gas_left)
+        + int(evm.state_gas_spilled)
+    )
 
 
 def incorporate_child_on_error(
@@ -271,9 +288,8 @@ def incorporate_child_on_error(
 
     The child rolls back its own state gas via `refill_frame_state_gas`
     before returning (on both reverts and exceptional halts), so its
-    `gas_left` and reservoir already reflect the LIFO refill and its
-    `state_gas_used` is zero. The parent therefore only reabsorbs the
-    child's `gas_left` and reservoir.
+    `gas_left` and reservoir already reflect the LIFO refill. The parent
+    therefore only reabsorbs the child's `gas_left` and reservoir.
 
     Parameters
     ----------
@@ -322,40 +338,6 @@ def emit_transfer_log(
             Hash32(padded_recipient),
         ),
         data=transfer_amount.to_be_bytes32(),
-    )
-
-    evm.logs = evm.logs + (log_entry,)
-
-
-def emit_burn_log(
-    evm: Evm,
-    account: Address,
-    amount: U256,
-) -> None:
-    """
-    Emit a LOG2 for ETH burn per EIP-7708.
-
-    Parameters
-    ----------
-    evm :
-        The state of the ethereum virtual machine
-    account :
-        The account address whose ETH is being burned
-    amount :
-        The amount of ETH being burned
-
-    """
-    if amount == 0:
-        return
-
-    padded_account = left_pad_zero_bytes(account, 32)
-    log_entry = Log(
-        address=SYSTEM_ADDRESS,
-        topics=(
-            BURN_TOPIC,
-            Hash32(padded_account),
-        ),
-        data=amount.to_be_bytes32(),
     )
 
     evm.logs = evm.logs + (log_entry,)

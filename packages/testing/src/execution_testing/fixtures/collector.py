@@ -110,6 +110,8 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
 class TestInfo:
     """Contains test information from the current node."""
 
+    __test__ = False  # stop pytest from collecting this class as a test
+
     name: str  # pytest: Item.name, e.g. test_paris_one[fork_Paris-state_test]
     id: str  # pytest: Item.nodeid, e.g.
     # tests/paris/test_module_paris.py::test_paris_one[...]

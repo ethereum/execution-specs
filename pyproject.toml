@@ -215,7 +215,7 @@ test = [
 ]
 lint = [
     "codespell==2.4.1",
-    "mypy==1.20.0",
+    "mypy==2.1.0",
     "ruff==0.13.2",
     "vulture==2.14.0",
     "types-requests>=2.31,<2.33",
@@ -278,6 +278,7 @@ whitelist = "ethereum_spec_tools.whitelist:main"
 "ethereum_spec_tools.docc.build" = "ethereum_spec_tools.docc:EthereumBuilder"
 "ethereum_spec_tools.docc.fix-indexes" = "ethereum_spec_tools.docc:FixIndexTransform"
 "ethereum_spec_tools.docc.minimize-diffs" = "ethereum_spec_tools.docc:MinimizeDiffsTransform"
+"ethereum_spec_tools.docc.prune-references" = "ethereum_spec_tools.docc:PruneReferencesTransform"
 
 [project.entry-points."docc.plugins.html"]
 "ethereum_spec_tools.docc:DiffNode" = "ethereum_spec_tools.docc:render_diff"
@@ -293,6 +294,7 @@ markers = [
     "json_state_tests: marks tests as json_state_tests (deselect with '-m \"not json_state_tests\"')",
     "vm_test: marks tests as vm_test (deselect with '-m \"not vm_test\"')",
     "eels_base_coverage: Minimized subset selected to preserve high EELS line-coverage parity (select with '-m eels_base_coverage')",
+    "fork: marks JSON fixture tests by fork",
     "repricing: marks tests for gas repricing analysis",
     "stub_parametrize: parametrize test from address stubs by prefix",
 ]
@@ -341,6 +343,9 @@ transform = [
     "ethereum_spec_tools.docc.fix-indexes",
     "ethereum_spec_tools.docc.minimize-diffs",
     "docc.references.index",
+    # prune-references must run after the index is populated and before
+    # any transform that resolves references (search, html).
+    "ethereum_spec_tools.docc.prune-references",
     "docc.search.transform",
     "docc.html.transform",
 ]
@@ -495,6 +500,22 @@ warn_redundant_casts = true
 ignore_missing_imports = false
 mypy_path = ["src", "packages/testing/src", "packages/testing/stubs"]
 files = ["src", "tests", "packages"]
+enable_error_code = [
+    "truthy-iterable",
+    "unused-awaitable",
+    "redundant-self",
+    "unused-ignore",
+    "unimported-reveal",
+    "exhaustive-match",
+    "deprecated",
+
+   #"mutable-override",
+   #"truthy-bool",
+   #"explicit-override",
+   #"ignore-without-code",
+   #"possibly-undefined",
+   #"redundant-expr",
+]
 exclude = [
     "^\\.cache/",
     "^\\.devcontainer/",
@@ -518,6 +539,9 @@ ignore_missing_imports = true #stubs seemed quite non-trivial
 [tool.uv]
 required-version = ">=0.7.0"
 extra-build-dependencies = { ethash = ["setuptools", "cmake>=4.2.1,<5"] }
+# Pin scikit-build-core < 0.10 for coincurve's sdist build on Python 3.13+.
+# See https://github.com/ethereum/execution-specs/pull/3119
+build-constraint-dependencies = ["scikit-build-core<0.10"]
 
 [tool.uv.workspace]
 members = ["packages/*"]

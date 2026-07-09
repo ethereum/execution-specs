@@ -6,12 +6,8 @@ import json
 import tempfile
 from io import StringIO
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
 
-import ethereum
-from ethereum_spec_tools.evm_tools import create_parser
-from ethereum_spec_tools.evm_tools.t8n import T8N, ForkCache
-from ethereum_spec_tools.evm_tools.utils import get_supported_forks
 from typing_extensions import override
 
 from execution_testing.client_clis.cli_types import TransitionToolOutput
@@ -31,6 +27,9 @@ from execution_testing.exceptions import (
 )
 from execution_testing.forks import Fork
 
+if TYPE_CHECKING:
+    from ethereum_spec_tools.evm_tools.t8n import ForkCache
+
 
 class ExecutionSpecsTransitionTool(TransitionTool):
     """Implementation of the EELS T8N for execution-spec-tests."""
@@ -49,18 +48,39 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         self.exception_mapper = ExecutionSpecsExceptionMapper()
         self.trace = trace
         self._info_metadata: Optional[Dict[str, Any]] = {}
-        self.fork_cache = ForkCache()
+        # Defer importing the `ethereum` package (see `fork_cache` and
+        # `version`) until the tool is actually used. The tool is constructed
+        # during `pytest_configure`, which on xdist workers runs *before*
+        # pytest-cov starts the worker's coverage session; importing `ethereum`
+        # here would make coverage report it as "module-not-measured".
+        self._fork_cache: Optional["ForkCache"] = None
+
+    @property
+    def fork_cache(self) -> "ForkCache":
+        """Lazily import and instantiate the EELS fork cache on first use."""
+        if self._fork_cache is None:
+            from ethereum_spec_tools.evm_tools.t8n import ForkCache
+
+            self._fork_cache = ForkCache()
+        return self._fork_cache
 
     @override
     def shutdown(self) -> None:
-        self.fork_cache.__exit__()
+        if self._fork_cache is not None:
+            self._fork_cache.__exit__()
 
     def version(self) -> str:
         """Version of the t8n tool."""
-        return ethereum.__version__
+        # Use package metadata rather than `ethereum.__version__` to avoid
+        # importing `ethereum` here (see `__init__` for why it must stay lazy).
+        from importlib.metadata import version
+
+        return version("ethereum-execution")
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """Return True if the fork is supported by the tool."""
+        from ethereum_spec_tools.evm_tools.utils import get_supported_forks
+
         return fork.transition_tool_name() in get_supported_forks()
 
     def _evaluate(
@@ -74,6 +94,9 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         """
         Evaluate using the EELS T8N entry point.
         """
+        from ethereum_spec_tools.evm_tools import create_parser
+        from ethereum_spec_tools.evm_tools.t8n import T8N
+
         del slow_request, profiler
         request_data = transition_tool_data.get_request_data()
         request_data_json = request_data.model_dump(
@@ -206,6 +229,10 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
             "InsufficientTransactionGasError"
         ),
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            "InvalidSignatureError('bad"
+        ),
+        TransactionException.INVALID_CHAINID: ("WrongChainId"),
         TransactionException.INITCODE_SIZE_EXCEEDED: "InitCodeTooLargeError",
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "PriorityFeeGreaterThanMaxFeeError"

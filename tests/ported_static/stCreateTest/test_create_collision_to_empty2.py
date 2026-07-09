@@ -258,7 +258,10 @@ def test_create_collision_to_empty2(
     # `OPCODE_CREATE_BASE` from 32_000 to 9_000, so reduce the
     # original 54_000 budget by the same delta to track the cliff.
     create_base_delta = 32000 - fork.gas_costs().OPCODE_CREATE_BASE
-    tx_gas = [600000, 54000 - create_base_delta]
+    tx_gas = [
+        None if fork.is_eip_enabled(8037) else 600000,
+        54000 - create_base_delta,
+    ]
     tx_value = [0, 1]
 
     tx = Transaction(

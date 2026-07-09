@@ -236,7 +236,10 @@ def test_no_src_account_create1559(
         Op.STOP,
         Op.STOP,
     ]
-    tx_gas = [21000, 210000, 0]
+    # EIP-8037 raises the creation intrinsic gas above 210000, which
+    # rejects the transaction for gas before the intended insufficient
+    # funds check. Leave the gas limit unset on Amsterdam.
+    tx_gas = [21000, None if fork.is_eip_enabled(8037) else 210000, 0]
     tx_value = [0, 1]
     tx_access_lists: dict[int, list] = {
         0: [],

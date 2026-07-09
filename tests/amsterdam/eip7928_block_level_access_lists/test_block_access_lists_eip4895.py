@@ -21,6 +21,7 @@ from execution_testing import (
     Header,
     Initcode,
     Op,
+    RecipientType,
     Transaction,
     Withdrawal,
     compute_create_address,
@@ -730,7 +731,15 @@ def test_bal_withdrawal_to_coinbase(
     coinbase = pre.fund_eoa(amount=0)
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas = intrinsic_gas_calculator()
+    intrinsic_gas = intrinsic_gas_calculator(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    total_intrinsic_gas = intrinsic_gas + top_frame_state_gas
 
     # Calculate tip to coinbase
     genesis_env = Environment(base_fee_per_gas=0x7)
@@ -755,11 +764,11 @@ def test_bal_withdrawal_to_coinbase(
         sender=alice,
         to=bob,
         value=tx_value,
-        gas_limit=intrinsic_gas,
+        gas_limit=total_intrinsic_gas,
         **tx_kwargs,
     )
 
-    tip_to_coinbase = priority_fee * intrinsic_gas
+    tip_to_coinbase = priority_fee * total_intrinsic_gas
     withdrawal_amount = 10
     coinbase_final_balance = tip_to_coinbase + (withdrawal_amount * GWEI)
 

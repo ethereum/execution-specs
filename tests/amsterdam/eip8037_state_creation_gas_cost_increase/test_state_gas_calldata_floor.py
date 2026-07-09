@@ -2,9 +2,8 @@
 Test EIP-7623 calldata floor interaction with EIP-8037 state gas.
 
 The calldata floor applies to the regular gas dimension only. It
-does not affect state gas. Block gas accounting uses
-max(tx_regular_gas, calldata_floor) for regular gas and tracks
-state gas separately.
+does not affect state gas. Block gas accounting uses tx_regular_gas
+(without the floor) for regular gas and tracks state gas separately.
 
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
@@ -17,11 +16,13 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Fork,
+    Header,
     Op,
     StateTestFiller,
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -70,10 +71,10 @@ def test_calldata_floor_independent_of_state_gas(
     """
     Test calldata floor applies only to regular gas dimension.
 
-    The calldata floor inflates regular gas used for block accounting
-    but does not affect the state gas dimension. A transaction with
-    high calldata and no state operations should succeed even when
-    the floor exceeds actual execution gas.
+    The calldata floor applies only to the sender's bill and does not
+    affect the state gas dimension. A transaction with high calldata
+    and no state operations should succeed even when the floor exceeds
+    actual execution gas.
     """
     contract = pre.deploy_contract(code=Op.STOP)
 
@@ -160,8 +161,10 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     floor_cost = fork.transaction_data_floor_cost_calculator()
 
     floor_token = gas_costs.TX_DATA_TOKEN_FLOOR
-    tx_base = gas_costs.TX_BASE
-    max_tokens = (cap - tx_base) // floor_token
+    # EIP-2780 anchors the floor on the decomposed intrinsic base; the tx
+    # targets a contract, so the base includes the recipient-access charge.
+    floor_base = gas_costs.TX_BASE + gas_costs.COLD_ACCOUNT_ACCESS
+    max_tokens = (cap - floor_base) // floor_token
 
     if fork.is_eip_enabled(7976):
         # EIP-7976: all bytes contribute 4 floor tokens regardless of
@@ -250,4 +253,56 @@ def test_calldata_floor_applied_to_sender_refund(
         pre=pre,
         blocks=[Block(txs=[tx])],
         post={sender: Account(balance=initial - calldata_floor * gas_price)},
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_calldata_floor_binds_with_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Bind the calldata floor while an over-cap reservoir funds state gas.
+
+    Large calldata makes the EIP-7976 floor the sender's bill, while an
+    over-cap `gas_limit` puts the SSTORE-set state charge in the
+    reservoir. The floor feeds only the receipt; the block accounts
+    regular and state separately, so the header gas_used is the state
+    dimension (not the floor).
+    """
+    storage = Storage()
+    code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
+    state_cost = code.state_cost(fork)
+    regular_cost = code.regular_cost(fork)
+
+    # Sized so the floor binds while block-regular stays under storage_set.
+    calldata = b"\x00" * 5000
+    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    tx_regular = intrinsic + regular_cost
+    assert floor > tx_regular + state_cost, (
+        "calldata floor must exceed the sender's pre-floor bill"
+    )
+    assert tx_regular < state_cost, (
+        "block-regular must stay under the state dimension"
+    )
+
+    contract = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=contract,
+        data=calldata,
+        state_gas_reservoir=state_cost,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=floor),
+    )
+    state_test(
+        pre=pre,
+        post={contract: Account(storage=storage)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=state_cost),
     )

@@ -4,7 +4,7 @@ The following transition tools are supported by the framework:
 
 | Client | `t8n` Tool | Tracing Support |
 | -------| ---------- | --------------- |
-| [ethereum/evmone](https://github.com/ethereum/evmone) | `evmone-t8n` | Yes |
+| [ethereum/evmone](https://github.com/ethereum/evmone) | `evmone t8n` | Yes |
 | [ethereum/execution-specs](https://github.com/ethereum/execution-specs) | [`ethereum-spec-evm t8n`](https://github.com/ethereum/execution-specs/tree/a48e0b381d5225a6c3de2d06cd9ee7ae0b6ca9bb/src/ethereum_spec_tools/evm_tools/t8n) | Yes |
 | [ethereumjs](https://github.com/ethereumjs/ethereumjs-monorepo) | [`ethereumjs-t8ntool.sh`](https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/vm/test/t8n) | No |
 | [ethereum/go-ethereum](https://github.com/ethereum/go-ethereum) | [`evm t8n`](https://github.com/ethereum/go-ethereum/tree/master/cmd/evm) | Yes |

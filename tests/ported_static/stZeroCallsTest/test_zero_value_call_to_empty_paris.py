@@ -3,6 +3,14 @@ Test_zero_value_call_to_empty_paris.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_CALL_ToEmpty_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts the
+`Op.GAS` value stored at slot 0 (0x8D5B6), which depends on the gas
+remaining at a fixed execution point. To keep that budget constant
+across forks, `gas_limit` is derived as 600_000 plus the fork's intrinsic
+cost minus the pre-EIP-2780 baseline intrinsic of 21_000
+(`intrinsic - 21_000`), since EIP-2780 lowers the intrinsic for non-self
+non-value txs. Do not hardcode the gas_limit.
 """
 
 import pytest
@@ -12,6 +20,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -29,6 +38,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_zero_value_call_to_empty_paris(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_zero_value_call_to_empty_paris."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -65,11 +75,18 @@ def test_zero_value_call_to_empty_paris(
         nonce=0,
     )
 
+    # Preserve Cancun's post-intrinsic execution budget across
+    # forks; EIP-2780 lowers the intrinsic for non-self non-value
+    # txs, and the Op.GAS storage assertion depends on the
+    # remaining gas at a fixed execution point.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    gas_limit = 600_000 + (intrinsic - 21_000)
+
     tx = Transaction(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=600000,
+        gas_limit=gas_limit,
     )
 
     post = {

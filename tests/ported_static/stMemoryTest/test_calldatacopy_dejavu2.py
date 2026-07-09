@@ -64,7 +64,6 @@ def test_calldatacopy_dejavu2(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=100000,
         value=10,
     )
 

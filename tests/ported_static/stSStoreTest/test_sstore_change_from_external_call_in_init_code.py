@@ -561,21 +561,11 @@ def test_sstore_change_from_external_call_in_init_code(
         )
         + Op.STOP,
     ]
-    # Fork-aware gas budget: contract-creation intrinsic from the
-    # fork's calculator, plus the bytecode's own gas cost (which
-    # already includes the gas forwarded to inner CALLs via opcode
-    # metadata).
-    intrinsic = fork.transaction_intrinsic_cost_calculator()(
-        calldata=tx_data[d],
-        contract_creation=True,
-    )
-    tx_gas = [intrinsic + tx_data[d].gas_cost(fork)]
 
     tx = Transaction(
         sender=sender,
         to=None,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         error=_exc,
     )
 

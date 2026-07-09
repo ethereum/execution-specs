@@ -75,7 +75,6 @@ def test_loop_calls_then_revert(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=10000000,
     )
 
     post = {

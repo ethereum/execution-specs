@@ -275,13 +275,11 @@ def test_push0(
         contract_5,
         contract_7,
     ]
-    tx_gas = [700000]
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         error=_exc,
     )
 

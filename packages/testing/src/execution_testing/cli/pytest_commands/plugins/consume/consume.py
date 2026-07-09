@@ -260,7 +260,7 @@ class FixturesSource:
         extract_to: Optional[Path] = None,
     ) -> "FixturesSource":
         """
-        Create a fixture source from a release spec (e.g., develop@latest).
+        Create a fixture source from a release spec (e.g., tests@latest).
         """
         if cache_folder is None:
             cache_folder = CACHED_DOWNLOADS_DIRECTORY
@@ -376,8 +376,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
             "Specify the JSON test fixtures source. Can be a local "
             "directory, a URL pointing to a fixtures.tar.gz archive, a "
             "release name and version in the form of `NAME@v1.2.3` "
-            "(`stable` and `develop` are valid release names, and `latest` "
-            "is a valid version), or the special keyword 'stdin'. "
+            "(e.g. `tests@v20.0.0` or `bal-devnet@v7.0.0`, with or "
+            "without the `tests-` tag prefix, and `latest` is a valid "
+            "version), a bare `latest` or `vX.Y.Z` which resolves the "
+            "mainnet `tests` release, or the special keyword 'stdin'. "
             f"Defaults to the following local directory: '{default_input()}'."
         ),
     )

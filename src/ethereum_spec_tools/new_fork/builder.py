@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from contextlib import ExitStack, chdir
 from dataclasses import dataclass, field
 from pathlib import Path
-from shutil import copytree, rmtree
+from shutil import copytree, ignore_patterns, rmtree
 from tempfile import TemporaryDirectory
 from typing import Final, NamedTuple
 
@@ -26,6 +26,26 @@ from ethereum.fork_criteria import (
 )
 
 from ..forks import Hardfork
+
+
+def _source_file_for(fork_root: Path, qualified_name: str) -> Path:
+    """
+    Resolve the source file that defines `qualified_name` within `fork_root`.
+
+    Walk the dotted name from its longest module prefix to its shortest,
+    returning the first prefix that resolves to a module file (or package
+    `__init__.py`). Fall back to the fork's `__init__.py` for names bound
+    directly in the package. Used to scope constant codemods to a single file
+    instead of re-parsing the whole fork.
+    """
+    parts = qualified_name.split(".")
+    for length in range(len(parts) - 1, 0, -1):
+        module = fork_root.joinpath(*parts[:length])
+        if module.with_suffix(".py").is_file():
+            return module.with_suffix(".py")
+        if (module / "__init__.py").is_file():
+            return module / "__init__.py"
+    return fork_root / "__init__.py"
 
 
 @dataclass
@@ -56,7 +76,6 @@ class RenameFork(CodemodArgs):
         commands = [
             [
                 "codemod",
-                "-j1",
                 "rename.RenameCommand",
                 "--no-format",
                 "--old_name",
@@ -94,7 +113,6 @@ class RenameFork(CodemodArgs):
         commands.append(
             [
                 "codemod",
-                "-j1",
                 "rename.RenameCommand",
                 "--no-format",
                 "--old_name",
@@ -142,6 +160,9 @@ class ReplaceValue(CodemodArgs, ABC):
             f"ethereum.{fork_builder.new_fork}.{qualified_name}"
         )
 
+        fork_root = working_directory / "ethereum" / fork_builder.new_fork
+        target = _source_file_for(fork_root, qualified_name)
+
         command = [
             "codemod",
             "-j1",
@@ -151,7 +172,7 @@ class ReplaceValue(CodemodArgs, ABC):
             fully_qualified_name,
             "--value",
             value,
-            str(working_directory),
+            str(target),
         ]
 
         for module, identifier in imports:
@@ -238,14 +259,12 @@ class ReplaceForkName(CodemodArgs):
         commands = [
             [
                 "codemod",
-                "-j1",
                 "--no-format",
                 "string_replace.StringReplaceCommand",
             ]
             + common,
             [
                 "codemod",
-                "-j1",
                 "--no-format",
                 "comment.CommentReplaceCommand",
             ]
@@ -425,17 +444,19 @@ class ForkBuilder:
         fork_directory.rename(self.new_fork_path)
 
     def _copy(self, fork_directory: Path) -> None:
-        # TODO: Filter out __pycache__ and similar files that shouldn't be
-        #       copied.
         template_path = self.template_fork.path
         if template_path is None:
             raise Exception(
                 f"fork `{self.template_fork.short_name}` has no path"
             )
 
+        # Skip `__pycache__`: copying compiled bytecode into a new fork is
+        # pointless, and its transient `.pyc.<id>` files race with concurrent
+        # bytecode writes, breaking `copytree` under parallel test runs.
         copytree(
             template_path,
             fork_directory,
+            ignore=ignore_patterns("__pycache__", "*.pyc"),
             dirs_exist_ok=True,
         )
 

@@ -6,7 +6,7 @@ testing via the ``testing_buildBlockV1`` endpoint.
 """
 
 import io
-from typing import Mapping
+from typing import Generator, Mapping
 
 import pytest
 from hive.client import Client
@@ -61,6 +61,7 @@ def genesis_header(fixture: BlockchainEngineFixture) -> FixtureHeader:
 
 
 @pytest.fixture(scope="function")
-def testing_rpc(client: Client) -> TestingRPC:
+def testing_rpc(client: Client) -> Generator[TestingRPC, None, None]:
     """Initialize Testing RPC client for the execution client under test."""
-    return TestingRPC(f"http://{client.ip}:8545")
+    with TestingRPC(f"http://{client.ip}:8545") as rpc:
+        yield rpc

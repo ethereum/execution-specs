@@ -17,7 +17,6 @@ ref_spec_7623 = ReferenceSpec(
 
 
 # Constants
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-7623 specifications as defined at

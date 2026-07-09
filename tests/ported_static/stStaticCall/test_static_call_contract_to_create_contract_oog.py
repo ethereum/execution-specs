@@ -133,7 +133,6 @@ def test_static_call_contract_to_create_contract_oog(
         sender=sender,
         to=contract_0,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         value=tx_value[v],
         error=_exc,
     )

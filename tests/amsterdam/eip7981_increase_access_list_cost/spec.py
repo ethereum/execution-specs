@@ -17,7 +17,6 @@ ref_spec_7981 = ReferenceSpec(
 
 
 # Constants
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-7981 specifications as defined at

@@ -4,24 +4,34 @@ from typing import List, SupportsBytes
 
 import pytest
 from execution_testing import (
-    Alloc,
     Block,
     BlockException,
     Bytes,
     EngineAPIError,
     Header,
-    Requests,
+    SystemContractInteractionBase,
 )
 
-from ..eip6110_deposits.helpers import DepositInteractionBase, DepositRequest
-from ..eip7002_el_triggerable_withdrawals.helpers import (
-    WithdrawalRequest,
-    WithdrawalRequestInteractionBase,
+from ...common.system_contract_request_fixtures import (
+    blocks,  # noqa: F401
+    included_requests,  # noqa: F401
+    system_contract_interactions_per_block_copy,  # noqa: F401
+    timestamp,  # noqa: F401
 )
-from ..eip7251_consolidations.helpers import (
-    ConsolidationRequest,
-    ConsolidationRequestInteractionBase,
-)
+from ..eip6110_deposits.helpers import DepositRequest
+from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
+from ..eip7251_consolidations.helpers import ConsolidationRequest
+
+
+@pytest.fixture
+def system_contract_interactions_per_block(
+    requests: List[SystemContractInteractionBase],
+) -> List[List[SystemContractInteractionBase]]:
+    """
+    Adapt the flat `requests` parametrization (one block's interactions) to the
+    per-block shape consumed by the shared request fixtures (`blocks` etc.).
+    """
+    return [requests]
 
 
 @pytest.fixture
@@ -78,45 +88,30 @@ def engine_api_error_code(
 
 
 @pytest.fixture
-def blocks(
-    pre: Alloc,
-    requests: List[
-        DepositInteractionBase
-        | WithdrawalRequestInteractionBase
-        | ConsolidationRequestInteractionBase
-    ],
+def override_blocks(
+    blocks: List[Block],  # noqa: F811
     block_body_override_requests: List[Bytes | SupportsBytes] | None,
     correct_requests_hash_in_header: bool,
     exception: BlockException | None,
     engine_api_error_code: EngineAPIError | None,
 ) -> List[Block]:
-    """List of blocks that comprise the test."""
-    valid_requests_list: List[
-        DepositRequest | WithdrawalRequest | ConsolidationRequest
-    ] = []
-    # Single block therefore base fee
-    withdrawal_request_fee = 1
-    consolidation_request_fee = 1
-    prepared = [r.update_pre(pre) for r in requests]
-    for r in prepared:
-        if isinstance(r, DepositInteractionBase):
-            valid_requests_list += r.valid_requests(10**18)
-        elif isinstance(r, WithdrawalRequestInteractionBase):
-            valid_requests_list += r.valid_requests(withdrawal_request_fee)
-        elif isinstance(r, ConsolidationRequestInteractionBase):
-            valid_requests_list += r.valid_requests(consolidation_request_fee)
+    """
+    Single block whose request body / header can be overridden, used by the
+    negative tests to inject invalid requests and expect a block exception.
 
-    valid_requests = Requests(*valid_requests_list)
-
+    The block's transactions and expected requests hash are taken from the
+    shared `blocks` fixture; only the block body requests / header are
+    overridden here.
+    """
+    assert len(blocks) == 2
+    requests_block = blocks[0]
     rlp_modifier: Header | None = None
     if correct_requests_hash_in_header:
-        rlp_modifier = Header(
-            requests_hash=valid_requests,
-        )
+        rlp_modifier = requests_block.header_verify
     return [
         Block(
-            txs=sum((r.transactions() for r in prepared), []),
-            header_verify=Header(requests_hash=valid_requests),
+            txs=requests_block.txs,
+            header_verify=requests_block.header_verify,
             requests=block_body_override_requests,
             exception=exception,
             rlp_modifier=rlp_modifier,

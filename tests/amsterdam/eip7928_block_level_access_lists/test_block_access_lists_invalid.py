@@ -21,13 +21,16 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Bytes,
     EIPChecklist,
+    EngineAPIError,
     Environment,
     Fork,
     Hash,
     Header,
     Initcode,
     Op,
+    RecipientType,
     Storage,
     Transaction,
     Withdrawal,
@@ -1464,14 +1467,21 @@ def test_bal_invalid_missing_coinbase(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
     )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    total_intrinsic_gas = intrinsic_gas + top_frame_state_gas
     gas_price = 0xA
 
     tx = Transaction(
         sender=alice,
         to=bob,
         value=100,
-        gas_limit=intrinsic_gas + 1000,
+        gas_limit=total_intrinsic_gas + 1000,
         gas_price=gas_price,
     )
 
@@ -1481,7 +1491,7 @@ def test_bal_invalid_missing_coinbase(
         parent_gas_used=0,
         parent_gas_limit=genesis_env.gas_limit,
     )
-    tip = (gas_price - base_fee_per_gas) * intrinsic_gas
+    tip = (gas_price - base_fee_per_gas) * total_intrinsic_gas
 
     blockchain_test(
         pre=pre,
@@ -1546,14 +1556,21 @@ def test_bal_invalid_coinbase_balance_value(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
     )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    total_intrinsic_gas = intrinsic_gas + top_frame_state_gas
     gas_price = 0xA
 
     tx = Transaction(
         sender=alice,
         to=bob,
         value=100,
-        gas_limit=intrinsic_gas + 1000,
+        gas_limit=total_intrinsic_gas + 1000,
         gas_price=gas_price,
     )
 
@@ -1563,7 +1580,7 @@ def test_bal_invalid_coinbase_balance_value(
         parent_gas_used=0,
         parent_gas_limit=genesis_env.gas_limit,
     )
-    tip = (gas_price - base_fee_per_gas) * intrinsic_gas
+    tip = (gas_price - base_fee_per_gas) * total_intrinsic_gas
 
     blockchain_test(
         pre=pre,
@@ -1664,6 +1681,52 @@ def test_bal_invalid_extraneous_coinbase(
                     append_account(BalAccountChange(address=coinbase)),
                     sort_accounts_by_address(),
                 ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "invalid_bal_payload",
+    [
+        pytest.param(b"", id="empty_byte_string"),
+        pytest.param(b"\x80", id="rlp_non_list"),
+        pytest.param(b"\xc1", id="rlp_truncated_list"),
+    ],
+)
+def test_bal_invalid_engine_payload_encoding(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    invalid_bal_payload: bytes,
+) -> None:
+    """
+    Reject a `newPayload` whose `blockAccessList` does not decode as an RLP
+    list: the empty byte string `0x` (an empty BAL is `0xc0`), the RLP
+    empty byte string `0x80` (valid RLP but not a list), or a truncated
+    list header `0xc1`.
+    """
+    sender = pre.fund_eoa()
+    receiver = pre.nonexistent_account()
+
+    tx = Transaction(sender=sender, to=receiver)
+
+    blockchain_test(
+        pre=pre,
+        post={
+            sender: Account(nonce=0),
+            receiver: None,
+        },
+        blocks=[
+            Block(
+                txs=[tx],
+                engine_new_payload_block_access_list=Bytes(
+                    invalid_bal_payload
+                ),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],
     )

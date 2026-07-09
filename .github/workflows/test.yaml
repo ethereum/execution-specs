@@ -105,7 +105,9 @@ jobs:
           python-version: "3.14"
       - uses: ./.github/actions/setup-env
       - name: Run fill (${{ matrix.label }})
-        run: just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+        run: >
+          just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+          -m "not slow and not derived_test"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov
@@ -153,6 +155,22 @@ jobs:
           files: .just/json-loader/coverage.xml
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  spec-tools:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - uses: ./.github/actions/setup-env
+      - name: Run spec-tools tests
+        run: just spec-tools
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
   test-tests:
     runs-on: [self-hosted-ghr, size-xl-x64]

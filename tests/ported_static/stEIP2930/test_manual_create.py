@@ -6,12 +6,13 @@ state_tests/stEIP2930/manualCreateFiller.yml
 
 @manually-enhanced: Do not overwrite. The three parametrizations of
 this test measure regular gas around a fresh SSTORE-set inside a
-CREATE-deployed contract. EIP-8037 splits the Cancun-era SSTORE-set
-base into a smaller regular portion plus 37 568 state-gas; with an
-empty reservoir the full state-gas spills into regular gas and
-`Op.GAS` reads +20 468 = 37 568 - 17 100 compared to Cancun. Bake
-that delta into both `[">=Cancun"]` expect entries fork-conditionally
-via `Op.SSTORE(new_value=1).state_cost(fork) - 17100`.
+CREATE-deployed contract. EIP-8037 moves the bulk of the SSTORE-set
+cost into a per-storage state-gas charge; with an empty reservoir it
+spills back into regular gas, which `Op.GAS` observes. Derive the
+warm and cold fresh-set deltas from the fork's own gas model so each
+is exactly 0 pre-EIP-8037 and tracks parameter changes; bake the
+warm delta into the declared-key entry and the cold delta into the
+undeclared-key entries.
 """
 
 import pytest
@@ -90,12 +91,18 @@ def test_manual_create(
 
     pre[sender] = Account(balance=0x1000000000000000000, nonce=1)
 
-    # EIP-8037 SSTORE-set spillover: +20 468 regular gas per fresh set
-    # when the reservoir is empty.
-    sstore_set_delta = (
-        (Op.SSTORE(new_value=1).state_cost(fork) - 17100)
-        if fork.is_eip_enabled(8037)
-        else 0
+    # EIP-8037 SSTORE-set spill into regular gas (empty reservoir).
+    # Derive the warm and cold fresh-set deltas from the fork's own
+    # gas model so each is exactly 0 pre-EIP-8037.
+    def _sstore_delta(cancun_cost: int, **metadata: int) -> int:
+        op = Op.SSTORE.with_metadata(**metadata)
+        return op.gas_cost(fork) - cancun_cost
+
+    warm_set_delta = _sstore_delta(
+        20000, key_warm=True, current_value=0, new_value=2
+    )
+    cold_set_delta = _sstore_delta(
+        22100, key_warm=False, current_value=0, new_value=2
     )
 
     expect_entries_: list[dict] = [
@@ -104,7 +111,7 @@ def test_manual_create(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=sender, nonce=1): Account(
-                    storage={0: 20008 + sstore_set_delta, 1: 106}
+                    storage={0: 20008 + warm_set_delta, 1: 106}
                 ),
             },
         },
@@ -113,7 +120,7 @@ def test_manual_create(
             "network": [">=Cancun"],
             "result": {
                 compute_create_address(address=sender, nonce=1): Account(
-                    storage={0: 22108 + sstore_set_delta, 1: 106}
+                    storage={0: 22108 + cold_set_delta, 1: 106}
                 ),
             },
         },

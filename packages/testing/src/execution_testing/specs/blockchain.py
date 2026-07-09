@@ -84,7 +84,7 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -407,6 +407,8 @@ class Block(Header):
     """Post state for verification after block execution in BlockchainTest"""
     block_access_list: Bytes | None = Field(None)
     """EIP-7928: Block-level access lists (serialized)."""
+    engine_new_payload_block_access_list: Bytes | None = None
+    """EIP-7928: override only the engine newPayload blockAccessList field."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
 
@@ -525,6 +527,7 @@ class BuiltBlock(CamelModel):
     execution_witness_mutated: bool = False
     stateless_input_bytes: Bytes | None = None
     stateless_output_bytes: Bytes | None = None
+    engine_new_payload_block_access_list: Bytes | None = None
 
     def get_fixture_block(
         self, *, include_receipts: bool = True
@@ -587,10 +590,8 @@ class BuiltBlock(CamelModel):
         """Get the RLP of the block."""
         return self.get_fixture_block().rlp
 
-    @staticmethod
-    def derive_engine_payload_modifier(
-        rlp_modifier: Header | None,
-        block_access_list: BlockAccessList | None,
+    def engine_payload_modifier(
+        self,
     ) -> "FixtureExecutionPayloadModifier | None":
         """
         Propagate ``rlp_modifier``'s header changes to the engine payload.
@@ -600,9 +601,13 @@ class BuiltBlock(CamelModel):
         the ``block_access_list`` body. So a header modifier that touches the
         BAL hash needs to drive a matching change on the payload body.
         """
-        if rlp_modifier is None:
+        if self.engine_new_payload_block_access_list is not None:
+            return FixtureExecutionPayloadModifier(
+                block_access_list=self.engine_new_payload_block_access_list,
+            )
+        if self.rlp_modifier is None:
             return None
-        bal_hash_override = rlp_modifier.block_access_list_hash
+        bal_hash_override = self.rlp_modifier.block_access_list_hash
         if bal_hash_override is None:
             return None
         if bal_hash_override is Header.REMOVE_FIELD:
@@ -615,7 +620,7 @@ class BuiltBlock(CamelModel):
         # payload by forcing a body to be present. Its exact value is
         # irrelevant for negative tests — a non-``None`` value is enough to
         # make a payload-version mismatch detectable.
-        if block_access_list is None:
+        if self.block_access_list is None:
             return FixtureExecutionPayloadModifier(
                 block_access_list=Bytes(b""),
             )
@@ -636,9 +641,7 @@ class BuiltBlock(CamelModel):
             execution_witness_mutated=(
                 True if self.execution_witness_mutated else None
             ),
-            execution_payload_modifier=self.derive_engine_payload_modifier(
-                self.rlp_modifier, self.block_access_list
-            ),
+            execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
         )
@@ -827,15 +830,12 @@ class BlockchainTest(BaseTest):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
         Discard a fixture format from filling if the appropriate marker is
         used.
         """
-        del fork
-
         marker_names = [m.name for m in markers]
         if (
             fixture_format != BlockchainFixture
@@ -1154,6 +1154,9 @@ class BlockchainTest(BaseTest):
             ),
             stateless_input_bytes=stateless_artifacts.stateless_input_bytes,
             stateless_output_bytes=stateless_artifacts.stateless_output_bytes,
+            engine_new_payload_block_access_list=(
+                block.engine_new_payload_block_access_list
+            ),
         )
         built_block: BuiltBlock
         if transition_tool_output.engine_payload is not None:
@@ -1173,6 +1176,7 @@ class BlockchainTest(BaseTest):
                 and block.rlp_modifier is None
                 and block.requests is None
                 and not block.skip_exception_verification
+                and block.engine_new_payload_block_access_list is None
                 and not (
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list._modifier is not None
@@ -1184,10 +1188,13 @@ class BlockchainTest(BaseTest):
                 # exceptions. - No RLP modifier was specified, because the
                 # modifier is what normally produces the block exception. - No
                 # requests were specified, because modified requests are also
-                # what normally produces the block exception. - No BAL
-                # modifier was specified, because modified BAL produces block
-                # exceptions. - No witness modifier was specified, because
-                # witness soundness is verified separately via the guest rerun.
+                # what normally produces the block exception. - No engine
+                # payload BAL override was specified, because it corrupts only
+                # the engine payload after the transition tool has run. - No
+                # BAL modifier was specified, because modified BAL also
+                # produces block exceptions. - No witness modifier was
+                # specified, because witness soundness is verified separately
+                # via the guest rerun.
                 built_block.verify_block_exception(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )

@@ -17,6 +17,9 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "Exceeded MAX_BLOB_GAS_PER_BLOCK"
         ),
+        TransactionException.INVALID_CHAINID: (
+            "Transaction has invalid chain id"
+        ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             "Invalid deposit request layout"
         ),
@@ -58,6 +61,11 @@ class EthrexExceptionMapper(ExceptionMapper):
         ),
     }
     mapping_regex = {
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            r"Couldn't recover addresses with error: invalid signature|"
+            r"Error decoding field 'signature_y_parity' of type bool: "
+            r"MalformedBoolean"
+        ),
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             r"(?i)priority fee.* is greater than max fee.*"
         ),
@@ -173,6 +181,7 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"exceeding max valid index \d+|"
             r"Failed to RLP decode BAL|"
             r"Block access list .+ not in strictly ascending order.*|"
+            r"Block access list .+ has an empty change set|"
             r"BAL validation failed for (tx \d+|system_tx|withdrawal): .*|"
             r"BAL validation failed: .*|"
             r"absent from BAL|"

@@ -38,7 +38,6 @@ from ethereum.state import (
     State,
     apply_changes_to_state,
 )
-from ethereum.utils.byte import left_pad_zero_bytes
 
 from . import vm
 from .block_access_lists import (
@@ -59,9 +58,12 @@ from .exceptions import (
     NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
+    WrongChainIdError,
 )
 from .fork_types import Authorization, BlockAccessIndex, VersionedHash
 from .requests import (
+    BUILDER_DEPOSIT_REQUEST_TYPE,
+    BUILDER_EXIT_REQUEST_TYPE,
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
     WITHDRAWAL_REQUEST_TYPE,
@@ -71,8 +73,8 @@ from .requests import (
 from .state_tracker import (
     BlockState,
     TransactionState,
+    clear_account_preserving_balance,
     create_ether,
-    destroy_account,
     extract_block_diff,
     get_account,
     get_code,
@@ -88,6 +90,7 @@ from .transactions import (
     LegacyTransaction,
     SetCodeTransaction,
     Transaction,
+    chain_id,
     decode_transaction,
     encode_transaction,
     get_transaction_hash,
@@ -134,6 +137,12 @@ WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
 )
 CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
     "0x0000BBdDc7CE488642fb579F8B00f3a590007251"
+)
+BUILDER_DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
+    "0x0000BFF46984E3725691FA540A8C7589300D8282"
+)
+BUILDER_EXIT_CONTRACT_ADDRESS = hex_to_address(
+    "0x000064D678505AD48F8CCB093BC65613800E8282"
 )
 HISTORY_STORAGE_ADDRESS = hex_to_address(
     "0x0000F90827F1C53a10cb7A02335B175320002935"
@@ -508,9 +517,9 @@ def check_transaction(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
     tx: Transaction,
+    sender: Address,
     tx_state: TransactionState,
-    sender_public_key: Optional[Bytes] = None,
-) -> Tuple[Address, Uint, Tuple[VersionedHash, ...], U64]:
+) -> Tuple[Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
 
@@ -522,15 +531,13 @@ def check_transaction(
         The block output for the current block.
     tx :
         The transaction.
+    sender :
+        The recovered sender address of the transaction.
     tx_state :
         The transaction state tracker.
-    sender_public_key :
-        Optional sender public key to verify instead of recovering.
 
     Returns
     -------
-    sender_address :
-        The sender of the transaction.
     effective_gas_price :
         The price to charge for gas when the transaction is executed.
     blob_versioned_hashes :
@@ -592,13 +599,7 @@ def check_transaction(
     if tx_blob_gas_used > blob_gas_available:
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
-    if sender_public_key is None:
-        sender_address = recover_sender(block_env.chain_id, tx)
-    else:
-        sender_address = recover_sender_from_public_key(
-            block_env.chain_id, tx, sender_public_key
-        )
-    sender_account = get_account(tx_state, sender_address)
+    sender_account = get_account(tx_state, sender)
 
     if isinstance(tx, FeeMarketCapableTransaction):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
@@ -667,7 +668,7 @@ def check_transaction(
     sender_code = get_code(
         tx_state,
         sender_account.code_hash,
-        sender_address,
+        sender,
     )
     if sender_account.code_hash != EMPTY_CODE_HASH and not is_valid_delegation(
         sender_code
@@ -675,7 +676,6 @@ def check_transaction(
         raise InvalidSenderError("not EOA")
 
     return (
-        sender_address,
         effective_gas_price,
         blob_versioned_hashes,
         tx_blob_gas_used,
@@ -812,6 +812,8 @@ def process_unchecked_system_transaction(
 
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
+        recipient=target_address,
+        value=U256(0),
         gas_price=block_env.base_fee_per_gas,
         gas=SYSTEM_TRANSACTION_GAS,
         state_gas_reservoir=(
@@ -980,6 +982,30 @@ def process_general_purpose_requests(
             + system_consolidation_tx_output.return_data
         )
 
+    system_builder_deposit_tx_output = process_checked_system_transaction(
+        block_env=block_env,
+        target_address=BUILDER_DEPOSIT_CONTRACT_ADDRESS,
+        data=b"",
+    )
+
+    if len(system_builder_deposit_tx_output.return_data) > 0:
+        requests_from_execution.append(
+            BUILDER_DEPOSIT_REQUEST_TYPE
+            + system_builder_deposit_tx_output.return_data
+        )
+
+    system_builder_exit_tx_output = process_checked_system_transaction(
+        block_env=block_env,
+        target_address=BUILDER_EXIT_CONTRACT_ADDRESS,
+        data=b"",
+    )
+
+    if len(system_builder_exit_tx_output.return_data) > 0:
+        requests_from_execution.append(
+            BUILDER_EXIT_REQUEST_TYPE
+            + system_builder_exit_tx_output.return_data
+        )
+
 
 def process_transaction(
     block_env: vm.BlockEnvironment,
@@ -1022,15 +1048,31 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic = validate_transaction(tx)
+    tx_chain_id = chain_id(tx)
+    if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
+        raise WrongChainIdError(
+            expected=block_env.chain_id,
+            actual=tx_chain_id,
+        )
 
-    intrinsic_gas = intrinsic.regular + intrinsic.state
     sender_public_key = None
     if block_env.transaction_public_keys is not None:
         sender_public_key = block_env.transaction_public_keys[int(index)]
 
+    if sender_public_key is None:
+        sender = recover_sender(tx)
+    else:
+        sender = recover_sender_from_public_key(
+            block_env.chain_id,
+            tx,
+            sender_public_key,
+        )
+
+    intrinsic = validate_transaction(tx, sender)
+
+    intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
+
     (
-        sender,
         effective_gas_price,
         blob_versioned_hashes,
         tx_blob_gas_used,
@@ -1038,8 +1080,8 @@ def process_transaction(
         block_env=block_env,
         block_output=block_output,
         tx=tx,
+        sender=sender,
         tx_state=tx_state,
-        sender_public_key=sender_public_key,
     )
 
     sender_account = get_account(tx_state, sender)
@@ -1080,6 +1122,8 @@ def process_transaction(
 
     tx_env = vm.TransactionEnvironment(
         origin=sender,
+        recipient=tx.to,
+        value=tx.value,
         gas_price=effective_gas_price,
         gas=gas,
         state_gas_reservoir=state_gas_reservoir,
@@ -1134,44 +1178,21 @@ def process_transaction(
     # transfer miner fees
     create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
-    # EIP-7708: Emit burn logs for balances held by accounts marked for
-    # deletion AFTER miner fee transfer.
-    finalization_logs: List[Log] = []
-    for address in sorted(tx_output.accounts_to_delete):
-        balance = get_account(tx_state, address).balance
-        if balance > U256(0):
-            padded_address = left_pad_zero_bytes(address, 32)
-            finalization_logs.append(
-                Log(
-                    address=vm.SYSTEM_ADDRESS,
-                    topics=(
-                        vm.BURN_TOPIC,
-                        Hash32(padded_address),
-                    ),
-                    data=balance.to_be_bytes32(),
-                )
-            )
-
-    all_logs = tx_output.logs + tuple(finalization_logs)
-
-    tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
     tx_state_gas = (
         int(tx_env.intrinsic_state_gas)
         + tx_output.state_gas_used
         - int(tx_output.state_refund)
     )
-    block_output.block_gas_used += max(
-        tx_regular_gas, intrinsic.calldata_floor
-    )
+    # Defensive guard for Uint conversion: State refunds never exceed
+    # the state charges so the value is non-negative.
+    tx_regular_gas = tx_gas_used_before_refund - Uint(max(0, tx_state_gas))
+    block_output.block_gas_used += tx_regular_gas
     block_output.block_state_gas_used += Uint(max(0, tx_state_gas))
     block_output.blob_gas_used += tx_blob_gas_used
 
     block_output.cumulative_gas_used += tx_gas_used
     receipt = make_receipt(
-        tx,
-        tx_output.error,
-        block_output.cumulative_gas_used,
-        all_logs,
+        tx, tx_output.error, block_output.cumulative_gas_used, tx_output.logs
     )
 
     receipt_key = rlp.encode(Uint(index))
@@ -1183,10 +1204,10 @@ def process_transaction(
         receipt,
     )
 
-    block_output.block_logs += all_logs
+    block_output.block_logs += tx_output.logs
 
     for address in tx_output.accounts_to_delete:
-        destroy_account(tx_state, address)
+        clear_account_preserving_balance(tx_state, address)
 
     incorporate_tx_into_block(tx_state, block_env.block_access_list_builder)
 

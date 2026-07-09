@@ -441,3 +441,34 @@ def test_bal_2935_invalid_calldata_size(
         blocks=[block_1, block_2],
         post=post_state,
     )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_2935_absent_contract(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure an undeployed history contract is still recorded in the BAL.
+
+    Overriding the genesis contract with an empty account drops it from the
+    pre-state. The block-start system call reads the now-absent account
+    (recording it) and finds no code to run, so the address is in the BAL
+    with an empty AccountChanges. Unreachable on mainnet,
+    consensus-relevant on custom or test chains.
+    """
+    pre[HISTORY_STORAGE_ADDRESS] = Account(code=b"", nonce=0, balance=0)
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation.empty(),
+                    }
+                ),
+            )
+        ],
+        post={HISTORY_STORAGE_ADDRESS: Account.NONEXISTENT},
+    )

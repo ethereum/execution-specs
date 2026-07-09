@@ -36,6 +36,10 @@ class GasCosts:
     CALL_VALUE: int
     CALL_STIPEND: int
     NEW_ACCOUNT: int
+    ACCOUNT_WRITE: int = 0
+    CREATE_ACCESS: int = 0
+    TRANSFER_LOG_COST: int = 0
+    TX_VALUE_COST: int = 0
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: int
@@ -146,3 +150,5 @@ class GasCosts:
     OPCODE_BLOBHASH: int = 0
     OPCODE_MCOPY_BASE: int = 0
     OPCODE_CLZ: int = 0
+    OPCODE_TLOAD: int = 0
+    OPCODE_TSTORE: int = 0

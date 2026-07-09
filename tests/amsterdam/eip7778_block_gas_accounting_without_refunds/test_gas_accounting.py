@@ -105,6 +105,10 @@ def build_refund_tx(
                 auth_state_refund = (
                     gsc.REFUND_AUTH_PER_EXISTING_ACCOUNT * refunds_count
                 )
+                # The worst-case `ACCOUNT_WRITE` charged at intrinsic
+                # time is refunded via the refund counter for existing
+                # authorities, even if the transaction reverts.
+                refund_counter += gsc.ACCOUNT_WRITE * refunds_count
             case _:
                 raise ValueError(
                     f"Unknown refund type: {refund_type} (Test needs update)"
@@ -219,7 +223,7 @@ def build_refund_tx(
 )
 @pytest.mark.with_all_refund_types()
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
-@pytest.mark.valid_from("EIP7778")
+@pytest.mark.valid_from("EIP8037")
 def test_simple_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -248,7 +252,7 @@ def test_simple_gas_accounting(
     )
 
     # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas)
-    block_regular = max(gas_used_pre_refund, call_data_floor_cost)
+    block_regular = gas_used_pre_refund
     refund_tx_block_gas_used = max(block_regular, tx_state_gas)
 
     blockchain_test(
@@ -293,7 +297,7 @@ def test_simple_gas_accounting(
 )
 @pytest.mark.with_all_refund_types()
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
-@pytest.mark.valid_from("EIP7778")
+@pytest.mark.valid_from("EIP8037")
 def test_multi_transaction_gas_accounting(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -352,12 +356,16 @@ def test_multi_transaction_gas_accounting(
         exceed_block_gas_limit=exceed_block_gas_limit,
     )
     refund_tx_gas_used = max(gas_used_post_refund, call_data_floor_cost)
-    refund_tx_block_regular = max(gas_used_pre_refund, call_data_floor_cost)
 
     extra_tx_sender = pre.fund_eoa()
     extra_tx_calldata = b"\xff" if extra_tx_data_floor else b""
     extra_tx_intrinsic_gas_cost = intrinsic_cost_calc(
         calldata=extra_tx_calldata
+    )
+    # Block regular gas uses actual charge, not the tx-level floor.
+    extra_tx_block_gas = intrinsic_cost_calc(
+        calldata=extra_tx_calldata,
+        return_cost_deducted_prior_execution=True,
     )
 
     extra_tx = Transaction(
@@ -368,20 +376,28 @@ def test_multi_transaction_gas_accounting(
         expected_receipt={
             "gas_used": refund_tx_gas_used + extra_tx_intrinsic_gas_cost,
         },
-        error=TransactionException.GAS_ALLOWANCE_EXCEEDED
-        if exceed_block_gas_limit
-        else None,
+        error=(
+            TransactionException.GAS_ALLOWANCE_EXCEEDED
+            if exceed_block_gas_limit
+            else None
+        ),
     )
 
     # EIP-8037: block_gas_used = max(sum_regular, sum_state)
     # Extra tx has no state gas, so its state gas contribution = 0
-    block_regular = refund_tx_block_regular + extra_tx_intrinsic_gas_cost
+    block_regular = gas_used_pre_refund + extra_tx_block_gas
     block_state = tx_state_gas
     total_block_gas_used = max(block_regular, block_state)
+    # The block gas_limit must accommodate extra_tx's full gas_limit (which
+    # may be floor-inclusive) even though block gas_used uses the lower actual
+    # charge. For exceed_block_gas_limit=True we set the limit below
+    # total_block_gas_used to test that the extra_tx fails.
     if exceed_block_gas_limit:
         environment_gas_limit = total_block_gas_used - 1
     else:
-        environment_gas_limit = total_block_gas_used
+        environment_gas_limit = (
+            gas_used_pre_refund + extra_tx_intrinsic_gas_cost
+        )
 
     txs = [refund_tx, extra_tx]
 
@@ -450,7 +466,7 @@ class CallDataTestType(Enum):
         "interval that DATA_FLOOR_BETWEEN needs is empty"
     ),
 )
-@pytest.mark.valid_from("EIP7778")
+@pytest.mark.valid_from("EIP8037")
 def test_varying_calldata_costs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -553,7 +569,7 @@ def test_varying_calldata_costs(
         )
 
     # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas)
-    block_regular = max(call_data_floor_cost, gas_used_pre_refund)
+    block_regular = gas_used_pre_refund
     refund_tx_block_gas_used = max(block_regular, tx_state_gas)
 
     blockchain_test(
@@ -605,7 +621,7 @@ def test_multiple_refund_types_in_one_tx(
     )
 
     # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas)
-    block_regular = max(gas_used_pre_refund, call_data_floor_cost)
+    block_regular = gas_used_pre_refund
     refund_tx_block_gas_used = max(block_regular, tx_state_gas)
 
     blockchain_test(
@@ -621,24 +637,24 @@ def test_multiple_refund_types_in_one_tx(
 
 
 @pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
-@pytest.mark.valid_from("EIP7778")
+@pytest.mark.valid_from("EIP8037")
 def test_mixed_gas_regimes(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Lock in `block.gas_used == sum_i max(pre_refund_i, floor_i)` across a
-    block where each tx hits a different EIP-7778 regime.
+    Lock in block-level gas accounting across a block where each tx hits a
+    different regime.
 
     tx1: SSTORE-set fresh slot (no refund, pre_refund > floor).
     tx2: SSTORE-clear x10 (normal refund, refund not clipped to floor).
-    tx3: 1000 zero-byte calldata to STOP (floor binds upward).
+    tx3: 1000 zero-byte calldata to STOP (floor binds upward for fee only).
 
-    The 2-tx `test_multi_transaction_gas_accounting` covers a refund tx
-    plus a minimal extra tx but never combines a refund-bearing tx with
-    a floor-binding tx in the same block. Per-tx sender balance is also
-    asserted to lock in that the floor-binding tx pays
+    After EIP-8037's calldata-floor alignment, the floor only affects tx-level
+    fee calculation (tx_gas_used = max(post_refund, floor)); block regular gas
+    uses pre-refund gas minus state gas, with no floor applied. Per-tx sender
+    balance is also asserted to lock in that the floor-binding tx pays
     `floor * gas_price`, not `pre_refund * gas_price`.
     """
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
@@ -714,25 +730,27 @@ def test_mixed_gas_regimes(
     )
     tx3_floor = data_floor_calc(data=tx3_data)
     assert tx3_floor > tx3_pre_refund, "tx3: floor must bind upward"
-    tx3_contribution = max(tx3_pre_refund, tx3_floor)
+    tx3_fee_gas = max(tx3_pre_refund, tx3_floor)
+    # Block regular gas uses pre-refund only; floor is tx-level only.
+    tx3_block_contribution = tx3_pre_refund
     tx3 = Transaction(
         to=tx3_target,
-        gas_limit=tx3_contribution,
+        gas_limit=tx3_fee_gas,
         sender=tx3_sender,
         data=tx3_data,
         # TODO: gas_used in expected_receipt is ignored by
         # verify_transaction_receipt; only cumulative_gas_used is
         # checked. To be fixed by #2855.
-        expected_receipt={"gas_used": tx3_contribution},
+        expected_receipt={"gas_used": tx3_fee_gas},
     )
     tx3_gas_price = tx3.gas_price if tx3.gas_price else tx3.max_fee_per_gas
     assert tx3_gas_price is not None
     post[tx3_sender] = Account(
-        balance=initial_fund - tx3_contribution * tx3_gas_price
+        balance=initial_fund - tx3_fee_gas * tx3_gas_price
     )
 
     total_gas_used = (
-        tx1_block_contribution + tx2_contribution + tx3_contribution
+        tx1_block_contribution + tx2_contribution + tx3_block_contribution
     )
 
     blockchain_test(

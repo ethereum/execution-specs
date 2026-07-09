@@ -28,7 +28,12 @@ from .exceptions import (
     InitCodeTooLargeError,
     TransactionTypeError,
 )
-from .fork_types import Authorization, VersionedHash
+from .fork_types import (
+    Authorization,
+    RegularGas,
+    StateGas,
+    VersionedHash,
+)
 
 
 @final
@@ -36,10 +41,10 @@ from .fork_types import Authorization, VersionedHash
 class IntrinsicGasCost:
     """Intrinsic gas costs for a transaction, split by gas type."""
 
-    regular: Uint
+    regular: RegularGas
     """Regular execution gas (calldata, base cost, access list, etc.)."""
 
-    state: Uint
+    state: StateGas
     """
     State growth gas (account creation, storage set, authorization) per
     [EIP-8037].
@@ -47,7 +52,7 @@ class IntrinsicGasCost:
     [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     """
 
-    calldata_floor: Uint
+    calldata_floor: RegularGas
     """
     Minimum gas cost based on calldata size per [EIP-7623].
 
@@ -576,7 +581,7 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
         return tx
 
 
-def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
+def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     """
     Verifies a transaction.
 
@@ -608,12 +613,14 @@ def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
-    intrinsic = calculate_intrinsic_cost(tx)
-    intrinsic_gas = intrinsic.regular + intrinsic.state
+    intrinsic = calculate_intrinsic_cost(tx, sender)
+    intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
     if intrinsic_gas > tx.gas:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
     if intrinsic.calldata_floor > tx.gas:
         raise InsufficientTransactionGasError("Insufficient calldata floor")
+    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
+        raise InitCodeTooLargeError("Code size too large")
     if intrinsic.regular > TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
             "Intrinsic regular gas exceeds TX_MAX_GAS_LIMIT"
@@ -624,13 +631,13 @@ def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
         )
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
-    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
-        raise InitCodeTooLargeError("Code size too large")
 
     return intrinsic
 
 
-def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
+def calculate_intrinsic_cost(
+    tx: Transaction, sender: Address
+) -> IntrinsicGasCost:
     """
     Calculates the gas that is charged before execution is started.
 
@@ -644,16 +651,25 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (`TX_BASE`)
-    2. Cost for data (zero and non-zero bytes)
-    3. Cost for contract creation (if applicable)
-    4. Cost for access list entries (if applicable)
-    5. Cost for authorizations (if applicable)
+    1. Sender cost (`TX_BASE`).
+    2. Recipient cost (`COLD_ACCOUNT_ACCESS` for a non-self-transfer
+       call, or `CREATE_ACCESS` plus `NEW_ACCOUNT` state gas for a
+       contract creation).
+    3. Value cost (`TRANSFER_LOG_COST`, plus `TX_VALUE_COST` for a
+       non-self-transfer call) when ``tx.value > 0``.
+    4. Calldata cost (zero and non-zero bytes).
+    5. Access list entries (if applicable).
+    6. Authorizations (if applicable).
 
+    Self-transfers (``sender == tx.to``) skip the recipient and value
+    charges.
 
-    This function takes a transaction and gas_limit as parameters and
-    returns the intrinsic regular gas cost, intrinsic state gas cost, and the
-    minimum gas cost used by the transaction based on the calldata size.
+    This function takes a transaction and its sender as parameters and
+    returns the intrinsic regular gas cost, the intrinsic state gas cost,
+    and the minimum (floor) gas cost based on the calldata size. The floor
+    is anchored on the regular-gas portion of items 1 to 3 above rather
+    than `TX_BASE` alone, so it never undercuts the transaction's own
+    intrinsic base.
     """
     from .vm.gas import (
         GasCosts,
@@ -665,13 +681,24 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
 
     data_cost = tokens_in_calldata * GasCosts.TX_DATA_TOKEN_STANDARD
 
-    create_regular_gas = Uint(0)
-    create_state_gas = Uint(0)
-    if tx.to == Bytes0(b""):
-        create_state_gas = StateGasCosts.NEW_ACCOUNT
-        create_regular_gas = GasCosts.REGULAR_GAS_CREATE + init_code_cost(
-            ulen(tx.data)
-        )
+    is_create = tx.to == Bytes0(b"")
+    is_self_transfer = tx.to == sender
+
+    recipient_regular_gas = Uint(0)
+    recipient_state_gas = Uint(0)
+    init_code_gas = Uint(0)
+    if is_create:
+        recipient_regular_gas = GasCosts.CREATE_ACCESS
+        init_code_gas = init_code_cost(ulen(tx.data))
+        recipient_state_gas = StateGasCosts.NEW_ACCOUNT
+        if tx.value > U256(0):
+            recipient_regular_gas += GasCosts.TRANSFER_LOG_COST
+    elif not is_self_transfer:
+        recipient_regular_gas = GasCosts.COLD_ACCOUNT_ACCESS
+        if tx.value > U256(0):
+            recipient_regular_gas += (
+                GasCosts.TRANSFER_LOG_COST + GasCosts.TX_VALUE_COST
+            )
 
     access_list_cost = Uint(0)
     tokens_in_access_list = Uint(0)
@@ -692,9 +719,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     auth_regular_gas = Uint(0)
     auth_state_gas = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_regular_gas = GasCosts.PER_AUTH_BASE_COST * ulen(
-            tx.authorizations
-        )
+        auth_regular_gas = (
+            GasCosts.ACCOUNT_WRITE + GasCosts.REGULAR_PER_AUTH_BASE_COST
+        ) * ulen(tx.authorizations)
         auth_state_gas = (
             StateGasCosts.NEW_ACCOUNT + StateGasCosts.AUTH_BASE
         ) * ulen(tx.authorizations)
@@ -705,25 +732,29 @@ def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     # Total floor tokens.
     total_floor_tokens = floor_tokens_in_calldata + tokens_in_access_list
 
+    # Decomposed regular-gas intrinsic base (EIP-2780), which also anchors
+    # the calldata floor.
+    base_regular_gas = GasCosts.TX_BASE + recipient_regular_gas
+
     # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
     data_floor_gas_cost = (
-        total_floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + GasCosts.TX_BASE
+        total_floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + base_regular_gas
     )
 
     intrinsic_regular_gas = (
-        GasCosts.TX_BASE
+        base_regular_gas
+        + init_code_gas
         + data_cost
-        + create_regular_gas
         + access_list_cost
         + auth_regular_gas
     )
 
-    intrinsic_state_gas = create_state_gas + auth_state_gas
+    intrinsic_state_gas = recipient_state_gas + auth_state_gas
 
     return IntrinsicGasCost(
-        regular=intrinsic_regular_gas,
-        state=intrinsic_state_gas,
-        calldata_floor=data_floor_gas_cost,
+        regular=RegularGas(intrinsic_regular_gas),
+        state=StateGas(intrinsic_state_gas),
+        calldata_floor=RegularGas(data_floor_gas_cost),
     )
 
 
@@ -739,7 +770,25 @@ def count_tokens_in_data(data: bytes) -> Uint:
     return num_zeros + num_non_zeros * Uint(4)
 
 
-def recover_sender(chain_id: U64, tx: Transaction) -> Address:
+def chain_id(tx: Transaction) -> None | U64:
+    """
+    Extract the chain identifier from a transaction. See [EIP-155].
+
+    [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
+    """
+    if isinstance(tx, LegacyTransaction):
+        if tx.v == 27 or tx.v == 28:
+            return None
+
+        if tx.v < U256(35):
+            raise InvalidSignatureError("bad v")
+
+        return U64((tx.v - U256(35)) >> U256(1))
+    else:
+        return tx.chain_id
+
+
+def recover_sender(tx: Transaction) -> Address:
     """
     Extracts the sender address from a transaction.
 
@@ -749,11 +798,13 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     signing hash of the transaction. The sender's public key can be obtained
     with these two values and therefore the sender address can be retrieved.
 
-    This function takes chain_id and a transaction as parameters and returns
-    the address of the sender of the transaction. It raises an
-    `InvalidSignatureError` if the signature values (r, s, v) are invalid.
+    This function takes a transaction as a parameter and returns the address
+    of the sender of the transaction. It raises an `InvalidSignatureError` if
+    the signature values (r, s, v) are invalid.
     """
-    public_key = recover_transaction_public_key(chain_id, tx)
+    tx_chain_id = chain_id(tx)
+    recovery_chain_id = U64(0) if tx_chain_id is None else tx_chain_id
+    public_key = recover_transaction_public_key(recovery_chain_id, tx)
     return _sender_address_from_public_key(public_key)
 
 

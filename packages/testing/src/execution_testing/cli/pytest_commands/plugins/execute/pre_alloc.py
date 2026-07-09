@@ -261,7 +261,12 @@ def _compute_deploy_gas_limit(
 
     # Regular portion, bound by the gas cap.
     regular_gas = intrinsic_regular_gas
-    regular_gas += deploy_code_size * gas_costs.CODE_DEPOSIT_PER_BYTE
+    if fork.state_gas_reservoir_enabled():
+        regular_gas += gas_costs.OPCODE_KECCAK256_PER_WORD * (
+            (deploy_code_size + 31) // 32
+        )
+    else:
+        regular_gas += deploy_code_size * gas_costs.CODE_DEPOSIT_PER_BYTE
     regular_gas += memory_expansion_gas_calculator(
         new_bytes=len(bytes(initcode))
     )

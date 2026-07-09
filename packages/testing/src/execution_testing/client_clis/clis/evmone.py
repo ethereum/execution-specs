@@ -34,10 +34,14 @@ from ..transition_tool import TransitionTool
 
 
 class EvmOneTransitionTool(TransitionTool):
-    """Evmone `evmone-t8n` Transition tool interface wrapper class."""
+    """Evmone `evmone t8n` Transition tool interface wrapper class."""
 
-    default_binary = Path("evmone-t8n")
-    detect_binary_pattern = re.compile(r"^evmone-t8n\b")
+    default_binary = Path("evmone")
+    # Match the `evmone` binary's version banner (`evmone <version>`) while
+    # excluding the sibling `evmone-statetest` / `evmone-blockchaintest` tools.
+    detect_binary_pattern = re.compile(r"^evmone\b(?!-)")
+    version_flag = "--version"
+    subcommand = "t8n"
     t8n_use_stream = False
 
     binary: Path
@@ -45,12 +49,6 @@ class EvmOneTransitionTool(TransitionTool):
     trace: bool
     supports_opcode_count: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = True
-
-    # evmone uses space-separated fork names for some forks
-    fork_name_map: ClassVar[Dict[str, str]] = {
-        "TangerineWhistle": "Tangerine Whistle",
-        "SpuriousDragon": "Spurious Dragon",
-    }
 
     def __init__(
         self,
@@ -67,7 +65,7 @@ class EvmOneTransitionTool(TransitionTool):
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """
-        Return True if the fork is supported by the tool. Currently, evmone-t8n
+        Return True if the fork is supported by the tool. Currently, evmone
         provides no way to determine supported forks.
         """
         del fork

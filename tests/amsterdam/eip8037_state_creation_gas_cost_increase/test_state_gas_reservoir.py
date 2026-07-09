@@ -744,9 +744,10 @@ def test_top_level_failure_refunds_execution_state_gas(
     elif failure_mode == "halt":
         code = Op.SSTORE(0, 1) + Op.INVALID
     else:
-        # OOG: perform the SSTORE then spin with JUMPDEST loop until
-        # gas runs out.
-        code = Op.SSTORE(0, 1) + Op.JUMPDEST + Op.JUMP(0x5)
+        # OOG: perform the SSTORE, then consume all remaining gas at
+        # once (a spin loop would execute millions of ops in the EVM
+        # and slow down filling).
+        code = Op.SSTORE(0, 1) + Om.OOG
     contract = pre.deploy_contract(code=code)
 
     tx_gas = gas_limit_cap + sstore_state_gas
@@ -806,7 +807,7 @@ def test_top_level_failure_zeros_block_state_gas(
     elif failure_mode == "halt":
         code = Op.SSTORE(0, 1) + Op.INVALID
     else:
-        code = Op.SSTORE(0, 1) + Op.JUMPDEST + Op.JUMP(0x5)
+        code = Op.SSTORE(0, 1) + Om.OOG
     contract = pre.deploy_contract(code=code)
 
     tx_gas = gas_limit_cap + sstore_state_gas

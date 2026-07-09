@@ -92,7 +92,6 @@ def test_ab_acalls_suicide0(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=10000000,
         value=0x186A0,
     )
 

@@ -19,7 +19,12 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis.cli_types import EnginePayloadMetadata
 from execution_testing.forks import Fork, TransitionFork
-from execution_testing.rpc import EngineRPC, TestingRPC
+from execution_testing.rpc import (
+    DEFAULT_REQUEST_TIMEOUT,
+    EngineRPC,
+    TestingRPC,
+    TimeoutType,
+)
 from execution_testing.rpc import EthRPC as BaseEthRPC
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
@@ -55,6 +60,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         initial_forkchoice_update_retries: int = 5,
         transaction_wait_timeout: int = 60,
         max_transactions_per_batch: int | None = None,
+        request_timeout: TimeoutType = DEFAULT_REQUEST_TIMEOUT,
         testing_rpc: TestingRPC | None = None,
     ):
         """Initialize the Ethereum RPC client for the hive simulator."""
@@ -62,6 +68,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             rpc_endpoint,
             transaction_wait_timeout=transaction_wait_timeout,
             max_transactions_per_batch=max_transactions_per_batch,
+            request_timeout=request_timeout,
         )
         self.fork = fork
         self.engine_rpc = engine_rpc

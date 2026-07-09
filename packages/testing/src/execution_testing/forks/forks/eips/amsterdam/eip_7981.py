@@ -11,6 +11,7 @@ from typing import List, Sized
 from execution_testing.base_types import AccessList
 from execution_testing.base_types.conversions import BytesConvertible
 
+from .....recipient_type import RecipientType
 from ....base_fork import (
     BaseFork,
     TransactionDataFloorCostCalculator,
@@ -55,9 +56,17 @@ class EIP7981(BaseFork):
             *,
             data: BytesConvertible,
             access_list: List[AccessList] | None = None,
+            contract_creation: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
             return (
-                super_fn(data=data)
+                super_fn(
+                    data=data,
+                    contract_creation=contract_creation,
+                    sends_value=sends_value,
+                    recipient_type=recipient_type,
+                )
                 + cls._access_list_floor_tokens(access_list)
                 * gas_costs.TX_DATA_TOKEN_FLOOR
             )
@@ -85,7 +94,11 @@ class EIP7981(BaseFork):
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
             return_cost_deducted_prior_execution: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
+            del sends_value, recipient_type
+
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
                 contract_creation=contract_creation,

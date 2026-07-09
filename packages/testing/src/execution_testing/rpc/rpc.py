@@ -8,7 +8,16 @@ import time
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pprint import pprint
-from typing import Any, Callable, ClassVar, Dict, List, Literal, Sequence
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Self,
+    Sequence,
+)
 
 import requests
 from jwt import encode
@@ -57,6 +66,13 @@ from .rpc_types import (
 
 logger = get_logger(__name__)
 BlockNumberType = int | Literal["latest", "earliest", "pending"]
+TimeoutType = float | tuple[float, float] | None
+
+# Default (connect, read) timeout for JSON-RPC requests. Without one, a
+# request whose packets are silently dropped (e.g. by docker network
+# churn in hive) blocks until the kernel abandons TCP retransmission,
+# which takes ~15 minutes on Linux.
+DEFAULT_REQUEST_TIMEOUT: TimeoutType = (10.0, 300.0)
 
 
 class SendTransactionExceptionError(Exception):
@@ -214,18 +230,44 @@ class BaseRPC:
 
     namespace: ClassVar[str]
     response_validation_context: Any | None
+    request_timeout: TimeoutType
 
     def __init__(
         self,
         url: str,
         *,
         response_validation_context: Any | None = None,
+        request_timeout: TimeoutType = DEFAULT_REQUEST_TIMEOUT,
     ):
-        """Initialize BaseRPC class with the given url."""
+        """
+        Initialize BaseRPC class with the given url.
+
+        `request_timeout` bounds every request made through this client;
+        `None` disables the bound.
+        """
         self.url = url
         self.request_id_counter = count(1)
         self.response_validation_context = response_validation_context
+        self.request_timeout = request_timeout
         self.session = requests.Session()
+
+    def close(self) -> None:
+        """
+        Close the underlying HTTP session, releasing its pooled sockets.
+
+        RPC instances are typically created per test; closing the session
+        on teardown prevents file descriptors from accumulating across a
+        client that serves many tests.
+        """
+        self.session.close()
+
+    def __enter__(self) -> Self:
+        """Enter the runtime context, returning this RPC instance."""
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Close the HTTP session on context-manager exit."""
+        self.close()
 
     def __init_subclass__(cls, namespace: str | None = None) -> None:
         """
@@ -240,7 +282,11 @@ class BaseRPC:
 
     @retry(
         retry=retry_if_exception_type(
-            (requests.ConnectionError, ConnectionRefusedError)
+            (
+                requests.ConnectionError,
+                requests.Timeout,
+                ConnectionRefusedError,
+            )
         ),
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=0.5, min=0.5, max=4.0),
@@ -252,19 +298,24 @@ class BaseRPC:
         url: str,
         json_payload: dict[str, Any] | list[dict[str, Any]],
         headers: dict[str, str],
-        timeout: int | None,
+        timeout: TimeoutType,
     ) -> requests.Response:
         """
-        Make HTTP POST request with retry logic for connection errors only.
+        Make HTTP POST request with retry logic for transport errors only.
 
-        This method only retries network-level connection failures
-        (ConnectionError, ConnectionRefusedError). HTTP status errors (4xx/5xx)
-        are handled by the caller using response.raise_for_status() WITHOUT
-        retries because:
+        This method only retries network-level failures: connection errors
+        (ConnectionError, ConnectionRefusedError) and timeouts. Re-sending
+        cannot corrupt state: the methods used here either read state or
+        re-broadcast the same signed payload. A re-sent transaction may
+        however be answered with a duplicate-transaction error rather than
+        its hash. HTTP status errors (4xx/5xx) are handled by the caller
+        using response.raise_for_status() WITHOUT retries because:
         - 4xx errors are client errors (permanent failures, no point retrying)
         - 5xx errors are server errors that typically indicate
           application-level issues rather than transient network problems
         """
+        if timeout is None:
+            timeout = self.request_timeout
         logger.debug(f"Making HTTP request to {url}, timeout={timeout}")
         return self.session.post(
             url, json=json_payload, headers=headers, timeout=timeout
@@ -301,11 +352,13 @@ class BaseRPC:
         *,
         request: RPCCall,
         extra_headers: Dict[str, str] | None = None,
-        timeout: int | None = None,
+        timeout: TimeoutType = None,
     ) -> JSONRPCResponse:
         """
         Send JSON-RPC POST request to the client RPC server at port defined in
         the url.
+
+        A `timeout` of `None` applies the client's `request_timeout`.
         """
         if extra_headers is None:
             extra_headers = {}
@@ -318,7 +371,7 @@ class BaseRPC:
 
         logger.debug(
             f"Sending RPC request to {self.url}, "
-            f"method={json_rpc_request.method}, timeout={timeout}..."
+            f"method={json_rpc_request.method}..."
         )
 
         response = self._make_request(
@@ -333,11 +386,13 @@ class BaseRPC:
         *,
         calls: Sequence[RPCCall],
         extra_headers: Dict[str, str] | None = None,
-        timeout: int | None = None,
+        timeout: TimeoutType = None,
     ) -> List[JSONRPCResponse]:
         """
         Send a JSON-RPC batch POST request to the client RPC server at port
         defined in the url.
+
+        A `timeout` of `None` applies the client's `request_timeout`.
         """
         if extra_headers is None:
             extra_headers = {}
@@ -353,7 +408,7 @@ class BaseRPC:
 
         logger.debug(
             f"Sending batch RPC request to {self.url}, "
-            f"{len(json_rpc_requests)} calls, timeout={timeout}..."
+            f"{len(json_rpc_requests)} calls..."
         )
 
         response = self._make_request(self.url, payload, headers, timeout)
@@ -879,6 +934,29 @@ class EthRPC(BaseRPC):
                 str(e), tx_rlp=transaction_rlp
             ) from e
 
+    def _transaction_is_known(
+        self, transaction: TransactionProtocol, error: Exception
+    ) -> bool:
+        """
+        Check whether the client knows `transaction` despite a send error.
+
+        A retried `eth_sendRawTransaction` whose first delivery succeeded
+        is answered with a duplicate-transaction error; if the client can
+        return the transaction by hash, the send in fact succeeded. Lookup
+        failures count as unknown so that the original send error
+        propagates.
+        """
+        try:
+            known = self.get_transaction_by_hash(transaction.hash) is not None
+        except Exception:
+            return False
+        if known:
+            logger.warning(
+                f"Client answered eth_sendRawTransaction with '{error}' "
+                "but knows the transaction; treating the send as success."
+            )
+        return known
+
     def send_transaction(self, transaction: TransactionProtocol) -> Hash:
         """
         Convenience method to send a single transaction to the client via
@@ -898,6 +976,8 @@ class EthRPC(BaseRPC):
             assert result_hash is not None
             return transaction.hash
         except Exception as e:
+            if self._transaction_is_known(transaction, e):
+                return transaction.hash
             raise SendTransactionExceptionError(str(e), tx=transaction) from e
 
     def send_transactions(
@@ -928,6 +1008,9 @@ class EthRPC(BaseRPC):
                 assert result_hash is not None
                 results.append(tx.hash)
             except Exception as e:
+                if self._transaction_is_known(tx, e):
+                    results.append(tx.hash)
+                    continue
                 raise SendTransactionExceptionError(str(e), tx=tx) from e
         return results
 
@@ -1606,6 +1689,8 @@ class TestingRPC(BaseRPC):
     RPC class for the testing namespace, providing access to
     testing-only methods like ``testing_buildBlockV1``.
     """
+
+    __test__ = False  # stop pytest from collecting this class as a test
 
     def build_block(
         self,

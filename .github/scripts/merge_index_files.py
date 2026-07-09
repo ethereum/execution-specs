@@ -3,7 +3,7 @@
 Merge multiple .meta/index.json files from split fixture builds.
 
 Accept fixture directories as arguments, load each directory's
-``.meta/index.json``, merge them via ``IndexFile.merge()``, and write
+`.meta/index.json`, merge them via `IndexFile.merge()`, and write
 the result to the specified output path.
 """
 

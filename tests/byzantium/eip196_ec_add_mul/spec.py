@@ -45,7 +45,6 @@ class PointG1(BytesConcatenation):
         return FP(self.x) + FP(self.y)
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-196 specification (https://eips.ethereum.org/EIPS/eip-196)
@@ -154,6 +153,12 @@ class Spec:
     S1_PLUS_G1 = PointG1(
         0x059A381FEC09E29448A58AE8905F41D1EB8FF0ED755AA0F827821AEFDE02EC7D,
         0x269D2516BF8C4F5798CC1267162E59ADD561E5537A328FE0F28A252FA287A72A,
+    )
+
+    # Sample point used by the legacy pointMulAdd2 tests
+    SAMPLE_G1 = PointG1(
+        0x0CCBEC17235F5B9CC5E42F3DF6364A76ECDD0101DDDA8FC5DC0BA0B59C0E5628,
+        0x069EF5E376C0A1EA82F9DFC2E0001A7F385D655EEF9A6F976C7A5D2C493EA3AD,
     )
 
     # Invalid point: S1 with a different x coordinate (not on curve)

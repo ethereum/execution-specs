@@ -552,3 +552,34 @@ def test_bal_4788_selfdestruct_to_beacon_root(
             BEACON_ROOTS_ADDRESS: Account(balance=contract_balance),
         },
     )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_4788_absent_contract(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure an undeployed beacon root contract is still recorded in the BAL.
+
+    Overriding the genesis contract with an empty account drops it from the
+    pre-state. The block-start system call reads the now-absent account
+    (recording it) and finds no code to run, so the address is in the BAL
+    with an empty AccountChanges. Unreachable on mainnet,
+    consensus-relevant on custom or test chains.
+    """
+    pre[BEACON_ROOTS_ADDRESS] = Account(code=b"", nonce=0, balance=0)
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation.empty(),
+                    }
+                ),
+            )
+        ],
+        post={BEACON_ROOTS_ADDRESS: Account.NONEXISTENT},
+    )
