@@ -3,6 +3,7 @@
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     BenchmarkTestFiller,
     Block,
@@ -150,7 +151,7 @@ def test_create2_immediate_access(
     # iteration count.
     total_iterations = sum(int.from_bytes(tx.data[:32], "big") for tx in txs)
 
-    post = {
+    post: dict[Address, Account | None] = {
         compute_create2_address(
             address=attack_contract_address, salt=salt, initcode=initcode
         ): Account(nonce=1, code=deploy_code)

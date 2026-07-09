@@ -316,7 +316,7 @@ def test_bloatnet_call_value_new_account(
         iterating=loop,
     )
 
-    initial_balance = 10 ** 9
+    initial_balance = 10**9
     attack_contract_address = pre.deploy_contract(
         code=code,
         balance=initial_balance,
