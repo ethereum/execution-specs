@@ -272,7 +272,24 @@ def _compute_deploy_gas_limit(
         new_bytes=len(bytes(initcode))
     )
     regular_gas += storage_slots * sstore_regular_gas
-    regular_gas *= 2
+
+    # Double as a safety buffer since gas estimation is approximate. The buffer
+    # must not, by itself, push a contract that genuinely deploys within the
+    # EIP-7825 regular-gas cap over it: when the unbuffered estimate still fits
+    # the cap, clamp the limit to the cap instead. The deploy then runs with a
+    # cap-sized regular limit and consumes only its (smaller) actual gas.
+    # Only a contract whose unbuffered estimate exceeds the cap is truly
+    # undeployable (the caller raises on that).
+    buffered_regular_gas = regular_gas * 2
+    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+    if (
+        tx_gas_limit_cap is not None
+        and buffered_regular_gas > tx_gas_limit_cap
+        and regular_gas <= tx_gas_limit_cap
+    ):
+        regular_gas = tx_gas_limit_cap
+    else:
+        regular_gas = buffered_regular_gas
 
     # State portion, from the block reservoir.
     state_gas = intrinsic_state_gas
