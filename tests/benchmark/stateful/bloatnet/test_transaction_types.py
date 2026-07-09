@@ -38,8 +38,8 @@ from tests.benchmark.helper.account_sender_receiver import (
         "diff_to_contract",
         "diff_to_unique_code_jumpdest_contract",
         "diff_to_contract_minimal",
-        "diff_to_contract_same",
-        "diff_to_contract_diff",
+        "diff_to_contract_same_max",
+        "diff_to_contract_diff_max",
         "diff_to_delegated_contract_diff",
     ],
 )
@@ -87,13 +87,13 @@ def test_ether_transfers_onchain_receivers(
             receivers = yield_distinct_create2_receiver(
                 AccountCreator(AccountMode.EXISTING_CONTRACT_MINIMAL).initcode
             )
-        case "diff_to_contract_same":
+        case "diff_to_contract_same_max":
             receivers = yield_distinct_create2_receiver(
-                AccountCreator(AccountMode.EXISTING_CONTRACT_SAME).initcode
+                AccountCreator(AccountMode.EXISTING_CONTRACT_SAME_MAX).initcode
             )
-        case "diff_to_contract_diff":
+        case "diff_to_contract_diff_max":
             receivers = yield_distinct_create2_receiver(
-                AccountCreator(AccountMode.EXISTING_CONTRACT_DIFF).initcode
+                AccountCreator(AccountMode.EXISTING_CONTRACT_DIFF_MAX).initcode
             )
         case "diff_to_delegated_contract_diff":
             receivers = yield_distinct_delegate_receiver()

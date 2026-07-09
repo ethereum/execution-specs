@@ -16,9 +16,10 @@ from execution_testing import (
     SequentialAddressLayout,
     keccak256,
 )
+from execution_testing.forks import Osaka
 
 # Runtime code size of the jochemnet contract (EIP-170 limit).
-JOCHEMNET_RUNTIME_SIZE = 0x6000
+JOCHEMNET_RUNTIME_SIZE = Osaka.max_code_size()
 
 
 class AccountMode(Enum):
@@ -28,12 +29,12 @@ class AccountMode(Enum):
     EXISTING_CONTRACT_MINIMAL = auto()
 
     # Max-size contract: byte-identical across copies.
-    EXISTING_CONTRACT_SAME = auto()
+    EXISTING_CONTRACT_SAME_MAX = auto()
 
     # Max-size contract: ADDRESS-embedded, each copy unique.
-    EXISTING_CONTRACT_DIFF = auto()
+    EXISTING_CONTRACT_DIFF_MAX = auto()
 
-    # Max-size contract: exercises JUMPDEST analysis.
+    # Max-size contract: exercises JUMPDEST analysis. The code is unique.
     EXISTING_CONTRACT_JUMPDEST = auto()
 
     # EOA with balance.
@@ -92,7 +93,8 @@ class UniqueMaxContractInitcode(ContractInitcode):
 
     def __new__(cls, *, diff: bool = False) -> Self:
         """Assemble the initcode."""
-        # Each MCOPY doubles the JUMPDEST-filled span up to MEM[0:0x8000];
+        # Each MCOPY doubles the JUMPDEST-filled span (the first copy is
+        # MCOPY(32, 0, 32), since 1 << 5 = 32) up to MEM[0:0x8000];
         # the deployed runtime only uses MEM[0:0x6000].
         code = Op.MSTORE(0, bytes(Op.JUMPDEST * 32))
         for size in (1 << s for s in range(5, 15)):
@@ -139,7 +141,8 @@ class JochemnetPredeployContractInitcode(ContractInitcode):
         """Assemble the initcode."""
         max_code_size = JOCHEMNET_RUNTIME_SIZE
 
-        # Each MCOPY doubles the JUMPDEST-filled span up to MEM[0:0x8000];
+        # Each MCOPY doubles the JUMPDEST-filled span (the first copy is
+        # MCOPY(32, 0, 32), since 1 << 5 = 32) up to MEM[0:0x8000];
         # the deployed runtime only uses MEM[0:0x6000].
         code = Op.MSTORE(0, bytes(Op.JUMPDEST * 32))
         for size in (1 << s for s in range(5, 15)):
@@ -270,10 +273,10 @@ class AccountCreator:
         dict[AccountMode, Callable[[], ContractInitcode]]
     ] = {
         AccountMode.EXISTING_CONTRACT_MINIMAL: MinimalContractInitcode,
-        AccountMode.EXISTING_CONTRACT_SAME: partial(
+        AccountMode.EXISTING_CONTRACT_SAME_MAX: partial(
             UniqueMaxContractInitcode, diff=False
         ),
-        AccountMode.EXISTING_CONTRACT_DIFF: partial(
+        AccountMode.EXISTING_CONTRACT_DIFF_MAX: partial(
             UniqueMaxContractInitcode, diff=True
         ),
         AccountMode.EXISTING_CONTRACT_JUMPDEST: (

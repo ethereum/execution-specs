@@ -20,7 +20,7 @@ SENDER_BASE_KEY = int.from_bytes(
 )
 
 # Deterministic EIP-7702 delegate authorities:
-# Authority i delegates to EXISTING_CONTRACT_DIFF receiver i.
+# Authority i delegates to EXISTING_CONTRACT_DIFF_MAX receiver i.
 DELEGATE_BASE_KEY = int.from_bytes(
     keccak256(b"gas-repricings-7702-delegate"), "big"
 )
@@ -75,6 +75,6 @@ def yield_distinct_nonexistent_receiver() -> Generator[Address, None, None]:
 
 
 def yield_distinct_delegate_receiver() -> Generator[Address, None, None]:
-    """Yield EOA that delegates to distinct EXISTING_CONTRACT_DIFF receiver."""
+    """Yield EOA delegating to a distinct EXISTING_CONTRACT_DIFF_MAX."""
     for i in itertools.count(0):
         yield EOA(key=DELEGATE_BASE_KEY + i)
