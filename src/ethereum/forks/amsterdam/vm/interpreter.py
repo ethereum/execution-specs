@@ -157,6 +157,11 @@ def process_message_call(message: Message) -> MessageCallOutput:
             auth_state_refund, auth_regular_refund = set_delegation(message)
             state_refund += auth_state_refund
             refund_counter += U256(auth_regular_refund)
+        else:
+            message.code = get_code(
+                tx_state,
+                get_account(tx_state, message.current_target).code_hash,
+            )
 
         delegated_address = get_delegated_code_address(message.code)
         if delegated_address is not None:
