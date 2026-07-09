@@ -15,7 +15,7 @@ from execution_testing import (
     Op,
     TestPhaseManager,
     Transaction,
-    While,
+    WhileGas,
 )
 
 from tests.benchmark.helper.account_creator import (
@@ -175,12 +175,26 @@ def test_account_access(
 
     access_warm = cache_strategy == CacheStrategy.CACHE_TX
 
+    setup_code = address_source.setup
+
     if opcode == Op.EXTCODECOPY:
+        copy_size = 1024
+        copy_dest = address_source.memory_size
         attack_call = opcode(
             address=address_source.address_op(),
-            size=1024,
+            dest_offset=copy_dest,
+            size=copy_size,
             # Gas accounting
+            data_size=copy_size,
             address_warm=access_warm,
+        )
+        # Expand memory during setup so the loop cost is constant.
+        setup_code += Op.MSTORE8(
+            copy_dest + copy_size - 1,
+            0,
+            # Gas accounting
+            old_memory_size=address_source.memory_size,
+            new_memory_size=copy_dest + copy_size,
         )
     elif opcode in (Op.CALL, Op.CALLCODE):
         attack_call = Op.POP(
@@ -191,7 +205,8 @@ def test_account_access(
                 address_warm=access_warm,
                 value_transfer=value_sent > 0,
                 account_new=(
-                    value_sent > 0
+                    opcode == Op.CALL
+                    and value_sent > 0
                     and account_mode == AccountMode.NON_EXISTING_ACCOUNT
                 ),
             )
@@ -206,13 +221,13 @@ def test_account_access(
             )
         )
 
-    loop_code = While(
+    loop_code = WhileGas(
         body=cache_op + attack_call + increment_op,
-        condition=Op.GT(Op.GAS, 0x9000) if value_sent > 0 else None,
+        fork=fork,
     )
 
     attack_code = IteratingBytecode(
-        setup=address_source.setup,
+        setup=setup_code,
         iterating=loop_code,
         iterating_subcall=Op.STOP,
     )
@@ -232,7 +247,7 @@ def test_account_access(
 
         run_code = IteratingBytecode(
             setup=address_source.setup,
-            iterating=While(body=keccak_op + increment_op),
+            iterating=WhileGas(body=keccak_op + increment_op, fork=fork),
         )
         target_opcode = Op.SHA3
 

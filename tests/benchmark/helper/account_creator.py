@@ -188,6 +188,11 @@ class AddressSource(ABC):
     def setup(self) -> Bytecode:
         """Bytecode that initializes the in-memory address layout."""
 
+    @property
+    @abstractmethod
+    def memory_size(self) -> int:
+        """Bytes of memory occupied by the address layout."""
+
     @abstractmethod
     def address_op(self) -> Bytecode:
         """Bytecode that reads the current target address."""
@@ -213,6 +218,11 @@ class Create2AddressSource(AddressSource):
         """Bytecode that initializes the in-memory address layout."""
         return self._layout
 
+    @property
+    def memory_size(self) -> int:
+        """Bytes of memory occupied by the CREATE2 preimage layout."""
+        return self._layout.offset + 96
+
     def address_op(self) -> Bytecode:
         """Bytecode that reads the current target address."""
         return self._layout.address_op()
@@ -236,6 +246,11 @@ class SequentialAddressSource(AddressSource):
     def setup(self) -> Bytecode:
         """Bytecode that initializes the in-memory address layout."""
         return self._layout
+
+    @property
+    def memory_size(self) -> int:
+        """Bytes of memory occupied by the sequential address layout."""
+        return self._layout.offset + 32
 
     def address_op(self) -> Bytecode:
         """Bytecode that reads the current target address."""

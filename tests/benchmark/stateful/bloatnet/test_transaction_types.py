@@ -10,6 +10,7 @@ from execution_testing import (
     Block,
     Fork,
     Op,
+    RecipientType,
     Transaction,
 )
 
@@ -54,14 +55,18 @@ def test_ether_transfers_onchain_receivers(
     """Benchmark ether transfers across different receiver account types."""
     senders = yield_distinct_sender()
     receiver_execution_gas = 0
+    recipient_type = RecipientType.CONTRACT
     receivers: Generator[Address, None, None]
     match case_id:
         case "diff_to_self":
             receivers = senders
+            recipient_type = RecipientType.SELF
         case "diff_to_nonexistent":
             receivers = yield_distinct_nonexistent_receiver()
+            recipient_type = RecipientType.EMPTY_ACCOUNT
         case "diff_to_existent":
             receivers = yield_distinct_existent_receiver()
+            recipient_type = RecipientType.EOA
         case "diff_to_contract":
             receivers = yield_distinct_contract_receiver()
             # Runtime code is the same across all the receivers
@@ -92,11 +97,25 @@ def test_ether_transfers_onchain_receivers(
             )
         case "diff_to_delegated_contract_diff":
             receivers = yield_distinct_delegate_receiver()
+            recipient_type = RecipientType.DELEGATION_7702
         case _:
             raise ValueError(f"Unknown case: {case_id}")
 
+    sends_value = transfer_amount > 0
     iteration_cost = (
-        fork.transaction_intrinsic_cost_calculator()() + receiver_execution_gas
+        fork.transaction_intrinsic_cost_calculator()(
+            sends_value=sends_value,
+            recipient_type=recipient_type,
+        )
+        + fork.transaction_top_frame_gas_calculator()(
+            sends_value=sends_value,
+            recipient_type=recipient_type,
+        )
+        + fork.transaction_top_frame_state_gas(
+            sends_value=sends_value,
+            recipient_type=recipient_type,
+        )
+        + receiver_execution_gas
     )
     iteration_count = gas_benchmark_value // iteration_cost
 
