@@ -11,7 +11,10 @@ from execution_testing import (
     add_kzg_version,
 )
 from execution_testing.base_types.base_types import ZeroPaddedHexNumber
-from execution_testing.exceptions.exceptions import TransactionException
+from execution_testing.exceptions.exceptions import (
+    TransactionException,
+    TransactionExceptionInstanceOrList,
+)
 from execution_testing.forks.base_fork import BaseFork
 from execution_testing.specs.blockchain import (
     Block,
@@ -252,11 +255,23 @@ def test_bad_v_r_s(
     """
     to = pre.fund_eoa(0xDEADBEEE)
 
+    error: TransactionExceptionInstanceOrList = (
+        TransactionException.INVALID_SIGNATURE_VRS
+    )
+    if tx_type == 0 and v not in (27, 28):
+        # A legacy transaction encodes its chain id within v, so a client that
+        # derives the chain id from an out-of-range v rejects the transaction
+        # with a chain id mismatch instead of an invalid signature.
+        error = [
+            TransactionException.INVALID_SIGNATURE_VRS,
+            TransactionException.INVALID_CHAINID,
+        ]
+
     blob_versioned_hashes = add_kzg_version([0], 1) if tx_type == 3 else None
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=to,
-        error=TransactionException.INVALID_SIGNATURE_VRS,
+        error=error,
         ty=tx_type,
         blob_versioned_hashes=blob_versioned_hashes,
         value=1,

@@ -452,6 +452,11 @@ class BesuExceptionMapper(ExceptionMapper):
             r"transaction invalid Transaction gas limit "
             r"must be at most \d+"
         ),
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            r"Failed to decode transactions from block parameter|"
+            r"transaction invalid Signature s value should be less "
+            r"than \d+, but got \d+"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"Blob transaction 0x[0-9a-f]+ exceeds "
             r"block blob gas limit: \d+ > \d+"
