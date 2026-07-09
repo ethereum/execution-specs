@@ -1,10 +1,4 @@
-"""
-abstract: BloatNet bench cases extracted from https://hackmd.io/9icZeLN7R0Sk5mIjKlZAHQ.
-
-   The idea of all these tests is to stress client implementations to find out
-   where the limits of processing are focusing specifically on state-related
-   operations.
-"""
+"""BloatNet benchmarks from https://hackmd.io/9icZeLN7R0Sk5mIjKlZAHQ."""
 
 import pytest
 from execution_testing import (
@@ -32,30 +26,6 @@ REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
 
 
-# BLOATNET ARCHITECTURE:
-#
-#   [Initcode Contract]        [Factory Contract]        [Deployed Contracts]
-#     (varies by stub)           (varies by stub)          (N x each)
-#           │                          │                        │
-#           │  EXTCODECOPY             │   CREATE2(salt++)      │
-#           └──────────────►           ├────────────────►  Contract_0
-#                                      ├────────────────►  Contract_1
-#                                      └────────────────►  Contract_N
-#
-#   [Attack Contract] ──STATICCALL──► [Factory.getConfig()]
-#           │                              returns: (N, hash)
-#           └─► Loop(i=0 to N):
-#                 1. Compute CREATE2 addr from factory|salt|hash
-#                 2. BALANCE(addr)        → 2600 gas (cold)
-#                 3. <second_opcode>(addr) → varies (warm)
-#
-# HOW IT WORKS:
-#   1. Factory uses EXTCODECOPY to load initcode
-#   2. Each CREATE2 produces unique bytecode (via ADDRESS)
-#   3. Shared initcode hash enables deterministic addresses
-#   4. Attack rapidly accesses all contracts per factory stub
-
-
 @pytest.mark.stub_parametrize("factory_stub", "bloatnet_factory_")
 @pytest.mark.parametrize(
     "second_opcode",
@@ -76,10 +46,7 @@ def test_bloatnet_balance_opcode(
     second_opcode: Op,
     factory_stub: str,
 ) -> None:
-    """
-    Benchmark BALANCE paired with a second opcode on bloatnet
-    factory contracts.
-    """
+    """Benchmark BALANCE paired with a second opcode on bloatnet factories."""
     factory_address = pre.deploy_contract(
         code=Bytecode(),
         stub=factory_stub,
@@ -203,22 +170,6 @@ def test_bloatnet_balance_opcode(
     )
 
 
-# CALL+VALUE BENCHMARK ARCHITECTURE:
-#
-#   test_bloatnet_call_value_existing:
-#   Same factory pattern as test_bloatnet_balance_opcode, but performs
-#   CALL with value=1 wei to each factory contract. The subcall fails
-#   (insufficient gas for 24KB bytecode), but CALL_VALUE (9000 gas)
-#   is still charged on top of the cold account access cost.
-#
-#   test_bloatnet_call_value_new_account:
-#   Generates unique addresses from keccak256(counter) and CALLs each with
-#   value=1 wei. Since these addresses have no code, the subcall succeeds
-#   (via the 2300 gas stipend), transferring value and creating a new account.
-#   Each iteration costs ~36,600 gas (cold + value + new_account),
-#   stressing trie expansion through massive new account creation.
-
-
 @pytest.mark.stub_parametrize("factory_stub", "bloatnet_factory_")
 def test_bloatnet_call_value_existing(
     benchmark_test: BenchmarkTestFiller,
@@ -228,15 +179,7 @@ def test_bloatnet_call_value_existing(
     tx_gas_limit: int,
     factory_stub: str,
 ) -> None:
-    """
-    Benchmark CALL with value transfer to cold existing factory contracts.
-
-    Unlike the existing CALL test which uses gas=1 and value=0, this test
-    passes value=1 wei per call, adding CALL_VALUE (9000 gas) to each
-    cold account access. The subcall fails (insufficient gas for bytecode
-    execution), so value is not actually transferred, but the gas penalty
-    is still charged.
-    """
+    """Benchmark CALL with value transfer to cold existing contracts."""
     factory_address = pre.deploy_contract(
         code=Bytecode(),
         stub=factory_stub,
@@ -324,19 +267,7 @@ def test_bloatnet_call_value_new_account(
     gas_benchmark_value: int,
     tx_gas_limit: int,
 ) -> None:
-    """
-    Benchmark CALL with value transfer to non-existent accounts.
-
-    Generate unique addresses via keccak256(counter) and CALL each with
-    value=1 wei. Since these addresses have no code, the subcall succeeds
-    (via the 2300 gas stipend), transferring value and creating a new
-    account in the trie. Each iteration costs ~36,600 gas:
-    - GAS_COLD_ACCOUNT_ACCESS: 2,600
-    - CALL_VALUE: 9,000
-    - NEW_ACCOUNT: 25,000
-
-    This stresses trie expansion through massive new account creation.
-    """
+    """Benchmark CALL with value transfer to non-existent accounts."""
     # Memory layout: MEM[0..31] = counter (incremented each iteration)
     setup = (
         Op.MSTORE(
@@ -422,17 +353,7 @@ def test_mixed_sload_sstore(
     sload_percent: int,
     sstore_percent: int,
 ) -> None:
-    """
-    Benchmark mixed SLOAD/SSTORE on bloatnet.
-
-    Uses runtime gas checking instead of pre-calculated iteration
-    counts.  Each ERC20 contract has its own implementation with
-    different per-call gas costs, so a single gas model cannot
-    predict the right iteration count.  Instead the contract
-    checks remaining gas via the GAS opcode each iteration and
-    splits the budget between SLOAD and SSTORE phases using a
-    pre-computed gas floor.
-    """
+    """Benchmark mixed SLOAD/SSTORE ratios on bloatnet ERC20 contracts."""
     # The gas threshold is the minimum gas reserved to exit the
     # loops and execute cleanup (SSTORE to persist slot offset).
     # 150_000 is conservative: cold approve ~25K + cleanup ~20K.

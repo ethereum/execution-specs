@@ -1,11 +1,4 @@
-"""
-abstract: CREATE2 deploy + immediate access benchmark cases.
-
-   These tests benchmark the deploy-then-access pattern: CREATE2 a
-   contract, then immediately query it with EXTCODEHASH, BALANCE, or
-   EXTCODECOPY in the same transaction. This tests whether clients
-   efficiently serve state that was just written to the trie.
-"""
+"""CREATE2 deploy-then-immediate-access benchmarks."""
 
 import pytest
 from execution_testing import (
@@ -29,31 +22,6 @@ REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
 
 
-# CREATE2 + ACCESS BENCHMARK ARCHITECTURE:
-#
-#   [Init Code Holder Contract] ──── Runtime code = init code bytes
-#           │
-#           │  EXTCODECOPY by attack contract during setup
-#           │
-#   [Attack Contract]
-#       │ Setup:
-#       │   1. EXTCODECOPY init code from holder into MEM[0..N]
-#       │   2. Store starting counter at MEM[N..N+32]
-#       │
-#       │ Loop(i=0 to M):
-#       │   1. CREATE2(value=0, offset=0, size=N, salt=counter)
-#       │      → deploys new contract, returns address
-#       │   2. EXTCODEHASH / BALANCE / EXTCODECOPY on address
-#       │   3. Increment counter
-#
-# WHY IT STRESSES CLIENTS:
-#   - Each CREATE2 inserts a new account + code into the trie
-#   - Immediate access tests if the just-written data is efficiently
-#     served from write caches vs requiring a trie re-read
-#   - Code deposit cost (200 gas/byte) dominates: larger code =
-#     fewer iterations but more trie data per cycle
-
-
 @pytest.mark.parametrize(
     "code_size",
     [32, 256, 1024],
@@ -71,13 +39,7 @@ def test_create2_immediate_access(
     code_size: int,
     access_opcode: Op,
 ) -> None:
-    """
-    Benchmark CREATE2 followed by immediate opcode access.
-
-    Deploy a contract via CREATE2, then immediately query it with the
-    specified access opcode. Each iteration creates a new trie entry
-    and reads from it, stressing the deploy-then-access path.
-    """
+    """Benchmark CREATE2 followed by immediate opcode access."""
     # Build init code that deploys `code_size` bytes of zeros
     deploy_code = bytes(code_size)
     initcode = Initcode(deploy_code=deploy_code)
