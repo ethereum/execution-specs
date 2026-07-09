@@ -3,6 +3,8 @@
 import pytest
 from execution_testing import (
     AccessList,
+    Account,
+    Address,
     Alloc,
     BenchmarkTestFiller,
     Block,
@@ -10,9 +12,12 @@ from execution_testing import (
     Conditional,
     Create2PreimageLayout,
     Fork,
+    Hash,
+    IteratingBytecode,
     Op,
     Transaction,
     While,
+    keccak256,
 )
 
 from tests.benchmark.stateful.helpers import (
@@ -265,7 +270,6 @@ def test_bloatnet_call_value_new_account(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
-    tx_gas_limit: int,
 ) -> None:
     """Benchmark CALL with value transfer to non-existent accounts."""
     # Memory layout: MEM[0..31] = counter (incremented each iteration)
@@ -307,28 +311,53 @@ def test_bloatnet_call_value_new_account(
     )
 
     # Contract Deployment — needs balance for value transfers (1 wei each)
-    code = setup + loop
-    attack_contract_address = pre.deploy_contract(
-        code=code,
-        balance=10**18,  # 1 ETH, enough for all iterations
+    code = IteratingBytecode(
+        setup=setup,
+        iterating=loop,
     )
 
-    # Gas Accounting
-    txs, total_gas_consumed = build_benchmark_txs(
-        pre=pre,
-        fork=fork,
-        gas_benchmark_value=gas_benchmark_value,
-        tx_gas_limit=tx_gas_limit,
-        attack_contract_address=attack_contract_address,
-        setup_cost=setup.gas_cost(fork),
-        iteration_cost=loop.gas_cost(fork),
+    initial_balance = 10 ** 9
+    attack_contract_address = pre.deploy_contract(
+        code=code,
+        balance=initial_balance,
+    )
+
+    def calldata_builder(iteration_count: int, start_iteration: int) -> bytes:
+        return bytes(Hash(iteration_count) + Hash(start_iteration))
+
+    txs = list(
+        code.transactions_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_benchmark_value,
+            sender=pre.fund_eoa(),
+            to=attack_contract_address,
+            calldata=calldata_builder,
+        )
+    )
+
+    total_iterations = sum(int.from_bytes(tx.data[:32], "big") for tx in txs)
+
+    def new_account_address(counter: int) -> Address:
+        return Address(bytes(keccak256(counter.to_bytes(32, "big")))[12:])
+
+    post = {
+        new_account_address(counter): Account(balance=1)
+        for counter in range(total_iterations)
+    }
+    post[attack_contract_address] = Account(
+        balance=initial_balance - total_iterations
+    )
+
+    expected_gas_used = (
+        sum(tx.gas_cost for tx in txs)
+        - fork.gas_costs().CALL_STIPEND * total_iterations
     )
 
     benchmark_test(
         pre=pre,
+        post=post,
         blocks=[Block(txs=txs)],
-        expected_benchmark_gas_used=total_gas_consumed,
-        skip_gas_used_validation=True,
+        expected_benchmark_gas_used=expected_gas_used,
     )
 
 

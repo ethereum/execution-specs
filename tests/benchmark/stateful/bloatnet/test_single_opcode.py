@@ -1278,6 +1278,9 @@ def test_sstore_variants(
             0,
             [1, 0, 1, 0],
             id="oscillation_4x_from_zero",
+            marks=pytest.mark.skip(
+                reason="net-zero state gas; degenerates to a regular-gas loop"
+            ),
         ),
         pytest.param(
             0,

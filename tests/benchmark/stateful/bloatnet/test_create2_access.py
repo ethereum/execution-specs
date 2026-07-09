@@ -2,16 +2,19 @@
 
 import pytest
 from execution_testing import (
+    Account,
     Alloc,
     BenchmarkTestFiller,
     Block,
     Bytecode,
     Fork,
     Hash,
+    Header,
     Initcode,
     IteratingBytecode,
     Op,
     While,
+    compute_create2_address,
 )
 
 from tests.benchmark.stateful.helpers import (
@@ -123,12 +126,10 @@ def test_create2_immediate_access(
         condition=DECREMENT_COUNTER_CONDITION,
     )
 
-    subcall_cost = initcode.execution_gas(fork) + initcode.deployment_gas(fork)
-
     code = IteratingBytecode(
         setup=setup,
         iterating=loop,
-        iterating_subcall=subcall_cost,
+        iterating_subcall=initcode,
     )
     attack_contract_address = pre.deploy_contract(code=code)
 
@@ -145,8 +146,40 @@ def test_create2_immediate_access(
         )
     )
 
+    # Salts are contiguous from 0: calldata[0:32] holds each tx's
+    # iteration count.
+    total_iterations = sum(int.from_bytes(tx.data[:32], "big") for tx in txs)
+
+    post = {
+        compute_create2_address(
+            address=attack_contract_address, salt=salt, initcode=initcode
+        ): Account(nonce=1, code=deploy_code)
+        for salt in range(total_iterations)
+    }
+    post[
+        compute_create2_address(
+            address=attack_contract_address,
+            salt=total_iterations,
+            initcode=initcode,
+        )
+    ] = Account.NONEXISTENT
+
+    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
+    code_deposit_state_gas = code_size * fork.cost_per_state_byte()
+    expected_state_gas = total_iterations * (
+        new_account_state_gas + code_deposit_state_gas
+    )
+
+    block = Block(
+        txs=txs,
+        header_verify=Header(gas_used=expected_state_gas),
+    )
+
     benchmark_test(
         pre=pre,
-        blocks=[Block(txs=txs)],
-        skip_gas_used_validation=True,
+        post=post,
+        blocks=[block],
+        expected_benchmark_gas_used=(
+            expected_state_gas + sum(tx.regular_cost for tx in txs)
+        ),
     )
