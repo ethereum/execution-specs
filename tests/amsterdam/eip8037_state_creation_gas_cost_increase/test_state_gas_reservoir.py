@@ -360,9 +360,6 @@ def test_creation_tx_regular_check_uses_full_tx_gas(
     intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
         contract_creation=True
     )
-    assert fork.transaction_intrinsic_state_gas(contract_creation=True) == 0, (
-        "creation intrinsic is regular-only under EIP-2780"
-    )
 
     # Tight boundary: after the filler consumes gas_limit_cap, exactly
     # `intrinsic_regular + 1` regular gas remains in the block.
@@ -862,7 +859,7 @@ def test_creation_tx_failure_preserves_intrinsic_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    create_intrinsic_state = fork.transaction_intrinsic_state_gas(
+    create_intrinsic_state = fork.transaction_top_frame_state_gas(
         contract_creation=True,
     )
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)

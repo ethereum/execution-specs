@@ -176,28 +176,6 @@ class EIP2780(BaseFork):
         return fn
 
     @classmethod
-    def transaction_intrinsic_state_gas(
-        cls,
-        *,
-        contract_creation: bool = False,
-        authorization_count: int = 0,
-    ) -> int:
-        """
-        Return the intrinsic state gas for a transaction.
-
-        Under EIP-2780 neither authorizations nor contract creation
-        contribute intrinsic state gas: the authority account-creation
-        and delegation-write costs and the created account's
-        ``NEW_ACCOUNT`` are all state-dependent and charged at the top
-        frame instead.
-        """
-        del contract_creation, authorization_count
-        return super(EIP2780, cls).transaction_intrinsic_state_gas(
-            contract_creation=False,
-            authorization_count=0,
-        )
-
-    @classmethod
     def transaction_top_frame_gas_calculator(
         cls,
     ) -> TopFrameGasCalculator:

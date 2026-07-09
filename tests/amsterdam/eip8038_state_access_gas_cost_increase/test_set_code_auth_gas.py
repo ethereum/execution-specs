@@ -73,17 +73,14 @@ def _regular_intrinsic(
     calldata: bytes = b"",
 ) -> int:
     """
-    Return the regular (non-state) intrinsic gas of a set-code
+    Return the intrinsic gas of a set-code
     transaction: the full intrinsic less the authorization state gas.
     """
-    total = fork.transaction_intrinsic_cost_calculator()(
+    return fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=n,
         access_list=access_list,
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
-    )
-    return total - fork.transaction_intrinsic_state_gas(
-        authorization_count=n,
     )
 
 
@@ -118,9 +115,7 @@ def test_auth_regular_intrinsic_magnitude(
     The regular intrinsic above the ``n=0`` base must equal
     ``n * regular_per_auth`` plus the access-list delta (derived from
     the calculator itself so the calldata-floor contribution of the
-    access-list bytes is accounted for). The state portion is excluded
-    via ``transaction_intrinsic_state_gas`` and is left to the EIP-8037
-    suite.
+    access-list bytes is accounted for).
     """
     contract = pre.deploy_contract(code=Op.STOP)
 

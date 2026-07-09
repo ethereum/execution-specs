@@ -132,8 +132,6 @@ class TransactionEnvironment:
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
-    intrinsic_regular_gas: Uint
-    intrinsic_state_gas: Uint
 
 
 @final

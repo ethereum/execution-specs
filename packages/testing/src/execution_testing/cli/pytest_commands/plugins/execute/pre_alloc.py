@@ -250,13 +250,10 @@ def _compute_deploy_gas_limit(
     sstore_state_gas = sstore.state_cost(fork)
     sstore_regular_gas = sstore.gas_cost(fork) - sstore_state_gas
 
-    # Back out the state gas folded into TX_CREATE.
-    intrinsic_state_gas = fork.transaction_intrinsic_state_gas(
-        contract_creation=True
-    )
-    intrinsic_regular_gas = (
-        intrinsic_gas_calculator(calldata=initcode, contract_creation=True)
-        - intrinsic_state_gas
+    # The intrinsic cost is now regular-only: the created account's
+    # NEW_ACCOUNT state gas is charged at the top frame, not folded in.
+    intrinsic_regular_gas = intrinsic_gas_calculator(
+        calldata=initcode, contract_creation=True
     )
 
     # Regular portion, bound by the gas cap.
@@ -291,8 +288,7 @@ def _compute_deploy_gas_limit(
         regular_gas = buffered_regular_gas
 
     # State portion, from the block reservoir.
-    state_gas = intrinsic_state_gas
-    state_gas += fork.code_deposit_state_gas(code_size=deploy_code_size)
+    state_gas = fork.code_deposit_state_gas(code_size=deploy_code_size)
     state_gas += storage_slots * sstore_state_gas
 
     deploy_gas_limit = regular_gas + state_gas

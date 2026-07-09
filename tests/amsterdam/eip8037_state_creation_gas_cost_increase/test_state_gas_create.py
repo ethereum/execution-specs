@@ -629,9 +629,6 @@ def test_create_tx_below_total_intrinsic(
         contract_creation=True,
         calldata=bytes(initcode),
     )
-    assert fork.transaction_intrinsic_state_gas(contract_creation=True) == 0, (
-        "creation intrinsic is regular-only under EIP-2780"
-    )
 
     tx = Transaction(
         to=None,

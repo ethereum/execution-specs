@@ -330,11 +330,10 @@ def test_intrinsic_regular_gas_exceeds_cap(
         return_cost_deducted_prior_execution=True,
     )
     floor = floor_cost(data=b"", access_list=access_list)
-    state = fork.transaction_intrinsic_state_gas()
-    tx_gas = regular + state + 1_000_000
+    tx_gas = regular + 1_000_000
 
     assert max(regular, floor) > cap, "cap check must fire"
-    assert regular + state <= tx_gas, "sufficiency check must not fire"
+    assert regular <= tx_gas, "sufficiency check must not fire"
     assert floor <= tx_gas
 
     tx = Transaction(
@@ -380,12 +379,11 @@ def test_intrinsic_regular_gas_exceeds_cap_with_floor_below_cap(
         return_cost_deducted_prior_execution=True,
     )
     floor = floor_cost(data=b"", access_list=access_list)
-    state = fork.transaction_intrinsic_state_gas()
-    tx_gas = regular + state + 1_000_000
+    tx_gas = regular + 1_000_000
 
     assert regular > cap, "regular operand must exceed the cap"
     assert floor < cap, "calldata floor must stay below the cap"
-    assert regular + state <= tx_gas, "sufficiency check must not fire"
+    assert regular <= tx_gas, "sufficiency check must not fire"
 
     tx = Transaction(
         ty=1,

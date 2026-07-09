@@ -233,30 +233,6 @@ class EIP8037(BaseFork):
         return fn
 
     @classmethod
-    def transaction_intrinsic_state_gas(
-        cls,
-        *,
-        contract_creation: bool = False,
-        authorization_count: int = 0,
-    ) -> int:
-        """
-        Return the intrinsic state gas for a transaction. Creation
-        adds `STATE_BYTES_PER_NEW_ACCOUNT * cpsb`, and each
-        authorization adds
-        `(STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE) * cpsb`.
-        """
-        cpsb = cls.cost_per_state_byte()
-        state_gas = 0
-        if contract_creation:
-            state_gas += STATE_BYTES_PER_NEW_ACCOUNT * cpsb
-        state_gas += (
-            (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE)
-            * cpsb
-            * authorization_count
-        )
-        return state_gas
-
-    @classmethod
     def _calculate_sstore_state_gas(
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:

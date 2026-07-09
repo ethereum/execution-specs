@@ -778,17 +778,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         pass
 
     @classmethod
-    def transaction_intrinsic_state_gas(
-        cls,
-        *,
-        contract_creation: bool = False,
-        authorization_count: int = 0,
-    ) -> int:
-        """Return intrinsic state gas (zero pre-Amsterdam)."""
-        del contract_creation, authorization_count
-        return 0
-
-    @classmethod
     def transaction_top_frame_gas_calculator(
         cls,
     ) -> TopFrameGasCalculator:
