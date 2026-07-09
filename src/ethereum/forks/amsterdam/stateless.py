@@ -21,11 +21,6 @@ from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork import ChainContext
 from .fork_types import VersionedHash
-from .vm.gas import (
-    BLOB_BASE_FEE_UPDATE_FRACTION,
-    BLOB_SCHEDULE_MAX,
-    BLOB_SCHEDULE_TARGET,
-)
 from .witness_state import WitnessState, build_code_db, build_node_db
 
 
@@ -150,19 +145,6 @@ class ForkActivation:
 @final
 @slotted_freezable
 @dataclass
-class BlobSchedule:
-    """
-    Effective blob parameters for a protocol fork.
-    """
-
-    target: U64
-    max: U64
-    base_fee_update_fraction: U64
-
-
-@final
-@slotted_freezable
-@dataclass
 class ForkConfig:
     """
     Per-fork configuration needed to interpret stateless inputs.
@@ -170,7 +152,6 @@ class ForkConfig:
 
     fork: ProtocolFork
     activation: ForkActivation
-    blob_schedule: BlobSchedule | None
 
 
 @final
@@ -326,17 +307,6 @@ def _is_activation_active(
     return True
 
 
-def _expected_amsterdam_blob_schedule() -> BlobSchedule:
-    """
-    Return the blob schedule currently compiled into the Amsterdam guest.
-    """
-    return BlobSchedule(
-        target=BLOB_SCHEDULE_TARGET,
-        max=BLOB_SCHEDULE_MAX,
-        base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
-    )
-
-
 def validate_chain_config(
     chain_config: ChainConfig,
     new_payload_request: NewPayloadRequest,
@@ -355,11 +325,6 @@ def validate_chain_config(
     if active_fork.fork != ProtocolFork.Amsterdam:
         raise UnsupportedForkConfigError(
             f"Amsterdam stateless guest cannot execute {active_fork.fork}"
-        )
-
-    if active_fork.blob_schedule != _expected_amsterdam_blob_schedule():
-        raise UnsupportedForkConfigError(
-            "ChainConfig active_fork blob_schedule does not match Amsterdam"
         )
 
     return active_fork

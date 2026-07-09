@@ -66,7 +66,6 @@ def _default_failed_stateless_output() -> StatelessValidationResult:
                     block_number=None,
                     timestamp=None,
                 ),
-                blob_schedule=None,
             ),
         ),
     )

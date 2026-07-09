@@ -20,7 +20,6 @@ from ethereum.forks.amsterdam.execution_engine.types import (
 )
 from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
-    BlobSchedule,
     ChainConfig,
     ExecutionWitness,
     ForkActivation,
@@ -45,11 +44,6 @@ from ethereum.forks.amsterdam.stateless_host import (
 from ethereum.forks.amsterdam.stateless_ssz import (
     STATELESS_INPUT_SCHEMA_ID_BYTES,
     stateless_input_to_ssz,
-)
-from ethereum.forks.amsterdam.vm.gas import (
-    BLOB_BASE_FEE_UPDATE_FRACTION,
-    BLOB_SCHEDULE_MAX,
-    BLOB_SCHEDULE_TARGET,
 )
 from ethereum.state import Address, Root
 
@@ -130,11 +124,6 @@ def _expected_amsterdam_chain_config(chain_id: U64) -> ChainConfig:
             activation=ForkActivation(
                 block_number=None,
                 timestamp=U64(0),
-            ),
-            blob_schedule=BlobSchedule(
-                target=BLOB_SCHEDULE_TARGET,
-                max=BLOB_SCHEDULE_MAX,
-                base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
             ),
         ),
     )
@@ -357,7 +346,6 @@ class TestRunStatelessGuest:
         assert result.chain_config.active_fork.fork == ProtocolFork.Frontier
         assert result.chain_config.active_fork.activation.block_number is None
         assert result.chain_config.active_fork.activation.timestamp is None
-        assert result.chain_config.active_fork.blob_schedule is None
 
 
 class TestComputeNewPayloadRequestRoot:

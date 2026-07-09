@@ -1066,7 +1066,6 @@ def is_invalid_stateless_input_sentinel(stateless_output: Any) -> bool:
         and active_fork.fork == ProtocolFork.Frontier
         and activation.block_number is None
         and activation.timestamp is None
-        and active_fork.blob_schedule is None
     )
 
 
