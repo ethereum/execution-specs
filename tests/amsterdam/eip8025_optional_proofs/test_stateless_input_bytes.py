@@ -34,9 +34,14 @@ def incomplete_schema_id(input_bytes: Bytes) -> Bytes:
     return Bytes(input_bytes[:1])
 
 
-def unsupported_schema_id(input_bytes: Bytes) -> Bytes:
+def unsupported_schema_revision(input_bytes: Bytes) -> Bytes:
     """Replace the schema id with an unsupported Amsterdam revision."""
     return Bytes(b"\x15\x02" + input_bytes[2:])
+
+
+def unsupported_schema_fork(input_bytes: Bytes) -> Bytes:
+    """Replace the schema id with an unsupported fork."""
+    return Bytes(b"\x16\x01" + input_bytes[2:])
 
 
 def missing_ssz_body(input_bytes: Bytes) -> Bytes:
@@ -74,7 +79,11 @@ def invalid_first_ssz_offset(input_bytes: Bytes) -> Bytes:
     [
         pytest.param(empty_input_bytes, id="empty_input_bytes"),
         pytest.param(incomplete_schema_id, id="incomplete_schema_id"),
-        pytest.param(unsupported_schema_id, id="unsupported_schema_id"),
+        pytest.param(
+            unsupported_schema_revision,
+            id="unsupported_schema_revision",
+        ),
+        pytest.param(unsupported_schema_fork, id="unsupported_schema_fork"),
         pytest.param(missing_ssz_body, id="missing_ssz_body"),
         pytest.param(truncated_ssz_body, id="truncated_ssz_body"),
         pytest.param(trailing_garbage, id="trailing_garbage"),
