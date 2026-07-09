@@ -22,4 +22,4 @@ benchmark_fast:
 # Shared entry for all `<feat>-devnet` releases; matched by `-devnet` suffix.
 devnet:
   evm-type: eels
-  fill-params: --until=Amsterdam
+  fill-params: --until=Amsterdam --generate-all-formats
