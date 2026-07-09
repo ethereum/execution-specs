@@ -35,8 +35,8 @@ def incomplete_schema_id(input_bytes: Bytes) -> Bytes:
 
 
 def unsupported_schema_id(input_bytes: Bytes) -> Bytes:
-    """Replace the schema id while keeping the SSZ body."""
-    return Bytes(b"\x00\x02" + input_bytes[2:])
+    """Replace the schema id with an unsupported Amsterdam revision."""
+    return Bytes(b"\x15\x02" + input_bytes[2:])
 
 
 def missing_ssz_body(input_bytes: Bytes) -> Bytes:
@@ -59,10 +59,12 @@ def invalid_first_ssz_offset(input_bytes: Bytes) -> Bytes:
     Corrupt the first SSZ container offset.
 
     The stateless input starts with a 2-byte schema id, followed by the
-    SSZ-encoded ``SszStatelessInput`` container. Its first four SSZ bytes
-    encode the offset to the first variable-size field. Setting that offset
-    to 1 makes it point inside the fixed-size section, so the SSZ decoder
-    must reject the input before stateless validation can run.
+    encoded payload selected by that schema. For Amsterdam schema 0x1501,
+    the payload is an SSZ-encoded ``SszStatelessInput`` container. Its
+    first four SSZ bytes encode the offset to the first variable-size field.
+    Setting that offset to 1 makes it point inside the fixed-size section,
+    so the SSZ decoder must reject the input before stateless validation
+    can run.
     """
     return Bytes(input_bytes[:2] + b"\x01\x00\x00\x00" + input_bytes[6:])
 

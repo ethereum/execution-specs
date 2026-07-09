@@ -82,8 +82,17 @@ MAX_OPTIONAL_FORK_ACTIVATION_VALUES = 1
 MAX_PUBLIC_KEYS = 2**15
 PUBLIC_KEY_BYTES = 65
 
-# Amsterdam SSZ stateless input schema identifier.
-STATELESS_INPUT_SCHEMA_ID = 0x0001
+# Stateless guest input bytes are schema-prefixed:
+#   schema_id || encoded_payload
+# schema_id is fork_index || schema_revision. fork_index is the 1-based
+# ProtocolFork order, with BPO forks counted. Amsterdam is fork 0x15, and
+# revision 0x01 uses SSZ encode(SszStatelessInput) for the payload. This
+# prefix selects byte decoding and is separate from SszForkConfig.fork.
+STATELESS_INPUT_SCHEMA_FORK_INDEX = 0x15
+STATELESS_INPUT_SCHEMA_REVISION = 0x01
+STATELESS_INPUT_SCHEMA_ID = (
+    STATELESS_INPUT_SCHEMA_FORK_INDEX << 8
+) | STATELESS_INPUT_SCHEMA_REVISION
 STATELESS_INPUT_SCHEMA_ID_SIZE = 2
 STATELESS_INPUT_SCHEMA_ID_BYTES = STATELESS_INPUT_SCHEMA_ID.to_bytes(
     STATELESS_INPUT_SCHEMA_ID_SIZE,
