@@ -13,6 +13,7 @@ from .generators import (
     SequentialAddressLayout,
     Switch,
     TransactionWithCost,
+    TxOutcome,
     While,
     WhileGas,
 )
@@ -32,6 +33,7 @@ __all__ = (
     "Solc",
     "Switch",
     "TransactionWithCost",
+    "TxOutcome",
     "While",
     "WhileGas",
     "Yul",

@@ -96,6 +96,7 @@ from tests.prague.eip2537_bls_12_381_precompiles.spec import (
 def test_bls12_381(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
+    gas_benchmark_value: int,
     precompile_address: Address,
     calldata: bytes,
     target: OpcodeTarget,
@@ -103,6 +104,12 @@ def test_bls12_381(
     """Benchmark BLS12_381 precompile."""
     if precompile_address not in fork.precompiles():
         pytest.skip("Precompile not enabled")
+
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata
+    )
+    if intrinsic_gas_cost > gas_benchmark_value:
+        pytest.skip("calldata intrinsic gas cost exceeds the gas limit")
 
     attack_block = Op.POP(
         Op.STATICCALL(
@@ -125,6 +132,7 @@ def test_bls12_381(
 def test_bls12_g1_msm(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
+    gas_benchmark_value: int,
     k: int,
 ) -> None:
     """Benchmark BLS12_G1_MSM precompile with varying number of points."""
@@ -137,6 +145,12 @@ def test_bls12_g1_msm(
         (bls12381_spec.Spec.P1 + bls12381_spec.Scalar(bls12381_spec.Spec.Q))
         * k
     )
+
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata
+    )
+    if intrinsic_gas_cost > gas_benchmark_value:
+        pytest.skip("k configuration exceeds the gas limit")
 
     attack_block = Op.POP(
         Op.STATICCALL(

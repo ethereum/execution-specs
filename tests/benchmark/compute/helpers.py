@@ -18,6 +18,7 @@ from execution_testing import (
     Op,
     OpcodeTarget,
     TransactionWithCost,
+    TxOutcome,
     While,
     compute_create2_address,
     compute_deterministic_create2_address,
@@ -69,12 +70,8 @@ class StorageAction:
     WRITE_NEW_VALUE = auto()
 
 
-class TransactionResult:
-    """Enum for the possible transaction outcomes."""
-
-    SUCCESS = auto()
-    OUT_OF_GAS = auto()
-    REVERT = auto()
+TransactionResult = TxOutcome
+"""Alias for the framework outcome enum used to bill transaction gas."""
 
 
 class ReturnDataStyle(Enum):
@@ -474,8 +471,10 @@ class CustomSizedContractFactory(IteratingBytecode):
     ) -> Generator[ContractDeploymentTransaction, None, None]:
         """
         Create a list of transactions calling the factory to create the
-        given number of contracts, each capped tx properly capped by the
-        gas limit cap of the fork.
+        given number of contracts, each transaction capped by the fork's
+        regular-gas limit cap (EIP-7825). Under EIP-8037 the per-byte code
+        deposit is state gas drawn from a separate reservoir, so the split
+        bounds regular gas only and lets the combined gas exceed the cap.
         """
         to = self.address()
 
@@ -491,7 +490,8 @@ class CustomSizedContractFactory(IteratingBytecode):
         start_iteration: int = contract_start_index
 
         tx_gas_limit: int | None = None
-        tx_gas_cost: int | None = None
+        tx_regular_cost: int | None = None
+        tx_state_cost: int | None = None
         last_iteration_count: int = 0
 
         for iteration_count in self.tx_iterations_by_total_iteration_count(
@@ -502,20 +502,26 @@ class CustomSizedContractFactory(IteratingBytecode):
         ):
             if (
                 tx_gas_limit is None
-                or tx_gas_cost is None
+                or tx_regular_cost is None
+                or tx_state_cost is None
                 or iteration_count != last_iteration_count
             ):
                 tx_gas_limit = self.tx_gas_limit_by_iteration_count(
                     fork=fork,
                     iteration_count=iteration_count,
                     start_iteration=start_iteration,
+                    include_state_gas_reservoir=True,
                     calldata=calldata_max,
                 )
-                tx_gas_cost = self.tx_gas_cost_by_iteration_count(
+                tx_regular_cost = self.tx_regular_gas_cost_by_iteration_count(
                     fork=fork,
                     iteration_count=iteration_count,
                     start_iteration=start_iteration,
                     calldata=calldata_max,
+                )
+                tx_state_cost = self.state_gas_cost_by_iteration_count(
+                    fork=fork,
+                    iteration_count=iteration_count,
                 )
             deployed_contracts = [
                 self.created_contract_address(
@@ -529,7 +535,8 @@ class CustomSizedContractFactory(IteratingBytecode):
                 to=to,
                 gas_limit=tx_gas_limit,
                 sender=sender,
-                gas_cost=tx_gas_cost,
+                regular_cost=tx_regular_cost,
+                state_cost=tx_state_cost,
                 data=calldata(iteration_count, start_iteration),
                 deployed_contracts=deployed_contracts,
             )

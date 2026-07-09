@@ -1694,6 +1694,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 # If operation mode is benchmarking, check the gas used.
                 self.validate_benchmark_gas(
                     benchmark_gas_used=fill_result.benchmark_gas_used,
+                    benchmark_block_gas_used=(
+                        fill_result.benchmark_block_gas_used
+                    ),
                     gas_benchmark_value=gas_benchmark_value,
                 )
 

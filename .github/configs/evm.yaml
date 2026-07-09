@@ -1,7 +1,7 @@
 benchmark:
   impl: geth
   repo: ethereum/go-ethereum
-  ref: master
+  ref: glamsterdam-devnet-6
   evm-bin: evm
   xdist: auto
 eels:
@@ -20,7 +20,7 @@ evmone:
 benchmark:
   impl: geth
   repo: ethereum/go-ethereum
-  ref: master
+  ref: glamsterdam-devnet-6
   evm-bin: evm
   xdist: auto
 besu:
