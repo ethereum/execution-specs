@@ -29,6 +29,7 @@ from execution_testing.base_types.conversions import (
 )
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
+from execution_testing.recipient_type import RecipientType
 from execution_testing.rpc import EthRPC
 from execution_testing.rpc.rpc_types import TransactionByHashResponse
 from execution_testing.test_types import (
@@ -617,6 +618,15 @@ class Alloc(SharedAlloc):
             )
             intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
 
+            auth_fund_gas_limit = intrinsic_calc(
+                authorization_list_or_count=1,
+                sends_value=True,
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+            ) + fork.transaction_top_frame_state_gas(
+                sends_value=True,
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+            )
+
             if storage is not None:
                 if not isinstance(storage, Storage):
                     storage = Storage.model_validate(storage)
@@ -690,7 +700,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=(intrinsic_calc(authorization_list_or_count=1)),
+                    gas_limit=auth_fund_gas_limit,
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
             else:
@@ -708,7 +718,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=intrinsic_calc(authorization_list_or_count=1),
+                    gas_limit=auth_fund_gas_limit,
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
 
