@@ -31,6 +31,7 @@ from execution_testing import (
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
+    RecipientType,
     SequentialAddressLayout,
     Storage,
     TestPhaseManager,
@@ -691,7 +692,6 @@ def test_sstore_bloated(
         setup=setup,
         iterating=loop,
         cleanup=Op.STOP,
-        iterating_state_gas=loop.state_cost(fork),
     )
 
     authority = pre.stub_eoa(token_name)
@@ -709,6 +709,7 @@ def test_sstore_bloated(
                 to=authority,
                 start_iteration=start_slot,
                 calldata=calldata_gen,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 
@@ -1181,6 +1182,7 @@ def test_sstore_variants(
             calldata=calldata_gen,
             access_list=access_list_gen,
             start_iteration=1,
+            recipient_type=RecipientType.DELEGATION_7702,
         )
     )
 
@@ -1214,6 +1216,7 @@ def test_sstore_variants(
                 calldata=calldata_gen,
                 start_iteration=1,
                 access_list=access_list_gen,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 
@@ -1337,6 +1340,7 @@ def test_sstore_dirty_transitions(
             calldata=calldata_gen,
             access_list=access_list_gen,
             start_iteration=1,
+            recipient_type=RecipientType.DELEGATION_7702,
         )
     )
 
@@ -1369,6 +1373,7 @@ def test_sstore_dirty_transitions(
                 calldata=calldata_gen,
                 start_iteration=1,
                 access_list=access_list_gen,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 
@@ -1470,6 +1475,7 @@ def test_storage_sload_benchmark(
             calldata=calldata_gen,
             access_list=access_list_gen,
             start_iteration=1,
+            recipient_type=RecipientType.DELEGATION_7702,
         )
     )
 
@@ -1503,6 +1509,7 @@ def test_storage_sload_benchmark(
                 calldata=calldata_gen,
                 start_iteration=1,
                 access_list=access_list_gen,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 
