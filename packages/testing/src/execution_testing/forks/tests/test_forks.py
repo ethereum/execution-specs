@@ -235,6 +235,8 @@ def test_amsterdam_execution_witness_implicit_code_addresses() -> None:
     ]
 
     assert addresses == [
+        "0x0000bff46984e3725691fa540a8c7589300d8282",
+        "0x000064d678505ad48f8ccb093bc65613800e8282",
         "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
         "0x00000961ef480eb55e80d19ad83579a64c007002",
         "0x0000bbddc7ce488642fb579f8b00f3a590007251",

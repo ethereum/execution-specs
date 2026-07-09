@@ -9,8 +9,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytes,
+    Fork,
     Transaction,
 )
+
+from .gas_helpers import empty_account_value_transfer_gas_limit
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
@@ -77,6 +80,7 @@ def invalid_first_ssz_offset(input_bytes: Bytes) -> Bytes:
     ],
 )
 def test_invalid_stateless_input_bytes_are_rejected(
+    fork: Fork,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     modifier: StatelessInputBytesModifier,
@@ -84,7 +88,12 @@ def test_invalid_stateless_input_bytes_are_rejected(
     """Invalid stateless input bytes fail guest validation."""
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
-    tx = Transaction(sender=sender, to=recipient, value=1, gas_limit=21_000)
+    tx = Transaction(
+        sender=sender,
+        to=recipient,
+        value=1,
+        gas_limit=empty_account_value_transfer_gas_limit(fork),
+    )
 
     blockchain_test(
         pre=pre,

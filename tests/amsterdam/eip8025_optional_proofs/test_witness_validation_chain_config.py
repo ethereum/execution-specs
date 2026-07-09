@@ -10,8 +10,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytes,
+    Fork,
     Transaction,
 )
+
+from .gas_helpers import empty_account_value_transfer_gas_limit
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
@@ -107,6 +110,7 @@ def test_validation_chain_config_future_timestamp_activation(
 
 
 def test_validation_chain_config_wrong_chain_id_legacy_signature(
+    fork: Fork,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -118,7 +122,7 @@ def test_validation_chain_config_wrong_chain_id_legacy_signature(
         sender=sender,
         to=recipient,
         value=1,
-        gas_limit=21_000,
+        gas_limit=empty_account_value_transfer_gas_limit(fork),
     )
 
     blockchain_test(

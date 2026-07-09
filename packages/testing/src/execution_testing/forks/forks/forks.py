@@ -1656,6 +1656,14 @@ class Amsterdam(
         del block_number, timestamp
         return [
             Address(
+                0x0000BFF46984E3725691FA540A8C7589300D8282,
+                label="BUILDER_DEPOSIT_CONTRACT_ADDRESS",
+            ),
+            Address(
+                0x000064D678505AD48F8CCB093BC65613800E8282,
+                label="BUILDER_EXIT_CONTRACT_ADDRESS",
+            ),
+            Address(
                 0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02,
                 label="BEACON_ROOTS_ADDRESS",
             ),
