@@ -569,9 +569,12 @@ def test_same_tx_created_selfdestruct_self_burn(
 
     # Creation intrinsic is regular-only under EIP-2780; the pre-existing
     # target adds no top-frame NEW_ACCOUNT and the self-burn adds no state
-    # gas, so net state gas is zero.
+    # gas, so net state gas is zero. The regular consumption exceeds the
+    # decomposed calldata floor, so the floor never pins the billing.
     intrinsic_regular = intrinsic_calc(
-        calldata=bytes(init_code), contract_creation=True
+        calldata=bytes(init_code),
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
     )
     expected_regular = intrinsic_regular + init_code.regular_cost(fork)
     expected_gas_used = expected_regular
