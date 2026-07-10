@@ -59,10 +59,12 @@ The `consume engine` command:
 
 1. **Initializes the execution client** with genesis state.
 2. **Connects via Engine API** (port 8551), primitively mocking a consensus client.
-3. **Sends a forkchoice update** to establish the chain head.
-4. **Submits payloads** using `engine_newPayload` calls.
-5. **Validates responses** against expected results.
-6. **Tests error conditions** and exception handling.
+3. **Sends a forkchoice update** to the genesis block to establish the chain head.
+4. **Verifies the client's genesis block hash** via `eth_getBlockByNumber(0)`.
+5. **Submits payloads** using `engine_newPayload` calls.
+6. **Validates responses** against expected results.
+7. **Sends a forkchoice update** after each valid payload to advance the chain head.
+8. **Tests error conditions** and exception handling.
 
 ## EngineX
 
@@ -78,29 +80,33 @@ The `consume enginex` command, for each pre-allocation group:
 
 1. **Initializes the execution client** with the group's shared genesis state.
 2. **Connects via Engine API** (port 8551).
-3. **Executes all tests in the group** against the same client:
+3. **Executes all tests in the group** against the same client. Each test:
 
-    - Submits payloads from each test using `engine_newPayload` calls.
+    - Sends a forkchoice update to the genesis block, resetting the chain head.
+    - Verifies the client's genesis block hash via `eth_getBlockByNumber(0)`; this is only done for the first test executed against the client, as genesis is immutable.
+    - Submits payloads from the test using `engine_newPayload` calls.
     - Validates responses against expected results.
+    - Sends a forkchoice update after each valid payload to advance the chain head.
     - Tests error conditions and exception handling.
 
 4. **Stops the client** when all tests in the group complete.
 
 ### Engine vs EngineX
 
-|                      | `consume engine`                                                       | `consume enginex`                                                        |
-| -------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| **Fixture format**     | [`blockchain_test_engine`](./test_formats/blockchain_test_engine.md) | [`blockchain_test_engine_x`](./test_formats/blockchain_test_engine_x.md)                                       |
-| **Client lifecycle**   | New client per test                                                    | Client reused across tests with same pre-alloc                                                                 |
-| **Fork choice update** | FCU called for genesis and final payload                               | FCU for genesis and final payload skipped |
-| **Execution speed**    | Slower (client startup overhead)                                       | Faster (amortized startup cost)                                                                                |
-| **Test isolation**     | Full isolation                                                         | Shared genesis state within group                                                                              |
+|                         | `consume engine`                                                     | `consume enginex`                                                                          |
+| ----------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Fixture format**      | [`blockchain_test_engine`](./test_formats/blockchain_test_engine.md) | [`blockchain_test_engine_x`](./test_formats/blockchain_test_engine_x.md)                       |
+| **Client lifecycle**    | New client per test                                                  | Client reused across tests with same pre-alloc                                                 |
+| **Engine API flow**     | FCU to genesis, then an `engine_newPayload` and FCU per valid payload | Identical, to keep both methods equivalent                                                    |
+| **Genesis block check** | `eth_getBlockByNumber(0)` per test                                    | `eth_getBlockByNumber(0)` once per client; genesis is immutable                                |
+| **Execution speed**     | Slower (client startup overhead)                                     | Faster (amortized startup cost)                                                                |
+| **Test isolation**      | Full isolation                                                       | Shared client and genesis state within group; the chain head is reset to genesis for each test |
 
 EngineX achieves faster execution by:
 
 1. **Grouping tests** by their pre-allocation state (genesis configuration).
 2. **Reusing clients** across all tests in a group, avoiding repeated client startup.
-3. **Skipping redundant initialization** since the client is already at the expected genesis state.
+3. **Skipping the redundant genesis block check** for reused clients: the client's genesis block hash is verified once per client, instead of once per test.
 
 !!! note "When to use EngineX vs Engine"
 
