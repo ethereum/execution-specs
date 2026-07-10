@@ -3,7 +3,7 @@ Stateless validation interfaces.
 """
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import IntEnum
 from typing import List, Sequence, Tuple, final
 
 from ethereum_rlp import rlp
@@ -21,11 +21,6 @@ from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork import ChainContext
 from .fork_types import VersionedHash
-from .vm.gas import (
-    BLOB_BASE_FEE_UPDATE_FRACTION,
-    BLOB_SCHEDULE_MAX,
-    BLOB_SCHEDULE_TARGET,
-)
 from .witness_state import WitnessState, build_code_db, build_node_db
 
 
@@ -83,32 +78,32 @@ class NewPayloadRequestHeader:
     execution_requests: ExecutionRequests
 
 
-class ProtocolFork(StrEnum):
+class ProtocolFork(IntEnum):
     """
-    Semantic execution-layer fork names understood by stateless inputs.
+    Stable execution-layer fork identifiers used by stateless schemas.
     """
 
-    Frontier = "Frontier"
-    Homestead = "Homestead"
-    DAOFork = "DAOFork"
-    TangerineWhistle = "TangerineWhistle"
-    SpuriousDragon = "SpuriousDragon"
-    Byzantium = "Byzantium"
-    StPetersburg = "StPetersburg"
-    Istanbul = "Istanbul"
-    MuirGlacier = "MuirGlacier"
-    Berlin = "Berlin"
-    London = "London"
-    ArrowGlacier = "ArrowGlacier"
-    GrayGlacier = "GrayGlacier"
-    Paris = "Paris"
-    Shanghai = "Shanghai"
-    Cancun = "Cancun"
-    Prague = "Prague"
-    Osaka = "Osaka"
-    BPO1 = "BPO1"
-    BPO2 = "BPO2"
-    Amsterdam = "Amsterdam"
+    Frontier = 0x01
+    Homestead = 0x02
+    DAOFork = 0x03
+    TangerineWhistle = 0x04
+    SpuriousDragon = 0x05
+    Byzantium = 0x06
+    StPetersburg = 0x07
+    Istanbul = 0x08
+    MuirGlacier = 0x09
+    Berlin = 0x0A
+    London = 0x0B
+    ArrowGlacier = 0x0C
+    GrayGlacier = 0x0D
+    Paris = 0x0E
+    Shanghai = 0x0F
+    Cancun = 0x10
+    Prague = 0x11
+    Osaka = 0x12
+    BPO1 = 0x13
+    BPO2 = 0x14
+    Amsterdam = 0x15
 
 
 class ChainConfigValidationError(Exception):
@@ -129,12 +124,6 @@ class InvalidForkActivationError(ChainConfigValidationError):
     """
 
 
-class UnsupportedForkConfigError(ChainConfigValidationError):
-    """
-    Raised when this guest cannot execute the configured active fork.
-    """
-
-
 @final
 @slotted_freezable
 @dataclass
@@ -150,27 +139,12 @@ class ForkActivation:
 @final
 @slotted_freezable
 @dataclass
-class BlobSchedule:
-    """
-    Effective blob parameters for a protocol fork.
-    """
-
-    target: U64
-    max: U64
-    base_fee_update_fraction: U64
-
-
-@final
-@slotted_freezable
-@dataclass
 class ForkConfig:
     """
     Per-fork configuration needed to interpret stateless inputs.
     """
 
-    fork: ProtocolFork
     activation: ForkActivation
-    blob_schedule: BlobSchedule | None
 
 
 @final
@@ -326,17 +300,6 @@ def _is_activation_active(
     return True
 
 
-def _expected_amsterdam_blob_schedule() -> BlobSchedule:
-    """
-    Return the blob schedule currently compiled into the Amsterdam guest.
-    """
-    return BlobSchedule(
-        target=BLOB_SCHEDULE_TARGET,
-        max=BLOB_SCHEDULE_MAX,
-        base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
-    )
-
-
 def validate_chain_config(
     chain_config: ChainConfig,
     new_payload_request: NewPayloadRequest,
@@ -350,16 +313,6 @@ def validate_chain_config(
     if not _is_activation_active(active_fork.activation, execution_payload):
         raise InactiveForkConfigError(
             "ChainConfig active_fork is not active for the target payload"
-        )
-
-    if active_fork.fork != ProtocolFork.Amsterdam:
-        raise UnsupportedForkConfigError(
-            f"Amsterdam stateless guest cannot execute {active_fork.fork}"
-        )
-
-    if active_fork.blob_schedule != _expected_amsterdam_blob_schedule():
-        raise UnsupportedForkConfigError(
-            "ChainConfig active_fork blob_schedule does not match Amsterdam"
         )
 
     return active_fork

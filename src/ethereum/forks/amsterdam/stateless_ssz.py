@@ -28,7 +28,6 @@ from .execution_engine.requests import (
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import Bloom, VersionedHash
 from .stateless import (
-    BlobSchedule,
     ChainConfig,
     ExecutionWitness,
     ForkActivation,
@@ -77,15 +76,21 @@ MAX_BYTES_PER_HEADER = 2**10
 MAX_BYTES_PER_WITNESS_NODE = 2**10
 
 MAX_OPTIONAL_FORK_ACTIVATION_VALUES = 1
-MAX_BLOB_SCHEDULES_PER_FORK = 1
 # One public key is supplied per transaction. Every valid transaction consumes
 # at least 21_000 gas, so a 500M gas block can contain at most
 # 500_000_000 // 21_000 = 23_809 transactions, rounded up to next power of 2.
 MAX_PUBLIC_KEYS = 2**15
 PUBLIC_KEY_BYTES = 65
 
-# Amsterdam SSZ stateless input schema identifier.
-STATELESS_INPUT_SCHEMA_ID = 0x0001
+# Stateless guest input bytes are schema-prefixed:
+#   schema_id || encoded_payload
+# schema_id is fork_index || schema_revision. Amsterdam is fork 0x15, and
+# revision 0x01 uses SSZ encode(SszStatelessInput) for the payload.
+STATELESS_INPUT_SCHEMA_FORK_INDEX = ProtocolFork.Amsterdam
+STATELESS_INPUT_SCHEMA_REVISION = 0x01
+STATELESS_INPUT_SCHEMA_ID = (
+    STATELESS_INPUT_SCHEMA_FORK_INDEX << 8
+) | STATELESS_INPUT_SCHEMA_REVISION
 STATELESS_INPUT_SCHEMA_ID_SIZE = 2
 STATELESS_INPUT_SCHEMA_ID_BYTES = STATELESS_INPUT_SCHEMA_ID.to_bytes(
     STATELESS_INPUT_SCHEMA_ID_SIZE,
@@ -198,25 +203,10 @@ class SszForkActivation(Container):
     timestamp: SszOptionalForkActivationValue
 
 
-class SszBlobSchedule(Container):
-    """SSZ container mirroring ``BlobSchedule``."""
-
-    target: uint64
-    max: uint64
-    base_fee_update_fraction: uint64
-
-
-SszOptionalBlobSchedule: TypeAlias = SszList[
-    SszBlobSchedule, MAX_BLOB_SCHEDULES_PER_FORK
-]
-
-
 class SszForkConfig(Container):
     """SSZ container mirroring ``ForkConfig``."""
 
-    fork: uint64
     activation: SszForkActivation
-    blob_schedule: SszOptionalBlobSchedule
 
 
 class SszChainConfig(Container):
@@ -244,23 +234,6 @@ class SszStatelessValidationResult(Container):
 
 
 # --- Conversion helpers ---
-
-
-PROTOCOL_FORKS = tuple(ProtocolFork)
-
-
-def _protocol_fork_to_ssz(fork: ProtocolFork) -> uint64:
-    """Convert a ProtocolFork to its SSZ enum value."""
-    protocol_fork = ProtocolFork(fork)
-    return uint64(PROTOCOL_FORKS.index(protocol_fork))
-
-
-def _ssz_to_protocol_fork(ssz_fork: uint64) -> ProtocolFork:
-    """Convert an SSZ enum value back to a ProtocolFork."""
-    try:
-        return PROTOCOL_FORKS[int(ssz_fork)]
-    except IndexError as error:
-        raise ValueError(f"Unknown protocol fork value: {ssz_fork}") from error
 
 
 def _withdrawal_to_ssz(w: Withdrawal) -> SszWithdrawal:
@@ -539,60 +512,12 @@ def _ssz_to_fork_activation(
     )
 
 
-def _blob_schedule_to_ssz(
-    blob_schedule: BlobSchedule,
-) -> SszBlobSchedule:
-    """Convert a BlobSchedule to its SSZ form."""
-    return SszBlobSchedule(
-        target=uint64(int(blob_schedule.target)),
-        max=uint64(int(blob_schedule.max)),
-        base_fee_update_fraction=uint64(
-            int(blob_schedule.base_fee_update_fraction)
-        ),
-    )
-
-
-def _ssz_to_blob_schedule(
-    ssz_blob_schedule: SszBlobSchedule,
-) -> BlobSchedule:
-    """Convert an SSZ blob schedule back."""
-    return BlobSchedule(
-        target=U64(ssz_blob_schedule.target),
-        max=U64(ssz_blob_schedule.max),
-        base_fee_update_fraction=U64(
-            ssz_blob_schedule.base_fee_update_fraction
-        ),
-    )
-
-
-def _optional_blob_schedule_to_ssz(
-    blob_schedule: BlobSchedule | None,
-) -> SszOptionalBlobSchedule:
-    """Convert an optional BlobSchedule to a zero-or-one SSZ list."""
-    if blob_schedule is None:
-        return SszOptionalBlobSchedule()
-    return SszOptionalBlobSchedule(_blob_schedule_to_ssz(blob_schedule))
-
-
-def _ssz_to_optional_blob_schedule(
-    ssz_blob_schedule: SszOptionalBlobSchedule,
-) -> BlobSchedule | None:
-    """Convert a zero-or-one SSZ blob schedule list back."""
-    if ssz_blob_schedule.length() == 0:
-        return None
-    return _ssz_to_blob_schedule(ssz_blob_schedule.get(0))
-
-
 def _fork_config_to_ssz(
     fork_config: ForkConfig,
 ) -> SszForkConfig:
     """Convert a ForkConfig to its SSZ form."""
     return SszForkConfig(
-        fork=_protocol_fork_to_ssz(fork_config.fork),
         activation=_fork_activation_to_ssz(fork_config.activation),
-        blob_schedule=_optional_blob_schedule_to_ssz(
-            fork_config.blob_schedule
-        ),
     )
 
 
@@ -601,11 +526,7 @@ def _ssz_to_fork_config(
 ) -> ForkConfig:
     """Convert an SSZ fork config back."""
     return ForkConfig(
-        fork=_ssz_to_protocol_fork(ssz_fork_config.fork),
         activation=_ssz_to_fork_activation(ssz_fork_config.activation),
-        blob_schedule=_ssz_to_optional_blob_schedule(
-            ssz_fork_config.blob_schedule
-        ),
     )
 
 

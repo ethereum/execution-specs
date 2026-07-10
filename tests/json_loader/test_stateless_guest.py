@@ -20,7 +20,6 @@ from ethereum.forks.amsterdam.execution_engine.types import (
 )
 from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
-    BlobSchedule,
     ChainConfig,
     ExecutionWitness,
     ForkActivation,
@@ -43,17 +42,24 @@ from ethereum.forks.amsterdam.stateless_host import (
     serialize_stateless_input,
 )
 from ethereum.forks.amsterdam.stateless_ssz import (
+    STATELESS_INPUT_SCHEMA_FORK_INDEX,
+    STATELESS_INPUT_SCHEMA_ID,
     STATELESS_INPUT_SCHEMA_ID_BYTES,
+    STATELESS_INPUT_SCHEMA_REVISION,
     stateless_input_to_ssz,
-)
-from ethereum.forks.amsterdam.vm.gas import (
-    BLOB_BASE_FEE_UPDATE_FRACTION,
-    BLOB_SCHEDULE_MAX,
-    BLOB_SCHEDULE_TARGET,
 )
 from ethereum.state import Address, Root
 
 _RNG = random.Random(0xDEADBEEF)
+
+
+def test_stateless_input_schema_id_identifies_amsterdam_revision() -> None:
+    """Amsterdam stateless input schema id is fork_index || revision."""
+    assert STATELESS_INPUT_SCHEMA_FORK_INDEX is ProtocolFork.Amsterdam
+    assert STATELESS_INPUT_SCHEMA_FORK_INDEX == 0x15
+    assert STATELESS_INPUT_SCHEMA_REVISION == 0x01
+    assert STATELESS_INPUT_SCHEMA_ID == 0x1501
+    assert STATELESS_INPUT_SCHEMA_ID_BYTES == b"\x15\x01"
 
 
 def _rb(n: int) -> bytes:
@@ -126,15 +132,9 @@ def _expected_amsterdam_chain_config(chain_id: U64) -> ChainConfig:
     return ChainConfig(
         chain_id=chain_id,
         active_fork=ForkConfig(
-            fork=ProtocolFork.Amsterdam,
             activation=ForkActivation(
                 block_number=None,
                 timestamp=U64(0),
-            ),
-            blob_schedule=BlobSchedule(
-                target=BLOB_SCHEDULE_TARGET,
-                max=BLOB_SCHEDULE_MAX,
-                base_fee_update_fraction=U64(BLOB_BASE_FEE_UPDATE_FRACTION),
             ),
         ),
     )
@@ -304,13 +304,19 @@ class TestDeserializeStatelessInput:
     def test_one_byte_input_rejected(self) -> None:
         """Reject input that does not contain a full schema id."""
         with pytest.raises(ValueError, match="missing schema id"):
-            deserialize_stateless_input(Bytes(b"\x01"))
+            deserialize_stateless_input(Bytes(b"\x15"))
 
-    def test_unknown_schema_id_rejected(self) -> None:
-        """Reject input with a schema id other than Amsterdam's."""
+    def test_unsupported_schema_revision_rejected(self) -> None:
+        """Reject an unsupported Amsterdam schema revision."""
         encoded = serialize_stateless_input(_make_stateless_input())
-        with pytest.raises(ValueError, match="Unsupported stateless input"):
-            deserialize_stateless_input(Bytes(b"\x00\x02" + encoded[2:]))
+        with pytest.raises(ValueError, match="0x1502"):
+            deserialize_stateless_input(Bytes(b"\x15\x02" + encoded[2:]))
+
+    def test_unsupported_schema_fork_rejected(self) -> None:
+        """Reject an unsupported stateless input schema fork."""
+        encoded = serialize_stateless_input(_make_stateless_input())
+        with pytest.raises(ValueError, match="0x1601"):
+            deserialize_stateless_input(Bytes(b"\x16\x01" + encoded[2:]))
 
     def test_legacy_raw_ssz_input_rejected(self) -> None:
         """Reject unprefixed SSZ input bytes."""
@@ -354,10 +360,8 @@ class TestRunStatelessGuest:
         assert result.new_payload_request_root == Hash32(b"\0" * 32)
         assert not result.successful_validation
         assert result.chain_config.chain_id == U64(0)
-        assert result.chain_config.active_fork.fork == ProtocolFork.Frontier
         assert result.chain_config.active_fork.activation.block_number is None
         assert result.chain_config.active_fork.activation.timestamp is None
-        assert result.chain_config.active_fork.blob_schedule is None
 
 
 class TestComputeNewPayloadRequestRoot:

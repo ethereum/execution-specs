@@ -1053,7 +1053,6 @@ def is_invalid_stateless_input_sentinel(stateless_output: Any) -> bool:
     """
     Return whether output is the invalid stateless input sentinel.
     """
-    from ethereum.forks.amsterdam.stateless import ProtocolFork
     from ethereum_types.numeric import U64
 
     chain_config = stateless_output.chain_config
@@ -1063,10 +1062,8 @@ def is_invalid_stateless_input_sentinel(stateless_output: Any) -> bool:
         not stateless_output.successful_validation
         and bytes(stateless_output.new_payload_request_root) == b"\0" * 32
         and chain_config.chain_id == U64(0)
-        and active_fork.fork == ProtocolFork.Frontier
         and activation.block_number is None
         and activation.timestamp is None
-        and active_fork.blob_schedule is None
     )
 
 
