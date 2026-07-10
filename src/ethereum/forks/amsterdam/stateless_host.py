@@ -9,6 +9,7 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import InvalidSignatureError
 
 from .block_access_lists import BlockAccessList
 from .blocks import Block
@@ -108,7 +109,14 @@ def build_stateless_input(
                 tx_obj = decode_transaction(tx)
             except Exception:
                 continue
-        public_keys.append(recover_transaction_public_key(chain_id, tx_obj))
+        try:
+            public_keys.append(
+                recover_transaction_public_key(chain_id, tx_obj)
+            )
+        except InvalidSignatureError:
+            # Rejected transactions remain in invalid payloads passed to the
+            # guest, but cannot provide a recoverable public key.
+            continue
         if isinstance(tx_obj, BlobTransaction):
             versioned_hashes.extend(tx_obj.blob_versioned_hashes)
 
