@@ -1751,6 +1751,7 @@ class DelegationTo(Enum):
     RESET = 3
 
 
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
@@ -1848,6 +1849,7 @@ def test_double_auth(
     )
 
 
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.valid_from("Prague")
 @pytest.mark.eels_base_coverage
@@ -2069,6 +2071,7 @@ def test_set_code_type_tx_pre_fork(
 
 
 @pytest.mark.valid_from("Prague")
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 def test_delegation_replacement_call_previous_contract(
     state_test: StateTestFiller,

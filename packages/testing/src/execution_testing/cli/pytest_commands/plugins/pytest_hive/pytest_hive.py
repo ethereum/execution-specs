@@ -367,6 +367,17 @@ def hive_test(
             test_result_details = "Test passed.\n\n" + captured_output
         elif (
             hasattr(request.node, "result_call")
+            and request.node.result_call.skipped
+        ):
+            test_passed = True
+            test_result_details = (
+                "Test skipped.\n\n"
+                + request.node.result_call.longreprtext
+                + "\n"
+                + captured_output
+            )
+        elif (
+            hasattr(request.node, "result_call")
             and not request.node.result_call.passed
         ):
             test_passed = False
