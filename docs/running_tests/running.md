@@ -14,7 +14,7 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`consume direct`](#direct)             | Client consume tests via a `statetest` interface                                        | EVM                                                          | None          | Module test                       |
 | [`consume direct`](#direct)             | Client consume tests via a `blocktest` interface                                        | EVM, block processing                                        | None          | Module test,</br>Integration test |
 | [`consume engine`](#engine)             | Client imports blocks via Engine API `EngineNewPayload` in Hive                         | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
-| [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
+| [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API, chain reorgs (implicit\*\*) | Staging, Hive | System test                       |
 | [`consume sync`](#sync)                 | Client syncs from another client using Engine API in Hive                               | EVM, block processing, Engine API, P2P sync                  | Staging, Hive | System test                       |
 | [`consume rlp`](#rlp)                   | Client imports RLP-encoded blocks upon start-up in Hive                                 | EVM, block processing, RLP import (sync\*)                   | Staging, Hive | System test                       |
 | [`build-block`](#block-building)        | Client builds blocks via `testing_buildBlockV1` in Hive, validated against fixture       | EVM, block production, Engine API (testing namespace)        | Staging, Hive | System test                       |
@@ -22,6 +22,8 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`execute remote`](./execute/remote.md) | Tests executed against a client via JSON RPC `eth_sendRawTransaction` on a live network | EVM, JSON RPC, mempool, EL-EL/EL-CL interaction (indirectly) | Production    | System Test                       |
 
 \*sync: Depending on code paths used in the client implementation, see the [RLP vs Engine Simulator section below](#engine-vs-rlp-simulator).
+
+\*\*chain reorgs: A side-effect of client reuse, not something the test cases describe, see the [Implicit Chain Reorg Coverage section below](#implicit-chain-reorg-coverage).
 
 The following sections describe the different methods in more detail.
 
@@ -91,6 +93,18 @@ The `consume enginex` command, for each pre-allocation group:
 
 4. **Stops the client** when all tests in the group complete.
 
+### Implicit Chain Reorg Coverage
+
+Client reuse gives `consume enginex` coverage that `consume engine` does not have. The forkchoice update at the start of each test resets the client's head from the previous test's chain tip back to genesis. The payload that follows is therefore a sibling of a block the client already imported and considered canonical (the same parent and block number, but a different block hash), and the forkchoice update sent after it makes the new branch canonical.
+
+Every test after the first in a pre-allocation group consequently exercises the client's chain reorganization path: rolling the head state back to an ancestor, importing a competing block at an already-occupied height, and re-canonicalizing a new branch.
+
+!!! note "This coverage is implicit"
+
+    No `blockchain_test_engine_x` fixture describes a reorg; the reorgs are an artifact of how the simulator reuses clients. A test whose payloads are all invalid also leaves the head at genesis, so no rollback precedes the next test in the group.
+
+    It does mean, however, that a test which fails under `consume enginex` but passes under `consume engine` is more likely to indicate a bug in the client's reorg, head state rollback or block caching logic than in its EVM or block validation logic.
+
 ### Engine vs EngineX
 
 |                         | `consume engine`                                                     | `consume enginex`                                                                          |
@@ -101,6 +115,7 @@ The `consume enginex` command, for each pre-allocation group:
 | **Genesis block check** | `eth_getBlockByNumber(0)` per test                                    | `eth_getBlockByNumber(0)` once per client; genesis is immutable                                |
 | **Execution speed**     | Slower (client startup overhead)                                     | Faster (amortized startup cost)                                                                |
 | **Test isolation**      | Full isolation                                                       | Shared client and genesis state within group; the chain head is reset to genesis for each test |
+| **Chain reorgs**        | Not exercised; each client executes one test's payloads only         | [Implicitly exercised](#implicit-chain-reorg-coverage) by every test after the first in a group |
 
 EngineX achieves faster execution by:
 
