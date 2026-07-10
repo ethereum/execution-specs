@@ -1277,6 +1277,31 @@ class EthRPC(BaseRPC):
         return results
 
 
+def sum_unigram_block_trace(block_trace: Any) -> Dict[str, int]:
+    """
+    Sum per-transaction unigram tracer results into per-block counts.
+
+    ``debug_traceBlockByNumber`` returns one entry per transaction, whose
+    shape varies across clients: ``{"txHash": ..., "result": {op: count}}``
+    (geth), ``{"result": {op: count}}`` (older geth/erigon), or the bare
+    ``{op: count}`` map. Entries carrying a per-transaction ``error`` (or
+    any non-integer values) are skipped.
+    """
+    counts: Dict[str, int] = {}
+    if not isinstance(block_trace, list):
+        return counts
+    for entry in block_trace:
+        if not isinstance(entry, dict):
+            continue
+        inner = entry.get("result") if "result" in entry else entry
+        if not isinstance(inner, dict):
+            continue
+        for opcode, occurrences in inner.items():
+            if isinstance(opcode, str) and isinstance(occurrences, int):
+                counts[opcode] = counts.get(opcode, 0) + occurrences
+    return counts
+
+
 class DebugRPC(EthRPC):
     """
     Represents an `debug_X` RPC class for every default ethereum RPC method
@@ -1294,12 +1319,84 @@ class DebugRPC(EthRPC):
     # so the fallback probe runs only once per session.
     _rewind_method: str | None = None
 
+    # Inline JS source equivalent to geth's embedded ``unigramTracer``.
+    # Fallback for clients that run geth-style JS tracers but do not
+    # resolve built-in tracer names (e.g. reth).
+    UNIGRAM_TRACER_JS: ClassVar[str] = (
+        "{counts: {}, "
+        "step: function(log) { "
+        "var op = log.op.toString(); "
+        "this.counts[op] = (this.counts[op] || 0) + 1; "
+        "}, "
+        "fault: function() {}, "
+        "result: function() { return this.counts; }}"
+    )
+
+    # Which opcode tracer the client accepts ("unigramTracer" by name,
+    # "js" for the inline source, or "none" when unsupported); resolved
+    # on first use so the fallback probe runs only once per session.
+    _opcode_tracer: str | None = None
+
     def trace_call(self, tr: dict[str, str], block_number: str) -> Any | None:
         """`debug_traceCall`: Returns pre state required for transaction."""
         params = [tr, block_number, {"tracer": "prestateTracer"}]
         return self.post_request(
             request=RPCCall(method="traceCall", params=params)
         ).result_or_raise()
+
+    def trace_block_by_number(self, block_number: str, tracer: str) -> Any:
+        """`debug_traceBlockByNumber` with the given tracer."""
+        return self.post_request(
+            request=RPCCall(
+                method="traceBlockByNumber",
+                params=[block_number, {"tracer": tracer}],
+            )
+        ).result_or_raise()
+
+    def trace_block_opcode_counts(
+        self, block_number: str
+    ) -> Dict[str, int] | None:
+        """
+        Collect per-opcode execution counts for the given block.
+
+        Try geth's built-in ``unigramTracer`` by name first (geth,
+        erigon and nethermind resolve it); if the client rejects it,
+        retry with the equivalent JS tracer source inlined (reth). When
+        neither works (e.g. besu, which has no JS tracer engine), warn
+        once and return ``None`` for this and all subsequent calls. The
+        working tracer is cached after the first call.
+        """
+        if self._opcode_tracer == "none":
+            return None
+        if self._opcode_tracer is not None:
+            tracer = (
+                self.UNIGRAM_TRACER_JS
+                if self._opcode_tracer == "js"
+                else self._opcode_tracer
+            )
+            return sum_unigram_block_trace(
+                self.trace_block_by_number(block_number, tracer)
+            )
+        for method, tracer in (
+            ("unigramTracer", "unigramTracer"),
+            ("js", self.UNIGRAM_TRACER_JS),
+        ):
+            try:
+                block_trace = self.trace_block_by_number(block_number, tracer)
+            except JSONRPCError as e:
+                logger.debug(
+                    f"Opcode tracer probe {method!r} rejected by client: {e}"
+                )
+                continue
+            self._opcode_tracer = method
+            return sum_unigram_block_trace(block_trace)
+        logger.warning(
+            "Client supports neither the built-in unigramTracer nor "
+            "inline JS tracers via debug_traceBlockByNumber; opcode "
+            "counts will not be collected."
+        )
+        self._opcode_tracer = "none"
+        return None
 
     def set_head(self, block_number: str) -> None:
         """`debug_setHead`: Reset chain head to the given block number."""

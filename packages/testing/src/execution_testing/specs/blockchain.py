@@ -1468,6 +1468,7 @@ class BlockchainTest(BaseTest):
         head_hash = start_block_hash
         benchmark_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
+        execution_opcode_count: OpcodeCount | None = None
         # Alloc is not authoritative in stateful mode; pass self.pre as a
         # placeholder — ClientBackend ignores it.
         alloc: Alloc | LazyAlloc = self.pre
@@ -1489,9 +1490,15 @@ class BlockchainTest(BaseTest):
                 setup_payloads.append(payload)
             else:
                 execution_payloads.append(payload)
+                block_opcode_count = built_block.result.opcode_count
+                if block_opcode_count is not None:
+                    execution_opcode_count = (
+                        execution_opcode_count + block_opcode_count
+                        if execution_opcode_count is not None
+                        else block_opcode_count
+                    )
                 if self.operation_mode == OpMode.BENCHMARKING:
                     benchmark_gas_used = int(built_block.result.gas_used)
-                    benchmark_opcode_count = built_block.result.opcode_count
             # Overwrite the block_hash apply_new_parent just recorded —
             # it's the FixtureHeader-recomputed RLP hash, which diverges
             # from the client's authoritative hash (client picks fields
@@ -1508,6 +1515,14 @@ class BlockchainTest(BaseTest):
                 },
             )
             head_hash = client_hash
+
+        # Execution-phase opcode totals (``--trace-opcodes``): summed
+        # across the test's execution blocks, mirroring gas-benchmarks'
+        # per-test merge; setup blocks are excluded.
+        if execution_opcode_count is not None:
+            t8n.record_test_opcode_count(execution_opcode_count)
+            if self.operation_mode == OpMode.BENCHMARKING:
+                benchmark_opcode_count = execution_opcode_count
 
         fixture = BlockchainEngineStatefulFixture(
             fork=self.fork,

@@ -61,6 +61,7 @@ from ..execute.rpc.hive import (
 )
 from ..shared.helpers import is_help_or_collectonly_mode
 from ..shared.live_client_flags import FEE_BUMP_MULTIPLIER
+from .opcode_tracing import write_opcode_trace_file
 
 # 1 billion ETH. Withdrawals are Gwei (u64-capped); much higher risks
 # overflow on some clients, this is plenty for any single fill session.
@@ -116,6 +117,28 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Private key for signing transactions. Optional — a random "
             "key is generated and funded via CL withdrawal if omitted."
+        ),
+    )
+    group.addoption(
+        "--trace-opcodes",
+        action="store_true",
+        dest="trace_opcodes",
+        default=False,
+        help=(
+            "Collect per-test opcode counts by tracing each built block "
+            "via debug_traceBlockByNumber (unigram tracer) and write them "
+            "to a JSON file mapping test names to opcode counts."
+        ),
+    )
+    group.addoption(
+        "--trace-opcodes-output",
+        action="store",
+        dest="trace_opcodes_output",
+        default=None,
+        type=str,
+        help=(
+            "Output path for the opcode trace JSON (default: "
+            "<output-dir>/opcodes_tracing.json)."
         ),
     )
     group.addoption(
@@ -477,7 +500,9 @@ def debug_rpc(eth_rpc: EthRPC) -> DebugRPC:
 
 @pytest.fixture(scope="session")
 def client_backend(
+    request: pytest.FixtureRequest,
     eth_rpc: ChainBuilderEthRPC,
+    debug_rpc: DebugRPC,
     session_fork: Fork | TransitionFork,
     default_gas_price: int | None,
     default_max_fee_per_gas: int | None,
@@ -502,6 +527,8 @@ def client_backend(
         eth_rpc=eth_rpc,
         fork=session_fork,
     )
+    if request.config.getoption("trace_opcodes"):
+        backend.opcode_tracer_rpc = debug_rpc
 
     priority_fee = default_max_priority_fee_per_gas
     if priority_fee is None:
@@ -703,6 +730,7 @@ def _session_pre_run(
 
 @pytest.fixture(autouse=True, scope="session")
 def session_t8n(
+    request: pytest.FixtureRequest,
     client_backend: ClientBackend,
     _session_pre_run: None,
 ) -> Generator[ClientBackend, None, None]:
@@ -712,6 +740,22 @@ def session_t8n(
     """
     del _session_pre_run
     yield client_backend
+    if request.config.getoption("trace_opcodes"):
+        output_arg = request.config.getoption("trace_opcodes_output")
+        trace_output = (
+            Path(output_arg)
+            if output_arg
+            else Path(request.config.getoption("output"))
+            / "opcodes_tracing.json"
+        )
+        write_opcode_trace_file(
+            trace_output, client_backend.collected_opcode_counts
+        )
+        logger.info(
+            f"Wrote opcode counts for "
+            f"{len(client_backend.collected_opcode_counts)} tests to "
+            f"{trace_output}"
+        )
     client_backend.shutdown()
 
 
@@ -721,6 +765,21 @@ def t8n(
 ) -> Generator[ClientBackend, None, None]:
     """Override: no per-test reset needed for ClientBackend."""
     yield session_t8n
+
+
+@pytest.fixture(autouse=True, scope="function")
+def _current_test_id(
+    request: pytest.FixtureRequest,
+    client_backend: ClientBackend,
+) -> Generator[None, None, None]:
+    """
+    Tag the backend with the running test's node id so execution-phase
+    opcode counts recorded by ``make_stateful_fixture`` land under the
+    right test in the ``--trace-opcodes`` output.
+    """
+    client_backend.current_test_id = request.node.nodeid
+    yield
+    client_backend.current_test_id = None
 
 
 # ---------------------------------------------------------------------------

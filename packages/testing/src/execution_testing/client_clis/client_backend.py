@@ -17,7 +17,14 @@ from typing import Any, ClassVar, Dict, List, Optional
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
 from execution_testing.forks import Fork, TransitionFork
-from execution_testing.rpc import EngineRPC, EthRPC, TestingRPC, Web3RPC
+from execution_testing.logging import get_logger
+from execution_testing.rpc import (
+    DebugRPC,
+    EngineRPC,
+    EthRPC,
+    TestingRPC,
+    Web3RPC,
+)
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     GetPayloadResponse,
@@ -37,6 +44,8 @@ from .cli_types import (
     TransitionToolOutput,
 )
 from .transition_tool import TransitionTool
+
+logger = get_logger(__name__)
 
 
 class ClientBackendExceptionMapper(ExceptionMapper):
@@ -82,6 +91,16 @@ class ClientBackend:
     max_priority_fee_per_gas: int = 0
     max_fee_per_blob_gas: int = 0
 
+    # Opcode tracing (``--trace-opcodes``): when the fill-stateful plugin
+    # sets ``opcode_tracer_rpc``, each built block is traced via
+    # ``debug_traceBlockByNumber`` (unigram tracer) right after it is made
+    # canonical. ``current_test_id`` is set per test by the plugin;
+    # ``make_stateful_fixture`` records each test's execution-phase totals
+    # into ``collected_opcode_counts``.
+    opcode_tracer_rpc: DebugRPC | None = None
+    current_test_id: str | None = None
+    collected_opcode_counts: Dict[str, OpcodeCount]
+
     def __init__(
         self,
         *,
@@ -98,6 +117,9 @@ class ClientBackend:
         self.exception_mapper = ClientBackendExceptionMapper()
         self.snapshot_block = None
         self.start_block = None
+        self.opcode_tracer_rpc = None
+        self.current_test_id = None
+        self.collected_opcode_counts = {}
         self._info_metadata = {}
         self.gas_price = 0
         self.max_fee_per_gas = 0
@@ -195,6 +217,10 @@ class ClientBackend:
             withdrawals=env.withdrawals,
             block_fork=block_fork,
         )
+        if self.opcode_tracer_rpc is not None:
+            result.opcode_count = self._trace_block_opcode_count(
+                int(get_payload_response.execution_payload.number)
+            )
         alloc = LazyAllocJson(raw={}, _state_root=result.state_root)
         return TransitionToolOutput(
             alloc=alloc,
@@ -207,6 +233,51 @@ class ClientBackend:
                     payload_attributes.parent_beacon_block_root
                 ),
             ),
+        )
+
+    def _trace_block_opcode_count(
+        self, block_number: int
+    ) -> OpcodeCount | None:
+        """
+        Trace a just-canonicalized block and return its opcode counts.
+
+        Failures (unsupported client, trace error, unknown opcode names
+        in the response) are logged and yield ``None`` — tracing must
+        never fail the fill.
+        """
+        assert self.opcode_tracer_rpc is not None
+        try:
+            counts = self.opcode_tracer_rpc.trace_block_opcode_counts(
+                hex(block_number)
+            )
+        except Exception as e:
+            logger.warning(
+                f"Opcode trace failed for block {block_number}: {e}"
+            )
+            return None
+        if counts is None:
+            return None
+        try:
+            return OpcodeCount.model_validate(counts)
+        except Exception as e:
+            logger.warning(
+                f"Unparsable opcode trace for block {block_number}: {e}"
+            )
+            return None
+
+    def record_test_opcode_count(self, opcode_count: OpcodeCount) -> None:
+        """
+        Record a test's execution-phase opcode counts.
+
+        Keyed by ``current_test_id`` (set per test by the fill-stateful
+        plugin); repeated records for the same test are summed. No-op
+        when no test id is set.
+        """
+        if self.current_test_id is None:
+            return
+        existing = self.collected_opcode_counts.get(self.current_test_id)
+        self.collected_opcode_counts[self.current_test_id] = (
+            existing + opcode_count if existing is not None else opcode_count
         )
 
     def _payload_attributes(

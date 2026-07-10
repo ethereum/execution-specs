@@ -1269,6 +1269,8 @@ uncomp
 underflow
 undersize
 unencoded
+unigram
+unigramTracer
 unixsocket
 unlink
 unoptimized
