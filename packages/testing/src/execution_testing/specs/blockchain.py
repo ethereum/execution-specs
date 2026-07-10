@@ -606,6 +606,8 @@ class TestingBuildBlock(BuiltBlock):
     so ``make_stateful_fixture`` can record what the client built.
     """
 
+    __test__ = False  # "Test" prefix; keep pytest from collecting it
+
     model_config = CamelModel.model_config | {"arbitrary_types_allowed": True}
 
     engine_payload: EnginePayloadMetadata
@@ -1504,6 +1506,14 @@ class BlockchainTest(BaseTest):
                     if block_opcode_count is not None
                     else None
                 )
+                # Setup blocks (pre-alloc funding/deploys) are exempt:
+                # ``expected_receipt_status`` describes the test's own
+                # transactions, and setup txs always succeed.
+                if built_block.result.receipts:
+                    self.validate_receipt_status(
+                        receipts=built_block.result.receipts,
+                        block_number=int(built_block.header.number),
+                    )
                 if self.operation_mode == OpMode.BENCHMARKING:
                     benchmark_gas_used = int(built_block.result.gas_used)
                     # Consumed by BenchmarkTest's opcode-count verification.
