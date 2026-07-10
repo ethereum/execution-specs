@@ -164,14 +164,14 @@ class ClientBackend:
 
     def reset_opcode_count(self) -> None:
         """
-        Zero the per-test opcode tally when extraction is enabled.
+        No-op — the singular ``opcode_count`` accumulator is unused.
 
-        Mirrors ``TransitionTool.reset_opcode_count`` so the filler writes
-        ``_info.metadata.opcode_count``. Left ``None`` when disabled, which
-        makes the filler skip the metadata key entirely.
+        Stateful fill records per-payload opcode counts in
+        ``_info.metadata.opcode_counts`` (via ``make_stateful_fixture``),
+        not the filler's aggregate ``opcode_count``; ``opcode_count`` stays
+        ``None`` so that key is not emitted.
         """
-        if self.extract_opcode_count:
-            self.opcode_count = OpcodeCount({})
+        return
 
     def set_cache(self, *, key: str) -> bool:
         """No-op — caching not meaningful for a live client."""
