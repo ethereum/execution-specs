@@ -2,8 +2,10 @@
 Test EIP-7623 calldata floor interaction with EIP-8037 state gas.
 
 The calldata floor applies to the regular gas dimension only. It
-does not affect state gas. Block gas accounting uses tx_regular_gas
-(without the floor) for regular gas and tracks state gas separately.
+does not affect state gas. Block gas accounting applies the floor to
+the regular dimension (``max(pre_refund_gas - state_gas, floor)``),
+so a transaction contributes at least the floor to the block's
+regular gas while state gas is tracked separately.
 
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
@@ -267,9 +269,9 @@ def test_calldata_floor_binds_with_reservoir(
 
     Large calldata makes the EIP-7976 floor the sender's bill, while an
     over-cap `gas_limit` puts the SSTORE-set state charge in the
-    reservoir. The floor feeds only the receipt; the block accounts
-    regular and state separately, so the header gas_used is the state
-    dimension (not the floor).
+    reservoir. The floor binds the receipt and the block's regular
+    dimension alike, so the header gas_used is the floor (not the
+    state dimension).
     """
     storage = Storage()
     code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
@@ -304,5 +306,102 @@ def test_calldata_floor_binds_with_reservoir(
         pre=pre,
         post={contract: Account(storage=storage)},
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=state_cost),
+        blockchain_test_header_verify=Header(gas_used=floor),
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_calldata_floor_counts_toward_block_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify the calldata floor is charged to the block's regular gas.
+
+    With a STOP callee and large zero-byte calldata the floor exceeds
+    the actual regular gas charge, so the transaction contributes the
+    floor (not the pre-floor charge) to the header gas_used.
+    """
+    calldata = b"\x00" * 1024
+    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    charge = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    assert charge < floor, "calldata floor must bind"
+
+    contract = pre.deploy_contract(code=Op.STOP)
+
+    tx = Transaction(
+        to=contract,
+        data=calldata,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=floor),
+    )
+    state_test(
+        pre=pre,
+        post={},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=floor),
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_calldata_floor_not_discounted_by_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify state gas spending does not discount the block-level floor.
+
+    Calldata is sized so the floor sits between the transaction's
+    regular-gas portion and its total gas used
+    (``tx_regular < floor < tx_regular + state``). The sender's bill is
+    the pre-floor total, yet the block's regular dimension must still
+    charge the full floor: the floor is compared against the regular
+    portion alone, so state gas cannot absorb it. An implementation
+    that instead floors the transaction total before deducting state
+    gas (or skips the floor entirely) would report the state dimension
+    in the header; the correct header gas_used is the floor.
+    """
+    storage = Storage()
+    code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
+    state_cost = code.state_cost(fork)
+    regular_cost = code.regular_cost(fork)
+    floor_cost = fork.transaction_data_floor_cost_calculator()
+
+    # Smallest zero-byte calldata whose floor exceeds the state
+    # dimension; the floor then also dominates the header.
+    size = 0
+    while floor_cost(data=b"\x00" * size) <= state_cost:
+        size += 32
+    calldata = b"\x00" * size
+    floor = floor_cost(data=calldata)
+
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    tx_regular = intrinsic + regular_cost
+    tx_total = tx_regular + state_cost
+    assert tx_regular < floor < tx_total, (
+        "floor must bind the regular portion but not the total"
+    )
+
+    contract = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=contract,
+        data=calldata,
+        state_gas_reservoir=state_cost,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=tx_total),
+    )
+    state_test(
+        pre=pre,
+        post={contract: Account(storage=storage)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=floor),
     )

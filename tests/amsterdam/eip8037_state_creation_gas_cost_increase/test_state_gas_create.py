@@ -1350,7 +1350,14 @@ def test_create_tx_header_gas_used(
         intrinsic_total = intrinsic_cost(
             calldata=bytes(initcode), contract_creation=True
         )
-        expected_gas_used = intrinsic_total - gas_costs.NEW_ACCOUNT
+        # Block regular gas applies the calldata floor, which tops up
+        # the small regular remainder left after the NEW_ACCOUNT refund.
+        expected_gas_used = max(
+            intrinsic_total - gas_costs.NEW_ACCOUNT,
+            fork.transaction_data_floor_cost_calculator()(
+                data=bytes(initcode), contract_creation=True
+            ),
+        )
     else:
         # For a minimal CREATE tx deploying Op.STOP (1 byte),
         # state gas (new account) dominates regular gas.
