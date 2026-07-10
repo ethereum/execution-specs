@@ -56,10 +56,7 @@ def future_timestamp_activation_chain_config(stateless_input: Any) -> Any:
     """Move Amsterdam activation one second after the payload timestamp."""
     from ethereum_types.numeric import U64
 
-    from ethereum.forks.amsterdam.stateless import (
-        ForkActivation,
-        ProtocolFork,
-    )
+    from ethereum.forks.amsterdam.stateless import ForkActivation
 
     payload = stateless_input.new_payload_request.execution_payload
     chain_config = stateless_input.chain_config
@@ -68,7 +65,6 @@ def future_timestamp_activation_chain_config(stateless_input: Any) -> Any:
         chain_config,
         active_fork=replace(
             active_fork,
-            fork=ProtocolFork.Amsterdam,
             activation=ForkActivation(
                 block_number=None,
                 timestamp=U64(int(payload.timestamp) + 1),

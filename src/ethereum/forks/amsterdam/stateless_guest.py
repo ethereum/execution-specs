@@ -11,7 +11,6 @@ from .stateless import (
     ChainConfig,
     ForkActivation,
     ForkConfig,
-    ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
     verify_stateless_new_payload,
@@ -61,7 +60,6 @@ def _default_failed_stateless_output() -> StatelessValidationResult:
         chain_config=ChainConfig(
             chain_id=U64(0),
             active_fork=ForkConfig(
-                fork=ProtocolFork.Frontier,
                 activation=ForkActivation(
                     block_number=None,
                     timestamp=None,

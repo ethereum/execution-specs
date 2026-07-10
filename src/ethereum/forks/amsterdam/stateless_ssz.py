@@ -84,11 +84,9 @@ PUBLIC_KEY_BYTES = 65
 
 # Stateless guest input bytes are schema-prefixed:
 #   schema_id || encoded_payload
-# schema_id is fork_index || schema_revision. fork_index is the 1-based
-# ProtocolFork order, with BPO forks counted. Amsterdam is fork 0x15, and
-# revision 0x01 uses SSZ encode(SszStatelessInput) for the payload. This
-# prefix selects byte decoding and is separate from SszForkConfig.fork.
-STATELESS_INPUT_SCHEMA_FORK_INDEX = 0x15
+# schema_id is fork_index || schema_revision. Amsterdam is fork 0x15, and
+# revision 0x01 uses SSZ encode(SszStatelessInput) for the payload.
+STATELESS_INPUT_SCHEMA_FORK_INDEX = ProtocolFork.Amsterdam
 STATELESS_INPUT_SCHEMA_REVISION = 0x01
 STATELESS_INPUT_SCHEMA_ID = (
     STATELESS_INPUT_SCHEMA_FORK_INDEX << 8
@@ -208,7 +206,6 @@ class SszForkActivation(Container):
 class SszForkConfig(Container):
     """SSZ container mirroring ``ForkConfig``."""
 
-    fork: uint64
     activation: SszForkActivation
 
 
@@ -237,23 +234,6 @@ class SszStatelessValidationResult(Container):
 
 
 # --- Conversion helpers ---
-
-
-PROTOCOL_FORKS = tuple(ProtocolFork)
-
-
-def _protocol_fork_to_ssz(fork: ProtocolFork) -> uint64:
-    """Convert a ProtocolFork to its SSZ enum value."""
-    protocol_fork = ProtocolFork(fork)
-    return uint64(PROTOCOL_FORKS.index(protocol_fork))
-
-
-def _ssz_to_protocol_fork(ssz_fork: uint64) -> ProtocolFork:
-    """Convert an SSZ enum value back to a ProtocolFork."""
-    try:
-        return PROTOCOL_FORKS[int(ssz_fork)]
-    except IndexError as error:
-        raise ValueError(f"Unknown protocol fork value: {ssz_fork}") from error
 
 
 def _withdrawal_to_ssz(w: Withdrawal) -> SszWithdrawal:
@@ -537,7 +517,6 @@ def _fork_config_to_ssz(
 ) -> SszForkConfig:
     """Convert a ForkConfig to its SSZ form."""
     return SszForkConfig(
-        fork=_protocol_fork_to_ssz(fork_config.fork),
         activation=_fork_activation_to_ssz(fork_config.activation),
     )
 
@@ -547,7 +526,6 @@ def _ssz_to_fork_config(
 ) -> ForkConfig:
     """Convert an SSZ fork config back."""
     return ForkConfig(
-        fork=_ssz_to_protocol_fork(ssz_fork_config.fork),
         activation=_ssz_to_fork_activation(ssz_fork_config.activation),
     )
 

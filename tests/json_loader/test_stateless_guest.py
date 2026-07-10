@@ -55,7 +55,7 @@ _RNG = random.Random(0xDEADBEEF)
 
 def test_stateless_input_schema_id_identifies_amsterdam_revision() -> None:
     """Amsterdam stateless input schema id is fork_index || revision."""
-    assert tuple(ProtocolFork).index(ProtocolFork.Amsterdam) + 1 == 0x15
+    assert STATELESS_INPUT_SCHEMA_FORK_INDEX is ProtocolFork.Amsterdam
     assert STATELESS_INPUT_SCHEMA_FORK_INDEX == 0x15
     assert STATELESS_INPUT_SCHEMA_REVISION == 0x01
     assert STATELESS_INPUT_SCHEMA_ID == 0x1501
@@ -132,7 +132,6 @@ def _expected_amsterdam_chain_config(chain_id: U64) -> ChainConfig:
     return ChainConfig(
         chain_id=chain_id,
         active_fork=ForkConfig(
-            fork=ProtocolFork.Amsterdam,
             activation=ForkActivation(
                 block_number=None,
                 timestamp=U64(0),
@@ -361,7 +360,6 @@ class TestRunStatelessGuest:
         assert result.new_payload_request_root == Hash32(b"\0" * 32)
         assert not result.successful_validation
         assert result.chain_config.chain_id == U64(0)
-        assert result.chain_config.active_fork.fork == ProtocolFork.Frontier
         assert result.chain_config.active_fork.activation.block_number is None
         assert result.chain_config.active_fork.activation.timestamp is None
 

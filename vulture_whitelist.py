@@ -237,6 +237,3 @@ ProtocolFork.Prague
 ProtocolFork.Osaka
 ProtocolFork.BPO1
 ProtocolFork.BPO2
-ProtocolFork.BPO3
-ProtocolFork.BPO4
-ProtocolFork.BPO5
