@@ -4,6 +4,7 @@ import random
 from typing import Tuple
 
 import pytest
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes48, Bytes96
 from ethereum_types.numeric import U64, U256, Uint
 
@@ -48,6 +49,7 @@ from ethereum.forks.amsterdam.stateless_ssz import (
     STATELESS_INPUT_SCHEMA_REVISION,
     stateless_input_to_ssz,
 )
+from ethereum.forks.amsterdam.transactions import LegacyTransaction
 from ethereum.state import Address, Root
 
 _RNG = random.Random(0xDEADBEEF)
@@ -216,6 +218,54 @@ class TestBuildStatelessInput:
             chain_id=U64(123),
         )
         assert stateless_input.chain_config == chain_config
+
+    @pytest.mark.parametrize(
+        ("v", "r", "s"),
+        [
+            pytest.param(27, 0, 1, id="invalid-signature"),
+            pytest.param(39, 1, 1, id="wrong-chain-id"),
+        ],
+    )
+    def test_rejected_transaction_omits_public_key(
+        self, v: int, r: int, s: int
+    ) -> None:
+        """Keep rejected transactions without requiring a public key."""
+        tx = LegacyTransaction(
+            nonce=U256(0),
+            gas_price=Uint(1),
+            gas=Uint(21_000),
+            to=Address(b"\x00" * 20),
+            value=U256(0),
+            data=Bytes(b""),
+            v=U256(v),
+            r=U256(r),
+            s=U256(s),
+        )
+        block = Block(
+            header=_make_header(),
+            transactions=(tx,),
+            ommers=(),
+            withdrawals=(),
+        )
+        stateless_input = build_stateless_input(
+            block,
+            execution_witness=ExecutionWitness(
+                state=(),
+                codes=(),
+                headers=(),
+            ),
+            execution_requests=ExecutionRequests(
+                deposits=(),
+                withdrawals=(),
+                consolidations=(),
+            ),
+            block_access_list=[],
+            chain_id=U64(1),
+        )
+
+        payload = stateless_input.new_payload_request.execution_payload
+        assert payload.transactions == (Bytes(rlp.encode(tx)),)
+        assert stateless_input.public_keys == ()
 
 
 class TestSerializeStatelessInput:
