@@ -1334,8 +1334,9 @@ def test_create_tx_header_gas_used(
     dominates the regular gas, so gas_used == NEW_ACCOUNT. For a
     pre-existing balance-only leaf the target is not EMPTY pre-tx, so the
     top-frame NEW_ACCOUNT is never charged: net state gas is zero and the
-    regular intrinsic gas dominates. The expected value therefore equals
-    the regular intrinsic and fails if a stray NEW_ACCOUNT is charged.
+    regular dimension dominates. The tiny initcode pins block regular
+    gas to the calldata floor, so the expected value is the floor and
+    fails if a stray NEW_ACCOUNT is charged.
     """
     gas_costs = fork.gas_costs()
     initcode = Op.STOP
@@ -1363,12 +1364,17 @@ def test_create_tx_header_gas_used(
         intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
         # Regular-only creation intrinsic; STOP initcode deploys empty
         # code (zero deposit) and the pre-existing target adds no state
-        # gas, so the regular intrinsic dominates. Block regular gas
-        # excludes any calldata-floor top-up, so use the raw intrinsic.
-        expected_gas_used = intrinsic_cost(
-            calldata=bytes(initcode),
-            contract_creation=True,
-            return_cost_deducted_prior_execution=True,
+        # gas, so the regular dimension dominates. Block regular gas
+        # applies the calldata floor, which tops up the raw intrinsic.
+        expected_gas_used = max(
+            intrinsic_cost(
+                calldata=bytes(initcode),
+                contract_creation=True,
+                return_cost_deducted_prior_execution=True,
+            ),
+            fork.transaction_data_floor_cost_calculator()(
+                data=bytes(initcode), contract_creation=True
+            ),
         )
     else:
         # For a minimal CREATE tx deploying Op.STOP (1 byte),
@@ -2165,8 +2171,8 @@ def test_failed_create_tx_refills_top_frame_new_account(
 
     * REVERT preserves ``gas_left`` and ``refill_frame_state_gas`` returns
       the spilled ``NEW_ACCOUNT`` to it, so the state block nets to zero
-      and the sender pays only the regular consumption (pinned to the
-      calldata floor).
+      and the sender and block regular gas both pay the regular
+      consumption pinned to the calldata floor.
     * HALT (INVALID) refills the spilled ``NEW_ACCOUNT`` to ``gas_left``
       and then burns all of it, so the sender pays the full ``gas_limit``.
     """
@@ -2188,11 +2194,10 @@ def test_failed_create_tx_refills_top_frame_new_account(
     else:
         # REVERT refills the spilled NEW_ACCOUNT, netting the state block
         # to zero, so only the regular consumption is billed. The tiny
-        # initcode pins the receipt to the calldata floor, which block
-        # regular gas excludes.
-        expected_header_gas = intrinsic_regular + init_code.regular_cost(fork)
-        expected_receipt_gas = max(
-            expected_header_gas,
+        # initcode pins the receipt and block regular gas alike to the
+        # calldata floor.
+        expected_header_gas = expected_receipt_gas = max(
+            intrinsic_regular + init_code.regular_cost(fork),
             fork.transaction_data_floor_cost_calculator()(
                 data=init_code, contract_creation=True
             ),

@@ -1136,7 +1136,12 @@ def process_transaction(
     create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
     tx_state_gas = int(tx_env.intrinsic_state_gas) + tx_output.state_gas_used
-    tx_regular_gas = tx_gas_used_before_refund - Uint(max(0, tx_state_gas))
+    # The calldata floor binds the regular-gas dimension: subtract state gas
+    # first so the floor is not discounted by a transaction's state spending.
+    tx_regular_gas = max(
+        tx_gas_used_before_refund - Uint(max(0, tx_state_gas)),
+        intrinsic.calldata_floor,
+    )
     block_output.block_gas_used += tx_regular_gas
     block_output.block_state_gas_used += Uint(max(0, tx_state_gas))
     block_output.blob_gas_used += tx_blob_gas_used

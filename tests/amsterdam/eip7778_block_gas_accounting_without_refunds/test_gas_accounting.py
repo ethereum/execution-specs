@@ -217,8 +217,9 @@ def test_simple_gas_accounting(
         refund_tx_reverts=refund_tx_reverts,
     )
 
-    # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas)
-    block_regular = gas_used_pre_refund
+    # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas),
+    # with the calldata floor binding the regular dimension.
+    block_regular = max(gas_used_pre_refund, call_data_floor_cost)
     refund_tx_block_gas_used = max(block_regular, tx_state_gas)
 
     blockchain_test(
@@ -286,6 +287,7 @@ def test_multi_transaction_gas_accounting(
     This tests that clients correctly use pre-refund gas for block accounting.
     """
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    data_floor_calc = fork.transaction_data_floor_cost_calculator()
 
     refunds_count = 10
     stop_bytecode = Op.STOP
@@ -316,10 +318,13 @@ def test_multi_transaction_gas_accounting(
     extra_tx_intrinsic_gas_cost = intrinsic_cost_calc(
         calldata=extra_tx_calldata
     )
-    # Block regular gas uses actual charge, not the tx-level floor.
-    extra_tx_block_gas = intrinsic_cost_calc(
-        calldata=extra_tx_calldata,
-        return_cost_deducted_prior_execution=True,
+    # Block regular gas applies the calldata floor to the actual charge.
+    extra_tx_block_gas = max(
+        intrinsic_cost_calc(
+            calldata=extra_tx_calldata,
+            return_cost_deducted_prior_execution=True,
+        ),
+        data_floor_calc(data=extra_tx_calldata),
     )
 
     extra_tx = Transaction(
@@ -342,9 +347,9 @@ def test_multi_transaction_gas_accounting(
     block_regular = gas_used_pre_refund + extra_tx_block_gas
     block_state = tx_state_gas
     total_block_gas_used = max(block_regular, block_state)
-    # The block gas_limit must accommodate extra_tx's full gas_limit (which
-    # may be floor-inclusive) even though block gas_used uses the lower actual
-    # charge. For exceed_block_gas_limit=True we set the limit below
+    # The block gas_limit must accommodate extra_tx's full gas_limit
+    # (floor-inclusive, like its block-regular charge). For
+    # exceed_block_gas_limit=True we set the limit below
     # total_block_gas_used to test that the extra_tx fails.
     if exceed_block_gas_limit:
         environment_gas_limit = total_block_gas_used - 1
@@ -508,8 +513,9 @@ def test_varying_calldata_costs(
             f"Could not find the call_data with {num_iterations} iterations."
         )
 
-    # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas)
-    block_regular = gas_used_pre_refund
+    # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas),
+    # with the calldata floor binding the regular dimension.
+    block_regular = max(gas_used_pre_refund, call_data_floor_cost)
     refund_tx_block_gas_used = max(block_regular, tx_state_gas)
 
     blockchain_test(
@@ -560,8 +566,9 @@ def test_multiple_refund_types_in_one_tx(
         refund_tx_reverts=refund_tx_reverts,
     )
 
-    # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas)
-    block_regular = gas_used_pre_refund
+    # EIP-8037: block gas_used = max(block_regular_gas, block_state_gas),
+    # with the calldata floor binding the regular dimension.
+    block_regular = max(gas_used_pre_refund, call_data_floor_cost)
     refund_tx_block_gas_used = max(block_regular, tx_state_gas)
 
     blockchain_test(
@@ -589,13 +596,13 @@ def test_mixed_gas_regimes(
 
     tx1: SSTORE-set fresh slot (no refund, pre_refund > floor).
     tx2: SSTORE-clear x10 (normal refund, refund not clipped to floor).
-    tx3: 1000 zero-byte calldata to STOP (floor binds upward for fee only).
+    tx3: 1000 zero-byte calldata to STOP (floor binds fee and block gas).
 
-    After EIP-8037's calldata-floor alignment, the floor only affects tx-level
-    fee calculation (tx_gas_used = max(post_refund, floor)); block regular gas
-    uses pre-refund gas minus state gas, with no floor applied. Per-tx sender
-    balance is also asserted to lock in that the floor-binding tx pays
-    `floor * gas_price`, not `pre_refund * gas_price`.
+    The floor binds the tx-level fee (tx_gas_used = max(post_refund,
+    floor)) and the block's regular dimension (max(pre_refund gas minus
+    state gas, floor)) alike. Per-tx sender balance is also asserted to
+    lock in that the floor-binding tx pays `floor * gas_price`, not
+    `pre_refund * gas_price`.
     """
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
     data_floor_calc = fork.transaction_data_floor_cost_calculator()
@@ -671,8 +678,8 @@ def test_mixed_gas_regimes(
     tx3_floor = data_floor_calc(data=tx3_data)
     assert tx3_floor > tx3_pre_refund, "tx3: floor must bind upward"
     tx3_fee_gas = max(tx3_pre_refund, tx3_floor)
-    # Block regular gas uses pre-refund only; floor is tx-level only.
-    tx3_block_contribution = tx3_pre_refund
+    # The floor binds the block's regular dimension as well as the fee.
+    tx3_block_contribution = max(tx3_pre_refund, tx3_floor)
     tx3 = Transaction(
         to=tx3_target,
         gas_limit=tx3_fee_gas,
