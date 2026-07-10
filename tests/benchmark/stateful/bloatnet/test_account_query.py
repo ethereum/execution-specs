@@ -15,7 +15,7 @@ from execution_testing import (
     Op,
     TestPhaseManager,
     Transaction,
-    WhileGas,
+    While,
 )
 
 from tests.benchmark.helper.account_creator import (
@@ -221,9 +221,11 @@ def test_account_access(
             )
         )
 
-    loop_code = WhileGas(
+    setup_code += Op.ADD(1, Op.CALLDATALOAD(32)) + Op.CALLDATALOAD(0)
+
+    loop_code = While(
         body=cache_op + attack_call + increment_op,
-        fork=fork,
+        condition=Op.PUSH1(1) + Op.ADD + Op.DUP1 + Op.DUP3 + Op.GT,
     )
 
     attack_code = IteratingBytecode(
@@ -234,8 +236,8 @@ def test_account_access(
 
     # Calldata generator for each transaction of the iterating bytecode.
     def calldata(iteration_count: int, start_iteration: int) -> bytes:
-        del iteration_count
-        return Hash(start_iteration)
+        index_end = start_iteration + iteration_count - 1
+        return Hash(start_iteration) + Hash(index_end)
 
     run_code = attack_code
     target_opcode = opcode
@@ -246,8 +248,13 @@ def test_account_access(
             keccak_op = keccak_op * 2
 
         run_code = IteratingBytecode(
-            setup=address_source.setup,
-            iterating=WhileGas(body=keccak_op + increment_op, fork=fork),
+            setup=address_source.setup
+            + Op.ADD(1, Op.CALLDATALOAD(32))
+            + Op.CALLDATALOAD(0),
+            iterating=While(
+                body=keccak_op + increment_op,
+                condition=Op.PUSH1(1) + Op.ADD + Op.DUP1 + Op.DUP3 + Op.GT,
+            ),
         )
         target_opcode = Op.SHA3
 
