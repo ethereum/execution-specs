@@ -10,6 +10,7 @@ from execution_testing import (
     RecipientType,
     StateTestFiller,
     Transaction,
+    TransactionReceipt,
 )
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
@@ -25,8 +26,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_2780.git_path
 REFERENCE_SPEC_VERSION = ref_spec_2780.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
-
-GAS_PRICE = 1_000_000_000
 
 
 @pytest.mark.parametrize(
@@ -63,8 +62,7 @@ def test_single_authorization_charges(
       The intrinsic base cost is still paid; no top-frame charge (not
       even ``ACCOUNT_WRITE``) accrues and the authority is untouched.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     recipient = pre.deploy_contract(code=Op.STOP)
 
     scenario = build_authorization(pre, action)
@@ -77,15 +75,12 @@ def test_single_authorization_charges(
         value=0,
         authorization_list=authorization_list,
         gas_limit=total_gas_cost,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - total_gas_cost * GAS_PRICE,
-        ),
         scenario.authority: scenario.applied_account,
     }
 
@@ -133,8 +128,7 @@ def test_multi_authorization_intra_tx_state(
     (the first bumps the nonce), and the post-state confirms both were
     applied rather than the second being silently skipped.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     recipient = pre.deploy_contract(code=Op.STOP)
 
     if scenario == "different_accounts":
@@ -188,15 +182,12 @@ def test_multi_authorization_intra_tx_state(
         value=0,
         authorization_list=authorization_list,
         gas_limit=total_gas_cost,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - total_gas_cost * GAS_PRICE,
-        ),
         **expected_authorities,
     }
 
@@ -243,8 +234,7 @@ def test_account_write_first_write_of_authority(
       still this transaction's first write to it, so ``ACCOUNT_WRITE``
       is charged all the same (plus ``AUTH_BASE``).
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     recipient = pre.deploy_contract(code=Op.STOP)
 
     if authority_prestate == "non_existent":
@@ -265,15 +255,12 @@ def test_account_write_first_write_of_authority(
         value=0,
         authorization_list=authorization_list,
         gas_limit=total_gas_cost,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - total_gas_cost * GAS_PRICE,
-        ),
         scenario.authority: scenario.applied_account,
     }
 
@@ -297,8 +284,7 @@ def test_account_write_authority_is_sender(
     against over-charging accounts the transaction has already paid to
     write.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     recipient = pre.deploy_contract(code=Op.STOP)
     delegation_target = pre.deploy_contract(code=Op.STOP)
 
@@ -319,14 +305,14 @@ def test_account_write_authority_is_sender(
         value=0,
         authorization_list=[authorization],
         gas_limit=total_gas_cost,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost,
+        ),
     )
 
     post = {
         sender: Account(
             nonce=2,
-            balance=sender_initial_balance - total_gas_cost * GAS_PRICE,
             code=Spec7702.delegation_designation(delegation_target),
         ),
     }
@@ -372,9 +358,8 @@ def test_account_write_authority_is_recipient(
     the top frame additionally resolves the delegation target at the
     cold rate before dispatching its code (a ``STOP``).
     """
-    sender_initial_balance = 10**18
     authority_initial_balance = 100
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     delegation_target = pre.deploy_contract(code=Op.STOP)
     recipient = pre.fund_eoa(amount=authority_initial_balance)
 
@@ -417,17 +402,12 @@ def test_account_write_authority_is_recipient(
         value=value,
         authorization_list=[authorization],
         gas_limit=total_gas_cost,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance
-            - value
-            - total_gas_cost * GAS_PRICE,
-        ),
         recipient: Account(
             nonce=1,
             balance=authority_initial_balance + value,
@@ -479,9 +459,8 @@ def test_auth_base_net_new_only(
       ``AUTH_BASE`` and one ``ACCOUNT_WRITE`` are paid even though the
       authority ends the transaction with no delegation.
     """
-    sender_initial_balance = 10**18
     authority_initial_balance = 100
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     recipient = pre.deploy_contract(code=Op.STOP)
 
     target_a = pre.deploy_contract(code=Op.STOP)
@@ -548,15 +527,12 @@ def test_auth_base_net_new_only(
         value=0,
         authorization_list=authorization_list,
         gas_limit=total_gas_cost,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - total_gas_cost * GAS_PRICE,
-        ),
         authority: Account(
             nonce=first_nonce + len(auth_specs),
             balance=authority_initial_balance,

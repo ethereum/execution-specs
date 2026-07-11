@@ -93,6 +93,9 @@ def build_authorization(
             original = None
         case AuthorizationAction.SETS_NEW_DELEGATION:
             target = pre.deploy_contract(code=Op.STOP)
+            assert balance > 0, (
+                "An existing account must have non-zero balance"
+            )
             authority = pre.fund_eoa(amount=balance)
             authorization = AuthorizationTuple(
                 address=target,
@@ -153,6 +156,9 @@ def build_authorization(
             )
         case AuthorizationAction.INVALID:
             target = pre.deploy_contract(code=Op.STOP)
+            assert balance > 0, (
+                "An existing account must have non-zero balance"
+            )
             authority = pre.fund_eoa(amount=balance)
             # The nonce does not match the authority's account nonce, so
             # validate_authorization skips the authorization; only the

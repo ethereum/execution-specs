@@ -38,18 +38,22 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     BalAccountExpectation,
+    BalBalanceChange,
     BalCodeChange,
     BalNonceChange,
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
+    Environment,
     Fork,
     Header,
     Op,
     RecipientType,
     StateTestFiller,
     Transaction,
+    TransactionException,
+    TransactionReceipt,
 )
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
@@ -65,8 +69,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_2780.git_path
 REFERENCE_SPEC_VERSION = ref_spec_2780.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
-
-GAS_PRICE = 1_000_000_000
 
 
 def _auth_top_frame_charges(fork: Fork, authorizations: list) -> int:
@@ -107,16 +109,16 @@ def _intrinsic_regular(
     )
 
 
-def _persisted_delegation_bal(
+def _applied_delegation_bal(
     scenario: AuthorizationScenario,
 ) -> BalAccountExpectation:
     """
-    BAL entry for an authority whose applied delegation persists past a
-    dispatch-phase failure.
+    BAL entry for an authority whose applied delegation reaches the
+    post-state.
 
     The nonce bump and delegation-code write are applied before the
-    execution snapshot, so they survive the dispatched frame's revert or
-    halt and must be recorded in the block access list.
+    execution snapshot, so they also survive a dispatched frame's
+    revert or halt and must be recorded in the block access list.
     """
     return BalAccountExpectation(
         nonce_changes=[
@@ -135,13 +137,13 @@ def _persisted_delegation_bal(
 
 
 @pytest.mark.parametrize(
-    "oog_charge", ["new_account", "account_write", "auth_base"]
+    "outcome", ["new_account", "account_write", "auth_base", "succeeds"]
 )
 def test_set_delegation_oog_charge_point(
     fork: Fork,
     pre: Alloc,
     state_test: StateTestFiller,
-    oog_charge: str,
+    outcome: str,
 ) -> None:
     """
     OOG at each distinct charge point inside ``set_delegation`` rolls
@@ -159,25 +161,30 @@ def test_set_delegation_oog_charge_point(
     - ``auth_base``: the second (a delegation on an existing empty EOA)
       covers its first-write ``ACCOUNT_WRITE`` but runs out at the
       following ``AUTH_BASE`` state charge.
+    - ``succeeds``: as ``auth_base``, but with the one starved gas
+      restored the closing ``AUTH_BASE`` is covered exactly and both
+      authorizations apply, pinning the off-by-one boundary of the
+      last charge from above.
 
-    In every case the transaction halts in ``set_delegation`` and both
-    authorizations are rolled back -- the first, already applied, as
-    well as the second -- so both authorities return to their pre-tx
-    state. The sender pays the full ``gas_limit`` and its nonce is not
-    rolled back.
+    In every out-of-gas case the transaction halts in
+    ``set_delegation`` and both authorizations are rolled back -- the
+    first, already applied, as well as the second -- so both
+    authorities return to their pre-tx state. The receipt shows the
+    full ``gas_limit`` consumed (exactly covered, in the ``succeeds``
+    case) and the sender nonce is not rolled back.
 
     Both authorities are read during authorization validation before
     the halt, so per EIP-7928 they still appear in the block access
-    list with no recorded changes. The recipient is only loaded by the
-    top-frame dispatch, which the halt precedes, so it must be absent.
+    list; only in the ``succeeds`` case do they record changes. The
+    recipient is only loaded by the top-frame dispatch, so it must be
+    absent whenever the halt precedes it.
     """
     gas_costs = fork.gas_costs()
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     recipient = pre.deploy_contract(code=Op.STOP)
 
     first = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
-    if oog_charge == "auth_base":
+    if outcome in ("auth_base", "succeeds"):
         second = build_authorization(
             pre, AuthorizationAction.SETS_NEW_DELEGATION
         )
@@ -195,24 +202,22 @@ def test_set_delegation_oog_charge_point(
     # (the state reservoir is zero). The first authorization is applied
     # in full; the second is starved by one gas at the target charge,
     # after covering any charges that precede it within that same
-    # authorization.
-    if oog_charge == "new_account":
+    # authorization -- or, for ``succeeds``, covered exactly.
+    if outcome == "new_account":
         preceding = 0
         shortfall_charge = gas_costs.NEW_ACCOUNT
-    elif oog_charge == "account_write":
+    elif outcome == "account_write":
         preceding = gas_costs.NEW_ACCOUNT
         shortfall_charge = gas_costs.ACCOUNT_WRITE
-    else:  # auth_base
+    else:  # auth_base / succeeds
         preceding = gas_costs.ACCOUNT_WRITE
         shortfall_charge = gas_costs.AUTH_BASE
 
     gas_limit = (
-        intrinsic_regular
-        + first_auth_charges
-        + preceding
-        + shortfall_charge
-        - 1
+        intrinsic_regular + first_auth_charges + preceding + shortfall_charge
     )
+    if outcome != "succeeds":
+        gas_limit -= 1
 
     tx = Transaction(
         sender=sender,
@@ -220,29 +225,40 @@ def test_set_delegation_oog_charge_point(
         value=0,
         authorization_list=authorization_list,
         gas_limit=gas_limit,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
-    )
-
-    post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - gas_limit * GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
         ),
-        first.authority: first.original_account,
-        second.authority: second.original_account,
-    }
-
-    # An implementation recording accesses only for dispatched frames
-    # would drop the authority entries; one recording the recipient at
-    # inclusion would add it. Either forks on the BAL hash.
-    expected_block_access_list = BlockAccessListExpectation(
-        account_expectations={
-            recipient: None,
-            first.authority: BalAccountExpectation.empty(),
-            second.authority: BalAccountExpectation.empty(),
-        }
     )
+
+    post: dict[EOA, Account | None]
+    if outcome == "succeeds":
+        post = {
+            first.authority: first.applied_account,
+            second.authority: second.applied_account,
+        }
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                recipient: BalAccountExpectation.empty(),
+                first.authority: _applied_delegation_bal(first),
+                second.authority: _applied_delegation_bal(second),
+            }
+        )
+    else:
+        post = {
+            first.authority: first.original_account,
+            second.authority: second.original_account,
+        }
+        # An implementation recording accesses only for dispatched
+        # frames would drop the authority entries; one recording the
+        # recipient at inclusion would add it. Either forks on the BAL
+        # hash.
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                recipient: None,
+                first.authority: BalAccountExpectation.empty(),
+                second.authority: BalAccountExpectation.empty(),
+            }
+        )
 
     state_test(
         pre=pre,
@@ -294,8 +310,7 @@ def test_set_delegation_oog_rolls_back_first_auth(
     recipient, never loaded before the halt, must be absent.
     """
     gas_costs = fork.gas_costs()
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     recipient = pre.deploy_contract(code=Op.STOP)
 
     first = build_authorization(pre, first_action)
@@ -320,15 +335,12 @@ def test_set_delegation_oog_rolls_back_first_auth(
         value=0,
         authorization_list=authorization_list,
         gas_limit=gas_limit,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - gas_limit * GAS_PRICE,
-        ),
         first.authority: first.original_account,
         second.authority: second.original_account,
     }
@@ -350,6 +362,13 @@ def test_set_delegation_oog_rolls_back_first_auth(
 
 
 @pytest.mark.parametrize(
+    "succeeds",
+    [
+        pytest.param(False, id="fails"),
+        pytest.param(True, id="succeeds"),
+    ],
+)
+@pytest.mark.parametrize(
     "recipient_charge", ["new_account", "delegation_access"]
 )
 def test_recipient_charge_oog_rolls_back_delegations(
@@ -357,6 +376,7 @@ def test_recipient_charge_oog_rolls_back_delegations(
     pre: Alloc,
     state_test: StateTestFiller,
     recipient_charge: str,
+    succeeds: bool,
 ) -> None:
     """
     A recipient top-frame charge running out of gas rolls back the
@@ -375,28 +395,41 @@ def test_recipient_charge_oog_rolls_back_delegations(
     The recipient charge is part of the top-frame preparation, so its
     out-of-gas unwinds the whole preparation: both authorities return to
     their pre-transaction state. The transaction is still included, the
-    sender pays the full ``gas_limit``, and the recipient itself is
-    unchanged.
+    receipt shows the full ``gas_limit`` consumed, and the recipient
+    itself is unchanged.
 
     The recipient and both authorities were accessed before the halt,
     so per EIP-7928 all three must still appear in the block access
     list, with no recorded changes.
+
+    The ``succeeds`` control restores the one starved gas: the
+    recipient charge is covered exactly, the dispatch completes (the
+    recipient runs no code of its own), and the delegations -- and any
+    value moved -- stick, pinning the off-by-one boundary from above.
     """
     gas_costs = fork.gas_costs()
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     auth_a = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
     auth_b = build_authorization(pre, AuthorizationAction.SETS_NEW_DELEGATION)
     authorization_list = [auth_a.authorization, auth_b.authorization]
     auth_charges = _auth_top_frame_charges(fork, authorization_list)
 
+    recipient_bal = BalAccountExpectation.empty()
     if recipient_charge == "new_account":
         recipient = pre.fund_eoa(amount=0)
         value = 1
         recipient_type = RecipientType.EMPTY_ACCOUNT
-        shortfall_charge = gas_costs.NEW_ACCOUNT
-        expected_recipient: Account | None = None
+        recipient_charge_gas = gas_costs.NEW_ACCOUNT
+        if succeeds:
+            expected_recipient: Account | None = Account(balance=value)
+            recipient_bal = BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=value)
+                ]
+            )
+        else:
+            expected_recipient = None
     else:  # delegation_access
         delegated_to = pre.deploy_contract(code=Op.STOP)
         recipient = pre.fund_eoa(
@@ -404,7 +437,7 @@ def test_recipient_charge_oog_rolls_back_delegations(
         )
         value = 0
         recipient_type = RecipientType.DELEGATION_7702
-        shortfall_charge = gas_costs.COLD_ACCOUNT_ACCESS
+        recipient_charge_gas = gas_costs.COLD_ACCOUNT_ACCESS
         expected_recipient = Account(
             nonce=1,
             balance=EOA_INITIAL_BALANCE,
@@ -418,10 +451,13 @@ def test_recipient_charge_oog_rolls_back_delegations(
         sends_value=bool(value),
     )
 
-    # Both authorizations apply, then the recipient's top-frame charge is
-    # starved by one gas. That charge shares the preparation snapshot, so
-    # its out-of-gas rolls the applied delegations back.
-    gas_limit = intrinsic_regular + auth_charges + shortfall_charge - 1
+    # Both authorizations apply, then the recipient's top-frame charge
+    # is starved by one gas -- or, with ``succeeds``, covered exactly.
+    # The charge shares the preparation snapshot, so its out-of-gas
+    # rolls the applied delegations back.
+    gas_limit = intrinsic_regular + auth_charges + recipient_charge_gas
+    if not succeeds:
+        gas_limit -= 1
 
     tx = Transaction(
         sender=sender,
@@ -429,27 +465,37 @@ def test_recipient_charge_oog_rolls_back_delegations(
         value=value,
         authorization_list=authorization_list,
         gas_limit=gas_limit,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
-    )
-
-    post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - gas_limit * GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
         ),
-        auth_a.authority: auth_a.original_account,
-        auth_b.authority: auth_b.original_account,
-        recipient: expected_recipient,
-    }
-
-    expected_block_access_list = BlockAccessListExpectation(
-        account_expectations={
-            recipient: BalAccountExpectation.empty(),
-            auth_a.authority: BalAccountExpectation.empty(),
-            auth_b.authority: BalAccountExpectation.empty(),
-        }
     )
+
+    if succeeds:
+        post = {
+            auth_a.authority: auth_a.applied_account,
+            auth_b.authority: auth_b.applied_account,
+            recipient: expected_recipient,
+        }
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                recipient: recipient_bal,
+                auth_a.authority: _applied_delegation_bal(auth_a),
+                auth_b.authority: _applied_delegation_bal(auth_b),
+            }
+        )
+    else:
+        post = {
+            auth_a.authority: auth_a.original_account,
+            auth_b.authority: auth_b.original_account,
+            recipient: expected_recipient,
+        }
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                recipient: BalAccountExpectation.empty(),
+                auth_a.authority: BalAccountExpectation.empty(),
+                auth_b.authority: BalAccountExpectation.empty(),
+            }
+        )
 
     state_test(
         pre=pre,
@@ -516,9 +562,7 @@ def test_reservoir_settlement_by_failure_point(
     assert cap is not None, "EIP-7825 cap expected on this fork"
     gas_costs = fork.gas_costs()
 
-    gas_price = GAS_PRICE
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
     recipient_code: Bytecode
@@ -625,8 +669,9 @@ def test_reservoir_settlement_by_failure_point(
         value=0,
         authorization_list=authorization_list,
         gas_limit=gas_limit,
-        max_fee_per_gas=gas_price,
-        max_priority_fee_per_gas=gas_price,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used,
+        ),
     )
 
     applied_authority = Account(
@@ -635,10 +680,6 @@ def test_reservoir_settlement_by_failure_point(
         code=Spec7702.delegation_designation(delegation_target),
     )
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - expected_gas_used * gas_price,
-        ),
         recipient: Account(
             nonce=1,
             balance=EOA_INITIAL_BALANCE,
@@ -709,9 +750,9 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
 
     The value transfer adds the recipient's ``NEW_ACCOUNT`` dispatch
     charge alongside the authorizations' ``NEW_ACCOUNT`` + ``AUTH_BASE``
-    charges. The recipient is the bn254 pairing precompile: the one
-    empty account that still executes, so an execution-phase failure is
-    reachable (a 1-byte input makes the precompile exceptionally halt
+    charges. The recipient is a precompile (here the bn254 pairing) --
+    an empty account that still executes, so an execution-phase failure
+    is reachable (a 1-byte input makes the pairing exceptionally halt
     after the value has moved). An empty recipient runs no code of its
     own, so there is no revert scenario here; the delegated-recipient
     variant above covers it.
@@ -741,10 +782,8 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
     assert cap is not None, "EIP-7825 cap expected on this fork"
     gas_costs = fork.gas_costs()
 
-    gas_price = GAS_PRICE
     value = 1
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     recipient = Address(0x08)
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
@@ -840,8 +879,9 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
         data=data,
         authorization_list=authorization_list,
         gas_limit=gas_limit,
-        max_fee_per_gas=gas_price,
-        max_priority_fee_per_gas=gas_price,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used,
+        ),
     )
 
     applied_authority = Account(
@@ -850,11 +890,7 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
         code=Spec7702.delegation_designation(delegation_target),
     )
     post: dict[Address, Account | None] = {
-        # The transfer never sticks; the sender pays only the gas.
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - expected_gas_used * gas_price,
-        ),
+        # The transfer never sticks; the recipient's leaf stays absent.
         recipient: None,
         **(
             dict.fromkeys(authorities, applied_authority)
@@ -937,8 +973,7 @@ def test_delegation_persists_on_execution_oog(
     recipient -- accessed for dispatch but whose (reverted) value
     transfer leaves no net change -- appears with no recorded changes.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     auth_a = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
     auth_b = build_authorization(pre, AuthorizationAction.SETS_NEW_DELEGATION)
@@ -957,7 +992,6 @@ def test_delegation_persists_on_execution_oog(
     recipient_code = Op.PUSH1(0) + Op.PUSH1(0)
     one_opcode = Op.PUSH1(0).gas_cost(fork)
     gas_limit = intrinsic_regular + auth_charges + one_opcode
-    sender_final_balance = sender_initial_balance - gas_limit * GAS_PRICE
 
     recipient = pre.deploy_contract(code=recipient_code)
 
@@ -967,12 +1001,12 @@ def test_delegation_persists_on_execution_oog(
         value=value,
         authorization_list=authorization_list,
         gas_limit=gas_limit,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
+        ),
     )
 
     post = {
-        sender: Account(nonce=1, balance=sender_final_balance),
         auth_a.authority: auth_a.applied_account,
         auth_b.authority: auth_b.applied_account,
         recipient: Account(code=recipient_code, balance=0),
@@ -980,8 +1014,8 @@ def test_delegation_persists_on_execution_oog(
 
     expected_block_access_list = BlockAccessListExpectation(
         account_expectations={
-            auth_a.authority: _persisted_delegation_bal(auth_a),
-            auth_b.authority: _persisted_delegation_bal(auth_b),
+            auth_a.authority: _applied_delegation_bal(auth_a),
+            auth_b.authority: _applied_delegation_bal(auth_b),
             recipient: BalAccountExpectation.empty(),
         }
     )
@@ -1023,15 +1057,14 @@ def test_auth_state_charges_survive_dispatch_revert(
     A regression that refills the authorization's state gas with the
     frame's rollback would refund the sender 218,790
     (``NEW_ACCOUNT + AUTH_BASE``) or 35,190 (``AUTH_BASE``) gas for
-    state that persists; the exact sender balance pins this.
+    state that persists; the receipt's exact gas used pins this.
 
     The same persistence must show in the block access list: the
     authority carries its nonce bump and delegation-code write even
     though the dispatched frame reverted, while the recipient appears
     with no recorded changes.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     revert_code = Op.REVERT(0, 0)
     recipient = pre.deploy_contract(code=revert_code)
@@ -1049,30 +1082,25 @@ def test_auth_state_charges_survive_dispatch_revert(
     # opcodes feeding the REVERT stay paid; only the unused execution
     # budget returns.
     gas_used = intrinsic_regular + auth_charges + revert_exec_gas
-    gas_limit = gas_used + 10_000
 
     tx = Transaction(
         sender=sender,
         to=recipient,
         value=0,
         authorization_list=authorization_list,
-        gas_limit=gas_limit,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_used,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - gas_used * GAS_PRICE,
-        ),
         auth.authority: auth.applied_account,
         recipient: Account(code=revert_code, balance=0),
     }
 
     expected_block_access_list = BlockAccessListExpectation(
         account_expectations={
-            auth.authority: _persisted_delegation_bal(auth),
+            auth.authority: _applied_delegation_bal(auth),
             recipient: BalAccountExpectation.empty(),
         }
     )
@@ -1111,8 +1139,7 @@ def test_auth_state_charges_survive_dispatch_halt_with_reservoir(
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None, "EIP-7825 cap expected on this fork"
 
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     halt_code = Op.INVALID
     recipient = pre.deploy_contract(code=halt_code)
@@ -1132,7 +1159,6 @@ def test_auth_state_charges_survive_dispatch_halt_with_reservoir(
     # headroom, so they draw from the reservoir rather than spilling
     # into gas_left.
     reservoir = auth_state_gas + 50_000
-    gas_limit = cap + reservoir
 
     # The halt consumes the full regular budget (the cap); of the
     # reservoir, only the authorization's state gas is consumed -- its
@@ -1144,16 +1170,13 @@ def test_auth_state_charges_survive_dispatch_halt_with_reservoir(
         to=recipient,
         value=0,
         authorization_list=authorization_list,
-        gas_limit=gas_limit,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        state_gas_reservoir=reservoir,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_used,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - gas_used * GAS_PRICE,
-        ),
         auth.authority: auth.applied_account,
         recipient: Account(code=halt_code, balance=0),
     }
@@ -1183,8 +1206,7 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     to the small regular sum, which balance-only state tests cannot
     distinguish from a correctly-split total.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     revert_code = Op.REVERT(0, 0)
     recipient = pre.deploy_contract(code=revert_code)
@@ -1211,17 +1233,11 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     )
     expected_gas_used = max(regular_total, auth_state)
 
-    gas_used = regular_total + auth_state
-    gas_limit = gas_used + 10_000
-
     tx = Transaction(
         sender=sender,
         to=recipient,
         value=0,
         authorization_list=authorization_list,
-        gas_limit=gas_limit,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
     )
 
     blockchain_test(
@@ -1240,6 +1256,113 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     )
 
 
+@pytest.mark.parametrize(
+    "delta",
+    [
+        pytest.param(0, id="exact_fit"),
+        pytest.param(1, id="exceeded", marks=pytest.mark.exception_test),
+    ],
+)
+def test_reverted_dispatch_state_gas_counts_toward_block_limit(
+    fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    delta: int,
+) -> None:
+    """
+    The state gas persisted by a reverted transaction's authorization
+    counts against the block's state dimension when including later
+    transactions.
+
+    The first transaction applies an account-creating authorization and
+    its dispatched call reverts: the delegation, and the state gas that
+    paid for it, persist. The last transaction is then sized to the
+    remaining state capacity exactly (``exact_fit``: the inclusion
+    check is strictly greater-than, so the block is valid) or one gas
+    beyond it (``exceeded``: the per-transaction state check fires and
+    the block is correctly rejected).
+
+    The regular dimension is asserted to have room either way, pinning
+    the rejection to the state dimension. An implementation that drops
+    a reverted transaction's persisting state gas from the block's
+    state total would accept the ``exceeded`` block and fork.
+    """
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None, "EIP-7825 cap expected on this fork"
+
+    block_gas_limit = 100_000_000
+
+    revert_code = Op.REVERT(0, 0)
+    recipient = pre.deploy_contract(code=revert_code)
+
+    auth = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
+    authorization_list = [auth.authorization]
+
+    intrinsic_regular = _intrinsic_regular(
+        fork, authorization_list, recipient_type=RecipientType.CONTRACT
+    )
+    auth_regular = fork.transaction_top_frame_gas_calculator()(
+        recipient_type=RecipientType.CONTRACT,
+        authorizations=authorization_list,
+    )
+    auth_state = fork.transaction_top_frame_state_gas(
+        recipient_type=RecipientType.CONTRACT,
+        authorizations=authorization_list,
+    )
+    revert_exec_gas = revert_code.gas_cost(fork)
+
+    first_tx_regular = intrinsic_regular + auth_regular + revert_exec_gas
+    first_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=recipient,
+        value=0,
+        authorization_list=authorization_list,
+        gas_limit=first_tx_regular + auth_state,
+    )
+
+    # The last transaction's worst-case state contribution is its full
+    # ``tx.gas`` (the strict EIP-8037 inclusion rule), charged against
+    # a state dimension that already carries the reverted first
+    # transaction's persisting authorization state gas.
+    state_available = block_gas_limit - auth_state
+    last_tx_gas = state_available + delta
+
+    # Pin the rejection (when delta > 0) to the state check: the
+    # regular check must not fire.
+    regular_available = block_gas_limit - first_tx_regular
+    assert min(cap, last_tx_gas) < regular_available, (
+        "the last tx would fail the regular check instead of the state check"
+    )
+
+    last_tx_error = (
+        TransactionException.GAS_ALLOWANCE_EXCEEDED if delta > 0 else None
+    )
+    last_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=pre.deploy_contract(code=Op.STOP),
+        value=0,
+        gas_limit=last_tx_gas,
+        error=last_tx_error,
+    )
+
+    # On rejection nothing in the block applies; on the exact fit the
+    # reverted first transaction still leaves its delegation behind.
+    post = {} if delta > 0 else {auth.authority: auth.applied_account}
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[first_tx, last_tx],
+                gas_limit=block_gas_limit,
+                exception=last_tx_error,
+            )
+        ],
+        post=post,
+    )
+
+
 def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     fork: Fork,
     pre: Alloc,
@@ -1250,8 +1373,8 @@ def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     fails, because the recipient's account creation rolls back with it
     -- unlike an authorization's state gas, whose delegation persists.
 
-    Value moves to an *empty precompile* (the one recipient that is
-    empty yet still executes): the top frame charges ``NEW_ACCOUNT``,
+    Value moves to an *empty precompile* (a recipient that is empty
+    yet still executes): the top frame charges ``NEW_ACCOUNT``,
     dispatch moves the value -- materializing the leaf -- and the
     precompile then halts (the bn254 pairing rejects a 1-byte input),
     rolling the leaf back. The state did not grow, so the charge
@@ -1260,15 +1383,14 @@ def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     The gas limit exceeds the EIP-7825 cap so the charge draws from a
     state-gas reservoir; the halt consumes the full regular budget (the
     cap) but the *entire* reservoir returns, pinning the refill in the
-    sender balance. This is the counterpart of
+    receipt's gas used. This is the counterpart of
     ``test_auth_state_charges_survive_dispatch_halt_with_reservoir``,
     which pins that an authorization's state gas does NOT return.
     """
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None, "EIP-7825 cap expected on this fork"
 
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     pairing_precompile = Address(0x08)
 
     value = 1
@@ -1281,7 +1403,6 @@ def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     )
 
     reservoir = new_account_state_gas + 50_000
-    gas_limit = cap + reservoir
 
     # The halt consumes the full regular budget; the NEW_ACCOUNT drawn
     # from the reservoir is refilled (the account creation rolled
@@ -1295,16 +1416,13 @@ def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
         # One byte: not a multiple of 192, so the pairing precompile
         # exceptionally halts after the value has moved.
         data=b"\x00",
-        gas_limit=gas_limit,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        state_gas_reservoir=reservoir,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_used,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - gas_used * GAS_PRICE,
-        ),
         pairing_precompile: None,
     }
 
@@ -1331,8 +1449,7 @@ def test_dispatched_frame_state_gas_still_refills_on_revert(
     while an over-correction that stops refilling frame state gas
     altogether would overcharge by the 97,920 ``STORAGE_SET``.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     sstore_revert_code = Op.SSTORE(
         0, 1, original_value=0, new_value=1
@@ -1354,26 +1471,20 @@ def test_dispatched_frame_state_gas_still_refills_on_revert(
 
     # The SSTORE's state gas is charged and then refilled by the
     # revert (the slot rolls back), so the sender pays only the
-    # authorization charges and the regular execution gas. The gas
-    # limit must still cover the state charge while it is outstanding.
+    # authorization charges and the regular execution gas.
     gas_used = intrinsic_regular + auth_charges + exec_regular
-    gas_limit = gas_used + exec_state + 10_000
 
     tx = Transaction(
         sender=sender,
         to=recipient,
         value=0,
         authorization_list=authorization_list,
-        gas_limit=gas_limit,
-        max_fee_per_gas=GAS_PRICE,
-        max_priority_fee_per_gas=GAS_PRICE,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_used,
+        ),
     )
 
     post = {
-        sender: Account(
-            nonce=1,
-            balance=sender_initial_balance - gas_used * GAS_PRICE,
-        ),
         auth.authority: auth.applied_account,
         recipient: Account(code=sstore_revert_code, balance=0, storage={0: 0}),
     }

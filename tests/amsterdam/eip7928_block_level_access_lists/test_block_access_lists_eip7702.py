@@ -521,12 +521,12 @@ def test_bal_7702_top_frame_delegation_oog(
         recipient_type=RecipientType.DELEGATION_7702,
     )
 
+    gas_limit = intrinsic_gas + top_frame_gas
     if outcome == "oog":
-        gas_limit = intrinsic_gas + top_frame_gas - 1
+        gas_limit -= 1
         # The delegation charge fails, so the target is never accessed.
         delegated_to_expectation = None
     else:
-        gas_limit = intrinsic_gas + top_frame_gas + 1000
         delegated_to_expectation = BalAccountExpectation.empty()
 
     tx = Transaction(

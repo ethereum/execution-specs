@@ -57,6 +57,7 @@ from ..vm.gas import (
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import (
     Evm,
+    commit_frame_state_gas,
     emit_transfer_log,
     frame_state_gas_used,
     refill_frame_state_gas,
@@ -169,7 +170,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         return_data=evm.output,
         state_gas_left=evm.state_gas_left,
         regular_gas_used=evm.regular_gas_used,
-        state_gas_used=frame_state_gas_used(evm) + evm.auth_state_gas_used,
+        state_gas_used=frame_state_gas_used(evm),
     )
 
 
@@ -352,18 +353,19 @@ def process_message(message: Message) -> Evm:
         try:
             if message.tx_env.authorizations != ():
                 set_delegation(evm)
-                evm.auth_state_gas_used = frame_state_gas_used(evm)
-                message.state_gas_reservoir = evm.state_gas_left
-                evm.state_gas_spilled = Uint(0)
+                # The applied delegations outlive a failure of the
+                # dispatched code, so their state gas must not refill
+                # with it.
+                commit_frame_state_gas(evm)
             prepare_dispatch(evm)
         except ExceptionalHalt as error:
             evm_trace(evm, OpException(error))
             restore_tx_state(tx_state, prep_snapshot)
             # The rollback reverts any applied delegations, so the
-            # baseline fold above is undone with it and every state
-            # charge is refilled.
+            # commit above is undone with it and every state charge is
+            # refilled.
             message.state_gas_reservoir = prep_reservoir
-            evm.auth_state_gas_used = 0
+            evm.committed_state_gas = 0
             refill_frame_state_gas(evm)
             evm.regular_gas_used += evm.gas_left
             evm.gas_left = Uint(0)
