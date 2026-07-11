@@ -252,6 +252,11 @@ def environment(
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
         **{k: f"{v:d}" for k, v in ruleset[fork].items()},
         "HIVE_FORK": pre_alloc_group.fork.name(),
+        # Tell client wrapper scripts this workload performs deep reorgs:
+        # clients are reused across a group's tests with a rewind to genesis
+        # in between, so wrappers can raise client-specific limits that would
+        # otherwise reject them (e.g. geth's engine API max reorg depth).
+        "HIVE_EXPECT_DEEP_REORGS": "1",
     }
 
     environment_cache[pre_hash] = env
