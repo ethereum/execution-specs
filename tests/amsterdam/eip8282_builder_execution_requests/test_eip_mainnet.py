@@ -1,6 +1,6 @@
 """
-abstract: Crafted tests for mainnet of [EIP-8282: Builder Execution Requests](https://eips.ethereum.org/EIPS/eip-8282).
-"""  # noqa: E501
+Crafted tests for mainnet of [EIP-8282: Builder Execution Requests](https://eips.ethereum.org/EIPS/eip-8282).
+"""
 
 from typing import List
 

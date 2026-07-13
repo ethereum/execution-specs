@@ -1,6 +1,6 @@
 """
-abstract: Crafted tests for mainnet of [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251).
-"""  # noqa: E501
+Crafted tests for mainnet of [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251).
+"""
 
 from typing import List
 
