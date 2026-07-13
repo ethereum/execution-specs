@@ -3,7 +3,7 @@ Typed execution-layer requests and engine-API wire-form codecs.
 
 The consensus layer defines ``ExecutionRequests`` as a typed Container
 holding deposit, withdrawal, consolidation, builder deposit, and builder exit
-lists. 
+lists.
 """
 
 from dataclasses import dataclass
