@@ -11,12 +11,15 @@ from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
+    BenchmarkTestFiller,
     Block,
+    Bytecode,
     Fork,
     Hash,
     IteratingBytecode,
     Op,
     RecipientType,
+    TestPhaseManager,
     Transaction,
 )
 from execution_testing.base_types.base_types import Number
@@ -34,6 +37,15 @@ MINT_SELECTOR = 0x40C10F19  # mint(address,uint256)
 #   [counter] → SUB(counter, 1) → continue if nonzero
 DECREMENT_COUNTER_CONDITION = (
     Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO
+)
+
+
+# keccak256("random") for non-existing slots, masked as address,
+# Solidity does input checks on the size and throws if we input
+# something different than an address
+START_SLOT = (
+    0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
+    % (2**160)
 )
 
 
@@ -434,3 +446,154 @@ def build_sequential_storage_init(
     blocks: list[Block] = [Block(txs=[auth_tx])]
     blocks.extend(pack_transactions_into_blocks(init_txs, tx_gas_limit))
     return blocks
+
+
+def delegate_with_calldata(
+    pre: Alloc,
+    fork: Fork,
+    authority: EOA,
+    address: Address,
+    calldata: Hash,
+) -> Transaction:
+    """
+    Create a tx that delegates the authority and calls it with calldata.
+
+    The delegated code determines what happens with the calldata.
+    The authority nonce is incremented in-place.
+    """
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=bytes(calldata),
+        authorization_list_or_count=1,
+    )
+    gas_limit = intrinsic_gas + 500_000
+    tx = Transaction(
+        gas_limit=gas_limit,
+        to=authority,
+        value=0,
+        data=calldata,
+        sender=pre.fund_eoa(),
+        authorization_list=[
+            AuthorizationTuple(
+                chain_id=0,
+                address=address,
+                nonce=authority.nonce,
+                signer=authority,
+            ),
+        ],
+    )
+    authority.nonce = Number(authority.nonce + 1)
+    return tx
+
+
+def run_bloated_eoa_benchmark(
+    *,
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    authority: EOA,
+    existing_slots: bool,
+    runtime_code: Bytecode,
+    cache_strategy: CacheStrategy,
+    tx_generator: Callable[[EOA], list[Transaction]] | None = None,
+) -> None:
+    """
+    Run a bloated-EOA benchmark with the given runtime delegation code.
+    """
+    slot_0_value = Hash(1) if existing_slots else Hash(START_SLOT)
+
+    setter_address = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
+    runtime_address = pre.deploy_contract(code=runtime_code)
+
+    init_tx = delegate_with_calldata(
+        pre,
+        fork,
+        authority,
+        setter_address,
+        slot_0_value,
+    )
+    runtime_tx = delegate_with_calldata(
+        pre,
+        fork,
+        authority,
+        runtime_address,
+        Hash(0),
+    )
+
+    blocks: list[Block] = [Block(txs=[init_tx, runtime_tx])]
+
+    sender = pre.fund_eoa()
+
+    txs: list[Transaction] = []
+    with TestPhaseManager.execution():
+        if tx_generator is not None:
+            txs = tx_generator(sender)
+        else:
+            gas_available = gas_benchmark_value
+            intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+            while gas_available >= intrinsic_gas:
+                tx_gas = min(gas_available, tx_gas_limit)
+                txs.append(
+                    Transaction(
+                        gas_limit=tx_gas,
+                        to=authority,
+                        sender=sender,
+                    )
+                )
+                gas_available -= tx_gas
+
+    cache_txs: list[Transaction] = []
+    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+        with TestPhaseManager.setup():
+            cache_sender = pre.fund_eoa()
+            for tx in txs:
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=tx.gas_limit,
+                        data=tx.data,
+                        to=authority,
+                        sender=cache_sender,
+                    )
+                )
+
+    blocks += build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
+    )
+
+
+def access_list_generator(
+    iteration_count: int,
+    start_iteration: int,
+    access_warm: bool,
+    authority: Address,
+) -> list[AccessList] | None:
+    """Access list generator for warming storage slots."""
+    if access_warm:
+        storage_keys = [
+            Hash(i)
+            for i in range(start_iteration, start_iteration + iteration_count)
+        ]
+        return [AccessList(address=authority, storage_keys=storage_keys)]
+    return None
+
+
+def executor_calldata_generator(
+    iteration_count: int,
+    start_iteration: int,
+    write_value: int | None = None,
+) -> bytes:
+    """
+    Calldata generator for executor operations.
+
+    Generates: Hash(start) + Hash(start + count) [+ Hash(write_value)]
+    """
+    result = Hash(start_iteration) + Hash(start_iteration + iteration_count)
+    if write_value is not None:
+        result += Hash(write_value)
+    return result
