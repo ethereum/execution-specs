@@ -320,10 +320,12 @@ def test_sstore_variants(
     Benchmark SSTORE instruction with various configurations.
 
     Uses EIP-7702 delegation. The authority EOA delegates to:
+
     - StorageInitializer: storage[i] = initial_value (initial_value != 0)
     - BenchmarkExecutor: performs the benchmark operation (SSTORE)
 
     Variants:
+
     - access_warm: Warm storage slots via access list
     - sloads_before_sstore: SLOADs per slot before SSTORE
     - initial_value/write_value: Storage transitions
@@ -487,6 +489,7 @@ def test_sstore_dirty_transitions(
     EOA delegates to initializer then to dirty-write executor.
 
     Variants:
+
     - oscillation: X→0→X→0, alternates clean (2900) and dirty (100)
     - triple_write_restore: X→B→C→X, all SSTORE branches
     - mass_clear: X→0, maximum per-slot refund generation

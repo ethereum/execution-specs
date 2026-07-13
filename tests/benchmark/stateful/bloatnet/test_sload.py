@@ -125,10 +125,12 @@ def test_sload_benchmark(
     Benchmark SLOAD instruction with various configurations.
 
     Uses EIP-7702 delegation. The authority EOA delegates to:
+
     - StorageInitializer: storage[i] = 1 (if storage_keys_pre_set)
     - BenchmarkExecutor: performs the benchmark operation (SLOAD)
 
     Variants:
+
     - access_warm: Warm storage slots via access list
     - storage_keys_pre_set: Whether the storage keys are pre-set
     """
@@ -217,6 +219,7 @@ def test_sload_same_key_benchmark(
     Benchmark SLOAD instruction when loading the same key over and over.
 
     Variants:
+
     - storage_keys_pre_set: The key is pre-set to a non-zero value.
     """
     contract_storage = Storage()
