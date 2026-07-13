@@ -60,9 +60,17 @@ from execution_testing.fixtures import (
     merge_partial_fixture_files,
     strip_fixture_format_from_node,
 )
+from execution_testing.fixtures.engine_x_checks import (
+    ENGINE_X_FIXTURES_DIR,
+    verify_engine_x_execution,
+)
 from execution_testing.fixtures.pre_alloc_groups import (
+    GroupIndexEntry,
     _get_worker_id,
     merge_partial_group_files,
+    pack_pre_alloc_groups,
+    packed_group_hash_for_test,
+    read_test_group_index,
 )
 from execution_testing.forks import (
     Fork,
@@ -159,6 +167,14 @@ class FillingSession:
     filling_phase: FixtureFillingPhase
     pre_alloc_groups: PreAllocGroups | None = None
     pre_alloc_group_builders: PreAllocGroupBuilders | None = None
+    # Phase 2 reverse index: test id -> packed pre-alloc group. Packing
+    # (see pack_pre_alloc_groups) makes a group's hash depend on the whole set
+    # of tests it holds, so it can no longer be recomputed per-test; a test
+    # finds its group through the packed index file instead (see
+    # read_test_group_index).
+    _test_group_index: Dict[str, GroupIndexEntry] | None = field(
+        default=None, repr=False
+    )
 
     @classmethod
     def from_config(
@@ -287,6 +303,24 @@ class FillingSession:
             )
 
         return self.pre_alloc_groups[hash_key]
+
+    def group_hash_for_test(self, test_id: str, phase1_hash: str) -> str:
+        """
+        Return the packed pre-alloc group hash that owns ``test_id``.
+
+        Loaded once (per worker) from the index file written by
+        `pack_pre_alloc_groups` at the end of phase 1. ``phase1_hash`` is
+        the test's fine-grained group hash recomputed from its current
+        content, so a stale pre-alloc folder fails loudly (see
+        `packed_group_hash_for_test`).
+        """
+        if self._test_group_index is None:
+            self._test_group_index = read_test_group_index(
+                self.fixture_output.pre_alloc_groups_folder_path
+            )
+        return packed_group_hash_for_test(
+            self._test_group_index, test_id, phase1_hash
+        )
 
     def save_pre_alloc_groups(self) -> None:
         """Save pre-allocation groups to disk as partial files."""
@@ -966,6 +1000,16 @@ def pytest_terminal_summary(
                 yellow=True,
             )
 
+    engine_x_warning = getattr(config, "engine_x_check_warning", None)
+    if engine_x_warning is not None:
+        terminalreporter.write_sep(
+            "=",
+            " WARNING: Engine X execution consistency check skipped ",
+            bold=True,
+            yellow=True,
+        )
+        terminalreporter.write_line(engine_x_warning, yellow=True)
+
 
 def _aggregate_cache_stats(node: Any) -> None:
     """Aggregate t8n cache stats from an xdist worker."""
@@ -1644,6 +1688,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         chain_id=ChainConfigDefaults.chain_id,
                         environment=genesis_environment,
                         pre=pre,
+                        group_salt=group_salt,
                     )
                     return  # Skip fixture generation in phase 1
 
@@ -1653,10 +1698,20 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     FixtureFillingPhase.PRE_ALLOC_GENERATION
                     in fixture_format.format_phases
                 ):
-                    pre_alloc_hash = pre.compute_pre_alloc_group_hash(
-                        fork=fork,
-                        genesis_environment=self.get_genesis_environment(),
-                        group_salt=group_salt,
+                    # Groups are packed after phase 1, so a test's group hash
+                    # can no longer be recomputed from its own pre; look it up
+                    # by test id instead, fingerprinted by the recomputed
+                    # phase 1 hash so a stale group folder fails loudly.
+                    test_id = _strip_xdist_group_suffix(request.node.nodeid)
+                    pre_alloc_hash = session.group_hash_for_test(
+                        test_id,
+                        phase1_hash=pre.compute_pre_alloc_group_hash(
+                            fork=fork,
+                            genesis_environment=(
+                                self.get_genesis_environment()
+                            ),
+                            group_salt=group_salt,
+                        ),
                     )
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre
@@ -2107,6 +2162,13 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             _log_timing(
                 f"Phase 1 (master): merge done in {time.time() - t0:.1f}s"
             )
+            # Pack the fine-grained groups into fewer, larger ones so Engine X
+            # boots one client for many tests instead of one per test.
+            t0 = time.time()
+            pack_pre_alloc_groups(pre_alloc_folder)
+            _log_timing(
+                f"Phase 1 (master): pack done in {time.time() - t0:.1f}s"
+            )
         else:
             # Workers: clear in-memory state to reduce memory pressure while
             # waiting for other workers to finish
@@ -2167,6 +2229,38 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         for file in lock_files:
             file.unlink()
         _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
+
+    # Loudly fail the fill if pre-alloc group packing changed any Engine X
+    # test's execution (raises on drift, like a pre-alloc collision).
+    _log_timing("verify_engine_x_execution: starting...")
+    t0 = time.time()
+    engine_x_check = verify_engine_x_execution(fixture_output.directory)
+    engine_x_warning: str | None = None
+    if engine_x_check is not None:
+        if engine_x_check.compared > 0:
+            logger.info(engine_x_check.summary)
+        elif engine_x_check.skipped > 0:
+            engine_x_warning = (
+                "Engine X execution consistency check skipped: none of "
+                f"the {engine_x_check.skipped} Engine X fixtures have a "
+                "blockchain_tests_engine sibling fixture to compare "
+                "against. Leaks from pre-alloc group packing are not "
+                "verified for this output."
+            )
+    elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
+        engine_x_warning = (
+            "Engine X execution consistency check skipped: this fill "
+            "generated no blockchain_tests_engine fixtures to compare "
+            "against (e.g. filling with `-m blockchain_test_engine_x`). "
+            "Leaks from pre-alloc group packing are not verified for this "
+            "output."
+        )
+    if engine_x_warning is not None:
+        logger.warning(engine_x_warning)
+        # Repeated in the terminal summary; a log line alone is easy to
+        # miss.
+        session.config.engine_x_check_warning = engine_x_warning  # type: ignore[attr-defined] # noqa: E501
+    _log_timing(f"verify_engine_x_execution: done in {time.time() - t0:.1f}s")
 
     # Verify fixtures after merge if verification is enabled
     if session.config.getoption("verify_fixtures"):
