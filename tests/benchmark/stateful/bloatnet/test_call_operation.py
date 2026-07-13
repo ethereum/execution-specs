@@ -23,9 +23,6 @@ from tests.benchmark.stateful.helpers import (
     build_benchmark_txs,
 )
 
-REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
-REFERENCE_SPEC_VERSION = "1.0"
-
 
 @pytest.mark.stub_parametrize("factory_stub", "bloatnet_factory_")
 def test_call_value_to_existing(

@@ -1,4 +1,4 @@
-"""Benchmark storage operations through ERC20 calls on bloatnet contracts."""
+"""Benchmark storage operations through ERC20 calls."""
 
 import pytest
 from execution_testing import (
@@ -18,10 +18,6 @@ from tests.benchmark.stateful.helpers import (
     APPROVE_SELECTOR,
     BALANCEOF_SELECTOR,
 )
-
-REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
-REFERENCE_SPEC_VERSION = "1.0"
-
 
 # SLOAD BENCHMARK ARCHITECTURE:
 #
@@ -54,7 +50,7 @@ def test_sload_erc20_generic(
     tx_gas_limit: int,
     erc20_stub: str,
 ) -> None:
-    """Benchmark SLOAD using ERC20 balanceOf on bloatnet."""
+    """Benchmark SLOAD using ERC20 balanceOf."""
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
@@ -268,7 +264,7 @@ def test_mixed_sload_sstore(
     sload_percent: int,
     sstore_percent: int,
 ) -> None:
-    """Benchmark mixed SLOAD/SSTORE ratios on bloatnet ERC20 contracts."""
+    """Benchmark mixed SLOAD/SSTORE ratios on ERC20 contracts."""
     # The gas threshold is the minimum gas reserved to exit the
     # loops and execute cleanup (SSTORE to persist slot offset).
     # 150_000 is conservative: cold approve ~25K + cleanup ~20K.

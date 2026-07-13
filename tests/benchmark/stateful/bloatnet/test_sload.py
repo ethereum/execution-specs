@@ -39,9 +39,6 @@ from tests.benchmark.stateful.helpers import (
     run_bloated_eoa_benchmark,
 )
 
-REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
-REFERENCE_SPEC_VERSION = "1.0"
-
 
 def _max_sloads_per_tx(tx_gas_limit: int, fork: Fork) -> int:
     """

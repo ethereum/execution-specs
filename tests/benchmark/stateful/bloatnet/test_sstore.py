@@ -30,9 +30,6 @@ from tests.benchmark.stateful.helpers import (
     run_bloated_eoa_benchmark,
 )
 
-REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
-REFERENCE_SPEC_VERSION = "1.0"
-
 
 @pytest.mark.repricing
 @pytest.mark.stub_parametrize("token_name", "bloated_eoa_")

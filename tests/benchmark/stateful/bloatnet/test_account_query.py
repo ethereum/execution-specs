@@ -358,7 +358,7 @@ def test_balance_query(
     second_opcode: Op,
     factory_stub: str,
 ) -> None:
-    """Benchmark BALANCE paired with a second opcode on bloatnet factories."""
+    """Benchmark BALANCE paired with a second opcode on factory contracts."""
     factory_address = pre.deploy_contract(
         code=Bytecode(),
         stub=factory_stub,
@@ -557,7 +557,6 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
     [0.5, 1.0, 2.0, 5.0, 10.0, 24.0],
     ids=lambda size: f"{size}KB",
 )
-@pytest.mark.valid_from("Prague")
 def test_extcodesize_bytecode_sizes(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
