@@ -124,12 +124,23 @@ fill *args:
         "$@" \
         tests
 
+# Callers append the feature params, fork range and output; last flag wins.
+# Fill fixtures with the flags shared by all fixture releases
+[group('consensus tests')]
+fill-release *args:
+    uv run fill \
+        -n {{ xdist_workers }} \
+        --output="{{ output_dir }}/fill-release/fixtures" \
+        --no-html \
+        --durations=100 \
+        --log-level=DEBUG \
+        "$@"
+
 # Fill all tests (slow included) in all fixture formats
 [group('consensus tests')]
 fill-nightly *args:
     @mkdir -p "{{ output_dir }}/fill-nightly/tmp" "{{ output_dir }}/fill-nightly/logs"
-    uv run fill \
-        -n {{ xdist_workers }} --dist=loadgroup \
+    just fill-release \
         --skip-index \
         --generate-all-formats \
         --output="{{ output_dir }}/fill-nightly/fixtures" \
@@ -137,9 +148,7 @@ fill-nightly *args:
         --log-to "{{ output_dir }}/fill-nightly/logs" \
         --clean \
         --until "{{ latest_fork }}" \
-        --durations=100 \
-        "$@" \
-        tests
+        "$@"
 
 # --- Integration Tests ---
 
