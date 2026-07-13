@@ -121,12 +121,14 @@ def run_modified_requests_test(
                 Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK + 1
             ),
             id="max_plus_1_builder_deposit_requests",
+            marks=pytest.mark.skip_stateless_validation,
         ),
         pytest.param(
             builder_deposit_list_with_custom_fee(
                 Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK + 2
             ),
             id="max_plus_2_builder_deposit_requests",
+            marks=pytest.mark.skip_stateless_validation,
         ),
     ],
 )
@@ -172,12 +174,14 @@ def test_extra_builder_deposits(
                 Spec.MAX_EXIT_REQUESTS_PER_BLOCK + 1
             ),
             id="max_plus_1_builder_exit_requests",
+            marks=pytest.mark.skip_stateless_validation,
         ),
         pytest.param(
             builder_exit_list_with_custom_fee(
                 Spec.MAX_EXIT_REQUESTS_PER_BLOCK + 2
             ),
             id="max_plus_2_builder_exit_requests",
+            marks=pytest.mark.skip_stateless_validation,
         ),
     ],
 )
