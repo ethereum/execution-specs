@@ -63,7 +63,9 @@ def tx_fields(tx: Transaction) -> Dict[str, bytes]:
     }
 
 
-def signed_tx(pre: Alloc, fork: Fork, nonce: int = 0) -> Transaction:
+def signed_tx(
+    pre: Alloc, fork: Fork, nonce: int = 0, data: bytes = b""
+) -> Transaction:
     """Build and sign the base type-0 transaction."""
     return Transaction(
         sender=pre.fund_eoa(),
@@ -72,15 +74,16 @@ def signed_tx(pre: Alloc, fork: Fork, nonce: int = 0) -> Transaction:
         gas_price=10,
         gas_limit=30_000,
         value=1,
+        data=data,
         protected=fork.supports_protected_txs(),
     ).with_signature_and_sender()
 
 
 def signed_tx_fields(
-    pre: Alloc, fork: Fork, nonce: int = 0
+    pre: Alloc, fork: Fork, nonce: int = 0, data: bytes = b""
 ) -> Dict[str, bytes]:
     """Build a signed type-0 transaction and decompose it."""
-    return tx_fields(signed_tx(pre, fork, nonce=nonce))
+    return tx_fields(signed_tx(pre, fork, nonce=nonce, data=data))
 
 
 def encode_tx(
@@ -196,6 +199,38 @@ def test_non_canonical_single_byte(
         pre=pre,
         tx=invalid_tx(
             pre, rlp, TransactionException.RLP_LEADING_ZEROS_NONCE_SIZE
+        ),
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/"
+        "RLPArrayLengthWithFirstZerosCopier.json",
+    ],
+)
+@pytest.mark.exception_test
+def test_data_size_leading_zeros(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Encode the size of the data field's long-form string header with a
+    leading zero byte; the non-canonical encoding must be rejected.
+    """
+    fields = signed_tx_fields(pre, fork, data=b"\xff" * 64)
+    payload = fields["data"]
+    # The corruption assumes the long-form string header.
+    assert len(payload) >= 56
+    size = len(payload).to_bytes(2, "big")
+    assert size[0] == 0
+    corrupted = bytes([0x80 + 55 + len(size)]) + size + payload
+    rlp = encode_tx(fields, {"data": corrupted})
+    transaction_test(
+        pre=pre,
+        tx=invalid_tx(
+            pre, rlp, TransactionException.RLP_LEADING_ZEROS_DATA_SIZE
         ),
     )
 
