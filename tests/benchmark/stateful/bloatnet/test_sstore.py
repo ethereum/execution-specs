@@ -1,11 +1,4 @@
-"""
-abstract: BloatNet single-opcode benchmark cases for state-related operations.
-
-   These tests focus on individual EVM opcodes (SSTORE) to measure
-   their performance when accessing many storage slots across pre-deployed
-   contracts. Unlike multi-opcode tests, these isolate single operations
-   to benchmark specific state-handling bottlenecks.
-"""
+"""Benchmark SSTORE operations on bloated and delegated storage."""
 
 from functools import partial
 from typing import Any, List
