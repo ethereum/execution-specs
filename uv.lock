@@ -949,7 +949,7 @@ requires-dist = [
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
     { name = "pycryptodome", specifier = ">=3.22,<4" },
     { name = "rust-pyspec-glue", marker = "extra == 'optimized'", specifier = ">=0.0.9,<0.1.0" },
-    { name = "spec256k1", specifier = ">=0.2,<0.3" },
+    { name = "spec256k1", specifier = ">=0.2.3,<0.3" },
     { name = "typing-extensions", specifier = ">=4.4" },
 ]
 provides-extras = ["optimized"]
@@ -1134,7 +1134,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.7.0,<15" },
     { name = "ruff", specifier = "==0.13.2" },
     { name = "semver", specifier = ">=3.0.1,<4" },
-    { name = "spec256k1", specifier = ">=0.2,<0.3" },
+    { name = "spec256k1", specifier = ">=0.2.3,<0.3" },
     { name = "tenacity", specifier = ">=9.0.0,<10" },
     { name = "trie", specifier = ">=3.1.0,<4" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20240917,<7" },
