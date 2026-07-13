@@ -90,7 +90,7 @@ MIDDLE_ACTIONS = [
 
 @pytest.mark.parametrize("initial", range(3))
 @pytest.mark.parametrize("call_4, call_4_target", MIDDLE_ACTIONS)
-@pytest.mark.parametrize("call_3", [Op.STATICCALL, Op.CALL, Op.DELEGATECALL])
+@pytest.mark.parametrize("call_3", [Op.CALL, Op.DELEGATECALL])
 @pytest.mark.parametrize("call_2, call_2_target", MIDDLE_ACTIONS)
 @pytest.mark.parametrize("call_1", [Op.CALL, Op.DELEGATECALL])
 def test_sstore_combinations_initial(
@@ -182,15 +182,21 @@ def test_sstore_combinations_initial(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize("dirty", [False, True])
 @pytest.mark.parametrize("initial", range(3))
 def test_sstore_combinations_initial_staticcall_only(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     initial: int,
+    dirty: bool,
 ) -> None:
     """
-    Test the base case of a single STATICCALL to the update contract.
+    Test a STATICCALL to the update contract, whose SSTORE must fault.
+
+    With dirty=True a plain CALL to the update contract runs first, so
+    the faulting SSTORE observes a slot whose current value already
+    differs from its original value.
     """
     sender = pre.fund_eoa()
 
@@ -203,8 +209,14 @@ def test_sstore_combinations_initial_staticcall_only(
     )
     sstore_toggle = pre.deploy_contract(code=SSTORE_TOGGLE_CODE)
 
+    dirtying_call = (
+        Op.POP(Op.CALL(gas=CALL_GAS, address=update_contract, args_size=0x20))
+        if dirty
+        else Bytecode()
+    )
     initcode = (
         Op.MSTORE(offset=0x64, value=0x0)
+        + dirtying_call
         + Op.POP(
             Op.STATICCALL(
                 gas=CALL_GAS,
