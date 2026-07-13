@@ -7,7 +7,10 @@ from execution_testing import (
     Account,
     Alloc,
     BenchmarkTestFiller,
+    Block,
     Bytecode,
+    Conditional,
+    Create2PreimageLayout,
     Fork,
     Hash,
     IteratingBytecode,
@@ -23,7 +26,9 @@ from tests.benchmark.helper.account_creator import (
     AccountMode,
 )
 from tests.benchmark.stateful.helpers import (
+    DECREMENT_COUNTER_CONDITION,
     CacheStrategy,
+    build_benchmark_txs,
     build_cache_strategy_blocks,
 )
 
@@ -327,4 +332,148 @@ def test_account_access(
         target_opcode=target_opcode,
         skip_gas_used_validation=True,
         expected_receipt_status=1,
+    )
+
+
+@pytest.mark.stub_parametrize("factory_stub", "bloatnet_factory_")
+@pytest.mark.parametrize(
+    "second_opcode",
+    [Op.EXTCODESIZE, Op.EXTCODECOPY, Op.EXTCODEHASH, Op.STATICCALL, Op.CALL],
+)
+@pytest.mark.parametrize(
+    "balance_first",
+    [True, False],
+    ids=["balance_first", "opcode_first"],
+)
+def test_balance_query(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    balance_first: bool,
+    second_opcode: Op,
+    factory_stub: str,
+) -> None:
+    """Benchmark BALANCE paired with a second opcode on bloatnet factories."""
+    factory_address = pre.deploy_contract(
+        code=Bytecode(),
+        stub=factory_stub,
+    )
+
+    # Contract Construction
+    setup = Bytecode()
+
+    setup += Conditional(
+        condition=Op.STATICCALL(
+            gas=Op.GAS,
+            address=factory_address,
+            args_offset=0,
+            args_size=0,
+            ret_offset=96,
+            ret_size=64,
+            # gas accounting
+            address_warm=False,
+            old_memory_size=0,
+            new_memory_size=160,
+        ),
+        if_false=Op.INVALID,
+    )
+
+    create2_preimage = Create2PreimageLayout(
+        factory_address=factory_address,
+        salt=Op.CALLDATALOAD(32),
+        init_code_hash=Op.MLOAD(128),
+        old_memory_size=160,
+    )
+
+    setup += create2_preimage
+    setup += Op.CALLDATALOAD(0)  # [num_contract]
+
+    # Build the second opcode's bytecode
+    balance_op = Op.POP(Op.BALANCE)
+
+    if second_opcode == Op.EXTCODESIZE:
+        other_op = Op.POP(Op.EXTCODESIZE)
+    elif second_opcode == Op.EXTCODECOPY:
+        max_contract_size = fork.max_code_size()
+        other_op = Op.POP(
+            Op.EXTCODECOPY(
+                address=Op.DUP4,
+                dest_offset=Op.ADD(Op.MLOAD(32), 96),
+                offset=max_contract_size - 1,
+                size=1,
+                data_size=1,
+            )
+        )
+    elif second_opcode == Op.EXTCODEHASH:
+        other_op = Op.POP(Op.EXTCODEHASH)
+    elif second_opcode == Op.STATICCALL:
+        # gas=1: forces account/code loading, then fails
+        other_op = (
+            Op.POP(
+                Op.STATICCALL(
+                    gas=1,
+                    address=Op.DUP5,
+                    args_offset=0,
+                    args_size=0,
+                    ret_offset=0,
+                    ret_size=0,
+                )
+            )
+            + Op.POP
+        )
+    elif second_opcode == Op.CALL:
+        # gas=1: forces account/code loading, then fails
+        other_op = (
+            Op.POP(
+                Op.CALL(
+                    gas=1,
+                    address=Op.DUP6,
+                    value=0,
+                    args_offset=0,
+                    args_size=0,
+                    ret_offset=0,
+                    ret_size=0,
+                )
+            )
+            + Op.POP
+        )
+    else:
+        raise ValueError(f"Unsupported opcode: {second_opcode}")
+
+    benchmark_ops = (
+        (balance_op + other_op) if balance_first else (other_op + balance_op)
+    )
+
+    loop = While(
+        body=(
+            create2_preimage.address_op()
+            + Op.DUP1
+            + benchmark_ops
+            + create2_preimage.increment_salt_op()
+        ),
+        condition=DECREMENT_COUNTER_CONDITION,
+    )
+
+    # Contract Deployment
+    code = setup + loop
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    # Gas Accounting
+    txs, total_gas_consumed = build_benchmark_txs(
+        pre=pre,
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        tx_gas_limit=tx_gas_limit,
+        attack_contract_address=attack_contract_address,
+        setup_cost=setup.gas_cost(fork),
+        iteration_cost=loop.gas_cost(fork),
+    )
+
+    benchmark_test(
+        pre=pre,
+        blocks=[Block(txs=txs)],
+        expected_benchmark_gas_used=total_gas_consumed,
+        skip_gas_used_validation=True,
     )
