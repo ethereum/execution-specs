@@ -1,10 +1,8 @@
 """Benchmark target accounts of various kinds for creation and location.."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
-from functools import partial
 from typing import ClassVar, Self
 
 from execution_testing import (
@@ -18,8 +16,7 @@ from execution_testing import (
 )
 from execution_testing.forks import Osaka
 
-# Runtime code size of the jochemnet contract (EIP-170 limit).
-JOCHEMNET_RUNTIME_SIZE = Osaka.max_code_size()
+DEFAULT_CODE_SIZE = Osaka.max_code_size()
 
 
 class AccountMode(Enum):
@@ -53,8 +50,8 @@ class ContractInitcode(Bytecode):
         raise NotImplementedError
 
     @property
-    def runtime_code(self) -> Bytecode:
-        """Runtime executed when the deployed contract is called."""
+    def execution_code(self) -> Bytecode:
+        """Model of the code executed when the contract is called."""
         raise NotImplementedError
 
 
@@ -71,8 +68,8 @@ class MinimalContractInitcode(ContractInitcode):
         return len(Op.STOP)
 
     @property
-    def runtime_code(self) -> Bytecode:
-        """Runtime executed when the deployed contract is called."""
+    def execution_code(self) -> Bytecode:
+        """A single STOP halts the call immediately."""
         return Op.STOP
 
 
@@ -91,13 +88,16 @@ class UniqueMaxContractInitcode(ContractInitcode):
     Without it, all copies are identical (JUMPDEST bytes 1-31)
     """
 
-    def __new__(cls, *, diff: bool = False) -> Self:
+    code_size: int
+
+    def __new__(
+        cls, *, code_size: int = DEFAULT_CODE_SIZE, diff: bool = False
+    ) -> Self:
         """Assemble the initcode."""
         # Each MCOPY doubles the JUMPDEST-filled span (the first copy is
-        # MCOPY(32, 0, 32), since 1 << 5 = 32) up to MEM[0:0x8000];
-        # the deployed runtime only uses MEM[0:0x6000].
+        # MCOPY(32, 0, 32), since 1 << 5 = 32) until it covers code_size.
         code = Op.MSTORE(0, bytes(Op.JUMPDEST * 32))
-        for size in (1 << s for s in range(5, 15)):
+        for size in (1 << s for s in range(5, (code_size - 1).bit_length())):
             code += Op.MCOPY(size, 0, size)
 
         if diff:
@@ -106,17 +106,19 @@ class UniqueMaxContractInitcode(ContractInitcode):
         else:
             # Without embedding, all copies are byte-identical;
             code += Op.MSTORE8(0, 0)
-        code += Op.RETURN(0, JOCHEMNET_RUNTIME_SIZE)
-        return super().__new__(cls, code)
+        code += Op.RETURN(0, code_size)
+        instance = super().__new__(cls, code)
+        instance.code_size = code_size
+        return instance
 
     @property
     def runtime_size(self) -> int:
         """Size in bytes of the deployed runtime."""
-        return JOCHEMNET_RUNTIME_SIZE
+        return self.code_size
 
     @property
-    def runtime_code(self) -> Bytecode:
-        """Runtime executed when the deployed contract is called."""
+    def execution_code(self) -> Bytecode:
+        """The leading STOP halts the call immediately."""
         return Op.STOP
 
 
@@ -131,25 +133,23 @@ class JochemnetPredeployContractInitcode(ContractInitcode):
         0x0020      12   JUMPDEST padding
         0x002C      20   contract ADDRESS     <- unique
         0x0040   24512   JUMPDEST             <- 0x5FFF lands here
-        0x6000           STOP
 
     Embedded ADDRESS makes the runtime unique per contract; initcode and
     its CREATE2 hash are shared across all salts.
     """
 
-    def __new__(cls) -> Self:
-        """Assemble the initcode."""
-        max_code_size = JOCHEMNET_RUNTIME_SIZE
+    code_size: int
 
+    def __new__(cls, *, code_size: int = DEFAULT_CODE_SIZE) -> Self:
+        """Assemble the initcode."""
         # Each MCOPY doubles the JUMPDEST-filled span (the first copy is
-        # MCOPY(32, 0, 32), since 1 << 5 = 32) up to MEM[0:0x8000];
-        # the deployed runtime only uses MEM[0:0x6000].
+        # MCOPY(32, 0, 32), since 1 << 5 = 32) until it covers code_size.
         code = Op.MSTORE(0, bytes(Op.JUMPDEST * 32))
-        for size in (1 << s for s in range(5, 15)):
+        for size in (1 << s for s in range(5, (code_size - 1).bit_length())):
             code += Op.MCOPY(size, 0, size)
 
         # Runtime entry: JUMP to final JUMPDEST, then STOP.
-        entry = Op.JUMP(max_code_size - 1)
+        entry = Op.JUMP(code_size - 1)
         entry += Op.JUMPDEST * (32 - len(entry))  # Padding
 
         code += Op.MSTORE(0, bytes(entry))
@@ -163,19 +163,21 @@ class JochemnetPredeployContractInitcode(ContractInitcode):
         addr_slot = Op.JUMPDEST * 12 + Op.STOP * 20
         code += Op.MSTORE(0x20, Op.OR(Op.ADDRESS, bytes(addr_slot)))
 
-        code += Op.RETURN(0, max_code_size)
-        return super().__new__(cls, code)
+        code += Op.RETURN(0, code_size)
+        instance = super().__new__(cls, code)
+        instance.code_size = code_size
+        return instance
 
     @property
     def runtime_size(self) -> int:
         """Size in bytes of the deployed runtime."""
-        return JOCHEMNET_RUNTIME_SIZE
+        return self.code_size
 
     @property
-    def runtime_code(self) -> Bytecode:
-        """Runtime executed when the deployed contract is called."""
+    def execution_code(self) -> Bytecode:
+        """Jump to the final JUMPDEST, then halt."""
         # Entry jumps to the final JUMPDEST, then halts.
-        return Op.JUMP(Op.PUSH2(JOCHEMNET_RUNTIME_SIZE - 1)) + Op.JUMPDEST
+        return Op.JUMP(Op.PUSH2(self.code_size - 1)) + Op.JUMPDEST
 
 
 class AddressSource(ABC):
@@ -268,23 +270,18 @@ class SequentialAddressSource(AddressSource):
 class AccountCreator:
     """Account creation and location helper with address iteration."""
 
-    # Maps CREATE2 modes to initcode builders.
-    initcode_factories: ClassVar[
-        dict[AccountMode, Callable[[], ContractInitcode]]
-    ] = {
-        AccountMode.EXISTING_CONTRACT_MINIMAL: MinimalContractInitcode,
-        AccountMode.EXISTING_CONTRACT_SAME_MAX: partial(
-            UniqueMaxContractInitcode, diff=False
-        ),
-        AccountMode.EXISTING_CONTRACT_DIFF_MAX: partial(
-            UniqueMaxContractInitcode, diff=True
-        ),
-        AccountMode.EXISTING_CONTRACT_JUMPDEST: (
-            JochemnetPredeployContractInitcode
-        ),
-    }
+    # Modes whose target is a CREATE2-deployed contract.
+    contract_modes: ClassVar[frozenset[AccountMode]] = frozenset(
+        {
+            AccountMode.EXISTING_CONTRACT_MINIMAL,
+            AccountMode.EXISTING_CONTRACT_SAME_MAX,
+            AccountMode.EXISTING_CONTRACT_DIFF_MAX,
+            AccountMode.EXISTING_CONTRACT_JUMPDEST,
+        }
+    )
 
     mode: AccountMode
+    code_size: int = DEFAULT_CODE_SIZE
 
     def __post_init__(self) -> None:
         """Reject anything that is not a known `AccountMode`."""
@@ -294,14 +291,28 @@ class AccountCreator:
     @property
     def derives_address_via_create2(self) -> bool:
         """Whether the target address is derived via CREATE2."""
-        return self.mode in self.initcode_factories
+        return self.mode in self.contract_modes
 
     @property
     def contract_initcode(self) -> ContractInitcode:
         """Return the initcode generator that deploys this account."""
-        if self.mode not in self.initcode_factories:
-            raise ValueError(f"{self.mode.name} is not a contract")
-        return self.initcode_factories[self.mode]()
+        match self.mode:
+            case AccountMode.EXISTING_CONTRACT_MINIMAL:
+                return MinimalContractInitcode()
+            case AccountMode.EXISTING_CONTRACT_SAME_MAX:
+                return UniqueMaxContractInitcode(
+                    code_size=self.code_size, diff=False
+                )
+            case AccountMode.EXISTING_CONTRACT_DIFF_MAX:
+                return UniqueMaxContractInitcode(
+                    code_size=self.code_size, diff=True
+                )
+            case AccountMode.EXISTING_CONTRACT_JUMPDEST:
+                return JochemnetPredeployContractInitcode(
+                    code_size=self.code_size
+                )
+            case _:
+                raise ValueError(f"{self.mode.name} is not a contract")
 
     @property
     def initcode(self) -> bytes:
@@ -314,14 +325,14 @@ class AccountCreator:
         return self.contract_initcode.runtime_size
 
     @property
-    def has_runtime_code(self) -> bool:
+    def has_execution_code(self) -> bool:
         """Whether a call into this account executes deployed code."""
-        return self.mode in self.initcode_factories
+        return self.mode in self.contract_modes
 
     @property
-    def runtime_code(self) -> Bytecode:
-        """Return the runtime executed when this account receives a call."""
-        return self.contract_initcode.runtime_code
+    def execution_code(self) -> Bytecode:
+        """Return the code executed when this account is called."""
+        return self.contract_initcode.execution_code
 
     def address_source(self, index_op: Bytecode) -> AddressSource:
         """Return the source that yields successive target addresses."""

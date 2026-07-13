@@ -82,7 +82,7 @@ def test_ether_transfers_onchain_receivers(
         case "diff_to_unique_code_jumpdest_contract":
             creator = AccountCreator(AccountMode.EXISTING_CONTRACT_JUMPDEST)
             receivers = yield_distinct_create2_receiver(creator.initcode)
-            receiver_execution_gas = creator.runtime_code.gas_cost(fork)
+            receiver_execution_gas = creator.execution_code.gas_cost(fork)
         case "diff_to_contract_minimal":
             receivers = yield_distinct_create2_receiver(
                 AccountCreator(AccountMode.EXISTING_CONTRACT_MINIMAL).initcode

@@ -156,9 +156,8 @@ def test_account_access(
     cache_strategy: CacheStrategy,
 ) -> None:
     """Benchmark account access with caching strategies."""
-    address_source = AccountCreator(account_mode).address_source(
-        Op.CALLDATALOAD(0)
-    )
+    account_creator = AccountCreator(account_mode)
+    address_source = account_creator.address_source(Op.CALLDATALOAD(0))
     increment_op = address_source.next_op()
 
     cache_op = (
@@ -228,13 +227,12 @@ def test_account_access(
         condition=Op.PUSH1(1) + Op.ADD + Op.DUP1 + Op.DUP3 + Op.GT,
     )
 
-    account_creator = AccountCreator(account_mode)
     call_operations = (Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL)
     executes_contract_code = (
-        opcode in call_operations and account_creator.has_runtime_code
+        opcode in call_operations and account_creator.has_execution_code
     )
     iterating_subcall: Bytecode = (
-        account_creator.runtime_code if executes_contract_code else Op.STOP
+        account_creator.execution_code if executes_contract_code else Op.STOP
     )
 
     attack_code = IteratingBytecode(
