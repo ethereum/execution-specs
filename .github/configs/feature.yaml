@@ -9,6 +9,13 @@ tests:
   evm-type: eels
   fill-params: --until=BPO4 --generate-all-formats
 
+# Filled by the scheduled nightly run of the `release_fixtures` workflow:
+# all tests (slow included), all fixture formats, up to the dev fork. Not
+# meant for tagged releases.
+nightly:
+  evm-type: eels
+  fill-params: --until=Amsterdam --generate-all-formats
+
 benchmark:
   evm-type: benchmark
   fill-params: --fork=Osaka --generate-all-formats --gas-benchmark-values 1,5,10,30,60,100,150 ./tests/benchmark/compute --maxprocesses=30 --dist=worksteal

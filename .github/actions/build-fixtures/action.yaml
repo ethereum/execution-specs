@@ -13,6 +13,9 @@ inputs:
   split_label:
     description: "Label for this fork-range split. Empty for unsplit builds."
     default: ""
+  split_retention_days:
+    description: "retention-days for the split fixture artifact. Empty for the repo default."
+    default: ""
   evm:
     description: "Override the evm impl. Defaults to the feature's evm-type."
     default: ""
@@ -99,3 +102,4 @@ runs:
         include-hidden-files: true
         path: fixtures_${{ inputs.release_name }}/
         if-no-files-found: ignore
+        retention-days: ${{ inputs.split_retention_days }}

@@ -108,3 +108,7 @@ The release is created as a draft; review and publish it from the GitHub release
     # them explicitly with --generate-all-formats
     uv run fill --generate-all-formats --output=fixtures.tar.gz tests/
     ```
+
+## Nightly fill
+
+The same workflow also runs on a nightly schedule (02:00 UTC) as a release rehearsal: it fills the `nightly` feature (all tests, slow included, all fixture formats, up to the dev fork) through the exact release pipeline, but stops after `combine`, so no tag or release is created. Each run uploads a `fixtures_nightly.tar.gz` workflow artifact with a 5-day retention. A scheduled run skips itself when there are no new commits since the last successful nightly fill; a failed nightly keeps re-running until it goes green, so no commit slips through unfilled.
