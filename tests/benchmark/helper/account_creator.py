@@ -314,6 +314,11 @@ class AccountCreator:
         return self.contract_initcode.runtime_size
 
     @property
+    def has_runtime_code(self) -> bool:
+        """Whether a call into this account executes deployed code."""
+        return self.mode in self.initcode_factories
+
+    @property
     def runtime_code(self) -> Bytecode:
         """Return the runtime executed when this account receives a call."""
         return self.contract_initcode.runtime_code

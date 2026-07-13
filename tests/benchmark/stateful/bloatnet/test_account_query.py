@@ -228,10 +228,19 @@ def test_account_access(
         condition=Op.PUSH1(1) + Op.ADD + Op.DUP1 + Op.DUP3 + Op.GT,
     )
 
+    account_creator = AccountCreator(account_mode)
+    call_operations = (Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL)
+    executes_contract_code = (
+        opcode in call_operations and account_creator.has_runtime_code
+    )
+    iterating_subcall: Bytecode = (
+        account_creator.runtime_code if executes_contract_code else Op.STOP
+    )
+
     attack_code = IteratingBytecode(
         setup=setup_code,
         iterating=loop_code,
-        iterating_subcall=Op.STOP,
+        iterating_subcall=iterating_subcall,
     )
 
     # Calldata generator for each transaction of the iterating bytecode.
