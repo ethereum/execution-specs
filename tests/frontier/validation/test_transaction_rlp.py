@@ -293,7 +293,13 @@ def test_field_as_list(
         ("too_few_elements", TransactionException.RLP_TOO_FEW_ELEMENTS),
         ("too_many_elements", TransactionException.RLP_TOO_MANY_ELEMENTS),
         ("header_declares_more", TransactionException.RLP_ERROR_EOF),
-        ("header_declares_less", TransactionException.RLP_ERROR_EOF),
+        (
+            "header_declares_less",
+            [
+                TransactionException.RLP_ERROR_EOF,
+                TransactionException.RLP_ERROR_SIZE,
+            ],
+        ),
         ("tx_as_byte_string", TransactionException.RLP_INVALID_HEADER),
         (
             "list_size_leading_zeros",
@@ -306,9 +312,15 @@ def test_invalid_structure(
     pre: Alloc,
     fork: Fork,
     mutation: str,
-    error: TransactionException,
+    error: TransactionException | list[TransactionException],
 ) -> None:
-    """Corrupt the RLP structure of the whole transaction."""
+    """
+    Corrupt the RLP structure of the whole transaction.
+
+    A list header that declares less than the actual payload leaves
+    both a truncated final field and a trailing byte at the top level,
+    so clients report it as either an EOF or a size error.
+    """
     fields = signed_tx_fields(pre, fork)
     items = [rlp_bytes(fields[name]) for name in fields]
     payload = b"".join(items)
@@ -350,7 +362,14 @@ def test_invalid_structure(
     [
         ("r", b"", TransactionException.INVALID_SIGNATURE_VRS),
         ("s", b"", TransactionException.INVALID_SIGNATURE_VRS),
-        ("v", b"\x1d", TransactionException.INVALID_SIGNATURE_VRS),
+        (
+            "v",
+            b"\x1d",
+            [
+                TransactionException.INVALID_SIGNATURE_VRS,
+                TransactionException.INVALID_CHAINID,
+            ],
+        ),
         (
             "v",
             b"\xff",
@@ -374,8 +393,9 @@ def test_invalid_signature_values(
     Replace a signature field with a well-encoded but invalid value:
     zero r or s, or a v that is neither 27, 28 nor an EIP-155 value.
 
-    Before EIP-155 a v of 255 is a plain invalid v; afterwards it is
-    interpreted as a chain id that does not match the chain.
+    Before EIP-155 any v other than 27 or 28 is a plain invalid v;
+    afterwards clients may instead derive a chain id from the invalid
+    v and reject the transaction for the chain id mismatch.
     """
     fields = signed_tx_fields(pre, fork)
     fields[field] = payload
