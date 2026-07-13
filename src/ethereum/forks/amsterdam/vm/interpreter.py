@@ -50,17 +50,20 @@ from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import (
     GasCosts,
+    GasMeter,
     StateGasCosts,
     charge_gas,
     charge_state_gas,
+    commit_state_gas,
+    forfeit_remaining_gas,
+    restore_state_gas,
+    restore_state_gas_to_entry,
+    tx_state_gas_used,
 )
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import (
     Evm,
-    commit_frame_state_gas,
     emit_transfer_log,
-    frame_state_gas_used,
-    refill_frame_state_gas,
 )
 from .exceptions import (
     AddressCollision,
@@ -93,7 +96,7 @@ class MessageCallOutput:
           4. `accounts_to_delete`: Contracts which have self-destructed.
           5. `error`: The error from the execution if any.
           6. `return_data`: The output of the execution.
-          7. `regular_gas_used`: Regular gas used during execution.
+          7. `state_gas_left`: remaining state gas after execution.
           8. `state_gas_used`: State gas used during execution.
     """
 
@@ -104,7 +107,6 @@ class MessageCallOutput:
     error: Optional[EthereumException]
     return_data: Bytes
     state_gas_left: Uint
-    regular_gas_used: Uint
     state_gas_used: int
 
 
@@ -137,7 +139,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 error=AddressCollision(),
                 return_data=Bytes(b""),
                 state_gas_left=message.state_gas_reservoir,
-                regular_gas_used=message.gas,
                 state_gas_used=0,
             )
     else:
@@ -154,23 +155,24 @@ def process_message_call(message: Message) -> MessageCallOutput:
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
-        refund_counter = U256(evm.refund_counter)
+        refund_counter = U256(evm.gas_meter.refund_counter)
 
     tx_end = TransactionEnd(
-        int(message.gas) - int(evm.gas_left), evm.output, evm.error
+        int(message.gas) - int(evm.gas_meter.gas_left), evm.output, evm.error
     )
     evm_trace(evm, tx_end)
 
     return MessageCallOutput(
-        gas_left=evm.gas_left,
+        gas_left=evm.gas_meter.gas_left,
         refund_counter=refund_counter,
         logs=logs,
         accounts_to_delete=accounts_to_delete,
         error=evm.error,
         return_data=evm.output,
-        state_gas_left=evm.state_gas_left,
-        regular_gas_used=evm.regular_gas_used,
-        state_gas_used=frame_state_gas_used(evm),
+        state_gas_left=evm.gas_meter.state_gas_left,
+        state_gas_used=tx_state_gas_used(
+            evm.gas_meter, message.state_gas_reservoir
+        ),
     )
 
 
@@ -232,9 +234,10 @@ def process_create_message(message: Message) -> Evm:
             charge_state_gas(evm, code_deposit_state_gas)
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
-            refill_frame_state_gas(evm)
-            evm.regular_gas_used += evm.gas_left
-            evm.gas_left = Uint(0)
+            # A create frame never applies authorizations, so its
+            # baseline is still the frame's entry reservoir.
+            restore_state_gas(evm.gas_meter)
+            forfeit_remaining_gas(evm.gas_meter)
             evm.output = b""
             evm.error = error
         else:
@@ -339,11 +342,13 @@ def process_message(message: Message) -> Evm:
         stack=[],
         memory=bytearray(),
         code=Bytes(b""),
-        gas_left=message.gas,
-        state_gas_left=message.state_gas_reservoir,
+        gas_meter=GasMeter(
+            gas_left=message.gas,
+            state_gas_left=message.state_gas_reservoir,
+            state_gas_baseline=message.state_gas_reservoir,
+        ),
         valid_jump_destinations=set(),
         logs=(),
-        refund_counter=0,
         running=True,
         message=message,
         output=b"",
@@ -356,26 +361,25 @@ def process_message(message: Message) -> Evm:
 
     if message.depth == Uint(0):
         prep_snapshot = copy_tx_state(tx_state)
-        prep_reservoir = message.state_gas_reservoir
         try:
             if message.tx_env.authorizations != ():
                 set_delegation(evm)
                 # The applied delegations outlive a failure of the
-                # dispatched code, so their state gas must not refill
-                # with it.
-                commit_frame_state_gas(evm)
+                # dispatched code, so their state gas is committed as
+                # non-refillable; a later failure restores only to the
+                # post-commit baseline.
+                commit_state_gas(evm.gas_meter)
             prepare_dispatch(evm)
         except ExceptionalHalt as error:
             evm_trace(evm, OpException(error))
             restore_tx_state(tx_state, prep_snapshot)
             # The rollback reverts any applied delegations, so the
-            # commit above is undone with it and every state charge is
-            # refilled.
-            message.state_gas_reservoir = prep_reservoir
-            evm.committed_state_gas = 0
-            refill_frame_state_gas(evm)
-            evm.regular_gas_used += evm.gas_left
-            evm.gas_left = Uint(0)
+            # commit above is undone with it: roll state gas back to
+            # frame entry, refilling every state charge.
+            restore_state_gas_to_entry(
+                evm.gas_meter, message.state_gas_reservoir
+            )
+            forfeit_remaining_gas(evm.gas_meter)
             evm.error = error
             return evm
 
@@ -421,14 +425,13 @@ def process_message(message: Message) -> Evm:
 
     except ExceptionalHalt as error:
         evm_trace(evm, OpException(error))
-        refill_frame_state_gas(evm)
-        evm.regular_gas_used += evm.gas_left
-        evm.gas_left = Uint(0)
+        restore_state_gas(evm.gas_meter)
+        forfeit_remaining_gas(evm.gas_meter)
         evm.output = b""
         evm.error = error
     except Revert as error:
         evm_trace(evm, OpException(error))
-        refill_frame_state_gas(evm)
+        restore_state_gas(evm.gas_meter)
         evm.error = error
 
     if evm.error:

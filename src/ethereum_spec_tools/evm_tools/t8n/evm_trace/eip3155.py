@@ -27,8 +27,10 @@ from ethereum.trace import (
 from .protocols import (
     Evm,
     EvmWithReturnData,
-    EvmWithStateGas,
     TransactionEnvironment,
+    evm_gas_left,
+    evm_refund_counter,
+    evm_state_gas_left,
 )
 
 EXCLUDE_FROM_OUTPUT = [
@@ -132,10 +134,10 @@ class Eip3155Tracer(EvmTracer):
         if self.active_traces:
             last_trace = self.active_traces[-1]
 
-        refund_counter = evm.refund_counter
+        refund_counter = evm_refund_counter(evm)
         parent_evm = evm.message.parent_evm
         while parent_evm is not None:
-            refund_counter += parent_evm.refund_counter
+            refund_counter += evm_refund_counter(parent_evm)
             parent_evm = parent_evm.message.parent_evm
 
         len_memory = len(evm.memory)
@@ -168,7 +170,7 @@ class Eip3155Tracer(EvmTracer):
             new_trace = Trace(
                 pc=int(evm.pc),
                 op="0x" + event.address.hex().lstrip("0"),
-                gas=hex(evm.gas_left),
+                gas=hex(evm_gas_left(evm)),
                 gasCost="0x0",
                 memory=memory,
                 memSize=len_memory,
@@ -193,13 +195,14 @@ class Eip3155Tracer(EvmTracer):
                 op = "Invalid"
 
             state_gas = None
-            if isinstance(evm, EvmWithStateGas):
-                state_gas = hex(evm.state_gas_left)
+            state_gas_left = evm_state_gas_left(evm)
+            if state_gas_left is not None:
+                state_gas = hex(state_gas_left)
 
             new_trace = Trace(
                 pc=int(evm.pc),
                 op=op,
-                gas=hex(evm.gas_left),
+                gas=hex(evm_gas_left(evm)),
                 gasCost="0x0",
                 memory=memory,
                 memSize=len_memory,
@@ -244,7 +247,7 @@ class Eip3155Tracer(EvmTracer):
                 new_trace = Trace(
                     pc=int(evm.pc),
                     op=event.error.code,
-                    gas=hex(evm.gas_left),
+                    gas=hex(evm_gas_left(evm)),
                     gasCost="0x0",
                     memory=memory,
                     memSize=len_memory,

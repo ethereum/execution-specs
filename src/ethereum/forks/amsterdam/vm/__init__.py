@@ -26,9 +26,14 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import Authorization, StateGas, VersionedHash
+from ..fork_types import Authorization, VersionedHash
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
+from .gas import (
+    GasMeter,
+    absorb_child_gas_on_error,
+    absorb_child_gas_on_success,
+)
 
 __all__ = ("Environment", "Evm", "Message")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
@@ -170,11 +175,9 @@ class Evm:
     stack: List[U256]
     memory: bytearray
     code: Bytes
-    gas_left: Uint
-    state_gas_left: Uint
+    gas_meter: GasMeter
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
-    refund_counter: int
     running: bool
     message: Message
     output: Bytes
@@ -183,38 +186,6 @@ class Evm:
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    regular_gas_used: Uint = Uint(0)
-    state_gas_spilled: Uint = Uint(0)
-    committed_state_gas: int = 0
-    """
-    State gas locked in by [`commit_frame_state_gas`] because the state
-    it paid for outlives a later failure in the frame.
-
-    [`commit_frame_state_gas`]: ref:ethereum.forks.amsterdam.vm.commit_frame_state_gas
-    """  # noqa: E501
-
-
-def credit_state_gas_refund(evm: Evm, amount: StateGas) -> None:
-    """
-    Credit a state gas refund to the local frame, in LIFO order.
-
-    State-gas charges draw from the reservoir first and from `gas_left`
-    last, so refills credit the pool charged last first: `gas_left` up
-    to `state_gas_spilled`, then the reservoir. This restores the
-    exact pools the charge drew from, so the two never drift.
-
-    Parameters
-    ----------
-    evm :
-        The frame crediting the refund.
-    amount :
-        The refund amount to credit.
-
-    """
-    from_gas_left = min(amount, evm.state_gas_spilled)
-    evm.gas_left += from_gas_left
-    evm.state_gas_spilled -= from_gas_left
-    evm.state_gas_left += amount - from_gas_left
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -229,91 +200,11 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
         The child evm to incorporate.
 
     """
-    evm.gas_left += child_evm.gas_left
-    evm.state_gas_left += child_evm.state_gas_left
-    evm.state_gas_spilled += child_evm.state_gas_spilled
+    absorb_child_gas_on_success(evm.gas_meter, child_evm.gas_meter)
     evm.logs += child_evm.logs
-    evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
-    evm.regular_gas_used += child_evm.regular_gas_used
-
-
-def refill_frame_state_gas(evm: Evm) -> None:
-    """
-    Roll back the frame's state gas in LIFO order on revert or halt.
-
-    The frame's state changes are undone, so the state gas it consumed
-    is credited back to `gas_left` first and then to the reservoir,
-    restoring the pools the charges drew from.
-
-    Parameters
-    ----------
-    evm :
-        The frame whose state gas is rolled back.
-
-    """
-    evm.gas_left += evm.state_gas_spilled
-    evm.state_gas_left = evm.message.state_gas_reservoir
-    evm.state_gas_spilled = Uint(0)
-
-
-def frame_state_gas_used(evm: Evm) -> int:
-    """
-    Return the net state gas consumed by a finished frame, including
-    any state gas committed as non-refillable earlier in the frame.
-
-    Equal to the reservoir drawn down ([`state_gas_reservoir`][sgr] at
-    the last commit -- or frame entry, absent one -- minus the
-    reservoir now) plus [`state_gas_spilled`][sgs] plus
-    [`committed_state_gas`][csg]. May be negative when refunds exceed
-    charges.
-
-    Parameters
-    ----------
-    evm :
-        The finished frame.
-
-    [sgr]: ref:ethereum.forks.amsterdam.vm.Message.state_gas_reservoir
-    [sgs]: ref:ethereum.forks.amsterdam.vm.Evm.state_gas_spilled
-    [csg]: ref:ethereum.forks.amsterdam.vm.Evm.committed_state_gas
-
-    """
-    return (
-        int(evm.message.state_gas_reservoir)
-        - int(evm.state_gas_left)
-        + int(evm.state_gas_spilled)
-        + evm.committed_state_gas
-    )
-
-
-def commit_frame_state_gas(evm: Evm) -> None:
-    """
-    Mark the state gas consumed so far as non-refillable and reset the
-    refill baseline.
-
-    The state this gas paid for (the delegations applied by
-    [`set_delegation`][sd]) outlives a later failure of the dispatched
-    code, so a subsequent [`refill_frame_state_gas`][refill] must not
-    credit it back. The consumption so far is folded into
-    [`committed_state_gas`][csg] and the reservoir baseline moves down
-    to the current level, so only charges made after this commit are
-    refillable.
-
-    Parameters
-    ----------
-    evm :
-        The frame whose state gas consumption is committed.
-
-    [sd]: ref:ethereum.forks.amsterdam.vm.eoa_delegation.set_delegation
-    [refill]: ref:ethereum.forks.amsterdam.vm.refill_frame_state_gas
-    [csg]: ref:ethereum.forks.amsterdam.vm.Evm.committed_state_gas
-
-    """
-    evm.committed_state_gas = frame_state_gas_used(evm)
-    evm.message.state_gas_reservoir = evm.state_gas_left
-    evm.state_gas_spilled = Uint(0)
 
 
 def incorporate_child_on_error(
@@ -323,10 +214,10 @@ def incorporate_child_on_error(
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
-    The child rolls back its own state gas via `refill_frame_state_gas`
-    before returning (on both reverts and exceptional halts), so its
-    `gas_left` and reservoir already reflect the LIFO refill. The parent
-    therefore only reabsorbs the child's `gas_left` and reservoir.
+    The child rolls back its own state gas before returning (on both
+    reverts and exceptional halts), so its `gas_left` and reservoir
+    already reflect the LIFO refill. The parent therefore only reabsorbs
+    the child's `gas_left` and reservoir.
 
     Parameters
     ----------
@@ -336,9 +227,7 @@ def incorporate_child_on_error(
         The child evm to incorporate.
 
     """
-    evm.gas_left += child_evm.gas_left
-    evm.state_gas_left += child_evm.state_gas_left
-    evm.regular_gas_used += child_evm.regular_gas_used
+    absorb_child_gas_on_error(evm.gas_meter, child_evm.gas_meter)
 
 
 def emit_transfer_log(

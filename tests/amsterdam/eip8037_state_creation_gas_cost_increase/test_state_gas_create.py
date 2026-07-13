@@ -1723,8 +1723,8 @@ def test_create_child_halt_refunds_state_gas(
     Verify CREATE/CREATE2 child halt refunds parent's account gas.
 
     Exceptional halts (invalid opcode, EIP-3541 invalid prefix)
-    consume all forwarded gas as `regular_gas_used`, so block
-    accounting cannot strictly discriminate via header gas. Tight
+    consume all forwarded regular gas, so block accounting cannot
+    strictly discriminate via header gas. Tight
     gas tuning via a caller wrapper leaves the factory with just
     enough `gas_left` to pay the probe SSTORE's regular portion
     but not enough to spill the state portion, so the probe SSTORE
@@ -1758,8 +1758,8 @@ def test_create_child_halt_refunds_state_gas(
         ),
     )
 
-    # Tight gas tuning: child halt consumes all forwarded gas as
-    # regular_gas_used. Factory retains
+    # Tight gas tuning: child halt consumes all forwarded regular
+    # gas. Factory retains
     # ~(forwarded - pre_sstore_regular) / 64 after CREATE. Target
     # the discrimination window `(probe_regular,
     # probe_regular + sstore_state_gas)` so the probe SSTORE
@@ -2177,7 +2177,7 @@ def test_failed_create_tx_refills_top_frame_new_account(
     initcode then fails the whole creation rolls back and no account
     persists:
 
-    * REVERT preserves ``gas_left`` and ``refill_frame_state_gas`` returns
+    * REVERT preserves ``gas_left`` and ``restore_state_gas`` returns
       the spilled ``NEW_ACCOUNT`` to it, so the state block nets to zero
       and only the regular consumption counts as work. The calldata floor
       tops up the billed amount and the block-level regular gas alike, so

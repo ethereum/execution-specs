@@ -143,7 +143,7 @@ def gas_left(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_GAS)
 
     # OPERATION
-    push(evm.stack, U256(evm.gas_left))
+    push(evm.stack, U256(evm.gas_meter.gas_left))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
