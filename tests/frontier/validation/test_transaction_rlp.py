@@ -253,6 +253,8 @@ def test_to_address_size(
         "RLPElementIsListWhenItShouldntBeCopier.json",
         f"{LEGACY_TX_TESTS}/ttWrongRLP/"
         "RLPElementIsListWhenItShouldntBe2Copier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_rvalue_GivenAsListCopier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_svalue_GivenAsListCopier.json",
     ],
 )
 @pytest.mark.exception_test
@@ -264,6 +266,8 @@ def test_to_address_size(
         ("to", TransactionException.RLP_INVALID_TO),
         ("value", TransactionException.RLP_INVALID_VALUE),
         ("data", TransactionException.RLP_INVALID_DATA),
+        ("r", TransactionException.RLP_INVALID_SIGNATURE_R),
+        ("s", TransactionException.RLP_INVALID_SIGNATURE_S),
     ],
 )
 def test_field_as_list(
@@ -273,7 +277,12 @@ def test_field_as_list(
     field: str,
     error: TransactionException,
 ) -> None:
-    """Encode one field as an RLP list instead of a byte string."""
+    """
+    Encode one field as an RLP list instead of a byte string.
+
+    The gas price and v fields are equally rejected but have no
+    field-specific decoding exception, so they are not covered.
+    """
     fields = signed_tx_fields(pre, fork)
     corrupted = rlp_list([rlp_bytes(fields[field])])
     rlp = encode_tx(fields, {field: corrupted})
