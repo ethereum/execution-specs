@@ -34,6 +34,7 @@ Input validation runs in
 (unit-tested) before any fixtures are built, and fails fast on:
 
 - an empty `feature` or a `version` that is not `vX.Y.Z`;
+- an `evm` override that is not a key in `.github/configs/evm.yaml`;
 - a bare `devnet` feature name (must carry a `<feat>-` prefix, e.g. `bal-devnet`);
 - a `<feat>-devnet-<n>` feature name — the devnet index belongs in the `version` major, not
   the feature name (so `feature=bal-devnet-7` is rejected in favour of

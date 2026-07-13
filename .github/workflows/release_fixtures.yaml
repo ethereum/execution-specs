@@ -116,16 +116,11 @@ jobs:
           INPUT_BRANCH: ${{ inputs.branch }}
           INPUT_EVM: ${{ inputs.evm }}
         run: |
-          # An `evm` override must name a key in evm.yaml; the feature,
-          # version and devnet-branch validation lives in (and is unit-tested
-          # via) generate_build_matrix.py.
-          if [ -n "$INPUT_EVM" ] && ! grep -qE "^${INPUT_EVM}:" .github/configs/evm.yaml; then
-            echo "::error::evm '$INPUT_EVM' is not a key in .github/configs/evm.yaml"
-            exit 1
-          fi
-
+          # The feature, version, devnet-branch and evm-override validation
+          # lives in (and is unit-tested via) generate_build_matrix.py.
           uv run -q .github/scripts/generate_build_matrix.py \
-            "$INPUT_FEATURE" "$INPUT_VERSION" "$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
+            "$INPUT_FEATURE" "$INPUT_VERSION" "$INPUT_BRANCH" "$INPUT_EVM" \
+            >> "$GITHUB_OUTPUT"
 
   build:
     name: fill (${{ matrix.label || matrix.feature }})
