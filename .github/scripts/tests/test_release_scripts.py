@@ -6,6 +6,7 @@ interface, matching how GitHub Actions calls them.
 """
 
 import json
+import os
 import subprocess
 import tarfile
 from pathlib import Path
@@ -16,6 +17,7 @@ REPO_ROOT = SCRIPTS_DIR.parent.parent
 BUILD_MATRIX_SCRIPT = SCRIPTS_DIR / "generate_build_matrix.py"
 TARBALL_SCRIPT = SCRIPTS_DIR / "create_release_tarball.py"
 MERGE_INDEX_SCRIPT = SCRIPTS_DIR / "merge_index_files.py"
+CHECK_COMMITS_SCRIPT = SCRIPTS_DIR / "check_new_commits.py"
 
 
 def run_script(script: Path, *args: str) -> subprocess.CompletedProcess:
@@ -184,6 +186,116 @@ class TestValidateInputs:
             BUILD_MATRIX_SCRIPT, "tests", "v24.0.0", "", "evmone"
         )
         assert result.returncode == 0
+
+
+# Fake `gh` served from PATH: answers the two API calls the commit-check
+# script makes with canned JSON from env vars, and fails loudly on any
+# other (or unconfigured) call.
+FAKE_GH = """#!/usr/bin/env bash
+case "$2" in
+  *actions/workflows*) response="$FAKE_GH_RUNS" ;;
+  *compare*) response="$FAKE_GH_COMPARE" ;;
+  *) response="" ;;
+esac
+if [ -z "$response" ]; then
+  echo "unexpected gh call: $*" >&2
+  exit 1
+fi
+printf '%s' "$response"
+"""
+
+
+class TestCheckNewCommits:
+    """Test check_new_commits.py."""
+
+    def run_check(
+        self,
+        tmp_path: Path,
+        event_name: str,
+        runs: str = "",
+        compare: str = "",
+    ) -> tuple[subprocess.CompletedProcess, Path]:
+        """Run the script with a fake `gh` on PATH; return it + summary."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir(exist_ok=True)
+        fake_gh = bin_dir / "gh"
+        fake_gh.write_text(FAKE_GH)
+        fake_gh.chmod(0o755)
+
+        summary = tmp_path / "summary.md"
+        env = os.environ.copy()
+        env["PATH"] = f"{bin_dir}:{env['PATH']}"
+        env["GITHUB_EVENT_NAME"] = event_name
+        env["GITHUB_REPOSITORY"] = "ethereum/execution-specs"
+        env["GITHUB_SHA"] = "b" * 40
+        env["GITHUB_STEP_SUMMARY"] = str(summary)
+        env["FAKE_GH_RUNS"] = runs
+        env["FAKE_GH_COMPARE"] = compare
+
+        result = subprocess.run(
+            ["uv", "run", "-q", str(CHECK_COMMITS_SCRIPT)],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env=env,
+        )
+        return result, summary
+
+    def test_dispatch_always_runs_without_api_calls(self, tmp_path):
+        """Verify a manual dispatch runs and never calls the API."""
+        # The fake `gh` fails every call (no canned responses), so a
+        # zero exit proves the script made no API call.
+        result, summary = self.run_check(tmp_path, "workflow_dispatch")
+        assert result.returncode == 0
+        assert result.stdout.strip() == "run=true"
+        assert not summary.exists()
+
+    def test_schedule_without_prior_run_fills_baseline(self, tmp_path):
+        """Verify the first scheduled run fills to get a baseline."""
+        result, summary = self.run_check(
+            tmp_path, "schedule", runs='{"workflow_runs": []}'
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == "run=true"
+        assert "no previous successful" in summary.read_text()
+
+    def test_schedule_with_new_commits_runs(self, tmp_path):
+        """Verify new commits since the baseline trigger a run."""
+        commit = {
+            "sha": "abcdef1" + "0" * 33,
+            "commit": {"message": "feat(x): subject\n\nbody"},
+        }
+        result, summary = self.run_check(
+            tmp_path,
+            "schedule",
+            runs=json.dumps({"workflow_runs": [{"head_sha": "a" * 40}]}),
+            compare=json.dumps({"commits": [commit]}),
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == "run=true"
+        text = summary.read_text()
+        assert "### Commits since last successful nightly fill" in text
+        # Short SHA plus the commit subject, without the body.
+        assert "- abcdef1 feat(x): subject" in text
+        assert "body" not in text
+
+    def test_schedule_without_new_commits_skips(self, tmp_path):
+        """Verify no commits since the baseline skips the run."""
+        result, summary = self.run_check(
+            tmp_path,
+            "schedule",
+            runs=json.dumps({"workflow_runs": [{"head_sha": "b" * 40}]}),
+            compare=json.dumps({"commits": []}),
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == "run=false"
+        assert "skipping" in summary.read_text()
+
+    def test_gh_failure_fails_the_check(self, tmp_path):
+        """Verify a failing `gh` call fails the script."""
+        result, _ = self.run_check(tmp_path, "schedule")
+        assert result.returncode == 1
+        assert "gh api" in result.stderr
 
 
 class TestCreateReleaseTarball:
