@@ -7,24 +7,34 @@ nested-container lists, bool, bitvector).
 
 from typing import Annotated, List
 
-from remerkleable.basic import boolean, uint64, uint256
+from remerkleable.basic import boolean, uint8, uint64, uint256
+from remerkleable.bitfields import Bitlist as RmkBitlist
 from remerkleable.bitfields import Bitvector as RmkBitvector
 from remerkleable.byte_arrays import ByteList, ByteVector
 from remerkleable.complex import Container
 from remerkleable.complex import List as RmkList
+from remerkleable.complex import Vector as RmkVector
+from remerkleable.progressive import ProgressiveContainer
+from remerkleable.progressive import ProgressiveList as RmkProgressiveList
 
 from execution_testing.base_types import Address, Bloom, Bytes, Hash
 from execution_testing.base_types.ssz import (
+    ProgressiveModel,
     SszContainer,
     SszModel,
+    Uint8,
     Uint64,
     Uint256,
+    bitlist,
     bitvector,
     byte_list,
     decode,
     encode,
     hash_tree_root,
+    progressive_list,
+    ssz_default,
     ssz_list,
+    ssz_vector,
 )
 
 MAX_EXTRA = 32
@@ -185,3 +195,63 @@ def test_bool_and_bitvector_fields() -> None:
     restored = decode(Status, encode(value))
     assert restored.ok is True
     assert restored.columns == bits
+
+
+def test_vector_and_bitlist() -> None:
+    """Fixed Vector[uint64, N] and variable Bitlist[N] match remerkleable."""
+
+    class Committee(SszModel):
+        seats: Annotated[List[Uint64], ssz_vector(Uint64.__ssz__, 3)]
+        flags: Annotated[List[bool], bitlist(8)]
+
+    value = Committee(seats=[1, 2, 3], flags=[True, False, True])
+
+    class Ref(Container):
+        seats: RmkVector[uint64, 3]
+        flags: RmkBitlist[8]
+
+    ref = Ref(seats=[1, 2, 3], flags=[True, False, True])
+    assert encode(value) == ref.encode_bytes()
+    restored = decode(Committee, encode(value))
+    assert [int(s) for s in restored.seats] == [1, 2, 3]
+    assert restored.flags == [True, False, True]
+
+
+def test_progressive_list_and_container() -> None:
+    """Uncapped progressive list + progressive container match remerkleable."""
+
+    class Prog(ProgressiveModel):
+        a: Uint64
+        b: Uint8
+        items: Annotated[List[Uint64], progressive_list(Uint64.__ssz__)]
+
+    value = Prog(a=5, b=9, items=[10, 20, 30])
+
+    class Ref(ProgressiveContainer(active_fields=[1, 1, 1])):  # type: ignore[misc]
+        a: uint64
+        b: uint8
+        items: RmkProgressiveList[uint64]
+
+    ref = Ref(a=5, b=9, items=[10, 20, 30])
+    assert encode(value) == ref.encode_bytes()
+    assert hash_tree_root(value) == bytes(ref.hash_tree_root())
+    restored = decode(Prog, encode(value))
+    assert [int(x) for x in restored.items] == [10, 20, 30]
+
+
+def test_ssz_default_matches_remerkleable_zero() -> None:
+    """ssz_default builds the SSZ zero value, like remerkleable's default."""
+    zero = ssz_default(ExecutionPayload)
+    assert int(zero.block_number) == 0
+    assert zero.transactions == []
+    assert zero.withdrawals == []
+    assert bytes(zero.parent_hash) == b"\x00" * 32
+    # zero encodes identically to a freshly-defaulted remerkleable container.
+    assert encode(zero) == ssz_container_for_zero_bytes()
+
+
+def ssz_container_for_zero_bytes() -> bytes:
+    """The SSZ bytes of a default (zero) ExecutionPayload via remerkleable."""
+    from execution_testing.base_types.ssz import ssz_container_for
+
+    return ssz_container_for(ExecutionPayload)().encode_bytes()
