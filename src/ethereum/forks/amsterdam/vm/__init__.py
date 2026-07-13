@@ -132,8 +132,6 @@ class TransactionEnvironment:
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
-    intrinsic_regular_gas: Uint
-    intrinsic_state_gas: Uint
 
 
 @final
@@ -153,7 +151,7 @@ class Message:
     value: U256
     data: Bytes
     code_address: Optional[Address]
-    code: Bytes
+    code: Optional[Bytes]
     depth: Uint
     should_transfer_value: bool
     is_static: bool
@@ -187,6 +185,13 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     regular_gas_used: Uint = Uint(0)
     state_gas_spilled: Uint = Uint(0)
+    committed_state_gas: int = 0
+    """
+    State gas locked in by [`commit_frame_state_gas`] because the state
+    it paid for outlives a later failure in the frame.
+
+    [`commit_frame_state_gas`]: ref:ethereum.forks.amsterdam.vm.commit_frame_state_gas
+    """  # noqa: E501
 
 
 def credit_state_gas_refund(evm: Evm, amount: StateGas) -> None:
@@ -256,11 +261,14 @@ def refill_frame_state_gas(evm: Evm) -> None:
 
 def frame_state_gas_used(evm: Evm) -> int:
     """
-    Return the net state gas consumed by a finished frame.
+    Return the net state gas consumed by a finished frame, including
+    any state gas committed as non-refillable earlier in the frame.
 
-    Equal to the reservoir drawn down ([`state_gas_reservoir`][sgr] at entry
-    minus the reservoir now) plus [`state_gas_spilled`][sgs]. May be negative
-    when refunds exceed charges.
+    Equal to the reservoir drawn down ([`state_gas_reservoir`][sgr] at
+    the last commit -- or frame entry, absent one -- minus the
+    reservoir now) plus [`state_gas_spilled`][sgs] plus
+    [`committed_state_gas`][csg]. May be negative when refunds exceed
+    charges.
 
     Parameters
     ----------
@@ -269,13 +277,43 @@ def frame_state_gas_used(evm: Evm) -> int:
 
     [sgr]: ref:ethereum.forks.amsterdam.vm.Message.state_gas_reservoir
     [sgs]: ref:ethereum.forks.amsterdam.vm.Evm.state_gas_spilled
+    [csg]: ref:ethereum.forks.amsterdam.vm.Evm.committed_state_gas
 
     """
     return (
         int(evm.message.state_gas_reservoir)
         - int(evm.state_gas_left)
         + int(evm.state_gas_spilled)
+        + evm.committed_state_gas
     )
+
+
+def commit_frame_state_gas(evm: Evm) -> None:
+    """
+    Mark the state gas consumed so far as non-refillable and reset the
+    refill baseline.
+
+    The state this gas paid for (the delegations applied by
+    [`set_delegation`][sd]) outlives a later failure of the dispatched
+    code, so a subsequent [`refill_frame_state_gas`][refill] must not
+    credit it back. The consumption so far is folded into
+    [`committed_state_gas`][csg] and the reservoir baseline moves down
+    to the current level, so only charges made after this commit are
+    refillable.
+
+    Parameters
+    ----------
+    evm :
+        The frame whose state gas consumption is committed.
+
+    [sd]: ref:ethereum.forks.amsterdam.vm.eoa_delegation.set_delegation
+    [refill]: ref:ethereum.forks.amsterdam.vm.refill_frame_state_gas
+    [csg]: ref:ethereum.forks.amsterdam.vm.Evm.committed_state_gas
+
+    """
+    evm.committed_state_gas = frame_state_gas_used(evm)
+    evm.message.state_gas_reservoir = evm.state_gas_left
+    evm.state_gas_spilled = Uint(0)
 
 
 def incorporate_child_on_error(

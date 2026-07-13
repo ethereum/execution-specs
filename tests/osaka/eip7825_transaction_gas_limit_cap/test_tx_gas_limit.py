@@ -677,11 +677,6 @@ def test_tx_gas_limit_cap_authorized_tx(
             access_list=make_access_list(auth_count),
             authorization_list_or_count=auth_count,
         )
-        if fork.is_eip_enabled(8037):
-            # EIP-8037 caps only the regular dimension, not state gas.
-            cost -= fork.transaction_intrinsic_state_gas(
-                authorization_count=auth_count
-            )
         return cost
 
     auth_list_length = max_count_with_intrinsic_cost_at_most(

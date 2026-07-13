@@ -12,6 +12,7 @@ from typing import (
     Mapping,
     Optional,
     Protocol,
+    Sequence,
     Set,
     Sized,
     Type,
@@ -152,15 +153,26 @@ class TransactionIntrinsicCostCalculator(Protocol):
                        Forks that itemize the value-transfer charge in
                        intrinsic gas use this flag; ignored by older forks.
           recipient_type: Category of the transaction recipient. Forks
-                          that vary intrinsic gas by recipient kind
-                          (e.g. no access cost for precompiles, no value
-                          charge for self-transfers) use this; ignored
-                          by older forks.
+                          that vary intrinsic gas by recipient kind use this;
+                          ignored by older forks.
 
         Returns: Gas cost of a transaction
 
         """
         pass
+
+
+class AuthorizationGasInfo(Protocol):
+    """
+    Structural view of an EIP-7702 authorization's effect on the
+    pre-state, used to compute its top-frame gas. The test
+    ``AuthorizationTuple`` satisfies it via its ``creates_account``,
+    ``writes_delegation``, and ``first_write`` fields.
+    """
+
+    creates_account: bool
+    writes_delegation: bool
+    first_write: bool
 
 
 class TopFrameGasCalculator(Protocol):
@@ -185,6 +197,8 @@ class TopFrameGasCalculator(Protocol):
         contract_creation: bool = False,
         sends_value: bool = False,
         recipient_type: RecipientType = RecipientType.CONTRACT,
+        delegation_warm: bool = False,
+        authorizations: Sequence[AuthorizationGasInfo] = (),
     ) -> int:
         """
         Return the regular gas consumed by top-frame preparation for a
@@ -199,6 +213,11 @@ class TopFrameGasCalculator(Protocol):
                        value.
           recipient_type: Category of the transaction recipient.
                           Drives the conditional charges.
+          delegation_warm: Whether a delegated recipient's delegation
+                           target is already warm, charging warm rather
+                           than cold access.
+          authorizations: The transaction's EIP-7702 authorizations;
+                          each contributes its top-frame regular gas.
 
         Returns: Regular gas added by top-frame preparation.
 
@@ -759,17 +778,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         pass
 
     @classmethod
-    def transaction_intrinsic_state_gas(
-        cls,
-        *,
-        contract_creation: bool = False,
-        authorization_count: int = 0,
-    ) -> int:
-        """Return intrinsic state gas (zero pre-Amsterdam)."""
-        del contract_creation, authorization_count
-        return 0
-
-    @classmethod
     def transaction_top_frame_gas_calculator(
         cls,
     ) -> TopFrameGasCalculator:
@@ -787,8 +795,11 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
             contract_creation: bool = False,
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
+            delegation_warm: bool = False,
+            authorizations: Sequence[AuthorizationGasInfo] = (),
         ) -> int:
             del contract_creation, sends_value, recipient_type
+            del delegation_warm, authorizations
             return 0
 
         return fn
@@ -800,6 +811,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         contract_creation: bool = False,
         sends_value: bool = False,
         recipient_type: RecipientType = RecipientType.CONTRACT,
+        authorizations: Sequence[AuthorizationGasInfo] = (),
     ) -> int:
         """
         Return the state gas charged at the top-level transaction
@@ -811,7 +823,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         Defaults to 0 for forks that do not perform such
         post-intrinsic preparation.
         """
-        del contract_creation, sends_value, recipient_type
+        del contract_creation, sends_value, recipient_type, authorizations
         return 0
 
     @classmethod

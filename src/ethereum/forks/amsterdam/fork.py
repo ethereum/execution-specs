@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Final, List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes0
+from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
@@ -806,8 +806,6 @@ def process_unchecked_system_transaction(
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
-        intrinsic_regular_gas=Uint(0),
-        intrinsic_state_gas=Uint(0),
     )
 
     system_tx_message = Message(
@@ -1034,7 +1032,7 @@ def process_transaction(
     sender = recover_sender(tx)
     intrinsic = validate_transaction(tx, sender)
 
-    intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
+    intrinsic_gas = Uint(intrinsic.regular)
 
     (
         effective_gas_price,
@@ -1098,24 +1096,11 @@ def process_transaction(
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
-        intrinsic_regular_gas=intrinsic.regular,
-        intrinsic_state_gas=intrinsic.state,
     )
 
-    message = prepare_message(
-        block_env,
-        tx_env,
-        tx,
-    )
+    message = prepare_message(block_env, tx_env, tx)
 
     tx_output = process_message_call(message)
-
-    if isinstance(tx.to, Bytes0) and (
-        tx_output.error is not None or tx_output.created_target_alive
-    ):
-        new_account_refund = StateGasCosts.NEW_ACCOUNT
-        tx_output.state_gas_left += new_account_refund
-        tx_output.state_refund += new_account_refund
 
     tx_gas_used_before_refund = (
         tx.gas - tx_output.gas_left - tx_output.state_gas_left
@@ -1142,15 +1127,9 @@ def process_transaction(
     # transfer miner fees
     create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
-    tx_state_gas = (
-        int(tx_env.intrinsic_state_gas)
-        + tx_output.state_gas_used
-        - int(tx_output.state_refund)
-    )
+    tx_state_gas = tx_output.state_gas_used
     # The calldata floor binds the regular-gas dimension: subtract state gas
     # first so the floor is not discounted by a transaction's state spending.
-    # Defensive guard for Uint conversion: State refunds never exceed
-    # the state charges so the value is non-negative.
     tx_regular_gas = max(
         tx_gas_used_before_refund - Uint(max(0, tx_state_gas)),
         intrinsic.calldata_floor,

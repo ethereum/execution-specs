@@ -120,6 +120,13 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
 
     signer: EOA | None = None
     secret_key: Hash | None = None
+    creates_account: bool = Field(False, exclude=True)
+    writes_delegation: bool = Field(True, exclude=True)
+    # Whether applying this authorization is the transaction's first
+    # write to the authority's account leaf. False for a self-sponsored
+    # authority (the sender is written at inclusion), for repeated
+    # authorizations on one authority, and for invalid authorizations.
+    first_write: bool = Field(True, exclude=True)
 
     def model_post_init(self, __context: Any) -> None:
         """

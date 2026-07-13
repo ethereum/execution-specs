@@ -10,7 +10,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    AuthorizationTuple,
     Block,
     BlockchainTestFiller,
     BlockException,
@@ -45,7 +44,6 @@ def build_refund_tx(
     # All essential calc functions
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
     max_refund_quotient = fork.max_refund_quotient()
-    gsc = fork.gas_costs()
     data_floor_calc = fork.transaction_data_floor_cost_calculator()
 
     # Initial account pre loading
@@ -60,11 +58,6 @@ def build_refund_tx(
 
     empty_storage_on_success = False
     refund_tx_extra_gas = 1 if refund_tx_has_extra_gas_limit else 0
-
-    # EIP-8037: existing authority "refund" adjusts intrinsic_state_gas,
-    # not the standard refund counter.
-    auth_state_gas = 0
-    auth_state_refund = 0
 
     # Sort by name so iteration order is deterministic across Python
     # invocations (set iteration over enum members depends on Python's
@@ -82,33 +75,6 @@ def build_refund_tx(
                     )
                 empty_storage_on_success = True
 
-            case RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
-                code += Op.PUSH0
-                delegated_contract = pre.deploy_contract(code=Bytecode())
-                authority_signers = [
-                    pre.fund_eoa(amount=1) for _ in range(refunds_count)
-                ]
-                authorization_list = [
-                    AuthorizationTuple(
-                        address=delegated_contract,
-                        nonce=0,
-                        signer=signer,
-                    )
-                    for signer in authority_signers
-                ]
-                post[delegated_contract] = Account(code=Bytecode())
-                for signer in authority_signers:
-                    post[signer] = Account(balance=1)
-                auth_state_gas = fork.transaction_intrinsic_state_gas(
-                    authorization_count=refunds_count,
-                )
-                auth_state_refund = (
-                    gsc.REFUND_AUTH_PER_EXISTING_ACCOUNT * refunds_count
-                )
-                # The worst-case `ACCOUNT_WRITE` charged at intrinsic
-                # time is refunded via the refund counter for existing
-                # authorities, even if the transaction reverts.
-                refund_counter += gsc.ACCOUNT_WRITE * refunds_count
             case _:
                 raise ValueError(
                     f"Unknown refund type: {refund_type} (Test needs update)"
@@ -130,15 +96,16 @@ def build_refund_tx(
     ) + code.gas_cost(fork)
 
     # EIP-8037: block gas_used only counts regular gas
-    gas_used_pre_refund = combined_gas_used - auth_state_gas
+    gas_used_pre_refund = combined_gas_used
 
     # Calculate refund (still applied to user's balance)
     if not refund_tx_reverts:
         refund_counter += code.refund(fork)
 
-    # EIP-8037: remaining state gas = intrinsic state gas - state gas
-    # returned to reservoir for existing authorities
-    remaining_state_gas = auth_state_gas - auth_state_refund
+    # EIP-2780 moved the EIP-7702 authorization charge to the top frame,
+    # so no transaction-level state gas remains here; the STORAGE_CLEAR
+    # path carries none.
+    remaining_state_gas = 0
 
     # In the spec, the refund cap uses tx_gas_used_before_refund which is
     # tx.gas - gas_left - state_gas_left (combined regular + remaining
@@ -201,10 +168,9 @@ def build_refund_tx(
     if not exceed_block_gas_limit:
         post[refund_tx_sender] = Account(balance=expected_balance)
 
-    # block_state_gas_used reflects intrinsic_state minus the
-    # existing-authority auth refund (state_refund), since
-    # `process_transaction` deducts it from `tx_state_gas` before
-    # accumulating into `block_state_gas_used`.
+    # No transaction-level state gas is tracked here anymore; the third
+    # element is always zero and kept for the return-tuple shape callers
+    # unpack.
     return (
         receipt_gas_used,
         gas_used_pre_refund,
@@ -320,18 +286,6 @@ def test_multi_transaction_gas_accounting(
 
     This tests that clients correctly use pre-refund gas for block accounting.
     """
-    # TODO[EIP-8037]: this test's exceed_block_gas_limit branch builds
-    # `environment_gas_limit = total - 1` from a single combined
-    # `total_block_gas_used`, but post-fix the auth refund splits the
-    # regular vs state dimensions further. Reworking the per-dimension
-    # budget math is out of scope for the auth-refund spec fix; until
-    # then, skip the AUTHORIZATION_EXISTING_AUTHORITY case here.
-    if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
-        pytest.skip(
-            "AUTHORIZATION_EXISTING_AUTHORITY not yet adapted to the "
-            "two-dimensional block budget post EIP-8037 auth-refund fix"
-        )
-
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
     data_floor_calc = fork.transaction_data_floor_cost_calculator()
 
@@ -489,23 +443,9 @@ def test_varying_calldata_costs(
     2. tx_gas_after_refund < calldata_floor < tx_gas_before_refund
     3. calldata_floor > tx_gas_before_refund
     """
-    if refund_type == RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
-        if calldata_test_type == (
-            CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
-        ):
-            pytest.skip(
-                "EIP-7702 auth refund routes through state_gas_reservoir "
-                "and state_refund (deducted from tx_state_gas); it does "
-                "not feed refund_counter, so receipt gas_used_pre_refund "
-                "== gas_used_post_refund and no calldata floor can land "
-                "strictly between them"
-            )
-
     match refund_type:
         case RefundTypes.STORAGE_CLEAR:
             bytes_to_add_per_iteration = b"00" * 2
-        case RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
-            bytes_to_add_per_iteration = b"00" * 10
         case _:
             raise ValueError(
                 f"Unknown refund type: {refund_type} (Test needs update)"

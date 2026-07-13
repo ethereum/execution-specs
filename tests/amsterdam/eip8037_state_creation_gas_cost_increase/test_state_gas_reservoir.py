@@ -344,46 +344,49 @@ def test_creation_tx_regular_check_uses_full_tx_gas(
     Verify the regular check uses the full `tx.gas` (no subtraction).
 
     The EIP regular check is `min(TX_MAX, tx.gas) > regular_available`.
-    For a creation tx, `intrinsic.state = GAS_NEW_ACCOUNT`. This test
-    sizes a creation tx whose raw `tx.gas` exceeds `regular_available`
-    while `tx.gas - intrinsic.state` would fit; it must be rejected. A
-    formula subtracting `intrinsic.state` would have wrongly accepted.
+    Under EIP-2780 a creation tx has `intrinsic.state == 0` (the created
+    account's `NEW_ACCOUNT` moved to the top frame), so its intrinsic is
+    regular-only. This test sizes a creation tx whose full `tx.gas`
+    exceeds the remaining regular budget by one — it must be rejected. A
+    formula that instead used the execution gas
+    (`tx.gas - intrinsic_regular`) would have wrongly accepted.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    # `intrinsic_regular` for a creation tx is cpsb-free
-    # (GAS_TX_BASE + REGULAR_GAS_CREATE + init_code_cost), so
-    # reading it at the current cpsb and using it to size the block
-    # gives a stable `block_gas_limit` independent of cpsb.
+    # The creation intrinsic is regular-only and cpsb-free
+    # (GAS_TX_BASE + REGULAR_GAS_CREATE + init_code_cost), giving a stable
+    # `block_gas_limit` independent of cpsb.
     intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
         contract_creation=True
-    ) - fork.transaction_intrinsic_state_gas(contract_creation=True)
+    )
 
-    # Tight boundary: after the filler consumes gas_limit_cap, the
-    # remaining regular is exactly intrinsic_regular + 1. The strict
-    # formula `min(TX_MAX, tx.gas)` rejects (tx.gas = intrinsic_total
-    # > intrinsic_regular + 1); a formula subtracting `intrinsic.state`
-    # would accept (tx.gas - intrinsic.state == intrinsic_regular).
+    # Tight boundary: after the filler consumes gas_limit_cap, exactly
+    # `intrinsic_regular + 1` regular gas remains in the block.
     block_gas_limit = gas_limit_cap + intrinsic_regular + 1
 
-    intrinsic_state = fork.transaction_intrinsic_state_gas(
-        contract_creation=True,
-    )
-    create_tx_gas = fork.transaction_intrinsic_cost_calculator()(
-        contract_creation=True,
-    )
+    # Ask for one more than the remaining regular budget: min(TX_MAX,
+    # tx.gas) == tx.gas exceeds `remaining_regular` by one, so the strict
+    # check rejects. The tx still carries more than its own intrinsic, so
+    # it is a valid creation tx on its own — only the block-level regular
+    # check fails.
+    remaining_regular = block_gas_limit - gas_limit_cap
+    create_tx_gas = remaining_regular + 1
 
     # Filler consumes the full regular cap (OOG on INVALID).
     filler = pre.deploy_contract(code=Op.INVALID)
 
-    remaining_regular = block_gas_limit - gas_limit_cap
-
-    assert create_tx_gas > remaining_regular, (
+    assert create_tx_gas <= gas_limit_cap, (
+        "min(TX_MAX, tx.gas) must be tx.gas for this boundary"
+    )
+    assert create_tx_gas > intrinsic_regular, (
+        "tx must carry more than its own intrinsic"
+    )
+    assert min(gas_limit_cap, create_tx_gas) > remaining_regular, (
         "strict formula must reject: full tx.gas exceeds remaining regular"
     )
-    assert create_tx_gas - intrinsic_state <= remaining_regular, (
-        "a subtracting formula would have accepted"
+    assert create_tx_gas - intrinsic_regular <= remaining_regular, (
+        "a formula using execution gas would have accepted"
     )
 
     filler_tx = Transaction(
@@ -856,7 +859,7 @@ def test_creation_tx_failure_preserves_intrinsic_state_gas(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    create_intrinsic_state = fork.transaction_intrinsic_state_gas(
+    create_intrinsic_state = fork.transaction_top_frame_state_gas(
         contract_creation=True,
     )
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
@@ -1342,34 +1345,32 @@ def test_nested_state_gas_refund_consumed_at_depth(
     consume_at: str,
 ) -> None:
     """
-    Verify how state gas refund credits route under LIFO refills.
+    Verify no state gas credit routes to the reservoir under LIFO refills.
 
     Refund sources SSTORE `0->1->0`, CREATE collision, and CREATE
     initcode revert all refund LIFO, so the credit returns to
-    `gas_left`, not the reservoir. A SetCode auth on an `existing_leaf`
-    authority still credits the reservoir directly at message entry.
+    `gas_left`, not the reservoir. Under EIP-2780 a SetCode auth on an
+    `existing_leaf` authority no longer over-charges and refunds: it
+    charges only ``AUTH_BASE`` at the top frame, crediting nothing back.
 
     A probe CALL sized one short of covering an SSTORE forwards a fixed
-    gas to a sub-call, so it can only observe the reservoir, never the
-    `gas_left` refund. It therefore succeeds only for the auth scenario
-    and fails (stores 0) for the SSTORE/CREATE scenarios whose refund
-    lands in `gas_left`.
+    gas to a sub-call, so it can only observe the reservoir, never a
+    `gas_left` refund. With no scenario crediting the reservoir the probe
+    always OOGs and CALL returns 0. The auth scenario additionally pins
+    the applied delegation via post-state, guarding against a regression
+    that re-introduces a reservoir credit for existing-authority auths.
     """
     is_auth_scenario = refund_scenario == "auth_existing_leaf"
 
     probe_address = pre.deploy_contract(code=Op.SSTORE(0, 1))
     probe_gas = Op.SSTORE(0, 1).gas_cost(fork) - 1
     consumer_storage = Storage()
-    # The probe forwards a fixed gas and can only see the reservoir,
-    # so it succeeds (CALL returns 1) only when the refund credited the
-    # reservoir, the auth scenario. Otherwise the LIFO refund lands in
-    # gas_left, the sub-call OOGs, and CALL returns 0.
-    if is_auth_scenario:
-        probe_label = "auth_reservoir_probe_must_succeed"
-        probe_result = 1
-    else:
-        probe_label = "gas_left_refund_probe_must_fail"
-        probe_result = 0
+    # The probe forwards a fixed gas and can only see the reservoir. No
+    # scenario credits the reservoir under EIP-2780 (SSTORE/CREATE refunds
+    # land in gas_left LIFO; the existing-leaf auth incurs no refund), so
+    # the sub-call OOGs and CALL returns 0 in every case.
+    probe_label = "no_reservoir_credit_probe_must_fail"
+    probe_result = 0
     consume_op = Op.SSTORE(
         consumer_storage.store_next(probe_result, probe_label),
         Op.CALL(gas=probe_gas, address=probe_address),

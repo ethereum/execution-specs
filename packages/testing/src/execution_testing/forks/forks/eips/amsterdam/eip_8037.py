@@ -92,6 +92,7 @@ class EIP8037(BaseFork):
                 parent.STORAGE_SET + STATE_BYTES_PER_STORAGE_SET * cpsb
             ),
             NEW_ACCOUNT=new_acct,
+            AUTH_BASE=STATE_BYTES_PER_AUTH_BASE * cpsb,
             TX_CREATE=parent.TX_CREATE + new_acct,
             AUTH_PER_EMPTY_ACCOUNT=(
                 parent.AUTH_PER_EMPTY_ACCOUNT
@@ -230,30 +231,6 @@ class EIP8037(BaseFork):
             return state_refund_or_calculator * cls.cost_per_state_byte()
 
         return fn
-
-    @classmethod
-    def transaction_intrinsic_state_gas(
-        cls,
-        *,
-        contract_creation: bool = False,
-        authorization_count: int = 0,
-    ) -> int:
-        """
-        Return the intrinsic state gas for a transaction. Creation
-        adds `STATE_BYTES_PER_NEW_ACCOUNT * cpsb`, and each
-        authorization adds
-        `(STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE) * cpsb`.
-        """
-        cpsb = cls.cost_per_state_byte()
-        state_gas = 0
-        if contract_creation:
-            state_gas += STATE_BYTES_PER_NEW_ACCOUNT * cpsb
-        state_gas += (
-            (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE)
-            * cpsb
-            * authorization_count
-        )
-        return state_gas
 
     @classmethod
     def _calculate_sstore_state_gas(

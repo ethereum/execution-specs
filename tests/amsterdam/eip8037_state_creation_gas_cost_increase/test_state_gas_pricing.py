@@ -330,11 +330,10 @@ def test_intrinsic_regular_gas_exceeds_cap(
         return_cost_deducted_prior_execution=True,
     )
     floor = floor_cost(data=b"", access_list=access_list)
-    state = fork.transaction_intrinsic_state_gas()
-    tx_gas = regular + state + 1_000_000
+    tx_gas = regular + 1_000_000
 
     assert max(regular, floor) > cap, "cap check must fire"
-    assert regular + state <= tx_gas, "sufficiency check must not fire"
+    assert regular <= tx_gas, "sufficiency check must not fire"
     assert floor <= tx_gas
 
     tx = Transaction(
@@ -380,12 +379,11 @@ def test_intrinsic_regular_gas_exceeds_cap_with_floor_below_cap(
         return_cost_deducted_prior_execution=True,
     )
     floor = floor_cost(data=b"", access_list=access_list)
-    state = fork.transaction_intrinsic_state_gas()
-    tx_gas = regular + state + 1_000_000
+    tx_gas = regular + 1_000_000
 
     assert regular > cap, "regular operand must exceed the cap"
     assert floor < cap, "calldata floor must stay below the cap"
-    assert regular + state <= tx_gas, "sufficiency check must not fire"
+    assert regular <= tx_gas, "sufficiency check must not fire"
 
     tx = Transaction(
         ty=1,
@@ -671,21 +669,40 @@ def test_auth_state_gas_scales_with_cpsb(
     fork: Fork,
 ) -> None:
     """
-    Test SetCode authorization state gas scales with block gas limit.
+    Test SetCode authorization top-frame state gas scales with cpsb.
 
-    A type-4 tx with one authorization charges
-    (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE) * cpsb
-    of intrinsic state gas for the new account delegation.
+    Under EIP-2780 an authorization's state-dependent cost is charged at
+    the top frame, not the intrinsic. An existing authority gaining a
+    fresh delegation pays ``AUTH_BASE`` (= STATE_BYTES_PER_AUTH_BASE *
+    cost_per_state_byte) of state gas there. The tx gas is sized so the
+    charge draws from the reservoir when block_gas_limit is large and
+    spills into gas_left when it is small; the delegated call must succeed
+    in every regime.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    auth_state_gas = fork.transaction_intrinsic_state_gas(
-        authorization_count=1,
-    )
 
-    delegate = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    # A cheap STOP delegate: the delegated call only needs to resolve and
+    # succeed to prove the delegation applied; the state gas under test is
+    # the top-frame AUTH_BASE, not the delegate's own work.
+    delegate = pre.deploy_contract(code=Op.STOP)
     signer = pre.fund_eoa()
+
+    authorization_list = [
+        AuthorizationTuple(
+            address=delegate,
+            nonce=0,
+            signer=signer,
+            creates_account=False,
+            writes_delegation=True,
+        ),
+    ]
+    # Top-frame state gas for the existing authority's fresh delegation
+    # (AUTH_BASE = STATE_BYTES_PER_AUTH_BASE * cpsb).
+    auth_state_gas = fork.transaction_top_frame_state_gas(
+        authorizations=authorization_list,
+    )
 
     storage = Storage()
     target = pre.deploy_contract(
@@ -701,13 +718,7 @@ def test_auth_state_gas_scales_with_cpsb(
         to=target,
         gas_limit=tx_gas,
         sender=pre.fund_eoa(),
-        authorization_list=[
-            AuthorizationTuple(
-                address=delegate,
-                nonce=0,
-                signer=signer,
-            ),
-        ],
+        authorization_list=authorization_list,
     )
 
     post = {target: Account(storage=storage)}
