@@ -15,7 +15,7 @@ from execution_testing.fixtures.pre_alloc_groups import (
     packed_group_hash_for_test,
     read_test_group_index,
 )
-from execution_testing.forks import Prague
+from execution_testing.forks import Fork, Osaka, Prague
 from execution_testing.test_types import Alloc, Environment
 
 
@@ -27,12 +27,13 @@ def _write_group(
     *,
     environment: Environment,
     group_salt: str | None = None,
+    fork: Fork = Prague,
 ) -> None:
     """Write a single fine-grained group file, as Phase 1 would."""
     builder = PreAllocGroupBuilder(
         test_ids=[test_id],
         environment=environment,
-        fork=Prague,
+        fork=fork,
         group_salt=group_salt,
         pre=Alloc(
             {Address(address): account for address, account in pre.items()}
@@ -422,6 +423,41 @@ def test_pack_isolates_funded_precompile(tmp_path: Path) -> None:
     ]
     assert len(with_precompile) == 1
     assert with_precompile[0]["testIds"] == ["tests/a.py::test_a"]
+
+
+def test_pack_isolates_fork_precompile_above_blanket_range(
+    tmp_path: Path,
+) -> None:
+    """
+    An account pinned at a fork precompile address above the blanket
+    reserved range (P256VERIFY at ``0x100``, EIP-7951) keeps its group
+    isolated on a fork that has the precompile; on an earlier fork the
+    same address is plain scratch space and the groups merge.
+    """
+    env = Environment()
+    for fork, expected_group_count in ((Prague, 1), (Osaka, 2)):
+        folder = tmp_path / fork.name()
+        folder.mkdir()
+        _write_group(
+            folder,
+            "0x01",
+            "tests/a.py::test_a",
+            {0x100: Account(balance=1)},
+            environment=env,
+            fork=fork,
+        )
+        _write_group(
+            folder,
+            "0x02",
+            "tests/b.py::test_b",
+            {0x2000: Account(balance=2)},
+            environment=env,
+            fork=fork,
+        )
+
+        pack_pre_alloc_groups(folder)
+
+        assert len(_packed(folder)) == expected_group_count, fork.name()
 
 
 def test_pack_merges_when_shared_address_agrees(tmp_path: Path) -> None:

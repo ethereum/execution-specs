@@ -290,10 +290,11 @@ def packed_group_hash_for_test(
     return entry.group_hash
 
 
-# Addresses below this value are precompiles / the reserved range. A ported
-# state test can call them without ever declaring them in its pre, so an
-# account introduced there by another test in the group silently changes its
-# execution.
+# Blanket-reserved low address range. A ported state test can blindly call
+# a low address without ever declaring it in its pre, so an account
+# introduced there by another test in the group silently changes its
+# execution. Precompiles at or above this range (EIP-7951 puts P256VERIFY
+# at 0x100) are reserved via the bucket fork's precompile list instead.
 _RESERVED_ADDRESS_CEILING = 0x100
 
 
@@ -305,15 +306,22 @@ def _reserved_addresses(builders: List["PreAllocGroupBuilder"]) -> Set[str]:
     A ported state test only declares the accounts it sets and assumes all
     other addresses are empty, so introducing an account at an address it
     quietly depends on (a precompile, a canonical scratch contract, ...)
-    changes its result. Two kinds of address are therefore reserved: the low
-    precompile range, and any address more than one group allocates (i.e. a
-    shared/canonical address rather than one private to a single test).
+    changes its result. Three kinds of address are therefore reserved: the
+    blanket low range, the fork's precompile addresses (which extend beyond
+    that range from EIP-7951's P256VERIFY at ``0x100`` on), and any address
+    more than one group allocates (i.e. a shared/canonical address rather
+    than one private to a single test).
     """
+    # Packing buckets by fork, so every builder shares this one; a
+    # transition fork reserves the post-transition precompiles, matching
+    # the genesis built by `PreAllocGroupBuilders.add_test_pre`.
+    fork = builders[0].fork.transitions_to()
+    reserved = {str(address) for address in fork.precompiles()}
     frequency: Dict[str, int] = defaultdict(int)
     for builder in builders:
         for address in builder.pre.root:
             frequency[str(address)] += 1
-    return {
+    return reserved | {
         address
         for address, count in frequency.items()
         if count > 1 or int(address, 16) < _RESERVED_ADDRESS_CEILING
