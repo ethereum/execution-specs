@@ -194,11 +194,16 @@ def test_field_overflow(
 ) -> None:
     """
     Encode one integer field as a 33-byte value (2**256), exceeding the
-    field's width (64 bits for the nonce, 256 bits for the others).
+    256-bit width of the field. The spec decodes the nonce as a 256-bit
+    scalar as well; its 64-bit bound is a validation rule (EIP-2681),
+    not a decoding one, and clients that store the nonce in 64 bits
+    reject the oversized encoding all the same.
 
     The gas limit and gas price are unbounded scalars in the spec, so
     oversized values there are not a decoding error and are rejected
-    only in block context.
+    only in block context. The signature v is also a bounded 256-bit
+    field, but has no field-specific decoding exception, so its
+    oversized encoding is not covered here.
     """
     fields = signed_tx_fields(pre, fork)
     corrupted = rlp_bytes(int_payload(2**256))
