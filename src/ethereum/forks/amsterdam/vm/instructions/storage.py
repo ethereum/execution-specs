@@ -82,6 +82,9 @@ def sstore(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
 
+    # GAS (STATE-INDEPENDENT)
+    # Price what is computable without touching state, and check it is
+    # affordable before any state access is performed.
     gas_cost = Uint(0)
 
     # Access cost: cold or warm, always charged.
@@ -99,6 +102,11 @@ def sstore(evm: Evm) -> None:
     # access cost can exceed the stipend, so the EIP-2200 stipend sentry
     # (`gas_left > CALL_STIPEND`) is no longer sufficient on its own.
     check_gas(evm, max(gas_cost, GasCosts.CALL_STIPEND + Uint(1)))
+
+    # STATE ACCESS (STATE-DEPENDENT GAS)
+    # Perform the access and complete the state-dependent pricing from
+    # the slot's original and current values, adjusting the
+    # transaction's refunds.
     if is_cold_access:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
 
@@ -129,6 +137,9 @@ def sstore(evm: Evm) -> None:
             # charged on the first-time change earlier this transaction.
             evm.gas_meter.refund_counter += int(GasCosts.STORAGE_WRITE)
 
+    # STATE GAS
+    # A first-time set of a zero slot pays for the state it creates; a
+    # slot set then cleared refills the earlier charge.
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
             state_gas = StateGasCosts.STORAGE_SET

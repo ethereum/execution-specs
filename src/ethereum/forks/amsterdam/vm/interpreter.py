@@ -425,12 +425,18 @@ def process_message(message: Message) -> Evm:
 
     except ExceptionalHalt as error:
         evm_trace(evm, OpException(error))
+        # Frame settlement: refill state gas to the baseline, then
+        # forfeit -- a halted frame returns no regular gas to its
+        # parent. After these handlers the meter states exactly what
+        # the frame gives back, so parents absorb unconditionally.
         restore_state_gas(evm.gas_meter)
         forfeit_remaining_gas(evm.gas_meter)
         evm.output = b""
         evm.error = error
     except Revert as error:
         evm_trace(evm, OpException(error))
+        # Frame settlement: refill state gas to the baseline -- a
+        # reverted frame returns its unspent `gas_left` to its parent.
         restore_state_gas(evm.gas_meter)
         evm.error = error
 
