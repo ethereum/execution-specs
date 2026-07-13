@@ -63,11 +63,12 @@ def tx_fields(tx: Transaction) -> Dict[str, bytes]:
     }
 
 
-def signed_tx(pre: Alloc, fork: Fork) -> Transaction:
+def signed_tx(pre: Alloc, fork: Fork, nonce: int = 0) -> Transaction:
     """Build and sign the base type-0 transaction."""
     return Transaction(
         sender=pre.fund_eoa(),
         to=pre.fund_eoa(amount=0),
+        nonce=nonce,
         gas_price=10,
         gas_limit=30_000,
         value=1,
@@ -75,9 +76,11 @@ def signed_tx(pre: Alloc, fork: Fork) -> Transaction:
     ).with_signature_and_sender()
 
 
-def signed_tx_fields(pre: Alloc, fork: Fork) -> Dict[str, bytes]:
+def signed_tx_fields(
+    pre: Alloc, fork: Fork, nonce: int = 0
+) -> Dict[str, bytes]:
     """Build a signed type-0 transaction and decompose it."""
-    return tx_fields(signed_tx(pre, fork))
+    return tx_fields(signed_tx(pre, fork, nonce=nonce))
 
 
 def encode_tx(
@@ -165,6 +168,36 @@ def test_field_leading_zeros(
     corrupted = rlp_bytes(b"\x00" + fields[field])
     rlp = encode_tx(fields, {field: corrupted})
     transaction_test(pre=pre, tx=invalid_tx(pre, rlp, error))
+
+
+@pytest.mark.ported_from(
+    [
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/RLPIncorrectByteEncoding00Copier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/RLPIncorrectByteEncoding01Copier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/RLPIncorrectByteEncoding127Copier.json",
+    ],
+)
+@pytest.mark.exception_test
+def test_non_canonical_single_byte(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Encode the single-byte nonce payload behind a one-byte string
+    header (0x8101) instead of as the byte itself; the non-canonical
+    encoding must be rejected.
+    """
+    fields = signed_tx_fields(pre, fork, nonce=1)
+    payload = fields["nonce"]
+    assert len(payload) == 1 and payload[0] < 0x80
+    rlp = encode_tx(fields, {"nonce": b"\x81" + payload})
+    transaction_test(
+        pre=pre,
+        tx=invalid_tx(
+            pre, rlp, TransactionException.RLP_LEADING_ZEROS_NONCE_SIZE
+        ),
+    )
 
 
 @pytest.mark.ported_from(
