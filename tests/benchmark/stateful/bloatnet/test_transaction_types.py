@@ -71,14 +71,14 @@ def test_ether_transfers_onchain_receivers(
             receivers = yield_distinct_contract_receiver()
             # Runtime code is the same across all the receivers
             # Example contract: https://etherscan.io/address/0xa888df3ef62286dde06a79395760b9bce6c83c83#code
-            runtime = (
+            executed_code = (
                 Op.MSTORE(0x40, 0x60, new_memory_size=0x60)
                 + Op.JUMPI(Op.PUSH2(0x49), Op.ISZERO(Op.CALLDATASIZE))
                 + Op.JUMPDEST * 3
                 + Op.JUMP(Op.PUSH2(0x50))
                 + Op.JUMPDEST
             )
-            receiver_execution_gas = runtime.gas_cost(fork)
+            receiver_execution_gas = executed_code.gas_cost(fork)
         case "diff_to_unique_code_jumpdest_contract":
             creator = AccountCreator(AccountMode.EXISTING_CONTRACT_JUMPDEST)
             receivers = yield_distinct_create2_receiver(creator.initcode)
