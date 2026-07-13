@@ -73,9 +73,12 @@ class MinimalContractInitcode(ContractInitcode):
         return Op.STOP
 
 
-class UniqueMaxContractInitcode(ContractInitcode):
+class StopJumpdestInitcode(ContractInitcode):
     """
-    Initcode for a max code size JUMPDEST-filled runtime contract.
+    Initcode for a JUMPDEST-filled runtime contract starting with STOP.
+
+    If `code_size` is not supplied, Osaka max code size will
+    be used, resulting in:
 
         offset    size   contents
         ------    ----   --------------------------------
@@ -300,11 +303,11 @@ class AccountCreator:
             case AccountMode.EXISTING_CONTRACT_MINIMAL:
                 return MinimalContractInitcode()
             case AccountMode.EXISTING_CONTRACT_SAME_MAX:
-                return UniqueMaxContractInitcode(
+                return StopJumpdestInitcode(
                     code_size=self.code_size, diff=False
                 )
             case AccountMode.EXISTING_CONTRACT_DIFF_MAX:
-                return UniqueMaxContractInitcode(
+                return StopJumpdestInitcode(
                     code_size=self.code_size, diff=True
                 )
             case AccountMode.EXISTING_CONTRACT_JUMPDEST:
