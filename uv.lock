@@ -820,6 +820,15 @@ wheels = [
 ]
 
 [[package]]
+name = "eth-remerkleable"
+version = "0.1.31"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/51/ac/40fde655f67fd02f07b28e3fe4b9bb4af521388ca8aa48462d622ce4fa03/eth_remerkleable-0.1.31.tar.gz", hash = "sha256:94df4b18a50dfc46f55b2e790cfece384e64032e9cb82d185cff09224682ad1d", size = 49525, upload-time = "2026-06-11T13:23:38.552Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/a1/87f7c996f344c5f213c2bca657e579c3696bb99737238c0cf9f04867386a/eth_remerkleable-0.1.31-py3-none-any.whl", hash = "sha256:7e48ea1b80935977effc02300f3f9b1db19153ab87ffbcea14a6e6429bbdc56b", size = 57192, upload-time = "2026-06-11T13:23:37.208Z" },
+]
+
+[[package]]
 name = "eth-typing"
 version = "5.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1098,6 +1107,7 @@ dependencies = [
     { name = "coincurve" },
     { name = "colorlog" },
     { name = "eth-abi" },
+    { name = "eth-remerkleable" },
     { name = "ethereum-execution" },
     { name = "ethereum-hive" },
     { name = "ethereum-rlp" },
@@ -1151,6 +1161,7 @@ requires-dist = [
     { name = "coincurve", specifier = ">=20.0.0,<21" },
     { name = "colorlog", specifier = ">=6.7.0,<7" },
     { name = "eth-abi", specifier = ">=5.2.0" },
+    { name = "eth-remerkleable", specifier = "==0.1.31" },
     { name = "ethereum-execution", editable = "." },
     { name = "ethereum-hive", specifier = ">=0.1.0a5,<1.0.0" },
     { name = "ethereum-rlp", specifier = ">=0.1.6,<0.2" },
