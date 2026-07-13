@@ -140,6 +140,16 @@ def test_valid_reencoded_transaction(
         f"{LEGACY_TX_TESTS}/ttRSValue/TransactionWithRvaluePrefixed00Filler.json",
         f"{LEGACY_TX_TESTS}/ttRSValue/TransactionWithSvaluePrefixed00Filler.json",
         f"{LEGACY_TX_TESTS}/ttRSValue/RightVRSTestVPrefixedBy0Filler.json",
+        f"{LEGACY_TX_TESTS}/ttNonce/TransactionWithLeadingZerosNonceFiller.json",
+        f"{LEGACY_TX_TESTS}/ttNonce/TransactionWithZerosBigIntFiller.json",
+        f"{LEGACY_TX_TESTS}/ttGasPrice/"
+        "TransactionWithLeadingZerosGasPriceFiller.json",
+        f"{LEGACY_TX_TESTS}/ttGasLimit/"
+        "TransactionWithLeadingZerosGasLimitFiller.json",
+        f"{LEGACY_TX_TESTS}/ttValue/TransactionWithLeadingZerosValueFiller.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_gasLimit_Prefixed0000Copier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_rvalue_Prefixed0000Copier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_svalue_Prefixed0000Copier.json",
     ],
 )
 @pytest.mark.exception_test
@@ -241,6 +251,8 @@ def test_data_size_leading_zeros(
         f"{LEGACY_TX_TESTS}/ttValue/TransactionWithHighValueOverflowFiller.json",
         f"{LEGACY_TX_TESTS}/ttRSValue/TransactionWithRvalueOverflowFiller.json",
         f"{LEGACY_TX_TESTS}/ttRSValue/TransactionWithSvalueOverflowFiller.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_rvalue_TooLargeCopier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_svalue_TooLargeCopier.json",
     ],
 )
 @pytest.mark.exception_test
@@ -285,6 +297,10 @@ def test_field_overflow(
         f"{LEGACY_TX_TESTS}/ttAddress/AddressLessThan20Filler.json",
         f"{LEGACY_TX_TESTS}/ttAddress/AddressMoreThan20PrefixedBy0Filler.json",
         f"{LEGACY_TX_TESTS}/ttWrongRLP/RLPAddressWithFirstZerosCopier.json",
+        f"{LEGACY_TX_TESTS}/ttAddress/AddressMoreThan20Filler.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_to_Prefixed0000Copier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_to_TooLargeCopier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_to_TooShortCopier.json",
     ],
 )
 @pytest.mark.exception_test
@@ -323,6 +339,9 @@ def test_to_address_size(
         "RLPElementIsListWhenItShouldntBe2Copier.json",
         f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_rvalue_GivenAsListCopier.json",
         f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_svalue_GivenAsListCopier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_data_GivenAsListCopier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_gasLimit_GivenAsListCopier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_to_GivenAsListCopier.json",
     ],
 )
 @pytest.mark.exception_test
@@ -364,6 +383,7 @@ def test_field_as_list(
         f"{LEGACY_TX_TESTS}/ttWrongRLP/TRANSCT_HeaderGivenAsArray_0Copier.json",
         f"{LEGACY_TX_TESTS}/ttWrongRLP/RLPListLengthWithFirstZerosCopier.json",
         f"{LEGACY_TX_TESTS}/ttWrongRLP/aMaliciousRLPCopier.json",
+        f"{LEGACY_TX_TESTS}/ttWrongRLP/RLPTransactionGivenAsArrayCopier.json",
     ],
 )
 @pytest.mark.exception_test
