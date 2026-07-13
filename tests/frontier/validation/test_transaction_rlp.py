@@ -446,6 +446,14 @@ def test_invalid_structure(
         ("s", b"", TransactionException.INVALID_SIGNATURE_VRS),
         (
             "v",
+            b"",
+            [
+                TransactionException.INVALID_SIGNATURE_VRS,
+                TransactionException.INVALID_CHAINID,
+            ],
+        ),
+        (
+            "v",
             b"\x1d",
             [
                 TransactionException.INVALID_SIGNATURE_VRS,
@@ -461,7 +469,7 @@ def test_invalid_structure(
             ],
         ),
     ],
-    ids=["r_zero", "s_zero", "v_29", "v_255"],
+    ids=["r_zero", "s_zero", "v_zero", "v_29", "v_255"],
 )
 def test_invalid_signature_values(
     transaction_test: TransactionTestFiller,
