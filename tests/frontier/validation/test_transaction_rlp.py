@@ -64,11 +64,21 @@ def tx_fields(tx: Transaction) -> Dict[str, bytes]:
 
 
 def signed_tx(
-    pre: Alloc, fork: Fork, nonce: int = 0, data: bytes = b""
+    pre: Alloc,
+    fork: Fork,
+    nonce: int = 0,
+    data: bytes = b"",
+    funded: bool = True,
 ) -> Transaction:
-    """Build and sign the base type-0 transaction."""
+    """
+    Build and sign the base type-0 transaction.
+
+    Pass `funded=False` when the transaction is only used as an
+    encoding source and never sent, so that the execute mode does not
+    defer funding of a sender that never sends a transaction.
+    """
     return Transaction(
-        sender=pre.fund_eoa(),
+        sender=pre.fund_eoa() if funded else pre.fund_eoa(amount=0),
         to=pre.fund_eoa(amount=0),
         nonce=nonce,
         gas_price=10,
@@ -83,7 +93,9 @@ def signed_tx_fields(
     pre: Alloc, fork: Fork, nonce: int = 0, data: bytes = b""
 ) -> Dict[str, bytes]:
     """Build a signed type-0 transaction and decompose it."""
-    return tx_fields(signed_tx(pre, fork, nonce=nonce, data=data))
+    return tx_fields(
+        signed_tx(pre, fork, nonce=nonce, data=data, funded=False)
+    )
 
 
 def encode_tx(
@@ -106,7 +118,7 @@ def invalid_tx(
 ) -> Transaction:
     """Return a transaction whose serialization is the given raw bytes."""
     tx = Transaction(
-        sender=pre.fund_eoa(),
+        sender=pre.fund_eoa(amount=0),
         to=0,
         gas_price=10,
         gas_limit=30_000,
