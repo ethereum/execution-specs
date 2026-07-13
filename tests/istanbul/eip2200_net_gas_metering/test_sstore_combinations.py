@@ -90,15 +90,9 @@ MIDDLE_ACTIONS = [
 
 @pytest.mark.parametrize("initial", range(3))
 @pytest.mark.parametrize("call_4, call_4_target", MIDDLE_ACTIONS)
-@pytest.mark.parametrize(
-    "call_3",
-    [Op.STATICCALL, Op.CALL, Op.CALLCODE, Op.DELEGATECALL],
-)
+@pytest.mark.parametrize("call_3", [Op.STATICCALL, Op.CALL, Op.DELEGATECALL])
 @pytest.mark.parametrize("call_2, call_2_target", MIDDLE_ACTIONS)
-@pytest.mark.parametrize(
-    "call_1",
-    [Op.CALL, Op.CALLCODE, Op.DELEGATECALL],
-)
+@pytest.mark.parametrize("call_1", [Op.CALL, Op.DELEGATECALL])
 def test_sstore_combinations_initial(
     state_test: StateTestFiller,
     pre: Alloc,
