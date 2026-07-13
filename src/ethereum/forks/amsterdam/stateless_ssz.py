@@ -20,6 +20,8 @@ from ethereum.state import Address, Root
 
 from .blocks import Withdrawal
 from .execution_engine.requests import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
     ConsolidationRequest,
     DepositRequest,
     ExecutionRequests,
@@ -50,6 +52,8 @@ MAX_BLOB_COMMITMENTS_PER_BLOCK = 4096
 MAX_DEPOSIT_REQUESTS_PER_PAYLOAD = 2**13
 MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD = 2**4
 MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD = 2**1
+MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD = 2**6
+MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD = 2**4
 
 # Stateless witness resource bounds.  These are local limits chosen for this
 # schema, not consensus-spec SSZ constants.
@@ -167,6 +171,22 @@ class SszConsolidationRequest(Container):
     target_pubkey: ByteVector[48]
 
 
+class SszBuilderDepositRequest(Container):
+    """SSZ container mirroring ``BuilderDepositRequest``."""
+
+    pubkey: ByteVector[48]
+    withdrawal_credentials: Bytes32
+    amount: uint64
+    signature: ByteVector[96]
+
+
+class SszBuilderExitRequest(Container):
+    """SSZ container mirroring ``BuilderExitRequest``."""
+
+    source_address: ByteVector[20]
+    pubkey: ByteVector[48]
+
+
 class SszExecutionRequests(Container):
     """SSZ container mirroring ``ExecutionRequests``."""
 
@@ -176,6 +196,12 @@ class SszExecutionRequests(Container):
     ]
     consolidations: SszList[
         SszConsolidationRequest, MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD
+    ]
+    builder_deposits: SszList[
+        SszBuilderDepositRequest, MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD
+    ]
+    builder_exits: SszList[
+        SszBuilderExitRequest, MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD
     ]
 
 
@@ -386,6 +412,50 @@ def _ssz_to_consolidation_request(
     )
 
 
+def _builder_deposit_request_to_ssz(
+    b: BuilderDepositRequest,
+) -> SszBuilderDepositRequest:
+    """Convert a BuilderDepositRequest to its SSZ form."""
+    return SszBuilderDepositRequest(
+        pubkey=ByteVector[48](bytes(b.pubkey)),
+        withdrawal_credentials=Bytes32(bytes(b.withdrawal_credentials)),
+        amount=uint64(int(b.amount)),
+        signature=ByteVector[96](bytes(b.signature)),
+    )
+
+
+def _ssz_to_builder_deposit_request(
+    sb: SszBuilderDepositRequest,
+) -> BuilderDepositRequest:
+    """Convert an SSZ builder deposit request back."""
+    return BuilderDepositRequest(
+        pubkey=Bytes48(bytes(sb.pubkey)),
+        withdrawal_credentials=Bytes32(bytes(sb.withdrawal_credentials)),
+        amount=U64(sb.amount),
+        signature=Bytes96(bytes(sb.signature)),
+    )
+
+
+def _builder_exit_request_to_ssz(
+    b: BuilderExitRequest,
+) -> SszBuilderExitRequest:
+    """Convert a BuilderExitRequest to its SSZ form."""
+    return SszBuilderExitRequest(
+        source_address=ByteVector[20](bytes(b.source_address)),
+        pubkey=ByteVector[48](bytes(b.pubkey)),
+    )
+
+
+def _ssz_to_builder_exit_request(
+    sb: SszBuilderExitRequest,
+) -> BuilderExitRequest:
+    """Convert an SSZ builder exit request back."""
+    return BuilderExitRequest(
+        source_address=Address(bytes(sb.source_address)),
+        pubkey=Bytes48(bytes(sb.pubkey)),
+    )
+
+
 def _execution_requests_to_ssz(
     er: ExecutionRequests,
 ) -> SszExecutionRequests:
@@ -400,6 +470,13 @@ def _execution_requests_to_ssz(
         consolidations=SszList[
             SszConsolidationRequest, MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD
         ](_consolidation_request_to_ssz(c) for c in er.consolidations),
+        builder_deposits=SszList[
+            SszBuilderDepositRequest,
+            MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD,
+        ](_builder_deposit_request_to_ssz(b) for b in er.builder_deposits),
+        builder_exits=SszList[
+            SszBuilderExitRequest, MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD
+        ](_builder_exit_request_to_ssz(b) for b in er.builder_exits),
     )
 
 
@@ -414,6 +491,12 @@ def _ssz_to_execution_requests(
         ),
         consolidations=tuple(
             _ssz_to_consolidation_request(sc) for sc in ser.consolidations
+        ),
+        builder_deposits=tuple(
+            _ssz_to_builder_deposit_request(sb) for sb in ser.builder_deposits
+        ),
+        builder_exits=tuple(
+            _ssz_to_builder_exit_request(sb) for sb in ser.builder_exits
         ),
     )
 

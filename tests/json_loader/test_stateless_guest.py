@@ -12,6 +12,8 @@ from ethereum.crypto.hash import Hash32
 from ethereum.forks.amsterdam.block_access_lists import BlockAccessList
 from ethereum.forks.amsterdam.blocks import Block, Header
 from ethereum.forks.amsterdam.execution_engine.requests import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
     DepositRequest,
     ExecutionRequests,
 )
@@ -152,6 +154,22 @@ def _make_deposit_request() -> DepositRequest:
     )
 
 
+def _make_builder_deposit_request() -> BuilderDepositRequest:
+    return BuilderDepositRequest(
+        pubkey=Bytes48(_rb(48)),
+        withdrawal_credentials=Bytes32(_rb(32)),
+        amount=U64(_RNG.randint(0, 2**64 - 1)),
+        signature=Bytes96(_rb(96)),
+    )
+
+
+def _make_builder_exit_request() -> BuilderExitRequest:
+    return BuilderExitRequest(
+        source_address=Address(_rb(20)),
+        pubkey=Bytes48(_rb(48)),
+    )
+
+
 def _make_stateless_input() -> StatelessInput:
     versioned_hashes: Tuple[Hash32, ...] = (Hash32(_rb(32)), Hash32(_rb(32)))
     return StatelessInput(
@@ -166,6 +184,8 @@ def _make_stateless_input() -> StatelessInput:
                 ),
                 withdrawals=(),
                 consolidations=(),
+                builder_deposits=(_make_builder_deposit_request(),),
+                builder_exits=(_make_builder_exit_request(),),
             ),
         ),
         witness=ExecutionWitness(
@@ -213,6 +233,8 @@ class TestBuildStatelessInput:
                 deposits=(),
                 withdrawals=(),
                 consolidations=(),
+                builder_deposits=(),
+                builder_exits=(),
             ),
             block_access_list=block_access_list,
             chain_id=U64(123),
@@ -258,6 +280,8 @@ class TestBuildStatelessInput:
                 deposits=(),
                 withdrawals=(),
                 consolidations=(),
+                builder_deposits=(),
+                builder_exits=(),
             ),
             block_access_list=[],
             chain_id=U64(1),
@@ -290,6 +314,8 @@ class TestSerializeStatelessInput:
                     deposits=(),
                     withdrawals=(),
                     consolidations=(),
+                    builder_deposits=(),
+                    builder_exits=(),
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
@@ -336,6 +362,8 @@ class TestDeserializeStatelessInput:
                     deposits=(),
                     withdrawals=(),
                     consolidations=(),
+                    builder_deposits=(),
+                    builder_exits=(),
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
