@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import tarfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).parent.parent
@@ -259,6 +260,21 @@ class TestCheckNewCommits:
         assert result.stdout.strip() == "run=true"
         assert "no previous successful" in summary.read_text()
 
+    @staticmethod
+    def runs_json(age: timedelta, head_sha: str = "b" * 40) -> str:
+        """Return a last-successful-run response created *age* ago."""
+        created = datetime.now(timezone.utc) - age
+        return json.dumps(
+            {
+                "workflow_runs": [
+                    {
+                        "head_sha": head_sha,
+                        "created_at": created.isoformat(),
+                    }
+                ]
+            }
+        )
+
     def test_schedule_with_new_commits_runs(self, tmp_path):
         """Verify new commits since the baseline trigger a run."""
         commit = {
@@ -268,7 +284,7 @@ class TestCheckNewCommits:
         result, summary = self.run_check(
             tmp_path,
             "schedule",
-            runs=json.dumps({"workflow_runs": [{"head_sha": "a" * 40}]}),
+            runs=self.runs_json(timedelta(hours=25), head_sha="a" * 40),
             compare=json.dumps({"commits": [commit]}),
         )
         assert result.returncode == 0
@@ -280,16 +296,29 @@ class TestCheckNewCommits:
         assert "body" not in text
 
     def test_schedule_without_new_commits_skips(self, tmp_path):
-        """Verify no commits since the baseline skips the run."""
+        """Verify no commits since a recent baseline skips the run."""
         result, summary = self.run_check(
             tmp_path,
             "schedule",
-            runs=json.dumps({"workflow_runs": [{"head_sha": "b" * 40}]}),
+            # Just inside the refresh age: pin the four-day boundary.
+            runs=self.runs_json(timedelta(days=3, hours=23)),
             compare=json.dumps({"commits": []}),
         )
         assert result.returncode == 0
         assert result.stdout.strip() == "run=false"
         assert "skipping" in summary.read_text()
+
+    def test_schedule_stale_quiet_baseline_refreshes(self, tmp_path):
+        """Verify a quiet nightly re-runs once its artifact nears expiry."""
+        result, summary = self.run_check(
+            tmp_path,
+            "schedule",
+            runs=self.runs_json(timedelta(days=4, hours=1)),
+            compare=json.dumps({"commits": []}),
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == "run=true"
+        assert "refreshing" in summary.read_text()
 
     def test_gh_failure_fails_the_check(self, tmp_path):
         """Verify a failing `gh` call fails the script."""

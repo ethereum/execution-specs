@@ -16,6 +16,11 @@ unfilled; filtering on scheduled runs means manual releases never
 advance the nightly baseline. Manual (`workflow_dispatch`) runs always
 run.
 
+A quiet stretch with no new commits still refreshes: once the last
+successful fill is `REFRESH_AGE` old, the nightly re-runs anyway, so a
+live artifact always exists within the workflow's five-day retention
+and the release pipeline keeps getting exercised.
+
 Read `GITHUB_EVENT_NAME`, `GITHUB_REPOSITORY` and `GITHUB_SHA` from the
 environment and query the GitHub API via the `gh` CLI (authenticated by
 `GH_TOKEN`). Print `run=true|false` to stdout for `$GITHUB_OUTPUT` and
@@ -27,8 +32,14 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 
 WORKFLOW_FILE = "release_fixtures.yaml"
+
+# Re-run a quiet nightly once the last successful fill is this old, so
+# a fresh artifact is uploaded before the previous one lapses (the
+# workflow retains scheduled tarballs for five days).
+REFRESH_AGE = timedelta(days=4)
 
 
 def gh_api(path: str) -> str:
@@ -43,15 +54,28 @@ def gh_api(path: str) -> str:
     return result.stdout
 
 
-def last_successful_nightly_sha(repository: str) -> str:
-    """Return the head SHA of the last successful scheduled run."""
+def last_successful_nightly(repository: str) -> tuple[str, str]:
+    """
+    Return the head SHA and creation time of the last scheduled run.
+
+    Only successful scheduled runs count; return empty strings when
+    none exists yet.
+    """
     runs = json.loads(
         gh_api(
             f"repos/{repository}/actions/workflows/{WORKFLOW_FILE}"
             "/runs?status=success&event=schedule&per_page=1"
         )
     )["workflow_runs"]
-    return str(runs[0]["head_sha"]) if runs else ""
+    if not runs:
+        return "", ""
+    return str(runs[0]["head_sha"]), str(runs[0]["created_at"])
+
+
+def is_stale(created_at: str) -> bool:
+    """Return whether a run created at *created_at* is due a refresh."""
+    created = datetime.fromisoformat(created_at)
+    return datetime.now(timezone.utc) - created >= REFRESH_AGE
 
 
 def commits_since(repository: str, last_sha: str, head_sha: str) -> list[str]:
@@ -85,7 +109,7 @@ def main() -> None:
     repository = os.environ["GITHUB_REPOSITORY"]
     head_sha = os.environ["GITHUB_SHA"]
 
-    last_sha = last_successful_nightly_sha(repository)
+    last_sha, last_created = last_successful_nightly(repository)
     if last_sha:
         commits = commits_since(repository, last_sha, head_sha)
     else:
@@ -97,6 +121,13 @@ def main() -> None:
         append_summary(
             "### Commits since last successful nightly fill\n"
             + "\n".join(commits)
+        )
+    elif is_stale(last_created):
+        print("run=true")
+        append_summary(
+            "No new commits, but the last nightly fill is older than "
+            f"{REFRESH_AGE.days} days; refreshing before its artifact "
+            "retention lapses."
         )
     else:
         print("run=false")

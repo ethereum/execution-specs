@@ -181,9 +181,10 @@ jobs:
         with:
           name: fixtures_${{ needs.setup.outputs.feature_name }}
           path: ${{ steps.tarball.outputs.path }}
-          # Keep roughly the last five nightly tarballs; release tarballs
-          # keep the repo default since the release job attaches them to a
-          # draft release anyway.
+          # Keep nightly tarballs for five days; a quiet nightly re-runs
+          # after four (see check_new_commits.py), so a live artifact
+          # always exists. Release tarballs keep the repo default since
+          # the release job attaches them to a draft release anyway.
           retention-days: ${{ github.event_name == 'schedule' && '5' || '' }}
 
   release:
