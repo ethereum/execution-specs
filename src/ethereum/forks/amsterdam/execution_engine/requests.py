@@ -2,11 +2,8 @@
 Typed execution-layer requests and engine-API wire-form codecs.
 
 The consensus layer defines ``ExecutionRequests`` as a typed Container
-holding ``deposits``, ``withdrawals``, and ``consolidations`` lists. At
-the engine-API boundary, that Container is flattened to a tuple of
-opaque blobs of the form ``TYPE_BYTE || concat(serialize(item))``,
-ordered ascending by type. This module exposes the typed Container and
-the boundary codecs (mirrors CL's ``get_execution_requests_list()``).
+holding deposit, withdrawal, consolidation, builder deposit, and builder exit
+lists.
 """
 
 from dataclasses import dataclass
@@ -20,6 +17,8 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.state import Address
 
 from ..requests import (
+    BUILDER_DEPOSIT_REQUEST_TYPE,
+    BUILDER_EXIT_REQUEST_TYPE,
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
     WITHDRAWAL_REQUEST_TYPE,
@@ -28,6 +27,8 @@ from ..requests import (
 DEPOSIT_REQUEST_SIZE = 48 + 32 + 8 + 96 + 8
 WITHDRAWAL_REQUEST_SIZE = 20 + 48 + 8
 CONSOLIDATION_REQUEST_SIZE = 20 + 48 + 48
+BUILDER_DEPOSIT_REQUEST_SIZE = 184
+BUILDER_EXIT_REQUEST_SIZE = 68
 
 
 @final
@@ -68,6 +69,28 @@ class ConsolidationRequest:
 @final
 @slotted_freezable
 @dataclass
+class BuilderDepositRequest:
+    """A single EIP-8282 builder deposit request."""
+
+    pubkey: Bytes48
+    withdrawal_credentials: Bytes32
+    amount: U64
+    signature: Bytes96
+
+
+@final
+@slotted_freezable
+@dataclass
+class BuilderExitRequest:
+    """A single EIP-8282 builder exit request."""
+
+    source_address: Address
+    pubkey: Bytes48
+
+
+@final
+@slotted_freezable
+@dataclass
 class ExecutionRequests:
     """
     Typed engine-API container of execution-layer triggered requests.
@@ -78,6 +101,8 @@ class ExecutionRequests:
     deposits: Tuple[DepositRequest, ...]
     withdrawals: Tuple[WithdrawalRequest, ...]
     consolidations: Tuple[ConsolidationRequest, ...]
+    builder_deposits: Tuple[BuilderDepositRequest, ...]
+    builder_exits: Tuple[BuilderExitRequest, ...]
 
 
 def _encode_deposit(d: DepositRequest) -> Bytes:
@@ -106,6 +131,19 @@ def _encode_consolidation(c: ConsolidationRequest) -> Bytes:
     )
 
 
+def _encode_builder_deposit(b: BuilderDepositRequest) -> Bytes:
+    return Bytes(
+        bytes(b.pubkey)
+        + bytes(b.withdrawal_credentials)
+        + bytes(b.amount.to_le_bytes8())
+        + bytes(b.signature)
+    )
+
+
+def _encode_builder_exit(b: BuilderExitRequest) -> Bytes:
+    return Bytes(bytes(b.source_address) + bytes(b.pubkey))
+
+
 def _decode_deposit(payload: Bytes) -> DepositRequest:
     return DepositRequest(
         pubkey=Bytes48(payload[0:48]),
@@ -132,6 +170,22 @@ def _decode_consolidation(payload: Bytes) -> ConsolidationRequest:
     )
 
 
+def _decode_builder_deposit(payload: Bytes) -> BuilderDepositRequest:
+    return BuilderDepositRequest(
+        pubkey=Bytes48(payload[0:48]),
+        withdrawal_credentials=Bytes32(payload[48:80]),
+        amount=U64.from_le_bytes(payload[80:88]),
+        signature=Bytes96(payload[88:184]),
+    )
+
+
+def _decode_builder_exit(payload: Bytes) -> BuilderExitRequest:
+    return BuilderExitRequest(
+        source_address=Address(payload[0:20]),
+        pubkey=Bytes48(payload[20:68]),
+    )
+
+
 def encode_execution_requests(
     requests: ExecutionRequests,
 ) -> Tuple[Bytes, ...]:
@@ -155,6 +209,16 @@ def encode_execution_requests(
             _encode_consolidation(c) for c in requests.consolidations
         )
         output.append(Bytes(CONSOLIDATION_REQUEST_TYPE + body))
+    if requests.builder_deposits:
+        body = b"".join(
+            _encode_builder_deposit(b) for b in requests.builder_deposits
+        )
+        output.append(Bytes(BUILDER_DEPOSIT_REQUEST_TYPE + body))
+    if requests.builder_exits:
+        body = b"".join(
+            _encode_builder_exit(b) for b in requests.builder_exits
+        )
+        output.append(Bytes(BUILDER_EXIT_REQUEST_TYPE + body))
     return tuple(output)
 
 
@@ -171,6 +235,8 @@ def decode_execution_requests(
     deposits: Tuple[DepositRequest, ...] = ()
     withdrawals: Tuple[WithdrawalRequest, ...] = ()
     consolidations: Tuple[ConsolidationRequest, ...] = ()
+    builder_deposits: Tuple[BuilderDepositRequest, ...] = ()
+    builder_exits: Tuple[BuilderExitRequest, ...] = ()
 
     last_type = -1
     for blob in wire:
@@ -212,6 +278,28 @@ def decode_execution_requests(
                 )
                 for i in range(0, len(body), CONSOLIDATION_REQUEST_SIZE)
             )
+        elif type_byte == BUILDER_DEPOSIT_REQUEST_TYPE:
+            if len(body) % BUILDER_DEPOSIT_REQUEST_SIZE != 0:
+                raise InvalidBlock(
+                    "Invalid builder deposit request payload length"
+                )
+            builder_deposits = tuple(
+                _decode_builder_deposit(
+                    Bytes(body[i : i + BUILDER_DEPOSIT_REQUEST_SIZE])
+                )
+                for i in range(0, len(body), BUILDER_DEPOSIT_REQUEST_SIZE)
+            )
+        elif type_byte == BUILDER_EXIT_REQUEST_TYPE:
+            if len(body) % BUILDER_EXIT_REQUEST_SIZE != 0:
+                raise InvalidBlock(
+                    "Invalid builder exit request payload length"
+                )
+            builder_exits = tuple(
+                _decode_builder_exit(
+                    Bytes(body[i : i + BUILDER_EXIT_REQUEST_SIZE])
+                )
+                for i in range(0, len(body), BUILDER_EXIT_REQUEST_SIZE)
+            )
         else:
             raise InvalidBlock(
                 f"Unknown execution request type byte {type_byte!r}"
@@ -221,4 +309,6 @@ def decode_execution_requests(
         deposits=deposits,
         withdrawals=withdrawals,
         consolidations=consolidations,
+        builder_deposits=builder_deposits,
+        builder_exits=builder_exits,
     )
