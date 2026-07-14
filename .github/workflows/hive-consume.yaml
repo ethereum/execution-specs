@@ -65,6 +65,9 @@ concurrency:
 env:
   # Use direct URL instead of release spec (e.g., develop@v5.3.0) to avoid GitHub API rate limits
   FIXTURES_URL: https://github.com/ethereum/execution-spec-tests/releases/download/v5.3.0/fixtures_develop.tar.gz
+  # Temporary (revert before merge): bypass the uv cache so this PR's CI
+  # proves that all dependencies install as wheels without a toolchain.
+  UV_NO_CACHE: "1"
 
 jobs:
   cache-docker-images:
