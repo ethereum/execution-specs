@@ -19,6 +19,10 @@ from execution_testing import (
     Transaction,
 )
 
+from tests.benchmark.helper.delegation import (
+    build_delegated_storage_setup,
+    run_bloated_eoa_benchmark,
+)
 from tests.benchmark.helper.enums import CacheStrategy
     START_SLOT,
     CacheStrategy,

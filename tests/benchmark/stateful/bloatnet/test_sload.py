@@ -27,6 +27,11 @@ from execution_testing import (
     While,
 )
 
+from tests.benchmark.helper.delegation import (
+    build_delegated_storage_setup,
+    delegate_with_calldata,
+    run_bloated_eoa_benchmark,
+)
 from tests.benchmark.helper.enums import CacheStrategy
     START_SLOT,
     CacheStrategy,
