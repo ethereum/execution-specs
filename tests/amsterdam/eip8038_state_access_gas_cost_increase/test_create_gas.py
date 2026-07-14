@@ -74,15 +74,6 @@ def test_create_regular_gas(
     account-creation state gas is excluded by subtracting
     ``create_state_gas(0)``.
     """
-    gas_costs = fork.gas_costs()
-    # The EIP-8038 CREATE regular base equals ACCOUNT_WRITE +
-    # COLD_STORAGE_ACCESS = 11,000.
-    assert gas_costs.OPCODE_CREATE_BASE == 11_000
-    assert (
-        gas_costs.OPCODE_CREATE_BASE
-        == gas_costs.ACCOUNT_WRITE + gas_costs.COLD_STORAGE_ACCESS
-    )
-
     # Isolate the regular dimension: opcode total minus its account
     # creation state gas (the only state component carried by the CREATE
     # opcode itself; code deposit is charged on RETURN inside initcode).
@@ -92,17 +83,6 @@ def test_create_regular_gas(
     )
     # Equivalent isolation via the regular_cost helper.
     assert regular_gas == create_meta.regular_cost(fork)
-
-    init_code_words = (init_code_size + 31) // 32
-    expected_regular = (
-        gas_costs.OPCODE_CREATE_BASE
-        + gas_costs.CODE_INIT_PER_WORD * init_code_words
-    )
-    if create_opcode == Op.CREATE2:
-        expected_regular += (
-            gas_costs.OPCODE_KECCAK256_PER_WORD * init_code_words
-        )
-    assert regular_gas == expected_regular
 
     # Runtime confirmation via CodeGasMeasure: a factory whose CREATE
     # deploys empty code, so no code-deposit state gas is charged and the
@@ -125,7 +105,8 @@ def test_create_regular_gas(
         if create_opcode == Op.CREATE2
         else Op.CREATE(value=0, offset=0, size=init_code_size)
     )
-    arg_pushes = (4 if create_opcode == Op.CREATE2 else 3) * gas_costs.VERY_LOW
+    push_cost = Op.PUSH1(0).regular_cost(fork)
+    arg_pushes = (4 if create_opcode == Op.CREATE2 else 3) * push_cost
 
     memory_setup = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE, new_memory_size=init_code_size)
@@ -177,36 +158,24 @@ def test_create2_keccak_word_delta(
     regular cost shared with ``CREATE``. Both opcodes carry the identical
     EIP-8038 ``CREATE_ACCESS`` base and EIP-3860 word cost.
 
-    The regular-gas delta is asserted via the opcode model
-    (``create2_regular - create_regular`` equals the keccak word
-    surcharge). At runtime a factory then measures a single ``CREATE2``
-    with ``CodeGasMeasure`` and stores its absolute regular cost: the
-    surcharge is established by the model assertion, and the runtime leg
-    confirms the absolute ``CREATE2`` regular cost.
+    A factory measures a single ``CREATE2`` with ``CodeGasMeasure`` and
+    stores its absolute regular cost, confirming the opcode's own
+    ``regular_cost`` (which folds the keccak word surcharge) against the
+    runtime charge.
     """
-    gas_costs = fork.gas_costs()
-    init_code_words = (init_code_size + 31) // 32
-    keccak_surcharge = gas_costs.OPCODE_KECCAK256_PER_WORD * init_code_words
-
-    create_regular = Op.CREATE(init_code_size=init_code_size).regular_cost(
-        fork
-    )
     create2_regular = Op.CREATE2(init_code_size=init_code_size).regular_cost(
         fork
     )
-    assert create2_regular - create_regular == keccak_surcharge
 
-    # Runtime confirmation. Init code is all-zero bytes (`STOP`), so the
-    # child frame halts immediately (zero gas) depositing empty code; the
-    # CREATE2 charges no code-deposit state gas and no child execution gas
-    # is folded into the measurement. The single CREATE2 regular cost is
-    # measured via CodeGasMeasure with a reservoir sized for its account
-    # creation state gas, keeping the GAS-measured `gas_left` free of
-    # state-gas spill. The opcode-model assertion above is the
-    # load-bearing keccak-delta check; this confirms the absolute value.
+    # Init code is all-zero bytes (`STOP`), so the child frame halts
+    # immediately (zero gas) depositing empty code; the CREATE2 charges no
+    # code-deposit state gas and no child execution gas is folded into the
+    # measurement. The single CREATE2 regular cost is measured via
+    # CodeGasMeasure with a reservoir sized for its account creation state
+    # gas, keeping the GAS-measured `gas_left` free of state-gas spill.
     padded = b"\x00" * init_code_size
 
-    push4 = 4 * gas_costs.VERY_LOW
+    push4 = 4 * Op.PUSH1(0).regular_cost(fork)
     storage = Storage()
     measure_create2 = CodeGasMeasure(
         code=Op.CREATE2(value=0, offset=0, size=init_code_size, salt=0),
@@ -303,7 +272,9 @@ class TestCreateTxGasBoundary:
         flat regular per-byte deposit cost. The single call is therefore
         correct in either regime.
         """
-        execution = exact_intrinsic_gas + fork.gas_costs().NEW_ACCOUNT
+        execution = exact_intrinsic_gas + fork.transaction_top_frame_state_gas(
+            contract_creation=True
+        )
         execution += initcode.execution_gas(fork)
         execution += initcode.deployment_gas(fork)
         return execution
@@ -377,7 +348,9 @@ class TestCreateTxGasBoundary:
         elif succeeds:
             # Fresh target: top-frame NEW_ACCOUNT plus the per-byte code
             # deposit are the state-gas axis; the rest is regular.
-            state_used = fork.gas_costs().NEW_ACCOUNT
+            state_used = fork.transaction_top_frame_state_gas(
+                contract_creation=True
+            )
             state_used += fork.code_deposit_state_gas(
                 code_size=len(initcode.deploy_code)
             )

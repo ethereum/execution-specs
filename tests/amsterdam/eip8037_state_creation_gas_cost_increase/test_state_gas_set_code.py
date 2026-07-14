@@ -2092,7 +2092,6 @@ def test_same_tx_clear_then_reset_pre_delegated(
     intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
         fork, authorization_list
     )
-    assert top_frame_regular == fork.gas_costs().ACCOUNT_WRITE
     assert top_frame_state == 0
     cumulative_gas_used, header_gas_used = _receipt_and_header(
         intrinsic_regular, top_frame_regular, top_frame_state

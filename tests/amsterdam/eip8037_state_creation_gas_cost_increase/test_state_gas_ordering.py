@@ -43,11 +43,7 @@ def _single_sstore_probe_gas(fork: Fork) -> int:
 
     The probe bytecode is Op.SSTORE(0, 1): two pushes + SSTORE.
     """
-    gas_costs = fork.gas_costs()
-    sstore_regular = gas_costs.COLD_STORAGE_WRITE
-    sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
-    push_gas = 2 * gas_costs.VERY_LOW
-    return push_gas + sstore_regular + sstore_state - 1
+    return Op.SSTORE(0, 1).gas_cost(fork) - 1
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -69,7 +65,6 @@ def test_sstore_oog_reservoir_inflation_detection(
     With wrong ordering (state gas first): reservoir is inflated,
     probe succeeds.
     """
-    gas_costs = fork.gas_costs()
     initcode = Initcode(deploy_code=Op.STOP)
     initcode_len = len(initcode)
 
@@ -105,14 +100,13 @@ def test_sstore_oog_reservoir_inflation_detection(
 
     # Compute probe gas: enough for 4 SSTOREs' regular gas + pushes,
     # but after 4th regular charge, gas_left < the state gas spill.
-    sstore_regular = gas_costs.COLD_STORAGE_WRITE
     sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
-    push_per_sstore = 2 * gas_costs.VERY_LOW
+    sstore_regular = Op.SSTORE(0, 1).regular_cost(fork)
     create_state_gas = fork.create_state_gas(
         code_size=len(initcode.deploy_code)
     )
     spill = 4 * sstore_state - create_state_gas
-    probe_gas = 4 * (push_per_sstore + sstore_regular) + spill // 2
+    probe_gas = 4 * sstore_regular + spill // 2
 
     caller_storage = Storage()
     caller = pre.deploy_contract(
@@ -165,9 +159,6 @@ def test_call_oog_reservoir_inflation_detection(
     A single-SSTORE probe detects the inflation: with correct reservoir
     (0) it OOGs; with inflated reservoir it succeeds.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     dead_address = 0xDEAD
     child_code = Op.CALL(
         gas=0,
@@ -177,10 +168,12 @@ def test_call_oog_reservoir_inflation_detection(
         args_size=0,
         ret_offset=0,
         ret_size=0,
+        value_transfer=True,
+        account_new=True,
     )
-    pushes_gas = 7 * gas_costs.VERY_LOW
-    call_regular_gas = gas_costs.COLD_ACCOUNT_ACCESS + gas_costs.CALL_VALUE
-    child_gas = pushes_gas + call_regular_gas + new_account_state_gas - 1
+    # One gas short of the CALL's full cost (regular plus the NEW_ACCOUNT
+    # state charge), so it OOGs on the account-creation charge.
+    child_gas = child_code.gas_cost(fork) - 1
     child = pre.deploy_contract(child_code)
 
     probe = pre.deploy_contract(Op.SSTORE(0, 1))
@@ -221,18 +214,11 @@ def test_selfdestruct_oog_reservoir_inflation_detection(
 
     Single-SSTORE probe detects the inflation.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     dead_beneficiary = 0xBEEF
-    child_code = Op.SELFDESTRUCT(dead_beneficiary)
-    pushes_gas = gas_costs.VERY_LOW
-    selfdestruct_regular_gas = (
-        gas_costs.OPCODE_SELFDESTRUCT_BASE + gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    child_gas = (
-        pushes_gas + selfdestruct_regular_gas + new_account_state_gas - 1
-    )
+    child_code = Op.SELFDESTRUCT(dead_beneficiary, account_new=True)
+    # One gas short of the SELFDESTRUCT's full cost (regular plus the
+    # NEW_ACCOUNT state charge), so it OOGs on the account-creation charge.
+    child_gas = child_code.gas_cost(fork) - 1
     child = pre.deploy_contract(child_code, balance=1)
 
     probe = pre.deploy_contract(Op.SSTORE(0, 1))
@@ -280,39 +266,32 @@ def test_create_oog_reservoir_inflation_detection(
     (empty initcode) and `oog_on_init_code_word_cost` (32-byte
     initcode).
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     if oog_step == "create_base":
         initcode_size = 0
-        setup_gas = 0
-        init_code_word_cost = 0
     else:
         initcode_size = WORD_SIZE
-        setup_gas = (
-            Op.MSTORE.popped_stack_items * gas_costs.VERY_LOW
-            + gas_costs.OPCODE_MSTORE_BASE
-            + gas_costs.MEMORY_PER_WORD
-        )
-        init_code_word_cost = gas_costs.CODE_INIT_PER_WORD
 
     if create_opcode == Op.CREATE:
-        create_op = create_opcode(value=0, offset=0, size=initcode_size)
+        create_op = create_opcode(
+            value=0, offset=0, size=initcode_size, init_code_size=initcode_size
+        )
     else:
         create_op = create_opcode(
-            value=0, offset=0, size=initcode_size, salt=0
+            value=0,
+            offset=0,
+            size=initcode_size,
+            salt=0,
+            init_code_size=initcode_size,
         )
-    pushes_gas = create_opcode.popped_stack_items * gas_costs.VERY_LOW
 
     if oog_step == "create_base":
         child_code = create_op
     else:
-        child_code = Op.MSTORE(0, 0) + create_op
+        child_code = Op.MSTORE(0, 0, new_memory_size=WORD_SIZE) + create_op
 
-    create_regular_gas = gas_costs.OPCODE_CREATE_BASE + init_code_word_cost
-    child_gas = (
-        setup_gas + pushes_gas + create_regular_gas + new_account_state_gas - 1
-    )
+    # One gas short of the CREATE's full cost (regular plus the NEW_ACCOUNT
+    # state charge), so it OOGs on the account-creation charge.
+    child_gas = child_code.gas_cost(fork) - 1
     child = pre.deploy_contract(child_code)
 
     probe = pre.deploy_contract(Op.SSTORE(0, 1))
@@ -358,40 +337,33 @@ def test_create_oog_full_burn_no_state_credit(
     Verify a CREATE OOG inside a non-creation tx burns the whole
     tx gas_limit — no state-gas leftover is credited at tx-end.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     if oog_step == "create_base":
         initcode_size = 0
-        setup_gas = 0
-        init_code_word_cost = 0
     else:
         initcode_size = WORD_SIZE
-        setup_gas = (
-            2 * gas_costs.VERY_LOW
-            + gas_costs.OPCODE_MSTORE_BASE
-            + gas_costs.MEMORY_PER_WORD
-        )
-        init_code_word_cost = gas_costs.CODE_INIT_PER_WORD
 
     if create_opcode == Op.CREATE:
-        create_op = create_opcode(value=0, offset=0, size=initcode_size)
+        create_op = create_opcode(
+            value=0, offset=0, size=initcode_size, init_code_size=initcode_size
+        )
     else:
         create_op = create_opcode(
-            value=0, offset=0, size=initcode_size, salt=0
+            value=0,
+            offset=0,
+            size=initcode_size,
+            salt=0,
+            init_code_size=initcode_size,
         )
-    pushes_gas = create_opcode.popped_stack_items * gas_costs.VERY_LOW
 
     if oog_step == "create_base":
         factory_code = create_op
     else:
-        factory_code = Op.MSTORE(0, 0) + create_op
+        factory_code = Op.MSTORE(0, 0, new_memory_size=WORD_SIZE) + create_op
     factory = pre.deploy_contract(factory_code)
 
-    create_regular_gas = gas_costs.OPCODE_CREATE_BASE + init_code_word_cost
-    body_gas = (
-        setup_gas + pushes_gas + create_regular_gas + new_account_state_gas - 1
-    )
+    # One gas short of the CREATE's full cost (regular plus the NEW_ACCOUNT
+    # state charge), so it OOGs on the account-creation charge.
+    body_gas = factory_code.gas_cost(fork) - 1
 
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     tx_gas_limit = intrinsic_calc() + body_gas

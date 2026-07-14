@@ -436,8 +436,7 @@ def test_sstore_stipend_check_excludes_reservoir(
     With below_stipend: SSTORE fails (gas_left too low, reservoir ignored).
     With at_stipend: SSTORE has full regular gas and proceeds.
     """
-    gas_costs = fork.gas_costs()
-    stipend = gas_costs.CALL_STIPEND + 1
+    stipend = fork.call_value_stipend() + 1
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child: Op.SSTORE(0, 1) = 2 pushes + SSTORE opcode.
@@ -446,12 +445,12 @@ def test_sstore_stipend_check_excludes_reservoir(
 
     # Full regular gas for the child (pushes + SSTORE regular cost).
     # State gas comes from the reservoir so it doesn't affect gas_left.
-    child_full_regular = child_code.gas_cost(fork) - sstore_state_gas
+    child_full_regular = child_code.regular_cost(fork)
 
     # below_stipend: give 1 less than stipend after pushes, fails check.
     # at_stipend: give full regular gas, passes check and completes.
     if gas_above_stipend < 0:
-        push_gas = 2 * gas_costs.VERY_LOW
+        push_gas = 2 * Op.PUSH1(0).regular_cost(fork)
         child_gas = push_gas + stipend - 1
     else:
         child_gas = child_full_regular
@@ -812,14 +811,8 @@ def test_sstore_restoration_charge_in_ancestor(
     refund must propagate up the chain to the ancestor that charged
     the 0 to x.  A probe SSTORE sized to OOG by 1 detects any loss.
     """
-    gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    probe_gas = (
-        2 * gas_costs.VERY_LOW
-        + gas_costs.COLD_STORAGE_WRITE
-        + sstore_state_gas
-        - 1
-    )
+    probe_gas = Op.SSTORE(0, 1).gas_cost(fork) - 1
 
     # Innermost frame does x to 0; each hop above delegates down.
     delegate_target = pre.deploy_contract(
@@ -885,15 +878,9 @@ def test_sstore_restoration_sub_frame_revert(
     to OOG by 1 then fails, since its fixed forwarded gas cannot reach
     the `gas_left` refund.
     """
-    gas_costs = fork.gas_costs()
     # Probe SSTORE(0, 1): 2 pushes + cold write + state gas - 1. OOGs by
     # 1 when the reservoir is 0, as forwarded gas misses gas_left.
-    probe_gas = (
-        2 * gas_costs.VERY_LOW
-        + gas_costs.COLD_STORAGE_WRITE
-        + Op.SSTORE(new_value=1).state_cost(fork)
-        - 1
-    )
+    probe_gas = Op.SSTORE(0, 1).gas_cost(fork) - 1
 
     child_code = Op.SSTORE(0, 1) + Op.SSTORE(0, 0) + Op.REVERT(0, 0)
     child = pre.deploy_contract(code=child_code)
@@ -940,16 +927,10 @@ def test_sstore_restoration_ancestor_revert(
     sized to OOG by 1 fails, since its fixed forwarded gas cannot reach
     the `gas_left` refund.
     """
-    gas_costs = fork.gas_costs()
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     # Probe SSTORE(0, 1): 2 pushes + cold write + state gas - 1. OOGs by
     # 1 when the reservoir is 0, as forwarded gas misses gas_left.
-    probe_gas = (
-        2 * gas_costs.VERY_LOW
-        + gas_costs.COLD_STORAGE_WRITE
-        + Op.SSTORE(new_value=1).state_cost(fork)
-        - 1
-    )
+    probe_gas = Op.SSTORE(0, 1).gas_cost(fork) - 1
 
     set_op = Op.SSTORE.with_metadata(
         key_warm=False,
@@ -1039,17 +1020,11 @@ def test_sstore_restoration_charge_in_ancestor_intermediate_revert(
     amount must reach the caller via `incorporate_child_on_error`.
     A probe SSTORE sized to OOG by 1 detects loss.
     """
-    gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     # Probe SSTORE(0, 1): 2 pushes + cold storage write + state gas - 1,
     # so it OOGs by 1 when the reservoir is 0 and succeeds otherwise.
-    probe_gas = (
-        2 * gas_costs.VERY_LOW
-        + gas_costs.COLD_STORAGE_WRITE
-        + sstore_state_gas
-        - 1
-    )
+    probe_gas = Op.SSTORE(0, 1).gas_cost(fork) - 1
 
     inner_code = (
         Op.SSTORE.with_metadata(
@@ -1137,15 +1112,9 @@ def test_sstore_restoration_create_init_revert(
     fails, since its fixed forwarded gas cannot reach the `gas_left`
     refund.
     """
-    gas_costs = fork.gas_costs()
     # Probe SSTORE(0, 1): 2 pushes + cold write + state gas - 1. OOGs by
     # 1 when the reservoir is 0, as forwarded gas misses gas_left.
-    probe_gas = (
-        2 * gas_costs.VERY_LOW
-        + gas_costs.COLD_STORAGE_WRITE
-        + Op.SSTORE(new_value=1).state_cost(fork)
-        - 1
-    )
+    probe_gas = Op.SSTORE(0, 1).gas_cost(fork) - 1
 
     init_code = Op.SSTORE(0, 1) + Op.SSTORE(0, 0) + Op.REVERT(0, 0)
     probe = pre.deploy_contract(code=Op.SSTORE(0, 1))

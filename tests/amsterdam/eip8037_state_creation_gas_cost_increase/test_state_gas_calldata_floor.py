@@ -157,33 +157,29 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     exceeds_cap: one byte more tips the floor over the cap —
     transaction rejected.
     """
-    gas_costs = fork.gas_costs()
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None
     floor_cost = fork.transaction_data_floor_cost_calculator()
 
-    floor_token = gas_costs.TX_DATA_TOKEN_FLOOR
-    # EIP-2780 anchors the floor on the decomposed intrinsic base; the tx
-    # targets a contract, so the base includes the recipient-access charge.
-    floor_base = gas_costs.TX_BASE + gas_costs.COLD_ACCOUNT_ACCESS
-    max_tokens = (cap - floor_base) // floor_token
+    # Binary-search the largest all-nonzero calldata whose floor cost fits
+    # within the gas cap; `exceeds_cap` adds one more byte to tip the floor
+    # over. Driven by the floor calculator directly so it tracks the
+    # per-byte token pricing across forks.
+    def floor_fits(num_bytes: int) -> bool:
+        return floor_cost(data=b"\x01" * num_bytes) <= cap
 
-    if fork.is_eip_enabled(7976):
-        # EIP-7976: all bytes contribute 4 floor tokens regardless of
-        # value, so the token count is len(data) * 4.
-        tokens_per_byte = 4
-        max_bytes = max_tokens // tokens_per_byte
-        if exceeds_cap:
-            max_bytes += 1
-        calldata = b"\x01" * max_bytes
-    else:
-        # EIP-7623: non-zero bytes contribute 4 tokens, zero bytes 1.
-        tokens_per_nonzero = 4
-        nonzero_bytes = max_tokens // tokens_per_nonzero
-        zero_bytes = max_tokens - nonzero_bytes * tokens_per_nonzero
-        if exceeds_cap:
-            zero_bytes += 1
-        calldata = b"\x01" * nonzero_bytes + b"\x00" * zero_bytes
+    high = 1
+    while floor_fits(high):
+        high *= 2
+    low = high // 2
+    while low < high:
+        mid = (low + high + 1) // 2
+        if floor_fits(mid):
+            low = mid
+        else:
+            high = mid - 1
+    max_bytes = low + 1 if exceeds_cap else low
+    calldata = b"\x01" * max_bytes
 
     contract = pre.deploy_contract(Op.STOP)
     floor = floor_cost(data=calldata)

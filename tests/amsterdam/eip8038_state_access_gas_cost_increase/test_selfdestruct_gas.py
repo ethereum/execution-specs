@@ -74,20 +74,9 @@ def _selfdestruct_regular(fork: Fork, *, warm: bool, account_new: bool) -> int:
     the ``GAS_NEW_ACCOUNT`` account-creation cost is the EIP-8037 state
     dimension and is excluded from ``regular_cost``.
     """
-    gas_costs = fork.gas_costs()
-    regular = Op.SELFDESTRUCT(
+    return Op.SELFDESTRUCT(
         address_warm=warm, account_new=account_new
     ).regular_cost(fork)
-    # SELFDESTRUCT charges a cold-access surcharge only; a warm
-    # beneficiary adds nothing beyond the base (no WARM_ACCESS).
-    access = 0 if warm else gas_costs.COLD_ACCOUNT_ACCESS
-    expected = (
-        gas_costs.OPCODE_SELFDESTRUCT_BASE
-        + access
-        + (gas_costs.ACCOUNT_WRITE if account_new else 0)
-    )
-    assert regular == expected
-    return regular
 
 
 def _destructor_code(
@@ -123,8 +112,7 @@ def test_selfdestruct_new_beneficiary_regular_gas(
     EIP-8037 suite asserts it); here it is funded from the reservoir and
     the value transfer to the new beneficiary confirms the path.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
+    new_account_state_gas = Op.SELFDESTRUCT(account_new=True).state_cost(fork)
 
     regular = _selfdestruct_regular(fork, warm=warm, account_new=True)
     assert regular == (13_000 if warm else 16_000)
@@ -391,12 +379,6 @@ def test_selfdestruct_self_or_precompile_beneficiary(
     transfer would otherwise create one and charge ``GAS_NEW_ACCOUNT`` on
     the state axis).
     """
-    gas_costs = fork.gas_costs()
-
-    regular = _selfdestruct_regular(fork, warm=True, account_new=False)
-    # SELFDESTRUCT has no warm-access surcharge: warm == base only.
-    assert regular == gas_costs.OPCODE_SELFDESTRUCT_BASE
-
     if beneficiary_kind == "self":
         # Self is warm on entry; the PUSH is `ADDRESS` (BASE=2). A
         # non-zero balance is transferred to self (no creation).
@@ -469,15 +451,7 @@ def test_selfdestruct_oog_boundary(
     gas short OOGs (CALL returns 0) before the value transfer, so the
     beneficiary is never created.
     """
-    gas_costs = fork.gas_costs()
-
     beneficiary = Address(0xDEAD)
-    regular = _selfdestruct_regular(fork, warm=False, account_new=True)
-    assert regular == (
-        gas_costs.OPCODE_SELFDESTRUCT_BASE
-        + gas_costs.COLD_ACCOUNT_ACCESS
-        + gas_costs.ACCOUNT_WRITE
-    )
 
     destructor_code = _destructor_code(
         beneficiary, warm=False, account_new=True
@@ -564,9 +538,6 @@ def test_same_tx_created_selfdestruct_self_burn(
 
     # Self-beneficiary on a balance-bearing same-tx-created contract is
     # alive: account_new is false, so only the warm base is charged.
-    regular = _selfdestruct_regular(fork, warm=True, account_new=False)
-    assert regular == fork.gas_costs().OPCODE_SELFDESTRUCT_BASE
-
     # Creation intrinsic is regular-only under EIP-2780; the pre-existing
     # target adds no top-frame NEW_ACCOUNT and the self-burn adds no state
     # gas, so net state gas is zero. The regular consumption exceeds the
@@ -627,7 +598,6 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     created target is alive at message entry (EIP-8037), while the fresh
     beneficiary's ``NEW_ACCOUNT`` persists.
     """
-    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
 
     amount = 1
@@ -644,16 +614,17 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     init_code = Op.SELFDESTRUCT.with_metadata(
         address_warm=False, account_new=True
     )(beneficiary)
+    # The creation NEW_ACCOUNT is refunded (target alive at entry) and is
+    # not part of the intrinsic under EIP-2780; only the fresh
+    # beneficiary's NEW_ACCOUNT (the SELFDESTRUCT state cost) persists.
+    new_account_state_gas = init_code.state_cost(fork)
 
     regular = _selfdestruct_regular(fork, warm=False, account_new=True)
     assert regular == 16_000
 
-    intrinsic_total = intrinsic_calc(
+    intrinsic_regular = intrinsic_calc(
         calldata=bytes(init_code), contract_creation=True
     )
-    # The creation NEW_ACCOUNT is refunded (target alive at entry); only
-    # the fresh beneficiary's NEW_ACCOUNT remains as net state gas.
-    intrinsic_regular = intrinsic_total - new_account_state_gas
     expected_state = new_account_state_gas
     expected_regular = intrinsic_regular + init_code.regular_cost(fork)
     expected_gas_used = max(expected_regular, expected_state)

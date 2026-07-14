@@ -368,24 +368,27 @@ def test_block_gas_used_call_new_account(
     GAS_NEW_ACCOUNT state gas) then SSTORE. Combined with a STOP tx,
     the 2D max must reflect state gas from account creation.
     """
-    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     target = pre.fund_eoa(amount=0)
 
+    call = Op.CALL(
+        gas=100_000,
+        address=target,
+        value=1,
+        value_transfer=True,
+        account_new=True,
+    )
     parent_storage = Storage()
     parent = pre.deploy_contract(
-        code=(
-            Op.CALL(gas=100_000, address=target, value=1)
-            + Op.SSTORE(parent_storage.store_next(1), 1)
-        ),
+        code=(call + Op.SSTORE(parent_storage.store_next(1), 1)),
         balance=10**18,
     )
 
     txs = [
         Transaction(
             to=parent,
-            state_gas_reservoir=new_account_state_gas + sstore_state_gas,
+            state_gas_reservoir=call.state_cost(fork) + sstore_state_gas,
             sender=pre.fund_eoa(),
         ),
     ] + stop_txs(pre, fork, 1)
