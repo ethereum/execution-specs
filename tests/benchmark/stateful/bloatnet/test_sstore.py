@@ -19,7 +19,7 @@ from execution_testing import (
     Transaction,
 )
 
-from tests.benchmark.stateful.helpers import (
+from tests.benchmark.helper.enums import CacheStrategy
     START_SLOT,
     CacheStrategy,
     access_list_generator,

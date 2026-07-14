@@ -28,7 +28,7 @@ from tests.benchmark.helper.account_creator import (
     AccountCreator,
     AccountMode,
 )
-from tests.benchmark.stateful.helpers import (
+from tests.benchmark.helper.enums import CacheStrategy
     DECREMENT_COUNTER_CONDITION,
     CacheStrategy,
     build_benchmark_txs,

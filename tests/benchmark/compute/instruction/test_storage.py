@@ -30,7 +30,7 @@ from execution_testing import (
     compute_create_address,
 )
 
-from ..helpers import StorageAction, TransactionResult
+from tests.benchmark.helper.enums import StorageAction, TransactionResult
 
 
 @pytest.mark.repricing(fixed_key=True, fixed_value=True)
