@@ -5,16 +5,12 @@
 # Any `<feat>-devnet` input resolves to the shared `devnet` entry but keeps
 # its name in the tag; the devnet number lives in the version (X), not the
 # feature name, so this file needs no edits for new devnets.
+# `tests` is also what the scheduled nightly run of the `release_fixtures`
+# workflow fills: mainnet forks only, so the rotating nightly artifact is a
+# release-ready rehearsal of the next tests@ release.
 tests:
   evm-type: eels
   fill-params: --until=BPO4 --generate-all-formats
-
-# Filled by the scheduled nightly run of the `release_fixtures` workflow:
-# all tests (slow included), all fixture formats, up to the dev fork. Not
-# meant for tagged releases.
-nightly:
-  evm-type: eels
-  fill-params: --until=Amsterdam --generate-all-formats
 
 benchmark:
   evm-type: benchmark
