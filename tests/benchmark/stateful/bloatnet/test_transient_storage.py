@@ -12,10 +12,7 @@ from execution_testing import (
     While,
 )
 
-from tests.benchmark.stateful.helpers import (
-    DECREMENT_COUNTER_CONDITION,
-    build_benchmark_txs,
-)
+from tests.benchmark.helper.loops import DECREMENT_COUNTER_CONDITION
 
 
 @pytest.mark.parametrize("with_tload", [True, False])
