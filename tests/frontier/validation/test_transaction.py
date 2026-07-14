@@ -8,6 +8,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionTestFiller,
     add_kzg_version,
 )
 from execution_testing.base_types.base_types import ZeroPaddedHexNumber
@@ -101,25 +102,53 @@ def test_tx_nonce(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.pre_alloc_mutable
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
 def test_tx_max_nonce(state_test: StateTestFiller, pre: Alloc) -> None:
     """
-    Test that a transaction that exceeds the maximum allowed value for the
-    nonce (U64.MAX_VALUE) is rejected.
+    Test that a transaction with the maximum nonce value (`2**64 - 1`) is
+    rejected, as the maximum usable nonce is `2**64 - 2`.
+
+    The sender account is funded at the same nonce so that clients which
+    check nonce equality first reach the max-nonce check instead of
+    rejecting the transaction with a nonce mismatch.
     """
-    sender = pre.fund_eoa()
+    max_nonce = 2**64 - 1
+    sender = pre.fund_eoa(nonce=max_nonce)
     to = pre.nonexistent_account()
 
     tx = Transaction(
         to=to,
-        nonce=2**64,
+        nonce=max_nonce,
         sender=sender,
         protected=False,
         error=TransactionException.NONCE_IS_MAX,
     )
 
-    state_test(pre=pre, post={sender: Account(nonce=0)}, tx=tx)
+    state_test(pre=pre, post={sender: Account(nonce=max_nonce)}, tx=tx)
+
+
+@pytest.mark.exception_test
+def test_tx_nonce_overflow(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    fork: BaseFork,
+) -> None:
+    """
+    Test that a transaction with a nonce that does not fit in 64 bits is
+    rejected at deserialization.
+    """
+    tx = Transaction(
+        to=pre.nonexistent_account(),
+        nonce=2**64,
+        gas_limit=fork.transaction_intrinsic_cost_calculator()(),
+        sender=pre.fund_eoa(),
+        protected=False,
+        error=TransactionException.NONCE_OVERFLOW,
+    )
+
+    transaction_test(pre=pre, tx=tx)
 
 
 @pytest.mark.parametrize(
