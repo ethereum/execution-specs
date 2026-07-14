@@ -1,3 +1,1 @@
-"""
-abstract: BloatNet worst-case attack benchmark for maximum SSTORE stress.
-"""
+"""BloatNet worst-case attack benchmark for maximum SSTORE stress."""

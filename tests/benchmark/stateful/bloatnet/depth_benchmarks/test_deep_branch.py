@@ -1,5 +1,5 @@
 """
-abstract: BloatNet worst-case depth benchmarks for deep SSTORE and SLOAD.
+BloatNet worst-case depth benchmarks for deep SSTORE and SLOAD.
 
 This test implements a worst-case scenario for Ethereum block processing
 that exploits the computational complexity of Patricia Merkle Trie
@@ -7,6 +7,7 @@ operations. It uses CREATE2 to deploy contracts at pre-mined addresses
 with shared prefixes, maximizing trie traversal depth.
 
 Key features:
+
 - Accesses pre-deployed contracts via CREATE2 address derivation
 - Each contract has deep storage slots with configurable trie depth
 - Includes both a mutating `attack(uint256)` benchmark and a read-only
@@ -15,11 +16,13 @@ Key features:
 - Verifies correctness via post-state checks or receipt-status validation
 
 Test parameters:
+
 - storage_depth: Depth of storage slots (e.g., 10, 11)
 - account_depth: Account address prefix sharing depth (e.g., 6, 7)
 
 Contract sources:
-- Pre-mined assets (depth_*.sol, s*_acc*.json):
+
+- Pre-mined assets (`depth_*.sol`, `s*_acc*.json`):
   https://github.com/CPerezz/worst_case_miner/tree/master/mined_assets
 """
 
@@ -500,6 +503,7 @@ def test_worst_depth_stateroot_recomp(
     BloatNet worst-case SSTORE attack benchmark with pre-deployed contracts.
 
     This test:
+
     1. Derives CREATE2 addresses from initcode_hash + Nick's deployer
     2. Deploys AttackOrchestrator that calls attack() on each target
     3. Fills blocks with 16M gas transactions attacking contracts
