@@ -8,18 +8,21 @@ Decide whether a scheduled nightly fill has new commits to fill.
 
 Usage: `check_new_commits.py` (all inputs come from the environment).
 
-Compare the current commit against the head SHA of the last successful
-*scheduled* run of the release workflow. Using the last success (rather
-than a fixed time window) means a nightly that fails or is skipped
-keeps re-running until it goes green, and no commit slips through
-unfilled; filtering on scheduled runs means manual releases never
-advance the nightly baseline. Manual (`workflow_dispatch`) runs always
-run.
+Compare the current commit against the head SHA of the last scheduled
+run of the release workflow that actually filled: the newest successful
+*scheduled* run that uploaded artifacts. A quiet nightly skips its
+build jobs yet still concludes as a successful run, so plain success is
+no evidence of a fill. Anchoring on real fills means a nightly that
+fails or skips keeps re-running until a fill goes green and no commit
+slips through unfilled; filtering on scheduled runs means manual
+releases never advance the nightly baseline. Manual
+(`workflow_dispatch`) runs always run.
 
 A quiet stretch with no new commits still refreshes: once the last
-successful fill is `REFRESH_AGE` old, the nightly re-runs anyway, so a
-live artifact always exists within the workflow's five-day retention
-and the release pipeline keeps getting exercised.
+fill is `REFRESH_AGE` old -- or its artifact is no longer live -- the
+nightly re-runs anyway, so a live artifact always exists within the
+workflow's five-day retention and the release pipeline keeps getting
+exercised.
 
 Read `GITHUB_EVENT_NAME`, `GITHUB_REPOSITORY` and `GITHUB_SHA` from the
 environment and query the GitHub API via the `gh` CLI (authenticated by
@@ -54,22 +57,32 @@ def gh_api(path: str) -> str:
     return result.stdout
 
 
-def last_successful_nightly(repository: str) -> tuple[str, str]:
+def last_real_nightly(repository: str) -> tuple[str, str, bool]:
     """
-    Return the head SHA and creation time of the last scheduled run.
+    Return the head SHA, creation time and artifact liveness of the
+    last scheduled run that actually filled.
 
-    Only successful scheduled runs count; return empty strings when
-    none exists yet.
+    A skipped nightly still concludes as a successful scheduled run,
+    so taking the newest success as the baseline would let skip-runs
+    keep resetting the refresh clock while the last real artifact
+    quietly expires. Walk the recent successful scheduled runs and
+    take the newest one that uploaded artifacts, reporting whether any
+    of them is still live. Return empty strings when none exists yet.
     """
     runs = json.loads(
         gh_api(
             f"repos/{repository}/actions/workflows/{WORKFLOW_FILE}"
-            "/runs?status=success&event=schedule&per_page=1"
+            "/runs?status=success&event=schedule&per_page=10"
         )
     )["workflow_runs"]
-    if not runs:
-        return "", ""
-    return str(runs[0]["head_sha"]), str(runs[0]["created_at"])
+    for run in runs:
+        artifacts = json.loads(
+            gh_api(f"repos/{repository}/actions/runs/{run['id']}/artifacts")
+        )["artifacts"]
+        if artifacts:
+            live = any(not a["expired"] for a in artifacts)
+            return str(run["head_sha"]), str(run["created_at"]), live
+    return "", "", False
 
 
 def is_stale(created_at: str) -> bool:
@@ -109,7 +122,7 @@ def main() -> None:
     repository = os.environ["GITHUB_REPOSITORY"]
     head_sha = os.environ["GITHUB_SHA"]
 
-    last_sha, last_created = last_successful_nightly(repository)
+    last_sha, last_created, artifact_live = last_real_nightly(repository)
     if last_sha:
         commits = commits_since(repository, last_sha, head_sha)
     else:
@@ -121,6 +134,11 @@ def main() -> None:
         append_summary(
             "### Commits since last successful nightly fill\n"
             + "\n".join(commits)
+        )
+    elif not artifact_live:
+        print("run=true")
+        append_summary(
+            "No new commits, but no live fixture artifact exists; refilling."
         )
     elif is_stale(last_created):
         print("run=true")

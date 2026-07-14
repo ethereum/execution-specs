@@ -189,12 +189,20 @@ class TestValidateInputs:
         assert result.returncode == 0
 
 
-# Fake `gh` served from PATH: answers the two API calls the commit-check
-# script makes with canned JSON from env vars, and fails loudly on any
-# other (or unconfigured) call.
+# Fake `gh` served from PATH: answers the three API calls the
+# commit-check script makes with canned JSON from env vars, and fails
+# loudly on any other (or unconfigured) call. Per-run artifact
+# responses come from `FAKE_GH_ARTIFACTS_<run_id>`, falling back to
+# `FAKE_GH_ARTIFACTS`.
 FAKE_GH = """#!/usr/bin/env bash
 case "$2" in
   *actions/workflows*) response="$FAKE_GH_RUNS" ;;
+  */artifacts)
+    run_id="${2##*/runs/}"
+    run_id="${run_id%%/*}"
+    var="FAKE_GH_ARTIFACTS_${run_id}"
+    response="${!var:-$FAKE_GH_ARTIFACTS}"
+    ;;
   *compare*) response="$FAKE_GH_COMPARE" ;;
   *) response="" ;;
 esac
@@ -204,6 +212,11 @@ if [ -z "$response" ]; then
 fi
 printf '%s' "$response"
 """
+
+# Canned artifact-list responses for the fake `gh`.
+LIVE_ARTIFACTS = '{"artifacts": [{"expired": false}]}'
+EXPIRED_ARTIFACTS = '{"artifacts": [{"expired": true}]}'
+NO_ARTIFACTS = '{"artifacts": []}'
 
 
 class TestCheckNewCommits:
@@ -215,6 +228,8 @@ class TestCheckNewCommits:
         event_name: str,
         runs: str = "",
         compare: str = "",
+        artifacts: str = "",
+        per_run_artifacts: dict[int, str] | None = None,
     ) -> tuple[subprocess.CompletedProcess, Path]:
         """Run the script with a fake `gh` on PATH; return it + summary."""
         bin_dir = tmp_path / "bin"
@@ -232,6 +247,9 @@ class TestCheckNewCommits:
         env["GITHUB_STEP_SUMMARY"] = str(summary)
         env["FAKE_GH_RUNS"] = runs
         env["FAKE_GH_COMPARE"] = compare
+        env["FAKE_GH_ARTIFACTS"] = artifacts
+        for run_id, response in (per_run_artifacts or {}).items():
+            env[f"FAKE_GH_ARTIFACTS_{run_id}"] = response
 
         result = subprocess.run(
             ["uv", "run", "-q", str(CHECK_COMMITS_SCRIPT)],
@@ -261,18 +279,24 @@ class TestCheckNewCommits:
         assert "no previous successful" in summary.read_text()
 
     @staticmethod
-    def runs_json(age: timedelta, head_sha: str = "b" * 40) -> str:
-        """Return a last-successful-run response created *age* ago."""
+    def run_json(
+        age: timedelta, head_sha: str = "b" * 40, run_id: int = 1
+    ) -> dict:
+        """Return one workflow-run object created *age* ago."""
         created = datetime.now(timezone.utc) - age
+        return {
+            "id": run_id,
+            "head_sha": head_sha,
+            "created_at": created.isoformat(),
+        }
+
+    @classmethod
+    def runs_json(
+        cls, age: timedelta, head_sha: str = "b" * 40, run_id: int = 1
+    ) -> str:
+        """Return a last-successful-run response created *age* ago."""
         return json.dumps(
-            {
-                "workflow_runs": [
-                    {
-                        "head_sha": head_sha,
-                        "created_at": created.isoformat(),
-                    }
-                ]
-            }
+            {"workflow_runs": [cls.run_json(age, head_sha, run_id)]}
         )
 
     def test_schedule_with_new_commits_runs(self, tmp_path):
@@ -286,6 +310,7 @@ class TestCheckNewCommits:
             "schedule",
             runs=self.runs_json(timedelta(hours=25), head_sha="a" * 40),
             compare=json.dumps({"commits": [commit]}),
+            artifacts=LIVE_ARTIFACTS,
         )
         assert result.returncode == 0
         assert result.stdout.strip() == "run=true"
@@ -303,6 +328,7 @@ class TestCheckNewCommits:
             # Just inside the refresh age: pin the four-day boundary.
             runs=self.runs_json(timedelta(days=3, hours=23)),
             compare=json.dumps({"commits": []}),
+            artifacts=LIVE_ARTIFACTS,
         )
         assert result.returncode == 0
         assert result.stdout.strip() == "run=false"
@@ -315,10 +341,54 @@ class TestCheckNewCommits:
             "schedule",
             runs=self.runs_json(timedelta(days=4, hours=1)),
             compare=json.dumps({"commits": []}),
+            artifacts=LIVE_ARTIFACTS,
         )
         assert result.returncode == 0
         assert result.stdout.strip() == "run=true"
         assert "refreshing" in summary.read_text()
+
+    def test_schedule_skip_runs_do_not_reset_refresh(self, tmp_path):
+        """
+        Verify skip-runs neither advance the baseline nor its clock.
+
+        A quiet nightly that skips its build still concludes as a
+        successful scheduled run; if it counted as the baseline, a
+        stretch of skip-runs would keep resetting the refresh clock
+        while the last real artifact quietly expired.
+        """
+        runs = json.dumps(
+            {
+                "workflow_runs": [
+                    # Newest success skipped its build: no artifacts.
+                    self.run_json(timedelta(hours=1), run_id=2),
+                    # The last real fill is past the refresh age.
+                    self.run_json(timedelta(days=4, hours=1), run_id=1),
+                ]
+            }
+        )
+        result, summary = self.run_check(
+            tmp_path,
+            "schedule",
+            runs=runs,
+            compare=json.dumps({"commits": []}),
+            per_run_artifacts={2: NO_ARTIFACTS, 1: LIVE_ARTIFACTS},
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == "run=true"
+        assert "refreshing" in summary.read_text()
+
+    def test_schedule_dead_artifact_refills(self, tmp_path):
+        """Verify a fill whose artifact is gone refills immediately."""
+        result, summary = self.run_check(
+            tmp_path,
+            "schedule",
+            runs=self.runs_json(timedelta(days=1)),
+            compare=json.dumps({"commits": []}),
+            artifacts=EXPIRED_ARTIFACTS,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == "run=true"
+        assert "no live fixture artifact" in summary.read_text()
 
     def test_gh_failure_fails_the_check(self, tmp_path):
         """Verify a failing `gh` call fails the script."""
