@@ -3298,10 +3298,8 @@ def test_bal_create_and_oog(
     CREATE/CREATE2 OOG boundary test at three gas levels.
 
     OOG_BEFORE_TARGET_ACCESS and OOG_AFTER_TARGET_ACCESS differ by
-    exactly 1 gas, proving the pre-access cost boundary: below it the
-    created address is NOT in BAL, at it the address IS in BAL. Under
-    EIP-8037 charge-at-access this boundary excludes NEW_ACCOUNT, which
-    is charged at the access rather than before it.
+    exactly 1 gas, proving the static cost boundary: below it the
+    created address is NOT in BAL, at it the address IS in BAL.
     """
     alice = pre.fund_eoa()
 
@@ -3316,6 +3314,7 @@ def test_bal_create_and_oog(
         offset=32 - len(init_code_bytes),
         size=len(init_code_bytes),
         init_code_size=len(init_code_bytes),
+        account_new=False,
     )
     factory_sstore = Op.SSTORE(0x00, 1)
     oog_sink_memory_size = 10000 * 32
@@ -3341,24 +3340,21 @@ def test_bal_create_and_oog(
         initcode=init_code_bytes,
         opcode=create_opcode,
     )
+    # Pre-fund the address so no new account is created
+    pre.fund_address(created_address, 1)
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     create_static_cost = factory_mstore.gas_cost(
         fork
     ) + factory_create.gas_cost(fork)
-    # Under EIP-8037 charge-at-access the NEW_ACCOUNT state gas is charged
-    # at the destination access, not before it, so the pre-access cost that
-    # gates whether the address is read excludes it. `gas_cost` folds
-    # NEW_ACCOUNT into the create opcode total, so strip it back out.
-    pre_access_cost = create_static_cost - fork.gas_costs().NEW_ACCOUNT
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        # 1 gas short of the pre-access cost — no state access
-        gas_limit = intrinsic_cost + pre_access_cost - 1
+        # 1 gas short of CREATE static cost — no state access
+        gas_limit = intrinsic_cost + create_static_cost - 1
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
-        # Exactly the pre-access cost — address accessed, then the
-        # NEW_ACCOUNT charge OOGs after access
-        gas_limit = intrinsic_cost + pre_access_cost
+        # Exactly the CREATE static cost — address accessed, child
+        # frame gets 0 gas, CREATE fails, sink forces OOG after access
+        gas_limit = intrinsic_cost + create_static_cost
     else:
         # Full success: static cost + child frame (63/64 rule) +
         # SSTORE + gas sink.
@@ -3395,7 +3391,7 @@ def test_bal_create_and_oog(
         post = {
             alice: Account(nonce=1),
             factory: Account(nonce=1, storage={0x00: 0xDEAD}),
-            created_address: Account.NONEXISTENT,
+            created_address: Account(balance=1, code=b"", nonce=0),
         }
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
         # Created address IS in BAL (accessed during collision check),
@@ -3413,7 +3409,7 @@ def test_bal_create_and_oog(
         post = {
             alice: Account(nonce=1),
             factory: Account(nonce=1, storage={0x00: 0xDEAD}),
-            created_address: Account.NONEXISTENT,
+            created_address: Account(balance=1, code=b"", nonce=0),
         }
     else:
         # SUCCESS: created address in BAL with nonce and code changes
@@ -3453,7 +3449,7 @@ def test_bal_create_and_oog(
         post = {
             alice: Account(nonce=1),
             factory: Account(nonce=2, storage={0x00: 1}),
-            created_address: Account(code=Op.STOP),
+            created_address: Account(balance=1, code=Op.STOP, nonce=1),
         }
 
     blockchain_test(

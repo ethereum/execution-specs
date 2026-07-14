@@ -5381,6 +5381,7 @@ class Opcodes(Opcode, Enum):
             "init_code_size": 0,
             "new_memory_size": 0,
             "old_memory_size": 0,
+            "account_new": True,
         },
     )
     """
@@ -5718,6 +5719,7 @@ class Opcodes(Opcode, Enum):
             "init_code_size": 0,
             "new_memory_size": 0,
             "old_memory_size": 0,
+            "account_new": True,
         },
     )
     """

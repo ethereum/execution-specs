@@ -356,13 +356,14 @@ class EIP8037(BaseFork):
     ) -> int:
         """
         Calculate the CREATE and CREATE2 state gas cost, which is
-        `NEW_ACCOUNT`. Before EIP-8037 this was folded into
-        `OPCODE_CREATE_BASE`. Under EIP-8037 it is exposed here so that
-        `OPCODE_CREATE_BASE` stays regular only and matches the spec
-        EVM constant.
+        `NEW_ACCOUNT` (if the account did not exist before).
+        Before EIP-8037 this was folded into `OPCODE_CREATE_BASE`. Under
+        EIP-8037 it is exposed here so that `OPCODE_CREATE_BASE` stays regular
+        only and matches the spec EVM constant.
         """
-        del opcode
-        return gas_costs.NEW_ACCOUNT
+        if opcode.metadata["account_new"]:
+            return gas_costs.NEW_ACCOUNT
+        return 0
 
     @classmethod
     def _calculate_selfdestruct_state_gas(
