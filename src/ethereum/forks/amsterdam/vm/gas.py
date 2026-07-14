@@ -447,7 +447,8 @@ def restore_state_gas(gas_meter: GasMeter) -> None:
     The frame's state changes are undone, so the state gas consumed
     since the [baseline] is credited back in LIFO order: the [spill]
     returns to `gas_left` first, then the reservoir resets to the
-    baseline. State gas committed as non-refillable stays charged.
+    baseline. The refunds accrued on the undone changes are discarded
+    with them. State gas committed as non-refillable stays charged.
 
     Parameters
     ----------
@@ -461,6 +462,7 @@ def restore_state_gas(gas_meter: GasMeter) -> None:
     gas_meter.gas_left += gas_meter.state_gas_spilled
     gas_meter.state_gas_spilled = Uint(0)
     gas_meter.state_gas_left = gas_meter.state_gas_baseline
+    gas_meter.refund_counter = 0
 
 
 def restore_state_gas_to_entry(
@@ -487,6 +489,9 @@ def restore_state_gas_to_entry(
     """
     # The baseline starts at the grant and only ever moves down.
     assert gas_meter.state_gas_baseline <= state_gas_reservoir
+    # Only pre-dispatch failures roll back to entry, and no refund
+    # accrues before dispatch.
+    assert gas_meter.refund_counter == 0
     gas_meter.gas_left += (
         gas_meter.state_gas_spilled + gas_meter.state_gas_committed_spill
     )
@@ -640,59 +645,6 @@ def restore_child_gas(
     """
     gas_meter.gas_left += gas
     gas_meter.state_gas_left += state_gas_reservoir
-
-
-def absorb_child_gas_on_success(
-    gas_meter: GasMeter, child_gas_meter: GasMeter
-) -> None:
-    """
-    Absorb a successful child frame's gas into the parent's meter.
-
-    The child returns its unused `gas_left` and reservoir to the parent,
-    along with the refunds it accrued and the spill it built up.
-
-    Parameters
-    ----------
-    gas_meter :
-        The parent frame's gas meter.
-    child_gas_meter :
-        The child frame's gas meter.
-
-    """
-    # Only the top frame commits state gas; a child never carries any.
-    assert child_gas_meter.state_gas_committed_spill == Uint(0)
-    gas_meter.gas_left += child_gas_meter.gas_left
-    gas_meter.state_gas_left += child_gas_meter.state_gas_left
-    gas_meter.state_gas_spilled += child_gas_meter.state_gas_spilled
-    gas_meter.refund_counter += child_gas_meter.refund_counter
-
-
-def absorb_child_gas_on_error(
-    gas_meter: GasMeter, child_gas_meter: GasMeter
-) -> None:
-    """
-    Absorb a failed child frame's gas into the parent's meter.
-
-    The child rolls back its own state gas before returning, so its
-    `gas_left` and reservoir already reflect the LIFO refill. The parent
-    reabsorbs only that gas; the child's refunds and spill are discarded
-    with its reverted state.
-
-    Parameters
-    ----------
-    gas_meter :
-        The parent frame's gas meter.
-    child_gas_meter :
-        The child frame's gas meter.
-
-    """
-    # Only the top frame commits state gas; a child never carries any.
-    assert child_gas_meter.state_gas_committed_spill == Uint(0)
-    # A failed child arrives already rolled back to its baseline.
-    assert child_gas_meter.state_gas_spilled == Uint(0)
-    assert child_gas_meter.state_gas_left == child_gas_meter.state_gas_baseline
-    gas_meter.gas_left += child_gas_meter.gas_left
-    gas_meter.state_gas_left += child_gas_meter.state_gas_left
 
 
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:

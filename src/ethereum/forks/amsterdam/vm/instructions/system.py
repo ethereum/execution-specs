@@ -42,8 +42,7 @@ from .. import (
     Evm,
     Message,
     emit_transfer_log,
-    incorporate_child_on_error,
-    incorporate_child_on_success,
+    incorporate_child,
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
@@ -167,8 +166,8 @@ def generic_create(
     # The child settled its own gas; absorb it and resolve the
     # account-creation charge by the state's fate: it refills when a
     # charged creation failed.
+    incorporate_child(evm, child_evm)
     if child_evm.error:
-        incorporate_child_on_error(evm, child_evm)
         if new_account_charged:
             credit_state_gas_refund(
                 evm.gas_meter, StateGasCosts.NEW_ACCOUNT
@@ -176,7 +175,6 @@ def generic_create(
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
-        incorporate_child_on_success(evm, child_evm)
         evm.return_data = b""
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
 
@@ -423,15 +421,13 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
     # OUTCOME
     # The child settled its own gas; absorb it and resolve the
     # account-creation charge by the state's fate.
+    incorporate_child(evm, child_evm)
+    evm.return_data = child_evm.output
     if child_evm.error:
-        incorporate_child_on_error(evm, child_evm)
         if params.new_account_charged:
             credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
-        evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
-        incorporate_child_on_success(evm, child_evm)
-        evm.return_data = child_evm.output
         push(evm.stack, CALL_SUCCESS)
 
     actual_output_size = min(

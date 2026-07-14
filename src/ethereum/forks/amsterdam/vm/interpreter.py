@@ -151,20 +151,20 @@ def process_message_call(message: Message) -> MessageCallOutput:
     if evm.error:
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
-        refund_counter = U256(0)
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
-        refund_counter = U256(evm.gas_meter.refund_counter)
 
     tx_end = TransactionEnd(
         int(message.gas) - int(evm.gas_meter.gas_left), evm.output, evm.error
     )
     evm_trace(evm, tx_end)
 
+    # A failed frame settles its meter with a zero refund counter, so
+    # the refunds can be read unconditionally.
     return MessageCallOutput(
         gas_left=evm.gas_meter.gas_left,
-        refund_counter=refund_counter,
+        refund_counter=U256(evm.gas_meter.refund_counter),
         logs=logs,
         accounts_to_delete=accounts_to_delete,
         error=evm.error,

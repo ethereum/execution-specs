@@ -29,11 +29,7 @@ from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Authorization, VersionedHash
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
-from .gas import (
-    GasMeter,
-    absorb_child_gas_on_error,
-    absorb_child_gas_on_success,
-)
+from .gas import GasMeter
 
 __all__ = ("Environment", "Evm", "Message")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
@@ -188,9 +184,19 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
 
 
-def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
+def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     """
-    Incorporate the state of a successful `child_evm` into the parent `evm`.
+    Incorporate the state of a returning `child_evm` into the parent
+    `evm`.
+
+    Gas flows back to the parent regardless of the child's fate. A
+    failed child settles its own meter before returning -- its state
+    gas rolled back to the baseline, its [spill] refilled, and its
+    refunds discarded -- so absorbing the meter unconditionally
+    reclaims exactly the gas the child gives back. Everything else the
+    child accumulated -- logs, scheduled self-destructs, refunds, and
+    warmed access sets -- survives only on success, dying with a
+    failed child's reverted state.
 
     Parameters
     ----------
@@ -199,35 +205,34 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     child_evm :
         The child evm to incorporate.
 
-    """
-    absorb_child_gas_on_success(evm.gas_meter, child_evm.gas_meter)
-    evm.logs += child_evm.logs
-    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
-    evm.accessed_addresses.update(child_evm.accessed_addresses)
-    evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
-
-
-def incorporate_child_on_error(
-    evm: Evm,
-    child_evm: Evm,
-) -> None:
-    """
-    Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
-
-    The child rolls back its own state gas before returning (on both
-    reverts and exceptional halts), so its `gas_left` and reservoir
-    already reflect the LIFO refill. The parent therefore only reabsorbs
-    the child's `gas_left` and reservoir.
-
-    Parameters
-    ----------
-    evm :
-        The parent `EVM`.
-    child_evm :
-        The child evm to incorporate.
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
 
     """
-    absorb_child_gas_on_error(evm.gas_meter, child_evm.gas_meter)
+    child_meter = child_evm.gas_meter
+    # Only the top frame commits state gas; a child never carries any.
+    assert child_meter.state_gas_committed_spill == Uint(0)
+
+    if child_evm.error:
+        # A failed child arrives settled: rolled back to its baseline,
+        # spill refilled, refunds discarded.
+        assert child_meter.state_gas_spilled == Uint(0)
+        assert child_meter.refund_counter == 0
+        assert child_meter.state_gas_left == child_meter.state_gas_baseline
+
+    # Gas returns to the parent regardless of the child's fate.
+    # Note that upon failure, the child already arrives settled.
+    gas_meter = evm.gas_meter
+    gas_meter.gas_left += child_meter.gas_left
+    gas_meter.state_gas_left += child_meter.state_gas_left
+    gas_meter.state_gas_spilled += child_meter.state_gas_spilled
+    gas_meter.refund_counter += child_meter.refund_counter
+
+    # Everything else survives only on success.
+    if not child_evm.error:
+        evm.logs += child_evm.logs
+        evm.accounts_to_delete.update(child_evm.accounts_to_delete)
+        evm.accessed_addresses.update(child_evm.accessed_addresses)
+        evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
 
 
 def emit_transfer_log(
