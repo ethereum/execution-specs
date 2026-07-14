@@ -1,6 +1,6 @@
 """
-abstract: Tests for access list cost calculations in [EIP-7981: Increase Access List Cost](https://eips.ethereum.org/EIPS/eip-7981).
-"""  # noqa: E501
+Tests for access list cost calculations in [EIP-7981: Increase Access List Cost](https://eips.ethereum.org/EIPS/eip-7981).
+"""
 
 import pytest
 from execution_testing import (
