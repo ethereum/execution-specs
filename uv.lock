@@ -858,7 +858,6 @@ dev = [
     { name = "cairosvg" },
     { name = "codespell" },
     { name = "docc" },
-    { name = "ethereum-execution", extra = ["optimized"] },
     { name = "ethereum-execution-testing" },
     { name = "filelock" },
     { name = "fladrif" },
@@ -926,6 +925,9 @@ mkdocs = [
     { name = "pillow" },
     { name = "pyspelling" },
 ]
+optimized = [
+    { name = "ethereum-execution", extra = ["optimized"] },
+]
 test = [
     { name = "ethereum-execution-testing" },
     { name = "filelock" },
@@ -966,7 +968,6 @@ dev = [
     { name = "codespell", specifier = "==2.4.1" },
     { name = "codespell", specifier = ">=2.4.1,<3" },
     { name = "docc", specifier = ">=0.6.1,<0.7.0" },
-    { name = "ethereum-execution", extras = ["optimized"] },
     { name = "ethereum-execution-testing", editable = "packages/testing" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
     { name = "fladrif", specifier = ">=0.2.0,<0.3.0" },
@@ -1034,6 +1035,7 @@ mkdocs = [
     { name = "pillow", specifier = ">=12,<13" },
     { name = "pyspelling", specifier = ">=2.8.2,<3" },
 ]
+optimized = [{ name = "ethereum-execution", extras = ["optimized"] }]
 test = [
     { name = "ethereum-execution-testing", editable = "packages/testing" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
