@@ -17,7 +17,6 @@ from typing import Union
 
 from hive.client import Client
 
-from execution_testing.exceptions import UndefinedException
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
     BlockchainEngineXFixture,
@@ -41,7 +40,7 @@ from ..helpers.exceptions import (
 )
 from ..helpers.rejected_blocks import (
     BlockRejectionTracker,
-    matches_expected_exception,
+    verify_block_rejection,
 )
 from ..helpers.timing import TimingData
 
@@ -175,58 +174,19 @@ def test_blockchain_via_engine(
                                     "Client returned INVALID but no "
                                     "validation error was provided."
                                 )
-                            earlier_rejection = block_rejection_tracker.track(
+                            block_hash = payload.params[0].block_hash
+                            first_rejection = block_rejection_tracker.track(
                                 client.id,
-                                payload.params[0].block_hash,
+                                block_hash,
                                 payload_response.validation_error,
                             )
-                            if isinstance(
+                            verify_block_rejection(
+                                payload.validation_error,
                                 payload_response.validation_error,
-                                UndefinedException,
-                            ):
-                                message = (
-                                    "Undefined exception message: "
-                                    f"expected exception: "
-                                    f'"{payload.validation_error}", '
-                                    f"returned exception: "
-                                    f'"{payload_response.validation_error}" '
-                                    f"(mapper: "
-                                    f'"{payload_response.validation_error.mapper_name}")'  # noqa: E501
-                                )
-                            elif (
-                                payload.validation_error
-                                not in payload_response.validation_error
-                            ):
-                                message = (
-                                    "Client returned unexpected "
-                                    "validation error: "
-                                    f"got: "
-                                    f'"{payload_response.validation_error}" '
-                                    f"expected: "
-                                    f'"{payload.validation_error}"'
-                                )
-                            else:
-                                message = None
-                            if message is not None:
-                                if matches_expected_exception(
-                                    earlier_rejection,
-                                    payload.validation_error,
-                                ):
-                                    logger.info(
-                                        "Accepting mismatched validation "
-                                        "error for block "
-                                        f"{payload.params[0].block_hash}: "
-                                        "this client already rejected the "
-                                        "same block with an error matching "
-                                        "the expected exception "
-                                        f'("{earlier_rejection}") and has '
-                                        "rejected the resubmission from "
-                                        f"its bad-block cache. {message}"
-                                    )
-                                elif strict_exception_matching:
-                                    raise LoggedError(message)
-                                else:
-                                    logger.warning(message)
+                                first_rejection,
+                                block_hash,
+                                strict_exception_matching,
+                            )
 
                     except JSONRPCError as e:
                         logger.info(
