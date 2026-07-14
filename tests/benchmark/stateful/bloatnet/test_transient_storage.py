@@ -1,4 +1,4 @@
-"""Transient storage benchmarks for TSTORE/TLOAD."""
+"""Benchmark transient storage operations (TSTORE/TLOAD)."""
 
 import pytest
 from execution_testing import (
@@ -16,9 +16,6 @@ from tests.benchmark.stateful.helpers import (
     DECREMENT_COUNTER_CONDITION,
     build_benchmark_txs,
 )
-
-REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
-REFERENCE_SPEC_VERSION = "1.0"
 
 
 @pytest.mark.parametrize("with_tload", [True, False])
