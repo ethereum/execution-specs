@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "pycryptodome>=3.22,<4",
-    "coincurve>=20,<21",
+    "spec256k1>=0.2.3,<0.3",
     "typing_extensions>=4.4",
     "py-ecc>=8.0.0b2,<9",
     "ethereum-types>=0.4.1,<0.5",
@@ -534,9 +534,6 @@ plugins = ["pydantic.mypy"]
 [tool.uv]
 required-version = ">=0.7.0"
 extra-build-dependencies = { ethash = ["setuptools", "cmake>=4.2.1,<5"] }
-# Pin scikit-build-core < 0.10 for coincurve's sdist build on Python 3.13+.
-# See https://github.com/ethereum/execution-specs/pull/3119
-build-constraint-dependencies = ["scikit-build-core<0.10"]
 
 [tool.uv.workspace]
 members = ["packages/*"]

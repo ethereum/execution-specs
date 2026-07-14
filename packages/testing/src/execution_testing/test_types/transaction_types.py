@@ -7,7 +7,6 @@ from functools import cached_property
 from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
 
 import ethereum_rlp as eth_rlp
-from coincurve.keys import PrivateKey, PublicKey
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -17,6 +16,7 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+from spec256k1 import PrivateKey, PublicKey
 
 from execution_testing.base_types import (
     AccessList,
@@ -154,8 +154,8 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                 signing_key = eoa.key
             assert signing_key is not None, "secret_key or signer must be set"
 
-            signature_bytes = PrivateKey(secret=signing_key).sign_recoverable(
-                rlp_signing_bytes, hasher=keccak256
+            signature_bytes = PrivateKey(signing_key).sign_recoverable(
+                rlp_signing_bytes.keccak256()
             )
             self.v, self.r, self.s = (
                 HexNumber(signature_bytes[64]),
@@ -179,7 +179,7 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                         + bytes([self.v])
                     )
                 public_key = PublicKey.from_signature_and_message(
-                    signature_bytes, rlp_signing_bytes.keccak256(), hasher=None
+                    signature_bytes, rlp_signing_bytes.keccak256()
                 )
                 self.signer = EOA(
                     address=Address(
@@ -557,8 +557,8 @@ class Transaction(
                 signing_key = eoa.key
             assert signing_key is not None, "secret_key or signer must be set"
 
-            signature_bytes = PrivateKey(secret=signing_key).sign_recoverable(
-                rlp_signing_bytes, hasher=keccak256
+            signature_bytes = PrivateKey(signing_key).sign_recoverable(
+                rlp_signing_bytes.keccak256()
             )
             v, r, s = (
                 signature_bytes[64],
@@ -590,7 +590,7 @@ class Transaction(
                         + bytes([v])
                     )
                 public_key = PublicKey.from_signature_and_message(
-                    signature_bytes, rlp_signing_bytes.keccak256(), hasher=None
+                    signature_bytes, rlp_signing_bytes.keccak256()
                 )
                 self.sender = EOA(
                     address=Address(
@@ -712,7 +712,6 @@ class Transaction(
             public_key = PublicKey.from_signature_and_message(
                 self.signature_bytes,
                 self.rlp_signing_bytes().keccak256(),
-                hasher=None,
             )
             updated_values["sender"] = Address(
                 keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
@@ -729,11 +728,11 @@ class Transaction(
         signing_hash = self.rlp_signing_bytes().keccak256()
 
         # Sign the bytes
-        signature_bytes = PrivateKey(secret=self.secret_key).sign_recoverable(
-            signing_hash, hasher=None
+        signature_bytes = PrivateKey(self.secret_key).sign_recoverable(
+            signing_hash
         )
         public_key = PublicKey.from_signature_and_message(
-            signature_bytes, signing_hash, hasher=None
+            signature_bytes, signing_hash
         )
 
         sender = keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
