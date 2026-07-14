@@ -10,11 +10,13 @@ from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     Block,
+    Bytecode,
     Bytes,
     Fork,
     JumpLoopGenerator,
     Op,
     OpcodeTarget,
+    Storage,
     Transaction,
     While,
     WhileGas,
@@ -206,6 +208,160 @@ def test_bls12_g2_msm(
 
 
 @pytest.mark.repricing
+@pytest.mark.parametrize(
+    "group,precompile_address,target",
+    [
+        pytest.param(
+            bls12381_spec.BLS12Group.G1,
+            bls12381_spec.Spec.G1MSM,
+            Precompile.BLS12_G1MSM,
+            id="g1",
+        ),
+        pytest.param(
+            bls12381_spec.BLS12Group.G2,
+            bls12381_spec.Spec.G2MSM,
+            Precompile.BLS12_G2MSM,
+            id="g2",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "k",
+    [1, 2, 16, 64, 128],
+)
+def test_bls12_msm_worst_case(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    group: bls12381_spec.BLS12Group,
+    precompile_address: Address,
+    target: OpcodeTarget,
+    k: int,
+) -> None:
+    """
+    Benchmark G1/G2 MSM with worst-case, uncacheable inputs.
+
+    The gas charged for an MSM depends only on ``k`` (and the discount
+    table), not on the scalar values, so the goal is to maximize the
+    wall-clock work per unit of gas while ensuring no result can be reused:
+
+    * **Dense scalars.** Each scalar is ``BLS_SCALAR_BASE + index``: a value
+      with high Hamming/NAF weight, near-worst-case for double-and-add,
+      windowed and Pippenger implementations. This avoids the degeneracy of
+      using ``Q`` (``Q ≡ 0 (mod Q)`` -> term is the point at infinity, which a
+      client can skip after reducing the scalar) and of all-ones values
+      (wNAF collapses runs of ones to NAF weight 2).
+    * **Distinct entries.** The ``k`` base points are distinct and each is
+      paired with a distinct scalar, so no two terms of a single MSM share an
+      intermediate product, and a client cannot collapse the sum into one
+      scalar multiplication.
+    * **Uncacheable across calls.** A running scalar index is kept in storage
+      slot 0 (initialized to 1). Every MSM call rewrites all ``k`` scalars
+      from the current index and advances the index by ``k``, so each call's
+      input -- and therefore its result -- is unique. The loop runs until the
+      remaining gas drops below a threshold, then writes the index back to
+      slot 0 so the next transaction continues with fresh, non-overlapping
+      scalars (mirrors the ``test_sload_bloated`` slot-0 cursor pattern).
+
+    The largest ``k`` is expected to be the most adversarial: the gas
+    discount per point grows with ``k`` (down to ~0.52x at ``k=128`` for G1),
+    so if the real per-point cost falls more slowly than the discount, the
+    high-``k`` configuration yields the most compute per gas.
+    """
+    if precompile_address not in fork.precompiles():
+        pytest.skip("Precompile not enabled")
+
+    template = _msm_point_template(group, k)
+    total_size = len(template)
+    point_size = (
+        len(bls12381_spec.PointG1())
+        if group == bls12381_spec.BLS12Group.G1
+        else len(bls12381_spec.PointG2())
+    )
+    entry_size = point_size + len(bls12381_spec.Scalar())
+    # Word-aligned scratch word holding the running scalar index, placed
+    # just past the MSM input buffer so the precompile never reads it.
+    scratch = total_size
+
+    gas_calc_map = build_gas_calculation_function_map(fork.gas_costs())
+    precompile_cost = gas_calc_map[int(precompile_address)](total_size)
+
+    # Stop the loop while enough gas remains for one more full call plus the
+    # slot-0 write-back, so a transaction never runs out of gas mid-loop.
+    threshold = precompile_cost + 50_000
+
+    # Setup: copy the point template into memory once and seed the running
+    # scalar index from storage slot 0 (initialized to 1 below).
+    setup = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.MSTORE(
+        scratch, Op.SLOAD(0)
+    )
+
+    # Loop body: rewrite every scalar with a fresh dense value derived from
+    # the running index, advance the index by k, then call the MSM. The
+    # advance happens after all scalar writes, so every scalar in a call
+    # shares the same base index but differs by its constant offset j.
+    body = Bytecode()
+    for j in range(k):
+        scalar_offset = j * entry_size + point_size
+        body += Op.MSTORE(
+            scalar_offset,
+            Op.ADD(BLS_SCALAR_BASE + j, Op.MLOAD(scratch)),
+        )
+    body += Op.MSTORE(scratch, Op.ADD(k, Op.MLOAD(scratch)))
+    body += Op.POP(
+        Op.STATICCALL(
+            gas=Op.GAS,
+            address=precompile_address,
+            args_offset=0,
+            args_size=total_size,
+        )
+    )
+
+    loop = While(body=body, condition=Op.GT(Op.GAS, threshold))
+
+    # Teardown: persist the running index for the next transaction.
+    teardown = Op.SSTORE(0, Op.MLOAD(scratch))
+
+    code = setup + loop + teardown
+    # Slot 0 starts at 1: the first scalar index.
+    attack_contract = pre.deploy_contract(code=code, storage=Storage({0: 1}))
+
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(calldata=template)
+    setup_cost = setup.gas_cost(fork)
+    # A transaction must afford its setup plus at least one loop iteration
+    # above the threshold, otherwise the loop never advances.
+    min_tx_gas = intrinsic + setup_cost + threshold + precompile_cost
+    if min(tx_gas_limit, gas_benchmark_value) < min_tx_gas:
+        pytest.skip("k configuration exceeds the gas limit")
+
+    sender = pre.fund_eoa()
+    txs: list[Transaction] = []
+    remaining_gas = gas_benchmark_value
+    while remaining_gas >= min_tx_gas:
+        per_tx_gas = min(tx_gas_limit, remaining_gas)
+        txs.append(
+            Transaction(
+                to=attack_contract,
+                sender=sender,
+                gas_limit=per_tx_gas,
+                data=template,
+            )
+        )
+        remaining_gas -= per_tx_gas
+
+    assert len(txs) != 0, "No transactions were added to the test."
+
+    benchmark_test(
+        target_opcode=target,
+        skip_gas_used_validation=True,
+        expected_receipt_status=1,
+        blocks=[Block(txs=txs)],
+    )
+
+
+@pytest.mark.repricing
 @pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
 def test_bls12_pairing(
     benchmark_test: BenchmarkTestFiller,
@@ -275,6 +431,53 @@ def _generate_bls12_pairs(n: int, seed: int = 0) -> Bytes:
     return calldata
 
 
+# Dense base used to build MSM scalars. It is half the subgroup order, so it
+# has high Hamming/NAF weight (near-worst-case for double-and-add, windowed
+# and Pippenger implementations alike) and leaves >2**253 of headroom below
+# Q. Adding any distinct, bounded offset to it yields another valid, dense,
+# non-degenerate scalar. Note this is deterministic and avoids the two
+# degeneracies of using Q itself as the scalar:
+#
+# * ``Q ≡ 0 (mod Q)`` makes ``Q·P`` the point at infinity, which a client can
+#   skip after reducing the scalar modulo the group order;
+# * an all-ones scalar is *not* a worst case either -- wNAF recoding collapses
+#   runs of ones down to NAF weight 2.
+BLS_SCALAR_BASE = bls12381_spec.Spec.Q // 2
+
+
+def _worst_case_scalar(seed: int) -> bls12381_spec.Scalar:
+    """
+    Return a deterministic dense, non-degenerate scalar, distinct per seed.
+
+    See ``BLS_SCALAR_BASE`` for why the value is dense and why ``Q`` (or an
+    all-ones value) is not a worst case.
+    """
+    return bls12381_spec.Scalar(BLS_SCALAR_BASE + 1 + seed)
+
+
+def _msm_point_template(group: bls12381_spec.BLS12Group, k: int) -> Bytes:
+    """
+    Build an MSM input template of ``k`` *distinct* in-subgroup points, each
+    followed by a 32-byte zero scalar placeholder.
+
+    The placeholders are overwritten in the EVM with fresh dense scalars on
+    every call (see ``test_bls12_msm_worst_case``), so only the points need
+    to be materialized here. Distinct points prevent any deduplication or
+    fixed-base batching and maximize cache pressure; pairing each with a
+    distinct scalar means no two terms of the sum share an intermediate
+    product.
+    """
+    point_fn = (
+        _generate_bls12_g1_point
+        if group == bls12381_spec.BLS12Group.G1
+        else _generate_bls12_g2_point
+    )
+    calldata = Bytes()
+    for i in range(k):
+        calldata = Bytes(calldata + point_fn(i) + bls12381_spec.Scalar(0))
+    return calldata
+
+
 def _g1add_calldata(seed: int) -> Bytes:
     """Generate G1ADD calldata with unique first point."""
     return Bytes(_generate_bls12_g1_point(seed) + bls12381_spec.Spec.P1)
@@ -286,19 +489,13 @@ def _g2add_calldata(seed: int) -> Bytes:
 
 
 def _g1msm_calldata(seed: int) -> Bytes:
-    """Generate G1MSM calldata with unique point."""
-    return Bytes(
-        _generate_bls12_g1_point(seed)
-        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
-    )
+    """Generate G1MSM calldata with unique point and dense scalar."""
+    return Bytes(_generate_bls12_g1_point(seed) + _worst_case_scalar(seed))
 
 
 def _g2msm_calldata(seed: int) -> Bytes:
-    """Generate G2MSM calldata with unique point."""
-    return Bytes(
-        _generate_bls12_g2_point(seed)
-        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
-    )
+    """Generate G2MSM calldata with unique point and dense scalar."""
+    return Bytes(_generate_bls12_g2_point(seed) + _worst_case_scalar(seed))
 
 
 def _fp_to_g1_calldata(seed: int) -> Bytes:
