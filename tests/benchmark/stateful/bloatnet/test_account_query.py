@@ -30,7 +30,7 @@ from tests.benchmark.helper.account_creator import (
 )
 from tests.benchmark.helper.enums import CacheStrategy
 from tests.benchmark.helper.loops import DECREMENT_COUNTER_CONDITION
-    CacheStrategy,
+from tests.benchmark.helper.transactions import (
     build_benchmark_txs,
     build_cache_strategy_blocks,
 )

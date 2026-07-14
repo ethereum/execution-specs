@@ -19,6 +19,7 @@ from execution_testing import (
 )
 
 from tests.benchmark.helper.loops import DECREMENT_COUNTER_CONDITION
+from tests.benchmark.helper.transactions import build_benchmark_txs
 
 
 @pytest.mark.stub_parametrize("factory_stub", "bloatnet_factory_")
