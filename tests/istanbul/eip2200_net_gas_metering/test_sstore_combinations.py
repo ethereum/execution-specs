@@ -8,12 +8,12 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Fork,
+    Op,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Fork
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2200.md"
 REFERENCE_SPEC_VERSION = "ad4eaaa1fe5c7aa394b2ab09e885b73b898f5da0"
@@ -54,8 +54,6 @@ SSTORE_TOGGLE_CODE = (
     + Op.SSTORE(key=0x1, value=0x1)
     + Op.STOP
 )
-
-CALL_GAS = 0x493E0
 
 
 class MidContractActions(StrEnum):
@@ -135,33 +133,32 @@ def test_sstore_combinations_initial(
     }
 
     update_contract = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x0)
-        + Op.SSTORE(key=0x1, value=0x1)
-        + Op.SSTORE(key=0x2, value=0x2)
-        + Op.STOP,
+        code=UPDATE_CONTRACT_CODE,
         storage={0: initial, 1: initial, 2: initial} if initial > 0 else {},
     )
     sstore_toggle = side[MidContractActions.SSTORE_TOGGLE]
+
+    call_gas = SSTORE_TOGGLE_CODE.gas_cost(fork)
 
     initcode = (
         Op.MSTORE(offset=0x64, value=0x0)
         + Op.POP(
             call_1(
-                gas=CALL_GAS,
+                gas=call_gas,
                 address=update_contract,
                 args_size=0x20,
             )
         )
-        + Op.POP(call_2(gas=CALL_GAS, address=side[call_2_target]))
+        + Op.POP(call_2(gas=call_gas, address=side[call_2_target]))
         + Op.POP(
             call_3(
-                gas=CALL_GAS,
+                gas=call_gas,
                 address=update_contract,
                 args_size=0x20,
             )
         )
-        + Op.POP(call_4(gas=CALL_GAS, address=side[call_4_target]))
-        + Op.CALL(gas=CALL_GAS * 2, address=sstore_toggle)
+        + Op.POP(call_4(gas=call_gas, address=side[call_4_target]))
+        + Op.CALL(gas=call_gas, address=sstore_toggle)
         + Op.STOP
     )
 
@@ -169,7 +166,6 @@ def test_sstore_combinations_initial(
         sender=sender,
         to=None,
         data=initcode,
-        gas_limit=2_000_000,
         value=1,
         protected=fork.supports_protected_txs(),
     )
@@ -201,16 +197,15 @@ def test_sstore_combinations_initial_staticcall_only(
     sender = pre.fund_eoa()
 
     update_contract = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x0)
-        + Op.SSTORE(key=0x1, value=0x1)
-        + Op.SSTORE(key=0x2, value=0x2)
-        + Op.STOP,
+        code=UPDATE_CONTRACT_CODE,
         storage={0: initial, 1: initial, 2: initial} if initial > 0 else {},
     )
     sstore_toggle = pre.deploy_contract(code=SSTORE_TOGGLE_CODE)
 
+    call_gas = SSTORE_TOGGLE_CODE.gas_cost(fork)
+
     dirtying_call = (
-        Op.POP(Op.CALL(gas=CALL_GAS, address=update_contract, args_size=0x20))
+        Op.POP(Op.CALL(gas=call_gas, address=update_contract, args_size=0x20))
         if dirty
         else Bytecode()
     )
@@ -219,12 +214,12 @@ def test_sstore_combinations_initial_staticcall_only(
         + dirtying_call
         + Op.POP(
             Op.STATICCALL(
-                gas=CALL_GAS,
+                gas=call_gas,
                 address=update_contract,
                 args_size=0x20,
             )
         )
-        + Op.CALL(gas=CALL_GAS * 2, address=sstore_toggle)
+        + Op.CALL(gas=call_gas, address=sstore_toggle)
         + Op.STOP
     )
 
@@ -232,7 +227,6 @@ def test_sstore_combinations_initial_staticcall_only(
         sender=sender,
         to=None,
         data=initcode,
-        gas_limit=2_000_000,
         value=1,
         protected=fork.supports_protected_txs(),
     )
