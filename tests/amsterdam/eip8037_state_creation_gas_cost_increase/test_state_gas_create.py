@@ -17,6 +17,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    CodeGasMeasure,
     Fork,
     Header,
     Initcode,
@@ -3050,3 +3051,78 @@ def test_create_account_creation_charge(
         post={factory: Account(storage=storage)},
         blockchain_test_header_verify=Header(gas_used=expected),
     )
+
+
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("EIP8037")
+def test_create_refund_credited_against_child_spill(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """
+    Verify the NEW_ACCOUNT refund routing is visible through GAS.
+
+    The reservoir covers exactly the CREATE NEW_ACCOUNT charge, leaving
+    none for the child frame, whose initcode SSTOREs then spill more
+    than NEW_ACCOUNT of state gas from gas_left. The target is alive
+    (pre-funded), so NEW_ACCOUNT is refunded and credited LIFO against
+    the incorporated child spill, landing in the parent's gas_left
+    where GAS (which excludes the reservoir) observes it.
+    """
+    gas_costs = fork.gas_costs()
+
+    initcode = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.STOP
+    child_spill = initcode.state_cost(fork)
+    assert child_spill >= gas_costs.NEW_ACCOUNT
+
+    mstore_value, initcode_size = init_code_at_high_bytes(initcode)
+    create_call = (
+        create_opcode(
+            value=0,
+            offset=0,
+            size=initcode_size,
+            salt=0,
+            init_code_size=initcode_size,
+        )
+        if create_opcode == Op.CREATE2
+        else create_opcode(
+            value=0,
+            offset=0,
+            size=initcode_size,
+            init_code_size=initcode_size,
+        )
+    )
+
+    factory = pre.deploy_contract(
+        code=Op.MSTORE(0, mstore_value)
+        + CodeGasMeasure(code=create_call, extra_stack_items=1),
+    )
+    created = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+    pre.fund_address(created, amount=1)
+
+    expected_gas = (
+        create_call.regular_cost(fork)
+        + initcode.regular_cost(fork)
+        + child_spill
+        - gas_costs.NEW_ACCOUNT  # refund credited to gas_left
+    )
+
+    tx = Transaction(
+        to=factory,
+        state_gas_reservoir=gas_costs.NEW_ACCOUNT,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        factory: Account(storage={0: expected_gas}),
+        created: Account(nonce=1, balance=1, storage={0: 1, 1: 1}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
