@@ -108,6 +108,10 @@ Excess blob gas of the block where the transaction is executed.
 
 ### `FixtureTransaction`
 
+#### - `chainId`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
+
+Chain id of the transaction; omitted for unprotected (non-EIP-155) type-0 transactions
+
 #### - `nonce`: [`ZeroPaddedHexNumber`](./common_types.md#zeropaddedhexnumber)
 
 Nonce of the account that sends the transaction
