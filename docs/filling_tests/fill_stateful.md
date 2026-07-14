@@ -149,7 +149,7 @@ Each `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`) is replayed o
 
 ## Stub-dependent tests
 
-Some stateful tests (e.g. `test_single_opcode.py`, `test_multi_opcode.py`) target on-chain accounts the snapshot already contains. They reach them two ways:
+Some stateful tests (e.g. `test_erc20_operation.py`, `test_sload.py`) target on-chain accounts the snapshot already contains. They reach them two ways:
 
 - `@pytest.mark.stub_parametrize("name", "prefix_")` — parametrize values pulled from `--address-stubs` matching `prefix_`.
 - `pre.deploy_contract(stub="<label>", ...)` — direct runtime lookup.

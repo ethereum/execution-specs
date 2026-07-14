@@ -1,4 +1,4 @@
-"""CREATE2 deploy-then-immediate-access benchmarks."""
+"""Benchmark CREATE2 deployment with immediate access to the new account."""
 
 import pytest
 from execution_testing import (
@@ -21,9 +21,6 @@ from execution_testing import (
 from tests.benchmark.stateful.helpers import (
     DECREMENT_COUNTER_CONDITION,
 )
-
-REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
-REFERENCE_SPEC_VERSION = "1.0"
 
 
 @pytest.mark.parametrize(
