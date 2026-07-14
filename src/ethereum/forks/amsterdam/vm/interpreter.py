@@ -260,6 +260,13 @@ def prepare_dispatch(evm: Evm) -> None:
       cold account access and pointing the frame at the delegated
       code.
 
+    The creation target is checked against the transaction pre-state:
+    ``process_create_message`` has already bumped the target's nonce
+    by the time this runs, so a live check would always see the
+    account. The recipient check is live, so an authority
+    materialized earlier in the transaction is not charged
+    ``NEW_ACCOUNT`` again.
+
     This function must not mutate the transaction state. Every charge
     here pays for state that only materializes inside the dispatched
     frame and rolls back with it, so these charges stay refillable --

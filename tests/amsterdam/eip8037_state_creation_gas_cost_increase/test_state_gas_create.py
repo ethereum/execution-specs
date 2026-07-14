@@ -1374,6 +1374,9 @@ def test_create_tx_header_gas_used(
         floor = fork.transaction_data_floor_cost_calculator()(
             data=bytes(initcode), contract_creation=True
         )
+        assert floor > regular_intrinsic, (
+            "the floor must bind for this arm to pin floor-in-header"
+        )
         expected_gas_used = max(regular_intrinsic, floor)
     else:
         # For a minimal CREATE tx deploying Op.STOP (1 byte),
@@ -2145,12 +2148,15 @@ def test_create_account_charge_reduces_child_gas(
 
 
 @pytest.mark.parametrize(
-    "init_code",
+    ("init_code", "floor_binds"),
     [
         pytest.param(
-            Op.REVERT(0, 10_000, new_memory_size=10_000), id="revert"
+            Op.REVERT(0, 10_000, new_memory_size=10_000),
+            False,
+            id="revert",
         ),
-        pytest.param(Op.INVALID, id="halt"),
+        pytest.param(Op.REVERT(0, 0), True, id="revert_floor_bound"),
+        pytest.param(Op.INVALID, None, id="halt"),
     ],
 )
 @pytest.mark.valid_from("EIP8037")
@@ -2159,6 +2165,7 @@ def test_failed_create_tx_refills_top_frame_new_account(
     pre: Alloc,
     fork: Fork,
     init_code: Bytecode,
+    floor_binds: bool | None,
 ) -> None:
     """
     Verify the top-frame NEW_ACCOUNT of a creation tx is refilled when the
@@ -2172,10 +2179,11 @@ def test_failed_create_tx_refills_top_frame_new_account(
 
     * REVERT preserves ``gas_left`` and ``refill_frame_state_gas`` returns
       the spilled ``NEW_ACCOUNT`` to it, so the state block nets to zero
-      and only the regular consumption counts as work. The tiny init code
-      leaves the decomposed calldata floor above that consumption, so the
-      amount billed (receipt) is pinned to the floor while the header
-      excludes the floor top-up.
+      and only the regular consumption counts as work. The calldata floor
+      tops up the billed amount and the block-level regular gas alike, so
+      receipt and header agree at the greater of consumption and floor:
+      the memory expansion keeps ``revert`` above the floor, while the
+      bare ``revert_floor_bound`` pins the floor in both.
     * HALT (INVALID) refills the spilled ``NEW_ACCOUNT`` to ``gas_left``
       and then burns all of it, so the sender pays the full ``gas_limit``.
     """
@@ -2200,19 +2208,19 @@ def test_failed_create_tx_refills_top_frame_new_account(
         # Exceptional halt burns all gas_left (the refilled NEW_ACCOUNT
         # included).
         expected_gas_used = gas_limit
-        expected_header_gas = gas_limit
     else:
         # REVERT refills the spilled NEW_ACCOUNT, netting the state block
-        # to zero, so only the regular consumption counts as work.
+        # to zero, so only the regular consumption counts as work. The
+        # calldata floor binds the billed amount and the block-level
+        # regular gas alike, so receipt and header agree either way.
         regular_consumed = intrinsic_regular + init_code.regular_cost(fork)
-        # The tiny init code leaves the decomposed calldata floor above
-        # the regular gas consumed: the receipt bills at the floor, while
-        # the header's regular-gas accounting excludes the floor top-up.
         floor = fork.transaction_data_floor_cost_calculator()(
             data=bytes(init_code), contract_creation=True
         )
+        assert (floor > regular_consumed) == floor_binds, (
+            "init code lands on the wrong side of the floor"
+        )
         expected_gas_used = max(regular_consumed, floor)
-        expected_header_gas = regular_consumed
 
     sender = pre.fund_eoa()
     created = compute_create_address(address=sender, nonce=0)
@@ -2231,7 +2239,7 @@ def test_failed_create_tx_refills_top_frame_new_account(
         pre=pre,
         post={created: Account.NONEXISTENT},
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_header_gas),
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
