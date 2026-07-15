@@ -1382,7 +1382,8 @@ class BlockchainTest(BaseTest):
         - Payloads are partitioned by ``FixtureEngineNewPayload.phase``
           into ``setup_payloads`` (setup-phase txs) and ``payloads``
           (execution-phase txs).
-        - ``verify_post_state`` is skipped: the client is the oracle.
+        - ``post`` is verified against the live client (the oracle) via
+          ``get_post_state_alloc``; there is no t8n post alloc to diff.
         """
         if not isinstance(t8n, ClientBackend):
             raise RuntimeError(
@@ -1546,6 +1547,10 @@ class BlockchainTest(BaseTest):
                 },
             )
             head_hash = client_hash
+
+        if self.post.root:
+            got_alloc = t8n.get_post_state_alloc(self.post)
+            self.post.verify_post_alloc(got_alloc)
 
         fixture = BlockchainEngineStatefulFixture(
             fork=self.fork,
