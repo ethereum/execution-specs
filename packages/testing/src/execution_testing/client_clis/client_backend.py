@@ -49,19 +49,84 @@ from .transition_tool import TransitionTool
 
 logger = get_logger(__name__)
 
-# Custom JS tracer for ``debug_traceBlockByHash`` — clients ship no
-# built-in opcode-count tracer.
-OPCODE_COUNT_TRACER_JS = (
-    "{"
-    "counts: {}, "
-    "step: function(log) { "
-    "var op = log.op.toString(); "
-    "this.counts[op] = (this.counts[op] || 0) + 1; "
-    "}, "
-    "fault: function() {}, "
-    "result: function() { return this.counts; }"
-    "}"
-)
+# Per-tx opcode tally; clients ship no built-in opcode-count tracer.
+OPCODE_COUNT_TRACER_JS = """{
+    counts: {},
+    step: function(log) {
+        var op = log.op.toString();
+        this.counts[op] = (this.counts[op] || 0) + 1;
+    },
+    fault: function() {},
+    result: function() { return this.counts; }
+}"""
+
+# Keep each struct-log step small.
+STRUCT_LOG_TRACER_CONFIG = {
+    "disableStack": True,
+    "disableMemory": True,
+    "disableStorage": True,
+}
+
+
+def _normalize_opcode_name(name: str) -> str | None:
+    """
+    Map a tracer opcode name to one ``OpcodeCount`` accepts.
+
+    Handles non-canonical casing (nethermind) and geth's
+    ``"opcode 0xNN not defined"``; unrecognized names are dropped.
+    """
+    for candidate in (name, name.upper()):
+        try:
+            validate_opcode(candidate)
+            return candidate
+        except Exception:
+            continue
+    match = re.search(r"0x[0-9a-fA-F]+", name)
+    if match is not None:
+        return match.group(0)
+    logger.warning(f"opcode trace: dropping unrecognized {name!r}")
+    return None
+
+
+def _opcode_count_from_js_tracer(traces: Any) -> OpcodeCount:
+    """Aggregate the per-tx ``{opcode: count}`` maps the JS tracer emits."""
+    counts: Dict[str, int] = {}
+    for entry in traces or []:
+        if not isinstance(entry, dict):
+            continue
+        tx_counts = entry.get("result")
+        # Clients that ignore the JS tracer echo struct logs.
+        if not isinstance(tx_counts, dict) or "structLogs" in tx_counts:
+            continue
+        for opcode, count in tx_counts.items():
+            key = _normalize_opcode_name(opcode)
+            if key is None or not isinstance(count, int):
+                continue
+            counts[key] = counts.get(key, 0) + count
+    return OpcodeCount.model_validate(counts)
+
+
+def _opcode_count_from_struct_logs(traces: Any) -> OpcodeCount:
+    """Count ``structLogs[].op`` entries, one per executed opcode."""
+    counts: Dict[str, int] = {}
+    for entry in traces or []:
+        if not isinstance(entry, dict):
+            continue
+        # Some clients return the struct-log result unwrapped.
+        result = entry.get("result")
+        if not isinstance(result, dict):
+            result = entry
+        for step in result.get("structLogs") or []:
+            if not isinstance(step, dict):
+                continue
+            op = step.get("op")
+            if not op:
+                continue
+            key = _normalize_opcode_name(op)
+            if key is None:
+                continue
+            counts[key] = counts.get(key, 0) + 1
+    return OpcodeCount.model_validate(counts)
 
 
 class ClientBackendExceptionMapper(ExceptionMapper):
@@ -124,7 +189,7 @@ class ClientBackend:
         self.fork = fork
         self.debug_rpc = debug_rpc
         self.extract_opcode_count = extract_opcode_count
-        # Sticky per-session fallback to struct logs (besu has no JS tracer).
+        # Sticky fallback to struct logs (besu has no JS tracer).
         self._js_tracer_unsupported = False
         self.exception_mapper = ClientBackendExceptionMapper()
         self.snapshot_block = None
@@ -157,10 +222,7 @@ class ClientBackend:
         return
 
     def reset_opcode_count(self) -> None:
-        """
-        No-op — ``opcode_count`` stays ``None`` so the filler never emits
-        the singular key; stateful fill records per-payload counts instead.
-        """
+        """No-op — ``opcode_count`` stays ``None`` so the filler skips it."""
         return
 
     def set_cache(self, *, key: str) -> bool:
@@ -249,126 +311,42 @@ class ClientBackend:
         """
         Tally executed opcodes for a block via ``debug_traceBlockByHash``.
 
-        Returns ``None`` when ``--extract-opcode-count`` is off (callers
-        may invoke unconditionally) or when the trace fails — failures
-        are logged, never fatal. Prefers the client-side JS tracer (only
-        aggregate counts cross the wire); clients without one (besu)
-        fall back to the heavier struct-log tracer, cached per session.
+        ``None`` when ``--extract-opcode-count`` is off or the trace
+        fails (logged, never fatal). Prefers the JS tracer; falls back
+        to struct logs for the rest of the session on error.
         """
         if not self.extract_opcode_count or self.debug_rpc is None:
             return None
 
         if not self._js_tracer_unsupported:
-            counts = self._count_via_js_tracer(block_hash)
-            if counts:
-                return OpcodeCount.model_validate(counts)
+            traces = self._trace_block(
+                block_hash, {"tracer": OPCODE_COUNT_TRACER_JS}
+            )
+            if traces is not None:
+                return _opcode_count_from_js_tracer(traces)
             logger.info(
-                "opcode trace: JS tracer unavailable; falling back to struct "
-                "logs for this client"
+                "opcode trace: JS tracer unavailable; falling back to "
+                "struct logs for this client"
             )
             self._js_tracer_unsupported = True
 
-        counts = self._count_via_struct_logs(block_hash)
-        if counts is None:
+        traces = self._trace_block(block_hash, STRUCT_LOG_TRACER_CONFIG)
+        if traces is None:
             return None
-        return OpcodeCount.model_validate(counts)
+        return _opcode_count_from_struct_logs(traces)
 
-    def _count_via_js_tracer(self, block_hash: Hash) -> Dict[str, int] | None:
-        """
-        Count opcodes with the client-side JS tracer, aggregating the
-        per-tx ``{opcode: count}`` maps it returns. ``None`` on RPC error.
-        """
+    def _trace_block(
+        self, block_hash: Hash, tracer_config: Dict[str, Any]
+    ) -> Any | None:
+        """``debug_traceBlockByHash``; ``None`` on RPC error (logged)."""
         assert self.debug_rpc is not None
         try:
-            traces = self.debug_rpc.trace_block_by_hash(
-                str(block_hash),
-                {"tracer": OPCODE_COUNT_TRACER_JS},
+            return self.debug_rpc.trace_block_by_hash(
+                str(block_hash), tracer_config
             )
         except Exception as e:
-            logger.warning(
-                f"opcode JS tracer failed for block {block_hash}: {e}"
-            )
+            logger.warning(f"opcode trace failed for block {block_hash}: {e}")
             return None
-        counts: Dict[str, int] = {}
-        for entry in traces or []:
-            if not isinstance(entry, dict):
-                continue
-            tx_counts = entry.get("result")
-            if not isinstance(tx_counts, dict):
-                continue
-            for opcode, count in tx_counts.items():
-                key = self._normalize_opcode_name(opcode)
-                if key is None:
-                    continue
-                counts[key] = counts.get(key, 0) + int(count)
-        return counts
-
-    def _count_via_struct_logs(
-        self, block_hash: Hash
-    ) -> Dict[str, int] | None:
-        """
-        Count opcodes from the universally-supported struct-log tracer.
-        One entry per executed step, so responses are large for gas-heavy
-        blocks. ``None`` on RPC error.
-        """
-        assert self.debug_rpc is not None
-        try:
-            traces = self.debug_rpc.trace_block_by_hash(
-                str(block_hash),
-                {
-                    "disableStack": True,
-                    "disableMemory": True,
-                    "disableStorage": True,
-                },
-            )
-        except Exception as e:
-            logger.warning(
-                f"opcode struct-log trace failed for block {block_hash}: "
-                f"{e}; skipping opcode count for this block"
-            )
-            return None
-        counts: Dict[str, int] = {}
-        for entry in traces or []:
-            if not isinstance(entry, dict):
-                continue
-            # Some clients return the struct-log result unwrapped.
-            result = entry.get("result")
-            if not isinstance(result, dict):
-                result = entry
-            struct_logs = result.get("structLogs")
-            for step in struct_logs or []:
-                if not isinstance(step, dict):
-                    continue
-                op = step.get("op")
-                if not op:
-                    continue
-                key = self._normalize_opcode_name(op)
-                if key is None:
-                    continue
-                counts[key] = counts.get(key, 0) + 1
-        return counts
-
-    @staticmethod
-    def _normalize_opcode_name(name: str) -> str | None:
-        """
-        Map a tracer opcode name to one ``OpcodeCount`` accepts.
-
-        Non-canonical casing (nethermind emits ``calldatasize``) is
-        retried upper-cased; geth's ``"opcode 0xNN not defined"`` is
-        reduced to the bare ``0xNN`` (an ``UndefinedOpcode``). Anything
-        still unrecognized is logged and dropped, never fatal.
-        """
-        for candidate in (name, name.upper()):
-            try:
-                validate_opcode(candidate)
-                return candidate
-            except Exception:
-                continue
-        match = re.search(r"0x[0-9a-fA-F]+", name)
-        if match is not None:
-            return match.group(0)
-        logger.warning(f"opcode trace: dropping unrecognized {name!r}")
-        return None
 
     def _payload_attributes(
         self,
