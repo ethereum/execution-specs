@@ -105,6 +105,12 @@ Every test after the first in a pre-allocation group consequently exercises the 
 
     It does mean, however, that a test which fails under `consume enginex` but passes under `consume engine` is more likely to indicate a bug in the client's reorg, head state rollback or block caching logic than in its EVM or block validation logic.
 
+### Bad-Block Cache Handling
+
+Clients typically cache the blocks they reject. Because a client is reused across a pre-allocation group, its bad-block cache persists between tests: if two tests in a group contain an identical invalid block, the client validates the first submission for real and returns the specific validation error, but may answer the resubmission from its cache with a generic error (e.g. geth's and reth's "links to previously rejected block" or Nethermind's "is known to be a part of an invalid chain") that maps to no known exception.
+
+The simulator therefore remembers the first validation error each client returns per invalid block. When a rejection does not match the test's expected exception, it is verified against the client's first rejection of the same block: it is accepted and logged ("Accepting mismatched validation error") if that first rejection matched the expected exception, and fails the test as before otherwise. This is sound because an identical block hash implies an identical block built on an identical parent chain, so the real validation outcome is deterministic. `consume engine` starts a fresh client per test and is unaffected.
+
 ### Engine vs EngineX
 
 |                         | `consume engine`                                                     | `consume enginex`                                                                          |
@@ -116,6 +122,7 @@ Every test after the first in a pre-allocation group consequently exercises the 
 | **Execution speed**     | Slower (client startup overhead)                                     | Faster (amortized startup cost)                                                                |
 | **Test isolation**      | Full isolation                                                       | Shared client and genesis state within group; the chain head is reset to genesis for each test |
 | **Chain reorgs**        | Not exercised; each client executes one test's payloads only         | [Implicitly exercised](#implicit-chain-reorg-coverage) by every test after the first in a group |
+| **Exception matching**  | Response validated directly against the expected exception           | Identical, except a mismatched rejection is [accepted](#bad-block-cache-handling) if the client's first rejection of the identical block matched |
 
 EngineX achieves faster execution by:
 
