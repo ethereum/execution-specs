@@ -166,7 +166,16 @@ def scenarios(
         ProgramReturnDataSize(),
         ProgramReturnDataCopy(),
         ProgramExtCodehash(),
-        ProgramBlockhash(),
+        pytest.param(
+            ProgramBlockhash(),
+            marks=pytest.mark.pre_alloc_group(
+                "separate",
+                reason="The program feeds BLOCKHASH(0), the genesis hash, "
+                "to the gas-hash contract, so gas usage depends on the "
+                "exact genesis pre-allocation; sharing a genesis with any "
+                "other test changes the execution.",
+            ),
+        ),
         ProgramCoinbase(),
         ProgramTimestamp(),
         ProgramNumber(),
