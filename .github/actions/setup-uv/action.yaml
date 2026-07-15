@@ -6,10 +6,7 @@ inputs:
     default: "3.13"
   enable-cache:
     description: Enable uv dependency cache
-    # Temporary (revert before merge): default to "false" so the setup-uv
-    # post step does not run `uv cache prune`, which fails when the
-    # UV_NO_CACHE cold-cache validation leaves no cache directory behind.
-    default: "false"
+    default: "true"
   cache-dependency-glob:
     description: Glob for cache invalidation
     default: "uv.lock"
