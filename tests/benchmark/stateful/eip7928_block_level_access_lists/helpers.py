@@ -31,7 +31,7 @@ from execution_testing import (
 )
 from execution_testing.base_types.base_types import Number
 
-from tests.benchmark.stateful.helpers import (
+from tests.benchmark.helper.storage import (
     StorageInitRange,
     build_sequential_storage_init,
 )

@@ -21,7 +21,7 @@ from execution_testing import (
 )
 from py_ecc import optimized_bls12_381 as bls_curve
 
-from tests.benchmark.compute.helpers import Precompile
+from tests.benchmark.helper.precompile import Precompile
 from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
 from tests.prague.eip2537_bls_12_381_precompiles.spec import (
     build_gas_calculation_function_map,

@@ -18,9 +18,7 @@ from execution_testing import (
     compute_create2_address,
 )
 
-from tests.benchmark.stateful.helpers import (
-    DECREMENT_COUNTER_CONDITION,
-)
+from tests.benchmark.helper.loops import DECREMENT_COUNTER_CONDITION
 
 
 @pytest.mark.parametrize(
