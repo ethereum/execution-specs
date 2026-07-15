@@ -21,7 +21,10 @@ from execution_testing import (
     While,
 )
 
-from ..helpers import ContractDeploymentTransaction, CustomSizedContractFactory
+from tests.benchmark.helper.contract_factory import (
+    ContractDeploymentTransaction,
+    CustomSizedContractFactory,
+)
 
 
 @pytest.mark.parametrize(
