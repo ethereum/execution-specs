@@ -75,10 +75,16 @@ def fail(message: str) -> NoReturn:
     sys.exit(1)
 
 
-def gh_api(path: str) -> str:
-    """Return the stdout of `gh api <path>`, exiting non-zero on error."""
+def gh_api(path: str, paginate: bool = False) -> str:
+    """
+    Return the stdout of `gh api <path>`, exiting non-zero on error.
+
+    With *paginate*, follow the Link header through every page and
+    return a JSON array of per-page responses (`--slurp`).
+    """
+    flags = ["--paginate", "--slurp"] if paginate else []
     result = subprocess.run(
-        ["gh", "api", path], capture_output=True, text=True
+        ["gh", "api", *flags, path], capture_output=True, text=True
     )
     if result.returncode != 0:
         print(f"Error: gh api {path} failed:", file=sys.stderr)
@@ -113,10 +119,18 @@ def newest_tests_tag(repository: str) -> str:
     The `tests@` ref prefix cannot match any other feature's tags
     (those are namespaced `tests-<feature>@`), so every match is a
     mainnet tests release.
+
+    The listing is paginated in ref-name order, not version order
+    (`tests@v9...` sorts after `tests@v20...`), so every page must be
+    fetched before taking the maximum.
     """
-    refs = json.loads(
-        gh_api(f"repos/{repository}/git/matching-refs/tags/tests@")
+    pages = json.loads(
+        gh_api(
+            f"repos/{repository}/git/matching-refs/tags/tests@",
+            paginate=True,
+        )
     )
+    refs = [ref for page in pages for ref in page]
     tags = [ref["ref"].removeprefix("refs/tags/") for ref in refs]
     versioned = [
         (parse_version(tag.removeprefix("tests@")), tag)

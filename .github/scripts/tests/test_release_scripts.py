@@ -192,14 +192,16 @@ class TestValidateInputs:
 
 # Fake `gh` served from PATH: answers the API calls the commit-check
 # and cached-release scripts make with canned JSON from env vars, and
-# fails loudly on any other (or unconfigured) call. Per-run artifact
-# responses come from `FAKE_GH_ARTIFACTS_<run_id>`, falling back to
-# `FAKE_GH_ARTIFACTS`.
+# fails loudly on any other (or unconfigured) call. The API path is
+# the last argument (flags such as `--paginate --slurp` may precede
+# it). Per-run artifact responses come from
+# `FAKE_GH_ARTIFACTS_<run_id>`, falling back to `FAKE_GH_ARTIFACTS`.
 FAKE_GH = """#!/usr/bin/env bash
-case "$2" in
+path="${@: -1}"
+case "$path" in
   *actions/workflows*) response="$FAKE_GH_RUNS" ;;
   */artifacts)
-    run_id="${2##*/runs/}"
+    run_id="${path##*/runs/}"
     run_id="${run_id%%/*}"
     var="FAKE_GH_ARTIFACTS_${run_id}"
     response="${!var:-$FAKE_GH_ARTIFACTS}"
@@ -403,11 +405,16 @@ class TestCheckNewCommits:
 # Canned responses for the cached-release script. Unlike the commit
 # check, it matches artifacts by the commit-derived
 # `fixtures_<short sha>` name, so the canned listings are built
-# per head SHA.
+# per head SHA. The tag listing is fetched with `--paginate --slurp`
+# (a JSON array of pages); spreading the refs over two pages makes
+# every test exercise the page flattening.
 TESTS_TAGS = json.dumps(
-    [{"ref": "refs/tags/tests@v3.1.2"}, {"ref": "refs/tags/tests@v4.0.0"}]
+    [
+        [{"ref": "refs/tags/tests@v3.1.2"}],
+        [{"ref": "refs/tags/tests@v4.0.0"}],
+    ]
 )
-NO_TAGS = "[]"
+NO_TAGS = "[[]]"
 UP_TO_DATE = json.dumps({"status": "identical", "commits": []})
 
 
