@@ -43,10 +43,9 @@ from execution_testing.tools.utility.versioning import (
 
 from .releases import (
     ReleaseTag,
-    get_release_page_url,
-    get_release_url,
     is_release_url,
     is_url,
+    resolve_release,
 )
 
 CACHED_DOWNLOADS_DIRECTORY = (
@@ -264,8 +263,11 @@ class FixturesSource:
         """
         if cache_folder is None:
             cache_folder = CACHED_DOWNLOADS_DIRECTORY
-        url = get_release_url(spec)
-        release_page = get_release_page_url(spec)
+        # Resolve the spec once; the download URL and the release page
+        # both derive from the same release information.
+        release = resolve_release(spec)
+        url = release.get_asset(ReleaseTag.from_string(spec)).url
+        release_page = release.url
 
         destination_folder = extract_to or FixtureDownloader.get_cache_path(
             url, cache_folder

@@ -280,22 +280,30 @@ def fake_release(tag_name: str, asset_name: str) -> Dict:
 
 
 @pytest.fixture
-def release_information_cache(
+def release_cache_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Path:
     """
-    Point the release-information cache at a copy of the test manifest.
+    Redirect the release-information cache to a temporary path.
 
     Also disable the CI/Docker detection so the freshness check applies
     (in CI, the cache never expires).
     """
     cache_file = tmp_path / "release_information.json"
-    shutil.copyfile(CURRENT_FOLDER / "release_information.json", cache_file)
     monkeypatch.setattr(
         releases, "CACHED_RELEASE_INFORMATION_FILE", cache_file
     )
     monkeypatch.setattr(releases, "is_docker_or_ci", lambda: False)
     return cache_file
+
+
+@pytest.fixture
+def release_information_cache(release_cache_path: Path) -> Path:
+    """Populate the redirected cache with a copy of the test manifest."""
+    shutil.copyfile(
+        CURRENT_FOLDER / "release_information.json", release_cache_path
+    )
+    return release_cache_path
 
 
 def make_stale(cache_file: Path) -> None:
@@ -381,15 +389,10 @@ def test_rate_limited_refresh_falls_back_to_stale_cache(
 
 
 def test_rate_limited_refresh_without_cache_raises(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    release_cache_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Without a cache file, a failed refresh is a hard error."""
-    monkeypatch.setattr(
-        releases,
-        "CACHED_RELEASE_INFORMATION_FILE",
-        tmp_path / "release_information.json",
-    )
-    monkeypatch.setattr(releases, "is_docker_or_ci", lambda: False)
+    del release_cache_path
     monkeypatch.setattr(releases.requests, "get", rate_limited_get)
     with pytest.raises(requests.exceptions.HTTPError):
         get_release_url("tests@latest")
@@ -408,9 +411,8 @@ def test_unpinned_release_refreshes_stale_cache(
     calls: List[str] = []
 
     def fake_get(url: str, **kwargs: Any) -> FakeResponse:
-        del kwargs
         calls.append(url)
-        return FakeResponse([fake_release("tests@v21.0.0", "fixtures.tar.gz")])
+        return new_release_get(url, **kwargs)
 
     monkeypatch.setattr(releases.requests, "get", fake_get)
     assert get_release_url("tests@latest").endswith(
@@ -471,9 +473,8 @@ def test_download_release_information_github_token(
     seen_headers: List[Dict[str, str]] = []
 
     def fake_get(url: str, **kwargs: Any) -> FakeResponse:
-        del url
         seen_headers.append(kwargs.get("headers") or {})
-        return FakeResponse([fake_release("tests@v21.0.0", "fixtures.tar.gz")])
+        return new_release_get(url, **kwargs)
 
     monkeypatch.setattr(releases.requests, "get", fake_get)
     download_release_information(tmp_path / "release_information.json")

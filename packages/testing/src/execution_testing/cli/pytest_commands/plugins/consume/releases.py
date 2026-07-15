@@ -355,35 +355,21 @@ def get_release_url_from_release_information(
     return release.get_asset(ReleaseTag.from_string(release_string)).url
 
 
+def resolve_release(release_string: str) -> ReleaseInformation:
+    """
+    Resolve a release descriptor string to its release information.
+
+    Refresh the cached release information beforehand as needed (see
+    `get_release_information`).
+    """
+    return find_release(
+        release_string, get_release_information(release_string)
+    )
+
+
 def get_release_page_url(release_string: str) -> str:
-    """
-    Return the GitHub Release page URL for a specific release descriptor.
-
-    This function can handle:
-    - A release string (e.g., "tests@latest" or "bal-devnet@v7.0.0") from
-      any repo in `SUPPORTED_REPOS`.
-    - A direct asset download link (e.g.,
-      "https://github.com/ethereum/execution-specs/releases/
-      download/tests%40v20.0.0/fixtures.tar.gz").
-    """
-    release_information = get_release_information(release_string)
-
-    # Case 1: If it's a direct GitHub Releases download link, find which
-    # release in `release_information` has an asset with this exact URL.
-    repo_pattern = "|".join(re.escape(repo) for repo in SUPPORTED_REPOS)
-    regex_pattern = rf"https://github\.com/({repo_pattern})/releases/download/"
-    if re.match(regex_pattern, release_string):
-        for release in release_information:
-            for asset in release.assets.root:
-                if asset.url == release_string:
-                    return release.url  # The HTML page for this release
-        raise NoSuchReleaseError(
-            f"No release found for asset URL: {release_string}"
-        )
-
-    # Case 2: Otherwise, treat it as a release descriptor (e.g.,
-    # "tests@latest")
-    return find_release(release_string, release_information).url
+    """Get the GitHub release page URL for a release descriptor."""
+    return resolve_release(release_string).url
 
 
 def get_release_information(
@@ -435,8 +421,6 @@ def get_release_information(
 
 
 def get_release_url(release_string: str) -> str:
-    """Get the URL for a specific release."""
-    release_information = get_release_information(release_string)
-    return get_release_url_from_release_information(
-        release_string, release_information
-    )
+    """Get the asset download URL for a release descriptor."""
+    release = resolve_release(release_string)
+    return release.get_asset(ReleaseTag.from_string(release_string)).url
