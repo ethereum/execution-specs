@@ -1,12 +1,4 @@
-"""
-Test suite for receipt-status verification in ``make_stateful_fixture``.
-
-The stateful filler fetches real receipts from the live client
-(``ClientBackend._fetch_receipts``); these tests stub the backend and
-``generate_block_data`` to feed crafted receipt statuses through the
-``make_stateful_fixture`` loop and assert ``validate_receipt_status``
-fires (or stays silent) as specified by ``expected_receipt_status``.
-"""
+"""Test suite for receipt-status verification in ``make_stateful_fixture``."""
 
 from typing import Any, Iterator, List
 
@@ -24,7 +16,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayload,
     FixtureHeader,
 )
-from execution_testing.forks import Paris
+from execution_testing.forks import Osaka
 from execution_testing.rpc.rpc_types import GetPayloadResponse
 from execution_testing.test_types import (
     Alloc,
@@ -37,7 +29,7 @@ from execution_testing.test_types.receipt_types import TransactionReceipt
 from ..base import FillResult
 from ..blockchain import Block, BlockchainTest, TestingBuildBlock
 
-FORK = Paris
+FORK = Osaka
 START_BLOCK_NUMBER = 1
 
 
@@ -112,10 +104,9 @@ def _built_block(number: int, statuses: List[int]) -> TestingBuildBlock:
 def client_backend() -> ClientBackend:
     """
     Stub ``ClientBackend`` with snapshot/start blocks pre-captured.
-
-    ``__new__`` skips ``__init__`` — no live RPC endpoints are needed
-    because ``generate_block_data`` is monkeypatched below.
     """
+    # ``__new__`` skips ``__init__``: no live RPC endpoints are needed
+    # because ``generate_block_data`` is monkeypatched below.
     backend = ClientBackend.__new__(ClientBackend)
     start_header = _header(START_BLOCK_NUMBER)
     block_dict = start_header.model_dump(
