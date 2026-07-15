@@ -123,7 +123,7 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-env-pypy
       - name: Run fill-pypy tests
         run: just fill-pypy
         env:
@@ -190,7 +190,7 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-env-pypy
       - uses: ./.github/actions/build-evmone
       - name: Run test-tests-pypy
         run: just test-tests-pypy

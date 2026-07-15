@@ -1,4 +1,4 @@
-name: Setup Environment
+name: Setup PyPy Build Toolchain
 description: |
   Install the native toolchain needed to build sdists for PyPy jobs.
   Several dependencies publish no PyPy wheels and are built from source:
