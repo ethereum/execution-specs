@@ -14,10 +14,9 @@ from execution_testing import (
     While,
 )
 
-from tests.benchmark.stateful.helpers import (
-    APPROVE_SELECTOR,
-    BALANCEOF_SELECTOR,
-)
+# ERC20 function selectors
+BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
+APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 
 # SLOAD BENCHMARK ARCHITECTURE:
 #

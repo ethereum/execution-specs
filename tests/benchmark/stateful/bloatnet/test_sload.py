@@ -27,16 +27,18 @@ from execution_testing import (
     While,
 )
 
-from tests.benchmark.stateful.helpers import (
-    START_SLOT,
-    CacheStrategy,
-    access_list_generator,
+from tests.benchmark.helper.delegation import (
     build_delegated_storage_setup,
-    create_sstore_initializer,
     delegate_with_calldata,
+    run_bloated_eoa_benchmark,
+)
+from tests.benchmark.helper.enums import CacheStrategy
+from tests.benchmark.helper.storage import (
+    START_SLOT,
+    access_list_generator,
+    create_sstore_initializer,
     executor_calldata_generator,
     initializer_calldata_generator,
-    run_bloated_eoa_benchmark,
 )
 
 

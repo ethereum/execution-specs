@@ -9,7 +9,7 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import Precompile
+from tests.benchmark.helper.precompile import Precompile
 from tests.frontier.precompiles.spec import EcrecoverInput
 from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
 
