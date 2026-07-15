@@ -255,8 +255,13 @@ dev = [
     { include-group = "actionlint" },
     { include-group = "doc" },
     { include-group = "mkdocs" },
-    "ethereum-execution[optimized]",
     "psutil>=7.2.2",
+]
+# Opt-in (not part of dev): native-accelerated state and ethash for the
+# sync tool. ethash has no CPython 3.14 wheels, so installing this group
+# requires a C toolchain on 3.14.
+optimized = [
+    "ethereum-execution[optimized]",
 ]
 
 [tool.setuptools.dynamic]

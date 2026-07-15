@@ -37,9 +37,6 @@ jobs:
       - name: Ensure SHA pinned actions
         uses: zgosalvez/github-actions-ensure-sha-pinned-actions@70c4af2ed5282c51ba40566d026d6647852ffa3e # v5.0.1
       - uses: ./.github/actions/setup-uv
-      - name: Install build dependencies
-        shell: bash
-        run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
       - name: Detect Python version
         id: python
         shell: bash
@@ -99,7 +96,6 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
-      - uses: ./.github/actions/setup-env
       - name: Run fill (${{ matrix.label }})
         run: >
           just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
@@ -121,7 +117,7 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-env-pypy
       - name: Run fill-pypy tests
         run: just fill-pypy
         env:
@@ -136,7 +132,6 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
-      - uses: ./.github/actions/setup-env
       - name: Fill and run json-loader tests
         run: just json-loader
         env:
@@ -156,7 +151,6 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
-      - uses: ./.github/actions/setup-env
       - name: Run spec-tools tests
         run: just spec-tools
         env:
@@ -168,7 +162,6 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
-      - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
       - name: Run test-tests
         run: just test-tests
@@ -183,7 +176,7 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-env-pypy
       - uses: ./.github/actions/build-evmone
       - name: Run test-tests-pypy
         run: just test-tests-pypy

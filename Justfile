@@ -64,10 +64,10 @@ deadcode:
 format-check *args:
     uv run ruff format --check "$@"
 
-# Run type checking with mypy
+# Run type checking with mypy (installs the optimized dependency group)
 [group('static analysis')]
 typecheck *args:
-    uv run mypy "$@"
+    uv run --group optimized mypy "$@"
 
 # Check EELS import isolation
 [group('static analysis')]

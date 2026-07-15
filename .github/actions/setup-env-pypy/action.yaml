@@ -1,0 +1,15 @@
+name: Setup PyPy Build Toolchain
+description: |
+  Install the native toolchain needed to build sdists for PyPy jobs.
+  Several dependencies publish no PyPy wheels and are built from source:
+  libcst needs Rust; pycryptodome, PyYAML, regex, and MarkupSafe need a C
+  compiler. CPython jobs install wheels only and must not use this action.
+runs:
+  using: "composite"
+  steps:
+    - name: Install C and Rust toolchains
+      shell: bash
+      run: |
+        sudo apt-get -q update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get -qy install build-essential rustup
+        rustup update --no-self-update 1.89.0 && rustup default 1.89.0
