@@ -45,6 +45,11 @@ def _header(number: int) -> FixtureHeader:
         timestamp=number * 12,
         extra_data=b"\x00",
         base_fee_per_gas=7,
+        withdrawals_root=Hash(0),
+        blob_gas_used=0,
+        excess_blob_gas=0,
+        parent_beacon_block_root=Hash(0),
+        requests_hash=Hash(0),
     )
 
 
@@ -95,7 +100,7 @@ def _built_block(number: int, statuses: List[int]) -> TestingBuildBlock:
             payload_response=GetPayloadResponse(execution_payload=payload),
             new_payload_version=new_payload_version,
             forkchoice_updated_version=forkchoice_updated_version,
-            parent_beacon_block_root=None,
+            parent_beacon_block_root=Hash(0),
         ),
     )
 
