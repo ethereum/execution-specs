@@ -29,6 +29,7 @@ from execution_testing.rpc import (
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     GetPayloadResponse,
+    JSONRPCError,
     PayloadAttributes,
     PayloadStatusEnum,
 )
@@ -312,41 +313,37 @@ class ClientBackend:
         Tally executed opcodes for a block via ``debug_traceBlockByHash``.
 
         ``None`` when ``--extract-opcode-count`` is off or the trace
-        fails (logged, never fatal). Prefers the JS tracer; falls back
-        to struct logs for the rest of the session on error.
+        fails (logged, never fatal). Prefers the JS tracer; a client
+        that rejects it falls back to struct logs for the session,
+        while transient errors only skip the block.
         """
         if not self.extract_opcode_count or self.debug_rpc is None:
             return None
 
-        if not self._js_tracer_unsupported:
-            traces = self._trace_block(
-                block_hash, {"tracer": OPCODE_COUNT_TRACER_JS}
-            )
-            if traces is not None:
-                return _opcode_count_from_js_tracer(traces)
-            logger.info(
-                "opcode trace: JS tracer unavailable; falling back to "
-                "struct logs for this client"
-            )
-            self._js_tracer_unsupported = True
-
-        traces = self._trace_block(block_hash, STRUCT_LOG_TRACER_CONFIG)
-        if traces is None:
-            return None
-        return _opcode_count_from_struct_logs(traces)
-
-    def _trace_block(
-        self, block_hash: Hash, tracer_config: Dict[str, Any]
-    ) -> Any | None:
-        """``debug_traceBlockByHash``; ``None`` on RPC error (logged)."""
-        assert self.debug_rpc is not None
         try:
-            return self.debug_rpc.trace_block_by_hash(
-                str(block_hash), tracer_config
-            )
+            if not self._js_tracer_unsupported:
+                try:
+                    traces = self._trace_block(
+                        block_hash, {"tracer": OPCODE_COUNT_TRACER_JS}
+                    )
+                    return _opcode_count_from_js_tracer(traces)
+                except JSONRPCError as e:
+                    logger.info(f"JS tracer rejected ({e}); using struct logs")
+                    self._js_tracer_unsupported = True
+            traces = self._trace_block(block_hash, STRUCT_LOG_TRACER_CONFIG)
+            return _opcode_count_from_struct_logs(traces)
         except Exception as e:
             logger.warning(f"opcode trace failed for block {block_hash}: {e}")
             return None
+
+    def _trace_block(
+        self, block_hash: Hash, tracer_config: Dict[str, Any]
+    ) -> Any:
+        """Raw ``debug_traceBlockByHash`` call; exceptions propagate."""
+        assert self.debug_rpc is not None
+        return self.debug_rpc.trace_block_by_hash(
+            str(block_hash), tracer_config
+        )
 
     def _payload_attributes(
         self,
