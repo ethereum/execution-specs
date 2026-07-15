@@ -1657,10 +1657,15 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     "pre_alloc_group"
                 ):
                     # Get the group name/salt from marker args
-                    if pre_alloc_group_marker.args:
+                    if (
+                        pre_alloc_group_marker.args
+                        and pre_alloc_group_marker.args[0] != "separate"
+                    ):
                         group_salt = str(pre_alloc_group_marker.args[0])
                     else:
-                        # We got the marker but unspecified, pass test name
+                        # "separate" (or a bare marker): salt with the
+                        # test's node id so the test gets its own genesis
+                        # instead of a group named literally "separate".
                         group_salt = _strip_xdist_group_suffix(
                             request.node.nodeid
                         )
