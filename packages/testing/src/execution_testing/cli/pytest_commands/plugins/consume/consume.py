@@ -265,7 +265,7 @@ class FixturesSource:
         if cache_folder is None:
             cache_folder = CACHED_DOWNLOADS_DIRECTORY
         url = get_release_url(spec)
-        release_page = get_release_page_url(url)
+        release_page = get_release_page_url(spec)
 
         destination_folder = extract_to or FixtureDownloader.get_cache_path(
             url, cache_folder

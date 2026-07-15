@@ -1,6 +1,7 @@
 """Procedures to consume fixtures from Github releases."""
 
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
@@ -11,7 +12,9 @@ from urllib.parse import urlparse
 
 import platformdirs
 import requests
-from pydantic import BaseModel, Field, RootModel
+from pydantic import BaseModel, Field, RootModel, ValidationError
+
+logger = logging.getLogger(__name__)
 
 CACHED_RELEASE_INFORMATION_FILE = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests"))
@@ -237,7 +240,15 @@ def download_release_information(
     pagination links up to `max_pages` pages, so resolution sees the 200
     most recent releases per repo. Older releases fall outside this
     window and cannot be resolved.
+
+    Authenticate with `GITHUB_TOKEN` when set: authenticated requests
+    get 5000 requests/hour instead of the unauthenticated 60/hour per
+    IP address.
     """
+    headers = {}
+    github_token = os.environ.get("GITHUB_TOKEN")
+    if github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
     all_releases = []
     for repo in SUPPORTED_REPOS:
         current_url: str | None = (
@@ -246,7 +257,7 @@ def download_release_information(
         max_pages = 2
         while current_url and max_pages > 0:
             max_pages -= 1
-            response = requests.get(current_url)
+            response = requests.get(current_url, headers=headers)
             response.raise_for_status()
             all_releases.extend(response.json())
             current_url = None
@@ -260,8 +271,14 @@ def download_release_information(
 
     if destination_file:
         destination_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(destination_file, "w") as file:
+        # Write via a temporary file so a concurrent reader never sees a
+        # partially-written cache.
+        temporary_file = destination_file.with_name(
+            destination_file.name + ".tmp"
+        )
+        with open(temporary_file, "w") as file:
             json.dump(all_releases, file)
+        temporary_file.replace(destination_file)
     return parse_release_information(all_releases)
 
 
@@ -310,6 +327,26 @@ def find_release(
     return max(matches, key=sort_key)
 
 
+def resolves_pinned_release(
+    release_string: str,
+    release_information: List[ReleaseInformation],
+) -> bool:
+    """
+    Check whether the release information resolves a pinned version.
+
+    A release descriptor with an explicit version refers to an immutable
+    git tag: once it resolves, a refresh of the release information
+    cannot change the result.
+    """
+    if ReleaseTag.from_string(release_string).version is None:
+        return False
+    try:
+        find_release(release_string, release_information)
+    except NoSuchReleaseError:
+        return False
+    return True
+
+
 def get_release_url_from_release_information(
     release_string: str, release_information: List[ReleaseInformation]
 ) -> str:
@@ -329,7 +366,7 @@ def get_release_page_url(release_string: str) -> str:
       "https://github.com/ethereum/execution-specs/releases/
       download/tests%40v20.0.0/fixtures.tar.gz").
     """
-    release_information = get_release_information()
+    release_information = get_release_information(release_string)
 
     # Case 1: If it's a direct GitHub Releases download link, find which
     # release in `release_information` has an asset with this exact URL.
@@ -349,32 +386,57 @@ def get_release_page_url(release_string: str) -> str:
     return find_release(release_string, release_information).url
 
 
-def get_release_information() -> List[ReleaseInformation]:
+def get_release_information(
+    release_string: str | None = None,
+) -> List[ReleaseInformation]:
     """
-    Get the release information.
+    Get the release information, refreshing the cache file as needed.
 
-    First check if the cached release information file exists. If it does, but
-    it is older than 4 hours, delete the file, unless running inside a CI
-    environment or a Docker container. Then download the release information
-    from the Github API and save it to the cache file.
+    Return the cached release information if the cache file is fresh
+    (younger than 4 hours; any age when running inside a CI environment
+    or a Docker container). A stale cache is also used without
+    refreshing when `release_string` pins an exact version that the
+    cache already resolves: release tags are immutable, so the cached
+    entry cannot be outdated. Otherwise re-download the release
+    information, keeping the stale cache as a fallback in case the
+    GitHub API is unavailable (e.g. rate-limited).
     """
+    cached_information: List[ReleaseInformation] | None = None
     if CACHED_RELEASE_INFORMATION_FILE.exists():
-        last_modified = CACHED_RELEASE_INFORMATION_FILE.stat().st_mtime
-        if (
-            datetime.now().timestamp() - last_modified
-        ) < 4 * 60 * 60 or is_docker_or_ci():
-            return parse_release_information_from_file(
+        try:
+            cached_information = parse_release_information_from_file(
                 CACHED_RELEASE_INFORMATION_FILE
             )
-        CACHED_RELEASE_INFORMATION_FILE.unlink()
-    if not CACHED_RELEASE_INFORMATION_FILE.exists():
+        except (json.JSONDecodeError, ValidationError):
+            logger.warning(
+                "Ignoring corrupt release information cache at "
+                f"{CACHED_RELEASE_INFORMATION_FILE}."
+            )
+        else:
+            last_modified = CACHED_RELEASE_INFORMATION_FILE.stat().st_mtime
+            cache_age = datetime.now().timestamp() - last_modified
+            if cache_age < 4 * 60 * 60 or is_docker_or_ci():
+                return cached_information
+            if release_string is not None and resolves_pinned_release(
+                release_string, cached_information
+            ):
+                return cached_information
+    try:
         return download_release_information(CACHED_RELEASE_INFORMATION_FILE)
-    return parse_release_information_from_file(CACHED_RELEASE_INFORMATION_FILE)
+    except requests.RequestException as error:
+        if cached_information is None:
+            raise
+        logger.warning(
+            f"Could not refresh release information from the GitHub API "
+            f"({error}); falling back to the stale cache at "
+            f"{CACHED_RELEASE_INFORMATION_FILE}."
+        )
+        return cached_information
 
 
 def get_release_url(release_string: str) -> str:
     """Get the URL for a specific release."""
-    release_information = get_release_information()
+    release_information = get_release_information(release_string)
     return get_release_url_from_release_information(
         release_string, release_information
     )

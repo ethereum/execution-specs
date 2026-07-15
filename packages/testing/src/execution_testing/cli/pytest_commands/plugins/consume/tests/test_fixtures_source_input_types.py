@@ -58,11 +58,12 @@ class TestSimplifiedConsumeBehavior:
 
                     source = FixturesSource.from_release_spec(test_spec)
 
-                    # Verify API calls were made and release page is set
+                    # Verify API calls were made and release page is set.
+                    # Both lookups receive the release spec, so pinned
+                    # versions resolve from the release-information cache
+                    # without querying the GitHub API.
                     mock_get_url.assert_called_once_with(test_spec)
-                    mock_get_page.assert_called_once_with(
-                        "https://github.com/ethereum/execution-specs/releases/download/tests%40v20.0.0/fixtures.tar.gz"
-                    )
+                    mock_get_page.assert_called_once_with(test_spec)
                     assert (
                         source.release_page
                         == "https://github.com/ethereum/execution-specs/releases/tag/tests%40v20.0.0"
