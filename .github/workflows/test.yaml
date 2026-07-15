@@ -34,8 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - name: Ensure SHA pinned actions
         uses: zgosalvez/github-actions-ensure-sha-pinned-actions@70c4af2ed5282c51ba40566d026d6647852ffa3e # v5.0.1
       - uses: ./.github/actions/setup-uv
@@ -98,8 +96,6 @@ jobs:
             until_fork: Amsterdam
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
@@ -122,8 +118,6 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
@@ -139,8 +133,6 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
@@ -161,8 +153,6 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
@@ -177,8 +167,6 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
@@ -192,8 +180,6 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
@@ -210,8 +196,6 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
       - name: Run test-ci-scripts
         run: just test-ci-scripts
