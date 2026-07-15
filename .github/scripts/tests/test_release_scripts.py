@@ -19,6 +19,7 @@ BUILD_MATRIX_SCRIPT = SCRIPTS_DIR / "generate_build_matrix.py"
 TARBALL_SCRIPT = SCRIPTS_DIR / "create_release_tarball.py"
 MERGE_INDEX_SCRIPT = SCRIPTS_DIR / "merge_index_files.py"
 CHECK_COMMITS_SCRIPT = SCRIPTS_DIR / "check_new_commits.py"
+RESOLVE_CACHED_SCRIPT = SCRIPTS_DIR / "resolve_cached_release.py"
 
 
 def run_script(script: Path, *args: str) -> subprocess.CompletedProcess:
@@ -189,9 +190,9 @@ class TestValidateInputs:
         assert result.returncode == 0
 
 
-# Fake `gh` served from PATH: answers the three API calls the
-# commit-check script makes with canned JSON from env vars, and fails
-# loudly on any other (or unconfigured) call. Per-run artifact
+# Fake `gh` served from PATH: answers the API calls the commit-check
+# and cached-release scripts make with canned JSON from env vars, and
+# fails loudly on any other (or unconfigured) call. Per-run artifact
 # responses come from `FAKE_GH_ARTIFACTS_<run_id>`, falling back to
 # `FAKE_GH_ARTIFACTS`.
 FAKE_GH = """#!/usr/bin/env bash
@@ -203,6 +204,8 @@ case "$2" in
     var="FAKE_GH_ARTIFACTS_${run_id}"
     response="${!var:-$FAKE_GH_ARTIFACTS}"
     ;;
+  *matching-refs*) response="$FAKE_GH_TAGS" ;;
+  *compare/tests@*) response="$FAKE_GH_COMPARE_TAG" ;;
   *compare*) response="$FAKE_GH_COMPARE" ;;
   *) response="" ;;
 esac
@@ -393,6 +396,288 @@ class TestCheckNewCommits:
     def test_gh_failure_fails_the_check(self, tmp_path):
         """Verify a failing `gh` call fails the script."""
         result, _ = self.run_check(tmp_path, "schedule")
+        assert result.returncode == 1
+        assert "gh api" in result.stderr
+
+
+# Canned responses for the cached-release script. Unlike the commit
+# check, it matches artifacts by the commit-derived
+# `fixtures_<short sha>` name, so the canned listings are built
+# per head SHA.
+TESTS_TAGS = json.dumps(
+    [{"ref": "refs/tags/tests@v3.1.2"}, {"ref": "refs/tags/tests@v4.0.0"}]
+)
+NO_TAGS = "[]"
+UP_TO_DATE = json.dumps({"status": "identical", "commits": []})
+
+
+def artifact_listing(head_sha: str, expired: bool = False) -> str:
+    """Return an artifact listing with a tarball named for *head_sha*."""
+    return json.dumps(
+        {
+            "artifacts": [
+                {
+                    "name": f"fixtures_{head_sha[:7]}",
+                    "expired": expired,
+                }
+            ]
+        }
+    )
+
+
+class TestResolveCachedRelease:
+    """Test resolve_cached_release.py."""
+
+    def run_resolve(
+        self,
+        tmp_path: Path,
+        version: str,
+        feature: str = "tests",
+        branch: str = "",
+        commit: str = "",
+        runs: str = "",
+        artifacts: str = "",
+        per_run_artifacts: dict[int, str] | None = None,
+        tags: str = "",
+        compare: str = "",
+        tag_compare: str = UP_TO_DATE,
+    ) -> tuple[subprocess.CompletedProcess, Path]:
+        """Run the script with a fake `gh` on PATH; return it + summary."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir(exist_ok=True)
+        fake_gh = bin_dir / "gh"
+        fake_gh.write_text(FAKE_GH)
+        fake_gh.chmod(0o755)
+
+        summary = tmp_path / "summary.md"
+        env = os.environ.copy()
+        env["PATH"] = f"{bin_dir}:{env['PATH']}"
+        env["GITHUB_REPOSITORY"] = "ethereum/execution-specs"
+        env["GITHUB_SHA"] = "b" * 40
+        env["GITHUB_STEP_SUMMARY"] = str(summary)
+        env["INPUT_VERSION"] = version
+        env["INPUT_FEATURE"] = feature
+        env["INPUT_BRANCH"] = branch
+        env["INPUT_COMMIT"] = commit
+        env["FAKE_GH_RUNS"] = runs
+        env["FAKE_GH_ARTIFACTS"] = artifacts
+        env["FAKE_GH_TAGS"] = tags
+        env["FAKE_GH_COMPARE"] = compare
+        env["FAKE_GH_COMPARE_TAG"] = tag_compare
+        for run_id, response in (per_run_artifacts or {}).items():
+            env[f"FAKE_GH_ARTIFACTS_{run_id}"] = response
+
+        result = subprocess.run(
+            ["uv", "run", "-q", str(RESOLVE_CACHED_SCRIPT)],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env=env,
+        )
+        return result, summary
+
+    @staticmethod
+    def parse_outputs(stdout: str) -> dict[str, str]:
+        """Parse the key=value lines written for `$GITHUB_OUTPUT`."""
+        return dict(line.split("=", 1) for line in stdout.strip().splitlines())
+
+    @staticmethod
+    def runs_json(*runs: dict) -> str:
+        """Return a workflow-runs listing response."""
+        return json.dumps({"workflow_runs": list(runs)})
+
+    def test_reuses_newest_run_with_live_artifact(self, tmp_path):
+        """Verify skip-runs and expired fills are passed over."""
+        commit = {
+            "sha": "abcdef1" + "0" * 33,
+            "commit": {"message": "feat(x): subject\n\nbody"},
+        }
+        result, summary = self.run_resolve(
+            tmp_path,
+            "v4.0.1",
+            runs=self.runs_json(
+                # Newest success skipped its build: no artifacts.
+                {"id": 3, "head_sha": "c" * 40},
+                {"id": 2, "head_sha": "a" * 40},
+                {"id": 1, "head_sha": "d" * 40},
+            ),
+            per_run_artifacts={
+                3: NO_ARTIFACTS,
+                2: artifact_listing("a" * 40),
+                1: artifact_listing("d" * 40, expired=True),
+            },
+            tags=TESTS_TAGS,
+            compare=json.dumps({"status": "ahead", "commits": [commit]}),
+        )
+        assert result.returncode == 0
+        out = self.parse_outputs(result.stdout)
+        assert out["run_id"] == "2"
+        assert out["target_sha"] == "a" * 40
+        assert out["artifact_name"] == "fixtures_aaaaaaa"
+        text = summary.read_text()
+        assert "### Commits NOT included in this release" in text
+        # Short SHA plus the commit subject, without the body.
+        assert "- abcdef1 feat(x): subject" in text
+        assert "body" not in text
+
+    def test_up_to_date_nightly_resolves_cleanly(self, tmp_path):
+        """Verify no missing-commit section when nothing landed since."""
+        result, summary = self.run_resolve(
+            tmp_path,
+            "v4.0.1",
+            runs=self.runs_json({"id": 2, "head_sha": "b" * 40}),
+            artifacts=artifact_listing("b" * 40),
+            tags=TESTS_TAGS,
+            compare=UP_TO_DATE,
+        )
+        assert result.returncode == 0
+        text = summary.read_text()
+        assert "up to date" in text
+        assert "NOT included" not in text
+
+    def test_first_release_without_tags_resolves(self, tmp_path):
+        """Verify a cached release works before any tests@ tag exists."""
+        result, _ = self.run_resolve(
+            tmp_path,
+            "v1.0.0",
+            runs=self.runs_json({"id": 2, "head_sha": "b" * 40}),
+            artifacts=artifact_listing("b" * 40),
+            tags=NO_TAGS,
+            compare=UP_TO_DATE,
+        )
+        assert result.returncode == 0
+        assert self.parse_outputs(result.stdout)["run_id"] == "2"
+
+    def test_non_tests_feature_fails(self, tmp_path):
+        """Verify only the tests feature can release cached."""
+        # The fake `gh` fails every call (no canned responses), so a
+        # clean feature error proves the guard fires before the API.
+        result, _ = self.run_resolve(tmp_path, "v4.0.1", feature="bal-devnet")
+        assert result.returncode == 1
+        assert "only available for feature=tests" in result.stderr
+
+    def test_branch_input_fails(self, tmp_path):
+        """Verify a cached release rejects a branch input."""
+        result, _ = self.run_resolve(
+            tmp_path, "v4.0.1", branch="devnets/bal/7"
+        )
+        assert result.returncode == 1
+        assert "drop the `branch` input" in result.stderr
+
+    def test_bad_version_format_fails(self, tmp_path):
+        """Verify a non vX.Y.Z version is rejected before any API call."""
+        result, _ = self.run_resolve(tmp_path, "4.0.1")
+        assert result.returncode == 1
+        assert "must match vX.Y.Z" in result.stderr
+
+    def test_version_not_greater_than_newest_tag_fails(self, tmp_path):
+        """Verify the version must move past the newest tests@ tag."""
+        result, _ = self.run_resolve(tmp_path, "v4.0.0", tags=TESTS_TAGS)
+        assert result.returncode == 1
+        assert "must be greater" in result.stderr
+        assert "tests@v4.0.0" in result.stderr
+
+    def test_no_reusable_run_fails(self, tmp_path):
+        """Verify a helpful error when every artifact has expired."""
+        result, _ = self.run_resolve(
+            tmp_path,
+            "v4.0.1",
+            runs=self.runs_json({"id": 2, "head_sha": "a" * 40}),
+            artifacts=artifact_listing("a" * 40, expired=True),
+            tags=TESTS_TAGS,
+        )
+        assert result.returncode == 1
+        assert "dispatch a fresh fill instead" in result.stderr
+
+    def test_mismatched_artifact_name_is_skipped(self, tmp_path):
+        """Verify an artifact named for another commit is not reused."""
+        result, _ = self.run_resolve(
+            tmp_path,
+            "v4.0.1",
+            runs=self.runs_json({"id": 2, "head_sha": "a" * 40}),
+            # Live, but named for a different commit than the run built.
+            artifacts=artifact_listing("f" * 40),
+            tags=TESTS_TAGS,
+        )
+        assert result.returncode == 1
+        assert "dispatch a fresh fill instead" in result.stderr
+
+    def test_commit_input_selects_that_nightly(self, tmp_path):
+        """Verify `commit` picks an older nightly over the newest."""
+        result, _ = self.run_resolve(
+            tmp_path,
+            "v4.0.1",
+            commit="d" * 7,
+            runs=self.runs_json(
+                {"id": 3, "head_sha": "c" * 40},
+                {"id": 2, "head_sha": "a" * 40},
+                {"id": 1, "head_sha": "d" * 40},
+            ),
+            per_run_artifacts={
+                3: NO_ARTIFACTS,
+                2: artifact_listing("a" * 40),
+                1: artifact_listing("d" * 40),
+            },
+            tags=TESTS_TAGS,
+            compare=UP_TO_DATE,
+        )
+        assert result.returncode == 0
+        out = self.parse_outputs(result.stdout)
+        assert out["run_id"] == "1"
+        assert out["target_sha"] == "d" * 40
+        assert out["artifact_name"] == "fixtures_ddddddd"
+
+    def test_commit_input_without_match_fails(self, tmp_path):
+        """Verify a commit with no live nightly lists the candidates."""
+        result, _ = self.run_resolve(
+            tmp_path,
+            "v4.0.1",
+            commit="beef111",
+            runs=self.runs_json({"id": 2, "head_sha": "a" * 40}),
+            artifacts=artifact_listing("a" * 40),
+            tags=TESTS_TAGS,
+        )
+        assert result.returncode == 1
+        assert "was built at beef111" in result.stderr
+        assert "aaaaaaa" in result.stderr
+
+    def test_bad_commit_format_fails(self, tmp_path):
+        """Verify a malformed commit is rejected before any lookup."""
+        result, _ = self.run_resolve(
+            tmp_path, "v4.0.1", commit="xyz", tags=TESTS_TAGS
+        )
+        assert result.returncode == 1
+        assert "hex characters" in result.stderr
+
+    def test_release_behind_previous_fails(self, tmp_path):
+        """Verify a nightly older than the newest release is rejected."""
+        result, _ = self.run_resolve(
+            tmp_path,
+            "v4.0.1",
+            runs=self.runs_json({"id": 2, "head_sha": "a" * 40}),
+            artifacts=artifact_listing("a" * 40),
+            tags=TESTS_TAGS,
+            tag_compare=json.dumps({"status": "behind", "commits": []}),
+        )
+        assert result.returncode == 1
+        assert "must not regress content" in result.stderr
+
+    def test_diverged_nightly_fails(self, tmp_path):
+        """Verify a nightly off the branch history is not reused."""
+        result, _ = self.run_resolve(
+            tmp_path,
+            "v4.0.1",
+            runs=self.runs_json({"id": 2, "head_sha": "a" * 40}),
+            artifacts=artifact_listing("a" * 40),
+            tags=TESTS_TAGS,
+            compare=json.dumps({"status": "diverged", "commits": []}),
+        )
+        assert result.returncode == 1
+        assert "not an ancestor" in result.stderr
+
+    def test_gh_failure_fails_the_resolution(self, tmp_path):
+        """Verify a failing `gh` call fails the script."""
+        result, _ = self.run_resolve(tmp_path, "v4.0.1")
         assert result.returncode == 1
         assert "gh api" in result.stderr
 
