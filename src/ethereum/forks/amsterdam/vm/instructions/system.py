@@ -124,9 +124,7 @@ def generic_create(
     if not account_deployable(tx_state, contract_address):
         increment_nonce(tx_state, sender_address)
         if new_account_charged:
-            credit_state_gas_refund(
-                evm.gas_meter, StateGasCosts.NEW_ACCOUNT
-            )
+            credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
 
@@ -169,9 +167,7 @@ def generic_create(
     incorporate_child(evm, child_evm)
     if child_evm.error:
         if new_account_charged:
-            credit_state_gas_refund(
-                evm.gas_meter, StateGasCosts.NEW_ACCOUNT
-            )
+            credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
