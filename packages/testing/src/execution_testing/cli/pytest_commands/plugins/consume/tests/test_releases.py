@@ -1,15 +1,23 @@
 """Test release parsing given the github repository release JSON data."""
 
+import os
+import shutil
+import time
 from os.path import realpath
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import pytest
+import requests
 
+from .. import releases
 from ..releases import (
     SUPPORTED_REPOS,
     NoSuchReleaseError,
     ReleaseInformation,
+    download_release_information,
+    get_release_page_url,
+    get_release_url,
     get_release_url_from_release_information,
     is_release_url,
     parse_release_information_from_file,
@@ -221,3 +229,257 @@ def test_supported_repos_contains_execution_specs() -> None:
     `tests-bal@v7.1.0` onward) and must be in `SUPPORTED_REPOS`.
     """
     assert "ethereum/execution-specs" in SUPPORTED_REPOS
+
+
+class FakeResponse:
+    """A minimal stand-in for `requests.Response`."""
+
+    def __init__(
+        self, payload: List[Dict], rate_limited: bool = False
+    ) -> None:
+        """Initialize with a JSON payload or a rate-limited failure."""
+        self.payload = payload
+        self.rate_limited = rate_limited
+        self.headers: Dict[str, str] = {}
+
+    def json(self) -> List[Dict]:
+        """Return the JSON payload."""
+        return self.payload
+
+    def raise_for_status(self) -> None:
+        """Raise an `HTTPError` if the response is rate-limited."""
+        if self.rate_limited:
+            raise requests.exceptions.HTTPError(
+                "403 Client Error: rate limit exceeded"
+            )
+
+
+def fake_release(tag_name: str, asset_name: str) -> Dict:
+    """Build a minimal GitHub API release entry."""
+    encoded_tag = tag_name.replace("@", "%40")
+    return {
+        "html_url": "https://github.com/ethereum/execution-specs/releases/"
+        f"tag/{encoded_tag}",
+        "id": 1,
+        "tag_name": tag_name,
+        "name": tag_name,
+        "created_at": "2026-07-15T00:00:00Z",
+        "published_at": "2026-07-15T00:00:00Z",
+        "assets": [
+            {
+                "browser_download_url": "https://github.com/ethereum/"
+                f"execution-specs/releases/download/{encoded_tag}/"
+                f"{asset_name}",
+                "id": 1,
+                "name": asset_name,
+                "content_type": "application/gzip",
+                "size": 1,
+            }
+        ],
+    }
+
+
+@pytest.fixture
+def release_information_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """
+    Point the release-information cache at a copy of the test manifest.
+
+    Also disable the CI/Docker detection so the freshness check applies
+    (in CI, the cache never expires).
+    """
+    cache_file = tmp_path / "release_information.json"
+    shutil.copyfile(CURRENT_FOLDER / "release_information.json", cache_file)
+    monkeypatch.setattr(
+        releases, "CACHED_RELEASE_INFORMATION_FILE", cache_file
+    )
+    monkeypatch.setattr(releases, "is_docker_or_ci", lambda: False)
+    return cache_file
+
+
+def make_stale(cache_file: Path) -> None:
+    """Age the cache file's mtime beyond the 4-hour freshness window."""
+    stale_time = time.time() - 5 * 60 * 60
+    os.utime(cache_file, (stale_time, stale_time))
+
+
+def block_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make any GitHub API request fail the test."""
+
+    def no_api(*args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+        pytest.fail("The GitHub API must not be hit")
+
+    monkeypatch.setattr(releases.requests, "get", no_api)
+
+
+def rate_limited_get(*args: Any, **kwargs: Any) -> FakeResponse:
+    """Return a rate-limited (403) GitHub API response."""
+    del args, kwargs
+    return FakeResponse([], rate_limited=True)
+
+
+def new_release_get(*args: Any, **kwargs: Any) -> FakeResponse:
+    """Return a single-page response with a new `tests@v21.0.0` release."""
+    del args, kwargs
+    return FakeResponse([fake_release("tests@v21.0.0", "fixtures.tar.gz")])
+
+
+def test_pinned_release_resolves_from_stale_cache_without_api(
+    release_information_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A pinned version already resolvable from the cache must not refresh.
+
+    Release tags are immutable, so a cached entry for an exact version
+    cannot be outdated, no matter how old the cache file is. Regression
+    test for `consume --input=tests@vX.Y.Z` raising INTERNALERROR when
+    the unauthenticated GitHub API rate limit is exhausted, even though
+    the (stale) cache resolved the release.
+    """
+    make_stale(release_information_cache)
+    block_api(monkeypatch)
+    assert get_release_url("tests@v20.0.0") == (
+        "https://github.com/ethereum/execution-specs/releases/download/"
+        "tests%40v20.0.0/fixtures.tar.gz"
+    )
+    assert get_release_page_url("tests@v20.0.0") == (
+        "https://github.com/ethereum/execution-specs/releases/tag/"
+        "tests%40v20.0.0"
+    )
+    assert release_information_cache.exists()
+
+
+def test_fresh_cache_resolves_latest_without_api(
+    release_information_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fresh cache resolves unpinned lookups without an API request."""
+    del release_information_cache
+    block_api(monkeypatch)
+    assert get_release_url("tests@latest").endswith(
+        "tests%40v20.0.0/fixtures.tar.gz"
+    )
+
+
+def test_rate_limited_refresh_falls_back_to_stale_cache(
+    release_information_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A failed refresh must fall back to the stale cache, not delete it.
+
+    Previously the stale cache file was deleted before the download was
+    attempted, so a rate-limited refresh crashed the run and left no
+    cache at all, forcing every subsequent run onto the API.
+    """
+    make_stale(release_information_cache)
+    monkeypatch.setattr(releases.requests, "get", rate_limited_get)
+    assert get_release_url("tests@latest").endswith(
+        "tests%40v20.0.0/fixtures.tar.gz"
+    )
+    assert release_information_cache.exists()
+
+
+def test_rate_limited_refresh_without_cache_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without a cache file, a failed refresh is a hard error."""
+    monkeypatch.setattr(
+        releases,
+        "CACHED_RELEASE_INFORMATION_FILE",
+        tmp_path / "release_information.json",
+    )
+    monkeypatch.setattr(releases, "is_docker_or_ci", lambda: False)
+    monkeypatch.setattr(releases.requests, "get", rate_limited_get)
+    with pytest.raises(requests.exceptions.HTTPError):
+        get_release_url("tests@latest")
+
+
+def test_unpinned_release_refreshes_stale_cache(
+    release_information_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    An unpinned lookup with a stale cache must refresh from the API.
+
+    `latest` and bare feature names can resolve to a newer release at
+    any time, so the pinned-release fast path must not apply to them.
+    """
+    make_stale(release_information_cache)
+    calls: List[str] = []
+
+    def fake_get(url: str, **kwargs: Any) -> FakeResponse:
+        del kwargs
+        calls.append(url)
+        return FakeResponse([fake_release("tests@v21.0.0", "fixtures.tar.gz")])
+
+    monkeypatch.setattr(releases.requests, "get", fake_get)
+    assert get_release_url("tests@latest").endswith(
+        "tests%40v21.0.0/fixtures.tar.gz"
+    )
+    assert len(calls) == len(SUPPORTED_REPOS)
+    assert "tests@v21.0.0" in release_information_cache.read_text()
+
+
+def test_pinned_release_not_in_stale_cache_refreshes(
+    release_information_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A pinned version missing from the stale cache must refresh.
+
+    The pinned-release fast path only applies when the cache already
+    resolves the requested version.
+    """
+    make_stale(release_information_cache)
+    monkeypatch.setattr(releases.requests, "get", new_release_get)
+    assert get_release_url("tests@v21.0.0").endswith(
+        "tests%40v21.0.0/fixtures.tar.gz"
+    )
+
+
+def test_corrupt_cache_file_is_refreshed(
+    release_information_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A corrupt cache file must be re-downloaded, not crash the run.
+
+    A partially-written download (e.g. a killed process) must not wedge
+    every subsequent run until the file is manually deleted.
+    """
+    release_information_cache.write_text("{ not json")
+    monkeypatch.setattr(releases.requests, "get", new_release_get)
+    assert get_release_url("tests@v21.0.0").endswith(
+        "tests%40v21.0.0/fixtures.tar.gz"
+    )
+
+
+@pytest.mark.parametrize("github_token", [None, "ghp_test_token"])
+def test_download_release_information_github_token(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    github_token: str | None,
+) -> None:
+    """
+    Authenticate GitHub API requests iff `GITHUB_TOKEN` is set.
+
+    Authenticated requests get 5000 requests/hour instead of the
+    unauthenticated 60 requests/hour per IP.
+    """
+    if github_token is None:
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    else:
+        monkeypatch.setenv("GITHUB_TOKEN", github_token)
+    seen_headers: List[Dict[str, str]] = []
+
+    def fake_get(url: str, **kwargs: Any) -> FakeResponse:
+        del url
+        seen_headers.append(kwargs.get("headers") or {})
+        return FakeResponse([fake_release("tests@v21.0.0", "fixtures.tar.gz")])
+
+    monkeypatch.setattr(releases.requests, "get", fake_get)
+    download_release_information(tmp_path / "release_information.json")
+    expected_headers = (
+        {}
+        if github_token is None
+        else {"Authorization": f"Bearer {github_token}"}
+    )
+    assert seen_headers == [expected_headers] * len(SUPPORTED_REPOS)
