@@ -64,8 +64,7 @@ deadcode:
 format-check *args:
     uv run ruff format --check "$@"
 
-# Run type checking with mypy (the optimized group provides the typed
-# rust-pyspec-glue and ethash packages imported by ethereum_optimized)
+# Run type checking with mypy (installs the optimized dependency group)
 [group('static analysis')]
 typecheck *args:
     uv run --group optimized mypy "$@"
