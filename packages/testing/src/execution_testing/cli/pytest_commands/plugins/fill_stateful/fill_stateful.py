@@ -140,7 +140,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Trace each built block via debug_traceBlockByHash and record "
             "per-opcode execution counts in the fixture's "
-            "_info.metadata.opcode_count. Uses a client-side JS tracer where "
+            "_info.metadata.opcode_counts. Uses a client-side JS tracer where "
             "supported (geth/nethermind/erigon/reth) and falls back to the "
             "struct-log tracer otherwise (besu). Requires the `debug` "
             "namespace. Adds a full re-execution trace per block — slow; "
@@ -491,10 +491,16 @@ def debug_rpc(eth_rpc: EthRPC) -> DebugRPC:
 
 
 @pytest.fixture(scope="session")
+def extract_opcode_count(request: pytest.FixtureRequest) -> bool:
+    """Whether --extract-opcode-count block tracing is enabled."""
+    return request.config.getoption("extract_opcode_count")
+
+
+@pytest.fixture(scope="session")
 def client_backend(
-    request: pytest.FixtureRequest,
     eth_rpc: ChainBuilderEthRPC,
     debug_rpc: DebugRPC,
+    extract_opcode_count: bool,
     session_fork: Fork | TransitionFork,
     default_gas_price: int | None,
     default_max_fee_per_gas: int | None,
@@ -519,9 +525,7 @@ def client_backend(
         eth_rpc=eth_rpc,
         fork=session_fork,
         debug_rpc=debug_rpc,
-        extract_opcode_count=request.config.getoption(
-            "extract_opcode_count", default=False
-        ),
+        extract_opcode_count=extract_opcode_count,
     )
 
     priority_fee = default_max_priority_fee_per_gas

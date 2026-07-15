@@ -49,11 +49,8 @@ from .transition_tool import TransitionTool
 
 logger = get_logger(__name__)
 
-# JS tracer for ``debug_traceBlockByHash`` that tallies executed opcodes
-# per transaction. There is no built-in opcode-count tracer, so we count
-# ``log.op`` names ourselves and return the aggregate dict. Used by
-# fill-stateful's ``--extract-opcode-count`` to populate
-# ``_info.metadata.opcode_count``.
+# Custom JS tracer for ``debug_traceBlockByHash`` — clients ship no
+# built-in opcode-count tracer.
 OPCODE_COUNT_TRACER_JS = (
     "{"
     "counts: {}, "
@@ -125,12 +122,9 @@ class ClientBackend:
         self.engine_rpc = engine_rpc
         self.eth_rpc = eth_rpc
         self.fork = fork
-        # Optional debug namespace + flag for --extract-opcode-count: when
-        # enabled, each built block is traced via debug_traceBlockByHash.
         self.debug_rpc = debug_rpc
         self.extract_opcode_count = extract_opcode_count
-        # Set once a client's JS opcode tracer is found to yield nothing (e.g.
-        # besu has no JS tracer), so later blocks skip straight to struct logs.
+        # Sticky per-session fallback to struct logs (besu has no JS tracer).
         self._js_tracer_unsupported = False
         self.exception_mapper = ClientBackendExceptionMapper()
         self.snapshot_block = None
@@ -164,12 +158,8 @@ class ClientBackend:
 
     def reset_opcode_count(self) -> None:
         """
-        No-op — the singular ``opcode_count`` accumulator is unused.
-
-        Stateful fill records per-payload opcode counts in
-        ``_info.metadata.opcode_counts`` (via ``make_stateful_fixture``),
-        not the filler's aggregate ``opcode_count``; ``opcode_count`` stays
-        ``None`` so that key is not emitted.
+        No-op — ``opcode_count`` stays ``None`` so the filler never emits
+        the singular key; stateful fill records per-payload counts instead.
         """
         return
 
@@ -257,26 +247,13 @@ class ClientBackend:
         self, block_hash: Hash
     ) -> OpcodeCount | None:
         """
-        Trace a finalized block via ``debug_traceBlockByHash`` and tally
-        executed opcodes across its transactions.
+        Tally executed opcodes for a block via ``debug_traceBlockByHash``.
 
-        Returns ``None`` when ``--extract-opcode-count`` is off or no
-        ``debug`` RPC is wired — so callers can invoke it unconditionally
-        and it stays free when disabled. Called per execution-phase block
-        by ``make_stateful_fixture``. The tracer runs a full re-execution
-        of the block, so it is opt-in and can be slow on large blocks.
-
-        Uses a client-side JS opcode-counting tracer where supported
-        (geth/nethermind/erigon/reth) — cheap, since only the aggregate
-        counts cross the wire. Clients without JS tracers (besu) return
-        nothing, so we fall back to the universally-supported struct-log
-        tracer and count ``structLogs[].op`` here. Struct logs return one
-        entry per opcode step, so they are heavier; the fallback is cached
-        per client to avoid re-probing the JS tracer on every block.
-
-        Failures are non-fatal: a trace RPC error or an unrecognized
-        opcode name is logged and skipped rather than aborting the fill,
-        since this is an opt-in analysis feature.
+        Returns ``None`` when ``--extract-opcode-count`` is off (callers
+        may invoke unconditionally) or when the trace fails — failures
+        are logged, never fatal. Prefers the client-side JS tracer (only
+        aggregate counts cross the wire); clients without one (besu)
+        fall back to the heavier struct-log tracer, cached per session.
         """
         if not self.extract_opcode_count or self.debug_rpc is None:
             return None
@@ -285,8 +262,6 @@ class ClientBackend:
             counts = self._count_via_js_tracer(block_hash)
             if counts:
                 return OpcodeCount.model_validate(counts)
-            # None (RPC error, e.g. an unknown JS tracer) or {} (empty): this
-            # client has no usable JS opcode tracer — fall back to struct logs.
             logger.info(
                 "opcode trace: JS tracer unavailable; falling back to struct "
                 "logs for this client"
@@ -310,8 +285,6 @@ class ClientBackend:
                 {"tracer": OPCODE_COUNT_TRACER_JS},
             )
         except Exception as e:
-            # Expected for clients without a JS tracer (e.g. besu); the caller
-            # falls back to struct logs.
             logger.warning(
                 f"opcode JS tracer failed for block {block_hash}: {e}"
             )
@@ -334,10 +307,9 @@ class ClientBackend:
         self, block_hash: Hash
     ) -> Dict[str, int] | None:
         """
-        Count opcodes from the default struct-log tracer, which every
-        client implements. Stack/memory/storage are disabled to keep each
-        step small (still one entry per executed opcode, so the response is
-        large for gas-heavy blocks). ``None`` on RPC error.
+        Count opcodes from the universally-supported struct-log tracer.
+        One entry per executed step, so responses are large for gas-heavy
+        blocks. ``None`` on RPC error.
         """
         assert self.debug_rpc is not None
         try:
@@ -359,8 +331,7 @@ class ClientBackend:
         for entry in traces or []:
             if not isinstance(entry, dict):
                 continue
-            # Most clients wrap each tx as {"result": {...}}; some return the
-            # struct-log result directly.
+            # Some clients return the struct-log result unwrapped.
             result = entry.get("result")
             if not isinstance(result, dict):
                 result = entry
@@ -382,13 +353,10 @@ class ClientBackend:
         """
         Map a tracer opcode name to one ``OpcodeCount`` accepts.
 
-        Mnemonics (``PUSH1``) and hex (``0x0c``) pass through. Some clients
-        emit non-canonical casing (nethermind returns ``calldatasize`` /
-        ``pusH1``), so an upper-cased retry is attempted. Geth emits
-        ``"opcode 0xNN not defined"`` for undefined opcodes — reduce that
-        to the bare ``0xNN`` that validates as an ``UndefinedOpcode``.
-        Anything still unrecognized is logged and dropped (returns
-        ``None``) so one stray name never aborts the whole fill.
+        Non-canonical casing (nethermind emits ``calldatasize``) is
+        retried upper-cased; geth's ``"opcode 0xNN not defined"`` is
+        reduced to the bare ``0xNN`` (an ``UndefinedOpcode``). Anything
+        still unrecognized is logged and dropped, never fatal.
         """
         for candidate in (name, name.upper()):
             try:

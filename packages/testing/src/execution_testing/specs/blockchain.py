@@ -1465,10 +1465,7 @@ class BlockchainTest(BaseTest):
 
         setup_payloads: List[FixtureEngineNewPayload] = []
         execution_payloads: List[FixtureEngineNewPayload] = []
-        # Per-execution-payload opcode counts (fill-stateful's
-        # --extract-opcode-count), aligned 1:1 with execution_payloads
-        # (i.e. engineNewPayloads). Entry i is the opcode count for
-        # engineNewPayloads[i], or None if its trace was unavailable.
+        # Aligned 1:1 with execution_payloads; None when no trace.
         execution_opcode_counts: List[Dict[str, int] | None] = []
         head_hash = start_block_hash
         benchmark_gas_used: int | None = None
@@ -1499,12 +1496,6 @@ class BlockchainTest(BaseTest):
                 setup_payloads.append(payload)
             else:
                 execution_payloads.append(payload)
-                # Trace opcode counts for execution-phase blocks only
-                # (fill-stateful's --extract-opcode-count); setup blocks are
-                # skipped — no wasted trace. Recorded per payload so
-                # multi-block benchmarks keep per-payload granularity in
-                # _info.metadata.opcode_counts. None when extraction is off
-                # or the trace was unavailable.
                 block_opcode_count = t8n.extract_block_opcode_count(
                     client_hash
                 )
@@ -1515,11 +1506,7 @@ class BlockchainTest(BaseTest):
                 )
                 if self.operation_mode == OpMode.BENCHMARKING:
                     benchmark_gas_used = int(built_block.result.gas_used)
-                    # Feed the traced count to benchmark opcode
-                    # verification: with --extract-opcode-count on, a
-                    # live-client opcode count that diverges from the
-                    # test's declared target fails the fill. Stays None
-                    # when the flag is off, which skips verification.
+                    # Consumed by BenchmarkTest's opcode-count verification.
                     benchmark_opcode_count = block_opcode_count
             # apply_new_parent records the RLP hash; the next block's
             # parent_hash must point at what the client actually built.
@@ -1548,8 +1535,6 @@ class BlockchainTest(BaseTest):
                 else None
             ),
         )
-        # Emit the per-payload opcode counts as _info.metadata.opcode_counts
-        # (one entry per engineNewPayloads block) only when extraction ran.
         metadata: Dict[str, Any] = {}
         if t8n.extract_opcode_count:
             metadata["opcode_counts"] = execution_opcode_counts
