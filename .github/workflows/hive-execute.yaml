@@ -21,11 +21,6 @@ concurrency:
   group: hive-execute-${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
-env:
-  # Temporary (revert before merge): bypass the uv cache so this PR's CI
-  # proves that all dependencies install as wheels without a toolchain.
-  UV_NO_CACHE: "1"
-
 jobs:
   cache-docker-images:
     name: Cache Docker Images
