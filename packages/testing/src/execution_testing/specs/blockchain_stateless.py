@@ -889,10 +889,15 @@ def build_amsterdam_stateless_artifacts_from_t8n(
     from ethereum.forks.amsterdam.execution_engine.requests import (
         decode_execution_requests,
     )
+    from ethereum.forks.amsterdam.stateless import (
+        StatelessValidationResult,
+        compute_new_payload_request_root,
+    )
     from ethereum.forks.amsterdam.stateless_guest import (
-        run_stateless_guest,
+        serialize_stateless_output,
     )
     from ethereum.forks.amsterdam.stateless_host import (
+        build_chain_config,
         build_stateless_input,
         serialize_stateless_input,
     )
@@ -949,7 +954,16 @@ def build_amsterdam_stateless_artifacts_from_t8n(
         chain_id=U64(chain_id),
     )
     stateless_input_bytes = serialize_stateless_input(stateless_input)
-    stateless_output_bytes = run_stateless_guest(stateless_input_bytes)
+    # Temporary trust path for external benchmark filling until Geth emits
+    # both stateless byte fields.
+    stateless_output = StatelessValidationResult(
+        new_payload_request_root=compute_new_payload_request_root(
+            stateless_input
+        ),
+        successful_validation=True,
+        chain_config=build_chain_config(U64(chain_id)),
+    )
+    stateless_output_bytes = serialize_stateless_output(stateless_output)
     return (
         Bytes(bytes(stateless_input_bytes)),
         Bytes(bytes(stateless_output_bytes)),

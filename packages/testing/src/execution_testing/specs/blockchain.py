@@ -35,6 +35,7 @@ from execution_testing.base_types import (
 from execution_testing.client_clis import (
     BlockExceptionWithMessage,
     ClientBackend,
+    ExecutionSpecsTransitionTool,
     FillerBackend,
     LazyAlloc,
     Result,
@@ -1107,6 +1108,28 @@ class BlockchainTest(BaseTest):
             parent_hash=header.parent_hash,
             execution_witness=t8n_witness,
         )
+        missing_stateless_artifacts = (
+            not stateless_options.skip_validation
+            and t8n_witness is not None
+            and bal is not None
+            and (
+                transition_tool_output.result.stateless_input_bytes is None
+                or transition_tool_output.result.stateless_output_bytes is None
+            )
+        )
+        if missing_stateless_artifacts:
+            # Temporary trust path for external benchmark filling until Geth
+            # emits both stateless byte fields.
+            assert not isinstance(t8n, ExecutionSpecsTransitionTool), (
+                "EELS must provide stateless input and output bytes"
+            )
+            assert self.operation_mode == OpMode.BENCHMARKING, (
+                "Missing stateless artifacts are only supported for external "
+                "benchmark fills"
+            )
+            assert block.exception is None, (
+                "Missing stateless artifacts require a valid benchmark block"
+            )
         stateless_artifacts = stateless_artifacts_from_t8n(
             options=stateless_options,
             artifacts=stateless_artifacts,
