@@ -307,7 +307,7 @@ class BaseTest(BaseModel):
         receipts match. Catches silent OOG failures that roll
         back state and invalidate benchmarks.
         """
-        if "expected_receipt_status" not in self.model_fields_set:
+        if self.expected_receipt_status is None:
             return
         for i, receipt in enumerate(receipts):
             if receipt.status is not None and (
