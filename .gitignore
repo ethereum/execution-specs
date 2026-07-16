@@ -100,4 +100,3 @@ site/
 
 # Temporary data; used for generated checklists
 tmp/
-node_modules/

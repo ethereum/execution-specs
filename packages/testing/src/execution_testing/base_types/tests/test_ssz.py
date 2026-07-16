@@ -7,6 +7,7 @@ nested-container lists, bool, bitvector).
 
 from typing import Annotated, List
 
+import pytest
 from remerkleable.basic import boolean, uint8, uint64, uint256
 from remerkleable.bitfields import Bitlist as RmkBitlist
 from remerkleable.bitfields import Bitvector as RmkBitvector
@@ -20,7 +21,6 @@ from remerkleable.progressive import ProgressiveList as RmkProgressiveList
 from execution_testing.base_types import Address, Bloom, Bytes, Hash
 from execution_testing.base_types.ssz import (
     ProgressiveModel,
-    SszContainer,
     SszModel,
     Uint8,
     Uint64,
@@ -29,6 +29,7 @@ from execution_testing.base_types.ssz import (
     bitvector,
     byte_list,
     decode,
+    describe_schema,
     encode,
     hash_tree_root,
     progressive_list,
@@ -45,7 +46,7 @@ CELLS = 128
 
 
 class Withdrawal(SszModel):
-    """Declared once, in base_types terms."""
+    """A pydantic model declared to check the SSZ machinery."""
 
     index: Uint64
     validator_index: Uint64
@@ -54,7 +55,7 @@ class Withdrawal(SszModel):
 
 
 class ExecutionPayload(SszModel):
-    """A rich Amsterdam-shaped payload exercising every field kind."""
+    """An Amsterdam-shaped payload exercising every field kind."""
 
     parent_hash: Hash
     fee_recipient: Address
@@ -64,11 +65,10 @@ class ExecutionPayload(SszModel):
     base_fee_per_gas: Uint256
     extra_data: Annotated[Bytes, byte_list(MAX_EXTRA)]
     transactions: Annotated[
-        List[Bytes], ssz_list(byte_list(MAX_BYTES_PER_TX), MAX_TXS)
+        List[Annotated[Bytes, byte_list(MAX_BYTES_PER_TX)]],
+        ssz_list(MAX_TXS),
     ]
-    withdrawals: Annotated[
-        List[Withdrawal], ssz_list(SszContainer(Withdrawal), MAX_WITHDRAWALS)
-    ]
+    withdrawals: Annotated[List[Withdrawal], ssz_list(MAX_WITHDRAWALS)]
 
 
 def _withdrawal() -> Withdrawal:
@@ -78,6 +78,30 @@ def _withdrawal() -> Withdrawal:
         address=Address(b"\x11" * 20),
         amount=32_000_000_000,
     )
+
+
+def assert_matches_reference(model: SszModel, ref: Container) -> None:
+    """
+    Compare the engine against a hand-written remerkleable twin.
+
+    The twin is the ground truth: everything observable must agree -- the
+    wire bytes, the hash_tree_root, the decode round-trip, and the default
+    (zero) value of both types. The zero comparison pins the full schema
+    and merkle shape, not just the one populated instance.
+    """
+    model_cls = type(model)
+    ref_cls = type(ref)
+    # populated instance: wire bytes + merkle root
+    assert encode(model) == ref.encode_bytes()
+    assert hash_tree_root(model) == bytes(ref.hash_tree_root())
+    # decode round-trips losslessly
+    restored = decode(model_cls, encode(model))
+    assert encode(restored) == encode(model)
+    assert hash_tree_root(restored) == hash_tree_root(model)
+    # both sides agree on the zero value
+    zero = ssz_default(model_cls)
+    assert encode(zero) == ref_cls().encode_bytes()
+    assert hash_tree_root(zero) == bytes(ref_cls().hash_tree_root())
 
 
 def test_scalar_container_is_byte_identical_to_remerkleable() -> None:
@@ -95,8 +119,7 @@ def test_scalar_container_is_byte_identical_to_remerkleable() -> None:
         address=b"\x11" * 20,
         amount=32_000_000_000,
     )
-    assert encode(_withdrawal()) == ref.encode_bytes()
-    assert hash_tree_root(_withdrawal()) == bytes(ref.hash_tree_root())
+    assert_matches_reference(_withdrawal(), ref)
 
 
 def test_full_payload_round_trips() -> None:
@@ -172,8 +195,7 @@ def test_full_payload_byte_identical_to_remerkleable() -> None:
             )
         ],
     )
-    assert encode(payload) == ref.encode_bytes()
-    assert hash_tree_root(payload) == bytes(ref.hash_tree_root())
+    assert_matches_reference(payload, ref)
 
 
 def test_bool_and_bitvector_fields() -> None:
@@ -191,7 +213,7 @@ def test_bool_and_bitvector_fields() -> None:
         columns: RmkBitvector[CELLS]
 
     ref = Ref(ok=True, columns=bits)
-    assert encode(value) == ref.encode_bytes()
+    assert_matches_reference(value, ref)
     restored = decode(Status, encode(value))
     assert restored.ok is True
     assert restored.columns == bits
@@ -201,7 +223,7 @@ def test_vector_and_bitlist() -> None:
     """Fixed Vector[uint64, N] and variable Bitlist[N] match remerkleable."""
 
     class Committee(SszModel):
-        seats: Annotated[List[Uint64], ssz_vector(Uint64.__ssz__, 3)]
+        seats: Annotated[List[Uint64], ssz_vector(3)]
         flags: Annotated[List[bool], bitlist(8)]
 
     value = Committee(seats=[1, 2, 3], flags=[True, False, True])
@@ -211,7 +233,7 @@ def test_vector_and_bitlist() -> None:
         flags: RmkBitlist[8]
 
     ref = Ref(seats=[1, 2, 3], flags=[True, False, True])
-    assert encode(value) == ref.encode_bytes()
+    assert_matches_reference(value, ref)
     restored = decode(Committee, encode(value))
     assert [int(s) for s in restored.seats] == [1, 2, 3]
     assert restored.flags == [True, False, True]
@@ -223,7 +245,7 @@ def test_progressive_list_and_container() -> None:
     class Prog(ProgressiveModel):
         a: Uint64
         b: Uint8
-        items: Annotated[List[Uint64], progressive_list(Uint64.__ssz__)]
+        items: Annotated[List[Uint64], progressive_list()]
 
     value = Prog(a=5, b=9, items=[10, 20, 30])
 
@@ -233,8 +255,7 @@ def test_progressive_list_and_container() -> None:
         items: RmkProgressiveList[uint64]
 
     ref = Ref(a=5, b=9, items=[10, 20, 30])
-    assert encode(value) == ref.encode_bytes()
-    assert hash_tree_root(value) == bytes(ref.hash_tree_root())
+    assert_matches_reference(value, ref)
     restored = decode(Prog, encode(value))
     assert [int(x) for x in restored.items] == [10, 20, 30]
 
@@ -247,11 +268,102 @@ def test_ssz_default_matches_remerkleable_zero() -> None:
     assert zero.withdrawals == []
     assert bytes(zero.parent_hash) == b"\x00" * 32
     # zero encodes identically to a freshly-defaulted remerkleable container.
-    assert encode(zero) == ssz_container_for_zero_bytes()
+    assert encode(zero) == _zero_bytes()
 
 
-def ssz_container_for_zero_bytes() -> bytes:
+def _zero_bytes() -> bytes:
     """The SSZ bytes of a default (zero) ExecutionPayload via remerkleable."""
-    from execution_testing.base_types.ssz import ssz_container_for
+    from execution_testing.base_types.ssz import build_ssz_type
 
-    return ssz_container_for(ExecutionPayload)().encode_bytes()
+    return build_ssz_type(ExecutionPayload)().encode_bytes()
+
+
+def test_describe_schema_renders_every_field_kind() -> None:
+    """describe_schema renders the resolved SSZ type of each field."""
+    schema = describe_schema(ExecutionPayload)
+    assert "block_number: uint64" in schema
+    assert "base_fee_per_gas: uint256" in schema
+    assert "parent_hash: ByteVector[32]" in schema
+    assert f"extra_data: ByteList[{MAX_EXTRA}]" in schema
+    assert (
+        f"transactions: List[ByteList[{MAX_BYTES_PER_TX}], {MAX_TXS}]"
+        in schema
+    )
+    assert f"withdrawals: List[Withdrawal, {MAX_WITHDRAWALS}]" in schema
+
+
+def test_marker_type_mismatch_fails_at_import() -> None:
+    """
+    A cap marker on the wrong Python type raises when the model is defined.
+
+    This is the guard against a silent mis-encode: the marker and the field's
+    Python type must agree, and the check runs at class-definition time.
+    """
+    with pytest.raises(TypeError, match="ssz_vector requires a list"):
+
+        class BadVector(SszModel):
+            seats: Annotated[Uint64, ssz_vector(3)]  # not a list
+
+    with pytest.raises(TypeError, match="byte_list requires a Bytes"):
+
+        class BadByteList(SszModel):
+            data: Annotated[Uint64, byte_list(8)]  # not Bytes
+
+    with pytest.raises(TypeError, match="bit markers require a list"):
+
+        class BadBits(SszModel):
+            # non-bool element would silently truncate to truthiness on encode
+            flags: Annotated[List[Uint64], bitlist(8)]
+
+
+def test_progressive_active_fields_count_checked() -> None:
+    """A mismatched __active_fields__ count raises at class definition."""
+    with pytest.raises(TypeError, match="active"):
+
+        class BadProg(ProgressiveModel):
+            __active_fields__ = [1, 1]  # two active, three declared fields
+
+            a: Uint64
+            b: Uint64
+            c: Uint64
+
+
+def test_progressive_reserved_gap() -> None:
+    """
+    A reserved gap (0) matches a remerkleable container 1:1.
+
+    active_fields=[1, 0, 1] declares two fields with a reserved middle slot;
+    remerkleable requires the count of 1s to equal the declared field count.
+    """
+
+    class Prog(ProgressiveModel):
+        __active_fields__ = [1, 0, 1]
+
+        a: Uint64
+        c: Uint64
+
+    value = Prog(a=1, c=3)
+
+    class Ref(ProgressiveContainer(active_fields=[1, 0, 1])):  # type: ignore[misc]
+        a: uint64
+        c: uint64
+
+    ref = Ref(a=1, c=3)
+    assert_matches_reference(value, ref)
+
+
+def test_default_vector_of_container_has_independent_slots() -> None:
+    """A defaulted Vector-of-container has independent (non-aliased) slots."""
+
+    class Inner(SszModel):
+        x: Uint64
+
+    class Outer(SszModel):
+        items: Annotated[List[Inner], ssz_vector(3)]
+
+    zero = ssz_default(Outer)
+    assert len(zero.items) == 3
+    zero.items[0].x = Uint64(99)
+    # Mutating one slot must not bleed into its siblings.
+    assert int(zero.items[1].x) == 0
+    assert int(zero.items[2].x) == 0
