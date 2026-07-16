@@ -10,6 +10,11 @@ list:
 root := justfile_directory()
 output_dir := root / ".just"
 xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
+
+# The env var's job ends with the `-n` value above; export it empty so
+# pytest-xdist, which reads it as a numeric worker-count override in
+# `-n auto` mode, does not warn on non-numeric values such as "auto".
+export PYTEST_XDIST_AUTO_NUM_WORKERS := ""
 evm_bin := env("EVM_BIN", "evm")
 latest_fork := "Amsterdam"
 
@@ -126,6 +131,18 @@ fill *args:
         --durations=50 \
         "$@" \
         tests
+
+# Callers append the feature params, fork range and output; last flag wins.
+# Fill fixtures with the flags shared by all fixture releases
+[group('consensus tests')]
+fill-release *args:
+    uv run fill \
+        -n {{ xdist_workers }} \
+        --output="{{ output_dir }}/fill-release/fixtures" \
+        --no-html \
+        --durations=100 \
+        --log-level=DEBUG \
+        "$@"
 
 # --- Integration Tests ---
 

@@ -17,12 +17,6 @@ evmone:
   evm-bin: evmone
   xdist: auto
   targets: ["evmone-cli"]
-benchmark:
-  impl: geth
-  repo: ethereum/go-ethereum
-  ref: master
-  evm-bin: evm
-  xdist: auto
 besu:
   impl: besu
   repo: hyperledger/besu
