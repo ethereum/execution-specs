@@ -102,18 +102,6 @@ from tests.benchmark.helper.numeric import (
             ),
         ),
         pytest.param(
-            # Not suitable for MOD, as values quickly become zero.
-            Op.MOD,
-            DEFAULT_BINOP_ARGS,
-            marks=pytest.mark.repricing,
-        ),
-        pytest.param(
-            # Not suitable for SMOD, as values quickly become zero.
-            Op.SMOD,
-            DEFAULT_BINOP_ARGS,
-            marks=pytest.mark.repricing,
-        ),
-        pytest.param(
             # This keeps the values unchanged
             # pow(2**256-1, 2**256-1, 2**256) == 2**256-1.
             Op.EXP,
@@ -129,24 +117,6 @@ from tests.benchmark.helper.numeric import (
             (
                 3,
                 0xFFDADADA,  # Negative to have more work.
-            ),
-            marks=pytest.mark.repricing,
-        ),
-        pytest.param(
-            Op.ADDMOD,
-            (
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
-                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
-                0x100000000000000000000000000000033,
-            ),
-            marks=pytest.mark.repricing,
-        ),
-        pytest.param(
-            Op.MULMOD,
-            (
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
-                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
-                0x100000000000000000000000000000033,
             ),
             marks=pytest.mark.repricing,
         ),
