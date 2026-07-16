@@ -1491,6 +1491,8 @@ class BlockchainTest(BaseTest):
 
         setup_payloads: List[FixtureEngineNewPayload] = []
         execution_payloads: List[FixtureEngineNewPayload] = []
+        # Aligned 1:1 with execution_payloads; None when no trace.
+        execution_opcode_counts: List[Dict[str, int] | None] = []
         head_hash = start_block_hash
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
@@ -1512,22 +1514,30 @@ class BlockchainTest(BaseTest):
             payload = payload_metadata_to_fixture(
                 built_block.engine_payload, phase=block.phase
             )
+            # The client's authoritative block hash (the FixtureHeader RLP
+            # hash diverges — the client picks fields like gas_limit).
+            client_hash = Hash(
+                built_block.engine_payload.payload_response.execution_payload.block_hash
+            )
             if payload.phase == TestPhase.SETUP:
                 setup_payloads.append(payload)
             else:
                 execution_payloads.append(payload)
+                block_opcode_count = t8n.extract_block_opcode_count(
+                    client_hash
+                )
+                execution_opcode_counts.append(
+                    block_opcode_count.model_dump()
+                    if block_opcode_count is not None
+                    else None
+                )
                 if self.operation_mode == OpMode.BENCHMARKING:
                     benchmark_gas_used = built_block.cumulative_gas_used()
                     benchmark_block_gas_used = built_block.block_gas_used()
-                    benchmark_opcode_count = built_block.result.opcode_count
-            # Overwrite the block_hash apply_new_parent just recorded —
-            # it's the FixtureHeader-recomputed RLP hash, which diverges
-            # from the client's authoritative hash (client picks fields
-            # like gas_limit). The next block's parent_hash must point at
-            # what the client actually built.
-            client_hash = Hash(
-                built_block.engine_payload.payload_response.execution_payload.block_hash
-            )
+                    # Consumed by BenchmarkTest's opcode-count verification.
+                    benchmark_opcode_count = block_opcode_count
+            # apply_new_parent records the RLP hash; the next block's
+            # parent_hash must point at what the client actually built.
             env = apply_new_parent(built_block.env, built_block.header)
             env = env.copy(
                 block_hashes={
@@ -1553,12 +1563,16 @@ class BlockchainTest(BaseTest):
                 else None
             ),
         )
+        metadata: Dict[str, Any] = {}
+        if t8n.extract_opcode_count:
+            metadata["opcode_counts"] = execution_opcode_counts
         return FillResult(
             fixture=fixture,
             gas_optimization=None,
             benchmark_gas_used=benchmark_gas_used,
             benchmark_block_gas_used=benchmark_block_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
+            metadata=metadata,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 

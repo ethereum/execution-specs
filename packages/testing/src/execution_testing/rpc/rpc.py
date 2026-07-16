@@ -1301,6 +1301,15 @@ class DebugRPC(EthRPC):
             request=RPCCall(method="traceCall", params=params)
         ).result_or_raise()
 
+    def trace_block_by_hash(
+        self, block_hash: str, tracer_config: dict[str, Any]
+    ) -> Any:
+        """`debug_traceBlockByHash`: Trace every transaction in a block."""
+        params = [block_hash, tracer_config]
+        return self.post_request(
+            request=RPCCall(method="traceBlockByHash", params=params)
+        ).result_or_raise()
+
     def set_head(self, block_number: str) -> None:
         """`debug_setHead`: Reset chain head to the given block number."""
         self.post_request(
