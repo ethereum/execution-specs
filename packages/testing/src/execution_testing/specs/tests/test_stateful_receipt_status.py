@@ -121,6 +121,8 @@ def client_backend() -> ClientBackend:
     backend.fork = FORK
     backend.snapshot_block = block_dict
     backend.start_block = block_dict
+    backend.extract_opcode_count = False
+    backend.debug_rpc = None
     return backend
 
 
