@@ -385,19 +385,28 @@ def test_creates_collisions(
     # Note that these CREATE(2) calls will fail because in (**) below we pre-
     # alloc contracts with the same address as the ones that CREATE(2) will try
     # to create.
+    # The collision targets pre-exist (**), so per EIP-8037 the
+    # CREATE(2) never charges NEW_ACCOUNT state gas.
     proxy_contract_code = (
         Op.CREATE2(
-            value=Op.PUSH0, salt=Op.PUSH0, offset=Op.PUSH0, size=Op.PUSH0
+            value=Op.PUSH0,
+            salt=Op.PUSH0,
+            offset=Op.PUSH0,
+            size=Op.PUSH0,
+            # gas accounting
+            account_new=False,
         )
         if opcode == Op.CREATE2
-        else Op.CREATE(value=Op.PUSH0, offset=Op.PUSH0, size=Op.PUSH0)
+        else Op.CREATE(
+            value=Op.PUSH0,
+            offset=Op.PUSH0,
+            size=Op.PUSH0,
+            # gas accounting
+            account_new=False,
+        )
     )
     proxy_contract = pre.deploy_contract(code=proxy_contract_code)
 
-    # The proxy must also be lent the NEW_ACCOUNT state gas: EIP-8037
-    # charges it before the collision check, and with no reservoir it
-    # spills from the frame's regular gas. On collision it is refunded,
-    # so the same allowance is re-lent on every iteration.
     min_gas_required = proxy_contract_code.regular_cost(
         fork
     ) + proxy_contract_code.state_cost(fork)

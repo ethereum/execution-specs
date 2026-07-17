@@ -556,6 +556,7 @@ def test_auth_transaction(
 ) -> None:
     """Test an auth block."""
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    top_frame_calc = fork.transaction_top_frame_gas_calculator()
 
     code = Op.INVALID * fork.max_code_size()
     auth_target = (
@@ -570,30 +571,54 @@ def test_auth_transaction(
         else RecipientType.CONTRACT
     )
 
-    receiver_state_gas = fork.transaction_top_frame_state_gas(
-        sends_value=sends_value, recipient_type=receiver_type
+    auth_effects = AuthorizationTuple(
+        address=auth_target,
+        v=0,
+        r=0,
+        s=0,
+        creates_account=empty_authority,
+        writes_delegation=empty_authority and not zero_delegation,
+        first_write=True,
     )
 
-    def auth_intrinsic(count: int | List[AuthorizationTuple]) -> int:
-        return intrinsic_cost_calc(
-            authorization_list_or_count=count,
-            sends_value=sends_value,
-            recipient_type=receiver_type,
+    def auth_tx_gas(count: int) -> int:
+        """
+        Return the full gas consumed by a transaction carrying `count`
+        authorizations: intrinsic gas plus the state-conditional
+        top-frame charges, which have no refunds per EIP-2780.
+        """
+        auths = [auth_effects] * count
+        return (
+            intrinsic_cost_calc(
+                authorization_list_or_count=count,
+                sends_value=sends_value,
+                recipient_type=receiver_type,
+            )
+            + top_frame_calc(
+                sends_value=sends_value,
+                recipient_type=receiver_type,
+                authorizations=auths,
+            )
+            + fork.transaction_top_frame_state_gas(
+                sends_value=sends_value,
+                recipient_type=receiver_type,
+                authorizations=auths,
+            )
         )
 
     remaining_gas = gas_benchmark_value
     authorizations_per_tx: List[int] = []
 
-    min_authorization_intrinsic_gas = auth_intrinsic(1) + receiver_state_gas
+    min_authorization_tx_gas = auth_tx_gas(1)
 
-    while remaining_gas >= min_authorization_intrinsic_gas:
-        tx_max_gas = min(remaining_gas, tx_gas_limit) - receiver_state_gas
+    while remaining_gas >= min_authorization_tx_gas:
+        tx_max_gas = min(remaining_gas, tx_gas_limit)
 
         low = 1
         high = 2
 
         # Exponential search to find upper bound
-        while auth_intrinsic(high) < tx_max_gas:
+        while auth_tx_gas(high) < tx_max_gas:
             low = high
             high *= 2
 
@@ -601,24 +626,22 @@ def test_auth_transaction(
         while low < high:
             mid = (low + high) // 2
 
-            if auth_intrinsic(mid) > tx_max_gas:
+            if auth_tx_gas(mid) > tx_max_gas:
                 high = mid
             else:
                 low = mid + 1
 
         best_iterations = low - 1
         authorizations_per_tx.append(best_iterations)
-        remaining_gas -= auth_intrinsic(best_iterations) + receiver_state_gas
+        remaining_gas -= auth_tx_gas(best_iterations)
 
-    max_refund_quotient = fork.max_refund_quotient()
-    per_auth_state_gas = fork.transaction_intrinsic_state_gas(
-        authorization_count=1
+    delegation_code = (
+        b"" if zero_delegation else b"\xef\x01\x00" + bytes(auth_target)
     )
-    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
-    account_write_refund = fork.gas_costs().ACCOUNT_WRITE
 
     expected_gas_usage = 0
     txs = []
+    post = {}
 
     for auths_in_this_tx in authorizations_per_tx:
         auth_tuples = []
@@ -629,38 +652,22 @@ def test_auth_transaction(
                 else pre.fund_eoa(amount=0, delegation=auth_target)
             )
             auth_tuple = AuthorizationTuple(
-                address=auth_target, nonce=signer.nonce, signer=signer
+                address=auth_target,
+                nonce=signer.nonce,
+                signer=signer,
+                creates_account=auth_effects.creates_account,
+                writes_delegation=auth_effects.writes_delegation,
             )
             auth_tuples.append(auth_tuple)
-
-        combined_auth = auth_intrinsic(auth_tuples)
-        tx_gas_used = combined_auth + receiver_state_gas
-
-        # Regular gas billed (gross of refund) is the combined intrinsic minus
-        # the authorization state gas folded into it.
-        regular_gross = combined_auth - per_auth_state_gas * auths_in_this_tx
-
-        if empty_authority:
-            auth_state_net = (
-                new_account_state_gas
-                if zero_delegation
-                else per_auth_state_gas
-            ) * auths_in_this_tx
-        else:
-            auth_state_net = 0
-
-        # Gas that lands: regular plus the state gas the trie keeps, less the
-        # existing-authority refund (EIP-3529 caps it at a fixed fraction).
-        gross_consumed = regular_gross + auth_state_net + receiver_state_gas
-        refund = (
-            0
-            if empty_authority
-            else min(
-                account_write_refund * auths_in_this_tx,
-                gross_consumed // max_refund_quotient,
+            post[signer] = Account(
+                nonce=signer.nonce + 1, code=delegation_code
             )
-        )
-        expected_gas_usage += gross_consumed - refund
+
+        # The gas limit is exact, so an under-estimate halts the top
+        # frame (rolling back every delegation) and fails the post
+        # check.
+        tx_gas = auth_tx_gas(auths_in_this_tx)
+        expected_gas_usage += tx_gas
 
         receiver = pre.fund_eoa(0 if empty_account else 1)
 
@@ -668,7 +675,7 @@ def test_auth_transaction(
             Transaction(
                 to=receiver,
                 value=transfer_amount,
-                gas_limit=tx_gas_used,
+                gas_limit=tx_gas,
                 sender=pre.fund_eoa(),
                 authorization_list=auth_tuples,
             )
@@ -676,7 +683,7 @@ def test_auth_transaction(
 
     benchmark_test(
         pre=pre,
-        post={},
+        post=post,
         blocks=[Block(txs=txs)],
         expected_benchmark_gas_used=expected_gas_usage,
     )
@@ -722,7 +729,13 @@ def test_contract_creation(
         sends_value=sends_value,
     )
     execution_gas = initcode.gas_cost(fork)
-    tx_cost = max(standard_intrinsic + execution_gas, floor_intrinsic)
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True
+    )
+    tx_cost = max(
+        standard_intrinsic + execution_gas + top_frame_state_gas,
+        floor_intrinsic,
+    )
 
     iteration_count = gas_benchmark_value // tx_cost
 
