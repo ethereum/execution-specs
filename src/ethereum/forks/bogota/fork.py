@@ -125,6 +125,7 @@ from .transactions import (
     has_access_list,
     recover_sender,
     resolve_frame_target,
+    resolved_signature_signer,
     validate_frame_signature,
     validate_transaction,
 )
@@ -1374,14 +1375,21 @@ def execute_default_verify_frame(
     if allowed_scope & APPROVE_EXECUTION and resolved_target != tx.sender:
         return failure("execution scope outside sender")
 
-    has_sender_signature = any(
-        sig.scheme == SIGNATURE_SCHEME_SECP256K1
-        and sig.signer == resolved_target
-        and len(sig.msg) == 0
-        for sig in tx.signatures
+    # Frames approving execution authorize with the signature entry at
+    # index 0; payment-only frames authorize with the entry at index 1.
+    if allowed_scope & APPROVE_EXECUTION:
+        sig_index = 0
+    else:
+        sig_index = 1
+    has_authorizing_signature = (
+        len(tx.signatures) > sig_index
+        and tx.signatures[sig_index].scheme == SIGNATURE_SCHEME_SECP256K1
+        and len(tx.signatures[sig_index].msg) == 0
+        and resolved_signature_signer(tx.signatures[sig_index], tx.sender)
+        == resolved_target
     )
-    if not has_sender_signature:
-        return failure("no matching secp256k1 signature")
+    if not has_authorizing_signature:
+        return failure("no authorizing secp256k1 signature")
 
     approval = attempt_frame_approval(
         frame_context=frame_context,
@@ -1583,7 +1591,7 @@ def process_frame_transaction(
 
     sig_hash = compute_frame_signature_hash(tx)
     for sig in tx.signatures:
-        if not validate_frame_signature(sig, sig_hash):
+        if not validate_frame_signature(sig, tx.sender, sig_hash):
             raise FrameTransactionSignatureError("invalid signature entry")
 
     blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)

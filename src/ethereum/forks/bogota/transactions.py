@@ -247,7 +247,7 @@ FRAME_STATUS_SUCCESS = Uint(1)
 Frame receipt status of a frame that executed successfully.
 """
 
-FRAME_STATUS_SKIPPED = Uint(3)
+FRAME_STATUS_SKIPPED = Uint(2)
 """
 Frame receipt status of a frame that was skipped because an earlier
 frame of its atomic batch failed.
@@ -1454,9 +1454,9 @@ def validate_frame_transaction(tx: FrameTransaction) -> None:
 
     for sig in tx.signatures:
         if tx_signature_scheme_is_protocol_validated(sig):
-            if len(sig.signer) != 20:
+            if len(sig.signer) not in (0, 20):
                 raise FrameTransactionFormatError(
-                    "signer must be a 20-byte address"
+                    "signer must be empty or a 20-byte address"
                 )
         elif sig.scheme == SIGNATURE_SCHEME_ARBITRARY:
             if len(sig.signer) != 0:
@@ -1491,6 +1491,16 @@ def validate_frame_transaction(tx: FrameTransaction) -> None:
         total_frame_gas += frame.gas_limit
         if total_frame_gas > Uint(U64.MAX_VALUE):
             raise FrameTransactionFormatError("total frame gas too high")
+
+        # Execution approval is only allowed for frames that resolve to
+        # the transaction sender.
+        if (
+            frame.flags & APPROVE_EXECUTION
+            and resolve_frame_target(tx, frame) != tx.sender
+        ):
+            raise FrameTransactionFormatError(
+                "execution approval flag outside sender target"
+            )
 
         # An atomic batch must be terminated by a subsequent frame.
         if frame.flags & ATOMIC_BATCH_FLAG and i + 1 >= len(tx.frames):
@@ -1617,16 +1627,32 @@ def compute_frame_signature_hash(tx: FrameTransaction) -> Hash32:
     return keccak256(b"\x06" + rlp.encode(elided_tx))
 
 
+def resolved_signature_signer(
+    sig: TransactionSignature, sender: Address
+) -> Address:
+    """
+    Resolve the signer address of a protocol-validated signature entry.
+
+    An empty `signer` resolves to the transaction sender.
+    """
+    if len(sig.signer) == 0:
+        return sender
+    return Address(sig.signer)
+
+
 def validate_frame_signature(
-    sig: TransactionSignature, sig_hash: Hash32
+    sig: TransactionSignature, sender: Address, sig_hash: Hash32
 ) -> bool:
     """
     Validate a single signature entry of a frame transaction.
 
     An empty `msg` authorizes the canonical signature hash; a 32-byte
     `msg` authorizes that explicit digest. `SECP256K1` and `P256`
-    entries are cryptographically verified against their `signer`
-    address, while `ARBITRARY` entries are only structurally checked.
+    entries are cryptographically verified against their resolved
+    signer address — see [`resolved_signature_signer`][rss] — while
+    `ARBITRARY` entries are only structurally checked.
+
+    [rss]: ref:ethereum.forks.bogota.transactions.resolved_signature_signer
     """
     if len(sig.msg) == 0:
         msg = sig_hash
@@ -1638,6 +1664,7 @@ def validate_frame_signature(
         return False
 
     if sig.scheme == SIGNATURE_SCHEME_SECP256K1:
+        signer = resolved_signature_signer(sig, sender)
         if len(sig.signature) != 65:
             return False
         v = U256(sig.signature[0])
@@ -1653,16 +1680,17 @@ def validate_frame_signature(
             public_key = secp256k1_recover(r, s, v, msg)
         except InvalidSignatureError:
             return False
-        return Bytes(sig.signer) == keccak256(public_key)[12:32]
+        return Bytes(signer) == keccak256(public_key)[12:32]
 
     elif sig.scheme == SIGNATURE_SCHEME_P256:
+        signer = resolved_signature_signer(sig, sender)
         if len(sig.signature) != 128:
             return False
         r = U256.from_be_bytes(sig.signature[0:32])
         s = U256.from_be_bytes(sig.signature[32:64])
         qx = U256.from_be_bytes(sig.signature[64:96])
         qy = U256.from_be_bytes(sig.signature[96:128])
-        if Bytes(sig.signer) != keccak256(sig.signature[64:128])[12:32]:
+        if Bytes(signer) != keccak256(sig.signature[64:128])[12:32]:
             return False
         try:
             secp256r1_verify(r, s, qx, qy, msg)

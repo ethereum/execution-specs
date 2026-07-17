@@ -23,6 +23,7 @@ from ...transactions import (
     ATOMIC_BATCH_FLAG,
     SIGNATURE_SCHEME_ARBITRARY,
     resolve_frame_target,
+    resolved_signature_signer,
     tx_signature_scheme_is_protocol_validated,
 )
 from ...utils.address import to_address_masked
@@ -885,7 +886,9 @@ def sigparam(evm: Evm) -> None:
             raise InvalidParameter(
                 "arbitrary signature entries have no effective signer"
             )
-        result = U256.from_be_bytes(sig.signer)
+        result = U256.from_be_bytes(
+            resolved_signature_signer(sig, frame_context.tx.sender)
+        )
     elif param == U256(0x01):
         result = U256(sig.scheme)
     elif param == U256(0x02):

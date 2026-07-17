@@ -53,7 +53,7 @@ class Spec:
     # Frame receipt statuses
     STATUS_FAILURE = 0
     STATUS_SUCCESS = 1
-    STATUS_SKIPPED = 3
+    STATUS_SKIPPED = 2
 
     # TXPARAM selectors
     TXPARAM_TYPE = 0x00

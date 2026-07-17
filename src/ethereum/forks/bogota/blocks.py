@@ -405,7 +405,7 @@ class FrameReceipt:
     status: Uint
     """
     Return code of the top-level call of the frame: 0 for failure, 1
-    for success, and 3 for a frame skipped due to a failed atomic
+    for success, and 2 for a frame skipped due to a failed atomic
     batch.
     """
 

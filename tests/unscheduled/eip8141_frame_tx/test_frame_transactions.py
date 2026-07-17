@@ -220,7 +220,7 @@ def test_atomic_batch_rollback(
     When the batch terminator reverts, the storage write of the
     already executed batch frame is unrolled and both frames report
     failure. When the first batch frame reverts, the remaining batch
-    frame is skipped with status `0x3` and no gas consumed. In both
+    frame is skipped with status `0x2` and no gas consumed. In both
     cases the storage write is discarded.
     """
     sender = pre.fund_eoa()
