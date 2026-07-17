@@ -763,7 +763,7 @@ class FrameTransaction:
     [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
     """
 
-    chain_id: U256
+    chain_id: U64
     """
     The ID of the chain on which this transaction is executed.
     """
@@ -813,22 +813,14 @@ class FrameTransaction:
     """
 
 
-StandardTransaction = (
+Transaction = (
     LegacyTransaction
     | AccessListTransaction
     | FeeMarketTransaction
     | BlobTransaction
     | SetCodeTransaction
+    | FrameTransaction
 )
-"""
-Union type representing transaction types authenticated by a single
-ECDSA signature, i.e. every type except [`FrameTransaction`].
-
-[`FrameTransaction`]: ref:ethereum.forks.bogota.transactions.FrameTransaction
-"""
-
-
-Transaction = StandardTransaction | FrameTransaction
 """
 Union type representing any valid transaction type.
 """
@@ -920,9 +912,7 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
         return tx
 
 
-def validate_transaction(
-    tx: StandardTransaction, sender: Address
-) -> IntrinsicGasCost:
+def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     """
     Verifies a transaction.
 
@@ -940,6 +930,12 @@ def validate_transaction(
     Also, the code size of a contract creation transaction must be within
     limits of the protocol.
 
+    Frame transactions have no gas limit field: their gas limit is derived
+    from the transaction contents, so the intrinsic cost is covered by
+    construction. Their structure is checked by
+    [`validate_frame_transaction`][vft] and their calldata floor is
+    validated against the derived gas limit.
+
     This function takes a transaction and gas_limit as parameters and
     returns the intrinsic gas costs for the transaction after validation.
     It throws an `InsufficientTransactionGasError` exception if the
@@ -951,25 +947,37 @@ def validate_transaction(
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    [vft]: ref:ethereum.forks.bogota.transactions.validate_frame_transaction
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
     intrinsic = calculate_intrinsic_cost(tx, sender)
-    intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
-    if intrinsic_gas > tx.gas:
-        raise InsufficientTransactionGasError("Insufficient intrinsic gas")
-    if intrinsic.calldata_floor > tx.gas:
-        raise InsufficientTransactionGasError("Insufficient calldata floor")
-    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
-        raise InitCodeTooLargeError("Code size too large")
-    if intrinsic.regular > TX_MAX_GAS_LIMIT:
-        raise InsufficientTransactionGasError(
-            "Intrinsic regular gas exceeds TX_MAX_GAS_LIMIT"
-        )
-    if intrinsic.calldata_floor > TX_MAX_GAS_LIMIT:
-        raise InsufficientTransactionGasError(
-            "Intrinsic calldata floor exceeds TX_MAX_GAS_LIMIT"
-        )
+    if isinstance(tx, FrameTransaction):
+        validate_frame_transaction(tx)
+        if intrinsic.calldata_floor > calculate_frame_transaction_gas_limit(
+            tx
+        ):
+            raise InsufficientTransactionGasError(
+                "Insufficient calldata floor"
+            )
+    else:
+        intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
+        if intrinsic_gas > tx.gas:
+            raise InsufficientTransactionGasError("Insufficient intrinsic gas")
+        if intrinsic.calldata_floor > tx.gas:
+            raise InsufficientTransactionGasError(
+                "Insufficient calldata floor"
+            )
+        if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
+            raise InitCodeTooLargeError("Code size too large")
+        if intrinsic.regular > TX_MAX_GAS_LIMIT:
+            raise InsufficientTransactionGasError(
+                "Intrinsic regular gas exceeds TX_MAX_GAS_LIMIT"
+            )
+        if intrinsic.calldata_floor > TX_MAX_GAS_LIMIT:
+            raise InsufficientTransactionGasError(
+                "Intrinsic calldata floor exceeds TX_MAX_GAS_LIMIT"
+            )
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
 
@@ -977,7 +985,7 @@ def validate_transaction(
 
 
 def calculate_intrinsic_cost(
-    tx: StandardTransaction, sender: Address
+    tx: Transaction, sender: Address
 ) -> IntrinsicGasCost:
     """
     Calculates the gas that is charged before execution is started.
@@ -1005,6 +1013,10 @@ def calculate_intrinsic_cost(
     Self-transfers (``sender == tx.to``) skip the recipient and value
     charges.
 
+    The intrinsic cost of a frame transaction is instead the base cost, the
+    per-frame cost, the calldata cost of the frame and signature byte
+    fields, and the signature verification cost.
+
     This function takes a transaction and gas_limit as parameters and
     returns the intrinsic regular gas cost, intrinsic state gas cost, and the
     minimum gas cost used by the transaction based on the calldata size.
@@ -1014,6 +1026,29 @@ def calculate_intrinsic_cost(
         StateGasCosts,
         init_code_cost,
     )
+
+    if isinstance(tx, FrameTransaction):
+        signature_gas = Uint(0)
+        for sig in tx.signatures:
+            signature_gas += signature_verification_gas(sig)
+
+        calldata_tokens = Uint(0)
+        for charged_data in frame_transaction_charged_data(tx):
+            calldata_tokens += count_tokens_in_data(charged_data)
+
+        regular_gas = (
+            FRAME_TX_INTRINSIC_COST
+            + ulen(tx.frames) * FRAME_TX_PER_FRAME_COST
+            + calldata_tokens * GasCosts.TX_DATA_TOKEN_STANDARD
+            + signature_gas
+        )
+        return IntrinsicGasCost(
+            regular=RegularGas(regular_gas),
+            state=StateGas(Uint(0)),
+            calldata_floor=RegularGas(
+                calculate_frame_transaction_calldata_floor(tx)
+            ),
+        )
 
     tokens_in_calldata = count_tokens_in_data(tx.data)
 
@@ -1104,7 +1139,7 @@ def count_tokens_in_data(data: bytes) -> Uint:
     return num_zeros + num_non_zeros * Uint(4)
 
 
-def chain_id(tx: StandardTransaction) -> None | U64:
+def chain_id(tx: Transaction) -> None | U64:
     """
     Extract the chain identifier from a transaction. See [EIP-155].
 
@@ -1122,7 +1157,7 @@ def chain_id(tx: StandardTransaction) -> None | U64:
         return tx.chain_id
 
 
-def recover_sender(tx: StandardTransaction) -> Address:
+def recover_sender(tx: Transaction) -> Address:
     """
     Extracts the sender address from a transaction.
 
@@ -1132,10 +1167,15 @@ def recover_sender(tx: StandardTransaction) -> Address:
     signing hash of the transaction. The sender's public key can be obtained
     with these two values and therefore the sender address can be retrieved.
 
+    Frame transactions declare their sender explicitly and are
+    authenticated by their signature list, so they never reach this
+    function.
+
     This function takes chain_id and a transaction as parameters and returns
     the address of the sender of the transaction. It raises an
     `InvalidSignatureError` if the signature values (r, s, v) are invalid.
     """
+    assert not isinstance(tx, FrameTransaction)
     r, s = tx.r, tx.s
     if U256(0) >= r or r >= SECP256K1N:
         raise InvalidSignatureError("bad r")
@@ -1397,18 +1437,14 @@ def is_expiry_verifier_frame(frame: Frame) -> bool:
     return frame.mode == FRAME_MODE_VERIFY and frame.target == EXPIRY_VERIFIER
 
 
-def validate_frame_transaction(tx: FrameTransaction) -> Uint:
+def validate_frame_transaction(tx: FrameTransaction) -> None:
     """
-    Verify the static constraints of a frame transaction and return its
-    total gas limit.
+    Verify the static constraints of a frame transaction.
 
     The frame count, frame fields, and signature entry structure are
     checked against the limits defined in [EIP-8141]. A
-    `FrameTransactionFormatError` is raised for any violation and a
-    `NonceOverflowError` is raised when the nonce exceeds the [EIP-2681]
-    limit.
+    `FrameTransactionFormatError` is raised for any violation.
 
-    [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
     """
     if len(tx.frames) == 0 or len(tx.frames) > MAX_FRAMES:
@@ -1481,15 +1517,6 @@ def validate_frame_transaction(tx: FrameTransaction) -> Uint:
             "max_fee_per_blob_gas must be zero without blobs"
         )
 
-    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise NonceOverflowError("Nonce too high")
-
-    tx_gas_limit = calculate_frame_transaction_gas_limit(tx)
-    if calculate_frame_transaction_calldata_floor(tx) > tx_gas_limit:
-        raise InsufficientTransactionGasError("Insufficient calldata floor")
-
-    return tx_gas_limit
-
 
 def tx_signature_scheme_is_protocol_validated(
     sig: TransactionSignature,
@@ -1516,46 +1543,44 @@ def signature_verification_gas(sig: TransactionSignature) -> Uint:
     return Uint(0)
 
 
+def frame_transaction_charged_data(tx: FrameTransaction) -> Tuple[Bytes, ...]:
+    """
+    Return the byte fields of a frame transaction that are priced as
+    calldata: the `data` of each frame and the `signer`, `msg`, and
+    `signature` bytes of each signature entry. The fixed-size fields
+    are covered by the intrinsic and per-frame costs.
+    """
+    charged: Tuple[Bytes, ...] = ()
+    for frame in tx.frames:
+        charged += (frame.data,)
+    for sig in tx.signatures:
+        charged += (sig.signer, sig.msg, sig.signature)
+    return charged
+
+
 def calculate_frame_transaction_gas_limit(tx: FrameTransaction) -> Uint:
     """
     Calculate the total gas limit of a frame transaction.
 
-    The gas limit is the sum of the frame transaction intrinsic cost,
-    the per-frame cost, the [EIP-7623] calldata cost of the encoded
-    signature and frame lists, the signature verification cost, and the
-    gas limits of all frames.
+    The gas limit is the sum of the transaction's intrinsic cost — see
+    [`calculate_intrinsic_cost`][cic] — and the gas limits of all frames.
 
-    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    [cic]: ref:ethereum.forks.bogota.transactions.calculate_intrinsic_cost
     """
-    from .vm.gas import GasCosts
-
-    signature_gas = Uint(0)
-    for sig in tx.signatures:
-        signature_gas += signature_verification_gas(sig)
-
-    calldata_tokens = count_tokens_in_data(
-        rlp.encode(tx.signatures)
-    ) + count_tokens_in_data(rlp.encode(tx.frames))
-    calldata_cost = calldata_tokens * GasCosts.TX_DATA_TOKEN_STANDARD
+    intrinsic = calculate_intrinsic_cost(tx, tx.sender)
 
     total_frame_gas = Uint(0)
     for frame in tx.frames:
         total_frame_gas += frame.gas_limit
 
-    return (
-        FRAME_TX_INTRINSIC_COST
-        + ulen(tx.frames) * FRAME_TX_PER_FRAME_COST
-        + calldata_cost
-        + signature_gas
-        + total_frame_gas
-    )
+    return Uint(intrinsic.regular) + total_frame_gas
 
 
 def calculate_frame_transaction_calldata_floor(tx: FrameTransaction) -> Uint:
     """
     Calculate the minimum gas cost of a frame transaction based on the
-    size of the encoded signature and frame lists, per [EIP-7623] and
-    [EIP-7976]. Like ordinary calldata, every encoded byte counts as a
+    size of the frame and signature byte fields, per [EIP-7623] and
+    [EIP-7976]. Like ordinary calldata, every charged byte counts as a
     standard token and is priced at the floor token cost.
 
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
@@ -1563,9 +1588,10 @@ def calculate_frame_transaction_calldata_floor(tx: FrameTransaction) -> Uint:
     """
     from .vm.gas import GasCosts
 
-    floor_tokens = (
-        ulen(rlp.encode(tx.signatures)) + ulen(rlp.encode(tx.frames))
-    ) * GasCosts.TX_DATA_TOKEN_STANDARD
+    data_length = Uint(0)
+    for data in frame_transaction_charged_data(tx):
+        data_length += ulen(data)
+    floor_tokens = data_length * GasCosts.TX_DATA_TOKEN_STANDARD
 
     return (
         floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + FRAME_TX_INTRINSIC_COST

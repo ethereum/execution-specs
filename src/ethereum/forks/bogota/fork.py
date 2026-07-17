@@ -114,9 +114,9 @@ from .transactions import (
     FrameTransaction,
     LegacyTransaction,
     SetCodeTransaction,
-    StandardTransaction,
     Transaction,
     calculate_frame_transaction_calldata_floor,
+    calculate_frame_transaction_gas_limit,
     chain_id,
     compute_frame_signature_hash,
     decode_transaction,
@@ -126,7 +126,6 @@ from .transactions import (
     recover_sender,
     resolve_frame_target,
     validate_frame_signature,
-    validate_frame_transaction,
     validate_transaction,
 )
 from .utils.hexadecimal import hex_to_address
@@ -542,12 +541,17 @@ def validate_header(
 def check_transaction(
     block_env: vm.BlockEnvironment,
     block_output: vm.BlockOutput,
-    tx: StandardTransaction,
+    tx: Transaction,
     sender: Address,
     tx_state: TransactionState,
 ) -> Tuple[Uint, Tuple[VersionedHash, ...], U64]:
     """
     Check if the transaction is includable in the block.
+
+    Frame transactions are checked by [`check_frame_transaction`][cft]
+    instead and never reach this function.
+
+    [cft]: ref:ethereum.forks.bogota.fork.check_frame_transaction
 
     Parameters
     ----------
@@ -606,6 +610,7 @@ def check_transaction(
         is empty.
 
     """
+    assert not isinstance(tx, FrameTransaction)
     regular_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )
@@ -1064,16 +1069,16 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    if isinstance(tx, FrameTransaction):
-        process_frame_transaction(block_env, block_output, tx, index, tx_state)
-        return
-
     tx_chain_id = chain_id(tx)
     if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
         raise WrongChainIdError(
             expected=block_env.chain_id,
             actual=tx_chain_id,
         )
+
+    if isinstance(tx, FrameTransaction):
+        process_frame_transaction(block_env, block_output, tx, index, tx_state)
+        return
 
     sender = recover_sender(tx)
     intrinsic = validate_transaction(tx, sender)
@@ -1264,12 +1269,6 @@ def check_frame_transaction(
     [EIP-3607]: https://eips.ethereum.org/EIPS/eip-3607
 
     """
-    if tx.chain_id != U256(block_env.chain_id):
-        raise WrongChainIdError(
-            expected=block_env.chain_id,
-            actual=tx.chain_id,
-        )
-
     regular_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )
@@ -1571,7 +1570,8 @@ def process_frame_transaction(
         The transaction state tracker.
 
     """
-    tx_gas_limit = validate_frame_transaction(tx)
+    validate_transaction(tx, tx.sender)
+    tx_gas_limit = calculate_frame_transaction_gas_limit(tx)
 
     effective_gas_price, tx_blob_gas_used = check_frame_transaction(
         block_env=block_env,
