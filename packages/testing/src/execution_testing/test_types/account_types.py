@@ -324,6 +324,13 @@ class Alloc(BaseAlloc):
             address = Address(address)
         return address in self.root
 
+    def get(self, address: Address) -> Account | None:
+        """Get an account if it's present in the allocation, otherwise None."""
+        account = self.root.get(address)
+        if not account:
+            return None
+        return account
+
     def empty_accounts(self) -> List[Address]:
         """Return list of addresses of empty accounts."""
         return [
@@ -372,12 +379,10 @@ class Alloc(BaseAlloc):
         for address, account in self.root.items():
             if account is None:
                 # Account must not exist
-                if (
-                    address in got_alloc.root
-                    and got_alloc.root[address] is not None
-                ):
+                got_account = got_alloc.get(address)
+                if got_account:
                     raise Alloc.UnexpectedAccountError(
-                        address=address, account=got_alloc.root[address]
+                        address=address, account=got_account
                     )
             else:
                 if address in got_alloc.root:

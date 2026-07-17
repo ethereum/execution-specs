@@ -20,9 +20,6 @@ from execution_testing.base_types import (
     Storage,
     StorageRootType,
 )
-from execution_testing.base_types import (
-    Alloc as BaseAlloc,
-)
 from execution_testing.base_types.conversions import (
     BytesConvertible,
     NumberConvertible,
@@ -42,6 +39,7 @@ from execution_testing.test_types import (
     TransactionTestMetadata,
     compute_deterministic_create2_address,
 )
+from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.tools import Initcode
 from execution_testing.vm import Bytecode, Op
 
