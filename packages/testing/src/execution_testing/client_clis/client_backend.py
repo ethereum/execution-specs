@@ -316,12 +316,7 @@ class ClientBackend:
         self, expected: Alloc, *, block_number: BlockNumberType = "latest"
     ) -> Alloc:
         """Fetch the post-state that ``expected`` constrains from client."""
-        got = self.eth_rpc.get_alloc(expected, block_number=block_number)
-        result = Alloc(root=got.root)
-        for address, account in expected.root.items():
-            if account is None and not result.root.get(address):
-                result.root[address] = None
-        return result
+        return self.eth_rpc.get_alloc(expected, block_number=block_number)
 
     def extract_block_opcode_count(
         self, block_hash: Hash
