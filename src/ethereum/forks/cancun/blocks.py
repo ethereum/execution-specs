@@ -58,9 +58,9 @@ class Withdrawal:
     The execution-layer address receiving the withdrawn ETH.
     """
 
-    amount: U256
+    amount: U64
     """
-    The amount of ETH being withdrawn.
+    The amount of ETH being withdrawn, in Gwei.
     """
 
 

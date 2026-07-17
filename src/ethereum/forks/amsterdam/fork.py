@@ -1156,7 +1156,7 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        create_ether(wd_state, wd.address, wd.amount * GWEI_TO_WEI)
+        create_ether(wd_state, wd.address, U256(wd.amount) * GWEI_TO_WEI)
 
     incorporate_tx_into_block(wd_state, block_env.block_access_list_builder)
 

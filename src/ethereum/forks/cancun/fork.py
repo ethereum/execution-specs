@@ -820,7 +820,7 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        create_ether(wd_state, wd.address, wd.amount * U256(10**9))
+        create_ether(wd_state, wd.address, U256(wd.amount) * U256(10**9))
 
     incorporate_tx_into_block(wd_state)
 
