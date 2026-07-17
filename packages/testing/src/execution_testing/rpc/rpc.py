@@ -37,7 +37,6 @@ from tenacity import (
 from execution_testing.base_types import (
     Account,
     Address,
-    Alloc,
     Bytes,
     Hash,
     to_json,
@@ -45,6 +44,7 @@ from execution_testing.base_types import (
 from execution_testing.logging import (
     get_logger,
 )
+from execution_testing.test_types import Alloc
 
 from .rpc_types import (
     EthConfigResponse,
