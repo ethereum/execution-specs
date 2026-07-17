@@ -202,6 +202,7 @@ class TransitionTool(EthereumCLI):
     debug_dump_dir: Path | None = None
     call_counter: int = 0
     opcode_count: OpcodeCount | None = None
+    opcode_count_per_block: List[OpcodeCount] | None = None
 
     supports_opcode_count: ClassVar[bool] = False
     supports_xdist: ClassVar[bool] = True
@@ -314,6 +315,7 @@ class TransitionTool(EthereumCLI):
         Reset the opcode count to zero.
         """
         self.opcode_count = OpcodeCount({})
+        self.opcode_count_per_block = []
 
     @dataclass
     class TransitionToolData:
@@ -987,6 +989,8 @@ class TransitionTool(EthereumCLI):
             and self.opcode_count is not None
         ):
             self.opcode_count += result.result.opcode_count
+            if self.opcode_count_per_block is not None:
+                self.opcode_count_per_block.append(result.result.opcode_count)
         return result
 
     def evaluate(

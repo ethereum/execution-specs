@@ -22,6 +22,7 @@ from execution_testing.client_clis.cli_types import (
     LazyAllocFile,
     LazyAllocJson,
     LazyAllocStr,
+    OpcodeCount,
     Result,
     TransitionToolInput,
     TransitionToolOutput,
@@ -436,3 +437,49 @@ def test_lazy_alloc_file_empty_object_yields_empty_alloc(
     lazy = LazyAllocFile(raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT)
 
     assert lazy.get() == Alloc.model_validate({})
+
+
+def _output_with_opcode_count(counts: dict) -> TransitionToolOutput:
+    """Build a minimal t8n output carrying the given opcode counts."""
+    result = Result.model_validate(
+        {
+            "stateRoot": "0x" + "00" * 32,
+            "txRoot": "0x" + "00" * 32,
+            "receiptsRoot": "0x" + "00" * 32,
+            "logsHash": "0x" + "00" * 32,
+            "logsBloom": "0x" + "00" * 256,
+            "receipts": [],
+            "gasUsed": "0x0",
+        }
+    )
+    result.opcode_count = OpcodeCount.model_validate(counts)
+    return TransitionToolOutput(
+        alloc=LazyAllocJson(
+            raw=TEST_ALLOC.model_dump(), _state_root=TEST_ALLOC_STATE_ROOT
+        ),
+        result=result,
+    )
+
+
+def test_opcode_count_accumulation() -> None:
+    """
+    `process_result` accumulates the per-test opcode count total and also
+    records each call's (per-block) count separately.
+    """
+    tool = ExecutionSpecsTransitionTool()
+    tool.reset_opcode_count()
+
+    tool.process_result(_output_with_opcode_count({"PUSH1": 5, "SSTORE": 2}))
+    tool.process_result(_output_with_opcode_count({"PUSH1": 3}))
+
+    assert tool.opcode_count == OpcodeCount.model_validate(
+        {"PUSH1": 8, "SSTORE": 2}
+    )
+    assert tool.opcode_count_per_block == [
+        OpcodeCount.model_validate({"PUSH1": 5, "SSTORE": 2}),
+        OpcodeCount.model_validate({"PUSH1": 3}),
+    ]
+
+    tool.reset_opcode_count()
+    assert tool.opcode_count == OpcodeCount({})
+    assert tool.opcode_count_per_block == []

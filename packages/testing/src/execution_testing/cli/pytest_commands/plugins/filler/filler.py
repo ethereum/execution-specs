@@ -1787,6 +1787,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     fill_metadata["opcode_count"] = (
                         t8n.opcode_count.model_dump()
                     )
+                if t8n.opcode_count_per_block:
+                    fill_metadata["opcode_count_per_block"] = [
+                        block_opcode_count.model_dump()
+                        for block_opcode_count in t8n.opcode_count_per_block
+                    ]
                 if fill_result.metadata:
                     fill_metadata.update(fill_result.metadata)
 
