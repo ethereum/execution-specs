@@ -167,6 +167,7 @@ class ClientBackend:
 
     # t8n-compatibility stubs — fill's filler reads these on the backend.
     opcode_count: OpcodeCount | None = None
+    opcode_count_per_block: List[OpcodeCount] | None = None
     output_cache: Any = None
     debug_dump_dir: Path | None = None
     call_counter: int = 0
