@@ -128,6 +128,9 @@ class ExecutionSpecsTransitionTool(TransitionTool):
                 # TODO: This should be optimized by the t8n tool instead.
                 t8n_args.append("--input.blobParams=stdin")
 
+        if self.supports_opcode_count:
+            t8n_args.append("--opcode.count=stdout")
+
         if self.trace:
             t8n_args.extend(
                 [
@@ -148,6 +151,12 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         t8n.run()
 
         output_dict = json.loads(out_stream.getvalue())
+
+        if "opcodeCount" in output_dict and "result" in output_dict:
+            output_dict["result"]["opcodeCount"] = output_dict.pop(
+                "opcodeCount"
+            )
+
         output: TransitionToolOutput = TransitionToolOutput.model_validate(
             output_dict, context={"exception_mapper": self.exception_mapper}
         )
