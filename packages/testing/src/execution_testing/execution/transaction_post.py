@@ -5,7 +5,7 @@ from typing import ClassVar, Dict, List
 import pytest
 from pytest import FixtureRequest
 
-from execution_testing.base_types import Address, Alloc, Hash
+from execution_testing.base_types import Address, Hash
 from execution_testing.forks import Fork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
@@ -14,6 +14,7 @@ from execution_testing.rpc import (
     SendTransactionExceptionError,
 )
 from execution_testing.test_types import (
+    Alloc,
     Environment,
     NetworkWrappedTransaction,
     TestPhase,

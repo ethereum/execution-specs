@@ -20,6 +20,7 @@ from execution_testing.exceptions import ExceptionBase, ExceptionMapper
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
+    BlockNumberType,
     DebugRPC,
     EngineRPC,
     EthRPC,
@@ -33,7 +34,12 @@ from execution_testing.rpc.rpc_types import (
     PayloadAttributes,
     PayloadStatusEnum,
 )
-from execution_testing.test_types import Requests, Transaction, Withdrawal
+from execution_testing.test_types import (
+    Alloc,
+    Requests,
+    Transaction,
+    Withdrawal,
+)
 from execution_testing.test_types.block_access_list import BlockAccessList
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
@@ -305,6 +311,12 @@ class ClientBackend:
                 ),
             ),
         )
+
+    def get_post_state_alloc(
+        self, expected: Alloc, *, block_number: BlockNumberType = "latest"
+    ) -> Alloc:
+        """Fetch the post-state that ``expected`` constrains from client."""
+        return self.eth_rpc.get_alloc(expected, block_number=block_number)
 
     def extract_block_opcode_count(
         self, block_hash: Hash
