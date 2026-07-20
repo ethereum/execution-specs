@@ -199,7 +199,7 @@ Both backends satisfy `FillerBackend` (`client_clis/filler_backend.py`). `Client
 |---|---|---|
 | `--snapshot-block` | `fill-stateful` | Anchor by 32-byte hash (reorg-safe) or block number; defaults to `latest`. |
 | `--rpc-seed-key` | `fill-stateful` | Pin the seed EOA; otherwise generated + funded via CL withdrawal. |
-| `--no-reset-between-tests` | `fill-stateful` | Skip the between-test rewind so tests accumulate state on the live client (pre-populate a da**tadir a later run builds on). |**
+| `--no-reset-between-tests` | `fill-stateful` | Skip the between-test rewind so tests accumulate state on the live client (pre-populate a datadir a later run builds on). |
 | `--default-gas-price`, `--default-max-fee-per-gas`, `--default-max-priority-fee-per-gas`, `--default-max-fee-per-blob-gas` | `shared/live_client_flags` | Pin per-session fees; defaults bump a one-shot live query by `1.5x`. |
 | `--max-gas-per-test`, `--max-tx-per-batch`, `--transaction-gas-limit`, ... | `shared/live_client_flags` | Generic live-client knobs reused across commands. |
 
