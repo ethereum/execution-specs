@@ -7,10 +7,17 @@ from execution_testing import (
     DETERMINISTIC_FACTORY_ADDRESS,
     EOA,
     Address,
+    Alloc,
     compute_create2_address,
     compute_create_address,
     keccak256,
 )
+
+from tests.benchmark.helper.account_creator import (
+    AccountExpectation,
+    register_target_range,
+)
+from tests.prague.eip7702_set_code_tx.spec import Spec
 
 # Deterministic sender pool, pre-funded via system-contract withdrawals
 # (funding.txt) during payload generation. Kept out of the pre-allocation so
@@ -78,3 +85,44 @@ def yield_distinct_delegate_receiver() -> Generator[Address, None, None]:
     """Yield EOA delegating to a distinct EXISTING_CONTRACT_DIFF_MAX."""
     for i in itertools.count(0):
         yield EOA(key=DELEGATE_BASE_KEY + i)
+
+
+def expected_delegation() -> AccountExpectation:
+    """
+    Expected shape of a 7702-delegated authority.
+
+    Only asserts the account carries a delegation designator; the delegate
+    target it points to is not checked.
+    """
+    return AccountExpectation(code_prefix=bytes(Spec.DELEGATION_DESIGNATION))
+
+
+def register_bittrex_targets(pre: Alloc, count: int) -> None:
+    """Register the first *count* Bittrex CREATE contract receivers."""
+    register_target_range(
+        pre,
+        key="bittrex_contract",
+        count=count,
+        expectation=AccountExpectation(is_contract=True),
+        addresses=lambda start, stop: (
+            compute_create_address(
+                address=BITTREX_CONTROLLER_ADDRESS, nonce=2 + i
+            )
+            for i in range(start, stop)
+        ),
+        label="diff_to_contract",
+    )
+
+
+def register_delegate_targets(pre: Alloc, count: int) -> None:
+    """Register the first *count* delegated authorities (7702 designator)."""
+    register_target_range(
+        pre,
+        key="delegate_authority",
+        count=count,
+        expectation=expected_delegation(),
+        addresses=lambda start, stop: (
+            Address(EOA(key=DELEGATE_BASE_KEY + i)) for i in range(start, stop)
+        ),
+        label="delegate_authority",
+    )

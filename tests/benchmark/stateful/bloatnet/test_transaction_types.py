@@ -1,6 +1,7 @@
 """Benchmark ether transfers to receivers that exist on-chain."""
 
-from typing import Generator
+from functools import partial
+from typing import Callable, Generator
 
 import pytest
 from execution_testing import (
@@ -19,6 +20,8 @@ from tests.benchmark.helper.account_creator import (
     AccountMode,
 )
 from tests.benchmark.helper.account_sender_receiver import (
+    register_bittrex_targets,
+    register_delegate_targets,
     yield_distinct_contract_receiver,
     yield_distinct_create2_receiver,
     yield_distinct_delegate_receiver,
@@ -57,6 +60,8 @@ def test_ether_transfers_onchain_receivers(
     receiver_execution_gas = 0
     recipient_type = RecipientType.CONTRACT
     receivers: Generator[Address, None, None]
+
+    register_targets: Callable[[int], None] | None = None
     match case_id:
         case "diff_to_self":
             receivers = senders
@@ -64,9 +69,17 @@ def test_ether_transfers_onchain_receivers(
         case "diff_to_nonexistent":
             receivers = yield_distinct_nonexistent_receiver()
             recipient_type = RecipientType.EMPTY_ACCOUNT
+            creator = AccountCreator(AccountMode.NON_EXISTING_ACCOUNT)
+            register_targets = partial(
+                creator.register_targets, pre, label=case_id
+            )
         case "diff_to_existent":
             receivers = yield_distinct_existent_receiver()
             recipient_type = RecipientType.EOA
+            creator = AccountCreator(AccountMode.EXISTING_EOA)
+            register_targets = partial(
+                creator.register_targets, pre, label=case_id
+            )
         case "diff_to_contract":
             receivers = yield_distinct_contract_receiver()
             # Runtime code is the same across all the receivers
@@ -79,25 +92,38 @@ def test_ether_transfers_onchain_receivers(
                 + Op.JUMPDEST
             )
             receiver_execution_gas = executed_code.gas_cost(fork)
+            # Bittrex CREATE contracts: address does not bind code, so only
+            # presence (nonce>=1) is checked.
+            register_targets = partial(register_bittrex_targets, pre)
         case "diff_to_unique_code_jumpdest_contract":
             creator = AccountCreator(AccountMode.EXISTING_CONTRACT_JUMPDEST)
             receivers = yield_distinct_create2_receiver(creator.initcode)
             receiver_execution_gas = creator.execution_code.gas_cost(fork)
+            register_targets = partial(
+                creator.register_targets, pre, label=case_id
+            )
         case "diff_to_contract_minimal":
-            receivers = yield_distinct_create2_receiver(
-                AccountCreator(AccountMode.EXISTING_CONTRACT_MINIMAL).initcode
+            creator = AccountCreator(AccountMode.EXISTING_CONTRACT_MINIMAL)
+            receivers = yield_distinct_create2_receiver(creator.initcode)
+            register_targets = partial(
+                creator.register_targets, pre, label=case_id
             )
         case "diff_to_contract_same_max":
-            receivers = yield_distinct_create2_receiver(
-                AccountCreator(AccountMode.EXISTING_CONTRACT_SAME_MAX).initcode
+            creator = AccountCreator(AccountMode.EXISTING_CONTRACT_SAME_MAX)
+            receivers = yield_distinct_create2_receiver(creator.initcode)
+            register_targets = partial(
+                creator.register_targets, pre, label=case_id
             )
         case "diff_to_contract_diff_max":
-            receivers = yield_distinct_create2_receiver(
-                AccountCreator(AccountMode.EXISTING_CONTRACT_DIFF_MAX).initcode
+            creator = AccountCreator(AccountMode.EXISTING_CONTRACT_DIFF_MAX)
+            receivers = yield_distinct_create2_receiver(creator.initcode)
+            register_targets = partial(
+                creator.register_targets, pre, label=case_id
             )
         case "diff_to_delegated_contract_diff":
             receivers = yield_distinct_delegate_receiver()
             recipient_type = RecipientType.DELEGATION_7702
+            register_targets = partial(register_delegate_targets, pre)
         case _:
             raise ValueError(f"Unknown case: {case_id}")
 
@@ -122,14 +148,18 @@ def test_ether_transfers_onchain_receivers(
     txs = []
     for _ in range(iteration_count):
         sender = next(senders)
+        to = sender if case_id == "diff_to_self" else next(receivers)
         txs.append(
             Transaction(
-                to=sender if case_id == "diff_to_self" else next(receivers),
+                to=to,
                 value=transfer_amount,
                 gas_limit=iteration_cost,
                 sender=sender,
             )
         )
+
+    if register_targets is not None:
+        register_targets(iteration_count)
 
     benchmark_test(
         pre=pre,

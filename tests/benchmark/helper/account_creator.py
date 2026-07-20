@@ -1,22 +1,101 @@
 """Benchmark target accounts of various kinds for creation and location.."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Hashable, Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import ClassVar, Self
 
 from execution_testing import (
     DETERMINISTIC_FACTORY_ADDRESS,
+    Address,
+    Alloc,
     Bytecode,
     Create2PreimageLayout,
     Hash,
     Op,
     SequentialAddressLayout,
+    compute_create2_address,
     keccak256,
 )
 from execution_testing.forks import Osaka
 
 DEFAULT_CODE_SIZE = Osaka.max_code_size()
+
+ADDRESS_MASK = (1 << 160) - 1
+
+# Spamoor EOA creator starts created accounts at 0x1000
+# (https://github.com/CPerezz/spamoor/pull/12).
+EXISTING_EOA_BASE = 0x1000
+# An address range that is never funded.
+NON_EXISTING_BASE = keccak256(b"random")
+
+
+@dataclass(frozen=True)
+class AccountExpectation:
+    """
+    Expected on-chain shape of a snapshot-predeployed target.
+
+    Verified against start_block when --verify-deployed-accounts is set.
+    Fields at default are skipped. `is_contract` checks nonce >= 1.
+    For CREATE2, address binds code. `code_prefix` requires the on-chain
+    code to start with the given bytes (e.g. a 7702 delegation designator).
+    """
+
+    is_existing_account: bool = True
+    is_contract: bool = False
+    min_balance: int | None = None
+    code_prefix: bytes | None = None
+
+    def register(
+        self, pre: Alloc, address: Address, *, label: str | None = None
+    ) -> None:
+        """
+        Register verification expectation for address on pre.
+
+        No-op if deferred verification unsupported (e.g., non-stateful fill).
+        """
+        expect = getattr(pre, "expect_account_state", None)
+        if expect is None:
+            return
+        expect(
+            address,
+            is_existing_account=self.is_existing_account,
+            is_contract=self.is_contract,
+            min_balance=self.min_balance,
+            code_prefix=self.code_prefix,
+            label=label,
+        )
+
+
+_verified_target_counts: dict[Hashable, int] = {}
+
+
+def register_target_range(
+    pre: Alloc,
+    *,
+    key: Hashable,
+    count: int,
+    expectation: AccountExpectation,
+    addresses: Callable[[int, int], Iterable[Address]],
+    label: str | None = None,
+) -> None:
+    """
+    Register ``[0, count)`` targets of a family for verification, deduped
+    across the session.
+
+    Only indices beyond the family's high-water-mark are enumerated and
+    registered; smaller parametrizations reuse the earlier verification.
+    ``addresses(start, stop)`` yields the family's addresses for that range.
+    """
+    if getattr(pre, "expect_account_state", None) is None:
+        return
+    start = _verified_target_counts.get(key, 0)
+    if count <= start:
+        return
+    for address in addresses(start, count):
+        expectation.register(pre, address, label=label)
+    _verified_target_counts[key] = count
 
 
 class AccountMode(Enum):
@@ -345,12 +424,61 @@ class AccountCreator:
             )
         match self.mode:
             case AccountMode.EXISTING_EOA:
-                # Spamoor EOA creator starts created accounts at 0x1000.
-                # https://github.com/CPerezz/spamoor/pull/12
-                base_addr = Hash(0x1000)
+                base_addr = Hash(EXISTING_EOA_BASE)
             case AccountMode.NON_EXISTING_ACCOUNT:
-                # An address range that is never funded.
-                base_addr = keccak256(b"random")
+                base_addr = NON_EXISTING_BASE
             case _:
                 raise ValueError(f"{self.mode.name} has no address source")
         return SequentialAddressSource(base_addr=base_addr, index_op=index_op)
+
+    def expected_account(self) -> AccountExpectation:
+        """Return the expected on-chain shape for this mode at start_block."""
+        if self.derives_address_via_create2:
+            # CREATE2 address binds code; check presence only.
+            return AccountExpectation(is_contract=True)
+        match self.mode:
+            case AccountMode.EXISTING_EOA:
+                return AccountExpectation(min_balance=1)
+            case AccountMode.NON_EXISTING_ACCOUNT:
+                return AccountExpectation(is_existing_account=False)
+            case _:
+                raise ValueError(f"{self.mode.name} has no expected account")
+
+    def target_addresses(self, indices: Iterable[int]) -> Iterator[Address]:
+        """
+        Yield target addresses mirroring address_source. CREATE2 initcode
+        assembled once (salt varies).
+        """
+        if self.derives_address_via_create2:
+            initcode = self.initcode
+            for index in indices:
+                yield compute_create2_address(
+                    address=DETERMINISTIC_FACTORY_ADDRESS,
+                    salt=index,
+                    initcode=initcode,
+                )
+            return
+        match self.mode:
+            case AccountMode.EXISTING_EOA:
+                base = EXISTING_EOA_BASE
+            case AccountMode.NON_EXISTING_ACCOUNT:
+                base = int.from_bytes(NON_EXISTING_BASE, "big")
+            case _:
+                raise ValueError(f"{self.mode.name} has no address source")
+        for index in indices:
+            yield Address((base + index) & ADDRESS_MASK)
+
+    def register_targets(
+        self, pre: Alloc, count: int, *, label: str | None = None
+    ) -> None:
+        """Register ``[0, count)`` of this mode's targets for verification."""
+        register_target_range(
+            pre,
+            key=(self.mode, self.code_size),
+            count=count,
+            expectation=self.expected_account(),
+            addresses=lambda start, stop: self.target_addresses(
+                range(start, stop)
+            ),
+            label=label or self.mode.name,
+        )
