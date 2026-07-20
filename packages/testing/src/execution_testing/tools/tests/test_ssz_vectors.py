@@ -192,7 +192,10 @@ def test_case_files_layout() -> None:
     files = case_files(make_case(w))
     assert set(files) == {"value.yaml", "serialized.ssz", "roots.yaml"}
     assert files["serialized.ssz"] == encode(w)
+    # Hex strings must be single-quoted (a bare 0x... reads back as an int).
     assert b"root: '0x" in files["roots.yaml"]
+    assert b"amount: '0x3'" in files["value.yaml"]
+    assert b"address: '0x" in files["value.yaml"]
 
 
 def test_write_vectors_emits_consensus_tree(tmp_path: Path) -> None:

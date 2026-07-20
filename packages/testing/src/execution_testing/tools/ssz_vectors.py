@@ -368,16 +368,36 @@ def generate_cases(
                 yield model_cls.__name__, suite, i, make_case(model)
 
 
-def case_files(case: VectorCase) -> Dict[str, bytes]:
-    """The on-disk files for a case (bytes), mirroring the consensus layout."""
+def _yaml_dump(obj: Any) -> bytes:
+    """
+    Dump YAML with 0x-hex strings explicitly single-quoted.
+
+    PyYAML's emitter is not consistent across interpreters about quoting
+    strings that look like YAML 1.1 ints (PyPy emits root: 0x... bare, which
+    a loader would read back as an integer). Consensus vectors always quote
+    them, so force the style instead of trusting the emitter.
+    """
     import yaml
 
+    class _Dumper(yaml.SafeDumper):
+        pass
+
+    def _str(dumper: Any, data: str) -> Any:
+        style = "'" if data.startswith("0x") else None
+        return dumper.represent_scalar(
+            "tag:yaml.org,2002:str", data, style=style
+        )
+
+    _Dumper.add_representer(str, _str)
+    return yaml.dump(obj, Dumper=_Dumper, sort_keys=False).encode()
+
+
+def case_files(case: VectorCase) -> Dict[str, bytes]:
+    """The on-disk files for a case (bytes), mirroring the consensus layout."""
     return {
-        "value.yaml": yaml.safe_dump(case.value, sort_keys=False).encode(),
+        "value.yaml": _yaml_dump(case.value),
         "serialized.ssz": case.serialized,
-        "roots.yaml": yaml.safe_dump(
-            {"root": "0x" + case.root.hex()}
-        ).encode(),
+        "roots.yaml": _yaml_dump({"root": "0x" + case.root.hex()}),
     }
 
 
