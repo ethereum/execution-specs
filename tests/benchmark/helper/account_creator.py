@@ -14,9 +14,9 @@ from execution_testing import (
     SequentialAddressLayout,
     keccak256,
 )
-from execution_testing.forks import Osaka
+from execution_testing.forks import Amsterdam
 
-DEFAULT_CODE_SIZE = Osaka.max_code_size()
+DEFAULT_CODE_SIZE = Amsterdam.max_code_size()
 
 
 class AccountMode(Enum):
