@@ -80,6 +80,7 @@ from .state_tracker import (
     incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
+    set_code,
 )
 from .transactions import (
     TX_MAX_GAS_LIMIT,
@@ -146,6 +147,17 @@ BUILDER_EXIT_CONTRACT_ADDRESS = hex_to_address(
 HISTORY_STORAGE_ADDRESS = hex_to_address(
     "0x0000F90827F1C53a10cb7A02335B175320002935"
 )
+DETERMINISTIC_FACTORY_ADDRESS = hex_to_address(
+    "0x4e59b44847b379578588920cA78FbF26c0B4956C"
+)
+DETERMINISTIC_FACTORY_CODE = Bytes(
+    bytes.fromhex(
+        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        "ffe03601600081602082378035828234f58015156039578182fd5b80825250"
+        "50506014600cf3"
+    )
+)
+DETERMINISTIC_FACTORY_CODE_HASH = keccak256(DETERMINISTIC_FACTORY_CODE)
 MAX_BLOCK_SIZE = 10_485_760
 SAFETY_MARGIN = 2_097_152
 MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
@@ -842,6 +854,31 @@ def process_unchecked_system_transaction(
     return system_tx_output
 
 
+def deploy_deterministic_factory(block_env: vm.BlockEnvironment) -> None:
+    """
+    Install the [EIP-7997] deterministic deployment factory on the fork
+    activation block if its canonical runtime code is not already
+    present, recording the changes in the block access list at the
+    pre-execution index.
+
+    [EIP-7997]: https://eips.ethereum.org/EIPS/eip-7997
+    """
+    tx_state = TransactionState(parent=block_env.state)
+    account = get_account(tx_state, DETERMINISTIC_FACTORY_ADDRESS)
+    if account.code_hash == DETERMINISTIC_FACTORY_CODE_HASH:
+        return
+
+    set_code(
+        tx_state,
+        DETERMINISTIC_FACTORY_ADDRESS,
+        DETERMINISTIC_FACTORY_CODE,
+    )
+    if account.nonce == Uint(0):
+        increment_nonce(tx_state, DETERMINISTIC_FACTORY_ADDRESS)
+
+    incorporate_tx_into_block(tx_state, block_env.block_access_list_builder)
+
+
 def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[LegacyTransaction | Bytes, ...],
@@ -873,6 +910,9 @@ def apply_body(
 
     """
     block_output = vm.BlockOutput()
+
+    if isinstance(block_env.parent_header, PreviousHeader):
+        deploy_deterministic_factory(block_env)
 
     process_unchecked_system_transaction(
         block_env=block_env,
