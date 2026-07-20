@@ -147,6 +147,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "opt-in."
         ),
     )
+    group.addoption(
+        "--verify-deployed-accounts",
+        action="store_true",
+        dest="verify_deployed_accounts",
+        default=False,
+        help=(
+            "Before each benchmark runs, verify the accounts it assumes are "
+            "predeployed on the snapshot (via pre.expect_account_state) "
+            "actually exist with the claimed shape at the start block. Uses "
+            "eth_getBalance / eth_getTransactionCount / eth_getCode"
+        ),
+    )
 
 
 def _resolve_session_fork(
@@ -497,10 +509,17 @@ def extract_opcode_count(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.fixture(scope="session")
+def verify_deployed_accounts(request: pytest.FixtureRequest) -> bool:
+    """Whether --verify-deployed-accounts predeploy verification is on."""
+    return request.config.getoption("verify_deployed_accounts")
+
+
+@pytest.fixture(scope="session")
 def client_backend(
     eth_rpc: ChainBuilderEthRPC,
     debug_rpc: DebugRPC,
     extract_opcode_count: bool,
+    verify_deployed_accounts: bool,
     session_fork: Fork | TransitionFork,
     default_gas_price: int | None,
     default_max_fee_per_gas: int | None,
@@ -526,6 +545,7 @@ def client_backend(
         fork=session_fork,
         debug_rpc=debug_rpc,
         extract_opcode_count=extract_opcode_count,
+        verify_deployed_accounts=verify_deployed_accounts,
     )
 
     priority_fee = default_max_priority_fee_per_gas

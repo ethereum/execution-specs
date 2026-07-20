@@ -224,6 +224,68 @@ class _DeferredFundAddress:
     minimum_balance: bool
 
 
+@dataclass
+class _DeferredAccountAssertion:
+    """
+    Descriptor for a deferred assertion on a snapshot-predeployed account.
+
+    Resolved by ``verify_deployed_accounts`` against the ``start_block``
+    state before the benchmark runs. All fields are primitives so the check
+    stays decoupled from any test-tree expectation class.
+    """
+
+    address: Address
+    is_existing_account: bool
+    is_contract: bool
+    min_balance: int | None
+    code_prefix: bytes | None
+    label: str | None
+
+
+class DeployedAccountVerificationError(AssertionError):
+    """Raised when snapshot-predeployed benchmark targets fail verification."""
+
+
+def _check_account_assertion(
+    d: "_DeferredAccountAssertion",
+    account: "Account | None",
+    code: "Bytes | None",
+) -> list[str]:
+    """Return human-readable failures for one account assertion (may be []."""
+    who = f"{d.label or '<target>'} at {d.address}"
+    if account is None:
+        return [f"{who}: no account data returned from the client"]
+    balance = int(account.balance)
+    nonce = int(account.nonce)
+    errors: list[str] = []
+    if not d.is_existing_account:
+        if balance != 0 or nonce != 0:
+            errors.append(
+                f"{who}: expected NON-existent, got balance={balance} "
+                f"nonce={nonce}"
+            )
+        return errors
+    if d.is_contract and nonce < 1:
+        errors.append(
+            f"{who}: expected a deployed contract (nonce>=1) but got "
+            f"nonce={nonce}, balance={balance} — likely NOT deployed on the "
+            "snapshot; the benchmark would silently hit an empty account"
+        )
+    if d.min_balance is not None and balance < d.min_balance:
+        errors.append(
+            f"{who}: expected balance>={d.min_balance} but got {balance}"
+        )
+    if d.code_prefix is not None:
+        actual = bytes(code) if code is not None else b""
+        if not actual.startswith(d.code_prefix):
+            errors.append(
+                f"{who}: expected code to start with "
+                f"0x{d.code_prefix.hex()} (e.g. a delegated account) but "
+                f"got 0x{actual.hex()}"
+            )
+    return errors
+
+
 def _compute_deploy_gas_limit(
     fork: Fork,
     *,
@@ -319,6 +381,9 @@ class Alloc(SharedAlloc):
     )
     _deferred_fund_addresses: List[_DeferredFundAddress] = PrivateAttr(
         default_factory=list
+    )
+    _deferred_account_assertions: List[_DeferredAccountAssertion] = (
+        PrivateAttr(default_factory=list)
     )
     _block_number: int = PrivateAttr()
     _timestamp: int = PrivateAttr()
@@ -825,6 +890,89 @@ class Alloc(SharedAlloc):
         eoa = next(self._eoa_iterator)
         logger.debug(f"Returning unused address {eoa} (nonexistent account)")
         return Address(eoa)
+
+    def expect_account_state(
+        self,
+        address: Address,
+        *,
+        is_existing_account: bool = True,
+        is_contract: bool = False,
+        min_balance: int | None = None,
+        code_prefix: bytes | None = None,
+        label: str | None = None,
+    ) -> None:
+        """
+        Register deferred assertion on predeployed account.
+        Verified at start_block before benchmark (fill-stateful only).
+        """
+        self._deferred_account_assertions.append(
+            _DeferredAccountAssertion(
+                address=address,
+                is_existing_account=is_existing_account,
+                is_contract=is_contract,
+                min_balance=min_balance,
+                code_prefix=code_prefix,
+                label=label,
+            )
+        )
+
+    def verify_deployed_accounts(self, block_number: int) -> None:
+        """
+        Verify registered predeployed-account assertions at *block_number*.
+
+        Batches balance/nonce queries (``eth_getBalance`` /
+        ``eth_getTransactionCount``, both universally supported); fetches
+        code only for assertions with a ``code_prefix`` (e.g. an EIP-7702
+        delegation designator). Collects every failure and raises once so
+        the report is complete.
+        """
+        deferred = self._deferred_account_assertions
+        self._deferred_account_assertions = []
+        if not deferred:
+            return
+
+        chunk = 2000
+        accounts: dict[Address, Account | None] = {}
+        for i in range(0, len(deferred), chunk):
+            batch = deferred[i : i + chunk]
+            query = BaseAlloc(root={d.address: Account() for d in batch})
+            result = self._eth_rpc.get_alloc(
+                query, block_number=block_number, skip_code=True
+            )
+            accounts.update(result.root)
+
+        code_targets = [
+            d.address for d in deferred if d.code_prefix is not None
+        ]
+        codes: dict[Address, Bytes] = {}
+        for i in range(0, len(code_targets), chunk):
+            batch_addrs = code_targets[i : i + chunk]
+            fetched = self._eth_rpc.get_codes(
+                batch_addrs, block_number=block_number
+            )
+            for addr, code in zip(batch_addrs, fetched, strict=True):
+                codes[addr] = code
+
+        errors: list[str] = []
+        failed = 0
+        for d in deferred:
+            errs = _check_account_assertion(
+                d, accounts.get(d.address), codes.get(d.address)
+            )
+            if errs:
+                failed += 1
+                errors.extend(errs)
+
+        logger.info(
+            f"Verified {len(deferred)} predeployed benchmark target(s) at "
+            f"block {block_number}: {len(deferred) - failed} ok, "
+            f"{failed} failed"
+        )
+        if errors:
+            raise DeployedAccountVerificationError(
+                f"{failed} predeployed benchmark target(s) failed "
+                "verification at start_block:\n  " + "\n  ".join(errors)
+            )
 
     def resolve_deferred_checks(self) -> None:
         """

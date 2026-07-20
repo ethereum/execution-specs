@@ -189,6 +189,7 @@ class ClientBackend:
         fork: Fork | TransitionFork,
         debug_rpc: DebugRPC | None = None,
         extract_opcode_count: bool = False,
+        verify_deployed_accounts: bool = False,
     ) -> None:
         """Initialize with the RPC clients and the session fork."""
         self.testing_rpc = testing_rpc
@@ -197,6 +198,7 @@ class ClientBackend:
         self.fork = fork
         self.debug_rpc = debug_rpc
         self.extract_opcode_count = extract_opcode_count
+        self.verify_deployed_accounts = verify_deployed_accounts
         # Sticky fallback to struct logs (besu has no JS tracer).
         self._js_tracer_unsupported = False
         self.exception_mapper = ClientBackendExceptionMapper()
