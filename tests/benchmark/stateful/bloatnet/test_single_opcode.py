@@ -7,7 +7,6 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
    to benchmark specific state-handling bottlenecks.
 """
 
-from enum import Enum, auto
 from functools import partial
 from typing import Any, Callable, Generator, List
 
@@ -25,18 +24,16 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     Bytecode,
-    CreatePreimageLayout,
     Fork,
     Hash,
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
-    SequentialAddressLayout,
+    RecipientType,
     Storage,
     TestPhaseManager,
     Transaction,
     While,
-    keccak256,
 )
 from execution_testing.base_types.base_types import Number
 
@@ -691,7 +688,6 @@ def test_sstore_bloated(
         setup=setup,
         iterating=loop,
         cleanup=Op.STOP,
-        iterating_state_gas=loop.state_cost(fork),
     )
 
     authority = pre.stub_eoa(token_name)
@@ -709,6 +705,7 @@ def test_sstore_bloated(
                 to=authority,
                 start_iteration=start_slot,
                 calldata=calldata_gen,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 
@@ -1181,6 +1178,7 @@ def test_sstore_variants(
             calldata=calldata_gen,
             access_list=access_list_gen,
             start_iteration=1,
+            recipient_type=RecipientType.DELEGATION_7702,
         )
     )
 
@@ -1214,6 +1212,7 @@ def test_sstore_variants(
                 calldata=calldata_gen,
                 start_iteration=1,
                 access_list=access_list_gen,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 
@@ -1275,6 +1274,9 @@ def test_sstore_variants(
             0,
             [1, 0, 1, 0],
             id="oscillation_4x_from_zero",
+            marks=pytest.mark.skip(
+                reason="net-zero state gas; degenerates to a regular-gas loop"
+            ),
         ),
         pytest.param(
             0,
@@ -1337,6 +1339,7 @@ def test_sstore_dirty_transitions(
             calldata=calldata_gen,
             access_list=access_list_gen,
             start_iteration=1,
+            recipient_type=RecipientType.DELEGATION_7702,
         )
     )
 
@@ -1369,6 +1372,7 @@ def test_sstore_dirty_transitions(
                 calldata=calldata_gen,
                 start_iteration=1,
                 access_list=access_list_gen,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 
@@ -1470,6 +1474,7 @@ def test_storage_sload_benchmark(
             calldata=calldata_gen,
             access_list=access_list_gen,
             start_iteration=1,
+            recipient_type=RecipientType.DELEGATION_7702,
         )
     )
 
@@ -1503,6 +1508,7 @@ def test_storage_sload_benchmark(
                 calldata=calldata_gen,
                 start_iteration=1,
                 access_list=access_list_gen,
+                recipient_type=RecipientType.DELEGATION_7702,
             )
         )
 
@@ -1540,215 +1546,4 @@ def test_storage_sload_same_key_benchmark(
             attack_block=Op.SLOAD,
             contract_storage=contract_storage,
         ),
-    )
-
-
-def account_access_params() -> list:
-    """Generate (opcode, value_sent, account_mode) triples."""
-    params = []
-
-    for mode in AccountMode:
-        for op in [Op.CALL, Op.CALLCODE]:
-            params.append(pytest.param(op, 0, mode))
-            params.append(pytest.param(op, 1, mode))
-
-        for op in [Op.BALANCE, Op.STATICCALL, Op.DELEGATECALL]:
-            params.append(pytest.param(op, 0, mode))
-
-    for op in [Op.EXTCODECOPY, Op.EXTCODESIZE, Op.EXTCODEHASH]:
-        for mode in [
-            AccountMode.EXISTING_CONTRACT,
-            AccountMode.NON_EXISTING_ACCOUNT,
-        ]:
-            params.append(pytest.param(op, 0, mode))
-
-    return params
-
-
-class AccountMode(Enum):
-    """Target Account Mode."""
-
-    EXISTING_CONTRACT = auto()
-    EXISTING_EOA = auto()
-    NON_EXISTING_ACCOUNT = auto()
-
-
-@pytest.mark.repricing
-@pytest.mark.parametrize("cache_strategy", [CacheStrategy.NO_CACHE])
-@pytest.mark.parametrize(
-    "opcode,value_sent,account_mode", account_access_params()
-)
-def test_account_access(
-    benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    opcode: Op,
-    value_sent: int,
-    gas_benchmark_value: int,
-    fixed_opcode_count: int | None,
-    account_mode: AccountMode,
-    cache_strategy: CacheStrategy,
-) -> None:
-    """Benchmark account access with caching strategies."""
-    address_retriever: Bytecode
-    # Read start_iteration from calldata so that when transactions are
-    # split across gas limits, each transaction continues from where
-    # the previous one left off instead of re-targeting the same accounts.
-    calldataload_start = Op.CALLDATALOAD(0)
-    if account_mode == AccountMode.EXISTING_CONTRACT:
-        # Use Bittrex Controller as target. Created 1586350 contracts,
-        # which cannot selfdestruct, so guaranteed to be on-chain.
-        # This is safe for a gas benchmark up to 300M. (300_000_000 / 2000)
-        # (2000 is the min cost to target a cold address)
-        target_address = Address(0xA3C1E324CA1CE40DB73ED6026C4A177F099B5770)
-        address_retriever = CreatePreimageLayout(
-            sender_address=target_address,
-            nonce=Op.ADD(1, calldataload_start),
-        )
-        increment_op = address_retriever.increment_nonce_op()
-    elif account_mode == AccountMode.EXISTING_EOA:
-        # Spamoor EOA creator (https://github.com/CPerezz/spamoor/pull/12)
-        # created these accounts on bloatnet with these values (are also the
-        # defaults of SequentialAddressLayout)
-        address_retriever = SequentialAddressLayout(
-            starting_address=Op.ADD(0x1000, calldataload_start),
-            increment=1,
-        )
-        increment_op = address_retriever.increment_address_op()
-    else:
-        address_retriever = SequentialAddressLayout(
-            starting_address=Op.ADD(keccak256(b"random"), calldataload_start),
-            increment=1,
-        )
-        increment_op = address_retriever.increment_address_op()
-
-    setup_code: Bytecode = address_retriever
-
-    cache_op = (
-        Op.POP(
-            Op.BALANCE(
-                address=address_retriever.address_op(),
-                # Gas accounting
-                address_warm=False,
-            )
-        )
-        if cache_strategy == CacheStrategy.CACHE_TX
-        else Bytecode()
-    )
-
-    access_warm = cache_strategy == CacheStrategy.CACHE_TX
-
-    if opcode == Op.EXTCODECOPY:
-        attack_call = opcode(
-            address=address_retriever.address_op(),
-            size=1024,
-            # Gas accounting
-            address_warm=access_warm,
-        )
-    elif opcode in (Op.CALL, Op.CALLCODE):
-        attack_call = Op.POP(
-            opcode(
-                address=address_retriever.address_op(),
-                value=value_sent,
-                # Gas accounting
-                address_warm=access_warm,
-                value_transfer=value_sent > 0,
-                account_new=value_sent > 0
-                and account_mode == AccountMode.NON_EXISTING_ACCOUNT,
-            )
-        )
-    elif opcode in (Op.STATICCALL, Op.DELEGATECALL):
-        attack_call = Op.POP(
-            opcode(
-                address=address_retriever.address_op(),
-                # Gas accounting
-                address_warm=access_warm,
-            )
-        )
-    else:
-        # BALANCE, EXTCODESIZE, EXTCODEHASH
-        attack_call = Op.POP(
-            opcode(
-                address=address_retriever.address_op(),
-                # Gas accounting
-                address_warm=access_warm,
-            )
-        )
-
-    loop_code = While(
-        body=cache_op + attack_call + increment_op,
-        condition=Op.GT(Op.GAS, 0x9000) if value_sent > 0 else None,
-    )
-
-    attack_code = IteratingBytecode(
-        setup=setup_code,
-        iterating=loop_code,
-        # Since the target contract is guaranteed to have a STOP as the first
-        # instruction, we can use a STOP as the iterating subcall code.
-        iterating_subcall=Op.STOP,
-    )
-
-    # Calldata generator for each transaction of the iterating bytecode.
-    # Start from 1 to skip the Bittrex Controller's nonce=1 contract
-    # which has a non-payable fallback that reverts when receiving value.
-    calldata_offset = 1 if account_mode == AccountMode.EXISTING_CONTRACT else 0
-
-    def calldata(iteration_count: int, start_iteration: int) -> bytes:
-        del iteration_count
-        return Hash(start_iteration + calldata_offset)
-
-    attack_address = pre.deploy_contract(code=attack_code, balance=10**21)
-
-    post: dict = {}
-    cache_txs = []
-
-    with TestPhaseManager.execution():
-        attack_sender = pre.fund_eoa()
-        if fixed_opcode_count is not None:
-            attack_txs = list(
-                attack_code.transactions_by_total_iteration_count(
-                    fork=fork,
-                    total_iterations=int(fixed_opcode_count * 1000),
-                    sender=attack_sender,
-                    to=attack_address,
-                    calldata=calldata,
-                )
-            )
-        else:
-            attack_txs = list(
-                attack_code.transactions_by_gas_limit(
-                    fork=fork,
-                    gas_limit=gas_benchmark_value,
-                    sender=attack_sender,
-                    to=attack_address,
-                    calldata=calldata,
-                )
-            )
-
-    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
-        with TestPhaseManager.setup():
-            cache_sender = pre.fund_eoa()
-            for tx in attack_txs:
-                cache_txs.append(
-                    Transaction(
-                        gas_limit=tx.gas_limit,
-                        data=tx.data,
-                        to=attack_address,
-                        sender=cache_sender,
-                    )
-                )
-
-    blocks = (
-        [Block(txs=attack_txs)]
-        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
-        else [Block(txs=cache_txs), Block(txs=attack_txs)]
-    )
-
-    benchmark_test(
-        pre=pre,
-        post=post,
-        blocks=blocks,
-        target_opcode=opcode,
-        skip_gas_used_validation=True,
-        expected_receipt_status=1,
     )

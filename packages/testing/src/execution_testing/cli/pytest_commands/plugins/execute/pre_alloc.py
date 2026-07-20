@@ -29,6 +29,7 @@ from execution_testing.base_types.conversions import (
 )
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
+from execution_testing.recipient_type import RecipientType
 from execution_testing.rpc import EthRPC
 from execution_testing.rpc.rpc_types import TransactionByHashResponse
 from execution_testing.test_types import (
@@ -287,8 +288,11 @@ def _compute_deploy_gas_limit(
     else:
         regular_gas = buffered_regular_gas
 
-    # State portion, from the block reservoir.
+    # State portion, from the block reservoir. The created account's
+    # NEW_ACCOUNT is charged at the top frame for create transactions
+    # and by CREATE2 at access for proxy deploys — same amount.
     state_gas = fork.code_deposit_state_gas(code_size=deploy_code_size)
+    state_gas += fork.transaction_top_frame_state_gas(contract_creation=True)
     state_gas += storage_slots * sstore_state_gas
 
     deploy_gas_limit = regular_gas + state_gas
@@ -630,6 +634,35 @@ class Alloc(SharedAlloc):
             )
             intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
 
+            worst_case_auth = [
+                AuthorizationTuple(
+                    address=Address(0),
+                    v=0,
+                    r=0,
+                    s=0,
+                    creates_account=True,
+                    writes_delegation=True,
+                    first_write=True,
+                )
+            ]
+            auth_fund_gas_limit = (
+                intrinsic_calc(
+                    authorization_list_or_count=1,
+                    sends_value=True,
+                    recipient_type=RecipientType.EMPTY_ACCOUNT,
+                )
+                + fork.transaction_top_frame_gas_calculator()(
+                    sends_value=True,
+                    recipient_type=RecipientType.EMPTY_ACCOUNT,
+                    authorizations=worst_case_auth,
+                )
+                + fork.transaction_top_frame_state_gas(
+                    sends_value=True,
+                    recipient_type=RecipientType.EMPTY_ACCOUNT,
+                    authorizations=worst_case_auth,
+                )
+            )
+
             if storage is not None:
                 if not isinstance(storage, Storage):
                     storage = Storage.model_validate(storage)
@@ -703,7 +736,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=(intrinsic_calc(authorization_list_or_count=1)),
+                    gas_limit=auth_fund_gas_limit,
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
             else:
@@ -721,7 +754,7 @@ class Alloc(SharedAlloc):
                             signer=eoa,
                         ),
                     ],
-                    gas_limit=intrinsic_calc(authorization_list_or_count=1),
+                    gas_limit=auth_fund_gas_limit,
                 )
                 eoa.nonce = Number(eoa.nonce + 1)
 

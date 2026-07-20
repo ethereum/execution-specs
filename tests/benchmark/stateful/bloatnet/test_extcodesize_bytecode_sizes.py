@@ -1,66 +1,4 @@
-r"""
-Test EXTCODESIZE with parametrized bytecode sizes using CREATE2 factory.
-
-This benchmark measures the performance impact of `EXTCODESIZE` operations
-on contracts of varying sizes (0.5KB to 24KB).
-It stresses client state loading by maximizing **cold** EXTCODESIZE calls.
-
-Designed for execute mode only - contracts must be pre-deployed.
-
-## Gas-Based Loop Strategy
-
-The attack contract uses a gas-based loop exit (per Jochem's suggestion):
-1. Reads current salt from storage slot 0
-2. Loops while gas > 50K, calling EXTCODESIZE on CREATE2 addresses
-3. Saves final salt to storage slot 0 when exiting
-4. Next TX automatically resumes from where previous left off
-
-This eliminates manual gas calculations - the contract self-regulates.
-
-## Test Block Structure
-
-┌───────────────────────────────────────────────────────────────┐
-│                        Test Block                             │
-├───────────────────────────────────────────────────────────────┤
-│  TX1: Attack (~16M gas)                                       │
-│    └─> Loops EXTCODESIZE until gas < 50K, saves salt          │
-│                                                               │
-│  TX2: Attack (~16M gas)                                       │
-│    └─> Resumes from TX1's salt, continues looping             │
-│                                                               │
-│  TX3: Attack (~16M gas)                                       │
-│    └─> Resumes from TX2's salt, continues looping             │
-└───────────────────────────────────────────────────────────────┘
-
-Post-state verification checks attack contract's slot 1 for expected size.
-
-### Execute a Single Size
-
-```bash
-uv run execute remote \\
-  --fork Osaka \\
-  --rpc-endpoint http://127.0.0.1:8545 \\
-  --rpc-seed-key <SEED_KEY> \\
-  --rpc-chain-id 1337 \\
-  --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \\
-  -- --gas-benchmark-values 60 \\
-  tests/benchmark/stateful/bloatnet/test_extcodesize_bytecode_sizes.py \\
-  -k '24KB' -v
-```
-
-### Execute All Sizes
-
-```bash
-uv run execute remote \\
-  --fork Osaka \\
-  --rpc-endpoint http://127.0.0.1:8545 \\
-  --rpc-seed-key <SEED_KEY> \\
-  --rpc-chain-id 1337 \\
-  --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \\
-  -- --gas-benchmark-values 60 \\
-  tests/benchmark/stateful/bloatnet/test_extcodesize_bytecode_sizes.py -v
-```
-"""
+"""Cold EXTCODESIZE benchmarks across pre-deployed bytecode sizes."""
 
 import pytest
 from execution_testing import (
@@ -101,19 +39,7 @@ def get_factory_stub_name(size_kb: float) -> str:
 
 
 def build_attack_contract(factory_address: Address) -> Bytecode:
-    """
-    Benchmark EXTCODESIZE calls with gas-based loop exit.
-
-    Storage Layout:
-     - Slot 0: current salt (persists across transactions)
-     - Slot 1: last EXTCODESIZE result (for verification)
-
-    CREATE2 Memory Layout (85 bytes from offset 11):
-     - MEM[11]    = 0xFF prefix
-     - MEM[12-31] = factory address (20 bytes)
-     - MEM[32-63] = salt (32 bytes)
-     - MEM[64-95] = init_code_hash (32 bytes)
-    """
+    """Build the EXTCODESIZE attack contract with a gas-based loop exit."""
     gas_reserve = 50_000  # Reserve for 2x SSTORE + cleanup
     num_deployed_offset = 96
     init_code_hash_offset = num_deployed_offset + 32
@@ -177,17 +103,7 @@ def test_extcodesize_bytecode_sizes(
     gas_benchmark_value: int,
     tx_gas_limit: int,
 ) -> None:
-    """
-    Execute EXTCODESIZE benchmark against pre-deployed contracts.
-
-    Uses a gas-based loop exit strategy:
-    1. Attack contract reads/writes salt from storage slot 0
-    2. Loop exits when gas < 50K, saves salt for next TX
-    3. Each TX automatically resumes from where previous left off
-
-    Post-state verifies that the attack contract's slot 1 contains the
-    expected bytecode size (last EXTCODESIZE result).
-    """
+    """Execute EXTCODESIZE benchmark against pre-deployed contracts."""
     expected_size_bytes = int(bytecode_size_kb * 1024)
 
     # Get factory stub name for this size
