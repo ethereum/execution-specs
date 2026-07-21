@@ -14,7 +14,7 @@ from execution_testing import (
     SequentialAddressLayout,
     keccak256,
 )
-from execution_testing.forks import Amsterdam
+from execution_testing.forks import Amsterdam, Osaka
 
 DEFAULT_CODE_SIZE = Amsterdam.max_code_size()
 
@@ -143,7 +143,7 @@ class JochemnetPredeployContractInitcode(ContractInitcode):
 
     code_size: int
 
-    def __new__(cls, *, code_size: int = DEFAULT_CODE_SIZE) -> Self:
+    def __new__(cls, *, code_size: int = Osaka.max_code_size()) -> Self:
         """Assemble the initcode."""
         # Each MCOPY doubles the JUMPDEST-filled span (the first copy is
         # MCOPY(32, 0, 32), since 1 << 5 = 32) until it covers code_size.
@@ -312,7 +312,7 @@ class AccountCreator:
                 )
             case AccountMode.EXISTING_CONTRACT_JUMPDEST:
                 return JochemnetPredeployContractInitcode(
-                    code_size=self.code_size
+                    code_size=Osaka.max_code_size()
                 )
             case _:
                 raise ValueError(f"{self.mode.name} is not a contract")
