@@ -37,6 +37,8 @@ from typing import (
     TypeVar,
 )
 
+import yaml
+
 from execution_testing.base_types.ssz import (
     SszBitlist,
     SszBitvector,
@@ -61,8 +63,6 @@ from execution_testing.base_types.ssz import (
 MAX_LIST_LENGTH = 10
 MAX_BYTES_LENGTH = 1000
 
-# Cases per changing (non-deterministic) mode, as consensus-specs' minimal
-# preset (cases_if_random). Deterministic modes get one.
 RANDOM_CASE_COUNT = 30
 
 _M = TypeVar("_M", bound=SszModel)
@@ -368,6 +368,18 @@ def generate_cases(
                 yield model_cls.__name__, suite, i, make_case(model)
 
 
+class _HexQuotingDumper(yaml.SafeDumper):
+    """SafeDumper that single-quotes 0x-hex strings (see _yaml_dump)."""
+
+
+def _represent_str(dumper: Any, data: str) -> Any:
+    style = "'" if data.startswith("0x") else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style=style)
+
+
+_HexQuotingDumper.add_representer(str, _represent_str)
+
+
 def _yaml_dump(obj: Any) -> bytes:
     """
     Dump YAML with 0x-hex strings explicitly single-quoted.
@@ -377,19 +389,7 @@ def _yaml_dump(obj: Any) -> bytes:
     a loader would read back as an integer). Consensus vectors always quote
     them, so force the style instead of trusting the emitter.
     """
-    import yaml
-
-    class _Dumper(yaml.SafeDumper):
-        pass
-
-    def _str(dumper: Any, data: str) -> Any:
-        style = "'" if data.startswith("0x") else None
-        return dumper.represent_scalar(
-            "tag:yaml.org,2002:str", data, style=style
-        )
-
-    _Dumper.add_representer(str, _str)
-    return yaml.dump(obj, Dumper=_Dumper, sort_keys=False).encode()
+    return yaml.dump(obj, Dumper=_HexQuotingDumper, sort_keys=False).encode()
 
 
 def case_files(case: VectorCase) -> Dict[str, bytes]:
