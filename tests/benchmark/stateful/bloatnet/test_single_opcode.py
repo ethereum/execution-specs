@@ -72,6 +72,22 @@ def _max_sloads_per_tx(tx_gas_limit: int, fork: Fork) -> int:
     return tx_gas_limit // cold_sload_cost
 
 
+def _max_sstores_per_tx(tx_gas_limit: int, fork: Fork) -> int:
+    """
+    Conservative upper bound on cold SSTOREs that fit in a max-gas tx.
+
+    Bounds by the cheapest cold-key transition (clean non-zero to a
+    different non-zero) so the count covers any pre-existing state.
+    """
+    cold_diff_sstore_cost = Op.SSTORE(
+        key_warm=False,
+        original_value=1,
+        current_value=1,
+        new_value=2,
+    ).gas_cost(fork)
+    return tx_gas_limit // cold_diff_sstore_cost
+
+
 def _sender_generator(
     pre: Alloc, distinct_senders: bool
 ) -> Generator[EOA, None, None]:
@@ -720,6 +736,148 @@ def test_sstore_bloated(
         runtime_code=runtime_code,
         cache_strategy=cache_strategy,
         tx_generator=tx_generator,
+    )
+
+
+@pytest.mark.parametrize("distinct_senders", [False, True])
+@pytest.mark.parametrize("existing_slots", [False, True])
+def test_sstore_bloated_multi_contract(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    existing_slots: bool,
+    distinct_senders: bool,
+) -> None:
+    """
+    Benchmark SSTORE across many fresh contracts, writing to far-apart
+    slots within each, to maximize MPT breadth at post-block state-
+    root computation time.
+
+    Mirrors test_sload_bloated_multi_contract: a shared
+    dependency_holder forces an inter-tx RAW edge on a single common
+    (account, slot) pair, while every transaction targets a freshly-
+    deployed contract whose writes stride by ``2**240`` so successive
+    SSTOREs land on disjoint regions of that target's storage trie.
+    """
+    # Successive SSTOREs are spaced 2**240 apart in raw key space;
+    # at a few thousand iterations per tx, slots fit in 2**256.
+    slot_stride = 2**240
+
+    dependency_holder = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)),
+    )
+
+    # Target runtime: CALL the dependency_holder, then SSTORE in a
+    # loop where the i-th iteration writes value=i+1 to
+    # slot=1+i*slot_stride. The final counter is written back to
+    # slot 0 so the BAL records a change for every target.
+    runtime_code = (
+        Op.POP(Op.CALL(address=dependency_holder))
+        + Op.SLOAD(Op.PUSH0)  # [counter]
+        + While(
+            body=(
+                Op.DUP1  # [counter, counter]
+                + Op.PUSH32(slot_stride)  # [stride, counter, counter]
+                + Op.MUL  # [counter*stride, counter]
+                + Op.PUSH1(1)  # [1, counter*stride, counter]
+                + Op.ADD  # [slot, counter]
+                + Op.DUP2  # [counter, slot, counter]
+                + Op.PUSH1(1)  # [1, counter, slot, counter]
+                + Op.ADD  # [value, slot, counter]
+                + Op.SWAP1  # [slot, value, counter]
+                + Op.SSTORE  # s[slot] = value, [counter]
+                + Op.PUSH1(1)  # [1, counter]
+                + Op.ADD  # [counter+1]
+            ),
+            condition=Op.GT(Op.GAS, 0xFFFF),
+        )
+        + Op.PUSH0  # [0, counter]
+        + Op.SSTORE  # s[0] = counter
+    )
+
+    # When existing_slots, pre-fill every stride slot with a non-zero
+    # value so each SSTORE is a clean non-zero-to-different transition
+    # rather than a fresh write. A fresh Storage is built per
+    # deployment (below) so each target gets an independent root.
+    storage_data: Storage.StorageDictType = {}
+    if existing_slots:
+        for i in range(_max_sstores_per_tx(tx_gas_limit, fork) + 1):
+            storage_data[1 + i * slot_stride] = 1
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    # intrinsic + dep CALL + setup + 0xFFFF loop threshold + one
+    # cold-fresh SSTORE iteration + final SSTORE, with buffer.
+    min_tx_gas = intrinsic_gas + 150_000
+
+    senders_iter = _sender_generator(pre, distinct_senders)
+    senders: list[EOA] = []
+
+    gas_available = gas_benchmark_value
+    targets: list[Address] = []
+    txs: list[Transaction] = []
+
+    while gas_available >= min_tx_gas:
+        tx_gas = min(gas_available, tx_gas_limit)
+        target = pre.deploy_contract(
+            code=runtime_code,
+            storage=Storage(storage_data),
+        )
+        targets.append(target)
+        sender = next(senders_iter)
+        senders.append(sender)
+        txs.append(
+            Transaction(
+                gas_limit=tx_gas,
+                to=target,
+                sender=sender,
+            )
+        )
+        gas_available -= tx_gas
+
+    # Slot 0 only — keeps the expectation independent of per-iter
+    # SSTORE cost variance across forks.
+    expectations: dict[Address, BalAccountExpectation] = {
+        dependency_holder: BalAccountExpectation(
+            storage_changes=[
+                BalStorageSlot(slot=0, validate_any_change=True),
+            ],
+        ),
+    }
+    for t in targets:
+        expectations[t] = BalAccountExpectation(
+            storage_reads=[0],
+            storage_changes=[
+                BalStorageSlot(slot=0, validate_any_change=True),
+            ],
+        )
+    sender_nonces: dict[Address, list[BalNonceChange]] = {}
+    for i, s in enumerate(senders):
+        changes = sender_nonces.setdefault(s, [])
+        changes.append(
+            BalNonceChange(
+                block_access_index=i + 1,
+                post_nonce=len(changes) + 1,
+            )
+        )
+    for addr, nonces in sender_nonces.items():
+        expectations[addr] = BalAccountExpectation(nonce_changes=nonces)
+
+    blocks = [
+        Block(
+            txs=txs,
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations=expectations,
+            ),
+        )
+    ]
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
+        expected_receipt_status=True,
     )
 
 
