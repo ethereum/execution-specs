@@ -1500,7 +1500,11 @@ class EngineRPC(BaseJwtRPC):
             assert indices_bitarray is not None, (
                 f"getBlobsV{version} requires an indices_bitarray cell mask."
             )
-            params.append(f"0x{indices_bitarray.to_bytes(16, 'big').hex()}")
+            # `indices_bitarray` is a little-endian 16-byte bitmap where bit
+            # `i` selects cell `i` (execution-apis `engine_getBlobsV4`).
+            params.append(
+                f"0x{indices_bitarray.to_bytes(16, 'little').hex()}"
+            )
 
         response = self.post_request(
             request=RPCCall(method=method, params=params),

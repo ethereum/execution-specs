@@ -121,10 +121,16 @@ def _validate_cells_and_proofs(
     """
     Validate a received `engine_getBlobsV4` cell matrix against a local blob.
 
-    Bit `i` of `cell_mask` says whether cell `i` was requested: requested
-    cells and proofs must match the local values, non-requested ones must be
-    `null`. When `expected_blob` is `None` (a non-existing hash), the whole
-    entry must be `null`.
+    The response is a compact matrix: for each existing blob the client
+    returns only the cells selected by `cell_mask`, ordered by ascending
+    cell index, so `blob_cells[k]` is the k-th requested cell. When
+    `expected_blob` is `None` (a non-existing hash), the whole entry must be
+    `null`.
+
+    Per execution-apis `engine_getBlobsV4`, `cell_mask` is a little-endian
+    16-byte bitmap where bit `i` selects cell `i` (see `EngineRPC.get_blobs`).
+    Network-wrapped txs deliver the full blob, so the client holds every
+    requested cell; a returned `null` means an unavailable cell and fails.
     """
     if expected_blob is None:
         if received is None:
@@ -146,42 +152,39 @@ def _validate_cells_and_proofs(
     assert isinstance(expected_blob.proof, list), (
         "Local blob proof is not a cell-proof list."
     )
-    cells_per_ext_blob = len(expected_blob.cells)
-    if len(received.blob_cells) != cells_per_ext_blob:
+    # Compact matrix: the client returns only the requested cells, in
+    # ascending cell-index order (bit `i` of the mask selects cell `i`).
+    requested_indices = [
+        i for i in range(len(expected_blob.cells)) if (cell_mask >> i) & 1
+    ]
+    if len(received.blob_cells) != len(requested_indices):
         raise ValueError(
             f"Cell matrix at index {index} has {len(received.blob_cells)} "
-            f"cells, expected {cells_per_ext_blob}."
+            f"cells, expected {len(requested_indices)}."
         )
-    if len(received.proofs) != cells_per_ext_blob:
+    if len(received.proofs) != len(requested_indices):
         raise ValueError(
             f"Proof matrix at index {index} has {len(received.proofs)} "
-            f"proofs, expected {cells_per_ext_blob}."
+            f"proofs, expected {len(requested_indices)}."
         )
 
-    for i in range(cells_per_ext_blob):
-        requested = (cell_mask >> i) & 1
-        recv_cell = received.blob_cells[i]
-        recv_proof = received.proofs[i]
-        if requested:
-            if recv_cell != expected_blob.cells[i]:
-                raise ValueError(
-                    f"Cell mismatch at blob index {index}, cell {i}."
-                )
-            if recv_proof != expected_blob.proof[i]:
-                raise ValueError(
-                    f"Cell proof mismatch at blob index {index}, cell {i}."
-                )
-        else:
-            if recv_cell is not None:
-                raise ValueError(
-                    f"Cell at blob index {index}, cell {i} was not requested "
-                    "but client returned a non-null cell."
-                )
-            if recv_proof is not None:
-                raise ValueError(
-                    f"Proof at blob index {index}, cell {i} was not requested "
-                    "but client returned a non-null proof."
-                )
+    for pos, cell_index in enumerate(requested_indices):
+        recv_cell = received.blob_cells[pos]
+        recv_proof = received.proofs[pos]
+        if recv_cell is None or recv_proof is None:
+            raise ValueError(
+                f"Requested cell {cell_index} at blob index {index} was "
+                "returned as null."
+            )
+        if recv_cell != expected_blob.cells[cell_index]:
+            raise ValueError(
+                f"Cell mismatch at blob index {index}, cell {cell_index}."
+            )
+        if recv_proof != expected_blob.proof[cell_index]:
+            raise ValueError(
+                f"Cell proof mismatch at blob index {index}, "
+                f"cell {cell_index}."
+            )
 
 
 def versioned_hashes_with_blobs_and_proofs(
