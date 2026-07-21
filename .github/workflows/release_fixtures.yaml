@@ -67,7 +67,9 @@ jobs:
       # A cached release skips the fill: `build` (and with it `combine`)
       # keys off `run`, and the release job downloads the resolved
       # nightly's artifact and tags the commit it was built from.
-      run: ${{ (inputs.cached || inputs.commit != '') && 'false' || steps.check.outputs.run }}
+      # Manual dispatches skip the new-commit check (its script may not
+      # exist on the checked-out devnet branch) and default to `true`.
+      run: ${{ (inputs.cached || inputs.commit != '') && 'false' || steps.check.outputs.run || 'true' }}
       build_matrix: ${{ steps.matrix.outputs.build_matrix }}
       feature_name: ${{ steps.matrix.outputs.feature_name }}
       combine_labels: ${{ steps.matrix.outputs.combine_labels }}
@@ -95,6 +97,7 @@ jobs:
 
       - name: Check for new commits (scheduled runs)
         id: check
+        if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
