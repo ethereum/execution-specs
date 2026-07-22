@@ -64,7 +64,7 @@ class EthereumCLI:
             resolved_path = Path(os.path.expanduser(binary)).resolve()
             if resolved_path.exists():
                 binary = resolved_path
-        binary = shutil.which(binary)  # type: ignore
+        binary = shutil.which(str(binary))  # type: ignore
         if not binary:
             raise CLINotFoundInPathError(binary=binary)
         self.binary = Path(binary)
@@ -239,7 +239,7 @@ class EthereumCLI:
             resolved_path = Path(os.path.expanduser(binary_path)).resolve()
             if resolved_path.exists():
                 binary_path = resolved_path
-        binary = shutil.which(binary_path)
+        binary = shutil.which(str(binary_path))
         return binary is not None
 
     @classmethod
