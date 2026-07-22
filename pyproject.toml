@@ -28,6 +28,7 @@ dependencies = [
     "ethereum-rlp>=0.1.6,<0.2",
     "cryptography>=45.0.1,<46",
     "platformdirs>=4.2,<5",
+    "blake3>=1.0,<2",
     "libcst>=1.8,<2",
 ]
 
@@ -55,6 +56,7 @@ packages = [
     "ethereum.forks.frontier.vm.precompiled_contracts",
     "ethereum.utils",
     "ethereum.crypto",
+    "ethereum.binary_trie",
     "ethereum_optimized",
     "ethereum.forks.homestead",
     "ethereum.forks.homestead.utils",
