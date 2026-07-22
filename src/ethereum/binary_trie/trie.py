@@ -14,8 +14,7 @@ function used here follows the EIP's reference implementation
 
 This module defines only the raw tree. How Ethereum state; accounts,
 storage, and code is mapped into keys and values, including the
-logical **stem** grouping, is defined in
-[`ethereum.binary_trie.embedding`].
+logical **stem** grouping, is defined in a separate embedding module.
 
 [EIP-8297]: https://eips.ethereum.org/EIPS/eip-8297
 [`Key`]: ref:ethereum.binary_trie.trie.Key
@@ -23,7 +22,6 @@ logical **stem** grouping, is defined in
 [`LeafNode`]: ref:ethereum.binary_trie.trie.LeafNode
 [`BinaryTrie`]: ref:ethereum.binary_trie.trie.BinaryTrie
 [`root`]: ref:ethereum.binary_trie.trie.root
-[`ethereum.binary_trie.embedding`]: ref:ethereum.binary_trie.embedding
 """
 
 import copy
