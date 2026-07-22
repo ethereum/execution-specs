@@ -125,6 +125,20 @@ under test.
   them is a no-op on the assembled bytecode (verify once with
   `bytes(a) == bytes(b)`) and cuts noise. Applies to any opcode arg equal to its
   default.
+- **Drop the hardcoded subcall `gas` operand — this is a correctness fix, not
+  cosmetics.** `Op.CALL`/`CALLCODE`/`DELEGATECALL`/`STATICCALL` default `gas` to
+  `Op.GAS` (forward all remaining). Ported fillers hardcode a constant
+  (`gas=0xEA60`, `gas=0x186A0`) that was sized for the *old* gas schedule; once
+  EIP-8037 inflates the callee's state gas (e.g. a zero→non-zero SSTORE jumps to
+  ~97920), that fixed budget no longer covers the callee and the subcall OOGs on
+  Amsterdam — a common reason a pure-behavior test lands on the skip list. Omit
+  the operand so it forwards everything. **Caveat:** forwarding all gas via
+  `Op.GAS` misbehaves on **pre-EIP-150 (Homestead)** — the sweep (step 11) fails
+  only there, so such tests floor at **TangerineWhistle**. Keep an explicit `gas`
+  operand *only* when the amount forwarded is the subject (an OOG-boundary test).
+- **A codeless / absent call target is `pre.nonexistent_account()`**, not
+  `pre.fund_eoa(amount=0)`. It yields an address guaranteed to hold no code and
+  no state, which is what "call an empty contract" tests mean.
 - **Drop a stale `# noqa: F841`** on `contract = pre.deploy_contract(...)` once the
   variable is actually used (in `to=` / the post); leaving it triggers `RUF100`.
 
@@ -260,6 +274,18 @@ not drop it.**
   `pre.nonexistent_account()` for a target that must stay **cold + non-existent**
   so `account_new` holds — a `fund_eoa()` target already exists (warm/created) and
   would change the cost.
+  - For `CREATE`/`CREATE2`: `new_memory_size` (the init-code window the offset/
+    size operands touch, e.g. `size=0x20` → `new_memory_size=0x20`) **and**
+    `init_code_size` (drives the EIP-3860 per-word cost, Shanghai+). Omitting
+    `init_code_size` silently under-predicts by `CODE_INIT_PER_WORD *
+    ceil(size/32)` (2/word) — a small, easily-missed miss. `CREATE` leaves the
+    created address on the stack → `extra_stack_items=1`.
+  - **A runtime address threaded via `SLOAD`** (the create-then-call idiom:
+    store `CREATE`'s result, then `CALL(address=Op.SLOAD(slot))`) must mark that
+    `SLOAD` `key_warm=True` — the slot was just written so it is warm at runtime,
+    but the metadata default is cold and `gas_cost(fork)` would over-predict by
+    `cold − warm` (2000). An account freshly made by `CREATE` is **warm + already
+    existing**: `address_warm=True, account_new=False` on the following `CALL`.
 - **Express the expected value dynamically** from the same metadata-bearing
   variable: `call_code.gas_cost(fork)` (add `fork: Fork`). Both the bytecode and
   the expectation are now fork-aware.
@@ -281,6 +307,19 @@ gas is charged and measurable, and is a no-op on pre-EIP-8037 forks (a *positive
 reservoir there raises; `0` does not, and it must be set explicitly — the default
 is treated as "unset"). This keeps a `CodeGasMeasure` test clean (no magic
 `gas_limit`) yet correct on Amsterdam.
+
+**Absolute `GAS` readings are unsalvageable — convert to a delta.** A test that
+stores a *raw* `GAS` value (not a `SUB(before, GAS)` delta) — e.g. `SSTORE(0,
+GAS)` right after entry — pins `gas_limit - intrinsic - overhead`. Amsterdam
+re-priced the **intrinsic transaction cost** (EIP-2780: base 21000 → 15000), so
+that stored value shifts by a fixed amount (observed 578998 → 584998, a 6000
+jump) *independent of any state gas* — `state_gas_reservoir=0` does **not** fix
+it. The only robust move is to stop storing absolute readings: wrap the measured
+op in `CodeGasMeasure` (which stores the *delta* between two `GAS` reads, immune
+to intrinsic) and assert `code.gas_cost(fork)`. A legacy `[[0]](GAS) …
+[[100]](GAS)` snapshot pair *is* such a delta in disguise — the pair brackets one
+operation (e.g. a `CREATE`); collapse it to a single `CodeGasMeasure` around that
+op and drop both raw slots. Validated on the `CREATE_EmptyContract*` family.
 
 **Decompose the constant empirically** when no single helper applies (throwaway
 script against the fork): pin each term to the known-good number, then assemble.
@@ -325,6 +364,19 @@ lowering, never a true removal.
   pre-Berlin fork fails the measurement. Same shape elsewhere — EIP-3860
   init-code metering floors at Shanghai, etc. The floor is whichever EIP the
   test's behavior/metadata depends on, which the empirical sweep reveals directly.
+- **Behavioral floors show up as non-gas mismatches in the sweep.** A CREATE
+  test asserting the created account has `nonce=1` floors at **SpuriousDragon
+  (EIP-161)** — earlier forks start contract nonces at 0, so Frontier/Homestead/
+  TangerineWhistle fail on the nonce, not the gas. Read *what* the sweep's
+  earliest-passing fork is gated on; it is not always a gas-schedule change.
+- **A `bad v` / `INVALID_SIGNATURE_VRS` failure is a signature floor, not a
+  real one — don't raise `valid_from` for it.** The default `Transaction` is
+  EIP-155-protected, which pre-SpuriousDragon forks reject. Instead set
+  `protected=fork.supports_protected_txs()` (add `fork: Fork`): it goes
+  unprotected on Frontier/Homestead/TangerineWhistle and protected from
+  SpuriousDragon on. This keeps the floor at the *behavior's* real EIP (e.g.
+  Homestead for `DELEGATECALL`) instead of masking it at SpuriousDragon.
+  Validated on `test_delegatecall_emptycontract`.
 
 ## Re-pinning expected values
 
