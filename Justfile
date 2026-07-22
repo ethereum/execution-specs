@@ -233,6 +233,16 @@ test-tests-bench *args:
 test-ci-scripts *args:
     uv run pytest "$@" .github/scripts/tests/
 
+# Run the binary trie unit tests
+[group('unit tests')]
+binary-trie *args:
+    @mkdir -p "{{ output_dir }}/binary-trie/tmp"
+    uv run pytest \
+        -n {{ xdist_workers }} \
+        --basetemp="{{ output_dir }}/binary-trie/tmp" \
+        "$@" \
+        tests/binary_trie
+
 # --- Benchmarks ---
 
 # Smoke-test benchmark tests: fill blockchain_test fixtures, then verify against EELS.

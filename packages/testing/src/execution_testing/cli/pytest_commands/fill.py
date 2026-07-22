@@ -143,6 +143,7 @@ class FillCommand(PytestCommand):
             "tests/evm_tools",
             "tests/json_loader",
             "tests/fixtures",
+            "tests/binary_trie",
         ]
 
         # Add ignore flags for each directory
