@@ -18,7 +18,7 @@ from execution_testing import (
 )
 from execution_testing.test_types.blob_types import Blob
 
-from tests.benchmark.compute.helpers import Precompile
+from tests.benchmark.helper.precompile import Precompile
 from tests.cancun.eip4844_blobs.spec import PointEvaluationInput
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
 

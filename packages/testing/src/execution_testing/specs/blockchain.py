@@ -464,6 +464,26 @@ class BuiltBlock(CamelModel):
     block_access_list: BlockAccessList | None
     engine_new_payload_block_access_list: Bytes | None = None
 
+    def cumulative_gas_used(self) -> int:
+        """Return the last receipt's cumulative gas used."""
+        if not self.result.receipts:
+            return int(self.result.gas_used)
+        cumulative_gas_used = self.result.receipts[-1].cumulative_gas_used
+        if cumulative_gas_used is None:
+            return int(self.result.gas_used)
+        return int(cumulative_gas_used)
+
+    def block_gas_used(self) -> int:
+        """
+        Return the block-header gas used.
+
+        Under EIP-8037 this is the maximum across the independent gas
+        dimensions (regular vs state), i.e. the value that counts against the
+        block gas limit, as opposed to ``cumulative_gas_used`` which is their
+        combined sum.
+        """
+        return int(self.result.gas_used)
+
     def get_fixture_block(
         self, *, include_receipts: bool = True
     ) -> FixtureBlock | InvalidFixtureBlock:
@@ -605,6 +625,8 @@ class TestingBuildBlock(BuiltBlock):
     ``BuiltBlock`` from a live-client backend; carries the engine payload
     so ``make_stateful_fixture`` can record what the client built.
     """
+
+    __test__ = False  # "Test" prefix; keep pytest from collecting it
 
     model_config = CamelModel.model_config | {"arbitrary_types_allowed": True}
 
@@ -1108,6 +1130,7 @@ class BlockchainTest(BaseTest):
         head = genesis.header.block_hash
         invalid_blocks = 0
         benchmark_gas_used: int | None = None
+        benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
         for block in self.blocks:
             # This is the most common case, the RLP needs to be constructed
@@ -1122,7 +1145,8 @@ class BlockchainTest(BaseTest):
             block_number = int(built_block.header.number)
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
-                benchmark_gas_used = int(built_block.result.gas_used)
+                benchmark_gas_used = built_block.cumulative_gas_used()
+                benchmark_block_gas_used = built_block.block_gas_used()
                 benchmark_opcode_count = built_block.result.opcode_count
             if built_block.result.receipts:
                 self.validate_receipt_status(
@@ -1188,6 +1212,7 @@ class BlockchainTest(BaseTest):
             fixture=fixture,
             gas_optimization=None,
             benchmark_gas_used=benchmark_gas_used,
+            benchmark_block_gas_used=benchmark_block_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
@@ -1210,6 +1235,7 @@ class BlockchainTest(BaseTest):
         head_hash = genesis.header.block_hash
         invalid_blocks = 0
         benchmark_gas_used: int | None = None
+        benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
         for block in self.blocks:
             built_block = self.generate_block_data(
@@ -1221,7 +1247,8 @@ class BlockchainTest(BaseTest):
             block_number = int(built_block.header.number)
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
-                benchmark_gas_used = int(built_block.result.gas_used)
+                benchmark_gas_used = built_block.cumulative_gas_used()
+                benchmark_block_gas_used = built_block.block_gas_used()
                 benchmark_opcode_count = built_block.result.opcode_count
             if built_block.result.receipts:
                 self.validate_receipt_status(
@@ -1334,6 +1361,7 @@ class BlockchainTest(BaseTest):
             fixture=fixture,
             gas_optimization=None,
             benchmark_gas_used=benchmark_gas_used,
+            benchmark_block_gas_used=benchmark_block_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
@@ -1356,7 +1384,8 @@ class BlockchainTest(BaseTest):
         - Payloads are partitioned by ``FixtureEngineNewPayload.phase``
           into ``setup_payloads`` (setup-phase txs) and ``payloads``
           (execution-phase txs).
-        - ``verify_post_state`` is skipped: the client is the oracle.
+        - ``post`` is verified against the live client (the oracle) via
+          ``get_post_state_alloc``; there is no t8n post alloc to diff.
         """
         if not isinstance(t8n, ClientBackend):
             raise RuntimeError(
@@ -1465,8 +1494,11 @@ class BlockchainTest(BaseTest):
 
         setup_payloads: List[FixtureEngineNewPayload] = []
         execution_payloads: List[FixtureEngineNewPayload] = []
+        # Aligned 1:1 with execution_payloads; None when no trace.
+        execution_opcode_counts: List[Dict[str, int] | None] = []
         head_hash = start_block_hash
         benchmark_gas_used: int | None = None
+        benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
         # Alloc is not authoritative in stateful mode; pass self.pre as a
         # placeholder — ClientBackend ignores it.
@@ -1485,21 +1517,38 @@ class BlockchainTest(BaseTest):
             payload = payload_metadata_to_fixture(
                 built_block.engine_payload, phase=block.phase
             )
+            # The client's authoritative block hash (the FixtureHeader RLP
+            # hash diverges — the client picks fields like gas_limit).
+            client_hash = Hash(
+                built_block.engine_payload.payload_response.execution_payload.block_hash
+            )
             if payload.phase == TestPhase.SETUP:
                 setup_payloads.append(payload)
             else:
                 execution_payloads.append(payload)
+                block_opcode_count = t8n.extract_block_opcode_count(
+                    client_hash
+                )
+                execution_opcode_counts.append(
+                    block_opcode_count.model_dump()
+                    if block_opcode_count is not None
+                    else None
+                )
+                # Setup blocks (pre-alloc funding/deploys) are exempt:
+                # ``expected_receipt_status`` describes the test's own
+                # transactions, and setup txs always succeed.
+                if built_block.result.receipts:
+                    self.validate_receipt_status(
+                        receipts=built_block.result.receipts,
+                        block_number=int(built_block.header.number),
+                    )
                 if self.operation_mode == OpMode.BENCHMARKING:
-                    benchmark_gas_used = int(built_block.result.gas_used)
-                    benchmark_opcode_count = built_block.result.opcode_count
-            # Overwrite the block_hash apply_new_parent just recorded —
-            # it's the FixtureHeader-recomputed RLP hash, which diverges
-            # from the client's authoritative hash (client picks fields
-            # like gas_limit). The next block's parent_hash must point at
-            # what the client actually built.
-            client_hash = Hash(
-                built_block.engine_payload.payload_response.execution_payload.block_hash
-            )
+                    benchmark_gas_used = built_block.cumulative_gas_used()
+                    benchmark_block_gas_used = built_block.block_gas_used()
+                    # Consumed by BenchmarkTest's opcode-count verification.
+                    benchmark_opcode_count = block_opcode_count
+            # apply_new_parent records the RLP hash; the next block's
+            # parent_hash must point at what the client actually built.
             env = apply_new_parent(built_block.env, built_block.header)
             env = env.copy(
                 block_hashes={
@@ -1508,6 +1557,10 @@ class BlockchainTest(BaseTest):
                 },
             )
             head_hash = client_hash
+
+        if self.post.root:
+            got_alloc = t8n.get_post_state_alloc(self.post)
+            self.post.verify_post_alloc(got_alloc)
 
         fixture = BlockchainEngineStatefulFixture(
             fork=self.fork,
@@ -1525,11 +1578,16 @@ class BlockchainTest(BaseTest):
                 else None
             ),
         )
+        metadata: Dict[str, Any] = {}
+        if t8n.extract_opcode_count:
+            metadata["opcode_counts"] = execution_opcode_counts
         return FillResult(
             fixture=fixture,
             gas_optimization=None,
             benchmark_gas_used=benchmark_gas_used,
+            benchmark_block_gas_used=benchmark_block_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
+            metadata=metadata,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 

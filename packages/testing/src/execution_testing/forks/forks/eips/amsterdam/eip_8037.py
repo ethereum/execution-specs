@@ -150,6 +150,9 @@ class EIP8037(BaseFork):
             Opcodes.SELFDESTRUCT: (
                 lambda op: cls._calculate_selfdestruct_state_gas(op, gas_costs)
             ),
+            Opcodes.CALL: lambda op: cls._calculate_call_state_gas(
+                op, gas_costs
+            ),
         }
 
     @classmethod
@@ -356,13 +359,14 @@ class EIP8037(BaseFork):
     ) -> int:
         """
         Calculate the CREATE and CREATE2 state gas cost, which is
-        `NEW_ACCOUNT`. Before EIP-8037 this was folded into
-        `OPCODE_CREATE_BASE`. Under EIP-8037 it is exposed here so that
-        `OPCODE_CREATE_BASE` stays regular only and matches the spec
-        EVM constant.
+        `NEW_ACCOUNT` (if the account did not exist before).
+        Before EIP-8037 this was folded into `OPCODE_CREATE_BASE`. Under
+        EIP-8037 it is exposed here so that `OPCODE_CREATE_BASE` stays regular
+        only and matches the spec EVM constant.
         """
-        del opcode
-        return gas_costs.NEW_ACCOUNT
+        if opcode.metadata["account_new"]:
+            return gas_costs.NEW_ACCOUNT
+        return 0
 
     @classmethod
     def _calculate_selfdestruct_state_gas(
@@ -398,4 +402,40 @@ class EIP8037(BaseFork):
         gas_cost = super()._calculate_selfdestruct_gas(opcode, gas_costs)
         if opcode.metadata["account_new"]:
             gas_cost -= gas_costs.NEW_ACCOUNT
+        return gas_cost
+
+    @classmethod
+    def _calculate_call_state_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate the CALL state gas cost: `NEW_ACCOUNT` when a value
+        transfer funds a new account. Before EIP-8037 this was folded
+        into the regular CALL cost (EIP-161); under EIP-8037 it is
+        exposed here as state gas, mirroring
+        `_calculate_selfdestruct_state_gas`.
+        """
+        metadata = opcode.metadata
+        if "value_transfer" in metadata and metadata["value_transfer"]:
+            if metadata["account_new"]:
+                return gas_costs.NEW_ACCOUNT
+        return 0
+
+    @classmethod
+    def _calculate_call_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate the regular CALL gas cost. The EIP-161 base
+        calculation folds `NEW_ACCOUNT` into the regular cost when a
+        value transfer funds a new account; EIP-8037 moves that charge
+        to the state-gas dimension (see `_calculate_call_state_gas`),
+        so this subtracts the `NEW_ACCOUNT` term back out of the
+        inherited regular cost.
+        """
+        gas_cost = super()._calculate_call_gas(opcode, gas_costs)
+        metadata = opcode.metadata
+        if "value_transfer" in metadata and metadata["value_transfer"]:
+            if metadata["account_new"]:
+                gas_cost -= gas_costs.NEW_ACCOUNT
         return gas_cost

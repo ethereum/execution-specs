@@ -16,7 +16,7 @@ from execution_testing import (
     WhileGas,
 )
 
-from tests.benchmark.compute.helpers import (
+from tests.benchmark.helper.precompile import (
     Precompile,
     calculate_optimal_input_length,
 )

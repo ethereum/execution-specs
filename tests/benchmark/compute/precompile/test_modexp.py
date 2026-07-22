@@ -17,10 +17,9 @@ from execution_testing import (
 )
 from execution_testing.forks import Osaka
 
+from tests.benchmark.helper.precompile import Precompile
 from tests.byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from tests.osaka.eip7883_modexp_gas_increase.spec import Spec, Spec7883
-
-from ..helpers import Precompile
 
 
 def create_random_modexp_test_case(

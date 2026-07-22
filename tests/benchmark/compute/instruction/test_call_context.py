@@ -24,9 +24,7 @@ from execution_testing import (
     Op,
 )
 
-from ..helpers import (
-    ReturnDataStyle,
-)
+from tests.benchmark.helper.enums import ReturnDataStyle
 
 
 @pytest.mark.repricing

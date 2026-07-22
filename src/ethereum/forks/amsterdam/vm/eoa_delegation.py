@@ -208,10 +208,11 @@ def set_delegation(evm: Evm) -> None:
       account leaf does not yet exist.
     - ``GasCosts.ACCOUNT_WRITE`` (regular) when applying the
       authorization is the transaction's first write to the authority's
-      leaf. The sender's leaf was already written at inclusion (priced
-      into ``TX_BASE``), so a self-sponsored authority pays no
-      ``ACCOUNT_WRITE``, and repeated authorizations on one authority
-      pay it once.
+      leaf. Writes the transaction already prices elsewhere are
+      exempt: the sender's, covered by ``TX_BASE``, and, for a
+      value-bearing transaction, the recipient's, covered by
+      ``TX_VALUE_COST``. Repeated authorizations on one authority pay
+      it once.
     - ``StateGasCosts.AUTH_BASE`` (state) when a net-new delegation
       indicator is written: the authority held no delegation before the
       transaction, none was set for it earlier in the transaction, and
@@ -232,9 +233,11 @@ def set_delegation(evm: Evm) -> None:
     """
     message = evm.message
     tx_state = message.tx_env.state
-    # Accounts this transaction has already written: the sender's leaf
-    # was written at inclusion (nonce bump and fee deduction). The
-    # recipient is written when value is transferred.
+    # Accounts whose write the transaction has already priced: the
+    # sender's leaf was written at inclusion (nonce bump and fee
+    # deduction), and a value-bearing transaction prepays the
+    # recipient's balance write -- the transfer itself only happens at
+    # frame entry, after these charges.
     written_accounts: Set[Address] = {message.tx_env.origin}
     if evm.message.tx_env.value > U256(0):
         written_accounts.add(evm.message.current_target)

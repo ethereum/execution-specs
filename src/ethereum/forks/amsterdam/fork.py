@@ -103,10 +103,12 @@ from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
     GasCosts,
     StateGasCosts,
+    allocate_execution_gas,
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
     calculate_total_blob_gas,
+    settle_transaction_gas,
 )
 from .vm.interpreter import MessageCallOutput, process_message_call
 
@@ -1032,8 +1034,6 @@ def process_transaction(
     sender = recover_sender(tx)
     intrinsic = validate_transaction(tx, sender)
 
-    intrinsic_gas = Uint(intrinsic.regular)
-
     (
         effective_gas_price,
         blob_versioned_hashes,
@@ -1055,12 +1055,9 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * effective_gas_price
 
-    # Split execution gas into gas_left (capped by remaining regular gas
-    # budget) and state_gas_reservoir.
-    execution_gas = tx.gas - intrinsic_gas
-    regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
-    gas = min(regular_gas_budget, execution_gas)
-    state_gas_reservoir = Uint(execution_gas - gas)
+    # Split execution gas into a regular grant (capped by the remaining
+    # regular-gas budget) and a state gas reservoir.
+    allocation = allocate_execution_gas(tx.gas, intrinsic)
 
     increment_nonce(tx_state, sender)
 
@@ -1087,8 +1084,8 @@ def process_transaction(
         recipient=tx.to,
         value=tx.value,
         gas_price=effective_gas_price,
-        gas=gas,
-        state_gas_reservoir=state_gas_reservoir,
+        gas=allocation.regular_gas,
+        state_gas_reservoir=allocation.state_gas_reservoir,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
         state=tx_state,
@@ -1102,24 +1099,20 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
-    tx_gas_used_before_refund = (
-        tx.gas - tx_output.gas_left - tx_output.state_gas_left
+    settlement = settle_transaction_gas(
+        tx.gas,
+        intrinsic,
+        tx_output.gas_left,
+        tx_output.state_gas_left,
+        tx_output.refund_counter,
+        tx_output.state_gas_used,
     )
-    tx_gas_refund = min(
-        tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)
-    )
-    tx_gas_used_after_refund = tx_gas_used_before_refund - tx_gas_refund
 
-    # Transactions with less execution_gas_used than the floor pay at the
-    # floor cost.
-    tx_gas_used = max(tx_gas_used_after_refund, intrinsic.calldata_floor)
-
-    tx_gas_left = tx.gas - tx_gas_used
-    gas_refund_amount = tx_gas_left * effective_gas_price
+    gas_refund_amount = settlement.gas_left * effective_gas_price
 
     # For non-1559 transactions effective_gas_price == tx.gas_price
     priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
-    transaction_fee = tx_gas_used * priority_fee_per_gas
+    transaction_fee = settlement.gas_used * priority_fee_per_gas
 
     # refund gas
     create_ether(tx_state, sender, U256(gas_refund_amount))
@@ -1127,18 +1120,11 @@ def process_transaction(
     # transfer miner fees
     create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
-    tx_state_gas = tx_output.state_gas_used
-    # The calldata floor binds the regular-gas dimension: subtract state gas
-    # first so the floor is not discounted by a transaction's state spending.
-    tx_regular_gas = max(
-        tx_gas_used_before_refund - Uint(max(0, tx_state_gas)),
-        intrinsic.calldata_floor,
-    )
-    block_output.block_gas_used += tx_regular_gas
-    block_output.block_state_gas_used += Uint(max(0, tx_state_gas))
+    block_output.block_gas_used += settlement.regular_gas_used
+    block_output.block_state_gas_used += settlement.state_gas_used
     block_output.blob_gas_used += tx_blob_gas_used
 
-    block_output.cumulative_gas_used += tx_gas_used
+    block_output.cumulative_gas_used += settlement.gas_used
     receipt = make_receipt(
         tx, tx_output.error, block_output.cumulative_gas_used, tx_output.logs
     )

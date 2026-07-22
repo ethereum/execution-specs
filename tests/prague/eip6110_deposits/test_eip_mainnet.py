@@ -1,6 +1,6 @@
 """
-abstract: Crafted tests for mainnet of [EIP-6110: Supply validator deposits on chain](https://eips.ethereum.org/EIPS/eip-6110).
-"""  # noqa: E501
+Crafted tests for mainnet of [EIP-6110: Supply validator deposits on chain](https://eips.ethereum.org/EIPS/eip-6110).
+"""
 
 from typing import List
 

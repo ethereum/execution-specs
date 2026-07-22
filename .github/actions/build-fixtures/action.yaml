@@ -13,6 +13,9 @@ inputs:
   split_label:
     description: "Label for this fork-range split. Empty for unsplit builds."
     default: ""
+  split_retention_days:
+    description: "retention-days for the split fixture artifact. Empty for the repo default."
+    default: ""
   evm:
     description: "Override the evm impl. Defaults to the feature's evm-type."
     default: ""
@@ -28,7 +31,6 @@ runs:
     - uses: ./.github/actions/setup-uv
       with:
         enable-cache: "false"
-    - uses: ./.github/actions/setup-env
     - name: Install EEST
       shell: bash
       run: uv sync --no-progress
@@ -50,6 +52,8 @@ runs:
       run: sudo apt-get install -y pigz
     - name: Generate fixtures using fill
       shell: bash
+      env:
+        PYTEST_XDIST_AUTO_NUM_WORKERS: ${{ steps.evm-builder.outputs.xdist }}
       run: |
         IS_SPLIT="${{ inputs.split_label }}"
 
@@ -61,13 +65,14 @@ runs:
           FORK_ARGS=""
         fi
 
+        EVM_ARGS=""
+        if [ "${{ steps.evm-builder.outputs.impl }}" != "eels" ]; then
+          EVM_ARGS="--evm-bin=${{ steps.evm-builder.outputs.evm-bin }}"
+        fi
+
         # Allow exit code 5 (NO_TESTS_COLLECTED) for fork ranges with no tests.
         EXIT_CODE=0
-        if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-          uv run fill -n ${{ steps.evm-builder.outputs.xdist }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG || EXIT_CODE=$?
-        else
-          uv run fill -n ${{ steps.evm-builder.outputs.xdist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG || EXIT_CODE=$?
-        fi
+        just fill-release $EVM_ARGS ${{ steps.properties.outputs.fill-params }} $FORK_ARGS $OUTPUT_ARG --build-name ${{ inputs.release_name }} || EXIT_CODE=$?
         if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
           exit "$EXIT_CODE"
         fi
@@ -96,3 +101,4 @@ runs:
         include-hidden-files: true
         path: fixtures_${{ inputs.release_name }}/
         if-no-files-found: ignore
+        retention-days: ${{ inputs.split_retention_days }}

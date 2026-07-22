@@ -20,9 +20,11 @@ class EngineXExecutionDriftError(Exception):
     An Engine X fixture is filled against its group's merged genesis, while
     the test's `blockchain_test_engine` sibling is filled against the test's
     own pre-allocation. Their per-payload execution outputs (gas used,
-    receipts root, logs bloom, ...) must be identical; a difference means an
-    account introduced by pre-alloc group packing leaked into the test's
-    execution (see `pack_pre_alloc_groups`).
+    receipts root, logs bloom, ...) must be identical; a difference means
+    either an account introduced by pre-alloc group packing leaked into the
+    test's execution (see `pack_pre_alloc_groups`), or the test observes the
+    genesis hash itself (e.g. via `BLOCKHASH(0)`), which depends on every
+    account in the genesis and so cannot survive any grouping.
     """
 
     def __init__(self, mismatches: List[Tuple[str, str]], compared: int):
@@ -39,9 +41,11 @@ class EngineXExecutionDriftError(Exception):
             "differently against their packed pre-allocation group's genesis "
             "than against their own pre-allocation:\n"
             f"{details}\n"
-            "An account introduced by pre-alloc group packing leaked into "
-            "these tests' execution. Isolate the affected tests with "
-            "@pytest.mark.pre_alloc_group and re-fill."
+            "Sharing a genesis changed these tests' execution: either an "
+            "account introduced by pre-alloc group packing leaked into "
+            "their execution, or they observe the genesis hash itself "
+            "(e.g. via BLOCKHASH(0)). Isolate the affected tests with "
+            '@pytest.mark.pre_alloc_group("separate") and re-fill.'
         )
 
 

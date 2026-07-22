@@ -400,7 +400,10 @@ def test_recipient_charge_oog_rolls_back_delegations(
 
     The recipient and both authorities were accessed before the halt,
     so per EIP-7928 all three must still appear in the block access
-    list, with no recorded changes.
+    list, with no recorded changes. The recipient's delegation target
+    is only ever loaded by the resolution the starved charge pays for,
+    so it must be absent from the list on the out-of-gas side and
+    present (with no changes) on the succeeding side.
 
     The ``succeeds`` control restores the one starved gas: the
     recipient charge is covered exactly, the dispatch completes (the
@@ -416,6 +419,7 @@ def test_recipient_charge_oog_rolls_back_delegations(
     auth_charges = _auth_top_frame_charges(fork, authorization_list)
 
     recipient_bal = BalAccountExpectation.empty()
+    delegation_target_bal: dict[Address, BalAccountExpectation | None] = {}
     if recipient_charge == "new_account":
         recipient = pre.fund_eoa(amount=0)
         value = 1
@@ -443,6 +447,13 @@ def test_recipient_charge_oog_rolls_back_delegations(
             balance=EOA_INITIAL_BALANCE,
             code=Spec7702.delegation_designation(delegated_to),
         )
+        # The delegation target is only loaded by the resolution access
+        # the starved charge pays for: read (unchanged) on success,
+        # never accessed -- so absent from the block access list -- when
+        # the charge runs out.
+        delegation_target_bal = {
+            delegated_to: BalAccountExpectation.empty() if succeeds else None
+        }
 
     intrinsic_regular = _intrinsic_regular(
         fork,
@@ -481,6 +492,7 @@ def test_recipient_charge_oog_rolls_back_delegations(
                 recipient: recipient_bal,
                 auth_a.authority: _applied_delegation_bal(auth_a),
                 auth_b.authority: _applied_delegation_bal(auth_b),
+                **delegation_target_bal,
             }
         )
     else:
@@ -494,6 +506,7 @@ def test_recipient_charge_oog_rolls_back_delegations(
                 recipient: BalAccountExpectation.empty(),
                 auth_a.authority: BalAccountExpectation.empty(),
                 auth_b.authority: BalAccountExpectation.empty(),
+                **delegation_target_bal,
             }
         )
 
@@ -564,6 +577,10 @@ def test_reservoir_settlement_by_failure_point(
 
     sender = pre.fund_eoa()
 
+    # Two distinct delegation targets are in play. ``delegation_target``
+    # is the address every *authority's* authorization designates:
+    # ``set_delegation`` writes it into the authorities' code but never
+    # reads the account itself.
     delegation_target = pre.deploy_contract(code=Op.STOP)
     recipient_code: Bytecode
     if failure_point == "execution_halt":
@@ -572,6 +589,9 @@ def test_reservoir_settlement_by_failure_point(
         recipient_code = Op.REVERT(0, 0)
     else:
         recipient_code = Op.STOP
+    # ``code_target`` is the *recipient's* pre-existing delegation
+    # target: the top-frame dispatch pays a cold access to resolve it
+    # and, once paid, loads and runs its code.
     code_target = pre.deploy_contract(code=recipient_code)
     recipient = pre.fund_eoa(
         amount=EOA_INITIAL_BALANCE, delegation=code_target
@@ -698,7 +718,11 @@ def test_reservoir_settlement_by_failure_point(
     # with their persisted nonce and code writes past an execution
     # failure, with no recorded changes past a preparation rollback.
     # The recipient is only loaded once preparation reaches the
-    # dispatch charge.
+    # dispatch charge, and its delegation target only once that charge
+    # is paid and the delegated code loads -- so both out-of-gas
+    # scenarios must leave the target absent from the list. The
+    # authorities' delegation target is never read at all: writing a
+    # designation does not access the designated account.
     if delegations_persist:
         authority_bal = BalAccountExpectation(
             nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
@@ -718,9 +742,14 @@ def test_reservoir_settlement_by_failure_point(
         if failure_point == "set_delegation_oog"
         else BalAccountExpectation.empty()
     )
+    code_target_bal = (
+        BalAccountExpectation.empty() if delegations_persist else None
+    )
     expected_block_access_list = BlockAccessListExpectation(
         account_expectations={
             recipient: recipient_bal,
+            code_target: code_target_bal,
+            delegation_target: None,
             **dict.fromkeys(authorities, authority_bal),
         }
     )
@@ -902,7 +931,9 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
     # The recipient is first loaded for its NEW_ACCOUNT alive-check, so
     # it is absent from the block access list only when the halt lands
     # inside set_delegation; afterwards it appears with no net change
-    # (the transfer, if any, rolled back).
+    # (the transfer, if any, rolled back). The authorities' delegation
+    # target is never read at all: writing a designation does not
+    # access the designated account.
     if delegations_persist:
         authority_bal = BalAccountExpectation(
             nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
@@ -925,6 +956,7 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
     expected_block_access_list = BlockAccessListExpectation(
         account_expectations={
             recipient: recipient_bal,
+            delegation_target: None,
             **dict.fromkeys(authorities, authority_bal),
         }
     )

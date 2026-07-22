@@ -1,7 +1,7 @@
 """
-abstract: Crafted tests for mainnet of
+Crafted tests for mainnet of
 [EIP-7997: Deterministic Factory Predeploy](https://eips.ethereum.org/EIPS/eip-7997).
-"""  # noqa: E501
+"""
 
 import pytest
 from execution_testing import (

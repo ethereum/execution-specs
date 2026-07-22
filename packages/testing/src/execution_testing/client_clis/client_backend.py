@@ -11,20 +11,35 @@ from the same test definitions that the compute path fills via t8n — phase
 info, block boundaries, and pre-alloc declarations flow unchanged.
 """
 
+import re
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
 from execution_testing.forks import Fork, TransitionFork
-from execution_testing.rpc import EngineRPC, EthRPC, TestingRPC, Web3RPC
+from execution_testing.logging import get_logger
+from execution_testing.rpc import (
+    BlockNumberType,
+    DebugRPC,
+    EngineRPC,
+    EthRPC,
+    TestingRPC,
+    Web3RPC,
+)
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     GetPayloadResponse,
+    JSONRPCError,
     PayloadAttributes,
     PayloadStatusEnum,
 )
-from execution_testing.test_types import Requests, Transaction, Withdrawal
+from execution_testing.test_types import (
+    Alloc,
+    Requests,
+    Transaction,
+    Withdrawal,
+)
 from execution_testing.test_types.block_access_list import BlockAccessList
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
@@ -35,8 +50,90 @@ from .cli_types import (
     Result,
     Traces,
     TransitionToolOutput,
+    validate_opcode,
 )
 from .transition_tool import TransitionTool
+
+logger = get_logger(__name__)
+
+# Per-tx opcode tally; clients ship no built-in opcode-count tracer.
+OPCODE_COUNT_TRACER_JS = """{
+    counts: {},
+    step: function(log) {
+        var op = log.op.toString();
+        this.counts[op] = (this.counts[op] || 0) + 1;
+    },
+    fault: function() {},
+    result: function() { return this.counts; }
+}"""
+
+# Keep each struct-log step small.
+STRUCT_LOG_TRACER_CONFIG = {
+    "disableStack": True,
+    "disableMemory": True,
+    "disableStorage": True,
+}
+
+
+def _normalize_opcode_name(name: str) -> str | None:
+    """
+    Map a tracer opcode name to one ``OpcodeCount`` accepts.
+
+    Handles non-canonical casing (nethermind) and geth's
+    ``"opcode 0xNN not defined"``; unrecognized names are dropped.
+    """
+    for candidate in (name, name.upper()):
+        try:
+            validate_opcode(candidate)
+            return candidate
+        except Exception:
+            continue
+    match = re.search(r"0x[0-9a-fA-F]+", name)
+    if match is not None:
+        return match.group(0)
+    logger.warning(f"opcode trace: dropping unrecognized {name!r}")
+    return None
+
+
+def _opcode_count_from_js_tracer(traces: Any) -> OpcodeCount:
+    """Aggregate the per-tx ``{opcode: count}`` maps the JS tracer emits."""
+    counts: Dict[str, int] = {}
+    for entry in traces or []:
+        if not isinstance(entry, dict):
+            continue
+        tx_counts = entry.get("result")
+        # Clients that ignore the JS tracer echo struct logs.
+        if not isinstance(tx_counts, dict) or "structLogs" in tx_counts:
+            continue
+        for opcode, count in tx_counts.items():
+            key = _normalize_opcode_name(opcode)
+            if key is None or not isinstance(count, int):
+                continue
+            counts[key] = counts.get(key, 0) + count
+    return OpcodeCount.model_validate(counts)
+
+
+def _opcode_count_from_struct_logs(traces: Any) -> OpcodeCount:
+    """Count ``structLogs[].op`` entries, one per executed opcode."""
+    counts: Dict[str, int] = {}
+    for entry in traces or []:
+        if not isinstance(entry, dict):
+            continue
+        # Some clients return the struct-log result unwrapped.
+        result = entry.get("result")
+        if not isinstance(result, dict):
+            result = entry
+        for step in result.get("structLogs") or []:
+            if not isinstance(step, dict):
+                continue
+            op = step.get("op")
+            if not op:
+                continue
+            key = _normalize_opcode_name(op)
+            if key is None:
+                continue
+            counts[key] = counts.get(key, 0) + 1
+    return OpcodeCount.model_validate(counts)
 
 
 class ClientBackendExceptionMapper(ExceptionMapper):
@@ -70,6 +167,7 @@ class ClientBackend:
 
     # t8n-compatibility stubs — fill's filler reads these on the backend.
     opcode_count: OpcodeCount | None = None
+    opcode_count_per_block: List[OpcodeCount] | None = None
     output_cache: Any = None
     debug_dump_dir: Path | None = None
     call_counter: int = 0
@@ -89,12 +187,18 @@ class ClientBackend:
         engine_rpc: EngineRPC,
         eth_rpc: EthRPC,
         fork: Fork | TransitionFork,
+        debug_rpc: DebugRPC | None = None,
+        extract_opcode_count: bool = False,
     ) -> None:
         """Initialize with the RPC clients and the session fork."""
         self.testing_rpc = testing_rpc
         self.engine_rpc = engine_rpc
         self.eth_rpc = eth_rpc
         self.fork = fork
+        self.debug_rpc = debug_rpc
+        self.extract_opcode_count = extract_opcode_count
+        # Sticky fallback to struct logs (besu has no JS tracer).
+        self._js_tracer_unsupported = False
         self.exception_mapper = ClientBackendExceptionMapper()
         self.snapshot_block = None
         self.start_block = None
@@ -126,7 +230,7 @@ class ClientBackend:
         return
 
     def reset_opcode_count(self) -> None:
-        """No-op — opcode counting not supported."""
+        """No-op — ``opcode_count`` stays ``None`` so the filler skips it."""
         return
 
     def set_cache(self, *, key: str) -> bool:
@@ -207,6 +311,51 @@ class ClientBackend:
                     payload_attributes.parent_beacon_block_root
                 ),
             ),
+        )
+
+    def get_post_state_alloc(
+        self, expected: Alloc, *, block_number: BlockNumberType = "latest"
+    ) -> Alloc:
+        """Fetch the post-state that ``expected`` constrains from client."""
+        return self.eth_rpc.get_alloc(expected, block_number=block_number)
+
+    def extract_block_opcode_count(
+        self, block_hash: Hash
+    ) -> OpcodeCount | None:
+        """
+        Tally executed opcodes for a block via ``debug_traceBlockByHash``.
+
+        ``None`` when ``--extract-opcode-count`` is off or the trace
+        fails (logged, never fatal). Prefers the JS tracer; a client
+        that rejects it falls back to struct logs for the session,
+        while transient errors only skip the block.
+        """
+        if not self.extract_opcode_count or self.debug_rpc is None:
+            return None
+
+        try:
+            if not self._js_tracer_unsupported:
+                try:
+                    traces = self._trace_block(
+                        block_hash, {"tracer": OPCODE_COUNT_TRACER_JS}
+                    )
+                    return _opcode_count_from_js_tracer(traces)
+                except JSONRPCError as e:
+                    logger.info(f"JS tracer rejected ({e}); using struct logs")
+                    self._js_tracer_unsupported = True
+            traces = self._trace_block(block_hash, STRUCT_LOG_TRACER_CONFIG)
+            return _opcode_count_from_struct_logs(traces)
+        except Exception as e:
+            logger.warning(f"opcode trace failed for block {block_hash}: {e}")
+            return None
+
+    def _trace_block(
+        self, block_hash: Hash, tracer_config: Dict[str, Any]
+    ) -> Any:
+        """Raw ``debug_traceBlockByHash`` call; exceptions propagate."""
+        assert self.debug_rpc is not None
+        return self.debug_rpc.trace_block_by_hash(
+            str(block_hash), tracer_config
         )
 
     def _payload_attributes(

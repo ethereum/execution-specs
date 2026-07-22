@@ -1,6 +1,6 @@
 """
-abstract: Crafted tests for mainnet of [EIP-7976: Increase calldata floor cost](https://eips.ethereum.org/EIPS/eip-7976).
-"""  # noqa: E501
+Crafted tests for mainnet of [EIP-7976: Increase calldata floor cost](https://eips.ethereum.org/EIPS/eip-7976).
+"""
 
 import pytest
 from execution_testing import (

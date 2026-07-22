@@ -1,6 +1,7 @@
 """
-abstract: Tests for floor-boundary rejection with exact-balance funding in [EIP-7976: Increase Calldata Floor Cost](https://eips.ethereum.org/EIPS/eip-7976).
-"""  # noqa: E501
+Tests for floor-boundary rejection with exact-balance funding in
+[EIP-7976: Increase Calldata Floor Cost](https://eips.ethereum.org/EIPS/eip-7976).
+"""
 
 import pytest
 from execution_testing import (

@@ -10,6 +10,11 @@ list:
 root := justfile_directory()
 output_dir := root / ".just"
 xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
+
+# The env var's job ends with the `-n` value above; export it empty so
+# pytest-xdist, which reads it as a numeric worker-count override in
+# `-n auto` mode, does not warn on non-numeric values such as "auto".
+export PYTEST_XDIST_AUTO_NUM_WORKERS := ""
 evm_bin := env("EVM_BIN", "evm")
 latest_fork := "Amsterdam"
 
@@ -64,10 +69,10 @@ deadcode:
 format-check *args:
     uv run ruff format --check "$@"
 
-# Run type checking with mypy
+# Run type checking with mypy (installs the optimized dependency group)
 [group('static analysis')]
 typecheck *args:
-    uv run mypy "$@"
+    uv run --group optimized mypy "$@"
 
 # Check EELS import isolation
 [group('static analysis')]
@@ -126,6 +131,18 @@ fill *args:
         --durations=50 \
         "$@" \
         tests
+
+# Callers append the feature params, fork range and output; last flag wins.
+# Fill fixtures with the flags shared by all fixture releases
+[group('consensus tests')]
+fill-release *args:
+    uv run fill \
+        -n {{ xdist_workers }} \
+        --output="{{ output_dir }}/fill-release/fixtures" \
+        --no-html \
+        --durations=100 \
+        --log-level=DEBUG \
+        "$@"
 
 # --- Integration Tests ---
 
@@ -254,7 +271,7 @@ bench-gas *args:
         --generate-pre-alloc-groups \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
-        --fork Osaka \
+        --fork Amsterdam \
         -m "not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
         --output="{{ output_dir }}/bench-gas/pre-alloc" \
@@ -267,7 +284,7 @@ bench-gas *args:
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
-        --fork Osaka \
+        --fork Amsterdam \
         -m "blockchain_test and (not derived_test) and (not slow)" \
         -n auto --maxprocesses 10 --dist=loadgroup \
         --durations=20 \
@@ -281,7 +298,7 @@ bench-gas *args:
     @rm -rf tests/json_loader/bench_gas_fixtures
     ln -sfn "{{ output_dir }}/bench-gas/fixtures" tests/json_loader/bench_gas_fixtures
     cd tests/json_loader && uv run --python pypy3.11 --no-dev --group test pytest \
-        --fork Osaka \
+        --fork Amsterdam \
         --allow-post-state-hash \
         -n auto --maxprocesses 10 --dist=loadfile \
         --durations=20 \
@@ -295,8 +312,8 @@ bench-opcode *args:
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --fixed-opcode-count 1 \
-        --fork Osaka \
-        -m repricing \
+        --fork Amsterdam \
+        -m "repricing and not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not uncachable" \
         --output="{{ output_dir }}/bench-opcode/fixtures" \
@@ -314,10 +331,10 @@ bench-opcode-config *args:
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --fixed-opcode-count \
-        --fork Osaka \
-        -m repricing \
+        --fork Amsterdam \
+        -m "repricing and not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
-        -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not test_point_evaluation_uncachable" \
+        -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp and not uncachable" \
         --output="{{ output_dir }}/bench-opcode-config/fixtures" \
         --basetemp="{{ output_dir }}/bench-opcode-config/tmp" \
         --log-to "{{ output_dir }}/bench-opcode-config/logs" \

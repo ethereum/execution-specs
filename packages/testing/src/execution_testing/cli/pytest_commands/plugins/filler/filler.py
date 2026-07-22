@@ -1657,10 +1657,15 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     "pre_alloc_group"
                 ):
                     # Get the group name/salt from marker args
-                    if pre_alloc_group_marker.args:
+                    if (
+                        pre_alloc_group_marker.args
+                        and pre_alloc_group_marker.args[0] != "separate"
+                    ):
                         group_salt = str(pre_alloc_group_marker.args[0])
                     else:
-                        # We got the marker but unspecified, pass test name
+                        # "separate" (or a bare marker): salt with the
+                        # test's node id so the test gets its own genesis
+                        # instead of a group named literally "separate".
                         group_salt = _strip_xdist_group_suffix(
                             request.node.nodeid
                         )
@@ -1749,6 +1754,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 # If operation mode is benchmarking, check the gas used.
                 self.validate_benchmark_gas(
                     benchmark_gas_used=fill_result.benchmark_gas_used,
+                    benchmark_block_gas_used=(
+                        fill_result.benchmark_block_gas_used
+                    ),
                     gas_benchmark_value=gas_benchmark_value,
                 )
 
@@ -1779,6 +1787,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     fill_metadata["opcode_count"] = (
                         t8n.opcode_count.model_dump()
                     )
+                if t8n.opcode_count_per_block:
+                    fill_metadata["opcode_count_per_block"] = [
+                        block_opcode_count.model_dump()
+                        for block_opcode_count in t8n.opcode_count_per_block
+                    ]
                 if fill_result.metadata:
                     fill_metadata.update(fill_result.metadata)
 

@@ -9,11 +9,7 @@ import pytest
 from pytest import StashKey
 
 from execution_testing.base_types import Account, Number
-from execution_testing.base_types import Alloc as BaseAlloc
-from execution_testing.execution import (
-    BaseExecute,
-    LabeledExecuteFormat,
-)
+from execution_testing.execution import BaseExecute, LabeledExecuteFormat
 from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
@@ -65,7 +61,7 @@ def _validate_and_cache_address_stubs(
     eth_rpc = EthRPC(rpc_endpoint)
     labels = list(address_stubs.root.keys())
     addresses = [address_stubs.root[k].addr for k in labels]
-    query = BaseAlloc(root={addr: Account() for addr in addresses})
+    query = Alloc(root={addr: Account() for addr in addresses})
     alloc = eth_rpc.get_alloc(query)
     empty: list[str] = []
     accounts: Dict[str, Account] = {}

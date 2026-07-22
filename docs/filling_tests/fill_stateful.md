@@ -13,7 +13,7 @@ The target client must expose:
 
 - `testing` (`testing_buildBlockV1`) — block construction with explicit transaction ordering.
 - `engine` — `engine_newPayloadVX`, `engine_forkchoiceUpdatedVX`.
-- `eth`, `debug` — chain queries and `debug_setHead` (or `debug_resetHead` on clients like Nethermind that lack `debug_setHead`) for between-test rewind.
+- `eth`, `debug` — chain queries and `debug_setHead` (or `debug_resetHead` on clients like Nethermind that lack `debug_setHead`) for between-test rewind. `--extract-opcode-count` additionally needs `debug_traceBlockByHash` with JS tracer support.
 - `web3` (optional) — `web3_clientVersion` is recorded into the fixture's `_info.filling-transition-tool` for traceability.
 
 The production-ready filler is `ethpandaops/geth:master`.
@@ -122,6 +122,7 @@ Optional:
 - `--default-{gas-price,max-fee-per-gas,max-priority-fee-per-gas,max-fee-per-blob-gas}` — pin per-session fees; defaults bump live-query values by `1.5×`.
 - `--output PATH` — default `./fixtures`.
 - `--clean` — wipe the output dir before filling.
+- `--extract-opcode-count` — after building each block, trace it via `debug_traceBlockByHash` (a JS opcode-counting tracer) and record per-opcode execution counts (execution-phase blocks only) in the fixture's `_info.metadata.opcode_counts` — an array with one entry per `engineNewPayloads` block (`opcode_counts[i]` is the count for `engineNewPayloads[i]`, or `null` if its trace was unavailable), so multi-block benchmarks keep per-payload granularity. When a benchmark test declares a target opcode count (`fixed_opcode_count`/`expected_opcode_count`), the live-client count is verified against it and the fill fails on >5% divergence. Requires the `debug` namespace with JS tracer support. Adds a full re-execution trace per block, so it is slow and opt-in.
 
 ## Output layout
 
@@ -135,7 +136,7 @@ Optional:
             └── <test>.json         # per-test setup + execution payloads
 ```
 
-Each `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`) is replayed once per `benchmarkoor` run. Per-test fixtures (`BlockchainEngineStatefulFixture`) reference their setup file by hash: a fixture with `startBlockHash = 0xabc...` is preceded by `pre_run/0xabc....json`. Each per-test fixture carries `snapshotBlockNumber`/`Hash`, `startBlockNumber`/`Hash`, `setupEngineNewPayloads`, `engineNewPayloads`, plus a `benchmarkGasUsed` field and the EL build in `_info.filling-transition-tool`. The hash-based filename leaves room for multiple pre-run files (e.g. different setup variants off one snapshot) without coordinating names.
+Each `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`) is replayed once per `benchmarkoor` run. Per-test fixtures (`BlockchainEngineStatefulFixture`) reference their setup file by hash: a fixture with `startBlockHash = 0xabc...` is preceded by `pre_run/0xabc....json`. Each per-test fixture carries `snapshotBlockNumber`/`Hash`, `startBlockNumber`/`Hash`, `setupEngineNewPayloads`, `engineNewPayloads`, plus a `benchmarkGasUsed` field and the EL build in `_info.filling-transition-tool`. With `--extract-opcode-count`, it also carries `_info.metadata.opcode_counts` (an array of per-opcode execution counts, one entry per `engineNewPayloads` block). The hash-based filename leaves room for multiple pre-run files (e.g. different setup variants off one snapshot) without coordinating names.
 
 !!! warning "Snapshot anchoring"
     `--snapshot-block` accepts a hash on purpose. Anchoring to `latest` works against a quiescent client, but a live reorg between session start and fixture write would silently re-anchor the fixture to a different block. The hash form rejects that.
@@ -148,7 +149,7 @@ Each `pre_run/<start_block_hash>.json` (a `StatefulPreRunFixture`) is replayed o
 
 ## Stub-dependent tests
 
-Some stateful tests (e.g. `test_single_opcode.py`, `test_multi_opcode.py`) target on-chain accounts the snapshot already contains. They reach them two ways:
+Some stateful tests (e.g. `test_erc20_operation.py`, `test_sload.py`) target on-chain accounts the snapshot already contains. They reach them two ways:
 
 - `@pytest.mark.stub_parametrize("name", "prefix_")` — parametrize values pulled from `--address-stubs` matching `prefix_`.
 - `pre.deploy_contract(stub="<label>", ...)` — direct runtime lookup.

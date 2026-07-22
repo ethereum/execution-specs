@@ -71,9 +71,6 @@ jobs:
         with:
           cache-dependency-glob: "execution-specs/uv.lock"
 
-      - name: Setup environment
-        uses: ./execution-specs/.github/actions/setup-env
-
       - name: Load cached Docker images
         uses: ./execution-specs/.github/actions/load-docker-images
 

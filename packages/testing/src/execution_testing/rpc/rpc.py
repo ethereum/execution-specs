@@ -37,7 +37,6 @@ from tenacity import (
 from execution_testing.base_types import (
     Account,
     Address,
-    Alloc,
     Bytes,
     Hash,
     to_json,
@@ -45,6 +44,7 @@ from execution_testing.base_types import (
 from execution_testing.logging import (
     get_logger,
 )
+from execution_testing.test_types import Alloc
 
 from .rpc_types import (
     EthConfigResponse,
@@ -1299,6 +1299,15 @@ class DebugRPC(EthRPC):
         params = [tr, block_number, {"tracer": "prestateTracer"}]
         return self.post_request(
             request=RPCCall(method="traceCall", params=params)
+        ).result_or_raise()
+
+    def trace_block_by_hash(
+        self, block_hash: str, tracer_config: dict[str, Any]
+    ) -> Any:
+        """`debug_traceBlockByHash`: Trace every transaction in a block."""
+        params = [block_hash, tracer_config]
+        return self.post_request(
+            request=RPCCall(method="traceBlockByHash", params=params)
         ).result_or_raise()
 
     def set_head(self, block_number: str) -> None:

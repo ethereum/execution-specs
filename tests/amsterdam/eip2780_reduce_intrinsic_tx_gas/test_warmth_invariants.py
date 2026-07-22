@@ -25,12 +25,16 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
+    BlockAccessListExpectation,
     Environment,
     Fork,
     Op,
     RecipientType,
     StateTestFiller,
     Transaction,
+    TransactionReceipt,
 )
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
@@ -215,12 +219,18 @@ def test_top_frame_charges_delegation_in_access_list(
     total_gas_cost = intrinsic_gas + top_frame_gas
     gas_price = 1_000_000_000
 
+    delegated_to_bal: BalAccountExpectation | None
     if outcome == "oog":
         # Runs out one gas short of the warm charge, before dispatch:
         # no value moves and the sender pays the full gas_limit.
         gas_limit = total_gas_cost - 1
         sender_final_balance = sender_initial_balance - gas_limit * gas_price
         target_balance = 0
+        # The access-list entry warmed the delegation target but never
+        # read it, and the starved charge is the one access that would
+        # have: the target must be absent from the block access list.
+        delegated_to_bal = None
+        target_bal = BalAccountExpectation.empty()
     else:
         # Exact gas: the delegated STOP costs nothing, so the warm
         # charge is the last gas spent and the value transfer lands.
@@ -229,6 +239,18 @@ def test_top_frame_charges_delegation_in_access_list(
             sender_initial_balance - value - total_gas_cost * gas_price
         )
         target_balance = value
+        # The paid warm access loads the target's code for dispatch, so
+        # it enters the block access list, unchanged.
+        delegated_to_bal = BalAccountExpectation.empty()
+        target_bal = (
+            BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=value)
+                ]
+            )
+            if value
+            else BalAccountExpectation.empty()
+        )
 
     tx = Transaction(
         ty=1,
@@ -245,7 +267,17 @@ def test_top_frame_charges_delegation_in_access_list(
         target: Account(balance=target_balance, code=target_code),
     }
 
-    state_test(pre=pre, tx=tx, post=post)
+    state_test(
+        pre=pre,
+        tx=tx,
+        post=post,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                target: target_bal,
+                delegated_to: delegated_to_bal,
+            }
+        ),
+    )
 
 
 @pytest.mark.parametrize(
@@ -504,6 +536,88 @@ def test_top_frame_charges_delegation_is_recipient(
     }
 
     state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(0, id="zero_value"),
+        pytest.param(1, id="non-zero_value"),
+    ],
+)
+def test_top_frame_charges_self_delegation_oog(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    value: int,
+) -> None:
+    """
+    Recipient holds a pre-existing EIP-7702 delegation pointing back at
+    itself, and the transaction is one gas short of the delegation
+    target's ``WARM_ACCESS`` charge.
+
+    The target of the resolution is the recipient itself, which is warm
+    as ``tx.to``, so the starved charge is the warm access --
+    a cold charge here would be a self-delegation warmth bug. The halt
+    lands before dispatch, so the delegation prefix (whose leading
+    ``0xef`` decodes as ``INVALID``) never runs; the sender pays the
+    full ``gas_limit`` and no value moves.
+
+    Unlike a delegation to a distinct never-accessed account, the
+    delegated address here *is* the recipient, whose code was already
+    read to discover the delegation: per EIP-7928 it must appear in the
+    block access list exactly once, with no recorded changes.
+    """
+    sender = pre.fund_eoa()
+
+    # Pre-allocate an EOA that delegates to itself. The 1-wei balance
+    # keeps the account alive at top-frame check time so the
+    # ``NEW_ACCOUNT`` charge does not fire.
+    target = pre.fund_eoa(amount=1, delegation="Self")
+    target_code = Spec7702.delegation_designation(target)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=bool(value),
+        recipient_type=RecipientType.DELEGATION_7702,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+        sends_value=bool(value),
+        recipient_type=RecipientType.DELEGATION_7702,
+        delegation_warm=True,
+    )
+
+    # One gas short of the warm self-access: the frame halts before
+    # dispatching the (self-)delegated code. The receipt pins the full
+    # ``gas_limit`` as consumed -- the out-of-gas signature (receipt
+    # ``status`` is not verified by the filler).
+    gas_limit = intrinsic_gas + top_frame_gas - 1
+
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        value=value,
+        gas_limit=gas_limit,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
+        ),
+    )
+
+    post = {
+        sender: Account(nonce=1),
+        target: Account(balance=1, code=target_code),
+    }
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post=post,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                target: BalAccountExpectation.empty(),
+            }
+        ),
+    )
 
 
 @pytest.mark.parametrize(
