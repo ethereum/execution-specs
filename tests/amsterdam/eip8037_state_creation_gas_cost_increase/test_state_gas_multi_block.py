@@ -52,11 +52,10 @@ def test_exact_coinbase_fee_simple_sstore(
     Motivated by BAL devnet-3 ethrex/besu coinbase balance mismatch
     where clients diverged on cumulative `receipt_gas_used`.
     """
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-
     # Tx 1: single SSTORE zero-to-nonzero
     sstore_storage = Storage()
-    sstore_code = Op.SSTORE(sstore_storage.store_next(1), 1)
+    sstore_code = Op.SSTORE(sstore_storage.store_next(1), 1, new_value=1)
+    sstore_state_gas = sstore_code.state_cost(fork)
     sstore_contract = pre.deploy_contract(code=sstore_code)
 
     # tx 1 gas used: the intrinsic (TX_BASE plus the EIP-2780

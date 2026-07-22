@@ -17,7 +17,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    CodeGasMeasure,
     Fork,
     Header,
     Initcode,
@@ -2912,10 +2911,10 @@ def test_create_collision_burned_gas_counted_in_block_regular(
 
 
 @pytest.mark.parametrize(
-    "target",
+    "account_new",
     [
-        pytest.param("new", id="new_account"),
-        pytest.param("existing", id="existing_account"),
+        pytest.param(True, id="new_account"),
+        pytest.param(False, id="existing_account"),
     ],
 )
 @pytest.mark.with_all_create_opcodes()
@@ -2925,133 +2924,122 @@ def test_create_account_creation_charge(
     pre: Alloc,
     fork: Fork,
     create_opcode: Op,
-    target: str,
+    account_new: bool,
 ) -> None:
     """
-    Verify NEW_ACCOUNT is charged for a new account and refunded for a
-    pre-existing balance-only leaf.
+    Verify NEW_ACCOUNT is charged only when the created account does not
+    already exist in the trie.
 
     Empty init code means zero code deposit, so NEW_ACCOUNT is the only
     create state cost. A fresh target is charged it; a pre-existing
-    balance-only target (balance, no code, zero nonce) refunds it on
-    success. The probe SSTORE both confirms the create succeeded and
-    makes state gas dominate, so gas_used drops by exactly NEW_ACCOUNT
-    when refunded.
+    balance-only target (balance, no code, zero nonce) is not. The probe
+    SSTORE both confirms the create succeeded and makes state gas dominate
+    the header, so gas_used differs by exactly NEW_ACCOUNT between the two
+    cases.
     """
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     mstore_value, size = init_code_at_high_bytes(Op.STOP)
-    create_call = (
-        create_opcode(value=0, offset=0, size=size, salt=0)
-        if create_opcode == Op.CREATE2
-        else create_opcode(value=0, offset=0, size=size)
+    create_call = create_opcode(
+        value=0, offset=0, size=size, account_new=account_new
     )
-    new_account = create_call.state_cost(fork)
-
     storage = Storage()
-    factory = pre.deploy_contract(
-        code=Op.MSTORE(0, mstore_value)
-        + Op.SSTORE(
-            storage.store_next(1, "create_succeeds"), Op.GT(create_call, 0)
-        )
+    factory_code = Op.MSTORE(0, mstore_value) + Op.SSTORE(
+        storage.store_next(1, "create_succeeds"), Op.GT(create_call, 0)
     )
+    factory = pre.deploy_contract(code=factory_code)
 
     # Factory deployed via deploy_contract starts at nonce 1.
-    if create_opcode == Op.CREATE2:
-        create_address = compute_create2_address(
-            address=factory, salt=0, initcode=bytes(Op.STOP)
-        )
-    else:
-        create_address = compute_create_address(address=factory, nonce=1)
-    if target == "existing":
+    create_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=bytes(Op.STOP),
+        opcode=create_opcode,
+    )
+    if not account_new:
         pre.fund_address(create_address, amount=1)
 
+    # State gas dominates the header, so gas_used equals the factory's
+    # state cost: NEW_ACCOUNT plus the probe SSTORE for a fresh target,
+    # just the SSTORE for a pre-existing one.
+    state_cost = factory_code.state_cost(fork)
     tx = Transaction(
         to=factory,
-        state_gas_reservoir=new_account + sstore_state_gas,
+        state_gas_reservoir=state_cost,
         sender=pre.fund_eoa(),
     )
 
-    # State gas dominates regular: a new account adds NEW_ACCOUNT on top
-    # of the probe SSTORE, a pre-existing target refunds it.
-    expected = sstore_state_gas + (new_account if target == "new" else 0)
     state_test(
         pre=pre,
         tx=tx,
         post={factory: Account(storage=storage)},
-        blockchain_test_header_verify=Header(gas_used=expected),
+        blockchain_test_header_verify=Header(gas_used=state_cost),
     )
 
 
 @pytest.mark.with_all_create_opcodes()
+@pytest.mark.parametrize(
+    "sufficient_gas",
+    [
+        pytest.param(True, id="sufficient_gas"),
+        pytest.param(False, id="insufficient_gas"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
-def test_create_refund_credited_against_child_spill(
+def test_no_account_charge_on_existing_account(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     create_opcode: Op,
+    sufficient_gas: bool,
 ) -> None:
     """
-    Verify the NEW_ACCOUNT refund routing is visible through GAS.
+    Verify the create opcode is not charged NEW_ACCOUNT when the target
+    account already exists in the trie.
 
-    The reservoir covers exactly the CREATE NEW_ACCOUNT charge, leaving
-    none for the child frame, whose initcode SSTOREs then spill more
-    than NEW_ACCOUNT of state gas from gas_left. The target is alive
-    (pre-funded), so NEW_ACCOUNT is refunded and credited LIFO against
-    the incorporated child spill, landing in the parent's gas_left
-    where GAS (which excludes the reservoir) observes it.
+    The factory is forwarded exactly the create's regular gas, with no
+    NEW_ACCOUNT included. Because the target is pre-funded (alive), that
+    budget is sufficient and the create succeeds, deploying empty code
+    (created nonce 1). With one gas less it runs out of gas at the
+    create's upfront charge, before the nonce bump, leaving the target
+    untouched (nonce 0). The empty reservoir keeps the state-gas
+    dimension from masking the boundary.
     """
-    gas_costs = fork.gas_costs()
-
-    initcode = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.STOP
-    child_spill = initcode.state_cost(fork)
-    assert child_spill >= gas_costs.NEW_ACCOUNT
-
-    mstore_value, initcode_size = init_code_at_high_bytes(initcode)
-    create_call = (
-        create_opcode(
-            value=0,
-            offset=0,
-            size=initcode_size,
-            salt=0,
-            init_code_size=initcode_size,
-        )
-        if create_opcode == Op.CREATE2
-        else create_opcode(
-            value=0,
-            offset=0,
-            size=initcode_size,
-            init_code_size=initcode_size,
-        )
+    factory_code = create_opcode(
+        value=0,
+        offset=0,
+        size=1,  # Nothing in memory, equivalent to Op.STOP
+        # Gas accounting
+        init_code_size=1,
+        new_memory_size=1,
+        account_new=False,
     )
 
-    factory = pre.deploy_contract(
-        code=Op.MSTORE(0, mstore_value)
-        + CodeGasMeasure(code=create_call, extra_stack_items=1),
-    )
+    factory = pre.deploy_contract(code=factory_code)
+
     created = compute_create_address(
         address=factory,
         nonce=1,
         salt=0,
-        initcode=initcode,
+        initcode=Op.STOP,
         opcode=create_opcode,
     )
     pre.fund_address(created, amount=1)
 
-    expected_gas = (
-        create_call.regular_cost(fork)
-        + initcode.regular_cost(fork)
-        + child_spill
-        - gas_costs.NEW_ACCOUNT  # refund credited to gas_left
-    )
+    call_gas = factory_code.gas_cost(fork)
+    if not sufficient_gas:
+        call_gas -= 1
+    entry_code = Op.CALL(gas=call_gas, address=factory)
+    entry = pre.deploy_contract(code=entry_code)
 
     tx = Transaction(
-        to=factory,
-        state_gas_reservoir=gas_costs.NEW_ACCOUNT,
+        to=entry,
+        state_gas_reservoir=0,  # To allow subcall to run OOG
         sender=pre.fund_eoa(),
     )
 
     post = {
-        factory: Account(storage={0: expected_gas}),
-        created: Account(nonce=1, balance=1, storage={0: 1, 1: 1}),
+        created: Account(
+            nonce=1 if sufficient_gas else 0, balance=1, code=b""
+        ),
     }
     state_test(pre=pre, post=post, tx=tx)
