@@ -10,6 +10,7 @@ from ethereum.cancun.blocks import Withdrawal
 from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
 
 from ethereum.binary_trie.embedding import (
+    EMPTY_CODE_HASH,
     address20_to_address32,
     chunkify_code,
     encode_basic_data,
@@ -49,6 +50,7 @@ from ethereum_spec_tools.new_fork.codemod.string_replace import (
 
 # src/ethereum/binary_trie/embedding.py - EIP-8297 public API, exercised
 # via tests
+EMPTY_CODE_HASH
 address20_to_address32
 chunkify_code
 encode_basic_data
