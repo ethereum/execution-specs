@@ -2,16 +2,21 @@
 Tests for SSZ static-vector generation (consensus-specs-style suites).
 
 Every generated case must be internally consistent with the engine (the
-ground truth for bytes/roots) and round-trip losslessly; the suites and
-mode semantics mirror consensus-specs' ssz_static generator.
+ground truth for bytes/roots), round-trip losslessly, and match pinned
+known-answer values; the suites and mode semantics mirror consensus-specs'
+ssz_static generator.
 """
 
 import random
 from pathlib import Path
-from typing import Annotated, List, Type
+from typing import Annotated, List
+
+import pytest
+import yaml
 
 from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.base_types.ssz import (
+    SszForkSchema,
     SszModel,
     Uint64,
     Uint256,
@@ -61,6 +66,22 @@ class Payload(SszModel):
     withdrawals: Annotated[List[Withdrawal], ssz_list(MAX_WITHDRAWALS)]
 
 
+class ForkedPayload(SszModel):
+    """A fork-scoped model, for the generator's fork axis."""
+
+    parent_hash: Hash
+    block_number: Uint64
+    withdrawals: (
+        Annotated[List[Withdrawal], ssz_list(MAX_WITHDRAWALS)] | None
+    ) = None
+
+    __ssz_schema__ = SszForkSchema(
+        base_fork="Paris",
+        base=("parent_hash", "block_number"),
+        appended={"Shanghai": ("withdrawals",)},
+    )
+
+
 def assert_roundtrip(model: SszModel) -> None:
     """Reusable harness: encode -> decode reconstructs the SSZ value."""
     restored = decode(type(model), encode(model))
@@ -107,53 +128,80 @@ def test_suite_plan_mirrors_consensus() -> None:
     assert counts["ssz_nil"] == 1
 
 
-def test_mode_semantics() -> None:
-    """Consensus mode semantics: zero/max pin content, counts pin length."""
+CONTENT_MODES = [
+    ("zero", RandomizationMode.mode_zero, 0, b"\x00"),
+    ("max", RandomizationMode.mode_max, 2**256 - 1, b"\xff"),
+]
+
+
+@pytest.mark.parametrize(
+    "mode,fee,fill",
+    [pytest.param(m, v, b, id=name) for name, m, v, b in CONTENT_MODES],
+)
+def test_content_modes_pin_values_not_lengths(
+    mode: RandomizationMode, fee: int, fill: bytes
+) -> None:
+    """zero/max pin scalar CONTENT; collections stay short (1 byte)."""
     rng = random.Random(0)
-    zero = random_model(rng, Payload, RandomizationMode.mode_zero)
-    assert int(zero.base_fee_per_gas) == 0
-    assert bytes(zero.parent_hash) == b"\x00" * 32
-    # zero keeps byte-lists SHORT (one zero byte), not empty.
-    assert bytes(zero.extra_data) == b"\x00"
+    model = random_model(rng, Payload, mode)
+    assert int(model.base_fee_per_gas) == fee
+    assert bytes(model.parent_hash) == fill * 32
+    # consensus semantics: byte-lists get ONE fill byte, not emptiness
+    assert bytes(model.extra_data) == fill
 
-    saturated = random_model(rng, Payload, RandomizationMode.mode_max)
-    assert int(saturated.base_fee_per_gas) == 2**256 - 1
-    assert bytes(saturated.parent_hash) == b"\xff" * 32
-    assert bytes(saturated.extra_data) == b"\xff"
 
-    empty = random_model(rng, Payload, RandomizationMode.mode_nil_count)
-    assert empty.transactions == []
-    assert empty.withdrawals == []
-    assert bytes(empty.extra_data) == b""
+COUNT_MODES = [
+    ("nil", RandomizationMode.mode_nil_count, 0),
+    ("one", RandomizationMode.mode_one_count, 1),
+    ("lengthy", RandomizationMode.mode_max_count, 10),
+]
 
-    one = random_model(rng, Payload, RandomizationMode.mode_one_count)
-    assert len(one.transactions) == 1
-    assert len(one.withdrawals) == 1
 
-    lengthy = random_model(rng, Payload, RandomizationMode.mode_max_count)
-    # Saturated up to the generator's list cap (10), not the huge SSZ limit.
-    assert len(lengthy.transactions) == 10
-    assert len(lengthy.withdrawals) == 10
+@pytest.mark.parametrize(
+    "mode,length",
+    [pytest.param(m, n, id=name) for name, m, n in COUNT_MODES],
+)
+def test_count_modes_pin_lengths(mode: RandomizationMode, length: int) -> None:
+    """nil/one/lengthy pin list LENGTHS (up to the generator cap of 10)."""
+    rng = random.Random(0)
+    model = random_model(rng, Payload, mode)
+    assert len(model.transactions) == length
+    assert len(model.withdrawals) == length
 
 
 def test_generate_cases_covers_models_and_suites() -> None:
     """Every model x suite is emitted with the planned case counts."""
-    models: List[Type[SszModel]] = [Withdrawal, Payload]
-    cases = list(generate_cases(models, count=2))
-    names = {name for name, _suite, _i, _c in cases}
+    cases = list(generate_cases([Withdrawal, Payload], count=2))
+    names = {name for name, _fork, _suite, _i, _c in cases}
     assert names == {"Withdrawal", "Payload"}
-    # 4 changing suites x 2 cases + 3 deterministic suites x 1 = 11 per model
+    # 4 changing suites x 2 cases + 3 deterministic suites x 1 = 11 each
     assert len(cases) == 2 * 11
 
     # Every generated case is internally consistent and round-trips.
-    for name, _suite, _i, case in cases:
+    for name, _fork, _suite, _i, case in cases:
         assert len(case.root) == 32
         model_cls = Withdrawal if name == "Withdrawal" else Payload
         assert encode(decode(model_cls, case.serialized)) == case.serialized
 
 
+def test_value_yaml_matches_serialized() -> None:
+    """
+    The written value.yaml re-encodes to the written serialized.ssz.
+
+    This is the contract an ssz_static consumer relies on: value,
+    serialized bytes, and root must all describe the same object.
+    """
+    for _n, _f, _s, _i, case in generate_cases([Withdrawal], count=2):
+        files = case_files(case)
+        value = yaml.safe_load(files["value.yaml"])
+        rebuilt = Withdrawal.model_validate(value)
+        assert encode(rebuilt) == files["serialized.ssz"]
+        root = yaml.safe_load(files["roots.yaml"])["root"]
+        assert hash_tree_root(rebuilt).hex() == root.removeprefix("0x")
+
+
 def test_deterministic() -> None:
-    """Generation is deterministic across runs (sha256-seeded per case)."""
+    """Generation is deterministic across runs."""
     a = [c.root for *_h, c in generate_cases([Payload], count=2)]
     b = [c.root for *_h, c in generate_cases([Payload], count=2)]
     assert a == b
@@ -171,14 +219,14 @@ def test_chaos_redraws_modes() -> None:
         assert_roundtrip(model)
 
 
-def test_random_value_covers_every_field_spec() -> None:
+@pytest.mark.parametrize("name", list(Payload.model_fields))
+def test_random_value_covers_field_spec(name: str) -> None:
     """random_value handles every SszType the test containers use."""
     rng = random.Random(1)
-    for name in Payload.model_fields:
-        value = random_value(
-            rng, spec_of(Payload, name), RandomizationMode.mode_random
-        )
-        assert value is not None
+    value = random_value(
+        rng, spec_of(Payload, name), RandomizationMode.mode_random
+    )
+    assert value is not None
 
 
 def test_case_files_layout() -> None:
@@ -192,7 +240,7 @@ def test_case_files_layout() -> None:
     files = case_files(make_case(w))
     assert set(files) == {"value.yaml", "serialized.ssz", "roots.yaml"}
     assert files["serialized.ssz"] == encode(w)
-    # Hex strings must be single-quoted (a bare 0x... reads back as an int).
+    # Hex strings must be single-quoted (a bare 0x... reads back as int).
     assert b"root: '0x" in files["roots.yaml"]
     assert b"amount: '0x3'" in files["value.yaml"]
     assert b"address: '0x" in files["value.yaml"]
@@ -215,3 +263,34 @@ def test_write_vectors_emits_consensus_tree(tmp_path: Path) -> None:
         "case_0",
         "case_1",
     ]
+
+
+def test_fork_scoped_vectors(tmp_path: Path) -> None:
+    """(model, fork) entries emit per-fork projections under fork dirs."""
+    written = write_vectors(
+        [(ForkedPayload, "Paris"), (ForkedPayload, "Shanghai")],
+        tmp_path,
+        count=1,
+    )
+    assert written == 2 * 7  # all 7 suites x 1 case, per fork entry
+    paris_zero = tmp_path / "ForkedPayload" / "Paris" / "ssz_zero" / "case_0"
+    raw = (paris_zero / "serialized.ssz").read_bytes()
+    restored = decode(ForkedPayload, raw, fork="Paris")
+    assert restored.withdrawals is None  # beyond-fork field absent
+    shanghai_zero = (
+        tmp_path / "ForkedPayload" / "Shanghai" / "ssz_zero" / "case_0"
+    )
+    assert (shanghai_zero / "roots.yaml").is_file()
+
+
+def test_duplicate_vector_targets_rejected(tmp_path: Path) -> None:
+    """Two distinct same-named models cannot share an output directory."""
+
+    def make_dup() -> type:
+        class Withdrawal(SszModel):  # same __name__, different class
+            a: Uint64
+
+        return Withdrawal
+
+    with pytest.raises(ValueError, match="share vector output"):
+        write_vectors([Withdrawal, make_dup()], tmp_path, count=1)

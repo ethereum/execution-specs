@@ -20,17 +20,37 @@ Each field's SSZ type is described by an SszType value (SszUint, SszByteList,
 SszList, SszContainer, ...). The engine turns that into a remerkleable type
 on demand (build_ssz_type) and delegates the actual encoding, merkleization,
 and default (zero) values to it.
+
+Fork-scoped models: one model can serve every fork. Future-fork fields are
+declared T | None (None == absent in older forks, omitted from JSON), and a
+__ssz_schema__ = SszForkSchema(...) table beside the fields says which fork
+introduces what, in canonical SSZ order (the class body's order stays free
+for JSON). Such models require fork= on encode / hash_tree_root / decode /
+ssz_default / describe_schema / build_ssz_type
 """
 
+import ast
+import inspect
+import io
+import re
+import textwrap
+import tokenize
 from dataclasses import dataclass
 from functools import lru_cache
+from types import UnionType
 from typing import (
     Any,
     ClassVar,
+    FrozenSet,
     List,
+    Mapping,
+    Optional,
     Sequence,
+    Set,
+    Tuple,
     Type,
     TypeVar,
+    Union,
     get_args,
     get_origin,
 )
@@ -159,8 +179,198 @@ class SszProgressiveContainer(SszType):
 _M = TypeVar("_M", bound="SszModel")
 
 
-# Annotated markers: carry ONLY the cap/length; the element is derived from the
-# field's Python annotation by spec_of, so nothing is declared twice.
+@dataclass(frozen=True, eq=False)
+class SszForkSchema:
+    """
+    Fork-scoped field sets for a fork-evolving container.
+
+    One model declares every fork's fields; this table says which fields
+    exist at which fork and in which SSZ order. base holds the fields of
+    base_fork; appended maps each later fork (in order) to the fields it
+    adds, which must be declared Optional (T | None) on the model.
+
+    Fork keys are opaque strings: base_types knows nothing about forks;
+    """
+
+    base_fork: str
+    base: Tuple[str, ...]
+    appended: Mapping[str, Tuple[str, ...]]
+
+    def forks(self) -> Tuple[str, ...]:
+        """Every known fork key, oldest first."""
+        return (self.base_fork, *self.appended)
+
+    def fields_at(self, fork: str) -> Tuple[str, ...]:
+        """The SSZ field names of fork, in canonical order."""
+        if fork == self.base_fork:
+            return self.base
+        if fork not in self.appended:
+            raise TypeError(
+                f"unknown fork {fork!r}; known forks: {self.forks()}"
+            )
+        names = list(self.base)
+        for key, fields in self.appended.items():
+            names.extend(fields)
+            if key == fork:
+                break
+        return tuple(names)
+
+    def all_fields(self) -> Tuple[str, ...]:
+        """Every field of the newest fork, in canonical order."""
+        keys = self.forks()
+        return self.fields_at(keys[-1])
+
+
+def _unwrap_optional(annotation: Any) -> Tuple[Any, bool]:
+    """Strip a T | None union; return."""
+    if get_origin(annotation) in (Union, UnionType):
+        args = [a for a in get_args(annotation) if a is not type(None)]
+        if len(args) != 1:
+            raise TypeError(
+                f"only T | None unions are supported: {annotation!r}"
+            )
+        return args[0], True
+    return annotation, False
+
+
+def _is_fork_optional(model_cls: Type["SszModel"], name: str) -> bool:
+    ann = model_cls.model_fields[name].annotation
+    return _unwrap_optional(ann)[1]
+
+
+_SSZ_EXCLUDE_COMMENT = re.compile(r"#\s*ssz_exclude\b")
+
+
+@lru_cache(maxsize=None)
+def _comment_excluded_names(klass: type) -> FrozenSet[str]:
+    """
+    Field names in klass's own body marked by a ``# ssz_exclude``
+    comment.
+
+    The comment must sit on the line directly above the field (or trail
+    the field's own line). Classes whose source cannot be retrieved
+    (built dynamically) contribute nothing; use the Annotated
+    ssz_exclude() marker there.
+    """
+    try:
+        source = textwrap.dedent(inspect.getsource(klass))
+        tree = ast.parse(source)
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except (OSError, TypeError, SyntaxError, tokenize.TokenError):
+        return frozenset()
+    marked: Set[int] = set()
+    for tok in tokens:
+        if tok.type != tokenize.COMMENT:
+            continue
+        if not _SSZ_EXCLUDE_COMMENT.match(tok.string):
+            continue
+        row, col = tok.start
+        on_own_line = not tok.line[:col].strip()
+        marked.add(row + 1 if on_own_line else row)
+    class_def = tree.body[0]
+    if not isinstance(class_def, ast.ClassDef):
+        return frozenset()
+    return frozenset(
+        node.target.id
+        for node in class_def.body
+        if isinstance(node, ast.AnnAssign)
+        and isinstance(node.target, ast.Name)
+        and node.lineno in marked
+    )
+
+
+def _is_ssz_excluded(model_cls: Type["SszModel"], name: str) -> bool:
+    metadata = model_cls.model_fields[name].metadata
+    if any(isinstance(m, _SszExclude) for m in metadata):
+        return True
+    return any(
+        name in _comment_excluded_names(klass)
+        for klass in model_cls.__mro__
+        if klass is not SszModel and issubclass(klass, SszModel)
+    )
+
+
+def _included_fields(model_cls: Type["SszModel"]) -> Tuple[str, ...]:
+    """Every SSZ-participating field, in declaration order."""
+    return tuple(
+        name
+        for name in model_cls.model_fields
+        if not _is_ssz_excluded(model_cls, name)
+    )
+
+
+def _check_fork_schema(model_cls: Type["SszModel"]) -> None:
+    """
+    Validate a model's __ssz_schema__ against its fields, at class
+    definition.
+
+    Optional (T | None) fields require a schema naming their fork; the
+    schema must cover exactly the model's SSZ fields; base fields must
+    be required and appended fields Optional with a None default -- so
+    a mis-declared container fails at import.
+    """
+    schema = model_cls.__ssz_schema__
+    included = _included_fields(model_cls)
+    optional = {
+        name for name in included if _is_fork_optional(model_cls, name)
+    }
+    progressive = globals().get("ProgressiveModel")
+    if progressive is not None and issubclass(model_cls, progressive):
+        if schema is not None:
+            raise TypeError(
+                f"{model_cls.__name__}: __ssz_schema__ is not supported "
+                f"on ProgressiveModel (progressive containers evolve via "
+                f"__active_fields__)"
+            )
+        if optional:
+            raise TypeError(
+                f"{model_cls.__name__}: T | None fields are not supported "
+                f"on ProgressiveModel; reserve future slots with 0s in "
+                f"__active_fields__ instead"
+            )
+        return
+    if schema is None:
+        if optional:
+            raise TypeError(
+                f"{model_cls.__name__} has fork-optional fields "
+                f"{sorted(optional)} but no __ssz_schema__ declaring "
+                f"which fork introduces them"
+            )
+        return
+    all_names = schema.all_fields()
+    dupes = sorted({n for n in all_names if all_names.count(n) > 1})
+    if dupes:
+        raise TypeError(
+            f"{model_cls.__name__}.__ssz_schema__ names fields more than "
+            f"once: {dupes}"
+        )
+    declared = set(all_names)
+    fields = set(included)
+    if declared != fields:
+        raise TypeError(
+            f"{model_cls.__name__}.__ssz_schema__ does not match the "
+            f"model: schema-only={sorted(declared - fields)} "
+            f"model-only={sorted(fields - declared)}"
+        )
+    appended = fields - set(schema.base)
+    if optional != appended:
+        raise TypeError(
+            f"{model_cls.__name__}: appended fields must be T | None and "
+            f"base fields required; non-optional appended="
+            f"{sorted(appended - optional)} optional base="
+            f"{sorted(optional - appended)}"
+        )
+    no_default = sorted(
+        name for name in appended if model_cls.model_fields[name].is_required()
+    )
+    if no_default:
+        raise TypeError(
+            f"{model_cls.__name__}: appended fields must default to None "
+            f"(decode of older forks constructs without them): "
+            f"{no_default}"
+        )
+
+
 class _Marker:
     """Base for cap-only Annotated markers resolved by spec_of."""
 
@@ -180,18 +390,23 @@ class _ProgressiveListMark(_Marker):
     pass
 
 
+@dataclass(frozen=True)
+class _SszExclude(_Marker):
+    pass
+
+
 def byte_list(limit: int) -> SszByteList:
     """Annotate a Bytes field as a capped SSZ byte list."""
     return SszByteList(limit)
 
 
 def ssz_list(limit: int) -> _ListCap:
-    """Annotate a list[...] field as a capped SSZ list (element derived)."""
+    """Annotate a list[...] field as a capped SSZ list."""
     return _ListCap(limit)
 
 
 def ssz_vector(length: int) -> _VectorLen:
-    """Annotate a list[...] field as a fixed SSZ vector (element derived)."""
+    """Annotate a list[...] field as a fixed SSZ vector."""
     return _VectorLen(length)
 
 
@@ -215,27 +430,50 @@ def progressive_bitlist() -> SszProgressiveBitlist:
     return SszProgressiveBitlist()
 
 
+def ssz_exclude() -> _SszExclude:
+    """
+    Annotate a field as JSON-only: the SSZ ignores it entirely.
+
+    The usual spelling is a ``# ssz_exclude`` comment on the line
+    directly above the field; this Annotated marker is the fallback for
+    classes built dynamically, whose source the comment scan cannot
+    read.
+    """
+    return _SszExclude()
+
+
 class SszModel(CamelModel):
     """
     A pydantic model whose fields carry SSZ types.
 
-    Every field must resolve to an SszType, and each Annotated marker must be
-    consistent with the field's Python type; both are checked when the subclass
-    is defined, so a mis-typed container fails at import, not at first encode.
+    Every field must resolve to an SszType, or be excluded from SSZ
+    with a ``# ssz_exclude`` comment on the line above it (JSON-only
+    fields); each Annotated marker must be consistent with the field's
+    Python type. Both are checked when the subclass is defined, so a
+    mis-typed container fails at import, not at first encode.
     """
+
+    __ssz_schema__: ClassVar[Optional[SszForkSchema]] = None
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
         """Validate every field resolves to a consistent SSZ type."""
         super().__pydantic_init_subclass__(**kwargs)
         for name in cls.model_fields:
+            if _is_ssz_excluded(cls, name):
+                if cls.model_fields[name].is_required():
+                    raise TypeError(
+                        f"{cls.__name__}.{name} is SSZ-excluded but has "
+                        f"no default; decode cannot reconstruct it"
+                    )
+                continue
             spec_of(cls, name)  # raises TypeError on unmapped/inconsistent
+        _check_fork_schema(cls)
 
 
 class ProgressiveModel(SszModel):
     """
-    A forward-compatible progressive container (a remerkleable
-    ProgressiveContainer).
+    A forward-compatible progressive container.
 
     __active_fields__ is the active-field bitvector; it defaults to all fields
     active. A 0 marks a reserved gap with no declared field, so new fields can
@@ -260,7 +498,7 @@ class ProgressiveModel(SszModel):
 
 
 def _marker_in(metadata: Any) -> Any:
-    """The first SSZ marker (SszType or cap-only _Marker) in metadata."""
+    """The first SSZ marker in metadata."""
     return next(
         (m for m in metadata if isinstance(m, (SszType, _Marker))), None
     )
@@ -333,7 +571,17 @@ def _resolve(marker: Any, annotation: Any) -> SszType:
                 f"bit markers require a list[bool] field: {annotation!r}"
             )
         return marker
-    return marker  # any other complete SszType marker
+    if isinstance(marker, _SszExclude):
+        raise TypeError(
+            f"field is ssz_exclude()d; it has no SSZ type: {annotation!r}"
+        )
+    # Raw SszType instances (SszUint, SszContainer, ...) as markers would
+    # bypass the consistency checks above; only the marker helpers are
+    # supported.
+    raise TypeError(
+        f"unsupported Annotated SSZ marker {marker!r}; use the marker "
+        f"helpers (ssz_list, ssz_vector, byte_list, bitvector, ...)"
+    )
 
 
 @lru_cache(maxsize=None)
@@ -343,13 +591,21 @@ def spec_of(model_cls: Type["SszModel"], name: str) -> SszType:
 
     An Annotated marker takes precedence over the bare type; cap-only markers
     derive their element from the annotation, and every marker is checked for
-    consistency with it. Cached per (model_cls, name).
+    consistency with it. A T | None union resolves to T's SSZ type -- the
+    None arm means "absent in older forks" (see SszForkSchema), which is a
+    schema fact, not an SSZ type. Cached per (model_cls, name).
     """
     field = model_cls.model_fields[name]
-    return _resolve(_marker_in(field.metadata), field.annotation)
+    annotation, _ = _unwrap_optional(field.annotation)
+    if _is_ssz_excluded(model_cls, name):
+        raise TypeError(
+            f"{model_cls.__name__}.{name} is SSZ-excluded; it has no "
+            f"SSZ type: {annotation!r}"
+        )
+    return _resolve(_marker_in(field.metadata), annotation)
 
 
-def _rmk_type(spec: SszType) -> Type[View]:
+def _rmk_type(spec: SszType, fork: Optional[str] = None) -> Type[View]:
     if isinstance(spec, SszUint):
         return _UINTS[spec.bits]
     if isinstance(spec, SszByteVector):
@@ -357,19 +613,19 @@ def _rmk_type(spec: SszType) -> Type[View]:
     if isinstance(spec, SszByteList):
         return ByteList[spec.limit]
     if isinstance(spec, SszList):
-        return RmkList[_rmk_type(spec.element), spec.limit]
+        return RmkList[_rmk_type(spec.element, fork), spec.limit]
     if isinstance(spec, SszVector):
-        return RmkVector[_rmk_type(spec.element), spec.length]
+        return RmkVector[_rmk_type(spec.element, fork), spec.length]
     if isinstance(spec, SszBitvector):
         return RmkBitvector[spec.length]
     if isinstance(spec, SszBitlist):
         return RmkBitlist[spec.limit]
     if isinstance(spec, SszProgressiveList):
-        return RmkProgressiveList[_rmk_type(spec.element)]
+        return RmkProgressiveList[_rmk_type(spec.element, fork)]
     if isinstance(spec, SszProgressiveBitlist):
         return RmkProgressiveBitlist
     if isinstance(spec, (SszContainer, SszProgressiveContainer)):
-        return build_ssz_type(spec.model)
+        return build_ssz_type(spec.model, _nested_fork(spec.model, fork))
     if isinstance(spec, SszBool):
         return boolean
     raise TypeError(f"unhandled SSZ type {spec!r}")
@@ -380,51 +636,136 @@ def _active_fields(model_cls: Type["SszModel"]) -> Sequence[int]:
     return declared if declared else [1] * len(model_cls.model_fields)
 
 
-@lru_cache(maxsize=None)
-def build_ssz_type(model_cls: Type["SszModel"]) -> Type[Container]:
+def _nested_fork(
+    model_cls: Type["SszModel"], fork: Optional[str]
+) -> Optional[str]:
     """
-    Build (and cache) the remerkleable container type mirroring model_cls.
+    The fork a nested container is projected at.
 
-    Cached per class object -- distinct same-named models get distinct types.
+    One fork propagates down the whole value tree: everything inside one
+    message is at the same chain fork, so a fork-scoped nested model
+    inherits the outer fork, while a
+    complete nested model takes no fork at all.
     """
-    anns = {
-        name: _rmk_type(spec_of(model_cls, name))
-        for name in model_cls.model_fields
-    }
+    return fork if model_cls.__ssz_schema__ is not None else None
+
+
+def _schema_fields(
+    model_cls: Type["SszModel"], fork: Optional[str]
+) -> Tuple[str, ...]:
+    """
+    The SSZ field names of model_cls, in canonical order.
+
+    A fork-scoped model requires fork and gets
+    that fork's fields in the schema's order; a complete model forbids
+    fork and gets every non-excluded field in declaration order.
+    """
+    schema = model_cls.__ssz_schema__
+    if schema is None:
+        if fork is not None:
+            raise TypeError(
+                f"{model_cls.__name__} is not fork-scoped; do not pass fork"
+            )
+        return _included_fields(model_cls)
+    if fork is None:
+        raise TypeError(
+            f"{model_cls.__name__} is fork-scoped; pass fork= "
+            f"(one of {schema.forks()})"
+        )
+    return schema.fields_at(fork)
+
+
+def ssz_fields(
+    model_cls: Type["SszModel"], fork: Optional[str] = None
+) -> Tuple[str, ...]:
+    """
+    The SSZ field names of model_cls, in canonical (wire) order.
+
+    The public twin of the engine's internal field selection: callers
+    (vector generators, fixtures tooling) can enumerate exactly the
+    fields a model encodes -- per fork for fork-scoped models.
+    """
+    return _schema_fields(model_cls, fork)
+
+
+def _check_populated(
+    model: "SszModel", names: Tuple[str, ...], fork: str
+) -> None:
+    """Raise unless the populated fields exactly match the fork schema."""
+    missing = [n for n in names if getattr(model, n) is None]
+    unexpected = sorted(
+        n
+        for n in _included_fields(type(model))
+        if n not in names and getattr(model, n) is not None
+    )
+    if missing or unexpected:
+        raise TypeError(
+            f"{type(model).__name__} does not fit the {fork!r} SSZ schema: "
+            f"missing={missing} unexpected={unexpected}; "
+            f"refusing to drop data"
+        )
+
+
+def build_ssz_type(
+    model_cls: Type["SszModel"], fork: Optional[str] = None
+) -> Type[Container]:
+    """
+    Build the remerkleable container type mirroring model_cls.
+
+    Cached per (class object, fork) -- distinct same-named models get
+    distinct types, and each fork of a fork-scoped model gets its own
+    genuinely distinct container (different offsets and merkle shape).
+    """
+    return _build_ssz_type(model_cls, fork)
+
+
+@lru_cache(maxsize=None)
+def _build_ssz_type(
+    model_cls: Type["SszModel"], fork: Optional[str]
+) -> Type[Container]:
+    names = _schema_fields(model_cls, fork)
+    anns = {name: _rmk_type(spec_of(model_cls, name), fork) for name in names}
     if issubclass(model_cls, ProgressiveModel):
         base: Any = ProgressiveContainer(
             active_fields=list(_active_fields(model_cls))
         )
     else:
         base = Container
-    return type(model_cls.__name__, (base,), {"__annotations__": anns})
+    cls_name = model_cls.__name__ + (fork if fork else "")
+    return type(cls_name, (base,), {"__annotations__": anns})
 
 
-def _to_rmk(spec: SszType, value: Any) -> Any:
+def _to_rmk(spec: SszType, value: Any, fork: Optional[str] = None) -> Any:
     if isinstance(spec, (SszContainer, SszProgressiveContainer)):
-        return _rmk_instance(value)
+        return _rmk_instance(value, _nested_fork(spec.model, fork))
     if isinstance(spec, (SszList, SszVector, SszProgressiveList)):
-        return [_to_rmk(spec.element, v) for v in value]
+        return [_to_rmk(spec.element, v, fork) for v in value]
     if isinstance(spec, (SszBitvector, SszBitlist, SszProgressiveBitlist)):
         return list(value)
     return value  # scalar / byte-vector / byte-list: remerkleable coerces
 
 
-def _rmk_instance(model: "SszModel") -> Container:
+def _rmk_instance(model: "SszModel", fork: Optional[str] = None) -> Container:
     model_cls: Type[SszModel] = type(model)
-    container = build_ssz_type(model_cls)
+    names = _schema_fields(model_cls, fork)
+    if fork is not None:
+        _check_populated(model, names, fork)
+    container = build_ssz_type(model_cls, fork)
     values = {
-        name: _to_rmk(spec_of(model_cls, name), getattr(model, name))
-        for name in model_cls.model_fields
+        name: _to_rmk(spec_of(model_cls, name), getattr(model, name), fork)
+        for name in names
     }
     return container(**values)
 
 
-def _to_py(spec: SszType, value: Any) -> Any:
+def _to_py(spec: SszType, value: Any, fork: Optional[str] = None) -> Any:
     if isinstance(spec, (SszContainer, SszProgressiveContainer)):
-        return _view_to_model(spec.model, value)
+        nested = _nested_fork(spec.model, fork)
+        return _view_to_model(
+            spec.model, value, _schema_fields(spec.model, nested), nested
+        )
     if isinstance(spec, (SszList, SszVector, SszProgressiveList)):
-        return [_to_py(spec.element, v) for v in value]
+        return [_to_py(spec.element, v, fork) for v in value]
     if isinstance(spec, (SszBitvector, SszBitlist, SszProgressiveBitlist)):
         return [bool(b) for b in value]
     if isinstance(spec, (SszByteVector, SszByteList)):
@@ -436,16 +777,24 @@ def _to_py(spec: SszType, value: Any) -> Any:
     raise TypeError(f"unhandled SSZ type {spec!r}")
 
 
-def _view_to_model(model_cls: Type[_M], view: Container) -> _M:
+def _view_to_model(
+    model_cls: Type[_M],
+    view: Container,
+    names: Optional[Tuple[str, ...]] = None,
+    fork: Optional[str] = None,
+) -> _M:
+    if names is None:
+        names = _included_fields(model_cls)
+    # Fields beyond `names` (older-fork decodes) keep their None default.
     return model_cls(
         **{
-            name: _to_py(spec_of(model_cls, name), getattr(view, name))
-            for name in model_cls.model_fields
+            name: _to_py(spec_of(model_cls, name), getattr(view, name), fork)
+            for name in names
         }
     )
 
 
-def default_value(spec: SszType) -> Any:
+def default_value(spec: SszType, fork: Optional[str] = None) -> Any:
     """Return the SSZ default (zero) value for spec as a pydantic value."""
     if isinstance(spec, SszUint):
         return 0
@@ -461,28 +810,32 @@ def default_value(spec: SszType) -> Any:
     if isinstance(spec, SszVector):
         # A fresh value per slot: container defaults are mutable, so a shared
         # [x] * n would alias one instance across every position.
-        return [default_value(spec.element) for _ in range(spec.length)]
+        return [default_value(spec.element, fork) for _ in range(spec.length)]
     if isinstance(spec, SszBitvector):
         return [False] * spec.length
     if isinstance(spec, (SszContainer, SszProgressiveContainer)):
-        return ssz_default(spec.model)
+        return ssz_default(spec.model, _nested_fork(spec.model, fork))
     if isinstance(spec, SszBool):
         return False
     raise TypeError(f"no default for SSZ type {spec!r}")
 
 
-def ssz_default(model_cls: Type[_M]) -> _M:
-    """Build the SSZ default (all-zero) instance of model_cls."""
+def ssz_default(model_cls: Type[_M], fork: Optional[str] = None) -> _M:
+    """
+    Build the SSZ default (all-zero) instance of model_cls.
+
+    Fork-scoped models require fork; fields beyond it stay None.
+    """
     return model_cls(
         **{
-            name: default_value(spec_of(model_cls, name))
-            for name in model_cls.model_fields
+            name: default_value(spec_of(model_cls, name), fork)
+            for name in _schema_fields(model_cls, fork)
         }
     )
 
 
 def describe_type(spec: SszType) -> str:
-    """Render an SSZ type as consensus-style text (uint64, List[T, N], ...)."""
+    """Render an SSZ type as text (uint64, List[T, N], ...)."""
     if isinstance(spec, SszUint):
         return f"uint{spec.bits}"
     if isinstance(spec, SszByteVector):
@@ -510,28 +863,109 @@ def describe_type(spec: SszType) -> str:
     raise TypeError(f"unhandled SSZ type {spec!r}")
 
 
-def describe_schema(model_cls: Type["SszModel"]) -> str:
-    """Render model_cls's resolved SSZ schema, one 'field: type' per line."""
-    lines = [f"{model_cls.__name__}:"]
-    for name in model_cls.model_fields:
+def describe_schema(
+    model_cls: Type["SszModel"], fork: Optional[str] = None
+) -> str:
+    """
+    Render the resolved SSZ layout, one 'field: type' line per field.
+
+    Fork-scoped models require fork and render that fork's projection.
+    """
+    title = model_cls.__name__ + (f" @ {fork}" if fork else "")
+    lines = [f"{title}:"]
+    for name in _schema_fields(model_cls, fork):
         lines.append(f"    {name}: {describe_type(spec_of(model_cls, name))}")
     return "\n".join(lines)
 
 
-def encode(model: "SszModel") -> bytes:
-    """Return the SSZ wire bytes of model."""
-    return _rmk_instance(model).encode_bytes()
+def encode(model: "SszModel", fork: Optional[str] = None) -> bytes:
+    """
+    Return the SSZ wire bytes of model.
+
+    A fork-scoped model requires fork and is
+    checked against that fork's schema before encoding.
+    """
+    return _rmk_instance(model, fork).encode_bytes()
 
 
-def hash_tree_root(model: "SszModel") -> bytes:
-    """Return the 32-byte SSZ hash_tree_root of model."""
-    return bytes(_rmk_instance(model).hash_tree_root())
+def hash_tree_root(model: "SszModel", fork: Optional[str] = None) -> bytes:
+    """
+    Return the 32-byte SSZ hash_tree_root of model.
+
+    Fork-scoped models require fork, exactly as encode does.
+    """
+    return bytes(_rmk_instance(model, fork).hash_tree_root())
 
 
-def decode(model_cls: Type[_M], data: bytes) -> _M:
-    """Decode SSZ data into an instance of model_cls."""
-    view = build_ssz_type(model_cls).decode_bytes(data)
-    return _view_to_model(model_cls, view)
+def decode(model_cls: Type[_M], data: bytes, fork: Optional[str] = None) -> _M:
+    """
+    Decode SSZ data into an instance of model_cls.
+
+    For a fork-scoped model, data is decoded as fork's container and
+    fields beyond that fork come back as None.
+    """
+    view = build_ssz_type(model_cls, fork).decode_bytes(data)
+    return _view_to_model(
+        model_cls, view, _schema_fields(model_cls, fork), fork
+    )
+
+
+# width-carrying integer types (base_types.HexNumber underneath)
+class _SizedUint(HexNumber):
+    """
+    A width-checked unsigned integer.
+    """
+
+    __bits__: ClassVar[int] = 0
+
+    def __new__(cls, input_number: Any) -> "_SizedUint":
+        """Create the integer, enforcing 0 <= value < 2**bits."""
+        value = super().__new__(cls, input_number)
+        if not 0 <= int(value) < (1 << cls.__bits__):
+            raise ValueError(f"{cls.__name__} out of range: {int(value)}")
+        return value
+
+
+class Uint8(_SizedUint):
+    """An 8-bit unsigned integer."""
+
+    __bits__: ClassVar[int] = 8
+    __ssz__: ClassVar[SszType] = SszUint(8)
+
+
+class Uint16(_SizedUint):
+    """A 16-bit unsigned integer."""
+
+    __bits__: ClassVar[int] = 16
+    __ssz__: ClassVar[SszType] = SszUint(16)
+
+
+class Uint32(_SizedUint):
+    """A 32-bit unsigned integer."""
+
+    __bits__: ClassVar[int] = 32
+    __ssz__: ClassVar[SszType] = SszUint(32)
+
+
+class Uint64(_SizedUint):
+    """A 64-bit unsigned integer."""
+
+    __bits__: ClassVar[int] = 64
+    __ssz__: ClassVar[SszType] = SszUint(64)
+
+
+class Uint128(_SizedUint):
+    """A 128-bit unsigned integer."""
+
+    __bits__: ClassVar[int] = 128
+    __ssz__: ClassVar[SszType] = SszUint(128)
+
+
+class Uint256(_SizedUint):
+    """A 256-bit unsigned integer."""
+
+    __bits__: ClassVar[int] = 256
+    __ssz__: ClassVar[SszType] = SszUint(256)
 
 
 __all__ = [
@@ -542,6 +976,7 @@ __all__ = [
     "SszByteList",
     "SszByteVector",
     "SszContainer",
+    "SszForkSchema",
     "SszList",
     "SszModel",
     "SszProgressiveBitlist",
@@ -570,43 +1005,8 @@ __all__ = [
     "progressive_list",
     "spec_of",
     "ssz_default",
+    "ssz_exclude",
+    "ssz_fields",
     "ssz_list",
     "ssz_vector",
 ]
-
-
-# width-carrying integer types (base_types.HexNumber underneath)
-class Uint8(HexNumber):
-    """An 8-bit unsigned integer."""
-
-    __ssz__: ClassVar[SszType] = SszUint(8)
-
-
-class Uint16(HexNumber):
-    """A 16-bit unsigned integer."""
-
-    __ssz__: ClassVar[SszType] = SszUint(16)
-
-
-class Uint32(HexNumber):
-    """A 32-bit unsigned integer."""
-
-    __ssz__: ClassVar[SszType] = SszUint(32)
-
-
-class Uint64(HexNumber):
-    """A 64-bit unsigned integer."""
-
-    __ssz__: ClassVar[SszType] = SszUint(64)
-
-
-class Uint128(HexNumber):
-    """A 128-bit unsigned integer."""
-
-    __ssz__: ClassVar[SszType] = SszUint(128)
-
-
-class Uint256(HexNumber):
-    """A 256-bit unsigned integer."""
-
-    __ssz__: ClassVar[SszType] = SszUint(256)

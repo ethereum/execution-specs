@@ -1,24 +1,13 @@
 """
 SSZ static-vector generation on top of the base_types SSZ engine.
 
-A faithful port of the consensus-specs ssz_static generator
-(get_random_ssz_object + RandomizationMode), driven by the engine's SszType
-descriptors instead of remerkleable types: values are built as plain pydantic
-models and all serialization / merkleization is delegated to the engine
-(encode / hash_tree_root), so no encoding logic lives here.
-
 Suites mirror consensus-specs exactly, one per RandomizationMode plus a chaos
 suite (ssz_random, ssz_zero, ssz_max, ssz_nil, ssz_one, ssz_lengthy,
-ssz_random_chaos). Mode semantics are the consensus ones:
+ssz_random_chaos). Mode semantics are:
 zero/max pin scalar CONTENT (0 / all-ones) but keep collections short
 (1-byte byte-lists), while emptiness and saturation are their own modes
 (nil_count / max_count). Changing modes (random / one_count / max_count /
 chaos) yield several cases; the rest are fully determined by one.
-
-A case is the consensus triple value.yaml / serialized.ssz / roots.yaml
-(serialized bytes are uncompressed -- a deliberate deviation from the
-consensus .ssz_snappy, avoiding a libsnappy dependency). Seeding is
-sha256(container / suite / case_index), so output is fully deterministic.
 """
 
 import hashlib
@@ -31,10 +20,12 @@ from typing import (
     Dict,
     Iterator,
     List,
+    Optional,
     Sequence,
     Tuple,
     Type,
     TypeVar,
+    Union,
 )
 
 import yaml
@@ -57,9 +48,9 @@ from execution_testing.base_types.ssz import (
     encode,
     hash_tree_root,
     spec_of,
+    ssz_fields,
 )
 
-# Caps for variable-length fields; the consensus-specs ssz_static values.
 MAX_LIST_LENGTH = 10
 MAX_BYTES_LENGTH = 1000
 
@@ -67,7 +58,6 @@ RANDOM_CASE_COUNT = 30
 
 _M = TypeVar("_M", bound=SszModel)
 
-# The consensus-specs random_mode_names, verbatim (suites are ssz_<name>).
 _MODE_NAMES = (
     "random",
     "zero",
@@ -81,8 +71,6 @@ _MODE_NAMES = (
 class RandomizationMode(Enum):
     """
     How a value's scalar and collection fields are filled.
-
-    Mirrors the consensus-specs RandomizationMode.
     """
 
     mode_random = 0
@@ -144,18 +132,16 @@ def _bits(rng: random.Random, length: int, mode: RandomizationMode) -> Any:
 
 
 def _bitlist_length(
-    rng: random.Random, cap: int, one_cap: int, mode: RandomizationMode
+    rng: random.Random, cap: int, mode: RandomizationMode
 ) -> int:
+    # Consensus semantics: only the *count* modes pin the length;
+    # zero/max keep a random length.
     if mode == RandomizationMode.mode_nil_count:
         return 0
+    if mode == RandomizationMode.mode_one_count:
+        return min(1, cap)
     if mode == RandomizationMode.mode_max_count:
         return cap
-    if mode in (
-        RandomizationMode.mode_one_count,
-        RandomizationMode.mode_zero,
-        RandomizationMode.mode_max,
-    ):
-        return one_cap
     return rng.randint(0, cap)
 
 
@@ -214,12 +200,13 @@ def random_value(
         # Bit vectors are fixed length; no cap applies.
         return _bits(rng, spec.length, mode)
     if isinstance(spec, SszBitlist):
-        cap = min(max_bytes_length, spec.limit)
-        length = _bitlist_length(rng, cap, min(1, spec.limit), mode)
+        # Consensus caps bit lists by the LIST cap, not the byte cap.
+        cap = min(max_list_length, spec.limit)
+        length = _bitlist_length(rng, cap, mode)
         return _bits(rng, length, mode)
     if isinstance(spec, SszProgressiveBitlist):
-        # Progressive bit lists are uncapped; the byte cap bounds them.
-        length = _bitlist_length(rng, max_bytes_length, 1, mode)
+        # Progressive bit lists are uncapped; the list cap bounds them.
+        length = _bitlist_length(rng, max_list_length, mode)
         return _bits(rng, length, mode)
     if isinstance(spec, (SszList, SszProgressiveList)):
         # Progressive lists are uncapped; the list cap bounds them.
@@ -275,11 +262,17 @@ def random_model(
     model_cls: Type[_M],
     mode: RandomizationMode,
     *,
+    fork: Optional[str] = None,
     max_bytes_length: int = MAX_BYTES_LENGTH,
     max_list_length: int = MAX_LIST_LENGTH,
     chaos: bool = False,
 ) -> _M:
-    """Build a model_cls instance filled with random data per mode."""
+    """
+    Build a model_cls instance filled with random data per mode.
+
+    For a fork-scoped model, fork selects which fields get values;
+    fields beyond that fork keep their None default.
+    """
     return model_cls(
         **{
             name: random_value(
@@ -290,17 +283,17 @@ def random_model(
                 max_list_length=max_list_length,
                 chaos=chaos,
             )
-            for name in model_cls.model_fields
+            for name in ssz_fields(model_cls, fork)
         }
     )
 
 
-def make_case(model: SszModel) -> VectorCase:
+def make_case(model: SszModel, fork: Optional[str] = None) -> VectorCase:
     """Turn a model instance into its ssz_static case triple."""
     return VectorCase(
-        value=model.model_dump(mode="json"),
-        serialized=encode(model),
-        root=hash_tree_root(model),
+        value=model.model_dump(mode="json", exclude_none=True),
+        serialized=encode(model, fork),
+        root=hash_tree_root(model, fork),
     )
 
 
@@ -338,34 +331,58 @@ def suite_plan(
     return plan
 
 
+ModelSpec = Union[Type[SszModel], Tuple[Type[SszModel], str]]
+
+
+def _normalize_models(
+    models: Sequence[ModelSpec],
+) -> List[Tuple[Type[SszModel], Optional[str]]]:
+    """Normalize entries to (model, fork) and reject output collisions."""
+    entries: List[Tuple[Type[SszModel], Optional[str]]] = [
+        m if isinstance(m, tuple) else (m, None) for m in models
+    ]
+    seen: Dict[Tuple[str, Optional[str]], Type[SszModel]] = {}
+    for model_cls, fork in entries:
+        key = (model_cls.__name__, fork)
+        other = seen.setdefault(key, model_cls)
+        if other is not model_cls:
+            raise ValueError(
+                f"two distinct models would share vector output "
+                f"{key[0]!r} (fork={fork!r}); rename one"
+            )
+    return entries
+
+
 def generate_cases(
-    models: Sequence[Type[SszModel]],
+    models: Sequence[ModelSpec],
     *,
     count: int = RANDOM_CASE_COUNT,
     max_bytes_length: int = MAX_BYTES_LENGTH,
     max_list_length: int = MAX_LIST_LENGTH,
-) -> Iterator[Tuple[str, str, int, VectorCase]]:
+) -> Iterator[Tuple[str, Optional[str], str, int, VectorCase]]:
     """
-    Yield (container_name, suite, case_index, case) for every vector.
+    Yield (container_name, fork, suite, case_index, case) per vector.
 
-    The RNG is seeded per (container, suite, index) so output is fully
-    deterministic across runs.
+    Entries are complete models or (fork-scoped model, fork) pairs. The
+    RNG is seeded per (container, [fork,] suite, index) so output is
+    fully deterministic across runs.
     """
-    for model_cls in models:
+    for model_cls, fork in _normalize_models(models):
+        name = model_cls.__name__
+        seed_head = (name, fork) if fork else (name,)
         for suite, mode, chaos, n in suite_plan(count):
             for i in range(n):
-                rng = random.Random(
-                    deterministic_seed(model_cls.__name__, suite, i)
-                )
+                rng = random.Random(deterministic_seed(*seed_head, suite, i))
                 model = random_model(
                     rng,
                     model_cls,
                     mode,
+                    fork=fork,
                     max_bytes_length=max_bytes_length,
                     max_list_length=max_list_length,
                     chaos=chaos,
                 )
-                yield model_cls.__name__, suite, i, make_case(model)
+                yield name, fork, suite, i, make_case(model, fork)
 
 
 class _HexQuotingDumper(yaml.SafeDumper):
@@ -402,10 +419,17 @@ def case_files(case: VectorCase) -> Dict[str, bytes]:
 
 
 def case_dir(
-    output_dir: Path, container_name: str, suite: str, case_index: int
+    output_dir: Path,
+    container_name: str,
+    suite: str,
+    case_index: int,
+    fork: Optional[str] = None,
 ) -> Path:
     """Return the per-case output directory for a given case."""
-    return output_dir / container_name / suite / f"case_{case_index}"
+    base = output_dir / container_name
+    if fork is not None:
+        base = base / fork
+    return base / suite / f"case_{case_index}"
 
 
 def write_case(directory: Path, case: VectorCase) -> None:
@@ -416,19 +440,17 @@ def write_case(directory: Path, case: VectorCase) -> None:
 
 
 def write_vectors(
-    models: Sequence[Type[SszModel]],
+    models: Sequence[ModelSpec],
     output_dir: Path,
     *,
     count: int = RANDOM_CASE_COUNT,
 ) -> int:
     """Write every vector case under output_dir; return the count."""
     written = 0
-    for container_name, suite, case_index, case in generate_cases(
+    for name, fork, suite, case_index, case in generate_cases(
         models, count=count
     ):
-        write_case(
-            case_dir(output_dir, container_name, suite, case_index), case
-        )
+        write_case(case_dir(output_dir, name, suite, case_index, fork), case)
         written += 1
     return written
 
@@ -437,6 +459,7 @@ __all__ = [
     "MAX_BYTES_LENGTH",
     "MAX_LIST_LENGTH",
     "RANDOM_CASE_COUNT",
+    "ModelSpec",
     "RandomizationMode",
     "VectorCase",
     "case_dir",
