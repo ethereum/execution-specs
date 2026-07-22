@@ -85,9 +85,9 @@ The bound is derived from the prefix encoding algorithm: a branch prefix can
 approach the full bit length of the keys sharing it, and
 [`encode_bit_prefix`] stores the bit count in two bytes, so keys
 longer than this could produce a prefix the encoding cannot
-represent. Since this is worse case, in practice we can support keys 
-that are larger, but in terms of simplicity, enforcing the bound on 
-every key in [`trie_set`] keeps the limit a stated contract 
+represent. Since this is worse case, in practice we can support keys
+that are larger, but in terms of simplicity, enforcing the bound on
+every key in [`trie_set`] keeps the limit a stated contract
 instead of a data-dependent failure during merkleization.
 
 [`encode_bit_prefix`]: ref:ethereum.binary_trie.trie.encode_bit_prefix
@@ -154,7 +154,7 @@ class BranchNode:
     prefix: Bytes
     """
     The compressed run of bits shared by every key below this branch,
-    one bit per byte, in consumption order. 
+    one bit per byte, in consumption order.
     This is  empty when the keys diverge immediately.
 
     Like the MPT,the run is relative: it holds only the bits between the
@@ -224,9 +224,13 @@ def trie_set(trie: BinaryTrie, key: Key, value: Bytes32) -> None:
 
     [`Key`]: ref:ethereum.binary_trie.trie.Key
     """
-    assert len(key) >= 1 # Reject the empty key since it is a prefix of every other key
+    assert (
+        len(key) >= 1
+    )  # Reject the empty key since it is a prefix of every other key
     assert Uint(len(key)) <= MAX_KEY_LENGTH
-    assert len(value) == 32 # TODO: type is Bytes32 but not sure those are enforced at runtime
+    assert (
+        len(value) == 32
+    )  # TODO: type is Bytes32 but not sure those are enforced at runtime
     trie._data[key] = value
 
 
