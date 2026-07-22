@@ -671,3 +671,29 @@ class Alloc(BaseAlloc):
         raise NotImplementedError(
             "nonexistent_account is not implemented in the base class"
         )
+
+    def expect_account_state(
+        self,
+        address: Address,
+        *,
+        is_existing_account: bool = True,
+        is_contract: bool = False,
+        min_balance: int | None = None,
+        code_prefix: bytes | None = None,
+        label: str | None = None,
+    ) -> None:
+        """
+        Register a start-block expectation for a snapshot-predeployed account.
+
+        No-op by default: only the fill-stateful allocation records these and
+        later verifies them against the live client. Allocations with no
+        snapshot to check (e.g. genesis-based fill) ignore the registration.
+        """
+
+    def verify_deployed_accounts(self, block_number: int) -> None:
+        """
+        Verify the registered predeployed-account expectations at
+        *block_number*.
+
+        No-op by default; overridden by the fill-stateful allocation.
+        """

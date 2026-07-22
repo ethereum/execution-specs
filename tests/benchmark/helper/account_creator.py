@@ -53,12 +53,10 @@ class AccountExpectation:
         """
         Register verification expectation for address on pre.
 
-        No-op if deferred verification unsupported (e.g., non-stateful fill).
+        A no-op on allocations without a snapshot to check (the base
+        ``Alloc.expect_account_state`` default), e.g. non-stateful fill.
         """
-        expect = getattr(pre, "expect_account_state", None)
-        if expect is None:
-            return
-        expect(
+        pre.expect_account_state(
             address,
             is_existing_account=self.is_existing_account,
             is_contract=self.is_contract,
@@ -87,9 +85,10 @@ def register_target_range(
     Only indices beyond the family's high-water-mark are enumerated and
     registered; smaller parametrizations reuse the earlier verification.
     ``addresses(start, stop)`` yields the family's addresses for that range.
+
+    Registration is a no-op on allocations without a snapshot to check (the
+    base ``Alloc.expect_account_state`` default).
     """
-    if getattr(pre, "expect_account_state", None) is None:
-        return
     start = _verified_target_counts.get(key, 0)
     if count <= start:
         return

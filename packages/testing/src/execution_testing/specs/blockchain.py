@@ -1469,11 +1469,12 @@ class BlockchainTest(BaseTest):
             )
 
         # Verify predeployed targets at start_block (fill-stateful mode).
-        # Catches silent degradation to empty accounts.
+        # Catches silent degradation to empty accounts. A no-op on
+        # allocations that don't override Alloc.verify_deployed_accounts.
         if t8n.verify_deployed_accounts:
-            verifier = getattr(self.pre, "verify_deployed_accounts", None)
-            if callable(verifier):
-                verifier(int(HexNumber(start_block["number"])))
+            self.pre.verify_deployed_accounts(
+                int(HexNumber(start_block["number"]))
+            )
 
         # Materialise queued pre-alloc txs into a synthetic setup block.
         blocks_to_process: List[Block] = []
