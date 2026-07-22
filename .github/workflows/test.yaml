@@ -176,7 +176,6 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
-      - uses: ./.github/actions/setup-env
       - name: Run binary trie tests
         run: just binary-trie
         env:
