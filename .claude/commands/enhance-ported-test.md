@@ -367,10 +367,17 @@ transition, not the magnitude — which also breaks the `forward_gas`/`new_value
 circularity.) Set `state_gas_reservoir=0` so the state gas is captured.
 Validated on `test_raw_call_gas`.
 
-**Error paths are tricky.** A failed `CREATE`/`CALL` still charges some costs
-(memory, init-code words) but forwards no gas — so the delta is gas-limit
-independent. Whether the *state* portion (EIP-8037) is charged on a failure path
-may be unverifiable until confirmed; flag it.
+**Error paths charge regular gas only — assert `regular_cost(fork)`.** A failed
+`CREATE`/`CALL` still charges its regular costs (base, memory, init-code words)
+but creates no account, so **no state gas is charged** under EIP-8037. For a
+success/failure parametrize, that is exactly the `gas_cost(fork)` vs
+`regular_cost(fork)` split: success measures `code.gas_cost(fork)` (regular +
+state), failure measures `code.regular_cost(fork)` (regular only). On pre-8037
+forks `state_cost` is 0 so the two coincide — one expression, correct on every
+fork. Drive a `CREATE` down the balance-failure path by funding the creator one
+wei short of the transferred `value` (`balance = value - 1`); the created
+address is then `Account.NONEXISTENT`. Validated end-to-end on
+`test_raw_create_gas` (6 RawCreate*Gas fillers consolidated).
 
 ### 11. Lower `valid_from` to extend coverage
 The ported `valid_from` (often `Cancun`) is usually higher than necessary — lower
@@ -431,9 +438,15 @@ Not yet covered by a validated walkthrough; figure out and append when hit:
   `data` × `value`/`gas` matrix) — single-axis `d`/`g`/`v` discrimination is now
   handled (step 7), but a multi-axis post is not yet exercised.
 - Multi-block / `blockchain_test` ported tests.
-- Confirming EIP-8037 *error-path* state-gas behavior. (Success-path account-
-  creation state gas is now handled — measure with `state_gas_reservoir=0`, step
-  10. Validated end-to-end on `test_non_zero_value_call`.)
+- **Callee-side gas under the EIP-150 63/64 rule** (the `*_gas_ask` shape: a
+  subcall asks for far more gas than available and the callee records what it
+  received via `SSTORE(k, GAS)`). The *caller-side* CALL cost stays
+  expressible (`call_code.gas_cost(fork) + callee.gas_cost(fork)`, step 10), but
+  the callee-observed amount is `all_but_one_64th(available)` — a function of the
+  *absolute* gas at the call, which the EIP-2780 intrinsic change makes
+  fork-fragile. No framework helper for `all_but_one_64th` yet; approach TBD
+  (derive from a pinned `gas_limit`, or drop the absolute callee-side assertion
+  and keep the caller-side cost + a callee side-effect proving it ran).
 
 ## Finishing
 
