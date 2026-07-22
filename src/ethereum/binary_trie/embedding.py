@@ -9,7 +9,7 @@ chunks are assigned keys and packed into values.
 The first byte of every key is a **zone** identifier that labels the
 category of state the key holds. Account headers live in
 [`ACCOUNT_ZONE`], content-addressed overflow code in [`CODE_ZONE`],
-and overflow storage in [`STORAGE_ZONE`]. 
+and overflow storage in [`STORAGE_ZONE`].
 
 Keys are variable length, however importantly every key of a zone has
 the same length, keeping keys prefix-free as the tree requires.
@@ -17,7 +17,7 @@ the same length, keeping keys prefix-free as the tree requires.
 A key's **stem** is every byte except its final sub-index byte. Keys
 sharing a stem form one group of up to [`STEM_SUBTREE_WIDTH`]
 co-located values, all reachable through the same branch of the
-tree. 
+tree.
 
 This keeps data that is accessed together cheap to prove: an
 account's header stem holds its basic data, code hash, first storage
@@ -34,13 +34,7 @@ through one shared path rather than one path each.
 [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
 [`STORAGE_ZONE`]: ref:ethereum.binary_trie.embedding.STORAGE_ZONE
 [`STEM_SUBTREE_WIDTH`]: ref:ethereum.binary_trie.embedding.STEM_SUBTREE_WIDTH
-[`chunkify_code`]: ref:ethereum.binary_trie.embedding.chunkify_code
-[`encode_basic_data`]: ref:ethereum.binary_trie.embedding.encode_basic_data
-[`get_tree_key_for_basic_data`]: ref:ethereum.binary_trie.embedding.get_tree_key_for_basic_data
-[`get_tree_key_for_code_hash`]: ref:ethereum.binary_trie.embedding.get_tree_key_for_code_hash
-[`get_tree_key_for_storage_slot`]: ref:ethereum.binary_trie.embedding.get_tree_key_for_storage_slot
-[`get_tree_key_for_code_chunk`]: ref:ethereum.binary_trie.embedding.get_tree_key_for_code_chunk
-"""  # noqa: E501
+"""
 
 from typing import List
 
@@ -59,7 +53,7 @@ prepended as the first byte of every key.
 
 Zones are the partitions of the Partitioned Binary Tree: because the
 tree consumes key bits most significant first, every zone owns its
-own region of the key space. 
+own region of the key space.
 Defined zones are [`ACCOUNT_ZONE`],[`CODE_ZONE`], and [`STORAGE_ZONE`]
 The remaining values are reserved for future state categories.
 
@@ -146,10 +140,10 @@ STORAGE_ZONE = Zone(255)
 Zone byte of overflow storage stems.
 
 Storage sits at the far end of the zone byte, leaving zones `2`
-through `254` reserved for future state categories. 
+through `254` reserved for future state categories.
 
-Note: Because keys are variable length, a zone's one-byte label 
-says nothing about its capacity so every zone's key space is 
+Note: Because keys are variable length, a zone's one-byte label
+says nothing about its capacity so every zone's key space is
 unbounded behind its prefix.
 """
 
@@ -202,7 +196,8 @@ def key_hash(data: Bytes) -> Hash32:
     """
     Hash `data` for use in tree key derivation.
 
-    In practice, we reuse the hash being used for tree merkelization.
+    In practice, we reuse [`blake3_hash`], the hash being used for
+    tree merkelization.
 
     [`blake3_hash`]: ref:ethereum.binary_trie.trie.blake3_hash
     """
@@ -326,9 +321,10 @@ def get_tree_key_for_code_chunk(
 
     [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
     """
-    if chunk_id < STEM_SUBTREE_WIDTH - CODE_OFFSET:
+    header_chunk_count = STEM_SUBTREE_WIDTH - CODE_OFFSET
+    if chunk_id < header_chunk_count:
         return get_tree_key_for_header(address, CODE_OFFSET + chunk_id)
-    overflow = chunk_id - (STEM_SUBTREE_WIDTH - CODE_OFFSET)
+    overflow = chunk_id - header_chunk_count
     tree_index = overflow // STEM_SUBTREE_WIDTH
     sub_index = overflow % STEM_SUBTREE_WIDTH
     key = get_tree_key(
@@ -347,8 +343,8 @@ def chunkify_code(code: Bytes) -> List[Bytes32]:
     Chunk `i` holds the `i`-th 31-byte slice of the code in bytes `1`
     through `31`, preceded by one byte counting how many of the
     slice's leading bytes are data of a push instruction that began in
-    an earlier chunk. 
-    
+    an earlier chunk.
+
     The count lets a chunk be interpreted without
     its predecessors and is capped at `31`, the chunk payload size.
     """
