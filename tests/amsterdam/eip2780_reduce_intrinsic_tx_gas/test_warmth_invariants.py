@@ -568,8 +568,7 @@ def test_top_frame_charges_self_delegation_oog(
     read to discover the delegation: per EIP-7928 it must appear in the
     block access list exactly once, with no recorded changes.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
 
     # Pre-allocate an EOA that delegates to itself. The 1-wei balance
     # keeps the account alive at top-frame check time so the

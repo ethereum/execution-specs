@@ -109,8 +109,7 @@ def test_calldata_floor(
       thing that can reject it, with
       ``INTRINSIC_GAS_BELOW_FLOOR_GAS_COST``.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     is_self_transfer = recipient_type == RecipientType.SELF
     target = (
         sender
@@ -271,8 +270,7 @@ def test_calldata_floor_contract_creation(
       the creation intrinsic, so the rejection is pinned to the floor,
       with ``INTRINSIC_GAS_BELOW_FLOOR_GAS_COST``.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     created = compute_create_address(address=sender, nonce=sender.nonce)
 
     init_code = _floor_dominating_initcode(fork)
@@ -316,7 +314,7 @@ def test_calldata_floor_contract_creation(
             to=None,
             value=value,
             data=init_code,
-            gas_limit=calldata_floor + 1_000,
+            gas_limit=calldata_floor,
             expected_receipt=TransactionReceipt(
                 cumulative_gas_used=calldata_floor,
             ),

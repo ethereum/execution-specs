@@ -386,8 +386,9 @@ def test_top_frame_new_account_skipped_for_prefunded_create_target(
         sends_value=bool(value),
     )
     assert total_gas > calldata_floor, (
-        "the exact total must exceed the calldata floor for the "
-        "gas pin to observe the skipped charge"
+        "The exact total must exceed the calldata floor for the "
+        "gas pin to observe the skipped charge."
+        "Lift memory expansion in `creation_tx_init_code` to fix."
     )
 
     tx = Transaction(
@@ -395,7 +396,7 @@ def test_top_frame_new_account_skipped_for_prefunded_create_target(
         to=None,
         data=init_code,
         value=value,
-        gas_limit=total_gas + 1_000,
+        gas_limit=total_gas,
         expected_receipt=TransactionReceipt(cumulative_gas_used=total_gas),
     )
 
@@ -485,14 +486,15 @@ def test_top_frame_new_account_skipped_for_create_target_funded_same_block(
     )
     assert create_total > calldata_floor, (
         "the exact total must exceed the calldata floor for the "
-        "gas pin to observe the skipped charge"
+        "gas pin to observe the skipped charge."
+        "Lift memory expansion in `creation_tx_init_code` to fix."
     )
     create_tx = Transaction(
         sender=sender,
         to=None,
         data=init_code,
         value=value,
-        gas_limit=create_total + 1_000,
+        gas_limit=create_total,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=fund_total + create_total
         ),
@@ -669,8 +671,7 @@ def test_initcode_selfdestruct_keeps_top_frame_state_charge(
     top-frame charge shows up as a 183,600 shortfall in
     ``cumulative_gas_used`` and a matching sender refund.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     created = compute_create_address(address=sender, nonce=sender.nonce)
 
     beneficiary: Address | None = None
@@ -716,7 +717,7 @@ def test_initcode_selfdestruct_keeps_top_frame_state_charge(
         to=None,
         data=init_code,
         value=value,
-        gas_limit=total_gas + 1_000,
+        gas_limit=total_gas,
         expected_receipt=TransactionReceipt(cumulative_gas_used=total_gas),
     )
 
@@ -762,7 +763,7 @@ def test_initcode_selfdestruct_state_gas_in_header(
     small regular sum; a regular-gas mis-classification raises it to
     ``regular + NEW_ACCOUNT``.
     """
-    sender = pre.fund_eoa(10**18)
+    sender = pre.fund_eoa()
     created = compute_create_address(address=sender, nonce=sender.nonce)
 
     init_code = Op.SELFDESTRUCT.with_metadata(
@@ -794,7 +795,7 @@ def test_initcode_selfdestruct_state_gas_in_header(
         sender=sender,
         to=None,
         data=init_code,
-        gas_limit=total_gas + 1_000,
+        gas_limit=total_gas,
         expected_receipt=TransactionReceipt(cumulative_gas_used=total_gas),
     )
 
