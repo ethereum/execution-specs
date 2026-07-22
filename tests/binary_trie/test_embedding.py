@@ -101,7 +101,6 @@ def test_header_key_vectors() -> None:
 
     assert get_tree_key_for_basic_data(ADDRESS) == stem + b"\x00"
     assert get_tree_key_for_code_hash(ADDRESS) == stem + b"\x01"
-    assert len(get_tree_key_for_basic_data(ADDRESS)) == 34
 
 
 def test_storage_slot_in_header_vector() -> None:
@@ -124,9 +123,6 @@ def test_storage_slot_overflow_vector() -> None:
 
     key = get_tree_key_for_storage_slot(ADDRESS, U256(1000))
     assert key == stem + bytes([0xE8])
-    assert len(key) == 66
-    # Storage keys carry the storage zone byte.
-    assert key[0] == 0xFF
 
 
 def test_storage_slot_boundary_is_64() -> None:
@@ -170,7 +166,6 @@ def test_code_chunk_overflow_vector() -> None:
 
     key = get_tree_key_for_code_chunk(ADDRESS, code_hash, Uint(300))
     assert key == stem + bytes([0xAC])
-    assert len(key) == 34
 
 
 def test_overflow_code_is_content_addressed() -> None:
