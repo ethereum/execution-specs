@@ -231,6 +231,18 @@ verifies anything. Improve coupling and observability:
   test fails loudly instead of silently passing on a coincidentally-matching
   (often empty) account.
 - Adding `SSTORE`s costs gas — this is why step 2 (max out gas) comes first.
+- **Spot a *degraded* port and restore its stated intent.** A ported test whose
+  name/source promises a scenario its values don't actually exercise is a bug in
+  the port, not something to preserve faithfully. Classic tell: a
+  `*_after_value_transfer` / `*_with_value` test that sends `value=0`, so the
+  observable it names (a callee's `CALLVALUE`, a recipient's balance) is
+  vacuously zero and would pass even if the behavior were broken. Fix it by
+  supplying the missing ingredient (a non-zero tx `value`) and asserting the
+  now-meaningful result (`CALLVALUE == transferred`, recipient balance moved) —
+  note the restoration in the `@manually-enhanced` line. Validated on
+  `test_deleagate_call_after_value_transfer` (DELEGATECALL preserves the
+  enclosing frame's value). Read the test's *name and source comment* against
+  what it actually checks; the gap is the enhancement.
 
 ### 9. Introduce variables that encode relationships
 Whenever a literal carries intent or two literals are logically linked, lift them
@@ -248,6 +260,16 @@ ties a `CREATE`'s `size` operand to the memory/gas math that depends on it.
   code.gas_cost(fork) + buffer` (conservative metadata so it can't undershoot) —
   so it is neither a magic number nor fork-fragile. Validated on
   `test_sender_balance` (EIP-1559 effective-vs-max price).
+- **But first ask whether the gas-derived value is the *subject* or just
+  noise.** A ported test often pins the `sender` balance to `initial − value −
+  gas_used * price` — pure filler bookkeeping, not what the test is about. If the
+  real subject is a gas-*independent* fact (a value flow `tx → caller → callee`,
+  a storage write, a created account), drop the `gas_limit` (step 2), drop the
+  fragile `sender`-balance assertion, and instead assert the gas-independent
+  facts, encoding them as a relationship (`caller: INITIAL + tx_value -
+  call_value`, `callee: INITIAL + call_value`). Only reach for the "derive the
+  fee formula" machinery above when the fee itself is the observable. Validated
+  on `test_make_money`.
 
 ### 10. (Gas-subject / gas-snapshot tests) Replace hardcoded gas with dynamic calculation
 Covers both tests that *assert* a gas amount and the dominant

@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 234
+# Total entries: 224
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -73,7 +73,7 @@ stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_dept
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v0]
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v1]
 
-# stCreateTest (40)
+# stCreateTest (36)
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-0xef-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-contructor-revert-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-high-nonce-v1]
@@ -90,10 +90,6 @@ stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_af
 stCreateTest/test_create_e_contract_create_ne_contract_in_init_oog_tr.py::test_create_e_contract_create_ne_contract_in_init_oog_tr[fork_Amsterdam--g0]
 stCreateTest/test_create_e_contract_create_ne_contract_in_init_oog_tr.py::test_create_e_contract_create_ne_contract_in_init_oog_tr[fork_Amsterdam--g1]
 stCreateTest/test_create_e_contract_then_call_to_non_existent_acc.py::test_create_e_contract_then_call_to_non_existent_acc[fork_Amsterdam]
-stCreateTest/test_create_empty_contract.py::test_create_empty_contract[fork_Amsterdam]
-stCreateTest/test_create_empty_contract_and_call_it_0wei.py::test_create_empty_contract_and_call_it_0wei[fork_Amsterdam]
-stCreateTest/test_create_empty_contract_and_call_it_1wei.py::test_create_empty_contract_and_call_it_1wei[fork_Amsterdam]
-stCreateTest/test_create_empty_contract_with_balance.py::test_create_empty_contract_with_balance[fork_Amsterdam]
 stCreateTest/test_create_empty_contract_with_storage.py::test_create_empty_contract_with_storage[fork_Amsterdam]
 stCreateTest/test_create_empty_contract_with_storage_and_call_it_0wei.py::test_create_empty_contract_with_storage_and_call_it_0wei[fork_Amsterdam]
 stCreateTest/test_create_empty_contract_with_storage_and_call_it_1wei.py::test_create_empty_contract_with_storage_and_call_it_1wei[fork_Amsterdam]
@@ -115,12 +111,10 @@ stCreateTest/test_transaction_collision_to_empty_but_code.py::test_transaction_c
 stCreateTest/test_transaction_collision_to_empty_but_nonce.py::test_transaction_collision_to_empty_but_nonce[fork_Amsterdam--g1-v0]
 stCreateTest/test_transaction_collision_to_empty_but_nonce.py::test_transaction_collision_to_empty_but_nonce[fork_Amsterdam--g1-v1]
 
-# stDelegatecallTestHomestead (6)
+# stDelegatecallTestHomestead (4)
 stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g0]
 stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g1]
-stDelegatecallTestHomestead/test_deleagate_call_after_value_transfer.py::test_deleagate_call_after_value_transfer[fork_Amsterdam]
 stDelegatecallTestHomestead/test_delegatecall1024_oog.py::test_delegatecall1024_oog[fork_Amsterdam]
-stDelegatecallTestHomestead/test_delegatecall_emptycontract.py::test_delegatecall_emptycontract[fork_Amsterdam]
 stDelegatecallTestHomestead/test_delegatecall_in_initcode_to_existing_contract.py::test_delegatecall_in_initcode_to_existing_contract[fork_Amsterdam]
 
 # stEIP150Specific (7)
@@ -230,9 +224,7 @@ stMemExpandingEIP150Calls/test_call_goes_oog_on_second_level_with_mem_expanding_
 stMemExpandingEIP150Calls/test_create_and_gas_inside_create_with_mem_expanding_calls.py::test_create_and_gas_inside_create_with_mem_expanding_calls[fork_Amsterdam]
 stMemExpandingEIP150Calls/test_new_gas_price_for_codes_with_mem_expanding_calls.py::test_new_gas_price_for_codes_with_mem_expanding_calls[fork_Amsterdam]
 
-# stMemoryTest (4)
-stMemoryTest/test_call_data_copy_offset.py::test_call_data_copy_offset[fork_Amsterdam]
-stMemoryTest/test_code_copy_offset.py::test_code_copy_offset[fork_Amsterdam]
+# stMemoryTest (2)
 stMemoryTest/test_oog.py::test_oog[fork_Amsterdam-success14]
 stMemoryTest/test_oog.py::test_oog[fork_Amsterdam-success15]
 
@@ -270,11 +262,9 @@ stSolidityTest/test_recursive_create_contracts.py::test_recursive_create_contrac
 stSolidityTest/test_test_contract_interaction.py::test_test_contract_interaction[fork_Amsterdam]
 stSolidityTest/test_test_contract_suicide.py::test_test_contract_suicide[fork_Amsterdam]
 
-# stSpecialTest (1)
-stSpecialTest/test_make_money.py::test_make_money[fork_Amsterdam]
+# stSpecialTest (0)
 
-# stStaticCall (4)
-stStaticCall/test_static_call_value_inherit_from_call.py::test_static_call_value_inherit_from_call[fork_Amsterdam]
+# stStaticCall (3)
 stStaticCall/test_static_create_empty_contract_and_call_it_0wei.py::test_static_create_empty_contract_and_call_it_0wei[fork_Amsterdam]
 stStaticCall/test_static_create_empty_contract_with_storage_and_call_it_0wei.py::test_static_create_empty_contract_with_storage_and_call_it_0wei[fork_Amsterdam]
 stStaticCall/test_static_execute_call_that_ask_fore_gas_then_trabsaction_has.py::test_static_execute_call_that_ask_fore_gas_then_trabsaction_has[fork_Amsterdam-d0]
