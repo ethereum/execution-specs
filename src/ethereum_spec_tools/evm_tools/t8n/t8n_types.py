@@ -275,6 +275,7 @@ class Result:
     requests: Optional[List[Bytes]] = None
     block_exception: Optional[str] = None
     block_access_list: Optional[Any] = None
+    block_access_list_rlp: Optional[Bytes] = None
     block_access_list_hash: Optional[Hash32] = None
 
     def get_receipts_from_output(
@@ -344,6 +345,11 @@ class Result:
 
         if hasattr(block_output, "block_access_list"):
             self.block_access_list = block_output.block_access_list
+            self.block_access_list_rlp = rlp.encode(
+                t8n.fork.block_access_list_to_rlp(
+                    block_output.block_access_list
+                )
+            )
             self.block_access_list_hash = t8n.fork.hash_block_access_list(
                 block_output.block_access_list
             )
@@ -428,12 +434,10 @@ class Result:
         if self.block_exception is not None:
             data["blockException"] = self.block_exception
 
-        if self.block_access_list is not None:
+        if self.block_access_list_rlp is not None:
             # Output BAL as RLP-encoded hex bytes; the testing framework
             # handles JSON serialization.
-            data["blockAccessList"] = encode_to_hex(
-                rlp.encode(self.block_access_list)
-            )
+            data["blockAccessList"] = encode_to_hex(self.block_access_list_rlp)
 
         if self.block_access_list_hash is not None:
             data["blockAccessListHash"] = encode_to_hex(

@@ -150,6 +150,11 @@ class ForkLoad:
         return self._module("block_access_lists").hash_block_access_list
 
     @property
+    def block_access_list_to_rlp(self) -> Any:
+        """block_access_list_to_rlp function of the fork."""
+        return self._module("block_access_lists").block_access_list_to_rlp
+
+    @property
     def has_hash_block_access_list(self) -> bool:
         """Check if the fork has a `hash_block_access_list` function."""
         try:

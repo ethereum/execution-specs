@@ -15,17 +15,26 @@ See [`BlockAccessList`][bal] for more detail.
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple, TypeAlias, final
 
-from ethereum_rlp import rlp
+from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.merkle_patricia_trie import root, trie_set
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
 
 from .exceptions import BlockAccessListGasLimitExceededError
 from .fork_types import BlockAccessIndex
 from .state_tracker import BlockState, TransactionState, get_code
+
+StorageRoot: TypeAlias = Bytes | Bytes32
+"""
+Post-block storage trie root encoded in an account's block access list entry.
+
+Empty post-block storage tries are encoded as the empty byte string. Non-empty
+storage tries are encoded as their 32-byte trie root.
+"""
 
 
 @final
@@ -208,6 +217,17 @@ class AccountChanges:
     code_changes: Tuple[CodeChange, ...]
     """
     Writes to the code of the associated [`Account`].
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+    storage_root: Optional[StorageRoot]
+    """
+    Root of the associated [`Account`]'s post-block storage trie.
+
+    Present only when at least one state-change list is non-empty. Empty
+    post-block storage tries are encoded as the empty byte string; non-empty
+    storage tries are encoded as bytes32.
 
     [`Account`]: ref:ethereum.state.Account
     """
@@ -515,8 +535,71 @@ def add_touched_account(
     ensure_account(builder, address)
 
 
+def _has_state_changes(account: AccountChanges) -> bool:
+    """
+    Return ``True`` if ``account`` contains any state change.
+    """
+    return (
+        account.storage_changes != ()
+        or account.balance_changes != ()
+        or account.nonce_changes != ()
+        or account.code_changes != ()
+    )
+
+
+def block_access_list_to_rlp(
+    block_access_list: BlockAccessList,
+) -> Tuple[Tuple[Extended, ...], ...]:
+    """
+    Convert a [`BlockAccessList`] to its canonical RLP structure.
+
+    Per EIP-8268, state-changing entries include a trailing ``storage_root``;
+    access-only entries keep the six-field EIP-7928 layout.
+    """
+    encoded_accounts = []
+
+    for account in block_access_list:
+        account_items: List[Extended] = [
+            account.address,
+            account.storage_changes,
+            account.storage_reads,
+            account.balance_changes,
+            account.nonce_changes,
+            account.code_changes,
+        ]
+
+        if _has_state_changes(account):
+            assert account.storage_root is not None
+            account_items.append(account.storage_root)
+        else:
+            assert account.storage_root is None
+
+        encoded_accounts.append(tuple(account_items))
+
+    return tuple(encoded_accounts)
+
+
+def post_block_storage_root(
+    block_state: BlockState,
+    address: Address,
+) -> StorageRoot:
+    """
+    Compute the account's post-block storage trie root for EIP-8268.
+    """
+    storage_trie = block_state.pre_state.copy_storage_trie(address)
+
+    for key, value in block_state.storage_writes.get(address, {}).items():
+        trie_set(storage_trie, key, value)
+
+    if storage_trie._data == {}:
+        return Bytes()
+
+    return Bytes32(root(storage_trie))
+
+
 def _build_from_builder(
     builder: BlockAccessListBuilder,
+    block_state: BlockState,
 ) -> BlockAccessList:
     """
     Build the final [`BlockAccessList`] from a builder (internal helper).
@@ -564,6 +647,10 @@ def _build_from_builder(
         storage_changes.sort(key=lambda x: x.slot)
         storage_reads.sort()
 
+        storage_root: Optional[StorageRoot] = None
+        if storage_changes or balance_changes or nonce_changes or code_changes:
+            storage_root = post_block_storage_root(block_state, address)
+
         account_change = AccountChanges(
             address=address,
             storage_changes=tuple(storage_changes),
@@ -571,6 +658,7 @@ def _build_from_builder(
             balance_changes=balance_changes,
             nonce_changes=nonce_changes,
             code_changes=code_changes,
+            storage_root=storage_root,
         )
 
         block_access_list.append(account_change)
@@ -692,7 +780,7 @@ def build_block_access_list(
     for address in block_state.account_reads:
         add_touched_account(builder, address)
 
-    return _build_from_builder(builder)
+    return _build_from_builder(builder, block_state)
 
 
 def hash_block_access_list(
@@ -701,7 +789,7 @@ def hash_block_access_list(
     """
     Compute the hash of a Block Access List.
     """
-    return keccak256(rlp.encode(block_access_list))
+    return keccak256(rlp.encode(block_access_list_to_rlp(block_access_list)))
 
 
 def validate_block_access_list_gas_limit(

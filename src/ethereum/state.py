@@ -133,6 +133,14 @@ class PreState(Protocol):
         """
         ...
 
+    def copy_storage_trie(self, address: Address) -> Trie[Bytes32, U256]:
+        """
+        Copy an account's storage trie.
+
+        Return an empty storage trie if the account has no storage.
+        """
+        ...
+
     def compute_state_root_and_trie_changes(
         self,
         account_changes: Dict[Address, Optional[Account]],
@@ -209,6 +217,15 @@ class State:
         Only needed for EIP-7610.
         """
         return address in self._storage_tries
+
+    def copy_storage_trie(self, address: Address) -> Trie[Bytes32, U256]:
+        """
+        Copy an account's storage trie.
+        """
+        trie = self._storage_tries.get(address)
+        if trie is None:
+            return Trie(secured=True, default=U256(0))
+        return copy_trie(trie)
 
     def compute_state_root_and_trie_changes(
         self,
