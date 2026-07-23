@@ -317,12 +317,7 @@ class Result:
         self.bloom = t8n.fork.logs_bloom(block_output.block_logs)
         self.logs_hash = keccak256(rlp.encode(block_output.block_logs))
         block_diff = t8n.fork.extract_block_diff(t8n._block_state)
-        state_root_value = t8n.alloc.state.compute_state_root(
-            block_diff.account_changes,
-            block_diff.storage_changes,
-            block_diff.code_changes,
-            block_diff.storage_clears,
-        )
+        state_root_value = t8n.alloc.state.compute_state_root(block_diff)
         self.state_root = state_root_value
         # Apply diffs to pre-state for alloc output
         t8n.fork.state_provider.apply_changes_to_state(

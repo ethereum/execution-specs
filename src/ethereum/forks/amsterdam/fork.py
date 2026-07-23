@@ -338,11 +338,7 @@ def execute_block(
         withdrawals=block.withdrawals,
     )
     block_diff = extract_block_diff(block_state)
-    block_state_root = pre_state.compute_state_root(
-        block_diff.account_changes,
-        block_diff.storage_changes,
-        block_diff.code_changes,
-    )
+    block_state_root = pre_state.compute_state_root(block_diff)
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
     block_logs_bloom = logs_bloom(block_output.block_logs)

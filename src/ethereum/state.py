@@ -17,7 +17,6 @@ There is a distinction between an account that does not exist and
 
 from dataclasses import dataclass, field
 from typing import (
-    AbstractSet,
     Dict,
     Optional,
     Protocol,
@@ -124,25 +123,18 @@ class PreState(Protocol):
         """
         ...
 
-    def compute_state_root(
-        self,
-        account_changes: Dict[Address, Optional[Account]],
-        storage_changes: Dict[Address, Dict[Bytes32, U256]],
-        code_changes: Dict[Hash32, Bytes],
-        storage_clears: AbstractSet[Address] = frozenset(),
-    ) -> Root:
+    def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
-        Compute the state root after applying changes to the pre-state.
+        Compute the state root after applying `block_diff` to the
+        pre-state. The pre-state itself is not modified.
 
-        ``code_changes`` carries bytecode deployed during the block,
-        keyed by code hash. Commitments over code hashes alone can
-        ignore it; commitments over code contents need it because the
+        The diff carries bytecode deployed during the block in
+        ``code_changes``, keyed by code hash. Commitments over code
+        hashes alone can ignore it; a commitment over code contents
+        resolves each account's bytecode through its ``code_hash``,
+        joining ``account_changes`` to ``code_changes``, because the
         new bytecode is not yet in the provider's code store when the
         root is computed.
-
-        ``storage_clears`` lists addresses whose pre-existing storage
-        tries must be dropped before ``storage_changes`` is applied, so
-        any post-wipe writes begin from empty storage.
 
         Return the new state root.
         """
