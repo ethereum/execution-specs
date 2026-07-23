@@ -459,6 +459,58 @@ def test_exchange_with_push_sequence(
 
 
 @EIPChecklist.Opcode.Test.ExceptionalAbort()
+def test_exchange_full_stack(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test EXCHANGE succeeds on a completely full stack of 1024 items.
+
+    EXCHANGE swaps in place without pushing, so it must work at the
+    stack limit. Uses the deepest pair (1, 29): markers planted at
+    positions 2 and 30 are swapped, then both are popped down to and
+    stored, so a missing swap is visible in either storage slot.
+    """
+    sender = pre.fund_eoa()
+
+    n, m = 1, 29  # deepest reachable pair, swaps positions 2 and 30
+    stack_height = 1024
+    upper_marker = 0xAAAA
+    deep_marker = 0xBBBB
+
+    # Bottom-up: zeros, deep marker at position 30 from the top, more
+    # zeros, the upper marker at position 2, and a zero on top.
+    code = Bytecode()
+    code += Op.PUSH0 * (stack_height - 30)
+    code += Op.PUSH2(deep_marker)
+    code += Op.PUSH0 * 27
+    code += Op.PUSH2(upper_marker)
+    code += Op.PUSH0
+
+    code += Op.EXCHANGE[n, m]
+
+    # Pop the top zero, store position 2 (now the deep marker), then
+    # pop down to position 30 and store it (now the upper marker).
+    code += Op.POP
+    code += Op.PUSH1(0) + Op.SSTORE
+    code += Op.POP * 27
+    code += Op.PUSH1(1) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(
+        code=code, storage={0: 0xBA5E, 1: 0xBA5E}
+    )
+    tx = Transaction(to=contract_address, sender=sender)
+
+    post = {
+        contract_address: Account(
+            storage={0: deep_marker, 1: upper_marker},
+        ),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
 @pytest.mark.parametrize(
     "immediate",
     range(82, 128),  # Forbidden range: 0x52-0x7F
