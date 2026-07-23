@@ -48,10 +48,6 @@ from ethereum_spec_tools.new_fork.codemod.string_replace import (
     StringReplaceCommand,
 )
 
-# src/ethereum_spec_tools/evm_tools/t8n/__init__.py - consumed by the
-# testing package's Alloc, which vulture does not scan
-_state_provider_name
-
 # src/ethereum/binary_trie/embedding.py - EIP-8297 public API, exercised
 # via tests
 EMPTY_CODE_HASH

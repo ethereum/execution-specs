@@ -165,46 +165,32 @@ class State:
     def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
         Compute the state root after applying `block_diff` to the
-        pre-state. The pre-state itself is not modified.
+        pre-state. The pre-state itself is not modified: the diff is
+        applied, via [`apply_changes_to_state`], to a copy.
 
         The diff's ``code_changes`` are needed here, unlike in the
         Merkle Patricia Trie: code chunk leaves commit the code
         itself, not just its hash, and newly deployed code is not yet
         in the code store when the root is computed.
 
-        An account mapped to ``None`` is deleted along with its
-        storage, and a storage slot written to zero is deleted.
-
-        Return the new state root.
-        """
-        accounts = dict(self._accounts)
-        storages = {
-            address: dict(slots)
-            for address, slots in self._storage.items()
-            if address not in block_diff.storage_clears
-        }
-
-        for address, account in block_diff.account_changes.items():
-            if account is None:
-                accounts.pop(address, None)
-                storages.pop(address, None)
-            else:
-                accounts[address] = account
-
-        for address, slots in block_diff.storage_changes.items():
-            slot_values = storages.setdefault(address, {})
-            for key, value in slots.items():
-                if value == U256(0):
-                    slot_values.pop(key, None)
-                else:
-                    slot_values[key] = value
-
-        def get_code(code_hash: Hash32) -> Bytes:
-            if code_hash in block_diff.code_changes:
-                return block_diff.code_changes[code_hash]
-            return self.get_code(code_hash)
-
-        return binary_tree_root(embed_flat_state(accounts, storages, get_code))
+        [`apply_changes_to_state`]: ref:ethereum.state_pbt.apply_changes_to_state
+        """  # noqa: E501
+        post_state = State(
+            _accounts=dict(self._accounts),
+            _storage={
+                address: dict(slots)
+                for address, slots in self._storage.items()
+            },
+            _code_store=dict(self._code_store),
+        )
+        apply_changes_to_state(post_state, block_diff)
+        return binary_tree_root(
+            embed_flat_state(
+                post_state._accounts,
+                post_state._storage,
+                post_state.get_code,
+            )
+        )
 
 
 def apply_changes_to_state(state: State, diff: BlockDiff) -> None:

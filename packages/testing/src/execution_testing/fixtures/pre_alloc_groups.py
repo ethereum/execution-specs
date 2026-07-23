@@ -66,7 +66,7 @@ class PreAllocGroupBuilder(CamelModel):
         return FixtureHeader.genesis(
             self.fork.transitions_from(),
             self.environment,
-            self.pre.state_root(fork=self.fork),
+            self.pre.state_root(),
         )
 
     def add_test_alloc(self, test_id: str, new_pre: Alloc) -> None:
@@ -555,11 +555,11 @@ class GroupPreAlloc(Alloc):
     _cached_state_root: Hash | None = PrivateAttr(None)
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
 
-    def state_root(self, fork: Any = None) -> Hash:
+    def state_root(self) -> Hash:
         """On pre-alloc groups, which are normally very big, always cache."""
         if self._cached_state_root is not None:
             return self._cached_state_root
-        return super().state_root(fork=fork)
+        return super().state_root()
 
     def model_dump(  # type: ignore[override]
         self, mode: Literal["json", "python"], **kwargs: Any

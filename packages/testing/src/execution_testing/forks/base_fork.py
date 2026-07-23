@@ -1316,14 +1316,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return cls._bpo_fork
 
     @classmethod
-    def uses_binary_tree_state(cls) -> bool:
-        """
-        Return whether state roots are EIP-8297 binary tree
-        commitments rather than Merkle Patricia Trie roots.
-        """
-        return False
-
-    @classmethod
     def is_eip(cls) -> bool:
         """Return whether this class is an EIP."""
         return cls.__name__.startswith("EIP") and cls.__name__[-1].isdigit()

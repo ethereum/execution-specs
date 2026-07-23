@@ -16,7 +16,6 @@ from typing import (
 )
 
 import ethereum.state as spec_state
-import ethereum.state_mpt as spec_state_mpt
 from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
 from ethereum_types.bytes import Bytes, Bytes20
@@ -299,16 +298,12 @@ class Alloc(BaseAlloc):
             address for address, account in self.root.items() if not account
         ]
 
-    def state_root(self, fork: Any = None) -> Hash:
+    def state_root(self) -> Hash:
         """
-        Return the state root of the allocation.
-
-        With a `fork` that commits state through the EIP-8297 binary
-        tree, the root is the binary tree commitment; otherwise it is
-        the Merkle Patricia Trie root. Without a `fork`, the provider
-        installed by the transition tool (if any) decides.
+        Return the state root of the allocation, committed through
+        the installed state provider (see [`set_state_provider`]).
         """
-        provider = self._resolve_provider(fork)
+        provider = self._resolve_provider()
         return Hash(provider.state_root(self._materialize_state(provider)))
 
     def verify_post_alloc(self, got_alloc: "Alloc") -> None:
@@ -366,31 +361,25 @@ class Alloc(BaseAlloc):
             self._build_cache()
             self._phase = _Phase.LIVE
 
-    def _resolve_provider(self, fork: Any = None) -> Any:
+    def _resolve_provider(self) -> Any:
         """
-        Pick the state provider module committing this allocation.
-
-        An explicit `fork` wins, then a provider installed by the
-        transition tool, then the Merkle Patricia Trie default.
+        Return the installed state provider module, defaulting to the
+        Merkle Patricia Trie. Providers are held by module name
+        rather than as module objects, which `model_copy(deep=True)`
+        could not pickle when blockchain tests deep-copy the alloc
+        between chained blocks.
         """
-        if fork is not None and not hasattr(fork, "uses_binary_tree_state"):
-            # Transition forks define no fork-behavior hooks of their
-            # own; the genesis allocation this method commits belongs
-            # to the fork the chain starts from.
-            fork = fork.transitions_from()
-        if fork is not None and fork.uses_binary_tree_state():
-            # Deferred import: `ethereum` submodules must not load
-            # before pytest-cov starts.
-            import ethereum.state_pbt as spec_state_pbt
+        return import_module(self._state_provider_name or "ethereum.state_mpt")
 
-            return spec_state_pbt
-        if self._state_provider_name is not None:
-            # Stored by name: a module object in a private attr would
-            # break `model_copy(deep=True)`, which cannot pickle
-            # modules (blockchain tests deep-copy the alloc when
-            # chaining blocks).
-            return import_module(self._state_provider_name)
-        return spec_state_mpt
+    def set_state_provider(self, name: str) -> None:
+        """
+        Install the state provider module (by name) committing this
+        allocation when no explicit fork is passed to `state_root`.
+
+        Called by the transition tool so block state roots use the
+        fork's own commitment scheme.
+        """
+        self._state_provider_name = name
 
     def _materialize_state(self, provider: Any = None) -> Any:
         """
@@ -408,16 +397,12 @@ class Alloc(BaseAlloc):
                 continue
             addr = Bytes20(address)
             code = bytes(account.code) if account.code else b""
-            code_hash = (
-                spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH
-            )
-            # Source bytecode from the allocation entry itself: the
+            # Store bytecode from the allocation entry itself: the
             # `_code_store` cache only exists once the alloc is LIVE,
             # but materialization must also work before that (the
             # genesis path), and code-content commitments read the
             # bytes.
-            if code:
-                state._code_store[code_hash] = code
+            code_hash = provider.store_code(state, code)
             provider.set_account(
                 state,
                 addr,
@@ -437,7 +422,6 @@ class Alloc(BaseAlloc):
                     Bytes32(int(key_hi).to_bytes(32, "big")),
                     U256(value_int),
                 )
-        state._code_store.update(self._code_store)
         return state
 
     def get_account_optional(
@@ -509,9 +493,8 @@ class Alloc(BaseAlloc):
         instances.
         """
         self._ensure_live()
-        state = self._materialize_state()
-        root = state.compute_state_root(block_diff)
-        return Hash32(root)
+        state = self._materialize_state(self._resolve_provider())
+        return Hash32(state.compute_state_root(block_diff))
 
     # ------------------------------------------------------------------
     # Lifecycle: apply_diff and freeze

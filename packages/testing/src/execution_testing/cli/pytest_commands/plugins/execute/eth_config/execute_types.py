@@ -368,7 +368,7 @@ class Genesis(CamelModel):
         genesis_fork = self.config.fork()
         env = Environment(**dumped_genesis).set_fork_requirements(genesis_fork)
         genesis_header = FixtureHeader.genesis(
-            genesis_fork, env, self.alloc.state_root(fork=genesis_fork)
+            genesis_fork, env, self.alloc.state_root()
         )
         genesis_header.extra_data = self.extra_data
         genesis_header.nonce = self.nonce

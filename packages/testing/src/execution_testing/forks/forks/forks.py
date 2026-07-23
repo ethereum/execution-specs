@@ -1658,10 +1658,8 @@ class BinaryTree(
     """
     Experimental EIP-8297 fork: state is committed through the
     Partitioned Binary Tree instead of the Merkle Patricia Trie.
-    For testing purposes only.
+    For testing purposes only. The commitment scheme is selected by
+    the spec fork's own imports; the transition tool reflects it.
     """
 
-    @classmethod
-    def uses_binary_tree_state(cls) -> bool:
-        """State roots are binary tree commitments on this fork."""
-        return True
+    pass
