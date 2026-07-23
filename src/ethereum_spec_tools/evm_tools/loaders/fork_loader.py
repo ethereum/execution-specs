@@ -2,6 +2,7 @@
 Loader for code from the relevant fork.
 """
 
+from importlib import import_module
 from inspect import signature
 from typing import Any, Final
 
@@ -320,6 +321,17 @@ class ForkLoad:
     def has_decode_transaction(self) -> bool:
         """Check if this fork has a `decode_transaction`."""
         return hasattr(self._module("transactions"), "decode_transaction")
+
+    @property
+    def state_provider(self) -> Any:
+        """
+        Module implementing the fork's state provider.
+
+        Resolved through the ``State`` class the fork's ``fork``
+        module imports, so each fork selects its own commitment
+        scheme (``ethereum.state_mpt``, ``ethereum.state_pbt``, ...).
+        """
+        return import_module(self._module("fork").State.__module__)
 
     @property
     def BlockState(self) -> Any:

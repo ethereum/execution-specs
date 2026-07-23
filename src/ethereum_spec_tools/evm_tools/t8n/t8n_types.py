@@ -13,7 +13,6 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.merkle_patricia_trie import root, trie_get
 from ethereum.state import EMPTY_CODE_HASH
-from ethereum.state_mpt import apply_changes_to_state
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTxError
@@ -54,11 +53,13 @@ class Alloc:
             t8n.fork.apply_dao(state)
 
         self.state = state
+        self.state_provider = t8n.fork.state_provider
 
     def to_json(self) -> Any:
         """Encode the state to JSON."""
+        provider = self.state_provider
         data = {}
-        for address, account in self.state._main_trie._data.items():
+        for address, account in provider.all_accounts(self.state).items():
             account_data: Dict[str, Any] = {}
 
             if account.balance:
@@ -68,15 +69,13 @@ class Alloc:
                 account_data["nonce"] = hex(account.nonce)
 
             if account.code_hash != EMPTY_CODE_HASH:
-                code = self.state._code_store[account.code_hash]
+                code = self.state.get_code(account.code_hash)
                 account_data["code"] = "0x" + code.hex()
 
-            if address in self.state._storage_tries:
+            storage = provider.account_storage(self.state, address)
+            if storage:
                 account_data["storage"] = {
-                    "0x" + k.hex(): hex(v)
-                    for k, v in self.state._storage_tries[
-                        address
-                    ]._data.items()
+                    "0x" + k.hex(): hex(v) for k, v in storage.items()
                 }
 
             data["0x" + address.hex()] = account_data
@@ -326,7 +325,9 @@ class Result:
         )
         self.state_root = state_root_value
         # Apply diffs to pre-state for alloc output
-        apply_changes_to_state(t8n.alloc.state, block_diff)
+        t8n.fork.state_provider.apply_changes_to_state(
+            t8n.alloc.state, block_diff
+        )
         self.receipts = self.get_receipts_from_output(t8n, block_output)
 
         if hasattr(block_env, "base_fee_per_gas"):
