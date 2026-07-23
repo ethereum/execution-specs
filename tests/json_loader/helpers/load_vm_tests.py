@@ -92,9 +92,9 @@ class VmTestLoader:
         try:
             return self._module("state")
         except ModuleNotFoundError:
-            import ethereum.state
+            import ethereum.state_mpt
 
-            return ethereum.state
+            return ethereum.state_mpt
 
     def run_test_from_dict(self, json_data: Dict[str, Any]) -> None:
         """
