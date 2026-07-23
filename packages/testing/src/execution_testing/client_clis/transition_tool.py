@@ -169,7 +169,7 @@ class OutputCache:
             # Without this, every cached subcall would retain its own
             # `output/alloc.json` on disk for the test's lifetime - O(N) for
             # an N-block chained test.
-            alloc.get()
+            alloc.materialize()
             alloc._keepalive = None
         self._cache[subkey] = value
 

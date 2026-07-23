@@ -390,7 +390,9 @@ def write_t8n_outputs(
     out_file: TextIO,
 ) -> None:
     """Serialise the t8n output + opcode counts per ``--output.*``."""
-    json_state = output.alloc.get().model_dump(mode="json", by_alias=True)
+    json_state = output.alloc.materialize().model_dump(
+        mode="json", by_alias=True
+    )
     json_result = output.result.model_dump(
         mode="json", by_alias=True, exclude_none=True
     )
