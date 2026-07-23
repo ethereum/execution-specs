@@ -9,6 +9,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
+    EIPChecklist,
     Fork,
     Hash,
     StateTestFiller,
@@ -24,6 +25,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7981.version
 pytestmark = pytest.mark.valid_at("EIP7981")
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "tx_type",
