@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
+from ethereum_rlp import rlp
+
 ENGINE_X_FIXTURES_DIR = "blockchain_tests_engine_x"
 SIBLING_FIXTURES_DIR = "blockchain_tests_engine"
 
@@ -11,6 +13,40 @@ SIBLING_FIXTURES_DIR = "blockchain_tests_engine"
 # fields a packed (merged) genesis is allowed to change; everything else in a
 # payload is a pure function of the test's execution.
 _STATE_ROOT_DERIVED_FIELDS = ("stateRoot", "blockHash", "parentHash")
+
+# Placeholder for the parent-hash value embedded in a block access list.
+_PARENT_HASH_PLACEHOLDER = "<parent-hash>"
+
+
+def _masked(node: Any, parent_hash: bytes) -> Any:
+    """Mask every ``parent_hash`` leaf in a decoded BAL, hex the rest."""
+    if isinstance(node, bytes):
+        if parent_hash and node == parent_hash:
+            return _PARENT_HASH_PLACEHOLDER
+        return node.hex()
+    return [_masked(child, parent_hash) for child in node]
+
+
+def _scrubbed_bal(bal_hex: str, parent_hash_hex: str) -> Any:
+    """
+    Return a comparable form of a BAL with its parent hash masked out.
+
+    The EIP-2935 system call writes the parent hash into the history
+    contract on every block, so each payload's BAL embeds one
+    state-root-derived value (at payload 0, the genesis hash itself). The
+    BAL is decoded and that value masked rather than the whole field
+    dropped, so the rest of the BAL still participates in the comparison:
+    a leaked account shows up in the BAL before anywhere else. Storage
+    values are RLP-encoded with leading zeros trimmed, so the trimmed
+    parent hash is masked. An undecodable BAL (an intentionally malformed
+    one from a negative test) is compared verbatim.
+    """
+    parent_hash = bytes.fromhex(parent_hash_hex.removeprefix("0x"))
+    try:
+        decoded = rlp.decode(bytes.fromhex(bal_hex.removeprefix("0x")))
+    except Exception:
+        return bal_hex
+    return _masked(decoded, parent_hash.lstrip(b"\x00"))
 
 
 class EngineXExecutionDriftError(Exception):
@@ -74,8 +110,13 @@ def _scrubbed_payloads(fixture: Dict[str, Any]) -> List[Any]:
         entry = json.loads(json.dumps(entry))
         params = entry.get("params")
         if params and isinstance(params[0], dict):
+            payload = params[0]
+            bal = payload.get("blockAccessList")
+            parent_hash = payload.get("parentHash")
+            if isinstance(bal, str) and isinstance(parent_hash, str):
+                payload["blockAccessList"] = _scrubbed_bal(bal, parent_hash)
             for field in _STATE_ROOT_DERIVED_FIELDS:
-                params[0].pop(field, None)
+                payload.pop(field, None)
         payloads.append(entry)
     return payloads
 
@@ -114,7 +155,10 @@ def verify_engine_x_execution(
     `blockchain_test_engine` sibling fixture (filled against the test's own
     pre-allocation in the same session, with an independent `t8n` execution:
     Engine X fixtures never share the transition tool output cache). All
-    payload fields except the state-root-derived ones must match exactly.
+    payload fields except the state-root-derived ones must match exactly;
+    each payload's block access list is compared with its own parent-hash
+    bytes normalized out, since the EIP-2935 system write embeds that
+    state-root-derived value in every BAL.
 
     Return the comparison counts, or ``None`` when one of the two fixture
     format trees was not generated at all (e.g. when filling with
