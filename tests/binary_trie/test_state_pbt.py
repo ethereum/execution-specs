@@ -33,7 +33,7 @@ from ethereum.binary_trie.trie import (
     trie_set,
 )
 from ethereum.crypto.hash import keccak256
-from ethereum.state import EMPTY_CODE_HASH, Account
+from ethereum.state import EMPTY_CODE_HASH, Account, BlockDiff
 from ethereum.state_mpt import State as MptState
 from ethereum.state_mpt import set_account as mpt_set_account
 from ethereum.state_mpt import set_storage as mpt_set_storage
@@ -246,14 +246,16 @@ def test_diff_root_matches_directly_built_post_state() -> None:
         nonce=Uint(2), balance=U256(50), code_hash=code_hash
     )
     computed = pre_state.compute_state_root(
-        {ADDRESS_A: post_account_a, ADDRESS_B: None},
-        {
-            ADDRESS_A: {
-                Bytes32(U256(1).to_be_bytes32()): U256(0),
-                Bytes32(U256(2).to_be_bytes32()): U256(11),
-            }
-        },
-        {code_hash: code},
+        BlockDiff(
+            account_changes={ADDRESS_A: post_account_a, ADDRESS_B: None},
+            storage_changes={
+                ADDRESS_A: {
+                    Bytes32(U256(1).to_be_bytes32()): U256(0),
+                    Bytes32(U256(2).to_be_bytes32()): U256(11),
+                }
+            },
+            code_changes={code_hash: code},
+        )
     )
 
     post_state = MptState()
@@ -278,7 +280,9 @@ def test_deleting_the_only_account_empties_the_tree() -> None:
     )
     set_storage(state, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
 
-    computed = state.compute_state_root({ADDRESS_A: None}, {}, {})
+    computed = state.compute_state_root(
+        BlockDiff(account_changes={ADDRESS_A: None})
+    )
 
     assert computed == EMPTY_TRIE_ROOT
 
@@ -309,7 +313,9 @@ def test_zero_write_matches_never_written() -> None:
     with_slot = fresh()
     set_storage(with_slot, ADDRESS_A, Bytes32(b"\x05" * 32), U256(9))
     zeroed_by_diff = with_slot.compute_state_root(
-        {}, {ADDRESS_A: {Bytes32(b"\x05" * 32): U256(0)}}, {}
+        BlockDiff(
+            storage_changes={ADDRESS_A: {Bytes32(b"\x05" * 32): U256(0)}}
+        )
     )
     assert zeroed_by_diff == state_root(fresh())
 

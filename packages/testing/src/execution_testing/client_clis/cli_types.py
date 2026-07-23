@@ -428,8 +428,8 @@ class LazyAlloc(Generic[TRaw]):
         """Validate the alloc."""
         raise NotImplementedError("validate method not implemented.")
 
-    def get(self) -> Alloc:
-        """Model validate the allocation and return it."""
+    def materialize(self) -> Alloc:
+        """Materialize the allocation, validating it on first access."""
         if self.alloc is None:
             self.alloc = self.validate()
         return self.alloc
@@ -437,6 +437,28 @@ class LazyAlloc(Generic[TRaw]):
     def state_root(self) -> Hash:
         """Return state root of the allocation."""
         return self._state_root
+
+    def serialize(self, **model_dump_config: Any) -> str:
+        """
+        Serialize the allocation to a JSON string.
+
+        The default materializes the ``Alloc`` and dumps it. Subclasses
+        backed by already-serialized data override this to return their
+        cache directly and skip the round trip through ``Alloc``.
+        """
+        return self.materialize().model_dump_json(**model_dump_config)
+
+    def serialize_to_file(
+        self, file_path: Path, **model_dump_config: Any
+    ) -> None:
+        """
+        Serialize the allocation to ``file_path`` as JSON.
+
+        Writes whatever :meth:`serialize` produces. ``LazyAllocFile``
+        overrides this with a byte-for-byte copy that avoids building
+        the JSON string at all.
+        """
+        file_path.write_text(self.serialize(**model_dump_config))
 
 
 JSONDict = Dict[str, Any]
@@ -453,6 +475,19 @@ class LazyAllocJson(LazyAlloc[JSONDict]):
         """Validate the alloc."""
         return Alloc.model_validate(self.raw)
 
+    def serialize(self, **model_dump_config: Any) -> str:
+        """
+        Dump the cached JSON dict without round-tripping through ``Alloc``.
+
+        Only ``indent`` applies; the dict is already-serialized data, so
+        pydantic options such as ``by_alias`` / ``exclude_none`` are moot.
+        """
+        return json.dumps(
+            self.raw,
+            ensure_ascii=True,
+            indent=model_dump_config.get("indent"),
+        )
+
 
 class LazyAllocStr(LazyAlloc[str]):
     """
@@ -464,6 +499,11 @@ class LazyAllocStr(LazyAlloc[str]):
     def validate(self) -> Alloc:
         """Validate the alloc."""
         return Alloc.model_validate_json(self.raw)
+
+    def serialize(self, **model_dump_config: Any) -> str:
+        """Return the cached JSON string verbatim (no re-serialization)."""
+        del model_dump_config  # raw already encodes its own formatting
+        return self.raw
 
 
 @dataclass(kw_only=True)
@@ -484,7 +524,7 @@ class LazyAllocFile(LazyAlloc[Path]):
     LazyAllocFile is dropped. That lets a chained next-block t8n call
     consume the alloc directly from disk (via ``--input.alloc=<path>`` for
     geth, or ``shutil.copyfile`` for filesystem t8ns) without round-tripping
-    through ``Alloc.get().model_dump_json()`` in Python.
+    through ``LazyAlloc.materialize().model_dump_json()`` in Python.
     """
 
     _keepalive: Optional[tempfile.TemporaryDirectory] = field(default=None)
@@ -514,6 +554,46 @@ class LazyAllocFile(LazyAlloc[Path]):
                     )
         return Alloc.model_validate(accumulated)
 
+    def serialize_to_file(
+        self, file_path: Path, **model_dump_config: Any
+    ) -> None:
+        """
+        Copy the backing file byte-for-byte, avoiding a parse/dump cycle.
+
+        If the backing temp dir was already cleaned up (e.g. a
+        chained-block t8n consumed it on the next block), fall back to
+        dumping the cached ``Alloc`` so debug output still captures the
+        input.
+        """
+        if Path(self.raw).exists():
+            shutil.copyfile(self.raw, file_path)
+        else:
+            super().serialize_to_file(file_path, **model_dump_config)
+
+
+@dataclass(kw_only=True)
+class MaterializedAlloc(LazyAlloc[None]):
+    """
+    Allocation already materialized in memory; ``get()`` is a no-op.
+
+    Used by in-process transition tools (EELS) whose ``Alloc`` never
+    exists in a serialized form — hence ``raw`` is ``None``. The
+    ``alloc`` field must be provided at construction, so ``get()``
+    always short-circuits and ``validate()`` is unreachable.
+    """
+
+    raw: None = None
+
+    def __post_init__(self) -> None:
+        """Require the materialized alloc at construction."""
+        assert self.alloc is not None, (
+            "MaterializedAlloc requires `alloc` at construction"
+        )
+
+    def validate(self) -> Alloc:
+        """Unreachable: ``alloc`` is always set at construction."""
+        raise AssertionError("unreachable: alloc is set at construction")
+
 
 @dataclass
 class TransitionToolInput:
@@ -534,16 +614,15 @@ class TransitionToolInput:
         For ``LazyAllocFile`` inputs whose backing file is still on disk
         (chained-block handoff: previous t8n call's temp dir is pinned via
         the keepalive field), the alloc is copied byte-for-byte rather than
-        round-tripped through ``Alloc.get().model_dump_json()``.
+        round-tripped through ``LazyAlloc.materialize().model_dump_json()``.
         """
         alloc_path = directory_path / "alloc.json"
-        if (
-            isinstance(self.alloc, LazyAllocFile)
-            and Path(self.alloc.raw).exists()
-        ):
-            shutil.copyfile(self.alloc.raw, alloc_path)
+        if isinstance(self.alloc, LazyAlloc):
+            self.alloc.serialize_to_file(alloc_path, **model_dump_config)
         else:
-            alloc_path.write_text(self._serialize_alloc(**model_dump_config))
+            alloc_path.write_text(
+                self.alloc.model_dump_json(**model_dump_config)
+            )
 
         env_contents = self.env.model_dump_json(**model_dump_config)
         txs_contents = (
@@ -570,13 +649,9 @@ class TransitionToolInput:
 
     def _serialize_alloc(self, **model_dump_config: Any) -> str:
         """Serialize ``self.alloc`` to a JSON string."""
-        if isinstance(self.alloc, Alloc):
-            return self.alloc.model_dump_json(**model_dump_config)
-        if isinstance(self.alloc, LazyAllocStr):
-            return self.alloc.raw
-        if isinstance(self.alloc, LazyAllocFile):
-            return self.alloc.get().model_dump_json(**model_dump_config)
-        raise Exception(f"Invalid alloc type: {type(self.alloc)}")
+        if isinstance(self.alloc, LazyAlloc):
+            return self.alloc.serialize(**model_dump_config)
+        return self.alloc.model_dump_json(**model_dump_config)
 
     def model_dump_json(
         self, *, exclude_alloc: bool = False, **model_dump_config: Any
@@ -623,7 +698,7 @@ class TransitionToolInput:
         elif isinstance(self.alloc, LazyAllocJson):
             alloc_contents = self.alloc.raw
         elif isinstance(self.alloc, LazyAllocFile):
-            alloc_contents = self.alloc.get().model_dump(
+            alloc_contents = self.alloc.materialize().model_dump(
                 mode=mode, **model_dump_config
             )
         else:
@@ -681,7 +756,7 @@ class TransitionToolOutput:
         different JSON file.
 
         `alloc.json` is referenced by path and parsed incrementally on
-        `.get()` via `LazyAllocFile`, so the full file is never held in
+        `.materialize()` via `LazyAllocFile`, so the full file is never held in
         memory alongside the validated `Alloc`.
         """
         result_data = (directory_path / "result.json").read_text()

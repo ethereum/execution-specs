@@ -31,7 +31,7 @@ This provider makes two deliberate simplifications:
 """  # noqa: E501
 
 from dataclasses import dataclass, field
-from typing import AbstractSet, Callable, Dict, Mapping, Optional, final
+from typing import Callable, Dict, Mapping, Optional, final
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U32, U64, U256, Uint
@@ -162,19 +162,13 @@ class State:
         """
         return address in self._storage
 
-    def compute_state_root(
-        self,
-        account_changes: Dict[Address, Optional[Account]],
-        storage_changes: Dict[Address, Dict[Bytes32, U256]],
-        code_changes: Dict[Hash32, Bytes],
-        storage_clears: AbstractSet[Address] = frozenset(),
-    ) -> Root:
+    def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
-        Compute the state root after applying changes to the pre-state.
+        Compute the state root after applying `block_diff` to the
+        pre-state. The pre-state itself is not modified.
 
-        The changes are applied to flat copies; the provider itself
-        is not modified. ``code_changes`` is needed here, unlike in
-        the Merkle Patricia Trie: code chunk leaves commit the code
+        The diff's ``code_changes`` are needed here, unlike in the
+        Merkle Patricia Trie: code chunk leaves commit the code
         itself, not just its hash, and newly deployed code is not yet
         in the code store when the root is computed.
 
@@ -187,17 +181,17 @@ class State:
         storages = {
             address: dict(slots)
             for address, slots in self._storage.items()
-            if address not in storage_clears
+            if address not in block_diff.storage_clears
         }
 
-        for address, account in account_changes.items():
+        for address, account in block_diff.account_changes.items():
             if account is None:
                 accounts.pop(address, None)
                 storages.pop(address, None)
             else:
                 accounts[address] = account
 
-        for address, slots in storage_changes.items():
+        for address, slots in block_diff.storage_changes.items():
             slot_values = storages.setdefault(address, {})
             for key, value in slots.items():
                 if value == U256(0):
@@ -206,8 +200,8 @@ class State:
                     slot_values[key] = value
 
         def get_code(code_hash: Hash32) -> Bytes:
-            if code_hash in code_changes:
-                return code_changes[code_hash]
+            if code_hash in block_diff.code_changes:
+                return block_diff.code_changes[code_hash]
             return self.get_code(code_hash)
 
         return binary_tree_root(embed_flat_state(accounts, storages, get_code))
@@ -300,43 +294,4 @@ def state_root(state: State) -> Root:
     """
     Compute the state root of the current state.
     """
-    return state.compute_state_root({}, {}, {})
-
-
-def copy_state(state: State) -> State:
-    """
-    Create a copy of `state` with containers independent of the
-    original's.
-    """
-    return State(
-        _accounts=dict(state._accounts),
-        _storage={
-            address: dict(slots) for address, slots in state._storage.items()
-        },
-        _code_store=dict(state._code_store),
-    )
-
-
-def restore_state(state: State, saved: State) -> None:
-    """
-    Restore `state` in place from a copy taken with [`copy_state`].
-
-    [`copy_state`]: ref:ethereum.state_pbt.copy_state
-    """
-    state._accounts = saved._accounts
-    state._storage = saved._storage
-    state._code_store = saved._code_store
-
-
-def all_accounts(state: State) -> Dict[Address, Account]:
-    """
-    Return every existing account in `state`, keyed by address.
-    """
-    return dict(state._accounts)
-
-
-def account_storage(state: State, address: Address) -> Dict[Bytes32, U256]:
-    """
-    Return the non-zero storage slots of the account at `address`.
-    """
-    return dict(state._storage.get(address, {}))
+    return state.compute_state_root(BlockDiff())

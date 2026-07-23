@@ -12,7 +12,7 @@ commitment schemes, are separate implementations of [`PreState`].
 """
 
 from dataclasses import dataclass, field
-from typing import AbstractSet, Dict, Optional, final
+from typing import Dict, Optional, final
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256
@@ -87,41 +87,28 @@ class State:
         """
         return address in self._storage_tries
 
-    def compute_state_root(
-        self,
-        account_changes: Dict[Address, Optional[Account]],
-        storage_changes: Dict[Address, Dict[Bytes32, U256]],
-        code_changes: Dict[Hash32, Bytes],
-        storage_clears: AbstractSet[Address] = frozenset(),
-    ) -> Root:
+    def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
-        Compute the state root after applying changes to the pre-state.
+        Compute the state root after applying `block_diff` to the
+        pre-state. The pre-state itself is not modified.
 
-        ``code_changes`` is unused: the Merkle Patricia Trie commits
-        to accounts' code hashes, never to code contents, so account
-        diffs alone determine the root. The parameter exists so every
-        [`PreState`] provider is called uniformly.
-
-        ``storage_clears`` lists addresses whose pre-existing storage
-        tries are dropped before ``storage_changes`` is applied, so any
-        post-wipe writes begin from empty storage.
+        The diff's ``code_changes`` play no part: the Merkle Patricia
+        Trie commits to accounts' code hashes, never to code
+        contents, so account diffs alone determine the root.
 
         Return the new state root.
-
-        [`PreState`]: ref:ethereum.state.PreState
         """
-        del code_changes  # Not part of the MPT commitment.
         main_trie = copy_trie(self._main_trie)
         storage_tries = {
             k: copy_trie(v)
             for k, v in self._storage_tries.items()
-            if k not in storage_clears
+            if k not in block_diff.storage_clears
         }
 
-        for address, account in account_changes.items():
+        for address, account in block_diff.account_changes.items():
             trie_set(main_trie, address, account)
 
-        for address, slots in storage_changes.items():
+        for address, slots in block_diff.storage_changes.items():
             trie = storage_tries.get(address)
             if trie is None:
                 trie = Trie(secured=True, default=U256(0))
@@ -231,52 +218,4 @@ def state_root(state: State) -> Root:
     """
     Compute the state root of the current state.
     """
-    root_value = state.compute_state_root({}, {}, {})
-    return root_value
-
-
-def copy_state(state: State) -> State:
-    """
-    Create a copy of `state` with containers independent of the
-    original's.
-    """
-    return State(
-        _main_trie=copy_trie(state._main_trie),
-        _storage_tries={
-            address: copy_trie(trie)
-            for address, trie in state._storage_tries.items()
-        },
-        _code_store=dict(state._code_store),
-    )
-
-
-def restore_state(state: State, saved: State) -> None:
-    """
-    Restore `state` in place from a copy taken with [`copy_state`].
-
-    [`copy_state`]: ref:ethereum.state_mpt.copy_state
-    """
-    state._main_trie = saved._main_trie
-    state._storage_tries = saved._storage_tries
-    state._code_store = saved._code_store
-
-
-def all_accounts(state: State) -> Dict[Address, Account]:
-    """
-    Return every existing account in `state`, keyed by address.
-    """
-    return {
-        address: account
-        for address, account in state._main_trie._data.items()
-        if account is not None
-    }
-
-
-def account_storage(state: State, address: Address) -> Dict[Bytes32, U256]:
-    """
-    Return the non-zero storage slots of the account at `address`.
-    """
-    trie = state._storage_tries.get(address)
-    if trie is None:
-        return {}
-    return dict(trie._data)
+    return state.compute_state_root(BlockDiff())
