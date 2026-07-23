@@ -207,9 +207,9 @@ class T8N(Load):
         self.logger = get_stream_logger("T8N")
         super().__init__(fork)
 
-        self.chain_id = U64(int(t8n_data.chain_id))
+        self.chain_id = U64(t8n_data.chain_id)
         self.state_test = t8n_data.state_test
-        self.state_reward = int(t8n_data.reward)
+        self.state_reward = t8n_data.reward
         self.exception_mapper = exception_mapper
 
         from execution_testing.client_clis.cli_types import LazyAlloc
@@ -263,9 +263,7 @@ class T8N(Load):
         TODO: Replace with ``self.fork.decode_transaction(tx.rlp())``
         once two pieces land in a follow-up PR:
 
-        1. Pre-Berlin forks gain a ``decode_transaction`` (or T8N
-           branches on ``has_decode_transaction`` and falls back to
-           ``rlp.decode_to(LegacyTransaction, ...)``). Pre-Berlin forks
+        1. Pre-Berlin forks gain a ``decode_transaction``. Pre-Berlin forks
            predate typed txs and currently expose no decode entry
            point — block decoding produces the legacy class directly.
         2. The testing exception_mapper learns to surface
