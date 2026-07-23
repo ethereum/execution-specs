@@ -136,11 +136,6 @@ class ForkLoad:
         return self._module("transactions").signing_hash_155
 
     @property
-    def has_signing_hash_155(self) -> bool:
-        """Check if the fork has a `signing_hash_155` function."""
-        return hasattr(self._module("transactions"), "signing_hash_155")
-
-    @property
     def build_block_access_list(self) -> Any:
         """build_block_access_list function of the fork."""
         return self._module("block_access_lists").build_block_access_list
@@ -261,14 +256,6 @@ class ForkLoad:
         return self._module("transactions").LegacyTransaction
 
     @property
-    def has_legacy_transaction(self) -> bool:
-        """
-        Return `True` if the fork has a `LegacyTransaction` class, or `False`
-        otherwise.
-        """
-        return hasattr(self._module("transactions"), "LegacyTransaction")
-
-    @property
     def Access(self) -> Any:
         """Access class of the fork."""
         return self._module("transactions").Access
@@ -316,11 +303,6 @@ class ForkLoad:
     def decode_transaction(self) -> Any:
         """decode_transaction function of the fork."""
         return self._module("transactions").decode_transaction
-
-    @property
-    def has_decode_transaction(self) -> bool:
-        """Check if this fork has a `decode_transaction`."""
-        return hasattr(self._module("transactions"), "decode_transaction")
 
     @property
     def state_provider(self) -> Any:
