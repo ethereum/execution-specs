@@ -3,7 +3,7 @@ State Tracking for Block Execution.
 
 Track state changes on top of a read-only ``PreState``.  At block end,
 accumulated diffs feed into
-``PreState.compute_state_root_and_trie_changes()``.
+``PreState.compute_state_root()``.
 
 .. contents:: Table of Contents
     :backlinks: none

@@ -28,12 +28,8 @@ from ethereum.exceptions import (
     NonceMismatchError,
 )
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import (
-    EMPTY_CODE_HASH,
-    Address,
-    State,
-    apply_changes_to_state,
-)
+from ethereum.state import EMPTY_CODE_HASH, Address
+from ethereum.state_mpt import State, apply_changes_to_state
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt
@@ -189,9 +185,10 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         ommers=block.ommers,
     )
     block_diff = extract_block_diff(block_state)
-    block_state_root, _ = chain.state.compute_state_root_and_trie_changes(
+    block_state_root = chain.state.compute_state_root(
         block_diff.account_changes,
         block_diff.storage_changes,
+        block_diff.code_changes,
         block_diff.storage_clears,
     )
     transactions_root = root(block_output.transactions_trie)
@@ -712,12 +709,11 @@ def process_transaction(
 
     block_state = block_env.state
     block_diff = extract_block_diff(block_state)
-    intermediate_state_root, _ = (
-        block_state.pre_state.compute_state_root_and_trie_changes(
-            block_diff.account_changes,
-            block_diff.storage_changes,
-            block_diff.storage_clears,
-        )
+    intermediate_state_root = block_state.pre_state.compute_state_root(
+        block_diff.account_changes,
+        block_diff.storage_changes,
+        block_diff.code_changes,
+        block_diff.storage_clears,
     )
 
     receipt = make_receipt(
