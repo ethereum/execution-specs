@@ -88,7 +88,7 @@ def monkeypatch_path_for_entry_points(
         ),
     ],
 )
-def test_calculate_state_root(
+def test_calc_state_root(
     alloc: Dict,
     expected_hash: bytes,
 ) -> None:

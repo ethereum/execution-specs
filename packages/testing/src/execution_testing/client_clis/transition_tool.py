@@ -179,7 +179,7 @@ class OutputCache:
         self.key = None
 
 
-def spec_calculate_state_root(*, alloc: Alloc, fork: Fork) -> Hash:
+def spec_calc_state_root(*, alloc: Alloc, fork: Fork) -> Hash:
     """
     Compute the state root of `alloc` through the spec state provider
     of `fork` (e.g. the EIP-8297 binary tree), falling back to the
