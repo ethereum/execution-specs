@@ -59,7 +59,6 @@ def _fixture_alloc() -> Alloc:
     )
 
 
-
 def _state_from_alloc(alloc: Alloc) -> spec_state_mpt.State:
     """Build a spec `State` mirroring `alloc` for parity comparisons."""
     state = spec_state_mpt.State()
