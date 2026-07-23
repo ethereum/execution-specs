@@ -137,8 +137,7 @@ class GasCosts:
     # Transactions
     TX_BASE: Final[Uint] = Uint(12000)
     TX_CREATE: Final[Uint] = Uint(32000)
-    TX_VALUE_COST: Final[Uint] = Uint(4244)
-    TRANSFER_LOG_COST: Final[Uint] = Uint(1756)
+    TX_VALUE_COST: Final[Uint] = Uint(6000)
     TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
     TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS
