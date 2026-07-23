@@ -125,6 +125,7 @@ def post(
     }
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "block_base_fee_per_gas",
     [1, 7, 15, 16, 17, 100, 1000, 10000],
@@ -220,6 +221,7 @@ def get_boundary_scenarios(fork: Fork) -> Iterator[Any]:
         yield pytest.param(excess_blobs, delta)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize_by_fork(
     "parent_excess_blobs,block_base_fee_per_gas_delta",
     get_boundary_scenarios,

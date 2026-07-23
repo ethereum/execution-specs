@@ -338,6 +338,7 @@ def test_create_oog_reservoir_inflation_detection(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "oog_step",
     [

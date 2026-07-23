@@ -524,6 +524,7 @@ def test_creation_tx_state_check_exceeded(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_no_state_ops(
     blockchain_test: BlockchainTestFiller,
@@ -554,6 +555,7 @@ def test_block_gas_used_no_state_ops(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_with_state_ops(
     blockchain_test: BlockchainTestFiller,
@@ -596,6 +598,7 @@ def test_block_gas_used_with_state_ops(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
     blockchain_test: BlockchainTestFiller,
@@ -712,6 +715,7 @@ def test_create_tx_reservoir(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "failure_mode",
     [
@@ -776,6 +780,7 @@ def test_top_level_failure_refunds_execution_state_gas(
     state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "failure_mode",
     [
@@ -840,6 +845,7 @@ def test_top_level_failure_zeros_block_state_gas(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_creation_tx_failure_preserves_intrinsic_state_gas(
     blockchain_test: BlockchainTestFiller,
@@ -887,6 +893,7 @@ def test_creation_tx_failure_preserves_intrinsic_state_gas(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_subcall_failure_does_not_zero_top_level_state_gas(
     blockchain_test: BlockchainTestFiller,
@@ -934,6 +941,7 @@ def test_subcall_failure_does_not_zero_top_level_state_gas(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "spill_source",
     [
@@ -1106,6 +1114,7 @@ def _build_create_chain(
     return top, frame_codes
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "frame_bodies",
     [
@@ -1451,6 +1460,7 @@ def test_nested_state_gas_refund_consumed_at_depth(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_top_level_opcode_oog_before_frame_end_does_not_refund_state_gas(
     state_test: StateTestFiller,
@@ -1494,6 +1504,7 @@ def test_top_level_opcode_oog_before_frame_end_does_not_refund_state_gas(
     state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_access_list_entries",
     [
@@ -1549,6 +1560,7 @@ def test_access_list_gas_is_regular_not_state(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_access_list_warm_savings_stay_regular(
     blockchain_test: BlockchainTestFiller,
@@ -1597,6 +1609,7 @@ def test_access_list_warm_savings_stay_regular(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
     state_test: StateTestFiller,
@@ -1705,6 +1718,7 @@ def test_subcall_revert_does_not_leak_grandchild_storage_clear_credit(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "intermediate_depth",
     [
@@ -1810,6 +1824,7 @@ def test_revert_discards_descendant_storage_clear_credit_through_depth(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "spill_mode",
     [

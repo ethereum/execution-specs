@@ -272,6 +272,7 @@ def post(  # noqa: D103
     }
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize_by_fork(
     "parent_blobs",
     lambda fork: range(0, fork.max_blobs_per_block() + 1),
@@ -336,6 +337,7 @@ def generate_blob_gas_cost_increases_tests(
     return generator_function
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize_by_fork(
     "parent_excess_blobs",
     generate_blob_gas_cost_increases_tests(-1),
@@ -372,6 +374,7 @@ def test_correct_increasing_blob_gas_costs(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize_by_fork(
     "parent_excess_blobs",
     generate_blob_gas_cost_increases_tests(0),

@@ -135,6 +135,7 @@ gas_measured_opcodes = [
 ]
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("Berlin")  # these tests fill for fork >= Berlin
 @pytest.mark.parametrize(
     "opcode,measured_code,extra_stack_items",

@@ -26,6 +26,7 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2929.md"
 REFERENCE_SPEC_VERSION = "0e11417265a623adb680c527b15d0cb6701b870b"
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("Berlin")
 def test_storage_warm_status_reverted_by_subcall(
     state_test: StateTestFiller,
@@ -95,6 +96,7 @@ def test_storage_warm_status_reverted_by_subcall(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("Berlin")
 def test_account_warm_status_reverted_by_subcall(
     state_test: StateTestFiller,

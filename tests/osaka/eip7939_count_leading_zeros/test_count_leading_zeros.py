@@ -124,6 +124,7 @@ def test_clz_opcode_scenarios(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("Osaka")
 def test_clz_gas_cost(
     state_test: StateTestFiller, pre: Alloc, fork: Fork

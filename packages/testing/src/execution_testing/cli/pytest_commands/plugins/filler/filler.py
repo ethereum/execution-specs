@@ -1648,6 +1648,18 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
 
+                if getattr(request.config, "_gas_taint_enabled", False):
+                    from .gas_taint import collect_taint_hits
+
+                    hits = collect_taint_hits(self, request.node)
+                    if hits:
+                        request.config._gas_taint_results[  # type: ignore[attr-defined]
+                            request.node.nodeid
+                        ] = hits
+                        request.node.user_properties.append(
+                            ("gas_taint_hits", hits)
+                        )
+
                 # Get the filling session from config
                 session: FillingSession = request.config.filling_session  # type: ignore
                 assert isinstance(session, FillingSession)

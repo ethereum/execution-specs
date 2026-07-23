@@ -24,6 +24,7 @@ REFERENCE_SPEC_VERSION = "c9db53a936c5c9cbe2db32ba0d1b86c4c6e73534"
 pytestmark = pytest.mark.valid_from("Berlin")
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "account_warm,storage_key_warm",
     [
@@ -266,6 +267,7 @@ def test_transaction_intrinsic_gas_cost(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.gas_check
 def test_repeated_address_acl(
     state_test: StateTestFiller,
     pre: Alloc,

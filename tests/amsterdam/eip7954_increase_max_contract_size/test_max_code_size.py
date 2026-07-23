@@ -278,6 +278,7 @@ def test_max_code_size_self_opcodes(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "create_opcode",
     [

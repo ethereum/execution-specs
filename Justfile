@@ -221,6 +221,7 @@ test-tests *args:
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/test-tests/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
+        --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py \
         "$@" \
         src
 
@@ -232,6 +233,7 @@ test-tests-pypy *args:
         -n auto --maxprocesses 6 \
         --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
+        --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py \
         "$@" \
         src
 
@@ -244,6 +246,31 @@ test-tests-bench *args:
         --basetemp="{{ output_dir }}/test-tests-bench/tmp" \
         "$@" \
         packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py
+
+# Scan tests for gas assertions and apply @pytest.mark.gas_check to them
+[group('gas check')]
+mark_gas_tests *args:
+    @mkdir -p "{{ output_dir }}/mark-gas-tests/tmp"
+    uv run fill \
+        --detect-gas-checks \
+        --gas-check-report="{{ output_dir }}/mark-gas-tests/gas_check_report.json" \
+        -m "not slow" \
+        -n {{ xdist_workers }} --dist=loadgroup \
+        --clean \
+        --skip-index \
+        --output="{{ output_dir }}/mark-gas-tests/fixtures" \
+        "$@"
+    uv run python scripts/mark_tests.py \
+        "{{ output_dir }}/mark-gas-tests/gas_check_report.json"
+
+# Run the gas_taint plugin end-to-end (pytester) tests
+[group('gas check')]
+mark_gas_tests_test *args:
+    @mkdir -p "{{ output_dir }}/mark-gas-tests-test/tmp"
+    uv run pytest \
+        --basetemp="{{ output_dir }}/mark-gas-tests-test/tmp" \
+        "$@" \
+        packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py
 
 # Run CI release script integration tests
 [group('unit tests')]
