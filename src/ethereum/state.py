@@ -63,13 +63,17 @@ class BlockDiff:
     State changes produced by executing a block.
     """
 
-    account_changes: Dict[Address, Optional[Account]]
+    account_changes: Dict[Address, Optional[Account]] = field(
+        default_factory=dict
+    )
     """Per-address account diffs produced by execution."""
 
-    storage_changes: Dict[Address, Dict[Bytes32, U256]]
+    storage_changes: Dict[Address, Dict[Bytes32, U256]] = field(
+        default_factory=dict
+    )
     """Per-address storage diffs produced by execution."""
 
-    code_changes: Dict[Hash32, Bytes]
+    code_changes: Dict[Hash32, Bytes] = field(default_factory=dict)
     """New bytecodes (keyed by code hash) introduced by execution."""
 
     storage_clears: Set[Address] = field(default_factory=set)

@@ -218,7 +218,4 @@ def state_root(state: State) -> Root:
     """
     Compute the state root of the current state.
     """
-    empty_diff = BlockDiff(
-        account_changes={}, storage_changes={}, code_changes={}
-    )
-    return state.compute_state_root(empty_diff)
+    return state.compute_state_root(BlockDiff())

@@ -59,10 +59,6 @@ def _fixture_alloc() -> Alloc:
     )
 
 
-_EMPTY_DIFF = spec_state.BlockDiff(
-    account_changes={}, storage_changes={}, code_changes={}
-)
-
 
 def _state_from_alloc(alloc: Alloc) -> spec_state_mpt.State:
     """Build a spec `State` mirroring `alloc` for parity comparisons."""
@@ -148,8 +144,8 @@ def test_state_root_parity_against_spec_state() -> None:
     alloc = _fixture_alloc()
     state = _state_from_alloc(alloc)
 
-    alloc_root = alloc.compute_state_root(_EMPTY_DIFF)
-    spec_root = state.compute_state_root(_EMPTY_DIFF)
+    alloc_root = alloc.compute_state_root(spec_state.BlockDiff())
+    spec_root = state.compute_state_root(spec_state.BlockDiff())
     assert alloc_root == spec_root
 
     # Same parity under non-trivial change sets.
@@ -272,8 +268,10 @@ def test_apply_diff_round_trip_matches_independent_post_state() -> None:
     alloc_pre.apply_diff(diff)
 
     # State roots should match.
-    pre_root = alloc_pre.compute_state_root(_EMPTY_DIFF)
-    expected_root = alloc_post_expected.compute_state_root(_EMPTY_DIFF)
+    pre_root = alloc_pre.compute_state_root(spec_state.BlockDiff())
+    expected_root = alloc_post_expected.compute_state_root(
+        spec_state.BlockDiff()
+    )
     assert pre_root == expected_root
 
     # Cache must be updated additively with the new code.
