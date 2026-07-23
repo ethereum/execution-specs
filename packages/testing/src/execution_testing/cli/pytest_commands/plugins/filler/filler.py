@@ -2050,8 +2050,6 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     # Log immediately when hook is entered (before any early returns)
     _log_timing(f"pytest_sessionfinish ENTERED (worker={is_worker})")
 
-    del exitstatus
-
     # Save pre-allocation groups after phase 1
     fixture_output: FixtureOutput = session.config.fixture_output  # type: ignore[attr-defined]
     session_instance: FillingSession = session.config.filling_session  # type: ignore[attr-defined]
@@ -2151,9 +2149,14 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             file.unlink()
         _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
 
-    if not session.config.getoption("optimistic_pre_alloc_grouping_disabled"):
-        # Loudly fail the fill if pre-alloc group packing changed any Engine X
-        # test's execution (raises on drift, like a pre-alloc collision).
+    # Loudly fail the fill if pre-alloc group packing changed any Engine X
+    # test's execution (raises on drift, like a pre-alloc collision). Only
+    # checked on an otherwise clean session: raising from this hook aborts
+    # the terminal FAILURES/short-summary sections, so it would hide any
+    # test failures (which already fail the fill and must surface first).
+    if exitstatus == pytest.ExitCode.OK and not session.config.getoption(
+        "optimistic_pre_alloc_grouping_disabled"
+    ):
         _log_timing("verify_engine_x_execution: starting...")
         t0 = time.time()
         engine_x_check = verify_engine_x_execution(fixture_output.directory)
