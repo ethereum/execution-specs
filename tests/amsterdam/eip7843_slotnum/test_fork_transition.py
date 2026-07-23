@@ -6,6 +6,10 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BlockException,
+    EIPChecklist,
+    EngineAPIError,
+    Header,
     Op,
     Transaction,
 )
@@ -15,7 +19,12 @@ from .spec import ref_spec_7843
 REFERENCE_SPEC_GIT_PATH = ref_spec_7843.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7843.version
 
+FORK_TIMESTAMP = 15_000
 
+
+@EIPChecklist.Opcode.Test.ForkTransition.Invalid()
+@EIPChecklist.Opcode.Test.ForkTransition.At()
+@EIPChecklist.BlockHeaderField.Test.ForkTransition.Initial()
 @pytest.mark.valid_at_transition_to("EIP7843")
 def test_slotnum_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
@@ -51,9 +60,9 @@ def test_slotnum_at_fork_transition(
             txs=[Transaction(sender=sender, to=contract)],
         )
         for ts, slot in [
-            (14_999, None),
-            (15_000, at_fork_slot),
-            (15_001, post_fork_slot),
+            (FORK_TIMESTAMP - 1, None),
+            (FORK_TIMESTAMP, at_fork_slot),
+            (FORK_TIMESTAMP + 1, post_fork_slot),
         ]
     ]
     post = {
@@ -67,3 +76,107 @@ def test_slotnum_at_fork_transition(
     }
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@EIPChecklist.BlockHeaderField.Test.ForkTransition.Before()
+@pytest.mark.valid_at_transition_to("EIP7843")
+@pytest.mark.exception_test
+def test_invalid_pre_fork_block_with_slot_number(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a pre-fork block whose header carries the `slot_number` field.
+
+    The header field must not be present before the fork activates: the
+    extra field changes the header shape, so the block is malformed and
+    the engine payload carries a parameter unknown to its version.
+    """
+    sender = pre.fund_eoa()
+    receiver = pre.fund_eoa(amount=0)
+
+    tx = Transaction(sender=sender, to=receiver, value=100)
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                timestamp=FORK_TIMESTAMP - 1,
+                txs=[tx],
+                rlp_modifier=Header(slot_number=0),
+                exception=BlockException.INCORRECT_BLOCK_FORMAT,
+                engine_api_error_code=EngineAPIError.InvalidParams,
+            ),
+        ],
+    )
+
+
+@EIPChecklist.BlockHeaderField.Test.ForkTransition.Before()
+@pytest.mark.valid_at_transition_to("EIP7843")
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
+def test_invalid_engine_payload_slot_number_before_fork(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a pre-fork `newPayload` that carries a `slotNumber` field.
+
+    The block and its header are otherwise valid, so the spurious
+    payload field is the only defect: clients that silently drop
+    unknown payload fields would answer VALID and must fail this test.
+    """
+    sender = pre.fund_eoa()
+    receiver = pre.fund_eoa(amount=0)
+
+    tx = Transaction(sender=sender, to=receiver, value=100)
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                timestamp=FORK_TIMESTAMP - 1,
+                txs=[tx],
+                engine_new_payload_slot_number=0,
+                exception=BlockException.INCORRECT_BLOCK_FORMAT,
+                engine_api_error_code=EngineAPIError.InvalidParams,
+            ),
+        ],
+    )
+
+
+@EIPChecklist.BlockHeaderField.Test.ForkTransition.After()
+@pytest.mark.valid_at_transition_to("EIP7843")
+@pytest.mark.exception_test
+def test_invalid_post_fork_block_without_slot_number(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject an activation block whose header lacks the `slot_number`
+    field.
+
+    From the fork activation onward the field is mandatory: a header
+    without it is malformed and the engine payload is missing a
+    parameter required by its version.
+    """
+    sender = pre.fund_eoa()
+    receiver = pre.fund_eoa(amount=0)
+
+    tx = Transaction(sender=sender, to=receiver, value=100)
+
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                timestamp=FORK_TIMESTAMP,
+                txs=[tx],
+                rlp_modifier=Header(slot_number=Header.REMOVE_FIELD),
+                exception=BlockException.INCORRECT_BLOCK_FORMAT,
+                engine_api_error_code=EngineAPIError.InvalidParams,
+            ),
+        ],
+    )
