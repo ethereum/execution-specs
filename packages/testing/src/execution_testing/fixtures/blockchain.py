@@ -380,7 +380,11 @@ class FixtureHeader(CamelModel):
                 if fork.header_bal_hash_required()
                 else None
             ),
-            "slot_number": 0 if fork.header_slot_number_required() else None,
+            "slot_number": (
+                (int(env.slot_number) if env.slot_number is not None else 0)
+                if fork.header_slot_number_required()
+                else None
+            ),
             "fork": fork,
         }
         return cls(**environment_values, **extras)
@@ -460,6 +464,7 @@ class FixtureExecutionPayloadModifier(CamelModel):
     )
 
     block_access_list: Removable | Bytes | None = None
+    slot_number: Removable | HexNumber | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """Sentinel to specify that a payload field should be removed."""
