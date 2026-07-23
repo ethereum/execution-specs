@@ -1,6 +1,7 @@
 """Deterministic benchmark sender and receiver accounts."""
 
 import itertools
+from collections.abc import Hashable
 from typing import Generator
 
 from execution_testing import (
@@ -13,7 +14,7 @@ from execution_testing import (
     keccak256,
 )
 
-from tests.benchmark.helper.account_creator import (
+from tests.benchmark.helper.account_verification import (
     AccountExpectation,
     register_target_range,
 )
@@ -98,7 +99,11 @@ def expected_delegation() -> AccountExpectation:
 
 
 def register_bittrex_targets(
-    pre: Alloc, count: int, *, full: bool = False
+    pre: Alloc,
+    count: int,
+    *,
+    verified_accounts: dict[Hashable, int],
+    full: bool = False,
 ) -> None:
     """Register the first *count* Bittrex CREATE contract receivers."""
     register_target_range(
@@ -112,13 +117,18 @@ def register_bittrex_targets(
             )
             for i in range(start, stop)
         ),
+        verified_accounts=verified_accounts,
         label="diff_to_contract",
         full=full,
     )
 
 
 def register_delegate_targets(
-    pre: Alloc, count: int, *, full: bool = False
+    pre: Alloc,
+    count: int,
+    *,
+    verified_accounts: dict[Hashable, int],
+    full: bool = False,
 ) -> None:
     """Register the first *count* delegated authorities (7702 designator)."""
     register_target_range(
@@ -129,6 +139,7 @@ def register_delegate_targets(
         addresses=lambda start, stop: (
             Address(EOA(key=DELEGATE_BASE_KEY + i)) for i in range(start, stop)
         ),
+        verified_accounts=verified_accounts,
         label="delegate_authority",
         full=full,
     )

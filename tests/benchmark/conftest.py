@@ -1,5 +1,6 @@
 """Pytest configuration for benchmark tests."""
 
+from collections.abc import Hashable
 from pathlib import Path
 from typing import Any
 
@@ -90,3 +91,9 @@ def verify_full_accounts(request: pytest.FixtureRequest) -> bool:
     Whether predeploy verification should cover every target in a range.
     """
     return bool(getattr(request.config.option, "verify_full_accounts", False))
+
+
+@pytest.fixture(scope="session")
+def verified_accounts() -> dict[Hashable, int]:
+    """Session high-water-mark per target family, so each is verified once."""
+    return {}

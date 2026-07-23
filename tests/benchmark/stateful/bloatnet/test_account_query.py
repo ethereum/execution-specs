@@ -163,6 +163,7 @@ def test_account_access(
     overhead_baseline: bool,
     cache_strategy: CacheStrategy,
     verify_full_accounts: bool,
+    verified_accounts: dict,
 ) -> None:
     """Benchmark account access with caching strategies."""
     account_creator = AccountCreator(account_mode)
@@ -319,7 +320,11 @@ def test_account_access(
             int.from_bytes(bytes(tx.data)[32:64], "big") for tx in attack_txs
         )
         account_creator.register_targets(
-            pre, count, full=verify_full_accounts, label=account_mode.name
+            pre,
+            count,
+            verified_accounts=verified_accounts,
+            full=verify_full_accounts,
+            label=account_mode.name,
         )
 
     if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:

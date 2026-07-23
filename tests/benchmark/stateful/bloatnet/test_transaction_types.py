@@ -55,6 +55,7 @@ def test_ether_transfers_onchain_receivers(
     fork: Fork,
     gas_benchmark_value: int,
     verify_full_accounts: bool,
+    verified_accounts: dict,
 ) -> None:
     """Benchmark ether transfers across different receiver account types."""
     senders = yield_distinct_sender()
@@ -74,6 +75,7 @@ def test_ether_transfers_onchain_receivers(
             register_targets = partial(
                 creator.register_targets,
                 pre,
+                verified_accounts=verified_accounts,
                 full=verify_full_accounts,
                 label=case_id,
             )
@@ -84,6 +86,7 @@ def test_ether_transfers_onchain_receivers(
             register_targets = partial(
                 creator.register_targets,
                 pre,
+                verified_accounts=verified_accounts,
                 full=verify_full_accounts,
                 label=case_id,
             )
@@ -102,7 +105,10 @@ def test_ether_transfers_onchain_receivers(
             # Bittrex CREATE contracts: address does not bind code, so only
             # presence (nonce>=1) is checked.
             register_targets = partial(
-                register_bittrex_targets, pre, full=verify_full_accounts
+                register_bittrex_targets,
+                pre,
+                verified_accounts=verified_accounts,
+                full=verify_full_accounts,
             )
         case "diff_to_unique_code_jumpdest_contract":
             creator = AccountCreator(AccountMode.EXISTING_CONTRACT_JUMPDEST)
@@ -111,6 +117,7 @@ def test_ether_transfers_onchain_receivers(
             register_targets = partial(
                 creator.register_targets,
                 pre,
+                verified_accounts=verified_accounts,
                 full=verify_full_accounts,
                 label=case_id,
             )
@@ -120,6 +127,7 @@ def test_ether_transfers_onchain_receivers(
             register_targets = partial(
                 creator.register_targets,
                 pre,
+                verified_accounts=verified_accounts,
                 full=verify_full_accounts,
                 label=case_id,
             )
@@ -129,6 +137,7 @@ def test_ether_transfers_onchain_receivers(
             register_targets = partial(
                 creator.register_targets,
                 pre,
+                verified_accounts=verified_accounts,
                 full=verify_full_accounts,
                 label=case_id,
             )
@@ -138,6 +147,7 @@ def test_ether_transfers_onchain_receivers(
             register_targets = partial(
                 creator.register_targets,
                 pre,
+                verified_accounts=verified_accounts,
                 full=verify_full_accounts,
                 label=case_id,
             )
@@ -145,7 +155,10 @@ def test_ether_transfers_onchain_receivers(
             receivers = yield_distinct_delegate_receiver()
             recipient_type = RecipientType.DELEGATION_7702
             register_targets = partial(
-                register_delegate_targets, pre, full=verify_full_accounts
+                register_delegate_targets,
+                pre,
+                verified_accounts=verified_accounts,
+                full=verify_full_accounts,
             )
         case _:
             raise ValueError(f"Unknown case: {case_id}")
