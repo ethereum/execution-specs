@@ -25,6 +25,8 @@ REFERENCE_SPEC_VERSION = ref_spec_8024.version
 pytestmark = pytest.mark.valid_from("EIP8024")
 
 
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Odd()
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Even()
 @pytest.mark.parametrize(
     "n,m",
     [
@@ -95,6 +97,8 @@ def test_exchange_basic(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.AllZeros()
+@EIPChecklist.Opcode.Test.DataPortion.MaxValue()
 @pytest.mark.parametrize(
     "immediate",
     [0, 1, 15, 78, 79, 80, 81, 128, 129, 200, 255],
@@ -209,6 +213,7 @@ def test_exchange_preserves_other_items(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.StackUnderflow()
 @pytest.mark.parametrize(
     "immediate",
     # Boundaries of both valid ranges (0x00, 0x51, 0x80, 0xFF)
@@ -341,17 +346,18 @@ def test_endofcode_behavior(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
 @pytest.mark.parametrize(
     "immediate",
     [
-        # valid immediates (0-81 / 128-255): skipped during JUMPDEST
-        # analysis, not reachable as jump targets
+        # valid immediates (0-81 / 128-255): none is 0x5b, so none is a
+        # jump target (JUMPDEST analysis is unchanged by EIP-8024)
         0x00,
         0x4F,  # 79
         0x50,  # 80 — POP (valid for EXCHANGE)
         0x51,  # 81 — MLOAD (valid for EXCHANGE)
-        # invalid immediates (82-127): not skipped during JUMPDEST
-        # analysis, only 0x5B (91) is a JUMPDEST
+        # forbidden immediates (82-127): of these only 0x5B (91) is a
+        # JUMPDEST byte and hence a valid jump target
         0x52,  # 82 — MSTORE (first invalid immediate)
         0x5A,  # 90 — GAS (invalid immediate)
         0x5B,  # 91 — JUMPDEST, only case where jump succeeds
@@ -372,8 +378,9 @@ def test_exchange_jump_to_immediate_byte(
     """
     Test jumping to EXCHANGE immediate byte position.
 
-    Valid immediates are skipped (can't jump to them).
-    Invalid immediates are not skipped - only 0x5B (JUMPDEST) allows jumping.
+    JUMPDEST analysis is unchanged by EIP-8024, so the immediate byte is
+    a valid jump target exactly when it is 0x5B, regardless of whether
+    it is a valid EXCHANGE immediate.
     """
     sender = pre.fund_eoa()
 
@@ -451,6 +458,7 @@ def test_exchange_with_push_sequence(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.ExceptionalAbort()
 @pytest.mark.parametrize(
     "immediate",
     range(82, 128),  # Forbidden range: 0x52-0x7F

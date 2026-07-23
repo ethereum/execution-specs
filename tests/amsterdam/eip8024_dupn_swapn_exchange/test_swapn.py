@@ -25,6 +25,9 @@ REFERENCE_SPEC_VERSION = ref_spec_8024.version
 pytestmark = pytest.mark.valid_from("EIP8024")
 
 
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Odd()
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Even()
+@EIPChecklist.Opcode.Test.StackComplexOperations.DataPortionVariables.Bottom()
 @pytest.mark.parametrize(
     "stack_index",
     [17, 18, 32, 64, 107, 108, 200, 235],
@@ -86,6 +89,8 @@ def test_swapn_basic(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.AllZeros()
+@EIPChecklist.Opcode.Test.DataPortion.MaxValue()
 @pytest.mark.parametrize(
     "immediate",
     [0, 45, 90, 128, 200, 255],
@@ -189,6 +194,7 @@ def test_swapn_preserves_other_stack_items(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.StackUnderflow()
 def test_swapn_stack_underflow(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -264,6 +270,7 @@ def test_swapn_gas_cost_boundary(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.ExceptionalAbort()
 @pytest.mark.parametrize(
     "invalid_immediate",
     list(range(91, 128)),  # 0x5b to 0x7f (JUMPDEST and PUSH opcodes)
@@ -353,6 +360,7 @@ def test_endofcode_behavior(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
 def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -389,6 +397,7 @@ def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
 def test_swapn_jump_to_valid_immediate_fails(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -399,7 +408,8 @@ def test_swapn_jump_to_valid_immediate_fails(
     Bytecode: PUSH1(4) JUMP SWAPN[0x00]
     Hex: 6004 56 e7 00
     Position 4 contains 0x00 which is a VALID immediate for SWAPN.
-    Valid immediates are skipped in JUMPDEST analysis, so jump fails.
+    JUMPDEST analysis is unchanged by EIP-8024: position 4 holds 0x00,
+    not 0x5b, so it is not a valid jump target and the jump fails.
     """
     sender = pre.fund_eoa()
 
@@ -473,5 +483,57 @@ def test_swapn_with_dup1_and_push(
             expected_storage[i] = 0  # All middle values
 
     post = {contract_address: Account(storage=expected_storage)}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.StackComplexOperations.DataPortionVariables.Top()
+@EIPChecklist.Opcode.Test.StackComplexOperations.DataPortionVariables.Middle()
+@pytest.mark.parametrize(
+    "stack_index",
+    [17, 126, 235],
+    ids=lambda x: f"swapn_full_stack_{x}",
+)
+def test_swapn_full_stack(
+    stack_index: int,
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test SWAPN succeeds on a completely full stack of 1024 items.
+
+    SWAPN swaps in place without pushing, so it must work at the stack
+    limit. The top marker is swapped down to position `stack_index + 1`;
+    popping `stack_index` items then exposes it. If a faulty
+    implementation had not swapped, the popped-to item would hold the
+    planted deep marker instead, so either direction of failure is
+    visible in storage.
+    """
+    sender = pre.fund_eoa()
+
+    top_marker = 0xAAAA
+    deep_marker = 0xBBBB
+    stack_height = 1024
+
+    # Bottom-up: zeros, deep marker at position (stack_index + 1) from
+    # the top, more zeros, then the top marker.
+    code = Bytecode()
+    code += Op.PUSH0 * (stack_height - stack_index - 1)
+    code += Op.PUSH2(deep_marker)
+    code += Op.PUSH0 * (stack_index - 1)
+    code += Op.PUSH2(top_marker)
+
+    code += Op.SWAPN[stack_index]
+
+    # Pop down to the item the top marker was swapped into.
+    code += Op.POP * stack_index
+    code += Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code, storage={0: 0xBA5E})
+
+    tx = Transaction(to=contract_address, sender=sender)
+
+    post = {contract_address: Account(storage={0: top_marker})}
 
     state_test(pre=pre, post=post, tx=tx)
