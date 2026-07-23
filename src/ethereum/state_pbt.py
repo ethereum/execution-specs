@@ -301,3 +301,42 @@ def state_root(state: State) -> Root:
     Compute the state root of the current state.
     """
     return state.compute_state_root({}, {}, {})
+
+
+def copy_state(state: State) -> State:
+    """
+    Create a copy of `state` with containers independent of the
+    original's.
+    """
+    return State(
+        _accounts=dict(state._accounts),
+        _storage={
+            address: dict(slots) for address, slots in state._storage.items()
+        },
+        _code_store=dict(state._code_store),
+    )
+
+
+def restore_state(state: State, saved: State) -> None:
+    """
+    Restore `state` in place from a copy taken with [`copy_state`].
+
+    [`copy_state`]: ref:ethereum.state_pbt.copy_state
+    """
+    state._accounts = saved._accounts
+    state._storage = saved._storage
+    state._code_store = saved._code_store
+
+
+def all_accounts(state: State) -> Dict[Address, Account]:
+    """
+    Return every existing account in `state`, keyed by address.
+    """
+    return dict(state._accounts)
+
+
+def account_storage(state: State, address: Address) -> Dict[Bytes32, U256]:
+    """
+    Return the non-zero storage slots of the account at `address`.
+    """
+    return dict(state._storage.get(address, {}))

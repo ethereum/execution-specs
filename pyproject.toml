@@ -316,6 +316,8 @@ omit = [
     "*/ethereum/forks/*_glacier/*",
     "*/ethereum/forks/dao_fork/*",
     "*/ethereum/forks/bpo*/*",
+    # Experimental EIP-8297 fork: not part of any CI fill sweep _yet_.
+    "*/ethereum/forks/binary_tree/*",
 ]
 
 [tool.coverage.report]

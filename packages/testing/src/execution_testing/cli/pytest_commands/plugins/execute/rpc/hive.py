@@ -150,7 +150,7 @@ def build_genesis_header(
         pre_alloc = Alloc.merge(pre_alloc, base_pre)
     if empty_accounts := pre_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")
-    state_root = pre_alloc.state_root()
+    state_root = pre_alloc.state_root(fork=session_fork)
     genesis = FixtureHeader(
         parent_hash=0,
         ommers_hash=EmptyOmmersRoot,

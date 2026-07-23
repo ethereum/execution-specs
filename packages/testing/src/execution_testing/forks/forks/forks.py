@@ -1649,3 +1649,19 @@ class Amsterdam(
     #  live on mainnet.
 
     pass
+
+
+class BinaryTree(
+    Amsterdam,
+    deployed=False,
+):
+    """
+    Experimental EIP-8297 fork: state is committed through the
+    Partitioned Binary Tree instead of the Merkle Patricia Trie.
+    For testing purposes only.
+    """
+
+    @classmethod
+    def uses_binary_tree_state(cls) -> bool:
+        """State roots are binary tree commitments on this fork."""
+        return True

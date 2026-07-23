@@ -16,7 +16,6 @@ from typing_extensions import override
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
-from ethereum.merkle_patricia_trie import copy_trie
 from ethereum_spec_tools.forks import (
     ForkOverrides,
     Hardfork,
@@ -314,23 +313,13 @@ class T8N(Load):
 
     def backup_state(self) -> None:
         """Back up the state in order to restore in case of an error."""
-        state = self.alloc.state
-        main_trie = copy_trie(state._main_trie)
-        storage_tries = {
-            k: copy_trie(t) for (k, t) in state._storage_tries.items()
-        }
-        self.alloc.state_backup = (
-            main_trie,
-            storage_tries,
-            dict(state._code_store),
-        )
+        provider = self.fork.state_provider
+        self.alloc.state_backup = provider.copy_state(self.alloc.state)
 
     def restore_state(self) -> None:
         """Restore the state from the backup."""
-        state = self.alloc.state
-        state._main_trie = self.alloc.state_backup[0]
-        state._storage_tries = self.alloc.state_backup[1]
-        state._code_store = self.alloc.state_backup[2]
+        provider = self.fork.state_provider
+        provider.restore_state(self.alloc.state, self.alloc.state_backup)
 
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""

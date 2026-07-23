@@ -337,8 +337,16 @@ class Alloc(BaseAlloc):
             address for address, account in self.root.items() if not account
         ]
 
-    def state_root(self) -> Hash:
-        """Return state root of the allocation."""
+    def state_root(self, fork: Any = None) -> Hash:
+        """
+        Return the state root of the allocation.
+
+        With a `fork` that commits state through the EIP-8297 binary
+        tree, the root is computed by the spec's binary tree provider;
+        otherwise it is the Merkle Patricia Trie root.
+        """
+        if fork is not None and fork.uses_binary_tree_state():
+            return self._binary_tree_state_root()
         state = State()
         for address, account in self.root.items():
             if account is None:
@@ -365,6 +373,54 @@ class Alloc(BaseAlloc):
                         address=FrontierAddress(address),
                         key=Bytes32(Hash(key)),
                         value=U256(value),
+                    )
+        return Hash(state_root(state))
+
+    def _binary_tree_state_root(self) -> Hash:
+        """Compute the EIP-8297 binary tree root of the allocation."""
+        # Deferred import: `ethereum` must not load before pytest-cov
+        # starts (see `execution_testing.test_types.trie`).
+        from ethereum.state import Account as EelsAccount
+        from ethereum.state_pbt import (
+            State as BinaryTreeState,
+        )
+        from ethereum.state_pbt import (
+            set_account,
+            set_storage,
+            state_root,
+            store_code,
+        )
+
+        state = BinaryTreeState()
+        for address, account in self.root.items():
+            if account is None:
+                continue
+            code = account.code if account.code is not None else b""
+            code_hash = store_code(state, bytes(code))
+            set_account(
+                state,
+                FrontierAddress(address),
+                EelsAccount(
+                    nonce=Uint(account.nonce)
+                    if account.nonce is not None
+                    else Uint(0),
+                    balance=(
+                        U256(account.balance)
+                        if account.balance is not None
+                        else U256(0)
+                    ),
+                    code_hash=code_hash,
+                ),
+            )
+            if account.storage is not None:
+                for key, value in account.storage.root.items():
+                    if U256(value) == U256(0):
+                        continue
+                    set_storage(
+                        state,
+                        FrontierAddress(address),
+                        Bytes32(Hash(key)),
+                        U256(value),
                     )
         return Hash(state_root(state))
 
