@@ -12,3 +12,4 @@ execution_layer_request = EIP does not introduce an execution layer request
 new_transaction_validity_constraint = EIP does not introduce a new transaction validity constraint
 modified_transaction_validity_constraint = EIP does not introduce a modified transaction validity constraint
 block_level_constraint = EIP does not introduce a block-level validation constraint
+general/code_coverage/second_client = Optional

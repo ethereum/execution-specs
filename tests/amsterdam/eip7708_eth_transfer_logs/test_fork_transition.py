@@ -11,8 +11,10 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Op,
     Transaction,
     TransactionReceipt,
+    compute_create_address,
 )
 
 from .spec import ref_spec_7708, transfer_log
@@ -81,3 +83,85 @@ def test_transfer_log_fork_transition(
             recipient: Account(balance=300),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "emission_point",
+    [
+        pytest.param("call", id="call"),
+        pytest.param("create", id="create"),
+        pytest.param("selfdestruct", id="selfdestruct"),
+    ],
+)
+@pytest.mark.valid_at_transition_to("EIP7708")
+def test_emission_point_fork_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    emission_point: str,
+) -> None:
+    """
+    Test the CALL, CREATE, and SELFDESTRUCT emission points at the fork
+    transition boundary.
+
+    Clients gate each emission site in a separate code path, so every
+    site is checked at the transition independently of the
+    transaction-level log.
+    """
+    sender = pre.fund_eoa()
+    value = 100
+    recipient = pre.deploy_contract(Op.STOP)
+
+    if emission_point == "call":
+        contract = pre.deploy_contract(
+            Op.CALL(address=recipient, value=Op.CALLVALUE)
+        )
+    elif emission_point == "create":
+        contract = pre.deploy_contract(
+            Op.CREATE(value=Op.CALLVALUE, offset=0, size=0)
+        )
+    else:
+        contract = pre.deploy_contract(Op.SELFDESTRUCT(recipient))
+
+    blocks = []
+    for nonce, (timestamp, active) in enumerate(
+        [(14_999, False), (15_000, True), (15_001, True)], start=1
+    ):
+        if emission_point == "create":
+            inner_recipient = compute_create_address(
+                address=contract, nonce=nonce
+            )
+        else:
+            inner_recipient = recipient
+        logs = (
+            [
+                transfer_log(sender, contract, value),
+                transfer_log(contract, inner_recipient, value),
+            ]
+            if active
+            else []
+        )
+        blocks.append(
+            Block(
+                timestamp=timestamp,
+                txs=[
+                    Transaction(
+                        to=contract,
+                        sender=sender,
+                        value=value,
+                        expected_receipt=TransactionReceipt(logs=logs),
+                    )
+                ],
+            )
+        )
+
+    if emission_point == "create":
+        post = {
+            compute_create_address(address=contract, nonce=nonce): Account(
+                balance=value
+            )
+            for nonce in (1, 2, 3)
+        }
+    else:
+        post = {recipient: Account(balance=3 * value)}
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
