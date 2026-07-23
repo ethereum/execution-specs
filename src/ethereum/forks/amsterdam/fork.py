@@ -349,6 +349,9 @@ def execute_block(
         slot_number=block.header.slot_number,
     )
 
+    if isinstance(parent_header, PreviousHeader):
+        deploy_deterministic_factory(block_env)
+
     block_output = apply_body(
         block_env=block_env,
         transactions=block.transactions,
@@ -909,9 +912,6 @@ def apply_body(
 
     """
     block_output = vm.BlockOutput()
-
-    if isinstance(block_env.parent_header, PreviousHeader):
-        deploy_deterministic_factory(block_env)
 
     process_unchecked_system_transaction(
         block_env=block_env,

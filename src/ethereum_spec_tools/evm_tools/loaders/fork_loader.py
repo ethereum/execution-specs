@@ -120,6 +120,16 @@ class ForkLoad:
         return self._module("fork").state_transition
 
     @property
+    def has_deploy_deterministic_factory(self) -> bool:
+        """Check if the fork installs the EIP-7997 factory."""
+        return hasattr(self._module("fork"), "deploy_deterministic_factory")
+
+    @property
+    def deploy_deterministic_factory(self) -> Any:
+        """deploy_deterministic_factory function of the fork."""
+        return self._module("fork").deploy_deterministic_factory
+
+    @property
     def signing_hash(self) -> Any:
         """signing_hash function of the fork."""
         return self._module("transactions").signing_hash

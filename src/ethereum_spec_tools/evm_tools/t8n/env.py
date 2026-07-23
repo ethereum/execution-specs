@@ -42,6 +42,7 @@ class Env:
     prev_randao: Optional[Bytes32]
     parent_difficulty: Optional[Uint]
     parent_timestamp: Optional[U256]
+    parent_fork: Optional[str]
     base_fee_per_gas: Optional[Uint]
     parent_gas_used: Optional[Uint]
     parent_gas_limit: Optional[Uint]
@@ -68,6 +69,7 @@ class Env:
         self.block_gas_limit = parse_hex_or_int(data["currentGasLimit"], Uint)
         self.block_number = parse_hex_or_int(data["currentNumber"], Uint)
         self.block_timestamp = parse_hex_or_int(data["currentTimestamp"], U256)
+        self.parent_fork = data.get("parentFork")
 
         self.read_block_difficulty(data, t8n)
         self.read_base_fee_per_gas(data, t8n)

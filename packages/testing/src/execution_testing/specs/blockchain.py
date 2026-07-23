@@ -845,6 +845,19 @@ class BlockchainTest(BaseTest):
             block_number=env.number, timestamp=env.timestamp
         )
         env = env.set_fork_requirements(fork)
+        parent_fork = self.fork.fork_at(
+            block_number=max(int(env.number) - 1, 0),
+            timestamp=int(previous_env.timestamp),
+        )
+        env = env.model_copy(
+            update={
+                "parent_fork": (
+                    parent_fork.transition_tool_name()
+                    if parent_fork is not fork
+                    else None
+                )
+            }
+        )
         txs = block.txs[:]
         if any("gas_limit" not in tx.model_fields_set for tx in block.txs):
             max_tx_gas_limit = Transaction.calculate_max_gas_limit(

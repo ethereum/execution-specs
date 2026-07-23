@@ -146,6 +146,13 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     block_access_list_hash: Hash | None = Field(None)
     block_access_lists: Bytes | None = Field(None)
 
+    parent_fork: str | None = Field(
+        None,
+        alias="parentFork",
+        description="Transition-tool name of the parent block's fork, set "
+        "only on a fork activation block.",
+    )
+
     @computed_field  # type: ignore[prop-decorator]
     @cached_property
     def parent_hash(self) -> Hash | None:

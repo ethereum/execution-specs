@@ -6,6 +6,7 @@ import argparse
 import fnmatch
 import json
 import os
+import re
 from contextlib import AbstractContextManager
 from typing import Any, Final, TextIO, Type, TypeVar
 
@@ -24,6 +25,7 @@ from ethereum_spec_tools.forks import (
 )
 
 from ..loaders.fixture_loader import Load
+from ..loaders.fork_loader import ForkLoad
 from ..utils import (
     FatalError,
     find_fork,
@@ -177,6 +179,7 @@ class T8N(Load):
         else:
             stdin = None
 
+        self.forks = forks
         fork_module, self.fork_block = find_fork(forks, self.options, stdin)
 
         fork_criteria = None
@@ -380,7 +383,31 @@ class T8N(Load):
         self.result.update(self, block_env, block_output)
         self.result.rejected = self.txs.rejected_txs
 
+    def _apply_fork_activation_operations(self, block_env: Any) -> None:
+        """
+        Apply irregular state transitions on a fork activation block.
+
+        The filler marks the activation block by passing the parent
+        block's fork name in the environment.
+        """
+        if self.env.parent_fork is None:
+            return
+        if not self.fork.has_deploy_deterministic_factory:
+            return
+        parent_short_name = re.sub(
+            r"(?<!^)(?=[A-Z])", "_", self.env.parent_fork
+        ).lower()
+        parent_short_name = re.sub("^b_p_o", "bpo", parent_short_name)
+        for hardfork in self.forks:
+            if hardfork.short_name == parent_short_name:
+                parent_fork = ForkLoad(hardfork)
+                if not parent_fork.has_deploy_deterministic_factory:
+                    self.fork.deploy_deterministic_factory(block_env)
+                return
+
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
+        self._apply_fork_activation_operations(block_env)
+
         if self.fork.has_compute_requests_hash:
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
