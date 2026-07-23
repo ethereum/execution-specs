@@ -12,7 +12,8 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.merkle_patricia_trie import root, trie_get
-from ethereum.state import EMPTY_CODE_HASH, apply_changes_to_state
+from ethereum.state import EMPTY_CODE_HASH
+from ethereum.state_mpt import apply_changes_to_state
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTxError
@@ -317,12 +318,11 @@ class Result:
         self.bloom = t8n.fork.logs_bloom(block_output.block_logs)
         self.logs_hash = keccak256(rlp.encode(block_output.block_logs))
         block_diff = t8n.fork.extract_block_diff(t8n._block_state)
-        state_root_value, _ = (
-            t8n.alloc.state.compute_state_root_and_trie_changes(
-                block_diff.account_changes,
-                block_diff.storage_changes,
-                block_diff.storage_clears,
-            )
+        state_root_value = t8n.alloc.state.compute_state_root(
+            block_diff.account_changes,
+            block_diff.storage_changes,
+            block_diff.code_changes,
+            block_diff.storage_clears,
         )
         self.state_root = state_root_value
         # Apply diffs to pre-state for alloc output

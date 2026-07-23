@@ -12,7 +12,7 @@ from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, StateWithEmptyAccount
-from ethereum.state import close_state
+from ethereum.state_mpt import close_state
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 

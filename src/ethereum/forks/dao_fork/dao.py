@@ -5,7 +5,7 @@ collection of accounts (The DAO and all its children) to a recovery contract.
 The recovery contract was previously created using normal contract deployment.
 """
 
-from ethereum.state import State
+from ethereum.state_mpt import State
 
 from .state_tracker import TransactionState, get_account, move_ether
 from .utils.hexadecimal import hex_to_address
@@ -354,7 +354,7 @@ def apply_dao(state: State) -> None:
     [`DAO_ACCOUNTS`]: ref:ethereum.forks.dao_fork.dao.DAO_ACCOUNTS
     [`DAO_RECOVERY`]: ref:ethereum.forks.dao_fork.dao.DAO_RECOVERY
     """
-    from ethereum.state import apply_changes_to_state
+    from ethereum.state_mpt import apply_changes_to_state
 
     from .state_tracker import (
         BlockState,

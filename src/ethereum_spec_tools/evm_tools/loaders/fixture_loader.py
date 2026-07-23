@@ -12,7 +12,7 @@ from ethereum_types.numeric import U256
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import StateWithEmptyAccount
-from ethereum.state import State, set_account, set_storage, store_code
+from ethereum.state_mpt import State, set_account, set_storage, store_code
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
