@@ -7,6 +7,7 @@ import pytest
 from execution_testing import (
     Alloc,
     Bytes,
+    EIPChecklist,
     Fork,
     StateTestFiller,
     Transaction,
@@ -30,6 +31,7 @@ pytestmark = pytest.mark.valid_at("EIP7976")
         pytest.param(1000, id="1000_zero_bytes"),
     ],
 )
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 def test_below_amsterdam_floor_with_exact_balance_sender(
     state_test: StateTestFiller,
     pre: Alloc,
