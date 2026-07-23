@@ -373,6 +373,11 @@ class Alloc(BaseAlloc):
         An explicit `fork` wins, then a provider installed by the
         transition tool, then the Merkle Patricia Trie default.
         """
+        if fork is not None and not hasattr(fork, "uses_binary_tree_state"):
+            # Transition forks define no fork-behavior hooks of their
+            # own; the genesis allocation this method commits belongs
+            # to the fork the chain starts from.
+            fork = fork.transitions_from()
         if fork is not None and fork.uses_binary_tree_state():
             # Deferred import: `ethereum` submodules must not load
             # before pytest-cov starts.
