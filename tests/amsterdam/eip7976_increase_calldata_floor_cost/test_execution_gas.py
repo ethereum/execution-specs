@@ -55,6 +55,7 @@ class TestGasConsumption:
         """
         return pre.deploy_contract(Op.INVALID)
 
+    @pytest.mark.gas_check
     @pytest.mark.parametrize(
         "ty,protected,authorization_list",
         [
@@ -133,6 +134,7 @@ class TestGasConsumptionBelowDataFloor:
             (Op.JUMPDEST * (execution_gas - 1)) + Op.STOP
         )
 
+    @pytest.mark.gas_check
     @pytest.mark.parametrize(
         "ty,protected,authorization_list",
         [

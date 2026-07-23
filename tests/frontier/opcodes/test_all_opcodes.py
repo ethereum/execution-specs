@@ -298,6 +298,7 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize_by_fork("opcode", constant_gas_opcodes)
 @pytest.mark.eels_base_coverage

@@ -94,6 +94,7 @@ def stop_txs(pre: Alloc, fork: Fork, n: int) -> list[Transaction]:
     return txs
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_txs,num_sstores",
     [
@@ -145,6 +146,7 @@ def test_block_gas_used_state_dominates(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_regular_dominates(
     blockchain_test: BlockchainTestFiller,
@@ -175,6 +177,7 @@ def test_block_gas_used_regular_dominates(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_stop,num_sstore,interleaved",
     [
@@ -230,6 +233,7 @@ def test_block_gas_used_mixed_txs(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_block_gas_refund_eip7778_no_block_reduction(
     blockchain_test: BlockchainTestFiller,
@@ -279,6 +283,7 @@ def test_block_gas_refund_eip7778_no_block_reduction(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_txs,num_sstores",
     [
@@ -397,6 +402,7 @@ def test_block_gas_used_call_new_account(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_create_tx(
     blockchain_test: BlockchainTestFiller,
@@ -445,6 +451,7 @@ def test_block_gas_used_create_tx(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_multi_block_dimension_flip(
     blockchain_test: BlockchainTestFiller,
@@ -598,6 +605,7 @@ def test_tx_gas_limit_block_boundary(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "delta",
     [
@@ -672,6 +680,7 @@ def test_tx_inclusion_at_regular_gas_block_limit_small(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "tx2_gas_limit_equals_block_gas_limit",
     [
@@ -738,6 +747,7 @@ def test_block_2d_gas_tx_gas_limit_exceeds_regular_remaining(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_receipt_cumulative_differs_from_header_gas_used(
     blockchain_test: BlockchainTestFiller,
@@ -792,6 +802,7 @@ def test_receipt_cumulative_differs_from_header_gas_used(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize("dominant_dimension", ["state", "regular"])
 @pytest.mark.parametrize(
     "single_tx",

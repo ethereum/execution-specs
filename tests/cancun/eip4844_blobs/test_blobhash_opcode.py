@@ -172,6 +172,7 @@ class BlobhashScenario:
         return scenario
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize("blobhash_index", blobhash_index_values)
 @pytest.mark.with_all_tx_types
 def test_blobhash_gas_cost(

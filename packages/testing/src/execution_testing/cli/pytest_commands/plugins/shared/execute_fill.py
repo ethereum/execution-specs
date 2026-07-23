@@ -191,6 +191,12 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "out_of_gas: test whose execution runs out of gas by design, at the "
+        "top-level transaction or a sub-call (applied by "
+        "scripts/mark_tests.py from scripts/detect_oog_by_design.py).",
+    )
+    config.addinivalue_line(
+        "markers",
         "eip_checklist(item_id, eip=None): Mark a test as implementing a "
         "specific checklist item. The first positional parameter is the "
         "checklist item ID. The optional 'eip' keyword parameter specifies "

@@ -20,7 +20,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
 
-from execution_testing.base_types import to_hex
+from execution_testing.base_types import HexNumber, to_hex
 from execution_testing.client_clis import Result, TransitionTool
 from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.execution import (
@@ -114,7 +114,7 @@ class BaseTest(BaseModel):
     )
     operation_mode: OpMode | None = None
     gas_optimization_max_gas_limit: int | None = None
-    expected_benchmark_gas_used: int | None = None
+    expected_benchmark_gas_used: HexNumber | None = None
     skip_gas_used_validation: bool = False
     expected_receipt_status: int | None = None
     is_tx_gas_heavy_test: bool = False
@@ -291,7 +291,9 @@ class BaseTest(BaseModel):
         if not self.skip_gas_used_validation:
             # Verify that the total gas consumed in the last block
             # matches expectations
-            expected_benchmark_gas_used = self.expected_benchmark_gas_used
+            expected_benchmark_gas_used: HexNumber | int | None = (
+                self.expected_benchmark_gas_used
+            )
             if expected_benchmark_gas_used is None:
                 expected_benchmark_gas_used = gas_benchmark_value
             diff = benchmark_gas_used - expected_benchmark_gas_used

@@ -601,6 +601,7 @@ def test_call_opcode_types(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "call_gas",
     [

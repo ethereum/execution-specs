@@ -467,6 +467,7 @@ def block(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     SpecHelpers.all_valid_blob_combinations,
@@ -806,6 +807,7 @@ def test_sufficient_balance_blob_tx(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     lambda fork: [

@@ -482,6 +482,7 @@ def test_existing_account_no_refund_with_sstore(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "signer_pre_state,authorize_to_null",
     [
@@ -1402,6 +1403,7 @@ def test_fresh_authority_and_sstores_full_state(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_auths",
     [
@@ -1463,6 +1465,7 @@ def test_existing_account_auth_header_gas_used(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "num_existing,num_new",
     [
@@ -1545,6 +1548,7 @@ def test_mixed_auths_header_gas_used(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("EIP8037")
 def test_auth_state_gas_persists_on_top_level_revert(
     state_test: StateTestFiller,
@@ -1614,6 +1618,7 @@ def test_auth_state_gas_persists_on_top_level_revert(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "failure_mode",
     [
@@ -1724,6 +1729,7 @@ def test_auth_state_gas_in_header_after_failure(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "authority_exists",
     [

@@ -650,6 +650,7 @@ class AccessListTo(Enum):
     CONTRACT_ADDRESS = 2
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "access_list_rule",
     [
@@ -878,6 +879,7 @@ def test_gas_diff_pointer_vs_direct_call(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("Prague")
 @pytest.mark.valid_before("EIP8037")
 def test_pointer_call_followed_by_direct_call(
@@ -2068,6 +2070,7 @@ def test_set_code_type_tx_pre_fork(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.valid_from("Prague")
 @pytest.mark.xdist_group(name="bigmem")
 def test_delegation_replacement_call_previous_contract(

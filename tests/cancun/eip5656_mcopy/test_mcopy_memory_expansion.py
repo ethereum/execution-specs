@@ -151,6 +151,7 @@ def post(  # noqa: D103
     }
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "dest,src,length",
     [
@@ -210,6 +211,7 @@ def test_mcopy_memory_expansion(
     )
 
 
+@pytest.mark.gas_check
 @pytest.mark.parametrize(
     "dest,src,length",
     [

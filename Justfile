@@ -221,6 +221,7 @@ test-tests *args:
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/test-tests/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
+        --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py \
         "$@" \
         src
 
@@ -232,6 +233,7 @@ test-tests-pypy *args:
         -n auto --maxprocesses 6 \
         --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
+        --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py \
         "$@" \
         src
 
@@ -244,6 +246,65 @@ test-tests-bench *args:
         --basetemp="{{ output_dir }}/test-tests-bench/tmp" \
         "$@" \
         packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py
+
+# Scan tests for gas assertions and apply @pytest.mark.gas_check to them
+[group('gas check')]
+mark_gas_tests *args:
+    @mkdir -p "{{ output_dir }}/mark-gas-tests/tmp"
+    uv run fill \
+        --detect-gas-checks \
+        --gas-check-report="{{ output_dir }}/mark-gas-tests/gas_check_report.json" \
+        -m "not slow" \
+        -n {{ xdist_workers }} --dist=loadgroup \
+        --clean \
+        --skip-index \
+        --output="{{ output_dir }}/mark-gas-tests/fixtures" \
+        "$@"
+    uv run python scripts/mark_tests.py \
+        "{{ output_dir }}/mark-gas-tests/gas_check_report.json"
+
+# Run the gas_taint plugin end-to-end (pytester) tests
+[group('gas check')]
+mark_gas_tests_test *args:
+    @mkdir -p "{{ output_dir }}/mark-gas-tests-test/tmp"
+    uv run pytest \
+        --basetemp="{{ output_dir }}/mark-gas-tests-test/tmp" \
+        "$@" \
+        packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_gas_taint_e2e.py
+
+# Apply @pytest.mark.out_of_gas to tests that ran out of gas by design.
+#
+# This scans EELS EIP-3155 traces you have produced beforehand and marks the
+# tests behind them. Producing the traces is a separate, heavy step (traces
+# are large and memory-hungry) and is deliberately NOT part of this recipe, so
+# you choose the fork, worker count and scope. Produce them with a traced
+# fill, e.g.:
+#
+#   TMPDIR=~/.tmp uv run fill tests/ported_static \
+#       --fork Osaka --traces --evm-dump-dir=~/.tmp/oog-traces \
+#       -m "not slow" -n 6 --dist=loadgroup --clean --skip-index \
+#       --output=~/.tmp/oog-fixtures
+#
+# or via the detached helper (same defaults):
+#
+#   scripts/fill_for_oog_detection.sh tests/ported_static
+#
+# A single fork is enough (OOG-by-design is fork-invariant in practice).
+# Then detect + mark (default trace dir: ~/.tmp/oog-traces):
+#
+#   just mark_oog_tests
+#   just mark_oog_tests /path/to/traces        # custom trace dir
+[group('oog check')]
+[doc('Detect + mark out-of-gas tests from pre-produced EELS traces')]
+mark_oog_tests evm_dump_dir="~/.tmp/oog-traces" *args:
+    @mkdir -p "{{ output_dir }}/mark-oog-tests"
+    uv run python scripts/detect_oog_by_design.py \
+        --evm-dump-dir="{{ evm_dump_dir }}" \
+        --repo-root="{{ root }}" \
+        {{ args }} \
+        --output="{{ output_dir }}/mark-oog-tests/oog_report.json"
+    uv run python scripts/mark_tests.py \
+        "{{ output_dir }}/mark-oog-tests/oog_report.json"
 
 # Run CI release script integration tests
 [group('unit tests')]
