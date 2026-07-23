@@ -928,48 +928,55 @@ class Alloc(SharedAlloc):
         if not deferred:
             return
 
-        chunk = 2000
-        accounts: dict[Address, Account | None] = {}
+        chunk, max_reported, verified = 2000, 20, 0
         for i in range(0, len(deferred), chunk):
             batch = deferred[i : i + chunk]
+
             query = BaseAlloc(root={d.address: Account() for d in batch})
-            result = self._eth_rpc.get_alloc(
+            accounts = self._eth_rpc.get_alloc(
                 query, block_number=block_number, skip_code=True
-            )
-            accounts.update(result.root)
+            ).root
 
-        code_targets = [
-            d.address for d in deferred if d.code_prefix is not None
-        ]
-        codes: dict[Address, Bytes] = {}
-        for i in range(0, len(code_targets), chunk):
-            batch_addrs = code_targets[i : i + chunk]
-            fetched = self._eth_rpc.get_codes(
-                batch_addrs, block_number=block_number
+            code_targets = [
+                d.address for d in batch if d.code_prefix is not None
+            ]
+            codes: dict[Address, Bytes] = dict(
+                zip(
+                    code_targets,
+                    self._eth_rpc.get_codes(
+                        code_targets, block_number=block_number
+                    ),
+                    strict=True,
+                )
             )
-            for addr, code in zip(batch_addrs, fetched, strict=True):
-                codes[addr] = code
 
-        errors: list[str] = []
-        failed = 0
-        for d in deferred:
-            errs = _check_account_assertion(
-                d, accounts.get(d.address), codes.get(d.address)
-            )
-            if errs:
-                failed += 1
-                errors.extend(errs)
+            errors: list[str] = []
+            failed = 0
+            for d in batch:
+                errs = _check_account_assertion(
+                    d, accounts.get(d.address), codes.get(d.address)
+                )
+                if errs:
+                    failed += 1
+                    errors.extend(errs)
+
+            if errors:
+                shown = errors[:max_reported]
+                omitted = len(errors) - len(shown)
+                suffix = f"\n  ... and {omitted} more" if omitted else ""
+                raise DeployedAccountVerificationError(
+                    f"{failed} predeployed benchmark target(s) failed "
+                    f"verification at start_block (after checking "
+                    f"{verified + len(batch)}):\n  "
+                    + "\n  ".join(shown)
+                    + suffix
+                )
+            verified += len(batch)
 
         logger.info(
-            f"Verified {len(deferred)} predeployed benchmark target(s) at "
-            f"block {block_number}: {len(deferred) - failed} ok, "
-            f"{failed} failed"
+            f"Verified {verified} predeployed benchmark target(s) at "
+            f"block {block_number}"
         )
-        if errors:
-            raise DeployedAccountVerificationError(
-                f"{failed} predeployed benchmark target(s) failed "
-                "verification at start_block:\n  " + "\n  ".join(errors)
-            )
 
     def resolve_deferred_checks(self) -> None:
         """
