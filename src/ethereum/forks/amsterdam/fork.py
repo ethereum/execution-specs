@@ -858,23 +858,22 @@ def deploy_deterministic_factory(block_env: vm.BlockEnvironment) -> None:
     """
     Install the [EIP-7997] deterministic deployment factory on the fork
     activation block if its canonical runtime code is not already
-    present, recording the changes in the block access list at the
-    pre-execution index.
+    present. The factory account is recorded in the block access list at
+    the pre-execution index: with its changes when installed, or as an
+    accessed account when the code check finds it already present.
 
     [EIP-7997]: https://eips.ethereum.org/EIPS/eip-7997
     """
     tx_state = TransactionState(parent=block_env.state)
     account = get_account(tx_state, DETERMINISTIC_FACTORY_ADDRESS)
-    if account.code_hash == DETERMINISTIC_FACTORY_CODE_HASH:
-        return
-
-    set_code(
-        tx_state,
-        DETERMINISTIC_FACTORY_ADDRESS,
-        DETERMINISTIC_FACTORY_CODE,
-    )
-    if account.nonce == Uint(0):
-        increment_nonce(tx_state, DETERMINISTIC_FACTORY_ADDRESS)
+    if account.code_hash != DETERMINISTIC_FACTORY_CODE_HASH:
+        set_code(
+            tx_state,
+            DETERMINISTIC_FACTORY_ADDRESS,
+            DETERMINISTIC_FACTORY_CODE,
+        )
+        if account.nonce == Uint(0):
+            increment_nonce(tx_state, DETERMINISTIC_FACTORY_ADDRESS)
 
     incorporate_tx_into_block(tx_state, block_env.block_access_list_builder)
 
