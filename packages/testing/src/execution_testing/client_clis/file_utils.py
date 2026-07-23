@@ -1,7 +1,6 @@
 """Methods to work with the filesystem and json."""
 
 import os
-import shutil
 import stat
 from json import dump
 from pathlib import Path
@@ -10,9 +9,7 @@ from typing import Any, Dict
 from pydantic import BaseModel, RootModel
 
 from execution_testing.client_clis.cli_types import (
-    LazyAllocFile,
-    LazyAllocJson,
-    LazyAllocStr,
+    LazyAlloc,
     TransitionToolInput,
 )
 
@@ -30,28 +27,13 @@ def dump_files_to_directory(output_path: Path, files: Dict[str, Any]) -> None:
         if rel_path:
             os.makedirs(output_path / rel_path, exist_ok=True)
         file_path = output_path / file_rel_path
-        if (
-            isinstance(file_contents, LazyAllocFile)
-            and Path(file_contents.raw).exists()
-        ):
-            shutil.copyfile(file_contents.raw, file_path)
-        elif isinstance(file_contents, LazyAllocFile):
-            # Backing temp dir was cleaned up after a previous `.get()`
-            # (e.g. chained-block t8n on the next block); fall back to
-            # the cached Alloc so debug dumps still capture the input.
-            file_path.write_text(
-                file_contents.get().model_dump_json(
-                    indent=4, exclude_none=True, by_alias=True
-                )
+        if isinstance(file_contents, LazyAlloc):
+            file_contents.serialize_to_file(
+                file_path, indent=4, exclude_none=True, by_alias=True
             )
         else:
             with open(file_path, "w") as f:
-                if isinstance(file_contents, (LazyAllocStr, LazyAllocJson)):
-                    if isinstance(file_contents, LazyAllocJson):
-                        dump(file_contents.raw, f, ensure_ascii=True, indent=4)
-                    else:
-                        f.write(file_contents.raw)
-                elif isinstance(
+                if isinstance(
                     file_contents, (BaseModel, RootModel, TransitionToolInput)
                 ):
                     f.write(

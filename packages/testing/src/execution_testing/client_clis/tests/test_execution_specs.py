@@ -183,7 +183,7 @@ def test_evm_t8n(
                 blob_schedule=Berlin.blob_schedule(),
             ),
         )
-        assert to_json(t8n_output.alloc.get()) == expected.get("alloc")
+        assert to_json(t8n_output.alloc.materialize()) == expected.get("alloc")
         t8n_result = to_json(t8n_output.result)
         if isinstance(default_t8n, ExecutionSpecsTransitionTool):
             # The expected output was generated with geth, instead of deleting

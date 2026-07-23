@@ -1,7 +1,6 @@
 """Helper functions to load and run general state tests for Ethereum forks."""
 
 import json
-import sys
 from io import StringIO
 from typing import Any, Dict, Final, Iterable, List
 
@@ -14,7 +13,8 @@ from ethereum.exceptions import StateWithEmptyAccount
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.statetest import read_test_case
-from ethereum_spec_tools.evm_tools.t8n import T8N, ForkCache
+from ethereum_spec_tools.evm_tools.t8n import ForkCache
+from ethereum_spec_tools.evm_tools.t8n.cli import build_t8n_from_cli_options
 
 from .. import FORKS
 from ..stash_keys import desired_forks_key, fork_cache_key
@@ -144,14 +144,18 @@ class StateTest(FixtureTestItem):
 
         with ForkCache() as fork_cache:
             try:
-                t8n = T8N(t8n_options, sys.stdout, in_stream, fork_cache)
+                t8n = build_t8n_from_cli_options(
+                    t8n_options, in_stream, fork_cache
+                )
             except StateWithEmptyAccount as e:
                 pytest.xfail(str(e))
 
             t8n.run_state_test()
 
             if "expectException" in post:
-                assert 0 in t8n.txs.rejected_txs
+                assert any(
+                    int(rej.index) == 0 for rej in t8n.rejected_transactions
+                )
                 return
 
             assert hex_to_bytes(post_hash) == t8n.result.state_root

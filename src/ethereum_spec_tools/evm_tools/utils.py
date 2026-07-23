@@ -15,13 +15,10 @@ from typing import (
     Sequence,
     Tuple,
     TypeVar,
-    Union,
 )
 
-import spec256k1
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import Hash32
 from ethereum_spec_tools.forks import Hardfork
 
 W = TypeVar("W", Uint, U64, U256)
@@ -132,6 +129,44 @@ def find_fork(
     sys.exit(f"Unsupported state fork: {options.state_fork}")
 
 
+# Map testing ``Fork.transition_tool_name()`` → spec ``Hardfork.short_name``
+# for cases where CamelCase → snake_case does not produce the spec
+# module name:
+# * ``Paris`` reports itself as ``"Merge"`` to the t8n protocol.
+# * ``DAOFork`` would snake-case to ``d_a_o_fork``.
+# * ``ConstantinopleFix`` is a testing-side distinction that the spec
+#   folds into the ``constantinople`` module.
+_SPEC_SHORT_NAME_OVERRIDES: Dict[str, str] = {
+    "Merge": "paris",
+    "DAOFork": "dao_fork",
+    "ConstantinopleFix": "constantinople",
+}
+
+
+def resolve_fork(fork_name: str) -> Hardfork:
+    """
+    Resolve a testing ``Fork.transition_tool_name()`` to its matching
+    spec ``Hardfork``.
+
+    CLI exception aliases like ``HomesteadToDaoAt5`` are resolved by
+    :func:`find_fork` before the testing ``Fork`` is built, so the name
+    reaching this function is always post-alias-resolution.
+    """
+    short = _SPEC_SHORT_NAME_OVERRIDES.get(fork_name)
+    if short is None:
+        short = re.sub(r"(?<!^)(?=[A-Z])", "_", fork_name).lower()
+        # ``BPO1`` and friends would otherwise become ``b_p_o1``; mirror
+        # the ``b_p_o → bpo`` collapse that :func:`find_fork` performs.
+        short = re.sub(r"^b_p_o", "bpo", short)
+    for fork in Hardfork.discover():
+        if fork.short_name == short:
+            return fork
+    raise ValueError(
+        f"No spec Hardfork matches testing fork name {fork_name!r} "
+        f"(looked for short_name={short!r})"
+    )
+
+
 def get_supported_forks() -> List[str]:
     """
     Get the supported forks.
@@ -166,29 +201,3 @@ def get_stream_logger(name: str) -> Any:
         logger.addHandler(stream_handler)
 
     return logger
-
-
-def secp256k1_sign(msg_hash: Hash32, secret_key: int) -> Tuple[U256, ...]:
-    """
-    Returns the signature of a message hash given the secret key.
-    """
-    private_key = spec256k1.PrivateKey(secret_key.to_bytes(32, "big"))
-    signature = private_key.sign_recoverable(msg_hash)
-
-    return (
-        U256.from_be_bytes(signature[0:32]),
-        U256.from_be_bytes(signature[32:64]),
-        U256(signature[64]),
-    )
-
-
-def encode_to_hex(data: Union[bytes, int]) -> str:
-    """
-    Encode the data to a hex string.
-    """
-    if isinstance(data, int):
-        return hex(data)
-    elif isinstance(data, bytes):
-        return "0x" + data.hex()
-    else:
-        raise Exception("Invalid data type")
