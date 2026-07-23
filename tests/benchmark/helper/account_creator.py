@@ -36,10 +36,9 @@ class AccountExpectation:
     """
     Expected on-chain shape of a snapshot-predeployed target.
 
-    Verified against start_block when --verify-deployed-accounts is set.
-    Fields at default are skipped. `is_contract` checks nonce >= 1.
-    For CREATE2, address binds code. `code_prefix` requires the on-chain
-    code to start with the given bytes (e.g. a 7702 delegation designator).
+    Verified at `start_block`. Defaults skipped.
+    `is_contract`: nonce >= 1. CREATE2: address binds code.
+    `code_prefix`: on-chain code must start with given bytes.
     """
 
     is_existing_account: bool = True
@@ -51,10 +50,7 @@ class AccountExpectation:
         self, pre: Alloc, address: Address, *, label: str | None = None
     ) -> None:
         """
-        Register verification expectation for address on pre.
-
-        A no-op on allocations without a snapshot to check (the base
-        ``Alloc.expect_account_state`` default), e.g. non-stateful fill.
+        Register verification expectation for address on pre-allocation.
         """
         pre.expect_account_state(
             address,
@@ -80,17 +76,10 @@ def register_target_range(
     full: bool = False,
 ) -> None:
     """
-    Register ``[0, count)`` targets of a family for verification, deduped
-    across the session.
+    Register targets [0, count) for verification, deduped across session.
 
-    With *full*, register every target in the newly-covered range; otherwise
-    register only its first and last target. Only indices beyond the family's
-    high-water-mark are considered; smaller parametrizations reuse the earlier
-    verification. ``addresses(start, stop)`` yields the family's addresses for
-    that range.
-
-    Registration is a no-op on allocations without a snapshot to check (the
-    base ``Alloc.expect_account_state`` default).
+    With *full*, register every target; otherwise only first and last.
+    No-op for allocations without a snapshot.
     """
     start = _verified_target_counts.get(key, 0)
     if count <= start:

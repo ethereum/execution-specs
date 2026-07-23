@@ -683,17 +683,14 @@ class Alloc(BaseAlloc):
         label: str | None = None,
     ) -> None:
         """
-        Register a start-block expectation for a snapshot-predeployed account.
+        Register start-block expectation for predeployed account.
 
-        No-op by default: only the fill-stateful allocation records these and
-        later verifies them against the live client. Allocations with no
-        snapshot to check (e.g. genesis-based fill) ignore the registration.
+        Used only by fill-stateful; ignored by other allocations.
         """
 
     def verify_deployed_accounts(self, block_number: int) -> None:
         """
-        Verify the registered predeployed-account expectations at
-        *block_number*.
+        Verify predeployed-account expectations at block_number.
 
-        No-op by default; overridden by the fill-stateful allocation.
+        No-op unless fill-stateful allocation.
         """

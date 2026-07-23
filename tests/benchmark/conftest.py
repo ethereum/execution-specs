@@ -88,9 +88,5 @@ def tx_gas_limit(fork: Fork, gas_benchmark_value: int) -> int:
 def verify_full_accounts(request: pytest.FixtureRequest) -> bool:
     """
     Whether predeploy verification should cover every target in a range.
-
-    Backs ``--verify-full-accounts`` (fill-stateful). Defaults to ``False``
-    (sample first and last of each range) and is safe under fill modes that
-    do not register the option.
     """
     return bool(getattr(request.config.option, "verify_full_accounts", False))

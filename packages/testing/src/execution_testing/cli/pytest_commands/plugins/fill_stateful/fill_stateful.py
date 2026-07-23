@@ -153,11 +153,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="verify_full_accounts",
         default=False,
         help=(
-            "Verify EVERY predeployed target account each benchmark assumes, "
-            "instead of only sampling the first and last of each range. "
-            "Predeploy verification (via pre.expect_account_state) always "
-            "runs at the start block; this flag makes it exhaustive. Uses "
-            "eth_getBalance / eth_getTransactionCount / eth_getCode."
+            "Verify all predeployed targets instead of sampling. "
+            "By default, only first and last accounts per range are checked. "
+            "This flag checks every account at start_block.)"
         ),
     )
 

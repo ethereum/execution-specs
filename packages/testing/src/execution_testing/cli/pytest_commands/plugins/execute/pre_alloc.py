@@ -227,11 +227,10 @@ class _DeferredFundAddress:
 @dataclass
 class _DeferredAccountAssertion:
     """
-    Descriptor for a deferred assertion on a snapshot-predeployed account.
+    Deferred assertion on a predeployed account.
 
-    Resolved by ``verify_deployed_accounts`` against the ``start_block``
-    state before the benchmark runs. All fields are primitives so the check
-    stays decoupled from any test-tree expectation class.
+    Verified at start_block before the benchmark runs.
+    Uses primitives only to stay independent of test expectations.
     """
 
     address: Address
@@ -243,13 +242,13 @@ class _DeferredAccountAssertion:
 
 
 class DeployedAccountVerificationError(AssertionError):
-    """Raised when snapshot-predeployed benchmark targets fail verification."""
+    """Raised when predeployed benchmark targets fail verification."""
 
 
 def _check_account_assertion(
-    d: "_DeferredAccountAssertion",
-    account: "Account | None",
-    code: "Bytes | None",
+    d: _DeferredAccountAssertion,
+    account: Account | None,
+    code: Bytes | None,
 ) -> list[str]:
     """Return human-readable failures for one account assertion (may be []."""
     who = f"{d.label or '<target>'} at {d.address}"
@@ -903,7 +902,7 @@ class Alloc(SharedAlloc):
     ) -> None:
         """
         Register deferred assertion on predeployed account.
-        Verified at start_block before benchmark (fill-stateful only).
+        Verified at start_block (fill-stateful only).
         """
         self._deferred_account_assertions.append(
             _DeferredAccountAssertion(
@@ -918,13 +917,11 @@ class Alloc(SharedAlloc):
 
     def verify_deployed_accounts(self, block_number: int) -> None:
         """
-        Verify registered predeployed-account assertions at *block_number*.
+        Verify registered predeployed-account assertions at block_number.
 
-        Batches balance/nonce queries (``eth_getBalance`` /
-        ``eth_getTransactionCount``, both universally supported); fetches
-        code only for assertions with a ``code_prefix`` (e.g. an EIP-7702
-        delegation designator). Collects every failure and raises once so
-        the report is complete.
+        Batches eth_getBalance and eth_getTransactionCount queries.
+        Fetches code only for assertions with code_prefix (e.g., EIP-7702
+        designation). Collects all failures before raising.
         """
         deferred = self._deferred_account_assertions
         self._deferred_account_assertions = []
