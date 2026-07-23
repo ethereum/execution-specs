@@ -10,6 +10,7 @@ TODO: Update gas limits in the 3452 failing ported static test cases and
 remove this skip list.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -22,23 +23,17 @@ _AMSTERDAM_SKIP_CASES: frozenset[str] = frozenset(
     if line.strip() and not line.lstrip().startswith("#")
 )
 
-# Fixture format suffixes pytest appends inside the parametrize id. These
-# must be stripped from the nodeid before substring-matching against the
-# skip list, because the skip list predates these suffixes.
-_FIXTURE_FORMAT_TOKENS: tuple[str, ...] = (
-    "-blockchain_test_engine_from_state_test",
-    "-blockchain_test_from_state_test",
-    "-blockchain_test_engine",
-    "-blockchain_test",
-    "-state_test",
-)
+# Fixture format tokens pytest embeds in the parametrize id (e.g.
+# `-blockchain_test_engine_x_from_state_test`). These must be stripped from
+# the nodeid before substring-matching against the skip list, because the
+# skip list predates these tokens. Matched by prefix so every format and
+# label variant is covered.
+_FIXTURE_FORMAT_TOKEN_RE = re.compile(r"-(?:blockchain|state)_test\w*")
 
 
 def _normalize_nodeid(nodeid: str) -> str:
-    """Strip pytest fixture-format suffixes to match the skip list format."""
-    for token in _FIXTURE_FORMAT_TOKENS:
-        nodeid = nodeid.replace(token, "")
-    return nodeid
+    """Strip pytest fixture-format id tokens to match the skip list format."""
+    return _FIXTURE_FORMAT_TOKEN_RE.sub("", nodeid)
 
 
 def pytest_collection_modifyitems(
