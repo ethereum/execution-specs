@@ -82,3 +82,15 @@ def pytest_ignore_collect(collection_path: Path, config: Any) -> bool | None:
 def tx_gas_limit(fork: Fork, gas_benchmark_value: int) -> int:
     """Return the transaction gas limit cap."""
     return fork.transaction_gas_limit_cap() or gas_benchmark_value
+
+
+@pytest.fixture
+def verify_full_accounts(request: pytest.FixtureRequest) -> bool:
+    """
+    Whether predeploy verification should cover every target in a range.
+
+    Backs ``--verify-full-accounts`` (fill-stateful). Defaults to ``False``
+    (sample first and last of each range) and is safe under fill modes that
+    do not register the option.
+    """
+    return bool(getattr(request.config.option, "verify_full_accounts", False))

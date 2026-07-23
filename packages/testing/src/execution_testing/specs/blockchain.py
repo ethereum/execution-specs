@@ -1468,13 +1468,9 @@ class BlockchainTest(BaseTest):
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
             )
 
-        # Verify predeployed targets at start_block (fill-stateful mode).
-        # Catches silent degradation to empty accounts. A no-op on
-        # allocations that don't override Alloc.verify_deployed_accounts.
-        if t8n.verify_deployed_accounts:
-            self.pre.verify_deployed_accounts(
-                int(HexNumber(start_block["number"]))
-            )
+        self.pre.verify_deployed_accounts(
+            int(HexNumber(start_block["number"]))
+        )
 
         # Materialise queued pre-alloc txs into a synthetic setup block.
         blocks_to_process: List[Block] = []

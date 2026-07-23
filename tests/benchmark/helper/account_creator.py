@@ -77,14 +77,17 @@ def register_target_range(
     expectation: AccountExpectation,
     addresses: Callable[[int, int], Iterable[Address]],
     label: str | None = None,
+    full: bool = False,
 ) -> None:
     """
     Register ``[0, count)`` targets of a family for verification, deduped
     across the session.
 
-    Only indices beyond the family's high-water-mark are enumerated and
-    registered; smaller parametrizations reuse the earlier verification.
-    ``addresses(start, stop)`` yields the family's addresses for that range.
+    With *full*, register every target in the newly-covered range; otherwise
+    register only its first and last target. Only indices beyond the family's
+    high-water-mark are considered; smaller parametrizations reuse the earlier
+    verification. ``addresses(start, stop)`` yields the family's addresses for
+    that range.
 
     Registration is a no-op on allocations without a snapshot to check (the
     base ``Alloc.expect_account_state`` default).
@@ -92,7 +95,14 @@ def register_target_range(
     start = _verified_target_counts.get(key, 0)
     if count <= start:
         return
-    for address in addresses(start, count):
+    if full or count - start <= 2:
+        targets: Iterable[Address] = addresses(start, count)
+    else:
+        targets = [
+            *addresses(start, start + 1),
+            *addresses(count - 1, count),
+        ]
+    for address in targets:
         expectation.register(pre, address, label=label)
     _verified_target_counts[key] = count
 
@@ -468,7 +478,12 @@ class AccountCreator:
             yield Address((base + index) & ADDRESS_MASK)
 
     def register_targets(
-        self, pre: Alloc, count: int, *, label: str | None = None
+        self,
+        pre: Alloc,
+        count: int,
+        *,
+        full: bool = False,
+        label: str | None = None,
     ) -> None:
         """Register ``[0, count)`` of this mode's targets for verification."""
         register_target_range(
@@ -480,4 +495,5 @@ class AccountCreator:
                 range(start, stop)
             ),
             label=label or self.mode.name,
+            full=full,
         )

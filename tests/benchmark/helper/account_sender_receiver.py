@@ -97,7 +97,9 @@ def expected_delegation() -> AccountExpectation:
     return AccountExpectation(code_prefix=bytes(Spec.DELEGATION_DESIGNATION))
 
 
-def register_bittrex_targets(pre: Alloc, count: int) -> None:
+def register_bittrex_targets(
+    pre: Alloc, count: int, *, full: bool = False
+) -> None:
     """Register the first *count* Bittrex CREATE contract receivers."""
     register_target_range(
         pre,
@@ -111,10 +113,13 @@ def register_bittrex_targets(pre: Alloc, count: int) -> None:
             for i in range(start, stop)
         ),
         label="diff_to_contract",
+        full=full,
     )
 
 
-def register_delegate_targets(pre: Alloc, count: int) -> None:
+def register_delegate_targets(
+    pre: Alloc, count: int, *, full: bool = False
+) -> None:
     """Register the first *count* delegated authorities (7702 designator)."""
     register_target_range(
         pre,
@@ -125,4 +130,5 @@ def register_delegate_targets(pre: Alloc, count: int) -> None:
             Address(EOA(key=DELEGATE_BASE_KEY + i)) for i in range(start, stop)
         ),
         label="delegate_authority",
+        full=full,
     )
