@@ -367,6 +367,29 @@ transition, not the magnitude — which also breaks the `forward_gas`/`new_value
 circularity.) Set `state_gas_reservoir=0` so the state gas is captured.
 Validated on `test_raw_call_gas`.
 
+**Measuring forwarded gas / the EIP-150 63/64 rule (the `*_gas_ask` shape).**
+Ported fillers probe "how much gas does a subcall receive when it asks for more
+than is available" by pinning an absolute forwarded amount — fork-fragile,
+because "available" moves with the EIP-2780 intrinsic change. Make it robust
+with three moves: (1) **cap the caller frame's gas to a known budget** with an
+*outer* call (`entry → CALL(gas=CALLER_GAS) → caller`); because `CALLER_GAS` is
+far below the outer frame's 63/64, the caller receives exactly `CALLER_GAS`
+independent of the tx gas limit. (2) **Return the observed `GAS` up the stack**
+(`MSTORE(0, GAS) + RETURN(0, 32)` in the callee, `RETURN` again in the caller,
+`SSTORE` only in the top frame) instead of `SSTORE`-ing in a lower frame —
+avoids the EIP-8037 state-gas trap. (3) **Derive the expectation from the fork:**
+```
+available    = CALLER_GAS - caller_call_code.gas_cost(fork)
+forwarded    = available - available // 64      # NOT available * 63 // 64
+expected_gas = forwarded + stipend - Op.GAS.gas_cost(fork)
+```
+where `stipend = fork.gas_costs().CALL_STIPEND` for a value-bearing call (0
+otherwise). **The `// 64` form is the trap:** `available - available // 64` and
+`available * 63 // 64` differ by exactly 1 whenever `available % 64 != 0` (the
+EVM uses the former). One parametrize over `(opcode, value, memory)` covers the
+whole CALL/CALLCODE/DELEGATECALL family; floor **Berlin** (the call metadata).
+Validated on `test_raw_call_gas_ask` (10 RawCall*GasAsk fillers).
+
 **Error paths charge regular gas only — assert `regular_cost(fork)`.** A failed
 `CREATE`/`CALL` still charges its regular costs (base, memory, init-code words)
 but creates no account, so **no state gas is charged** under EIP-8037. For a
@@ -438,15 +461,6 @@ Not yet covered by a validated walkthrough; figure out and append when hit:
   `data` × `value`/`gas` matrix) — single-axis `d`/`g`/`v` discrimination is now
   handled (step 7), but a multi-axis post is not yet exercised.
 - Multi-block / `blockchain_test` ported tests.
-- **Callee-side gas under the EIP-150 63/64 rule** (the `*_gas_ask` shape: a
-  subcall asks for far more gas than available and the callee records what it
-  received via `SSTORE(k, GAS)`). The *caller-side* CALL cost stays
-  expressible (`call_code.gas_cost(fork) + callee.gas_cost(fork)`, step 10), but
-  the callee-observed amount is `all_but_one_64th(available)` — a function of the
-  *absolute* gas at the call, which the EIP-2780 intrinsic change makes
-  fork-fragile. No framework helper for `all_but_one_64th` yet; approach TBD
-  (derive from a pinned `gas_limit`, or drop the absolute callee-side assertion
-  and keep the caller-side cost + a callee side-effect proving it ran).
 
 ## Finishing
 
