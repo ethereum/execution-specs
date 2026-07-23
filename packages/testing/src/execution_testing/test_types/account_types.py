@@ -1,9 +1,10 @@
 """Account-related types for Ethereum tests."""
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import (
+    AbstractSet,
     Any,
     Dict,
     ItemsView,
@@ -15,14 +16,20 @@ from typing import (
     Tuple,
 )
 
-from ethereum_types.bytes import Bytes20
+import ethereum.state as spec_state
+from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import keccak256 as spec_keccak256
+from ethereum.merkle_patricia_trie import InternalNode
+from ethereum_types.bytes import Bytes, Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
+from pydantic import PrivateAttr
 from spec256k1 import PrivateKey
 
 from execution_testing.base_types import (
     Account,
     Address,
     Hash,
+    HashInt,
     Number,
     Storage,
     StorageRootType,
@@ -34,82 +41,22 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 
-from .trie import (
-    EMPTY_TRIE_ROOT,
-    FrontierAccount,
-    Trie,
-    root,
-    trie_get,
-    trie_set,
-)
 from .utils import keccak256
 
-FrontierAddress = Bytes20
 
-
-@dataclass
-class State:
-    """Contains all information that is preserved between transactions."""
-
-    _main_trie: Trie[Bytes20, Optional[FrontierAccount]] = field(
-        default_factory=lambda: Trie(secured=True, default=None)
-    )
-    _storage_tries: Dict[Bytes20, Trie[Bytes32, U256]] = field(
-        default_factory=dict
-    )
-    _snapshots: List[
-        Tuple[
-            Trie[Bytes20, Optional[FrontierAccount]],
-            Dict[Bytes20, Trie[Bytes32, U256]],
-        ]
-    ] = field(default_factory=list)
-
-
-def set_account(
-    state: State, address: Bytes20, account: Optional[FrontierAccount]
-) -> None:
+class _Phase(Enum):
     """
-    Set the `Account` object at an address. Setting to `None` deletes the
-    account (but not its storage, see `destroy_account()`).
+    Lifecycle phase of an `Alloc` instance used as a `PreState`.
+
+    See `Alloc` for the rules each phase enforces.
     """
-    trie_set(state._main_trie, address, account)
 
-
-def set_storage(
-    state: State, address: Bytes20, key: Bytes32, value: U256
-) -> None:
-    """
-    Set a value at a storage key on an account. Setting to `U256(0)` deletes
-    the key.
-    """
-    assert trie_get(state._main_trie, address) is not None
-
-    trie = state._storage_tries.get(address)
-    if trie is None:
-        trie = Trie(secured=True, default=U256(0))
-        state._storage_tries[address] = trie
-    trie_set(trie, key, value)
-    if trie._data == {}:
-        del state._storage_tries[address]
-
-
-def storage_root(state: State, address: Bytes20) -> Bytes32:
-    """Calculate the storage root of an account."""
-    assert not state._snapshots
-    if address in state._storage_tries:
-        return root(state._storage_tries[address])
-    else:
-        return EMPTY_TRIE_ROOT
-
-
-def state_root(state: State) -> Bytes32:
-    """Calculate the state root."""
-    assert not state._snapshots
-
-    def get_storage_root(address: Bytes20) -> Bytes32:
-        return storage_root(state, address)
-
-    return root(state._main_trie, get_storage_root=get_storage_root)
+    CONSTRUCTION = auto()
+    """Free mutations on `self.root` are allowed; no cache exists."""
+    LIVE = auto()
+    """Cache built; only `apply_diff` may mutate."""
+    FROZEN = auto()
+    """No mutations are allowed."""
 
 
 class EOA(Address):
@@ -161,7 +108,20 @@ class EOA(Address):
 
 
 class Alloc(BaseAlloc):
-    """Allocation of accounts in the state, pre and post test execution."""
+    """
+    Allocation of accounts in the state, pre and post test execution.
+
+    Doubles as a `PreState` provider for the spec's state transition: once
+    any `PreState` method is called the instance transitions from
+    `CONSTRUCTION` to `LIVE` (a code-hash → bytes cache is built once) and
+    further free mutations via `__setitem__`/`__delitem__` are rejected.
+    The only mutation entry point in `LIVE` is `apply_diff`, which patches
+    `self.root` and updates the cache in lockstep. `freeze` locks the
+    allocation for read-only assertion use.
+    """
+
+    _phase: _Phase = PrivateAttr(default=_Phase.CONSTRUCTION)
+    _code_store: Dict[Hash32, Bytes] = PrivateAttr(default_factory=dict)
 
     @dataclass(kw_only=True)
     class UnexpectedAccountError(Exception):
@@ -298,6 +258,7 @@ class Alloc(BaseAlloc):
         account: Account | None,
     ) -> None:
         """Set account associated with an address."""
+        self._require_construction("__setitem__")
         if not isinstance(address, Address):
             address = Address(address)
         self.root[address] = account
@@ -306,6 +267,7 @@ class Alloc(BaseAlloc):
         self, address: Address | FixedSizeBytesConvertible
     ) -> None:
         """Delete account associated with an address."""
+        self._require_construction("__delitem__")
         if not isinstance(address, Address):
             address = Address(address)
         self.root.pop(address, None)
@@ -339,34 +301,7 @@ class Alloc(BaseAlloc):
 
     def state_root(self) -> Hash:
         """Return state root of the allocation."""
-        state = State()
-        for address, account in self.root.items():
-            if account is None:
-                continue
-            set_account(
-                state=state,
-                address=FrontierAddress(address),
-                account=FrontierAccount(
-                    nonce=Uint(account.nonce)
-                    if account.nonce is not None
-                    else Uint(0),
-                    balance=(
-                        U256(account.balance)
-                        if account.balance is not None
-                        else U256(0)
-                    ),
-                    code=account.code if account.code is not None else b"",
-                ),
-            )
-            if account.storage is not None:
-                for key, value in account.storage.root.items():
-                    set_storage(
-                        state=state,
-                        address=FrontierAddress(address),
-                        key=Bytes32(Hash(key)),
-                        value=U256(value),
-                    )
-        return Hash(state_root(state))
+        return Hash(spec_state.state_root(self._materialize_state()))
 
     def verify_post_alloc(self, got_alloc: "Alloc") -> None:
         """
@@ -392,6 +327,247 @@ class Alloc(BaseAlloc):
                     account.check_alloc(address, got_account)
                 else:
                     raise Alloc.MissingAccountError(address=address)
+
+    # ------------------------------------------------------------------
+    # PreState protocol implementation
+    # ------------------------------------------------------------------
+
+    def _require_construction(self, operation: str) -> None:
+        """Reject mutations once the allocation has left construction."""
+        if self._phase is not _Phase.CONSTRUCTION:
+            raise RuntimeError(
+                f"{operation} not allowed: Alloc is in phase "
+                f"{self._phase.name}. Mutate via apply_diff during LIVE, "
+                f"or call freeze() to lock the allocation."
+            )
+
+    def _build_cache(self) -> None:
+        """Populate the code-hash → bytes cache from `self.root`."""
+        self._code_store = {spec_state.EMPTY_CODE_HASH: Bytes(b"")}
+        for account in self.root.values():
+            if account is None:
+                continue
+            code = bytes(account.code) if account.code else b""
+            if not code:
+                continue
+            self._code_store[spec_keccak256(code)] = Bytes(code)
+
+    def _ensure_live(self) -> None:
+        """Transition from `CONSTRUCTION` to `LIVE`, building the cache."""
+        if self._phase is _Phase.CONSTRUCTION:
+            self._build_cache()
+            self._phase = _Phase.LIVE
+
+    def _materialize_state(self) -> spec_state.State:
+        """
+        Build an in-memory `ethereum.state.State` mirror of `self.root`.
+
+        Used as the trie-backed delegate for
+        `compute_state_root_and_trie_changes` (a cold, once-per-block call).
+        The materialized state is not retained.
+        """
+        state = spec_state.State()
+        for address, account in self.root.items():
+            if account is None:
+                continue
+            addr = Bytes20(address)
+            code = bytes(account.code) if account.code else b""
+            code_hash = (
+                spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH
+            )
+            spec_state.set_account(
+                state,
+                addr,
+                spec_state.Account(
+                    nonce=Uint(int(account.nonce)),
+                    balance=U256(int(account.balance)),
+                    code_hash=code_hash,
+                ),
+            )
+            for key_hi, value_hi in account.storage.root.items():
+                value_int = int(value_hi)
+                if value_int == 0:
+                    continue
+                spec_state.set_storage(
+                    state,
+                    addr,
+                    Bytes32(int(key_hi).to_bytes(32, "big")),
+                    U256(value_int),
+                )
+        state._code_store.update(self._code_store)
+        return state
+
+    def get_account_optional(
+        self, address: Bytes20
+    ) -> Optional[spec_state.Account]:
+        """
+        Return the spec-side `Account` at `address`, or `None`.
+
+        Conforms to `ethereum.state.PreState.get_account_optional`.
+        """
+        self._ensure_live()
+        account = self.root.get(Address(address))
+        if account is None:
+            return None
+        code = bytes(account.code) if account.code else b""
+        code_hash = (
+            spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH
+        )
+        return spec_state.Account(
+            nonce=Uint(int(account.nonce)),
+            balance=U256(int(account.balance)),
+            code_hash=code_hash,
+        )
+
+    def get_storage(self, address: Bytes20, key: Bytes32) -> U256:
+        """
+        Return the storage value at `key` for `address`, or `U256(0)`.
+
+        Conforms to `ethereum.state.PreState.get_storage`.
+        """
+        self._ensure_live()
+        account = self.root.get(Address(address))
+        if account is None:
+            return U256(0)
+        key_int = int.from_bytes(bytes(key), "big")
+        value_hi = account.storage.root.get(HashInt(key_int))
+        if value_hi is None:
+            return U256(0)
+        return U256(int(value_hi))
+
+    def get_code(self, code_hash: Hash32) -> Bytes:
+        """
+        Return the bytecode for `code_hash`.
+
+        Conforms to `ethereum.state.PreState.get_code`.
+        """
+        self._ensure_live()
+        if code_hash == spec_state.EMPTY_CODE_HASH:
+            return Bytes(b"")
+        return self._code_store[code_hash]
+
+    def account_has_storage(self, address: Bytes20) -> bool:
+        """
+        Return whether the account at `address` has any storage slots set.
+
+        Conforms to `ethereum.state.PreState.account_has_storage`.
+        """
+        self._ensure_live()
+        account = self.root.get(Address(address))
+        return account is not None and bool(account.storage.root)
+
+    def compute_state_root_and_trie_changes(
+        self,
+        account_changes: Dict[Bytes20, Optional[spec_state.Account]],
+        storage_changes: Dict[Bytes20, Dict[Bytes32, U256]],
+        storage_clears: AbstractSet[Bytes20] = frozenset(),
+    ) -> Tuple[Hash32, List["InternalNode"]]:
+        """
+        Compute the state root after applying `*_changes` to the pre-state.
+
+        Conforms to
+        `ethereum.state.PreState.compute_state_root_and_trie_changes`.
+        Builds the trie inline; `Alloc` does not cache `Trie` instances.
+        """
+        self._ensure_live()
+        state = self._materialize_state()
+        return state.compute_state_root_and_trie_changes(
+            account_changes, storage_changes, storage_clears
+        )
+
+    # ------------------------------------------------------------------
+    # Lifecycle: apply_diff and freeze
+    # ------------------------------------------------------------------
+
+    def apply_diff(self, diff: spec_state.BlockDiff) -> None:
+        """
+        Apply a `BlockDiff` to mutate the allocation in place.
+
+        The only mutation entry point in the `LIVE` phase. Writes bypass
+        `__setitem__` intentionally — `_code_store` is updated additively
+        in lockstep with `self.root`.
+        """
+        if self._phase is _Phase.FROZEN:
+            raise RuntimeError("apply_diff not allowed: Alloc is FROZEN")
+        if self._phase is _Phase.CONSTRUCTION:
+            raise RuntimeError(
+                "apply_diff not allowed in CONSTRUCTION: the allocation "
+                "has not been used as a PreState yet, so its cache is not "
+                "built. Trigger a PreState method (or hand it to a "
+                "BlockState) before calling apply_diff."
+            )
+
+        for code_hash, code in diff.code_changes.items():
+            self._code_store[Hash32(code_hash)] = Bytes(code)
+
+        for address in diff.storage_clears:
+            addr = Address(address)
+            current = self.root.get(addr)
+            if current is not None and current.storage.root:
+                self.root[addr] = current.model_copy(
+                    update={"storage": Storage(root={})}
+                )
+
+        for address, spec_account in diff.account_changes.items():
+            addr = Address(address)
+            if spec_account is None:
+                self.root.pop(addr, None)
+                continue
+            code_hash = Hash32(spec_account.code_hash)
+            if code_hash == spec_state.EMPTY_CODE_HASH:
+                code = Bytes(b"")
+            else:
+                code = self._code_store[code_hash]
+            existing = self.root.get(addr)
+            existing_storage = (
+                existing.storage if existing is not None else Storage(root={})
+            )
+            self.root[addr] = Account(
+                nonce=int(spec_account.nonce),
+                balance=int(spec_account.balance),
+                code=code,
+                storage=existing_storage,
+            )
+
+        for address, slots in diff.storage_changes.items():
+            addr = Address(address)
+            account = self.root.get(addr)
+            if account is None:
+                continue
+            merged: Dict[HashInt, HashInt] = dict(account.storage.root)
+            for key, value in slots.items():
+                key_int = HashInt(int.from_bytes(bytes(key), "big"))
+                value_int = int(value)
+                if value_int == 0:
+                    merged.pop(key_int, None)
+                else:
+                    merged[key_int] = HashInt(value_int)
+            self.root[addr] = account.model_copy(
+                update={"storage": Storage(root=merged)}
+            )
+
+        # Drop zero-valued storage entries from every account. Ethereum
+        # treats an absent slot as zero, so a literal ``{0x00: 0x00}``
+        # pair carried over untouched from the pre-state JSON would
+        # otherwise survive into the post-state dump and produce noise
+        # the spec-state-backed pipeline never had (the spec's
+        # ``set_storage`` drops zeros on insert).
+        for addr, account in list(self.root.items()):
+            if account is None or not account.storage.root:
+                continue
+            cleaned = {
+                key: value
+                for key, value in account.storage.root.items()
+                if int(value) != 0
+            }
+            if len(cleaned) != len(account.storage.root):
+                self.root[addr] = account.model_copy(
+                    update={"storage": Storage(root=cleaned)}
+                )
+
+    def freeze(self) -> None:
+        """Lock the allocation: no further mutations allowed."""
+        self._phase = _Phase.FROZEN
 
     def deterministic_deploy_contract(
         self,
