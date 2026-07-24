@@ -35,7 +35,7 @@ from .spec import ref_spec_7976
 REFERENCE_SPEC_GIT_PATH = ref_spec_7976.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7976.version
 
-pytestmark = pytest.mark.valid_at_transition_to("Amsterdam")
+pytestmark = pytest.mark.valid_at_transition_to("EIP7976")
 
 # Transition forks switch at timestamp 15_000.
 PRE_FORK_TIMESTAMP = 14_999
@@ -172,6 +172,13 @@ def test_floor_cost_across_amsterdam_transition(
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork()
 @pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(ALL_ZERO_DATA, id="all_zero_bytes"),
+        pytest.param(ALL_NONZERO_DATA, id="all_nonzero_bytes"),
+    ],
+)
+@pytest.mark.parametrize(
     "scenario",
     [
         pytest.param("exact_floors_accepted", id="exact_floors_accepted"),
@@ -192,6 +199,7 @@ def test_floor_validity_across_amsterdam_transition(
     pre: Alloc,
     fork: TransitionFork,
     scenario: str,
+    data: bytes,
 ) -> None:
     """
     Pin the EIP-7976 validity-threshold change across the boundary.
@@ -203,9 +211,11 @@ def test_floor_validity_across_amsterdam_transition(
     floor is higher for this calldata; one below the old floor is
     already rejected pre-fork, and one at the new floor is accepted
     post-fork.
+
+    The zero-byte arm pins the uniform token counting on the validity
+    threshold itself, independently of the billed-gas path.
     """
     gas_price = 1_000_000_000
-    data = ALL_NONZERO_DATA
     target = pre.fund_eoa(amount=1)
 
     old_floor, new_floor = expected_floors(fork, data)
