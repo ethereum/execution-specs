@@ -492,6 +492,7 @@ class Frontier(BaseFork):
                 ),
                 memory_expansion_calculator,
             ),
+            Opcodes.EXTENSION: 0,
             Opcodes.CREATE: cls._with_memory_expansion(
                 lambda op: cls._calculate_create_gas(op, gas_costs),
                 memory_expansion_calculator,
@@ -1642,3 +1643,15 @@ class Amsterdam(
         limit.
         """
         return True
+
+
+class Bogota(
+    Amsterdam,
+    deployed=False,
+    transition_tool_name="Amsterdam",
+):
+    """
+    Bogota fork placeholder.
+    """
+
+    pass
