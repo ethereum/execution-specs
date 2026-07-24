@@ -56,7 +56,7 @@ def test_high_gas_limit(
     )
 
     pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+        balance=2**128 - 1
     )
 
     # EIP-2780 charges ``NEW_ACCOUNT`` state gas at the top frame when
