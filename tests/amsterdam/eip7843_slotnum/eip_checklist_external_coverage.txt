@@ -1,0 +1,3 @@
+general/code_coverage/eels = EIP-7843 adds the slot_number instruction (vm/instructions/block.py), the OPCODE_SLOTNUM gas constant, the header field (blocks.py) and its BlockEnvironment plumbing (fork.py); every line is executed when filling this suite through the EELS t8n
+general/code_coverage/test_coverage = suite logic is exercised end-to-end by filling tests/amsterdam/eip7843_slotnum with the EELS filler; every parametrized arm produces a fixture with a discriminating post-state
+general/code_coverage/missed_lines = no missed lines; the EIP adds no branches beyond the single instruction body, which every test in this suite executes
