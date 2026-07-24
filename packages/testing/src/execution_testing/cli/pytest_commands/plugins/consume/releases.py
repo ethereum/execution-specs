@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -241,12 +242,12 @@ def download_release_information(
     most recent releases per repo. Older releases fall outside this
     window and cannot be resolved.
 
-    Authenticate with `GITHUB_TOKEN` when set: authenticated requests
-    get 5000 requests/hour instead of the unauthenticated 60/hour per
-    IP address.
+    Authenticate with `GITHUB_TOKEN` (or `GH_TOKEN`) when set:
+    authenticated requests get 5000 requests/hour instead of the
+    unauthenticated 60/hour per IP address.
     """
     headers = {}
-    github_token = os.environ.get("GITHUB_TOKEN")
+    github_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if github_token:
         headers["Authorization"] = f"Bearer {github_token}"
     all_releases = []
@@ -271,14 +272,17 @@ def download_release_information(
 
     if destination_file:
         destination_file.parent.mkdir(parents=True, exist_ok=True)
-        # Write via a temporary file so a concurrent reader never sees a
-        # partially-written cache.
-        temporary_file = destination_file.with_name(
-            destination_file.name + ".tmp"
-        )
-        with open(temporary_file, "w") as file:
+        # Write via a uniquely-named temporary file so a concurrent
+        # reader never sees a partially-written cache and concurrent
+        # writers never share a path.
+        with tempfile.NamedTemporaryFile(
+            "w",
+            dir=destination_file.parent,
+            suffix=".tmp",
+            delete=False,
+        ) as file:
             json.dump(all_releases, file)
-        temporary_file.replace(destination_file)
+        Path(file.name).replace(destination_file)
     return parse_release_information(all_releases)
 
 

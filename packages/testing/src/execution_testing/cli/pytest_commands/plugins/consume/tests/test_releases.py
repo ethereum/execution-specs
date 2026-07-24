@@ -454,22 +454,44 @@ def test_corrupt_cache_file_is_refreshed(
     )
 
 
-@pytest.mark.parametrize("github_token", [None, "ghp_test_token"])
+@pytest.mark.parametrize(
+    "environment,expected_token",
+    [
+        pytest.param({}, None, id="unauthenticated"),
+        pytest.param(
+            {"GITHUB_TOKEN": "ghp_test_token"},
+            "ghp_test_token",
+            id="github_token",
+        ),
+        pytest.param(
+            {"GH_TOKEN": "gho_test_token"},
+            "gho_test_token",
+            id="gh_token",
+        ),
+        pytest.param(
+            {"GITHUB_TOKEN": "ghp_test_token", "GH_TOKEN": "gho_other"},
+            "ghp_test_token",
+            id="github_token_wins",
+        ),
+    ],
+)
 def test_download_release_information_github_token(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    github_token: str | None,
+    environment: Dict[str, str],
+    expected_token: str | None,
 ) -> None:
     """
-    Authenticate GitHub API requests iff `GITHUB_TOKEN` is set.
+    Authenticate GitHub API requests iff a GitHub token is set.
 
-    Authenticated requests get 5000 requests/hour instead of the
+    `GITHUB_TOKEN` (preferred) or `GH_TOKEN` (the gh CLI's name)
+    authenticates the request: 5000 requests/hour instead of the
     unauthenticated 60 requests/hour per IP.
     """
-    if github_token is None:
-        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    else:
-        monkeypatch.setenv("GITHUB_TOKEN", github_token)
+    for variable in ("GITHUB_TOKEN", "GH_TOKEN"):
+        monkeypatch.delenv(variable, raising=False)
+    for variable, token in environment.items():
+        monkeypatch.setenv(variable, token)
     seen_headers: List[Dict[str, str]] = []
 
     def fake_get(url: str, **kwargs: Any) -> FakeResponse:
@@ -480,7 +502,7 @@ def test_download_release_information_github_token(
     download_release_information(tmp_path / "release_information.json")
     expected_headers = (
         {}
-        if github_token is None
-        else {"Authorization": f"Bearer {github_token}"}
+        if expected_token is None
+        else {"Authorization": f"Bearer {expected_token}"}
     )
     assert seen_headers == [expected_headers] * len(SUPPORTED_REPOS)
