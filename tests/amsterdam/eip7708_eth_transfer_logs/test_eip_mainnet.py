@@ -91,7 +91,7 @@ def test_create_endowment_mainnet(
 ) -> None:
     """Test that a CREATE endowment emits a transfer log on mainnet."""
     sender = pre.fund_eoa()
-    create_value = 100
+    create_value = 1
 
     contract = pre.deploy_contract(
         Op.CREATE(value=create_value, offset=0, size=0),
@@ -100,10 +100,8 @@ def test_create_endowment_mainnet(
     created = compute_create_address(address=contract, nonce=1)
 
     tx = Transaction(
-        ty=0x02,
         sender=sender,
         to=contract,
-        value=0,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(contract, created, create_value)]
         ),

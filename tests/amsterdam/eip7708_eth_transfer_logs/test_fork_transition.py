@@ -112,15 +112,12 @@ def test_emission_point_fork_transition(
     recipient = pre.deploy_contract(Op.STOP)
 
     if emission_point == "call":
-        contract = pre.deploy_contract(
-            Op.CALL(address=recipient, value=Op.CALLVALUE)
-        )
+        code = Op.CALL(address=recipient, value=Op.CALLVALUE)
     elif emission_point == "create":
-        contract = pre.deploy_contract(
-            Op.CREATE(value=Op.CALLVALUE, offset=0, size=0)
-        )
+        code = Op.CREATE(value=Op.CALLVALUE, offset=0, size=0)
     else:
-        contract = pre.deploy_contract(Op.SELFDESTRUCT(recipient))
+        code = Op.SELFDESTRUCT(recipient)
+    contract = pre.deploy_contract(code)
 
     blocks = []
     for nonce, (timestamp, active) in enumerate(
