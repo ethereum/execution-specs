@@ -458,7 +458,6 @@ def test_exchange_with_push_sequence(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@EIPChecklist.Opcode.Test.ExceptionalAbort()
 def test_exchange_full_stack(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -511,6 +510,7 @@ def test_exchange_full_stack(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.ExceptionalAbort()
 @pytest.mark.parametrize(
     "immediate",
     range(82, 128),  # Forbidden range: 0x52-0x7F
