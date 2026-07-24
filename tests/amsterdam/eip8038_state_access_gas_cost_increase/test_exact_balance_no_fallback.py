@@ -18,12 +18,15 @@ gap is asserted to be positive so the construction is only emitted when
 the dimension genuinely got more expensive.
 """
 
+from typing import Callable, Tuple
+
 import pytest
 from execution_testing import (
     AccessList,
     Alloc,
     AuthorizationTuple,
     Fork,
+    GasCosts,
     StateTestFiller,
     Transaction,
     TransactionException,
@@ -38,6 +41,24 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 GAS_PRICE = 10
+
+
+def gas_costs_before_increase(
+    fork: Fork, costs: Callable[[GasCosts], Tuple[int, ...]]
+) -> GasCosts:
+    """
+    Return the gas cost schedule of the closest ancestor fork whose
+    constants selected by ``costs`` differ from ``fork``'s.
+
+    Raises if no ancestor differs. When ``costs`` selects several
+    constants, the walk stops at the first fork where any of them
+    changed.
+    """
+    current = costs(fork.gas_costs())
+    ancestor = fork.parent_or_fail()
+    while costs(ancestor.gas_costs()) == current:
+        ancestor = ancestor.parent_or_fail()
+    return ancestor.gas_costs()
 
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
@@ -68,7 +89,10 @@ def test_access_list_no_fallback(
     sender funded to the wei, that fallback must not slip through.
     """
     new_costs = fork.gas_costs()
-    old_costs = fork.parent_or_fail().gas_costs()
+    old_costs = gas_costs_before_increase(
+        fork,
+        lambda c: (c.TX_ACCESS_LIST_ADDRESS, c.TX_ACCESS_LIST_STORAGE_KEY),
+    )
     addr_delta = (
         new_costs.TX_ACCESS_LIST_ADDRESS - old_costs.TX_ACCESS_LIST_ADDRESS
     )
@@ -138,7 +162,9 @@ def test_authorization_no_fallback(
     for that fallback.
     """
     new_costs = fork.gas_costs()
-    old_costs = fork.parent_or_fail().gas_costs()
+    old_costs = gas_costs_before_increase(
+        fork, lambda c: (c.AUTH_PER_EMPTY_ACCOUNT,)
+    )
     auth_delta = (
         new_costs.AUTH_PER_EMPTY_ACCOUNT - old_costs.AUTH_PER_EMPTY_ACCOUNT
     )
@@ -198,7 +224,9 @@ def test_cold_account_access_no_fallback(
     must not execute.
     """
     new_costs = fork.gas_costs()
-    old_costs = fork.parent_or_fail().gas_costs()
+    old_costs = gas_costs_before_increase(
+        fork, lambda c: (c.COLD_ACCOUNT_ACCESS,)
+    )
     fallback_delta = (
         new_costs.COLD_ACCOUNT_ACCESS - old_costs.COLD_ACCOUNT_ACCESS
     )
