@@ -370,23 +370,18 @@ class FixtureHeader(CamelModel):
                 env.withdrawals
             )
         environment_values["extra_data"] = env.extra_data
-        extras = {
+        extras: Dict[str, Any] = {
             "state_root": state_root,
-            "requests_hash": Requests()
-            if fork.header_requests_required()
-            else None,
-            "block_access_list_hash": (
-                BlockAccessList().rlp_hash
-                if fork.header_bal_hash_required()
-                else None
-            ),
-            "slot_number": (
-                (int(env.slot_number) if env.slot_number is not None else 0)
-                if fork.header_slot_number_required()
-                else None
-            ),
             "fork": fork,
         }
+        if fork.header_requests_required():
+            extras["requests_hash"] = Requests()
+        if fork.header_bal_hash_required():
+            extras["block_access_list_hash"] = BlockAccessList().rlp_hash
+        if fork.header_slot_number_required():
+            extras["slot_number"] = (
+                int(env.slot_number) if env.slot_number is not None else 0
+            )
         return cls(**environment_values, **extras)
 
 

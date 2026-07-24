@@ -1,5 +1,7 @@
 """Tests for EIP-7843 fork transition behavior."""
 
+from typing import Any
+
 import pytest
 from execution_testing import (
     Account,
@@ -81,50 +83,32 @@ def test_slotnum_at_fork_transition(
 @EIPChecklist.BlockHeaderField.Test.ForkTransition.Before()
 @pytest.mark.valid_at_transition_to("EIP7843")
 @pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "block_kwargs",
+    [
+        pytest.param(
+            {"rlp_modifier": Header(slot_number=0)},
+            id="header_field",
+        ),
+        pytest.param(
+            {"engine_new_payload_slot_number": 0},
+            id="engine_payload_field",
+            marks=pytest.mark.blockchain_test_engine_only,
+        ),
+    ],
+)
 def test_invalid_pre_fork_block_with_slot_number(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    block_kwargs: dict[str, Any],
 ) -> None:
     """
-    Reject a pre-fork block whose header carries the `slot_number` field.
+    Reject a pre-fork block that carries the slot number field in its
+    header or its engine `newPayload`.
 
-    The header field must not be present before the fork activates: the
-    extra field changes the header shape, so the block is malformed and
-    the engine payload carries a parameter unknown to its version.
-    """
-    sender = pre.fund_eoa()
-    receiver = pre.fund_eoa(amount=0)
-
-    tx = Transaction(sender=sender, to=receiver, value=100)
-
-    blockchain_test(
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                timestamp=FORK_TIMESTAMP - 1,
-                txs=[tx],
-                rlp_modifier=Header(slot_number=0),
-                exception=BlockException.INCORRECT_BLOCK_FORMAT,
-                engine_api_error_code=EngineAPIError.InvalidParams,
-            ),
-        ],
-    )
-
-
-@EIPChecklist.BlockHeaderField.Test.ForkTransition.Before()
-@pytest.mark.valid_at_transition_to("EIP7843")
-@pytest.mark.blockchain_test_engine_only
-@pytest.mark.exception_test
-def test_invalid_engine_payload_slot_number_before_fork(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Reject a pre-fork `newPayload` that carries a `slotNumber` field.
-
-    The block and its header are otherwise valid, so the spurious
-    payload field is the only defect: clients that silently drop
+    The field must not be present before the fork activates: the extra
+    header field changes the header shape, while in the payload case
+    the block is otherwise valid, so clients that silently drop
     unknown payload fields would answer VALID and must fail this test.
     """
     sender = pre.fund_eoa()
@@ -139,9 +123,9 @@ def test_invalid_engine_payload_slot_number_before_fork(
             Block(
                 timestamp=FORK_TIMESTAMP - 1,
                 txs=[tx],
-                engine_new_payload_slot_number=0,
                 exception=BlockException.INCORRECT_BLOCK_FORMAT,
                 engine_api_error_code=EngineAPIError.InvalidParams,
+                **block_kwargs,
             ),
         ],
     )
