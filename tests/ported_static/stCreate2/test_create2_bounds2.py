@@ -57,7 +57,7 @@ def test_create2_bounds2(
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x1000000000000000000000000000000000000000)
     sender = pre.fund_eoa(
-        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        amount=2**128 - 1
     )
 
     env = Environment(

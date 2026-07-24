@@ -55,7 +55,7 @@ def test_call_bounds(
     """Test_call_bounds."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(
-        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        amount=2**128 - 1
     )
 
     env = Environment(
