@@ -1,9 +1,10 @@
 """
 Conftest for ported static tests.
 
-Temporarily skip ported static tests that fail for Amsterdam due to EIP-8037's
-two-dimensional gas model. The gas limits in these ported static test cases
-have not yet been updated to account for state gas.
+Temporarily skip ported static tests that fail on Amsterdam and its
+descendant forks due to EIP-8037's two-dimensional gas model. The gas
+limits in these ported static test cases have not yet been updated to
+account for state gas.
 
 TODO: Update gas limits in the 3452 failing ported static test cases and
 remove this skip list.
@@ -12,6 +13,7 @@ remove this skip list.
 from pathlib import Path
 
 import pytest
+from execution_testing.forks import Amsterdam
 
 _SKIP_LIST_PATH = Path(__file__).parent / "amsterdam_skip_list.txt"
 _AMSTERDAM_SKIP_CASES: frozenset[str] = frozenset(
@@ -49,9 +51,17 @@ def pytest_collection_modifyitems(
     for item in items:
         if "ported_static" not in item.nodeid:
             continue
-        if "fork_Amsterdam" not in item.nodeid:
+        callspec = getattr(item, "callspec", None)
+        fork = callspec.params.get("fork") if callspec else None
+        if fork is None or not fork >= Amsterdam:
             continue
-        normalized = _normalize_nodeid(item.nodeid)
+        # The skip list is written against fork_Amsterdam, but the
+        # EIP-8037 breakage applies equally to its descendant forks.
+        # Rewriting the item's fork token to Amsterdam's lets one list
+        # cover them all.
+        normalized = _normalize_nodeid(item.nodeid).replace(
+            f"fork_{fork.name()}", "fork_Amsterdam"
+        )
         for skip_case in _AMSTERDAM_SKIP_CASES:
             if skip_case in normalized:
                 item.add_marker(skip_marker)
