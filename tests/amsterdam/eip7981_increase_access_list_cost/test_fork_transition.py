@@ -31,6 +31,7 @@ from execution_testing import (
     Hash,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     TransitionFork,
 )
 
@@ -40,7 +41,7 @@ from .spec import ref_spec_7981
 REFERENCE_SPEC_GIT_PATH = ref_spec_7981.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7981.version
 
-pytestmark = pytest.mark.valid_at_transition_to("Amsterdam")
+pytestmark = pytest.mark.valid_at_transition_to("EIP7981")
 
 # Transition forks switch at timestamp 15_000.
 PRE_FORK_TIMESTAMP = 14_999
@@ -273,3 +274,104 @@ def test_access_list_validity_across_amsterdam_transition(
     ]
 
     blockchain_test(pre=pre, blocks=blocks, post={})
+
+
+@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
+@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
+def test_access_list_floor_across_amsterdam_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: TransitionFork,
+) -> None:
+    """
+    Pin access list bytes entering the calldata floor at the boundary.
+
+    A calldata-heavy access-list transaction binds the floor on both
+    sides of the transition: pre-fork the floor counts calldata bytes
+    only (access list bytes contribute nothing), post-fork the EIP-7981
+    tokens raise it. Each block's gas limit is pinned to its fork's
+    floor, so the billed gas equals the floor exactly and an
+    implementation that mistimes the floor change fails the receipt and
+    balance pins.
+    """
+    gas_price = 1_000_000_000
+    # Sized so the floor dominates the intrinsic on both sides
+    # (asserted below): each non-zero byte adds 40 - 16 = 24 gas of
+    # floor headroom pre-fork and 64 - 16 = 48 post-fork, outgrowing
+    # the per-entry access charges that only the intrinsic carries.
+    data = b"\x01" * 400
+    access_list = access_list_shape(addresses=1, keys_per_address=2)
+
+    pre_fork = fork.fork_at(timestamp=PRE_FORK_TIMESTAMP)
+    post_fork = fork.fork_at(timestamp=POST_FORK_TIMESTAMP)
+    pre_costs = pre_fork.gas_costs()
+    post_costs = post_fork.gas_costs()
+
+    # Pre-fork (EIP-7623): content-weighted calldata tokens only; the
+    # access list bytes contribute nothing to the floor.
+    pre_tokens = len(data) * 4
+    expected_pre = int(
+        pre_costs.TX_BASE + pre_tokens * pre_costs.TX_DATA_TOKEN_FLOOR
+    )
+    assert pre_fork.transaction_data_floor_cost_calculator()(
+        data=data, access_list=access_list
+    ) == pre_fork.transaction_data_floor_cost_calculator()(data=data)
+    # Post-fork: uniform calldata tokens plus the EIP-7981 access list
+    # tokens, anchored on the EIP-2780 decomposed base.
+    post_tokens = len(data) * int(
+        post_costs.TX_DATA_TOKEN_STANDARD
+    ) + calculate_access_list_floor_tokens(access_list)
+    expected_post = int(
+        post_costs.TX_BASE
+        + post_costs.COLD_ACCOUNT_ACCESS
+        + post_tokens * post_costs.TX_DATA_TOKEN_FLOOR
+    )
+
+    timestamps = [PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP]
+    expected_floors = [expected_pre, expected_post]
+    blocks = []
+    post: dict[Address, Account] = {}
+
+    for timestamp, expected_floor in zip(
+        timestamps, expected_floors, strict=True
+    ):
+        sub_fork = fork.fork_at(timestamp=timestamp)
+        floor_gas = sub_fork.transaction_data_floor_cost_calculator()(
+            data=data, access_list=access_list
+        )
+        assert floor_gas == expected_floor, (
+            f"floor at timestamp {timestamp} ({sub_fork}) is {floor_gas}, "
+            f"expected {expected_floor}"
+        )
+        # The floor must dominate the intrinsic so the transaction is
+        # billed exactly the floor.
+        intrinsic_gas = sub_fork.transaction_intrinsic_cost_calculator()(
+            calldata=data,
+            access_list=access_list,
+            return_cost_deducted_prior_execution=True,
+        )
+        assert floor_gas > intrinsic_gas, (
+            f"floor {floor_gas} does not dominate intrinsic "
+            f"{intrinsic_gas} at timestamp {timestamp} ({sub_fork})"
+        )
+
+        sender_initial_balance = 10**18
+        sender = pre.fund_eoa(sender_initial_balance)
+
+        tx = Transaction(
+            sender=sender,
+            to=pre.fund_eoa(amount=0),
+            data=data,
+            gas_limit=floor_gas,
+            gas_price=gas_price,
+            access_list=access_list,
+            expected_receipt=TransactionReceipt(cumulative_gas_used=floor_gas),
+        )
+        blocks.append(Block(timestamp=timestamp, txs=[tx]))
+
+        post[sender] = Account(
+            nonce=1,
+            balance=sender_initial_balance - floor_gas * gas_price,
+        )
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
