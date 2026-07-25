@@ -98,14 +98,15 @@ class TestFormatters:
             {
                 "msg": "Test message",
                 "created": 1609459200.0,  # 2021-01-01 00:00:00 UTC
+                "msecs": 123.0,
             }
         )
 
         formatted = formatter.format(record)
 
         # logs contain
-        #       timestamp
-        assert "2021-01-01 00:00:00" in formatted
+        #       timestamp with millisecond precision
+        assert "2021-01-01 00:00:00.123" in formatted
         #       message
         assert "Test message" in formatted
 

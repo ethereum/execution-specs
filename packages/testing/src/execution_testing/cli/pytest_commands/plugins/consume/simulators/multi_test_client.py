@@ -1,6 +1,7 @@
 """Pytest fixtures for multi-test client architecture."""
 
 import logging
+import time
 from typing import Generator
 
 import pytest
@@ -89,7 +90,12 @@ class MultiTestClientManager:
                     logger.info(
                         f"🛑 Stopping client for group {group_identifier}"
                     )
+                    start = time.perf_counter()
                     client.stop()
+                    logger.info(
+                        f"⏱ phase=client_stop group={group_identifier} "
+                        f"ms={(time.perf_counter() - start) * 1000:.1f}"
+                    )
                 except Exception as e:
                     logger.error(
                         "Error stopping client for group "
@@ -188,10 +194,14 @@ def pre_alloc_group(
 
     # Load and cache
     logger.debug(f"Loading pre-alloc group from {pre_alloc_path}")
+    start = time.perf_counter()
     pre_alloc_group_obj = PreAllocGroup.from_file(pre_alloc_path)
 
     pre_alloc_group_cache[pre_hash] = pre_alloc_group_obj
-    logger.info(f"Loaded pre-alloc group for {pre_hash}")
+    logger.info(
+        f"⏱ phase=pre_alloc_load group={pre_hash} "
+        f"ms={(time.perf_counter() - start) * 1000:.1f}"
+    )
 
     return pre_alloc_group_obj
 
@@ -214,12 +224,17 @@ def client_genesis(
     if pre_hash in client_genesis_cache:
         return client_genesis_cache[pre_hash]
 
+    start = time.perf_counter()
     genesis = to_json(pre_alloc_group.genesis)
     alloc = to_json(pre_alloc_group.pre)
     # NOTE: nethermind requires account keys without '0x' prefix
     genesis["alloc"] = {k.replace("0x", ""): v for k, v in alloc.items()}
 
     client_genesis_cache[pre_hash] = genesis
+    logger.info(
+        f"⏱ phase=genesis_prep group={pre_hash} "
+        f"ms={(time.perf_counter() - start) * 1000:.1f}"
+    )
     return genesis
 
 
