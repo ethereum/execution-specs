@@ -1,8 +1,17 @@
 """Defines EIP-7883 specification constants and functions."""
 
 from dataclasses import dataclass
+from typing import Type
+
+from execution_testing import Fork
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
+from ...byzantium.eip198_modexp_precompile.spec import (
+    ModExpGasSpec,
+    Spec2565,
+    ceiling_division,
+    modexp_gas_spec,
+)
 
 
 @dataclass(frozen=True)
@@ -18,28 +27,11 @@ ref_spec_7883 = ReferenceSpec(
 )
 
 
-def ceiling_division(a: int, b: int) -> int:
+class Spec(Spec2565):
     """
-    Calculate the ceil without using floating point. Used by many of the EVM's
-    formulas.
+    Constants and helpers for the ModExp gas cost calculation, plus the
+    arbitrary inputs shared by the tests.
     """
-    return -(a // -b)
-
-
-class Spec:
-    """Constants and helpers for the ModExp gas cost calculation."""
-
-    MODEXP_ADDRESS = 0x05
-    MIN_GAS = 200
-
-    LARGE_BASE_MODULUS_MULTIPLIER = 1
-    MAX_LENGTH_THRESHOLD = 32
-    EXPONENT_BYTE_MULTIPLIER = 8
-    MAX_LENGTH_BYTES = 1024
-
-    WORD_SIZE = 8
-    EXPONENT_THRESHOLD = 32
-    GAS_DIVISOR = 3
 
     # Arbitrary Test Constants
     modexp_input = ModExpInput(
@@ -51,58 +43,6 @@ class Spec:
         "1abce71dc2205cce4eb6934397a88136f94641342e283cbcd30e929e85605c6718ed67f475192ffd"
     )
     modexp_error = bytes()
-
-    @classmethod
-    def calculate_multiplication_complexity(
-        cls, base_length: int, modulus_length: int
-    ) -> int:
-        """Calculate the multiplication complexity of the ModExp precompile."""
-        max_length = max(base_length, modulus_length)
-        words = ceiling_division(max_length, cls.WORD_SIZE)
-        if max_length <= cls.MAX_LENGTH_THRESHOLD:
-            return words**2
-        return cls.LARGE_BASE_MODULUS_MULTIPLIER * words**2
-
-    @classmethod
-    def calculate_iteration_count(cls, modexp_input: ModExpInput) -> int:
-        """
-        Calculate the iteration count of the ModExp precompile. This handles
-        length mismatch cases by using declared lengths from the raw input and
-        only the first 32 bytes of exponent data for iteration calculation.
-        """
-        _, exponent_length, _ = modexp_input.get_declared_lengths()
-        exponent_head = modexp_input.get_exponent_head()
-        if exponent_length <= cls.EXPONENT_THRESHOLD and exponent_head == 0:
-            iteration_count = 0
-        elif exponent_length <= cls.EXPONENT_THRESHOLD:
-            iteration_count = (
-                exponent_head.bit_length() - 1 if exponent_head > 0 else 0
-            )
-        else:
-            # For large exponents: length_part + bits from first 32 bytes
-            length_part = cls.EXPONENT_BYTE_MULTIPLIER * (exponent_length - 32)
-            bits_part = (
-                exponent_head.bit_length() - 1 if exponent_head > 0 else 0
-            )
-            iteration_count = length_part + bits_part
-        return max(iteration_count, 1)
-
-    @classmethod
-    def calculate_gas_cost(cls, modexp_input: ModExpInput) -> int:
-        """
-        Calculate the ModExp gas cost according to EIP-2565 specification,
-        overridden by the constants within `Spec7883` when calculating for the
-        EIP-7883 specification.
-        """
-        base_length, _, modulus_length = modexp_input.get_declared_lengths()
-        multiplication_complexity = cls.calculate_multiplication_complexity(
-            base_length, modulus_length
-        )
-        iteration_count = cls.calculate_iteration_count(modexp_input)
-        return max(
-            cls.MIN_GAS,
-            (multiplication_complexity * iteration_count // cls.GAS_DIVISOR),
-        )
 
 
 @dataclass(frozen=True)
@@ -133,3 +73,8 @@ class Spec7883(Spec):
         if max_length > cls.MAX_LENGTH_THRESHOLD:
             complexity = cls.LARGE_BASE_MODULUS_MULTIPLIER * words**2
         return complexity
+
+
+def modexp_spec_at(fork: Fork) -> Type[ModExpGasSpec]:
+    """Return the ModExp gas specification in effect at the given fork."""
+    return Spec7883 if fork.is_eip_enabled(7883) else modexp_gas_spec(fork)
