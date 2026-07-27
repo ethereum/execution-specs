@@ -4,7 +4,6 @@ import json
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import (
-    AbstractSet,
     Any,
     Dict,
     ItemsView,
@@ -13,13 +12,12 @@ from typing import (
     Literal,
     Optional,
     Self,
-    Tuple,
 )
 
 import ethereum.state as spec_state
+import ethereum.state_mpt as spec_state_mpt
 from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
-from ethereum.merkle_patricia_trie import InternalNode
 from ethereum_types.bytes import Bytes, Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
 from pydantic import PrivateAttr
@@ -301,7 +299,7 @@ class Alloc(BaseAlloc):
 
     def state_root(self) -> Hash:
         """Return state root of the allocation."""
-        return Hash(spec_state.state_root(self._materialize_state()))
+        return Hash(spec_state_mpt.state_root(self._materialize_state()))
 
     def verify_post_alloc(self, got_alloc: "Alloc") -> None:
         """
@@ -358,15 +356,16 @@ class Alloc(BaseAlloc):
             self._build_cache()
             self._phase = _Phase.LIVE
 
-    def _materialize_state(self) -> spec_state.State:
+    def _materialize_state(self) -> spec_state_mpt.State:
         """
-        Build an in-memory `ethereum.state.State` mirror of `self.root`.
+        Build an in-memory `ethereum.state_mpt.State` mirror of
+        `self.root`.
 
-        Used as the trie-backed delegate for
-        `compute_state_root_and_trie_changes` (a cold, once-per-block call).
-        The materialized state is not retained.
+        Used as the trie-backed delegate for `compute_state_root` (a
+        cold, once-per-block call). The materialized state is not
+        retained.
         """
-        state = spec_state.State()
+        state = spec_state_mpt.State()
         for address, account in self.root.items():
             if account is None:
                 continue
@@ -375,7 +374,7 @@ class Alloc(BaseAlloc):
             code_hash = (
                 spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH
             )
-            spec_state.set_account(
+            spec_state_mpt.set_account(
                 state,
                 addr,
                 spec_state.Account(
@@ -388,7 +387,7 @@ class Alloc(BaseAlloc):
                 value_int = int(value_hi)
                 if value_int == 0:
                     continue
-                spec_state.set_storage(
+                spec_state_mpt.set_storage(
                     state,
                     addr,
                     Bytes32(int(key_hi).to_bytes(32, "big")),
@@ -456,24 +455,18 @@ class Alloc(BaseAlloc):
         account = self.root.get(Address(address))
         return account is not None and bool(account.storage.root)
 
-    def compute_state_root_and_trie_changes(
-        self,
-        account_changes: Dict[Bytes20, Optional[spec_state.Account]],
-        storage_changes: Dict[Bytes20, Dict[Bytes32, U256]],
-        storage_clears: AbstractSet[Bytes20] = frozenset(),
-    ) -> Tuple[Hash32, List["InternalNode"]]:
+    def compute_state_root(self, block_diff: spec_state.BlockDiff) -> Hash32:
         """
-        Compute the state root after applying `*_changes` to the pre-state.
+        Compute the state root after applying `block_diff` to the
+        pre-state.
 
-        Conforms to
-        `ethereum.state.PreState.compute_state_root_and_trie_changes`.
-        Builds the trie inline; `Alloc` does not cache `Trie` instances.
+        Conforms to `ethereum.state.PreState.compute_state_root`.
+        Builds the trie inline; `Alloc` does not cache `Trie`
+        instances.
         """
         self._ensure_live()
         state = self._materialize_state()
-        return state.compute_state_root_and_trie_changes(
-            account_changes, storage_changes, storage_clears
-        )
+        return state.compute_state_root(block_diff)
 
     # ------------------------------------------------------------------
     # Lifecycle: apply_diff and freeze

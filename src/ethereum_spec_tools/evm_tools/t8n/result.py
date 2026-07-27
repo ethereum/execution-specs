@@ -79,9 +79,7 @@ def build_result(
     from execution_testing.client_clis.cli_types import Result as TestingResult
 
     diff = t8n.fork.extract_block_diff(t8n._block_state)
-    state_root, _ = t8n.alloc.compute_state_root_and_trie_changes(
-        diff.account_changes, diff.storage_changes, diff.storage_clears
-    )
+    state_root = t8n.alloc.compute_state_root(diff)
 
     arguments: Dict[str, Any] = {
         "state_root": state_root,

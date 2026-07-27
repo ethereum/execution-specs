@@ -30,13 +30,8 @@ from ethereum.exceptions import (
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import (
-    EMPTY_CODE_HASH,
-    Address,
-    BlockDiff,
-    State,
-    apply_changes_to_state,
-)
+from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff
+from ethereum.state_mpt import State, apply_changes_to_state
 
 from . import vm
 from .block_access_lists import (
@@ -343,9 +338,7 @@ def execute_block(
         withdrawals=block.withdrawals,
     )
     block_diff = extract_block_diff(block_state)
-    block_state_root, _ = pre_state.compute_state_root_and_trie_changes(
-        block_diff.account_changes, block_diff.storage_changes
-    )
+    block_state_root = pre_state.compute_state_root(block_diff)
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
     block_logs_bloom = logs_bloom(block_output.block_logs)

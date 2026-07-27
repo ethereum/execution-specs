@@ -4,8 +4,8 @@ Unit tests for `Alloc` acting as a `PreState` provider.
 Covers four invariants of the lifecycle phase machinery:
     1. The code-hash → bytes cache is built correctly when the alloc goes
        LIVE, and the PreState read methods agree with the source dict.
-    2. `compute_state_root_and_trie_changes` on `Alloc` matches the same
-       call on a freshly built `ethereum.state.State` over the same data.
+    2. `compute_state_root` on `Alloc` matches the same call on a
+       freshly built `ethereum.state_mpt.State` over the same data.
     3. Mutating an `Alloc` via `__setitem__`/`__delitem__` is rejected
        after it has been used as a PreState.
     4. Building alloc B by `apply_diff`ing a diff onto alloc A produces a
@@ -16,6 +16,7 @@ Covers four invariants of the lifecycle phase machinery:
 from typing import Dict, Optional
 
 import ethereum.state as spec_state
+import ethereum.state_mpt as spec_state_mpt
 import pytest
 from ethereum.crypto.hash import keccak256
 from ethereum_types.bytes import Bytes20, Bytes32
@@ -58,16 +59,16 @@ def _fixture_alloc() -> Alloc:
     )
 
 
-def _state_from_alloc(alloc: Alloc) -> spec_state.State:
+def _state_from_alloc(alloc: Alloc) -> spec_state_mpt.State:
     """Build a spec `State` mirroring `alloc` for parity comparisons."""
-    state = spec_state.State()
+    state = spec_state_mpt.State()
     for address, account in alloc.root.items():
         if account is None:
             continue
         addr = Bytes20(address)
         code = bytes(account.code) if account.code else b""
         code_hash = keccak256(code) if code else spec_state.EMPTY_CODE_HASH
-        spec_state.set_account(
+        spec_state_mpt.set_account(
             state,
             addr,
             spec_state.Account(
@@ -81,7 +82,7 @@ def _state_from_alloc(alloc: Alloc) -> spec_state.State:
         for key_hi, value_hi in account.storage.root.items():
             if int(value_hi) == 0:
                 continue
-            spec_state.set_storage(
+            spec_state_mpt.set_storage(
                 state,
                 addr,
                 Bytes32(int(key_hi).to_bytes(32, "big")),
@@ -138,12 +139,12 @@ def test_cache_build_and_read_methods_agree_with_source() -> None:
 
 
 def test_state_root_parity_against_spec_state() -> None:
-    """`Alloc.compute_state_root_and_trie_changes` matches spec `State`."""
+    """`Alloc.compute_state_root` matches spec `State`."""
     alloc = _fixture_alloc()
     state = _state_from_alloc(alloc)
 
-    alloc_root, _ = alloc.compute_state_root_and_trie_changes({}, {})
-    spec_root, _ = state.compute_state_root_and_trie_changes({}, {})
+    alloc_root = alloc.compute_state_root(spec_state.BlockDiff())
+    spec_root = state.compute_state_root(spec_state.BlockDiff())
     assert alloc_root == spec_root
 
     # Same parity under non-trivial change sets.
@@ -155,11 +156,19 @@ def test_state_root_parity_against_spec_state() -> None:
     storage_changes: Dict[Bytes20, Dict[Bytes32, U256]] = {
         ADDR_B: {Bytes32(b"\x00" * 31 + b"\x01"): U256(0x99)},
     }
-    alloc_root_changed, _ = alloc.compute_state_root_and_trie_changes(
-        account_changes, storage_changes
+    alloc_root_changed = alloc.compute_state_root(
+        spec_state.BlockDiff(
+            account_changes=account_changes,
+            storage_changes=storage_changes,
+            code_changes={},
+        )
     )
-    spec_root_changed, _ = state.compute_state_root_and_trie_changes(
-        account_changes, storage_changes
+    spec_root_changed = state.compute_state_root(
+        spec_state.BlockDiff(
+            account_changes=account_changes,
+            storage_changes=storage_changes,
+            code_changes={},
+        )
     )
     assert alloc_root_changed == spec_root_changed
     assert alloc_root_changed != alloc_root
@@ -258,9 +267,9 @@ def test_apply_diff_round_trip_matches_independent_post_state() -> None:
     alloc_pre.apply_diff(diff)
 
     # State roots should match.
-    pre_root, _ = alloc_pre.compute_state_root_and_trie_changes({}, {})
-    expected_root, _ = alloc_post_expected.compute_state_root_and_trie_changes(
-        {}, {}
+    pre_root = alloc_pre.compute_state_root(spec_state.BlockDiff())
+    expected_root = alloc_post_expected.compute_state_root(
+        spec_state.BlockDiff()
     )
     assert pre_root == expected_root
 
