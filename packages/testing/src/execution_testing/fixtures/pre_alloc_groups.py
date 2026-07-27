@@ -63,10 +63,20 @@ class PreAllocGroupBuilder(CamelModel):
 
     def calculate_genesis(self) -> FixtureHeader:
         """Get the genesis header for this group."""
+        # Deferred import: `execution_testing.client_clis` transitively
+        # imports `execution_testing.fixtures` (this package) at module
+        # load time (e.g. via `fixture_consumer_tool`), so importing
+        # `spec_calc_state_root` here at module level would form an
+        # import cycle; importing inside the method avoids it.
+        from execution_testing.client_clis.transition_tool import (
+            spec_calc_state_root,
+        )
+
+        state_root = spec_calc_state_root(
+            alloc=self.pre, fork=self.fork.transitions_from()
+        )
         return FixtureHeader.genesis(
-            self.fork.transitions_from(),
-            self.environment,
-            self.pre.state_root(),
+            self.fork.transitions_from(), self.environment, state_root
         )
 
     def add_test_alloc(self, test_id: str, new_pre: Alloc) -> None:
@@ -556,7 +566,23 @@ class GroupPreAlloc(Alloc):
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
 
     def state_root(self) -> Hash:
-        """On pre-alloc groups, which are normally very big, always cache."""
+        """
+        On pre-alloc groups, which are normally very big, always cache.
+
+        This class carries no fork reference, so it cannot resolve a
+        spec state provider itself: `super().state_root()` below is
+        always the plain MPT root. That branch is not reached in
+        practice, because `PreAllocGroup.model_post_init` unconditionally
+        seeds `_cached_state_root` from `genesis.state_root` right after
+        construction -- both a fresh `build()` and every `from_file()`
+        reload re-run it -- and `calculate_genesis()` makes
+        `genesis.state_root` fork-correct via `spec_calc_state_root`.
+        The state-provider name that `spec_calc_state_root` installs is
+        itself a private attr and would not survive a
+        `model_dump`/`model_validate` round trip, which is why this
+        cache, not the provider, is what carries the fork-correct root
+        across a reload.
+        """
         if self._cached_state_root is not None:
             return self._cached_state_root
         return super().state_root()
