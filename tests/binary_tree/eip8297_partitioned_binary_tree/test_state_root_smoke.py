@@ -13,8 +13,10 @@ from execution_testing import (
     Transaction,
 )
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-8297.md"
-REFERENCE_SPEC_VERSION = "draft"
+from .spec import ref_spec_8297
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8297.version
 
 
 @pytest.mark.valid_from("BinaryTree")

@@ -144,6 +144,33 @@ fill-release *args:
         --log-level=DEBUG \
         "$@"
 
+# Fill the consensus tests for the experimental EIP-8297 binary tree
+# fork; only reachable via --fork BinaryTree (deployed=False), which
+# the framework rejects if combined with --until, so this recipe omits
+# --until instead of mirroring `fill`'s --until "{{ latest_fork }}".
+[group('consensus tests')]
+fill-binary-tree *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "{{ output_dir }}/fill-binary-tree/tmp" \
+        "{{ output_dir }}/fill-binary-tree/logs"
+    # A caller-supplied path replaces the default instead of extending
+    # it: appending "$@" ahead of a hardcoded "tests/binary_tree" (the
+    # `fill` shape) would still collect the whole tree, since any
+    # narrower path a caller passes is already inside it.
+    paths="${@:-tests/binary_tree}"
+    uv run fill \
+        -m "not slow" \
+        -n {{ xdist_workers }} --dist=loadgroup \
+        --skip-index \
+        --output="{{ output_dir }}/fill-binary-tree/fixtures" \
+        --basetemp="{{ output_dir }}/fill-binary-tree/tmp" \
+        --log-to "{{ output_dir }}/fill-binary-tree/logs" \
+        --clean \
+        --fork BinaryTree \
+        --durations=50 \
+        $paths
+
 # --- Integration Tests ---
 
 # Fill the base coverage consensus tests using EELS with PyPy
