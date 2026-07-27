@@ -1584,7 +1584,16 @@ def _combination_filter_reason(
                 f"{predicate!r}",
                 returncode=pytest.ExitCode.USAGE_ERROR,
             )
-        if not predicate(**params):
+        try:
+            keep = predicate(**params)
+        except TypeError as e:
+            pytest.exit(
+                f"filter_combinations predicate for "
+                f"'{item.nodeid}' cannot be called with the "
+                f"item's params: {e}",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
+        if not keep:
             return marker.kwargs.get(
                 "reason", "rejected by filter_combinations"
             )

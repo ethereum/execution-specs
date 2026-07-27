@@ -504,12 +504,17 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             )
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(
     items: List[pytest.Item],
 ) -> None:
     """
     Remove transition tests and add the appropriate execute markers to the
     test.
+
+    Runs tryfirst so that items collected without a fork parametrization
+    (tests not valid for the session's fork) are removed before other
+    plugins inspect item params, as in the filler plugin.
     """
     items_for_removal = []
     for i, item in enumerate(items):
