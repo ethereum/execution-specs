@@ -452,27 +452,34 @@ def _reference_chunkify(code: bytes) -> List[bytes]:
     """
     Chunkify `code` with an independent reimplementation.
 
-    A from-scratch reading of the EIP-8297 pseudocode: zero-pad to a
-    31-byte multiple, scan for `PUSH1`..`PUSH32`, and prefix each
-    31-byte slice with its leading push-data count. Kept separate
-    from `chunkify_code` so the two can be cross-checked.
+    A direct transcription of EIP-8297's own `chunkify_code`
+    pseudocode, kept separate from `chunkify_code` so the two can be
+    cross-checked: same structure, but the EIP text's own variable
+    names (`bytes_to_exec_data`, `pos`, `x`, `pushdata_bytes`, and
+    `pos` reused as the closing comprehension's loop variable), not
+    `chunkify_code`'s (`remaining_push_data`, `position`, `offset`,
+    `push_data_bytes`, `start`).
     """
+    push_offset = 95
+    push1 = push_offset + 1
+    push32 = push_offset + 32
+
     if len(code) % 31 != 0:
-        code = code + b"\x00" * (31 - len(code) % 31)
-
-    remaining = [0] * (len(code) + 32)
-    position = 0
-    while position < len(code):
-        opcode = code[position]
-        push_data_bytes = opcode - 95 if 96 <= opcode <= 127 else 0
-        position += 1
-        for offset in range(push_data_bytes):
-            remaining[position + offset] = push_data_bytes - offset
-        position += push_data_bytes
-
+        code = code + b"\x00" * (31 - (len(code) % 31))
+    bytes_to_exec_data = [0] * (len(code) + 32)
+    pos = 0
+    while pos < len(code):
+        if push1 <= code[pos] <= push32:
+            pushdata_bytes = code[pos] - push_offset
+        else:
+            pushdata_bytes = 0
+        pos += 1
+        for x in range(pushdata_bytes):
+            bytes_to_exec_data[pos + x] = pushdata_bytes - x
+        pos += pushdata_bytes
     return [
-        bytes([min(remaining[start], 31)]) + code[start : start + 31]
-        for start in range(0, len(code), 31)
+        bytes([min(bytes_to_exec_data[pos], 31)]) + code[pos : pos + 31]
+        for pos in range(0, len(code), 31)
     ]
 
 
@@ -590,16 +597,22 @@ def test_chunkify_all_push32_code_matches_reference_scanner() -> None:
     31 repeats of a 33-byte `PUSH32 || 32 data bytes` instruction is
     1023 bytes -- divisible by both the 33-byte instruction and the
     31-byte chunk -- exercising a full alignment cycle between the
-    two.
+    two. Chunk 32, the last of 33, additionally gets a hand-derived
+    pin that stands on its own, independent of the reference scanner:
+    the last (31st) instruction opens at position 990, so its data
+    (positions 991-1022, values 1..32) still has 31 bytes remaining
+    once chunk 32 opens at position 992, one byte into that data.
     """
     instruction = bytes([0x7F]) + bytes(range(1, 33))
     assert len(instruction) == 33
     code = Bytes(instruction * 31)
     assert len(code) == 1023
 
-    assert chunkify_code(code) == [
-        Bytes32(c) for c in _reference_chunkify(bytes(code))
-    ]
+    chunks = chunkify_code(code)
+
+    assert chunks == [Bytes32(c) for c in _reference_chunkify(bytes(code))]
+    assert len(chunks) == 33
+    assert chunks[32] == Bytes32(bytes([31]) + bytes(range(2, 33)))
 
 
 def test_chunkify_push_data_containing_push_opcodes() -> None:
@@ -610,7 +623,14 @@ def test_chunkify_push_data_containing_push_opcodes() -> None:
 
     Each `PUSH2` here carries `0x7F` and `0x60` as its two data
     bytes; the scanner must skip both wholesale rather than restart
-    a push count on them.
+    a push count on them. Chunk 2 additionally gets a hand-derived
+    pin that stands on its own, independent of the reference
+    scanner: the 16th `PUSH2` (at position 60) has its second data
+    byte, the `0x60`, at position 62 -- chunk 2's first byte -- so
+    chunk 2 opens with exactly one byte of carried-over push data.
+    A scanner that wrongly restarted counting on a push-opcode-valued
+    data byte would instead read `0x7F` (at position 61) as a fresh
+    `PUSH32` and report 31 there, not 1.
     """
     push2 = 0x61
     code = Bytes((bytes([push2, 0x7F, 0x60]) + b"\x00") * 16)
@@ -619,7 +639,7 @@ def test_chunkify_push_data_containing_push_opcodes() -> None:
 
     assert chunks == [Bytes32(c) for c in _reference_chunkify(bytes(code))]
     assert len(chunks) == 3
-    assert chunks[0][0] == 0
+    assert chunks[2] == Bytes32(bytes([1, 0x60]) + b"\x00" * 30)
 
 
 def test_chunkify_consecutive_pushes_across_boundary() -> None:
