@@ -181,6 +181,19 @@ jobs:
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
+  fill-binary-tree:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-uv
+      - name: Run fill-binary-tree tests
+        run: just fill-binary-tree tests/binary_tree
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+
   test-tests-pypy:
     runs-on: [self-hosted-ghr, size-l-x64]
     needs: static
