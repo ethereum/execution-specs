@@ -1243,6 +1243,7 @@ def test_create_no_double_charge_new_account(
     [
         pytest.param("oversized_code", id="oversized_code"),
         pytest.param("oog_deposit", id="oog_deposit"),
+        pytest.param("ef_prefix", id="ef_prefix"),
     ],
 )
 @pytest.mark.valid_from("EIP8037")
@@ -1258,11 +1259,12 @@ def test_code_deposit_halt_discards_initcode_state_gas(
 
     A CREATE tx runs initcode that first performs a state-creating
     operation (charging GAS_NEW_ACCOUNT state gas), then returns
-    code that triggers a deposit failure (oversized or OOG). The
-    exceptional halt reverts all initcode state changes including
-    the new account. The reverted GAS_NEW_ACCOUNT must NOT count
-    in block_state_gas_used, which determines the block header
-    gas_used via max(block_regular_gas, block_state_gas).
+    code that triggers a deposit failure (oversized, OOG, or an
+    EIP-3541 0xEF prefix). The exceptional halt reverts all initcode
+    state changes including the new account. The reverted
+    GAS_NEW_ACCOUNT must NOT count in block_state_gas_used, which
+    determines the block header gas_used via
+    max(block_regular_gas, block_state_gas).
     """
     subcall_forwarded_value = 1
     entry_account_value = 1
@@ -1278,11 +1280,15 @@ def test_code_deposit_halt_discards_initcode_state_gas(
 
     if deposit_fail_mode == "oversized_code":
         deposit_fail = Op.RETURN(0, fork.max_code_size() + 1)
-    else:
-        # Return code at max size — passes the size check but code
+    elif deposit_fail_mode == "oog_deposit":
+        # Return code at max size: passes the size check but code
         # deposit state gas (max_code_size * cost_per_state_byte)
         # exceeds available state gas in the child frame, causing OOG.
         deposit_fail = Op.RETURN(0, fork.max_code_size())
+    else:
+        # Return single 0xEF byte: EIP-3541 rejects the code before
+        # the size check or any deposit charging, halting the deposit.
+        deposit_fail = Op.MSTORE8(0, 0xEF) + Op.RETURN(0, 1)
 
     initcode = state_op + deposit_fail
 
