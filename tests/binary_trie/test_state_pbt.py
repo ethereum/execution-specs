@@ -637,12 +637,16 @@ def test_storage_clears_removes_slots_before_other_changes() -> None:
     `storage_changes` is applied, so a slot rewritten by the same
     diff survives while every other pre-existing slot is dropped.
 
-    No fork's state tracker in this repository currently populates
-    `storage_clears` (Amsterdam's `extract_block_diff` never sets
-    it; the field exists for pre-EIP-6780 `SELFDESTRUCT` semantics),
-    so this branch is reachable only from unit tests today. Pinning
-    it keeps the provider honest in case a pre-Cancun-style tracker
-    is ever wired up.
+    Several pre-EIP-6780 forks (frontier through shanghai) still
+    populate `storage_clears` in their own trackers, and
+    `state_mpt`'s `apply_changes_to_state` consumes it too — but
+    none of them use `state_pbt`. `binary_tree`, the only fork wired
+    to this provider, copies Amsterdam's `extract_block_diff`, which
+    never sets the field: EIP-6780 removed the full-storage-wipe
+    `SELFDESTRUCT` semantics that motivated it. So this branch is
+    reachable only from unit tests today; pinning it keeps the
+    provider honest in case a pre-Cancun-style tracker is ever wired
+    up to it.
     """
     state = State()
     set_account(
