@@ -1286,8 +1286,8 @@ def test_code_deposit_halt_discards_initcode_state_gas(
         # exceeds available state gas in the child frame, causing OOG.
         deposit_fail = Op.RETURN(0, fork.max_code_size())
     else:
-        # Return single 0xEF byte: passes the size check but EIP-3541
-        # rejects the 0xEF-prefixed code, halting the deposit.
+        # Return single 0xEF byte: EIP-3541 rejects the code before
+        # the size check or any deposit charging, halting the deposit.
         deposit_fail = Op.MSTORE8(0, 0xEF) + Op.RETURN(0, 1)
 
     initcode = state_op + deposit_fail
