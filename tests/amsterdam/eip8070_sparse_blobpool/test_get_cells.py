@@ -37,7 +37,26 @@ ALL_CELLS_MASK = (1 << CELLS) - 1
 
 def generate_blob_layouts(fork: Fork) -> List:
     """Return blob transaction layouts to exercise `getBlobsV4`."""
+    max_blobs_per_block = fork.max_blobs_per_block()
     max_blobs_per_tx = fork.max_blobs_per_tx()
+    target_blobs_per_block = fork.target_blobs_per_block()
+
+    # Ascending pattern (1, 2, 3... blobs per tx) capped at the target
+    ascending_txs = []
+    total_blobs = 0
+    blob_offset = 0
+    for tx_size in range(1, max_blobs_per_tx + 1):
+        if total_blobs + tx_size > target_blobs_per_block:
+            break
+        ascending_txs.append(
+            [Blob.from_fork(fork, blob_offset + j) for j in range(tx_size)]
+        )
+        total_blobs += tx_size
+        blob_offset += tx_size
+
+    two_tx_blobs = min(target_blobs_per_block // 2, max_blobs_per_tx)
+    three_tx_blobs = min(target_blobs_per_block // 3, max_blobs_per_tx)
+
     return [
         pytest.param(
             [[Blob.from_fork(fork)]],
@@ -47,6 +66,63 @@ def generate_blob_layouts(fork: Fork) -> List:
             [[Blob.from_fork(fork, s) for s in range(max_blobs_per_tx)]],
             id="max_blobs_per_tx",
         ),
+        pytest.param(
+            [[Blob.from_fork(fork, s)] for s in range(max_blobs_per_block)],
+            id="max_blobs_per_block",
+        ),
+        pytest.param(
+            [[Blob.from_fork(fork, s)] for s in range(target_blobs_per_block)],
+            id="target_blobs_per_block",
+        ),
+        pytest.param(
+            [
+                [Blob.from_fork(fork, s) for s in range(two_tx_blobs)],
+                [
+                    Blob.from_fork(fork, s + two_tx_blobs)
+                    for s in range(two_tx_blobs)
+                ],
+            ],
+            id="two_tx_equal_blobs",
+        ),
+        pytest.param(
+            [
+                [
+                    Blob.from_fork(fork, s + i * three_tx_blobs)
+                    for s in range(three_tx_blobs)
+                ]
+                for i in range(3)
+            ],
+            id="three_tx_equal_blobs",
+        ),
+        pytest.param(
+            [[Blob.from_fork(fork, s) for s in range(max_blobs_per_tx)]]
+            + [
+                [Blob.from_fork(fork, max_blobs_per_tx + s)]
+                for s in range(max_blobs_per_block - max_blobs_per_tx)
+            ],
+            id="mixed_max_tx_plus_singles",
+        ),
+        pytest.param(
+            ascending_txs,
+            id="ascending_blob_pattern",
+        ),
+    ]
+
+
+def generate_single_blob_layout(fork: Fork) -> List:
+    """Return a single-blob transaction layout."""
+    return [
+        pytest.param([[Blob.from_fork(fork)]], id="single_blob_transaction")
+    ]
+
+
+def generate_single_blob_txs_layout(fork: Fork) -> List:
+    """Return a layout of three single-blob transactions."""
+    return [
+        pytest.param(
+            [[Blob.from_fork(fork, s)] for s in range(3)],
+            id="three_single_blob_txs",
+        )
     ]
 
 
@@ -55,11 +131,17 @@ def generate_cell_masks() -> List:
     return [
         pytest.param(ALL_CELLS_MASK, id="all_cells"),
         pytest.param((1 << Spec.RECONSTRUCTION_THRESHOLD) - 1, id="first_64"),
+        pytest.param(
+            ALL_CELLS_MASK ^ ((1 << Spec.RECONSTRUCTION_THRESHOLD) - 1),
+            id="top_64",
+        ),
         pytest.param(0xFF, id="custody_aligned_8"),
         pytest.param(1, id="single_cell"),
+        pytest.param(1 << (CELLS - 1), id="last_cell"),
         pytest.param(
             sum(1 << i for i in range(0, CELLS, 2)), id="alternating_cells"
         ),
+        pytest.param(0, id="no_cells"),
     ]
 
 
@@ -141,4 +223,69 @@ def test_get_cells_only_nonexisting(
         get_blobs_version=4,
         cell_mask=cell_mask,
         nonexisting_blob_hashes=nonexisting_blob_hashes,
+    )
+
+
+@pytest.mark.parametrize(
+    "cell_mask",
+    [pytest.param(0xFF, id="custody_aligned_8")],
+)
+@pytest.mark.parametrize_by_fork("txs_blobs", generate_single_blob_layout)
+@pytest.mark.exception_test
+def test_get_cells_min_request_size(
+    blobs_test: BlobsTestFiller,
+    pre: Alloc,
+    txs: List[NetworkWrappedTransaction | Transaction],
+    cell_mask: int,
+) -> None:
+    """
+    Test a request of 128 versioned hashes, the minimum request size a
+    client must support for `getBlobsV4`.
+
+    The response must hold one entry per requested hash: a cell matrix for
+    the existing blob and `null` for each non-existing hash.
+    """
+    nonexisting_blob_hashes = [
+        Hash(sha256(str(i).encode()).digest())
+        for i in range(Spec.MIN_SUPPORTED_REQUEST_SIZE - 1)
+    ]
+    blobs_test(
+        pre=pre,
+        txs=txs,
+        get_blobs_version=4,
+        cell_mask=cell_mask,
+        nonexisting_blob_hashes=nonexisting_blob_hashes,
+    )
+
+
+@pytest.mark.parametrize(
+    "cell_mask",
+    [
+        pytest.param(ALL_CELLS_MASK, id="all_cells"),
+        pytest.param(0xFF, id="custody_aligned_8"),
+    ],
+)
+@pytest.mark.parametrize_by_fork("txs_blobs", generate_single_blob_txs_layout)
+@pytest.mark.exception_test
+def test_get_cells_interleaved_missing(
+    blobs_test: BlobsTestFiller,
+    pre: Alloc,
+    txs: List[NetworkWrappedTransaction | Transaction],
+    cell_mask: int,
+) -> None:
+    """
+    Test that `null` entries appear at the exact request positions when
+    non-existing hashes are interleaved with existing ones (leading,
+    middle, and trailing positions of the request).
+    """
+    nonexisting_blob_hashes = [
+        Hash(sha256(str(i).encode()).digest()) for i in range(5)
+    ]
+    blobs_test(
+        pre=pre,
+        txs=txs,
+        get_blobs_version=4,
+        cell_mask=cell_mask,
+        nonexisting_blob_hashes=nonexisting_blob_hashes,
+        interleave_nonexisting_blob_hashes=True,
     )

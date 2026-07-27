@@ -28,3 +28,15 @@ class Spec:
 
     RECONSTRUCTION_THRESHOLD = 64
     """Number of cells required for Reed-Solomon reconstruction of a blob."""
+
+    SAMPLES_PER_SLOT = 8
+    """Minimum number of blob columns a node must custody."""
+
+    CUSTODY_BITMAP_BYTES = 16
+    """Byte length of the `custodyColumns` and cell mask bitmaps."""
+
+    MIN_SUPPORTED_REQUEST_SIZE = 128
+    """
+    Minimum `getBlobsV4` request size (in versioned hashes) that clients
+    must support, per the execution-apis `engine_getBlobsV4` definition.
+    """

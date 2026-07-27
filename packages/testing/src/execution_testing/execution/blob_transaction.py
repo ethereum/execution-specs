@@ -19,8 +19,11 @@ from execution_testing.rpc import (
     EthRPC,
 )
 from execution_testing.rpc.rpc_types import (
+    ForkchoiceState,
     GetBlobsResponse,
     GetBlobsV4Response,
+    JSONRPCError,
+    PayloadStatusEnum,
 )
 from execution_testing.test_types import (
     Blob,
@@ -35,6 +38,20 @@ from execution_testing.test_types.transaction_types import (
 from .base import BaseExecute, ExecuteResult
 
 logger = get_logger(__name__)
+
+CUSTODY_COLUMNS_BYTE_LENGTH = 16
+"""Byte length of a well-formed `custodyColumns` bitmap (EIP-8070)."""
+
+
+def _interleave_hashes(a: List[Hash], b: List[Hash]) -> List[Hash]:
+    """Interleave two hash lists, starting with `a`, appending leftovers."""
+    interleaved: List[Hash] = []
+    for x, y in zip(a, b, strict=False):
+        interleaved.extend((x, y))
+    shorter_length = min(len(a), len(b))
+    interleaved.extend(a[shorter_length:])
+    interleaved.extend(b[shorter_length:])
+    return interleaved
 
 
 def _validate_blob_and_proof(
@@ -228,8 +245,10 @@ class BlobTransaction(BaseExecute):
 
     txs: List[NetworkWrappedTransaction | Transaction]
     nonexisting_blob_hashes: List[Hash] | None = None
+    interleave_nonexisting_blob_hashes: bool = False
     get_blobs_version: int | None = None
     cell_mask: int | None = None
+    custody_columns: bytes | None = None
 
     def prepare_transactions(
         self,
@@ -279,6 +298,64 @@ class BlobTransaction(BaseExecute):
                 balances[sender] = 0
             balances[sender] += tx.signer_minimum_balance(fork=fork)
         return balances
+
+    def _update_custody_columns(
+        self,
+        fork: Fork,
+        eth_rpc: EthRPC,
+        engine_rpc: EngineRPC,
+    ) -> None:
+        """
+        Send a forkchoice update carrying the `custodyColumns` bitmap.
+
+        A 16-byte bitmap must be accepted with a VALID payload status
+        (custody set update errors must not affect the forkchoice flow,
+        per `engine_forkchoiceUpdatedV4`); any other length must be
+        rejected with `-32602: Invalid params`.
+        """
+        assert self.custody_columns is not None
+        fcu_version = fork.engine_forkchoice_updated_version()
+        assert fcu_version is not None and fcu_version >= 4, (
+            "custodyColumns requires engine_forkchoiceUpdatedV4."
+        )
+        latest_block = eth_rpc.get_block_by_number("latest")
+        assert latest_block is not None, "Failed to fetch the latest block."
+        forkchoice_state = ForkchoiceState(
+            head_block_hash=Hash(latest_block["hash"]),
+        )
+        valid_length = len(self.custody_columns) == CUSTODY_COLUMNS_BYTE_LENGTH
+        try:
+            response = engine_rpc.forkchoice_updated(
+                forkchoice_state,
+                None,
+                version=fcu_version,
+                custody_columns=self.custody_columns,
+            )
+        except JSONRPCError as e:
+            if valid_length:
+                raise
+            if e.code != -32602:
+                raise ValueError(
+                    f"Expected error -32602 (Invalid params) for a "
+                    f"{len(self.custody_columns)}-byte custodyColumns, "
+                    f"got {e.code}: {e.message}"
+                ) from e
+            logger.info(
+                f"Client correctly rejected a "
+                f"{len(self.custody_columns)}-byte custodyColumns bitmap."
+            )
+            return
+        if not valid_length:
+            raise ValueError(
+                f"Client accepted a {len(self.custody_columns)}-byte "
+                "custodyColumns bitmap; expected -32602 (Invalid params)."
+            )
+        status = response.payload_status.status
+        if status != PayloadStatusEnum.VALID:
+            raise ValueError(
+                f"forkchoiceUpdatedV{fcu_version} with custodyColumns "
+                f"returned payload status {status}, expected VALID."
+            )
 
     def execute(
         self,
@@ -341,7 +418,19 @@ class BlobTransaction(BaseExecute):
 
         list_versioned_hashes = list(versioned_hashes.keys())
         if self.nonexisting_blob_hashes is not None:
-            list_versioned_hashes.extend(self.nonexisting_blob_hashes)
+            if self.interleave_nonexisting_blob_hashes:
+                assert version >= 4, (
+                    "interleave_nonexisting_blob_hashes is only supported "
+                    "with getBlobsV4."
+                )
+                list_versioned_hashes = _interleave_hashes(
+                    self.nonexisting_blob_hashes, list_versioned_hashes
+                )
+            else:
+                list_versioned_hashes.extend(self.nonexisting_blob_hashes)
+
+        if self.custody_columns is not None:
+            self._update_custody_columns(fork, eth_rpc, engine_rpc)
 
         indices_bitarray = self.cell_mask if version >= 4 else None
         blob_response: GetBlobsResponse | GetBlobsV4Response | None = (
@@ -437,11 +526,11 @@ class BlobTransaction(BaseExecute):
                     "(with null entries for missing blobs)."
                 )
             assert isinstance(blob_response, GetBlobsV4Response)
+            # `blobs_by_hash` only holds existing blobs, so non-existing
+            # hashes map to `None` at their exact request positions.
             expected_blobs: List[Blob | None] = [
-                blobs_by_hash[vh] for vh in versioned_hashes
+                blobs_by_hash.get(vh) for vh in list_versioned_hashes
             ]
-            if self.nonexisting_blob_hashes is not None:
-                expected_blobs += [None] * len(self.nonexisting_blob_hashes)
             if len(blob_response) != len(expected_blobs):
                 raise ValueError(
                     f"Expected {len(expected_blobs)} blob responses, "

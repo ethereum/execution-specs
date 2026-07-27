@@ -1445,6 +1445,7 @@ class EngineRPC(BaseJwtRPC):
         payload_attributes: PayloadAttributes | None = None,
         *,
         version: int,
+        custody_columns: bytes | None = None,
     ) -> ForkchoiceUpdateResponse:
         """
         `engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the
@@ -1452,10 +1453,16 @@ class EngineRPC(BaseJwtRPC):
         """
         method = f"forkchoiceUpdatedV{version}"
 
+        params: List[Any]
         if payload_attributes is None:
             params = [to_json(forkchoice_state), None]
         else:
             params = [to_json(forkchoice_state), to_json(payload_attributes)]
+        if custody_columns is not None:
+            # Third parameter of `engine_forkchoiceUpdatedV4` (EIP-8070):
+            # a bitmap of the blob columns custodied by the node.
+            assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
+            params.append(f"0x{custody_columns.hex()}")
 
         return ForkchoiceUpdateResponse.model_validate(
             self.post_request(
