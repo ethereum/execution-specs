@@ -8,6 +8,10 @@ from click.testing import CliRunner
 
 from ..cli import eest, ensure_utf8_output
 
+pytestmark = pytest.mark.skip(
+    "Issue #3241: eest info queries github.com to get release information"
+)
+
 
 def test_info_runs_successfully() -> None:
     """`eest info` exits cleanly and reports the EEST banner."""
