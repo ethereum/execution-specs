@@ -4,8 +4,8 @@ Unit tests for `Alloc` acting as a `PreState` provider.
 Covers four invariants of the lifecycle phase machinery:
     1. The code-hash → bytes cache is built correctly when the alloc goes
        LIVE, and the PreState read methods agree with the source dict.
-    2. `compute_state_root` on `Alloc` matches the same
-       call on a freshly built `ethereum.state.State` over the same data.
+    2. `compute_state_root` on `Alloc` matches the same call on a
+       freshly built `ethereum.state_mpt.State` over the same data.
     3. Mutating an `Alloc` via `__setitem__`/`__delitem__` is rejected
        after it has been used as a PreState.
     4. Building alloc B by `apply_diff`ing a diff onto alloc A produces a

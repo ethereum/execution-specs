@@ -467,8 +467,6 @@ def root(
     [`Hash32`]: ref:ethereum.crypto.hash.Hash32
     [`Account`]: ref:ethereum.state.Account
     """
-    from ethereum.state import Root
-
     obj = _prepare_trie(trie, get_storage_root)
 
     root_node = encode_internal_node(patricialize(obj, Uint(0)))
