@@ -280,7 +280,7 @@ class StateTest(BaseTest):
         if self.env.base_fee_per_gas:
             # Calculate genesis base fee per gas from state test's block#1 env
             kwargs["base_fee_per_gas"] = HexNumber(
-                int(int(str(self.env.base_fee_per_gas), 0) * 8 / 7)
+                int(str(self.env.base_fee_per_gas), 0) * 8 // 7
             )
 
         if self.env.excess_blob_gas:
