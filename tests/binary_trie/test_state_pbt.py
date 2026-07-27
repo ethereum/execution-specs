@@ -12,8 +12,19 @@ The second group covers the provider. `compute_state_root` applies
 a block diff (deletions, zero-writes, freshly deployed code) and
 embeds the result; each test builds the same post-state directly in
 the MPT-backed container and checks that both roots agree.
+
+Later groups pin exact key sets (rebuilt from raw `blake3` and
+literal zone/sub-index bytes, never the derivation functions under
+test, so a leaf count could not catch what a wrong key would), the
+BASIC_DATA leaf's byte layout, and further provider semantics:
+`storage_clears` ordering, account-delete/storage-orphan
+interactions, the asymmetry between `set_account` and the diff
+path, pre-state immutability, sequential diffs, and the storage
+sub-index boundaries.
 """
 
+import pytest
+from blake3 import blake3
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U32, U64, U256, Uint
 
@@ -40,6 +51,7 @@ from ethereum.state_mpt import set_storage as mpt_set_storage
 from ethereum.state_mpt import store_code as mpt_store_code
 from ethereum.state_pbt import (
     State,
+    apply_changes_to_state,
     embed_flat_state,
     set_account,
     set_storage,
@@ -331,3 +343,629 @@ def test_store_code_round_trips() -> None:
 
     assert state.get_code(code_hash) == code
     assert state.get_code(EMPTY_CODE_HASH) == b""
+
+
+def _account_header_stem(address32: bytes) -> bytes:
+    """
+    Build an account's 33-byte header stem from scratch.
+
+    The stem is `0x00 || blake3(address32)`: the account zone byte
+    followed by the address digest, computed here independently of
+    `get_tree_key_for_header`.
+    """
+    return bytes([0]) + blake3(address32).digest()
+
+
+def _storage_overflow_stem(address32: bytes, tree_index: int) -> bytes:
+    """
+    Build a 65-byte overflow storage stem from scratch.
+
+    The stem is `0xff || blake3(address32) ||
+    blake3(address32 || tree_index)`, computed here independently of
+    `get_tree_key_for_storage_slot`.
+    """
+    prefix = blake3(address32).digest()
+    suffix = blake3(address32 + tree_index.to_bytes(32, "big")).digest()
+    return bytes([255]) + prefix + suffix
+
+
+def _code_overflow_stem(code_hash: bytes, tree_index: int) -> bytes:
+    """
+    Build a 33-byte overflow code stem from scratch.
+
+    The stem is `0x01 || blake3(code_hash || tree_index)`, computed
+    here independently of `get_tree_key_for_code_chunk`.
+    """
+    digest = blake3(code_hash + tree_index.to_bytes(32, "big")).digest()
+    return bytes([1]) + digest
+
+
+def test_embedded_key_set_for_a_crafted_contract() -> None:
+    """
+    One contract, crafted so its code and storage exercise every
+    sub-index boundary the embedding defines, embeds to an exact,
+    independently rebuilt key set.
+
+    Code spanning 129 chunks (`31 * 129 = 3999` bytes) puts chunks
+    0-127 in the header and chunk 128 in the code zone; storage at
+    slots 63, 64, and 256 puts one slot in the header and two in the
+    storage zone, each its own overflow group. The expected keys are
+    rebuilt from raw `blake3` and literal zone/sub-index bytes, never
+    by calling the embedding's own derivation, so a swapped zone byte
+    or an off-by-one sub-index would be caught here even though it
+    cannot change a leaf count.
+    """
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    code = Bytes(b"\x01" * (31 * 129))
+    state = MptState()
+    code_hash = mpt_store_code(state, code)
+    mpt_set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
+    )
+    for slot, value in ((63, 1), (64, 2), (256, 3)):
+        mpt_set_storage(
+            state,
+            ADDRESS_A,
+            Bytes32(U256(slot).to_be_bytes32()),
+            U256(value),
+        )
+
+    embedded = embed_state(state)
+
+    header_stem = _account_header_stem(address32)
+    expected_keys = {
+        header_stem + bytes([0]),  # basic data
+        header_stem + bytes([1]),  # code hash
+        header_stem + bytes([127]),  # storage slot 63
+    }
+    expected_keys |= {
+        header_stem + bytes([128 + chunk_id]) for chunk_id in range(128)
+    }
+    expected_keys.add(_code_overflow_stem(code_hash, 0) + bytes([0]))
+    expected_keys.add(_storage_overflow_stem(address32, 0) + bytes([64]))
+    expected_keys.add(_storage_overflow_stem(address32, 1) + bytes([0]))
+
+    assert set(embedded._data.keys()) == expected_keys
+    assert all(len(key) in (34, 66) for key in expected_keys)
+
+
+def test_header_code_chunks_are_per_account_while_overflow_is_shared() -> None:
+    """
+    Two accounts with identical 129-chunk code are disjoint on
+    header chunk keys but share their one overflow chunk key.
+
+    Pins this by KEY, not leaf count: per-account header chunks
+    (sub-indices 128-255 under each account's own header stem) must
+    never collide between the two accounts, while the single chunk
+    that overflows the header (chunk 128) must land on the exact
+    same content-addressed key for both, so the tree stores it once.
+    """
+    code = Bytes(b"\x01" * (31 * 129))
+    state = MptState()
+    code_hash = mpt_store_code(state, code)
+    for address in (ADDRESS_A, ADDRESS_B):
+        mpt_set_account(
+            state,
+            address,
+            Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
+        )
+
+    embedded = embed_state(state)
+
+    stem_a = _account_header_stem(b"\x00" * 12 + bytes(ADDRESS_A))
+    stem_b = _account_header_stem(b"\x00" * 12 + bytes(ADDRESS_B))
+    header_chunk_keys_a = {
+        stem_a + bytes([128 + chunk_id]) for chunk_id in range(128)
+    }
+    header_chunk_keys_b = {
+        stem_b + bytes([128 + chunk_id]) for chunk_id in range(128)
+    }
+
+    assert header_chunk_keys_a.isdisjoint(header_chunk_keys_b)
+    assert header_chunk_keys_a <= set(embedded._data.keys())
+    assert header_chunk_keys_b <= set(embedded._data.keys())
+
+    overflow_key = _code_overflow_stem(code_hash, 0) + bytes([0])
+    code_zone_keys = {key for key in embedded._data if key[0] == 1}
+    assert code_zone_keys == {overflow_key}
+
+
+def test_basic_data_leaf_bytes_carry_code_size_nonce_and_balance() -> None:
+    """
+    The BASIC_DATA leaf's 32 bytes pack the resolved code's length,
+    not any field stored on `Account` itself.
+
+    `Account` has no `code_size` field, so reading the leaf back out
+    by its independently rebuilt key and checking it byte range by
+    byte range is proof the provider re-derives the size from
+    `get_code(code_hash)` on every embed, not from anything cached.
+    """
+    code = Bytes(b"\x01" * 40)
+    state = MptState()
+    code_hash = mpt_store_code(state, code)
+    mpt_set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(7), balance=U256(12345), code_hash=code_hash),
+    )
+
+    embedded = embed_state(state)
+
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    key = _account_header_stem(address32) + bytes([0])
+    leaf = embedded._data[key]
+
+    assert leaf[0:1] == b"\x00"  # version
+    assert leaf[1:4] == b"\x00" * 3  # reserved
+    assert leaf[4:8] == len(code).to_bytes(4, "big")  # code_size
+    assert leaf[8:16] == (7).to_bytes(8, "big")  # nonce
+    assert leaf[16:32] == (12345).to_bytes(16, "big")  # balance
+
+
+def test_balance_at_or_above_the_sixteen_byte_field_fails_at_root_time() -> (
+    None
+):
+    """
+    A balance of exactly `2**128` crashes `state_root` with an
+    `AssertionError` instead of being rejected when it is set.
+
+    `Account.balance` is a full `U256`; nothing between `set_account`
+    and `encode_basic_data`'s own bounds assertion enforces the
+    sixteen-byte field EIP-8297 packs it into. There is no
+    protocol-level cap on balance today, so an over-cap value crashes
+    root computation rather than invalidating the block at the point
+    it was set — a known spec gap being pinned here, not endorsed.
+    """
+    state = State()
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(
+            nonce=Uint(0),
+            balance=U256(2) ** U256(128),
+            code_hash=EMPTY_CODE_HASH,
+        ),
+    )
+
+    with pytest.raises(AssertionError):
+        state_root(state)
+
+
+def test_empty_code_contract_embeds_like_an_eoa() -> None:
+    """
+    A contract account whose code is explicitly `b""`, stored through
+    `store_code` rather than merely defaulted, embeds identically to
+    an EOA: exactly the two header leaves and no code chunk leaves.
+
+    Distinct from `test_eoa_embeds_basic_data_and_code_hash_leaves`,
+    which never calls `store_code` at all; this pins that routing
+    empty bytes through the store still resolves to `EMPTY_CODE_HASH`
+    and that `chunkify_code(b"") == []` leaves no chunk leaf behind.
+    """
+    state = State()
+    code_hash = store_code(state, Bytes(b""))
+    assert code_hash == EMPTY_CODE_HASH
+
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(3), balance=U256(42), code_hash=code_hash),
+    )
+
+    trie = embed_flat_state(state._accounts, state._storage, state.get_code)
+
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    header_stem = _account_header_stem(address32)
+    basic_data_key = header_stem + bytes([0])
+    code_hash_key = header_stem + bytes([1])
+
+    assert set(trie._data.keys()) == {basic_data_key, code_hash_key}
+    assert trie._data[code_hash_key] == EMPTY_CODE_HASH
+
+
+def test_delegation_designator_account_embedding() -> None:
+    """
+    An EIP-7702 delegation designator (`0xef0100` followed by a
+    20-byte address, 23 bytes total) embeds as a single header code
+    chunk: short enough to need no overflow, and starting with no
+    push opcode so its chunk's leading byte is 0.
+    """
+    designator = Bytes(b"\xef\x01\x00" + bytes(ADDRESS_B))
+    assert len(designator) == 23
+
+    state = MptState()
+    code_hash = mpt_store_code(state, designator)
+    mpt_set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
+    )
+
+    embedded = embed_state(state)
+
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    header_stem = _account_header_stem(address32)
+    basic_data_key = header_stem + bytes([0])
+    code_hash_key = header_stem + bytes([1])
+    chunk_key = header_stem + bytes([128])
+
+    assert set(embedded._data.keys()) == {
+        basic_data_key,
+        code_hash_key,
+        chunk_key,
+    }
+    assert embedded._data[code_hash_key] == keccak256(designator)
+
+    basic_data = embedded._data[basic_data_key]
+    assert basic_data[4:8] == (23).to_bytes(4, "big")  # code_size
+
+    chunk = embedded._data[chunk_key]
+    assert chunk[0] == 0  # no push data reaches this, the only, chunk
+    assert chunk[1:] == designator + b"\x00" * (31 - len(designator))
+
+
+def test_get_code_raises_for_an_unknown_code_hash() -> None:
+    """
+    An account whose `code_hash` was never stored raises `KeyError`
+    when the root is computed, because `embed_flat_state` resolves
+    every account's code through `get_code` to size it.
+
+    Only `EMPTY_CODE_HASH` needs no store entry; any other hash that
+    was never handed to `store_code` (or `code_changes`) is missing
+    from `_code_store` and `get_code` raises directly.
+    """
+    state = State()
+    unknown_hash = keccak256(b"never stored")
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=unknown_hash),
+    )
+
+    assert state.get_code(EMPTY_CODE_HASH) == b""
+    with pytest.raises(KeyError):
+        state.get_code(unknown_hash)
+    with pytest.raises(KeyError):
+        state_root(state)
+
+
+def test_storage_clears_removes_slots_before_other_changes() -> None:
+    """
+    `storage_clears` empties an address's storage before
+    `storage_changes` is applied, so a slot rewritten by the same
+    diff survives while every other pre-existing slot is dropped.
+
+    No fork's state tracker in this repository currently populates
+    `storage_clears` (Amsterdam's `extract_block_diff` never sets
+    it; the field exists for pre-EIP-6780 `SELFDESTRUCT` semantics),
+    so this branch is reachable only from unit tests today. Pinning
+    it keeps the provider honest in case a pre-Cancun-style tracker
+    is ever wired up.
+    """
+    state = State()
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    key_1 = Bytes32(U256(1).to_be_bytes32())
+    key_2 = Bytes32(U256(2).to_be_bytes32())
+    set_storage(state, ADDRESS_A, key_1, U256(7))
+
+    apply_changes_to_state(
+        state,
+        BlockDiff(
+            storage_clears={ADDRESS_A},
+            storage_changes={ADDRESS_A: {key_2: U256(9)}},
+        ),
+    )
+
+    assert state.get_storage(ADDRESS_A, key_1) == U256(0)
+    assert state.get_storage(ADDRESS_A, key_2) == U256(9)
+    assert state._storage[ADDRESS_A] == {key_2: U256(9)}
+
+
+def test_account_deletion_also_drops_its_storage() -> None:
+    """
+    Deleting an account through a diff also pops its storage:
+    `_storage` no longer has an entry for the address, so
+    `account_has_storage` reads back `False`.
+
+    `tests/binary_trie/test_differential_mpt.py`'s
+    `test_account_delete_diverges_on_account_has_storage` pins the
+    contrasting MPT behavior, where storage survives an account
+    delete; this test only pins PBT's own side of that divergence.
+    """
+    state = State()
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(state, ADDRESS_A, Bytes32(U256(1).to_be_bytes32()), U256(7))
+    assert state.account_has_storage(ADDRESS_A) is True
+
+    apply_changes_to_state(state, BlockDiff(account_changes={ADDRESS_A: None}))
+
+    assert ADDRESS_A not in state._storage
+    assert state.account_has_storage(ADDRESS_A) is False
+
+
+def test_storage_written_for_a_deleted_account_is_orphaned_but_not_embedded() -> (  # noqa: E501
+    None
+):
+    """
+    A diff that deletes an account and writes to its storage in the
+    same step leaves an orphaned storage entry that never reaches the
+    tree.
+
+    The account is gone, but `storage_changes`'s `setdefault`
+    recreates `_storage[A]` after the delete popped it, so
+    `account_has_storage` reads back `True` for an address with no
+    account. `embed_flat_state` skips storage for addresses missing
+    from `accounts`, so the orphan is invisible to the root: it
+    matches a state that never had `A` at all, alongside an unrelated
+    account that did.
+    """
+    state = State()
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    set_account(
+        state,
+        ADDRESS_B,
+        Account(nonce=Uint(2), balance=U256(5), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(state, ADDRESS_B, Bytes32(U256(9).to_be_bytes32()), U256(3))
+
+    key = Bytes32(U256(1).to_be_bytes32())
+    apply_changes_to_state(
+        state,
+        BlockDiff(
+            account_changes={ADDRESS_A: None},
+            storage_changes={ADDRESS_A: {key: U256(7)}},
+        ),
+    )
+
+    assert state.get_account_optional(ADDRESS_A) is None
+    assert state.account_has_storage(ADDRESS_A) is True
+
+    without_a = State()
+    set_account(
+        without_a,
+        ADDRESS_B,
+        Account(nonce=Uint(2), balance=U256(5), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(
+        without_a, ADDRESS_B, Bytes32(U256(9).to_be_bytes32()), U256(3)
+    )
+
+    assert state_root(state) == state_root(without_a)
+
+
+def test_all_zero_storage_change_drops_the_address_entry() -> None:
+    """
+    A diff writing only zeros to slots an account already holds
+    empties `_storage[address]` down to nothing, and the address key
+    itself is dropped, not left mapped to an empty dict.
+
+    `account_has_storage` reads back `False` and the root matches a
+    state that was never written to.
+    """
+    state = State()
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    key_1 = Bytes32(U256(1).to_be_bytes32())
+    key_2 = Bytes32(U256(2).to_be_bytes32())
+    set_storage(state, ADDRESS_A, key_1, U256(7))
+    set_storage(state, ADDRESS_A, key_2, U256(9))
+    assert state.account_has_storage(ADDRESS_A) is True
+
+    apply_changes_to_state(
+        state,
+        BlockDiff(
+            storage_changes={ADDRESS_A: {key_1: U256(0), key_2: U256(0)}}
+        ),
+    )
+
+    assert ADDRESS_A not in state._storage
+    assert state.account_has_storage(ADDRESS_A) is False
+
+    never_written = State()
+    set_account(
+        never_written,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    assert state_root(state) == state_root(never_written)
+
+
+def test_set_account_none_leaves_storage_while_the_diff_path_clears_it() -> (
+    None
+):
+    """
+    `set_account(state, A, None)` pops the account but never touches
+    its storage, while the diff path pops both together.
+
+    Two identically set-up states, one deleted through `set_account`
+    and the other through `apply_changes_to_state`, diverge on
+    `account_has_storage` depending only on which route deleted the
+    account.
+    """
+    key = Bytes32(U256(1).to_be_bytes32())
+
+    via_set_account = State()
+    set_account(
+        via_set_account,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(via_set_account, ADDRESS_A, key, U256(7))
+    set_account(via_set_account, ADDRESS_A, None)
+
+    via_diff = State()
+    set_account(
+        via_diff,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(via_diff, ADDRESS_A, key, U256(7))
+    apply_changes_to_state(
+        via_diff, BlockDiff(account_changes={ADDRESS_A: None})
+    )
+
+    assert via_set_account.get_account_optional(ADDRESS_A) is None
+    assert via_diff.get_account_optional(ADDRESS_A) is None
+    assert via_set_account.account_has_storage(ADDRESS_A) is True
+    assert via_diff.account_has_storage(ADDRESS_A) is False
+
+
+def test_set_storage_requires_an_existing_account() -> None:
+    """
+    `set_storage` asserts the account already exists; it is not a
+    valid way to create storage for an address with no account.
+    """
+    state = State()
+    with pytest.raises(AssertionError):
+        set_storage(
+            state, ADDRESS_A, Bytes32(U256(1).to_be_bytes32()), U256(7)
+        )
+
+
+def test_compute_state_root_leaves_the_pre_state_untouched() -> None:
+    """
+    `compute_state_root` applies the diff to a copy: calling it twice
+    with a non-trivial diff returns the same root both times, and the
+    pre-state's accounts, storage, and code store are unchanged.
+    """
+    code = Bytes(b"\x01" * 40)
+    code_hash = keccak256(code)
+
+    state = State()
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(100), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(state, ADDRESS_A, Bytes32(U256(1).to_be_bytes32()), U256(7))
+
+    accounts_before = dict(state._accounts)
+    storage_before = {
+        address: dict(slots) for address, slots in state._storage.items()
+    }
+    code_store_before = dict(state._code_store)
+
+    diff = BlockDiff(
+        account_changes={
+            ADDRESS_A: Account(
+                nonce=Uint(2), balance=U256(50), code_hash=code_hash
+            ),
+            ADDRESS_B: Account(
+                nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH
+            ),
+        },
+        storage_changes={
+            ADDRESS_A: {Bytes32(U256(1).to_be_bytes32()): U256(0)}
+        },
+        code_changes={code_hash: code},
+    )
+
+    first_root = state.compute_state_root(diff)
+    second_root = state.compute_state_root(diff)
+
+    assert first_root == second_root
+    assert state._accounts == accounts_before
+    assert state._storage == storage_before
+    assert state._code_store == code_store_before
+
+
+def test_sequential_block_diffs_evolve_the_root() -> None:
+    """
+    Three sequential diffs applied to the same live `State` via
+    `apply_changes_to_state`: writing a slot changes the root,
+    writing a second slot changes it again, and zeroing the second
+    slot returns the root to exactly what it was after the first
+    write.
+
+    Zero-means-absent composes across separate blocks, not just
+    within one diff.
+    """
+    state = State()
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    key_1 = Bytes32(U256(1).to_be_bytes32())
+    key_2 = Bytes32(U256(2).to_be_bytes32())
+    root_empty = state_root(state)
+
+    apply_changes_to_state(
+        state, BlockDiff(storage_changes={ADDRESS_A: {key_1: U256(7)}})
+    )
+    root_after_first_write = state_root(state)
+    assert root_after_first_write != root_empty
+
+    apply_changes_to_state(
+        state, BlockDiff(storage_changes={ADDRESS_A: {key_2: U256(9)}})
+    )
+    root_after_second_write = state_root(state)
+    assert root_after_second_write != root_after_first_write
+
+    apply_changes_to_state(
+        state, BlockDiff(storage_changes={ADDRESS_A: {key_2: U256(0)}})
+    )
+    assert state_root(state) == root_after_first_write
+
+
+def test_storage_boundary_slots_through_the_provider() -> None:
+    """
+    Slots 0, 63, 64, 255, 256, and `2**256 - 1`, set on one account
+    through `set_storage`, land on whichever of the header (0, 63)
+    or overflow (64, 255, 256, `2**256 - 1`) forms the embedding
+    defines for that slot.
+
+    Rebuilt here from raw `blake3` and literal zone/sub-index bytes
+    rather than by calling `get_tree_key_for_storage_slot`. Slots 64
+    and 255 share one overflow stem (tree index 0); the other two
+    each open their own.
+    """
+    state = State()
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    slots = (0, 63, 64, 255, 256, 2**256 - 1)
+    for index, slot in enumerate(slots):
+        set_storage(
+            state,
+            ADDRESS_A,
+            Bytes32(U256(slot).to_be_bytes32()),
+            U256(index + 1),
+        )
+
+    trie = embed_flat_state(state._accounts, state._storage, state.get_code)
+
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    header_stem = _account_header_stem(address32)
+    expected_keys = {
+        header_stem + bytes([0]),  # basic data
+        header_stem + bytes([1]),  # code hash
+        header_stem + bytes([64]),  # slot 0
+        header_stem + bytes([127]),  # slot 63
+        _storage_overflow_stem(address32, 0) + bytes([64]),  # slot 64
+        _storage_overflow_stem(address32, 0) + bytes([255]),  # slot 255
+        _storage_overflow_stem(address32, 1) + bytes([0]),  # slot 256
+        _storage_overflow_stem(address32, 2**248 - 1)
+        + bytes([255]),  # slot 2**256 - 1
+    }
+
+    assert set(trie._data.keys()) == expected_keys
