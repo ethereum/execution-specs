@@ -1,0 +1,72 @@
+"""
+Shared helpers for the EIP-8297 partitioned binary tree EEST suite.
+"""
+
+from execution_testing import (
+    Address,
+    Alloc,
+    Bytecode,
+    Op,
+    compute_create_address,
+)
+
+
+def create_contract_via_factory(
+    pre: Alloc,
+    initcode: Bytecode,
+    *,
+    opcode: Op = Op.CREATE,
+    salt: int = 0,
+    value: int = 0,
+) -> tuple[Address, Address]:
+    """
+    Deploy a factory contract that creates `initcode` via CREATE/CREATE2.
+
+    The factory serves the initcode bytes to itself with EXTCODECOPY
+    from a separate template contract holding them as its code, since a
+    freshly allocated contract cannot embed arbitrary-length code
+    inline as its own runtime body. The factory is freshly deployed
+    with the default pre-alloc nonce of 1, so this call is always its
+    first creation; the returned `created` address is derived
+    accordingly with `compute_create_address`.
+
+    Returns `(factory_address, created_address)`.
+    """
+    template = pre.deploy_contract(code=initcode)
+
+    create_call: Bytecode
+    if opcode == Op.CREATE2:
+        create_call = Op.CREATE2(
+            value=value, offset=0, size=len(initcode), salt=salt
+        )
+    else:
+        create_call = Op.CREATE(value=value, offset=0, size=len(initcode))
+
+    factory = pre.deploy_contract(
+        code=Op.EXTCODECOPY(template, 0, 0, len(initcode))
+        + Op.POP(create_call)
+        + Op.STOP
+    )
+
+    created = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=salt,
+        initcode=initcode,
+        opcode=opcode,
+    )
+    return factory, created
+
+
+def sstore_from_calldata_contract(pre: Alloc, *, slot: int) -> Address:
+    """
+    Deploy a contract that SSTOREs its first calldata word into `slot`.
+
+    Calling the same deployed contract again with different calldata
+    drives `slot` to a new value from a separate transaction or block,
+    which is how the cross-transaction and cross-block zero-write tests
+    exercise one account without redeploying it.
+    """
+    return pre.deploy_contract(
+        code=Op.SSTORE(slot, Op.CALLDATALOAD(0)) + Op.STOP
+    )

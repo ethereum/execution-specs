@@ -1,0 +1,318 @@
+"""
+Storage operation tests for the EIP-8297 partitioned binary tree,
+covering the account-header and overflow-zone boundaries the tree
+embedding cares about.
+"""
+
+import pytest
+from execution_testing import (
+    Account,
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Bytecode,
+    Hash,
+    Op,
+    StateTestFiller,
+    Transaction,
+)
+
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
+from .helpers import sstore_from_calldata_contract
+from .spec import Spec, ref_spec_8297
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
+REFERENCE_SPEC_VERSION = ref_spec_8297.version
+
+pytestmark = pytest.mark.valid_from("BinaryTree")
+
+
+@pytest.mark.parametrize(
+    "slot",
+    [
+        pytest.param(0, id="header_slot_0"),
+        pytest.param(1, id="header_slot_1"),
+        pytest.param(Spec.HEADER_STORAGE_OFFSET - 1, id="header_last_63"),
+        pytest.param(Spec.HEADER_STORAGE_OFFSET, id="overflow_first_64"),
+        pytest.param(
+            Spec.STEM_SUBTREE_WIDTH - 1, id="storage_group_0_last_255"
+        ),
+        pytest.param(Spec.STEM_SUBTREE_WIDTH, id="storage_group_1_first_256"),
+        pytest.param(2**256 - 1, id="max_slot"),
+    ],
+)
+def test_sstore_sload_round_trip(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    slot: int,
+) -> None:
+    """
+    Verify SSTORE followed by SLOAD round-trips a value into another
+    slot within the same transaction, over slots spanning the account
+    header and every storage-group boundary the tree embedding cares
+    about.
+    """
+    value = 0xC0FFEE
+    # Far outside every parametrized slot above, so it can never
+    # collide with the slot under test.
+    readback_slot = 2**128
+
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(slot, value)
+        + Op.SSTORE(readback_slot, Op.SLOAD(slot))
+        + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+
+    post = {
+        contract: Account(storage={slot: value, readback_slot: value}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_sstore_zero_after_nonzero_same_tx(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify writing a nonzero value and then zeroing the same slot
+    within one transaction leaves the slot absent from the post state.
+
+    The `execution_testing` provider treats a zero-valued storage slot
+    as equivalent to an absent one when comparing post-state storage
+    (mirroring the EVM's own state, where SSTORE-to-zero deletes the
+    trie entry rather than keeping an explicit zero), so the expected
+    post storage below is simply empty.
+    """
+    slot = 7
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(slot, 0xFF) + Op.SSTORE(slot, 0) + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+
+    post = {contract: Account(storage={})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_sstore_zero_across_transactions(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify a slot written by one transaction and zeroed by a second
+    transaction in the SAME block ends the block with the slot absent.
+    """
+    slot = 7
+    contract = sstore_from_calldata_contract(pre, slot=slot)
+    sender = pre.fund_eoa()
+
+    write_tx = Transaction(sender=sender, to=contract, data=Hash(0xFF))
+    zero_tx = Transaction(sender=sender, to=contract, data=Hash(0))
+
+    post = {contract: Account(storage={})}
+    blockchain_test(
+        pre=pre, post=post, blocks=[Block(txs=[write_tx, zero_tx])]
+    )
+
+
+def test_sstore_zero_across_blocks(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify a slot written in one block and zeroed by a transaction in
+    the NEXT block ends the chain with the slot absent.
+    """
+    slot = 7
+    contract = sstore_from_calldata_contract(pre, slot=slot)
+    sender = pre.fund_eoa()
+
+    write_tx = Transaction(sender=sender, to=contract, data=Hash(0xFF))
+    zero_tx = Transaction(sender=sender, to=contract, data=Hash(0))
+
+    post = {contract: Account(storage={})}
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[Block(txs=[write_tx]), Block(txs=[zero_tx])],
+    )
+
+
+def test_sstore_overwrite_nonzero_value(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Verify overwriting a slot with a different nonzero value replaces it."""
+    slot = 9
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(slot, 0x1111) + Op.STOP, storage={slot: 0x9999}
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+
+    post = {contract: Account(storage={slot: 0x1111})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_sstore_noop_same_value(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Verify writing the value a slot already holds leaves it unchanged."""
+    slot, value = 9, 0x9999
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(slot, value) + Op.STOP, storage={slot: value}
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+
+    post = {contract: Account(storage={slot: value})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_sload_never_written_slot_returns_zero(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify SLOAD of a never-written slot returns zero and never
+    creates a storage entry in the post state.
+    """
+    never_written_slot = 999
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.SLOAD(never_written_slot)) + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+
+    # A correct zero read makes this an SSTORE-to-zero, i.e. an absent
+    # slot; a buggy nonzero read would surface as slot 0 holding that
+    # value and fail the exact post-storage match below.
+    post = {contract: Account(storage={})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_storage_coexists_with_sizeable_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Pin that storage writes and sizeable code (spanning multiple code
+    chunks) coexist for one account.
+
+    The `JUMPDEST` padding pushes the code comfortably past one
+    `CODE_CHUNK_SIZE`-byte chunk, so the account actually carries
+    several code chunks alongside its storage.
+    """
+    slot, value = 10, 0xFEED
+    code = Op.JUMPDEST * 200 + Op.SSTORE(slot, value) + Op.STOP
+    assert Spec.code_chunk_count(len(code)) > 1, "code must span > 1 chunk"
+
+    contract = pre.deploy_contract(code=code)
+
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+
+    post = {contract: Account(code=code, storage={slot: value})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_transient_storage_round_trip(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify TSTORE/TLOAD (EIP-1153) round-trip within the transaction
+    but leave no trace in the persistent storage post state.
+    """
+    transient_slot, value, marker_slot = 7, 0xABCD, 0
+    contract = pre.deploy_contract(
+        code=Op.TSTORE(transient_slot, value)
+        + Op.SSTORE(marker_slot, Op.TLOAD(transient_slot))
+        + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+
+    post = {contract: Account(storage={marker_slot: value})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_storage_under_7702_delegation_lands_on_authority(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify storage written while executing under an EIP-7702
+    delegation lands on the AUTHORITY's account, never the delegate's.
+    """
+    slot, value = 3, 0xC0FFEE
+    delegate_code = Op.SSTORE(slot, value) + Op.STOP
+    delegate = pre.deploy_contract(code=delegate_code)
+    authority = pre.fund_eoa(delegation=delegate)
+
+    tx = Transaction(sender=pre.fund_eoa(), to=authority)
+
+    post = {
+        authority: Account(
+            storage={slot: value},
+            code=Spec7702.delegation_designation(delegate),
+        ),
+        delegate: Account(storage={}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_two_accounts_same_slot_independent(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify two accounts writing the same slot number keep independent
+    storage, proving their tree stems do not collide.
+    """
+    slot = 42
+    value_a, value_b = 0x1111, 0x2222
+    contract_a = pre.deploy_contract(code=Op.SSTORE(slot, value_a) + Op.STOP)
+    contract_b = pre.deploy_contract(code=Op.SSTORE(slot, value_b) + Op.STOP)
+    driver = pre.deploy_contract(
+        code=Op.POP(Op.CALL(address=contract_a))
+        + Op.POP(Op.CALL(address=contract_b))
+        + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=driver)
+
+    post = {
+        contract_a: Account(storage={slot: value_a}),
+        contract_b: Account(storage={slot: value_b}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_sstore_many_slots_header_and_overflow(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify a single transaction writing many slots across both the
+    account header and overflow storage ranges leaves all of them
+    present.
+    """
+    slots = [0, 63, 64, 300, 512]
+    code = Bytecode()
+    for index, slot in enumerate(slots):
+        code += Op.SSTORE(slot, index + 1)
+    code += Op.STOP
+
+    contract = pre.deploy_contract(code=code)
+
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+
+    post = {
+        contract: Account(
+            storage={slot: index + 1 for index, slot in enumerate(slots)}
+        ),
+    }
+    state_test(pre=pre, post=post, tx=tx)
