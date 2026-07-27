@@ -270,7 +270,13 @@ def test_two_accounts_same_slot_independent(
 ) -> None:
     """
     Verify two accounts writing the same slot number keep independent
-    storage, proving their tree stems do not collide.
+    logical storage.
+
+    Account-by-account post-state verification cannot observe tree
+    keys directly, so this does not prove the accounts' tree stems
+    avoid colliding (a real collision would surface as a wrong state
+    root, not necessarily a wrong value here); that pinning belongs to
+    the `tests/binary_trie/` unit suites.
     """
     slot = 42
     value_a, value_b = 0x1111, 0x2222

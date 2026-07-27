@@ -147,7 +147,7 @@ def test_selfdestruct_same_transaction_leaves_no_account(
 
     post = {
         created: Account.NONEXISTENT,
-        beneficiary: Account(balance=value),
+        beneficiary: Account(balance=value, nonce=0, code=b"", storage={}),
     }
     state_test(pre=pre, post=post, tx=tx)
 
