@@ -85,6 +85,13 @@ def _relative_py_paths(directory: Path) -> Set[str]:
     }
 
 
+# A unified-diff hunk header, e.g. `@@ -12 +12,2 @@`. No content line
+# can ever match this: every content line keeps its own leading
+# ` `/`-`/`+` marker, so the earliest a content line's text could
+# start contributing to a match is column 1, not column 0.
+_HUNK_HEADER_RE = re.compile(r"^@@ -[\d,]+ \+[\d,]+ @@")
+
+
 def _diff_lines(
     amsterdam_text: str, normalized_binary_tree_text: str
 ) -> Tuple[Set[str], Set[str]]:
@@ -95,23 +102,74 @@ def _diff_lines(
     holds every line present only in `normalized_binary_tree_text`.
     Lines common to both never appear in either set, regardless of how
     far apart they sit in the file.
+
+    The `---`/`+++` file-header pair is dropped positionally: when
+    `difflib.unified_diff` yields anything at all, those are always
+    exactly its first two entries. They are deliberately not
+    recognized by sniffing their `---`/`+++` text, because a genuinely
+    changed line can produce that same text once its own `-`/`+`
+    diff marker is prepended: e.g. a removed line that itself reads
+    `------------` (a numpydoc section underline, common in this
+    codebase's docstrings) becomes the diff line `-------------`,
+    which a naive `startswith(("---", ...))` filter would misfile as
+    a header and silently drop. Hunk headers are recognized by their
+    full `@@ -a,b +c,d @@` shape (`_HUNK_HEADER_RE`) rather than a
+    bare `@@` prefix, for the same reason.
     """
-    diff = difflib.unified_diff(
-        amsterdam_text.splitlines(),
-        normalized_binary_tree_text.splitlines(),
-        n=0,
-        lineterm="",
+    diff = list(
+        difflib.unified_diff(
+            amsterdam_text.splitlines(),
+            normalized_binary_tree_text.splitlines(),
+            n=0,
+            lineterm="",
+        )
     )
     removed: Set[str] = set()
     added: Set[str] = set()
-    for line in diff:
-        if line.startswith(("---", "+++", "@@")):
+    for line in diff[2:]:
+        if _HUNK_HEADER_RE.match(line):
             continue
         if line.startswith("-"):
             removed.add(line[1:])
         elif line.startswith("+"):
             added.add(line[1:])
     return removed, added
+
+
+def test_diff_lines_reports_removed_line_starting_with_dashes() -> None:
+    """
+    A removed line that itself starts with `--` is still reported.
+
+    Regression test: the header/hunk filter used to sniff line
+    content (`startswith(("---", "+++", "@@"))`) instead of position,
+    so a removed line like `------------` became the diff line
+    `-------------` and was misfiled as a file header and dropped.
+    """
+    amsterdam_text = "one\n------------\ntwo\n"
+    binary_tree_text = "one\ntwo\n"
+
+    removed, added = _diff_lines(amsterdam_text, binary_tree_text)
+
+    assert removed == {"------------"}
+    assert added == set()
+
+
+def test_diff_lines_reports_added_line_starting_with_pluses() -> None:
+    """
+    An added line that itself starts with `++` is still reported.
+
+    Same regression as the dashes case above, mirrored for the
+    `+++` file-header text: an added `++++++++++++` line becomes the
+    diff line `+++++++++++++`, which must not be mistaken for the
+    `+++` to-file header.
+    """
+    amsterdam_text = "one\ntwo\n"
+    binary_tree_text = "one\n++++++++++++\ntwo\n"
+
+    removed, added = _diff_lines(amsterdam_text, binary_tree_text)
+
+    assert removed == set()
+    assert added == {"++++++++++++"}
 
 
 def test_binary_tree_fork_matches_amsterdam_modulo_known_deltas() -> None:
