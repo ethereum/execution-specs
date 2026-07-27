@@ -3,6 +3,7 @@
 import json
 from dataclasses import dataclass
 from enum import Enum, auto
+from importlib import import_module
 from typing import (
     Any,
     Dict,
@@ -15,7 +16,6 @@ from typing import (
 )
 
 import ethereum.state as spec_state
-import ethereum.state_mpt as spec_state_mpt
 from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
 from ethereum_types.bytes import Bytes, Bytes20
@@ -119,6 +119,7 @@ class Alloc(BaseAlloc):
     """
 
     _phase: _Phase = PrivateAttr(default=_Phase.CONSTRUCTION)
+    _state_provider_name: Optional[str] = PrivateAttr(default=None)
     _code_store: Dict[Hash32, Bytes] = PrivateAttr(default_factory=dict)
 
     @dataclass(kw_only=True)
@@ -298,8 +299,12 @@ class Alloc(BaseAlloc):
         ]
 
     def state_root(self) -> Hash:
-        """Return state root of the allocation."""
-        return Hash(spec_state_mpt.state_root(self._materialize_state()))
+        """
+        Return the state root of the allocation, committed through
+        the installed state provider (see [`set_state_provider`]).
+        """
+        provider = self._resolve_provider()
+        return Hash(provider.state_root(self._materialize_state(provider)))
 
     def verify_post_alloc(self, got_alloc: "Alloc") -> None:
         """
@@ -356,25 +361,49 @@ class Alloc(BaseAlloc):
             self._build_cache()
             self._phase = _Phase.LIVE
 
-    def _materialize_state(self) -> spec_state_mpt.State:
+    def _resolve_provider(self) -> Any:
         """
-        Build an in-memory `ethereum.state_mpt.State` mirror of
-        `self.root`.
+        Return the installed state provider module, defaulting to the
+        Merkle Patricia Trie. Providers are held by module name
+        rather than as module objects, which `model_copy(deep=True)`
+        could not pickle when blockchain tests deep-copy the alloc
+        between chained blocks.
+        """
+        return import_module(self._state_provider_name or "ethereum.state_mpt")
 
-        Used as the trie-backed delegate for `compute_state_root` (a
-        cold, once-per-block call). The materialized state is not
-        retained.
+    def set_state_provider(self, name: str) -> None:
         """
-        state = spec_state_mpt.State()
+        Install the state provider module (by name) committing this
+        allocation when no explicit fork is passed to `state_root`.
+
+        Called by the transition tool so block state roots use the
+        fork's own commitment scheme.
+        """
+        self._state_provider_name = name
+
+    def _materialize_state(self, provider: Any = None) -> Any:
+        """
+        Build an in-memory provider `State` mirror of `self.root`.
+
+        Used as the delegate for `compute_state_root` (a cold,
+        once-per-block call). Both provider modules expose the same
+        construction surface. The materialized state is not retained.
+        """
+        if provider is None:
+            provider = self._resolve_provider()
+        state = provider.State()
         for address, account in self.root.items():
             if account is None:
                 continue
             addr = Bytes20(address)
             code = bytes(account.code) if account.code else b""
-            code_hash = (
-                spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH
-            )
-            spec_state_mpt.set_account(
+            # Store bytecode from the allocation entry itself: the
+            # `_code_store` cache only exists once the alloc is LIVE,
+            # but materialization must also work before that (the
+            # genesis path), and code-content commitments read the
+            # bytes.
+            code_hash = provider.store_code(state, code)
+            provider.set_account(
                 state,
                 addr,
                 spec_state.Account(
@@ -387,13 +416,12 @@ class Alloc(BaseAlloc):
                 value_int = int(value_hi)
                 if value_int == 0:
                     continue
-                spec_state_mpt.set_storage(
+                provider.set_storage(
                     state,
                     addr,
                     Bytes32(int(key_hi).to_bytes(32, "big")),
                     U256(value_int),
                 )
-        state._code_store.update(self._code_store)
         return state
 
     def get_account_optional(
@@ -465,8 +493,8 @@ class Alloc(BaseAlloc):
         instances.
         """
         self._ensure_live()
-        state = self._materialize_state()
-        return state.compute_state_root(block_diff)
+        state = self._materialize_state(self._resolve_provider())
+        return Hash32(state.compute_state_root(block_diff))
 
     # ------------------------------------------------------------------
     # Lifecycle: apply_diff and freeze

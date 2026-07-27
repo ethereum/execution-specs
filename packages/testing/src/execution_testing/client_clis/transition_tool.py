@@ -31,7 +31,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import ReadTimeout
 from requests_unixsocket import Session
 
-from execution_testing.base_types import BlobSchedule
+from execution_testing.base_types import BlobSchedule, Hash
 from execution_testing.base_types.composite_types import (
     ForkBlobSchedule,
 )
@@ -177,6 +177,35 @@ class OutputCache:
         """Clear the cache and reset the key."""
         self._cache.clear()
         self.key = None
+
+
+def spec_calc_state_root(*, alloc: Alloc, fork: Fork) -> Hash:
+    """
+    Compute the state root of `alloc` through the spec state provider
+    of `fork` (e.g. the EIP-8297 binary tree), falling back to the
+    framework's local Merkle Patricia Trie computation for forks the
+    spec does not implement.
+
+    Side effect: installs `fork`'s provider on `alloc`, so any later
+    root computed from this allocation uses the same commitment
+    scheme. This matches what the transition tool installs when the
+    allocation is executed, and an allocation only ever serves one
+    fork.
+    """
+    # Deferred imports: `ethereum` must not load before pytest-cov
+    # starts.
+    from ethereum_spec_tools.evm_tools.loaders.fork_loader import ForkLoad
+    from ethereum_spec_tools.evm_tools.utils import (
+        get_supported_forks,
+        resolve_fork,
+    )
+
+    name = fork.transition_tool_name()
+    if name not in get_supported_forks():
+        return alloc.state_root()
+    fork_load = ForkLoad(resolve_fork(name))
+    alloc.set_state_provider(fork_load.state_provider.__name__)
+    return alloc.state_root()
 
 
 class TransitionTool(EthereumCLI):

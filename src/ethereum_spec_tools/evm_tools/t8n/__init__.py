@@ -224,6 +224,9 @@ class T8N(Load):
         if isinstance(input_alloc, LazyAlloc):
             input_alloc = input_alloc.materialize()
         self.alloc = input_alloc.model_copy(deep=True)
+        # Commit state through the fork's own provider (e.g. the
+        # EIP-8297 binary tree), not the MPT default.
+        self.alloc.set_state_provider(self.fork.state_provider.__name__)
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
         self.ommers = list(ommers)

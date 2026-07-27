@@ -14,3 +14,8 @@ coverage:
     patch:
       default:
         target: auto
+
+# Experimental EIP-8297 fork: not part of any CI fill sweep yet, and
+# excluded from local coverage the same way (pyproject coverage omit).
+ignore:
+  - "src/ethereum/forks/binary_tree/**"

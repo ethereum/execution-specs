@@ -181,6 +181,12 @@ packages = [
     "ethereum.forks.amsterdam.vm.instructions",
     "ethereum.forks.amsterdam.vm.precompiled_contracts",
     "ethereum.forks.amsterdam.vm.precompiled_contracts.bls12_381",
+    "ethereum.forks.binary_tree",
+    "ethereum.forks.binary_tree.utils",
+    "ethereum.forks.binary_tree.vm",
+    "ethereum.forks.binary_tree.vm.instructions",
+    "ethereum.forks.binary_tree.vm.precompiled_contracts",
+    "ethereum.forks.binary_tree.vm.precompiled_contracts.bls12_381",
 ]
 
 [tool.setuptools.package-data]
@@ -310,6 +316,8 @@ omit = [
     "*/ethereum/forks/*_glacier/*",
     "*/ethereum/forks/dao_fork/*",
     "*/ethereum/forks/bpo*/*",
+    # Experimental EIP-8297 fork: not part of any CI fill sweep _yet_.
+    "*/ethereum/forks/binary_tree/*",
 ]
 
 [tool.coverage.report]

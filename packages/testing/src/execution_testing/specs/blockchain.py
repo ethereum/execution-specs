@@ -44,6 +44,9 @@ from execution_testing.client_clis.cli_types import (
     EnginePayloadMetadata,
     OpcodeCount,
 )
+from execution_testing.client_clis.transition_tool import (
+    spec_calc_state_root,
+)
 from execution_testing.exceptions import (
     BlockException,
     EngineAPIError,
@@ -819,7 +822,9 @@ class BlockchainTest(BaseTest):
             )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
-        state_root = pre_alloc.state_root()
+        state_root = spec_calc_state_root(
+            alloc=pre_alloc, fork=self.fork.transitions_from()
+        )
         genesis = FixtureHeader.genesis(
             self.fork.transitions_from(), env, state_root
         )
