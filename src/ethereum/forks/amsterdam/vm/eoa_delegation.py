@@ -206,7 +206,7 @@ def set_delegation(evm: Evm) -> None:
 
     - ``StateGasCosts.NEW_ACCOUNT`` (state) when the authority's
       account leaf does not yet exist.
-    - ``GasCosts.ACCOUNT_WRITE`` (regular) when applying the
+    - ``GasCosts.ACCOUNT_WRITE`` (execution) when applying the
       authorization is the transaction's first write to the authority's
       leaf. Writes the transaction already prices elsewhere are
       exempt: the sender's, covered by ``TX_BASE``, and, for a

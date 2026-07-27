@@ -34,7 +34,7 @@ VersionedHash = Hash32
 Bloom = Bytes256
 
 
-RegularGas = NewType("RegularGas", Uint)
+ExecutionGas = NewType("ExecutionGas", Uint)
 
 StateGas = NewType("StateGas", Uint)
 

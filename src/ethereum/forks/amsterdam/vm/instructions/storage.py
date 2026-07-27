@@ -149,8 +149,8 @@ def sstore(evm: Evm) -> None:
             # Slot set then cleared: refund the state gas charge.
             credit_state_gas_refund(evm.gas_meter, StateGasCosts.STORAGE_SET)
 
-    # Charge regular gas before state gas so that a regular-gas OOG
-    # does not consume state gas that would inflate the parent's
+    # Charge execution gas before state gas so that an execution-gas
+    # OOG does not consume state gas that would inflate the parent's
     # reservoir on frame failure.
     charge_gas(evm, gas_cost)
     charge_state_gas(evm, state_gas)

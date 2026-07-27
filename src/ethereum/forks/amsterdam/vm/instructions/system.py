@@ -115,10 +115,10 @@ def generic_create(
         charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
 
     # CHILD GRANT
-    # Withhold all but one 64th of the regular gas.
+    # Withhold all but one 64th of the execution gas.
     create_message_gas = withhold_create_gas(evm.gas_meter)
 
-    # On a collision the child's regular grant is consumed and no
+    # On a collision the child's execution-gas grant is consumed and no
     # account is created; a storage-only collision target is
     # non-existent: charged above, refilled here.
     if not account_deployable(tx_state, contract_address):
@@ -484,7 +484,7 @@ def call(evm: Evm) -> None:
 
     # STATE ACCESS (STATE-DEPENDENT GAS)
     # Perform the accesses and complete the state-dependent pricing --
-    # a delegation adds its access cost -- then charge the regular
+    # a delegation adds its access cost -- then charge the execution
     # gas.
     tx_state = evm.message.tx_env.state
     if is_cold_access:
@@ -610,7 +610,7 @@ def callcode(evm: Evm) -> None:
 
     # STATE ACCESS (STATE-DEPENDENT GAS)
     # Perform the accesses and complete the state-dependent pricing --
-    # a delegation adds its access cost; the regular gas is charged
+    # a delegation adds its access cost; the execution gas is charged
     # with the child grant.
     tx_state = evm.message.tx_env.state
     if is_cold_access:
@@ -634,7 +634,7 @@ def callcode(evm: Evm) -> None:
     code = get_code(tx_state, code_hash)
 
     # CHILD GRANT
-    # Charge the call's cost and withhold the child's regular gas
+    # Charge the call's cost and withhold the child's execution gas
     # share in one step. The whole reservoir rides along (no 63/64
     # rule for state gas).
     message_call_gas = calculate_message_call_gas(
@@ -724,8 +724,8 @@ def selfdestruct(evm: Evm) -> None:
         state_gas = StateGasCosts.NEW_ACCOUNT
         account_write_gas = GasCosts.ACCOUNT_WRITE
 
-    # Charge regular gas before state gas so that a regular-gas OOG
-    # does not consume state gas that would inflate the parent's
+    # Charge execution gas before state gas so that an execution-gas
+    # OOG does not consume state gas that would inflate the parent's
     # reservoir on frame failure.
     charge_gas(evm, gas_cost + account_write_gas)
     charge_state_gas(evm, state_gas)
@@ -791,7 +791,7 @@ def delegatecall(evm: Evm) -> None:
 
     # STATE ACCESS (STATE-DEPENDENT GAS)
     # Perform the accesses and complete the state-dependent pricing --
-    # a delegation adds its access cost; the regular gas is charged
+    # a delegation adds its access cost; the execution gas is charged
     # with the child grant.
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
@@ -815,7 +815,7 @@ def delegatecall(evm: Evm) -> None:
     code = get_code(tx_state, code_hash)
 
     # CHILD GRANT
-    # Charge the call's cost and withhold the child's regular gas
+    # Charge the call's cost and withhold the child's execution gas
     # share in one step. The whole reservoir rides along (no 63/64
     # rule for state gas).
     message_call_gas = calculate_message_call_gas(
@@ -894,7 +894,7 @@ def staticcall(evm: Evm) -> None:
 
     # STATE ACCESS (STATE-DEPENDENT GAS)
     # Perform the accesses and complete the state-dependent pricing --
-    # a delegation adds its access cost; the regular gas is charged
+    # a delegation adds its access cost; the execution gas is charged
     # with the child grant.
     if is_cold_access:
         evm.accessed_addresses.add(to)
@@ -918,7 +918,7 @@ def staticcall(evm: Evm) -> None:
     code = get_code(tx_state, code_hash)
 
     # CHILD GRANT
-    # Charge the call's cost and withhold the child's regular gas
+    # Charge the call's cost and withhold the child's execution gas
     # share in one step. The whole reservoir rides along (no 63/64
     # rule for state gas).
     message_call_gas = calculate_message_call_gas(
