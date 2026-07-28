@@ -880,7 +880,7 @@ class BlockchainTest(BaseTest):
             ]
         txs = [tx.with_signature_and_sender() for tx in txs]
 
-        if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
+        if (failing_tx_count := len([tx for tx in txs if tx.error])) > 0:
             if failing_tx_count > 1:
                 raise Exception(
                     "test correctness: only one transaction can produce "
