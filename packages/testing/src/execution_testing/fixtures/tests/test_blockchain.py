@@ -880,9 +880,6 @@ fixture_header_ones = FixtureHeader(
                 transactions=[],
                 withdrawals=[],
                 requests=[],
-                inclusion_list_transactions=[
-                    Transaction(gas_limit=21_000).with_signature_and_sender()
-                ],
                 status=PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value,
             ),
             {
@@ -911,12 +908,6 @@ fixture_header_ones = FixtureHeader(
                     [],
                     str(Hash(19)),
                     [],
-                ],
-                "inclusionListTransactions": [
-                    Transaction(gas_limit=21_000)
-                    .with_signature_and_sender()
-                    .rlp()
-                    .hex()
                 ],
                 "forkchoiceUpdatedVersion": "3",
                 "newPayloadVersion": "4",
