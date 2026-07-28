@@ -76,10 +76,12 @@ class Spec:
         """
         Return the storage group (`tree_index`) that `slot` belongs to.
 
+        Applies to slots stored in the storage zone, i.e.
+        `slot >= CODE_OFFSET - HEADER_STORAGE_OFFSET` (see "Storage").
         An aligned range of `STEM_SUBTREE_WIDTH` slots sharing one
-        `tree_index` forms one storage group. Group 0 is the exception:
-        slots 0..63 live in the header, so its storage-zone leaves are
-        slots 64..255 only (see "Storage").
+        `tree_index` forms one storage group. Group 0 is the
+        exception: slots 0..63 live in the header, so its storage-zone
+        leaves are slots 64..255 only.
         """
         return slot // cls.STEM_SUBTREE_WIDTH
 

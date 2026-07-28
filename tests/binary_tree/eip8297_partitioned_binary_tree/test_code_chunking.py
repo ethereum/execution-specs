@@ -37,9 +37,13 @@ pytestmark = pytest.mark.valid_from("BinaryTree")
 _MIN_WRITE_PREFIX_LEN = len(Op.SSTORE(0, 1) + Op.STOP)
 
 # 31 * 128: the account header holds exactly this many code bytes
-# before overflowing into content-addressed chunks (see "Tree
-# embedding" in the EIP).
-HEADER_CODE_BYTES = Spec.CODE_CHUNK_SIZE * Spec.CODE_OFFSET
+# before overflowing into content-addressed chunks -- 128 is the
+# COUNT of header code chunks (STEM_SUBTREE_WIDTH - CODE_OFFSET), not
+# CODE_OFFSET itself, which is the sub-index chunk 0 starts at (see
+# "Tree embedding" in the EIP).
+HEADER_CODE_BYTES = Spec.CODE_CHUNK_SIZE * (
+    Spec.STEM_SUBTREE_WIDTH - Spec.CODE_OFFSET
+)
 
 
 @pytest.mark.parametrize(
@@ -206,6 +210,54 @@ def test_push32_data_straddles_two_chunk_boundaries(
     )
     assert code_bytes[data_start : data_end + 1] == pushed_value.to_bytes(
         32, "big"
+    )
+
+    contract = pre.deploy_contract(code=code)
+    tx = Transaction(sender=pre.fund_eoa(), to=contract)
+
+    post = {contract: Account(storage={slot: pushed_value})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_push_data_straddles_header_overflow_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify a `PUSH4` positioned so its 4-byte immediate straddles byte
+    `HEADER_CODE_BYTES` (3968) -- the header/overflow zone boundary,
+    the only chunk boundary where key derivation changes ZONE (account
+    header to content-addressed code) and switches from address-keyed
+    to content-addressed, rather than merely advancing the chunk index
+    within the same zone -- still pushes the correct value.
+
+    Byte layout: opcode at `HEADER_CODE_BYTES - 2` (3966), the 4-byte
+    immediate at 3967-3970. Byte 3967 is the last header code byte;
+    3968-3970 are the first three bytes of the first overflow chunk.
+
+    If a client's chunk metadata treats this zone-crossing boundary
+    differently from an ordinary intra-zone chunk boundary when
+    marking leading PUSH-data-continuation bytes, the data actually
+    read would shift, corrupting the pushed value.
+    """
+    slot = 0
+    pushed_value = 0xDEADBEEF
+    opcode_index = HEADER_CODE_BYTES - 2  # 3966
+
+    code = (
+        Op.JUMPDEST * opcode_index
+        + Op.PUSH4(pushed_value)
+        + Op.PUSH1(slot)
+        + Op.SSTORE
+        + Op.STOP
+    )
+    code_bytes = bytes(code)
+    data_start, data_end = opcode_index + 1, opcode_index + 4
+    assert data_start < HEADER_CODE_BYTES <= data_end, (
+        "PUSH4 data must straddle the header/overflow boundary"
+    )
+    assert code_bytes[data_start : data_end + 1] == pushed_value.to_bytes(
+        4, "big"
     )
 
     contract = pre.deploy_contract(code=code)

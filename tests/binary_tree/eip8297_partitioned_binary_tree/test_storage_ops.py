@@ -32,8 +32,14 @@ pytestmark = pytest.mark.valid_from("BinaryTree")
     [
         pytest.param(0, id="header_slot_0"),
         pytest.param(1, id="header_slot_1"),
-        pytest.param(Spec.HEADER_STORAGE_OFFSET - 1, id="header_last_63"),
-        pytest.param(Spec.HEADER_STORAGE_OFFSET, id="overflow_first_64"),
+        pytest.param(
+            Spec.CODE_OFFSET - Spec.HEADER_STORAGE_OFFSET - 1,
+            id="header_last_63",
+        ),
+        pytest.param(
+            Spec.CODE_OFFSET - Spec.HEADER_STORAGE_OFFSET,
+            id="overflow_first_64",
+        ),
         pytest.param(
             Spec.STEM_SUBTREE_WIDTH - 1, id="storage_group_0_last_255"
         ),
