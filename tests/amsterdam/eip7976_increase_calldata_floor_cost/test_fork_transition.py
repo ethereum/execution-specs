@@ -192,6 +192,11 @@ def test_floor_cost_across_amsterdam_transition(
             marks=pytest.mark.exception_test,
             id="old_floor_rejected_after_fork",
         ),
+        pytest.param(
+            "below_new_floor_rejected_after_fork",
+            marks=pytest.mark.exception_test,
+            id="below_new_floor_rejected_after_fork",
+        ),
     ],
 )
 def test_floor_validity_across_amsterdam_transition(
@@ -209,8 +214,8 @@ def test_floor_validity_across_amsterdam_transition(
     (EIP-7623) floor is accepted in the pre-fork block, but the
     identical shape is rejected once the fork activates because the new
     floor is higher for this calldata; one below the old floor is
-    already rejected pre-fork, and one at the new floor is accepted
-    post-fork.
+    already rejected pre-fork, one just below the new floor is rejected
+    post-fork, and one at the new floor is accepted post-fork.
 
     The zero-byte arm pins the uniform token counting on the validity
     threshold itself, independently of the billed-gas path.
@@ -219,8 +224,8 @@ def test_floor_validity_across_amsterdam_transition(
     target = pre.fund_eoa(amount=1)
 
     old_floor, new_floor = expected_floors(fork, data)
-    # The rejected-after-fork arm only exists because the new floor
-    # exceeds the old one for this calldata size.
+    # The old-floor-rejected-after-fork arm only exists because the new
+    # floor exceeds the old one for this calldata size.
     assert new_floor > old_floor
 
     below_floor_error = TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
@@ -273,7 +278,7 @@ def test_floor_validity_across_amsterdam_transition(
             ),
         ]
         post = {pre_fork_sender: untouched, post_fork_sender: untouched}
-    else:
+    elif scenario == "old_floor_rejected_after_fork":
         blocks = [
             Block(
                 timestamp=PRE_FORK_TIMESTAMP,
@@ -294,5 +299,19 @@ def test_floor_validity_across_amsterdam_transition(
             ),
             post_fork_sender: untouched,
         }
+    else:
+        # One below the new floor is still rejected post-fork; together
+        # with the exact-floor acceptance this pins the post-fork
+        # threshold at exactly the new floor.
+        blocks = [
+            Block(
+                timestamp=POST_FORK_TIMESTAMP,
+                txs=[
+                    transfer_tx(post_fork_sender, new_floor - 1, valid=False)
+                ],
+                exception=below_floor_error,
+            ),
+        ]
+        post = {pre_fork_sender: untouched, post_fork_sender: untouched}
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
