@@ -1650,8 +1650,7 @@ def test_bal_system_address_coinbase_zero_tip(
     )
 
     tx_value = 5
-    alice_initial_balance = (tx_gas_limit * base_fee_per_gas) + tx_value
-    alice = pre.fund_eoa(amount=alice_initial_balance)
+    alice = pre.fund_eoa()
     tx = Transaction(
         sender=alice,
         to=bob,
