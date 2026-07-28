@@ -19,7 +19,7 @@ from execution_testing import (
     compute_create_address,
 )
 
-from .helpers import create_contract_via_factory
+from .helpers import FACTORY_CANARY_SLOT, create_contract_via_factory
 from .spec import ref_spec_8297
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
@@ -52,39 +52,23 @@ def test_fund_fresh_eoa_via_value_transfer(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        pytest.param(Op.CREATE, id="CREATE"),
+        pytest.param(Op.CREATE2, id="CREATE2"),
+    ],
+)
 def test_create_deploys_code_and_storage(
     state_test: StateTestFiller,
     pre: Alloc,
+    opcode: Op,
 ) -> None:
     """
-    Verify a CREATE-deployed contract holds its deployed code and the
-    storage its constructor wrote, and that the creator's nonce bumps.
-    """
-    deploy_code = Op.STOP
-    slot, value = 0, 1
-    initcode = Initcode(
-        deploy_code=deploy_code, initcode_prefix=Op.SSTORE(slot, value)
-    )
-
-    factory, created = create_contract_via_factory(pre, initcode)
-
-    tx = Transaction(sender=pre.fund_eoa(), to=factory)
-
-    post = {
-        factory: Account(nonce=2),
-        created: Account(nonce=1, code=deploy_code, storage={slot: value}),
-    }
-    state_test(pre=pre, post=post, tx=tx)
-
-
-def test_create2_deploys_code_and_storage(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Verify a CREATE2-deployed contract lands at its deterministic
-    address (computed with the framework helper) holding its deployed
-    code and constructor storage, and that the creator's nonce bumps.
+    Verify a CREATE/CREATE2-deployed contract lands at its
+    deterministic address (computed with the framework helper) holding
+    its deployed code and constructor-written storage, and that the
+    creator's nonce bumps.
     """
     deploy_code = Op.STOP
     slot, value = 0, 1
@@ -93,13 +77,13 @@ def test_create2_deploys_code_and_storage(
     )
 
     factory, created = create_contract_via_factory(
-        pre, initcode, opcode=Op.CREATE2, salt=0x5A17
+        pre, initcode, opcode=opcode, salt=0x5A17
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=factory)
 
     post = {
-        factory: Account(nonce=2),
+        factory: Account(nonce=2, storage={FACTORY_CANARY_SLOT: 1}),
         created: Account(nonce=1, code=deploy_code, storage={slot: value}),
     }
     state_test(pre=pre, post=post, tx=tx)
@@ -155,17 +139,33 @@ def test_selfdestruct_same_transaction_leaves_no_account(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def test_selfdestruct_aged_contract_survives_and_sweeps_balance(
+@pytest.mark.parametrize(
+    "beneficiary_pre_exists",
+    [
+        pytest.param(True, id="aged_beneficiary_sweeps_balance"),
+        pytest.param(False, id="fresh_beneficiary_materializes"),
+    ],
+)
+def test_selfdestruct_survives_and_sweeps_balance(
     state_test: StateTestFiller,
     pre: Alloc,
+    beneficiary_pre_exists: bool,
 ) -> None:
     """
     Verify a post-6780 SELFDESTRUCT on a contract that existed before
     the transaction leaves it alive with its code and storage intact,
-    sweeping only its balance to the beneficiary.
+    sweeping its balance to the beneficiary -- whether the beneficiary
+    already existed (gaining the swept balance on top of its own
+    pre-existing balance) or is fresh (materializing for the first
+    time holding exactly the swept balance).
     """
-    beneficiary = pre.fund_eoa(amount=500)
     initial_balance = 1000
+    pre_existing_beneficiary_balance = 500
+    beneficiary = (
+        pre.fund_eoa(amount=pre_existing_beneficiary_balance)
+        if beneficiary_pre_exists
+        else pre.nonexistent_account()
+    )
     victim_code = Op.SELFDESTRUCT(beneficiary)
     victim = pre.deploy_contract(
         code=victim_code, balance=initial_balance, storage={0: 42}
@@ -173,33 +173,14 @@ def test_selfdestruct_aged_contract_survives_and_sweeps_balance(
 
     tx = Transaction(sender=pre.fund_eoa(), to=victim)
 
+    expected_beneficiary = (
+        Account(balance=pre_existing_beneficiary_balance + initial_balance)
+        if beneficiary_pre_exists
+        else Account(balance=initial_balance, nonce=0, code=b"", storage={})
+    )
     post = {
         victim: Account(balance=0, code=victim_code, storage={0: 42}),
-        beneficiary: Account(balance=500 + initial_balance),
-    }
-    state_test(pre=pre, post=post, tx=tx)
-
-
-def test_selfdestruct_fresh_beneficiary_materializes(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Verify SELFDESTRUCT to a fresh, never-seen beneficiary materializes
-    that account in the post state holding exactly the swept balance.
-    """
-    beneficiary = pre.nonexistent_account()
-    initial_balance = 1000
-    victim_code = Op.SELFDESTRUCT(beneficiary)
-    victim = pre.deploy_contract(code=victim_code, balance=initial_balance)
-
-    tx = Transaction(sender=pre.fund_eoa(), to=victim)
-
-    post = {
-        victim: Account(balance=0, code=victim_code, storage={}),
-        beneficiary: Account(
-            balance=initial_balance, nonce=0, code=b"", storage={}
-        ),
+        beneficiary: expected_beneficiary,
     }
     state_test(pre=pre, post=post, tx=tx)
 
@@ -212,6 +193,15 @@ def test_create_then_revert_leaves_child_nonexistent(
     Verify a contract that creates a child and then reverts leaves the
     child address nonexistent and its own storage exactly as before
     the call.
+
+    `parent`'s own REVERT wipes out everything in its frame, so an
+    unconditional canary cannot live there. Instead, an outer `caller`
+    contract POPs `parent`'s (always-failing, since `parent` always
+    reverts) CALL result and writes its own canary slot right after:
+    without it, a `parent` whose CREATE ran out of gas before ever
+    reaching its own REVERT would leave the exact same observable post
+    state as one where the CREATE succeeded and was then correctly
+    rolled back.
     """
     child_deploy_code = Op.STOP
     child_initcode = Initcode(
@@ -231,11 +221,19 @@ def test_create_then_revert_leaves_child_nonexistent(
     )
     child = compute_create_address(address=parent, nonce=1)
 
-    tx = Transaction(sender=pre.fund_eoa(), to=parent)
+    canary_slot = 0
+    caller = pre.deploy_contract(
+        code=Op.POP(Op.CALL(address=parent))
+        + Op.SSTORE(canary_slot, 1)
+        + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     post = {
         parent: Account(nonce=1, storage={existing_slot: existing_value}),
         child: Account.NONEXISTENT,
+        caller: Account(storage={canary_slot: 1}),
     }
     state_test(pre=pre, post=post, tx=tx)
 
@@ -247,15 +245,27 @@ def test_empty_account_touch_not_materialized(
     """
     Verify EIP-161: touching a never-seen, empty account with a
     zero-value CALL does not materialize it in the post state.
+
+    An unconditional canary slot, written right after the (POP'd)
+    CALL, proves the caller's own frame actually continued: without
+    it, the lone `Account.NONEXISTENT` assertion on `touched` cannot
+    distinguish "correctly not materialized" from "the caller's frame
+    never ran at all."
     """
+    canary_slot = 1
     touched = pre.nonexistent_account()
     contract = pre.deploy_contract(
-        code=Op.POP(Op.CALL(address=touched, value=0)) + Op.STOP
+        code=Op.POP(Op.CALL(address=touched, value=0))
+        + Op.SSTORE(canary_slot, 1)
+        + Op.STOP
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=contract)
 
-    post = {touched: Account.NONEXISTENT}
+    post = {
+        touched: Account.NONEXISTENT,
+        contract: Account(storage={canary_slot: 1}),
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -274,13 +284,19 @@ def test_precompile_touch_and_value_transfer(
     """
     Verify a zero-value CALL to a precompile does not materialize an
     account for it, while a subsequent value transfer does.
+
+    An unconditional canary slot, written right after both (POP'd)
+    CALLs, proves the caller's own frame actually continued: without
+    it, this test would pass identically if the caller's frame never
+    ran at all, for the `value == 0` case at least.
     """
     sha256_address = Address(0x02)
+    canary_slot = 1
 
     code = Op.POP(Op.CALL(address=sha256_address, value=0))
     if value:
         code += Op.POP(Op.CALL(address=sha256_address, value=value))
-    code += Op.STOP
+    code += Op.SSTORE(canary_slot, 1) + Op.STOP
 
     contract = pre.deploy_contract(code=code, balance=value)
 
@@ -292,5 +308,6 @@ def test_precompile_touch_and_value_transfer(
             if value == 0
             else Account(balance=value, nonce=0, code=b"", storage={})
         ),
+        contract: Account(storage={canary_slot: 1}),
     }
     state_test(pre=pre, post=post, tx=tx)
