@@ -29,24 +29,16 @@ for JSON). Such models require fork= on encode / hash_tree_root / decode /
 ssz_default / describe_schema / build_ssz_type
 """
 
-import ast
-import inspect
-import io
-import re
-import textwrap
-import tokenize
 from dataclasses import dataclass
 from functools import lru_cache
 from types import UnionType
 from typing import (
     Any,
     ClassVar,
-    FrozenSet,
     List,
     Mapping,
     Optional,
     Sequence,
-    Set,
     Tuple,
     Type,
     TypeVar,
@@ -238,56 +230,10 @@ def _is_fork_optional(model_cls: Type["SszModel"], name: str) -> bool:
     return _unwrap_optional(ann)[1]
 
 
-_SSZ_EXCLUDE_COMMENT = re.compile(r"#\s*ssz_exclude\b")
-
-
-@lru_cache(maxsize=None)
-def _comment_excluded_names(klass: type) -> FrozenSet[str]:
-    """
-    Field names in klass's own body marked by a ``# ssz_exclude``
-    comment.
-
-    The comment must sit on the line directly above the field (or trail
-    the field's own line). Classes whose source cannot be retrieved
-    (built dynamically) contribute nothing; use the Annotated
-    ssz_exclude() marker there.
-    """
-    try:
-        source = textwrap.dedent(inspect.getsource(klass))
-        tree = ast.parse(source)
-        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
-    except (OSError, TypeError, SyntaxError, tokenize.TokenError):
-        return frozenset()
-    marked: Set[int] = set()
-    for tok in tokens:
-        if tok.type != tokenize.COMMENT:
-            continue
-        if not _SSZ_EXCLUDE_COMMENT.match(tok.string):
-            continue
-        row, col = tok.start
-        on_own_line = not tok.line[:col].strip()
-        marked.add(row + 1 if on_own_line else row)
-    class_def = tree.body[0]
-    if not isinstance(class_def, ast.ClassDef):
-        return frozenset()
-    return frozenset(
-        node.target.id
-        for node in class_def.body
-        if isinstance(node, ast.AnnAssign)
-        and isinstance(node.target, ast.Name)
-        and node.lineno in marked
-    )
-
-
 def _is_ssz_excluded(model_cls: Type["SszModel"], name: str) -> bool:
+    """Whether name carries the ssz_exclude() marker (JSON-only)."""
     metadata = model_cls.model_fields[name].metadata
-    if any(isinstance(m, _SszExclude) for m in metadata):
-        return True
-    return any(
-        name in _comment_excluded_names(klass)
-        for klass in model_cls.__mro__
-        if klass is not SszModel and issubclass(klass, SszModel)
-    )
+    return any(isinstance(m, _SszExclude) for m in metadata)
 
 
 def _included_fields(model_cls: Type["SszModel"]) -> Tuple[str, ...]:
@@ -432,12 +378,10 @@ def progressive_bitlist() -> SszProgressiveBitlist:
 
 def ssz_exclude() -> _SszExclude:
     """
-    Annotate a field as JSON-only: the SSZ ignores it entirely.
+    Annotate a field as JSON-only: SSZ ignores it entirely.
 
-    The usual spelling is a ``# ssz_exclude`` comment on the line
-    directly above the field; this Annotated marker is the fallback for
-    classes built dynamically, whose source the comment scan cannot
-    read.
+    Such a field must carry a default: decode never sees it on the wire
+    and so cannot reconstruct it.
     """
     return _SszExclude()
 
@@ -446,11 +390,9 @@ class SszModel(CamelModel):
     """
     A pydantic model whose fields carry SSZ types.
 
-    Every field must resolve to an SszType, or be excluded from SSZ
-    with a ``# ssz_exclude`` comment on the line above it (JSON-only
-    fields); each Annotated marker must be consistent with the field's
-    Python type. Both are checked when the subclass is defined, so a
-    mis-typed container fails at import, not at first encode.
+    Every field must resolve to an SszType, or be excluded from SSZ with
+    an ssz_exclude() marker (JSON-only fields); each Annotated marker
+    must be consistent with the field's Python type.
     """
 
     __ssz_schema__: ClassVar[Optional[SszForkSchema]] = None
@@ -475,11 +417,10 @@ class ProgressiveModel(SszModel):
     """
     A forward-compatible progressive container.
 
-    __active_fields__ is the active-field bitvector; it defaults to all fields
-    active. A 0 marks a reserved gap with no declared field, so new fields can
-    be slotted in later without shifting existing roots -- the declared fields
-    fill the 1 positions in order. The number of 1s, when set, must equal the
-    declared field count.
+    __active_fields__ is the active-field bitvector; it defaults to all SSZ
+    fields active. A 0 marks a reserved gap with no declared field, so new
+    fields can be slotted in later without shifting existing roots -- the
+    SSZ fields fill the 1 positions in order.
     """
 
     __active_fields__: ClassVar[Sequence[int]] = ()
@@ -489,11 +430,12 @@ class ProgressiveModel(SszModel):
         """Check the active-field bitvector agrees with the field count."""
         super().__pydantic_init_subclass__(**kwargs)
         active = cls.__active_fields__
-        if active and sum(active) != len(cls.model_fields):
+        included = len(_included_fields(cls))
+        if active and sum(active) != included:
             raise TypeError(
                 f"{cls.__name__}.__active_fields__ has {sum(active)} active "
                 f"entries but the container declares "
-                f"{len(cls.model_fields)} fields"
+                f"{included} SSZ fields"
             )
 
 
@@ -632,8 +574,9 @@ def _rmk_type(spec: SszType, fork: Optional[str] = None) -> Type[View]:
 
 
 def _active_fields(model_cls: Type["SszModel"]) -> Sequence[int]:
+    """The active-field bitvector, defaulting to every SSZ field active."""
     declared = getattr(model_cls, "__active_fields__", ())
-    return declared if declared else [1] * len(model_cls.model_fields)
+    return declared if declared else [1] * len(_included_fields(model_cls))
 
 
 def _nested_fork(

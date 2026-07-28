@@ -120,6 +120,14 @@ class GapProg(ProgressiveModel):
     c: Uint64
 
 
+class MixedProg(ProgressiveModel):
+    """A progressive container carrying a JSON-only (excluded) field."""
+
+    a: Uint64
+    note: Annotated[str, ssz_exclude()] = "json-only"
+    c: Uint64
+
+
 class ForkedPayload(SszModel):
     """One model for every fork."""
 
@@ -149,14 +157,6 @@ class Mixed(SszModel):
 
     a: Uint64
     note: Annotated[str, ssz_exclude()] = "json-only"
-
-
-class CommentMixed(SszModel):
-    """An SSZ container whose JSON-only field is comment-marked."""
-
-    a: Uint64
-    # ssz_exclude
-    note: str = "json-only"
 
 
 class RefWithdrawal(Container):
@@ -212,6 +212,13 @@ class RefProg(ProgressiveContainer(active_fields=[1, 1, 1])):  # type: ignore[mi
 
 class RefGapProg(ProgressiveContainer(active_fields=[1, 0, 1])):  # type: ignore[misc]
     """Hand-written twin of GapProg."""
+
+    a: uint64
+    c: uint64
+
+
+class RefMixedProg(ProgressiveContainer(active_fields=[1, 1])):  # type: ignore[misc]
+    """Hand-written twin of MixedProg: the excluded field takes no slot."""
 
     a: uint64
     c: uint64
@@ -365,6 +372,12 @@ TWIN_CASES: List[
         "progressive-gap",
         lambda: GapProg(a=1, c=3),
         lambda: RefGapProg(a=1, c=3),
+        None,
+    ),
+    (
+        "progressive-excluded",
+        lambda: MixedProg(a=1, c=3),
+        lambda: RefMixedProg(a=1, c=3),
         None,
     ),
     (
@@ -675,16 +688,6 @@ def _bad_required_excluded() -> None:
         note: Annotated[str, ssz_exclude()]  # excluded but required
 
 
-def _bad_required_comment_excluded() -> None:
-    # The class name must be unique file-wide: on Python < 3.13,
-    # inspect.getsource finds a class by name, so a second "Bad" would
-    # scan the first one's body.
-    class BadCommentRequired(SszModel):
-        a: Uint64
-        # ssz_exclude
-        note: str
-
-
 def _bad_progressive_with_schema() -> None:
     class Bad(ProgressiveModel):
         a: Uint64
@@ -709,6 +712,18 @@ def _bad_progressive_active_count() -> None:
         c: Uint64
 
 
+def _bad_progressive_active_counts_excluded() -> None:
+    # An excluded field takes no slot, so the third 1 has no field to
+    # fill it: caught here rather than inside remerkleable at first
+    # build_ssz_type.
+    class Bad(ProgressiveModel):
+        __active_fields__ = [1, 1, 1]  # three active, two SSZ fields
+
+        a: Uint64
+        note: Annotated[str, ssz_exclude()] = "json-only"
+        c: Uint64
+
+
 BAD_DECLARATIONS: List[Tuple[str, Callable[[], None], str]] = [
     ("vector-on-scalar", _bad_vector_marker_on_scalar, "requires a list"),
     ("byte-list-on-int", _bad_byte_list_on_int, "byte_list requires"),
@@ -725,14 +740,14 @@ BAD_DECLARATIONS: List[Tuple[str, Callable[[], None], str]] = [
     ("appended-no-default", _bad_appended_no_default, "default to None"),
     ("dup-schema-names", _bad_duplicate_schema_names, "more than once"),
     ("required-excluded", _bad_required_excluded, "no default"),
-    (
-        "required-comment-excluded",
-        _bad_required_comment_excluded,
-        "no default",
-    ),
     ("progressive-schema", _bad_progressive_with_schema, "not supported"),
     ("progressive-optional", _bad_progressive_with_optional, "not supported"),
     ("progressive-count", _bad_progressive_active_count, "active"),
+    (
+        "progressive-count-excluded",
+        _bad_progressive_active_counts_excluded,
+        "3 active entries but the container declares 2 SSZ fields",
+    ),
 ]
 
 
@@ -898,50 +913,34 @@ def test_excluded_field_on_fork_scoped_model() -> None:
     assert restored.note == "aux"
 
 
-def test_comment_excluded_field_is_json_only() -> None:
-    """A # ssz_exclude comment above a field hides it from SSZ."""
-    value = CommentMixed(a=7, note="kept in JSON")
-    assert "note" in value.model_dump(mode="json")
-    assert ssz_fields(CommentMixed) == ("a",)
-    restored = decode(CommentMixed, encode(value))
-    assert int(restored.a) == 7
-    assert restored.note == "json-only"
+def test_excluded_field_takes_no_active_slot() -> None:
+    """An excluded field is absent from the active-field bitvector."""
+    assert ssz_fields(MixedProg) == ("a", "c")
 
+    class GapMixedProg(ProgressiveModel):
+        __active_fields__ = [1, 0, 1]  # two active, two SSZ fields
 
-def test_trailing_comment_excludes_field() -> None:
-    """The marker also works as a trailing comment on the field."""
-
-    class TrailingMixed(SszModel):
         a: Uint64
-        note: str = "aux"  # ssz_exclude
+        note: Annotated[str, ssz_exclude()] = "json-only"
+        c: Uint64
 
-    assert ssz_fields(TrailingMixed) == ("a",)
+    assert ssz_fields(GapMixedProg) == ("a", "c")
+    assert hash_tree_root(GapMixedProg(a=1, c=3)) == hash_tree_root(
+        GapProg(a=1, c=3)
+    )
 
 
-def test_comment_exclusion_is_inherited() -> None:
-    """A subclass keeps the base's comment-marked exclusions."""
+def test_exclusion_is_inherited() -> None:
+    """A subclass keeps the base's excluded fields excluded."""
 
-    class CommentChild(CommentMixed):
+    class MixedChild(Mixed):
         b: Uint64
 
-    assert ssz_fields(CommentChild) == ("a", "b")
-
-
-def test_comment_must_be_directly_above() -> None:
-    """A blank line detaches the marker; the field must then be SSZ."""
-    with pytest.raises(TypeError, match="no SSZ type"):
-
-        class DetachedComment(SszModel):
-            a: Uint64
-            # ssz_exclude
-
-            note: str = "x"
+    assert ssz_fields(MixedChild) == ("a", "b")
 
 
 def test_spec_of_rejects_excluded_field() -> None:
     """spec_of refuses excluded fields instead of resolving the type."""
-    with pytest.raises(TypeError, match="SSZ-excluded"):
-        spec_of(CommentMixed, "note")
     with pytest.raises(TypeError, match="SSZ-excluded"):
         spec_of(Mixed, "note")
 
