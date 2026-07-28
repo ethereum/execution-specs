@@ -2,9 +2,12 @@
 Multi-block chain tests for the EIP-8297 partitioned binary tree:
 storage evolving across several blocks, account creation and
 destruction spread across blocks, withdrawals, empty and
-transaction-less blocks, and the negative state-root test that proves
-the fork actually VALIDATES the binary tree root rather than just
-computing it.
+transaction-less blocks, and a block carrying a wrong `state_root`
+header field.
+
+The wrong-root case only records an expectation for a future
+consumer of these fixtures; see its own docstring for why `fill`
+does not verify it today.
 """
 
 import pytest
@@ -277,12 +280,20 @@ def test_block_with_wrong_state_root_is_rejected(
     pre: Alloc,
 ) -> None:
     """
-    Verify a block whose header carries a WRONG `state_root` is
-    rejected.
+    Record the expectation that a block whose header carries a WRONG
+    `state_root` is rejected -- this does not verify it.
 
-    This is the only test in the suite that proves the `BinaryTree`
-    fork actually VALIDATES the binary-tree-computed root against the
-    block header, rather than merely computing and reporting it.
+    The wrong root is injected via `rlp_modifier`, and
+    `execution_testing`'s fill-time `verify_block_exception` only
+    runs when `block.rlp_modifier is None`
+    (`specs/blockchain.py:1073-1084`), so `fill` skips exactly the
+    check this test's name suggests it performs. No client consumes
+    `BinaryTree` fixtures either, so nothing downstream checks it
+    today. `exception` is also an any-of match: a future consumer
+    could satisfy it by rejecting on the header-hash mismatch alone,
+    without ever comparing state roots. A direct, checked guarantee
+    that the fork raises on a mismatched root belongs in a
+    `tests/binary_trie/` unit test.
     """
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)
