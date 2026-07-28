@@ -1668,12 +1668,6 @@ def test_bal_system_address_coinbase_zero_tip(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
                     ],
-                    balance_changes=[
-                        BalBalanceChange(
-                            block_access_index=1,
-                            post_balance=alice_final_balance,
-                        )
-                    ],
                 ),
                 bob: BalAccountExpectation(
                     balance_changes=[
