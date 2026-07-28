@@ -1357,16 +1357,31 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     fixture = next(iter(fixture_data.values()))
     block = fixture["blocks"][-1]
 
+    from ethereum.crypto.hash import Hash32
+    from ethereum.forks.amsterdam.stateless import (
+        compute_new_payload_request_root,
+    )
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
     from ethereum.forks.amsterdam.stateless_host import (
         deserialize_stateless_output,
     )
     from ethereum_types.bytes import Bytes as EthereumBytes
 
+    stateless_input = deserialize_stateless_input(
+        EthereumBytes(bytes.fromhex(block["statelessInputBytes"][2:]))
+    )
     stateless_output = deserialize_stateless_output(
         EthereumBytes(bytes.fromhex(block["statelessOutputBytes"][2:]))
     )
 
     assert stateless_output.successful_validation is True
+    assert stateless_output.new_payload_request_root != Hash32(b"\0" * 32)
+    assert (
+        stateless_output.new_payload_request_root
+        == compute_new_payload_request_root(stateless_input)
+    )
 
 
 def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
@@ -1402,6 +1417,10 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
 
     assert len(block["executionWitness"]["headers"]) == 1
 
+    from ethereum.crypto.hash import Hash32
+    from ethereum.forks.amsterdam.stateless import (
+        compute_new_payload_request_root,
+    )
     from ethereum.forks.amsterdam.stateless_guest import (
         deserialize_stateless_input,
     )
@@ -1418,6 +1437,11 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
     )
 
     assert stateless_output.successful_validation is False
+    assert stateless_output.new_payload_request_root != Hash32(b"\0" * 32)
+    assert (
+        stateless_output.new_payload_request_root
+        == compute_new_payload_request_root(stateless_input)
+    )
     assert len(stateless_input.witness.headers) == 1
     assert [
         "0x" + bytes(header).hex()

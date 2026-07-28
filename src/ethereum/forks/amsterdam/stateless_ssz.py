@@ -14,6 +14,11 @@ from remerkleable.basic import boolean, uint64, uint256
 from remerkleable.byte_arrays import ByteList, Bytes32, ByteVector
 from remerkleable.complex import Container
 from remerkleable.complex import List as SszList
+from remerkleable.progressive import (
+    ProgressiveByteList,
+    ProgressiveContainer,
+    ProgressiveList,
+)
 
 from ethereum.crypto.hash import Hash32
 from ethereum.state import Address, Root
@@ -41,19 +46,8 @@ from .stateless import (
 
 # --- SSZ max-length constants ---
 
-# Consensus-spec bounds mirrored by NewPayloadRequest and its nested
-# containers.  These should track the corresponding consensus-spec values.
 
 MAX_EXTRA_DATA_BYTES = 32
-MAX_BYTES_PER_TRANSACTION = 2**30
-MAX_TRANSACTIONS_PER_PAYLOAD = 2**20
-MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
-MAX_BLOB_COMMITMENTS_PER_BLOCK = 4096
-MAX_DEPOSIT_REQUESTS_PER_PAYLOAD = 2**13
-MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD = 2**4
-MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD = 2**1
-MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD = 2**6
-MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD = 2**4
 
 # Stateless witness resource bounds.  These are local limits chosen for this
 # schema, not consensus-spec SSZ constants.
@@ -119,7 +113,9 @@ class SszWithdrawal(Container):
     amount: uint64
 
 
-class SszExecutionPayload(Container):
+class SszExecutionPayload(
+    ProgressiveContainer(active_fields=[1] * 19)  # type: ignore[misc]
+):
     """SSZ container mirroring ``ExecutionPayload``."""
 
     parent_hash: Bytes32
@@ -135,13 +131,11 @@ class SszExecutionPayload(Container):
     extra_data: ByteList[MAX_EXTRA_DATA_BYTES]
     base_fee_per_gas: uint256
     block_hash: Bytes32
-    transactions: SszList[
-        ByteList[MAX_BYTES_PER_TRANSACTION], MAX_TRANSACTIONS_PER_PAYLOAD
-    ]  # noqa: E501
-    withdrawals: SszList[SszWithdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
+    transactions: ProgressiveList[ProgressiveByteList]
+    withdrawals: ProgressiveList[SszWithdrawal]
     blob_gas_used: uint64
     excess_blob_gas: uint64
-    block_access_list: ByteList[MAX_BYTES_PER_TRANSACTION]
+    block_access_list: ProgressiveByteList
     slot_number: uint64
 
 
@@ -187,29 +181,23 @@ class SszBuilderExitRequest(Container):
     pubkey: ByteVector[48]
 
 
-class SszExecutionRequests(Container):
+class SszExecutionRequests(
+    ProgressiveContainer(active_fields=[1] * 5)  # type: ignore[misc]
+):
     """SSZ container mirroring ``ExecutionRequests``."""
 
-    deposits: SszList[SszDepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD]
-    withdrawals: SszList[
-        SszWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD
-    ]
-    consolidations: SszList[
-        SszConsolidationRequest, MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD
-    ]
-    builder_deposits: SszList[
-        SszBuilderDepositRequest, MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD
-    ]
-    builder_exits: SszList[
-        SszBuilderExitRequest, MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD
-    ]
+    deposits: ProgressiveList[SszDepositRequest]
+    withdrawals: ProgressiveList[SszWithdrawalRequest]
+    consolidations: ProgressiveList[SszConsolidationRequest]
+    builder_deposits: ProgressiveList[SszBuilderDepositRequest]
+    builder_exits: ProgressiveList[SszBuilderExitRequest]
 
 
 class SszNewPayloadRequest(Container):
     """SSZ container mirroring ``NewPayloadRequest``."""
 
     execution_payload: SszExecutionPayload
-    versioned_hashes: SszList[Bytes32, MAX_BLOB_COMMITMENTS_PER_BLOCK]
+    versioned_hashes: ProgressiveList[Bytes32]
     parent_beacon_block_root: Bytes32
     execution_requests: SszExecutionRequests
 
@@ -300,21 +288,15 @@ def _payload_to_ssz(
         extra_data=ByteList[MAX_EXTRA_DATA_BYTES](bytes(p.extra_data)),
         base_fee_per_gas=uint256(int(p.base_fee_per_gas)),
         block_hash=Bytes32(bytes(p.block_hash)),
-        transactions=SszList[
-            ByteList[MAX_BYTES_PER_TRANSACTION],
-            MAX_TRANSACTIONS_PER_PAYLOAD,
-        ](
-            ByteList[MAX_BYTES_PER_TRANSACTION](bytes(tx))
-            for tx in p.transactions
+        transactions=ProgressiveList[ProgressiveByteList](
+            ProgressiveByteList(bytes(tx)) for tx in p.transactions
         ),
-        withdrawals=SszList[SszWithdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
+        withdrawals=ProgressiveList[SszWithdrawal](
             _withdrawal_to_ssz(w) for w in p.withdrawals
         ),
         blob_gas_used=uint64(int(p.blob_gas_used)),
         excess_blob_gas=uint64(int(p.excess_blob_gas)),
-        block_access_list=ByteList[MAX_BYTES_PER_TRANSACTION](
-            bytes(p.block_access_list)
-        ),
+        block_access_list=ProgressiveByteList(bytes(p.block_access_list)),
         slot_number=uint64(int(p.slot_number)),
     )
 
@@ -461,22 +443,21 @@ def _execution_requests_to_ssz(
 ) -> SszExecutionRequests:
     """Convert an ExecutionRequests to its SSZ form."""
     return SszExecutionRequests(
-        deposits=SszList[SszDepositRequest, MAX_DEPOSIT_REQUESTS_PER_PAYLOAD](
+        deposits=ProgressiveList[SszDepositRequest](
             _deposit_request_to_ssz(d) for d in er.deposits
         ),
-        withdrawals=SszList[
-            SszWithdrawalRequest, MAX_WITHDRAWAL_REQUESTS_PER_PAYLOAD
-        ](_withdrawal_request_to_ssz(w) for w in er.withdrawals),
-        consolidations=SszList[
-            SszConsolidationRequest, MAX_CONSOLIDATION_REQUESTS_PER_PAYLOAD
-        ](_consolidation_request_to_ssz(c) for c in er.consolidations),
-        builder_deposits=SszList[
-            SszBuilderDepositRequest,
-            MAX_BUILDER_DEPOSIT_REQUESTS_PER_PAYLOAD,
-        ](_builder_deposit_request_to_ssz(b) for b in er.builder_deposits),
-        builder_exits=SszList[
-            SszBuilderExitRequest, MAX_BUILDER_EXIT_REQUESTS_PER_PAYLOAD
-        ](_builder_exit_request_to_ssz(b) for b in er.builder_exits),
+        withdrawals=ProgressiveList[SszWithdrawalRequest](
+            _withdrawal_request_to_ssz(w) for w in er.withdrawals
+        ),
+        consolidations=ProgressiveList[SszConsolidationRequest](
+            _consolidation_request_to_ssz(c) for c in er.consolidations
+        ),
+        builder_deposits=ProgressiveList[SszBuilderDepositRequest](
+            _builder_deposit_request_to_ssz(b) for b in er.builder_deposits
+        ),
+        builder_exits=ProgressiveList[SszBuilderExitRequest](
+            _builder_exit_request_to_ssz(b) for b in er.builder_exits
+        ),
     )
 
 
@@ -507,7 +488,7 @@ def _new_payload_request_to_ssz(
     """Convert a NewPayloadRequest to its SSZ form."""
     return SszNewPayloadRequest(
         execution_payload=_payload_to_ssz(npr.execution_payload),
-        versioned_hashes=SszList[Bytes32, MAX_BLOB_COMMITMENTS_PER_BLOCK](
+        versioned_hashes=ProgressiveList[Bytes32](
             Bytes32(bytes(vh)) for vh in npr.versioned_hashes
         ),
         parent_beacon_block_root=Bytes32(bytes(npr.parent_beacon_block_root)),
