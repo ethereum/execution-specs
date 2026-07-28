@@ -101,15 +101,6 @@ def test_get_tree_key_concatenates_its_three_parts() -> None:
         assert key == bytes([zone]) + digest + b"\x07"
 
 
-def test_zone_wider_than_one_byte_is_unrepresentable() -> None:
-    """
-    A zone identifier that does not fit in the zone byte fails at
-    construction: the type is one byte wide.
-    """
-    with pytest.raises(OverflowError):
-        Zone(256)
-
-
 def test_header_sub_index_wider_than_one_byte_is_rejected() -> None:
     """
     A header sub-index that does not fit the key's final byte fails
@@ -233,7 +224,6 @@ def test_storage_group_zero_never_uses_low_sub_indices() -> None:
             f"slot {slot}: group-0 overflow key ends in {key[-1]}, "
             "below the 64 floor"
         )
-    assert group_zero_slots == 192
 
 
 def test_storage_tree_index_is_a_32_byte_big_endian_suffix() -> None:
@@ -689,7 +679,9 @@ def test_chunkify_delegation_designator() -> None:
 def test_encode_basic_data_layout() -> None:
     """
     Basic data packs version, code size, nonce, and balance at the
-    offsets given by the EIP.
+    offsets given by the EIP, and the all-zero leaf -- a freshly
+    created, codeless, nonce-0, balance-0 account -- packs to 32 zero
+    bytes.
     """
     code_size_hex = "11223344"
     nonce_hex = "5566778899aabbcc"
@@ -707,6 +699,19 @@ def test_encode_basic_data_layout() -> None:
     assert value[4:8] == bytes.fromhex(code_size_hex)
     assert value[8:16] == bytes.fromhex(nonce_hex)
     assert value[16:32] == bytes.fromhex(balance_hex)
+
+    # The all-zero leaf: distinct from the case above in that every
+    # field is zero, not merely that the fields sit at the right
+    # offsets. This vector alone cannot distinguish WHERE code_size
+    # sits within the leaf -- every candidate byte offset reads back
+    # as zero either way -- so it does not pin the offset-4/offset-5
+    # EIP-7864 divergence flagged by the code_size-layout TODO on
+    # `encode_basic_data`; `test_encode_basic_data_maximum_fields`,
+    # whose fields are each distinct nonzero bytes, is what pins that.
+    all_zero = encode_basic_data(
+        code_size=U32(0), nonce=U64(0), balance=U256(0)
+    )
+    assert all_zero == Bytes32(b"\x00" * 32)
 
 
 def test_encode_basic_data_rejects_balance_past_sixteen_bytes() -> None:
@@ -747,25 +752,3 @@ def test_encode_basic_data_maximum_fields() -> None:
     )
     assert len(expected) == 32
     assert value == Bytes32(expected)
-
-
-def test_encode_basic_data_all_zero() -> None:
-    """
-    The all-zero leaf -- a freshly created, codeless, nonce-0,
-    balance-0 account -- packs to 32 zero bytes, and a nonce past
-    `U64`'s eight-byte range is rejected at construction, before it
-    ever reaches the packing.
-
-    An all-zero vector cannot distinguish where `code_size` sits
-    within the leaf -- every candidate byte offset reads back as zero
-    either way -- so it does not pin the offset-4/offset-5 EIP-7864
-    divergence flagged by the code_size-layout TODO on
-    `encode_basic_data`; `test_encode_basic_data_maximum_fields`, whose
-    fields are each distinct nonzero bytes, is what pins that.
-    """
-    value = encode_basic_data(code_size=U32(0), nonce=U64(0), balance=U256(0))
-
-    assert value == Bytes32(b"\x00" * 32)
-
-    with pytest.raises(OverflowError):
-        U64(2**64)

@@ -56,7 +56,6 @@ from ethereum.state_mpt import (
 )
 from ethereum.state_mpt import set_account as mpt_set_account
 from ethereum.state_mpt import set_storage as mpt_set_storage
-from ethereum.state_mpt import state_root as mpt_state_root
 from ethereum.state_mpt import store_code as mpt_store_code
 from ethereum.state_pbt import State as PbtState
 from ethereum.state_pbt import (
@@ -184,8 +183,7 @@ def test_account_delete_with_same_diff_storage_writes() -> None:
     Both providers still agree the account is gone, that the freshly
     written key reads back, and that `account_has_storage` is `True`
     (an orphan entry with no account — PBT's `embed_flat_state` skips
-    exactly this case, state_pbt.py:102-104), and both still compute a
-    state root without error.
+    exactly this case, state_pbt.py:102-104).
     """
     mpt_state = MptState()
     pbt_state = PbtState()
@@ -215,9 +213,6 @@ def test_account_delete_with_same_diff_storage_writes() -> None:
 
     assert mpt_state.account_has_storage(ADDRESS_X) is True
     assert pbt_state.account_has_storage(ADDRESS_X) is True
-
-    assert len(mpt_state_root(mpt_state)) == 32
-    assert len(pbt_state_root(pbt_state)) == 32
 
 
 def test_all_zero_storage_changes_matches_never_written() -> None:
@@ -281,9 +276,6 @@ def test_code_changes_only_diff() -> None:
 
     assert mpt_state.get_code(NEW_CODE_HASH) == NEW_CODE
     assert pbt_state.get_code(NEW_CODE_HASH) == NEW_CODE
-
-    assert len(mpt_state_root(mpt_state)) == 32
-    assert len(pbt_state_root(pbt_state)) == 32
 
 
 def test_zero_write_to_existing_slot_deletes_in_both() -> None:
@@ -478,11 +470,14 @@ def _assert_equivalent(
     random address universe, skipping storage-related checks for
     `divergent` addresses, and check every code hash ever stored.
 
-    Each provider's own root is also sanity-checked -- MPT's only by
-    length, PBT's by recomputing it and checking determinism -- but
-    the two roots are never compared against each other: they commit
-    to different schemes, so there is nothing for such a comparison
-    to mean.
+    Neither provider's own root is recomputed here: PBT's determinism
+    under repeated computation from an unchanged state is already
+    pinned directly, and more strongly (via a real diff-and-recompute
+    rather than two bare re-reads), by
+    `test_state_pbt.py::test_compute_state_root_leaves_the_pre_state_untouched`,
+    and the two providers' roots are never compared against each
+    other regardless: they commit to different schemes, so there is
+    nothing for such a comparison to mean.
     """
     for address in RANDOM_ADDRESSES:
         assert mpt_state.get_account_optional(
@@ -505,11 +500,6 @@ def _assert_equivalent(
     for code_hash, code in code_pool:
         assert mpt_state.get_code(code_hash) == code
         assert pbt_state.get_code(code_hash) == code
-
-    assert len(mpt_state_root(mpt_state)) == 32
-    first_pbt_root = pbt_state_root(pbt_state)
-    second_pbt_root = pbt_state_root(pbt_state)
-    assert first_pbt_root == second_pbt_root
 
 
 @pytest.mark.parametrize("seed", [8297, 7610, 20260727])

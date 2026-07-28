@@ -16,6 +16,8 @@ import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
+import pytest
+
 from ethereum.fork_criteria import Unscheduled
 from ethereum.forks import amsterdam, binary_tree
 from ethereum_spec_tools.evm_tools.utils import (
@@ -136,40 +138,46 @@ def _diff_lines(
     return removed, added
 
 
-def test_diff_lines_reports_removed_line_starting_with_dashes() -> None:
+@pytest.mark.parametrize(
+    "amsterdam_text, binary_tree_text, expected_removed, expected_added",
+    [
+        pytest.param(
+            "one\n------------\ntwo\n",
+            "one\ntwo\n",
+            {"------------"},
+            set(),
+            id="removed_line_starting_with_dashes",
+        ),
+        pytest.param(
+            "one\ntwo\n",
+            "one\n++++++++++++\ntwo\n",
+            set(),
+            {"++++++++++++"},
+            id="added_line_starting_with_pluses",
+        ),
+    ],
+)
+def test_diff_lines_reports_lines_starting_with_diff_markers(
+    amsterdam_text: str,
+    binary_tree_text: str,
+    expected_removed: Set[str],
+    expected_added: Set[str],
+) -> None:
     """
-    A removed line that itself starts with `--` is still reported.
+    A removed/added line that itself starts with `--`/`++` is still
+    reported, rather than being misfiled as a `---`/`+++` file header.
 
     Regression test: the header/hunk filter used to sniff line
     content (`startswith(("---", "+++", "@@"))`) instead of position,
     so a removed line like `------------` became the diff line
-    `-------------` and was misfiled as a file header and dropped.
+    `-------------` (and an added `++++++++++++` line became the diff
+    line `+++++++++++++`), each mistaken for a file header and
+    dropped.
     """
-    amsterdam_text = "one\n------------\ntwo\n"
-    binary_tree_text = "one\ntwo\n"
-
     removed, added = _diff_lines(amsterdam_text, binary_tree_text)
 
-    assert removed == {"------------"}
-    assert added == set()
-
-
-def test_diff_lines_reports_added_line_starting_with_pluses() -> None:
-    """
-    An added line that itself starts with `++` is still reported.
-
-    Same regression as the dashes case above, mirrored for the
-    `+++` file-header text: an added `++++++++++++` line becomes the
-    diff line `+++++++++++++`, which must not be mistaken for the
-    `+++` to-file header.
-    """
-    amsterdam_text = "one\ntwo\n"
-    binary_tree_text = "one\n++++++++++++\ntwo\n"
-
-    removed, added = _diff_lines(amsterdam_text, binary_tree_text)
-
-    assert removed == set()
-    assert added == {"++++++++++++"}
+    assert removed == expected_removed
+    assert added == expected_added
 
 
 def _apply_allowed_deltas(amsterdam_text: str, relative_path: str) -> str:

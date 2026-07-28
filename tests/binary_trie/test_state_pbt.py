@@ -558,7 +558,6 @@ def test_embedded_key_set_for_a_fully_occupied_header_stem() -> None:
     header_sub_indices = {key[-1] for key in header_keys}
 
     assert header_sub_indices == {0, 1} | set(range(64, 256))
-    assert len(header_sub_indices) == 194
     assert embedded._data.keys() == header_keys, (
         "a fully-occupied header stem must produce no overflow-zone key"
     )
