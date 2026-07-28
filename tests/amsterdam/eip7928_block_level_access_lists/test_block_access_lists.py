@@ -1685,7 +1685,7 @@ def test_bal_system_address_coinbase_zero_tip(
         post={
             alice: Account(nonce=1),
             bob: Account(balance=5),
-        SYSTEM_ADDRESS: Account.NONEXISTENT,
+            SYSTEM_ADDRESS: Account.NONEXISTENT,
         },
         genesis_environment=genesis_env,
     )
