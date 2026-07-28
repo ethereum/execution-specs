@@ -29,7 +29,6 @@ from execution_testing import (
     Transaction,
 )
 
-from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import sstore_from_calldata_contract
 from .spec import Spec, ref_spec_8297
 
@@ -113,13 +112,22 @@ def test_sstore_zero_after_nonzero_same_tx(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def test_sstore_zero_across_transactions(
+@pytest.mark.parametrize(
+    "same_block",
+    [
+        pytest.param(True, id="across_transactions_same_block"),
+        pytest.param(False, id="across_blocks"),
+    ],
+)
+def test_sstore_zero_across_transactions_or_blocks(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    same_block: bool,
 ) -> None:
     """
     Verify a slot written by one transaction and zeroed by a second
-    transaction in the SAME block ends the block with the slot absent.
+    ends up absent from the post state, whether the two land in the
+    SAME block (as two transactions) or in two consecutive blocks.
 
     Not EIP-8297-conformant (see the module docstring): the absent
     slot pins current provider behavior.
@@ -131,43 +139,33 @@ def test_sstore_zero_across_transactions(
     write_tx = Transaction(sender=sender, to=contract, data=Hash(0xFF))
     zero_tx = Transaction(sender=sender, to=contract, data=Hash(0))
 
-    post = {contract: Account(storage={})}
-    blockchain_test(
-        pre=pre, post=post, blocks=[Block(txs=[write_tx, zero_tx])]
+    blocks = (
+        [Block(txs=[write_tx, zero_tx])]
+        if same_block
+        else [Block(txs=[write_tx]), Block(txs=[zero_tx])]
     )
 
-
-def test_sstore_zero_across_blocks(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Verify a slot written in one block and zeroed by a transaction in
-    the NEXT block ends the chain with the slot absent.
-
-    Not EIP-8297-conformant (see the module docstring): the absent
-    slot pins current provider behavior.
-    """
-    slot = 7
-    contract = sstore_from_calldata_contract(pre, slot=slot)
-    sender = pre.fund_eoa()
-
-    write_tx = Transaction(sender=sender, to=contract, data=Hash(0xFF))
-    zero_tx = Transaction(sender=sender, to=contract, data=Hash(0))
-
     post = {contract: Account(storage={})}
-    blockchain_test(
-        pre=pre,
-        post=post,
-        blocks=[Block(txs=[write_tx]), Block(txs=[zero_tx])],
-    )
+    blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
 def test_sstore_overwrite_nonzero_value(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Verify overwriting a slot with a different nonzero value replaces it."""
+    """
+    Verify overwriting a slot with a different nonzero value replaces
+    it.
+
+    A same-value no-op write is deliberately not covered as a second
+    case here: with the write's target value equal to both the
+    pre-alloc value and the expected post value, that scenario's
+    post-state assertion cannot fail whether the SSTORE actually ran
+    or the whole call did nothing -- state_pbt.py's storage_changes
+    application has no code path specific to "write the value already
+    there" separate from an ordinary nonzero write, so this directed,
+    distinguishable overwrite is what exercises that path.
+    """
     slot = 9
     contract = pre.deploy_contract(
         code=Op.SSTORE(slot, 0x1111) + Op.STOP, storage={slot: 0x9999}
@@ -176,22 +174,6 @@ def test_sstore_overwrite_nonzero_value(
     tx = Transaction(sender=pre.fund_eoa(), to=contract)
 
     post = {contract: Account(storage={slot: 0x1111})}
-    state_test(pre=pre, post=post, tx=tx)
-
-
-def test_sstore_noop_same_value(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """Verify writing the value a slot already holds leaves it unchanged."""
-    slot, value = 9, 0x9999
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(slot, value) + Op.STOP, storage={slot: value}
-    )
-
-    tx = Transaction(sender=pre.fund_eoa(), to=contract)
-
-    post = {contract: Account(storage={slot: value})}
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -289,10 +271,7 @@ def test_storage_under_7702_delegation_lands_on_authority(
     tx = Transaction(sender=pre.fund_eoa(), to=authority)
 
     post = {
-        authority: Account(
-            storage={slot: value},
-            code=Spec7702.delegation_designation(delegate),
-        ),
+        authority: Account(storage={slot: value}),
         delegate: Account(storage={}),
     }
     state_test(pre=pre, post=post, tx=tx)

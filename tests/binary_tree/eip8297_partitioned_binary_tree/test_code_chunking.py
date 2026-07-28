@@ -12,6 +12,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytecode,
     Fork,
     Initcode,
     Op,
@@ -34,8 +35,8 @@ pytestmark = pytest.mark.valid_from("BinaryTree")
 # The SSTORE(slot, value) + STOP prefix `sstore_then_pad` below
 # actually builds (value=0xCAFE, a PUSH2) is this many bytes; below
 # this, `sstore_then_pad` cannot fit the write (see
-# test_deploy_and_execute_at_code_size's 1-byte case, which omits the
-# write instead of calling it). Not a general claim about the
+# test_deploy_and_execute_at_code_size's 0- and 1-byte cases, which
+# omit the write instead of calling it). Not a general claim about the
 # smallest write-carrying code size: e.g. `CALLDATASIZE CALLDATASIZE
 # SSTORE` writes storage in 3 bytes.
 _MIN_WRITE_PREFIX_LEN = len(Op.SSTORE(0, 0xCAFE) + Op.STOP)
@@ -53,6 +54,7 @@ HEADER_CODE_BYTES = Spec.CODE_CHUNK_SIZE * (
 @pytest.mark.parametrize(
     "code_size",
     [
+        pytest.param(0, id="0_bytes_empty_code"),
         pytest.param(1, id="1_byte"),
         pytest.param(31, id="31_bytes_single_chunk"),
         pytest.param(32, id="32_bytes_crosses_first_boundary"),
@@ -69,59 +71,44 @@ def test_deploy_and_execute_at_code_size(
 ) -> None:
     """
     Verify a contract padded to an exact byte size executes its
-    (possibly tiny) executable prefix and reports the exact size back
-    through `EXTCODESIZE`, across sizes spanning a single chunk, the
-    first chunk boundary, the exact header/overflow split, and the
-    first overflow chunk.
+    (possibly tiny, or entirely absent) executable prefix, reports the
+    exact size back through `EXTCODESIZE`, and reports the plain
+    `keccak256` of its own code back through `EXTCODEHASH` -- checked
+    at every size, including the one carrying an overflow chunk, so
+    the overflow chunk is proven not to alter code identity -- across
+    sizes spanning empty code, a single chunk, the first chunk
+    boundary, the exact header/overflow split, and the first overflow
+    chunk.
 
-    A 1-byte contract has no room for a `SSTORE` (the minimal encoding
-    already needs `_MIN_WRITE_PREFIX_LEN` bytes), so that case is just
-    `STOP`: it only pins that the smallest possible chunked contract is
-    callable and reports size 1, without a storage-write assertion.
+    The 0- and 1-byte contracts have no room for a `SSTORE` (the
+    minimal encoding already needs `_MIN_WRITE_PREFIX_LEN` bytes), so
+    those cases are just `STOP` (or, at 0 bytes, no code at all): they
+    only pin that the smallest possible chunked contracts are callable
+    and report their exact size, without a storage-write assertion --
+    `target` is omitted from `post` entirely for these two sizes,
+    since a contract with no `SSTORE` anywhere in its code trivially
+    cannot write storage regardless of whether it ran at all.
     """
-    value_slot, size_slot, call_slot = 0, 1, 2
+    value_slot, size_slot, call_slot, hash_slot = 0, 1, 2, 3
     value = 0xCAFE
 
     has_write = code_size >= _MIN_WRITE_PREFIX_LEN
-    target_code = (
-        sstore_then_pad(slot=value_slot, value=value, total_size=code_size)
-        if has_write
-        else Op.STOP + Op.INVALID * (code_size - 1)
-    )
+    target_code: Bytecode
+    if code_size == 0:
+        target_code = Bytecode()
+    elif has_write:
+        target_code = sstore_then_pad(
+            slot=value_slot, value=value, total_size=code_size
+        )
+    else:
+        target_code = Op.STOP + Op.INVALID * (code_size - 1)
     assert len(target_code) == code_size
 
     target = pre.deploy_contract(code=target_code)
     checker = pre.deploy_contract(
         code=Op.SSTORE(size_slot, Op.EXTCODESIZE(target))
-        + Op.SSTORE(call_slot, Op.CALL(address=target))
-        + Op.STOP
-    )
-
-    tx = Transaction(sender=pre.fund_eoa(), to=checker)
-
-    post = {
-        checker: Account(storage={size_slot: code_size, call_slot: 1}),
-        target: Account(storage={value_slot: value} if has_write else {}),
-    }
-    state_test(pre=pre, post=post, tx=tx)
-
-
-def test_empty_code_account_is_callable_noop(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Verify a deployed account with empty code (`code=b""`, zero
-    chunks) is callable as a no-op, reports `EXTCODESIZE` 0, and
-    `EXTCODEHASH` equal to the empty-code hash.
-    """
-    call_slot, size_slot, hash_slot = 0, 1, 2
-
-    target = pre.deploy_contract(code=b"")
-    checker = pre.deploy_contract(
-        code=Op.SSTORE(call_slot, Op.CALL(address=target))
-        + Op.SSTORE(size_slot, Op.EXTCODESIZE(target))
         + Op.SSTORE(hash_slot, Op.EXTCODEHASH(target))
+        + Op.SSTORE(call_slot, Op.CALL(address=target))
         + Op.STOP
     )
 
@@ -130,146 +117,97 @@ def test_empty_code_account_is_callable_noop(
     post = {
         checker: Account(
             storage={
+                size_slot: code_size,
+                hash_slot: keccak256(bytes(target_code)),
                 call_slot: 1,
-                size_slot: 0,
-                hash_slot: keccak256(b""),
             }
         ),
     }
+    if has_write:
+        post[target] = Account(storage={value_slot: value})
     state_test(pre=pre, post=post, tx=tx)
 
 
-def test_push_data_straddles_single_chunk_boundary(
+@pytest.mark.parametrize(
+    "opcode_index, push_width, pushed_value, expected_chunks",
+    [
+        pytest.param(
+            Spec.CODE_CHUNK_SIZE - 2,
+            4,
+            0xDEADBEEF,
+            {0, 1},
+            id="single_chunk_boundary",
+        ),
+        pytest.param(
+            Spec.CODE_CHUNK_SIZE - 1,
+            32,
+            int.from_bytes(bytes(range(1, 33)), "big"),
+            {0, 1, 2},
+            id="two_chunk_boundaries",
+        ),
+        pytest.param(
+            HEADER_CODE_BYTES - 2,
+            4,
+            0xDEADBEEF,
+            {
+                (HEADER_CODE_BYTES - 1) // Spec.CODE_CHUNK_SIZE,
+                HEADER_CODE_BYTES // Spec.CODE_CHUNK_SIZE,
+            },
+            id="header_overflow_boundary",
+        ),
+    ],
+)
+def test_push_data_straddles_chunk_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
+    opcode_index: int,
+    push_width: int,
+    pushed_value: int,
+    expected_chunks: set[int],
 ) -> None:
     """
-    Verify a `PUSH4` positioned so its 4-byte immediate straddles the
-    chunk-0/chunk-1 boundary (opcode at byte 29, data at bytes 30-33,
-    crossing the boundary at byte 31) still pushes the correct value.
+    Verify a PUSH instruction positioned so its immediate straddles a
+    chunk boundary still pushes the correct value, at three
+    boundaries: a single-chunk edge (`PUSH4`, chunks 0/1), a `PUSH32`
+    immediate wide enough to touch three consecutive chunks (0, 1, and
+    2, since a 32-byte immediate alone can touch at most two: 32 <= 31
+    + 1, so touching a third requires the opcode byte itself to sit in
+    the chunk before the data), and -- the only chunk boundary where
+    key derivation changes ZONE, from the account header to
+    content-addressed code, rather than merely advancing the chunk
+    index within the same zone -- the header/overflow split at byte
+    `HEADER_CODE_BYTES` (3968), chunks 127/128.
 
     Each chunk's payload (bytes 1..31) is always that fixed 31-byte
-    slice of the code, regardless of the leading metadata byte; what
-    this pins is that a client's chunk *assembly* -- stripping
-    exactly one metadata byte per chunk when reconstructing code from
-    chunks -- must do so correctly, since getting that wrong (not a
-    shift in which bytes are payload) is what would corrupt the
-    pushed value.
+    slice of the code, regardless of the leading metadata byte or
+    which zone the chunk's key derives from; what this pins is that a
+    client's chunk *assembly* -- stripping exactly one metadata byte
+    per chunk when reconstructing code from chunks -- must do so
+    correctly at every one of these boundaries, since getting that
+    wrong (not a payload shift) is what would corrupt the pushed
+    value.
     """
     slot = 0
-    pushed_value = 0xDEADBEEF
-    opcode_index = Spec.CODE_CHUNK_SIZE - 2  # 29
+    push_op = getattr(Op, f"PUSH{push_width}")
 
     code = (
         Op.JUMPDEST * opcode_index
-        + Op.PUSH4(pushed_value)
+        + push_op(pushed_value)
         + Op.PUSH1(slot)
         + Op.SSTORE
         + Op.STOP
     )
     code_bytes = bytes(code)
-    data_start, data_end = opcode_index + 1, opcode_index + 4
-    start_chunk = data_start // Spec.CODE_CHUNK_SIZE
-    end_chunk = data_end // Spec.CODE_CHUNK_SIZE
-    assert start_chunk != end_chunk, "PUSH4 data must straddle a boundary"
-    assert code_bytes[data_start : data_end + 1] == pushed_value.to_bytes(
-        4, "big"
-    )
-
-    contract = pre.deploy_contract(code=code)
-    tx = Transaction(sender=pre.fund_eoa(), to=contract)
-
-    post = {contract: Account(storage={slot: pushed_value})}
-    state_test(pre=pre, post=post, tx=tx)
-
-
-def test_push32_data_straddles_two_chunk_boundaries(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Verify a `PUSH32` positioned so its opcode sits in chunk 0 and its
-    32-byte immediate crosses from chunk 1 into chunk 2 (opcode at byte
-    30, data at bytes 31-62) still pushes the correct value.
-
-    A 32-byte immediate alone can touch at most two chunks: 32 <= 31
-    + 1, so at most one leftover byte of an earlier chunk plus one
-    whole chunk get used, with nothing left to spill into a third.
-    To actually touch three chunks -- crossing two boundaries -- the
-    opcode byte itself must sit in the chunk before the data.
-    """
-    slot = 0
-    pushed_value = int.from_bytes(bytes(range(1, 33)), "big")
-    opcode_index = Spec.CODE_CHUNK_SIZE - 1  # 30
-
-    code = (
-        Op.JUMPDEST * opcode_index
-        + Op.PUSH32(pushed_value)
-        + Op.PUSH1(slot)
-        + Op.SSTORE
-        + Op.STOP
-    )
-    code_bytes = bytes(code)
-    data_start, data_end = opcode_index + 1, opcode_index + 32
+    data_start, data_end = opcode_index + 1, opcode_index + push_width
     chunks_touched = {
         i // Spec.CODE_CHUNK_SIZE for i in range(opcode_index, data_end + 1)
     }
-    assert chunks_touched == {0, 1, 2}, (
-        "opcode + immediate must span exactly chunks 0, 1 and 2"
+    assert chunks_touched == expected_chunks, (
+        f"opcode + immediate must span exactly chunks {expected_chunks}, "
+        f"got {chunks_touched}"
     )
     assert code_bytes[data_start : data_end + 1] == pushed_value.to_bytes(
-        32, "big"
-    )
-
-    contract = pre.deploy_contract(code=code)
-    tx = Transaction(sender=pre.fund_eoa(), to=contract)
-
-    post = {contract: Account(storage={slot: pushed_value})}
-    state_test(pre=pre, post=post, tx=tx)
-
-
-def test_push_data_straddles_header_overflow_boundary(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Verify a `PUSH4` positioned so its 4-byte immediate straddles byte
-    `HEADER_CODE_BYTES` (3968) -- the header/overflow zone boundary,
-    the only chunk boundary where key derivation changes ZONE (account
-    header to content-addressed code) and switches from address-keyed
-    to content-addressed, rather than merely advancing the chunk index
-    within the same zone -- still pushes the correct value.
-
-    Byte layout: opcode at `HEADER_CODE_BYTES - 2` (3966), the 4-byte
-    immediate at 3967-3970. Byte 3967 is the last header code byte;
-    3968-3970 are the first three bytes of the first overflow chunk.
-
-    Each chunk's payload is still that fixed 31-byte code slice
-    regardless of zone; crossing zones only changes how the chunk's
-    *key* is derived, not which bytes are payload. What this pins is
-    that a client's chunk assembly must treat the zone-crossing
-    boundary like any other when stripping the leading metadata
-    byte, since getting that wrong -- not a payload shift -- is what
-    would corrupt the pushed value.
-    """
-    slot = 0
-    pushed_value = 0xDEADBEEF
-    opcode_index = HEADER_CODE_BYTES - 2  # 3966
-
-    code = (
-        Op.JUMPDEST * opcode_index
-        + Op.PUSH4(pushed_value)
-        + Op.PUSH1(slot)
-        + Op.SSTORE
-        + Op.STOP
-    )
-    code_bytes = bytes(code)
-    data_start, data_end = opcode_index + 1, opcode_index + 4
-    assert data_start < HEADER_CODE_BYTES <= data_end, (
-        "PUSH4 data must straddle the header/overflow boundary"
-    )
-    assert code_bytes[data_start : data_end + 1] == pushed_value.to_bytes(
-        4, "big"
+        push_width, "big"
     )
 
     contract = pre.deploy_contract(code=code)
@@ -458,37 +396,6 @@ def test_extcodecopy_past_end_zero_pads(
 
     expected_word = pattern[offset:size] + bytes(length - 2)
     post = {caller: Account(storage={0: expected_word})}
-    state_test(pre=pre, post=post, tx=tx)
-
-
-def test_extcodehash_and_size_of_overflow_chunk_contract(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Verify `EXTCODEHASH`/`EXTCODESIZE` of a 3969-byte contract -- one
-    byte past the account header's 3968-byte code capacity, so it has
-    exactly one overflow chunk -- equal the plain keccak256/length of
-    the code, proving the overflow chunk does not alter code identity.
-    """
-    size = HEADER_CODE_BYTES + 1
-    pattern = bytes(i % 256 for i in range(size))
-    target = pre.deploy_contract(code=pattern)
-
-    size_slot, hash_slot = 0, 1
-    checker = pre.deploy_contract(
-        code=Op.SSTORE(size_slot, Op.EXTCODESIZE(target))
-        + Op.SSTORE(hash_slot, Op.EXTCODEHASH(target))
-        + Op.STOP
-    )
-
-    tx = Transaction(sender=pre.fund_eoa(), to=checker)
-
-    post = {
-        checker: Account(
-            storage={size_slot: size, hash_slot: keccak256(pattern)}
-        ),
-    }
     state_test(pre=pre, post=post, tx=tx)
 
 
