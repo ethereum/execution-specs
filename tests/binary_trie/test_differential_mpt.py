@@ -42,7 +42,15 @@ import pytest
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
+from ethereum.binary_trie.embedding import (
+    address20_to_address32,
+    get_tree_key_for_code_hash,
+)
+from ethereum.binary_trie.trie import EMPTY_TRIE_ROOT as PBT_EMPTY_TRIE_ROOT
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.merkle_patricia_trie import (
+    EMPTY_TRIE_ROOT as MPT_EMPTY_TRIE_ROOT,
+)
 from ethereum.state import (
     EMPTY_ACCOUNT,
     EMPTY_CODE_HASH,
@@ -56,11 +64,13 @@ from ethereum.state_mpt import (
 )
 from ethereum.state_mpt import set_account as mpt_set_account
 from ethereum.state_mpt import set_storage as mpt_set_storage
+from ethereum.state_mpt import state_root as mpt_state_root
 from ethereum.state_mpt import store_code as mpt_store_code
 from ethereum.state_pbt import State as PbtState
 from ethereum.state_pbt import (
     apply_changes_to_state as pbt_apply_changes_to_state,
 )
+from ethereum.state_pbt import embed_flat_state
 from ethereum.state_pbt import set_account as pbt_set_account
 from ethereum.state_pbt import set_storage as pbt_set_storage
 from ethereum.state_pbt import state_root as pbt_state_root
@@ -470,14 +480,19 @@ def _assert_equivalent(
     random address universe, skipping storage-related checks for
     `divergent` addresses, and check every code hash ever stored.
 
-    Neither provider's own root is recomputed here: PBT's determinism
-    under repeated computation from an unchanged state is already
-    pinned directly, and more strongly (via a real diff-and-recompute
-    rather than two bare re-reads), by
-    `test_state_pbt.py::test_compute_state_root_leaves_the_pre_state_untouched`,
-    and the two providers' roots are never compared against each
-    other regardless: they commit to different schemes, so there is
-    nothing for such a comparison to mean.
+    Also recomputes each provider's own root over the live, randomly
+    built state: PBT's root is computed twice (determinism) and,
+    whenever an account survives, asserted to differ from the
+    empty-tree sentinel; MPT gets the same two checks. Neither check
+    alone would catch a leaf silently dropped inside
+    `embed_flat_state` -- the resulting root would still be
+    deterministic and non-empty -- so this also re-embeds the live
+    PBT state directly (bypassing `state_root`'s wrapper) and spot-
+    checks that every surviving account's code-hash leaf actually
+    reached the tree with the right value. The two providers' roots
+    are never compared against each other regardless: they commit to
+    different schemes, so there is nothing for such a comparison to
+    mean.
     """
     for address in RANDOM_ADDRESSES:
         assert mpt_state.get_account_optional(
@@ -500,6 +515,42 @@ def _assert_equivalent(
     for code_hash, code in code_pool:
         assert mpt_state.get_code(code_hash) == code
         assert pbt_state.get_code(code_hash) == code
+
+    any_account_survives = any(
+        pbt_state.get_account_optional(address) is not None
+        for address in RANDOM_ADDRESSES
+    )
+
+    pbt_root_first = pbt_state_root(pbt_state)
+    pbt_root_second = pbt_state_root(pbt_state)
+    assert pbt_root_first == pbt_root_second
+    if any_account_survives:
+        assert pbt_root_first != PBT_EMPTY_TRIE_ROOT
+
+    mpt_root_first = mpt_state_root(mpt_state)
+    mpt_root_second = mpt_state_root(mpt_state)
+    assert mpt_root_first == mpt_root_second
+    if any_account_survives:
+        assert mpt_root_first != MPT_EMPTY_TRIE_ROOT
+
+    # A leaf `embed_flat_state` silently fails to write is invisible
+    # to the three checks above (the resulting root is still
+    # deterministic, and still non-empty as long as some other leaf
+    # survives), so spot-check one leaf directly against ground
+    # truth: every surviving account's code-hash leaf, read straight
+    # out of a fresh embedding of the live PBT state.
+    embedded = embed_flat_state(
+        pbt_state._accounts, pbt_state._storage, pbt_state.get_code
+    )
+    for address in RANDOM_ADDRESSES:
+        account = pbt_state.get_account_optional(address)
+        if account is None:
+            continue
+        address32 = address20_to_address32(address)
+        assert (
+            embedded._data.get(get_tree_key_for_code_hash(address32))
+            == account.code_hash
+        )
 
 
 @pytest.mark.parametrize("seed", [8297, 7610, 20260727])
