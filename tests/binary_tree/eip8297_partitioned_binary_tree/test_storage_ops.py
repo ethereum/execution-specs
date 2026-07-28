@@ -59,8 +59,8 @@ def test_sstore_sload_round_trip(
     about.
     """
     value = 0xC0FFEE
-    # Far outside every parametrized slot above, so it can never
-    # collide with the slot under test.
+    # Distinct from every parametrized slot above (including
+    # 2**256 - 1), so it can never collide with the slot under test.
     readback_slot = 2**128
 
     contract = pre.deploy_contract(
@@ -85,11 +85,9 @@ def test_sstore_zero_after_nonzero_same_tx(
     Verify writing a nonzero value and then zeroing the same slot
     within one transaction leaves the slot absent from the post state.
 
-    The `execution_testing` provider treats a zero-valued storage slot
-    as equivalent to an absent one when comparing post-state storage
-    (mirroring the EVM's own state, where SSTORE-to-zero deletes the
-    trie entry rather than keeping an explicit zero), so the expected
-    post storage below is simply empty.
+    `src/ethereum/state_pbt.py` treats a zero-valued storage slot as
+    equivalent to an absent one, so the expected post storage below
+    is simply empty.
     """
     slot = 7
     contract = pre.deploy_contract(
@@ -195,7 +193,10 @@ def test_sload_never_written_slot_returns_zero(
 
     # A correct zero read makes this an SSTORE-to-zero, i.e. an absent
     # slot; a buggy nonzero read would surface as slot 0 holding that
-    # value and fail the exact post-storage match below.
+    # value. `Storage.must_be_equal` (composite_types.py:317-338)
+    # only raises for an unexpected key when its value is nonzero, so
+    # zero and absent are indistinguishable here -- this still catches
+    # a nonzero misread, just not a wrong-but-zero one.
     post = {contract: Account(storage={})}
     state_test(pre=pre, post=post, tx=tx)
 

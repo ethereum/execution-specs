@@ -2,10 +2,11 @@
 System-contract storage tests for the EIP-8297 partitioned binary
 tree.
 
-Amsterdam-era system contracts (EIP-4788, EIP-2935, EIP-7002) write
-storage on EVERY block, which under EIP-8297 means their storage
-churns constantly, including ring buffers whose slot numbers reach far
-past the 64-slot header range into many overflow storage groups.
+Amsterdam-era system contracts, including EIP-4788, EIP-2935, and
+EIP-7002, write storage on EVERY block, which under EIP-8297 means
+their storage churns constantly, including ring buffers whose slot
+numbers reach far past the 64-slot header range into many overflow
+storage groups.
 """
 
 import pytest
@@ -53,7 +54,10 @@ def test_beacon_root_ring_buffer_across_blocks(
     timestamp=300 pushes even the timestamp slot itself into group 1
     (HIGH) without needing the root slot's fixed +8191 offset; its
     root slot (8491) is group 33. timestamp=8000 puts the timestamp
-    slot in group 31 and the root slot (16191) in group 63.
+    slot in group 31 and the root slot (16191) in group 63. This
+    grouping is why these three timestamps were chosen for coverage;
+    it is not itself verified below, which checks only slot/value
+    pairs on the account, not which tree group a key lands in.
     """
     helpers = SpecHelpers()
     beacon_roots_address = Address(Spec4788.BEACON_ROOTS_ADDRESS)
@@ -140,8 +144,11 @@ def test_block_hash_history_ring_buffer_across_blocks(
 ) -> None:
     """
     Verify the EIP-2935 block-hash history ring buffer serves the
-    correct parent hash, at slot `block_number % HISTORY_SERVE_WINDOW`,
-    for each of several recent blocks.
+    correct parent hash for each of several recent blocks. The ring
+    buffer's own storage layout -- slot `block_number %
+    HISTORY_SERVE_WINDOW` -- is background here, not something this
+    test's account-level post state observes: `history_address` never
+    appears in `post` below at all.
 
     A literal expected hash cannot be written ahead of fill time (a
     block's hash depends on a state root the t8n computes), so,

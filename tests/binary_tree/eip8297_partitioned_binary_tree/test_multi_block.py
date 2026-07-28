@@ -266,8 +266,9 @@ def test_chain_with_no_transactions_at_all(
     """
     Verify a chain of several blocks carrying NO transactions at all
     (only the automatic per-block system-contract activity: EIP-4788
-    and EIP-2935 pre-execution calls, EIP-7002 post-execution dequeue)
-    fills and produces a consistent binary-tree-committed chain.
+    and EIP-2935 pre-execution calls, and post-execution calls
+    including EIP-7002's withdrawal-request dequeue) fills and
+    produces a consistent binary-tree-committed chain.
     """
     blocks = [Block() for _ in range(4)]
 
