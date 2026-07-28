@@ -224,6 +224,13 @@ def test_storage_group_zero_never_uses_low_sub_indices() -> None:
             f"slot {slot}: group-0 overflow key ends in {key[-1]}, "
             "below the 64 floor"
         )
+    # Vacuity control: `key[-1] >= 64` above is this loop's only
+    # assertion (there is no set-equality assertion anywhere in this
+    # test to imply it), so it is also the loop's sole guard against
+    # running zero times. If a future edit narrows `range(64, 1001)`
+    # or the `continue` guard so the body never executes, this line
+    # is what still catches the test passing vacuously.
+    assert group_zero_slots == 192
 
 
 def test_storage_tree_index_is_a_32_byte_big_endian_suffix() -> None:
@@ -362,6 +369,41 @@ def test_max_code_size_chunk_keys() -> None:
 
     assert key == expected
     assert len(key) == 34
+
+
+def test_key_derivations_assert_their_own_key_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Every key-deriving function asserts the length of the key it
+    builds before returning it (EIP-8297, "Tree embedding":
+    "Implementations MUST assert the length of every key they
+    construct").
+
+    Monkeypatching `key_hash` to return a too-short digest breaks
+    that invariant for whichever derivation calls it, so each of the
+    three length asserts in `embedding.py` --
+    `get_tree_key_for_header`'s `ACCOUNT_KEY_LENGTH`,
+    `get_tree_key_for_storage_slot`'s `STORAGE_KEY_LENGTH`, and
+    `get_tree_key_for_code_chunk`'s `CODE_KEY_LENGTH` -- fires
+    instead of silently returning a malformed key. The storage slot
+    and code chunk id are each chosen in that derivation's own
+    OVERFLOW range, so the call reaches that function's own assert
+    rather than delegating to `get_tree_key_for_header`'s.
+    """
+    monkeypatch.setattr(
+        "ethereum.binary_trie.embedding.key_hash",
+        lambda _data: b"\x00" * 16,
+    )
+
+    with pytest.raises(AssertionError):
+        get_tree_key_for_header(ADDRESS, Uint(0))
+
+    with pytest.raises(AssertionError):
+        get_tree_key_for_storage_slot(ADDRESS, U256(1000))
+
+    with pytest.raises(AssertionError):
+        get_tree_key_for_code_chunk(ADDRESS, CODE_HASH, Uint(300))
 
 
 def test_chunkify_empty_code() -> None:
