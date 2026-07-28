@@ -4,13 +4,14 @@ block whose header claims a `state_root` that does not match the
 tree-computed root.
 
 `tests/binary_tree/eip8297_partitioned_binary_tree/test_multi_block.py
-::test_block_with_wrong_state_root_is_rejected` only *records* this
-expectation: fill-time verification is skipped whenever `rlp_modifier`
-is set (`execution_testing`'s `specs/blockchain.py:1073-1084`), and no
-client consumes `BinaryTree` fixtures either, so nothing exercises the
-check end to end today. This test drives it directly, through the
-actual code path: `ethereum.forks.binary_tree.fork.execute_block`,
-whose `block_state_root != block.header.state_root` comparison is what
+::test_wrong_state_root_expectation_is_recorded_for_consumers` only
+*records* this expectation: fill-time verification is skipped
+whenever `rlp_modifier` is set (`execution_testing`'s
+`specs/blockchain.py:1073-1084`), and no client consumes `BinaryTree`
+fixtures either, so nothing exercises the check end to end today.
+This test drives it directly, through the actual code path:
+`ethereum.forks.binary_tree.fork.execute_block`, whose
+`block_state_root != block.header.state_root` comparison is what
 raises `InvalidBlock`.
 
 Building a self-consistent block by hand runs into the same

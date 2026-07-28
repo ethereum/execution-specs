@@ -278,7 +278,7 @@ def test_chain_with_no_transactions_at_all(
 
 
 @pytest.mark.exception_test
-def test_block_with_wrong_state_root_is_rejected(
+def test_wrong_state_root_expectation_is_recorded_for_consumers(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
 ) -> None:
