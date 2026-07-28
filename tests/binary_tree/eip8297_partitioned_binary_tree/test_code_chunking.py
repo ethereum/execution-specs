@@ -37,8 +37,11 @@ pytestmark = pytest.mark.valid_from("BinaryTree")
 # this, `sstore_then_pad` cannot fit the write (see
 # test_deploy_and_execute_at_code_size's 0- and 1-byte cases, which
 # omit the write instead of calling it). Not a general claim about the
-# smallest write-carrying code size: e.g. `CALLDATASIZE CALLDATASIZE
-# SSTORE` writes storage in 3 bytes.
+# smallest write-carrying code size: e.g. `CODESIZE CODESIZE SSTORE`
+# writes a nonzero value (the code's own size, always >= 3 for any
+# code containing this snippet) in 3 bytes -- unlike `CALLDATASIZE
+# CALLDATASIZE SSTORE`, which with empty calldata is `SSTORE(0, 0)`,
+# a zero write this suite's own convention treats as not observable.
 _MIN_WRITE_PREFIX_LEN = len(Op.SSTORE(0, 0xCAFE) + Op.STOP)
 
 # 31 * 128: the account header holds exactly this many code bytes
@@ -149,10 +152,7 @@ def test_deploy_and_execute_at_code_size(
             HEADER_CODE_BYTES - 2,
             4,
             0xDEADBEEF,
-            {
-                (HEADER_CODE_BYTES - 1) // Spec.CODE_CHUNK_SIZE,
-                HEADER_CODE_BYTES // Spec.CODE_CHUNK_SIZE,
-            },
+            {127, 128},
             id="header_overflow_boundary",
         ),
     ],
