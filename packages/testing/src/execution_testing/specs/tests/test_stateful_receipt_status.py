@@ -82,6 +82,7 @@ def _built_block(number: int, statuses: List[int]) -> TestingBuildBlock:
         alloc=LazyAllocJson(raw={}, _state_root=Hash(0)),
         state_root=Hash(0),
         txs=[],
+        inclusion_list_txs=None,
         ommers=[],
         withdrawals=None,
         requests=None,
