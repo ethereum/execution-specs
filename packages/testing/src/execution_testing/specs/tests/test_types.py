@@ -171,6 +171,7 @@ def built_block(
         alloc=LazyAllocStr(raw="", _state_root=Hash(0)),
         state_root=Hash(0),
         txs=[],
+        inclusion_list_txs=None,
         ommers=[],
         withdrawals=None,
         requests=None,

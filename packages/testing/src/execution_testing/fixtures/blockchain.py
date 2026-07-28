@@ -703,7 +703,7 @@ class FixtureEngineNewPayload(CamelModel):
                 raise ValueError(
                     f"Inclusion list transactions are required for ${fork}."
                 )
-            params.append(inclusion_list_transactions)
+            params.append([tx.rlp() for tx in inclusion_list_transactions])
 
         payload_params: EngineNewPayloadParameters = cast(
             EngineNewPayloadParameters,

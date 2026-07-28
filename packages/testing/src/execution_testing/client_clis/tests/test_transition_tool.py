@@ -505,7 +505,7 @@ def test_transition_tool_data_inclusion_list_transactions() -> None:
     )
 
     transition_tool_input = transition_tool_data.to_input()
-    assert transition_tool_input.inclusion_list_txs == [il_tx.rlp()]
+    assert transition_tool_input.inclusion_list_txs == [il_tx]
 
 
 def test_transition_tool_output_parses_inclusion_list_satisfaction() -> None:
