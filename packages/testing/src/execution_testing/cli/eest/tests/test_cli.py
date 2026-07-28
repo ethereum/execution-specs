@@ -2,15 +2,14 @@
 
 import io
 import sys
+from unittest.mock import Mock
 
 import pytest
 from click.testing import CliRunner
 
-from ..cli import eest, ensure_utf8_output
+from execution_testing.config.app import AppConfig
 
-pytestmark = pytest.mark.skip(
-    "Issue #3241: eest info queries github.com to get release information"
-)
+from ..cli import eest, ensure_utf8_output
 
 
 def test_info_runs_successfully() -> None:
@@ -18,6 +17,19 @@ def test_info_runs_successfully() -> None:
     result = CliRunner().invoke(eest, ["info"])
     assert result.exit_code == 0
     assert "EEST" in result.output
+
+
+def test_app_version_uses_local_package_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`AppConfig.version` reads the installed package metadata."""
+    local_version = Mock(return_value="1.2.3")
+    monkeypatch.setattr(
+        "execution_testing.config.app.package_version", local_version
+    )
+
+    assert AppConfig().version == "1.2.3"
+    local_version.assert_called_once_with("ethereum-execution-testing")
 
 
 def test_info_survives_legacy_console_encoding(
