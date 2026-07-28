@@ -149,11 +149,11 @@ fill-release *args:
 # the framework rejects if combined with --until, so this recipe omits
 # --until instead of mirroring `fill`'s --until "{{ latest_fork }}".
 [group('consensus tests')]
-fill-binary-tree *args:
+binary-trie-fork *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    mkdir -p "{{ output_dir }}/fill-binary-tree/tmp" \
-        "{{ output_dir }}/fill-binary-tree/logs"
+    mkdir -p "{{ output_dir }}/binary-trie-fork/tmp" \
+        "{{ output_dir }}/binary-trie-fork/logs"
     # A caller-supplied path replaces the default instead of extending
     # it: appending "$@" ahead of a hardcoded "tests/binary_tree" (the
     # `fill` shape) would still collect the whole tree, since any
@@ -163,9 +163,9 @@ fill-binary-tree *args:
         -m "not slow" \
         -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
-        --output="{{ output_dir }}/fill-binary-tree/fixtures" \
-        --basetemp="{{ output_dir }}/fill-binary-tree/tmp" \
-        --log-to "{{ output_dir }}/fill-binary-tree/logs" \
+        --output="{{ output_dir }}/binary-trie-fork/fixtures" \
+        --basetemp="{{ output_dir }}/binary-trie-fork/tmp" \
+        --log-to "{{ output_dir }}/binary-trie-fork/logs" \
         --clean \
         --fork BinaryTree \
         --durations=50 \
@@ -279,11 +279,11 @@ test-ci-scripts *args:
 
 # Run the binary trie unit tests
 [group('unit tests')]
-binary-trie *args:
-    @mkdir -p "{{ output_dir }}/binary-trie/tmp"
+binary-trie-unit-test *args:
+    @mkdir -p "{{ output_dir }}/binary-trie-unit-test/tmp"
     uv run pytest \
         -n {{ xdist_workers }} \
-        --basetemp="{{ output_dir }}/binary-trie/tmp" \
+        --basetemp="{{ output_dir }}/binary-trie-unit-test/tmp" \
         "$@" \
         tests/binary_trie
 

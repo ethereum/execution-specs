@@ -168,7 +168,7 @@ jobs:
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
-  binary-trie:
+  binary-trie-unit-test:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -176,12 +176,12 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
-      - name: Run binary trie tests
-        run: just binary-trie
+      - name: Run binary-trie-unit-test tests
+        run: just binary-trie-unit-test
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
-  fill-binary-tree:
+  binary-trie-fork:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -189,8 +189,8 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
-      - name: Run fill-binary-tree tests
-        run: just fill-binary-tree tests/binary_tree
+      - name: Run binary-trie-fork tests
+        run: just binary-trie-fork tests/binary_tree
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 

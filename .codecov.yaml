@@ -15,7 +15,7 @@ coverage:
       default:
         target: auto
 
-# Experimental EIP-8297 fork: its scoped `fill-binary-tree` CI job runs
+# Experimental EIP-8297 fork: its scoped `binary-trie-fork` CI job runs
 # without coverage instrumentation, and the full ported sweep is not
 # wired into CI at all; excluded from local coverage the same way
 # (pyproject coverage omit).
