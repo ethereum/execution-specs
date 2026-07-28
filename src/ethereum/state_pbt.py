@@ -34,18 +34,19 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Mapping, Optional, final
 
 from ethereum_types.bytes import Bytes, Bytes32
-from ethereum_types.numeric import U32, U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.binary_trie.embedding import (
+    HEADER_CHUNK_COUNT,
     address20_to_address32,
     chunkify_code,
-    encode_basic_data,
-    get_tree_key_for_basic_data,
-    get_tree_key_for_code_chunk,
-    get_tree_key_for_code_hash,
-    get_tree_key_for_storage_slot,
+    embed_account,
+    embed_storage_slot,
+    remove_account,
+    remove_code_chunks,
+    remove_storage_slot,
 )
-from ethereum.binary_trie.trie import BinaryTrie, trie_set
+from ethereum.binary_trie.trie import BinaryTrie
 from ethereum.binary_trie.trie import root as binary_tree_root
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, BlockDiff, Root
@@ -73,42 +74,24 @@ def embed_flat_state(
     trie = BinaryTrie()
 
     for address, account in accounts.items():
-        address32 = address20_to_address32(address)
-        code = get_code(account.code_hash)
-
-        trie_set(
+        embed_account(
             trie,
-            get_tree_key_for_basic_data(address32),
-            encode_basic_data(
-                code_size=U32(len(code)),
-                nonce=U64(account.nonce),
-                balance=account.balance,
-            ),
+            address20_to_address32(address),
+            U64(account.nonce),
+            account.balance,
+            account.code_hash,
+            get_code(account.code_hash),
         )
-        trie_set(
-            trie,
-            get_tree_key_for_code_hash(address32),
-            Bytes32(account.code_hash),
-        )
-        for chunk_id, chunk in enumerate(chunkify_code(code)):
-            trie_set(
-                trie,
-                get_tree_key_for_code_chunk(
-                    address32, account.code_hash, Uint(chunk_id)
-                ),
-                chunk,
-            )
 
     for address, slots in storages.items():
         if address not in accounts:
             continue
         address32 = address20_to_address32(address)
         for key, value in slots.items():
-            trie_set(
+            embed_storage_slot(
                 trie,
-                get_tree_key_for_storage_slot(
-                    address32, U256.from_be_bytes(key)
-                ),
+                address32,
+                U256.from_be_bytes(key),
                 value.to_be_bytes32(),
             )
 
@@ -165,32 +148,89 @@ class State:
     def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
         Compute the state root after applying `block_diff` to the
-        pre-state. The pre-state itself is not modified: the diff is
-        applied, via [`apply_changes_to_state`], to a copy.
+        pre-state. The pre-state itself is not modified: its
+        embedding is built fresh and the diff is applied to that
+        tree, via [`apply_diff_to_trie`], as explicit insertions,
+        updates, and deletions.
 
         The diff's ``code_changes`` are needed here, unlike in the
         Merkle Patricia Trie: code chunk leaves commit the code
         itself, not just its hash, and newly deployed code is not yet
         in the code store when the root is computed.
 
-        [`apply_changes_to_state`]: ref:ethereum.state_pbt.apply_changes_to_state
+        [`apply_diff_to_trie`]: ref:ethereum.state_pbt.apply_diff_to_trie
         """  # noqa: E501
-        post_state = State(
-            _accounts=dict(self._accounts),
-            _storage={
-                address: dict(slots)
-                for address, slots in self._storage.items()
-            },
-            _code_store=dict(self._code_store),
+        trie = embed_flat_state(
+            self._accounts, self._storage, self.get_code
         )
-        apply_changes_to_state(post_state, block_diff)
-        return binary_tree_root(
-            embed_flat_state(
-                post_state._accounts,
-                post_state._storage,
-                post_state.get_code,
+        apply_diff_to_trie(trie, self, block_diff)
+        return binary_tree_root(trie)
+
+
+def apply_diff_to_trie(
+    trie: BinaryTrie, pre_state: State, diff: BlockDiff
+) -> None:
+    """
+    Apply `diff` to `trie`, the embedding of `pre_state`, as tree
+    operations: writes become insertions or in-place updates, and
+    removals become deletions. This function decides *what* changed;
+    the embedding's operations decide which keys that touches.
+    """  # noqa: E501
+
+    def code_for(code_hash: Hash32) -> Bytes:
+        if code_hash in diff.code_changes:
+            return diff.code_changes[code_hash]
+        return pre_state.get_code(code_hash)
+
+    for address in diff.storage_clears:
+        address32 = address20_to_address32(address)
+        for key in pre_state._storage.get(address, {}):
+            remove_storage_slot(trie, address32, U256.from_be_bytes(key))
+
+    for address, account in diff.account_changes.items():
+        address32 = address20_to_address32(address)
+        pre_account = pre_state._accounts.get(address)
+        if account is None:
+            if pre_account is None:
+                # Created and destroyed within the block; its leaves
+                # never reached the pre-state tree.
+                continue
+            assert pre_account.code_hash == EMPTY_CODE_HASH
+            assert address not in pre_state._storage
+            remove_account(trie, address32)
+            continue
+        if (
+            pre_account is not None
+            and pre_account.code_hash != account.code_hash
+        ):
+            old_code = code_for(pre_account.code_hash)
+            assert Uint(len(chunkify_code(old_code))) <= HEADER_CHUNK_COUNT
+            remove_code_chunks(
+                trie, address32, pre_account.code_hash, old_code
             )
+        embed_account(
+            trie,
+            address32,
+            U64(account.nonce),
+            account.balance,
+            account.code_hash,
+            code_for(account.code_hash),
         )
+
+    for address, slots in diff.storage_changes.items():
+        address32 = address20_to_address32(address)
+        for key, value in slots.items():
+            if value == U256(0):
+                remove_storage_slot(
+                    trie, address32, U256.from_be_bytes(key)
+                )
+            else:
+                embed_storage_slot(
+                    trie,
+                    address32,
+                    U256.from_be_bytes(key),
+                    value.to_be_bytes32(),
+                )
 
 
 def apply_changes_to_state(state: State, diff: BlockDiff) -> None:

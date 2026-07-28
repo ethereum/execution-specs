@@ -13,6 +13,8 @@ from ethereum.binary_trie.embedding import (
     Zone,
     address20_to_address32,
     chunkify_code,
+    embed_account,
+    embed_storage_slot,
     encode_basic_data,
     get_tree_key,
     get_tree_key_for_basic_data,
@@ -21,7 +23,11 @@ from ethereum.binary_trie.embedding import (
     get_tree_key_for_header,
     get_tree_key_for_storage_slot,
     key_hash,
+    remove_account,
+    remove_code_chunks,
+    remove_storage_slot,
 )
+from ethereum.binary_trie.trie import BinaryTrie, root, trie_set
 from ethereum.state import EMPTY_CODE_HASH as MPT_STATE_EMPTY_CODE_HASH
 
 ADDRESS = Address32(b"\x00" * 12 + b"\xaa" * 20)
@@ -292,3 +298,68 @@ def test_encode_basic_data_rejects_balance_past_sixteen_bytes() -> None:
             nonce=U64(0),
             balance=U256(2) ** U256(128),
         )
+
+
+OTHER_ADDRESS = Address32(b"\x00" * 12 + b"\xbb" * 20)
+
+
+def test_remove_account_restores_prior_root() -> None:
+    """
+    Removing a bare account deletes exactly its two header leaves,
+    restoring the commitment to what it was before the account was
+    embedded.
+    """
+    trie = BinaryTrie()
+    embed_account(
+        trie, OTHER_ADDRESS, U64(1), U256(5), EMPTY_CODE_HASH, Bytes(b"")
+    )
+    before = root(trie)
+
+    embed_account(
+        trie, ADDRESS, U64(2), U256(9), EMPTY_CODE_HASH, Bytes(b"")
+    )
+    assert root(trie) != before
+    remove_account(trie, ADDRESS)
+    assert root(trie) == before
+
+
+def test_embed_and_remove_storage_slot_roundtrip() -> None:
+    """
+    A header slot and an overflow slot each embed as one leaf, and
+    removing them restores the prior commitment.
+    """
+    trie = BinaryTrie()
+    embed_account(
+        trie, ADDRESS, U64(1), U256(1), EMPTY_CODE_HASH, Bytes(b"")
+    )
+    before = root(trie)
+
+    embed_storage_slot(trie, ADDRESS, U256(1), Bytes32(b"\x07" * 32))
+    embed_storage_slot(trie, ADDRESS, U256(1000), Bytes32(b"\x09" * 32))
+    assert root(trie) != before
+
+    remove_storage_slot(trie, ADDRESS, U256(1))
+    remove_storage_slot(trie, ADDRESS, U256(1000))
+    assert root(trie) == before
+
+
+def test_remove_code_chunks_leaves_the_other_header_leaves() -> None:
+    """
+    Removing a code's chunks deletes one leaf per chunk and nothing
+    else: the account's basic data and code hash leaves remain.
+    """
+    code = Bytes(b"\x01" * 40)  # two header chunks
+    code_hash = Bytes32(b"\x22" * 32)
+
+    trie = BinaryTrie()
+    embed_account(trie, ADDRESS, U64(1), U256(0), code_hash, code)
+    remove_code_chunks(trie, ADDRESS, code_hash, code)
+
+    expected = BinaryTrie()
+    trie_set(
+        expected,
+        get_tree_key_for_basic_data(ADDRESS),
+        encode_basic_data(code_size=U32(40), nonce=U64(1), balance=U256(0)),
+    )
+    trie_set(expected, get_tree_key_for_code_hash(ADDRESS), code_hash)
+    assert root(trie) == root(expected)

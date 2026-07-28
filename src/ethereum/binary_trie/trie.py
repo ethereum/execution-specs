@@ -214,18 +214,36 @@ def copy_trie(trie: BinaryTrie) -> BinaryTrie:
     return BinaryTrie(copy.copy(trie._data))
 
 
-def trie_set(trie: BinaryTrie, key: Key, value: Bytes32) -> None:
+def trie_set(trie: BinaryTrie, key: Key, value: Optional[Bytes32]) -> None:
     """
-    Insert or update `key` in `trie` with the given `value`.
+    Insert or update `key` in `trie` with the given `value`; setting
+    `None` removes the key, and removing an absent key does nothing.
+
+    `None` can mark absence because it lies outside the value space:
+    every 32-byte value, including all zeroes, is a legitimate leaf,
+    so no stored value could play the role the Merkle Patricia
+    Trie's default value does. The same convention marks deleted
+    accounts in [`BlockDiff`], and mirrors [`trie_get`], which
+    returns `None` for absent keys.
+
+    Since [`root`] rebuilds the node structure from the surviving
+    entries, a removal needs no node surgery here: branches held
+    open by the removed key simply never form, and the trie commits
+    as if the key had never been inserted.
 
     The caller must keep keys prefix-free; see [`Key`].
 
     [`Key`]: ref:ethereum.binary_trie.trie.Key
+    [`root`]: ref:ethereum.binary_trie.trie.root
+    [`BlockDiff`]: ref:ethereum.state.BlockDiff
     """
     assert (
         len(key) >= 1
     )  # Reject the empty key since it is a prefix of every other key
     assert Uint(len(key)) <= MAX_KEY_LENGTH
+    if value is None:
+        trie._data.pop(key, None)
+        return
     assert (
         len(value) == 32
     )  # TODO: type is Bytes32 but not sure those are enforced at runtime

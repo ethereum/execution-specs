@@ -4,7 +4,10 @@ The [EIP-8297] embedding of Ethereum state into the binary tree.
 Account and storage tries are merged into the single key/value tree
 defined in [`ethereum.binary_trie.trie`], which also holds contract
 code. This module defines how accounts, storage slots, and code
-chunks are assigned keys and packed into values.
+chunks are assigned keys and packed into values, and the operations
+that write ([`embed_account`], [`embed_storage_slot`]) and remove
+([`remove_account`], [`remove_storage_slot`], [`remove_code_chunks`])
+them.
 
 The first byte of every key is a **zone** identifier that labels the
 category of state the key holds. Account headers live in
@@ -34,7 +37,12 @@ through one shared path rather than one path each.
 [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
 [`STORAGE_ZONE`]: ref:ethereum.binary_trie.embedding.STORAGE_ZONE
 [`STEM_SUBTREE_WIDTH`]: ref:ethereum.binary_trie.embedding.STEM_SUBTREE_WIDTH
-"""
+[`embed_account`]: ref:ethereum.binary_trie.embedding.embed_account
+[`embed_storage_slot`]: ref:ethereum.binary_trie.embedding.embed_storage_slot
+[`remove_account`]: ref:ethereum.binary_trie.embedding.remove_account
+[`remove_storage_slot`]: ref:ethereum.binary_trie.embedding.remove_storage_slot
+[`remove_code_chunks`]: ref:ethereum.binary_trie.embedding.remove_code_chunks
+"""  # noqa: E501
 
 from typing import List
 
@@ -44,7 +52,7 @@ from ethereum_types.numeric import U8, U32, U64, U256, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes, right_pad_zero_bytes
 
-from .trie import Key, blake3_hash
+from .trie import BinaryTrie, Key, blake3_hash, trie_set
 
 Zone = U8
 """
@@ -124,6 +132,17 @@ STEM_SUBTREE_WIDTH = Uint(256)
 Maximum number of values grouped under a single stem: the size of
 the sub-index byte's space.
 """
+
+HEADER_CHUNK_COUNT = STEM_SUBTREE_WIDTH - CODE_OFFSET
+"""
+Number of code chunks that fit in the account header stem. Chunks at
+this index and above are content-addressed in [`CODE_ZONE`] and
+shared between accounts with identical bytecode; see
+[`get_tree_key_for_code_chunk`].
+
+[`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
+[`get_tree_key_for_code_chunk`]: ref:ethereum.binary_trie.embedding.get_tree_key_for_code_chunk
+"""  # noqa: E501
 
 ACCOUNT_ZONE = Zone(0)
 """
@@ -413,3 +432,116 @@ def encode_basic_data(code_size: U32, nonce: U64, balance: U256) -> Bytes32:
         + nonce.to_be_bytes8()
         + int(balance).to_bytes(16, "big")
     )
+
+
+def embed_account(
+    trie: BinaryTrie,
+    address32: Address32,
+    nonce: U64,
+    balance: U256,
+    code_hash: Hash32,
+    code: Bytes,
+) -> None:
+    """
+    Write an account's leaves into `trie`: packed basic data, the
+    code hash, and one leaf per chunk of `code`.
+
+    Writing over an existing account updates its leaves in place;
+    chunk leaves of a previous, different code are not touched and
+    must be removed with [`remove_code_chunks`] first.
+
+    [`remove_code_chunks`]: ref:ethereum.binary_trie.embedding.remove_code_chunks
+    """  # noqa: E501
+    trie_set(
+        trie,
+        get_tree_key_for_basic_data(address32),
+        encode_basic_data(
+            code_size=U32(len(code)),
+            nonce=nonce,
+            balance=balance,
+        ),
+    )
+    trie_set(
+        trie,
+        get_tree_key_for_code_hash(address32),
+        Bytes32(code_hash),
+    )
+    for chunk_id, chunk in enumerate(chunkify_code(code)):
+        trie_set(
+            trie,
+            get_tree_key_for_code_chunk(address32, code_hash, Uint(chunk_id)),
+            chunk,
+        )
+
+
+def embed_storage_slot(
+    trie: BinaryTrie,
+    address32: Address32,
+    storage_key: U256,
+    value: Bytes32,
+) -> None:
+    """
+    Write one storage slot's leaf into `trie`, in the account header
+    stem or the account's overflow storage subtree as the slot
+    number dictates.
+    """
+    trie_set(
+        trie, get_tree_key_for_storage_slot(address32, storage_key), value
+    )
+
+
+def remove_account(trie: BinaryTrie, address32: Address32) -> None:
+    """
+    Remove a bare account from `trie`: delete its basic data and
+    code hash leaves, the only leaves such an account owns.
+
+    The account must be bare; no code chunk leaves, no storage slot
+    leaves. Protocol rules guarantee every deletable account is:
+    [EIP-6780] restricts deletion to accounts destroyed in the
+    transaction that created them, and creation requires empty code
+    ([EIP-684]) and empty storage ([EIP-7610]), so an account both
+    present in the pre-state and deletable holds a balance at most.
+    Callers enforce the invariant; see
+    [`ethereum.state_pbt.apply_diff_to_trie`].
+
+    [EIP-6780]: https://eips.ethereum.org/EIPS/eip-6780
+    [EIP-684]: https://eips.ethereum.org/EIPS/eip-684
+    [EIP-7610]: https://eips.ethereum.org/EIPS/eip-7610
+    [`ethereum.state_pbt.apply_diff_to_trie`]: ref:ethereum.state_pbt.apply_diff_to_trie
+    """  # noqa: E501
+    trie_set(trie, get_tree_key_for_basic_data(address32), None)
+    trie_set(trie, get_tree_key_for_code_hash(address32), None)
+
+
+def remove_storage_slot(
+    trie: BinaryTrie, address32: Address32, storage_key: U256
+) -> None:
+    """
+    Remove one storage slot's leaf from `trie`; removing an absent
+    slot does nothing.
+    """
+    trie_set(
+        trie, get_tree_key_for_storage_slot(address32, storage_key), None
+    )
+
+
+def remove_code_chunks(
+    trie: BinaryTrie, address32: Address32, code_hash: Hash32, code: Bytes
+) -> None:
+    """
+    Remove `code`'s chunk leaves from `trie`, one deletion per chunk.
+
+    Chunks past [`HEADER_CHUNK_COUNT`] are content-addressed and
+    shared between accounts with identical bytecode, so the caller
+    must know that no other account still references `code_hash`
+    before removing a code that overflows the header. Header chunks
+    are keyed by `address32` and always safe to remove.
+
+    [`HEADER_CHUNK_COUNT`]: ref:ethereum.binary_trie.embedding.HEADER_CHUNK_COUNT
+    """  # noqa: E501
+    for chunk_id in range(len(chunkify_code(code))):
+        trie_set(
+            trie,
+            get_tree_key_for_code_chunk(address32, code_hash, Uint(chunk_id)),
+            None,
+        )

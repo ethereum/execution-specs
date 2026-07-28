@@ -14,6 +14,10 @@ embeds the result; each test builds the same post-state directly in
 the MPT-backed container and checks that both roots agree.
 """
 
+import random
+from typing import Dict, Optional
+
+import pytest
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U32, U64, U256, Uint
 
@@ -40,6 +44,8 @@ from ethereum.state_mpt import set_storage as mpt_set_storage
 from ethereum.state_mpt import store_code as mpt_store_code
 from ethereum.state_pbt import (
     State,
+    apply_changes_to_state,
+    apply_diff_to_trie,
     embed_flat_state,
     set_account,
     set_storage,
@@ -49,6 +55,11 @@ from ethereum.state_pbt import (
 
 ADDRESS_A = Bytes20(b"\xaa" * 20)
 ADDRESS_B = Bytes20(b"\xbb" * 20)
+
+# EIP-7702 delegation designators: the only protocol-reachable code
+# change on an existing account, and always a single header chunk.
+DELEGATION_A = Bytes(b"\xef\x01\x00" + b"\x11" * 20)
+DELEGATION_B = Bytes(b"\xef\x01\x00" + b"\x22" * 20)
 
 
 def embed_state(state: MptState) -> BinaryTrie:
@@ -270,7 +281,8 @@ def test_diff_root_matches_directly_built_post_state() -> None:
 
 def test_deleting_the_only_account_empties_the_tree() -> None:
     """
-    Deleting the last account leaves the empty tree commitment.
+    Deleting the last account — bare, as deletable accounts must be —
+    leaves the empty tree commitment.
     """
     state = State()
     set_account(
@@ -278,7 +290,6 @@ def test_deleting_the_only_account_empties_the_tree() -> None:
         ADDRESS_A,
         Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
     )
-    set_storage(state, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
 
     computed = state.compute_state_root(
         BlockDiff(account_changes={ADDRESS_A: None})
@@ -318,6 +329,266 @@ def test_zero_write_matches_never_written() -> None:
         )
     )
     assert zeroed_by_diff == state_root(fresh())
+
+
+def _clone(state: State) -> State:
+    """Deep-copy a provider state's three mappings."""
+    return State(
+        _accounts=dict(state._accounts),
+        _storage={
+            address: dict(slots) for address, slots in state._storage.items()
+        },
+        _code_store=dict(state._code_store),
+    )
+
+
+def _flat_oracle_root(pre: State, diff: BlockDiff) -> bytes:
+    """
+    Compute the post-root the pre-incremental way: apply the diff to
+    a copy of the flat state and re-embed everything from scratch.
+    """
+    post = _clone(pre)
+    apply_changes_to_state(post, diff)
+    return bytes(state_root(post))
+
+
+def test_storage_clear_deletes_every_slot_leaf() -> None:
+    """
+    Clearing an account's storage removes its header-stem slot
+    leaves and its overflow-subtree slot leaves, leaving the root of
+    a state where the storage was never written.
+    """
+    def account_only() -> State:
+        state = State()
+        set_account(
+            state,
+            ADDRESS_A,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
+        )
+        return state
+
+    pre = account_only()
+    set_storage(pre, ADDRESS_A, Bytes32(U256(1).to_be_bytes32()), U256(7))
+    set_storage(pre, ADDRESS_A, Bytes32(U256(100).to_be_bytes32()), U256(9))
+
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    apply_diff_to_trie(trie, pre, BlockDiff(storage_clears={ADDRESS_A}))
+
+    assert root(trie) == state_root(account_only())
+
+
+def test_delegation_change_deletes_stale_chunks() -> None:
+    """
+    Re-delegating overwrites the single header chunk in place;
+    un-delegating deletes it. Both leave the root of a state that
+    only ever held the final code.
+    """
+    for new_code in (DELEGATION_B, Bytes(b"")):
+        pre = State()
+        old_hash = store_code(pre, DELEGATION_A)
+        set_account(
+            pre,
+            ADDRESS_A,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash),
+        )
+
+        new_hash = keccak256(new_code)
+        post_account = Account(
+            nonce=Uint(2), balance=U256(1), code_hash=new_hash
+        )
+        diff = BlockDiff(
+            account_changes={ADDRESS_A: post_account},
+            code_changes={new_hash: new_code} if new_code else {},
+        )
+
+        fresh = State()
+        assert store_code(fresh, new_code) == new_hash
+        set_account(fresh, ADDRESS_A, post_account)
+
+        assert pre.compute_state_root(diff) == state_root(fresh), (
+            f"new code {new_code.hex()}"
+        )
+
+
+def test_deleting_an_account_with_code_is_rejected() -> None:
+    """
+    Deleting an account that still owns code chunk leaves violates
+    the bare-account invariant and fails loudly instead of being
+    silently mishandled.
+    """
+    pre = State()
+    code_hash = store_code(pre, Bytes(b"\x01" * 40))
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+
+    with pytest.raises(AssertionError):
+        pre.compute_state_root(BlockDiff(account_changes={ADDRESS_A: None}))
+
+
+def test_deleting_an_account_with_storage_is_rejected() -> None:
+    """
+    Deleting an account that still owns storage slot leaves violates
+    the bare-account invariant and fails loudly.
+    """
+    pre = State()
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(pre, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
+
+    with pytest.raises(AssertionError):
+        pre.compute_state_root(BlockDiff(account_changes={ADDRESS_A: None}))
+
+
+def test_code_change_on_deployed_contract_is_rejected() -> None:
+    """
+    Replacing code whose chunks overflow the header stem is not
+    protocol-reachable — deployed code is immutable, and delegation
+    designators are a single chunk — and fails loudly, since the old
+    overflow chunks are content-addressed and possibly shared.
+    """
+    old_code = Bytes(b"\x01" * 4000)  # overflows the header stem
+    new_code = Bytes(b"\x02" * 40)
+
+    pre = State()
+    old_hash = store_code(pre, old_code)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash),
+    )
+
+    new_hash = keccak256(new_code)
+    diff = BlockDiff(
+        account_changes={
+            ADDRESS_A: Account(
+                nonce=Uint(1), balance=U256(1), code_hash=new_hash
+            )
+        },
+        code_changes={new_hash: new_code},
+    )
+
+    with pytest.raises(AssertionError):
+        pre.compute_state_root(diff)
+
+
+def test_random_diffs_match_flat_application_and_rebuild() -> None:
+    """
+    Randomized protocol-shaped diffs — bare-account deletions,
+    delegation churn, contract storage writes and zeroes, fresh
+    deployments — produce the same root through incremental trie
+    application as through applying the diff to the flat state and
+    re-embedding everything.
+    """
+    rng = random.Random(8297)
+    long_code = Bytes(bytes(range(256)) * 16)  # overflows the header
+
+    for trial in range(10):
+        pre = State()
+        long_hash = store_code(pre, long_code)
+        delegation_hashes = [
+            store_code(pre, code) for code in (DELEGATION_A, DELEGATION_B)
+        ]
+
+        # EOAs: no storage; empty code or a pre-existing delegation.
+        eoas = [Bytes20(rng.randbytes(20)) for _ in range(6)]
+        for address in eoas:
+            set_account(
+                pre,
+                address,
+                Account(
+                    nonce=Uint(rng.randrange(1, 5)),
+                    balance=U256(rng.randrange(1, 10**9)),
+                    code_hash=rng.choice(
+                        [EMPTY_CODE_HASH, EMPTY_CODE_HASH]
+                        + delegation_hashes
+                    ),
+                ),
+            )
+
+        # Contracts: immutable code, mutable storage.
+        contracts = [Bytes20(rng.randbytes(20)) for _ in range(3)]
+        for address in contracts:
+            set_account(
+                pre,
+                address,
+                Account(
+                    nonce=Uint(1),
+                    balance=U256(rng.randrange(1, 10**9)),
+                    code_hash=long_hash,
+                ),
+            )
+            for _ in range(rng.randrange(1, 4)):
+                # Header slots (0-63) and overflow slots alike.
+                slot = rng.choice(
+                    [rng.randrange(0, 64), rng.randrange(64, 10**9)]
+                )
+                set_storage(
+                    pre,
+                    address,
+                    Bytes32(U256(slot).to_be_bytes32()),
+                    U256(rng.randrange(1, 100)),
+                )
+
+        account_changes: Dict[Bytes20, Optional[Account]] = {}
+        storage_changes: Dict[Bytes20, Dict[Bytes32, U256]] = {}
+        for address in eoas:
+            roll = rng.random()
+            bare = pre._accounts[address].code_hash == EMPTY_CODE_HASH
+            if roll < 0.25 and bare:
+                # EIP-6780-style same-transaction deletion.
+                account_changes[address] = None
+            elif roll < 0.6:
+                # Delegate, re-delegate, or un-delegate.
+                account_changes[address] = Account(
+                    nonce=Uint(rng.randrange(1, 5)),
+                    balance=U256(rng.randrange(1, 10**9)),
+                    code_hash=rng.choice(
+                        [EMPTY_CODE_HASH] + delegation_hashes
+                    ),
+                )
+        for address in contracts:
+            if rng.random() < 0.5:
+                account_changes[address] = Account(
+                    nonce=Uint(1),
+                    balance=U256(rng.randrange(1, 10**9)),
+                    code_hash=long_hash,
+                )
+            if rng.random() < 0.7:
+                storage_changes[address] = {
+                    Bytes32(U256(1).to_be_bytes32()): U256(
+                        rng.choice([0, 7])
+                    ),
+                    Bytes32(U256(100).to_be_bytes32()): U256(
+                        rng.choice([0, 9])
+                    ),
+                }
+
+        fresh_code = Bytes(rng.randbytes(200))
+        fresh_hash = keccak256(fresh_code)
+        created = Bytes20(rng.randbytes(20))
+        account_changes[created] = Account(
+            nonce=Uint(1), balance=U256(5), code_hash=fresh_hash
+        )
+        storage_changes[created] = {
+            Bytes32(U256(2).to_be_bytes32()): U256(9)
+        }
+
+        diff = BlockDiff(
+            account_changes=account_changes,
+            storage_changes=storage_changes,
+            code_changes={fresh_hash: fresh_code},
+        )
+
+        assert (
+            bytes(pre.compute_state_root(diff))
+            == _flat_oracle_root(pre, diff)
+        ), f"trial {trial}"
 
 
 def test_store_code_round_trips() -> None:
