@@ -10,7 +10,10 @@ from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U8, U32, U64, U256, Uint
 
 from ethereum.binary_trie.embedding import (
+    CODE_OFFSET,
     EMPTY_CODE_HASH,
+    HEADER_STORAGE_OFFSET,
+    STEM_SUBTREE_WIDTH,
     Address32,
     Zone,
     address20_to_address32,
@@ -117,6 +120,20 @@ def test_header_sub_index_wider_than_one_byte_is_rejected() -> None:
     """
     with pytest.raises(OverflowError):
         get_tree_key_for_header(ADDRESS, Uint(256))
+
+
+def test_header_offset_invariant_holds() -> None:
+    """
+    The EIP's stated invariant `STEM_SUBTREE_WIDTH > CODE_OFFSET >
+    HEADER_STORAGE_OFFSET` holds for the implementation's constants.
+
+    Every header/overflow split derived elsewhere in this module --
+    storage slots below `CODE_OFFSET - HEADER_STORAGE_OFFSET`, code
+    chunks below `STEM_SUBTREE_WIDTH - CODE_OFFSET` -- silently
+    assumes this ordering; nothing else in this suite asserts it
+    directly.
+    """
+    assert STEM_SUBTREE_WIDTH > CODE_OFFSET > HEADER_STORAGE_OFFSET
 
 
 def test_header_key_vectors() -> None:
@@ -752,14 +769,16 @@ def test_encode_basic_data_maximum_fields() -> None:
 def test_encode_basic_data_all_zero() -> None:
     """
     The all-zero leaf -- a freshly created, codeless, nonce-0,
-    balance-0 account -- packs to 32 zero bytes.
+    balance-0 account -- packs to 32 zero bytes, and a nonce past
+    `U64`'s eight-byte range is rejected at construction, before it
+    ever reaches the packing.
 
-    `nonce` is typed `U64`, narrower than the four bytes
-    `encode_basic_data` gives `code_size` at offset 4 (see the
-    code_size-layout TODO on `encode_basic_data` for the
-    offset-5/three-byte EIP-7864 divergence this pins); a nonce past
-    the `U64` range is rejected at construction, before it ever
-    reaches the packing.
+    An all-zero vector cannot distinguish where `code_size` sits
+    within the leaf -- every candidate byte offset reads back as zero
+    either way -- so it does not pin the offset-4/offset-5 EIP-7864
+    divergence flagged by the code_size-layout TODO on
+    `encode_basic_data`; `test_encode_basic_data_maximum_fields`, whose
+    fields are each distinct nonzero bytes, is what pins that.
     """
     value = encode_basic_data(code_size=U32(0), nonce=U64(0), balance=U256(0))
 

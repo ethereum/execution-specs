@@ -431,6 +431,62 @@ def test_embedded_key_set_for_a_crafted_contract() -> None:
     assert all(len(key) in (34, 66) for key in expected_keys)
 
 
+def test_embedded_key_set_for_a_fully_occupied_header_stem() -> None:
+    """
+    An account with 64 header storage slots and 128 header code
+    chunks fills every header sub-index this embedding can ever
+    populate, and embeds to exactly that key set with no overflow-zone
+    key at all.
+
+    `31 * 128 = 3968` bytes of code fills header chunks 0-127
+    (sub-indices 128-255) without spilling into the code zone;
+    storage slots 0-63 fill header slots 0-63 (sub-indices 64-127)
+    without spilling into the storage zone. Together with basic data
+    (sub-index 0) and the code hash (sub-index 1), this is the
+    maximum-occupancy case the EIP's `STEM_SUBTREE_WIDTH > CODE_OFFSET
+    > HEADER_STORAGE_OFFSET` invariant exists to protect -- today's
+    `test_embedded_key_set_for_a_crafted_contract` reaches only 131 of
+    the 256 possible sub-indices.
+
+    The full 256 is unreachable by any account: sub-indices 2-63 are
+    never assigned to anything by this embedding (`HEADER_STORAGE_OFFSET
+    = 64` leaves them permanently between the code hash at 1 and the
+    first header storage slot at 64), so the true maximum is 194, and
+    the expected set below is exactly `{0, 1} | set(range(64, 256))`,
+    not `set(range(256))`.
+    """
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    code = Bytes(b"\x01" * (31 * 128))
+    state = MptState()
+    code_hash = mpt_store_code(state, code)
+    mpt_set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
+    )
+    for slot in range(64):
+        mpt_set_storage(
+            state,
+            ADDRESS_A,
+            Bytes32(U256(slot).to_be_bytes32()),
+            U256(slot + 1),
+        )
+
+    embedded = embed_state(state)
+
+    header_stem = _account_header_stem(address32)
+    header_keys = {
+        key for key in embedded._data if key.startswith(header_stem)
+    }
+    header_sub_indices = {key[-1] for key in header_keys}
+
+    assert header_sub_indices == {0, 1} | set(range(64, 256))
+    assert len(header_sub_indices) == 194
+    assert embedded._data.keys() == header_keys, (
+        "a fully-occupied header stem must produce no overflow-zone key"
+    )
+
+
 def test_header_code_chunks_are_per_account_while_overflow_is_shared() -> None:
     """
     Two accounts with identical 129-chunk code are disjoint on
