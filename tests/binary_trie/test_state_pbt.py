@@ -8,19 +8,24 @@ by hand from the derivation functions. The `embed_state` helper
 adapts an MPT-backed `State` into the flat mappings the walk takes,
 so the inputs are real account objects.
 
-The second group covers the provider. `compute_state_root` applies
+The second group covers the provider: `compute_state_root` applies
 a block diff (deletions, zero-writes, freshly deployed code) and
-embeds the result; each test builds the same post-state directly in
-the MPT-backed container and checks that both roots agree.
+embeds the result. Two of its six tests check the resulting root
+against a post-state built directly in the MPT-backed container; the
+other four check it against a known invariant instead (the empty
+root, a zero-write matching a never-written slot, and so on).
 
 Later groups pin exact key sets (rebuilt from raw `blake3` and
 literal zone/sub-index bytes, never the derivation functions under
-test, so a leaf count could not catch what a wrong key would), the
-BASIC_DATA leaf's byte layout, and further provider semantics:
-`storage_clears` ordering, account-delete/storage-orphan
+test), the BASIC_DATA leaf's byte layout, and further provider
+semantics: `storage_clears` ordering, account-delete/storage-orphan
 interactions, the asymmetry between `set_account` and the diff
 path, pre-state immutability, sequential diffs, and the storage
-sub-index boundaries.
+sub-index boundaries. Rebuilding keys independently, rather than by
+calling the derivation functions under test, means a wrong key that
+still produces the right leaf count -- a swapped zone byte, an
+off-by-one sub-index -- is still caught; a leaf count alone would
+miss it.
 """
 
 import pytest
@@ -535,8 +540,8 @@ def test_basic_data_leaf_bytes_carry_code_size_nonce_and_balance() -> None:
 
     `Account` has no `code_size` field, so reading the leaf back out
     by its independently rebuilt key and checking it byte range by
-    byte range is proof the provider re-derives the size from
-    `get_code(code_hash)` on every embed, not from anything cached.
+    byte range is proof the provider derives the size from
+    `get_code(code_hash)` at embed time, not from anything cached.
     """
     code = Bytes(b"\x01" * 40)
     state = MptState()
@@ -690,8 +695,9 @@ def test_get_code_raises_for_an_unknown_code_hash() -> None:
 def test_storage_clears_removes_slots_before_other_changes() -> None:
     """
     `storage_clears` empties an address's storage before
-    `storage_changes` is applied, so a slot rewritten by the same
-    diff survives while every other pre-existing slot is dropped.
+    `storage_changes` is applied: a pre-existing slot is cleared like
+    any other, while a brand-new key written by the same diff still
+    lands with its new value.
 
     Several pre-EIP-6780 forks (frontier through shanghai) still
     populate `storage_clears` in their own trackers, and
