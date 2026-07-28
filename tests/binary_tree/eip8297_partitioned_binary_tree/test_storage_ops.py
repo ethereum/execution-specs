@@ -6,13 +6,12 @@ embedding cares about.
 EIP-8297's "Zero values and deletion" section is normative today:
 "a zero-valued leaf is distinct from an absent key, committing to a
 different root," and "removing entries is reserved for a future
-state-expiry mechanism." `src/ethereum/state_pbt.py` does the
-opposite -- a zero write deletes the slot -- so every zero-write test
-below pins this provider's current behavior, not EIP-8297
-conformance; their post states would need regenerating if the
-provider were ever made conformant.
-`tests/binary_trie/test_trie.py::test_zero_value_is_not_absence` is
-the one conformant test in the tree: the raw trie does keep a
+state-expiry mechanism." `state_pbt.py` does the opposite -- a zero
+write deletes the slot -- so every zero-write test below pins this
+provider's current behavior, not EIP-8297 conformance; their post
+states would need regenerating if the provider were ever made
+conformant. `test_trie.py::test_zero_value_is_not_absence` is the
+one conformant test in the tree: the raw trie does keep a
 zero-valued leaf; only the provider layer removes it.
 """
 
@@ -158,14 +157,10 @@ def test_sstore_overwrite_nonzero_value(
     Verify overwriting a slot with a different nonzero value replaces
     it.
 
-    A same-value no-op write is deliberately not covered as a second
-    case here: with the write's target value equal to both the
-    pre-alloc value and the expected post value, that scenario's
-    post-state assertion cannot fail whether the SSTORE actually ran
-    or the whole call did nothing -- state_pbt.py's storage_changes
-    application has no code path specific to "write the value already
-    there" separate from an ordinary nonzero write, so this directed,
-    distinguishable overwrite is what exercises that path.
+    A same-value no-op write is deliberately not a second case here:
+    its post-state assertion couldn't distinguish the SSTORE actually
+    running from the whole call doing nothing, so it wouldn't
+    exercise anything this distinguishable overwrite doesn't already.
     """
     slot = 9
     contract = pre.deploy_contract(
@@ -200,10 +195,10 @@ def test_sload_never_written_slot_returns_zero(
 
     # A correct zero read makes this an SSTORE-to-zero, i.e. an absent
     # slot; a buggy nonzero read would surface as slot 0 holding that
-    # value. `Storage.must_be_equal` (composite_types.py:317-338)
-    # only raises for an unexpected key when its value is nonzero, so
-    # zero and absent are indistinguishable here -- this still catches
-    # a nonzero misread, just not a wrong-but-zero one.
+    # value. `Storage.must_be_equal` only raises for an unexpected key
+    # when its value is nonzero, so zero and absent are
+    # indistinguishable here -- this still catches a nonzero misread,
+    # just not a wrong-but-zero one.
     post = {contract: Account(storage={})}
     state_test(pre=pre, post=post, tx=tx)
 
@@ -216,12 +211,11 @@ def test_storage_coexists_with_sizeable_code(
     Pin that storage writes and sizeable code (spanning multiple code
     chunks) coexist for one account.
 
-    The `JUMPDEST` padding pushes the code comfortably past one
-    `CODE_CHUNK_SIZE`-byte chunk, so the account actually carries
-    several code chunks alongside its storage -- chosen for coverage
-    (per the `code_chunk_count` assert below), not verified by the
-    account-level post state, which checks only code bytes and
-    storage values, not how many tree chunks they occupy.
+    The `JUMPDEST` padding pushes the code past one
+    `CODE_CHUNK_SIZE`-byte chunk (checked by the `code_chunk_count`
+    assert below); the account-level post state itself only checks
+    code bytes and storage values, not how many tree chunks they
+    occupy.
     """
     slot, value = 10, 0xFEED
     code = Op.JUMPDEST * 200 + Op.SSTORE(slot, value) + Op.STOP
@@ -266,12 +260,10 @@ def test_storage_under_7702_delegation_lands_on_authority(
     and that the delegation designation itself survives execution.
 
     `authority` is the transaction's `to` and so actually executes
-    here (unlike a designation merely written by `pre.fund_eoa` and
-    never exercised): asserting its `code` checks that the
-    designation set up by `pre.fund_eoa(delegation=...)` still reads
-    back correctly after a real call, which under EIP-8297 lives in
-    the account's header code chunks rather than a dedicated MPT
-    field.
+    here, unlike a designation merely written by `pre.fund_eoa` and
+    never exercised: asserting its `code` checks that the designation
+    still reads back correctly after a real call, from the account's
+    header code chunks rather than a dedicated MPT field.
     """
     slot, value = 3, 0xC0FFEE
     delegate_code = Op.SSTORE(slot, value) + Op.STOP
@@ -302,7 +294,7 @@ def test_two_accounts_same_slot_independent(
     keys directly, so this does not prove the accounts' tree stems
     avoid colliding (a real collision would surface as a wrong state
     root, not necessarily a wrong value here); that pinning belongs to
-    the `tests/binary_trie/` unit suites.
+    the `tests/binary_trie/` unit suite.
     """
     slot = 42
     value_a, value_b = 0x1111, 0x2222

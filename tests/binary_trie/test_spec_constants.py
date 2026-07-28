@@ -2,12 +2,9 @@
 Tests making the EEST-side `Spec` transcription of EIP-8297 constants
 earn its keep.
 
-`tests/binary_tree/eip8297_partitioned_binary_tree/spec.py` keeps its
-own copy of these constants specifically so a regression in the
-implementation's own values is caught here, rather than the
-implementation being checked against itself. That guarantee only
-exists if something actually compares the two; before this module, no
-test anywhere did, and 12 of `Spec`'s 18 names had zero readers.
+`spec.py` keeps its own copy of these constants so a regression in the
+implementation's values is caught here, rather than checked against
+itself; nothing else compares the two.
 """
 
 from ethereum_types.numeric import U32, U64, U256
@@ -42,16 +39,13 @@ def test_spec_constants_match_implementation() -> None:
     Every `Spec` constant that has a direct `ethereum.binary_trie`
     counterpart equals it.
 
-    (`CODE_CHUNK_SIZE` has no named implementation counterpart to
-    compare against -- `31` is a bare literal in `chunkify_code` -- and
-    the BASIC_DATA offsets/widths are covered functionally, by
-    `test_spec_basic_data_offsets_match_encode_basic_data` below,
-    rather than by equality here.)
+    (`CODE_CHUNK_SIZE` has no named counterpart -- `31` is a bare
+    literal in `chunkify_code`; BASIC_DATA offsets/widths are covered
+    functionally, below, instead of by equality here.)
 
-    Rebuilding these tests by KEYWORD would defeat the point --
-    `Spec`'s values must come from the EIP text, independent of
-    whatever the implementation currently says -- so each side is
-    named explicitly and compared directly.
+    Compared by explicit `==`, not rebuilt by keyword: `Spec`'s values
+    must come from the EIP text, independent of whatever the
+    implementation currently says.
     """
     assert Spec.BASIC_DATA_LEAF_KEY == BASIC_DATA_LEAF_KEY
     assert Spec.CODE_HASH_LEAF_KEY == CODE_HASH_LEAF_KEY
@@ -77,14 +71,9 @@ def test_spec_header_offset_invariant_holds() -> None:
     The EIP's stated invariant holds for the implementation's own
     constants.
 
-    The EIP's own wording is: "It is a required invariant that
-    `STEM_SUBTREE_WIDTH > CODE_OFFSET > HEADER_STORAGE_OFFSET`."
-    Folded in from the former `test_embedding.py::
-    test_header_offset_invariant_holds`, so the invariant is checked
-    in one place rather than two. Every header/overflow split derived
-    elsewhere in the embedding -- storage slots below `CODE_OFFSET -
-    HEADER_STORAGE_OFFSET`, code chunks below `STEM_SUBTREE_WIDTH -
-    CODE_OFFSET` -- silently assumes this ordering.
+    EIP text: "It is a required invariant that `STEM_SUBTREE_WIDTH >
+    CODE_OFFSET > HEADER_STORAGE_OFFSET`." Every header/overflow split
+    derived elsewhere in the embedding silently assumes this ordering.
     """
     assert STEM_SUBTREE_WIDTH > CODE_OFFSET > HEADER_STORAGE_OFFSET
 
@@ -95,16 +84,12 @@ def test_spec_basic_data_offsets_match_encode_basic_data() -> None:
     BASIC_DATA offsets and widths recovers exactly the fields packed
     into it.
 
-    `encode_basic_data` has no named offset constants of its own for
-    `Spec`'s to be compared against directly -- the layout is baked
-    into its byte-slicing code -- so this instead checks `Spec`'s
-    independently transcribed offsets against the implementation's
-    actual output. `code_size`, `nonce`, and `balance` each get a
+    `encode_basic_data` has no named offset constants to compare
+    against directly, so this checks `Spec`'s offsets against real
+    output instead. `code_size`, `nonce`, and `balance` each get a
     distinct, nonzero value so a wrong offset or width shows up as a
-    mismatch; `version` and `reserved` are always zero, so those two
-    are checked against that fixed value instead -- the same approach
-    `test_embedding.py::test_encode_basic_data_maximum_fields` already
-    takes with literal slice bounds.
+    mismatch; `version` and `reserved` are always zero, checked against
+    that fixed value.
     """
     code_size_hex = "11223344"
     nonce_hex = "5566778899aabbcc"

@@ -2,15 +2,11 @@
 End-to-end state-divergence tests for the EIP-8297 partitioned binary
 tree.
 
-`tests/binary_trie/test_differential_mpt.py` pins, at the raw
-state-provider level, that the MPT provider keeps a deleted account's
-storage trie around while the PBT provider (what the `BinaryTree` fork
-actually uses) pops it in the same step that pops the account. This is
-reachable through EIP-7610, which gates `CREATE2` on
-`account_has_storage`. These tests pin the END-TO-END consequence of
-that divergence as observed through the EEST `fill` pipeline under
-`BinaryTree`, as CURRENT behavior — not as an endorsement of either
-provider's choice.
+`test_differential_mpt.py` pins, at the provider level, that MPT keeps a
+deleted account's storage trie while PBT (what `BinaryTree` uses) pops it
+with the account; EIP-7610's `account_has_storage` gate on `CREATE2`
+makes that divergence observable end-to-end. These tests pin BinaryTree's
+CURRENT behavior here — not an endorsement of either provider's choice.
 """
 
 import pytest
@@ -41,18 +37,9 @@ def test_genesis_codeless_account_with_storage_persists(
 ) -> None:
     """
     Verify a genesis allocation entry that is codeless (nonce zero, no
-    code) but carries storage — a shape ordinary execution can never
-    reach on its own, only the pre-alloc API can construct it directly
-    — fills and persists into the post state unchanged.
-
-    `deploy_contract` is the API that accepts this combination
-    directly (`fund_eoa`'s `storage` parameter is typed `Storage`
-    only, not the broader `Storage | StorageRootType` a plain dict
-    literal satisfies); passing `code=b""` is what makes the account
-    genuinely codeless, and overriding its default `nonce=1` down to
-    `0` is what makes the resulting shape -- codeless, yet holding
-    storage -- unreachable by ordinary execution, exactly the
-    "impossible" mutation `pre_alloc_mutable` exists for.
+    code) but carries storage — unreachable by ordinary execution, only
+    constructible directly via the pre-alloc API — fills and persists
+    into the post state unchanged.
     """
     slot, value = 1, 0xABCD
     account = pre.deploy_contract(
@@ -84,33 +71,24 @@ def test_create2_after_eip161_clear_of_storage_holding_account(
     Pin what the `BinaryTree` fork actually does when a CREATE2 call
     targets an address that held storage, was cleared under EIP-161 in
     an earlier block, and is retargeted by CREATE2 in a later block —
-    the end-to-end shape of the divergence pinned by
-    `tests/binary_trie/test_differential_mpt.py`'s
+    the end-to-end shape of the divergence pinned at the provider level
+    by `test_differential_mpt.py`'s
     `test_account_delete_diverges_on_account_has_storage`.
 
-    THIS OUTCOME DIFFERS FROM THE MPT PROVIDERS': under MPT, the
-    orphaned storage trie would still make `account_has_storage` true
-    for this address, so the SAME CREATE2 would be rejected as a
-    collision and the address would keep its stale storage untouched.
-    Under the PBT provider that `BinaryTree` actually runs, deleting
-    the account pops its storage outright, so `account_has_storage`
-    reads false afterward and this CREATE2 is allowed to proceed. This
-    is a known open consensus question recorded in the PR, not a bug
-    in either provider — this test pins BinaryTree's CURRENT behavior;
-    it does not bless that behavior as correct.
+    This differs from MPT: there, the orphaned storage trie keeps
+    `account_has_storage` true, so the same CREATE2 would be rejected as
+    a collision. Under the PBT provider `BinaryTree` runs, deleting the
+    account pops its storage outright, so CREATE2 is allowed to
+    proceed. Open consensus question, not a bug in either provider —
+    this pins CURRENT behavior, it does not endorse it.
 
-    The clearing step is a zero-balance SELFDESTRUCT that names
-    `target` as beneficiary, rather than a zero-value CALL to it: this
-    fork's `modify_state` (`state_tracker.py`) re-checks "exists and
-    is empty, so destroy" after EVERY write it mediates — balance,
-    nonce, or code alike — but a zero-value CALL to a plain account
-    never reaches `modify_state` for the recipient at all: the
-    value-transfer step that would (`move_ether`) only runs when
-    `message.should_transfer_value and message.value != 0`, and there
-    is no code to execute that could mediate any other write.
-    `SELFDESTRUCT` always writes the beneficiary's balance via
-    `move_ether` unconditionally, even to add zero, so it reaches
-    `modify_state`, and therefore the destroy check, regardless.
+    The clearing step uses SELFDESTRUCT rather than a zero-value CALL:
+    this fork's `modify_state` runs the destroy-if-empty check after
+    every write it mediates, but a zero-value CALL's transfer step
+    (`move_ether`) only runs when `message.value != 0`, so it never
+    reaches `modify_state` for the recipient. SELFDESTRUCT always calls
+    `move_ether` on the beneficiary, even for zero, so the destroy
+    check is reached unconditionally.
     """
     old_slot, old_value = 3, 0xDEAD
     new_slot, new_value = 4, 0xC0DE

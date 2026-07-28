@@ -287,19 +287,18 @@ def test_wrong_state_root_expectation_is_recorded_for_consumers(
     `state_root` is rejected -- this does not verify it.
 
     The wrong root is injected via `rlp_modifier`, and
-    `execution_testing`'s fill-time `verify_block_exception` only
-    runs when `block.rlp_modifier is None`
-    (`specs/blockchain.py:1073-1084`), so `fill` skips exactly the
-    check this test's name suggests it performs. No client consumes
-    `BinaryTree` fixtures either, so nothing downstream checks it
-    today. `exception` is also an any-of match: a future consumer
-    could satisfy it by rejecting on the header-hash mismatch alone,
+    `BlockchainTest.generate_block_data` only verifies the block
+    exception when `rlp_modifier is None`, so `fill` skips exactly
+    the check this test's name suggests it performs. No client
+    consumes `BinaryTree` fixtures either, so nothing downstream
+    checks it today. `exception` is also an any-of match: a future
+    consumer could satisfy it via the header-hash mismatch alone,
     without ever comparing state roots. A direct, checked guarantee
-    that the fork raises on a mismatched root now exists at
-    `tests/binary_trie/test_block_execution.py::
-    test_execute_block_rejects_a_tampered_state_root`, which drives
-    `execute_block` through a real (if minimal) block rather than via
-    a fixture `fill` cannot verify.
+    that the fork raises on a mismatched root exists at
+    `test_execute_block_rejects_a_tampered_state_root` in
+    `test_block_execution.py`, which drives `execute_block` through a
+    real (if minimal) block rather than via a fixture `fill` cannot
+    verify.
     """
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)

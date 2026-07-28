@@ -4,11 +4,9 @@ Tests guarding the binary_tree fork against silent drift from amsterdam.
 `ethereum.forks.binary_tree` is deliberately a byte-for-byte copy of
 `ethereum.forks.amsterdam`, save for the state-provider import swap and
 the `PreviousHeader` re-parenting that point binary_tree at amsterdam
-instead of amsterdam's own previous fork. Amsterdam keeps evolving on
-this branch, so without an executable check the copy would rot
-unnoticed. These tests turn both the copy relationship and the fork's
-registration with the CLI tooling into invariants that fail loudly,
-and by name, the moment either breaks.
+instead of amsterdam's own previous fork. These tests turn both the
+copy relationship and the fork's CLI-tooling registration into
+invariants that fail loudly, and by name, the moment either breaks.
 """
 
 import difflib
@@ -65,13 +63,9 @@ def _normalize(binary_tree_text: str) -> str:
     """
     Rewrite binary_tree-specific spellings to their amsterdam form.
 
-    Diffing the two trees turned up exactly two spelling differences
-    that are not real logic changes: the fork's dotted module path,
-    which as a substring also covers the bare `binary_tree` word used
-    in a couple of module docstrings, and the "Binary Tree" title-cased
-    two-word form used in `utils/hexadecimal.py`. Both are pinned here
-    explicitly; anything they fail to reconcile surfaces as a genuine
-    diff to the caller.
+    Pins the only two known non-substantive spelling differences (the
+    dotted module path and the title-cased "Binary Tree" form in
+    `utils/hexadecimal.py`); anything else surfaces as a genuine diff.
     """
     text = binary_tree_text.replace("Binary Tree", "Amsterdam")
     return text.replace("binary_tree", "amsterdam")
@@ -100,23 +94,16 @@ def _diff_lines(
     """
     Return the (removed, added) lines of a zero-context unified diff.
 
-    `removed` holds every line present only in `amsterdam_text`; `added`
-    holds every line present only in `normalized_binary_tree_text`.
-    Lines common to both never appear in either set, regardless of how
-    far apart they sit in the file.
+    `removed`/`added` hold every line present only on one side; lines
+    common to both never appear in either set.
 
-    The `---`/`+++` file-header pair is dropped positionally: when
-    `difflib.unified_diff` yields anything at all, those are always
-    exactly its first two entries. They are deliberately not
-    recognized by sniffing their `---`/`+++` text, because a genuinely
-    changed line can produce that same text once its own `-`/`+`
-    diff marker is prepended: e.g. a removed line that itself reads
-    `------------` (a numpydoc section underline, common in this
-    codebase's docstrings) becomes the diff line `-------------`,
-    which a naive `startswith(("---", ...))` filter would misfile as
-    a header and silently drop. Hunk headers are recognized by their
-    full `@@ -a,b +c,d @@` shape (`_HUNK_HEADER_RE`) rather than a
-    bare `@@` prefix, for the same reason.
+    The `---`/`+++` file-header pair is dropped positionally (always
+    the first two entries `difflib.unified_diff` yields), not by
+    sniffing `---`/`+++` text: a removed docstring underline like
+    `------------` becomes the diff line `-------------`, which a
+    naive prefix filter would misfile as a header and drop. Hunk
+    headers are matched by the full `@@ -a,b +c,d @@` shape
+    (`_HUNK_HEADER_RE`), not a bare `@@` prefix, for the same reason.
     """
     diff = list(
         difflib.unified_diff(
@@ -167,12 +154,8 @@ def test_diff_lines_reports_lines_starting_with_diff_markers(
     A removed/added line that itself starts with `--`/`++` is still
     reported, rather than being misfiled as a `---`/`+++` file header.
 
-    Regression test: the header/hunk filter used to sniff line
-    content (`startswith(("---", "+++", "@@"))`) instead of position,
-    so a removed line like `------------` became the diff line
-    `-------------` (and an added `++++++++++++` line became the diff
-    line `+++++++++++++`), each mistaken for a file header and
-    dropped.
+    Regression test for the position-vs-content bug described on
+    `_diff_lines`.
     """
     removed, added = _diff_lines(amsterdam_text, binary_tree_text)
 
@@ -184,13 +167,11 @@ def _apply_allowed_deltas(amsterdam_text: str, relative_path: str) -> str:
     """
     Rewrite `amsterdam_text`'s pinned lines to their binary_tree form.
 
-    Applies every `ALLOWED_DELTAS` substitution registered for
-    `relative_path`, in file order, unconditionally -- regardless of
-    whether the "old" text is still there. That is what makes a
-    vanished delta still fail the caller's exact string comparison: if
-    someone quietly reverts binary_tree's copy of a pinned line back to
-    amsterdam's own text, this function still produces the substituted
-    ("new") text on the amsterdam side, so the two no longer match.
+    Applies every `ALLOWED_DELTAS` substitution for `relative_path`
+    unconditionally, regardless of whether the "old" text is still
+    there -- so if binary_tree's copy is quietly reverted back to
+    amsterdam's own text, the patched amsterdam text no longer matches
+    it either, and the caller's comparison still fails.
     """
     patched = amsterdam_text
     for old, new in ALLOWED_DELTAS.get(relative_path, []):
@@ -202,23 +183,15 @@ def test_binary_tree_fork_matches_amsterdam_modulo_known_deltas() -> None:
     """
     binary_tree's `*.py` files match amsterdam's modulo pinned deltas.
 
-    Every `*.py` file under the two fork packages must exist on both
-    sides. Patching amsterdam's text with `ALLOWED_DELTAS`'
-    substitutions (or, for `__init__.py`, merely requiring the
-    binary_tree copy still contain `FORK_CRITERIA`) and normalizing
-    binary_tree's spelling must then make the two texts compare EQUAL
-    as whole strings. This is a stronger check than a removed/added
-    line-SET diff: reordering two statements, or duplicating a line in
-    only one copy, changes no set membership and would slip through a
-    set comparison, but it does change the string, so this guard still
-    catches it. Any remaining difference is unreviewed drift; the
-    assertion message names the file and the offending line(s), built
-    from `_diff_lines` purely for a readable message -- it plays no
-    part in the pass/fail decision. Deltas are applied to amsterdam's
-    text unconditionally (see `_apply_allowed_deltas`), so a vanished
-    delta -- binary_tree quietly made to match amsterdam instead of
-    the pinned divergence -- still produces a text mismatch and fails
-    the guard too.
+    Every `*.py` file must exist on both sides. Patching amsterdam's
+    text with `ALLOWED_DELTAS` (or, for `__init__.py`, just requiring
+    `FORK_CRITERIA` present) and normalizing binary_tree's spelling
+    must make the two texts compare EQUAL as whole strings -- stronger
+    than a removed/added line-SET diff, which reordering or
+    duplicating a line within one copy would slip through untouched.
+    `_diff_lines` only builds the assertion message here; it plays no
+    part in the pass/fail decision. Vanished-delta reversion still
+    fails too, per `_apply_allowed_deltas`.
     """
     amsterdam_paths = _relative_py_paths(AMSTERDAM_DIR)
     binary_tree_paths = _relative_py_paths(BINARY_TREE_DIR)

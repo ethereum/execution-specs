@@ -76,21 +76,16 @@ def test_deploy_and_execute_at_code_size(
     Verify a contract padded to an exact byte size executes its
     (possibly tiny, or entirely absent) executable prefix, reports the
     exact size back through `EXTCODESIZE`, and reports the plain
-    `keccak256` of its own code back through `EXTCODEHASH` -- checked
-    at every size, including the one carrying an overflow chunk, so
-    the overflow chunk is proven not to alter code identity -- across
+    `keccak256` of its own code back through `EXTCODEHASH` -- across
     sizes spanning empty code, a single chunk, the first chunk
     boundary, the exact header/overflow split, and the first overflow
-    chunk.
+    chunk, proving the overflow chunk does not alter code identity.
 
     The 0- and 1-byte contracts have no room for a `SSTORE` (the
-    minimal encoding already needs `_MIN_WRITE_PREFIX_LEN` bytes), so
-    those cases are just `STOP` (or, at 0 bytes, no code at all): they
-    only pin that the smallest possible chunked contracts are callable
-    and report their exact size, without a storage-write assertion --
-    `target` is omitted from `post` entirely for these two sizes,
-    since a contract with no `SSTORE` anywhere in its code trivially
-    cannot write storage regardless of whether it ran at all.
+    minimal encoding needs `_MIN_WRITE_PREFIX_LEN` bytes), so those
+    are just `STOP` (or no code at all); `target` is omitted from
+    `post` for these two sizes since they trivially cannot write
+    storage regardless of whether execution ran at all.
     """
     value_slot, size_slot, call_slot, hash_slot = 0, 1, 2, 3
     value = 0xCAFE
@@ -169,23 +164,17 @@ def test_push_data_straddles_chunk_boundary(
     Verify a PUSH instruction positioned so its immediate straddles a
     chunk boundary still pushes the correct value, at three
     boundaries: a single-chunk edge (`PUSH4`, chunks 0/1), a `PUSH32`
-    immediate wide enough to touch three consecutive chunks (0, 1, and
-    2, since a 32-byte immediate alone can touch at most two: 32 <= 31
-    + 1, so touching a third requires the opcode byte itself to sit in
-    the chunk before the data), and -- the only chunk boundary where
-    key derivation changes ZONE, from the account header to
-    content-addressed code, rather than merely advancing the chunk
-    index within the same zone -- the header/overflow split at byte
-    `HEADER_CODE_BYTES` (3968), chunks 127/128.
+    immediate wide enough to touch three consecutive chunks (0, 1, 2 --
+    the opcode byte itself has to sit in the chunk before the data,
+    since a 32-byte immediate alone can touch at most two), and the
+    header/overflow split at byte `HEADER_CODE_BYTES` (3968), chunks
+    127/128 -- the only boundary where key derivation changes ZONE
+    rather than just advancing the chunk index.
 
-    Each chunk's payload (bytes 1..31) is always that fixed 31-byte
-    slice of the code, regardless of the leading metadata byte or
-    which zone the chunk's key derives from; what this pins is that a
-    client's chunk *assembly* -- stripping exactly one metadata byte
-    per chunk when reconstructing code from chunks -- must do so
-    correctly at every one of these boundaries, since getting that
-    wrong (not a payload shift) is what would corrupt the pushed
-    value.
+    What this pins is that a client's chunk *assembly* -- stripping
+    exactly one metadata byte per chunk when reconstructing code --
+    must do so correctly at every one of these boundaries, since
+    getting that wrong is what would corrupt the pushed value.
     """
     slot = 0
     push_op = getattr(Op, f"PUSH{push_width}")
@@ -228,17 +217,15 @@ def test_jump_into_pushdata_is_invalid(
 
     This is the classic invalid-jump-into-PUSH-data rule, independent
     of chunking: the 12-byte target is a single chunk with no
-    carried-over push data (chunk 0's leading byte is 0, since
-    nothing precedes it), so there is no chunk metadata describing
+    carried-over push data, so there is no chunk metadata describing
     byte 5 here at all. The target's own `SSTORE` after the jump is
-    never reached when the jump is correctly rejected, so its slot
-    stays absent, and the wrapping `CALL` reports failure.
+    never reached, so its slot stays absent, and the wrapping `CALL`
+    reports failure.
 
-    A failed `CALL` and the caller's own frame unexpectedly reverting
-    would both otherwise leave the caller's slot 0 reading back as
-    absent (0 is absent by this suite's storage convention), so slot 1
-    is an unconditional canary written right after the `CALL`: it only
-    reads back as 1 if the caller's own execution truly continued.
+    Slot 1 is an unconditional canary written right after the `CALL`:
+    it only reads back 1 if the caller's own execution truly
+    continued, distinguishing this from the caller's own frame
+    unexpectedly reverting.
     """
     slot = 0
     dest = 5  # index of PUSH1's data byte below
@@ -374,12 +361,10 @@ def test_extcodecopy_past_end_zero_pads(
     code zero-pads (classic semantics, re-verified under chunking).
 
     The 100-byte target ends mid-chunk (chunk 3 spans bytes 93-123,
-    but only bytes 93-99 hold real code): the copy starts 2 bytes
-    before the real end and reads 32 bytes, so of the 30 zero bytes
-    read, 24 (positions 100-123) are chunk 3's own internal padding
-    and 6 (positions 124-129) are past the last chunk entirely --
-    proving the chunk's own internal padding, not just the classic
-    "past the last chunk" case, reads back as zero.
+    only 93-99 real code): starting 2 bytes before the real end and
+    reading 32 bytes crosses both chunk 3's own internal padding and
+    the padding past the last chunk entirely, proving the former
+    reads back as zero too, not just the classic past-the-end case.
     """
     size = 100
     pattern = bytes((i * 11 + 1) % 256 for i in range(size))
@@ -406,15 +391,14 @@ def test_byte_identical_code_two_contracts_independent(
     """
     Verify two contracts deployed with byte-identical code -- long
     enough (3969 bytes) to need an overflow chunk -- execute correctly
-    and independently: each SSTOREs its OWN call's calldata into the
-    same slot, and the two calls carry different calldata, so distinct
-    post-state storage proves the two accounts never share execution
-    state.
+    and independently: each SSTOREs its own call's calldata into the
+    same slot, proving via distinct post-state storage that the two
+    never share execution state.
 
-    Overflow chunks are content-addressed and so may be shared in the
-    tree between byte-identical contracts; that sharing must stay
-    invisible to execution. Leaf-level sharing itself is pinned in
-    `tests/binary_trie/test_state_pbt.py`, not here.
+    Overflow chunks may be shared in the tree (content-addressed)
+    between byte-identical contracts; that sharing must stay invisible
+    to execution. Leaf-level sharing itself is pinned in
+    `test_state_pbt.py`, not here.
     """
     slot = 0
     size = HEADER_CODE_BYTES + 1
@@ -469,12 +453,9 @@ def test_code_deposit_limit_via_create(
     `CREATE`'s return value itself, rather than merely being inferred
     from the child's absence -- observes and survives the failure.
 
-    A failed `CREATE` returning 0 and a full-frame revert would both
-    otherwise leave the creator's slot 0 reading back as absent (0 is
-    absent by this suite's storage convention), so slot 1 is an
-    unconditional canary written right after the `CREATE`: it only
-    reads back as 1 if execution truly continued past the failure
-    rather than reverting the whole call.
+    Slot 1 is an unconditional canary written right after the
+    `CREATE`: it only reads back 1 if execution truly continued past
+    the failure rather than reverting the whole call.
     """
     code_size = fork.max_code_size() + code_size_delta
     deploy_code = Op.JUMPDEST * code_size
@@ -566,12 +547,10 @@ def test_delegated_eoa_executes_chunked_delegate(
     overflow-chunk-carrying) delegate's code and writes to the
     AUTHORITY's own storage.
 
-    Storage landing on the authority rather than the delegate is
-    already pinned generally in
-    `test_storage_ops.test_storage_under_7702_delegation_lands_on_authority`;
-    the point here is narrower -- that a 23-byte delegation designator
-    plus a delegate large enough to need an overflow chunk both work
-    together.
+    Storage landing on the authority is already pinned generally in
+    `test_storage_ops.py`; the point here is narrower -- that a
+    23-byte delegation designator plus an overflow-carrying delegate
+    both work together.
     """
     slot, value = 5, 0xC0FFEE
     size = HEADER_CODE_BYTES + 1

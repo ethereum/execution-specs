@@ -8,19 +8,14 @@ provider-level observable (accounts, storage, code,
 `account_has_storage`) should agree given identical inputs.
 
 The first group of tests directs specific `BlockDiff`s at both
-providers, built from identical pre-states, pinning a real,
-already-discovered divergence: MPT's `apply_changes_to_state` never
-pops a deleted account's storage trie (`state_mpt.py`, ~156-157) while
-PBT's pops it in the same branch that pops the account
-(`state_pbt.py`, 211-214). This is visible through EIP-7610, which
-gates `CREATE2` on `account_has_storage`, and is an open consensus
-question for EIP-8297, not a bug in either provider: each test pins
-today's behavior rather than a verdict on which provider is "right".
-
-The second group applies random sequences of 5-8 diffs to both
-providers, built from identical random pre-states, and checks
-observable equivalence after every diff, except at addresses known to
-carry the divergence above, tracked via a `divergent` set.
+providers to pin a real, already-discovered divergence (detailed on
+each test): deleting an account pops its storage under PBT but not
+MPT, visible through EIP-7610's `account_has_storage` gate on
+`CREATE2` -- an open EIP-8297 consensus question, not a bug in either
+provider. The second group applies random sequences of 5-8 diffs to
+both providers and checks observable equivalence after every diff,
+except at addresses known to carry that divergence, tracked via a
+`divergent` set.
 
 Separately, EIP-8297's "Zero values and deletion" section is
 normative today: "a zero-valued leaf is distinct from an absent
@@ -30,9 +25,9 @@ do the opposite -- a zero write deletes the slot -- so the
 zero-write tests below pin current provider behavior, not EIP-8297
 conformance; their pinned equalities would need regenerating if
 either provider were ever made conformant.
-`tests/binary_trie/test_trie.py::test_zero_value_is_not_absence` is
-the one conformant test in this tree: the raw `BinaryTrie` does keep
-a zero-valued leaf; only the provider layer removes it.
+`test_trie.py::test_zero_value_is_not_absence` is the one conformant
+test in this tree: the raw `BinaryTrie` does keep a zero-valued leaf;
+only the provider layer removes it.
 """
 
 import random
@@ -103,21 +98,18 @@ def test_account_delete_diverges_on_account_has_storage() -> None:
     Deleting an account leaves its storage trie intact under MPT but
     pops it under PBT.
 
-    Both providers start identical: account `X` with code-less
-    storage `{STORAGE_KEY: STORAGE_VALUE}`. A single diff deletes `X`
-    and touches no storage. MPT's `apply_changes_to_state`
-    (state_mpt.py:156-157) writes the `account_changes` value straight
-    into `_main_trie` and never touches `_storage_tries`, so the
-    storage trie survives the delete. PBT's `apply_changes_to_state`
-    (state_pbt.py:211-214) pops `_storage[address]` in the same branch
-    that pops the account.
+    Both providers start identical: account `X` with code-less storage
+    `{STORAGE_KEY: STORAGE_VALUE}`. A single diff deletes `X` and
+    touches no storage. `state_mpt.apply_changes_to_state` writes
+    `account_changes` into `_main_trie` without touching
+    `_storage_tries`, so the storage trie survives; PBT's
+    `state_pbt.apply_changes_to_state` pops `_storage[address]` in the
+    same branch that pops the account.
 
     This is the EIP-7610-visible divergence: right after this diff, a
     `CREATE2` at `X` would be rejected under MPT (`account_has_storage`
-    still `True`) but allowed under PBT (`account_has_storage` now
-    `False`). Which behavior EIP-8297 should adopt is an open
-    consensus question; this test pins today's behavior of each
-    provider, not a verdict on which is right.
+    still `True`) but allowed under PBT (`False`). Open EIP-8297
+    consensus question, not a verdict on which provider is right.
     """
     mpt_state = MptState()
     pbt_state = PbtState()
@@ -143,12 +135,10 @@ def test_delete_then_recreate_resurrects_storage_only_under_mpt() -> None:
 
     Continues the sequence pinned by
     `test_account_delete_diverges_on_account_has_storage`: after `X`
-    is deleted while holding `{STORAGE_KEY: STORAGE_VALUE}`, a second
-    diff recreates `X` as a fresh `EMPTY_ACCOUNT`, writing no storage
-    of its own. MPT's orphaned storage trie (state_mpt.py:156-157) is
-    untouched by either diff, so the pre-delete value reappears with
-    no write ever setting it during the new account's lifetime. PBT's
-    `_storage` was popped on delete (state_pbt.py:211-214) and nothing
+    is deleted while holding storage, a second diff recreates it as a
+    fresh `EMPTY_ACCOUNT`. MPT's orphaned storage trie is untouched by
+    either diff, so the pre-delete value reappears with no write ever
+    setting it; PBT's `_storage` was popped on delete and nothing
     refills it, so the slot reads back as never written.
     """
     mpt_state = MptState()
@@ -178,22 +168,20 @@ def test_account_delete_with_same_diff_storage_writes() -> None:
 
     `X` starts holding `{STORAGE_KEY: STORAGE_VALUE}`. One diff sets
     `account_changes={X: None}` and, in the same diff,
-    `storage_changes={X: {STORAGE_KEY_2: STORAGE_VALUE_2}}`. MPT
-    applies `account_changes` and `storage_changes` against separate
-    containers (state_mpt.py:156-167): deleting the account never
-    touches `_storage_tries`, so the write lands in the very trie that
-    still holds `STORAGE_KEY`. PBT's account-delete branch pops the
-    whole `_storage[X]` dict (state_pbt.py:211-214) before the
-    `storage_changes` loop's `setdefault` (state_pbt.py:218-226)
-    recreates `_storage[X]` from empty, so `STORAGE_KEY` is gone but
-    `STORAGE_KEY_2` is there. Same divergence family as
+    `storage_changes={X: {STORAGE_KEY_2: STORAGE_VALUE_2}}`.
+    `state_mpt.apply_changes_to_state` applies the two against
+    separate containers, so the write lands in the trie that still
+    holds `STORAGE_KEY`. `state_pbt.apply_changes_to_state` pops the
+    whole `_storage[X]` dict before its storage-changes loop recreates
+    it from empty, so `STORAGE_KEY` is gone but `STORAGE_KEY_2` is
+    there. Same divergence family as
     `test_account_delete_diverges_on_account_has_storage`, surfacing
     within one diff instead of across two.
 
-    Both providers still agree the account is gone, that the freshly
-    written key reads back, and that `account_has_storage` is `True`
-    (an orphan entry with no account — PBT's `embed_flat_state` skips
-    exactly this case, state_pbt.py:102-104).
+    Both providers still agree the account is gone, the freshly
+    written key reads back, and `account_has_storage` is `True` (an
+    orphan entry with no account -- `state_pbt.embed_flat_state` skips
+    exactly this case).
     """
     mpt_state = MptState()
     pbt_state = PbtState()
@@ -294,14 +282,12 @@ def test_zero_write_to_existing_slot_deletes_in_both() -> None:
     both providers, agreeing that the account no longer has storage.
 
     Unlike the delete-account divergence pinned above, no account
-    deletion is involved here: MPT's storage_changes loop
-    (state_mpt.py:159-167) and PBT's (state_pbt.py:218-226) both
+    deletion is involved: both providers' storage-changes loops
     discard their now-empty container for the address once its one
-    key is zeroed, so `account_has_storage` agrees (`False`) in both.
+    key is zeroed.
 
-    Not EIP-8297-conformant (see the module docstring): both
-    providers' zero-deletes-the-slot agreement here pins current
-    behavior, not the EIP's own zero/deletion semantics.
+    Not EIP-8297-conformant (see the module docstring): this pins
+    current behavior, not the EIP's own zero/deletion semantics.
     """
     diff = BlockDiff(storage_changes={ADDRESS_X: {STORAGE_KEY: U256(0)}})
 
@@ -331,10 +317,9 @@ def _random_account(rng: random.Random, code_hash: Hash32) -> Account:
     Build an `Account` with `code_hash`, a random nonce below `2**64`,
     and a random balance below `2**128`.
 
-    The balance cap is not cosmetic: `encode_basic_data` asserts
-    balance fits its sixteen-byte field, so a balance at or past
-    `2**128` would crash root computation instead of merely being an
-    unrealistic value.
+    The cap is not cosmetic: `encode_basic_data` asserts balance fits
+    its sixteen-byte field, so `2**128` or more would crash root
+    computation rather than merely being unrealistic.
     """
     return Account(
         nonce=Uint(rng.randrange(0, 2**64)),
@@ -453,11 +438,9 @@ def _mark_divergent(
     either provider) to `divergent`, before `diff` is applied.
 
     Same divergence family as
-    `test_account_delete_diverges_on_account_has_storage`: MPT never
-    pops a deleted account's storage trie (state_mpt.py:156-157) while
-    PBT does (state_pbt.py:211-214), so once an address is deleted
-    while holding storage, the two providers may disagree on that
-    address's storage for the rest of the run.
+    `test_account_delete_diverges_on_account_has_storage`: once an
+    address is deleted while holding storage, the two providers may
+    disagree on that address's storage for the rest of the run.
     """
     for address, account in diff.account_changes.items():
         if account is not None:
@@ -485,12 +468,11 @@ def _assert_equivalent(
     whenever an account survives, asserted to differ from the
     empty-tree sentinel; MPT gets the same two checks. Neither check
     alone would catch a leaf silently dropped inside
-    `embed_flat_state` -- the resulting root would still be
-    deterministic and non-empty -- so this also re-embeds the live
-    PBT state directly (bypassing `state_root`'s wrapper) and spot-
-    checks that every surviving account's code-hash leaf actually
-    reached the tree with the right value. The two providers' roots
-    are never compared against each other regardless: they commit to
+    `embed_flat_state` -- the root would still be deterministic and
+    non-empty -- so this also re-embeds the live PBT state directly
+    (bypassing `state_root`'s wrapper) and spot-checks every surviving
+    account's code-hash leaf against ground truth. The two providers'
+    roots are never compared against each other: they commit to
     different schemes, so there is nothing for such a comparison to
     mean.
     """
@@ -533,12 +515,8 @@ def _assert_equivalent(
     if any_account_survives:
         assert mpt_root_first != MPT_EMPTY_TRIE_ROOT
 
-    # A leaf `embed_flat_state` silently fails to write is invisible
-    # to the three checks above (the resulting root is still
-    # deterministic, and still non-empty as long as some other leaf
-    # survives), so spot-check one leaf directly against ground
-    # truth: every surviving account's code-hash leaf, read straight
-    # out of a fresh embedding of the live PBT state.
+    # Ground-truth spot-check for the case the checks above would miss
+    # (see docstring): a leaf `embed_flat_state` silently drops.
     embedded = embed_flat_state(
         pbt_state._accounts, pbt_state._storage, pbt_state.get_code
     )

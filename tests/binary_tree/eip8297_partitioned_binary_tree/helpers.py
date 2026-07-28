@@ -10,15 +10,11 @@ from execution_testing import (
     compute_create_address,
 )
 
-# Storage slot the factory built by `create_contract_via_factory` writes
-# an unconditional canary value to, right after its (POP'd) create call.
-# The create call's own success/address result is discarded, so without
-# this canary a factory whose create call ran out of gas or otherwise
-# failed before ever reaching its own `STOP` would be indistinguishable,
-# from the caller's side, from one that issued the create and continued
-# normally. Chosen far outside any slot a caller's own `initcode` would
-# plausibly write, since it is asserted on the FACTORY's account, not the
-# created contract's.
+# Canary slot the factory writes to unconditionally after its (POP'd)
+# create call, so callers can detect the create failing/OOG-ing before
+# reaching that write (otherwise indistinguishable from success, since
+# the create's own result is discarded). Chosen far outside any slot the
+# caller's own initcode would plausibly write.
 FACTORY_CANARY_SLOT = 2**256 - 1
 
 
@@ -33,23 +29,13 @@ def create_contract_via_factory(
     """
     Deploy a factory contract that creates `initcode` via CREATE/CREATE2.
 
-    The factory serves the initcode bytes to itself with EXTCODECOPY
-    from a separate template contract holding them as its code:
-    without a copy opcode, getting more than 32 bytes into memory
-    needs one `PUSH32`+`MSTORE` pair per word, so staging
-    arbitrary-length initcode this way is simpler than building it
-    inline. The factory is freshly deployed with the default
-    pre-alloc nonce of 1, so this call is always its first creation;
-    the returned `created` address is derived accordingly with
-    `compute_create_address`.
+    Stages `initcode` via a template contract plus EXTCODECOPY rather
+    than inline `PUSH32`/`MSTORE`, since that scales to arbitrary-length
+    initcode. Deployed fresh at nonce 1, so `created` is derived with
+    `compute_create_address` on that basis.
 
-    After the (POP'd) create call, the factory unconditionally writes
-    `FACTORY_CANARY_SLOT` to `1`: callers can assert this on the
-    factory's own post-state storage to prove its frame actually
-    continued past the create call, rather than the same observable
-    post state also being reachable by the create call running out of
-    gas or otherwise failing before the factory's own execution ever
-    reaches that point.
+    Writes `FACTORY_CANARY_SLOT` (see there) after the (POP'd) create
+    call, so callers can detect the create failing before that point.
 
     Returns `(factory_address, created_address)`.
     """
@@ -84,10 +70,9 @@ def sstore_from_calldata_contract(pre: Alloc, *, slot: int) -> Address:
     """
     Deploy a contract that SSTOREs its first calldata word into `slot`.
 
-    Calling the same deployed contract again with different calldata
-    drives `slot` to a new value from a separate transaction or block,
-    which is how the cross-transaction and cross-block zero-write tests
-    exercise one account without redeploying it.
+    Calling it again with different calldata drives `slot` to a new
+    value without redeploying -- used by the cross-tx/cross-block
+    zero-write tests.
     """
     return pre.deploy_contract(
         code=Op.SSTORE(slot, Op.CALLDATALOAD(0)) + Op.STOP
@@ -97,14 +82,11 @@ def sstore_from_calldata_contract(pre: Alloc, *, slot: int) -> Address:
 def sstore_then_pad(*, slot: int, value: int, total_size: int) -> Bytecode:
     """
     Build code that SSTOREs `value` into `slot`, STOPs, then pads with
-    `INVALID` filler bytes out to exactly `total_size` bytes.
+    `INVALID` filler out to exactly `total_size` bytes.
 
-    Used to pin code-chunking size boundaries: the write executes and
-    reports correctly regardless of how many 31-byte chunks (including
-    the account-header/overflow split) the trailing padding spans. The
-    filler is `INVALID` rather than zeros so that a client which mis-
-    executes past `STOP` (e.g. due to a chunk-metadata bug) fails loudly
-    instead of silently falling through.
+    Filler is `INVALID`, not zeros, so a client that mis-executes past
+    `STOP` (e.g. a chunk-metadata bug) fails loudly instead of silently
+    falling through. Used to pin code-chunking size boundaries.
     """
     prefix = Op.SSTORE(slot, value) + Op.STOP
     assert total_size >= len(prefix), (

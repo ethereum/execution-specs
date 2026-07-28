@@ -4,28 +4,23 @@ Tests for `ethereum.state_pbt`.
 The first group covers `embed_flat_state`: each kind of state
 (account fields, code chunks, storage slots) must land in the tree
 as exactly the expected leaves, with expected keys and values built
-by hand from the derivation functions. The `embed_state` helper
-adapts an MPT-backed `State` into the flat mappings the walk takes,
-so the inputs are real account objects.
+by hand from the derivation functions.
 
-The second group covers the provider: `compute_state_root` applies
-a block diff (deletions, zero-writes, freshly deployed code) and
-embeds the result. Two of its six tests check the resulting root
-against a post-state built directly in the MPT-backed container; the
-other four check it against a known invariant instead (the empty
-root, a zero-write matching a never-written slot, and so on).
+The second group covers the provider: `compute_state_root` applies a
+block diff (deletions, zero-writes, freshly deployed code) and embeds
+the result, checked either against a post-state built directly in the
+MPT-backed container or against a known invariant (the empty root, a
+zero-write matching a never-written slot, and so on).
 
-Later groups pin exact key sets (rebuilt from raw `blake3` and
-literal zone/sub-index bytes, never the derivation functions under
-test), the BASIC_DATA leaf's byte layout, and further provider
-semantics: `storage_clears` ordering, account-delete/storage-orphan
-interactions, the asymmetry between `set_account` and the diff
-path, pre-state immutability, sequential diffs, and the storage
-sub-index boundaries. Rebuilding keys independently, rather than by
-calling the derivation functions under test, means a wrong key that
-still produces the right leaf count -- a swapped zone byte, an
-off-by-one sub-index -- is still caught; a leaf count alone would
-miss it.
+Later groups pin exact key sets, the BASIC_DATA leaf's byte layout,
+and further provider semantics: `storage_clears` ordering,
+account-delete/storage-orphan interactions, the asymmetry between
+`set_account` and the diff path, pre-state immutability, sequential
+diffs, and the storage sub-index boundaries. Key sets are rebuilt
+from raw `blake3` and literal zone/sub-index bytes, never by calling
+the derivation functions under test, so a wrong key that still
+produces the right leaf count -- a swapped zone byte, an off-by-one
+sub-index -- is still caught; a leaf count alone would miss it.
 
 EIP-8297's "Zero values and deletion" section is normative today:
 "a zero-valued leaf is distinct from an absent key, committing to a
@@ -36,9 +31,9 @@ storage outright (disclosed in `state_pbt.py`'s own module
 docstring) -- so every root-equality and deletion assertion below
 pins this provider's current behavior, not EIP-8297 conformance. If
 `state_pbt` is ever made conformant, the roots pinned here must be
-regenerated. `tests/binary_trie/test_trie.py::test_zero_value_is_not_absence`
-is the one conformant test in this tree: the raw `BinaryTrie` does
-keep a zero-valued leaf; only this provider layer removes it.
+regenerated. `test_trie.py::test_zero_value_is_not_absence` is the
+one conformant test in this tree: the raw `BinaryTrie` does keep a
+zero-valued leaf; only this provider layer removes it.
 """
 
 import pytest
@@ -252,9 +247,8 @@ def test_diff_root_matches_directly_built_post_state() -> None:
     deleting an account produces the same root as building the
     post-state directly in the MPT container and embedding it.
 
-    Not EIP-8297-conformant (see the module docstring): the zeroed
-    slot and the deleted account's storage both pin current provider
-    behavior, not the EIP's own zero/deletion semantics.
+    Not EIP-8297-conformant (see module docstring): the zeroed slot
+    and the deleted account's storage both pin current behavior.
     """
     code = Bytes(b"\x01" * 40)
     code_hash = keccak256(code)
@@ -306,9 +300,8 @@ def test_deleting_the_only_account_empties_the_tree() -> None:
     """
     Deleting the last account leaves the empty tree commitment.
 
-    Not EIP-8297-conformant (see the module docstring): this pins
-    current provider behavior -- dropping a deleted account's storage
-    outright -- not the EIP's own zero/deletion semantics.
+    Not EIP-8297-conformant (see module docstring): pins current
+    behavior -- dropping a deleted account's storage outright.
     """
     state = State()
     set_account(
@@ -332,9 +325,7 @@ def test_zero_write_matches_never_written() -> None:
     MPT state semantics.
 
     That match with MPT is exactly what is not EIP-8297-conformant
-    (see the module docstring): the pinned root equality here is
-    current provider behavior, not the EIP's own zero/deletion
-    semantics.
+    (see module docstring): pins current behavior.
     """
 
     def fresh() -> State:
@@ -420,11 +411,7 @@ def test_embedded_key_set_for_a_crafted_contract() -> None:
     Code spanning 129 chunks (`31 * 129 = 3999` bytes) puts chunks
     0-127 in the header and chunk 128 in the code zone; storage at
     slots 63, 64, and 256 puts one slot in the header and two in the
-    storage zone, each its own overflow group. The expected keys are
-    rebuilt from raw `blake3` and literal zone/sub-index bytes, never
-    by calling the embedding's own derivation, so a swapped zone byte
-    or an off-by-one sub-index would be caught here even though it
-    cannot change a leaf count.
+    storage zone, each its own overflow group.
     """
     address32 = b"\x00" * 12 + bytes(ADDRESS_A)
     code = Bytes(b"\x01" * (31 * 129))
@@ -471,14 +458,9 @@ def test_embedded_keys_never_use_a_reserved_zone_byte() -> None:
     MUST be allocated from `0x02`-`0xFE` and MUST keep their keys
     mutually prefix-free").
 
-    Reuses the same crafted contract as
-    `test_embedded_key_set_for_a_crafted_contract`: 129 code chunks
-    (128 header chunks plus one content-addressed overflow chunk) and
-    storage at slots 63, 64, and 256 (one header slot, two overflow
-    slots in different groups), so the embedded state actually
-    populates all four leaf categories in one account: header
-    storage, overflow storage, header code chunks, and overflow code
-    chunks.
+    Reuses `test_embedded_key_set_for_a_crafted_contract`'s crafted
+    contract, so the embedded state populates all four leaf
+    categories: header/overflow storage and header/overflow code.
     """
     code = Bytes(b"\x01" * (31 * 129))
     state = MptState()
@@ -509,25 +491,18 @@ def test_embedded_keys_never_use_a_reserved_zone_byte() -> None:
 def test_embedded_state_root_is_pinned() -> None:
     """
     The same crafted state as `test_embedded_key_set_for_a_crafted_contract`
-    -- one contract whose 129-chunk code and slots 63/64/256 exercise
-    every sub-index boundary the embedding defines -- commits to a
-    hardcoded root hash.
+    commits to a hardcoded root hash.
 
-    This is a deliberate change-detector for the hash function, node
-    tags, prefix encoding, and the embedding built on top of them, in
-    the same spirit as `test_trie.py::test_fixed_trie_root_is_pinned`
-    (which pins a root over a raw, hand-built trie rather than a state
-    that went through `embed_flat_state`): the EIP's hash choice is
-    explicitly not final, and this test is meant to fail loudly the
-    moment any of the above changes. Every other root assertion in
-    this module compares two roots the code itself computed --
-    `root(embedded) == root(expected)`, or against `EMPTY_TRIE_ROOT` --
-    so a systematic, but still fully deterministic, bug in the hash
+    A deliberate change-detector for the hash function, node tags,
+    prefix encoding, and the embedding built on top of them -- same
+    spirit as `test_trie.py::test_fixed_trie_root_is_pinned`. Every
+    other root assertion in this module compares two roots the code
+    itself computed, so a systematic but deterministic bug in the hash
     function or merkleization would move both sides identically and
-    pass unnoticed there; only a hardcoded value, pinned from a
-    known-good run, can catch that. To regenerate the constant after a
-    deliberate, reviewed change: print `root(embedded).hex()` for this
-    same state and paste the new value below.
+    pass unnoticed there; only a value hardcoded from a known-good run
+    catches that. To regenerate after a deliberate, reviewed change:
+    print `root(embedded).hex()` for this same state and paste the new
+    value below.
     """
     code = Bytes(b"\x01" * (31 * 129))
     state = MptState()
@@ -560,21 +535,17 @@ def test_embedded_key_set_for_a_fully_occupied_header_stem() -> None:
     key at all.
 
     `31 * 128 = 3968` bytes of code fills header chunks 0-127
-    (sub-indices 128-255) without spilling into the code zone;
-    storage slots 0-63 fill header slots 0-63 (sub-indices 64-127)
-    without spilling into the storage zone. Together with basic data
-    (sub-index 0) and the code hash (sub-index 1), this is the
-    maximum-occupancy case the EIP's `STEM_SUBTREE_WIDTH > CODE_OFFSET
-    > HEADER_STORAGE_OFFSET` invariant exists to protect -- today's
-    `test_embedded_key_set_for_a_crafted_contract` reaches only 131 of
-    the 256 possible sub-indices.
+    (sub-indices 128-255); storage slots 0-63 fill header slots 0-63
+    (sub-indices 64-127) -- together with basic data (0) and the code
+    hash (1), the maximum-occupancy case the EIP's `STEM_SUBTREE_WIDTH
+    > CODE_OFFSET > HEADER_STORAGE_OFFSET` invariant exists to
+    protect.
 
-    The full 256 is unreachable by any account: sub-indices 2-63 are
-    never assigned to anything by this embedding (`HEADER_STORAGE_OFFSET
-    = 64` leaves them permanently between the code hash at 1 and the
-    first header storage slot at 64), so the true maximum is 194, and
-    the expected set below is exactly `{0, 1} | set(range(64, 256))`,
-    not `set(range(256))`.
+    The full 256 is unreachable by any account: sub-indices 2-63 sit
+    permanently unassigned between the code hash (1) and the first
+    header storage slot (64), so the true maximum is 194 and the
+    expected set is `{0, 1} | set(range(64, 256))`, not
+    `set(range(256))`.
     """
     address32 = b"\x00" * 12 + bytes(ADDRESS_A)
     code = Bytes(b"\x01" * (31 * 128))
@@ -612,11 +583,10 @@ def test_header_code_chunks_are_per_account_while_overflow_is_shared() -> None:
     Two accounts with identical 129-chunk code are disjoint on
     header chunk keys but share their one overflow chunk key.
 
-    Pins this by KEY, not leaf count: per-account header chunks
-    (sub-indices 128-255 under each account's own header stem) must
-    never collide between the two accounts, while the single chunk
-    that overflows the header (chunk 128) must land on the exact
-    same content-addressed key for both, so the tree stores it once.
+    Pins this by KEY, not leaf count: header chunks must never
+    collide between the two accounts, while the one chunk that
+    overflows the header must land on the same content-addressed key
+    for both.
     """
     code = Bytes(b"\x01" * (31 * 129))
     state = MptState()
@@ -673,21 +643,14 @@ def test_chunk_values_are_distinct_across_the_header_overflow_boundary() -> (
     from `ACCOUNT_ZONE` to `CODE_ZONE` and keying switches from
     address-derived to content-addressed.
 
-    Every other coverage of this boundary in this suite (this module's
-    own `test_embedded_key_set_for_a_crafted_contract` and
-    `test_header_code_chunks_are_per_account_while_overflow_is_shared`,
-    and `test_embedding.py`'s `test_code_chunk_key_matrix`) builds code
-    as `b"\\x01" * N`, so chunk 127 and chunk 128 hold identical bytes
-    and are interchangeable: before this test, swapping their stored
-    values inside `embed_flat_state` passed every one of those tests,
-    and indeed the entire suite, key-set assertions included. Filling
-    chunk `i` with
+    Every other coverage of this boundary in this suite builds code as
+    `b"\\x01" * N`, making chunks 127 and 128 identical and
+    interchangeable: before this test, swapping their stored values
+    inside `embed_flat_state` passed every one of those tests, key-set
+    assertions included. Filling chunk `i` with
     `_code_chunk_filler_byte(i)` keeps every filler byte outside the
-    `PUSH1`..`PUSH32` range, so `chunkify_code` reports a leading
-    push-data-count byte of 0 for every chunk (nothing carries over
-    from a previous chunk when no byte anywhere is a push opcode), and
-    each chunk's expected value is trivially `0x00` followed by 31
-    repeats of its own filler byte.
+    `PUSH1`..`PUSH32` range, so each chunk's expected value is
+    trivially `0x00` followed by 31 repeats of its own filler byte.
     """
     address32 = b"\x00" * 12 + bytes(ADDRESS_A)
     chunk_count = 130  # chunks 0..129: 31 * 130 = 4030, well under
@@ -731,10 +694,9 @@ def test_basic_data_leaf_bytes_carry_code_size_nonce_and_balance() -> None:
     The BASIC_DATA leaf's 32 bytes pack the resolved code's length,
     not any field stored on `Account` itself.
 
-    `Account` has no `code_size` field, so reading the leaf back out
-    by its independently rebuilt key and checking it byte range by
-    byte range is proof the provider derives the size from
-    `get_code(code_hash)` at embed time, not from anything cached.
+    `Account` has no `code_size` field, so this proves the provider
+    derives it from `get_code(code_hash)` at embed time, not from
+    anything cached.
     """
     code = Bytes(b"\x01" * 40)
     state = MptState()
@@ -793,10 +755,9 @@ def test_empty_code_contract_embeds_like_an_eoa() -> None:
     `store_code` rather than merely defaulted, embeds identically to
     an EOA: exactly the two header leaves and no code chunk leaves.
 
-    Distinct from `test_eoa_embeds_basic_data_and_code_hash_leaves`,
-    which never calls `store_code` at all; this pins that routing
-    empty bytes through the store still resolves to `EMPTY_CODE_HASH`
-    and that `chunkify_code(b"") == []` leaves no chunk leaf behind.
+    Unlike `test_eoa_embeds_basic_data_and_code_hash_leaves` (which
+    never calls `store_code`), this pins that routing empty bytes
+    through the store still resolves to `EMPTY_CODE_HASH`.
     """
     state = State()
     code_hash = store_code(state, Bytes(b""))
@@ -866,9 +827,8 @@ def test_get_code_raises_for_an_unknown_code_hash() -> None:
     when the root is computed, because `embed_flat_state` resolves
     every account's code through `get_code` to size it.
 
-    Only `EMPTY_CODE_HASH` needs no store entry; any other hash that
-    was never handed to `store_code` (or `code_changes`) is missing
-    from `_code_store` and `get_code` raises directly.
+    Only `EMPTY_CODE_HASH` needs no store entry; any other unstored
+    hash is missing from `_code_store` and `get_code` raises directly.
     """
     state = State()
     unknown_hash = keccak256(b"never stored")
@@ -892,16 +852,10 @@ def test_storage_clears_removes_slots_before_other_changes() -> None:
     any other, while a brand-new key written by the same diff still
     lands with its new value.
 
-    Several pre-EIP-6780 forks (frontier through shanghai) still
-    populate `storage_clears` in their own trackers, and
-    `state_mpt`'s `apply_changes_to_state` consumes it too — but
-    none of them use `state_pbt`. `binary_tree`, the only fork wired
-    to this provider, copies Amsterdam's `extract_block_diff`, which
-    never sets the field: EIP-6780 removed the full-storage-wipe
-    `SELFDESTRUCT` semantics that motivated it. So this branch is
-    reachable only from unit tests today; pinning it keeps the
-    provider honest in case a pre-Cancun-style tracker is ever wired
-    up to it.
+    `binary_tree`'s own `extract_block_diff` (copied from Amsterdam,
+    post-EIP-6780) never sets this field, so the branch is reachable
+    only from this unit test today; pinning it keeps the provider
+    honest in case a pre-Cancun-style tracker is ever wired up to it.
     """
     state = State()
     set_account(
@@ -932,7 +886,7 @@ def test_account_deletion_also_drops_its_storage() -> None:
     `_storage` no longer has an entry for the address, so
     `account_has_storage` reads back `False`.
 
-    `tests/binary_trie/test_differential_mpt.py`'s
+    `test_differential_mpt.py`'s
     `test_account_delete_diverges_on_account_has_storage` pins the
     contrasting MPT behavior, where storage survives an account
     delete; this test only pins PBT's own side of that divergence.
@@ -964,13 +918,11 @@ def test_storage_written_for_a_deleted_account_is_orphaned_but_not_embedded() ->
     recreates `_storage[A]` after the delete popped it, so
     `account_has_storage` reads back `True` for an address with no
     account. `embed_flat_state` skips storage for addresses missing
-    from `accounts`, so the orphan is invisible to the root: it
-    matches a state that never had `A` at all, alongside an unrelated
-    account that did.
+    from `accounts`, so the orphan is invisible to the root.
 
-    Not EIP-8297-conformant (see the module docstring): the
-    account-deletion-drops-storage behavior this relies on pins
-    current provider behavior, not the EIP's own semantics.
+    Not EIP-8297-conformant (see module docstring): relies on the
+    account-deletion-drops-storage behavior, which pins current
+    behavior, not the EIP's own semantics.
     """
     state = State()
     set_account(
@@ -1019,9 +971,8 @@ def test_all_zero_storage_change_drops_the_address_entry() -> None:
     `account_has_storage` reads back `False` and the root matches a
     state that was never written to.
 
-    Not EIP-8297-conformant (see the module docstring): this pins
-    current provider behavior, not the EIP's own zero/deletion
-    semantics.
+    Not EIP-8297-conformant (see module docstring): pins current
+    behavior.
     """
     state = State()
     set_account(
@@ -1162,11 +1113,8 @@ def test_sequential_block_diffs_evolve_the_root() -> None:
     write.
 
     Zero-means-absent composes across separate blocks, not just
-    within one diff.
-
-    Not EIP-8297-conformant (see the module docstring): this pins
-    current provider behavior, not the EIP's own zero/deletion
-    semantics.
+    within one diff. Not EIP-8297-conformant (see module docstring):
+    pins current behavior.
     """
     state = State()
     set_account(
@@ -1204,16 +1152,13 @@ def test_storage_boundary_slots_through_the_provider() -> None:
     defines for that slot, holding the exact 32-byte value
     `set_storage` wrote there -- not merely a key that exists.
 
-    Rebuilt here from raw `blake3` and literal zone/sub-index bytes
-    rather than by calling `get_tree_key_for_storage_slot`. Slots 64
-    and 255 share one overflow stem (tree index 0); the other two
-    each open their own. Each slot gets its own distinct value
-    (`index + 1`), so a swap between any two of the six leaves is
-    detectable: mutating all header storage leaf values, or all
-    overflow storage leaf values, inside `embed_flat_state` used to be
-    caught only by `test_contract_embeds_chunks_and_storage_slots`
-    (slots 1 and 100, neither near a boundary) -- every boundary-
-    focused test, this one included until now, asserted key sets only.
+    Rebuilt here from raw `blake3` and literal zone/sub-index bytes,
+    not `get_tree_key_for_storage_slot`. Each slot gets its own
+    distinct value (`index + 1`), so a swap between any two of the six
+    leaves is detectable: every other boundary-focused test in this
+    module asserts key sets only, so mutating all header (or all
+    overflow) leaf values inside `embed_flat_state` would otherwise go
+    uncaught here.
     """
     state = State()
     set_account(

@@ -9,25 +9,16 @@ reach far past the 64-slot account header into overflow storage
 groups (see the slot arithmetic in each test's docstring below).
 
 EIP-2935's block-hash ring buffer and EIP-7002's withdrawal-request
-queue are NOT bounded to the header either -- both CAN reach the
-overflow zone, just not from the short chains and single request this
-module's tests (inherited unmodified from the upstream
-`tests/prague/eip2935_historical_block_hashes_from_state` and
-`tests/prague/eip7002_el_triggerable_withdrawals` suites, which run
-under `BinaryTree` by inheritance since both are `valid_from` a fork
-at or before Prague and `BinaryTree` subclasses Amsterdam) actually
-drive. EIP-2935's `HISTORY_SERVE_WINDOW` is 8191 slots (`tests/prague/
-eip2935_historical_block_hashes_from_state/spec.py`), so its buffer
-occupies slots 0-8190; EIP-7002 stores each queued withdrawal request
-at `WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET + 3 * queue_index`
-(`tests/prague/eip7002_el_triggerable_withdrawals/spec.py`), so
-roughly 21 queued requests in one block already exceed slot 64.
-Neither upstream suite reaches those counts, so neither reaches the
-overflow zone today -- that is a property of those tests' inputs, not
-a bound on either buffer. A high genesis block number for EIP-2935, or
-21+ withdrawal requests queued in one block for EIP-7002, would drive
-these buffers into overflow storage groups and would be worth adding
-here; this module does not yet cover either.
+queue are NOT bounded to the header either, but the upstream suites
+this module inherits (unmodified, running under `BinaryTree` via
+`valid_from` inheritance) never drive them that far: EIP-2935's
+`HISTORY_SERVE_WINDOW` is 8191 slots, and EIP-7002 stores each queued
+request at `WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET + 3 *
+queue_index`, so ~21 requests in one block already exceed slot 64 --
+neither upstream suite reaches those counts, which is a property of
+their inputs, not a bound on either buffer. A high genesis block
+number (EIP-2935) or 21+ queued withdrawal requests (EIP-7002) would
+drive these into overflow storage groups; not covered here yet.
 """
 
 import pytest
@@ -60,17 +51,13 @@ def test_beacon_root_ring_buffer_across_blocks(
     Verify the EIP-4788 beacon-root ring buffer lands its timestamp and
     root slots correctly across three blocks with distinct timestamps.
 
-    Storage groups (`Spec.storage_group_index`; group 0 is the header
-    plus overflow slots 64-255, group >= 1 is HIGH, i.e. slot > 255):
-    timestamp=12 keeps its own timestamp slot (12) in the account
-    HEADER, but its root slot (8203) already lands in group 32.
-    timestamp=300 pushes even the timestamp slot itself into group 1
-    (HIGH) without needing the root slot's fixed +8191 offset; its
-    root slot (8491) is group 33. timestamp=8000 puts the timestamp
-    slot in group 31 and the root slot (16191) in group 63. This
-    grouping is why these three timestamps were chosen for coverage;
-    it is not itself verified below, which checks only slot/value
-    pairs on the account, not which tree group a key lands in.
+    Chosen for storage-group coverage (group 0 is the header plus
+    overflow slots 64-255, group >= 1 is HIGH): timestamp=12 keeps its
+    timestamp slot in the header but its root slot (8203) is already
+    group 32; timestamp=300 pushes even the timestamp slot itself into
+    group 1; timestamp=8000 puts the timestamp slot in group 31 and
+    the root slot in group 63. This grouping is not itself verified
+    below, which checks only slot/value pairs, not tree group.
     """
     helpers = SpecHelpers()
     beacon_roots_address = Address(Spec4788.BEACON_ROOTS_ADDRESS)

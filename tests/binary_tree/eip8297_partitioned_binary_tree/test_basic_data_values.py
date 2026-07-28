@@ -9,7 +9,7 @@ balance transacting successfully, a near-maximum 8-byte nonce
 incrementing correctly, and the balance/code_size fields read back
 through their own opcodes agreeing with committed state. The packed
 encoding's byte layout itself is pinned directly by
-`tests/binary_trie/test_embedding.py::test_encode_basic_data_layout`.
+`test_embedding.py::test_encode_basic_data_layout`.
 """
 
 import pytest

@@ -195,13 +195,11 @@ def test_create_then_revert_leaves_child_nonexistent(
     the call.
 
     `parent`'s own REVERT wipes out everything in its frame, so an
-    unconditional canary cannot live there. Instead, an outer `caller`
-    contract POPs `parent`'s (always-failing, since `parent` always
-    reverts) CALL result and writes its own canary slot right after:
-    without it, a `parent` whose CREATE ran out of gas before ever
-    reaching its own REVERT would leave the exact same observable post
-    state as one where the CREATE succeeded and was then correctly
-    rolled back.
+    unconditional canary cannot live there; an outer `caller` writes
+    one instead, right after popping `parent`'s (always-failing) CALL
+    result, to distinguish the CREATE succeeding and then correctly
+    rolling back from the CREATE running out of gas before ever
+    reaching the REVERT.
     """
     child_deploy_code = Op.STOP
     child_initcode = Initcode(
@@ -246,11 +244,9 @@ def test_empty_account_touch_not_materialized(
     Verify EIP-161: touching a never-seen, empty account with a
     zero-value CALL does not materialize it in the post state.
 
-    An unconditional canary slot, written right after the (POP'd)
-    CALL, proves the caller's own frame actually continued: without
-    it, the lone `Account.NONEXISTENT` assertion on `touched` cannot
-    distinguish "correctly not materialized" from "the caller's frame
-    never ran at all."
+    An unconditional canary slot written right after the (POP'd) CALL
+    proves the caller's frame actually continued, distinguishing this
+    from the frame never running at all.
     """
     canary_slot = 1
     touched = pre.nonexistent_account()
@@ -285,10 +281,9 @@ def test_precompile_touch_and_value_transfer(
     Verify a zero-value CALL to a precompile does not materialize an
     account for it, while a subsequent value transfer does.
 
-    An unconditional canary slot, written right after both (POP'd)
-    CALLs, proves the caller's own frame actually continued: without
-    it, this test would pass identically if the caller's frame never
-    ran at all, for the `value == 0` case at least.
+    An unconditional canary slot written right after both (POP'd)
+    CALLs proves the caller's frame actually continued, at least for
+    the `value == 0` case.
     """
     sha256_address = Address(0x02)
     canary_slot = 1

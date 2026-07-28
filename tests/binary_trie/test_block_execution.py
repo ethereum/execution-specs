@@ -3,42 +3,35 @@ Unit test proving the BinaryTree fork's block-execution path rejects a
 block whose header claims a `state_root` that does not match the
 tree-computed root.
 
-`tests/binary_tree/eip8297_partitioned_binary_tree/test_multi_block.py
-::test_wrong_state_root_expectation_is_recorded_for_consumers` only
-*records* this expectation: fill-time verification is skipped
-whenever `rlp_modifier` is set (`execution_testing`'s
-`specs/blockchain.py:1073-1084`), and no client consumes `BinaryTree`
-fixtures either, so nothing exercises the check end to end today.
-This test drives it directly, through the actual code path:
-`ethereum.forks.binary_tree.fork.execute_block`, whose
+`test_wrong_state_root_expectation_is_recorded_for_consumers` in
+`test_multi_block.py` only *records* this expectation: fill-time
+verification is skipped whenever `rlp_modifier` is set
+(`BlockchainTest.generate_block_data`), and no client consumes
+`BinaryTree` fixtures either, so nothing exercises the check end to
+end today. This test drives it directly,
+through `ethereum.forks.binary_tree.fork.execute_block`, whose
 `block_state_root != block.header.state_root` comparison is what
 raises `InvalidBlock`.
 
-Building a self-consistent block by hand runs into the same
-chicken-and-egg problem every block builder faces: `execute_block`
-only *validates* a header against outputs it (re)computes, it never
-*returns* the correct header. `_build_valid_block_one` resolves this
-the way a real block builder would: it runs the block body once
-(`apply_body`, on a from-scratch `BlockEnvironment`) to learn what the
-outputs actually are, using the exact same helper functions
-`execute_block` itself calls right after `apply_body`
-(`extract_block_diff`, `State.compute_state_root`, the MPT `root`,
-`logs_bloom`, `compute_requests_hash`, `hash_block_access_list`) --
+Building a self-consistent block by hand hits the chicken-and-egg
+problem every block builder faces: `execute_block` only *validates* a
+header against outputs it (re)computes, it never *returns* the
+correct header. `_build_valid_block_one` resolves this the way a real
+block builder would: it runs the block body once (`apply_body`, on a
+from-scratch `BlockEnvironment`) to learn the real outputs, using the
+same helper functions `execute_block` itself calls right after --
 none of which is the comparison under test here -- and packages a
-header from the results. `test_execute_block_rejects_a_tampered_state_root`
-then asserts the block returned by `_build_valid_block_one` executes
-cleanly (the control) before tampering with its `state_root` in
-isolation. This keeps `execute_block` itself, unmodified, as the thing
-that raises `InvalidBlock`: nothing here reimplements or shortcuts the
-root comparison it performs.
+header from the results.
+`test_execute_block_rejects_a_tampered_state_root` then asserts that
+block executes cleanly (the control) before tampering with its
+`state_root` in isolation, keeping `execute_block` itself, unmodified,
+as the thing that raises `InvalidBlock`.
 
 The block itself is deliberately minimal: no transactions, no
 withdrawals, and a one-byte `STOP` stub deployed at every system
 contract address `apply_body` unconditionally calls -- just enough for
 `process_checked_system_transaction`'s "contract has code" precondition
-to pass for the withdrawal, consolidation, and builder deposit/exit
-contracts. None of that machinery is under test; a block this empty
-produces an empty `BlockDiff` (nothing writes any state), so its
+to pass. A block this empty produces an empty `BlockDiff`, so its
 `state_root` is simply the pre-state's own, already-known root.
 """
 

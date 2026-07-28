@@ -513,12 +513,12 @@ def test_fixed_trie_root_is_pinned() -> None:
     A small fixed trie spanning the embedding's three key shapes
     commits to a hardcoded root hash.
 
-    This is a deliberate change-detector for the hash function, node
-    tags, and prefix encoding: the EIP still debates the hash choice,
-    and this test is meant to fail loudly the moment any of them
-    change. To regenerate the constant after a deliberate, reviewed
-    change: print `root(trie).hex()` for this same trie and paste the
-    new value below.
+    A deliberate change-detector for the hash function, node tags,
+    and prefix encoding: the EIP's hash choice is not yet final, and
+    this test is meant to fail loudly the moment any of them change.
+    To regenerate after a deliberate, reviewed change: print
+    `root(trie).hex()` for this same trie and paste the new value
+    below.
     """
     key_a = Bytes(b"\x00" + b"\x11" * 33)  # 34-byte key, 0x00 zone
     key_b = Bytes(b"\x01" + b"\x22" * 33)  # 34-byte key, 0x01 zone
@@ -626,13 +626,12 @@ def test_prefix_violation_only_fails_at_root_time() -> None:
 
     EIP-8297's "Tree structure" section places this rejection in
     `insert` itself ("`insert` rejects keys that violate either
-    constraint"); this reference implementation's `trie_set` instead
-    defers that enforcement to `root()`, the same disclosure
-    treatment the zero-value/absence divergence already receives
-    elsewhere in this tree. The practical consequence is nil for a
-    rebuild-based reference that always calls `root()` before
-    trusting a commitment, which is exactly why it is disclosed
-    rather than fixed.
+    constraint"); this implementation's `trie_set` instead defers
+    enforcement to `root()` -- the same disclosure treatment the
+    zero-value/absence divergence receives elsewhere in this tree.
+    The practical consequence is nil for a rebuild-based reference
+    that always calls `root()` before trusting a commitment, which is
+    why this is disclosed rather than fixed.
     """
     prefix_key = Bytes(b"\x50" * 34)
     extended_key = Bytes(b"\x50" * 34 + b"\x60")
@@ -657,14 +656,11 @@ def assert_canonical_structure(
     Check that `node` is the canonical `binarize` encoding of `keys`,
     whose members all share their first `depth` bits.
 
-    Recomputes each branch's split independently from `keys` (rather
-    than trusting the node's own claimed prefix) to confirm: both of
-    a branch's subtrees are non-empty; its prefix is exactly the run
-    all of `keys` share from `depth`; at the split bit, the keys
-    partition into the left (0) and right (1) subtrees with both
-    sides non-empty, which is what makes the prefix maximal; and
-    every leaf's key is one of `keys`, placing it on the path its own
-    bits take.
+    Recomputes each branch's split independently from `keys`, rather
+    than trusting the node's own claimed prefix: both subtrees must
+    be non-empty (what makes the prefix maximal), the prefix must be
+    exactly the run all keys share from `depth`, and every leaf's key
+    must be one of `keys`, on the path its own bits take.
     """
     if len(keys) == 1:
         assert isinstance(node, LeafNode)
@@ -741,13 +737,9 @@ def test_deep_thermometer_chain_matches_reference() -> None:
     """
     A "thermometer" key set, one 66-byte key per possible run length
     of leading one-bits, forces the deepest branch chain equal-length
-    keys can produce.
-
-    All 529 keys share the same length, so they are trivially
-    prefix-free; each differs from its neighbours only in where its
-    run of one-bits ends, splitting off its own branch one level
-    below the last, 528 levels deep in total. The rebuild-based spec
-    and the insertion-based reference agree on its root.
+    keys can produce -- 528 levels, each splitting off the next key
+    one level below the last. The rebuild-based spec and the
+    insertion-based reference agree on its root.
     """
     total_bits = 8 * 66
     entries = {

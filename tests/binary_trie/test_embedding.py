@@ -485,12 +485,9 @@ def _reference_chunkify(code: bytes) -> List[bytes]:
     Chunkify `code` with an independent reimplementation.
 
     A direct transcription of EIP-8297's own `chunkify_code`
-    pseudocode, kept separate from `chunkify_code` so the two can be
-    cross-checked: same structure, but the EIP text's own variable
-    names (`bytes_to_exec_data`, `pos`, `x`, `pushdata_bytes`, and
-    `pos` reused as the closing comprehension's loop variable), not
-    `chunkify_code`'s (`remaining_push_data`, `position`, `offset`,
-    `push_data_bytes`, `start`).
+    pseudocode, using the EIP text's own variable names rather than
+    `chunkify_code`'s, so the two implementations are genuinely
+    independent, not a copy-paste.
     """
     push_offset = 95
     push1 = push_offset + 1
@@ -539,12 +536,10 @@ def test_chunkify_push_data_overhanging_into_padding() -> None:
     truncated by the end of the code can have its declared data
     overhang into the padding.
 
-    `PUSH32` demands 32 data bytes but this 32-byte code (opcode
-    plus 31 data bytes) supplies only 31, so the scan -- which runs
-    over the already-padded buffer -- counts the first zero padding
-    byte as the push's 32nd data byte too. Chunk 1's leading byte is
-    therefore 2 (the last real data byte plus that one padding
-    byte).
+    `PUSH32` demands 32 data bytes but this 32-byte code (opcode plus
+    31 data bytes) supplies only 31, so the scan -- which runs over
+    the already-padded buffer -- counts the first zero padding byte
+    as the push's 32nd data byte too.
     """
     push32 = 0x7F
     data = bytes(range(1, 32))  # 31 bytes: 1, 2, ..., 31
@@ -567,9 +562,8 @@ def test_chunkify_push_ending_exactly_at_chunk_boundary() -> None:
     leaves no push data carried into the next chunk.
 
     The `PUSH1` at position 29 has its one data byte at position 30,
-    chunk 0's last payload byte; chunk 1 opens with a plain opcode
-    byte, so its leading byte is 0 and no phantom extra chunk
-    appears.
+    chunk 0's last payload byte, so chunk 1 opens with a plain opcode
+    byte and no phantom extra chunk appears.
     """
     push1 = 0x60
     code = Bytes(b"\x00" * 29 + bytes([push1, 0xAB]) + b"\x00" * 31)
@@ -627,13 +621,10 @@ def test_chunkify_all_push32_code_matches_reference_scanner() -> None:
     instructions.
 
     31 repeats of a 33-byte `PUSH32 || 32 data bytes` instruction is
-    1023 bytes -- divisible by both the 33-byte instruction and the
-    31-byte chunk -- exercising a full alignment cycle between the
-    two. Chunk 32, the last of 33, additionally gets a hand-derived
-    pin that stands on its own, independent of the reference scanner:
-    the last (31st) instruction opens at position 990, so its data
-    (positions 991-1022, values 1..32) still has 31 bytes remaining
-    once chunk 32 opens at position 992, one byte into that data.
+    1023 bytes, exercising a full alignment cycle between the
+    33-byte instruction and the 31-byte chunk. Chunk 32 additionally
+    gets a hand-derived pin independent of the reference scanner, so
+    a bug shared by both scanners would still be caught.
     """
     instruction = bytes([0x7F]) + bytes(range(1, 33))
     assert len(instruction) == 33
@@ -654,15 +645,11 @@ def test_chunkify_push_data_containing_push_opcodes() -> None:
     through 0x7F) would otherwise mean `PUSH1` through `PUSH32`.
 
     Each `PUSH2` here carries `0x7F` and `0x60` as its two data
-    bytes; the scanner must skip both wholesale rather than restart
-    a push count on them. Chunk 2 additionally gets a hand-derived
-    pin that stands on its own, independent of the reference
-    scanner: the 16th `PUSH2` (at position 60) has its second data
-    byte, the `0x60`, at position 62 -- chunk 2's first byte -- so
-    chunk 2 opens with exactly one byte of carried-over push data.
-    A scanner that wrongly restarted counting on a push-opcode-valued
-    data byte would instead read `0x7F` (at position 61) as a fresh
-    `PUSH32` and report 31 there, not 1.
+    bytes; the scanner must skip both wholesale rather than restart a
+    push count on them. Chunk 2 additionally gets a hand-derived pin
+    independent of the reference scanner: a scanner that wrongly
+    restarted counting on a push-opcode-valued data byte would read
+    31 there instead of 1.
     """
     push2 = 0x61
     code = Bytes((bytes([push2, 0x7F, 0x60]) + b"\x00") * 16)
@@ -742,14 +729,11 @@ def test_encode_basic_data_layout() -> None:
     assert value[8:16] == bytes.fromhex(nonce_hex)
     assert value[16:32] == bytes.fromhex(balance_hex)
 
-    # The all-zero leaf: distinct from the case above in that every
-    # field is zero, not merely that the fields sit at the right
-    # offsets. This vector alone cannot distinguish WHERE code_size
-    # sits within the leaf -- every candidate byte offset reads back
-    # as zero either way -- so it does not pin the offset-4/offset-5
-    # EIP-7864 divergence flagged by the code_size-layout TODO on
-    # `encode_basic_data`; `test_encode_basic_data_maximum_fields`,
-    # whose fields are each distinct nonzero bytes, is what pins that.
+    # The all-zero leaf can't distinguish WHERE code_size sits (every
+    # offset reads zero either way), so it doesn't pin the
+    # offset-4/offset-5 EIP-7864 divergence noted on
+    # `encode_basic_data`; `test_encode_basic_data_maximum_fields` is
+    # what pins that.
     all_zero = encode_basic_data(
         code_size=U32(0), nonce=U64(0), balance=U256(0)
     )
@@ -774,10 +758,10 @@ def test_encode_basic_data_maximum_fields() -> None:
     Every field at its type's maximum packs into the expected 32
     bytes.
 
-    `code_size` fills all four of its bytes at offset 4 -- the
-    layout the in-code TODO flags as one byte wider than EIP-7864's
-    three-byte field at offset 5 -- `nonce` fills its eight bytes,
-    and `balance` fills its sixteen.
+    `code_size` fills all four of its bytes at offset 4 -- one byte
+    wider than EIP-7864's three-byte field at offset 5, per the
+    in-code TODO on `encode_basic_data` -- `nonce` fills eight bytes
+    and `balance` sixteen.
     """
     value = encode_basic_data(
         code_size=U32(2**32 - 1),
