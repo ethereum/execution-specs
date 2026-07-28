@@ -7,7 +7,6 @@ from execution_testing import (
     AccessList,
     Address,
     Alloc,
-    EIPChecklist,
     Hash,
     Op,
     StateTestFiller,
@@ -76,7 +75,6 @@ pytestmark += [
     ],
     indirect=True,
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 def test_transaction_validity_type_0(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -156,7 +154,6 @@ def test_transaction_validity_type_0(
     "ty",
     [pytest.param(1, id="type_1"), pytest.param(2, id="type_2")],
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 def test_transaction_validity_type_1_type_2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -249,7 +246,6 @@ def test_transaction_validity_type_1_type_2(
     "ty",
     [pytest.param(3, id="type_3")],
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 def test_transaction_validity_type_3(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -334,7 +330,6 @@ def test_transaction_validity_type_3(
     "ty",
     [pytest.param(4, id="type_4")],
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 def test_transaction_validity_type_4(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -372,7 +367,6 @@ def test_transaction_validity_type_4(
     ],
     indirect=True,
 )
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
 def test_transaction_validity_with_create2(
     state_test: StateTestFiller,
     pre: Alloc,

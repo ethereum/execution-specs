@@ -5,6 +5,7 @@ system_contract = EIP does not introduce a new system contract
 transaction_type = EIP does not introduce a new transaction type
 block_header_field = EIP does not add any new block header fields
 block_body_field = EIP does not add any new block body fields
+gas_cost_changes/test/out_of_gas = The raised floor cannot cause a runtime out-of-gas, it is a validity threshold plus end-of-transaction minimum billing; below-floor gas limits reject as invalid (insufficient_gas arms in test_transaction_validity.py)
 gas_refunds_changes = EIP does not change refund rules, only how the billed floor interacts with refunded execution gas (covered under gas_cost_changes)
 blob_count_changes = EIP does not introduce any blob count changes
 execution_layer_request = EIP does not introduce an execution layer request
