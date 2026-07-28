@@ -172,19 +172,45 @@ def test_diff_lines_reports_added_line_starting_with_pluses() -> None:
     assert added == {"++++++++++++"}
 
 
+def _apply_allowed_deltas(amsterdam_text: str, relative_path: str) -> str:
+    """
+    Rewrite `amsterdam_text`'s pinned lines to their binary_tree form.
+
+    Applies every `ALLOWED_DELTAS` substitution registered for
+    `relative_path`, in file order, unconditionally -- regardless of
+    whether the "old" text is still there. That is what makes a
+    vanished delta still fail the caller's exact string comparison: if
+    someone quietly reverts binary_tree's copy of a pinned line back to
+    amsterdam's own text, this function still produces the substituted
+    ("new") text on the amsterdam side, so the two no longer match.
+    """
+    patched = amsterdam_text
+    for old, new in ALLOWED_DELTAS.get(relative_path, []):
+        patched = patched.replace(old, new)
+    return patched
+
+
 def test_binary_tree_fork_matches_amsterdam_modulo_known_deltas() -> None:
     """
     binary_tree's `*.py` files match amsterdam's modulo pinned deltas.
 
     Every `*.py` file under the two fork packages must exist on both
-    sides. Every shared file's contents must be identical once
-    binary_tree's text is normalized to amsterdam's spelling, except
-    for the lines hardcoded in `ALLOWED_DELTAS` (or, for `__init__.py`,
-    merely still containing `FORK_CRITERIA`). Any other changed line is
-    unreviewed drift; the assertion message names the file and the
-    offending line(s). The pinned deltas must also all still be
-    present, so "fixing" the deliberate divergence away fails the
-    guard too.
+    sides. Patching amsterdam's text with `ALLOWED_DELTAS`'
+    substitutions (or, for `__init__.py`, merely requiring the
+    binary_tree copy still contain `FORK_CRITERIA`) and normalizing
+    binary_tree's spelling must then make the two texts compare EQUAL
+    as whole strings. This is a stronger check than a removed/added
+    line-SET diff: reordering two statements, or duplicating a line in
+    only one copy, changes no set membership and would slip through a
+    set comparison, but it does change the string, so this guard still
+    catches it. Any remaining difference is unreviewed drift; the
+    assertion message names the file and the offending line(s), built
+    from `_diff_lines` purely for a readable message -- it plays no
+    part in the pass/fail decision. Deltas are applied to amsterdam's
+    text unconditionally (see `_apply_allowed_deltas`), so a vanished
+    delta -- binary_tree quietly made to match amsterdam instead of
+    the pinned divergence -- still produces a text mismatch and fails
+    the guard too.
     """
     amsterdam_paths = _relative_py_paths(AMSTERDAM_DIR)
     binary_tree_paths = _relative_py_paths(BINARY_TREE_DIR)
@@ -211,35 +237,21 @@ def test_binary_tree_fork_matches_amsterdam_modulo_known_deltas() -> None:
             continue
 
         amsterdam_text = (AMSTERDAM_DIR / relative_path).read_text()
-        removed, added = _diff_lines(
-            amsterdam_text, _normalize(binary_tree_text)
+        normalized_binary_tree_text = _normalize(binary_tree_text)
+        patched_amsterdam_text = _apply_allowed_deltas(
+            amsterdam_text, relative_path
         )
 
-        allowed = ALLOWED_DELTAS.get(relative_path, [])
-        allowed_removed = {old for old, _new in allowed}
-        allowed_added = {new for _old, new in allowed}
-
-        extra_removed = removed - allowed_removed
-        extra_added = added - allowed_added
-        if extra_removed or extra_added:
-            problems.append(
-                f"{relative_path}: unreviewed drift from amsterdam.\n"
-                "    amsterdam-only line(s) not in ALLOWED_DELTAS: "
-                f"{sorted(extra_removed)}\n"
-                "    binary_tree-only line(s) not in ALLOWED_DELTAS: "
-                f"{sorted(extra_added)}"
+        if patched_amsterdam_text != normalized_binary_tree_text:
+            removed, added = _diff_lines(
+                patched_amsterdam_text, normalized_binary_tree_text
             )
-
-        missing_removed = allowed_removed - removed
-        missing_added = allowed_added - added
-        if missing_removed or missing_added:
             problems.append(
-                f"{relative_path}: a pinned delta disappeared (someone "
-                "may have made binary_tree match amsterdam here).\n"
-                "    expected amsterdam-side line(s) now absent: "
-                f"{sorted(missing_removed)}\n"
-                "    expected binary_tree-side line(s) now absent: "
-                f"{sorted(missing_added)}"
+                f"{relative_path}: unreviewed drift from amsterdam "
+                "(modulo ALLOWED_DELTAS).\n"
+                "    amsterdam-only line(s) (post-substitution): "
+                f"{sorted(removed)}\n"
+                f"    binary_tree-only line(s): {sorted(added)}"
             )
 
     assert not problems, "\n\n".join(problems)
