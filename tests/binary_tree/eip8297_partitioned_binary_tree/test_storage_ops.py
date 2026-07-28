@@ -2,6 +2,18 @@
 Storage operation tests for the EIP-8297 partitioned binary tree,
 covering the account-header and overflow-zone boundaries the tree
 embedding cares about.
+
+EIP-8297's "Zero values and deletion" section is normative today:
+"a zero-valued leaf is distinct from an absent key, committing to a
+different root," and "removing entries is reserved for a future
+state-expiry mechanism." `src/ethereum/state_pbt.py` does the
+opposite -- a zero write deletes the slot -- so every zero-write test
+below pins this provider's current behavior, not EIP-8297
+conformance; their post states would need regenerating if the
+provider were ever made conformant.
+`tests/binary_trie/test_trie.py::test_zero_value_is_not_absence` is
+the one conformant test in the tree: the raw trie does keep a
+zero-valued leaf; only the provider layer removes it.
 """
 
 import pytest
@@ -87,7 +99,8 @@ def test_sstore_zero_after_nonzero_same_tx(
 
     `src/ethereum/state_pbt.py` treats a zero-valued storage slot as
     equivalent to an absent one, so the expected post storage below
-    is simply empty.
+    is simply empty. Not EIP-8297-conformant (see the module
+    docstring): this pins current provider behavior.
     """
     slot = 7
     contract = pre.deploy_contract(
@@ -107,6 +120,9 @@ def test_sstore_zero_across_transactions(
     """
     Verify a slot written by one transaction and zeroed by a second
     transaction in the SAME block ends the block with the slot absent.
+
+    Not EIP-8297-conformant (see the module docstring): the absent
+    slot pins current provider behavior.
     """
     slot = 7
     contract = sstore_from_calldata_contract(pre, slot=slot)
@@ -128,6 +144,9 @@ def test_sstore_zero_across_blocks(
     """
     Verify a slot written in one block and zeroed by a transaction in
     the NEXT block ends the chain with the slot absent.
+
+    Not EIP-8297-conformant (see the module docstring): the absent
+    slot pins current provider behavior.
     """
     slot = 7
     contract = sstore_from_calldata_contract(pre, slot=slot)
@@ -183,6 +202,11 @@ def test_sload_never_written_slot_returns_zero(
     """
     Verify SLOAD of a never-written slot returns zero and never
     creates a storage entry in the post state.
+
+    The read value is then SSTORE'd back into slot 0, so the absent
+    slot 0 below also relies on the zero-write-deletes-the-slot
+    behavior disclosed in the module docstring, not just on the
+    never-written slot's read.
     """
     never_written_slot = 999
     contract = pre.deploy_contract(

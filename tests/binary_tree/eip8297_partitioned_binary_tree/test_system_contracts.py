@@ -242,7 +242,10 @@ def test_withdrawal_request_queue_storage_and_block_requests(
     # is a "clean sweep": all four are back at their genesis value of
     # zero by the end of the block, so they are omitted below (an
     # omitted slot is equivalent to an explicit zero in this
-    # framework).
+    # framework). That equivalence is also what
+    # `src/ethereum/state_pbt.py` relies on internally (zero-write
+    # deletes the slot), which is not EIP-8297-conformant -- see
+    # `test_storage_ops.py`'s module docstring for the disclosure.
     expected_queue_storage = {
         base_slot: sender,
         base_slot + 1: pubkey_first_word,

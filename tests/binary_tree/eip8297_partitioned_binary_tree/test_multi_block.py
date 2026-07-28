@@ -62,6 +62,11 @@ def test_contract_evolves_across_four_blocks(
     that slot, block 3 zeroes it, and block 4 writes a brand-new HIGH
     slot (> 255, its own overflow storage group). The final post state
     reflects only the last write to each slot.
+
+    `slot_a`'s omission from `post` below (zeroed in block 3) relies
+    on `src/ethereum/state_pbt.py`'s zero-write-deletes-the-slot
+    behavior, which is not EIP-8297-conformant -- see
+    `test_storage_ops.py`'s module docstring for the disclosure.
     """
     slot_a, slot_b = 9, 400
     assert Spec.storage_group_index(slot_b) >= 1, (
