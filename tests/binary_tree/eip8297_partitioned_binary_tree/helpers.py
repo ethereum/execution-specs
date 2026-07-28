@@ -70,3 +70,23 @@ def sstore_from_calldata_contract(pre: Alloc, *, slot: int) -> Address:
     return pre.deploy_contract(
         code=Op.SSTORE(slot, Op.CALLDATALOAD(0)) + Op.STOP
     )
+
+
+def sstore_then_pad(*, slot: int, value: int, total_size: int) -> Bytecode:
+    """
+    Build code that SSTOREs `value` into `slot`, STOPs, then pads with
+    `INVALID` filler bytes out to exactly `total_size` bytes.
+
+    Used to pin code-chunking size boundaries: the write executes and
+    reports correctly regardless of how many 31-byte chunks (including
+    the account-header/overflow split) the trailing padding spans. The
+    filler is `INVALID` rather than zeros so that a client which mis-
+    executes past `STOP` (e.g. due to a chunk-metadata bug) fails loudly
+    instead of silently falling through.
+    """
+    prefix = Op.SSTORE(slot, value) + Op.STOP
+    assert total_size >= len(prefix), (
+        f"total_size {total_size} too small to fit the "
+        f"{len(prefix)}-byte SSTORE+STOP prefix"
+    )
+    return prefix + Op.INVALID * (total_size - len(prefix))
