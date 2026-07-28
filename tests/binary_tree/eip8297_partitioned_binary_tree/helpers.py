@@ -10,6 +10,17 @@ from execution_testing import (
     compute_create_address,
 )
 
+# Storage slot the factory built by `create_contract_via_factory` writes
+# an unconditional canary value to, right after its (POP'd) create call.
+# The create call's own success/address result is discarded, so without
+# this canary a factory whose create call ran out of gas or otherwise
+# failed before ever reaching its own `STOP` would be indistinguishable,
+# from the caller's side, from one that issued the create and continued
+# normally. Chosen far outside any slot a caller's own `initcode` would
+# plausibly write, since it is asserted on the FACTORY's account, not the
+# created contract's.
+FACTORY_CANARY_SLOT = 2**256 - 1
+
 
 def create_contract_via_factory(
     pre: Alloc,
@@ -32,6 +43,14 @@ def create_contract_via_factory(
     the returned `created` address is derived accordingly with
     `compute_create_address`.
 
+    After the (POP'd) create call, the factory unconditionally writes
+    `FACTORY_CANARY_SLOT` to `1`: callers can assert this on the
+    factory's own post-state storage to prove its frame actually
+    continued past the create call, rather than the same observable
+    post state also being reachable by the create call running out of
+    gas or otherwise failing before the factory's own execution ever
+    reaches that point.
+
     Returns `(factory_address, created_address)`.
     """
     template = pre.deploy_contract(code=initcode)
@@ -47,6 +66,7 @@ def create_contract_via_factory(
     factory = pre.deploy_contract(
         code=Op.EXTCODECOPY(template, 0, 0, len(initcode))
         + Op.POP(create_call)
+        + Op.SSTORE(FACTORY_CANARY_SLOT, 1)
         + Op.STOP
     )
 
