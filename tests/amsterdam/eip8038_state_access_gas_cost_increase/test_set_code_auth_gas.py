@@ -35,6 +35,7 @@ from execution_testing import (
     CodeGasMeasure,
     Environment,
     Fork,
+    Hash,
     Op,
     StateTestFiller,
     Storage,
@@ -587,12 +588,14 @@ def test_many_auths_block_limit(
 
     # Per-authorization total for a fresh (empty) authority: the regular
     # intrinsic base plus the top-frame account-write, account-creation
-    # and delegation-write charges, derived from the fork's calculators so
-    # it tracks the repricing.
+    # and delegation-write charges, derived from the fork's calculators
+    # so it tracks the repricing. The probe only feeds the gas
+    # calculators, so it is signed with a fixed dummy key rather than a
+    # throwaway pre-state signer.
     probe_auth = AuthorizationTuple(
         address=contract,
         nonce=0,
-        signer=pre.fund_eoa(),
+        secret_key=Hash(1),
         creates_account=True,
         writes_delegation=True,
         first_write=True,
