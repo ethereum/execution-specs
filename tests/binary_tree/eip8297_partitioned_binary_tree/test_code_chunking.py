@@ -54,8 +54,7 @@ HEADER_CODE_BYTES = Spec.CODE_CHUNK_SIZE * (
         pytest.param(32, id="32_bytes_crosses_first_boundary"),
         pytest.param(HEADER_CODE_BYTES, id="3968_bytes_header_exact"),
         pytest.param(HEADER_CODE_BYTES + 1, id="3969_bytes_first_overflow"),
-        # Measured at fill time: this case adds well under a second to
-        # the whole module's fill, so it is not marked `slow`.
+        # Deliberately not marked `slow`, despite the large code size.
         pytest.param(65536, id="65536_bytes_max_code_size"),
     ],
 )
@@ -145,9 +144,13 @@ def test_push_data_straddles_single_chunk_boundary(
     chunk-0/chunk-1 boundary (opcode at byte 29, data at bytes 30-33,
     crossing the boundary at byte 31) still pushes the correct value.
 
-    If chunk metadata mis-marks how many leading bytes of chunk 1 are
-    PUSH-data continuation, the data bytes actually read would shift,
-    corrupting the pushed value.
+    Each chunk's payload (bytes 1..31) is always that fixed 31-byte
+    slice of the code, regardless of the leading metadata byte; what
+    this pins is that a client's chunk *assembly* -- stripping
+    exactly one metadata byte per chunk when reconstructing code from
+    chunks -- must do so correctly, since getting that wrong (not a
+    shift in which bytes are payload) is what would corrupt the
+    pushed value.
     """
     slot = 0
     pushed_value = 0xDEADBEEF
@@ -185,9 +188,11 @@ def test_push32_data_straddles_two_chunk_boundaries(
     32-byte immediate crosses from chunk 1 into chunk 2 (opcode at byte
     30, data at bytes 31-62) still pushes the correct value.
 
-    A 32-byte immediate alone can only ever span two chunks (32 < 2 *
-    31), so to actually touch three chunks -- crossing two boundaries
-    -- the opcode byte itself must sit in the chunk before the data.
+    A 32-byte immediate alone can touch at most two chunks: 32 <= 31
+    + 1, so at most one leftover byte of an earlier chunk plus one
+    whole chunk get used, with nothing left to spill into a third.
+    To actually touch three chunks -- crossing two boundaries -- the
+    opcode byte itself must sit in the chunk before the data.
     """
     slot = 0
     pushed_value = int.from_bytes(bytes(range(1, 33)), "big")
@@ -235,10 +240,13 @@ def test_push_data_straddles_header_overflow_boundary(
     immediate at 3967-3970. Byte 3967 is the last header code byte;
     3968-3970 are the first three bytes of the first overflow chunk.
 
-    If a client's chunk metadata treats this zone-crossing boundary
-    differently from an ordinary intra-zone chunk boundary when
-    marking leading PUSH-data-continuation bytes, the data actually
-    read would shift, corrupting the pushed value.
+    Each chunk's payload is still that fixed 31-byte code slice
+    regardless of zone; crossing zones only changes how the chunk's
+    *key* is derived, not which bytes are payload. What this pins is
+    that a client's chunk assembly must treat the zone-crossing
+    boundary like any other when stripping the leading metadata
+    byte, since getting that wrong -- not a payload shift -- is what
+    would corrupt the pushed value.
     """
     slot = 0
     pushed_value = 0xDEADBEEF
@@ -276,12 +284,13 @@ def test_jump_into_pushdata_is_invalid(
     `JUMPDEST` (0x5B) but is actually `PUSH1`'s immediate data still
     fails as an invalid jump.
 
-    Chunk metadata marks every chunk's leading PUSH-data-continuation
-    bytes; if that marking is ever ignored by jump-destination
-    validity, a byte that merely looks like `JUMPDEST` would wrongly
-    become jumpable. The target's own `SSTORE` after the jump is never
-    reached when the jump is correctly rejected, so its slot stays
-    absent, and the wrapping `CALL` reports failure.
+    This is the classic invalid-jump-into-PUSH-data rule, independent
+    of chunking: the 12-byte target is a single chunk with no
+    carried-over push data (chunk 0's leading byte is 0, since
+    nothing precedes it), so there is no chunk metadata describing
+    byte 5 here at all. The target's own `SSTORE` after the jump is
+    never reached when the jump is correctly rejected, so its slot
+    stays absent, and the wrapping `CALL` reports failure.
 
     A failed `CALL` and the caller's own frame unexpectedly reverting
     would both otherwise leave the caller's slot 0 reading back as
@@ -422,12 +431,13 @@ def test_extcodecopy_past_end_zero_pads(
     Verify `EXTCODECOPY` reading past the end of a chunked contract's
     code zero-pads (classic semantics, re-verified under chunking).
 
-    The 100-byte target ends mid-chunk (chunk 3 spans bytes 93-123, but
-    only bytes 93-99 hold real code): the copy starts 2 bytes before
-    the real end and reads 32 bytes, so 30 of those bytes come from
-    both past the code's end AND the tail of that same partially-filled
-    chunk, proving the chunk's own internal padding -- not just the
-    classic "past the last chunk" case -- reads back as zero.
+    The 100-byte target ends mid-chunk (chunk 3 spans bytes 93-123,
+    but only bytes 93-99 hold real code): the copy starts 2 bytes
+    before the real end and reads 32 bytes, so of the 30 zero bytes
+    read, 24 (positions 100-123) are chunk 3's own internal padding
+    and 6 (positions 124-129) are past the last chunk entirely --
+    proving the chunk's own internal padding, not just the classic
+    "past the last chunk" case, reads back as zero.
     """
     size = 100
     pattern = bytes((i * 11 + 1) % 256 for i in range(size))
