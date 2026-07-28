@@ -1655,7 +1655,6 @@ def test_bal_system_address_coinbase_zero_tip(
         sender=alice,
         to=bob,
         value=tx_value,
-        gas_limit=tx_gas_limit,
         gas_price=base_fee_per_gas,
     )
 
