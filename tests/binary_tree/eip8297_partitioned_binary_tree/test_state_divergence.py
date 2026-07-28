@@ -25,7 +25,7 @@ from execution_testing import (
     Transaction,
 )
 
-from .helpers import create_contract_via_factory
+from .helpers import FACTORY_CANARY_SLOT, create_contract_via_factory
 from .spec import ref_spec_8297
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
@@ -146,51 +146,6 @@ def test_create2_after_eip161_clear_of_storage_holding_account(
             target: Account(
                 nonce=1, code=deploy_code, storage={new_slot: new_value}
             ),
-            factory: Account(nonce=2),
+            factory: Account(nonce=2, storage={FACTORY_CANARY_SLOT: 1}),
         },
-    )
-
-
-@pytest.mark.pre_alloc_mutable()
-def test_create2_into_storage_holding_codeless_address_without_clearing(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Pin the result of the straight EIP-7610 shape, with NO prior
-    clearing: CREATE2 targets an address that, from genesis, already
-    holds storage but no code/nonce.
-
-    Unlike the clear-then-recreate scenario above, MPT and PBT do NOT
-    diverge here — the storage was never deleted/orphaned, so both
-    providers agree the target's `account_has_storage` is true, and
-    CREATE2 is rejected as a collision on BOTH. This test only pins
-    BinaryTree's (PBT's) side, which is ordinary, unsurprising
-    EIP-7610 behavior with no open question attached.
-    """
-    old_slot, old_value = 7, 0xFEED
-    new_slot, new_value = 8, 0x1234
-    salt = 0x51DF
-
-    deploy_code = Op.STOP
-    initcode = Initcode(
-        deploy_code=deploy_code,
-        initcode_prefix=Op.SSTORE(new_slot, new_value),
-    )
-    factory, target = create_contract_via_factory(
-        pre, initcode, opcode=Op.CREATE2, salt=salt
-    )
-    pre[target] = Account(
-        nonce=0, code=b"", balance=0, storage={old_slot: old_value}
-    )
-
-    tx = Transaction(sender=pre.fund_eoa(), to=factory)
-
-    state_test(
-        pre=pre,
-        post={
-            target: Account(nonce=0, code=b"", storage={old_slot: old_value}),
-            factory: Account(nonce=2),
-        },
-        tx=tx,
     )

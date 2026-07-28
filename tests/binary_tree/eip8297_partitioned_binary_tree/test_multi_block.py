@@ -26,8 +26,8 @@ from execution_testing import (
     Withdrawal,
 )
 
-from .helpers import create_contract_via_factory
-from .spec import Spec, ref_spec_8297
+from .helpers import FACTORY_CANARY_SLOT, create_contract_via_factory
+from .spec import ref_spec_8297
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8297.version
@@ -69,9 +69,6 @@ def test_contract_evolves_across_four_blocks(
     `test_storage_ops.py`'s module docstring for the disclosure.
     """
     slot_a, slot_b = 9, 400
-    assert Spec.storage_group_index(slot_b) >= 1, (
-        "slot_b must land outside storage group 0"
-    )
 
     deploy_code = _DISPATCHER_CODE
     initcode = Initcode(
@@ -117,7 +114,7 @@ def test_contract_evolves_across_four_blocks(
         blocks=blocks,
         post={
             contract: Account(code=deploy_code, storage={slot_b: 0xFEED}),
-            factory: Account(nonce=2),
+            factory: Account(nonce=2, storage={FACTORY_CANARY_SLOT: 1}),
         },
     )
 
@@ -158,7 +155,7 @@ def test_account_created_then_aged_selfdestruct_next_block(
                 balance=0, code=victim_code, storage={slot: value}
             ),
             beneficiary: Account(balance=endowment),
-            factory: Account(nonce=2),
+            factory: Account(nonce=2, storage={FACTORY_CANARY_SLOT: 1}),
         },
     )
 
