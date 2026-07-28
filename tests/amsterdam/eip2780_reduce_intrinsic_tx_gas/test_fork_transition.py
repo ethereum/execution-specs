@@ -18,7 +18,7 @@ pre-fork ``TX_BASE`` of 21_000 as follows:
   lowered ``TX_BASE`` with no recipient or value-transfer charge,
   regardless of value, the largest reduction.
 - A contract creation splits the flat pre-fork ``TX_CREATE`` into the
-  ``CREATE_ACCESS`` regular intrinsic and a top-frame ``NEW_ACCOUNT``
+  ``CREATE_ACCESS`` execution intrinsic and a top-frame ``NEW_ACCOUNT``
   state charge.
 """
 
@@ -177,9 +177,9 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
     The same creation transaction (``to=None``, ``STOP`` init code that
     deploys empty code) is sent in a pre-fork block and a post-fork
     block, each from a fresh sender with the gas limit pinned exactly.
-    Pre-fork the whole cost is regular intrinsic: ``TX_BASE`` plus the
+    Pre-fork the whole cost is execution intrinsic: ``TX_BASE`` plus the
     flat ``TX_CREATE``. Post-fork the intrinsic keeps only the
-    ``CREATE_ACCESS`` regular portion of ``TX_CREATE``, while the created
+    ``CREATE_ACCESS`` execution portion of ``TX_CREATE``, while the created
     account's ``NEW_ACCOUNT`` is charged as *state* gas at the top frame — the
     sender-facing total is the sum of both.
 
@@ -204,11 +204,11 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
     )
     init_code_terms = pre_costs.TX_DATA_TOKEN_STANDARD + 2
 
-    # Pre-fork: flat regular intrinsic, no top-frame charge.
+    # Pre-fork: flat execution intrinsic, no top-frame charge.
     expected_pre = pre_costs.TX_BASE + pre_costs.TX_CREATE + init_code_terms
     # Post-fork: EIP-8037 folds ``NEW_ACCOUNT`` into ``TX_CREATE``;
     # EIP-2780 moves that state portion to the top frame, leaving the
-    # ``CREATE_ACCESS`` regular remainder in the intrinsic.
+    # ``CREATE_ACCESS`` execution remainder in the intrinsic.
     expected_post = (
         post_costs.TX_BASE
         + (post_costs.TX_CREATE - post_costs.NEW_ACCOUNT)

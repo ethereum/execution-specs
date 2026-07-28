@@ -6,12 +6,12 @@ Fork-transition tests for
 at ``timestamp=14_999`` runs under the pre-fork (parent) schedule; a
 block at ``timestamp=15_000`` runs under the EIP-8038 schedule. Every
 before/after magnitude is derived from the opcode's own cost at each
-fork (``bytecode.gas_cost`` / ``regular_cost`` / ``refund``) — nothing
+fork (``bytecode.gas_cost`` / ``execution_cost`` / ``refund``) — nothing
 is hardcoded.
 
 Two proof styles are used:
 
-* Account-access dimensions that are pure regular gas (``BALANCE`` cold
+* Account-access dimensions that are pure execution gas (``BALANCE`` cold
   access and the ``EXT*`` code-read surcharge) are measured exactly with
   ``CodeGasMeasure`` in each regime and asserted against the derived
   cost.
@@ -19,7 +19,7 @@ Two proof styles are used:
   state-gas confounders (``CALL`` with value, ``CREATE``,
   ``SELFDESTRUCT`` to a fresh beneficiary, ``SSTORE`` first change) are
   exercised in both blocks to prove the operation still runs in each
-  regime, with the ``SSTORE`` regular/state split and clear refund
+  regime, with the ``SSTORE`` execution/state split and clear refund
   compared across forks via the bytecode's own cost methods.
 * The authorization intrinsic rise is proven behaviourally: a tx whose
   ``gas_limit`` equals the old auth intrinsic is valid before the fork
@@ -261,7 +261,7 @@ def test_create_base_cost_at_transition(
     fork: Fork,
 ) -> None:
     """
-    The ``CREATE`` regular base cost changes across the boundary
+    The ``CREATE`` execution base cost changes across the boundary
     (``OPCODE_CREATE_BASE``: 32000 -> 11000 on mainnet, redefined as
     ``ACCOUNT_WRITE + COLD_STORAGE_ACCESS``). The constant transition is
     asserted from the derived schedules and a ``CREATE`` is exercised in
@@ -352,15 +352,15 @@ def test_sstore_write_cost_at_transition(
     boundary, and EIP-8038 changes the *model*, not a single number.
 
     Before the fork (parent schedule) a zero-to-nonzero ``SSTORE`` is a
-    flat regular charge (``COLD_STORAGE_ACCESS + STORAGE_SET``) with no
-    state-gas dimension. After the fork the charge splits: the regular
+    flat execution charge (``COLD_STORAGE_ACCESS + STORAGE_SET``) with no
+    state-gas dimension. After the fork the charge splits: the execution
     portion drops to ``COLD_STORAGE_ACCESS + STORAGE_WRITE`` while the
     bulk moves into the new state-gas dimension, and the clear refund
     rises. Every magnitude is derived from the two schedules; nothing is
     hardcoded.
 
     The transition is asserted at the derived-constant level (the
-    runtime opcode cost cannot isolate the regular portion without the
+    runtime opcode cost cannot isolate the execution portion without the
     state-gas confounder) and a zero-to-nonzero ``SSTORE`` is exercised
     in both blocks to prove it still sets the slot in each regime.
     """
@@ -370,16 +370,16 @@ def test_sstore_write_cost_at_transition(
     # First-change (zero -> nonzero, cold) SSTORE in each regime.
     sstore = Op.SSTORE(new_value=1)
 
-    regular_before = sstore.regular_cost(before)
-    regular_after = sstore.regular_cost(after)
+    execution_before = sstore.execution_cost(before)
+    execution_after = sstore.execution_cost(after)
     state_before = sstore.state_cost(before)
     state_after = sstore.state_cost(after)
     total_before = sstore.gas_cost(before)
     total_after = sstore.gas_cost(after)
 
-    # The repricing changes the regular charge, introduces the state
+    # The repricing changes the execution charge, introduces the state
     # dimension, and therefore moves the total.
-    assert regular_after != regular_before
+    assert execution_after != execution_before
     assert state_before == 0
     assert state_after > 0
     assert total_after != total_before
@@ -424,7 +424,7 @@ def test_auth_intrinsic_at_transition(
     The ``7702`` authorization intrinsic *falls* across the boundary.
     EIP-2780 moves the state-dependent authorization costs (account
     creation and the delegation-write base) out of the intrinsic and into
-    the top frame, leaving only the regular ``REGULAR_PER_AUTH_BASE_COST``
+    the top frame, leaving only the execution ``REGULAR_PER_AUTH_BASE_COST``
     in the intrinsic. The post-fork single-authorization intrinsic is
     therefore strictly smaller than the pre-fork one, so a tx whose
     ``gas_limit`` equals the (lower) post-fork intrinsic is rejected with

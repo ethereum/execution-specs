@@ -47,7 +47,7 @@ def test_sstore_state_gas_at_transition(
     Test SSTORE state gas activates at the EIP-8037 fork boundary.
 
     Before the fork, an SSTORE zero-to-nonzero succeeds with only
-    regular gas (no state gas dimension). After the fork, the same
+    execution gas (no state gas dimension). After the fork, the same
     operation requires state gas. Both blocks use TX_MAX_GAS_LIMIT
     which provides enough gas in either regime.
     """
@@ -59,7 +59,7 @@ def test_sstore_state_gas_at_transition(
     )
 
     blocks = [
-        # Before fork: SSTORE succeeds with regular gas only
+        # Before fork: SSTORE succeeds with execution gas only
         Block(
             timestamp=14_999,
             txs=[

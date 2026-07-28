@@ -4,7 +4,7 @@ leaf under [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/
 
 EIP-8038 originally over-charged every authorization as if it created a
 new account and *refunded* the difference (``ACCOUNT_WRITE`` on the
-regular channel, ``NEW_ACCOUNT`` -- and ``AUTH_BASE`` on a clear -- on
+execution channel, ``NEW_ACCOUNT`` -- and ``AUTH_BASE`` on a clear -- on
 the state channel) when the authority leaf already existed.
 
 Under EIP-2780 that over-charge-then-refund is gone: the
@@ -72,7 +72,7 @@ def test_existing_authority_no_new_account_charge(
     (and, unlike the superseded EIP-8038 behaviour, refunds none); it
     charges the first-write ``ACCOUNT_WRITE`` and the top-frame
     ``AUTH_BASE`` for the net-new delegation indicator. The receipt gas
-    is therefore exactly the regular intrinsic plus
+    is therefore exactly the execution intrinsic plus
     ``n * (ACCOUNT_WRITE + AUTH_BASE)``, with no refund term.
     """
     recipient = pre.deploy_contract(code=Op.STOP)
@@ -94,18 +94,18 @@ def test_existing_authority_no_new_account_charge(
     # Existing leaf + net-new delegation: the first-write ACCOUNT_WRITE
     # and AUTH_BASE at the top frame. NEW_ACCOUNT is neither charged
     # nor refunded, so the receipt gas is the exact charge.
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=n,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
         authorizations=authorization_list,
     )
     top_frame_state = fork.transaction_top_frame_state_gas(
         authorizations=authorization_list,
     )
     cumulative_gas_used = (
-        intrinsic_regular + top_frame_regular + top_frame_state
+        intrinsic_execution + top_frame_execution + top_frame_state
     )
 
     tx = Transaction(
@@ -145,7 +145,7 @@ def test_clearing_delegation_no_state_charge(
     still writes the authority's leaf (code emptied, nonce bumped), so
     the transaction's first-write ``ACCOUNT_WRITE`` applies. Nothing is
     refunded (the over-charge is gone), so the receipt gas is exactly
-    the regular intrinsic plus ``n * ACCOUNT_WRITE``.
+    the execution intrinsic plus ``n * ACCOUNT_WRITE``.
     """
     recipient = pre.deploy_contract(code=Op.STOP)
     delegated_to = pre.deploy_contract(code=Op.STOP)
@@ -169,18 +169,18 @@ def test_clearing_delegation_no_state_charge(
     # Clearing an existing delegation writes no net-new indicator, so
     # no top-frame state charge applies and no refund fires; only the
     # first-write ACCOUNT_WRITE is charged per authority.
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=n,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
         authorizations=authorization_list,
     )
     top_frame_state = fork.transaction_top_frame_state_gas(
         authorizations=authorization_list,
     )
     assert top_frame_state == 0
-    cumulative_gas_used = intrinsic_regular + top_frame_regular
+    cumulative_gas_used = intrinsic_execution + top_frame_execution
 
     tx = Transaction(
         to=recipient,

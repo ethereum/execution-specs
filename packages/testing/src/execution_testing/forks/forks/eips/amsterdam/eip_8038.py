@@ -53,7 +53,7 @@ class EIP8038(BaseFork):
         account_write = 8_000
         create_access = 11_000
         # ecRecover stays PRECOMPILE_ECRECOVER (3000) until EIP-7904 lands.
-        regular_per_auth_base_cost = (
+        execution_per_auth_base_cost = (
             1_616 + 3_000 + cold_account_access + 2 * warm_access
         )
 
@@ -73,8 +73,9 @@ class EIP8038(BaseFork):
             STORAGE_SET=storage_write,
             OPCODE_CREATE_BASE=create_access,
             TX_CREATE=create_access,
-            AUTH_PER_EMPTY_ACCOUNT=account_write + regular_per_auth_base_cost,
-            REGULAR_PER_AUTH_BASE_COST=regular_per_auth_base_cost,
+            AUTH_PER_EMPTY_ACCOUNT=account_write
+            + execution_per_auth_base_cost,
+            REGULAR_PER_AUTH_BASE_COST=execution_per_auth_base_cost,
         )
 
     @classmethod
@@ -109,7 +110,7 @@ class EIP8038(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate the regular SELFDESTRUCT gas cost. EIP-8038 adds
+        Calculate the execution SELFDESTRUCT gas cost. EIP-8038 adds
         `ACCOUNT_WRITE` when a positive balance is sent to an empty
         account, on top of the inherited cost (where `NEW_ACCOUNT`
         holds the EIP-8037 state-gas portion).
@@ -126,7 +127,7 @@ class EIP8038(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate the regular SSTORE gas cost. The state portion is
+        Calculate the execution SSTORE gas cost. The state portion is
         returned separately by `_calculate_sstore_state_gas`. Under
         EIP-8038 the access cost (`COLD_STORAGE_ACCESS` when cold, else
         `WARM_SLOAD`) is always charged, and a first-time change to the
@@ -159,7 +160,7 @@ class EIP8038(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate the regular SSTORE gas refund. The state portion is
+        Calculate the execution SSTORE gas refund. The state portion is
         returned separately by `_calculate_sstore_state_refund`.
         """
         metadata = opcode.metadata

@@ -232,12 +232,12 @@ def _compute_deploy_gas_limit(
     storage_slots: int = 0,
 ) -> Tuple[int, int]:
     """
-    Compute the deploy transaction gas limit, returning both the regular
-    gas portion bound by the EIP 7825 cap and the total regular plus
+    Compute the deploy transaction gas limit, returning both the execution
+    gas portion bound by the EIP 7825 cap and the total execution plus
     state gas used as the transaction gas field. Under EIP 8037 the cap
-    binds only the regular portion while state gas comes from the block
+    binds only the execution portion while state gas comes from the block
     reservoir and may push the total above the cap, and before Amsterdam
-    the state gas is zero so the total equals the regular gas. The regular
+    the state gas is zero so the total equals the execution gas. The execution
     portion is doubled as a safety buffer since gas estimation is
     approximate while the state portion is exact.
     """
@@ -247,44 +247,45 @@ def _compute_deploy_gas_limit(
 
     sstore = Op.SSTORE(new_value=1)
     sstore_state_gas = sstore.state_cost(fork)
-    sstore_regular_gas = sstore.gas_cost(fork) - sstore_state_gas
+    sstore_execution_gas = sstore.gas_cost(fork) - sstore_state_gas
 
-    # The intrinsic cost is now regular-only: the created account's
+    # The intrinsic cost is now execution-only: the created account's
     # NEW_ACCOUNT state gas is charged at the top frame, not folded in.
-    intrinsic_regular_gas = intrinsic_gas_calculator(
+    intrinsic_execution_gas = intrinsic_gas_calculator(
         calldata=initcode, contract_creation=True
     )
 
-    # Regular portion, bound by the gas cap.
-    regular_gas = intrinsic_regular_gas
+    # Execution portion, bound by the gas cap.
+    execution_gas = intrinsic_execution_gas
     if fork.state_gas_reservoir_enabled():
-        regular_gas += gas_costs.OPCODE_KECCAK256_PER_WORD * (
+        execution_gas += gas_costs.OPCODE_KECCAK256_PER_WORD * (
             (deploy_code_size + 31) // 32
         )
     else:
-        regular_gas += deploy_code_size * gas_costs.CODE_DEPOSIT_PER_BYTE
-    regular_gas += memory_expansion_gas_calculator(
+        execution_gas += deploy_code_size * gas_costs.CODE_DEPOSIT_PER_BYTE
+    execution_gas += memory_expansion_gas_calculator(
         new_bytes=len(bytes(initcode))
     )
-    regular_gas += storage_slots * sstore_regular_gas
+    execution_gas += storage_slots * sstore_execution_gas
 
     # Double as a safety buffer since gas estimation is approximate. The buffer
     # must not, by itself, push a contract that genuinely deploys within the
-    # EIP-7825 regular-gas cap over it: when the unbuffered estimate still fits
+    # EIP-7825 execution-gas cap over it: when the unbuffered estimate
+    # still fits
     # the cap, clamp the limit to the cap instead. The deploy then runs with a
-    # cap-sized regular limit and consumes only its (smaller) actual gas.
+    # cap-sized execution limit and consumes only its (smaller) actual gas.
     # Only a contract whose unbuffered estimate exceeds the cap is truly
     # undeployable (the caller raises on that).
-    buffered_regular_gas = regular_gas * 2
+    buffered_execution_gas = execution_gas * 2
     tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     if (
         tx_gas_limit_cap is not None
-        and buffered_regular_gas > tx_gas_limit_cap
-        and regular_gas <= tx_gas_limit_cap
+        and buffered_execution_gas > tx_gas_limit_cap
+        and execution_gas <= tx_gas_limit_cap
     ):
-        regular_gas = tx_gas_limit_cap
+        execution_gas = tx_gas_limit_cap
     else:
-        regular_gas = buffered_regular_gas
+        execution_gas = buffered_execution_gas
 
     # State portion, from the block reservoir. The created account's
     # NEW_ACCOUNT is charged at the top frame for create transactions
@@ -293,8 +294,8 @@ def _compute_deploy_gas_limit(
     state_gas += fork.transaction_top_frame_state_gas(contract_creation=True)
     state_gas += storage_slots * sstore_state_gas
 
-    deploy_gas_limit = regular_gas + state_gas
-    return regular_gas, deploy_gas_limit
+    deploy_gas_limit = execution_gas + state_gas
+    return execution_gas, deploy_gas_limit
 
 
 class Alloc(SharedAlloc):
@@ -426,18 +427,18 @@ class Alloc(SharedAlloc):
             raise ValueError(
                 f"initcode too large {len(initcode)} > {max_initcode_size}"
             )
-        regular_gas, deploy_gas_limit = _compute_deploy_gas_limit(
+        execution_gas, deploy_gas_limit = _compute_deploy_gas_limit(
             fork,
             deploy_code_size=len(deploy_code),
             initcode=initcode,
         )
         # Per EIP-8037, the per-tx 2^24 cap (EIP-7825) binds only the
-        # regular-gas portion; state gas is drawn from the block reservoir.
+        # execution-gas portion; state gas is drawn from the block reservoir.
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if tx_gas_limit_cap and regular_gas > tx_gas_limit_cap:
+        if tx_gas_limit_cap and execution_gas > tx_gas_limit_cap:
             raise ValueError(
-                f"deterministic deploy regular gas exceeds the transaction "
-                f"gas limit cap: {regular_gas} > {tx_gas_limit_cap}"
+                f"deterministic deploy execution gas exceeds the transaction "
+                f"gas limit cap: {execution_gas} > {tx_gas_limit_cap}"
             )
 
         # Defer the on-chain check; the deploy tx (if needed) and the
@@ -541,19 +542,19 @@ class Alloc(SharedAlloc):
                 f"initcode too large {initcode_len} > {max_initcode_size}"
             )
 
-        regular_gas, deploy_gas_limit = _compute_deploy_gas_limit(
+        execution_gas, deploy_gas_limit = _compute_deploy_gas_limit(
             fork,
             deploy_code_size=len(code),
             initcode=prepared_initcode,
             storage_slots=len(storage.root),
         )
         # Per EIP-8037, the per-tx 2^24 cap (EIP-7825) binds only the
-        # regular-gas portion; state gas is drawn from the block reservoir.
+        # execution-gas portion; state gas is drawn from the block reservoir.
         tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-        if tx_gas_limit_cap and regular_gas > tx_gas_limit_cap:
+        if tx_gas_limit_cap and execution_gas > tx_gas_limit_cap:
             raise ValueError(
-                f"deploy regular gas exceeds the transaction gas limit cap: "
-                f"{regular_gas} > {tx_gas_limit_cap}"
+                f"deploy execution gas exceeds the transaction gas limit cap: "
+                f"{execution_gas} > {tx_gas_limit_cap}"
             )
 
         deploy_tx = self._add_pending_tx(

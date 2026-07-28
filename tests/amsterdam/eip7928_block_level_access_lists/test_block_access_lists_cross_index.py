@@ -2,7 +2,7 @@
 Tests for EIP-7928 BAL cross-index tracking.
 
 Tests that state changes are correctly tracked across different block indices:
-- Index 1..N: Regular transactions
+- Index 1..N: Execution transactions
 - Index N+1: Post-execution system operations
 
 Includes tests for system contracts (withdrawal/consolidation) cross-index

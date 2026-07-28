@@ -1,11 +1,11 @@
 """
 Test EIP-7623 calldata floor interaction with EIP-8037 state gas.
 
-The calldata floor applies to the regular gas dimension only. It
+The calldata floor applies to the execution gas dimension only. It
 does not affect state gas. Block gas accounting applies the floor to
-the regular dimension (``max(pre_refund_gas - state_gas, floor)``),
+the execution dimension (``max(pre_refund_gas - state_gas, floor)``),
 so a transaction contributes at least the floor to the block's
-regular gas while state gas is tracked separately.
+execution gas while state gas is tracked separately.
 
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
@@ -44,7 +44,7 @@ def test_calldata_floor_with_sstore(
     Test calldata floor does not affect state gas charging.
 
     A transaction with large calldata triggers the calldata floor for
-    regular gas, but state gas for SSTORE is charged independently.
+    execution gas, but state gas for SSTORE is charged independently.
     """
     storage = Storage()
     contract = pre.deploy_contract(
@@ -71,7 +71,7 @@ def test_calldata_floor_independent_of_state_gas(
     pre: Alloc,
 ) -> None:
     """
-    Test calldata floor applies only to regular gas dimension.
+    Test calldata floor applies only to execution gas dimension.
 
     The calldata floor applies only to the sender's bill and does not
     affect the state gas dimension. A transaction with high calldata
@@ -102,7 +102,7 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
     """
     Test state gas is tracked separately when calldata floor dominates.
 
-    Even when calldata floor > actual regular gas used, state gas for
+    Even when calldata floor > actual execution gas used, state gas for
     SSTORE is charged normally from the reservoir or gas_left.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
@@ -112,7 +112,7 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
         code=Op.SSTORE(storage.store_next(1), 1),
     )
 
-    # Large calldata so floor dominates regular gas
+    # Large calldata so floor dominates execution gas
     calldata = b"\x01" * 1024
 
     tx = Transaction(
@@ -144,9 +144,9 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     Reject a transaction whose calldata floor exceeds the cap, isolating
     the cap check from the sufficiency check.
 
-    EIP-8037 caps ``max(intrinsic_regular, calldata_floor)`` at
+    EIP-8037 caps ``max(intrinsic_execution, calldata_floor)`` at
     ``TX_MAX_GAS_LIMIT``. When the EIP-7976 calldata floor crosses the cap
-    the transaction must be rejected even though the regular intrinsic gas
+    the transaction must be rejected even though the execution intrinsic gas
     is within the cap. For the rejection case ``gas_limit`` is set above the
     floor so the sufficiency check ``max(intrinsic_total, floor) <= tx.gas``
     passes and the cap is the only reason for rejection — the exact shape a
@@ -186,12 +186,12 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
 
     if exceeds_cap:
         intrinsic = fork.transaction_intrinsic_cost_calculator()
-        regular = intrinsic(
+        execution = intrinsic(
             calldata=calldata,
             return_cost_deducted_prior_execution=True,
         )
         assert floor > cap, "calldata floor must exceed the cap"
-        assert regular < cap, "regular intrinsic must stay below the cap"
+        assert execution < cap, "execution intrinsic must stay below the cap"
         # Fund the floor in full so the sufficiency check cannot reject the
         # transaction first; only the cap check can.
         gas_limit = floor + 1_000_000
@@ -265,28 +265,28 @@ def test_calldata_floor_binds_with_reservoir(
 
     Large calldata makes the EIP-7976 floor the sender's bill, while an
     over-cap `gas_limit` puts the SSTORE-set state charge in the
-    reservoir. The floor binds the receipt and the block's regular
+    reservoir. The floor binds the receipt and the block's execution
     dimension alike, so the header gas_used is the floor (not the
     state dimension).
     """
     storage = Storage()
     code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
     state_cost = code.state_cost(fork)
-    regular_cost = code.regular_cost(fork)
+    execution_cost = code.execution_cost(fork)
 
-    # Sized so the floor binds while block-regular stays under storage_set.
+    # Sized so the floor binds while block-execution stays under storage_set.
     calldata = b"\x00" * 5000
     floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
     )
-    tx_regular = intrinsic + regular_cost
-    assert floor > tx_regular + state_cost, (
+    tx_execution = intrinsic + execution_cost
+    assert floor > tx_execution + state_cost, (
         "calldata floor must exceed the sender's pre-floor bill"
     )
-    assert tx_regular < state_cost, (
-        "block-regular must stay under the state dimension"
+    assert tx_execution < state_cost, (
+        "block-execution must stay under the state dimension"
     )
 
     contract = pre.deploy_contract(code=code)
@@ -313,10 +313,10 @@ def test_calldata_floor_counts_toward_block_gas(
     fork: Fork,
 ) -> None:
     """
-    Verify the calldata floor is charged to the block's regular gas.
+    Verify the calldata floor is charged to the block's execution gas.
 
     With a STOP callee and large zero-byte calldata the floor exceeds
-    the actual regular gas charge, so the transaction contributes the
+    the actual execution gas charge, so the transaction contributes the
     floor (not the pre-floor charge) to the header gas_used.
     """
     calldata = b"\x00" * 1024
@@ -353,10 +353,10 @@ def test_calldata_floor_not_discounted_by_state_gas(
     Verify state gas spending does not discount the block-level floor.
 
     Calldata is sized so the floor sits between the transaction's
-    regular-gas portion and its total gas used
-    (``tx_regular < floor < tx_regular + state``). The sender's bill is
-    the pre-floor total, yet the block's regular dimension must still
-    charge the full floor: the floor is compared against the regular
+    execution-gas portion and its total gas used
+    (``tx_execution < floor < tx_execution + state``). The sender's bill is
+    the pre-floor total, yet the block's execution dimension must still
+    charge the full floor: the floor is compared against the execution
     portion alone, so state gas cannot absorb it. An implementation
     that instead floors the transaction total before deducting state
     gas (or skips the floor entirely) would report the state dimension
@@ -365,7 +365,7 @@ def test_calldata_floor_not_discounted_by_state_gas(
     storage = Storage()
     code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
     state_cost = code.state_cost(fork)
-    regular_cost = code.regular_cost(fork)
+    execution_cost = code.execution_cost(fork)
     floor_cost = fork.transaction_data_floor_cost_calculator()
 
     # Smallest zero-byte calldata whose floor exceeds the state
@@ -380,10 +380,10 @@ def test_calldata_floor_not_discounted_by_state_gas(
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
     )
-    tx_regular = intrinsic + regular_cost
-    tx_total = tx_regular + state_cost
-    assert tx_regular < floor < tx_total, (
-        "floor must bind the regular portion but not the total"
+    tx_execution = intrinsic + execution_cost
+    tx_total = tx_execution + state_cost
+    assert tx_execution < floor < tx_total, (
+        "floor must bind the execution portion but not the total"
     )
 
     contract = pre.deploy_contract(code=code)

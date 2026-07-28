@@ -481,7 +481,7 @@ class BuiltBlock(CamelModel):
         Return the block-header gas used.
 
         Under EIP-8037 this is the maximum across the independent gas
-        dimensions (regular vs state), i.e. the value that counts against the
+        dimensions (execution vs state), i.e. the value that counts against the
         block gas limit, as opposed to ``cumulative_gas_used`` which is their
         combined sum.
         """

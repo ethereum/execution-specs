@@ -162,7 +162,7 @@ def test_max_code_size_deposit_gas(
         gas_limit=(
             intrinsic_gas
             + top_frame_state_gas
-            + initcode.execution_gas(fork)
+            + initcode.evm_gas(fork)
             + initcode.deployment_gas(fork)
             - gas_shortfall
         ),

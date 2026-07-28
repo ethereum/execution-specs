@@ -3060,7 +3060,7 @@ def test_bal_cross_tx_funding_chain(
     # to recipients that begin empty, so each pays the value-transfer
     # intrinsic surcharges plus the top-frame ``NEW_ACCOUNT`` state
     # charge that fires under EIP-2780. With the default zero
-    # state-gas reservoir the latter spills entirely into regular gas.
+    # state-gas reservoir the latter spills entirely into execution gas.
     forwarding_intrinsic = intrinsic_calc(
         sends_value=True,
         recipient_type=RecipientType.EMPTY_ACCOUNT,

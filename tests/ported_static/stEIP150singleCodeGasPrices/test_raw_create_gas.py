@@ -11,7 +11,7 @@ state_tests/stEIP150singleCodeGasPrices/RawCreateFailGasValueTransferFiller.json
 state_tests/stEIP150singleCodeGasPrices/RawCreateFailGasValueTransfer2Filler.json
 
 @manually-enhanced: Do not overwrite. Six RawCreate*Gas fillers folded into one
-CodeGasMeasure parametrize; failure path charges regular_cost (no state gas).
+CodeGasMeasure parametrize; failure path charges execution_cost (no state gas).
 """
 
 import pytest
@@ -99,7 +99,7 @@ def test_raw_create_gas(
     if fails:
         # A balance-check failure runs no init code and creates no account, so
         # only the regular (execution) gas is charged, never state gas.
-        expected_gas = create_code.regular_cost(fork)
+        expected_gas = create_code.execution_cost(fork)
         created_account = Account.NONEXISTENT
     else:
         expected_gas = create_code.gas_cost(fork)

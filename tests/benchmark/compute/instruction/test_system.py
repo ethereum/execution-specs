@@ -407,7 +407,7 @@ def test_creates_collisions(
     )
     proxy_contract = pre.deploy_contract(code=proxy_contract_code)
 
-    min_gas_required = proxy_contract_code.regular_cost(
+    min_gas_required = proxy_contract_code.execution_cost(
         fork
     ) + proxy_contract_code.state_cost(fork)
     setup = Op.PUSH20(proxy_contract) + Op.PUSH3(min_gas_required)
@@ -425,7 +425,7 @@ def test_creates_collisions(
         )
         pre.deploy_contract(address=addr, code=Op.INVALID)
     else:
-        creation_cost = proxy_contract_code.regular_cost(fork)
+        creation_cost = proxy_contract_code.execution_cost(fork)
         max_contract_count = (
             2 * gas_benchmark_value // creation_cost
             if fixed_opcode_count is None
