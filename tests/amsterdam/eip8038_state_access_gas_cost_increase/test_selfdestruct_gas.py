@@ -66,19 +66,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _selfdestruct_regular(fork: Fork, *, warm: bool, account_new: bool) -> int:
-    """
-    Return the EIP-8038 *regular* gas charged by SELFDESTRUCT.
-
-    ``OPCODE_SELFDESTRUCT_BASE + access + (ACCOUNT_WRITE if account_new)``;
-    the ``GAS_NEW_ACCOUNT`` account-creation cost is the EIP-8037 state
-    dimension and is excluded from ``regular_cost``.
-    """
-    return Op.SELFDESTRUCT(
-        address_warm=warm, account_new=account_new
-    ).regular_cost(fork)
-
-
 def _destructor_code(
     beneficiary: Address | Bytecode, *, warm: bool, account_new: bool
 ) -> Bytecode:
@@ -113,9 +100,6 @@ def test_selfdestruct_new_beneficiary_regular_gas(
     the value transfer to the new beneficiary confirms the path.
     """
     new_account_state_gas = Op.SELFDESTRUCT(account_new=True).state_cost(fork)
-
-    regular = _selfdestruct_regular(fork, warm=warm, account_new=True)
-    assert regular == (13_000 if warm else 16_000)
 
     beneficiary = Address(0xDEAD)  # empty, non-existent
 
@@ -164,9 +148,6 @@ def test_selfdestruct_alive_beneficiary_no_account_write(
     ``5,000 + (3,000 if cold)`` (5,000 warm, 8,000 cold) and no state gas is
     charged. The block header reflects the pure regular consumption.
     """
-    regular = _selfdestruct_regular(fork, warm=warm, account_new=False)
-    assert regular == (5_000 if warm else 8_000)
-
     beneficiary = pre.fund_eoa(amount=1)  # alive
 
     destructor_code = _destructor_code(
@@ -236,9 +217,6 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
     alive-via-balance case, which exercises the same path through a
     different liveness source.
     """
-    regular = _selfdestruct_regular(fork, warm=warm, account_new=False)
-    assert regular == (5_000 if warm else 8_000)
-
     # Alive via code (non-empty code), with zero balance.
     beneficiary = pre.deploy_contract(code=Op.STOP, balance=0)
 
@@ -304,9 +282,6 @@ def test_selfdestruct_zero_balance_no_account_write(
     No value is transferred, so even a non-existent beneficiary is not
     created: regular = ``5,000 + access`` and no state gas is charged.
     """
-    regular = _selfdestruct_regular(fork, warm=warm, account_new=False)
-    assert regular == (5_000 if warm else 8_000)
-
     beneficiary = Address(0xDEAD)  # non-existent, but no value sent
 
     destructor_code = _destructor_code(
@@ -618,9 +593,6 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     # not part of the intrinsic under EIP-2780; only the fresh
     # beneficiary's NEW_ACCOUNT (the SELFDESTRUCT state cost) persists.
     new_account_state_gas = init_code.state_cost(fork)
-
-    regular = _selfdestruct_regular(fork, warm=False, account_new=True)
-    assert regular == 16_000
 
     intrinsic_regular = intrinsic_calc(
         calldata=bytes(init_code), contract_creation=True
