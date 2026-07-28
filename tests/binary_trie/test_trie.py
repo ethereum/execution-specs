@@ -623,6 +623,16 @@ def test_prefix_violation_only_fails_at_root_time() -> None:
     A prefix-violating pair of keys is accepted and stays readable
     through ordinary `trie_set`/`trie_get` calls; prefix-freeness is
     only enforced lazily, when `root` walks the tree.
+
+    EIP-8297's "Tree structure" section places this rejection in
+    `insert` itself ("`insert` rejects keys that violate either
+    constraint"); this reference implementation's `trie_set` instead
+    defers that enforcement to `root()`, the same disclosure
+    treatment the zero-value/absence divergence already receives
+    elsewhere in this tree. The practical consequence is nil for a
+    rebuild-based reference that always calls `root()` before
+    trusting a commitment, which is exactly why it is disclosed
+    rather than fixed.
     """
     prefix_key = Bytes(b"\x50" * 34)
     extended_key = Bytes(b"\x50" * 34 + b"\x60")
