@@ -38,7 +38,7 @@ By default, the execution-testing framework only generates fixtures for forks th
 
 ### How to Fill It
 
-`BinaryTree` cannot use the flags above the usual way, because two things collide: the `fill` recipe in the `Justfile` always appends `--until Amsterdam` to whatever arguments it's given, and the framework rejects `--fork` combined with `--from`/`--until` on the same invocation. `just fill --fork BinaryTree` therefore cannot work, so a dedicated `fill-binary-tree` recipe exists that is the same shape with `--until` simply omitted:
+`BinaryTree` cannot use the flags above the usual way, because two things collide: the `fill` recipe in the `Justfile` always appends `--until "{{ latest_fork }}"` (the Justfile's `latest_fork` variable, currently `Amsterdam`) to whatever arguments it's given, and the framework rejects `--fork` combined with `--from`/`--until` on the same invocation. `just fill --fork BinaryTree` therefore cannot work, so a dedicated `fill-binary-tree` recipe exists that is the same shape with `--until` simply omitted:
 
 ```console
 just fill-binary-tree [paths]
