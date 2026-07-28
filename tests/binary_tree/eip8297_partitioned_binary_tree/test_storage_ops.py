@@ -211,7 +211,10 @@ def test_storage_coexists_with_sizeable_code(
 
     The `JUMPDEST` padding pushes the code comfortably past one
     `CODE_CHUNK_SIZE`-byte chunk, so the account actually carries
-    several code chunks alongside its storage.
+    several code chunks alongside its storage -- chosen for coverage
+    (per the `code_chunk_count` assert below), not verified by the
+    account-level post state, which checks only code bytes and
+    storage values, not how many tree chunks they occupy.
     """
     slot, value = 10, 0xFEED
     code = Op.JUMPDEST * 200 + Op.SSTORE(slot, value) + Op.STOP
