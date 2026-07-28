@@ -23,12 +23,14 @@ def create_contract_via_factory(
     Deploy a factory contract that creates `initcode` via CREATE/CREATE2.
 
     The factory serves the initcode bytes to itself with EXTCODECOPY
-    from a separate template contract holding them as its code, since a
-    freshly allocated contract cannot embed arbitrary-length code
-    inline as its own runtime body. The factory is freshly deployed
-    with the default pre-alloc nonce of 1, so this call is always its
-    first creation; the returned `created` address is derived
-    accordingly with `compute_create_address`.
+    from a separate template contract holding them as its code:
+    without a copy opcode, getting more than 32 bytes into memory
+    needs one `PUSH32`+`MSTORE` pair per word, so staging
+    arbitrary-length initcode this way is simpler than building it
+    inline. The factory is freshly deployed with the default
+    pre-alloc nonce of 1, so this call is always its first creation;
+    the returned `created` address is derived accordingly with
+    `compute_create_address`.
 
     Returns `(factory_address, created_address)`.
     """

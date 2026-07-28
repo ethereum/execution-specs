@@ -1,8 +1,8 @@
 """
 Block-access-list interplay tests for the EIP-8297 partitioned binary
-tree: EIP-7928 BALs are built and independently validated by the fork
-even though the underlying commitment scheme has been swapped from
-the Merkle Patricia Trie to the partitioned binary tree.
+tree: EIP-7928 BALs are built by the fork and validated by EEST at
+fill time, even though the underlying commitment scheme has been
+swapped from the Merkle Patricia Trie to the partitioned binary tree.
 """
 
 import pytest

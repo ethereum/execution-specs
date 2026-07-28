@@ -33,14 +33,20 @@ class Spec:
     BASIC_DATA_LEAF_KEY = 0
     CODE_HASH_LEAF_KEY = 1
 
-    # Header stem layout: how many storage slots and code chunks are
-    # co-located in the account header before overflowing into the
-    # storage/code zones (see "Tree embedding").
+    # Header stem layout: HEADER_STORAGE_OFFSET and CODE_OFFSET are
+    # themselves sub-indices marking where the storage and code
+    # sub-ranges start within the header stem's 256-wide space; the
+    # counts of co-located slots/chunks are the differences,
+    # CODE_OFFSET - HEADER_STORAGE_OFFSET (64) and STEM_SUBTREE_WIDTH
+    # - CODE_OFFSET (128) (see "Tree embedding").
     HEADER_STORAGE_OFFSET = 64
     CODE_OFFSET = 128
     STEM_SUBTREE_WIDTH = 256
 
-    # Code chunking: the chunk size in bytes, and the opcode-value
+    # Code chunking: CODE_CHUNK_SIZE (31) is the code-payload length
+    # in bytes -- the stored chunk itself is 32 bytes (one metadata
+    # byte plus this payload). The name is not from the EIP text,
+    # which uses a bare `31` literal; PUSH_OFFSET is the opcode-value
     # offset used to recover a PUSH's data length when marking a
     # chunk's leading PUSHDATA bytes (see "Code").
     CODE_CHUNK_SIZE = 31

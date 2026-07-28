@@ -1,7 +1,10 @@
 """
-Account-stem lifecycle tests for the EIP-8297 partitioned binary tree:
-creation, mutation, destruction, and non-creation, proving the
-commitment swap changes no execution semantics across these shapes.
+Account lifecycle tests for the EIP-8297 partitioned binary tree:
+creation, mutation, destruction, and non-creation, under the
+`BinaryTree` fork. No tree stem is observable here; cross-fork
+equivalence with Amsterdam is guaranteed structurally by
+`test_fork_parity.py`'s byte-for-byte pin, not by running these same
+tests on both forks and comparing.
 """
 
 import pytest

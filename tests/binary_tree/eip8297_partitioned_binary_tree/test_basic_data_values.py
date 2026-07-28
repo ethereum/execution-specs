@@ -2,10 +2,14 @@
 BASIC_DATA field-range tests for the EIP-8297 partitioned binary tree.
 
 The BASIC_DATA leaf packs version, code_size, nonce and balance into
-one 32-byte value. These tests exercise its field ranges -- the
-16-byte balance field's top, a near-maximum 8-byte nonce, and the
-balance/code_size fields read back through their own opcodes -- via
-real execution, proving the packed encoding round-trips exactly.
+one 32-byte value, but account-level post-state verification cannot
+observe that leaf directly. These tests instead exercise its field
+ranges through execution and opcode reads: a maxed-out 16-byte
+balance transacting successfully, a near-maximum 8-byte nonce
+incrementing correctly, and the balance/code_size fields read back
+through their own opcodes agreeing with committed state. The packed
+encoding's byte layout itself is pinned directly by
+`tests/binary_trie/test_embedding.py::test_encode_basic_data_layout`.
 """
 
 import pytest
@@ -116,8 +120,8 @@ def test_balance_field_round_trip_after_value_transfer(
     Verify `SELFBALANCE` and `BALANCE(ADDRESS)`, read from inside a
     contract in the same call that transfers it value, both match the
     contract's exact post-state balance -- the value credit lands
-    before the callee's code starts, and the BASIC_DATA balance field
-    read via either opcode agrees with the committed state.
+    before the callee's code starts, and both opcodes' readings agree
+    with the account's committed balance.
     """
     starting_balance = 10**17
     value = 10**18
@@ -147,10 +151,11 @@ def test_code_size_field_round_trip_after_create(
     pre: Alloc,
 ) -> None:
     """
-    Verify `EXTCODESIZE` of a freshly `CREATE`d contract, observed from
-    the outside, equals the deployed length, cross-checked in the same
-    call against `CODESIZE` observed from inside the contract itself --
-    both readings of the BASIC_DATA code_size field agree.
+    Verify `EXTCODESIZE(ADDRESS)` and `CODESIZE`, both read from
+    inside a freshly `CREATE`d contract's own frame, agree with each
+    other and with the deployed code's actual length -- what the
+    BASIC_DATA leaf encodes at root-computation time, though neither
+    opcode reads that leaf directly.
     """
     codesize_slot, extcodesize_slot = 0, 1
     deploy_code = (

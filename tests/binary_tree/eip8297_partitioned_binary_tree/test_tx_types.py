@@ -39,9 +39,12 @@ def test_all_tx_types_write_storage(
     """
     Verify a storage-writing call transaction of every type the fork
     supports (legacy, access-list, dynamic-fee, blob and set-code)
-    reaches the identical post state, proving the binary tree
-    commitment swap does not depend on which transaction envelope
-    carries the call.
+    leaves the storage-writing contract in the same post state,
+    proving the binary tree commitment swap does not depend on which
+    transaction envelope carries the call. Type 3 additionally burns
+    blob gas and type 4 bumps the authority's nonce, so this checks
+    only the one account below, not that the whole transaction's post
+    state is identical across types.
     """
     slot, value = 0, 1
     contract = pre.deploy_contract(code=Op.SSTORE(slot, value) + Op.STOP)
