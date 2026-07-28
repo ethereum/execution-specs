@@ -48,9 +48,11 @@ def test_genesis_codeless_account_with_storage_persists(
     `deploy_contract` is the API that accepts this combination
     directly (`fund_eoa`'s `storage` parameter is typed `Storage`
     only, not the broader `Storage | StorageRootType` a plain dict
-    literal satisfies); overriding its default `nonce=1` down to `0`
-    is what makes the resulting account genuinely codeless, which is
-    exactly the "impossible" mutation `pre_alloc_mutable` exists for.
+    literal satisfies); passing `code=b""` is what makes the account
+    genuinely codeless, and overriding its default `nonce=1` down to
+    `0` is what makes the resulting shape -- codeless, yet holding
+    storage -- unreachable by ordinary execution, exactly the
+    "impossible" mutation `pre_alloc_mutable` exists for.
     """
     slot, value = 1, 0xABCD
     account = pre.deploy_contract(
@@ -105,8 +107,7 @@ def test_create2_after_eip161_clear_of_storage_holding_account(
     never reaches `modify_state` for the recipient at all: the
     value-transfer step that would (`move_ether`) only runs when
     `message.should_transfer_value and message.value != 0`, and there
-    is no code to execute that could mediate any other write —
-    confirmed empirically before settling on this mechanism.
+    is no code to execute that could mediate any other write.
     `SELFDESTRUCT` always writes the beneficiary's balance via
     `move_ether` unconditionally, even to add zero, so it reaches
     `modify_state`, and therefore the destroy check, regardless.
