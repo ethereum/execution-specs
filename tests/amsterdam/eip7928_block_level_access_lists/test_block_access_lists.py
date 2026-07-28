@@ -1658,12 +1658,6 @@ def test_bal_system_address_coinbase_zero_tip(
         gas_price=base_fee_per_gas,
     )
 
-    alice_final_balance = (
-        alice_initial_balance
-        - tx_value
-        - ((intrinsic_gas + top_frame_state_gas) * base_fee_per_gas)
-    )
-
     block = Block(
         txs=[tx],
         fee_recipient=SYSTEM_ADDRESS,
