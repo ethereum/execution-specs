@@ -34,48 +34,15 @@ By default, the execution-testing framework only generates fixtures for forks th
 
 ## The Experimental `BinaryTree` Fork (EIP-8297)
 
-`BinaryTree` is Amsterdam semantics with its state commitment replaced by the [EIP-8297](https://eips.ethereum.org/EIPS/eip-8297) Partitioned Binary Tree instead of the Merkle Patricia Trie. Like any fork under development it is registered `deployed=False`, so it is excluded from every default fill and from every `--until`/`--from` fork range; it is reached only by naming it explicitly with `--fork BinaryTree`.
-
-### How to Fill It
-
-`BinaryTree` cannot use the flags above the usual way, because two things collide: the `fill` recipe in the `Justfile` always appends `--until "{{ latest_fork }}"` (the Justfile's `latest_fork` variable, currently `Amsterdam`) to whatever arguments it's given, and the framework rejects `--fork` combined with `--from`/`--until` on the same invocation. `just fill --fork BinaryTree` therefore cannot work, so a dedicated `fill-binary-tree` recipe exists that is the same shape with `--until` simply omitted:
+`BinaryTree` is Amsterdam semantics with its state commitment replaced by the [EIP-8297](https://eips.ethereum.org/EIPS/eip-8297) Partitioned Binary Tree instead of the Merkle Patricia Trie. It is registered `deployed=False`, so only `--fork BinaryTree` reaches it.
 
 ```console
-just fill-binary-tree [paths]
+just binary-trie-fork [paths]
 ```
 
-A `paths` argument **replaces** the recipe's default instead of adding to it, and the default is `tests/binary_tree` — the dedicated EIP-8297 suite, not the whole repository. In practice that gives two distinct commands:
+A bare invocation fills only the scoped `tests/binary_tree` suite; `just binary-trie-fork tests` instead reinterprets the entire `tests/` tree against `BinaryTree`.
 
-- `just fill-binary-tree` (no arguments) fills only `tests/binary_tree`. This is deliberately the fast, scoped run, since the full sweep below has an unmeasured runtime.
-- `just fill-binary-tree tests` fills the *entire* `tests/` tree against `BinaryTree`, reinterpreting every other fork's tests through the binary tree. Use this form when porting the full suite.
-
-The full-tree form is intentionally **not** wired into CI: it runs thousands of tests through a pure-Python tree implementation whose runtime has not been measured. This fork is not part of any CI fill sweep yet beyond the scoped suite (see the `omit` comment in `pyproject.toml`'s `[tool.coverage.run]` and the `ignore` entry in `.codecov.yaml`); CI only runs `just fill-binary-tree tests/binary_tree`.
-
-### The Marker Trap When Porting Existing Tests
-
-Filling the full `tests/` tree against `--fork BinaryTree` exercises every other fork's [validity markers](../writing_tests/test_markers.md) against a fork none of them were written with in mind. Verified against `packages/testing/src/execution_testing/cli/pytest_commands/plugins/forks/forks.py`:
-
-- A test with **no validity marker at all**, or `valid_from(<any ancestor fork>)` (e.g. `Frontier`, `Shanghai`, `Amsterdam`), **does** select `BinaryTree`: it subclasses `Amsterdam`, so it satisfies an ordinary `>=` comparison against any ancestor fork and lands back in the selected set.
-- `valid_until(...)` and `valid_before(...)` correctly **exclude** it, for the same subclass relationship compared the other way.
-- `valid_at(...)` **excludes** it even for `valid_at("Amsterdam")`, because `valid_at` is an exact-set marker: it resolves its arguments to the literal named forks instead of comparing with `>=`/`<=`, and `BinaryTree` is never one of them unless spelled out explicitly. A handful of tests pinned with `valid_at` are therefore silently invisible to the port — collection succeeds and nothing warns, the tests just never run for this fork.
-
-### Known Gaps
-
-- **`valid_at`-pinned tests are excluded from the port** — see the marker trap above.
-- **No MPT→PBT transition machinery.** The tree is populated from genesis; there is no `*ToBinaryTree` transition fork, so there is no `valid_at_transition_to` coverage for entering the binary tree mid-chain (`ethereum/state_pbt.py`'s module docstring states this explicitly).
-- **Storage semantics are a placeholder, not the EIP's spec.** The provider treats a zero storage value as absence and drops a deleted account's storage outright — a conflict with EIP-8297's own "Zero values and deletion" section, which is normative today, not eventual: writing zero stores a leaf like any other value, and a zero-valued leaf stays distinct from an absent key, committing to a different root. This is a deliberate pure commitment-scheme swap, not an attempt at final semantics (`ethereum/state_pbt.py`).
-- **EIP-8297's `Access events` section is not implemented.** Its two normative MUSTs — access events keyed by the `(zone, tree_position, sub-index)` tree key rather than `(address, chunk)`, and witness gas constants recalibrated for the binary tree's deeper branches — have no code on this fork: `vm/gas.py`'s only change from Amsterdam is the `PreviousHeader` import (`tests/binary_trie/test_fork_parity.py`'s `ALLOWED_DELTAS`). Untested for the same reason (see `tests/binary_tree/eip8297_partitioned_binary_tree/eip_checklist_not_applicable.txt`).
-- **Deleting an account diverges from the Merkle Patricia Trie provider**, visible through EIP-7610 (`account_has_storage` gates `CREATE2`): the MPT provider never pops a deleted account's storage trie, the binary tree provider does. Pinned by `tests/binary_trie/test_differential_mpt.py`; an open question for the spec, not a bug in either provider.
-- **A balance of `2**128` or more has no protocol-level rejection.** It fails a raw `assert` inside `encode_basic_data` during state-root computation (`ethereum/binary_trie/embedding.py`) instead of invalidating the block through the normal exception path. Pinned by `tests/binary_trie/test_embedding.py::test_encode_basic_data_rejects_balance_past_sixteen_bytes`.
-- **No client consumes these fixtures yet.** Engine-format fixtures fill without error, but no execution client implements EIP-8297, so nothing downstream of `fill` exercises them.
-
-### Test Locations
-
-!!! warning "`tests/binary_trie/` vs. `tests/binary_tree/` — easy to confuse"
-     The two directory names differ by one letter and cover very different things:
-
-     - `tests/binary_trie/` — plain Python unit tests of the tree, its embedding, and the `state_pbt` provider (including the differential tests against `state_mpt` above). No fixtures involved; run with `just binary-trie`.
-     - `tests/binary_tree/` — the EEST suite: fork-aware tests that `fill` turns into JSON fixtures for `BinaryTree`. Run with `just fill-binary-tree`.
+When porting existing tests: `valid_from(...)` markers select `BinaryTree` (it subclasses `Amsterdam`), but `valid_at(...)` silently does not, so a handful of `valid_at`-pinned tests are invisible to the port with no warning at collection time.
 
 ## Further Help
 
