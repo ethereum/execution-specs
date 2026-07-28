@@ -4,16 +4,30 @@ tree.
 
 Amsterdam-era system contracts write storage on EVERY block, which
 under EIP-8297 means their storage churns constantly. The EIP-4788
-beacon-root ring buffer is the one whose slot numbers reach far past
-the 64-slot account header into overflow storage groups (see the slot
-arithmetic in each test's docstring below); EIP-2935's block-hash ring
-buffer and EIP-7002's withdrawal-request queue both stay entirely
-inside the header for realistic block counts, so they carry no
-PBT-specific property beyond what the upstream
+beacon-root ring buffer is the one exercised below whose slot numbers
+reach far past the 64-slot account header into overflow storage
+groups (see the slot arithmetic in each test's docstring below).
+
+EIP-2935's block-hash ring buffer and EIP-7002's withdrawal-request
+queue are NOT bounded to the header either -- both CAN reach the
+overflow zone, just not from the short chains and single request this
+module's tests (inherited unmodified from the upstream
 `tests/prague/eip2935_historical_block_hashes_from_state` and
-`tests/prague/eip7002_el_triggerable_withdrawals` suites already cover
-under `BinaryTree` by inheritance (both are `valid_from` a fork at or
-before Prague, and `BinaryTree` subclasses Amsterdam).
+`tests/prague/eip7002_el_triggerable_withdrawals` suites, which run
+under `BinaryTree` by inheritance since both are `valid_from` a fork
+at or before Prague and `BinaryTree` subclasses Amsterdam) actually
+drive. EIP-2935's `HISTORY_SERVE_WINDOW` is 8191 slots (`tests/prague/
+eip2935_historical_block_hashes_from_state/spec.py`), so its buffer
+occupies slots 0-8190; EIP-7002 stores each queued withdrawal request
+at `WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET + 3 * queue_index`
+(`tests/prague/eip7002_el_triggerable_withdrawals/spec.py`), so
+roughly 21 queued requests in one block already exceed slot 64.
+Neither upstream suite reaches those counts, so neither reaches the
+overflow zone today -- that is a property of those tests' inputs, not
+a bound on either buffer. A high genesis block number for EIP-2935, or
+21+ withdrawal requests queued in one block for EIP-7002, would drive
+these buffers into overflow storage groups and would be worth adding
+here; this module does not yet cover either.
 """
 
 import pytest
