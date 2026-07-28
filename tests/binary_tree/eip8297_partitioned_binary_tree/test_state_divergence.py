@@ -99,14 +99,17 @@ def test_create2_after_eip161_clear_of_storage_holding_account(
 
     The clearing step is a zero-balance SELFDESTRUCT that names
     `target` as beneficiary, rather than a zero-value CALL to it: this
-    fork's `modify_state` (`state_tracker.py`) only re-checks
-    "exists and is empty, so destroy" right after an actual balance
-    write, and a zero-value CALL skips that write entirely
-    (`if message.should_transfer_value and message.value != 0`), so it
-    never reaches the destroy path — confirmed empirically before
-    settling on this mechanism. `SELFDESTRUCT` always writes the
-    beneficiary's balance via `move_ether`, even to add zero, so it
-    reaches the check regardless.
+    fork's `modify_state` (`state_tracker.py`) re-checks "exists and
+    is empty, so destroy" after EVERY write it mediates — balance,
+    nonce, or code alike — but a zero-value CALL to a plain account
+    never reaches `modify_state` for the recipient at all: the
+    value-transfer step that would (`move_ether`) only runs when
+    `message.should_transfer_value and message.value != 0`, and there
+    is no code to execute that could mediate any other write —
+    confirmed empirically before settling on this mechanism.
+    `SELFDESTRUCT` always writes the beneficiary's balance via
+    `move_ether` unconditionally, even to add zero, so it reaches
+    `modify_state`, and therefore the destroy check, regardless.
     """
     old_slot, old_value = 3, 0xDEAD
     new_slot, new_value = 4, 0xC0DE
