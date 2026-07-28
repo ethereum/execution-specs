@@ -183,8 +183,8 @@ def test_sstore_cold_then_warm_same_slot(
     )
     second = second_bare(data_slot, 3)
 
-    expected_first = first.regular_cost(fork) - 2 * fork.gas_costs().VERY_LOW
-    expected_second = second.regular_cost(fork) - 2 * fork.gas_costs().VERY_LOW
+    expected_first = first_bare.regular_cost(fork)
+    expected_second = second_bare.regular_cost(fork)
 
     # Each measured write stores its own runtime cost; the overhead
     # subtraction strips the two operand PUSHes so the stored value is the

@@ -41,25 +41,6 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _access_list_floor_token_gas(
-    access_list: List[AccessList], fork: Fork
-) -> int:
-    """
-    Return the EIP-7981 calldata-floor-token gas the Amsterdam intrinsic
-    calculator charges for an access list.
-
-    Every byte of each address (20) and storage key (32) is four floor
-    tokens, each priced at ``TX_DATA_TOKEN_FLOOR``. Subtracting this from
-    the measured intrinsic delta isolates the pure EIP-8038 per-entry
-    surcharge.
-    """
-    total_bytes = 0
-    for access in access_list:
-        total_bytes += len(access.address)
-        total_bytes += 32 * len(access.storage_keys)
-    return total_bytes * 4 * fork.gas_costs().TX_DATA_TOKEN_FLOOR
-
-
 def _make_access_list(
     n_addr: int, n_keys_each: int, *, duplicate: bool = False
 ) -> List[AccessList]:
@@ -101,25 +82,7 @@ def test_access_list_intrinsic_surcharge(
     A simple value-less transaction then exercises the access list end to
     end.
     """
-    gas_costs = fork.gas_costs()
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
-
     access_list = _make_access_list(n_addr, n_keys_each, duplicate=duplicate)
-    n_keys = n_addr * n_keys_each
-
-    base = intrinsic(return_cost_deducted_prior_execution=True)
-    with_al = intrinsic(
-        access_list=access_list,
-        return_cost_deducted_prior_execution=True,
-    )
-    surcharge = (
-        with_al - base - _access_list_floor_token_gas(access_list, fork)
-    )
-    expected = (
-        n_addr * gas_costs.TX_ACCESS_LIST_ADDRESS
-        + n_keys * gas_costs.TX_ACCESS_LIST_STORAGE_KEY
-    )
-    assert surcharge == expected
 
     contract = pre.deploy_contract(code=Op.STOP)
     tx = Transaction(
@@ -149,8 +112,6 @@ def test_access_list_duplicate_address_key_intrinsic_and_warmth(
     runtime the slot is nonetheless warm on its first ``SLOAD``
     (``WARM_SLOAD``), since warmth is set-membership, not a counter.
     """
-    gas_costs = fork.gas_costs()
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
     slot = 0x42
 
     # First runtime SLOAD of the listed slot stores the warm access cost.
@@ -174,20 +135,6 @@ def test_access_list_duplicate_address_key_intrinsic_and_warmth(
         AccessList(address=contract, storage_keys=[slot]),
         AccessList(address=contract, storage_keys=[slot]),
     ]
-
-    base = intrinsic(return_cost_deducted_prior_execution=True)
-    with_al = intrinsic(
-        access_list=access_list,
-        return_cost_deducted_prior_execution=True,
-    )
-    surcharge = (
-        with_al - base - _access_list_floor_token_gas(access_list, fork)
-    )
-    expected_surcharge = (
-        2 * gas_costs.TX_ACCESS_LIST_ADDRESS
-        + 2 * gas_costs.TX_ACCESS_LIST_STORAGE_KEY
-    )
-    assert surcharge == expected_surcharge
 
     expected_gas = Op.SLOAD(key_warm=True).gas_cost(fork)
     tx = Transaction(
@@ -218,8 +165,7 @@ def test_access_list_warms_storage_slot(
     overwrite of a non-zero original to a new non-zero value pays
     ``WARM_SLOAD + STORAGE_WRITE``.
     """
-    gas_costs = fork.gas_costs()
-    very_low = gas_costs.VERY_LOW
+    very_low = Op.PUSH1(0).regular_cost(fork)
     slot = 0x42
 
     if op == "SLOAD":

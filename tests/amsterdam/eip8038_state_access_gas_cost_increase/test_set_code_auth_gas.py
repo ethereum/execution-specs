@@ -11,10 +11,11 @@ lazily at the top frame in ``set_delegation``. This module pins the
 cold/warm account-access costs that an authorized delegation incurs
 when later accessed by a ``CALL``.
 
-The regular per-authorization intrinsic magnitude is
-``fork.gas_costs().REGULAR_PER_AUTH_BASE_COST`` (``7816`` on Amsterdam:
+The regular per-authorization intrinsic magnitude is the fixed
+per-authorization base cost charged by the intrinsic (on Amsterdam,
 ``101 * 16`` calldata tokens plus the ``3000`` ecrecover, ``3000`` cold
-and ``2 * 100`` warm accesses of the EIP-7702 base). The top-frame
+and ``2 * 100`` warm accesses of the EIP-7702 base), isolated here as
+the intrinsic delta of adding one authorization. The top-frame
 state charges are asserted by the sibling
 ``eip8037_state_creation_gas_cost_increase`` and
 ``eip2780_reduce_intrinsic_tx_gas`` suites; this suite does not
@@ -34,6 +35,7 @@ from execution_testing import (
     CodeGasMeasure,
     Environment,
     Fork,
+    Hash,
     Op,
     StateTestFiller,
     Storage,
@@ -58,11 +60,19 @@ def _regular_per_auth(fork: Fork) -> int:
     authorization.
 
     Under EIP-2780 the intrinsic charges only the state-independent
-    ``REGULAR_PER_AUTH_BASE_COST`` per authorization; the account-write
-    (``ACCOUNT_WRITE``) and delegation-write (``AUTH_BASE``) costs are
-    charged lazily at the top frame, not in the intrinsic.
+    per-authorization base cost; the account-write (``ACCOUNT_WRITE``)
+    and delegation-write (``AUTH_BASE``) costs are charged lazily at the
+    top frame, not in the intrinsic. Isolated as the intrinsic delta of
+    adding one authorization.
     """
-    return fork.gas_costs().REGULAR_PER_AUTH_BASE_COST
+    calc = fork.transaction_intrinsic_cost_calculator()
+    return calc(
+        authorization_list_or_count=1,
+        return_cost_deducted_prior_execution=True,
+    ) - calc(
+        authorization_list_or_count=0,
+        return_cost_deducted_prior_execution=True,
+    )
 
 
 def _regular_intrinsic(
@@ -490,12 +500,13 @@ def test_auth_account_warming(
     ``COLD_ACCOUNT_ACCESS``. When the sponsor is the authority, the
     authority is already warm for the same reason.
 
-    All costs are taken from ``fork.gas_costs()`` so the repricing is
-    asserted against the live schedule rather than hardcoded constants.
+    All costs are derived from the fork's opcode schedule (not
+    hardcoded) so the repricing is asserted against the live values.
     """
-    gas_costs = fork.gas_costs()
-    cold = gas_costs.COLD_ACCOUNT_ACCESS
-    warm = gas_costs.WARM_ACCESS
+    # Bare account-access costs, isolated via BALANCE (no code-read
+    # surcharge and no operand push).
+    cold = Op.BALANCE.with_metadata(address_warm=False).gas_cost(fork)
+    warm = Op.BALANCE.with_metadata(address_warm=True).gas_cost(fork)
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
 
@@ -529,7 +540,7 @@ def test_auth_account_warming(
     # Measure the cost of a single CALL to the authority. The CALL
     # opcode leaves one stack item (success); the overhead is the PUSHes
     # for its arguments.
-    overhead_cost = gas_costs.VERY_LOW * len(Op.CALL.kwargs)
+    overhead_cost = Op.PUSH1(0).regular_cost(fork) * len(Op.CALL.kwargs)
     storage = Storage()
     callee_code = CodeGasMeasure(
         code=Op.CALL(gas=0, address=authority),
@@ -573,7 +584,29 @@ def test_many_auths_block_limit(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    per_auth_total = fork.gas_costs().AUTH_PER_EMPTY_ACCOUNT
+    contract = pre.deploy_contract(code=Op.STOP)
+
+    # Per-authorization total for a fresh (empty) authority: the regular
+    # intrinsic base plus the top-frame account-write, account-creation
+    # and delegation-write charges, derived from the fork's calculators
+    # so it tracks the repricing. The probe only feeds the gas
+    # calculators, so it is signed with a fixed dummy key rather than a
+    # throwaway pre-state signer.
+    probe_auth = AuthorizationTuple(
+        address=contract,
+        nonce=0,
+        secret_key=Hash(1),
+        creates_account=True,
+        writes_delegation=True,
+        first_write=True,
+    )
+    per_auth_total = (
+        _regular_per_auth(fork)
+        + fork.transaction_top_frame_gas_calculator()(
+            authorizations=[probe_auth]
+        )
+        + fork.transaction_top_frame_state_gas(authorizations=[probe_auth])
+    )
     base = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=0,
     )
@@ -581,7 +614,6 @@ def test_many_auths_block_limit(
     num_auths = (gas_limit_cap - base) // per_auth_total
     assert num_auths >= 2
 
-    contract = pre.deploy_contract(code=Op.STOP)
     signers = [pre.fund_eoa() for _ in range(num_auths)]
     authorization_list = [
         AuthorizationTuple(address=contract, nonce=0, signer=signer)

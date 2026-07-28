@@ -52,28 +52,20 @@ def test_exact_coinbase_fee_simple_sstore(
     Motivated by BAL devnet-3 ethrex/besu coinbase balance mismatch
     where clients diverged on cumulative `receipt_gas_used`.
     """
-    gas_costs = fork.gas_costs()
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-
-    # Gas breakdown for tx 1 (SSTORE zero-to-nonzero, no calldata):
-    # PUSH1(1) + PUSH1(0) + SSTORE(cold, zero-to-nonzero) + STOP
-    intrinsic_regular = gas_costs.TX_BASE
-    if fork.is_eip_enabled(2780):
-        # EIP-2780 surfaces an explicit recipient-access charge for
-        # non-self, non-create transactions on top of ``TX_BASE``.
-        intrinsic_regular += gas_costs.COLD_ACCOUNT_ACCESS
-    evm_regular = (
-        2 * gas_costs.VERY_LOW  # PUSH1 + PUSH1
-        + gas_costs.COLD_STORAGE_WRITE  # SSTORE cold zero-to-nonzero
-    )
-    tx1_gas_used = intrinsic_regular + evm_regular + sstore_state_gas
-    expected_coinbase = tx1_gas_used
-
     # Tx 1: single SSTORE zero-to-nonzero
     sstore_storage = Storage()
-    sstore_contract = pre.deploy_contract(
-        code=(Op.SSTORE(sstore_storage.store_next(1), 1)),
+    sstore_code = Op.SSTORE(sstore_storage.store_next(1), 1, new_value=1)
+    sstore_state_gas = sstore_code.state_cost(fork)
+    sstore_contract = pre.deploy_contract(code=sstore_code)
+
+    # tx 1 gas used: the intrinsic (TX_BASE plus the EIP-2780
+    # recipient-access charge) plus the SSTORE code's own regular and
+    # state cost.
+    tx1_gas_used = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + sstore_code.gas_cost(fork)
     )
+    expected_coinbase = tx1_gas_used
 
     # Tx 2: reporter reads BALANCE(COINBASE) into slot 0
     reporter = pre.deploy_contract(

@@ -174,15 +174,13 @@ def test_insufficient_gas_for_sstore_state_cost(
     gas, but not enough to also cover the SSTORE state gas. The SSTORE
     should OOG, leaving storage slot 0 unchanged at zero.
     """
-    gas_costs = fork.gas_costs()
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(0, 1),
-    )
+    contract_code = Op.SSTORE(0, 1)
+    contract = pre.deploy_contract(code=contract_code)
 
     # Enough for intrinsic + warm SSTORE regular gas, but not the
     # state gas cost for zero-to-nonzero transition
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = intrinsic_cost() + gas_costs.COLD_STORAGE_WRITE
+    gas_limit = intrinsic_cost() + contract_code.regular_cost(fork)
 
     tx = Transaction(
         to=contract,
@@ -690,12 +688,13 @@ def test_create_tx_reservoir(
     beyond TX_MAX_GAS_LIMIT feeds the reservoir. When False, all state
     gas comes from gas_left (reservoir is zero).
     """
-    gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     init_code = Op.STOP
 
-    create_state_gas = gas_costs.NEW_ACCOUNT
+    create_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True
+    )
 
     if gas_above_cap:
         gas_limit = gas_limit_cap + create_state_gas
@@ -1247,7 +1246,7 @@ def test_nested_failure_resets_to_tx_reservoir(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
+    new_account_state_gas = Op.CREATE(account_new=True).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     body_state_total = sum(b.state_cost(fork) for b in frame_bodies)

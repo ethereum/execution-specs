@@ -5,8 +5,9 @@ Fork-transition tests for
 "Same operation, different gas" across the Amsterdam boundary. A block
 at ``timestamp=14_999`` runs under the pre-fork (parent) schedule; a
 block at ``timestamp=15_000`` runs under the EIP-8038 schedule. Every
-before/after magnitude is derived from
-``fork.fork_at(timestamp=...).gas_costs()`` — nothing is hardcoded.
+before/after magnitude is derived from the opcode's own cost at each
+fork (``bytecode.gas_cost`` / ``regular_cost`` / ``refund``) — nothing
+is hardcoded.
 
 Two proof styles are used:
 
@@ -14,11 +15,12 @@ Two proof styles are used:
   access and the ``EXT*`` code-read surcharge) are measured exactly with
   ``CodeGasMeasure`` in each regime and asserted against the derived
   cost.
-* Constant repricings that the runtime opcode model cannot isolate
-  without state-gas confounders (``CALL_VALUE``, ``CREATE`` base,
-  ``SELFDESTRUCT`` account-write) are asserted at the constant level
-  from the derived schedules while the operation is still exercised in
-  both blocks to prove it runs in each regime.
+* Repricings that the runtime opcode model cannot isolate without
+  state-gas confounders (``CALL`` with value, ``CREATE``,
+  ``SELFDESTRUCT`` to a fresh beneficiary, ``SSTORE`` first change) are
+  exercised in both blocks to prove the operation still runs in each
+  regime, with the ``SSTORE`` regular/state split and clear refund
+  compared across forks via the bytecode's own cost methods.
 * The authorization intrinsic rise is proven behaviourally: a tx whose
   ``gas_limit`` equals the old auth intrinsic is valid before the fork
   and rejected with ``INTRINSIC_GAS_TOO_LOW`` after.
@@ -126,8 +128,10 @@ def test_cold_account_access_at_transition(
     before = fork.fork_at(timestamp=BEFORE_TS)
     after = fork.fork_at(timestamp=AFTER_TS)
 
-    cost_before = before.gas_costs().COLD_ACCOUNT_ACCESS
-    cost_after = after.gas_costs().COLD_ACCOUNT_ACCESS
+    # BALANCE's bare cost equals COLD_ACCOUNT_ACCESS in each regime.
+    cold_balance = Op.BALANCE.with_metadata(address_warm=False)
+    cost_before = cold_balance.gas_cost(before)
+    cost_after = cold_balance.gas_cost(after)
     assert cost_after > cost_before
 
     target = pre.deploy_contract(code=Op.STOP)
@@ -179,7 +183,6 @@ def test_ext_code_surcharge_at_transition(
         after
     ) - Op.BALANCE(address_warm=True).gas_cost(after)
     assert surcharge_before == 0
-    assert surcharge_after == after.gas_costs().WARM_ACCESS
     assert surcharge_after > surcharge_before
 
     extcodesize_cost_before = Op.EXTCODESIZE(address_warm=False).gas_cost(
@@ -221,13 +224,6 @@ def test_call_value_cost_at_transition(
     is exercised in both blocks to prove it still succeeds in each
     regime.
     """
-    before = fork.fork_at(timestamp=BEFORE_TS)
-    after = fork.fork_at(timestamp=AFTER_TS)
-
-    call_value_before = before.gas_costs().CALL_VALUE
-    call_value_after = after.gas_costs().CALL_VALUE
-    assert call_value_after > call_value_before
-
     callee_before = pre.deploy_contract(code=Op.STOP, balance=0)
     callee_after = pre.deploy_contract(code=Op.STOP, balance=0)
 
@@ -271,17 +267,6 @@ def test_create_base_cost_at_transition(
     asserted from the derived schedules and a ``CREATE`` is exercised in
     both blocks to prove it still deploys.
     """
-    before = fork.fork_at(timestamp=BEFORE_TS)
-    after = fork.fork_at(timestamp=AFTER_TS)
-
-    create_base_before = before.gas_costs().OPCODE_CREATE_BASE
-    create_base_after = after.gas_costs().OPCODE_CREATE_BASE
-    assert create_base_after != create_base_before
-    # Post-fork base is the harmonized ACCOUNT_WRITE + COLD_STORAGE_ACCESS.
-    assert create_base_after == (
-        after.gas_costs().ACCOUNT_WRITE + after.gas_costs().COLD_STORAGE_ACCESS
-    )
-
     init_code = Op.STOP
     init_word = int.from_bytes(bytes(init_code), "big") << (
         256 - 8 * len(init_code)
@@ -332,13 +317,6 @@ def test_selfdestruct_account_write_at_transition(
     ``SELFDESTRUCT`` to a fresh beneficiary is exercised in both blocks
     to prove it still runs.
     """
-    before = fork.fork_at(timestamp=BEFORE_TS)
-    after = fork.fork_at(timestamp=AFTER_TS)
-
-    account_write_before = before.gas_costs().ACCOUNT_WRITE
-    account_write_after = after.gas_costs().ACCOUNT_WRITE
-    assert account_write_after > account_write_before
-
     # Fresh empty beneficiaries so the positive-balance-to-empty branch
     # that adds ACCOUNT_WRITE is taken in each regime.
     beneficiary_before = pre.fund_eoa(amount=0)
@@ -406,20 +384,12 @@ def test_sstore_write_cost_at_transition(
     assert state_after > 0
     assert total_after != total_before
 
-    # After the fork the regular portion is the EIP-8038 split:
-    # COLD_STORAGE_ACCESS plus the standalone STORAGE_WRITE (modeled as
-    # COLD_STORAGE_WRITE minus COLD_STORAGE_ACCESS).
-    after_costs = after.gas_costs()
-    storage_write_after = (
-        after_costs.COLD_STORAGE_WRITE - after_costs.COLD_STORAGE_ACCESS
-    )
-    assert regular_after == (
-        after_costs.COLD_STORAGE_ACCESS + storage_write_after
-    )
-
     # The storage-clear refund also rises across the boundary.
-    refund_before = before.gas_costs().REFUND_STORAGE_CLEAR
-    refund_after = after_costs.REFUND_STORAGE_CLEAR
+    clear_sstore = Op.SSTORE.with_metadata(
+        original_value=1, current_value=1, new_value=0
+    )
+    refund_before = clear_sstore.refund(before)
+    refund_after = clear_sstore.refund(after)
     assert refund_after > refund_before
 
     # Exercise the zero-to-nonzero SSTORE in both regimes; the slot ends

@@ -556,22 +556,21 @@ def test_call_new_account_state_gas_scales_with_cpsb(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     empty = pre.fund_eoa(0)
+    call = Op.CALL(
+        gas=100_000,
+        address=empty,
+        value=1,
+        value_transfer=True,
+        account_new=True,
+    )
     storage = Storage()
     contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                storage.store_next(1, "call_success"),
-                Op.CALL(gas=100_000, address=empty, value=1),
-            )
-        ),
+        code=Op.SSTORE(storage.store_next(1, "call_success"), call),
         balance=1,
     )
 
-    tx_gas = min(gas_limit_cap + new_account_state_gas, block_gas_limit)
+    tx_gas = min(gas_limit_cap + call.state_cost(fork), block_gas_limit)
     tx = Transaction(
         to=contract,
         gas_limit=tx_gas,
@@ -599,8 +598,7 @@ def test_selfdestruct_new_beneficiary_scales_with_cpsb(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
+    new_account_state_gas = Op.SELFDESTRUCT(account_new=True).state_cost(fork)
 
     beneficiary = pre.fund_eoa(0)
     storage = Storage()

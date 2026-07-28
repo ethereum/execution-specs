@@ -827,6 +827,20 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return 0
 
     @classmethod
+    def call_value_stipend(cls) -> int:
+        """
+        Return the gas stipend forwarded to the callee of a value-bearing
+        CALL/CALLCODE.
+
+        The stipend is added to the child frame's gas and returned to the
+        caller when the callee does not consume it, so tests that pin
+        value-call gas at an exact boundary subtract it from the charged
+        total. Exposed as a named accessor so tests need not read
+        ``gas_costs().CALL_STIPEND`` directly.
+        """
+        return cls.gas_costs().CALL_STIPEND
+
+    @classmethod
     def system_call_gas_limit(cls) -> int:
         """
         Return the total gas budget the system transaction grants the

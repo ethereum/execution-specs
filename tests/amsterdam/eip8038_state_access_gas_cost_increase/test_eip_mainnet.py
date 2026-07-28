@@ -180,7 +180,7 @@ def test_selfdestruct_funds_new_account(
     tx = Transaction(
         to=suicidal,
         gas_limit=1_000_000,
-        state_gas_reservoir=fork.gas_costs().NEW_ACCOUNT,
+        state_gas_reservoir=Op.SELFDESTRUCT(account_new=True).state_cost(fork),
         sender=pre.fund_eoa(),
     )
 
