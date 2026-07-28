@@ -17,7 +17,7 @@ gates `CREATE2` on `account_has_storage`, and is an open consensus
 question for EIP-8297, not a bug in either provider: each test pins
 today's behavior rather than a verdict on which provider is "right".
 
-The second group applies long random sequences of diffs to both
+The second group applies random sequences of 5-8 diffs to both
 providers, built from identical random pre-states, and checks
 observable equivalence after every diff, except at addresses known to
 carry the divergence above, tracked via a `divergent` set.
@@ -210,9 +210,11 @@ def test_account_delete_with_same_diff_storage_writes() -> None:
 
 def test_all_zero_storage_changes_matches_never_written() -> None:
     """
-    Writing only zeros to slots an account never held commits and
-    reads back identically to never having written them, in both
-    providers.
+    Writing only zeros to slots an account never held reads back
+    identically to never having written them in both providers, and
+    PBT additionally commits to the same root either way. MPT is
+    checked only via `get_storage`/`account_has_storage`; its root is
+    never computed in this test.
     """
     diff = BlockDiff(
         storage_changes={
@@ -306,6 +308,11 @@ def _random_account(rng: random.Random, code_hash: Hash32) -> Account:
     """
     Build an `Account` with `code_hash`, a random nonce below `2**64`,
     and a random balance below `2**128`.
+
+    The balance cap is not cosmetic: `encode_basic_data` asserts
+    balance fits its sixteen-byte field, so a balance at or past
+    `2**128` would crash root computation instead of merely being an
+    unrealistic value.
     """
     return Account(
         nonce=Uint(rng.randrange(0, 2**64)),
@@ -449,8 +456,13 @@ def _assert_equivalent(
     """
     Assert both providers agree on every observable over the full
     random address universe, skipping storage-related checks for
-    `divergent` addresses, and check every code hash ever stored plus
-    both providers' state roots (PBT's checked twice for determinism).
+    `divergent` addresses, and check every code hash ever stored.
+
+    Each provider's own root is also sanity-checked -- MPT's only by
+    length, PBT's by recomputing it and checking determinism -- but
+    the two roots are never compared against each other: they commit
+    to different schemes, so there is nothing for such a comparison
+    to mean.
     """
     for address in RANDOM_ADDRESSES:
         assert mpt_state.get_account_optional(

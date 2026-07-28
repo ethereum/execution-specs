@@ -529,7 +529,7 @@ def test_chunkify_push_data_overhanging_into_padding() -> None:
     over the already-padded buffer -- counts the first zero padding
     byte as the push's 32nd data byte too. Chunk 1's leading byte is
     therefore 2 (the last real data byte plus that one padding
-    byte), one short of what an un-truncated `PUSH32` would leave.
+    byte).
     """
     push32 = 0x7F
     data = bytes(range(1, 32))  # 31 bytes: 1, 2, ..., 31
