@@ -31,10 +31,14 @@ REFERENCE_SPEC_VERSION = ref_spec_8297.version
 
 pytestmark = pytest.mark.valid_from("BinaryTree")
 
-# A single SSTORE(slot, value) + STOP prefix, at minimum encoding, is
-# this many bytes; below this no code size can carry an observable
-# write (see test_deploy_and_execute_at_code_size's 1-byte case).
-_MIN_WRITE_PREFIX_LEN = len(Op.SSTORE(0, 1) + Op.STOP)
+# The SSTORE(slot, value) + STOP prefix `sstore_then_pad` below
+# actually builds (value=0xCAFE, a PUSH2) is this many bytes; below
+# this, `sstore_then_pad` cannot fit the write (see
+# test_deploy_and_execute_at_code_size's 1-byte case, which omits the
+# write instead of calling it). Not a general claim about the
+# smallest write-carrying code size: e.g. `CALLDATASIZE CALLDATASIZE
+# SSTORE` writes storage in 3 bytes.
+_MIN_WRITE_PREFIX_LEN = len(Op.SSTORE(0, 0xCAFE) + Op.STOP)
 
 # 31 * 128: the account header holds exactly this many code bytes
 # before overflowing into content-addressed chunks -- 128 is the
