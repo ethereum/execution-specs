@@ -26,6 +26,19 @@ calling the derivation functions under test, means a wrong key that
 still produces the right leaf count -- a swapped zone byte, an
 off-by-one sub-index -- is still caught; a leaf count alone would
 miss it.
+
+EIP-8297's "Zero values and deletion" section is normative today:
+"a zero-valued leaf is distinct from an absent key, committing to a
+different root," and "removing entries is reserved for a future
+state-expiry mechanism." This module's `State` does the opposite --
+zero-write deletes the slot, and deleting an account drops its
+storage outright (disclosed in `state_pbt.py`'s own module
+docstring) -- so every root-equality and deletion assertion below
+pins this provider's current behavior, not EIP-8297 conformance. If
+`state_pbt` is ever made conformant, the roots pinned here must be
+regenerated. `tests/binary_trie/test_trie.py::test_zero_value_is_not_absence`
+is the one conformant test in this tree: the raw `BinaryTrie` does
+keep a zero-valued leaf; only this provider layer removes it.
 """
 
 import pytest
@@ -238,6 +251,10 @@ def test_diff_root_matches_directly_built_post_state() -> None:
     A diff deploying code, touching storage, zeroing a slot, and
     deleting an account produces the same root as building the
     post-state directly in the MPT container and embedding it.
+
+    Not EIP-8297-conformant (see the module docstring): the zeroed
+    slot and the deleted account's storage both pin current provider
+    behavior, not the EIP's own zero/deletion semantics.
     """
     code = Bytes(b"\x01" * 40)
     code_hash = keccak256(code)
@@ -288,6 +305,10 @@ def test_diff_root_matches_directly_built_post_state() -> None:
 def test_deleting_the_only_account_empties_the_tree() -> None:
     """
     Deleting the last account leaves the empty tree commitment.
+
+    Not EIP-8297-conformant (see the module docstring): this pins
+    current provider behavior -- dropping a deleted account's storage
+    outright -- not the EIP's own zero/deletion semantics.
     """
     state = State()
     set_account(
@@ -309,6 +330,11 @@ def test_zero_write_matches_never_written() -> None:
     Writing a slot to zero commits identically to never having
     written it: the provider treats zero as absence, mirroring the
     MPT state semantics.
+
+    That match with MPT is exactly what is not EIP-8297-conformant
+    (see the module docstring): the pinned root equality here is
+    current provider behavior, not the EIP's own zero/deletion
+    semantics.
     """
 
     def fresh() -> State:
@@ -774,6 +800,10 @@ def test_storage_written_for_a_deleted_account_is_orphaned_but_not_embedded() ->
     from `accounts`, so the orphan is invisible to the root: it
     matches a state that never had `A` at all, alongside an unrelated
     account that did.
+
+    Not EIP-8297-conformant (see the module docstring): the
+    account-deletion-drops-storage behavior this relies on pins
+    current provider behavior, not the EIP's own semantics.
     """
     state = State()
     set_account(
@@ -821,6 +851,10 @@ def test_all_zero_storage_change_drops_the_address_entry() -> None:
 
     `account_has_storage` reads back `False` and the root matches a
     state that was never written to.
+
+    Not EIP-8297-conformant (see the module docstring): this pins
+    current provider behavior, not the EIP's own zero/deletion
+    semantics.
     """
     state = State()
     set_account(
@@ -962,6 +996,10 @@ def test_sequential_block_diffs_evolve_the_root() -> None:
 
     Zero-means-absent composes across separate blocks, not just
     within one diff.
+
+    Not EIP-8297-conformant (see the module docstring): this pins
+    current provider behavior, not the EIP's own zero/deletion
+    semantics.
     """
     state = State()
     set_account(
