@@ -298,8 +298,11 @@ def test_block_with_wrong_state_root_is_rejected(
     today. `exception` is also an any-of match: a future consumer
     could satisfy it by rejecting on the header-hash mismatch alone,
     without ever comparing state roots. A direct, checked guarantee
-    that the fork raises on a mismatched root belongs in a
-    `tests/binary_trie/` unit test.
+    that the fork raises on a mismatched root now exists at
+    `tests/binary_trie/test_block_execution.py::
+    test_execute_block_rejects_a_tampered_state_root`, which drives
+    `execute_block` through a real (if minimal) block rather than via
+    a fixture `fill` cannot verify.
     """
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(amount=0)

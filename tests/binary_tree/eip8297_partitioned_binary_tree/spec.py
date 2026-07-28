@@ -48,9 +48,12 @@ class Spec:
     # byte plus this payload). The name is not from the EIP text,
     # which uses a bare `31` literal; PUSH_OFFSET is the opcode-value
     # offset used to recover a PUSH's data length when marking a
-    # chunk's leading PUSHDATA bytes (see "Code").
+    # chunk's leading PUSHDATA bytes, and PUSH1/PUSH32 bound the range
+    # of opcodes that carry push data (see "Code").
     CODE_CHUNK_SIZE = 31
     PUSH_OFFSET = 95
+    PUSH1 = 96
+    PUSH32 = 127
 
     # Zone identifiers: the first byte of every key, partitioning the
     # tree into account headers, code, and storage (see "Zones").
@@ -65,6 +68,26 @@ class Spec:
     ACCOUNT_KEY_LENGTH = 34
     CODE_KEY_LENGTH = 34
     STORAGE_KEY_LENGTH = 66
+
+    # Tree node hash-preimage tags: the first byte distinguishing a
+    # leaf node's preimage from a branch node's, so the two can never
+    # collide (see "Merkleization").
+    LEAF_TAG = 0x00
+    BRANCH_TAG = 0x01
+
+    # BASIC_DATA leaf layout: byte offset and width of each field
+    # packed into the account header's basic-data leaf (see "Header
+    # values"). Widths sum to the leaf's full 32 bytes.
+    BASIC_DATA_VERSION_OFFSET = 0
+    BASIC_DATA_VERSION_WIDTH = 1
+    BASIC_DATA_RESERVED_OFFSET = 1
+    BASIC_DATA_RESERVED_WIDTH = 3
+    BASIC_DATA_CODE_SIZE_OFFSET = 4
+    BASIC_DATA_CODE_SIZE_WIDTH = 4
+    BASIC_DATA_NONCE_OFFSET = 8
+    BASIC_DATA_NONCE_WIDTH = 8
+    BASIC_DATA_BALANCE_OFFSET = 16
+    BASIC_DATA_BALANCE_WIDTH = 16
 
     @classmethod
     def header_storage_sub_index(cls, slot: int) -> int:

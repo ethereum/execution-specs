@@ -462,6 +462,52 @@ def test_embedded_key_set_for_a_crafted_contract() -> None:
     assert all(len(key) in (34, 66) for key in expected_keys)
 
 
+def test_embedded_state_root_is_pinned() -> None:
+    """
+    The same crafted state as `test_embedded_key_set_for_a_crafted_contract`
+    -- one contract whose 129-chunk code and slots 63/64/256 exercise
+    every sub-index boundary the embedding defines -- commits to a
+    hardcoded root hash.
+
+    This is a deliberate change-detector for the hash function, node
+    tags, prefix encoding, and the embedding built on top of them, in
+    the same spirit as `test_trie.py::test_fixed_trie_root_is_pinned`
+    (which pins a root over a raw, hand-built trie rather than a state
+    that went through `embed_flat_state`): the EIP's hash choice is
+    explicitly not final, and this test is meant to fail loudly the
+    moment any of the above changes. Every other root assertion in
+    this module compares two roots the code itself computed --
+    `root(embedded) == root(expected)`, or against `EMPTY_TRIE_ROOT` --
+    so a systematic, but still fully deterministic, bug in the hash
+    function or merkleization would move both sides identically and
+    pass unnoticed there; only a hardcoded value, pinned from a
+    known-good run, can catch that. To regenerate the constant after a
+    deliberate, reviewed change: print `root(embedded).hex()` for this
+    same state and paste the new value below.
+    """
+    code = Bytes(b"\x01" * (31 * 129))
+    state = MptState()
+    code_hash = mpt_store_code(state, code)
+    mpt_set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
+    )
+    for slot, value in ((63, 1), (64, 2), (256, 3)):
+        mpt_set_storage(
+            state,
+            ADDRESS_A,
+            Bytes32(U256(slot).to_be_bytes32()),
+            U256(value),
+        )
+
+    embedded = embed_state(state)
+
+    assert root(embedded) == bytes.fromhex(
+        "f38237c7932ace841cf21fc94a6a715b4c88494285ffbe5703c1828054b0433d"
+    )
+
+
 def test_embedded_key_set_for_a_fully_occupied_header_stem() -> None:
     """
     An account with 64 header storage slots and 128 header code
@@ -557,6 +603,84 @@ def test_header_code_chunks_are_per_account_while_overflow_is_shared() -> None:
     overflow_key = _code_overflow_stem(code_hash, 0) + bytes([0])
     code_zone_keys = {key for key in embedded._data if key[0] == 1}
     assert code_zone_keys == {overflow_key}
+
+
+def _code_chunk_filler_byte(chunk_id: int) -> int:
+    """
+    Map a chunk index to a filler byte, distinct per chunk and never
+    in the `PUSH1`..`PUSH32` range (0x60-0x7F).
+
+    Below 0x60 the byte is the chunk index itself; from 0x60 up it is
+    shifted by 32 to jump clear over the push range entirely. Both
+    branches stay injective and never collide with each other's
+    output range (the first tops out at 0x5F, the second starts at
+    0x80), so distinct chunk ids always get distinct filler bytes.
+    """
+    return chunk_id if chunk_id <= 0x5F else chunk_id + 32
+
+
+def test_chunk_values_are_distinct_across_the_header_overflow_boundary() -> (
+    None
+):
+    r"""
+    Chunks 126-129, each filled with its own distinct byte, get their
+    exact 32-byte values pinned by rebuilt key: the header's last two
+    chunks (126, 127) and the overflow zone's first two (128, 129) --
+    covering the one boundary in EIP-8297 where the zone byte changes
+    from `ACCOUNT_ZONE` to `CODE_ZONE` and keying switches from
+    address-derived to content-addressed.
+
+    Every other coverage of this boundary in this suite (this module's
+    own `test_embedded_key_set_for_a_crafted_contract` and
+    `test_header_code_chunks_are_per_account_while_overflow_is_shared`,
+    and `test_embedding.py`'s `test_code_chunk_key_matrix`) builds code
+    as `b"\\x01" * N`, so chunk 127 and chunk 128 hold identical bytes
+    and are interchangeable: before this test, swapping their stored
+    values inside `embed_flat_state` passed every one of those tests,
+    and indeed the entire suite, key-set assertions included. Filling
+    chunk `i` with
+    `_code_chunk_filler_byte(i)` keeps every filler byte outside the
+    `PUSH1`..`PUSH32` range, so `chunkify_code` reports a leading
+    push-data-count byte of 0 for every chunk (nothing carries over
+    from a previous chunk when no byte anywhere is a push opcode), and
+    each chunk's expected value is trivially `0x00` followed by 31
+    repeats of its own filler byte.
+    """
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    chunk_count = 130  # chunks 0..129: 31 * 130 = 4030, well under
+    # MAX_CODE_SIZE, and comfortably covers chunks 126-129.
+    code = Bytes(
+        b"".join(
+            bytes([_code_chunk_filler_byte(i)]) * 31
+            for i in range(chunk_count)
+        )
+    )
+    assert len(code) == 31 * chunk_count == 4030
+
+    state = State()
+    code_hash = store_code(state, code)
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
+    )
+
+    trie = embed_flat_state(state._accounts, state._storage, state.get_code)
+
+    header_stem = _account_header_stem(address32)
+    overflow_stem = _code_overflow_stem(code_hash, 0)
+
+    def expected_chunk(chunk_id: int) -> Bytes32:
+        filler = bytes([_code_chunk_filler_byte(chunk_id)])
+        return Bytes32(bytes([0]) + filler * 31)
+
+    # Chunks 0-127 live in the header at sub-index 128 + chunk_id;
+    # chunk 128 is the first content-addressed overflow chunk, at
+    # sub-index 0 of tree index 0; chunk 129 is the next, sub-index 1.
+    assert trie._data[header_stem + bytes([128 + 126])] == expected_chunk(126)
+    assert trie._data[header_stem + bytes([128 + 127])] == expected_chunk(127)
+    assert trie._data[overflow_stem + bytes([0])] == expected_chunk(128)
+    assert trie._data[overflow_stem + bytes([1])] == expected_chunk(129)
 
 
 def test_basic_data_leaf_bytes_carry_code_size_nonce_and_balance() -> None:
@@ -1034,12 +1158,19 @@ def test_storage_boundary_slots_through_the_provider() -> None:
     Slots 0, 63, 64, 255, 256, and `2**256 - 1`, set on one account
     through `set_storage`, land on whichever of the header (0, 63)
     or overflow (64, 255, 256, `2**256 - 1`) forms the embedding
-    defines for that slot.
+    defines for that slot, holding the exact 32-byte value
+    `set_storage` wrote there -- not merely a key that exists.
 
     Rebuilt here from raw `blake3` and literal zone/sub-index bytes
     rather than by calling `get_tree_key_for_storage_slot`. Slots 64
     and 255 share one overflow stem (tree index 0); the other two
-    each open their own.
+    each open their own. Each slot gets its own distinct value
+    (`index + 1`), so a swap between any two of the six leaves is
+    detectable: mutating all header storage leaf values, or all
+    overflow storage leaf values, inside `embed_flat_state` used to be
+    caught only by `test_contract_embeds_chunks_and_storage_slots`
+    (slots 1 and 100, neither near a boundary) -- every boundary-
+    focused test, this one included until now, asserted key sets only.
     """
     state = State()
     set_account(
@@ -1048,28 +1179,33 @@ def test_storage_boundary_slots_through_the_provider() -> None:
         Account(nonce=Uint(1), balance=U256(0), code_hash=EMPTY_CODE_HASH),
     )
     slots = (0, 63, 64, 255, 256, 2**256 - 1)
-    for index, slot in enumerate(slots):
+    values = {slot: U256(index + 1) for index, slot in enumerate(slots)}
+    for slot, value in values.items():
         set_storage(
-            state,
-            ADDRESS_A,
-            Bytes32(U256(slot).to_be_bytes32()),
-            U256(index + 1),
+            state, ADDRESS_A, Bytes32(U256(slot).to_be_bytes32()), value
         )
 
     trie = embed_flat_state(state._accounts, state._storage, state.get_code)
 
     address32 = b"\x00" * 12 + bytes(ADDRESS_A)
     header_stem = _account_header_stem(address32)
+    storage_keys = {
+        0: header_stem + bytes([64]),
+        63: header_stem + bytes([127]),
+        64: _storage_overflow_stem(address32, 0) + bytes([64]),
+        255: _storage_overflow_stem(address32, 0) + bytes([255]),
+        256: _storage_overflow_stem(address32, 1) + bytes([0]),
+        2**256 - 1: _storage_overflow_stem(address32, 2**248 - 1)
+        + bytes([255]),
+    }
     expected_keys = {
         header_stem + bytes([0]),  # basic data
         header_stem + bytes([1]),  # code hash
-        header_stem + bytes([64]),  # slot 0
-        header_stem + bytes([127]),  # slot 63
-        _storage_overflow_stem(address32, 0) + bytes([64]),  # slot 64
-        _storage_overflow_stem(address32, 0) + bytes([255]),  # slot 255
-        _storage_overflow_stem(address32, 1) + bytes([0]),  # slot 256
-        _storage_overflow_stem(address32, 2**248 - 1)
-        + bytes([255]),  # slot 2**256 - 1
+        *storage_keys.values(),
     }
 
     assert set(trie._data.keys()) == expected_keys
+    for slot, key in storage_keys.items():
+        assert trie._data[key] == values[slot].to_be_bytes32(), (
+            f"slot {slot}: unexpected leaf value"
+        )

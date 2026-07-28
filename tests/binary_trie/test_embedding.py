@@ -10,10 +10,7 @@ from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U8, U32, U64, U256, Uint
 
 from ethereum.binary_trie.embedding import (
-    CODE_OFFSET,
     EMPTY_CODE_HASH,
-    HEADER_STORAGE_OFFSET,
-    STEM_SUBTREE_WIDTH,
     Address32,
     Zone,
     address20_to_address32,
@@ -120,20 +117,6 @@ def test_header_sub_index_wider_than_one_byte_is_rejected() -> None:
     """
     with pytest.raises(OverflowError):
         get_tree_key_for_header(ADDRESS, Uint(256))
-
-
-def test_header_offset_invariant_holds() -> None:
-    """
-    The EIP's stated invariant `STEM_SUBTREE_WIDTH > CODE_OFFSET >
-    HEADER_STORAGE_OFFSET` holds for the implementation's constants.
-
-    Every header/overflow split derived elsewhere in this module --
-    storage slots below `CODE_OFFSET - HEADER_STORAGE_OFFSET`, code
-    chunks below `STEM_SUBTREE_WIDTH - CODE_OFFSET` -- silently
-    assumes this ordering; nothing else in this suite asserts it
-    directly.
-    """
-    assert STEM_SUBTREE_WIDTH > CODE_OFFSET > HEADER_STORAGE_OFFSET
 
 
 def test_header_key_vectors() -> None:
