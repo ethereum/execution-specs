@@ -1224,15 +1224,25 @@ def check_inclusion_list_transactions(
         if get_transaction_hash(raw_tx) in tx_hashes:
             continue
 
-        tx = decode_transaction(raw_tx)
+        try:
+            tx = decode_transaction(raw_tx)
+        except EthereumException:
+            continue
 
         # Ignore blob transactions.
         if isinstance(tx, BlobTransaction):
             continue
 
         try:
-            intrinsic = validate_transaction(tx)
-            check_transaction(block_env, block_output, tx, tx_state, intrinsic)
+            sender = recover_sender(tx)
+            validate_transaction(tx, sender)
+            check_transaction(
+                block_env=block_env,
+                block_output=block_output,
+                tx=tx,
+                sender=sender,
+                tx_state=tx_state,
+            )
         except EthereumException:
             continue
         else:
