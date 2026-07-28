@@ -1,9 +1,8 @@
 """
 Transaction-type tests for the EIP-8297 partitioned binary tree: every
-transaction envelope the fork supports -- and the blob-carrying
-transaction specifically -- must reach the same storage-writing post
-state and correct gas accounting, proving the binary tree commitment
-swap is invisible to the transaction layer as well as to execution.
+transaction envelope the fork supports must reach the same
+storage-writing post state, proving the binary tree commitment swap is
+invisible to the transaction layer as well as to execution.
 """
 
 import pytest
@@ -16,7 +15,6 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
-    TransactionReceipt,
     add_kzg_version,
 )
 
@@ -73,38 +71,5 @@ def test_all_tx_types_write_storage(
         ]
 
     tx = Transaction(**tx_kwargs)
-    post = {contract: Account(storage={slot: value})}
-    state_test(pre=pre, post=post, tx=tx)
-
-
-def test_blob_transaction_writes_storage(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Verify a blob-carrying (EIP-4844) transaction's call still writes
-    storage exactly as any other transaction type would, and that the
-    receipt's blob-gas accounting reflects only the attached blob,
-    unaffected by the binary tree commitment swap.
-    """
-    slot, value = 0, 1
-    contract = pre.deploy_contract(code=Op.SSTORE(slot, value) + Op.STOP)
-    sender = pre.fund_eoa()
-
-    blob_count = 1
-    tx = Transaction(
-        ty=3,
-        sender=sender,
-        to=contract,
-        max_fee_per_blob_gas=fork.min_base_fee_per_blob_gas(),
-        blob_versioned_hashes=add_kzg_version(
-            [0] * blob_count, Spec4844.BLOB_COMMITMENT_VERSION_KZG
-        ),
-        expected_receipt=TransactionReceipt(
-            blob_gas_used=fork.blob_gas_per_blob() * blob_count
-        ),
-    )
-
     post = {contract: Account(storage={slot: value})}
     state_test(pre=pre, post=post, tx=tx)

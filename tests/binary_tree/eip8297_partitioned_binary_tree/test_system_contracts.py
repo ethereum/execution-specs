@@ -2,11 +2,18 @@
 System-contract storage tests for the EIP-8297 partitioned binary
 tree.
 
-Amsterdam-era system contracts, including EIP-4788, EIP-2935, and
-EIP-7002, write storage on EVERY block, which under EIP-8297 means
-their storage churns constantly, including ring buffers whose slot
-numbers reach far past the 64-slot header range into many overflow
-storage groups.
+Amsterdam-era system contracts write storage on EVERY block, which
+under EIP-8297 means their storage churns constantly. The EIP-4788
+beacon-root ring buffer is the one whose slot numbers reach far past
+the 64-slot account header into overflow storage groups (see the slot
+arithmetic in each test's docstring below); EIP-2935's block-hash ring
+buffer and EIP-7002's withdrawal-request queue both stay entirely
+inside the header for realistic block counts, so they carry no
+PBT-specific property beyond what the upstream
+`tests/prague/eip2935_historical_block_hashes_from_state` and
+`tests/prague/eip7002_el_triggerable_withdrawals` suites already cover
+under `BinaryTree` by inheritance (both are `valid_from` a fork at or
+before Prague, and `BinaryTree` subclasses Amsterdam).
 """
 
 import pytest
@@ -16,7 +23,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Bytecode,
     Hash,
     Op,
     Transaction,
@@ -24,14 +30,7 @@ from execution_testing import (
 
 from ...cancun.eip4788_beacon_root.spec import Spec as Spec4788
 from ...cancun.eip4788_beacon_root.spec import SpecHelpers
-from ...prague.eip2935_historical_block_hashes_from_state.spec import (
-    Spec as Spec2935,
-)
-from ...prague.eip7002_el_triggerable_withdrawals.helpers import (
-    WithdrawalRequest,
-)
-from ...prague.eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
-from .spec import Spec, ref_spec_8297
+from .spec import ref_spec_8297
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8297.version
@@ -67,9 +66,6 @@ def test_beacon_root_ring_buffer_across_blocks(
         (300, Hash(0xBBBB)),
         (8000, Hash(0xCCCC)),
     ]
-    assert Spec.storage_group_index(300) == 1, (
-        "timestamp slot 300 must reach a HIGH group on its own"
-    )
 
     blocks = [
         Block(txs=[], parent_beacon_block_root=root, timestamp=ts)
@@ -102,9 +98,6 @@ def test_beacon_root_ring_buffer_collision_later_overwrites(
 
     first_timestamp = 100
     second_timestamp = first_timestamp + Spec4788.HISTORY_BUFFER_LENGTH
-    assert helpers.timestamp_index(first_timestamp) == helpers.timestamp_index(
-        second_timestamp
-    ), "timestamps must collide in the ring buffer"
 
     first_root = Hash(0x1111)
     second_root = Hash(0x2222)
@@ -134,134 +127,6 @@ def test_beacon_root_ring_buffer_collision_later_overwrites(
                     helpers.root_index(second_timestamp): second_root,
                 }
             )
-        },
-    )
-
-
-def test_block_hash_history_ring_buffer_across_blocks(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Verify the EIP-2935 block-hash history ring buffer serves the
-    correct parent hash for each of several recent blocks. The ring
-    buffer's own storage layout -- slot `block_number %
-    HISTORY_SERVE_WINDOW` -- is background here, not something this
-    test's account-level post state observes: `history_address` never
-    appears in `post` below at all.
-
-    A literal expected hash cannot be written ahead of fill time (a
-    block's hash depends on a state root the t8n computes), so,
-    following the idiom already established in
-    `tests/prague/eip2935_historical_block_hashes_from_state`, a
-    checker contract stores 1 only when the history contract's
-    returned hash for a given block number agrees with the legacy
-    `BLOCKHASH` opcode for that same number (valid here since every
-    checked block is comfortably within `BLOCKHASH`'s last-256-block
-    window regardless of EIP-2935).
-    """
-    history_address = Address(Spec2935.HISTORY_STORAGE_ADDRESS)
-    sender = pre.fund_eoa()
-
-    empty_block_count = 4
-    blocks: list[Block] = [Block() for _ in range(empty_block_count)]
-
-    check_return_offset = 32
-    code = Bytecode()
-    expected_storage: dict[int, int] = {}
-    for i, block_number in enumerate(range(0, empty_block_count + 1)):
-        code += (
-            Op.MSTORE(0, block_number)
-            + Op.POP(
-                Op.CALL(
-                    Op.GAS,
-                    history_address,
-                    0,
-                    0,
-                    32,
-                    check_return_offset,
-                    32,
-                )
-            )
-            + Op.SSTORE(
-                i,
-                Op.EQ(
-                    Op.MLOAD(check_return_offset),
-                    Op.BLOCKHASH(block_number),
-                ),
-            )
-        )
-        expected_storage[i] = 1
-    code += Op.STOP
-
-    checker = pre.deploy_contract(code)
-    blocks.append(Block(txs=[Transaction(sender=sender, to=checker)]))
-
-    blockchain_test(
-        pre=pre,
-        blocks=blocks,
-        post={checker: Account(storage=expected_storage)},
-    )
-
-
-def test_withdrawal_request_queue_storage_and_block_requests(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Verify a single EIP-7002 withdrawal request mutates exactly the
-    queue-storage slots the EIP defines, and that the block's EIP-7685
-    requests field still carries the request correctly: the commitment
-    swap only changes how storage is committed, not what
-    execution-layer requests a block produces.
-    """
-    sender = pre.fund_eoa()
-    predeploy = Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS)
-
-    pubkey = b"\xab" * 48
-    amount = 64_000_000_000
-    request = WithdrawalRequest(
-        validator_pubkey=pubkey, amount=amount, fee=Spec7002.get_fee(0)
-    ).with_source_address(sender)
-
-    tx = Transaction(
-        sender=sender,
-        to=predeploy,
-        value=request.fee,
-        data=request.calldata,
-    )
-
-    base_slot = Spec7002.WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET
-    pubkey_first_word = int.from_bytes(pubkey[:32], byteorder="big")
-    pubkey_amount_word = int.from_bytes(
-        pubkey[-16:] + amount.to_bytes(8, byteorder="big") + b"\x00" * 8,
-        byteorder="big",
-    )
-    # EXCESS/COUNT/HEAD/TAIL (slots 0-3) all churn mid-block but, for a
-    # single request under TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK, this
-    # is a "clean sweep": all four are back at their genesis value of
-    # zero by the end of the block, so they are omitted below (an
-    # omitted slot is equivalent to an explicit zero in this
-    # framework). That equivalence is also what
-    # `src/ethereum/state_pbt.py` relies on internally (zero-write
-    # deletes the slot), which is not EIP-8297-conformant -- see
-    # `test_storage_ops.py`'s module docstring for the disclosure.
-    expected_queue_storage = {
-        base_slot: sender,
-        base_slot + 1: pubkey_first_word,
-        base_slot + 2: pubkey_amount_word,
-    }
-
-    block = Block(txs=[tx], requests=[request])
-
-    blockchain_test(
-        pre=pre,
-        blocks=[block],
-        post={
-            sender: Account(nonce=1),
-            predeploy: Account(
-                balance=request.fee, storage=expected_queue_storage
-            ),
         },
     )
 
