@@ -29,6 +29,7 @@ from execution_testing import (
     Transaction,
 )
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import sstore_from_calldata_contract
 from .spec import Spec, ref_spec_8297
 
@@ -261,7 +262,16 @@ def test_storage_under_7702_delegation_lands_on_authority(
 ) -> None:
     """
     Verify storage written while executing under an EIP-7702
-    delegation lands on the AUTHORITY's account, never the delegate's.
+    delegation lands on the AUTHORITY's account, never the delegate's,
+    and that the delegation designation itself survives execution.
+
+    `authority` is the transaction's `to` and so actually executes
+    here (unlike a designation merely written by `pre.fund_eoa` and
+    never exercised): asserting its `code` checks that the
+    designation set up by `pre.fund_eoa(delegation=...)` still reads
+    back correctly after a real call, which under EIP-8297 lives in
+    the account's header code chunks rather than a dedicated MPT
+    field.
     """
     slot, value = 3, 0xC0FFEE
     delegate_code = Op.SSTORE(slot, value) + Op.STOP
@@ -271,7 +281,10 @@ def test_storage_under_7702_delegation_lands_on_authority(
     tx = Transaction(sender=pre.fund_eoa(), to=authority)
 
     post = {
-        authority: Account(storage={slot: value}),
+        authority: Account(
+            storage={slot: value},
+            code=Spec7702.delegation_designation(delegate),
+        ),
         delegate: Account(storage={}),
     }
     state_test(pre=pre, post=post, tx=tx)
