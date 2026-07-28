@@ -1642,20 +1642,6 @@ def test_bal_system_address_coinbase_zero_tip(
     """
     bob = pre.fund_eoa(amount=0)
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas = intrinsic_gas_calculator(
-        calldata=b"",
-        contract_creation=False,
-        access_list=[],
-        recipient_type=RecipientType.EMPTY_ACCOUNT,
-        sends_value=True,
-    )
-    top_frame_state_gas = fork.transaction_top_frame_state_gas(
-        sends_value=True,
-        recipient_type=RecipientType.EMPTY_ACCOUNT,
-    )
-    tx_gas_limit = intrinsic_gas + top_frame_state_gas + 1000
-
     genesis_env = Environment(base_fee_per_gas=0x7)
     base_fee_per_gas = fork.base_fee_per_gas_calculator()(
         parent_base_fee_per_gas=int(genesis_env.base_fee_per_gas or 0),
