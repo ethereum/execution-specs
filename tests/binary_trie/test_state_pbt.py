@@ -462,6 +462,50 @@ def test_embedded_key_set_for_a_crafted_contract() -> None:
     assert all(len(key) in (34, 66) for key in expected_keys)
 
 
+def test_embedded_keys_never_use_a_reserved_zone_byte() -> None:
+    """
+    Every key's first byte is one of the three zones this embedding
+    defines -- `ACCOUNT_ZONE` (0x00), `CODE_ZONE` (0x01), or
+    `STORAGE_ZONE` (0xFF) -- never one of the `0x02`-`0xFE` zone bytes
+    EIP-8297 reserves for future state categories ("New categories
+    MUST be allocated from `0x02`-`0xFE` and MUST keep their keys
+    mutually prefix-free").
+
+    Reuses the same crafted contract as
+    `test_embedded_key_set_for_a_crafted_contract`: 129 code chunks
+    (128 header chunks plus one content-addressed overflow chunk) and
+    storage at slots 63, 64, and 256 (one header slot, two overflow
+    slots in different groups), so the embedded state actually
+    populates all four leaf categories in one account: header
+    storage, overflow storage, header code chunks, and overflow code
+    chunks.
+    """
+    code = Bytes(b"\x01" * (31 * 129))
+    state = MptState()
+    code_hash = mpt_store_code(state, code)
+    mpt_set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
+    )
+    for slot, value in ((63, 1), (64, 2), (256, 3)):
+        mpt_set_storage(
+            state,
+            ADDRESS_A,
+            Bytes32(U256(slot).to_be_bytes32()),
+            U256(value),
+        )
+
+    embedded = embed_state(state)
+
+    allowed_zone_bytes = {0x00, 0x01, 0xFF}
+    for key in embedded._data:
+        assert key[0] in allowed_zone_bytes, (
+            f"key {key.hex()} uses zone byte {key[0]:#04x}, outside "
+            "the three zones this embedding defines"
+        )
+
+
 def test_embedded_state_root_is_pinned() -> None:
     """
     The same crafted state as `test_embedded_key_set_for_a_crafted_contract`
