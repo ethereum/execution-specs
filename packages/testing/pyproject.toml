@@ -54,6 +54,7 @@ dependencies = [
     "tenacity>=9.0.0,<10",
     "Jinja2>=3,<4",
     "ijson>=3.3,<4",
+    "eth-remerkleable==0.1.31",
 ]
 
 [project.urls]
