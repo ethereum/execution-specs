@@ -1,17 +1,21 @@
 """
-Test_refund50_2.
+Verify the EIP-3529 refund cap over five storage clears: the sender's
+final balance reflects the executed gas minus the capped refund.
 
 Ported from:
 state_tests/stRefundTest/refund50_2Filler.json
+
+@manually-enhanced: Do not overwrite. The sender's balance, the refund cap
+and the transaction budget all derive from the fork (`code.gas_cost` /
+`code.refund` composites), so EIP-8037's repriced stores and any future
+refund change are tracked instead of pinned.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -20,57 +24,67 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+INITIAL_BALANCE = 10**18
+GAS_PRICE = 10
+
 
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund50_2Filler.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("London")
 def test_refund50_2(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_refund50_2."""
-    coinbase = Address(0xEB201D2887816E041F6E807E804F64F3A7A226FE)
-    sender = pre.fund_eoa(amount=0x989680)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
+    """Five storage clears refund gas up to the EIP-3529 cap."""
+    code = (
+        Op.SSTORE(
+            key=0xA, value=0x1, key_warm=False, original_value=0, new_value=1
+        )
+        + Op.SSTORE(
+            key=0xB, value=0x1, key_warm=False, original_value=0, new_value=1
+        )
+        + Op.SSTORE(
+            key=0x1, value=0x0, key_warm=False, original_value=1, new_value=0
+        )
+        + Op.SSTORE(
+            key=0x2, value=0x0, key_warm=False, original_value=1, new_value=0
+        )
+        + Op.SSTORE(
+            key=0x3, value=0x0, key_warm=False, original_value=1, new_value=0
+        )
+        + Op.SSTORE(
+            key=0x4, value=0x0, key_warm=False, original_value=1, new_value=0
+        )
+        + Op.SSTORE(
+            key=0x5, value=0x0, key_warm=False, original_value=1, new_value=0
+        )
     )
-
-    pre[coinbase] = Account(balance=0, nonce=1)
-    # Source: lll
-    # { [[ 10 ]] 1 [[ 11 ]] 1 [[ 1 ]] 0 [[ 2 ]] 0 [[ 3 ]] 0 [[ 4 ]] 0 [[ 5 ]] 0 }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0xA, value=0x1)
-        + Op.SSTORE(key=0xB, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.SSTORE(key=0x2, value=0x0)
-        + Op.SSTORE(key=0x3, value=0x0)
-        + Op.SSTORE(key=0x4, value=0x0)
-        + Op.SSTORE(key=0x5, value=0x0)
-        + Op.STOP,
+    target = pre.deploy_contract(
+        code=code + Op.STOP,
         storage={1: 1, 2: 1, 3: 1, 4: 1, 5: 1},
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
     )
 
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    executed = intrinsic + code.gas_cost(fork)
+    gas_limit = executed + 5_000
+
+    sender = pre.fund_eoa(amount=INITIAL_BALANCE)
     tx = Transaction(
         sender=sender,
         to=target,
-        data=Bytes(""),
-        gas_limit=100000,
+        gas_limit=gas_limit,
+        gas_price=GAS_PRICE,
     )
 
+    # EIP-3529 caps the refund at a fifth of the executed gas.
+    refund = min(code.refund(fork), executed // 5)
+    gas_used = executed - refund
+
     post = {
-        target: Account(storage={10: 1, 11: 1}),
-        coinbase: Account(balance=0),
-        sender: Account(balance=0x8D926C, nonce=1),
+        target: Account(storage={0xA: 1, 0xB: 1}),
+        sender: Account(balance=INITIAL_BALANCE - gas_used * GAS_PRICE),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

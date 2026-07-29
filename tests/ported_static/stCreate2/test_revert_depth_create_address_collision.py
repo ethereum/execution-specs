@@ -1,222 +1,264 @@
 """
-Copy of this test for CREATE2.
+Verify a CREATE2 that collides with a live account — the very caller
+that funded the attempt: the collision burns the child's grant and bumps
+the creator's nonce without creating anything, and the two stacked
+budgets decide whether the creator survives its aftermath, dies on it,
+or the whole outer frame runs dry.
 
 Ported from:
 state_tests/stCreate2/RevertDepthCreateAddressCollisionFiller.json
+state_tests/stCreate2/RevertDepthCreateAddressCollisionBerlinFiller.json
 
-@manually-enhanced: Do not overwrite. `tx_gas` raised on Amsterdam to
-cover EIP-8037 NEW_ACCOUNT state-gas spill on the CREATE2-via-revert
-path. Pre-EIP-8037 keeps the original [110_000, 170_000] tuned budgets;
-post-state expectations unchanged on all forks.
-
+@manually-enhanced: Do not overwrite. The byte-identical Berlin twin is
+folded in, and the legacy fillers' vacancy is repaired: they kept the
+collider at contract_1's CREATE address while the code runs CREATE2, so
+nothing ever collided — the caller now occupies the CREATE2 target. The
+creator pre-writes its result slot so the post-collision store is a
+dirty-warm write its 1/64 retention can afford, and all budgets derive
+from fork composites.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Environment,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create2_address,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+# Caller slots (as in the ported filler).
+CALLER_START_SLOT = 0x0
+CALL_RESULT_SLOT = 0x1
+CALLER_DONE_SLOT = 0x4
+# Creator slots: 0x2 as ported, plus the pre-written CREATE2 result.
+CREATOR_START_SLOT = 0x2
+CREATE2_RESULT_SLOT = 0x5
+# Pre-written sentinel, overwritten by the CREATE2 result plus one: a
+# surviving creator must show 1 (collision), never 0xFF or an address.
+RESULT_PREWRITE = 0xFF
+
+# Post-collision slack for the starved-creator arm: retains under 1/64th
+# of the EIP-2200 stipend, so the result store cannot run.
+STARVED_SLACK = 10_000
+# The SSTORE composite prices a dirty re-store at the Berlin-era 100 on
+# every fork, but the un-metered pre-Berlin schedule charges up to 5000
+# (EIP-1283 was reverted in ConstantinopleFix); the covered arm's
+# retention carries this headroom so those forks stay covered too.
+DIRTY_STORE_HEADROOM = 5_000
+# Gas available in the caller frame at the CALL on the starved-outer
+# arms: too little for the creator, and retaining too little for any
+# post-call store — the caller must die.
+STARVED_AVAILABLE = 20_000
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stCreate2/RevertDepthCreateAddressCollisionFiller.json"],
-)
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize(
-    "d, g, v",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="d0-g0-v0",
-        ),
-        pytest.param(
-            0,
-            0,
-            1,
-            id="d0-g0-v1",
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="d0-g1-v0",
-        ),
-        pytest.param(
-            0,
-            1,
-            1,
-            id="d0-g1-v1",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1-g0-v0",
-        ),
-        pytest.param(
-            1,
-            0,
-            1,
-            id="d1-g0-v1",
-        ),
-        pytest.param(
-            1,
-            1,
-            0,
-            id="d1-g1-v0",
-        ),
-        pytest.param(
-            1,
-            1,
-            1,
-            id="d1-g1-v1",
-        ),
+        "state_tests/stCreate2/RevertDepthCreateAddressCollisionFiller.json",
+        "state_tests/stCreate2/RevertDepthCreateAddressCollisionBerlinFiller.json",  # noqa: E501
     ],
 )
+@pytest.mark.valid_from("Constantinople")
+@pytest.mark.parametrize(
+    "creator_covered",
+    [
+        pytest.param(False, id="creator_oog"),
+        pytest.param(True, id="creator_ok"),
+    ],
+)
+@pytest.mark.parametrize(
+    "outer_covered",
+    [
+        pytest.param(False, id="outer_oog"),
+        pytest.param(True, id="outer_ok"),
+    ],
+)
+@pytest.mark.parametrize("tx_value", [1, 0])
 @pytest.mark.pre_alloc_mutable
 def test_revert_depth_create_address_collision(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    creator_covered: bool,
+    outer_covered: bool,
+    tx_value: int,
 ) -> None:
-    """Copy of this test for CREATE2."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x3E180B1862F9D158ABB5E519A6D8605540C23682)
-    contract_1 = Address(0xB000000000000000000000000000000000000000)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    """A CREATE2 collision burns the grant; budgets decide what's left."""
+    # The creator: entry marker, result-slot pre-write, then the CREATE2
+    # aimed at the caller's (occupied) address, whose result overwrites
+    # the sentinel as a dirty-warm store the 1/64 retention can pay.
+    sstore_2 = Op.SSTORE(
+        key=CREATOR_START_SLOT,
+        value=0x8,
+        key_warm=False,
+        original_value=0,
+        new_value=0x8,
+    )
+    sentinel_store = Op.SSTORE(
+        key=CREATE2_RESULT_SLOT,
+        value=RESULT_PREWRITE,
+        key_warm=False,
+        original_value=0,
+        new_value=RESULT_PREWRITE,
+    )
+    create2_code = Op.CREATE2(
+        value=0x0,
+        offset=0x0,
+        size=0x0,
+        salt=0x0,
+        account_new=False,
+    )
+    result_store = Op.SSTORE(
+        key=CREATE2_RESULT_SLOT,
+        value=Op.ADD(0x1, create2_code),
+        key_warm=True,
+        original_value=0,
+        current_value=RESULT_PREWRITE,
+        new_value=0x1,
+    )
+    creator = pre.deploy_contract(
+        code=sstore_2 + sentinel_store + result_store + Op.STOP
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
+    # The caller occupies the creator's CREATE2 target (this is the
+    # repaired collision, and why the pre allocation must stay mutable).
+    sstore_0 = Op.SSTORE(
+        key=CALLER_START_SLOT,
+        value=0x1,
+        key_warm=False,
+        original_value=0,
+        new_value=0x1,
     )
+    call_code = Op.CALL(
+        gas=Op.CALLDATALOAD(offset=0x0),
+        address=creator,
+        address_warm=False,
+        value_transfer=False,
+        account_new=False,
+    )
+    sstore_1 = Op.SSTORE(
+        key=CALL_RESULT_SLOT,
+        value=call_code,
+        key_warm=False,
+        original_value=0,
+        new_value=0x1,
+    )
+    sstore_4 = Op.SSTORE(
+        key=CALLER_DONE_SLOT,
+        value=0xC,
+        key_warm=False,
+        original_value=0,
+        new_value=0xC,
+    )
+    caller_code = sstore_0 + sstore_1 + sstore_4 + Op.STOP
+    caller = compute_create2_address(creator, 0, b"")
+    pre.deploy_contract(code=caller_code, address=caller)
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    # Source: lll
-    # { [[2]] 8 (CREATE2 0 0 0 0) [[3]] 12}
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0x8)
-        + Op.POP(Op.CREATE2(value=0x0, offset=0x0, size=0x0, salt=0x0))
-        + Op.SSTORE(key=0x3, value=0xC)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB000000000000000000000000000000000000000),  # noqa: E501
-    )
-    # Source: lll
-    # { [[0]] 1 [[1]] (CALL (CALLDATALOAD 0) 0xb000000000000000000000000000000000000000 0 0 0 0 0) [[4]] 12 }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.CALL(
-                gas=Op.CALLDATALOAD(offset=0x0),
-                address=0xB000000000000000000000000000000000000000,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
+    # The collision consumes everything left after the CREATE2's charges
+    # but one 64th (the live target means no new-account state gas moves
+    # in either direction), so the creator's fate is set by the slack
+    # riding on top of its pre-collision costs.
+    create2_charge = create2_code.gas_cost(fork)
+    result_tail = result_store.gas_cost(fork) - create2_charge
+    stipend = fork.gas_costs().CALL_STIPEND
+    if creator_covered:
+        slack = 64 * (stipend + result_tail + DIRTY_STORE_HEADROOM + 100)
+    else:
+        slack = STARVED_SLACK
+        assert slack // 64 <= stipend, (
+            "the retention must not afford the result store"
         )
-        + Op.SSTORE(key=0x4, value=0xC)
-        + Op.STOP,
-        balance=5,
-        nonce=54,
-        address=Address(0x3E180B1862F9D158ABB5E519A6D8605540C23682),  # noqa: E501
+    forwarded = (
+        sstore_2.gas_cost(fork)
+        + sentinel_store.gas_cost(fork)
+        + create2_charge
+        + slack
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={0: 1, 1: 1, 4: 12}, nonce=54),
-                contract_1: Account(storage={2: 8, 3: 12}),
-            },
-        },
-        {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={0: 1, 4: 12}, nonce=54),
-                contract_1: Account(storage={}),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
-                    ),
-                    balance=5,
-                    nonce=54,
-                ),
-                contract_1: Account(storage={}),
-            },
-        },
-        {
-            "indexes": {"data": 0, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
-                    ),
-                    nonce=54,
-                ),
-                contract_1: Account(storage={}),
-            },
-        },
-    ]
+    tx_data = Hash(forwarded)
+    overhead = fork.transaction_intrinsic_cost_calculator()(
+        calldata=tx_data,
+        sends_value=tx_value > 0,
+    ) + sstore_0.gas_cost(fork)
+    if outer_covered:
+        # Enough at the CALL that the EIP-150 clamp still grants the
+        # full ask, plus the caller's post-call stores.
+        available = -(-forwarded * 64 // 63) + 64
+        assert available - available // 64 >= forwarded, (
+            "the full ask must be granted"
+        )
+        gas_limit = (
+            overhead
+            + sstore_1.gas_cost(fork)
+            + sstore_4.gas_cost(fork)
+            + available
+        )
+    else:
+        granted = STARVED_AVAILABLE - STARVED_AVAILABLE // 64
+        assert granted < sstore_2.gas_cost(fork) + sentinel_store.gas_cost(
+            fork
+        ), "the creator must die before its CREATE2"
+        assert STARVED_AVAILABLE // 64 <= stipend, (
+            "the retention must not afford the post-call store"
+        )
+        gas_limit = overhead + call_code.gas_cost(fork) + STARVED_AVAILABLE
 
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Hash(0xEA60),
-        Hash(0x1EA60),
-    ]
-    # EIP-8037 NEW_ACCOUNT state-gas spill on Amsterdam exceeds the
-    # original tuned tx_gas budgets; pre-EIP-8037 keeps the originals.
-    tx_gas = [110000, 170000]
-    if fork.is_eip_enabled(8037):
-        tx_gas = [500_000, 700_000]
-    tx_value = [1, 0]
-
+    sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        to=caller,
+        data=tx_data,
+        gas_limit=gas_limit,
+        value=tx_value,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    if not outer_covered:
+        # The whole transaction ran dry: only the code survives.
+        caller_account = Account(storage={}, code=caller_code, balance=0)
+        creator_account = Account(storage={}, nonce=1)
+    elif not creator_covered:
+        # The creator reached the collision but died on its aftermath
+        # and was rolled back — including the collision's nonce bump.
+        caller_account = Account(
+            storage={
+                CALLER_START_SLOT: 0x1,
+                CALL_RESULT_SLOT: 0x0,
+                CALLER_DONE_SLOT: 0xC,
+            },
+            code=caller_code,
+            balance=tx_value,
+        )
+        creator_account = Account(storage={}, nonce=1)
+    else:
+        # The collision's signature: a nonce bump with nothing created,
+        # a zero CREATE2 result, and the caller's account untouched.
+        caller_account = Account(
+            storage={
+                CALLER_START_SLOT: 0x1,
+                CALL_RESULT_SLOT: 0x1,
+                CALLER_DONE_SLOT: 0xC,
+            },
+            code=caller_code,
+            balance=tx_value,
+        )
+        creator_account = Account(
+            storage={
+                CREATOR_START_SLOT: 0x8,
+                CREATE2_RESULT_SLOT: 0x1,
+            },
+            nonce=2,
+        )
+
+    post = {
+        sender: Account(nonce=1),
+        caller: caller_account,
+        creator: creator_account,
+    }
+
+    state_test(pre=pre, post=post, tx=tx)

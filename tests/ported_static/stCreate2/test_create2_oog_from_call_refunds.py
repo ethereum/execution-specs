@@ -1,8 +1,17 @@
 """
-Test_create2_oog_from_call_refunds.
+Verify gas refunds earned inside a CREATE2's init code (storage clears,
+via direct stores and CALL/CALLCODE/DELEGATECALL helpers, selfdestructs,
+and nested creations) against out-of-gas boundaries: each scenario runs
+once completing normally and twice dying — on an oversized code deposit
+and on an INVALID that pins the refund bookkeeping.
 
 Ported from:
 state_tests/stCreate2/Create2OOGFromCallRefundsFiller.yml
+
+@manually-enhanced: Do not overwrite. The transaction budget and the
+sender's funding derive from the fork: the ported 400k regular budget
+plus the deepest arm's peak outstanding EIP-8037 state gas, guarded to
+stay below the 5000-byte deposit charge that starves the OoG arms.
 """
 
 import pytest
@@ -26,6 +35,13 @@ from tests.ported_static.post_state_resolution import (
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+GAS_PRICE = 10
+# The ported budget, proven to cover every NoOoG arm's regular gas.
+PORTED_GAS_LIMIT = 400_000
+# The OoG arms return this much memory as code; the deposit charge is
+# what must exceed the transaction budget so they starve.
+OOG_DEPOSIT_SIZE = 0x1388
 
 
 @pytest.mark.ported_from(
@@ -233,7 +249,34 @@ def test_create2_oog_from_call_refunds(
         base_fee_per_gas=10,
     )
 
-    pre[sender] = Account(balance=0x3D0900, nonce=1)
+    # EIP-8037 charges state gas on top of the ported regular budget.
+    # The headroom is the deepest arm's (create-inside-create2) peak
+    # outstanding state gas: a NEW_ACCOUNT charge and one live fresh
+    # slot set at each creation depth, plus the one-byte code deposits;
+    # all terms are zero before Amsterdam.
+    fresh_set_state = Op.SSTORE(
+        key=0x0, value=0x1, key_warm=False, original_value=0, new_value=1
+    ).state_cost(fork)
+    new_account_state = Op.CREATE2(
+        value=0x0, offset=0x0, size=0x0, salt=0x0
+    ).state_cost(fork)
+    tx_gas_limit = (
+        PORTED_GAS_LIMIT
+        + 2 * new_account_state
+        + 2 * fresh_set_state
+        + 3 * fork.code_deposit_state_gas(code_size=1)
+        + 20_000
+    )
+    # The budget must stay below the oversized deposit charge so the
+    # OoG arms keep starving on it on every fork.
+    oog_deposit = (
+        OOG_DEPOSIT_SIZE * fork.gas_costs().CODE_DEPOSIT_PER_BYTE
+        + fork.code_deposit_state_gas(code_size=OOG_DEPOSIT_SIZE)
+    )
+    assert tx_gas_limit < oog_deposit, "the OoG arms must stay starved"
+
+    # The exact funding makes the OoG arms' post-state balance zero.
+    pre[sender] = Account(balance=tx_gas_limit * GAS_PRICE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -1189,13 +1232,14 @@ def test_create2_oog_from_call_refunds(
         Bytes("693c6139") + Hash(contract_23, left_padding=True),
         Bytes("693c6139") + Hash(contract_24, left_padding=True),
     ]
-    tx_gas = [400000]
+    tx_gas = [tx_gas_limit]
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=tx_data[d],
         gas_limit=tx_gas[g],
+        gas_price=GAS_PRICE,
         nonce=1,
         error=_exc,
     )
