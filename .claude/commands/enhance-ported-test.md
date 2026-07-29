@@ -439,6 +439,31 @@ persists with the sentinel) plus the callee-side observable already
 separate the outcomes. Validated on
 `test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided`.
 
+**Refund-cap derivations need the EIP-7623 kwarg.** The EIP-3529 cap's
+base is the gas deducted before execution, which excludes the calldata
+floor: pass `return_cost_deducted_prior_execution=True` to the intrinsic
+calculator whenever the tx has calldata, or the derived `executed` (and
+the cap) overstate. Validated on `test_refund_suicide50procent_cap`.
+
+**A CREATE address collision burns the child's gas allowance** (the
+EIP-684 path): the withheld child grant is consumed, nothing is created,
+and under EIP-8037 the new-account state charge is refunded. Useful to
+build always-failing creator frames with predictable consumption.
+Validated on `test_revert_depth_create_address_collision`.
+
+**Loop-to-depth-1024 cannot replace loop-to-OOG.** With 63/64
+attenuation, reaching depth 1024 needs ~e^16 × the terminal gas — no
+legal budget gets there. For call-loop depth tests the honest shape is a
+fixed named budget with per-gas-schedule-era pinned depth counts, each
+shift explained (±1 frame ≈ 64·ln(cost ratio)). Validated on
+`test_loop_calls_depth_then_revert`.
+
+**Framework wart: the SSTORE dirty-rewrite composite prices 100 on every
+fork**, but Constantinople/Petersburg charge 5,000 for a dirty re-store —
+a derived budget that must survive pre-Istanbul forks needs an explicit
+headroom constant for it (named, commented). Observed on
+`test_revert_depth_create_address_collision`'s ConstantinopleFix sweep.
+
 **EIP-8037 repriced the code deposit's regular part — boundaries beware.**
 On 8037 forks the deposit charges only the keccak word cost
 (`OPCODE_KECCAK256_PER_WORD * ceil32(len)/32`, ~6 gas) as regular gas plus
