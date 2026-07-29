@@ -1,17 +1,23 @@
 """
-Test_exp_empty.
+Measure the gas cost of EXP with a zero base or a zero exponent across
+exponent widths (the per-byte exponent charge applies only to the
+exponent operand).
 
 Ported from:
 state_tests/stEIP158Specific/EXP_EmptyFiller.json
+
+@manually-enhanced: Do not overwrite. The eight measurement windows are
+generated from one case list and every stored delta is derived from
+opcode metadata (`exponent=` drives the per-byte charge); the transaction
+budget is fork-derived.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    Bytecode,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -20,100 +26,78 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+# (base, exponent) pairs: a zero on either side, exponent widths 1-32.
+EXP_CASES = [
+    (0x0, 0xC),
+    (0xC, 0x0),
+    (0x0, 2**64 - 1),
+    (0x0, 2**128 - 1),
+    (0x0, 2**256 - 1),
+    (2**64 - 1, 0x0),
+    (2**128 - 1, 0x0),
+    (2**256 - 1, 0x0),
+]
+
 
 @pytest.mark.ported_from(
     ["state_tests/stEIP158Specific/EXP_EmptyFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Berlin")
 def test_exp_empty(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_exp_empty."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    """Measure EXP's cost for zero-base and zero-exponent operands."""
+    code = Bytecode()
+    storage: dict = {}
+    budget = 0
+    for i, (base, exponent) in enumerate(EXP_CASES):
+        result = 1 if exponent == 0 else 0
+        result_slot = 1 + 2 * i
+        # The last window stores its delta at slot 100, as ported.
+        delta_slot = 0x64 if i == len(EXP_CASES) - 1 else result_slot + 1
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
+        lead = Op.MSTORE(
+            offset=0x0,
+            value=Op.GAS,
+            new_memory_size=0x20,
+            old_memory_size=0x0 if i == 0 else 0x20,
+        )
+        exp_store = Op.SSTORE(
+            key=result_slot,
+            value=Op.EXP(base, exponent, exponent=exponent),
+            key_warm=False,
+            original_value=0,
+            new_value=result,
+        )
+        # The window's measured delta: both GAS reads cancel out of the
+        # two composites' sum.
+        measured = lead.gas_cost(fork) + exp_store.gas_cost(fork)
+        delta_store = Op.SSTORE(
+            key=delta_slot,
+            value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS),
+            key_warm=False,
+            original_value=0,
+            new_value=measured,
+        )
+        code += lead + exp_store + delta_store
+        storage[result_slot] = result
+        storage[delta_slot] = measured
+        budget += measured + delta_store.gas_cost(fork) + 9
 
-    # Source: lll
-    # { [0](GAS) [[1]](EXP 0 12)  [[2]](SUB @0 (GAS)) [0](GAS) [[3]](EXP 12 0) [[4]](SUB @0 (GAS)) [0](GAS) [[5]](EXP 0 0xffffffffffffffff) [[6]](SUB @0 (GAS)) [0](GAS) [[7]](EXP 0 0xffffffffffffffffffffffffffffffff) [[8]](SUB @0 (GAS)) [0](GAS) [[9]](EXP 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) [[10]](SUB @0 (GAS)) [0](GAS) [[11]](EXP 0xffffffffffffffff 0) [[12]](SUB @0 (GAS)) [0](GAS) [[13]](EXP 0xffffffffffffffffffffffffffffffff 0) [[14]](SUB @0 (GAS)) [0] (GAS) [[15]](EXP 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0) [[100]] (SUB @0 (GAS)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x1, value=Op.EXP(0x0, 0xC))
-        + Op.SSTORE(key=0x2, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x3, value=Op.EXP(0xC, 0x0))
-        + Op.SSTORE(key=0x4, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x5, value=Op.EXP(0x0, 0xFFFFFFFFFFFFFFFF))
-        + Op.SSTORE(key=0x6, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x7, value=Op.EXP(0x0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        )
-        + Op.SSTORE(key=0x8, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x9,
-            value=Op.EXP(
-                0x0,
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-            ),
-        )
-        + Op.SSTORE(key=0xA, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0xB, value=Op.EXP(0xFFFFFFFFFFFFFFFF, 0x0))
-        + Op.SSTORE(key=0xC, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(
-            key=0xD, value=Op.EXP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0x0)
-        )
-        + Op.SSTORE(key=0xE, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(
-            key=0xF,
-            value=Op.EXP(
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                0x0,
-            ),
-        )
-        + Op.SSTORE(key=0x64, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.STOP,
-        nonce=0,
-    )
+    target = pre.deploy_contract(code=code + Op.STOP)
+
+    # Fork-derived budget with an EIP-2200 stipend margin for the final
+    # store.
+    gas_limit = fork.transaction_intrinsic_cost_calculator()() + budget + 5_000
 
     tx = Transaction(
-        sender=sender,
+        sender=pre.fund_eoa(),
         to=target,
-        data=Bytes(""),
-        gas_limit=600000,
+        gas_limit=gas_limit,
     )
 
-    post = {
-        target: Account(
-            storage={
-                2: 2280,
-                3: 1,
-                4: 22127,
-                6: 2627,
-                8: 3027,
-                10: 3827,
-                11: 1,
-                12: 22127,
-                13: 1,
-                14: 22127,
-                15: 1,
-                100: 22127,
-            },
-        ),
-    }
+    post = {target: Account(storage=storage)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
