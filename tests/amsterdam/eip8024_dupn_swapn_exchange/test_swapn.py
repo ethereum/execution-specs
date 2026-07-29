@@ -539,19 +539,20 @@ def test_swapn_full_stack(
 
     top_marker = 0xAAAA
     deep_marker = 0xBBBB
-    stack_height = fork.max_stack_height()
 
-    # Bottom-up: zeros, deep marker at position (stack_index + 1) from
-    # the top, more zeros, then the top marker.
+    # Full stack, top-down: the top marker at position 1, the deep
+    # marker at the swap target, position stack_index + 1.
+    stack = [0] * fork.max_stack_height()
+    stack[0] = top_marker
+    stack[stack_index] = deep_marker
+
     code = Bytecode()
-    code += Op.PUSH0 * (stack_height - stack_index - 1)
-    code += Op.PUSH2(deep_marker)
-    code += Op.PUSH0 * (stack_index - 1)
-    code += Op.PUSH2(top_marker)
+    for value in reversed(stack):
+        code += Op.PUSH2(value) if value else Op.PUSH0
 
     code += Op.SWAPN[stack_index]
 
-    # Pop down to the item the top marker was swapped into.
+    # Pop down to the swap target and store the item now there.
     code += Op.POP * stack_index
     code += Op.PUSH1(0) + Op.SSTORE
     code += Op.STOP
