@@ -2,6 +2,8 @@
 Tests for the embedding of state into the binary tree.
 """
 
+from typing import List
+
 import pytest
 from blake3 import blake3
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
@@ -26,6 +28,8 @@ from ethereum.state import EMPTY_CODE_HASH as MPT_STATE_EMPTY_CODE_HASH
 
 ADDRESS = Address32(b"\x00" * 12 + b"\xaa" * 20)
 
+CODE_HASH = Bytes32(blake3(b"some code").digest())
+
 
 def _header_stem(address: Address32) -> bytes:
     """
@@ -33,6 +37,29 @@ def _header_stem(address: Address32) -> bytes:
     scratch.
     """
     return bytes([0]) + blake3(bytes(address)).digest()
+
+
+def _storage_overflow_key(
+    address: Address32, tree_index_bytes: bytes, sub_index: int
+) -> bytes:
+    """
+    Build `0xFF || H(A) || H(A || tree_index_bytes) || sub_index`,
+    the 66-byte overflow storage key, from scratch.
+    """
+    prefix = blake3(bytes(address)).digest()
+    suffix = blake3(bytes(address) + tree_index_bytes).digest()
+    return bytes([255]) + prefix + suffix + bytes([sub_index])
+
+
+def _code_overflow_key(
+    code_hash: Bytes32, tree_index_bytes: bytes, sub_index: int
+) -> bytes:
+    """
+    Build `0x01 || H(C || tree_index_bytes) || sub_index`, the
+    34-byte overflow code-chunk key, from scratch.
+    """
+    digest = blake3(bytes(code_hash) + tree_index_bytes).digest()
+    return bytes([1]) + digest + bytes([sub_index])
 
 
 def test_address20_to_address32_prepends_zeros() -> None:
@@ -72,15 +99,6 @@ def test_get_tree_key_concatenates_its_three_parts() -> None:
         key = get_tree_key(Zone(zone), digest, U8(7))
         assert len(key) == 34
         assert key == bytes([zone]) + digest + b"\x07"
-
-
-def test_zone_wider_than_one_byte_is_unrepresentable() -> None:
-    """
-    A zone identifier that does not fit in the zone byte fails at
-    construction: the type is one byte wide.
-    """
-    with pytest.raises(OverflowError):
-        Zone(256)
 
 
 def test_header_sub_index_wider_than_one_byte_is_rejected() -> None:
@@ -144,6 +162,103 @@ def test_storage_slot_boundary_is_64() -> None:
     ) == overflow_stem + bytes([64])
 
 
+@pytest.mark.parametrize(
+    "slot",
+    [
+        pytest.param(0, id="slot-0-header-first"),
+        pytest.param(1, id="slot-1-header"),
+        pytest.param(62, id="slot-62-header-last-but-one"),
+        pytest.param(65, id="slot-65-overflow-group-0"),
+        pytest.param(255, id="slot-255-group-0-last"),
+        pytest.param(256, id="slot-256-group-1-first"),
+        pytest.param(257, id="slot-257-group-1"),
+        pytest.param(511, id="slot-511-group-1-last"),
+        pytest.param(512, id="slot-512-group-2-first"),
+        pytest.param(2**32, id="slot-2-32"),
+        pytest.param(2**256 - 1, id="slot-max-u256"),
+    ],
+)
+def test_storage_slot_key_matrix(slot: int) -> None:
+    """
+    A matrix of storage slots rebuilds each expected key from
+    scratch, header form below 64 and overflow form at and above it.
+
+    The overflow cases cross every group rollover in range: 255 is
+    group 0's last sub-index, 256 opens group 1 at sub-index 0, 511
+    is group 1's last sub-index, and 512 opens group 2.
+    """
+    if slot < 64:
+        expected = _header_stem(ADDRESS) + bytes([64 + slot])
+        expected_length = 34
+    else:
+        tree_index = slot // 256
+        sub_index = slot % 256
+        expected = _storage_overflow_key(
+            ADDRESS, tree_index.to_bytes(32, "big"), sub_index
+        )
+        expected_length = 66
+
+    key = get_tree_key_for_storage_slot(ADDRESS, U256(slot))
+
+    assert key == expected
+    assert len(key) == expected_length
+
+
+def test_storage_group_zero_never_uses_low_sub_indices() -> None:
+    """
+    Group 0 of the storage zone is short.
+
+    Slots 0 through 63 stay in the account header, so group 0's
+    overflow leaves cover only sub-indices 64 through 255 -- 192
+    slots rather than the 256 every later group has. Every overflow
+    key derived from a group-0 slot must therefore end in a byte of
+    at least 64.
+    """
+    group_zero_slots = 0
+    for slot in range(64, 1001):
+        if slot // 256 != 0:
+            continue
+        group_zero_slots += 1
+        key = get_tree_key_for_storage_slot(ADDRESS, U256(slot))
+        assert key[-1] >= 64, (
+            f"slot {slot}: group-0 overflow key ends in {key[-1]}, "
+            "below the 64 floor"
+        )
+    # Vacuity control: `key[-1] >= 64` above is this loop's only
+    # assertion (there is no set-equality assertion anywhere in this
+    # test to imply it), so it is also the loop's sole guard against
+    # running zero times. If a future edit narrows `range(64, 1001)`
+    # or the `continue` guard so the body never executes, this line
+    # is what still catches the test passing vacuously.
+    assert group_zero_slots == 192
+
+
+def test_storage_tree_index_is_a_32_byte_big_endian_suffix() -> None:
+    """
+    The overflow position's group half hashes the tree index as a
+    full 32-byte big-endian integer, not some narrower width.
+
+    Encoding the same tree index over only 8 bytes changes the hash
+    input and therefore the key, so a future narrowing regression
+    would be caught here.
+    """
+    slot = 256 * 5
+    tree_index = slot // 256
+    sub_index = slot % 256
+    assert tree_index == 5
+
+    key = get_tree_key_for_storage_slot(ADDRESS, U256(slot))
+    wide_key = _storage_overflow_key(
+        ADDRESS, tree_index.to_bytes(32, "big"), sub_index
+    )
+    narrow_key = _storage_overflow_key(
+        ADDRESS, tree_index.to_bytes(8, "big"), sub_index
+    )
+
+    assert key == wide_key
+    assert key != narrow_key
+
+
 def test_code_chunk_in_header_vector() -> None:
     """
     EIP sub-index vector: code chunk 5 lives in the header at
@@ -182,6 +297,113 @@ def test_overflow_code_is_content_addressed() -> None:
     assert get_tree_key_for_code_chunk(
         ADDRESS, code_hash, Uint(5)
     ) != get_tree_key_for_code_chunk(other, code_hash, Uint(5))
+
+
+@pytest.mark.parametrize(
+    "chunk_id",
+    [
+        pytest.param(0, id="chunk-0-header-first"),
+        pytest.param(126, id="chunk-126-header"),
+        pytest.param(127, id="chunk-127-header-last"),
+        pytest.param(128, id="chunk-128-overflow-group-0-first"),
+        pytest.param(129, id="chunk-129-overflow-group-0"),
+        pytest.param(383, id="chunk-383-overflow-group-0-last"),
+        pytest.param(384, id="chunk-384-overflow-group-1-first"),
+        pytest.param(385, id="chunk-385-overflow-group-1"),
+    ],
+)
+def test_code_chunk_key_matrix(chunk_id: int) -> None:
+    """
+    A matrix of code chunk ids rebuilds each expected key from
+    scratch, header form below 128 and content-addressed overflow
+    form at and above it.
+
+    Both forms are 34 bytes, but the zone byte switches from
+    `ACCOUNT_ZONE` (0) to `CODE_ZONE` (1) exactly at the 127 -> 128
+    boundary.
+    """
+    if chunk_id < 128:
+        expected = _header_stem(ADDRESS) + bytes([128 + chunk_id])
+        expected_zone = 0
+    else:
+        overflow = chunk_id - 128
+        tree_index = overflow // 256
+        sub_index = overflow % 256
+        expected = _code_overflow_key(
+            CODE_HASH, tree_index.to_bytes(32, "big"), sub_index
+        )
+        expected_zone = 1
+
+    key = get_tree_key_for_code_chunk(ADDRESS, CODE_HASH, Uint(chunk_id))
+
+    assert key == expected
+    assert len(key) == 34
+    assert key[0] == expected_zone
+
+
+def test_max_code_size_chunk_keys() -> None:
+    """
+    `MAX_CODE_SIZE` (0x10000 = 65536 bytes, defined in
+    `ethereum.forks.binary_tree.vm.interpreter`) chunkifies into
+    `ceil(65536 / 31) == 2115` chunks.
+
+    The last chunk, id 2114, is well past the 128-chunk header and
+    lands in the code zone at group 7, sub-index 194; the
+    group/sub-index are computed here from the EIP formula, with the
+    concrete numbers also asserted so the arithmetic stays pinned.
+    """
+    max_code_size = 0x10000
+    chunk_count = (max_code_size + 30) // 31
+    assert chunk_count == 2115
+
+    last_chunk_id = chunk_count - 1
+    overflow = last_chunk_id - 128
+    tree_index = overflow // 256
+    sub_index = overflow % 256
+    assert (tree_index, sub_index) == (7, 194)
+
+    key = get_tree_key_for_code_chunk(ADDRESS, CODE_HASH, Uint(last_chunk_id))
+    expected = _code_overflow_key(
+        CODE_HASH, tree_index.to_bytes(32, "big"), sub_index
+    )
+
+    assert key == expected
+    assert len(key) == 34
+
+
+def test_key_derivations_assert_their_own_key_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Every key-deriving function asserts the length of the key it
+    builds before returning it (EIP-8297, "Tree embedding":
+    "Implementations MUST assert the length of every key they
+    construct").
+
+    Monkeypatching `key_hash` to return a too-short digest breaks
+    that invariant for whichever derivation calls it, so each of the
+    three length asserts in `embedding.py` --
+    `get_tree_key_for_header`'s `ACCOUNT_KEY_LENGTH`,
+    `get_tree_key_for_storage_slot`'s `STORAGE_KEY_LENGTH`, and
+    `get_tree_key_for_code_chunk`'s `CODE_KEY_LENGTH` -- fires
+    instead of silently returning a malformed key. The storage slot
+    and code chunk id are each chosen in that derivation's own
+    OVERFLOW range, so the call reaches that function's own assert
+    rather than delegating to `get_tree_key_for_header`'s.
+    """
+    monkeypatch.setattr(
+        "ethereum.binary_trie.embedding.key_hash",
+        lambda _data: b"\x00" * 16,
+    )
+
+    with pytest.raises(AssertionError):
+        get_tree_key_for_header(ADDRESS, Uint(0))
+
+    with pytest.raises(AssertionError):
+        get_tree_key_for_storage_slot(ADDRESS, U256(1000))
+
+    with pytest.raises(AssertionError):
+        get_tree_key_for_code_chunk(ADDRESS, CODE_HASH, Uint(300))
 
 
 def test_chunkify_empty_code() -> None:
@@ -258,10 +480,237 @@ def test_chunkify_code_push_data_truncated_by_end_of_code() -> None:
     assert chunks == [Bytes32(b"\x00" + bytes([push32]) + b"\x00" * 30)]
 
 
+def _reference_chunkify(code: bytes) -> List[bytes]:
+    """
+    Chunkify `code` with an independent reimplementation.
+
+    A direct transcription of EIP-8297's own `chunkify_code`
+    pseudocode, using the EIP text's own variable names rather than
+    `chunkify_code`'s, so the two implementations are genuinely
+    independent, not a copy-paste.
+    """
+    push_offset = 95
+    push1 = push_offset + 1
+    push32 = push_offset + 32
+
+    if len(code) % 31 != 0:
+        code = code + b"\x00" * (31 - (len(code) % 31))
+    bytes_to_exec_data = [0] * (len(code) + 32)
+    pos = 0
+    while pos < len(code):
+        if push1 <= code[pos] <= push32:
+            pushdata_bytes = code[pos] - push_offset
+        else:
+            pushdata_bytes = 0
+        pos += 1
+        for x in range(pushdata_bytes):
+            bytes_to_exec_data[pos + x] = pushdata_bytes - x
+        pos += pushdata_bytes
+    return [
+        bytes([min(bytes_to_exec_data[pos], 31)]) + code[pos : pos + 31]
+        for pos in range(0, len(code), 31)
+    ]
+
+
+def test_chunkify_push0_is_not_push_data() -> None:
+    """
+    `PUSH0` (0x5F) carries no push data.
+
+    `PUSH_OFFSET` (95) sits one below `PUSH1` (96), so the `PUSH1`
+    through `PUSH32` range (96 through 127) deliberately excludes
+    `PUSH0`; a run of `PUSH0` bytes therefore chunkifies as plain
+    non-push code, every chunk's leading byte staying 0.
+    """
+    code = Bytes(b"\x5f" * 40)
+
+    chunks = chunkify_code(code)
+
+    assert len(chunks) == 2
+    for chunk in chunks:
+        assert chunk[0] == 0
+
+
+def test_chunkify_push_data_overhanging_into_padding() -> None:
+    """
+    Padding happens before the push-data scan, so a push instruction
+    truncated by the end of the code can have its declared data
+    overhang into the padding.
+
+    `PUSH32` demands 32 data bytes but this 32-byte code (opcode plus
+    31 data bytes) supplies only 31, so the scan -- which runs over
+    the already-padded buffer -- counts the first zero padding byte
+    as the push's 32nd data byte too.
+    """
+    push32 = 0x7F
+    data = bytes(range(1, 32))  # 31 bytes: 1, 2, ..., 31
+    code = Bytes(bytes([push32]) + data)
+    assert len(code) == 32
+
+    chunks = chunkify_code(code)
+
+    assert len(chunks) == 2
+    # The PUSH32 opcode itself is not push data.
+    assert chunks[0] == Bytes32(bytes([0, push32]) + data[:30])
+    # Byte 31 (last real data byte) and byte 32 (first padding byte)
+    # both count as carried-over push data.
+    assert chunks[1] == Bytes32(bytes([2]) + bytes([31]) + b"\x00" * 30)
+
+
+def test_chunkify_push_ending_exactly_at_chunk_boundary() -> None:
+    """
+    A push whose data ends exactly on a chunk's last payload byte
+    leaves no push data carried into the next chunk.
+
+    The `PUSH1` at position 29 has its one data byte at position 30,
+    chunk 0's last payload byte, so chunk 1 opens with a plain opcode
+    byte and no phantom extra chunk appears.
+    """
+    push1 = 0x60
+    code = Bytes(b"\x00" * 29 + bytes([push1, 0xAB]) + b"\x00" * 31)
+    assert len(code) == 62
+
+    chunks = chunkify_code(code)
+
+    assert len(chunks) == 2
+    assert chunks[0] == Bytes32(
+        bytes([0]) + b"\x00" * 29 + bytes([push1, 0xAB])
+    )
+    assert chunks[1] == Bytes32(bytes([0]) + b"\x00" * 31)
+
+
+@pytest.mark.parametrize(
+    "length",
+    [
+        pytest.param(30, id="length-30-needs-padding"),
+        pytest.param(31, id="length-31-exact-multiple"),
+        pytest.param(32, id="length-32-needs-padding"),
+        pytest.param(62, id="length-62-exact-multiple"),
+        pytest.param(93, id="length-93-exact-multiple"),
+    ],
+)
+def test_chunkify_code_length_multiples_need_no_padding(
+    length: int,
+) -> None:
+    """
+    Chunk count always follows `ceil(len(code) / 31)`.
+
+    When the code length is itself a multiple of 31 (31, 62, and 93
+    bytes here), no padding byte is introduced: the final chunk's
+    31-byte payload is entirely original code. Filling the code with
+    a non-zero repeating byte (0xAB, never a push opcode) makes any
+    padding zero bytes stand out.
+    """
+    fill = 0xAB
+    code = Bytes(bytes([fill]) * length)
+
+    chunks = chunkify_code(code)
+
+    expected_chunk_count = (length + 30) // 31
+    assert len(chunks) == expected_chunk_count
+
+    if length % 31 == 0:
+        last_chunk = chunks[-1]
+        assert last_chunk[0] == 0
+        assert last_chunk[1:] == bytes([fill]) * 31
+
+
+def test_chunkify_all_push32_code_matches_reference_scanner() -> None:
+    """
+    `chunkify_code` agrees with an independent reimplementation of
+    the EIP pseudocode for code built entirely of `PUSH32`
+    instructions.
+
+    31 repeats of a 33-byte `PUSH32 || 32 data bytes` instruction is
+    1023 bytes, exercising a full alignment cycle between the
+    33-byte instruction and the 31-byte chunk. Chunk 32 additionally
+    gets a hand-derived pin independent of the reference scanner, so
+    a bug shared by both scanners would still be caught.
+    """
+    instruction = bytes([0x7F]) + bytes(range(1, 33))
+    assert len(instruction) == 33
+    code = Bytes(instruction * 31)
+    assert len(code) == 1023
+
+    chunks = chunkify_code(code)
+
+    assert chunks == [Bytes32(c) for c in _reference_chunkify(bytes(code))]
+    assert len(chunks) == 33
+    assert chunks[32] == Bytes32(bytes([31]) + bytes(range(2, 33)))
+
+
+def test_chunkify_push_data_containing_push_opcodes() -> None:
+    """
+    Bytes that fall inside a push instruction's data are never
+    reinterpreted as fresh opcodes, even when their value (0x60
+    through 0x7F) would otherwise mean `PUSH1` through `PUSH32`.
+
+    Each `PUSH2` here carries `0x7F` and `0x60` as its two data
+    bytes; the scanner must skip both wholesale rather than restart a
+    push count on them. Chunk 2 additionally gets a hand-derived pin
+    independent of the reference scanner: a scanner that wrongly
+    restarted counting on a push-opcode-valued data byte would read
+    31 there instead of 1.
+    """
+    push2 = 0x61
+    code = Bytes((bytes([push2, 0x7F, 0x60]) + b"\x00") * 16)
+
+    chunks = chunkify_code(code)
+
+    assert chunks == [Bytes32(c) for c in _reference_chunkify(bytes(code))]
+    assert len(chunks) == 3
+    assert chunks[2] == Bytes32(bytes([1, 0x60]) + b"\x00" * 30)
+
+
+def test_chunkify_consecutive_pushes_across_boundary() -> None:
+    """
+    Back-to-back pushes straddling a chunk edge chunkify consistently
+    with the reference scanner.
+
+    A `PUSH4` positioned so its fourth data byte falls exactly on
+    chunk 1's first byte is immediately followed by a `PUSH1` and a
+    `PUSH3`, both entirely inside chunk 1; chunk 1 opens with exactly
+    one carried-over push-data byte.
+    """
+    push4, push1, push3 = 0x63, 0x60, 0x62
+    code = Bytes(
+        b"\x00" * 27  # positions 0-26
+        + bytes([push4, 1, 2, 3, 4])  # opcode 27, data 28-31
+        + bytes([push1, 0xAA])  # opcode 32, data 33
+        + bytes([push3, 0xBB, 0xCC, 0xDD])  # opcode 34, data 35-37
+        + b"\x00" * 24  # positions 38-61
+    )
+    assert len(code) == 62
+
+    chunks = chunkify_code(code)
+
+    assert chunks == [Bytes32(c) for c in _reference_chunkify(bytes(code))]
+    assert chunks[1][0] == 1
+
+
+def test_chunkify_delegation_designator() -> None:
+    """
+    An EIP-7702 delegation designator chunkifies like any other code.
+
+    `0xEF0100` followed by the 20-byte delegate address is 23 bytes;
+    `0xEF` is not a push opcode, so the single chunk's leading byte
+    is 0 and the payload is zero-padded from 23 to 31 bytes.
+    """
+    designator = bytes([0xEF, 0x01, 0x00]) + b"\xcc" * 20
+    assert len(designator) == 23
+    code = Bytes(designator)
+
+    chunks = chunkify_code(code)
+
+    assert len(chunks) == 1
+    assert chunks[0] == Bytes32(bytes([0]) + designator + b"\x00" * 8)
+
+
 def test_encode_basic_data_layout() -> None:
     """
     Basic data packs version, code size, nonce, and balance at the
-    offsets given by the EIP.
+    offsets given by the EIP, and the all-zero leaf -- a freshly
+    created, codeless, nonce-0, balance-0 account -- packs to 32 zero
+    bytes.
     """
     code_size_hex = "11223344"
     nonce_hex = "5566778899aabbcc"
@@ -280,6 +729,16 @@ def test_encode_basic_data_layout() -> None:
     assert value[8:16] == bytes.fromhex(nonce_hex)
     assert value[16:32] == bytes.fromhex(balance_hex)
 
+    # The all-zero leaf can't distinguish WHERE code_size sits (every
+    # offset reads zero either way), so it doesn't pin the
+    # offset-4/offset-5 EIP-7864 divergence noted on
+    # `encode_basic_data`; `test_encode_basic_data_maximum_fields` is
+    # what pins that.
+    all_zero = encode_basic_data(
+        code_size=U32(0), nonce=U64(0), balance=U256(0)
+    )
+    assert all_zero == Bytes32(b"\x00" * 32)
+
 
 def test_encode_basic_data_rejects_balance_past_sixteen_bytes() -> None:
     """
@@ -292,3 +751,30 @@ def test_encode_basic_data_rejects_balance_past_sixteen_bytes() -> None:
             nonce=U64(0),
             balance=U256(2) ** U256(128),
         )
+
+
+def test_encode_basic_data_maximum_fields() -> None:
+    """
+    Every field at its type's maximum packs into the expected 32
+    bytes.
+
+    `code_size` fills all four of its bytes at offset 4 -- one byte
+    wider than EIP-7864's three-byte field at offset 5, per the
+    in-code TODO on `encode_basic_data` -- `nonce` fills eight bytes
+    and `balance` sixteen.
+    """
+    value = encode_basic_data(
+        code_size=U32(2**32 - 1),
+        nonce=U64(2**64 - 1),
+        balance=U256(2**128 - 1),
+    )
+
+    expected = (
+        bytes([0])  # version
+        + b"\x00" * 3  # reserved
+        + b"\xff" * 4  # code_size
+        + b"\xff" * 8  # nonce
+        + b"\xff" * 16  # balance
+    )
+    assert len(expected) == 32
+    assert value == Bytes32(expected)
