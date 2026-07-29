@@ -1,11 +1,17 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com.
+Measure the minimum gas each opcode needs to succeed via a linear
+search in 100-gas steps (by Ori Pomerantz qbzzt1@gmail.com).
 
 Ported from:
 state_tests/stBadOpcode/operationDiffGasFiller.yml
 
 @manually-enhanced: Do not overwrite. A search measures the gas an
-opcode needs to succeed. Two access classes shift under EIP-8038: the
+opcode needs to succeed. The CREATE/CREATE2 thresholds equal the probe
+bytecode's own `gas_cost(fork)` rounded up to the search step —
+EIP-8037 adds new-account and storage-set state gas — and their search
+start is supplied via calldata a few steps below the threshold so the
+linear probe loop cannot exhaust the transaction's gas on Amsterdam.
+Two access classes also shift under EIP-8038: the
 CALL-family probes (`CALL`/`CALLCODE`/`DELEGATECALL`/`STATICCALL`) make
 one cold account access to the callee, repricing by
 `COLD_ACCOUNT_ACCESS - 2600`; the EXTCODE probe runs a cold
@@ -378,6 +384,44 @@ def test_operation_diff_gas(
     # memory) so only the account-access component varies across forks.
     gas_costs = fork.gas_costs()
     cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
+    # The CREATE/CREATE2 probes wrap the create in a cold zero->nonzero
+    # SSTORE of the returned address (cost depends only on the
+    # transition, so new_value=1 stands in for the address). The stored
+    # threshold is the first search step (multiples of GAS_DIFF) at or
+    # above the probe bytecode's own fork-derived cost; EIP-8037 adds
+    # the new-account and storage-set state gas. The search starts a few
+    # steps below the expected threshold (via calldata) so the linear
+    # probe loop cannot exhaust the transaction's gas on Amsterdam.
+    gas_diff = 0x64
+    create_probe_cost = Op.SSTORE(
+        key=0x0,
+        value=Op.CREATE(
+            value=Op.DUP1,
+            offset=0x0,
+            size=0x200,
+            new_memory_size=0x200,
+            init_code_size=0x200,
+        ),
+        key_warm=False,
+        original_value=0,
+        new_value=1,
+    ).gas_cost(fork)
+    create2_probe_cost = Op.SSTORE(
+        key=0x0,
+        value=Op.CREATE2(
+            value=Op.DUP1,
+            offset=0x0,
+            size=0x200,
+            salt=0x5A17,
+            new_memory_size=0x200,
+            init_code_size=0x200,
+        ),
+        key_warm=False,
+        original_value=0,
+        new_value=1,
+    ).gas_cost(fork)
+    create_threshold = -(-create_probe_cost // gas_diff) * gas_diff
+    create2_threshold = -(-create2_probe_cost // gas_diff) * gas_diff
     extcode_probe_delta = (
         Op.EXTCODESIZE.with_metadata(address_warm=False).gas_cost(fork) - 2600
     ) + (
@@ -394,12 +438,12 @@ def test_operation_diff_gas(
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 54200})},
+            "result": {contract_12: Account(storage={0: create_threshold})},
         },
         {
             "indexes": {"data": [1], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 54300})},
+            "result": {contract_12: Account(storage={0: create2_threshold})},
         },
         {
             "indexes": {"data": [2, 3, 4, 5], "gas": -1, "value": -1},
@@ -430,8 +474,14 @@ def test_operation_diff_gas(
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx_data = [
-        Bytes("048071d3") + Hash(0xF0) + Hash(0x0) + Hash(0x64),
-        Bytes("048071d3") + Hash(0xF5) + Hash(0x0) + Hash(0x64),
+        Bytes("048071d3")
+        + Hash(0xF0)
+        + Hash(create_threshold - 5 * gas_diff)
+        + Hash(gas_diff),
+        Bytes("048071d3")
+        + Hash(0xF5)
+        + Hash(create2_threshold - 5 * gas_diff)
+        + Hash(gas_diff),
         Bytes("048071d3") + Hash(0xF1) + Hash(0x0) + Hash(0x64),
         Bytes("048071d3") + Hash(0xF2) + Hash(0x0) + Hash(0x64),
         Bytes("048071d3") + Hash(0xF4) + Hash(0x0) + Hash(0x64),

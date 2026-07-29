@@ -8,16 +8,10 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 151
+# Total entries: 147
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
-
-# stBadOpcode (4)
-stBadOpcode/test_measure_gas.py::test_measure_gas[fork_Amsterdam-CREATE2]
-stBadOpcode/test_measure_gas.py::test_measure_gas[fork_Amsterdam-CREATE]
-stBadOpcode/test_operation_diff_gas.py::test_operation_diff_gas[fork_Amsterdam-CREATE2]
-stBadOpcode/test_operation_diff_gas.py::test_operation_diff_gas[fork_Amsterdam-CREATE]
 
 # stCallCodes (3)
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d0]
