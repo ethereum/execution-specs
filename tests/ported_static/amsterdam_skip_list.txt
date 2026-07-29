@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 95
+# Total entries: 92
 
 # stCallCodes (3)
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d0]
@@ -106,11 +106,6 @@ stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_rever
 stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d1-g0]
 stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d2-g0]
 stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d3-g0]
-
-# stSolidityTest (3)
-stSolidityTest/test_recursive_create_contracts.py::test_recursive_create_contracts[fork_Amsterdam]
-stSolidityTest/test_test_contract_interaction.py::test_test_contract_interaction[fork_Amsterdam]
-stSolidityTest/test_test_contract_suicide.py::test_test_contract_suicide[fork_Amsterdam]
 
 # stSystemOperationsTest (5)
 stSystemOperationsTest/test_ab_acalls0.py::test_ab_acalls0[fork_Amsterdam]

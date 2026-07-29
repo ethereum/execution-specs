@@ -1,8 +1,14 @@
 """
-Test_recursive_create_contracts.
+Verify recursively self-creating Solidity contracts stop when the
+transaction budget runs dry, leaving exactly one child.
 
 Ported from:
 state_tests/stSolidityTest/RecursiveCreateContractsFiller.json
+
+@manually-enhanced: Do not overwrite. The EIP-8037 state gas of the
+in-test creations is added to the ported budget as a fork-derived
+surcharge (exactly 0 before EIP-8037), preserving the ported
+behavior on every fork.
 """
 
 import pytest
@@ -17,6 +23,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,8 +38,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_recursive_create_contracts(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_recursive_create_contracts."""
+    """Recursive contract creation runs dry at the expected depth."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = pre.fund_eoa(amount=0x1DCD6500)
@@ -250,7 +258,12 @@ def test_recursive_create_contracts(
         sender=sender,
         to=contract_0,
         data=Bytes("a444f5e9") + Hash(0x304),
-        gas_limit=300000,
+        # EIP-8037 surcharge (0 before): the first child creation's
+        # new-account and code-deposit state gas spill into this
+        # budget; the recursion still runs dry at the ported depth.
+        gas_limit=300000
+        + fork.create_state_gas()
+        + fork.code_deposit_state_gas(code_size=0xC8),
         value=1,
     )
 
