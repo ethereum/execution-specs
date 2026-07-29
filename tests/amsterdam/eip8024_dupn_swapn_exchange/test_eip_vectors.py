@@ -808,7 +808,10 @@ def test_vector_push_in_immediate_masks_jumpdest(
     """
     sender = pre.fund_eoa()
 
-    # Layout: [0-1] PUSH1 5, [2] JUMP, [3] opcode, [4] 0x60, [5] 0x5b
+    # 00 PUSH1 0x05
+    # 02 JUMP
+    # 03 <opcode>
+    # 04 PUSH1 0x5b
     code = Op.PUSH1(5) + Op.JUMP + opcode[b"\x60"] + Op.JUMPDEST
     expected_bytes = (
         bytes.fromhex("600556") + bytes(opcode) + bytes.fromhex("605b")
