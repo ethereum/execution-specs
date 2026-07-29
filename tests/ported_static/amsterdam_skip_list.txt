@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 130
+# Total entries: 123
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -116,15 +116,6 @@ stEIP158Specific/test_exp_empty.py::test_exp_empty[fork_Amsterdam]
 
 # stHomesteadSpecific (1)
 stHomesteadSpecific/test_contract_creation_oo_gdont_leave_empty_contract_via_transaction.py::test_contract_creation_oo_gdont_leave_empty_contract_via_transaction[fork_Amsterdam]
-
-# stInitCodeTest (7)
-stInitCodeTest/test_out_of_gas_contract_creation.py::test_out_of_gas_contract_creation[fork_Amsterdam-d0-g0]
-stInitCodeTest/test_out_of_gas_contract_creation.py::test_out_of_gas_contract_creation[fork_Amsterdam-d0-g1]
-stInitCodeTest/test_out_of_gas_contract_creation.py::test_out_of_gas_contract_creation[fork_Amsterdam-d1-g0]
-stInitCodeTest/test_out_of_gas_contract_creation.py::test_out_of_gas_contract_creation[fork_Amsterdam-d1-g1]
-stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_prefunded_contract_creation[fork_Amsterdam--g0]
-stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_prefunded_contract_creation[fork_Amsterdam--g1]
-stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_prefunded_contract_creation[fork_Amsterdam--g2]
 
 # stMemExpandingEIP150Calls (3)
 stMemExpandingEIP150Calls/test_call_goes_oog_on_second_level_with_mem_expanding_calls.py::test_call_goes_oog_on_second_level_with_mem_expanding_calls[fork_Amsterdam]

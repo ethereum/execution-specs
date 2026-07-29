@@ -426,11 +426,19 @@ separate the outcomes. Validated on
 `test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided`.
 
 **A creation transaction's top frame pays new-account state gas
-(EIP-8037).** When deriving a create-tx budget, the intrinsic calculator
-does not include the created account's state gas — add
+(EIP-8037) — but only for a fresh target.** When deriving a create-tx
+budget, the intrinsic calculator does not include the created account's
+state gas — add
 `fork.transaction_top_frame_state_gas(contract_creation=True)` (183,600 on
 Amsterdam, 0 before) or the whole creation silently OOGs only on the
-future fork.
+future fork. Exception: `prepare_dispatch` charges it only when the
+target's *pre-state* account is `EMPTY_ACCOUNT` — a prefunded create
+address pays nothing (validated on
+`test_out_of_gas_prefunded_contract_creation`, whose budgets omit the
+term). A nested CREATE's new-account state is charged to the parent
+before the 63/64 withhold and refunded if the child fails, so a derived
+budget must cover its *peak* (use the composite `gas_cost(fork)`), even
+on paths where the net is zero.
 
 **Measuring forwarded gas / the EIP-150 63/64 rule (the `*_gas_ask` shape).**
 Ported fillers probe "how much gas does a subcall receive when it asks for more
