@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 116
+# Total entries: 112
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -103,24 +103,11 @@ stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterd
 stDelegatecallTestHomestead/test_delegatecall1024_oog.py::test_delegatecall1024_oog[fork_Amsterdam]
 stDelegatecallTestHomestead/test_delegatecall_in_initcode_to_existing_contract.py::test_delegatecall_in_initcode_to_existing_contract[fork_Amsterdam]
 
-# stEIP150Specific (1)
-stEIP150Specific/test_create_and_gas_inside_create.py::test_create_and_gas_inside_create[fork_Amsterdam]
-stEIP150Specific/test_delegate_call_on_eip.py::test_delegate_call_on_eip[fork_Amsterdam]
-stEIP150Specific/test_new_gas_price_for_codes.py::test_new_gas_price_for_codes[fork_Amsterdam]
-
 # stEIP158Specific (1)
 stEIP158Specific/test_exp_empty.py::test_exp_empty[fork_Amsterdam]
 
 # stHomesteadSpecific (1)
 stHomesteadSpecific/test_contract_creation_oo_gdont_leave_empty_contract_via_transaction.py::test_contract_creation_oo_gdont_leave_empty_contract_via_transaction[fork_Amsterdam]
-
-# stMemExpandingEIP150Calls (1)
-stMemExpandingEIP150Calls/test_create_and_gas_inside_create_with_mem_expanding_calls.py::test_create_and_gas_inside_create_with_mem_expanding_calls[fork_Amsterdam]
-stMemExpandingEIP150Calls/test_new_gas_price_for_codes_with_mem_expanding_calls.py::test_new_gas_price_for_codes_with_mem_expanding_calls[fork_Amsterdam]
-
-# stMemoryTest (2)
-stMemoryTest/test_oog.py::test_oog[fork_Amsterdam-success14]
-stMemoryTest/test_oog.py::test_oog[fork_Amsterdam-success15]
 
 # stRefundTest (7)
 stRefundTest/test_refund50_2.py::test_refund50_2[fork_Amsterdam]

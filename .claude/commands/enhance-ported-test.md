@@ -386,6 +386,20 @@ previous_bytes=)`; EIP-3860 init-code words → `fork.gas_costs().CODE_INIT_PER_
 * ceil(size/32)`. You can also call `.gas_cost` / `.regular_cost` / `.state_cost`
 on exactly the measured bytecode.
 
+**Reservoir-less sub-calls pay state gas from their regular grant.** With
+the tx reservoir at 0, a sub-frame's state charges spill from its own
+`gas_left` — a delegate that does one first-set SSTORE needs its *whole*
+~111k inside the forwarded grant on Amsterdam, not just the ~13k regular
+part. Size derived sub-call budgets from the callee composite's full
+`gas_cost(fork)`. Corollaries: (a) a *failed* sub-frame contributes its
+entire forfeited grant to the parent's measured window, not its "cost";
+(b) `SSTORE(flag, <call>)` silently degrades to a ~3k no-op store when
+the call fails — the flag reads 0 and no state gas is charged, which can
+mask a broken callee behind a plausible-looking measurement. Validated on
+`test_new_gas_price_for_codes` (delegate budget derived; failed value
+calls return their stipends: subtract one `CALL_STIPEND` per failed
+value-bearing call from window measurements).
+
 **Nested / callee-side measurements.** When the measured op is a `CALL` whose
 callee does real work, the measured cost = `call_code.gas_cost(fork) +
 callee_code.gas_cost(fork)` (the CALL's own cost plus what the callee consumed).
