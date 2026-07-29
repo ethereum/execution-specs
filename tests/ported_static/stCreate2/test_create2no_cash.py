@@ -84,7 +84,9 @@ def test_create2no_cash(
         # The whole (topped-up) balance moved into the created account,
         # and the creator's nonce was consumed by the creation.
         creator_account = Account(nonce=2, balance=0)
-        created_account = Account(nonce=1, code=b"", balance=CREATE2_ENDOWMENT)
+        created_account: Account | None = Account(
+            nonce=1, code=b"", balance=CREATE2_ENDOWMENT
+        )
     else:
         # The balance preflight (or the static fault) aborts before any
         # account is touched: no creation and no nonce bump.

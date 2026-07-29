@@ -118,7 +118,7 @@ def test_out_of_gas_contract_creation(
 
     created = compute_create_address(address=sender, nonce=0)
     if enough_gas and not invalid_initcode:
-        created_account: Account | type = Account(
+        created_account: Account | None = Account(
             nonce=1, code=b"", storage={1: 6}, balance=1
         )
     else:

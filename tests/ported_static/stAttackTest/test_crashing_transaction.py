@@ -111,7 +111,7 @@ def test_crashing_transaction(
     if fork.is_eip_enabled(8037):
         # An iteration's state gas exceeds the loop's 50000-gas guard,
         # so the init frame dies mid-CREATE and no account survives.
-        created_account: Account | type = Account.NONEXISTENT
+        created_account: Account | None = Account.NONEXISTENT
     else:
         created_account = Account(
             code=bytes.fromhex("60606040526008565b00"),

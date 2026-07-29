@@ -141,7 +141,7 @@ def test_out_of_gas_prefunded_contract_creation(
     if outcome == "outer_oog":
         # Creation rolled back: only the prefund remains, nonce untouched.
         created_account = Account(nonce=0, balance=PREFUND)
-        child_account: Account | type = Account.NONEXISTENT
+        child_account: Account | None = Account.NONEXISTENT
     elif outcome == "child_oog":
         # The inner CREATE increments the creator's nonce even when the
         # child fails.

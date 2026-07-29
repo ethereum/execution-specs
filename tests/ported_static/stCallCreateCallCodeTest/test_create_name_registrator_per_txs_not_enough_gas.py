@@ -109,7 +109,7 @@ def test_create_name_registrator_per_txs_not_enough_gas(
 
     created = compute_create_address(address=sender, nonce=0)
     if enough_gas:
-        created_account: Account | type = Account(
+        created_account: Account | None = Account(
             nonce=1,
             code=deposited,
             balance=TX_VALUE,

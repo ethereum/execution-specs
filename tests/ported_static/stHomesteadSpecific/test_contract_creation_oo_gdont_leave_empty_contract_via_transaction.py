@@ -90,7 +90,7 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
 
     created = compute_create_address(address=sender, nonce=0)
     if enough_gas:
-        created_account: Account | type = Account(nonce=1, code=b"", balance=0)
+        created_account: Account | None = Account(nonce=1, code=b"", balance=0)
         writer_storage = {1: 1}
     else:
         created_account = Account.NONEXISTENT

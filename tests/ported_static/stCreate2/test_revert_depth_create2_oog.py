@@ -193,7 +193,7 @@ def test_revert_depth_create2_oog(
         # The whole transaction ran dry: only the code survives.
         caller_account = Account(storage={}, code=caller_code, balance=0)
         creator_account = Account(storage={}, nonce=1)
-        created_account: Account | type = Account.NONEXISTENT
+        created_account: Account | None = Account.NONEXISTENT
     elif not creator_covered:
         # The creator died mid-creation and was rolled back.
         caller_account = Account(

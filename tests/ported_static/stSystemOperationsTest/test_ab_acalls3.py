@@ -88,7 +88,9 @@ def predict_depths(
             + push_cost
         )
 
-    def call_split(address: object, warm: bool, value: int) -> tuple[int, int]:
+    def call_split(
+        address: Address | Op, warm: bool, value: int
+    ) -> tuple[int, int]:
         """Pre-GAS-read and upfront charges of one side's call."""
         upfront = Op.CALL(
             address_warm=warm, value_transfer=value > 0
