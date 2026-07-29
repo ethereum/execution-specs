@@ -483,54 +483,54 @@ def test_exchange_with_push_sequence(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "n,m",
+    [
+        pytest.param(1, 2, id="adjacent"),
+        pytest.param(14, 16, id="max_n"),
+        pytest.param(1, 29, id="deepest"),
+    ],
+)
 def test_exchange_full_stack(
+    n: int,
+    m: int,
     pre: Alloc,
+    fork: Fork,
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test EXCHANGE succeeds on a completely full stack of 1024 items.
+    Test EXCHANGE succeeds on a completely full stack.
 
     EXCHANGE swaps in place without pushing, so it must work at the
-    stack limit. Uses the deepest pair (1, 29): markers planted at
-    positions 2 and 30 are swapped, then both are popped down to and
-    stored, so a missing swap is visible in either storage slot.
+    stack limit. The top 30 items hold their 1-indexed position from
+    the top; EXCHANGE[n, m] swaps positions n + 1 and m + 1, then every
+    window item is stored and checked. The topmost item is popped
+    unstored to make room for the SSTORE keys: no valid pair can touch
+    position 1, and a misplaced swap there still corrupts a checked
+    slot.
     """
-    sender = pre.fund_eoa()
+    window = Spec.EXCHANGE_MAX_M + 1  # deepest reachable position
 
-    n, m = 1, 29  # deepest reachable pair, swaps positions 2 and 30
-    stack_height = 1024
-    upper_marker = 0xAAAA
-    deep_marker = 0xBBBB
-
-    # Bottom-up: zeros, deep marker at position 30 from the top, more
-    # zeros, the upper marker at position 2, and a zero on top.
-    code = Bytecode()
-    code += Op.PUSH0 * (stack_height - 30)
-    code += Op.PUSH2(deep_marker)
-    code += Op.PUSH0 * 27
-    code += Op.PUSH2(upper_marker)
-    code += Op.PUSH0
+    code = Op.PUSH0 * (fork.max_stack_height() - window)
+    for depth in range(window, 0, -1):
+        code += Op.PUSH1(depth)
 
     code += Op.EXCHANGE[n, m]
 
-    # Pop the top zero, store position 2 (now the deep marker), then
-    # pop down to position 30 and store it (now the upper marker).
+    # The stack is exactly full: pop position 1 so each SSTORE key
+    # can be pushed without overflowing.
     code += Op.POP
-    code += Op.PUSH1(0) + Op.SSTORE
-    code += Op.POP * 27
-    code += Op.PUSH1(1) + Op.SSTORE
+    for slot in range(1, window):
+        code += Op.PUSH1(slot) + Op.SSTORE
     code += Op.STOP
 
-    contract_address = pre.deploy_contract(
-        code=code, storage={0: 0xBA5E, 1: 0xBA5E}
-    )
-    tx = Transaction(to=contract_address, sender=sender)
+    expected = {slot: slot + 1 for slot in range(1, window)}
+    expected[n], expected[m] = expected[m], expected[n]
 
-    post = {
-        contract_address: Account(
-            storage={0: deep_marker, 1: upper_marker},
-        ),
-    }
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=pre.fund_eoa())
+
+    post = {contract_address: Account(storage=expected)}
 
     state_test(pre=pre, post=post, tx=tx)
 
