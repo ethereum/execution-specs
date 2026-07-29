@@ -16,10 +16,6 @@ stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_
 stCallCodes/test_callcode_in_initcode_to_existing_contract_with_value_transfer.py::test_callcode_in_initcode_to_existing_contract_with_value_transfer[fork_Amsterdam]
 
 # stCallCreateCallCodeTest (6)
-stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g0]
-stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g1]
-stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g2]
-stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g3]
 stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g0]
 stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g1]
 
@@ -65,7 +61,6 @@ stDelegatecallTestHomestead/test_delegatecall_in_initcode_to_existing_contract.p
 # stRefundTest (7)
 stRefundTest/test_refund50_2.py::test_refund50_2[fork_Amsterdam]
 stRefundTest/test_refund50percent_cap.py::test_refund50percent_cap[fork_Amsterdam]
-stRefundTest/test_refund600.py::test_refund600[fork_Amsterdam]
 stRefundTest/test_refund_call_a.py::test_refund_call_a[fork_Amsterdam]
 stRefundTest/test_refund_suicide50procent_cap.py::test_refund_suicide50procent_cap[fork_Amsterdam-d0]
 stRefundTest/test_refund_suicide50procent_cap.py::test_refund_suicide50procent_cap[fork_Amsterdam-d1]
