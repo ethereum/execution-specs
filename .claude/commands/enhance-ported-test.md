@@ -402,6 +402,19 @@ transition, not the magnitude — which also breaks the `forward_gas`/`new_value
 circularity.) Set `state_gas_reservoir=0` so the state gas is captured.
 Validated on `test_raw_call_gas`.
 
+**An expensive store after a callee that eats all forwarded gas — pre-write
+the slot.** When a frame must SSTORE a result *after* a subcall that
+deliberately consumes its whole 63/64 grant (an OOG-probe callee), the frame
+retains only 1/64 — under EIP-8037 that cannot afford a cold zero→nonzero
+store (~111k), and pre-8037 it often couldn't afford the cold 2.2k either
+(making the ported `{slot: 0}` expectation vacuous: caller-OOG and
+callee-failure were indistinguishable). Fix: write a sentinel to the slot
+*before* the call (paying cold + state with the full budget), then store
+`BASE + result` after it — now a dirty-warm write (100 gas) the retention
+always covers, and the three outcomes (success `BASE+1`, failure `BASE`,
+caller OOG `sentinel`) are all distinct. Validated on
+`test_static_execute_call_that_ask_fore_gas_then_trabsaction_has`.
+
 **Measuring forwarded gas / the EIP-150 63/64 rule (the `*_gas_ask` shape).**
 Ported fillers probe "how much gas does a subcall receive when it asks for more
 than is available" by pinning an absolute forwarded amount — fork-fragile,

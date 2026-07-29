@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 144
+# Total entries: 141
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -175,11 +175,6 @@ stSStoreTest/test_sstore_gas_left.py::test_sstore_gas_left[fork_Amsterdam-d8]
 stSolidityTest/test_recursive_create_contracts.py::test_recursive_create_contracts[fork_Amsterdam]
 stSolidityTest/test_test_contract_interaction.py::test_test_contract_interaction[fork_Amsterdam]
 stSolidityTest/test_test_contract_suicide.py::test_test_contract_suicide[fork_Amsterdam]
-
-# stStaticCall (3)
-stStaticCall/test_static_create_empty_contract_and_call_it_0wei.py::test_static_create_empty_contract_and_call_it_0wei[fork_Amsterdam]
-stStaticCall/test_static_create_empty_contract_with_storage_and_call_it_0wei.py::test_static_create_empty_contract_with_storage_and_call_it_0wei[fork_Amsterdam]
-stStaticCall/test_static_execute_call_that_ask_fore_gas_then_trabsaction_has.py::test_static_execute_call_that_ask_fore_gas_then_trabsaction_has[fork_Amsterdam-d0]
 
 # stSystemOperationsTest (5)
 stSystemOperationsTest/test_ab_acalls0.py::test_ab_acalls0[fork_Amsterdam]
