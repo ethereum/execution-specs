@@ -1,5 +1,6 @@
 """Pre-allocation fixtures used for test filling."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
@@ -224,6 +225,67 @@ class _DeferredFundAddress:
     minimum_balance: bool
 
 
+@dataclass
+class _DeferredAccountAssertion:
+    """
+    Deferred assertion on a predeployed account.
+
+    Verified at start_block before the benchmark runs.
+    Uses primitives only to stay independent of test expectations.
+    """
+
+    address: Address
+    is_existing_account: bool
+    is_contract: bool
+    min_balance: int | None
+    code_prefix: bytes | None
+    label: str | None
+
+
+class DeployedAccountVerificationError(AssertionError):
+    """Raised when predeployed benchmark targets fail verification."""
+
+
+def _check_account_assertion(
+    d: _DeferredAccountAssertion,
+    account: Account | None,
+    code: Bytes | None,
+) -> list[str]:
+    """Return human-readable failures for one account assertion (may be []."""
+    who = f"{d.label or '<target>'} at {d.address}"
+    if account is None:
+        return [f"{who}: no account data returned from the client"]
+    balance = int(account.balance)
+    nonce = int(account.nonce)
+    errors: list[str] = []
+    if not d.is_existing_account:
+        if balance != 0 or nonce != 0:
+            errors.append(
+                f"{who}: expected NON-existent, got balance={balance} "
+                f"nonce={nonce}"
+            )
+        return errors
+    if d.is_contract and nonce < 1:
+        errors.append(
+            f"{who}: expected a deployed contract (nonce>=1) but got "
+            f"nonce={nonce}, balance={balance} — likely NOT deployed on the "
+            "snapshot; the benchmark would silently hit an empty account"
+        )
+    if d.min_balance is not None and balance < d.min_balance:
+        errors.append(
+            f"{who}: expected balance>={d.min_balance} but got {balance}"
+        )
+    if d.code_prefix is not None:
+        actual = bytes(code) if code is not None else b""
+        if not actual.startswith(d.code_prefix):
+            errors.append(
+                f"{who}: expected code to start with "
+                f"0x{d.code_prefix.hex()} (e.g. a delegated account) but "
+                f"got 0x{actual.hex()}"
+            )
+    return errors
+
+
 def _compute_deploy_gas_limit(
     fork: Fork,
     *,
@@ -319,8 +381,12 @@ class Alloc(SharedAlloc):
     _deferred_fund_addresses: List[_DeferredFundAddress] = PrivateAttr(
         default_factory=list
     )
+    _deferred_account_assertions: List[_DeferredAccountAssertion] = (
+        PrivateAttr(default_factory=list)
+    )
     _block_number: int = PrivateAttr()
     _timestamp: int = PrivateAttr()
+    _verify_full: bool = PrivateAttr(default=False)
 
     def __init__(
         self,
@@ -334,6 +400,7 @@ class Alloc(SharedAlloc):
         block_number: int = 0,
         timestamp: int = 0,
         funding_gas_limit: int = 200_000,
+        verify_full: bool = False,
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc with the given parameters."""
@@ -347,6 +414,7 @@ class Alloc(SharedAlloc):
         self._block_number = block_number
         self._timestamp = timestamp
         self._funding_gas_limit = funding_gas_limit
+        self._verify_full = verify_full
 
     def code_pre_processor(self, code: Bytecode) -> Bytecode:
         """Pre-processes the code before setting it."""
@@ -825,6 +893,103 @@ class Alloc(SharedAlloc):
         logger.debug(f"Returning unused address {eoa} (nonexistent account)")
         return Address(eoa)
 
+    def expect_account_state(
+        self,
+        addresses: Address | Sequence[Address],
+        *,
+        is_existing_account: bool = True,
+        is_contract: bool = False,
+        min_balance: int | None = None,
+        code_prefix: bytes | None = None,
+    ) -> None:
+        """
+        Register deferred assertion(s) on predeployed account(s).
+
+        Verified at start_block (fill-stateful only). For a range, only the
+        first and last are checked unless ``--verify-full-accounts`` is set;
+        each assertion's label is taken from the address itself.
+        """
+        if isinstance(addresses, Address):
+            targets: Sequence[Address] = (addresses,)
+        elif self._verify_full or len(addresses) <= 2:
+            targets = addresses
+        else:
+            targets = (addresses[0], addresses[-1])
+        for address in targets:
+            self._deferred_account_assertions.append(
+                _DeferredAccountAssertion(
+                    address=address,
+                    is_existing_account=is_existing_account,
+                    is_contract=is_contract,
+                    min_balance=min_balance,
+                    code_prefix=code_prefix,
+                    label=address.label,
+                )
+            )
+
+    def verify_deployed_accounts(self, block_number: int) -> None:
+        """
+        Verify registered predeployed-account assertions at block_number.
+
+        Batches eth_getBalance and eth_getTransactionCount queries.
+        Fetches code only for assertions with code_prefix (e.g., EIP-7702
+        designation). Collects all failures before raising.
+        """
+        deferred = self._deferred_account_assertions
+        self._deferred_account_assertions = []
+        if not deferred:
+            return
+
+        chunk, max_reported, verified = 2000, 20, 0
+        for i in range(0, len(deferred), chunk):
+            batch = deferred[i : i + chunk]
+
+            query = BaseAlloc(root={d.address: Account() for d in batch})
+            accounts = self._eth_rpc.get_alloc(
+                query, block_number=block_number, skip_code=True
+            ).root
+
+            code_targets = [
+                d.address for d in batch if d.code_prefix is not None
+            ]
+            codes: dict[Address, Bytes] = dict(
+                zip(
+                    code_targets,
+                    self._eth_rpc.get_codes(
+                        code_targets, block_number=block_number
+                    ),
+                    strict=True,
+                )
+            )
+
+            errors: list[str] = []
+            failed = 0
+            for d in batch:
+                errs = _check_account_assertion(
+                    d, accounts.get(d.address), codes.get(d.address)
+                )
+                if errs:
+                    failed += 1
+                    errors.extend(errs)
+
+            if errors:
+                shown = errors[:max_reported]
+                omitted = len(errors) - len(shown)
+                suffix = f"\n  ... and {omitted} more" if omitted else ""
+                raise DeployedAccountVerificationError(
+                    f"{failed} predeployed benchmark target(s) failed "
+                    f"verification at start_block (after checking "
+                    f"{verified + len(batch)}):\n  "
+                    + "\n  ".join(shown)
+                    + suffix
+                )
+            verified += len(batch)
+
+        logger.info(
+            f"Verified {verified} predeployed benchmark target(s) at "
+            f"block {block_number}"
+        )
+
     def resolve_deferred_checks(self) -> None:
         """
         Resolve all deferred on-chain checks using batched RPC calls.
@@ -1155,6 +1320,9 @@ def pre(
         node_id=request.node.nodeid,
         address_stubs=address_stubs,
         funding_gas_limit=sender_fund_refund_gas_limit,
+        verify_full=getattr(
+            request.config.option, "verify_full_accounts", False
+        ),
     )
 
     # Yield the pre-alloc for usage during the test

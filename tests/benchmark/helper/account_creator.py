@@ -1,22 +1,39 @@
 """Benchmark target accounts of various kinds for creation and location.."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import ClassVar, Self
 
 from execution_testing import (
     DETERMINISTIC_FACTORY_ADDRESS,
+    Address,
+    Alloc,
     Bytecode,
     Create2PreimageLayout,
     Hash,
     Op,
     SequentialAddressLayout,
+    compute_create2_address,
     keccak256,
 )
 from execution_testing.forks import Osaka
 
+from tests.benchmark.helper.account_verification import (
+    AccountExpectation,
+    register_target_range,
+)
+
 DEFAULT_CODE_SIZE = Osaka.max_code_size()
+
+ADDRESS_MASK = (1 << 160) - 1
+
+# Spamoor EOA creator starts created accounts at 0x1000
+# (https://github.com/CPerezz/spamoor/pull/12).
+EXISTING_EOA_BASE = 0x1000
+# An address range that is never funded.
+NON_EXISTING_BASE = keccak256(b"random")
 
 
 class AccountMode(Enum):
@@ -345,12 +362,76 @@ class AccountCreator:
             )
         match self.mode:
             case AccountMode.EXISTING_EOA:
-                # Spamoor EOA creator starts created accounts at 0x1000.
-                # https://github.com/CPerezz/spamoor/pull/12
-                base_addr = Hash(0x1000)
+                base_addr = Hash(EXISTING_EOA_BASE)
             case AccountMode.NON_EXISTING_ACCOUNT:
-                # An address range that is never funded.
-                base_addr = keccak256(b"random")
+                base_addr = NON_EXISTING_BASE
             case _:
                 raise ValueError(f"{self.mode.name} has no address source")
         return SequentialAddressSource(base_addr=base_addr, index_op=index_op)
+
+    def expected_account(self) -> AccountExpectation:
+        """Return the expected on-chain shape for this mode at start_block."""
+        if self.derives_address_via_create2:
+            # CREATE2 address binds code; check presence only.
+            return AccountExpectation(is_contract=True)
+        match self.mode:
+            case AccountMode.EXISTING_EOA:
+                return AccountExpectation(min_balance=1)
+            case AccountMode.NON_EXISTING_ACCOUNT:
+                return AccountExpectation(is_existing_account=False)
+            case _:
+                raise ValueError(f"{self.mode.name} has no expected account")
+
+    def target_address_of(
+        self, label: str | None = None
+    ) -> Callable[[int], Address]:
+        """
+        Return an ``index -> target Address`` map mirroring address_source.
+
+        CREATE2 initcode is assembled once (salt varies); ``label`` is
+        attached to every derived address.
+        """
+        if self.derives_address_via_create2:
+            initcode = self.initcode
+
+            def create2_address(index: int) -> Address:
+                return Address(
+                    compute_create2_address(
+                        address=DETERMINISTIC_FACTORY_ADDRESS,
+                        salt=index,
+                        initcode=initcode,
+                    ),
+                    label=label,
+                )
+
+            return create2_address
+        match self.mode:
+            case AccountMode.EXISTING_EOA:
+                base = EXISTING_EOA_BASE
+            case AccountMode.NON_EXISTING_ACCOUNT:
+                base = int.from_bytes(NON_EXISTING_BASE, "big")
+            case _:
+                raise ValueError(f"{self.mode.name} has no address source")
+
+        def sequential_address(index: int) -> Address:
+            return Address((base + index) & ADDRESS_MASK, label=label)
+
+        return sequential_address
+
+    def register_targets(
+        self,
+        pre: Alloc,
+        count: int,
+        *,
+        verified_accounts: dict[Hashable, int],
+        label: str | None = None,
+    ) -> None:
+        """Register ``[0, count)`` of this mode's targets for verification."""
+        register_target_range(
+            pre,
+            key=(self.mode, self.code_size),
+            count=count,
+            expectation=self.expected_account(),
+            address_of=self.target_address_of(label or self.mode.name),
+            verified_accounts=verified_accounts,
+        )
