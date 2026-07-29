@@ -412,26 +412,29 @@ def test_dupn_with_dup1_sequence(
 
 @EIPChecklist.Opcode.Test.StackOverflow()
 @pytest.mark.parametrize(
-    "stack_height,call_succeeds",
+    "stack_delta,call_succeeds",
     [
-        pytest.param(1023, True, id="dupn_fills_stack_to_limit"),
-        pytest.param(1024, False, id="dupn_stack_overflow"),
+        pytest.param(-1, True, id="dupn_fills_stack_to_limit"),
+        pytest.param(0, False, id="dupn_stack_overflow"),
     ],
 )
 def test_dupn_stack_overflow(
-    stack_height: int,
+    stack_delta: int,
     call_succeeds: bool,
     pre: Alloc,
+    fork: Fork,
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test that DUPN aborts when pushing past the 1024-item stack limit.
+    Test that DUPN aborts when pushing past the stack limit.
 
-    The callee pushes `stack_height` items and executes DUPN: from 1023
-    items the duplicate fills the stack to exactly 1024 and succeeds,
-    while from 1024 items the push overflows and aborts the frame. The
-    caller stores the call's success flag over a nonzero canary.
+    The callee pushes `max_stack_height + stack_delta` items and
+    executes DUPN: from one below the limit the duplicate fills the
+    stack exactly and succeeds, while from a full stack the push
+    overflows and aborts the frame. The caller stores the call's
+    success flag over a nonzero canary.
     """
+    stack_height = fork.max_stack_height() + stack_delta
     callee_code = (
         Op.PUSH0 * stack_height + Op.DUPN[Spec.MIN_STACK_INDEX] + Op.STOP
     )
