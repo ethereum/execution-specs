@@ -222,6 +222,31 @@ def test_swapn_stack_underflow(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Zero()
+@EIPChecklist.Opcode.Test.StackUnderflow()
+def test_swapn_empty_stack(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test SWAPN on an empty stack aborts with a stack underflow.
+    """
+    sender = pre.fund_eoa()
+
+    code = Op.SSTORE(0, 1)  # leaves the stack empty
+    code += Op.SWAPN[Spec.MIN_STACK_INDEX]
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender)
+
+    # Transaction should fail, contract storage unchanged.
+    post = {contract_address: Account(storage={0: 0})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
 @EIPChecklist.Opcode.Test.GasUsage.Normal()
 @EIPChecklist.Opcode.Test.GasUsage.OutOfGasExecution()
 @EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
