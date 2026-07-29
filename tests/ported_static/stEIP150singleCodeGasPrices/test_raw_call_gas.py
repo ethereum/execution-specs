@@ -1,5 +1,5 @@
 """
-Gas cost of CALL / CALLCODE / DELEGATECALL measured with CodeGasMeasure,
+Measure the gas cost of CALL / CALLCODE / DELEGATECALL with CodeGasMeasure,
 across value-transfer and memory-expansion variants. The callee records the
 gas it was forwarded.
 

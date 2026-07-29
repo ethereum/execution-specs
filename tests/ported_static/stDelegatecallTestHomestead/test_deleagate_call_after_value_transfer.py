@@ -1,5 +1,6 @@
 """
-Test_deleagate_call_after_value_transfer.
+Verify DELEGATECALL propagates the caller frame's context (CALLVALUE, CALLER,
+CALLDATA) into the delegate, after a value-bearing transaction.
 
 Ported from:
 state_tests/stDelegatecallTestHomestead/deleagateCallAfterValueTransferFiller.json

@@ -1,5 +1,6 @@
 """
-Test_push0_gas2.
+Measure the gas cost of PUSH0 and of PUSH1 0x00: each case asserts its own
+fork-derived cost, which together demonstrate PUSH0 is the cheaper encoding.
 
 Ported from:
 state_tests/Shanghai/stEIP3855_push0/push0Gas2Filler.yml
@@ -38,7 +39,7 @@ def test_push0_gas2(
     fork: Fork,
     opcode: Bytecode,
 ) -> None:
-    """Measure that PUSH0 is cheaper than PUSH1 0x00."""
+    """Measure the parametrized push encoding's exact gas cost."""
     sender = pre.fund_eoa()
 
     measured = pre.deploy_contract(

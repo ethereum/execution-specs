@@ -33,23 +33,13 @@ PREEXPANDED = PREEXPAND_OFFSET + 0x20  # 44832 bytes = 1401 words
 
 SRCS = [0x0, 0x1, 0x1F, 0x20]
 SIZES = [0x0, 0x1, 0x1F, 0x20, 0x21, 0xAEDF, 0xAEE0, 0xAEE1]
-_SIZE_LABEL = {
-    0x0: "0",
-    0x1: "1",
-    0x1F: "31",
-    0x20: "32",
-    0x21: "33",
-    0xAEDF: "44767",
-    0xAEE0: "44768",
-    0xAEE1: "44769",
-}
 
 
 @pytest.mark.ported_from(
     ["state_tests/Cancun/stEIP5656_MCOPY/MCOPY_copy_costFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize("size", SIZES, ids=lambda s: f"size{_SIZE_LABEL[s]}")
+@pytest.mark.parametrize("size", SIZES, ids=lambda s: f"size{s}")
 @pytest.mark.parametrize("src", SRCS, ids=lambda s: f"src{s}")
 def test_mcopy_copy_cost(
     state_test: StateTestFiller,

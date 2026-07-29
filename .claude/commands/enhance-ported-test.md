@@ -136,6 +136,13 @@ under test.
   `Op.GAS` misbehaves on **pre-EIP-150 (Homestead)** — the sweep (step 11) fails
   only there, so such tests floor at **TangerineWhistle**. Keep an explicit `gas`
   operand *only* when the amount forwarded is the subject (an OOG-boundary test).
+  **Budget vs. subject:** before dropping the operand, ask *why* the constant
+  has its value. A mid-sized constant (`0xEA60`) is a *budget* sized for the old
+  schedule — drop it. An absurd or boundary constant (`2**256 - 20`) is the
+  *subject*: it exercises the 63/64 clamp on an oversized ask (a client that
+  computed e.g. `requested + stipend` in wrapping arithmetic would forward
+  almost nothing and fail). Keep it, name it (`OVERSIZED_GAS_ASK`), and state
+  the intent in a comment. Validated on `test_make_money`.
 - **A codeless / absent call target is `pre.nonexistent_account()`**, not
   `pre.fund_eoa(amount=0)`. It yields an address guaranteed to hold no code and
   no state, which is what "call an empty contract" tests mean.
@@ -225,6 +232,21 @@ verifies anything. Improve coupling and observability:
   storing (and `storage={}` already asserts "all slots zero" — see
   `Storage.must_be_equal`). To genuinely prove a read returned zero, store a
   derived non-zero value (e.g. `Op.ADD(Op.CALLDATALOAD(0), 1)` → assert `1`).
+- **Zero source data makes offset tests vacuous.** A test that asserts an
+  out-of-bounds read yields zeros proves nothing if the *in-bounds* data is
+  also all zeros — any offset, right or wrong, reads zero. Supply non-zero
+  source bytes (e.g. `data=bytes(range(1, 33))` for a CALLDATACOPY test) so a
+  client reading from a wrong in-bounds offset produces a visible mismatch.
+  Ported fillers often ship all-zero calldata; the rewrite is the moment to
+  fix it. Validated on `test_copy_offset`.
+- **Preserve every assertion the legacy filler made — count its slots.** A
+  ported post often pins *two* observables (e.g. the ask fillers stored both
+  the callee-observed gas *and* the caller's net gas, which proves unused
+  forwarded gas is credited back). When reframing, it is easy to carry over
+  the headline assertion and silently drop the second. Diff the old post's
+  slots against the new one and re-express each dropped slot dynamically (or
+  justify its removal explicitly). Validated on `test_raw_call_gas_ask` (the
+  caller reports its remaining gas up the stack as a second return word).
 - **Add a canary.** Write a distinctive non-zero sentinel to an extra slot as the
   *final* step (e.g. `Op.SSTORE(0x2, 0xC0DE)`), and assert it. If creation
   reverts or the code doesn't run to completion, the slot stays zero and the
@@ -289,6 +311,19 @@ not drop it.**
   stored value is the opcode's real cost. `extra_stack_items` = items the
   measured code leaves on the stack (`CREATE`/`CALL` leave 1) — wrong value
   corrupts the result. `sstore_key` = the slot the post asserts.
+- **`extra_stack_items=1` silently discards a call's success flag — keep it
+  observable.** `CodeGasMeasure` SWAP/POPs the extra item, and gas alone
+  cannot replace it: a wrongly *failed* call refunds the child gas + stipend,
+  so it measures identically to a *success* into an empty callee, and for
+  `CALLCODE`/`DELEGATECALL` no balance moves either — the whole post-state is
+  then blind to the failure. When the measured op is a call whose success is
+  not otherwise observable, fold the flag into the measured window:
+  `store_code = Op.SSTORE(flag_slot, call_code, key_warm=False,
+  original_value=0, new_value=1)` with `extra_stack_items=0`, assert
+  `flag_slot: 1` in the post, and expect `store_code.gas_cost(fork)` (the
+  SSTORE's cost is now part of the measurement — and a failed call would
+  store 0, shifting the measured gas too, so the failure is doubly loud).
+  Validated on `test_non_zero_value`.
 - **Apply opcode metadata from the test's context** so `gas_cost(fork)` is
   correct (see `docs/writing_tests/opcode_metadata.md`). For `CALL`:
   `address_warm` (is the target pre-accessed?), `value_transfer` (value > 0?),
@@ -469,6 +504,26 @@ its line from `tests/ported_static/amsterdam_skip_list.txt` and decrement both
 its per-directory count header (`# stXxx (N)`) and the `# Total entries:` count.
 Confirm with a full-range fill (`--fork` omitted) with the entry gone — that is
 the definition of done.
+
+**Final sweep checklist** — each of these has been missed in practice; check
+them one by one before calling the test done:
+- `@pytest.mark.pre_alloc_mutable` removed if no hardcoded addresses/
+  nonces/`pre[...]` remain (it silently skips the test in execute mode).
+- No machine-port placeholder docstrings left (`Test_<filename>.`) — the
+  module and function docstrings say what the test verifies, in
+  imperative mood ("Verify/Measure ...", not "Gas cost of ...").
+- Docstrings re-read against the *final* architecture: collapsing a
+  delivery CALL or moving value onto the tx makes "inherited from the
+  enclosing CALL"-style prose stale.
+- Inline magic operands named (`FORWARDED_GAS`, `GAS_SLOT`, ...) —
+  consistent with sibling files in the same directory.
+- Pinned budget constants guarded: anything like
+  `available = BUDGET - code.gas_cost(fork)` gets an
+  `assert available > 0, ...` so a future repricing that outgrows the
+  budget fails loudly at fill time instead of producing a garbage
+  expectation.
+- The old post's slots all accounted for (see step 8's "count its
+  slots").
 
 When done, offer to run `/lint`. Note that pydantic coercion warnings
 (`dict→Alloc/Storage`, `Bytecode→Bytes`, unfilled optional `Transaction` params)

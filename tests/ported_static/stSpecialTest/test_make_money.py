@@ -1,11 +1,14 @@
 """
-Test_make_money.
+Verify value flows tx -> caller -> callee when the CALL asks for an absurdly
+oversized gas amount (near 2^256), which the EIP-150 63/64 cap must clamp.
 
 Ported from:
 state_tests/stSpecialTest/makeMoneyFiller.json
 
 @manually-enhanced: Do not overwrite. Value flow tx->caller->callee expressed
-as a relationship; dynamic addresses, gas forwarded via the default Op.GAS.
+as a relationship; dynamic addresses. The oversized CALL gas operand is the
+original filler's point (clamping, not wrapping, of a near-2^256 ask) and
+must stay explicit.
 """
 
 import pytest
@@ -24,6 +27,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 INITIAL_BALANCE = 0xDE0B6B3A7640000
 TX_VALUE = 10
 CALL_VALUE = 0x17
+# The ported filler asks for nearly 2^256 gas: a client computing e.g.
+# `requested + stipend` in wrapping arithmetic would forward almost nothing
+# and OOG the callee, so the 63/64 clamp itself is under test.
+OVERSIZED_GAS_ASK = 2**256 - 20
 
 
 @pytest.mark.ported_from(
@@ -44,7 +51,8 @@ def test_make_money(
         balance=INITIAL_BALANCE,
     )
     caller = pre.deploy_contract(
-        code=Op.CALL(address=callee, value=CALL_VALUE) + Op.STOP,
+        code=Op.CALL(gas=OVERSIZED_GAS_ASK, address=callee, value=CALL_VALUE)
+        + Op.STOP,
         balance=INITIAL_BALANCE,
     )
 

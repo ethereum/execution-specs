@@ -1,7 +1,7 @@
 """
-Tests if CALLDATALOAD, CALLDATACOPY, CODECOPY and CODESIZE work...
-
-call data is always empty in initcode context and "code" is initcode.
+Verify CALLDATALOAD, CALLDATACOPY, CODECOPY and CODESIZE in the initcode
+context of a create transaction: call data is always empty and "code" is the
+initcode itself.
 
 Ported from:
 state_tests/stCreateTest/CreateTransactionCallDataFiller.yml

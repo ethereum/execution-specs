@@ -8,7 +8,7 @@ state_tests/stMemoryTest/callDataCopyOffsetFiller.json
 
 @manually-enhanced: Do not overwrite. CODECOPY/CALLDATACOPY OOB-offset
 zero-fill folded into one parametrize; delivery-CALL dropped; dynamic
-addresses.
+addresses; nonzero tx calldata so a wrong in-bounds offset is observable.
 """
 
 import pytest
@@ -25,11 +25,16 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 # Copy 16 bytes from a source offset far past the end of code/calldata; the
-# out-of-bounds region reads as zeros, so the low 16 bytes of the pre-filled
-# word are cleared and the high 16 bytes remain 0xFF.
+# out-of-bounds region reads as zeros, which overwrite memory bytes 0..15
+# (the most-significant half of the word MLOAD reads back), leaving only the
+# low 128 bits of the pre-filled word set to 0xFF.
 OOB_OFFSET = 0xFFFF
 COPY_SIZE = 0x10
 EXPECTED = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+# Nonzero calldata makes the CALLDATACOPY arm discriminate a wrong (in-bounds)
+# source offset from the correct out-of-bounds zero-fill; with empty calldata
+# every offset would read zeros and the assertion would be vacuous.
+TX_DATA = bytes(range(1, 33))
 
 
 @pytest.mark.ported_from(
@@ -63,6 +68,7 @@ def test_copy_offset(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=contract,
+        data=TX_DATA,
         protected=fork.supports_protected_txs(),
     )
 

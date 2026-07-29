@@ -1,5 +1,6 @@
 """
-Test_delegatecall_emptycontract.
+Verify a DELEGATECALL to a codeless, nonexistent account succeeds without
+creating or touching the target.
 
 Ported from:
 state_tests/stDelegatecallTestHomestead/delegatecallEmptycontractFiller.json
@@ -58,6 +59,11 @@ def test_delegatecall_emptycontract(
         protected=fork.supports_protected_txs(),
     )
 
-    post = {caller: Account(storage={0: 1})}
+    # DELEGATECALL carries no value, so it must not create (or even touch)
+    # the target account.
+    post = {
+        caller: Account(storage={0: 1}),
+        empty: Account.NONEXISTENT,
+    }
 
     state_test(pre=pre, post=post, tx=tx)

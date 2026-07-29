@@ -1,5 +1,5 @@
 """
-Test_push0_gas.
+Measure the gas cost of the PUSH0 instruction.
 
 Ported from:
 state_tests/Shanghai/stEIP3855_push0/push0GasFiller.yml
@@ -31,7 +31,7 @@ def test_push0_gas(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Test_push0_gas."""
+    """Measure PUSH0's gas cost against the fork-derived expectation."""
     sender = pre.fund_eoa()
 
     push0_code = Op.PUSH0

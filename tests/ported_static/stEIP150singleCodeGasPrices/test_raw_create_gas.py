@@ -1,5 +1,5 @@
 """
-Gas cost of CREATE measured with CodeGasMeasure, across value-transfer,
+Measure the gas cost of CREATE with CodeGasMeasure, across value-transfer,
 memory-expansion, and insufficient-balance (failure) variants.
 
 Ported from:

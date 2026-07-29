@@ -1,12 +1,14 @@
 """
-Test_static_call_value_inherit_from_call.
+Verify a STATICCALL callee observes CALLVALUE 0, never inheriting the
+enclosing frame's non-zero value (delivered here by the transaction).
 
 Ported from:
 state_tests/stStaticCall/static_call_value_inherit_from_callFiller.json
 
 @manually-enhanced: Do not overwrite. STATICCALL sees CALLVALUE 0 (never
-inherited from the enclosing value-bearing CALL); dynamic addresses, gas
-forwarded via the default Op.GAS.
+inherited from the enclosing value-bearing frame — the ported filler's
+delivery CALL is collapsed into the transaction's own value); dynamic
+addresses, gas forwarded via the default Op.GAS.
 """
 
 import pytest
