@@ -13,7 +13,7 @@ snapshots bound these two phases:
   ``NEW_ACCOUNT``, or on the delegation-resolution access. The whole
   preparation shares one snapshot, so every authorization applied so
   far is rolled back and the frame halts without dispatching. The
-  transaction is still included and consumes its full regular budget;
+  transaction is still included and consumes its full execution budget;
   a state-gas reservoir, whose charges are refilled with the rollback,
   is returned to the sender in full. The sender nonce (bumped at
   inclusion, before the snapshot) is not rolled back.
@@ -73,7 +73,7 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 def _auth_top_frame_charges(fork: Fork, authorizations: list) -> int:
     """
-    Return the top-frame regular + state gas attributable to the
+    Return the top-frame execution + state gas attributable to the
     authorizations alone.
 
     Computed against a ``CONTRACT`` recipient, which contributes no
@@ -82,7 +82,7 @@ def _auth_top_frame_charges(fork: Fork, authorizations: list) -> int:
     ``AUTH_BASE``. Under the zero state reservoir these all draw from
     ``gas_left``.
     """
-    regular = fork.transaction_top_frame_gas_calculator()(
+    execution = fork.transaction_top_frame_gas_calculator()(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorizations,
     )
@@ -90,17 +90,17 @@ def _auth_top_frame_charges(fork: Fork, authorizations: list) -> int:
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorizations,
     )
-    return regular + state
+    return execution + state
 
 
-def _intrinsic_regular(
+def _intrinsic_execution(
     fork: Fork,
     authorization_list: list,
     *,
     recipient_type: RecipientType,
     sends_value: bool = False,
 ) -> int:
-    """Return the regular intrinsic gas deducted before execution."""
+    """Return the execution intrinsic gas deducted before execution."""
     return fork.transaction_intrinsic_cost_calculator()(
         recipient_type=recipient_type,
         sends_value=sends_value,
@@ -157,7 +157,7 @@ def test_set_delegation_oog_charge_point(
     - ``new_account``: the second (a creation) runs out at its opening
       ``NEW_ACCOUNT`` state charge.
     - ``account_write``: the second covers ``NEW_ACCOUNT`` but runs out
-      at the following ``ACCOUNT_WRITE`` regular charge.
+      at the following ``ACCOUNT_WRITE`` execution charge.
     - ``auth_base``: the second (a delegation on an existing empty EOA)
       covers its first-write ``ACCOUNT_WRITE`` but runs out at the
       following ``AUTH_BASE`` state charge.
@@ -193,12 +193,12 @@ def test_set_delegation_oog_charge_point(
 
     authorization_list = [first.authorization, second.authorization]
 
-    intrinsic_regular = _intrinsic_regular(
+    intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
     first_auth_charges = _auth_top_frame_charges(fork, [first.authorization])
 
-    # gas_left entering set_delegation is gas_limit - intrinsic_regular
+    # gas_left entering set_delegation is gas_limit - intrinsic_execution
     # (the state reservoir is zero). The first authorization is applied
     # in full; the second is starved by one gas at the target charge,
     # after covering any charges that precede it within that same
@@ -214,7 +214,7 @@ def test_set_delegation_oog_charge_point(
         shortfall_charge = gas_costs.AUTH_BASE
 
     gas_limit = (
-        intrinsic_regular + first_auth_charges + preceding + shortfall_charge
+        intrinsic_execution + first_auth_charges + preceding + shortfall_charge
     )
     if outcome != "succeeds":
         gas_limit -= 1
@@ -317,7 +317,7 @@ def test_set_delegation_oog_rolls_back_first_auth(
     second = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
     authorization_list = [first.authorization, second.authorization]
 
-    intrinsic_regular = _intrinsic_regular(
+    intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
     first_auth_charges = _auth_top_frame_charges(fork, [first.authorization])
@@ -326,7 +326,7 @@ def test_set_delegation_oog_rolls_back_first_auth(
     # runs out at its opening NEW_ACCOUNT state charge, rolling back the
     # whole authorization phase.
     gas_limit = (
-        intrinsic_regular + first_auth_charges + gas_costs.NEW_ACCOUNT - 1
+        intrinsic_execution + first_auth_charges + gas_costs.NEW_ACCOUNT - 1
     )
 
     tx = Transaction(
@@ -455,7 +455,7 @@ def test_recipient_charge_oog_rolls_back_delegations(
             delegated_to: BalAccountExpectation.empty() if succeeds else None
         }
 
-    intrinsic_regular = _intrinsic_regular(
+    intrinsic_execution = _intrinsic_execution(
         fork,
         authorization_list,
         recipient_type=recipient_type,
@@ -466,7 +466,7 @@ def test_recipient_charge_oog_rolls_back_delegations(
     # is starved by one gas -- or, with ``succeeds``, covered exactly.
     # The charge shares the preparation snapshot, so its out-of-gas
     # rolls the applied delegations back.
-    gas_limit = intrinsic_regular + auth_charges + recipient_charge_gas
+    gas_limit = intrinsic_execution + auth_charges + recipient_charge_gas
     if not succeeds:
         gas_limit -= 1
 
@@ -538,7 +538,7 @@ def test_reservoir_settlement_by_failure_point(
     at each point along the top frame, settles four different ways.
 
     A non-zero reservoir requires ``gas_limit`` above the EIP-7825 cap,
-    which also hands the frame the *full* regular budget -- so starving
+    which also hands the frame the *full* execution budget -- so starving
     the preparation is only reachable when its demand exceeds the cap
     plus the reservoir. Account-creating authorizations are the one
     charge dense enough to get there: each demands ~234,606 gas
@@ -564,7 +564,7 @@ def test_reservoir_settlement_by_failure_point(
       leaves the reservoir empty and the halt burns the rest:
       ``gas_used == gas_limit``, the full amount.
     - ``execution_revert``: as above, but ``REVERT`` returns the unused
-      regular budget: ``gas_used`` is exactly the intrinsic cost plus
+      execution budget: ``gas_used`` is exactly the intrinsic cost plus
       every preparation charge plus the reverting code's own gas.
 
     Together the four pin that the reservoir's fate follows the state
@@ -608,11 +608,11 @@ def test_reservoir_settlement_by_failure_point(
 
     probe_authority = pre.fund_eoa(amount=0)
     probe = creation_authorization(probe_authority)
-    base_intrinsic = _intrinsic_regular(
+    base_intrinsic = _intrinsic_execution(
         fork, [], recipient_type=RecipientType.DELEGATION_7702
     )
     per_auth_intrinsic = (
-        _intrinsic_regular(
+        _intrinsic_execution(
             fork, [probe], recipient_type=RecipientType.DELEGATION_7702
         )
         - base_intrinsic
@@ -634,7 +634,7 @@ def test_reservoir_settlement_by_failure_point(
         creation_authorization(authority) for authority in authorities[1:]
     ]
 
-    intrinsic_regular = base_intrinsic + auth_count * per_auth_intrinsic
+    intrinsic_execution = base_intrinsic + auth_count * per_auth_intrinsic
     auth_charges = auth_count * per_auth_charges
     dispatch_charge = gas_costs.COLD_ACCOUNT_ACCESS
     auth_state_total = fork.transaction_top_frame_state_gas(
@@ -644,30 +644,32 @@ def test_reservoir_settlement_by_failure_point(
 
     if failure_point == "set_delegation_oog":
         # The final authorization's closing AUTH_BASE is starved by one.
-        gas_limit = intrinsic_regular + auth_charges - 1
+        gas_limit = intrinsic_execution + auth_charges - 1
         expected_gas_used = cap
         delegations_persist = False
     elif failure_point == "dispatch_charge_oog":
         # All authorizations apply; the recipient's cold
         # delegation-resolution access is starved by one.
-        gas_limit = intrinsic_regular + auth_charges + dispatch_charge - 1
+        gas_limit = intrinsic_execution + auth_charges + dispatch_charge - 1
         expected_gas_used = cap
         delegations_persist = False
     elif failure_point == "execution_halt":
-        gas_limit = intrinsic_regular + auth_charges + dispatch_charge + 10_000
+        gas_limit = (
+            intrinsic_execution + auth_charges + dispatch_charge + 10_000
+        )
         expected_gas_used = gas_limit
         delegations_persist = True
     else:  # execution_revert
         exec_gas = recipient_code.gas_cost(fork)
         gas_limit = (
-            intrinsic_regular
+            intrinsic_execution
             + auth_charges
             + dispatch_charge
             + exec_gas
             + 10_000
         )
         expected_gas_used = (
-            intrinsic_regular + auth_charges + dispatch_charge + exec_gas
+            intrinsic_execution + auth_charges + dispatch_charge + exec_gas
         )
         delegations_persist = True
 
@@ -828,14 +830,14 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
 
     probe_authority = pre.fund_eoa(amount=0)
     probe = creation_authorization(probe_authority)
-    base_intrinsic = _intrinsic_regular(
+    base_intrinsic = _intrinsic_execution(
         fork,
         [],
         recipient_type=RecipientType.EMPTY_ACCOUNT,
         sends_value=True,
     )
     per_auth_intrinsic = (
-        _intrinsic_regular(
+        _intrinsic_execution(
             fork,
             [probe],
             recipient_type=RecipientType.EMPTY_ACCOUNT,
@@ -859,7 +861,7 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
         creation_authorization(authority) for authority in authorities[1:]
     ]
 
-    intrinsic_regular = base_intrinsic + auth_count * per_auth_intrinsic
+    intrinsic_execution = base_intrinsic + auth_count * per_auth_intrinsic
     auth_charges = auth_count * per_auth_charges
     auth_state_total = fork.transaction_top_frame_state_gas(
         recipient_type=RecipientType.CONTRACT,
@@ -869,14 +871,14 @@ def test_reservoir_settlement_with_value_to_empty_recipient(
     data = b""
     if failure_point == "set_delegation_oog":
         # The final authorization's closing AUTH_BASE is starved by one.
-        gas_limit = intrinsic_regular + auth_charges - 1
+        gas_limit = intrinsic_execution + auth_charges - 1
         expected_gas_used = cap
         delegations_persist = False
     elif failure_point == "dispatch_charge_oog":
         # All authorizations apply; the recipient's NEW_ACCOUNT state
         # charge is starved by one.
         gas_limit = (
-            intrinsic_regular + auth_charges + gas_costs.NEW_ACCOUNT - 1
+            intrinsic_execution + auth_charges + gas_costs.NEW_ACCOUNT - 1
         )
         expected_gas_used = cap
         delegations_persist = False
@@ -1012,7 +1014,7 @@ def test_delegation_persists_on_execution_oog(
     authorization_list = [auth_a.authorization, auth_b.authorization]
     auth_charges = _auth_top_frame_charges(fork, authorization_list)
 
-    intrinsic_regular = _intrinsic_regular(
+    intrinsic_execution = _intrinsic_execution(
         fork,
         authorization_list,
         recipient_type=RecipientType.CONTRACT,
@@ -1023,7 +1025,7 @@ def test_delegation_persists_on_execution_oog(
     # execution and then runs out on the second, consuming all gas.
     recipient_code = Op.PUSH1(0) + Op.PUSH1(0)
     one_opcode = Op.PUSH1(0).gas_cost(fork)
-    gas_limit = intrinsic_regular + auth_charges + one_opcode
+    gas_limit = intrinsic_execution + auth_charges + one_opcode
 
     recipient = pre.deploy_contract(code=recipient_code)
 
@@ -1104,16 +1106,16 @@ def test_auth_state_charges_survive_dispatch_revert(
     auth = build_authorization(pre, auth_action)
     authorization_list = [auth.authorization]
 
-    intrinsic_regular = _intrinsic_regular(
+    intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
     auth_charges = _auth_top_frame_charges(fork, authorization_list)
     revert_exec_gas = revert_code.gas_cost(fork)
 
-    # The authorization's regular and state charges and the two PUSH
+    # The authorization's execution and state charges and the two PUSH
     # opcodes feeding the REVERT stay paid; only the unused execution
     # budget returns.
-    gas_used = intrinsic_regular + auth_charges + revert_exec_gas
+    gas_used = intrinsic_execution + auth_charges + revert_exec_gas
 
     tx = Transaction(
         sender=sender,
@@ -1158,10 +1160,10 @@ def test_auth_state_charges_survive_dispatch_halt_with_reservoir(
     With an ordinary gas limit the reservoir is zero and a halt
     consumes all of ``gas_left`` anyway, masking any wrongly-refilled
     state gas. Here the gas limit exceeds the EIP-7825 cap (allowed --
-    the cap binds only the regular dimension), so the excess forms a
+    the cap binds only the execution dimension), so the excess forms a
     state-gas reservoir that covers the authorization's ``NEW_ACCOUNT``
     + ``AUTH_BASE``. The dispatched call hits ``INVALID``, consuming
-    all regular gas; the *unused* reservoir returns to the sender, but
+    all execution gas; the *unused* reservoir returns to the sender, but
     the portion consumed for the persisting delegation must not.
 
     A regression that refills the authorization's state gas with the
@@ -1192,7 +1194,7 @@ def test_auth_state_charges_survive_dispatch_halt_with_reservoir(
     # into gas_left.
     reservoir = auth_state_gas + 50_000
 
-    # The halt consumes the full regular budget (the cap); of the
+    # The halt consumes the full execution budget (the cap); of the
     # reservoir, only the authorization's state gas is consumed -- its
     # delegation persists -- and the unused remainder returns.
     gas_used = cap + auth_state_gas
@@ -1225,9 +1227,9 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     The state gas of an applied authorization is counted in the block's
     state dimension when the dispatched call reverts.
 
-    The header ``gas_used`` is ``max(block_regular_gas,
+    The header ``gas_used`` is ``max(block_execution_gas,
     block_state_gas)``. The authorization creates and delegates a fresh
-    authority (218,790 state gas), which dominates the small regular
+    authority (218,790 state gas), which dominates the small execution
     side (intrinsic + ``ACCOUNT_WRITE`` + the pre-revert execution), so
     a correct accounting yields ``gas_used == 218,790`` even though the
     dispatched call reverts -- the delegation, and the state it grew,
@@ -1235,7 +1237,7 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
 
     A regression that refills the authorization's state gas on the
     frame's rollback collapses ``tx_state_gas`` to zero and the header
-    to the small regular sum, which balance-only state tests cannot
+    to the small execution sum, which balance-only state tests cannot
     distinguish from a correctly-split total.
     """
     sender = pre.fund_eoa()
@@ -1246,10 +1248,10 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     auth = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
     authorization_list = [auth.authorization]
 
-    intrinsic_regular = _intrinsic_regular(
+    intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
-    auth_regular = fork.transaction_top_frame_gas_calculator()(
+    auth_execution = fork.transaction_top_frame_gas_calculator()(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )
@@ -1259,11 +1261,11 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     )
     revert_exec_gas = revert_code.gas_cost(fork)
 
-    regular_total = intrinsic_regular + auth_regular + revert_exec_gas
-    assert auth_state > regular_total, (
+    execution_total = intrinsic_execution + auth_execution + revert_exec_gas
+    assert auth_state > execution_total, (
         "the state dimension must dominate for the header to pin it"
     )
-    expected_gas_used = max(regular_total, auth_state)
+    expected_gas_used = max(execution_total, auth_state)
 
     tx = Transaction(
         sender=sender,
@@ -1314,7 +1316,7 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
     beyond it (``exceeded``: the per-transaction state check fires and
     the block is correctly rejected).
 
-    The regular dimension is asserted to have room either way, pinning
+    The execution dimension is asserted to have room either way, pinning
     the rejection to the state dimension. An implementation that drops
     a reverted transaction's persisting state gas from the block's
     state total would accept the ``exceeded`` block and fork.
@@ -1330,10 +1332,10 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
     auth = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
     authorization_list = [auth.authorization]
 
-    intrinsic_regular = _intrinsic_regular(
+    intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
-    auth_regular = fork.transaction_top_frame_gas_calculator()(
+    auth_execution = fork.transaction_top_frame_gas_calculator()(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )
@@ -1343,13 +1345,13 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
     )
     revert_exec_gas = revert_code.gas_cost(fork)
 
-    first_tx_regular = intrinsic_regular + auth_regular + revert_exec_gas
+    first_tx_execution = intrinsic_execution + auth_execution + revert_exec_gas
     first_tx = Transaction(
         sender=pre.fund_eoa(),
         to=recipient,
         value=0,
         authorization_list=authorization_list,
-        gas_limit=first_tx_regular + auth_state,
+        gas_limit=first_tx_execution + auth_state,
     )
 
     # The last transaction's worst-case state contribution is its full
@@ -1360,10 +1362,10 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
     last_tx_gas = state_available + delta
 
     # Pin the rejection (when delta > 0) to the state check: the
-    # regular check must not fire.
-    regular_available = block_gas_limit - first_tx_regular
-    assert min(cap, last_tx_gas) < regular_available, (
-        "the last tx would fail the regular check instead of the state check"
+    # execution check must not fire.
+    execution_available = block_gas_limit - first_tx_execution
+    assert min(cap, last_tx_gas) < execution_available, (
+        "the last tx would fail the execution check instead of the state check"
     )
 
     last_tx_error = (
@@ -1413,7 +1415,7 @@ def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     refills.
 
     The gas limit exceeds the EIP-7825 cap so the charge draws from a
-    state-gas reservoir; the halt consumes the full regular budget (the
+    state-gas reservoir; the halt consumes the full execution budget (the
     cap) but the *entire* reservoir returns, pinning the refill in the
     receipt's gas used. This is the counterpart of
     ``test_auth_state_charges_survive_dispatch_halt_with_reservoir``,
@@ -1436,7 +1438,7 @@ def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
 
     reservoir = new_account_state_gas + 50_000
 
-    # The halt consumes the full regular budget; the NEW_ACCOUNT drawn
+    # The halt consumes the full execution budget; the NEW_ACCOUNT drawn
     # from the reservoir is refilled (the account creation rolled
     # back), so the whole reservoir returns to the sender.
     gas_used = cap
@@ -1491,11 +1493,11 @@ def test_dispatched_frame_state_gas_still_refills_on_revert(
     auth = build_authorization(pre, AuthorizationAction.SETS_NEW_DELEGATION)
     authorization_list = [auth.authorization]
 
-    intrinsic_regular = _intrinsic_regular(
+    intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
     auth_charges = _auth_top_frame_charges(fork, authorization_list)
-    exec_regular = sstore_revert_code.regular_cost(fork)
+    evm_execution = sstore_revert_code.execution_cost(fork)
     exec_state = sstore_revert_code.state_cost(fork)
     assert exec_state > 0, (
         "the dispatched SSTORE must carry a state-gas charge"
@@ -1503,8 +1505,8 @@ def test_dispatched_frame_state_gas_still_refills_on_revert(
 
     # The SSTORE's state gas is charged and then refilled by the
     # revert (the slot rolls back), so the sender pays only the
-    # authorization charges and the regular execution gas.
-    gas_used = intrinsic_regular + auth_charges + exec_regular
+    # authorization charges and the execution gas.
+    gas_used = intrinsic_execution + auth_charges + evm_execution
 
     tx = Transaction(
         sender=sender,

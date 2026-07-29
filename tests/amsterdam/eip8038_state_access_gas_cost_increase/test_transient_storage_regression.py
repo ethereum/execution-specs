@@ -53,7 +53,7 @@ def test_transient_storage_gas_unchanged(
     # Measure TSTORE then TLOAD of the same transient slot in one frame,
     # subtracting the PUSH wrapper so the stored value is the bare opcode
     # cost.
-    push_cost = Op.PUSH1(0).regular_cost(fork)
+    push_cost = Op.PUSH1(0).execution_cost(fork)
     tstore_code = CodeGasMeasure(
         code=Op.TSTORE(0, 1),
         overhead_cost=2 * push_cost,

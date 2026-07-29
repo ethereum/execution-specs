@@ -259,7 +259,7 @@ def test_calldata_floor_contract_creation(
     empty code, and prices every byte as one floor token.
 
     - ``floor_binds``: ``gas_used`` pins to the floor, which anchors
-      on the creation regular base (``TX_BASE + CREATE_ACCESS``)
+      on the creation execution base (``TX_BASE + CREATE_ACCESS``)
       but excludes the created account's ``NEW_ACCOUNT`` *state* charge
       and the init-code word cost -- both masked by the binding floor --
       while the deploy (and any moved wei) still lands.

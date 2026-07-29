@@ -91,7 +91,7 @@ def test_value_moving_transactions(
         recipient_type=recipient_type,
     )
     # Under the default zero state-gas reservoir, top-frame state gas
-    # spills entirely into regular gas.
+    # spills entirely into execution gas.
     total_gas_cost = intrinsic_gas + top_frame_gas + top_frame_state_gas
 
     tx_gas_limit = total_gas_cost
@@ -159,7 +159,7 @@ def test_value_contract_creation_tx(
     When the init code reverts, the deploy is rolled back: no code is
     set, the value transfer is reversed, and the top-frame
     ``NEW_ACCOUNT`` state-gas charge for the created account is
-    refilled. The sender therefore pays only the regular intrinsic
+    refilled. The sender therefore pays only the execution intrinsic
     plus the few EVM gas units spent before the revert -- the
     ``NEW_ACCOUNT`` charge does not appear on the receipt.
     """
@@ -194,7 +194,7 @@ def test_value_contract_creation_tx(
         # charge is refilled and does not appear on the receipt.
         gas_used = intrinsic_gas + execution_gas
         # A tiny init code can leave the decomposed calldata floor above
-        # the regular gas actually consumed; gas_used then pins to the
+        # the execution gas actually consumed; gas_used then pins to the
         # floor, which EIP-2780 anchors on the create intrinsic base.
         gas_used = max(
             gas_used,

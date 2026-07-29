@@ -95,7 +95,7 @@ def test_intrinsic_gas_floor_boundary_contract_creation(
 
     A creation tx's intrinsic includes the ``NEW_ACCOUNT`` state gas, so
     the pre-execution check rejects against the combined
-    ``regular + state`` intrinsic. The init code never runs.
+    ``execution + state`` intrinsic. The init code never runs.
     """
     sender = pre.fund_eoa(10**18)
     init_code = Op.STOP

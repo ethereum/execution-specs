@@ -8,12 +8,12 @@ charges may fire there, depending on the recipient:
 - ``NEW_ACCOUNT`` (state gas) when the recipient is empty and the
   transaction transfers value, or when a creation transaction's target
   leaf did not exist before the transaction.
-- ``COLD_ACCOUNT_ACCESS`` (regular gas) when the recipient holds an
+- ``COLD_ACCOUNT_ACCESS`` (execution gas) when the recipient holds an
   EIP-7702 delegation.
 
 Each test parametrizes over the interesting outcomes for that charge:
 running out of gas at the boundary, succeeding through the charge and
-into the EVM, and (for the regular charge) succeeding through the
+into the EVM, and (for the execution charge) succeeding through the
 charge but reverting from the delegated code. For creation
 transactions, the charge keys on the *transaction pre-state* being
 empty, and — being consumed on any successful halt — survives the
@@ -179,14 +179,14 @@ def test_top_frame_new_account_charged_as_state_gas(
 ) -> None:
     """
     The top-frame ``NEW_ACCOUNT`` charge for a value transfer to an
-    empty recipient is *state* gas, not regular gas. This pins the
+    empty recipient is *state* gas, not execution gas. This pins the
     dimension via the block header ``gas_used``, which the spec
-    computes as ``max(block_regular_gas, block_state_gas)``.
+    computes as ``max(block_execution_gas, block_state_gas)``.
 
     Correctly attributed, the ``NEW_ACCOUNT`` state gas dominates the
-    small regular intrinsic, so ``gas_used == NEW_ACCOUNT``. A
-    regression mis-classifying the charge as regular gas would instead
-    yield ``intrinsic_regular + NEW_ACCOUNT``.
+    small execution intrinsic, so ``gas_used == NEW_ACCOUNT``. A
+    regression mis-classifying the charge as execution gas would instead
+    yield ``intrinsic_execution + NEW_ACCOUNT``.
 
     ``state_test``-based balance assertions (e.g.
     ``test_top_frame_state_charge``) only observe the *sum* of the two
@@ -197,7 +197,7 @@ def test_top_frame_new_account_charged_as_state_gas(
     target = pre.fund_eoa(amount=0)
     value = 1
 
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         sends_value=True,
         recipient_type=RecipientType.EMPTY_ACCOUNT,
         return_cost_deducted_prior_execution=True,
@@ -206,26 +206,26 @@ def test_top_frame_new_account_charged_as_state_gas(
         sends_value=True,
         recipient_type=RecipientType.EMPTY_ACCOUNT,
     )
-    # The state charge must dominate the regular intrinsic for the
-    # header ``gas_used`` to distinguish a state vs regular
+    # The state charge must dominate the execution intrinsic for the
+    # header ``gas_used`` to distinguish a state vs execution
     # mis-classification.
-    assert new_account_state_gas > intrinsic_regular, (
+    assert new_account_state_gas > intrinsic_execution, (
         "test only distinguishes the dimension when NEW_ACCOUNT "
-        f"({new_account_state_gas}) dominates the regular intrinsic "
-        f"({intrinsic_regular})"
+        f"({new_account_state_gas}) dominates the execution intrinsic "
+        f"({intrinsic_execution})"
     )
 
-    # No EVM bytecode runs (empty recipient), so the only regular gas
+    # No EVM bytecode runs (empty recipient), so the only execution gas
     # is the intrinsic and the only state gas is the top-frame
     # ``NEW_ACCOUNT`` charge.
-    expected_gas_used = max(intrinsic_regular, new_account_state_gas)
+    expected_gas_used = max(intrinsic_execution, new_account_state_gas)
 
     gas_price = 1_000_000_000
     tx = Transaction(
         sender=sender,
         to=target,
         value=value,
-        gas_limit=intrinsic_regular + new_account_state_gas + 1000,
+        gas_limit=intrinsic_execution + new_account_state_gas + 1000,
         gas_price=gas_price,
     )
 
@@ -439,7 +439,7 @@ def test_top_frame_new_account_skipped_for_create_target_funded_same_block(
 
     The funding transaction pays its own top-frame ``NEW_ACCOUNT`` for
     materializing the leaf, which the block header pins as the block's
-    entire state-gas dimension: ``gas_used = max(regular, state)`` must
+    entire state-gas dimension: ``gas_used = max(execution, state)`` must
     equal exactly one ``NEW_ACCOUNT``.
     """
     funder = pre.fund_eoa()
@@ -503,11 +503,11 @@ def test_top_frame_new_account_skipped_for_create_target_funded_same_block(
     )
 
     # Header pin: the block's state dimension is exactly the funding
-    # transaction's ``NEW_ACCOUNT``; both regular intrinsics sit at or
+    # transaction's ``NEW_ACCOUNT``; both execution intrinsics sit at or
     # above their calldata floors, so no floor term enters the block's
-    # regular dimension either.
-    block_regular = fund_intrinsic + create_total
-    assert fund_state_gas > block_regular, (
+    # execution dimension either.
+    block_execution = fund_intrinsic + create_total
+    assert fund_state_gas > block_execution, (
         "the state dimension must dominate for the header to pin it"
     )
 
@@ -537,7 +537,7 @@ def test_top_frame_new_account_skipped_for_create_target_funded_same_block(
         pytest.param(1, id="non-zero_value"),
     ],
 )
-def test_top_frame_regular_charge(
+def test_top_frame_execution_charge(
     fork: Fork,
     pre: Alloc,
     state_test: StateTestFiller,
@@ -546,15 +546,15 @@ def test_top_frame_regular_charge(
 ) -> None:
     """
     Recipient is an existing EIP-7702 delegation, so the top-frame
-    fires the ``COLD_ACCOUNT_ACCESS`` regular-gas charge regardless of
+    fires the ``COLD_ACCOUNT_ACCESS`` execution-gas charge regardless of
     whether the transaction transfers value.
 
-    - ``oog``: gas limit is one short of covering the regular charge
+    - ``oog``: gas limit is one short of covering the execution charge
       (plus the value-transfer charge when ``value > 0``). The
       transaction OOGs at ``charge_gas(COLD_ACCOUNT_ACCESS)`` before
       the delegated code runs. The sender pays the full ``gas_limit``
       and the recipient keeps its pre-tx state.
-    - ``success``: gas limit covers the regular charge; the delegated
+    - ``success``: gas limit covers the execution charge; the delegated
       code is a ``STOP`` and the transaction lands the value transfer.
     - ``evm_reverts``: the delegated code reverts immediately. The
       top-frame charge is consumed before dispatch and the two
@@ -584,7 +584,7 @@ def test_top_frame_regular_charge(
         recipient_type=RecipientType.DELEGATION_7702,
     )
     assert top_frame_gas > 0, (
-        "top-frame regular gas must be non-zero for this scenario"
+        "top-frame execution gas must be non-zero for this scenario"
     )
 
     gas_price = 1_000_000_000
@@ -691,12 +691,12 @@ def test_initcode_selfdestruct_keeps_top_frame_state_charge(
         beneficiary = pre.nonexistent_account()
         # Sweeping a non-zero balance into a non-existent leaf creates
         # the beneficiary, paying NEW_ACCOUNT (state) and ACCOUNT_WRITE
-        # (regular) at the opcode.
+        # (execution) at the opcode.
         init_code = Op.SELFDESTRUCT.with_metadata(
             address_warm=False, account_new=bool(value)
         )(beneficiary)
 
-    # Combined regular + state execution gas, including any sweep
+    # Combined execution + state execution gas, including any sweep
     # charges modeled by the metadata above.
     exec_gas = init_code.gas_cost(fork)
 
@@ -756,14 +756,14 @@ def test_initcode_selfdestruct_state_gas_in_header(
     dimensions, so the sibling
     ``test_initcode_selfdestruct_keeps_top_frame_state_charge`` cannot
     distinguish which dimension the surviving charge settled into. The
-    block header can: ``gas_used = max(block_regular, block_state)``,
+    block header can: ``gas_used = max(block_execution, block_state)``,
     and with a zero endowment and a self beneficiary the whole created
     account vanishes while the state side (one ``NEW_ACCOUNT``,
-    dominating the small regular side) must still show in the header.
+    dominating the small execution side) must still show in the header.
 
     Bug signatures: a refill regression collapses the header to the
-    small regular sum; a regular-gas mis-classification raises it to
-    ``regular + NEW_ACCOUNT``.
+    small execution sum; an execution-gas mis-classification raises it to
+    ``execution + NEW_ACCOUNT``.
     """
     sender = pre.fund_eoa()
     created = compute_create_address(address=sender, nonce=sender.nonce)
@@ -771,7 +771,7 @@ def test_initcode_selfdestruct_state_gas_in_header(
     init_code = Op.SELFDESTRUCT.with_metadata(
         address_warm=True, account_new=False
     )(Op.ADDRESS)
-    exec_regular = init_code.regular_cost(fork)
+    evm_execution = init_code.execution_cost(fork)
 
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         calldata=init_code,
@@ -785,14 +785,14 @@ def test_initcode_selfdestruct_state_gas_in_header(
         data=init_code,
         contract_creation=True,
     )
-    # Block accounting carries the calldata floor in the regular
+    # Block accounting carries the calldata floor in the execution
     # dimension.
-    regular_side = max(intrinsic_gas + exec_regular, calldata_floor)
-    assert state_side > regular_side, (
+    execution_side = max(intrinsic_gas + evm_execution, calldata_floor)
+    assert state_side > execution_side, (
         "the state dimension must dominate for the header to pin it"
     )
 
-    total_gas = intrinsic_gas + state_side + exec_regular
+    total_gas = intrinsic_gas + state_side + evm_execution
     tx = Transaction(
         sender=sender,
         to=None,
@@ -821,7 +821,7 @@ class TopFrameFailureMode(Enum):
 
     CREATE_STATE_OOG = auto()
     NEW_ACCOUNT_STATE_OOG = auto()
-    DELEGATED_REGULAR_OOG = auto()
+    DELEGATED_EXECUTION_OOG = auto()
 
 
 @pytest.mark.parametrize(
@@ -836,8 +836,8 @@ class TopFrameFailureMode(Enum):
             id="new_account_state_oog",
         ),
         pytest.param(
-            TopFrameFailureMode.DELEGATED_REGULAR_OOG,
-            id="delegated_regular_oog",
+            TopFrameFailureMode.DELEGATED_EXECUTION_OOG,
+            id="delegated_execution_oog",
         ),
     ],
 )
@@ -873,8 +873,8 @@ def test_receipt_status_top_frame_oog_between_successful_txs(
     - ``new_account_state_oog``: value transfer to an empty recipient;
       the ``NEW_ACCOUNT`` state charge fires and the gas limit is one
       short.
-    - ``delegated_regular_oog``: recipient holds an EIP-7702
-      delegation; the ``COLD_ACCOUNT_ACCESS`` regular charge fires and
+    - ``delegated_execution_oog``: recipient holds an EIP-7702
+      delegation; the ``COLD_ACCOUNT_ACCESS`` execution charge fires and
       the gas limit is one short.
 
     The failing transaction burns its full gas limit, bumps the sender
@@ -929,7 +929,7 @@ def test_receipt_status_top_frame_oog_between_successful_txs(
         # The rolled-back transfer must not bring the recipient into
         # existence.
         fail_target_post = None
-    elif failure_mode is TopFrameFailureMode.DELEGATED_REGULAR_OOG:
+    elif failure_mode is TopFrameFailureMode.DELEGATED_EXECUTION_OOG:
         delegated_to = pre.deploy_contract(code=Op.STOP)
         target_code = Spec7702.delegation_designation(delegated_to)
         fail_to = pre.deploy_contract(code=target_code)

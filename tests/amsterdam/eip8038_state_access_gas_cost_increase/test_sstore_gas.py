@@ -1,12 +1,12 @@
 """
 Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
 
-Covers the EIP-8038 ``SSTORE`` *regular* (non-state) gas schedule. The
+Covers the EIP-8038 ``SSTORE`` *execution* (non-state) gas schedule. The
 state-creation charge for a zero-to-nonzero write is owned by EIP-8037
 and is asserted separately; here every expectation is taken from the
-``regular_cost`` dimension only.
+``execution_cost`` dimension only.
 
-The regular ``SSTORE`` cost is the slot-access cost (``COLD_STORAGE_ACCESS``
+The execution ``SSTORE`` cost is the slot-access cost (``COLD_STORAGE_ACCESS``
 when the key is cold, else ``WARM_SLOAD``) plus, on the first change of the
 slot in the transaction (``original == current != new``), the write cost
 ``STORAGE_WRITE`` (modeled as ``COLD_STORAGE_WRITE - COLD_STORAGE_ACCESS``).
@@ -56,7 +56,7 @@ SSTORE_ROWS = [
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("key_warm,original,current,new", SSTORE_ROWS)
-def test_sstore_regular_gas(
+def test_sstore_execution_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -66,19 +66,19 @@ def test_sstore_regular_gas(
     new: int,
 ) -> None:
     """
-    Measure the regular ``SSTORE`` gas for each EIP-8038 row and assert it.
+    Measure the execution ``SSTORE`` gas for each EIP-8038 row and assert it.
 
     The final (measured) ``SSTORE`` is wrapped in ``CodeGasMeasure`` so the
-    executed regular cost is stored on-chain and asserted against
-    ``expected_regular`` (slot access plus write-on-first-change). The same
+    executed execution cost is stored on-chain and asserted against
+    ``expected_execution`` (slot access plus write-on-first-change). The same
     value is cross-checked against the framework opcode model's
-    ``regular_cost`` as a secondary guard. The state-gas dimension is owned
+    ``execution_cost`` as a secondary guard. The state-gas dimension is owned
     by EIP-8037 and funded from the reservoir, so it is excluded here.
     """
     # Move the data off slot 0 so ``CodeGasMeasure`` can store the measured
     # cost in slot 0. The bare (operand-free) opcode carries the metadata so
     # the measure overhead resolves to just the two operand PUSHes, and
-    # ``regular_cost``/``gas_cost`` are exact.
+    # ``execution_cost``/``gas_cost`` are exact.
     data_slot = 0x42
     result_slot = 0
     measured_bare = Op.SSTORE.with_metadata(
@@ -90,7 +90,7 @@ def test_sstore_regular_gas(
     measured = measured_bare(data_slot, new)
 
     # Cross-check the oracle agrees with the hand-derived formula.
-    expected_regular = measured_bare.regular_cost(fork)
+    expected_execution = measured_bare.execution_cost(fork)
 
     # Reach ``current`` from ``original`` with an unmeasured prep SSTORE when
     # they differ, then measure the write to ``new``. The slot is warmed for
@@ -122,9 +122,9 @@ def test_sstore_regular_gas(
     )
 
     # State gas (owned by EIP-8037) is funded from the reservoir so it never
-    # disturbs the regular gas this test isolates. ``gas_limit`` is left
+    # disturbs the execution gas this test isolates. ``gas_limit`` is left
     # unset so the reservoir lands above the EIP-7825 cap and ``Op.GAS``
-    # measures regular gas only; an explicit gas_limit below the cap would
+    # measures execution gas only; an explicit gas_limit below the cap would
     # zero the reservoir and spill state gas into the measurement.
     single_set_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     tx = Transaction(
@@ -134,9 +134,9 @@ def test_sstore_regular_gas(
         state_gas_reservoir=2 * single_set_state_gas,
     )
 
-    # result_slot holds the measured regular cost; data_slot holds ``new``
+    # result_slot holds the measured execution cost; data_slot holds ``new``
     # (absent when new == 0, because the slot is cleared).
-    expected_storage = {result_slot: expected_regular}
+    expected_storage = {result_slot: expected_execution}
     if new != 0:
         expected_storage[data_slot] = new
     post = {contract: Account(storage=expected_storage)}
@@ -183,8 +183,8 @@ def test_sstore_cold_then_warm_same_slot(
     )
     second = second_bare(data_slot, 3)
 
-    expected_first = first_bare.regular_cost(fork)
-    expected_second = second_bare.regular_cost(fork)
+    expected_first = first_bare.execution_cost(fork)
+    expected_second = second_bare.execution_cost(fork)
 
     # Each measured write stores its own runtime cost; the overhead
     # subtraction strips the two operand PUSHes so the stored value is the

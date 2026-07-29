@@ -227,7 +227,7 @@ def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
     The inner frame spills the NEW_ACCOUNT charge and self-destructs
     successfully, then the caller reverts: the beneficiary creation
     rolls back and the spilled state charge is refilled. The EIP-8038
-    regular account-write charge for the attempted empty-account value
+    execution account-write charge for the attempted empty-account value
     transfer remains billed.
     """
     beneficiary = 0xDEAD
@@ -236,10 +236,10 @@ def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
     caller_code = Op.POP(Op.CALL(gas=Op.GAS, address=inner)) + Op.REVERT(0, 0)
     caller = pre.deploy_contract(code=caller_code)
 
-    expected_regular = (
+    expected_execution = (
         fork.transaction_intrinsic_cost_calculator()()
         + caller_code.gas_cost(fork)
-        + inner_code.regular_cost(fork)
+        + inner_code.execution_cost(fork)
     )
     tx = Transaction(to=caller, sender=pre.fund_eoa())
 
@@ -247,7 +247,7 @@ def test_selfdestruct_state_gas_refilled_on_ancestor_revert(
         pre=pre,
         post={beneficiary: Account.NONEXISTENT, inner: Account(balance=1)},
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=expected_regular),
+        blockchain_test_header_verify=Header(gas_used=expected_execution),
     )
 
 
@@ -298,13 +298,13 @@ def test_create_selfdestruct_no_refund_account_and_storage(
     total_state_gas = factory_code.state_cost(fork) + init_code.state_cost(
         fork
     )
-    regular_used = (
+    execution_used = (
         intrinsic_gas
         + factory_code.gas_cost(fork)
         + init_code.gas_cost(fork)
         - total_state_gas
     )
-    expected_gas_used = max(regular_used, total_state_gas)
+    expected_gas_used = max(execution_used, total_state_gas)
 
     tx = Transaction(
         to=factory,
@@ -439,8 +439,8 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
         sender=pre.fund_eoa(),
     )
 
-    baseline_block_regular = 0x94C8
-    expected_gas_used = max(baseline_block_regular, total_state_gas)
+    baseline_block_execution = 0x94C8
+    expected_gas_used = max(baseline_block_execution, total_state_gas)
 
     blockchain_test(
         pre=pre,
@@ -493,14 +493,14 @@ def test_create_selfdestruct_sstore_restoration_refund(
 
     new_account_state_gas = factory_code.state_cost(fork)
     state_used = new_account_state_gas
-    regular_used = (
+    execution_used = (
         intrinsic_gas
         + factory_code.gas_cost(fork)
         + init_code.gas_cost(fork)
         - new_account_state_gas
         - sstore_state_gas
     )
-    expected_gas_used = max(regular_used, state_used)
+    expected_gas_used = max(execution_used, state_used)
 
     tx = Transaction(
         to=factory,
@@ -531,7 +531,7 @@ def test_selfdestruct_pre_existing_account_no_refund(
     state gas back into the reservoir.  A contract deployed in `pre`
     is destroyed by the tx; `accounts_to_delete` contains it but
     `created_accounts` does not, so no refund is applied.  The block
-    header `gas_used` reflects the full regular-gas tx cost (no
+    header `gas_used` reflects the full execution-gas tx cost (no
     state-gas refund offset).
     """
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
@@ -545,8 +545,8 @@ def test_selfdestruct_pre_existing_account_no_refund(
     caller = pre.deploy_contract(code=caller_code)
 
     # No refund offset: both caller_code and victim_code are pure
-    # regular gas (SELFDESTRUCT to self, no value-to-new-account).
-    tx_regular = (
+    # execution gas (SELFDESTRUCT to self, no value-to-new-account).
+    tx_execution = (
         intrinsic_gas + caller_code.gas_cost(fork) + victim_code.gas_cost(fork)
     )
 
@@ -560,7 +560,7 @@ def test_selfdestruct_pre_existing_account_no_refund(
     # does not delete it — the account still exists after the tx.
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], header_verify=Header(gas_used=tx_regular))],
+        blocks=[Block(txs=[tx], header_verify=Header(gas_used=tx_execution))],
         post={victim: Account(code=victim_code)},
     )
 
@@ -591,9 +591,9 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
 
     # Bottom of the chain does the SELFDESTRUCT; intermediate helpers
     # just delegate further down. Track each frame's bytecode so we
-    # can sum its regular gas into `expected_gas_used` below.
+    # can sum its execution gas into `expected_gas_used` below.
     sd_code = Op.SELFDESTRUCT.with_metadata(address_warm=True)(Op.ADDRESS)
-    chain_regular_gas = sd_code.gas_cost(fork)
+    chain_execution_gas = sd_code.gas_cost(fork)
     delegate_target = pre.deploy_contract(code=sd_code)
     for _ in range(num_hops - 1):
         hop_code = (
@@ -604,7 +604,7 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
             )
             + Op.STOP
         )
-        chain_regular_gas += hop_code.gas_cost(fork)
+        chain_execution_gas += hop_code.gas_cost(fork)
         delegate_target = pre.deploy_contract(code=hop_code)
 
     # A's deployed runtime: one delegation into the top of the chain.
@@ -666,15 +666,15 @@ def test_selfdestruct_via_delegatecall_chain_no_refund(
     created_address = compute_create_address(address=factory, nonce=1)
 
     total_state_gas = factory_code.state_cost(fork) + initcode.state_cost(fork)
-    regular_used = (
+    execution_used = (
         intrinsic_gas
         + factory_code.gas_cost(fork)
         + initcode.gas_cost(fork)
         + deployed_code.gas_cost(fork)
-        + chain_regular_gas
+        + chain_execution_gas
         - total_state_gas
     )
-    expected_gas_used = max(regular_used, total_state_gas)
+    expected_gas_used = max(execution_used, total_state_gas)
 
     tx = Transaction(
         to=factory,
@@ -706,18 +706,18 @@ def test_selfdestruct_new_beneficiary_account_write_cost(
 ) -> None:
     """
     Verify SELFDESTRUCT to a new beneficiary charges `ACCOUNT_WRITE`
-    regular gas plus the account-creation state gas, and not the
-    legacy combined regular account-creation cost.
+    execution gas plus the account-creation state gas, and not the
+    legacy combined execution account-creation cost.
     """
     beneficiary = pre.fund_eoa(amount=0)
 
     victim_code = Op.SELFDESTRUCT(beneficiary, account_new=True)
     victim = pre.deploy_contract(code=victim_code, balance=1)
 
-    # Tight budget: slack is less than the legacy 25,000 regular
-    # account-creation cost minus `ACCOUNT_WRITE`, so any regular draw
+    # Tight budget: slack is less than the legacy 25,000 execution
+    # account-creation cost minus `ACCOUNT_WRITE`, so any execution draw
     # beyond `ACCOUNT_WRITE` would OOG. The opcode metadata folds the
-    # `ACCOUNT_WRITE` regular cost and the account-creation state gas
+    # `ACCOUNT_WRITE` execution cost and the account-creation state gas
     # into `gas_cost`.
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
     tx = Transaction(
@@ -777,20 +777,20 @@ def test_create_tx_selfdestruct_initcode_state_gas(
         init_code = Op.SELFDESTRUCT.with_metadata(
             account_new=creates_new_beneficiary
         )(beneficiary)
-    intrinsic_regular = intrinsic_calc(
+    intrinsic_execution = intrinsic_calc(
         calldata=bytes(init_code), contract_creation=True
     )
 
     expected_state = fork.transaction_top_frame_state_gas(
         contract_creation=True
     ) + init_code.state_cost(fork)
-    expected_regular = intrinsic_regular + init_code.regular_cost(fork)
-    expected_gas_used = max(expected_regular, expected_state)
+    expected_execution = intrinsic_execution + init_code.execution_cost(fork)
+    expected_gas_used = max(expected_execution, expected_state)
 
     tx = Transaction(
         to=None,
         data=init_code,
-        gas_limit=intrinsic_regular + 100_000 + expected_state,
+        gas_limit=intrinsic_execution + 100_000 + expected_state,
         sender=sender,
         value=tx_value,
     )

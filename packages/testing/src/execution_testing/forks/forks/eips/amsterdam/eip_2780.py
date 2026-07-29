@@ -48,7 +48,7 @@ class EIP2780(BaseFork):
         cls,
     ) -> TransactionDataFloorCostCalculator:
         """
-        Anchor the calldata floor on the decomposed regular-gas intrinsic
+        Anchor the calldata floor on the decomposed execution-gas intrinsic
         base (EIP-2780).
 
         The inherited floor base is ``TX_BASE`` alone; add the recipient
@@ -71,7 +71,7 @@ class EIP2780(BaseFork):
             floor = super_fn(data=data, access_list=access_list)
             is_self_transfer = recipient_type == RecipientType.SELF
             if contract_creation:
-                # CREATE_ACCESS regular gas; TX_CREATE folds in the
+                # CREATE_ACCESS execution gas; TX_CREATE folds in the
                 # NEW_ACCOUNT state gas, which the floor excludes.
                 floor += gas_costs.TX_CREATE - gas_costs.NEW_ACCOUNT
             elif not is_self_transfer:
@@ -170,7 +170,7 @@ class EIP2780(BaseFork):
         cls,
     ) -> TopFrameGasCalculator:
         """
-        Return the additional regular gas charged at the top-level
+        Return the additional execution gas charged at the top-level
         transaction frame, after intrinsic gas is deducted but before
         the EVM dispatches.
 
@@ -197,17 +197,17 @@ class EIP2780(BaseFork):
             if contract_creation:
                 return 0
 
-            regular = 0
+            execution = 0
             if recipient_type == RecipientType.DELEGATION_7702:
-                regular += (
+                execution += (
                     gas_costs.WARM_ACCESS
                     if delegation_warm
                     else gas_costs.COLD_ACCOUNT_ACCESS
                 )
             for auth in authorizations:
                 if auth.first_write:
-                    regular += gas_costs.ACCOUNT_WRITE
-            return regular
+                    execution += gas_costs.ACCOUNT_WRITE
+            return execution
 
         return fn
 

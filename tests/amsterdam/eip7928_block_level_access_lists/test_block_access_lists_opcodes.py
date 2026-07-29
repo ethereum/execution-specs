@@ -368,7 +368,7 @@ def test_bal_account_touch_system_address(
     access_opcode: Callable[[Address], Bytecode],
 ) -> None:
     """
-    Ensure a regular transaction that explicitly touches SYSTEM_ADDRESS via
+    Ensure a normal transaction that explicitly touches SYSTEM_ADDRESS via
     an account-accessing opcode includes SYSTEM_ADDRESS as an account-only
     BAL entry.
 
@@ -3092,7 +3092,7 @@ def test_bal_transient_storage_not_tracked(
     """
     alice = pre.fund_eoa()
 
-    # Contract that uses transient storage then persists to regular storage
+    # Contract that uses transient storage then persists to execution storage
     contract_code = (
         # TSTORE slot 0x01 with value 0x42 (transient storage)
         Op.TSTORE(0x01, 0x42)

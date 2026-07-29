@@ -1,8 +1,8 @@
 """
 Test state gas consumption ordering under EIP-8037.
 
-When an opcode charges both regular gas and state gas, regular gas MUST
-be charged first. If regular gas OOGs, state gas is not consumed. This
+When an opcode charges both execution gas and state gas, execution gas MUST
+be charged first. If execution gas OOGs, state gas is not consumed. This
 prevents the parent's reservoir from being inflated on frame failure.
 
 Each test gives a child frame exactly 1 gas less than needed, then uses
@@ -61,7 +61,7 @@ def test_sstore_oog_reservoir_inflation_detection(
     that need more total state gas than the correct reservoir but less
     than the inflated one.
 
-    With correct ordering (regular gas first): probe OOGs on 4th SSTORE.
+    With correct ordering (execution gas first): probe OOGs on 4th SSTORE.
     With wrong ordering (state gas first): reservoir is inflated,
     probe succeeds.
     """
@@ -87,7 +87,7 @@ def test_sstore_oog_reservoir_inflation_detection(
 
     factory_gas = (
         factory_code.gas_cost(fork)
-        + initcode.execution_gas(fork)
+        + initcode.evm_gas(fork)
         + initcode.deployment_gas(fork)
     )
 
@@ -98,15 +98,15 @@ def test_sstore_oog_reservoir_inflation_detection(
         Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.SSTORE(2, 1) + Op.SSTORE(3, 1)
     )
 
-    # Compute probe gas: enough for 4 SSTOREs' regular gas + pushes,
-    # but after 4th regular charge, gas_left < the state gas spill.
+    # Compute probe gas: enough for 4 SSTOREs' execution gas + pushes,
+    # but after 4th execution charge, gas_left < the state gas spill.
     sstore_state = Op.SSTORE(new_value=1).state_cost(fork)
-    sstore_regular = Op.SSTORE(0, 1).regular_cost(fork)
+    sstore_execution = Op.SSTORE(0, 1).execution_cost(fork)
     create_state_gas = fork.create_state_gas(
         code_size=len(initcode.deploy_code)
     )
     spill = 4 * sstore_state - create_state_gas
-    probe_gas = 4 * sstore_regular + spill // 2
+    probe_gas = 4 * sstore_execution + spill // 2
 
     caller_storage = Storage()
     caller = pre.deploy_contract(
@@ -153,7 +153,7 @@ def test_call_oog_reservoir_inflation_detection(
     Detect CALL state gas ordering via reservoir inflation.
 
     A child does CALL(value=1) to a dead address with gas tuned so
-    the regular gas charge OOGs by 1. If state gas (new account) is
+    the execution gas charge OOGs by 1. If state gas (new account) is
     incorrectly charged first, the parent's reservoir is inflated.
 
     A single-SSTORE probe detects the inflation: with correct reservoir
@@ -171,7 +171,7 @@ def test_call_oog_reservoir_inflation_detection(
         value_transfer=True,
         account_new=True,
     )
-    # One gas short of the CALL's full cost (regular plus the NEW_ACCOUNT
+    # One gas short of the CALL's full cost (execution plus the NEW_ACCOUNT
     # state charge), so it OOGs on the account-creation charge.
     child_gas = child_code.gas_cost(fork) - 1
     child = pre.deploy_contract(child_code)
@@ -209,14 +209,14 @@ def test_selfdestruct_oog_reservoir_inflation_detection(
     Detect SELFDESTRUCT state gas ordering via reservoir inflation.
 
     A child with non-zero balance does SELFDESTRUCT(dead_beneficiary)
-    with gas tuned so the regular gas charge OOGs by 1. If state gas
+    with gas tuned so the execution gas charge OOGs by 1. If state gas
     is incorrectly charged first, the parent's reservoir is inflated.
 
     Single-SSTORE probe detects the inflation.
     """
     dead_beneficiary = 0xBEEF
     child_code = Op.SELFDESTRUCT(dead_beneficiary, account_new=True)
-    # One gas short of the SELFDESTRUCT's full cost (regular plus the
+    # One gas short of the SELFDESTRUCT's full cost (execution plus the
     # NEW_ACCOUNT state charge), so it OOGs on the account-creation charge.
     child_gas = child_code.gas_cost(fork) - 1
     child = pre.deploy_contract(child_code, balance=1)
@@ -289,7 +289,7 @@ def test_create_oog_reservoir_inflation_detection(
     else:
         child_code = Op.MSTORE(0, 0, new_memory_size=WORD_SIZE) + create_op
 
-    # One gas short of the CREATE's full cost (regular plus the NEW_ACCOUNT
+    # One gas short of the CREATE's full cost (execution plus the NEW_ACCOUNT
     # state charge), so it OOGs on the account-creation charge.
     child_gas = child_code.gas_cost(fork) - 1
     child = pre.deploy_contract(child_code)
@@ -361,7 +361,7 @@ def test_create_oog_full_burn_no_state_credit(
         factory_code = Op.MSTORE(0, 0, new_memory_size=WORD_SIZE) + create_op
     factory = pre.deploy_contract(factory_code)
 
-    # One gas short of the CREATE's full cost (regular plus the NEW_ACCOUNT
+    # One gas short of the CREATE's full cost (execution plus the NEW_ACCOUNT
     # state charge), so it OOGs on the account-creation charge.
     body_gas = factory_code.gas_cost(fork) - 1
 

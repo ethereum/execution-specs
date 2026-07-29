@@ -1,17 +1,17 @@
 """
-Tests for the EIP-7702 authorization *regular*-gas repricing under
+Tests for the EIP-7702 authorization *execution*-gas repricing under
 [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
 
 Under EIP-2780 each EIP-7702 authorization is charged in two parts: a
-state-independent *regular* base cost paid in the intrinsic, and
+state-independent *execution* base cost paid in the intrinsic, and
 state-dependent costs (``NEW_ACCOUNT`` / ``ACCOUNT_WRITE`` for a new
 authority leaf, ``AUTH_BASE`` for a net-new delegation indicator) paid
 lazily at the top frame in ``set_delegation``. This module pins the
-**regular** per-authorization intrinsic magnitude and the repriced
+**execution** per-authorization intrinsic magnitude and the repriced
 cold/warm account-access costs that an authorized delegation incurs
 when later accessed by a ``CALL``.
 
-The regular per-authorization intrinsic magnitude is the fixed
+The execution per-authorization intrinsic magnitude is the fixed
 per-authorization base cost charged by the intrinsic (on Amsterdam,
 ``101 * 16`` calldata tokens plus the ``3000`` ecrecover, ``3000`` cold
 and ``2 * 100`` warm accesses of the EIP-7702 base), isolated here as
@@ -54,9 +54,9 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _regular_per_auth(fork: Fork) -> int:
+def _execution_per_auth(fork: Fork) -> int:
     """
-    Return the *regular* intrinsic gas charged per EIP-7702
+    Return the *execution* intrinsic gas charged per EIP-7702
     authorization.
 
     Under EIP-2780 the intrinsic charges only the state-independent
@@ -75,7 +75,7 @@ def _regular_per_auth(fork: Fork) -> int:
     )
 
 
-def _regular_intrinsic(
+def _execution_intrinsic(
     fork: Fork,
     *,
     n: int,
@@ -110,7 +110,7 @@ def _regular_intrinsic(
         pytest.param(True, id="access_list_contains_authority"),
     ],
 )
-def test_auth_regular_intrinsic_magnitude(
+def test_auth_execution_intrinsic_magnitude(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
@@ -120,10 +120,10 @@ def test_auth_regular_intrinsic_magnitude(
     authority_in_access_list: bool,
 ) -> None:
     """
-    Assert the EIP-8038 *regular* per-authorization intrinsic magnitude.
+    Assert the EIP-8038 *execution* per-authorization intrinsic magnitude.
 
-    The regular intrinsic above the ``n=0`` base must equal
-    ``n * regular_per_auth`` plus the access-list delta (derived from
+    The execution intrinsic above the ``n=0`` base must equal
+    ``n * execution_per_auth`` plus the access-list delta (derived from
     the calculator itself so the calldata-floor contribution of the
     access-list bytes is accounted for).
     """
@@ -144,17 +144,19 @@ def test_auth_regular_intrinsic_magnitude(
             AccessList(address=signer, storage_keys=[]) for signer in signers
         ]
 
-    base_regular = _regular_intrinsic(fork, n=0)
-    regular = _regular_intrinsic(fork, n=n, access_list=access_list)
+    base_execution = _execution_intrinsic(fork, n=0)
+    execution = _execution_intrinsic(fork, n=n, access_list=access_list)
 
     # Access-list delta is derived from the calculator (it folds in the
     # calldata-floor cost of the access-list bytes), never hardcoded.
-    access_list_delta = _regular_intrinsic(
+    access_list_delta = _execution_intrinsic(
         fork, n=0, access_list=access_list
-    ) - _regular_intrinsic(fork, n=0)
+    ) - _execution_intrinsic(fork, n=0)
 
-    expected_per_auth = _regular_per_auth(fork)
-    assert regular - base_regular == n * expected_per_auth + access_list_delta
+    expected_per_auth = _execution_per_auth(fork)
+    assert (
+        execution - base_execution == n * expected_per_auth + access_list_delta
+    )
 
     sender = pre.fund_eoa()
     tx = Transaction(
@@ -185,8 +187,8 @@ def test_auth_intrinsic_oog_boundary(
     Reject a set-code transaction one gas below the full intrinsic.
 
     ``gas_limit`` is set to ``full_intrinsic - 1`` (full intrinsic =
-    regular + auth state gas). Catches an implementation that omits the
-    repriced regular per-authorization cost from the intrinsic check.
+    execution + auth state gas). Catches an implementation that omits the
+    repriced execution per-authorization cost from the intrinsic check.
     """
     contract = pre.deploy_contract(code=Op.STOP)
     authorization_list = [
@@ -234,7 +236,7 @@ def test_invalid_auth_charged_intrinsic(
     Each invalidity kind (``INVALID_NONCE``, ``INVALID_CHAIN_ID``,
     ``REPEATED_NONCE``, ``AUTHORITY_IS_CONTRACT``) makes the
     authorization invalid during processing, so it is silently skipped,
-    but its regular + state intrinsic gas is still paid. The transaction
+    but its execution + state intrinsic gas is still paid. The transaction
     succeeds.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -288,7 +290,7 @@ def test_invalid_auth_charged_intrinsic(
     else:
         raise ValueError(f"unknown invalidity: {invalidity!r}")
 
-    # The full intrinsic (regular + state) is charged regardless of
+    # The full intrinsic (execution + state) is charged regardless of
     # validity. Provide a comfortable gas limit and let the receipt
     # accounting be verified by the framework; the key assertion is the
     # untouched-authority post state.
@@ -438,18 +440,18 @@ def test_mixed_validity_multi_auth_receipt_gas(
     # for every tuple; the one valid authorization adds ``AUTH_BASE`` at
     # the top frame for its net-new delegation indicator. The skipped
     # tuple and the plain ``STOP`` recipient add nothing.
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=n,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
         authorizations=authorization_list,
     )
     top_frame_state = fork.transaction_top_frame_state_gas(
         authorizations=authorization_list,
     )
     cumulative_gas_used = (
-        intrinsic_regular + top_frame_regular + top_frame_state
+        intrinsic_execution + top_frame_execution + top_frame_state
     )
 
     tx = Transaction(
@@ -540,7 +542,7 @@ def test_auth_account_warming(
     # Measure the cost of a single CALL to the authority. The CALL
     # opcode leaves one stack item (success); the overhead is the PUSHes
     # for its arguments.
-    overhead_cost = Op.PUSH1(0).regular_cost(fork) * len(Op.CALL.kwargs)
+    overhead_cost = Op.PUSH1(0).execution_cost(fork) * len(Op.CALL.kwargs)
     storage = Storage()
     callee_code = CodeGasMeasure(
         code=Op.CALL(gas=0, address=authority),
@@ -578,7 +580,7 @@ def test_many_auths_block_limit(
     limit cap and confirm it succeeds.
 
     The authorization count is sized from the per-authorization total
-    intrinsic (regular + state) and the transaction gas-limit cap, so it
+    intrinsic (execution + state) and the transaction gas-limit cap, so it
     automatically tracks the repriced cost.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
@@ -586,7 +588,7 @@ def test_many_auths_block_limit(
 
     contract = pre.deploy_contract(code=Op.STOP)
 
-    # Per-authorization total for a fresh (empty) authority: the regular
+    # Per-authorization total for a fresh (empty) authority: the execution
     # intrinsic base plus the top-frame account-write, account-creation
     # and delegation-write charges, derived from the fork's calculators
     # so it tracks the repricing. The probe only feeds the gas
@@ -601,7 +603,7 @@ def test_many_auths_block_limit(
         first_write=True,
     )
     per_auth_total = (
-        _regular_per_auth(fork)
+        _execution_per_auth(fork)
         + fork.transaction_top_frame_gas_calculator()(
             authorizations=[probe_auth]
         )

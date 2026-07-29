@@ -303,7 +303,7 @@ class BaseTest(BaseModel):
             )
         # No single gas dimension may exceed the block gas limit. The
         # block-header gas is the max across dimensions; the combined
-        # regular+state gas may exceed the target under EIP-8037, so the
+        # execution+state gas may exceed the target under EIP-8037, so the
         # ceiling is checked against the header value when available.
         block_gas_used = (
             benchmark_block_gas_used

@@ -49,7 +49,7 @@ class GasCosts:
     # State gas for writing a net-new EIP-7702 delegation indicator;
     # 0 before the state-creation repricing introduces it.
     AUTH_BASE: int = 0
-    # State-independent regular gas charged per EIP-7702 authorization
+    # State-independent execution gas charged per EIP-7702 authorization
     # tuple; 0 before the state-access repricing introduces it.
     REGULAR_PER_AUTH_BASE_COST: int = 0
 

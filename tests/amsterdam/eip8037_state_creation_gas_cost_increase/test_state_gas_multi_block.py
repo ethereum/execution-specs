@@ -59,7 +59,7 @@ def test_exact_coinbase_fee_simple_sstore(
     sstore_contract = pre.deploy_contract(code=sstore_code)
 
     # tx 1 gas used: the intrinsic (TX_BASE plus the EIP-2780
-    # recipient-access charge) plus the SSTORE code's own regular and
+    # recipient-access charge) plus the SSTORE code's own execution and
     # state cost.
     tx1_gas_used = (
         fork.transaction_intrinsic_cost_calculator()()

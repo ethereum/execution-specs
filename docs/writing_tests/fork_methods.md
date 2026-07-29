@@ -117,7 +117,7 @@ fork.transaction_intrinsic_cost_calculator()  # Returns a callable
 ```
 
 !!! warning "Do not reconstruct expected gas from `gas_costs()` constants"
-    `fork.gas_costs()` exposes the raw schedule for framework internals. When a test needs an *expected* gas amount, derive it from a cost construct that tracks the live schedule (`bytecode.gas_cost(fork)` / `.regular_cost(fork)` / `.state_cost(fork)` / `.refund(fork)`, opcode metadata, the intrinsic/top-frame/data-floor calculators, `fork.call_value_stipend()`) rather than hand-summing constants — hand-built expectations silently break when a fork reprices. See [Opcode Metadata and Gas Calculations](opcode_metadata.md#do-not-hand-reconstruct-gas-from-constants).
+    `fork.gas_costs()` exposes the raw schedule for framework internals. When a test needs an *expected* gas amount, derive it from a cost construct that tracks the live schedule (`bytecode.gas_cost(fork)` / `.execution_cost(fork)` / `.state_cost(fork)` / `.refund(fork)`, opcode metadata, the intrinsic/top-frame/data-floor calculators, `fork.call_value_stipend()`) rather than hand-summing constants — hand-built expectations silently break when a fork reprices. See [Opcode Metadata and Gas Calculations](opcode_metadata.md#do-not-hand-reconstruct-gas-from-constants).
 
 ### Transaction Types
 

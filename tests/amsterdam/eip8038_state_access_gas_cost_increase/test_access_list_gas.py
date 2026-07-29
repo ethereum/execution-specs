@@ -165,7 +165,7 @@ def test_access_list_warms_storage_slot(
     overwrite of a non-zero original to a new non-zero value pays
     ``WARM_SLOAD + STORAGE_WRITE``.
     """
-    very_low = Op.PUSH1(0).regular_cost(fork)
+    very_low = Op.PUSH1(0).execution_cost(fork)
     slot = 0x42
 
     if op == "SLOAD":
@@ -178,7 +178,7 @@ def test_access_list_warms_storage_slot(
     else:
         measured_code = Op.SSTORE(slot, 2)
         # Overhead is the two PUSHes (key, value); the stored value is
-        # the bare warm SSTORE regular cost (overwrite of a non-zero
+        # the bare warm SSTORE execution cost (overwrite of a non-zero
         # original, no state gas).
         overhead_cost = 2 * very_low
         extra_stack_items = 0
@@ -188,7 +188,7 @@ def test_access_list_warms_storage_slot(
                 original_value=1,
                 current_value=1,
                 new_value=2,
-            )(slot, 2).regular_cost(fork)
+            )(slot, 2).execution_cost(fork)
             - 2 * very_low
         )
 

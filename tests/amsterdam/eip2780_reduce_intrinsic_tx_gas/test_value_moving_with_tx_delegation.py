@@ -6,7 +6,7 @@ A type-4 transaction's authorizations are processed at the top frame
 Each authorization pays, on top of the state-independent
 ``REGULAR_PER_AUTH_BASE_COST`` charged in the intrinsic:
 
-- ``NEW_ACCOUNT`` (state) + ``ACCOUNT_WRITE`` (regular) when the
+- ``NEW_ACCOUNT`` (state) + ``ACCOUNT_WRITE`` (execution) when the
   authority's account leaf does not yet exist, and
 - ``AUTH_BASE`` (state) when a net-new delegation indicator is written.
 
@@ -106,7 +106,7 @@ def test_tx_installs_delegation_on_funded_recipient(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
@@ -119,8 +119,8 @@ def test_tx_installs_delegation_on_funded_recipient(
     )
 
     # Costs are charged exactly (no refund); under the default zero
-    # state-gas reservoir the state gas spills into regular gas.
-    total_gas_cost = intrinsic_gas + top_frame_regular + top_frame_state
+    # state-gas reservoir the state gas spills into execution gas.
+    total_gas_cost = intrinsic_gas + top_frame_execution + top_frame_state
     tx_gas_limit = total_gas_cost + 1000
     gas_price = 1_000_000_000
 
@@ -203,7 +203,7 @@ def test_tx_installs_delegation_on_empty_recipient(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
@@ -215,7 +215,7 @@ def test_tx_installs_delegation_on_empty_recipient(
         authorizations=authorization_list,
     )
 
-    total_gas_cost = intrinsic_gas + top_frame_regular + top_frame_state
+    total_gas_cost = intrinsic_gas + top_frame_execution + top_frame_state
     tx_gas_limit = total_gas_cost + 1000
     gas_price = 1_000_000_000
 
@@ -333,7 +333,7 @@ def test_tx_installs_delegation_on_sender(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
         sends_value=bool(value),
         recipient_type=top_frame_recipient_type,
         delegation_warm=False,
@@ -345,7 +345,7 @@ def test_tx_installs_delegation_on_sender(
         authorizations=authorization_list,
     )
 
-    total_gas_cost = intrinsic_gas + top_frame_regular + top_frame_state
+    total_gas_cost = intrinsic_gas + top_frame_execution + top_frame_state
     tx_gas_limit = total_gas_cost + 1000
     gas_price = 1_000_000_000
 
