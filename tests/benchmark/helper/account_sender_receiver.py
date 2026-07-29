@@ -103,7 +103,6 @@ def register_bittrex_targets(
     count: int,
     *,
     verified_accounts: dict[Hashable, int],
-    full: bool = False,
 ) -> None:
     """Register the first *count* Bittrex CREATE contract receivers."""
     register_target_range(
@@ -111,15 +110,13 @@ def register_bittrex_targets(
         key="bittrex_contract",
         count=count,
         expectation=AccountExpectation(is_contract=True),
-        addresses=lambda start, stop: (
+        address_of=lambda index: Address(
             compute_create_address(
-                address=BITTREX_CONTROLLER_ADDRESS, nonce=2 + i
-            )
-            for i in range(start, stop)
+                address=BITTREX_CONTROLLER_ADDRESS, nonce=2 + index
+            ),
+            label="diff_to_contract",
         ),
         verified_accounts=verified_accounts,
-        label="diff_to_contract",
-        full=full,
     )
 
 
@@ -128,7 +125,6 @@ def register_delegate_targets(
     count: int,
     *,
     verified_accounts: dict[Hashable, int],
-    full: bool = False,
 ) -> None:
     """Register the first *count* delegated authorities (7702 designator)."""
     register_target_range(
@@ -136,10 +132,8 @@ def register_delegate_targets(
         key="delegate_authority",
         count=count,
         expectation=expected_delegation(),
-        addresses=lambda start, stop: (
-            Address(EOA(key=DELEGATE_BASE_KEY + i)) for i in range(start, stop)
+        address_of=lambda index: Address(
+            EOA(key=DELEGATE_BASE_KEY + index), label="delegate_authority"
         ),
         verified_accounts=verified_accounts,
-        label="delegate_authority",
-        full=full,
     )

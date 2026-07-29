@@ -162,7 +162,6 @@ def test_account_access(
     account_mode: AccountMode,
     overhead_baseline: bool,
     cache_strategy: CacheStrategy,
-    verify_full_accounts: bool,
     verified_accounts: dict,
 ) -> None:
     """Benchmark account access with caching strategies."""
@@ -323,7 +322,6 @@ def test_account_access(
             pre,
             count,
             verified_accounts=verified_accounts,
-            full=verify_full_accounts,
             label=account_mode.name,
         )
 

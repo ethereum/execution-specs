@@ -1,7 +1,7 @@
 """Benchmark target accounts of various kinds for creation and location.."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Iterator
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import ClassVar, Self
@@ -382,20 +382,29 @@ class AccountCreator:
             case _:
                 raise ValueError(f"{self.mode.name} has no expected account")
 
-    def target_addresses(self, indices: Iterable[int]) -> Iterator[Address]:
+    def target_address_of(
+        self, label: str | None = None
+    ) -> Callable[[int], Address]:
         """
-        Yield target addresses mirroring address_source. CREATE2 initcode
-        assembled once (salt varies).
+        Return an ``index -> target Address`` map mirroring address_source.
+
+        CREATE2 initcode is assembled once (salt varies); ``label`` is
+        attached to every derived address.
         """
         if self.derives_address_via_create2:
             initcode = self.initcode
-            for index in indices:
-                yield compute_create2_address(
-                    address=DETERMINISTIC_FACTORY_ADDRESS,
-                    salt=index,
-                    initcode=initcode,
+
+            def create2_address(index: int) -> Address:
+                return Address(
+                    compute_create2_address(
+                        address=DETERMINISTIC_FACTORY_ADDRESS,
+                        salt=index,
+                        initcode=initcode,
+                    ),
+                    label=label,
                 )
-            return
+
+            return create2_address
         match self.mode:
             case AccountMode.EXISTING_EOA:
                 base = EXISTING_EOA_BASE
@@ -403,8 +412,11 @@ class AccountCreator:
                 base = int.from_bytes(NON_EXISTING_BASE, "big")
             case _:
                 raise ValueError(f"{self.mode.name} has no address source")
-        for index in indices:
-            yield Address((base + index) & ADDRESS_MASK)
+
+        def sequential_address(index: int) -> Address:
+            return Address((base + index) & ADDRESS_MASK, label=label)
+
+        return sequential_address
 
     def register_targets(
         self,
@@ -412,7 +424,6 @@ class AccountCreator:
         count: int,
         *,
         verified_accounts: dict[Hashable, int],
-        full: bool = False,
         label: str | None = None,
     ) -> None:
         """Register ``[0, count)`` of this mode's targets for verification."""
@@ -421,10 +432,6 @@ class AccountCreator:
             key=(self.mode, self.code_size),
             count=count,
             expectation=self.expected_account(),
-            addresses=lambda start, stop: self.target_addresses(
-                range(start, stop)
-            ),
+            address_of=self.target_address_of(label or self.mode.name),
             verified_accounts=verified_accounts,
-            label=label or self.mode.name,
-            full=full,
         )

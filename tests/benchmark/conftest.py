@@ -85,14 +85,6 @@ def tx_gas_limit(fork: Fork, gas_benchmark_value: int) -> int:
     return fork.transaction_gas_limit_cap() or gas_benchmark_value
 
 
-@pytest.fixture
-def verify_full_accounts(request: pytest.FixtureRequest) -> bool:
-    """
-    Whether predeploy verification should cover every target in a range.
-    """
-    return bool(getattr(request.config.option, "verify_full_accounts", False))
-
-
 @pytest.fixture(scope="session")
 def verified_accounts() -> dict[Hashable, int]:
     """Session high-water-mark per target family, so each is verified once."""

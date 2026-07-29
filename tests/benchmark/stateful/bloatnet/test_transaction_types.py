@@ -54,7 +54,6 @@ def test_ether_transfers_onchain_receivers(
     transfer_amount: int,
     fork: Fork,
     gas_benchmark_value: int,
-    verify_full_accounts: bool,
     verified_accounts: dict,
 ) -> None:
     """Benchmark ether transfers across different receiver account types."""
@@ -76,7 +75,6 @@ def test_ether_transfers_onchain_receivers(
                 creator.register_targets,
                 pre,
                 verified_accounts=verified_accounts,
-                full=verify_full_accounts,
                 label=case_id,
             )
         case "diff_to_existent":
@@ -87,7 +85,6 @@ def test_ether_transfers_onchain_receivers(
                 creator.register_targets,
                 pre,
                 verified_accounts=verified_accounts,
-                full=verify_full_accounts,
                 label=case_id,
             )
         case "diff_to_contract":
@@ -108,7 +105,6 @@ def test_ether_transfers_onchain_receivers(
                 register_bittrex_targets,
                 pre,
                 verified_accounts=verified_accounts,
-                full=verify_full_accounts,
             )
         case "diff_to_unique_code_jumpdest_contract":
             creator = AccountCreator(AccountMode.EXISTING_CONTRACT_JUMPDEST)
@@ -118,7 +114,6 @@ def test_ether_transfers_onchain_receivers(
                 creator.register_targets,
                 pre,
                 verified_accounts=verified_accounts,
-                full=verify_full_accounts,
                 label=case_id,
             )
         case "diff_to_contract_minimal":
@@ -128,7 +123,6 @@ def test_ether_transfers_onchain_receivers(
                 creator.register_targets,
                 pre,
                 verified_accounts=verified_accounts,
-                full=verify_full_accounts,
                 label=case_id,
             )
         case "diff_to_contract_same_max":
@@ -138,7 +132,6 @@ def test_ether_transfers_onchain_receivers(
                 creator.register_targets,
                 pre,
                 verified_accounts=verified_accounts,
-                full=verify_full_accounts,
                 label=case_id,
             )
         case "diff_to_contract_diff_max":
@@ -148,7 +141,6 @@ def test_ether_transfers_onchain_receivers(
                 creator.register_targets,
                 pre,
                 verified_accounts=verified_accounts,
-                full=verify_full_accounts,
                 label=case_id,
             )
         case "diff_to_delegated_contract_diff":
@@ -158,7 +150,6 @@ def test_ether_transfers_onchain_receivers(
                 register_delegate_targets,
                 pre,
                 verified_accounts=verified_accounts,
-                full=verify_full_accounts,
             )
         case _:
             raise ValueError(f"Unknown case: {case_id}")

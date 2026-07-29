@@ -1,6 +1,7 @@
 """Account-related types for Ethereum tests."""
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import (
@@ -674,18 +675,19 @@ class Alloc(BaseAlloc):
 
     def expect_account_state(
         self,
-        address: Address,
+        addresses: Address | Sequence[Address],
         *,
         is_existing_account: bool = True,
         is_contract: bool = False,
         min_balance: int | None = None,
         code_prefix: bytes | None = None,
-        label: str | None = None,
     ) -> None:
         """
-        Register start-block expectation for predeployed account.
+        Register start-block expectation(s) for predeployed account(s).
 
-        Used only by fill-stateful; ignored by other allocations.
+        Accepts a single address or a range; labels ride on the addresses
+        themselves. Used only by fill-stateful; ignored by other
+        allocations.
         """
 
     def verify_deployed_accounts(self, block_number: int) -> None:

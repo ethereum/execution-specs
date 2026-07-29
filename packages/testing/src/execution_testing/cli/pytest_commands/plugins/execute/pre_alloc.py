@@ -1,5 +1,6 @@
 """Pre-allocation fixtures used for test filling."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
@@ -386,6 +387,7 @@ class Alloc(SharedAlloc):
     )
     _block_number: int = PrivateAttr()
     _timestamp: int = PrivateAttr()
+    _verify_full: bool = PrivateAttr(default=False)
 
     def __init__(
         self,
@@ -399,6 +401,7 @@ class Alloc(SharedAlloc):
         block_number: int = 0,
         timestamp: int = 0,
         funding_gas_limit: int = 200_000,
+        verify_full: bool = False,
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc with the given parameters."""
@@ -412,6 +415,7 @@ class Alloc(SharedAlloc):
         self._block_number = block_number
         self._timestamp = timestamp
         self._funding_gas_limit = funding_gas_limit
+        self._verify_full = verify_full
 
     def code_pre_processor(self, code: Bytecode) -> Bytecode:
         """Pre-processes the code before setting it."""
@@ -892,28 +896,37 @@ class Alloc(SharedAlloc):
 
     def expect_account_state(
         self,
-        address: Address,
+        addresses: Address | Sequence[Address],
         *,
         is_existing_account: bool = True,
         is_contract: bool = False,
         min_balance: int | None = None,
         code_prefix: bytes | None = None,
-        label: str | None = None,
     ) -> None:
         """
-        Register deferred assertion on predeployed account.
-        Verified at start_block (fill-stateful only).
+        Register deferred assertion(s) on predeployed account(s).
+
+        Verified at start_block (fill-stateful only). For a range, only the
+        first and last are checked unless ``--verify-full-accounts`` is set;
+        each assertion's label is taken from the address itself.
         """
-        self._deferred_account_assertions.append(
-            _DeferredAccountAssertion(
-                address=address,
-                is_existing_account=is_existing_account,
-                is_contract=is_contract,
-                min_balance=min_balance,
-                code_prefix=code_prefix,
-                label=label,
+        if isinstance(addresses, Address):
+            targets: Sequence[Address] = (addresses,)
+        elif self._verify_full or len(addresses) <= 2:
+            targets = addresses
+        else:
+            targets = (addresses[0], addresses[-1])
+        for address in targets:
+            self._deferred_account_assertions.append(
+                _DeferredAccountAssertion(
+                    address=address,
+                    is_existing_account=is_existing_account,
+                    is_contract=is_contract,
+                    min_balance=min_balance,
+                    code_prefix=code_prefix,
+                    label=address.label,
+                )
             )
-        )
 
     def verify_deployed_accounts(self, block_number: int) -> None:
         """
@@ -1308,6 +1321,9 @@ def pre(
         node_id=request.node.nodeid,
         address_stubs=address_stubs,
         funding_gas_limit=sender_fund_refund_gas_limit,
+        verify_full=getattr(
+            request.config.option, "verify_full_accounts", False
+        ),
     )
 
     # Yield the pre-alloc for usage during the test
