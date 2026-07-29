@@ -15,7 +15,6 @@
 # stCallCreateCallCodeTest (6)
 
 # stCreate2 (31)
-stCreate2/test_create2_oo_gafter_init_code_revert2.py::test_create2_oo_gafter_init_code_revert2[fork_Amsterdam]
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_CallCode_Refund_NoOoG]
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_Create2_Refund_NoOoG]
 stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refunds[fork_Amsterdam-SStore_Create_Refund_NoOoG]
@@ -23,7 +22,6 @@ stCreate2/test_create2_oog_from_call_refunds.py::test_create2_oog_from_call_refu
 stCreate2/test_create2collision_selfdestructed_oog.py::test_create2collision_selfdestructed_oog[fork_Amsterdam-d0]
 stCreate2/test_create2collision_selfdestructed_oog.py::test_create2collision_selfdestructed_oog[fork_Amsterdam-d1]
 stCreate2/test_create2collision_selfdestructed_oog.py::test_create2collision_selfdestructed_oog[fork_Amsterdam-d2]
-stCreate2/test_create2no_cash.py::test_create2no_cash[fork_Amsterdam-d1]
 stCreate2/test_create_message_reverted_oog_in_init2.py::test_create_message_reverted_oog_in_init2[fork_Amsterdam--g0]
 stCreate2/test_create_message_reverted_oog_in_init2.py::test_create_message_reverted_oog_in_init2[fork_Amsterdam--g1]
 stCreate2/test_revert_depth_create2_oog.py::test_revert_depth_create2_oog[fork_Amsterdam-d0-g1-v0]
@@ -50,12 +48,6 @@ stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_dept
 # stDelegatecallTestHomestead (4)
 
 # stRefundTest (7)
-stRefundTest/test_refund50_2.py::test_refund50_2[fork_Amsterdam]
-stRefundTest/test_refund50percent_cap.py::test_refund50percent_cap[fork_Amsterdam]
-stRefundTest/test_refund_call_a.py::test_refund_call_a[fork_Amsterdam]
-stRefundTest/test_refund_suicide50procent_cap.py::test_refund_suicide50procent_cap[fork_Amsterdam-d0]
-stRefundTest/test_refund_suicide50procent_cap.py::test_refund_suicide50procent_cap[fork_Amsterdam-d1]
-stRefundTest/test_refund_tx_to_suicide.py::test_refund_tx_to_suicide[fork_Amsterdam]
 
 # stRevertTest (12)
 stRevertTest/test_loop_calls_depth_then_revert.py::test_loop_calls_depth_then_revert[fork_Amsterdam]
@@ -66,10 +58,6 @@ stRevertTest/test_revert_depth_create_oog.py::test_revert_depth_create_oog[fork_
 stRevertTest/test_revert_depth_create_oog.py::test_revert_depth_create_oog[fork_Amsterdam-d0-g1-v1]
 stRevertTest/test_revert_depth_create_oog.py::test_revert_depth_create_oog[fork_Amsterdam-d1-g1-v0]
 stRevertTest/test_revert_depth_create_oog.py::test_revert_depth_create_oog[fork_Amsterdam-d1-g1-v1]
-stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d0-g0]
-stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d1-g0]
-stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d2-g0]
-stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d3-g0]
 
 # stSystemOperationsTest (3)
 stSystemOperationsTest/test_ab_acalls0.py::test_ab_acalls0[fork_Amsterdam]

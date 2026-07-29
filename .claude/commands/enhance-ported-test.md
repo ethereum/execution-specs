@@ -439,6 +439,16 @@ persists with the sentinel) plus the callee-side observable already
 separate the outcomes. Validated on
 `test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided`.
 
+**EIP-8037 repriced the code deposit's regular part — boundaries beware.**
+On 8037 forks the deposit charges only the keccak word cost
+(`OPCODE_KECCAK256_PER_WORD * ceil32(len)/32`, ~6 gas) as regular gas plus
+`len * 1530` state; `fork.gas_costs().CODE_DEPOSIT_PER_BYTE` (200) is the
+*pre-8037* constant. Using 200/byte in a *sufficiency* budget merely
+overshoots (safe); using it in a one-gas-short *boundary* silently funds
+the deposit on Amsterdam. Branch on `fork.is_eip_enabled(8037)` for exact
+deposit boundaries. Validated on
+`test_create_oo_gafter_init_code_returndata_size`.
+
 **Match the intrinsic calculator's kwargs to the transaction's shape.**
 `fork.transaction_intrinsic_cost_calculator()()` defaults to
 `sends_value=False`; under EIP-2780 a value-bearing transaction's intrinsic
