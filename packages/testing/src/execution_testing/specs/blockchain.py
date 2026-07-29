@@ -1468,6 +1468,10 @@ class BlockchainTest(BaseTest):
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
             )
 
+        self.pre.verify_deployed_accounts(
+            int(HexNumber(start_block["number"]))
+        )
+
         # Materialise queued pre-alloc txs into a synthetic setup block.
         blocks_to_process: List[Block] = []
         if callable(pending_getter):
