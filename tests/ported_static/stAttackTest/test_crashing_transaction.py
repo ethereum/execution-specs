@@ -1,6 +1,6 @@
 """
 Verify the Ropsten "crashing transaction" attack replay: a creation
-transaction whose init code loops CREATEing children while more than
+transaction whose init code CREATEs children in a loop while more than
 50000 gas remains, then deposits its runtime code.
 
 Ported from:
