@@ -480,33 +480,34 @@ def test_dupn_empty_stack(
 
 
 @EIPChecklist.Opcode.Test.DataPortion.Jump()
-def test_dupn_jump_back_to_opcode_fails(
+def test_dupn_jump_into_immediate_then_execute(
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test landing on the 0x5b immediate, then jumping back to the DUPN.
+    Test jumping into a DUPN immediate, then executing a second DUPN.
 
-    Bytecode: PUSH1(4) JUMP DUPN[0x5b] PUSH1(3) JUMP
-    Hex: 6004 56 e6 5b 6003 56
+    Bytecode: PUSH0*17 PUSH1(21) JUMP DUPN[0x5b] DUPN[0x80] SSTORE
 
-    The first jump lands on position 4: the 0x5b inside DUPN's immediate
-    is a valid JUMPDEST because analysis is unchanged by EIP-8024. The
-    second jump targets position 3, the DUPN opcode itself, which is not
-    a JUMPDEST, so execution must abort. A client that mis-decodes
-    either jump rule must also abort here (executing DUPN with the
-    forbidden 0x5b immediate halts too), never succeed.
+    The jump lands on the first DUPN's 0x5b immediate, a valid JUMPDEST
+    because analysis is unchanged by EIP-8024, and execution runs a
+    second DUPN that duplicates the deepest of the 17 pushed items
+    before storing 0x42 over the canary. Wrong implementations diverge
+    observably: masking the immediate during analysis rejects the jump,
+    and mis-decoding the executed DUPN underflows; both abort and leave
+    the canary intact.
     """
     sender = pre.fund_eoa()
 
-    code = Bytecode()
-    code += Op.PUSH1(4)  # Push jump target (position 4, the 0x5b)
-    code += Op.JUMP
-    code += Op.DUPN[b"\x5b"]  # Positions 3-4: DUPN + 0x5b (JUMPDEST)
-    code += Op.PUSH1(3)  # Push jump target (position 3, the DUPN)
-    code += Op.JUMP
+    setup = Op.PUSH0 * Spec.MIN_STACK_INDEX
+    # The 0x5b landing pad sits 4 bytes past the setup: PUSH1,
+    # target, JUMP, then the DUPN opcode byte itself.
+    landing_pad = len(setup) + 4
 
-    # This should never execute.
+    code = setup
+    code += Op.PUSH1(landing_pad) + Op.JUMP
+    code += Op.DUPN[b"\x5b"]  # Jumped into, never executed.
+    code += Op.DUPN[Spec.MIN_STACK_INDEX]  # Executed after landing.
     code += Op.SSTORE(0, 0x42)
     code += Op.STOP
 
@@ -514,7 +515,6 @@ def test_dupn_jump_back_to_opcode_fails(
 
     tx = Transaction(to=contract_address, sender=sender)
 
-    # Transaction fails on the second jump; the canary is untouched.
-    post = {contract_address: Account(storage={0: 0xBA5E})}
+    post = {contract_address: Account(storage={0: 0x42})}
 
     state_test(pre=pre, post=post, tx=tx)
