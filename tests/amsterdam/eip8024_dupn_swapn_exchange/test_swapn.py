@@ -522,10 +522,11 @@ def test_swapn_with_dup1_and_push(
 def test_swapn_full_stack(
     stack_index: int,
     pre: Alloc,
+    fork: Fork,
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test SWAPN succeeds on a completely full stack of 1024 items.
+    Test SWAPN succeeds on a completely full stack.
 
     SWAPN swaps in place without pushing, so it must work at the stack
     limit. The top marker is swapped down to position `stack_index + 1`;
@@ -538,7 +539,7 @@ def test_swapn_full_stack(
 
     top_marker = 0xAAAA
     deep_marker = 0xBBBB
-    stack_height = 1024
+    stack_height = fork.max_stack_height()
 
     # Bottom-up: zeros, deep marker at position (stack_index + 1) from
     # the top, more zeros, then the top marker.
