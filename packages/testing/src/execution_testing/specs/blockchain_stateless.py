@@ -443,6 +443,14 @@ def finalize_stateless_artifacts(
             f"want {options.expected_validation_success}"
         )
 
+    assert_amsterdam_stateless_output_request_root(
+        fork=fork,
+        block_number=block_number,
+        timestamp=timestamp,
+        stateless_input_bytes=stateless_input_bytes,
+        stateless_output=stateless_output,
+    )
+
     skip_chain_config_assertion = (
         options.has_stateless_input_bytes_modifier
         and stateless_output is not None
@@ -1065,6 +1073,57 @@ def is_invalid_stateless_input_sentinel(stateless_output: Any) -> bool:
         and activation.block_number is None
         and activation.timestamp is None
     )
+
+
+def assert_amsterdam_stateless_output_request_root(
+    *,
+    fork: Fork,
+    block_number: int,
+    timestamp: int,
+    stateless_input_bytes: Bytes | None,
+    stateless_output: Any | None,
+) -> None:
+    """
+    Assert the output commits to the decoded Amsterdam payload request.
+    """
+    if stateless_input_bytes is None or stateless_output is None:
+        return
+
+    active_fork = fork.fork_at(
+        block_number=block_number,
+        timestamp=timestamp,
+    )
+    if active_fork.name() != "Amsterdam":
+        return
+
+    from ethereum.forks.amsterdam.stateless import (
+        compute_new_payload_request_root,
+    )
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    try:
+        stateless_input = deserialize_stateless_input(
+            AmsterdamBytes(bytes(stateless_input_bytes))
+        )
+    except Exception as exc:
+        if is_invalid_stateless_input_sentinel(stateless_output):
+            return
+        raise AssertionError(
+            "Stateless input decoding failed for block "
+            f"{block_number}, but its output is not the invalid-input sentinel"
+        ) from exc
+
+    expected_root = compute_new_payload_request_root(stateless_input)
+    actual_root = stateless_output.new_payload_request_root
+    if actual_root != expected_root:
+        raise AssertionError(
+            "Stateless output new_payload_request_root mismatch for block "
+            f"{block_number}: got 0x{bytes(actual_root).hex()}, "
+            f"want 0x{bytes(expected_root).hex()}"
+        )
 
 
 def _has_execution_witness_modifier(

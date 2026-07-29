@@ -231,9 +231,6 @@ def compute_new_payload_request_root(
 ) -> Hash32:
     """
     Compute the request root for a stateless input via SSZ hash tree root.
-
-    TODO: For readability, convert to NewPayloadRequestHeader and
-    then compute the payload request root.
     """
     from .stateless_ssz import _new_payload_request_to_ssz
 
