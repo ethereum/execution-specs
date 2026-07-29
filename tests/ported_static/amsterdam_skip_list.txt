@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 92
+# Total entries: 70
 
 # stCallCodes (3)
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d0]
@@ -56,28 +56,6 @@ stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_dept
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v0]
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v1]
 
-# stCreateTest (20)
-stCreateTest/test_create_results.py::test_create_results[fork_Amsterdam-d0]
-stCreateTest/test_create_results.py::test_create_results[fork_Amsterdam-d1]
-stCreateTest/test_create_results.py::test_create_results[fork_Amsterdam-d2]
-stCreateTest/test_create_results.py::test_create_results[fork_Amsterdam-d4]
-stCreateTest/test_create_results.py::test_create_results[fork_Amsterdam-d5]
-stCreateTest/test_create_results.py::test_create_results[fork_Amsterdam-d6]
-stCreateTest/test_create_e_contract_create_ne_contract_in_init_oog_tr.py::test_create_e_contract_create_ne_contract_in_init_oog_tr[fork_Amsterdam--g0]
-stCreateTest/test_create_e_contract_create_ne_contract_in_init_oog_tr.py::test_create_e_contract_create_ne_contract_in_init_oog_tr[fork_Amsterdam--g1]
-stCreateTest/test_create_e_contract_then_call_to_non_existent_acc.py::test_create_e_contract_then_call_to_non_existent_acc[fork_Amsterdam]
-stCreateTest/test_create_oo_gafter_init_code_returndata_size.py::test_create_oo_gafter_init_code_returndata_size[fork_Amsterdam]
-stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Create2_Refund_NoOoG]
-stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Create_Refund_NoOoG]
-stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Refund_NoOoG2]
-stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Refund_NoOoG3]
-stCreateTest/test_transaction_collision_to_empty2.py::test_transaction_collision_to_empty2[fork_Amsterdam--g1-v0]
-stCreateTest/test_transaction_collision_to_empty2.py::test_transaction_collision_to_empty2[fork_Amsterdam--g1-v1]
-stCreateTest/test_transaction_collision_to_empty_but_code.py::test_transaction_collision_to_empty_but_code[fork_Amsterdam--g1-v0]
-stCreateTest/test_transaction_collision_to_empty_but_code.py::test_transaction_collision_to_empty_but_code[fork_Amsterdam--g1-v1]
-stCreateTest/test_transaction_collision_to_empty_but_nonce.py::test_transaction_collision_to_empty_but_nonce[fork_Amsterdam--g1-v0]
-stCreateTest/test_transaction_collision_to_empty_but_nonce.py::test_transaction_collision_to_empty_but_nonce[fork_Amsterdam--g1-v1]
-
 # stDelegatecallTestHomestead (4)
 stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g0]
 stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g1]
@@ -107,12 +85,10 @@ stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_rever
 stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d2-g0]
 stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d3-g0]
 
-# stSystemOperationsTest (5)
+# stSystemOperationsTest (3)
 stSystemOperationsTest/test_ab_acalls0.py::test_ab_acalls0[fork_Amsterdam]
 stSystemOperationsTest/test_ab_acalls3.py::test_ab_acalls3[fork_Amsterdam]
 stSystemOperationsTest/test_call_recursive_bomb3.py::test_call_recursive_bomb3[fork_Amsterdam]
-stSystemOperationsTest/test_double_selfdestruct_touch_paris.py::test_double_selfdestruct_touch_paris[fork_Amsterdam--v1]
-stSystemOperationsTest/test_double_selfdestruct_touch_paris.py::test_double_selfdestruct_touch_paris[fork_Amsterdam--v2]
 
 # stTransactionTest (4)
 stTransactionTest/test_opcodes_transaction_init.py::test_opcodes_transaction_init[fork_Amsterdam-d120]
