@@ -102,9 +102,7 @@ def test_intrinsic_reduction_across_amsterdam_transition(
     if not self_transfer:
         expected_post += post_gas_costs.COLD_ACCOUNT_ACCESS
         if value:
-            expected_post += (
-                post_gas_costs.TRANSFER_LOG_COST + post_gas_costs.TX_VALUE_COST
-            )
+            expected_post += post_gas_costs.TX_VALUE_COST
 
     timestamps = [PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP]
     expected_intrinsics = [expected_pre, expected_post]
@@ -181,9 +179,8 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
     block, each from a fresh sender with the gas limit pinned exactly.
     Pre-fork the whole cost is regular intrinsic: ``TX_BASE`` plus the
     flat ``TX_CREATE``. Post-fork the intrinsic keeps only the
-    ``CREATE_ACCESS`` regular portion of ``TX_CREATE`` (plus the
-    transfer-log charge when value moves), while the created account's
-    ``NEW_ACCOUNT`` is charged as *state* gas at the top frame — the
+    ``CREATE_ACCESS`` regular portion of ``TX_CREATE``, while the created
+    account's ``NEW_ACCOUNT`` is charged as *state* gas at the top frame — the
     sender-facing total is the sum of both.
 
     The per-fork costs are hand-derived from each fork's gas constants
@@ -217,8 +214,6 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
         + (post_costs.TX_CREATE - post_costs.NEW_ACCOUNT)
         + init_code_terms
     )
-    if value:
-        expected_post += post_costs.TRANSFER_LOG_COST
     expected_post_state = post_costs.NEW_ACCOUNT
 
     timestamps = [PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP]

@@ -259,13 +259,11 @@ def test_calldata_floor_contract_creation(
     empty code, and prices every byte as one floor token.
 
     - ``floor_binds``: ``gas_used`` pins to the floor, which anchors
-      on the creation regular base (``TX_BASE + CREATE_ACCESS``, plus
-      ``TRANSFER_LOG_COST`` when value moves) but excludes the created
-      account's ``NEW_ACCOUNT`` *state* charge and the init-code word
-      cost -- both masked by the binding floor -- while the deploy
-      (and any moved wei) still lands. The receipt pins the floor
-      exactly, so the value-bearing case sits precisely
-      ``TRANSFER_LOG_COST`` above the zero-value one.
+      on the creation regular base (``TX_BASE + CREATE_ACCESS``)
+      but excludes the created account's ``NEW_ACCOUNT`` *state* charge
+      and the init-code word cost -- both masked by the binding floor --
+      while the deploy (and any moved wei) still lands.
+      The receipt pins the floor exactly.
     - ``below_floor``: a gas limit one short of the floor still covers
       the creation intrinsic, so the rejection is pinned to the floor,
       with ``INTRINSIC_GAS_BELOW_FLOOR_GAS_COST``.

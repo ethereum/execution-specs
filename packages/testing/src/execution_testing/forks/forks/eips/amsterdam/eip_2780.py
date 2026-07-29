@@ -40,8 +40,7 @@ class EIP2780(BaseFork):
         return replace(
             parent,
             TX_BASE=12_000,
-            TRANSFER_LOG_COST=1_756,
-            TX_VALUE_COST=4_244,
+            TX_VALUE_COST=6_000,
         )
 
     @classmethod
@@ -75,14 +74,10 @@ class EIP2780(BaseFork):
                 # CREATE_ACCESS regular gas; TX_CREATE folds in the
                 # NEW_ACCOUNT state gas, which the floor excludes.
                 floor += gas_costs.TX_CREATE - gas_costs.NEW_ACCOUNT
-                if sends_value:
-                    floor += gas_costs.TRANSFER_LOG_COST
             elif not is_self_transfer:
                 floor += gas_costs.COLD_ACCOUNT_ACCESS
                 if sends_value:
-                    floor += (
-                        gas_costs.TRANSFER_LOG_COST + gas_costs.TX_VALUE_COST
-                    )
+                    floor += gas_costs.TX_VALUE_COST
             return floor
 
         return fn
@@ -97,9 +92,8 @@ class EIP2780(BaseFork):
 
         Non-create, non-self targets pay ``COLD_ACCOUNT_ACCESS``
         unconditionally; access lists do not warm transaction-level
-        accounts. Value-bearing transactions pay
-        ``TRANSFER_LOG_COST`` plus ``TX_VALUE_COST``; self-transfers
-        suppress the value-transfer charge entirely.
+        accounts. Value-bearing transactions pay ``TX_VALUE_COST``;
+        self-transfers suppress the value-transfer charge entirely.
         """
         super_fn = super(EIP2780, cls).transaction_intrinsic_cost_calculator()
         gas_costs = cls.gas_costs()
@@ -147,14 +141,10 @@ class EIP2780(BaseFork):
                 # remove it here, mirroring value transfer to an empty
                 # account whose NEW_ACCOUNT is likewise top-frame.
                 intrinsic_cost -= gas_costs.NEW_ACCOUNT
-                if sends_value:
-                    intrinsic_cost += gas_costs.TRANSFER_LOG_COST
             elif not is_self_transfer:
                 intrinsic_cost += gas_costs.COLD_ACCOUNT_ACCESS
                 if sends_value:
-                    intrinsic_cost += (
-                        gas_costs.TRANSFER_LOG_COST + gas_costs.TX_VALUE_COST
-                    )
+                    intrinsic_cost += gas_costs.TX_VALUE_COST
 
             if return_cost_deducted_prior_execution:
                 return intrinsic_cost

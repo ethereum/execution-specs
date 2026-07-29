@@ -639,8 +639,8 @@ def calculate_intrinsic_cost(
        call, or `CREATE_ACCESS` for a contract creation). The created
        account's `NEW_ACCOUNT` state gas is state-dependent and is
        charged at the top frame, not here.
-    3. Value cost (`TRANSFER_LOG_COST`, plus `TX_VALUE_COST` for a
-       non-self-transfer call) when ``tx.value > 0``.
+    3. Value cost (`TX_VALUE_COST` for a non-self-transfer call) when
+       ``tx.value > 0``.
     4. Calldata cost (zero and non-zero bytes).
     5. Access list entries (if applicable).
     6. Authorizations (if applicable): only the state-independent base
@@ -671,14 +671,10 @@ def calculate_intrinsic_cost(
     if is_create:
         recipient_regular_gas = GasCosts.CREATE_ACCESS
         init_code_gas = init_code_cost(ulen(tx.data))
-        if tx.value > U256(0):
-            recipient_regular_gas += GasCosts.TRANSFER_LOG_COST
     elif not is_self_transfer:
         recipient_regular_gas = GasCosts.COLD_ACCOUNT_ACCESS
         if tx.value > U256(0):
-            recipient_regular_gas += (
-                GasCosts.TRANSFER_LOG_COST + GasCosts.TX_VALUE_COST
-            )
+            recipient_regular_gas += GasCosts.TX_VALUE_COST
 
     access_list_cost = Uint(0)
     tokens_in_access_list = Uint(0)
