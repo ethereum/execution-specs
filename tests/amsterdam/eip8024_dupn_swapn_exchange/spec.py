@@ -40,9 +40,6 @@ def decode_single(x: int) -> int:
     Decode the DUPN/SWAPN immediate byte per the EIP-8024 reference code.
 
     Return n with 17 <= n <= 235.
-
-    Implemented verbatim from the EIP so test expectations stay
-    independent of the EELS implementation under test.
     """
     assert 0 <= x <= 90 or 128 <= x <= 255
     return (x + 145) % 256
@@ -53,9 +50,6 @@ def decode_pair(x: int) -> Tuple[int, int]:
     Decode the EXCHANGE immediate byte per the EIP-8024 reference code.
 
     Return (n, m) with 1 <= n <= 14 and n < m <= 30 - n.
-
-    Implemented verbatim from the EIP so test expectations stay
-    independent of the EELS implementation under test.
     """
     assert 0 <= x <= 81 or 128 <= x <= 255
     k = x ^ 143
