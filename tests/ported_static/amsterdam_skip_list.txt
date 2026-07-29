@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 147
+# Total entries: 144
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -67,7 +67,7 @@ stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_dept
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v0]
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v1]
 
-# stCreateTest (36)
+# stCreateTest (33)
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-0xef-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-contructor-revert-v1]
 stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_after_fail[fork_Amsterdam-create-high-nonce-v1]
@@ -84,9 +84,6 @@ stCreateTest/test_create_address_warm_after_fail.py::test_create_address_warm_af
 stCreateTest/test_create_e_contract_create_ne_contract_in_init_oog_tr.py::test_create_e_contract_create_ne_contract_in_init_oog_tr[fork_Amsterdam--g0]
 stCreateTest/test_create_e_contract_create_ne_contract_in_init_oog_tr.py::test_create_e_contract_create_ne_contract_in_init_oog_tr[fork_Amsterdam--g1]
 stCreateTest/test_create_e_contract_then_call_to_non_existent_acc.py::test_create_e_contract_then_call_to_non_existent_acc[fork_Amsterdam]
-stCreateTest/test_create_empty_contract_with_storage.py::test_create_empty_contract_with_storage[fork_Amsterdam]
-stCreateTest/test_create_empty_contract_with_storage_and_call_it_0wei.py::test_create_empty_contract_with_storage_and_call_it_0wei[fork_Amsterdam]
-stCreateTest/test_create_empty_contract_with_storage_and_call_it_1wei.py::test_create_empty_contract_with_storage_and_call_it_1wei[fork_Amsterdam]
 stCreateTest/test_create_oo_gafter_init_code_returndata_size.py::test_create_oo_gafter_init_code_returndata_size[fork_Amsterdam]
 stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Create2_Refund_NoOoG]
 stCreateTest/test_create_oog_from_call_refunds.py::test_create_oog_from_call_refunds[fork_Amsterdam-SStore_Create_Refund_NoOoG]
