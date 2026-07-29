@@ -11,13 +11,8 @@
 # Total entries: 66
 
 # stCallCodes (3)
-stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d0]
-stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d1]
-stCallCodes/test_callcode_in_initcode_to_existing_contract_with_value_transfer.py::test_callcode_in_initcode_to_existing_contract_with_value_transfer[fork_Amsterdam]
 
 # stCallCreateCallCodeTest (6)
-stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g0]
-stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g1]
 
 # stCreate2 (31)
 stCreate2/test_create2_oo_gafter_init_code_revert2.py::test_create2_oo_gafter_init_code_revert2[fork_Amsterdam]
@@ -53,10 +48,6 @@ stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_dept
 stCreate2/test_revert_depth_create_address_collision_berlin.py::test_revert_depth_create_address_collision_berlin[fork_Amsterdam-d1-g1-v1]
 
 # stDelegatecallTestHomestead (4)
-stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g0]
-stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g1]
-stDelegatecallTestHomestead/test_delegatecall1024_oog.py::test_delegatecall1024_oog[fork_Amsterdam]
-stDelegatecallTestHomestead/test_delegatecall_in_initcode_to_existing_contract.py::test_delegatecall_in_initcode_to_existing_contract[fork_Amsterdam]
 
 # stRefundTest (7)
 stRefundTest/test_refund50_2.py::test_refund50_2[fork_Amsterdam]

@@ -1,18 +1,28 @@
 """
-Callcode inside create/create2 contract init to existing contract.
+Verify a value-bearing CALLCODE made from inside init code to an
+existing contract.
+
+The runner endows the creation with value; the init code CALLCODEs an
+already-deployed contract naming that same value, so the existing
+contract's code runs in the created account's context: its storage
+write lands in the created account, and the value transfer is
+self-to-self, leaving the endowment with the created account.
 
 Ported from:
 state_tests/stCallCodes/callcodeInInitcodeToExistingContractWithValueTransferFiller.json
+
+@manually-enhanced: Do not overwrite. The raw-word init code is
+composed, sub-calls forward all gas (EIP-8037-proof), the transaction
+budget is maxed, and the post also pins the created account's
+code/nonce/balance and that the existing contract's own storage stays
+untouched.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    Bytecode,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -22,72 +32,82 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+# Endowment the runner sends into the creation; the init code's CALLCODE
+# then names the same amount, a self-to-self transfer the created
+# account's balance must cover and keep.
+CREATE_ENDOWMENT = 5
+CALLCODE_VALUE = CREATE_ENDOWMENT
+RUNNER_BALANCE = 10_000
+
+# Written by the init code with the CALLCODE's success flag.
+SUCCESS_FLAG_SLOT = 0
+# Written by the existing contract's code, in the caller's context.
+DELEGATE_SLOT = 2
+
+
+def memory_stores(data: bytes) -> Bytecode:
+    """Write the given bytes to memory starting at offset zero."""
+    code = Bytecode()
+    for offset in range(0, len(data), 32):
+        chunk = data[offset : offset + 32].ljust(32, b"\x00")
+        code += Op.MSTORE(offset, int.from_bytes(chunk, "big"))
+    return code
+
 
 @pytest.mark.ported_from(
     [
         "state_tests/stCallCodes/callcodeInInitcodeToExistingContractWithValueTransferFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("SpuriousDragon")
 def test_callcode_in_initcode_to_existing_contract_with_value_transfer(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Callcode inside create/create2 contract init to existing contract."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x1000000000000000000000000000000000000000)
-    contract_1 = Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    """A value-bearing CALLCODE in init code keeps the endowment."""
+    existing = pre.deploy_contract(
+        code=Op.SSTORE(key=DELEGATE_SLOT, value=1) + Op.STOP,
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
+    initcode = (
+        Op.SSTORE(
+            key=SUCCESS_FLAG_SLOT,
+            value=Op.CALLCODE(address=existing, value=CALLCODE_VALUE),
+        )
+        + Op.STOP
     )
+    initcode_bytes = bytes(initcode)
 
-    pre[sender] = Account(balance=0x2386F26FC10000)
-    # Source: lll
-    # { (MSTORE 0 0x6040600060406000600573945304eb96065b2a98b57a48a06ae28d285a71b562) (MSTORE 32 0x0186a0f260005500000000000000000000000000000000000000000000000000) (CREATE 5 0 64) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x6040600060406000600573945304EB96065B2A98B57A48A06AE28D285A71B562,  # noqa: E501
-        )
-        + Op.MSTORE(
-            offset=0x20,
-            value=0x186A0F260005500000000000000000000000000000000000000000000000000,  # noqa: E501
-        )
-        + Op.CREATE(value=0x5, offset=0x0, size=0x40)
+    runner = pre.deploy_contract(
+        code=memory_stores(initcode_bytes)
+        + Op.CREATE(value=CREATE_ENDOWMENT, offset=0, size=len(initcode_bytes))
         + Op.STOP,
-        balance=10000,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
+        balance=RUNNER_BALANCE,
     )
-    # Source: lll
-    # { (SSTORE 2 1) }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0x945304EB96065B2A98B57A48A06AE28D285A71B5),  # noqa: E501
-    )
+
+    # Deployed contracts start at nonce 1.
+    created = compute_create_address(address=runner, nonce=1)
 
     tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=453081,
+        sender=pre.fund_eoa(),
+        to=runner,
     )
 
     post = {
-        compute_create_address(address=contract_0, nonce=0): Account(
-            storage={0: 1, 2: 1}, balance=5
+        created: Account(
+            # The init code deploys no code but writes its own storage.
+            code=b"",
+            nonce=1,
+            balance=CREATE_ENDOWMENT,
+            storage={SUCCESS_FLAG_SLOT: 1, DELEGATE_SLOT: 1},
         ),
+        runner: Account(
+            nonce=2,
+            balance=RUNNER_BALANCE - CREATE_ENDOWMENT,
+            storage={},
+        ),
+        # The existing contract's own storage must stay untouched.
+        existing: Account(storage={}),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
