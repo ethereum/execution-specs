@@ -51,6 +51,7 @@ from .rpc_types import (
     ForkchoiceState,
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
+    GetBlobsV4Response,
     GetPayloadResponse,
     JSONRPCError,
     JSONRPCRequest,
@@ -1444,6 +1445,7 @@ class EngineRPC(BaseJwtRPC):
         payload_attributes: PayloadAttributes | None = None,
         *,
         version: int,
+        custody_columns: bytes | None = None,
     ) -> ForkchoiceUpdateResponse:
         """
         `engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the
@@ -1451,10 +1453,16 @@ class EngineRPC(BaseJwtRPC):
         """
         method = f"forkchoiceUpdatedV{version}"
 
+        params: List[Any]
         if payload_attributes is None:
             params = [to_json(forkchoice_state), None]
         else:
             params = [to_json(forkchoice_state), to_json(payload_attributes)]
+        if custody_columns is not None:
+            # Third parameter of `engine_forkchoiceUpdatedV4` (EIP-8070):
+            # a bitmap of the blob columns custodied by the node.
+            assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
+            params.append(f"0x{custody_columns.hex()}")
 
         return ForkchoiceUpdateResponse.model_validate(
             self.post_request(
@@ -1487,21 +1495,33 @@ class EngineRPC(BaseJwtRPC):
         versioned_hashes: List[Hash],
         *,
         version: int,
-    ) -> GetBlobsResponse | None:
+        indices_bitarray: int | None = None,
+    ) -> GetBlobsResponse | GetBlobsV4Response | None:
         """
         `engine_getBlobsVX`: Retrieves blobs from an execution layers tx pool.
         """
         method = f"getBlobsV{version}"
-        params = [f"{h}" for h in versioned_hashes]
+        params: List[Any] = [[f"{h}" for h in versioned_hashes]]
+
+        if version >= 4:
+            assert indices_bitarray is not None, (
+                f"getBlobsV{version} requires an indices_bitarray cell mask."
+            )
+            # `indices_bitarray` is a little-endian 16-byte bitmap where bit
+            # `i` selects cell `i` (execution-apis `engine_getBlobsV4`).
+            params.append(f"0x{indices_bitarray.to_bytes(16, 'little').hex()}")
 
         response = self.post_request(
-            request=RPCCall(method=method, params=[params]),
+            request=RPCCall(method=method, params=params),
         ).result_or_raise()
         if response is None:  # for tests that request non-existing blobs
             logger.debug("get_blobs response received but it has value: None")
             return None
 
-        return GetBlobsResponse.model_validate(
+        response_model = (
+            GetBlobsV4Response if version >= 4 else GetBlobsResponse
+        )
+        return response_model.model_validate(
             response,
             context=self.response_validation_context,
         )
