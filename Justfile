@@ -220,7 +220,6 @@ test-tests *args:
     cd packages/testing && uv run pytest \
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/test-tests/tmp" \
-        --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
         "$@" \
         src
 
@@ -234,16 +233,6 @@ test-tests-pypy *args:
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
         "$@" \
         src
-
-# Run benchmark framework unit tests (with Python)
-[group('unit tests')]
-[group('benchmark tests')]
-test-tests-bench *args:
-    @mkdir -p "{{ output_dir }}/test-tests-bench/tmp"
-    uv run pytest \
-        --basetemp="{{ output_dir }}/test-tests-bench/tmp" \
-        "$@" \
-        packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py
 
 # Run CI release script integration tests
 [group('unit tests')]
