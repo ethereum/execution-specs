@@ -8,10 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 97
-
-# stAttackTest (1)
-stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
+# Total entries: 95
 
 # stCallCodes (3)
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d0]
@@ -25,9 +22,6 @@ stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam-
 stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g3]
 stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g0]
 stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g1]
-
-# stCallDelegateCodesCallCodeHomestead (1)
-stCallDelegateCodesCallCodeHomestead/test_callcallcallcode_001_suicide_end.py::test_callcallcallcode_001_suicide_end[fork_Amsterdam]
 
 # stCreate2 (31)
 stCreate2/test_create2_oo_gafter_init_code_revert2.py::test_create2_oo_gafter_init_code_revert2[fork_Amsterdam]
@@ -89,10 +83,6 @@ stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterd
 stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g1]
 stDelegatecallTestHomestead/test_delegatecall1024_oog.py::test_delegatecall1024_oog[fork_Amsterdam]
 stDelegatecallTestHomestead/test_delegatecall_in_initcode_to_existing_contract.py::test_delegatecall_in_initcode_to_existing_contract[fork_Amsterdam]
-
-# stEIP158Specific (0)
-
-# stHomesteadSpecific (0)
 
 # stRefundTest (7)
 stRefundTest/test_refund50_2.py::test_refund50_2[fork_Amsterdam]
