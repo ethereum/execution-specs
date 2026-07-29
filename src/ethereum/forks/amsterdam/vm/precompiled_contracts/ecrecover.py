@@ -34,7 +34,7 @@ def ecrecover(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    data = evm.message.data
+    data = evm.call_data
 
     # GAS
     charge_gas(evm, GasCosts.PRECOMPILE_ECRECOVER)

@@ -146,7 +146,7 @@ def alt_bn128_add(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    data = evm.message.data
+    data = evm.call_data
 
     # GAS
     charge_gas(evm, GasCosts.PRECOMPILE_ECADD)
@@ -174,7 +174,7 @@ def alt_bn128_mul(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    data = evm.message.data
+    data = evm.call_data
 
     # GAS
     charge_gas(evm, GasCosts.PRECOMPILE_ECMUL)
@@ -202,7 +202,7 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    data = evm.message.data
+    data = evm.call_data
 
     # GAS
     charge_gas(

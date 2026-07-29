@@ -34,6 +34,7 @@ class SetConstantCommand(VisitorBasedCodemodCommand):
 
     _in_assign_target: bool
     _matches: bool
+    _replaced: bool
 
     @staticmethod
     def add_args(arg_parser: argparse.ArgumentParser) -> None:
@@ -78,7 +79,19 @@ class SetConstantCommand(VisitorBasedCodemodCommand):
         self.value = cst.parse_expression(value)
         self._in_assign_target = False
         self._matches = False
+        self._replaced = False
         self.imports = imports or []
+
+    @override
+    def leave_Module(  # noqa: D102
+        self, original_node: cst.Module, updated_node: cst.Module
+    ) -> cst.Module:
+        if not self._replaced:
+            raise Exception(
+                f"`{self.qualified_name}` is not assigned in this module"
+            )
+
+        return updated_node
 
     @override
     def visit_Assign_targets(self, node: cst.Assign) -> None:  # noqa: D102
@@ -108,6 +121,7 @@ class SetConstantCommand(VisitorBasedCodemodCommand):
             return updated_node
 
         self._matches = False
+        self._replaced = True
 
         if len(original_node.targets) != 1:
             raise NotImplementedError(
@@ -152,6 +166,7 @@ class SetConstantCommand(VisitorBasedCodemodCommand):
             return updated_node
 
         self._matches = False
+        self._replaced = True
 
         for module, identifier in self.imports:
             AddImportsVisitor.add_needed_import(

@@ -117,28 +117,34 @@ class Eip3155Tracer(EvmTracer):
         """
         Create a trace of the event.
         """
+        # TODO: Rethink the tracer interface so it does not probe
+        # fork-specific frame layouts. Recent forks merge the message
+        # fields into the frame itself; older forks keep them on
+        # `evm.message`.
+        message = getattr(evm, "message", evm)
+
         # System Transaction do not have a tx_hash or index
         if (
-            evm.message.tx_env.index_in_block is None
-            or evm.message.tx_env.tx_hash is None
+            message.tx_env.index_in_block is None
+            or message.tx_env.tx_hash is None
         ):
             return
 
         assert isinstance(evm, Evm)
 
-        if self.transaction_environment is not evm.message.tx_env:
+        if self.transaction_environment is not message.tx_env:
             self.active_traces = []
-            self.transaction_environment = evm.message.tx_env
+            self.transaction_environment = message.tx_env
 
         last_trace = None
         if self.active_traces:
             last_trace = self.active_traces[-1]
 
         refund_counter = evm_refund_counter(evm)
-        parent_evm = evm.message.parent_evm
+        parent_evm = message.parent_evm
         while parent_evm is not None:
             refund_counter += evm_refund_counter(parent_evm)
-            parent_evm = parent_evm.message.parent_evm
+            parent_evm = getattr(parent_evm, "message", parent_evm).parent_evm
 
         len_memory = len(evm.memory)
 
@@ -162,8 +168,8 @@ class Eip3155Tracer(EvmTracer):
 
             output_traces(
                 self.active_traces,
-                evm.message.tx_env.index_in_block,
-                evm.message.tx_env.tx_hash,
+                message.tx_env.index_in_block,
+                message.tx_env.tx_hash,
                 self.output_basedir,
             )
         elif isinstance(event, PrecompileStart):
@@ -176,7 +182,7 @@ class Eip3155Tracer(EvmTracer):
                 memSize=len_memory,
                 stack=stack,
                 returnData=return_data,
-                depth=int(evm.message.depth) + 1,
+                depth=int(message.depth) + 1,
                 refund=refund_counter,
                 opName="0x" + event.address.hex().lstrip("0"),
                 precompile=True,
@@ -208,7 +214,7 @@ class Eip3155Tracer(EvmTracer):
                 memSize=len_memory,
                 stack=stack,
                 returnData=return_data,
-                depth=int(evm.message.depth) + 1,
+                depth=int(message.depth) + 1,
                 refund=refund_counter,
                 opName=str(event.op).split(".")[-1],
                 stateGas=state_gas,
@@ -235,7 +241,7 @@ class Eip3155Tracer(EvmTracer):
                 # The first opcode in a child message is an InvalidOpcode.
                 # This case has to be explicitly handled since the first
                 # two conditions do not cover it.
-                or last_trace.depth == evm.message.depth
+                or last_trace.depth == message.depth
             ):
                 if not hasattr(event.error, "code"):
                     name = event.error.__class__.__name__
@@ -253,7 +259,7 @@ class Eip3155Tracer(EvmTracer):
                     memSize=len_memory,
                     stack=stack,
                     returnData=return_data,
-                    depth=int(evm.message.depth) + 1,
+                    depth=int(message.depth) + 1,
                     refund=refund_counter,
                     opName="InvalidOpcode",
                     gasCostTraced=True,

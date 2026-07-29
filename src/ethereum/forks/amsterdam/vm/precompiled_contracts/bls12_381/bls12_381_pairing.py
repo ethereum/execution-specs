@@ -36,7 +36,7 @@ def bls12_pairing(evm: Evm) -> None:
         If the input length is invalid or if the subgroup check fails.
 
     """
-    data = evm.message.data
+    data = evm.call_data
     if len(data) == 0 or len(data) % 384 != 0:
         raise InvalidParameter("Invalid Input Length")
 
