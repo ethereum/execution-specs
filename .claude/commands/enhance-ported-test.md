@@ -414,6 +414,23 @@ callee-failure were indistinguishable). Fix: write a sentinel to the slot
 always covers, and the three outcomes (success `BASE+1`, failure `BASE`,
 caller OOG `sentinel`) are all distinct. Validated on
 `test_static_execute_call_that_ask_fore_gas_then_trabsaction_has`.
+**Caveat — EIP-2200's stipend rule caps this trick.** Any SSTORE (even a
+100-gas dirty-warm one) exceptionally halts unless `gas_left > 2300`
+(Istanbul+), so the 1/64 retention must exceed ~2400, i.e. the pre-call
+budget must exceed ~154k. When the scenario *requires* a smaller budget
+(e.g. a starved arm whose forwarded gas must undercut the callee's cost),
+no post-call SSTORE is possible at all: write the sentinel *before* the
+call and put nothing but a `POP` after it — frame completion (the account
+persists with the sentinel) plus the callee-side observable already
+separate the outcomes. Validated on
+`test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided`.
+
+**A creation transaction's top frame pays new-account state gas
+(EIP-8037).** When deriving a create-tx budget, the intrinsic calculator
+does not include the created account's state gas — add
+`fork.transaction_top_frame_state_gas(contract_creation=True)` (183,600 on
+Amsterdam, 0 before) or the whole creation silently OOGs only on the
+future fork.
 
 **Measuring forwarded gas / the EIP-150 63/64 rule (the `*_gas_ask` shape).**
 Ported fillers probe "how much gas does a subcall receive when it asks for more
