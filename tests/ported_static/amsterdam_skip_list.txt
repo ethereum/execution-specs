@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 119
+# Total entries: 116
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -18,16 +18,13 @@ stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d1]
 stCallCodes/test_callcode_in_initcode_to_existing_contract_with_value_transfer.py::test_callcode_in_initcode_to_existing_contract_with_value_transfer[fork_Amsterdam]
 
-# stCallCreateCallCodeTest (9)
+# stCallCreateCallCodeTest (6)
 stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g0]
 stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g1]
 stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g2]
 stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g3]
 stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g0]
 stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g1]
-stCallCreateCallCodeTest/test_create_name_registrator_per_txs_not_enough_gas.py::test_create_name_registrator_per_txs_not_enough_gas[fork_Amsterdam--g0]
-stCallCreateCallCodeTest/test_create_name_registrator_per_txs_not_enough_gas.py::test_create_name_registrator_per_txs_not_enough_gas[fork_Amsterdam--g1]
-stCallCreateCallCodeTest/test_create_name_registrator_pre_store1_not_enough_gas.py::test_create_name_registrator_pre_store1_not_enough_gas[fork_Amsterdam]
 
 # stCallDelegateCodesCallCodeHomestead (1)
 stCallDelegateCodesCallCodeHomestead/test_callcallcallcode_001_suicide_end.py::test_callcallcallcode_001_suicide_end[fork_Amsterdam]
