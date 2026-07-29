@@ -1,8 +1,14 @@
 """
-Test_suicides_and_internal_call_suicides_success.
+Verify SELFDESTRUCT inside an internal call: the callee self-destructs to
+a previously nonexistent beneficiary, which materializes only when the
+forwarded gas covers the new-account charge.
 
 Ported from:
 state_tests/stTransactionTest/SuicidesAndInternalCallSuicidesSuccessFiller.json
+
+@manually-enhanced: Do not overwrite. The two forwarded-gas calldata words
+derive from the fork's SELFDESTRUCT new-account cost (state-priced under
+EIP-8037), keeping one arm starved and one funded on every fork.
 """
 
 import pytest
@@ -59,7 +65,7 @@ def test_suicides_and_internal_call_suicides_success(
     g: int,
     v: int,
 ) -> None:
-    """Test_suicides_and_internal_call_suicides_success."""
+    """A funded SELFDESTRUCT materializes its beneficiary."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_0 = Address(0x0000000000000000000000000000000000000000)
     contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
@@ -127,11 +133,25 @@ def test_suicides_and_internal_call_suicides_success(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    # The calldata word is the gas forwarded to the self-destructing
+    # callee. Its SELFDESTRUCT pays a new-account charge for the funded
+    # beneficiary (state-priced under EIP-8037, spilling from the
+    # callee's grant), so both budgets derive from that cost: one starves
+    # it, one funds it with margin.
+    sd_cost = Op.SELFDESTRUCT.with_metadata(
+        address_warm=True, account_new=True
+    ).gas_cost(fork)
     tx_data = [
-        Hash(0x55F0),
-        Hash(0xAAF0),
+        Hash(sd_cost // 2),
+        Hash(sd_cost + 5_000),
     ]
-    tx_gas = [150000]
+    tx_gas = [
+        fork.transaction_intrinsic_cost_calculator()(
+            calldata=Hash(0), sends_value=True
+        )
+        + sd_cost
+        + 40_000
+    ]
     tx_value = [10]
 
     tx = Transaction(

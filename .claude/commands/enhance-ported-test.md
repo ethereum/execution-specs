@@ -439,6 +439,15 @@ persists with the sentinel) plus the callee-side observable already
 separate the outcomes. Validated on
 `test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided`.
 
+**Match the intrinsic calculator's kwargs to the transaction's shape.**
+`fork.transaction_intrinsic_cost_calculator()()` defaults to
+`sends_value=False`; under EIP-2780 a value-bearing transaction's intrinsic
+includes the folded value-transfer cost (~5.9k), so a derived budget or
+GAS-observation formula silently skews by that amount on Amsterdam only.
+Pass `sends_value=True` when the tx carries value — or drop an incidental
+tx `value` entirely (step 5) so the default holds. Validated on
+`test_store_gas_on_create`.
+
 **A creation transaction's top frame pays new-account state gas
 (EIP-8037) — but only for a fresh target.** When deriving a create-tx
 budget, the intrinsic calculator does not include the created account's

@@ -1,5 +1,6 @@
 """
-Test_opcodes_transaction_init.
+Verify each opcode family executes inside a creation transaction's init
+code, including invalid-code and side-effect cases.
 
 Ported from:
 state_tests/stTransactionTest/Opcodes_TransactionInitFiller.json
@@ -838,7 +839,7 @@ def test_opcodes_transaction_init(
     g: int,
     v: int,
 ) -> None:
-    """Test_opcodes_transaction_init."""
+    """Run each opcode inside a creation transaction's init code."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
@@ -1468,7 +1469,16 @@ def test_opcodes_transaction_init(
         Op.SELFDESTRUCT(address=Op.ORIGIN),
         Bytes("ef"),
         Op.CALL(
-            gas=0xC350,
+            # Derived: the callee's cold first-set store is state-priced
+            # under EIP-8037 and must fit the grant.
+            gas=Op.SSTORE(
+                key=0x0,
+                value=0x1,
+                key_warm=False,
+                original_value=0,
+                new_value=1,
+            ).gas_cost(fork)
+            + 5_000,
             address=contract_0,
             value=Op.DUP1,
             args_offset=Op.DUP1,
@@ -1503,7 +1513,9 @@ def test_opcodes_transaction_init(
         + Op.MSTORE8(offset=0x0, value=0xEF)
         + Op.RETURN(offset=0x0, size=0x1),
     ]
-    tx_gas = [400000]
+    # The d120 arm's nested CREATE adds a new-account state charge under
+    # EIP-8037 (0 before); every other arm keeps the ported budget.
+    tx_gas = [400000 + (fork.create_state_gas() if d == 120 else 0)]
     tx_value = [100000]
 
     tx = Transaction(

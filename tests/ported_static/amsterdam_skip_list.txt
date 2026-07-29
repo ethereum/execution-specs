@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 70
+# Total entries: 66
 
 # stCallCodes (3)
 stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d0]
@@ -90,8 +90,3 @@ stSystemOperationsTest/test_ab_acalls0.py::test_ab_acalls0[fork_Amsterdam]
 stSystemOperationsTest/test_ab_acalls3.py::test_ab_acalls3[fork_Amsterdam]
 stSystemOperationsTest/test_call_recursive_bomb3.py::test_call_recursive_bomb3[fork_Amsterdam]
 
-# stTransactionTest (4)
-stTransactionTest/test_opcodes_transaction_init.py::test_opcodes_transaction_init[fork_Amsterdam-d120]
-stTransactionTest/test_opcodes_transaction_init.py::test_opcodes_transaction_init[fork_Amsterdam-side_effects]
-stTransactionTest/test_store_gas_on_create.py::test_store_gas_on_create[fork_Amsterdam]
-stTransactionTest/test_suicides_and_internal_call_suicides_success.py::test_suicides_and_internal_call_suicides_success[fork_Amsterdam-d1]
