@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 141
+# Total entries: 137
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -164,12 +164,6 @@ stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_rever
 stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d1-g0]
 stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d2-g0]
 stRevertTest/test_revert_opcode_in_calls_on_non_empty_return_data.py::test_revert_opcode_in_calls_on_non_empty_return_data[fork_Amsterdam-d3-g0]
-
-# stSStoreTest (4)
-stSStoreTest/test_sstore_gas.py::test_sstore_gas[fork_Amsterdam]
-stSStoreTest/test_sstore_gas_left.py::test_sstore_gas_left[fork_Amsterdam-d2]
-stSStoreTest/test_sstore_gas_left.py::test_sstore_gas_left[fork_Amsterdam-d5]
-stSStoreTest/test_sstore_gas_left.py::test_sstore_gas_left[fork_Amsterdam-d8]
 
 # stSolidityTest (3)
 stSolidityTest/test_recursive_create_contracts.py::test_recursive_create_contracts[fork_Amsterdam]

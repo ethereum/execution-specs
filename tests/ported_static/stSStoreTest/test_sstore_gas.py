@@ -1,8 +1,16 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Measure the gas cost of every SSTORE transition class (cold/warm x
+original/current/new value combinations) via inline GAS deltas (by Ori
+Pomerantz qbzzt1@gmail.com).
 
 Ported from:
 state_tests/stSStoreTest/sstoreGasFiller.yml
+
+@manually-enhanced: Do not overwrite. The nine measured transition costs
+are derived from SSTORE opcode metadata instead of pinned numbers, so
+EIP-8037's state-gas repricing (and any future one) is tracked
+automatically; the explicit gas limit equals the EIP-7825 cap, so the
+state gas spills into the measured deltas.
 """
 
 import pytest
@@ -12,6 +20,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -29,8 +38,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_sstore_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
+    """Measure each SSTORE transition's gas against opcode metadata."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
 
@@ -171,18 +181,51 @@ def test_sstore_gas(
         nonce=1,
     )
 
+    # The measured transitions, in bytecode order (slots 0 and 1 start at
+    # 24743; slots 2 and 3 start empty). Each stored delta is the pure
+    # SSTORE cost (the contract subtracts its own 8-gas overhead).
+    transitions = [
+        # slot 0: cold, original nonzero -> different nonzero
+        dict(key_warm=False, original_value=24743, new_value=0xBEEF),
+        # slot 0: warm dirty, nonzero -> nonzero
+        dict(
+            key_warm=True,
+            original_value=24743,
+            current_value=0xBEEF,
+            new_value=0xDEADBEEF,
+        ),
+        # slot 0: warm dirty, nonzero -> zero
+        dict(
+            key_warm=True,
+            original_value=24743,
+            current_value=0xDEADBEEF,
+            new_value=0,
+        ),
+        # slot 0: warm dirty, zero -> zero
+        dict(
+            key_warm=True, original_value=24743, current_value=0, new_value=0
+        ),
+        # slot 0: warm dirty, zero -> nonzero
+        dict(
+            key_warm=True,
+            original_value=24743,
+            current_value=0,
+            new_value=0x1234,
+        ),
+        # slot 1: cold, original nonzero -> zero
+        dict(key_warm=False, original_value=24743, new_value=0),
+        # slot 2: cold fresh, zero -> nonzero
+        dict(key_warm=False, original_value=0, new_value=0x60A7),
+        # slot 3: cold fresh, zero -> zero
+        dict(key_warm=False, original_value=0, new_value=0),
+        # slot 3: warm fresh, zero -> nonzero
+        dict(key_warm=True, original_value=0, new_value=0x60A7),
+    ]
     post = {
         target: Account(
             storage={
-                4096: 5000,
-                4097: 100,
-                4098: 100,
-                4099: 100,
-                4100: 100,
-                4101: 5000,
-                4102: 22100,
-                4103: 2200,
-                4104: 20000,
+                0x1000 + i: Op.SSTORE.with_metadata(**md).gas_cost(fork)
+                for i, md in enumerate(transitions)
             },
         ),
     }
