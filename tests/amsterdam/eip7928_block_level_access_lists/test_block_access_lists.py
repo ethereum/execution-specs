@@ -44,6 +44,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
+SYSTEM_ADDRESS = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE)
 
 
 @EIPChecklist.BlockHeaderField.Test.ValueBehavior.Accept()
@@ -1626,6 +1627,65 @@ def test_bal_coinbase_zero_tip(
         post={
             alice: Account(nonce=1, balance=alice_final_balance),
             bob: Account(balance=5),
+        },
+        genesis_environment=genesis_env,
+    )
+
+
+def test_bal_system_address_coinbase_zero_tip(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Ensure BAL includes SYSTEM_ADDRESS when it is the zero-tip fee recipient.
+    """
+    bob = pre.fund_eoa(amount=0)
+
+    genesis_env = Environment(base_fee_per_gas=0x7)
+    base_fee_per_gas = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=int(genesis_env.base_fee_per_gas or 0),
+        parent_gas_used=0,
+        parent_gas_limit=genesis_env.gas_limit,
+    )
+
+    tx_value = 5
+    alice = pre.fund_eoa()
+    tx = Transaction(
+        sender=alice,
+        to=bob,
+        value=tx_value,
+        gas_price=base_fee_per_gas,
+    )
+
+    block = Block(
+        txs=[tx],
+        fee_recipient=SYSTEM_ADDRESS,
+        header_verify=Header(base_fee_per_gas=base_fee_per_gas),
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=5)
+                    ]
+                ),
+                SYSTEM_ADDRESS: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            bob: Account(balance=5),
+            SYSTEM_ADDRESS: Account.NONEXISTENT,
         },
         genesis_environment=genesis_env,
     )
