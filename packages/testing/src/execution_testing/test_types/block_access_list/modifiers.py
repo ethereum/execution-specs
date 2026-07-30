@@ -747,6 +747,10 @@ def remove_slot_change(
     account, this targets one entry within one slot's slot_changes list.
     Useful for testing that a slot's earliest recorded change must match
     the transaction that actually performed it.
+
+    Removing a slot's only change leaves an empty slot_changes list,
+    which is a different corruption (see `append_empty_slot`); use
+    `remove_storage` to drop a slot entirely.
     """
 
     def transform(bal: BlockAccessList) -> BlockAccessList:

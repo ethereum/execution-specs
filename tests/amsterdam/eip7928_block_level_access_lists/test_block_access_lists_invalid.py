@@ -1743,16 +1743,17 @@ def test_bal_invalid_noop_storage_change(
     Test that clients reject a BAL storage change whose post-value equals
     the value already present at the start of the transaction.
 
-    Oracle only reads storage slot 0 (value stays 0x42 throughout). A
-    canonical BAL builder never records a storage_changes entry for a
-    slot whose value never actually changes. The BAL is corrupted by
-    appending a spurious round-trip storage change with a post_value
-    equal to the untouched value.
+    Oracle performs a round-trip write: SSTORE(0, 0x42) with slot 0
+    already at 0x42. The canonical BAL demotes such a no-op write to a
+    storage_reads entry. The BAL is corrupted into exactly the shape a
+    builder without no-op demotion would emit: the raw write recorded as
+    a storage_changes entry (post_value == pre-tx value) and the read
+    dropped.
     """
     alice = pre.fund_eoa()
-    oracle = pre.deploy_contract(code=Op.SLOAD(0), storage={0: 0x42})
+    oracle = pre.deploy_contract(code=Op.SSTORE(0, 0x42), storage={0: 0x42})
 
-    tx = Transaction(sender=alice, to=oracle)
+    tx = Transaction(sender=alice, to=oracle, gas_limit=1_000_000)
 
     blockchain_test(
         pre=pre,
@@ -1776,13 +1777,14 @@ def test_bal_invalid_noop_storage_change(
                         ),
                     }
                 ).modify(
+                    remove_storage_reads(oracle),
                     append_storage(
                         address=oracle,
                         slot=0,
                         change=BalStorageChange(
                             block_access_index=1, post_value=0x42
                         ),
-                    )
+                    ),
                 ),
             )
         ],
@@ -1878,6 +1880,10 @@ def test_bal_invalid_missing_storage_write(
 
     Writer's storage slot 0 goes from 0 (default) to 1. The BAL is
     corrupted by removing the account's storage_changes entirely.
+    Unlike `test_bal_invalid_field_entries[missing_storage_change]`,
+    the account has no other changes, so the corrupted entry degrades
+    to an access-only (empty) entry -- a shape that is legitimate for
+    merely-touched accounts.
     """
     alice = pre.fund_eoa()
     writer = pre.deploy_contract(code=Op.SSTORE(0, 1))
@@ -1930,6 +1936,9 @@ def test_bal_invalid_missing_created_code(
     """
     Test that clients reject a BAL that omits the deployed code of a
     contract created via a contract-creation transaction.
+
+    Complements `test_bal_invalid_field_entries[missing_code_change]`,
+    which covers the CREATE-opcode path.
     """
     alice = pre.fund_eoa()
     runtime_code = Op.STOP
