@@ -47,6 +47,7 @@ from .fork_types import (
     ExecutionGas,
     StateGas,
 )
+from .frame_processing import process_frame_transaction
 from .requests import (
     BUILDER_DEPOSIT_REQUEST_TYPE,
     BUILDER_EXIT_REQUEST_TYPE,
@@ -84,6 +85,7 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
+from .transactions.frame_transaction import FrameTransaction
 from .utils.address import compute_contract_address
 from .utils.hexadecimal import hex_to_address
 from .vm.eoa_delegation import is_valid_delegation
@@ -541,6 +543,8 @@ def check_transaction(
         limit.
 
     """
+    assert not isinstance(tx, FrameTransaction)
+
     sender = recover_sender(tx)
     intrinsic = validate_transaction(tx, sender)
     tx_state = TransactionState(parent=block_env.state)
@@ -611,10 +615,6 @@ def check_transaction(
 
     return vm.TransactionEnvironment(
         origin=sender,
-        recipient=recipient,
-        is_create=is_create,
-        data=tx.data,
-        value=tx.value,
         gas_limit=tx.gas,
         effective_gas_price=effective_gas_price,
         execution_gas_grant=allocation.execution_gas,
@@ -628,6 +628,13 @@ def check_transaction(
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
+        top_level_context=vm.TopLevelContext(
+            recipient=recipient,
+            is_create=is_create,
+            data=tx.data,
+            value=tx.value,
+        ),
+        frame_context=None,
     )
 
 
@@ -755,10 +762,6 @@ def process_unchecked_system_transaction(
 
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
-        recipient=target_address,
-        is_create=False,
-        data=data,
-        value=U256(0),
         gas_limit=SYSTEM_TRANSACTION_GAS,
         effective_gas_price=block_env.base_fee_per_gas,
         execution_gas_grant=SYSTEM_TRANSACTION_GAS,
@@ -775,6 +778,13 @@ def process_unchecked_system_transaction(
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
+        top_level_context=vm.TopLevelContext(
+            recipient=target_address,
+            is_create=False,
+            data=data,
+            value=U256(0),
+        ),
+        frame_context=None,
     )
 
     system_tx_output = process_top_level(block_env, tx_env)
@@ -1053,6 +1063,9 @@ def process_transaction(
             expected=block_env.chain_id,
             actual=tx_chain_id,
         )
+
+    if isinstance(tx, FrameTransaction):
+        return process_frame_transaction(block_env, block_output, tx, index)
 
     tx_env = check_transaction(block_env, block_output, tx, index)
 

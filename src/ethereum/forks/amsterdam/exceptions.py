@@ -111,6 +111,13 @@ class NoBlobDataError(InvalidTransaction):
     """
 
 
+class InvalidMaxFeePerBlobGas(InvalidTransaction):
+    """
+    The transaction carries no blobs but has a nonzero
+    `max_fee_per_blob_gas`.
+    """
+
+
 class BlobCountExceededError(InvalidTransaction):
     """
     The transaction has more blobs than the limit.
@@ -149,22 +156,22 @@ class FrameCountError(InvalidTransaction):
     """
     The transaction has either too many or two few [`Frame`]s to be valid.
 
-    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
-    """
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.Frame
+    """  # noqa: E501
 
     maximum: Final[Uint]
     """
     Any more than this number of [`Frame`]s invalidates a transaction.
 
-    [`Frame`]: ref:ethereum.forks.amsterdam.transaction.Frame
-    """
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.Frame
+    """  # noqa: E501
 
     actual: Final[Uint]
     """
     Number of [`Frame`]s actually included in the transaction.
 
-    [`Frame`]: ref:ethereum.forks.amsterdam.transaction.Frame
-    """
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.Frame
+    """  # noqa: E501
 
     def __init__(self, actual: Uint, maximum: Uint) -> None:
         message = (
@@ -181,7 +188,15 @@ class InvalidFrameError(InvalidTransaction):
     """
     A [`Frame`] did not pass validation.
 
-    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.Frame
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.Frame
+    """  # noqa: E501
+
+
+class FrameTransactionExecutionError(InvalidTransaction):
+    """
+    A frame transaction violated a validity rule that is only checkable
+    during execution: a `VERIFY` frame reverted, a `SENDER` frame ran
+    before execution approval, or no frame approved gas payment.
     """
 
 
