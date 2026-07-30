@@ -558,28 +558,13 @@ def test_extra_tx_admission_uses_pre_refund_gas(
     refund_tx_reverts: bool,
 ) -> None:
     """
-    Test the EIP-7778 admission gate against the pre-refund accumulator
-    when the trailing tx has gas_limit above its actual gas usage.
+    Test that the admission gate uses the pre-refund accumulator when
+    the trailing tx's gas_limit exceeds its actual usage.
 
-    Distinguishes a correct implementation from one that uses the
-    post-refund (receipt) accumulator at the admission gate but the
-    pre-refund accumulator for ``header.gas_used``. Without slack
-    between ``tx.gas_limit`` and the tx's actual gas usage, both
-    implementations end up rejecting the block (the buggy one via the
-    later ``header.gas_used > gas_limit`` check), so the bug is masked.
-    The slack here makes the buggy implementation accept the block,
-    which then mismatches the expected-invalid fixture.
-
-    See https://github.com/NethermindEth/nethermind/pull/11794.
-
-    Layout (``P`` = ``refund_tx`` pre-refund gas; ``R`` = refund applied;
-    ``G`` = ``extra_tx.gas_limit``; ``U`` = ``extra_tx`` actual usage):
-
-    - ``block.gas_limit = P + G - 1``
-    - Correct admission: ``P + G > L``  -> reject extra tx
-    - Buggy admission:   ``(P - R) + G <= L``  -> admit extra tx
-    - Block after buggy admit: ``P + U <= L`` (since ``U < G``) -> looks
-      valid to the buggy implementation
+    Without this slack a post-refund gate is masked: the block is
+    still rejected by the gas_used > gas_limit check. With it, a buggy
+    implementation admits the extra tx yet stays within the block gas
+    limit, diverging from the expected-invalid fixture.
     """
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
@@ -613,8 +598,7 @@ def test_extra_tx_admission_uses_pre_refund_gas(
     extra_tx_sender = pre.fund_eoa()
     extra_tx_intrinsic = intrinsic_cost_calc(calldata=b"")
 
-    # gas_limit must exceed actual usage so that under buggy admission the
-    # pre-refund cumulative after execution stays within gas_limit
+    # Slack so a buggy admit stays within the block gas limit.
     extra_tx_gas_limit = 2 * extra_tx_intrinsic
     extra_tx = Transaction(
         to=stop_address,
