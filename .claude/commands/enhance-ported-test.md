@@ -42,11 +42,12 @@ so a failure is attributable.
 - **Checkpoint / done:** fill the whole `valid_from` range (omit `--fork`) so all
   deployed forks are exercised.
 - **Probe the future fork:** explicitly `--fork Amsterdam` (or the latest fork
-  that enables new EIPs). A ported test listed in `amsterdam_skip_list.txt` will
-  always show `sss` there — to see its *real* behavior, temporarily remove its
-  entry from that file, fill, then restore (or, once fixed, remove it for good —
-  see Finishing). A gas/state-cost change there is the most likely future
-  breakage.
+  that enables new EIPs). A gas/state-cost change there is the most likely
+  future breakage. (Historical note: broken tests used to be parked in a
+  `tests/ported_static/amsterdam_skip_list.txt` consumed by a local conftest;
+  the list was emptied and both were removed. If a future fork's repricing
+  breaks tests en masse, the same parking pattern — a substring-matched skip
+  list plus a `pytest_collection_modifyitems` hook — is in git history.)
 - **`fill` output:** writes to `./fixtures` (`--clean` resets it), or pass
   `--output <dir>` for a scratch location. Do **not** use `-o` — that is
   pytest's `--override-ini`, not the output dir.
@@ -77,8 +78,8 @@ gas the tx receives, so the body executes fully. See `write-test.md` "Transactio
 - **Gas-snapshot tests are gas-sensitive.** If the post asserts a stored `GAS`
   reading or a `SUB(@gas_before, GAS)` delta (legacy slots `0` / `0x64`), the
   test *measures gas* — handle it under step 10 (preserve via `CodeGasMeasure`),
-  do not just strip `gas_limit`. This is the dominant `amsterdam_skip_list.txt`
-  shape: the stored gas value is exactly what EIP-8037 re-prices and breaks.
+  do not just strip `gas_limit`. This was the dominant skip-list shape:
+  the stored gas value is exactly what EIP-8037 re-prices and breaks.
 - **EIP-8037 caveat:** when you omit `gas_limit` on a test that *measures* an
   operation incurring **state gas** (account creation, storage writes), add
   `state_gas_reservoir=0` to the tx, or that state gas is silently dropped from
@@ -294,8 +295,8 @@ ties a `CREATE`'s `size` operand to the memory/gas math that depends on it.
   on `test_make_money`.
 
 ### 10. (Gas-subject / gas-snapshot tests) Replace hardcoded gas with dynamic calculation
-Covers both tests that *assert* a gas amount and the dominant
-`amsterdam_skip_list.txt` shape: a legacy `GAS` snapshot / `SUB(@gas_before,
+Covers both tests that *assert* a gas amount and the dominant broken-port
+shape: a legacy `GAS` snapshot / `SUB(@gas_before,
 GAS)` delta stored to slot `0`/`0x64`. That stored value is *why* EIP-8037
 breaks the test, but it is real coverage — **preserve and fork-robustify it, do
 not drop it.**
@@ -595,11 +596,10 @@ Not yet covered by a validated walkthrough; figure out and append when hit:
 
 ## Finishing
 
-**Remove the skip-list entry.** Once the test passes on the future fork, delete
-its line from `tests/ported_static/amsterdam_skip_list.txt` and decrement both
-its per-directory count header (`# stXxx (N)`) and the `# Total entries:` count.
-Confirm with a full-range fill (`--fork` omitted) with the entry gone — that is
-the definition of done.
+**Confirm with a full-range fill** (`--fork` omitted) — every deployed fork
+green is the definition of done. (If a skip list is ever reintroduced for a
+future fork, also delete the test's entry and keep its count headers
+accurate.)
 
 **Final sweep checklist** — each of these has been missed in practice; check
 them one by one before calling the test done:
