@@ -487,19 +487,16 @@ def test_dupn_jump_into_immediate_then_execute(
     """
     Test jumping into a DUPN immediate, then executing a second DUPN.
 
-    Bytecode: PUSH0*17 PUSH1(21) JUMP DUPN[0x5b] DUPN[0x80] SSTORE
-
     The jump lands on the first DUPN's 0x5b immediate, a valid JUMPDEST
-    because analysis is unchanged by EIP-8024, and execution runs a
-    second DUPN that duplicates the deepest of the 17 pushed items
-    before storing 0x42 over the canary. Wrong implementations diverge
-    observably: masking the immediate during analysis rejects the jump,
-    and mis-decoding the executed DUPN underflows; both abort and leave
-    the canary intact.
+    because analysis is unchanged by EIP-8024, and a second DUPN then
+    duplicates the deepest pushed value and stores it over the canary.
     """
     sender = pre.fund_eoa()
 
-    setup = Op.PUSH0 * Spec.MIN_STACK_INDEX
+    setup = sum(
+        (Op.PUSH1[i] for i in range(Spec.MIN_STACK_INDEX, 0, -1)),
+        Bytecode(),
+    )
     # The 0x5b landing pad sits 4 bytes past the setup: PUSH1,
     # target, JUMP, then the DUPN opcode byte itself.
     landing_pad = len(setup) + 4
@@ -507,14 +504,16 @@ def test_dupn_jump_into_immediate_then_execute(
     code = setup
     code += Op.PUSH1(landing_pad) + Op.JUMP
     code += Op.DUPN[b"\x5b"]  # Jumped into, never executed.
-    code += Op.DUPN[Spec.MIN_STACK_INDEX]  # Executed after landing.
-    code += Op.SSTORE(0, 0x42)
+    code += Op.SSTORE(
+        0,
+        Op.DUPN[Spec.MIN_STACK_INDEX],  # Executed after landing.
+    )
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code, storage={0: 0xBA5E})
 
     tx = Transaction(to=contract_address, sender=sender)
 
-    post = {contract_address: Account(storage={0: 0x42})}
+    post = {contract_address: Account(storage={0: Spec.MIN_STACK_INDEX})}
 
     state_test(pre=pre, post=post, tx=tx)
