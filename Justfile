@@ -21,6 +21,18 @@ latest_fork := "Amsterdam"
 # Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
 export COVERAGE_CORE := "sysmon"
 
+# --- Helpers ---
+
+# Create a recipe's --basetemp scratch directory
+[private]
+_tmp name:
+    @mkdir -p "{{ output_dir }}/{{ name }}/tmp"
+
+# Create a recipe's --basetemp and --log-to directories
+[private]
+_tmp-logs name: (_tmp name)
+    @mkdir -p "{{ output_dir }}/{{ name }}/logs"
+
 # --- Static Analysis ---
 
 # Auto-fix formatting and lint issues
@@ -111,8 +123,7 @@ checklist *args:
 
 # Fill the consensus tests using EELS (with Python)
 [group('consensus tests')]
-fill *args:
-    @mkdir -p "{{ output_dir }}/fill/tmp" "{{ output_dir }}/fill/logs"
+fill *args: (_tmp-logs "fill")
     uv run fill \
         -m "not slow" \
         -n {{ xdist_workers }} --dist=loadgroup \
@@ -148,8 +159,7 @@ fill-release *args:
 
 # Fill the base coverage consensus tests using EELS with PyPy
 [group('integration tests')]
-fill-pypy *args:
-    @mkdir -p "{{ output_dir }}/fill-pypy/tmp" "{{ output_dir }}/fill-pypy/logs"
+fill-pypy *args: (_tmp-logs "fill-pypy")
     uv run --python pypy3.11 --no-dev --group test fill \
         --skip-index \
         --output="{{ output_dir }}/fill-pypy/fixtures" \
@@ -171,8 +181,7 @@ fill-pypy *args:
 
 # Fill the base coverage consensus tests and run EELS against the fixtures
 [group('integration tests')]
-json-loader *args:
-    @mkdir -p "{{ output_dir }}/json-loader/tmp"
+json-loader *args: (_tmp "json-loader")
     uv run fill \
         -m "eels_base_coverage and not derived_test" \
         --until "{{ latest_fork }}" \
@@ -202,8 +211,7 @@ json-loader *args:
 
 # Run the spec-tools tests (lint and new-fork tooling)
 [group('integration tests')]
-spec-tools *args:
-    @mkdir -p "{{ output_dir }}/spec-tools/tmp"
+spec-tools *args: (_tmp "spec-tools")
     uv run pytest \
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/spec-tools/tmp" \
@@ -215,8 +223,7 @@ spec-tools *args:
 
 # Run the testing package unit tests (with Python)
 [group('unit tests')]
-test-tests *args:
-    @mkdir -p "{{ output_dir }}/test-tests/tmp"
+test-tests *args: (_tmp "test-tests")
     cd packages/testing && uv run pytest \
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/test-tests/tmp" \
@@ -225,8 +232,7 @@ test-tests *args:
 
 # Run the testing package unit tests (with PyPy)
 [group('unit tests')]
-test-tests-pypy *args:
-    @mkdir -p "{{ output_dir }}/test-tests-pypy/tmp"
+test-tests-pypy *args: (_tmp "test-tests-pypy")
     cd packages/testing && uv run --python pypy3.11 --no-dev --group test pytest \
         -n auto --maxprocesses 6 \
         --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
@@ -243,8 +249,7 @@ test-ci-scripts *args:
 
 # Smoke-test benchmark tests: fill blockchain_test fixtures, then verify against EELS.
 [group('benchmark tests')]
-bench-gas *args:
-    @mkdir -p "{{ output_dir }}/bench-gas/tmp" "{{ output_dir }}/bench-gas/logs"
+bench-gas *args: (_tmp-logs "bench-gas")
     @echo "==> Step 1/3: Generating pre-alloc groups (smoke-tests the BlockchainEngineX path)"
     uv run fill \
         --generate-pre-alloc-groups \
@@ -286,8 +291,7 @@ bench-gas *args:
 
 # Fill benchmark tests with --fixed-opcode-count 1
 [group('benchmark tests')]
-bench-opcode *args:
-    @mkdir -p "{{ output_dir }}/bench-opcode/tmp" "{{ output_dir }}/bench-opcode/logs"
+bench-opcode *args: (_tmp-logs "bench-opcode")
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --fixed-opcode-count 1 \
@@ -304,8 +308,7 @@ bench-opcode *args:
 
 # Run benchmark_parser, then fill benchmark tests using its config
 [group('benchmark tests')]
-bench-opcode-config *args:
-    @mkdir -p "{{ output_dir }}/bench-opcode-config/tmp" "{{ output_dir }}/bench-opcode-config/logs"
+bench-opcode-config *args: (_tmp-logs "bench-opcode-config")
     uv run benchmark_parser
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
