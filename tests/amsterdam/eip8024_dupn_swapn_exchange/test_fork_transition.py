@@ -90,3 +90,57 @@ def test_opcode_at_fork_transition(
     }
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@EIPChecklist.Opcode.Test.ForkTransition.At()
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
+@pytest.mark.valid_at_transition_to("EIP8024")
+@pytest.mark.parametrize("opcode", [Op.DUPN, Op.SWAPN, Op.EXCHANGE])
+def test_jumpdest_in_immediate_at_fork_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    opcode: Op,
+) -> None:
+    """
+    Test a JUMPDEST inside an EIP-8024 immediate across the transition.
+
+    JUMPDEST analysis is unchanged by EIP-8024, so the 0x5b byte in the
+    opcode's would-be immediate is a valid jump destination both before
+    and after the fork. The jump skips the opcode byte itself, so every
+    block stores the marker at its NUMBER-keyed slot.
+    """
+    sender = pre.fund_eoa()
+    marker = 0xD4
+
+    # 00 PUSH1 0x04
+    # 02 JUMP
+    # 03 <opcode>
+    # 04 JUMPDEST (the would-be immediate)
+    code = Op.PUSH1(4) + Op.JUMP + opcode[b"\x5b"]
+    code += Op.PUSH1(marker) + Op.NUMBER + Op.SSTORE + Op.STOP
+
+    contract = pre.deploy_contract(code)
+
+    blocks = [
+        Block(
+            timestamp=ts,
+            txs=[Transaction(sender=sender, to=contract)],
+        )
+        for ts in (
+            FORK_TIMESTAMP - 1,
+            FORK_TIMESTAMP,
+            FORK_TIMESTAMP + 1,
+        )
+    ]
+
+    post = {
+        contract: Account(
+            storage={
+                1: marker,
+                2: marker,
+                3: marker,
+            },
+        ),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
