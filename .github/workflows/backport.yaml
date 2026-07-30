@@ -24,7 +24,13 @@ permissions:
 jobs:
   backport:
     name: Backport
-    if: github.event.pull_request.merged == true
+    # Early-exit before the (full-history) checkout unless the PR is merged
+    # AND carries a `backport …` label; otherwise this ran on every merged PR.
+    # Matches the guard recommended in the action's README — the leading quote
+    # in '"backport ' anchors the match to a label-name prefix.
+    if: >-
+      github.event.pull_request.merged == true &&
+      contains(toJSON(github.event.pull_request.labels.*.name), '"backport ')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -44,6 +50,13 @@ jobs:
           pull_title: '[backport ${target_branch}] ${pull_title}'
           pull_description: |
             Automated backport of #${pull_number} to `${target_branch}`.
+          # Assign the original author so they shepherd the backport (best
+          # effort — a non-assignable external author is simply skipped).
+          add_author_as_assignee: true
+          # Carry the repo's `A-<area>`/`C-<type>` labels over to the backport
+          # PR. The action excludes labels matching `label_pattern`, so the
+          # `backport …` trigger label is never copied (no re-backport loop).
+          copy_labels_pattern: '^[AC]-'
           # A PAT or GitHub App token stored as the `BACKPORT_TOKEN` secret
           # lets CI run on the backport PR; the default GITHUB_TOKEN cannot
           # trigger downstream workflows. Falls back to GITHUB_TOKEN when the
