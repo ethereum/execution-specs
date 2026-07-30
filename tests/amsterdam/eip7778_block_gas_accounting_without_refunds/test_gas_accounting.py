@@ -590,6 +590,7 @@ def test_extra_tx_admission_uses_pre_refund_gas(
     (
         gas_used_post_refund,
         gas_used_pre_refund,
+        _,
         call_data_floor_cost,
         refund_tx,
     ) = build_refund_tx(
