@@ -29,6 +29,7 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
     add_kzg_version,
+    compute_create_address,
 )
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP4844_Spec
@@ -1002,6 +1003,115 @@ def test_cumulative_block_state_gas_boundary(
         blocks=[
             Block(
                 txs=[tx1, tx2],
+                exception=error,
+                header_verify=header_verify,
+            )
+        ],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "over_by",
+    [
+        pytest.param(0, id="exact_fit"),
+        pytest.param(1, id="one_above", marks=pytest.mark.exception_test),
+        pytest.param(
+            None,
+            id="state_charge_above",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_block_2d_inclusion_execution_gate_full_gas_reservation(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    over_by: int | None,
+) -> None:
+    """
+    Pin the flat execution-gas inclusion gate on a contract creation.
+
+    EIP-8037 measures ``min(TX_MAX_GAS_LIMIT, tx.gas)`` against
+    ``execution_gas_available`` in full, with no credit for the
+    ``NEW_ACCOUNT`` state gas the creation charges at its top frame.
+    Filler STOP txs spend execution gas only, so the state budget
+    stays full and only the execution gate can reject the creation.
+
+    Its ``gas_limit`` is the leftover execution budget plus
+    ``over_by``, where ``None`` means the state charge itself. A
+    client crediting that charge would accept ``over_by=1`` with
+    slack and ``over_by=None`` exactly under strict ``>``; the flat
+    gate rejects both. ``over_by=0`` is the control, valid either way.
+    """
+    init_code = bytes(Op.STOP)
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas = intrinsic_calc()
+
+    create_execution = intrinsic_calc(
+        calldata=init_code,
+        contract_creation=True,
+    )
+    create_state_charge = fork.transaction_top_frame_state_gas(
+        contract_creation=True
+    )
+
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    delta = create_state_charge if over_by is None else over_by
+
+    # The CREATE tx draws its state charge from gas_left, so it needs
+    # both dimensions' gas within the leftover execution budget.
+    create_gas = create_execution + create_state_charge
+    num_fillers = create_state_charge // intrinsic_gas + 1
+    filler_execution = num_fillers * intrinsic_gas
+    block_gas_limit = max(
+        filler_execution + create_gas,
+        fork.minimum_block_gas_limit(),
+    )
+    execution_available = block_gas_limit - filler_execution
+    tx_gas_limit = execution_available + delta
+
+    assert execution_available >= create_gas
+    assert tx_gas_limit <= gas_limit_cap and tx_gas_limit <= block_gas_limit
+
+    assert tx_gas_limit - create_state_charge <= execution_available
+    assert (tx_gas_limit > execution_available) == (delta > 0)
+
+    error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
+    create_sender = pre.fund_eoa()
+    create_tx = Transaction(
+        to=None,
+        data=init_code,
+        gas_limit=tx_gas_limit,
+        sender=create_sender,
+        error=error,
+    )
+
+    post: dict = {}
+    header_verify: Header | None = None
+    if not delta:
+        post = {
+            compute_create_address(address=create_sender, nonce=0): Account(
+                nonce=1
+            ),
+        }
+        header_verify = Header(
+            gas_used=max(
+                filler_execution + create_execution,
+                create_state_charge,
+            ),
+        )
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=stop_txs(pre, fork, num_fillers) + [create_tx],
+                gas_limit=block_gas_limit,
                 exception=error,
                 header_verify=header_verify,
             )
