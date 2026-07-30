@@ -1006,99 +1006,105 @@ def test_cumulative_block_state_gas_boundary(
     "over_by",
     [
         pytest.param(0, id="exact_fit"),
+        pytest.param(1, id="one_above", marks=pytest.mark.exception_test),
         pytest.param(
-            1,
-            id="one_above",
-            marks=pytest.mark.exception_test,
-        ),
-        pytest.param(
-            "intrinsic_state",
-            id="subtracting_exact_fit",
+            None,
+            id="state_charge_above",
             marks=pytest.mark.exception_test,
         ),
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_block_2d_inclusion_regular_gate_no_intrinsic_subtraction(
+def test_block_2d_inclusion_regular_gate_full_gas_reservation(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
-    over_by: int | str,
+    over_by: int | None,
 ) -> None:
     """
-    Pin the flat EIP-8037 regular-gas inclusion check: the FULL
-    ``tx.gas`` (capped by ``TX_MAX_GAS_LIMIT``) is reserved in the
-    regular dimension, with no intrinsic-gas subtraction.
+    Pin the flat execution-gas inclusion gate on a contract creation.
 
-    Filler STOP txs consume regular gas only, leaving
-    ``regular_available`` below the final CREATE tx's ``gas_limit`` but
-    not below ``tx.gas - intrinsic.state`` (the CREATE carries
-    ``create_state_gas`` of intrinsic state gas), so:
+    EIP-8037 measures ``min(TX_MAX_GAS_LIMIT, tx.gas)`` against
+    ``execution_gas_available`` in full, with no credit for the
+    ``NEW_ACCOUNT`` state gas the creation charges at its top frame.
+    Filler STOP txs spend execution gas only, so the state budget
+    stays full and only the execution gate can reject the creation.
 
-    - ``over_by=0``: ``tx.gas == regular_available``; the block is
-      valid on any reading (control).
-    - ``over_by=1``: the flat check rejects (``tx.gas >
-      regular_available`` by one); a client reserving
-      ``tx.gas - intrinsic.state`` still fits with slack.
-    - ``over_by=intrinsic_state``: the flat check rejects; a
-      subtracting client reserves exactly ``regular_available`` and
-      accepts (strict ``>``).
-
-    The CREATE tx's gas limit stays within the block gas limit, so the
-    state gate never fires and only the regular gate discriminates. The
-    state-dimension mirror of this window (``tx.gas >
-    state_available`` but ``<= state_available + intrinsic.regular``)
-    is covered by ``test_cumulative_block_state_gas_boundary`` and by
-    the create/set-code parameters of
-    ``test_tx_gas_limit_block_boundary``.
+    Its ``gas_limit`` is the leftover execution budget plus
+    ``over_by``, where ``None`` means the state charge itself. A
+    client crediting that charge would accept ``over_by=1`` with
+    slack and ``over_by=None`` exactly under strict ``>``; the flat
+    gate rejects both. ``over_by=0`` is the control, valid either way.
     """
-    intrinsic = fork.transaction_intrinsic_cost_calculator()()
-    create_state_gas = fork.create_state_gas(code_size=0)
+    init_code = bytes(Op.STOP)
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas = intrinsic_calc()
+
+    create_regular = intrinsic_calc(
+        calldata=init_code,
+        contract_creation=True,
+    )
+    create_state_charge = fork.transaction_top_frame_state_gas(
+        contract_creation=True
+    )
+
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    delta = create_state_gas if over_by == "intrinsic_state" else int(over_by)
+    delta = create_state_charge if over_by is None else over_by
 
-    # Enough filler regular gas that the CREATE tx's gas limit stays
-    # within the block gas limit even at delta = create_state_gas.
-    num_fillers = create_state_gas // intrinsic + 1
-    block_gas_limit = 1_000_000
-    regular_available = block_gas_limit - num_fillers * intrinsic
-    tx2_gas_limit = regular_available + delta
+    # The CREATE tx draws its state charge from gas_left, so it needs
+    # both dimensions' gas within the leftover regular budget.
+    create_gas = create_regular + create_state_charge
+    num_fillers = create_state_charge // intrinsic_gas + 1
+    filler_regular = num_fillers * intrinsic_gas
+    block_gas_limit = max(
+        filler_regular + create_gas,
+        fork.minimum_block_gas_limit(),
+    )
+    regular_available = block_gas_limit - filler_regular
+    tx_gas_limit = regular_available + delta
 
-    assert tx2_gas_limit <= block_gas_limit
-    assert tx2_gas_limit <= gas_limit_cap
-    # A client reserving tx.gas - intrinsic.state accepts tx2.
-    assert tx2_gas_limit - create_state_gas <= regular_available
-    # The flat check accepts only at delta == 0.
-    assert (tx2_gas_limit > regular_available) == (delta > 0)
+    assert regular_available >= create_gas
+    assert tx_gas_limit <= gas_limit_cap and tx_gas_limit <= block_gas_limit
+
+    assert tx_gas_limit - create_state_charge <= regular_available
+    assert (tx_gas_limit > regular_available) == (delta > 0)
 
     error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
     create_sender = pre.fund_eoa()
-    tx2 = Transaction(
+    create_tx = Transaction(
         to=None,
-        data=bytes(Op.STOP),
-        gas_limit=tx2_gas_limit,
+        data=init_code,
+        gas_limit=tx_gas_limit,
         sender=create_sender,
         error=error,
     )
 
     post: dict = {}
+    header_verify: Header | None = None
     if not delta:
         post = {
             compute_create_address(address=create_sender, nonce=0): Account(
                 nonce=1
             ),
         }
+        header_verify = Header(
+            gas_used=max(
+                filler_regular + create_regular,
+                create_state_charge,
+            ),
+        )
 
     blockchain_test(
         genesis_environment=Environment(gas_limit=block_gas_limit),
         pre=pre,
         blocks=[
             Block(
-                txs=stop_txs(pre, fork, num_fillers) + [tx2],
+                txs=stop_txs(pre, fork, num_fillers) + [create_tx],
                 gas_limit=block_gas_limit,
                 exception=error,
+                header_verify=header_verify,
             )
         ],
         post=post,
