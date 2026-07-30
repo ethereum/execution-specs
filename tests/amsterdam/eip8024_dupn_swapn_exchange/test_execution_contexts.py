@@ -14,7 +14,6 @@ from execution_testing import (
     AuthorizationTuple,
     Bytecode,
     EIPChecklist,
-    Environment,
     Op,
     StateTestFiller,
     Transaction,
@@ -172,12 +171,7 @@ def test_stack_access_set_code(
         ),
     }
 
-    state_test(
-        env=Environment(),
-        pre=pre,
-        tx=tx,
-        post=post,
-    )
+    state_test(pre=pre, tx=tx, post=post)
 
 
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
