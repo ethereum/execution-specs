@@ -3,11 +3,6 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from ethereum_types.numeric import U8
-
-from ethereum.forks.amsterdam.vm.stack import decode_pair as _decode_pair
-from ethereum.forks.amsterdam.vm.stack import decode_single as _decode_single
-
 
 @dataclass(frozen=True)
 class ReferenceSpec:
@@ -19,7 +14,7 @@ class ReferenceSpec:
 
 ref_spec_8024 = ReferenceSpec(
     git_path="EIPS/eip-8024.md",
-    version="380cb02832a6ed5310bfde51591e580ca6d1f3cd",
+    version="34b49095ca5f7343045da279f04e7ecd1e451393",
 )
 
 
@@ -40,12 +35,26 @@ class Spec:
     EXCHANGE_MAX_SUM: int = 30
 
 
-def decode_pair(x: int) -> Tuple[int, int]:
-    """Decode a pair with proper typing for tests."""
-    n, m = _decode_pair(U8(x))
-    return int(n), int(m)
-
-
 def decode_single(x: int) -> int:
-    """Decode single with proper typing for tests."""
-    return int(_decode_single(U8(x)))
+    """
+    Decode the DUPN/SWAPN immediate byte per the EIP-8024 reference code.
+
+    Return n with 17 <= n <= 235.
+    """
+    assert 0 <= x <= 90 or 128 <= x <= 255
+    return (x + 145) % 256
+
+
+def decode_pair(x: int) -> Tuple[int, int]:
+    """
+    Decode the EXCHANGE immediate byte per the EIP-8024 reference code.
+
+    Return (n, m) with 1 <= n <= 14 and n < m <= 30 - n.
+    """
+    assert 0 <= x <= 81 or 128 <= x <= 255
+    k = x ^ 143
+    q, r = divmod(k, 16)
+    if q < r:
+        return q + 1, r + 1
+    else:
+        return r + 1, 29 - q

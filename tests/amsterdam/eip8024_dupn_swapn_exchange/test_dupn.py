@@ -25,6 +25,9 @@ REFERENCE_SPEC_VERSION = ref_spec_8024.version
 pytestmark = pytest.mark.valid_from("EIP8024")
 
 
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Odd()
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Even()
+@EIPChecklist.Opcode.Test.StackComplexOperations.DataPortionVariables.Bottom()
 @pytest.mark.parametrize(
     "stack_index",
     [17, 18, 32, 64, 107, 108, 200, 235],
@@ -68,6 +71,8 @@ def test_dupn_basic(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.AllZeros()
+@EIPChecklist.Opcode.Test.DataPortion.MaxValue()
 @pytest.mark.parametrize(
     "immediate",
     [0, 45, 90, 128, 200, 255],
@@ -108,6 +113,7 @@ def test_dupn_valid_immediates(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.StackUnderflow()
 @pytest.mark.parametrize(
     "immediate",
     [0, 45, 90, 128, 200, 255],
@@ -234,6 +240,7 @@ def test_endofcode_behavior(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.ExceptionalAbort()
 @pytest.mark.parametrize(
     "invalid_immediate",
     list(range(91, 128)),  # 0x5b to 0x7f (JUMPDEST and PUSH opcodes)
@@ -277,6 +284,7 @@ def test_dupn_invalid_immediate_aborts(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
 def test_dupn_jump_to_immediate_byte_0x5b_succeeds(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -313,6 +321,7 @@ def test_dupn_jump_to_immediate_byte_0x5b_succeeds(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
 def test_dupn_jump_to_valid_immediate_fails(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -323,7 +332,8 @@ def test_dupn_jump_to_valid_immediate_fails(
     Bytecode: PUSH1(4) JUMP DUPN[0x00]
     Hex: 6004 56 e6 00
     Position 4 contains 0x00 which is a VALID immediate for DUPN.
-    Valid immediates are skipped in JUMPDEST analysis, so jump fails.
+    JUMPDEST analysis is unchanged by EIP-8024: position 4 holds 0x00,
+    not 0x5b, so it is not a valid jump target and the jump fails.
     """
     sender = pre.fund_eoa()
 
@@ -396,5 +406,114 @@ def test_dupn_with_dup1_sequence(
             expected_storage[i] = 0  # All middle values
 
     post = {contract_address: Account(storage=expected_storage)}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.StackOverflow()
+@pytest.mark.parametrize(
+    "stack_delta,call_succeeds",
+    [
+        pytest.param(-1, True, id="dupn_fills_stack_to_limit"),
+        pytest.param(0, False, id="dupn_stack_overflow"),
+    ],
+)
+def test_dupn_stack_overflow(
+    stack_delta: int,
+    call_succeeds: bool,
+    pre: Alloc,
+    fork: Fork,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test that DUPN aborts when pushing past the stack limit.
+
+    The callee pushes `max_stack_height + stack_delta` items and
+    executes DUPN: from one below the limit the duplicate fills the
+    stack exactly and succeeds, while from a full stack the push
+    overflows and aborts the frame. The caller stores the call's
+    success flag over a nonzero canary.
+    """
+    stack_height = fork.max_stack_height() + stack_delta
+    callee_code = (
+        Op.PUSH0 * stack_height + Op.DUPN[Spec.MIN_STACK_INDEX] + Op.STOP
+    )
+    callee_address = pre.deploy_contract(callee_code)
+
+    caller_code = Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=callee_address))
+    caller_address = pre.deploy_contract(caller_code, storage={0: 0xBA5E})
+
+    tx = Transaction(to=caller_address, sender=pre.fund_eoa())
+
+    post = {
+        caller_address: Account(
+            storage={0: 1 if call_succeeds else 0},
+        ),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Zero()
+@EIPChecklist.Opcode.Test.StackUnderflow()
+def test_dupn_empty_stack(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test DUPN on an empty stack aborts with a stack underflow.
+    """
+    sender = pre.fund_eoa()
+
+    code = Op.SSTORE(0, 1)  # leaves the stack empty
+    code += Op.DUPN[Spec.MIN_STACK_INDEX]
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender)
+
+    # Transaction should fail, contract storage unchanged.
+    post = {contract_address: Account(storage={0: 0})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
+def test_dupn_jump_into_immediate_then_execute(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test jumping into a DUPN immediate, then executing a second DUPN.
+
+    The jump lands on the first DUPN's 0x5b immediate, a valid JUMPDEST
+    because analysis is unchanged by EIP-8024, and a second DUPN then
+    duplicates the deepest pushed value and stores it over the canary.
+    """
+    sender = pre.fund_eoa()
+
+    setup = sum(
+        (Op.PUSH1[i] for i in range(Spec.MIN_STACK_INDEX, 0, -1)),
+        Bytecode(),
+    )
+    # The 0x5b landing pad sits 4 bytes past the setup: PUSH1,
+    # target, JUMP, then the DUPN opcode byte itself.
+    landing_pad = len(setup) + 4
+
+    code = setup
+    code += Op.PUSH1(landing_pad) + Op.JUMP
+    code += Op.DUPN[b"\x5b"]  # Jumped into, never executed.
+    code += Op.SSTORE(
+        0,
+        Op.DUPN[Spec.MIN_STACK_INDEX],  # Executed after landing.
+    )
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code, storage={0: 0xBA5E})
+
+    tx = Transaction(to=contract_address, sender=sender)
+
+    post = {contract_address: Account(storage={0: Spec.MIN_STACK_INDEX})}
 
     state_test(pre=pre, post=post, tx=tx)

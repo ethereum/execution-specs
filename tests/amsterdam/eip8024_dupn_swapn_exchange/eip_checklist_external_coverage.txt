@@ -1,0 +1,3 @@
+general/code_coverage/eels = EIP-8024 adds the dupn/swapn/exchange instructions plus the decode_single/decode_pair helpers (vm/stack.py, vm/instructions/stack.py) and three gas constants; every branch including both forbidden-immediate ranges and both decode_pair arms is executed when filling this suite through the EELS t8n
+general/code_coverage/test_coverage = suite logic is exercised end-to-end by filling tests/amsterdam/eip8024_dupn_swapn_exchange with the EELS filler; every parametrized arm produces a fixture with a discriminating post-state
+general/code_coverage/missed_lines = no missed lines; the valid, forbidden-immediate, underflow, overflow and end-of-code sweeps cover every instruction branch
