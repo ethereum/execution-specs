@@ -1,4 +1,6 @@
-"""Tests for JUMP and JUMPI with runtime-computed destinations."""
+"""
+Tests for JUMP and JUMPI with runtime-computed destinations or conditions.
+"""
 
 from typing import Tuple
 
