@@ -20,12 +20,14 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Conditional,
     Fork,
     Header,
     Op,
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -1092,6 +1094,169 @@ def test_sstore_restoration_charge_in_ancestor_intermediate_revert(
         post={caller: Account(storage=caller_storage)},
         blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
+
+
+@pytest.mark.parametrize(
+    "ending",
+    [
+        pytest.param("success", id="all_frames_succeed"),
+        pytest.param("top_revert", id="top_level_reverts"),
+        pytest.param("middle_revert", id="middle_reverts_after_clear"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_cross_frame_refund_advance(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    ending: str,
+) -> None:
+    """
+    Verify a restoration refund credited in a re-entered frame (an
+    advance against the entry frame's spilled sets) discharges through
+    the middle frame's merge on success, is void when the top level
+    reverts, and is revoked when the middle frame reverts after the
+    clear — leaving both slots set and the sender paying their full
+    state gas.
+
+    The tx gas limit sits below the EIP-7825 cap, so the reservoir is
+    empty and the entry frame's sets spill from `gas_left`.
+    """
+    middle_ending = Op.REVERT(0, 0) if ending == "middle_revert" else Op.STOP
+    middle = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=Op.GAS, address=Op.CALLER, args_size=1))
+            + middle_ending
+        ),
+    )
+
+    entry_ending = Op.REVERT(0, 0) if ending == "top_revert" else Op.STOP
+    entry = pre.deploy_contract(
+        code=Conditional(
+            condition=Op.CALLDATASIZE,
+            # Re-entered: clear both slots; each refund is credited
+            # here as an advance.
+            if_true=Op.SSTORE(0, 0) + Op.SSTORE(1, 0) + Op.STOP,
+            if_false=(
+                Op.SSTORE(0, 1)
+                + Op.SSTORE(1, 1)
+                + Op.SSTORE(2, Op.CALL(gas=Op.GAS, address=middle))
+                + entry_ending
+            ),
+        ),
+    )
+
+    tx = Transaction(
+        to=entry,
+        gas_limit=1_000_000,
+        sender=pre.fund_eoa(),
+    )
+
+    if ending == "success":
+        storage = {0: 0, 1: 0, 2: 1}
+    elif ending == "top_revert":
+        storage = {}
+    else:
+        storage = {0: 1, 1: 1, 2: 0}
+
+    post = {entry: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def revoked_advance_call_tree(pre: Alloc) -> Address:
+    """
+    Deploy a call tree whose entry sets two slots (both spilled), and
+    whose middle frame — holding one spilled set of its own — value
+    calls back into the entry, which imports a reverted child call and
+    then clears both slots. The two-clear advance is only partially
+    dischargeable against the middle frame's usage; the entry then
+    exceptionally halts, revoking the rest.
+
+    Returns the entry contract's address.
+    """
+    reverting = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.REVERT(0, 0))
+    middle = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, 1)
+            + Op.POP(Op.CALL(gas=Op.GAS, address=Op.CALLER, value=1))
+            + Op.STOP
+        ),
+        balance=1,
+    )
+    return pre.deploy_contract(
+        code=Conditional(
+            condition=Op.CALLVALUE,
+            if_true=(
+                Op.POP(Op.CALL(gas=Op.GAS, address=reverting))
+                + Op.SSTORE(0, 0)
+                + Op.SSTORE(1, 0)
+                + Op.STOP
+            ),
+            if_false=(
+                Op.SSTORE(0, 1)
+                + Op.SSTORE(1, 1)
+                + Op.POP(Op.CALL(gas=Op.GAS, address=middle))
+                + Op.INVALID
+            ),
+        ),
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_partially_discharged_advance_revoked_by_halt(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify an advance only partially dischargeable in the middle frame
+    (two clears against one middle set) is fully revoked when the entry
+    frame exceptionally halts, so the sender pays the entry's whole
+    forwarded budget and the caller's accounting is undisturbed. The
+    receipt pins the billing: the halted entry consumes its whole
+    forwarded budget as execution gas and the caller's slot-1 set is
+    the only surviving state charge.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    entry_budget = 600_000
+    entry = revoked_advance_call_tree(pre)
+
+    storage = Storage()
+    # The entry call OOGs and returns 0, so the caller's first SSTORE
+    # is a cold no-op (0 to 0) on a fresh slot rather than the cold set
+    # `execution_cost` assumes by default.
+    caller_code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=0,
+    )(
+        storage.store_next(0, "entry_halted"),
+        Op.CALL(gas=entry_budget, address=entry),
+    ) + Op.SSTORE(storage.store_next(1, "caller_completed"), 1)
+    caller = pre.deploy_contract(code=caller_code)
+
+    expected_cumulative = (
+        intrinsic_cost
+        + caller_code.execution_cost(fork)
+        + entry_budget
+        + sstore_state_gas
+    )
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=1_000_000,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    post = {
+        caller: Account(storage=storage),
+        entry: Account(storage={0: 0, 1: 0}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.with_all_create_opcodes

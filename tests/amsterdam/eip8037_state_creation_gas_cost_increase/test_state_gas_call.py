@@ -1859,3 +1859,144 @@ def test_call_value_new_account_state_gas_returned_on_caller_revert(
         target: Account.NONEXISTENT,
     }
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_reverted_grandchild_spill_through_child_halt(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a grandchild's reverted spill does not ride through the
+    child's exceptional halt into the caller's accounting: the receipt
+    pins that the sender pays the halted child's forwarded budget
+    exactly once, not the grandchild's refilled spill on top.
+
+    The tx gas limit sits below the EIP-7825 cap, so the reservoir is
+    empty and the grandchild's set spills from `gas_left`.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    child_budget = 400_000
+
+    grandchild = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.REVERT(0, 0))
+    child = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=Op.GAS, address=grandchild)) + Op.INVALID,
+    )
+
+    storage = Storage()
+    # The child call halts and returns 0, so the caller's first SSTORE
+    # is a cold no-op (0 to 0) on a fresh slot rather than the cold set
+    # `execution_cost` assumes by default.
+    caller_code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=0,
+    )(
+        storage.store_next(0, "child_halted"),
+        Op.CALL(gas=child_budget, address=child),
+    ) + Op.SSTORE(storage.store_next(1, "caller_completed"), 1)
+    caller = pre.deploy_contract(code=caller_code)
+
+    # The halted child consumes its whole forwarded budget as execution
+    # gas; the caller's slot-1 set is the only surviving state charge.
+    expected_cumulative = (
+        intrinsic_cost
+        + caller_code.execution_cost(fork)
+        + child_budget
+        + sstore_state_gas
+    )
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=1_000_000,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    post = {
+        caller: Account(storage=storage),
+        grandchild: Account(storage={0: 0}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_soft_failed_value_call_refund_through_child_halt(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a same-frame NEW_ACCOUNT charge-and-refund (a value CALL
+    soft-failing the balance check) performed after a reverted child
+    call, merged into a frame with its own spilled set that then
+    exceptionally halts, charges the sender the halted frame's budget
+    exactly once — pinned by the receipt.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    child_budget = 600_000
+
+    grandchild = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.REVERT(0, 0))
+    fresh = pre.nonexistent_account()
+    # Zero balance: the value CALL soft-fails its balance check after
+    # the up-front NEW_ACCOUNT state charge, refunded in-frame.
+    middle = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=Op.GAS, address=grandchild))
+            + Op.POP(Op.CALL(gas=Op.GAS, address=fresh, value=1))
+            + Op.STOP
+        ),
+    )
+    child = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, 1)
+            + Op.POP(Op.CALL(gas=Op.GAS, address=middle))
+            + Op.INVALID
+        ),
+    )
+
+    storage = Storage()
+    # The child call halts and returns 0, so the caller's first SSTORE
+    # is a cold no-op (0 to 0) on a fresh slot rather than the cold set
+    # `execution_cost` assumes by default.
+    caller_code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=0,
+    )(
+        storage.store_next(0, "child_halted"),
+        Op.CALL(gas=child_budget, address=child),
+    ) + Op.SSTORE(storage.store_next(1, "caller_completed"), 1)
+    caller = pre.deploy_contract(code=caller_code)
+
+    # The halted child consumes its whole forwarded budget as execution
+    # gas; the caller's slot-1 set is the only surviving state charge.
+    expected_cumulative = (
+        intrinsic_cost
+        + caller_code.execution_cost(fork)
+        + child_budget
+        + sstore_state_gas
+    )
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=1_000_000,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    post = {
+        caller: Account(storage=storage),
+        child: Account(storage={0: 0}),
+        fresh: Account.NONEXISTENT,
+    }
+    state_test(pre=pre, post=post, tx=tx)

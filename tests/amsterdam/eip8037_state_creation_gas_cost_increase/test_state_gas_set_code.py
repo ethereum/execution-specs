@@ -57,6 +57,7 @@ from execution_testing import (
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
 from .spec import ref_spec_8037
+from .test_state_gas_sstore import revoked_advance_call_tree
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -1804,6 +1805,81 @@ def test_auth_sender_billing_after_failure(
         post=post,
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=header_gas_used),
+    )
+
+
+@pytest.mark.parametrize(
+    "inner_shape",
+    [
+        pytest.param("burned_child_spill", id="burned_child_spill"),
+        pytest.param("revoked_advance", id="revoked_advance"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_halt_keeps_intrinsic_auth_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    inner_shape: str,
+) -> None:
+    """
+    Verify a top-level exceptional halt keeps the full authorization
+    state gas in the state dimension while the burned child spill stays
+    in the execution dimension: the header reports
+    ``max(gas_limit - auth_state, auth_state)`` regardless of the
+    spill shape burned inside the halted frame.
+
+    The tx gas limit sits below the EIP-7825 cap, so the reservoir is
+    empty and every state charge inside the halted frame spills from
+    `gas_left`.
+    """
+    gas_limit = 1_000_000
+
+    if inner_shape == "burned_child_spill":
+        inner = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.INVALID)
+    else:
+        inner = revoked_advance_call_tree(pre)
+
+    recipient = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=Op.GAS, address=inner)) + Op.INVALID,
+    )
+
+    delegate = pre.deploy_contract(code=Op.STOP)
+    signer = pre.fund_eoa(amount=0)
+    authorization_list = [
+        AuthorizationTuple(
+            address=delegate,
+            nonce=0,
+            signer=signer,
+            creates_account=True,
+            writes_delegation=True,
+        ),
+    ]
+    _, _, auth_state_gas = _auth_gas(fork, authorization_list)
+
+    # The halt consumes the whole limit: the execution and state
+    # dimensions sum to `gas_limit` however the split falls.
+    tx = Transaction(
+        ty=4,
+        to=recipient,
+        gas_limit=gas_limit,
+        authorization_list=authorization_list,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
+        ),
+    )
+
+    post = {
+        signer: Account(code=Spec7702.delegation_designation(delegate)),
+    }
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(
+            gas_used=max(gas_limit - auth_state_gas, auth_state_gas)
+        ),
     )
 
 
