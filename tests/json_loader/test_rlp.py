@@ -1,13 +1,9 @@
 """
-Test that decoding RLP into integer types rejects non-canonical
-integers.
+Test that RLP decoding rejects non-canonical integer encodings.
 
-Canonical RLP encodes integers without leading zero bytes, so `0` is
-the empty byte string rather than `0x00`. Decoding an encoding that
-carries a leading zero must fail, otherwise the specification tooling
-would accept inputs that execution clients reject.
-
-See https://github.com/ethereum/ethereum-rlp/issues/10.
+RLP encodes integers big-endian without leading zero bytes; zero is
+the empty byte string, not `0x00`. Execution clients enforce this, so
+the `ethereum-rlp` dependency must too.
 """
 
 from typing import Union
@@ -31,7 +27,7 @@ from ethereum_types.numeric import U64, U256, Uint
 def test_decode_to_uint_accepts_canonical(
     encoded: bytes, expected: int
 ) -> None:
-    """Decode canonical `Uint` encodings with no leading zero byte."""
+    """Decode canonical integer encodings to the expected value."""
     assert rlp.decode_to(Uint, encoded) == Uint(expected)
 
 
@@ -49,6 +45,6 @@ def test_decode_to_uint_accepts_canonical(
 def test_decode_to_integer_rejects_leading_zeros(
     integer_type: type[Union[Uint, U64, U256]], encoded: bytes
 ) -> None:
-    """Reject integer encodings that carry a non-canonical leading zero."""
+    """Reject integer encodings with leading zero bytes."""
     with pytest.raises(DecodingError, match="non-canonical"):
         rlp.decode_to(integer_type, encoded)
