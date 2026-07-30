@@ -1015,7 +1015,7 @@ def test_cumulative_block_state_gas_boundary(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_block_2d_inclusion_regular_gate_full_gas_reservation(
+def test_block_2d_inclusion_execution_gate_full_gas_reservation(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -1040,7 +1040,7 @@ def test_block_2d_inclusion_regular_gate_full_gas_reservation(
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_calc()
 
-    create_regular = intrinsic_calc(
+    create_execution = intrinsic_calc(
         calldata=init_code,
         contract_creation=True,
     )
@@ -1054,22 +1054,22 @@ def test_block_2d_inclusion_regular_gate_full_gas_reservation(
     delta = create_state_charge if over_by is None else over_by
 
     # The CREATE tx draws its state charge from gas_left, so it needs
-    # both dimensions' gas within the leftover regular budget.
-    create_gas = create_regular + create_state_charge
+    # both dimensions' gas within the leftover execution budget.
+    create_gas = create_execution + create_state_charge
     num_fillers = create_state_charge // intrinsic_gas + 1
-    filler_regular = num_fillers * intrinsic_gas
+    filler_execution = num_fillers * intrinsic_gas
     block_gas_limit = max(
-        filler_regular + create_gas,
+        filler_execution + create_gas,
         fork.minimum_block_gas_limit(),
     )
-    regular_available = block_gas_limit - filler_regular
-    tx_gas_limit = regular_available + delta
+    execution_available = block_gas_limit - filler_execution
+    tx_gas_limit = execution_available + delta
 
-    assert regular_available >= create_gas
+    assert execution_available >= create_gas
     assert tx_gas_limit <= gas_limit_cap and tx_gas_limit <= block_gas_limit
 
-    assert tx_gas_limit - create_state_charge <= regular_available
-    assert (tx_gas_limit > regular_available) == (delta > 0)
+    assert tx_gas_limit - create_state_charge <= execution_available
+    assert (tx_gas_limit > execution_available) == (delta > 0)
 
     error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
     create_sender = pre.fund_eoa()
@@ -1091,7 +1091,7 @@ def test_block_2d_inclusion_regular_gate_full_gas_reservation(
         }
         header_verify = Header(
             gas_used=max(
-                filler_regular + create_regular,
+                filler_execution + create_execution,
                 create_state_charge,
             ),
         )
