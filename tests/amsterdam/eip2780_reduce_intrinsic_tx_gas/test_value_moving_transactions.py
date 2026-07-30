@@ -13,23 +13,30 @@ Test gas costs with EIP-2780 for value-moving transactions to:
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Address,
     Alloc,
     Fork,
+    Hash,
     Initcode,
     Op,
     RecipientType,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
+    add_kzg_version,
     compute_create_address,
 )
 
+from ...cancun.eip4844_blobs.spec import Spec as EIP4844_Spec
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from ..eip7708_eth_transfer_logs.spec import transfer_log
 from .helpers import (
     EOA_INITIAL_BALANCE,
     RECIPIENT_TYPES_NON_CREATE,
+    AuthorizationAction,
+    build_authorization,
     setup_target,
 )
 from .spec import ref_spec_2780
@@ -124,6 +131,142 @@ def test_value_moving_transactions(
             post[target] = None
         else:
             post[target] = Account(balance=target_initial_balance + value)
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.parametrize(
+    "delegation_warm",
+    [
+        pytest.param(False, id="cold_delegation_target"),
+        pytest.param(True, id="warm_delegation_target"),
+    ],
+)
+def test_self_transfer_with_delegated_sender(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    delegation_warm: bool,
+) -> None:
+    """
+    Gas for a self-transfer whose sender already holds a delegation.
+
+    The EIP's prose skips the delegation-target access for a
+    self-transfer; its reference-case row charges it.
+    """
+    value = 1
+    delegated_to = pre.deploy_contract(code=Op.STOP)
+    sender = pre.fund_eoa(delegation=delegated_to)
+
+    access_list = (
+        [AccessList(address=delegated_to, storage_keys=[])]
+        if delegation_warm
+        else []
+    )
+
+    intrinsic_recipient_type = RecipientType.SELF
+    top_frame_recipient_type = RecipientType.DELEGATION_7702
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list,
+        sends_value=True,
+        recipient_type=intrinsic_recipient_type,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+        sends_value=True,
+        recipient_type=top_frame_recipient_type,
+        delegation_warm=delegation_warm,
+    )
+    total_gas_cost = intrinsic_gas + top_frame_gas
+
+    tx = Transaction(
+        sender=sender,
+        to=sender,
+        value=value,
+        access_list=access_list,
+        gas_limit=total_gas_cost,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost, logs=[]
+        ),
+    )
+
+    post = {
+        sender: Account(
+            nonce=2, code=Spec7702.delegation_designation(delegated_to)
+        ),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.with_all_tx_types
+def test_intrinsic_decomposition_across_tx_types(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    tx_type: int,
+) -> None:
+    """
+    The decomposed intrinsic keys on the transaction's fields, not its
+    type: every type pays the same recipient and value primitives, with
+    type-specific costs riding on top.
+    """
+    value = 1
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=EOA_INITIAL_BALANCE)
+
+    scenario = (
+        build_authorization(pre, AuthorizationAction.SETS_NEW_DELEGATION)
+        if tx_type == 4
+        else None
+    )
+    authorizations = [scenario.authorization] if scenario else []
+
+    blob_versioned_hashes = (
+        add_kzg_version([Hash(1)], EIP4844_Spec.BLOB_COMMITMENT_VERSION_KZG)
+        if tx_type == 3
+        else None
+    )
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        authorization_list_or_count=authorizations,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        authorizations=authorizations,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        authorizations=authorizations,
+    )
+    total_gas_cost = intrinsic_gas + top_frame_gas + top_frame_state_gas
+
+    tx = Transaction(
+        ty=tx_type,
+        sender=sender,
+        to=recipient,
+        value=value,
+        authorization_list=authorizations or None,
+        blob_versioned_hashes=blob_versioned_hashes,
+        gas_limit=total_gas_cost,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost,
+            logs=[transfer_log(sender, recipient, value)],
+        ),
+    )
+
+    post: dict[Address, Account] = {
+        sender: Account(nonce=1),
+        recipient: Account(balance=EOA_INITIAL_BALANCE + value),
+    }
+    if scenario:
+        post[scenario.authority] = scenario.applied_account
 
     state_test(pre=pre, tx=tx, post=post)
 

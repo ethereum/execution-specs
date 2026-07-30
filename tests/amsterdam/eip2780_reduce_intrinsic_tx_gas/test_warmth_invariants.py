@@ -8,7 +8,8 @@ differently:
   intrinsic phase, without reading state, so it is *always cold*:
   listing ``tx.to`` in the access list pays the access-list cost but
   does not waive it, and the protocol-warmed coinbase is still charged
-  cold when it is the recipient.
+  cold when it is the recipient. The same holds for the authority
+  access folded into ``REGULAR_PER_AUTH_BASE_COST``.
 - A delegated recipient's delegation-target access is a *top-frame*
   charge that reads state, so it follows normal warm/cold accounting:
   ``WARM_ACCESS`` when the target is already warm -- the sender, the
@@ -38,6 +39,11 @@ from execution_testing import (
 )
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
+from .helpers import (
+    AuthorizationAction,
+    authorization_transaction_cost,
+    build_authorization,
+)
 from .spec import ref_spec_2780
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2780.git_path
@@ -157,6 +163,49 @@ def test_intrinsic_charges_recipient_is_coinbase(
 
     post = {
         sender: Account(nonce=1, balance=sender_final_balance),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_intrinsic_charges_authority_in_access_list(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Authority is listed in the access list. The intrinsic charge still
+    includes the full ``REGULAR_PER_AUTH_BASE_COST``, whose folded-in
+    authority access is charged at the cold rate.
+    """
+    sender = pre.fund_eoa()
+    recipient = pre.deploy_contract(code=Op.STOP)
+
+    scenario = build_authorization(
+        pre, AuthorizationAction.SETS_NEW_DELEGATION
+    )
+    authorization_list = [scenario.authorization]
+    access_list = [AccessList(address=scenario.authority, storage_keys=[])]
+
+    total_gas_cost = authorization_transaction_cost(
+        fork, authorization_list, access_list=access_list
+    )
+
+    tx = Transaction(
+        ty=4,
+        sender=sender,
+        to=recipient,
+        value=0,
+        access_list=access_list,
+        authorization_list=authorization_list,
+        gas_limit=total_gas_cost,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=total_gas_cost,
+        ),
+    )
+
+    post = {
+        scenario.authority: scenario.applied_account,
     }
 
     state_test(pre=pre, tx=tx, post=post)

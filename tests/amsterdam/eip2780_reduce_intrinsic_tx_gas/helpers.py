@@ -5,6 +5,7 @@ from enum import Enum, auto
 
 from execution_testing import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
@@ -16,7 +17,7 @@ from execution_testing import (
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
-EOA_INITIAL_BALANCE = 100
+EOA_INITIAL_BALANCE = 1
 NULL_ADDRESS = Address(0)
 
 RECIPIENT_TYPES_NON_CREATE = [
@@ -186,7 +187,10 @@ def build_authorization(
 
 
 def authorization_transaction_cost(
-    fork: Fork, authorization_list: list[AuthorizationTuple]
+    fork: Fork,
+    authorization_list: list[AuthorizationTuple],
+    *,
+    access_list: list[AccessList] | None = None,
 ) -> int:
     """
     Return the exact gas a value-free type-4 transaction to a plain
@@ -199,6 +203,7 @@ def authorization_transaction_cost(
     ``writes_delegation`` / ``first_write`` annotations.
     """
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list,
         recipient_type=RecipientType.CONTRACT,
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
