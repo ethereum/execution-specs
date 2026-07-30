@@ -73,8 +73,11 @@ LEGACY_VM_TESTS = (
 )
 @pytest.mark.parametrize(
     "dest_source,dest_kind",
-    [("calldata", kind) for kind in DESTINATION_KINDS]
-    + [(source, "push_data_jumpdest") for source in ("storage", "number")],
+    [
+        (source, kind)
+        for source in ("calldata", "storage", "number")
+        for kind in DESTINATION_KINDS
+    ],
 )
 def test_dynamic_jump_invalid_destination(
     state_test: StateTestFiller,
