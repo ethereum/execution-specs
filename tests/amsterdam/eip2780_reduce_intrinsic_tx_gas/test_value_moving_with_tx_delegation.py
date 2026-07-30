@@ -4,7 +4,7 @@ Tests for EIP-2780 x EIP-7702 interaction.
 A type-4 transaction's authorizations are processed at the top frame
 (in ``set_delegation``), where their state-dependent costs are charged.
 Each authorization pays, on top of the state-independent
-``REGULAR_PER_AUTH_BASE_COST`` charged in the intrinsic:
+``EXECUTION_PER_AUTH_BASE_COST`` charged in the intrinsic:
 
 - ``NEW_ACCOUNT`` (state) + ``ACCOUNT_WRITE`` (execution) when the
   authority's account leaf does not yet exist, and

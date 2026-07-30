@@ -17,7 +17,7 @@ regardless of whether the leaf pre-existed. This module pins that
 reduced, refund-free charge via the exact receipt gas:
 
 * a non-clearing delegation on an existing empty-code leaf pays the
-  intrinsic ``REGULAR_PER_AUTH_BASE_COST`` plus the top-frame
+  intrinsic ``EXECUTION_PER_AUTH_BASE_COST`` plus the top-frame
   ``ACCOUNT_WRITE`` (first leaf write) and ``AUTH_BASE`` (the net-new
   delegation indicator); and
 * a *clearing* re-authorization of an existing-delegation authority

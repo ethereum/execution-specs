@@ -129,7 +129,7 @@ class EIP2780(BaseFork):
                 return_cost_deducted_prior_execution=True,
             )
             intrinsic_cost += (
-                authorization_count * gas_costs.REGULAR_PER_AUTH_BASE_COST
+                authorization_count * gas_costs.EXECUTION_PER_AUTH_BASE_COST
             )
 
             is_self_transfer = recipient_type == RecipientType.SELF

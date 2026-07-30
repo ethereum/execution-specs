@@ -145,7 +145,7 @@ class GasCosts:
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
-    REGULAR_PER_AUTH_BASE_COST: Final[Uint] = (
+    EXECUTION_PER_AUTH_BASE_COST: Final[Uint] = (
         AUTH_TUPLE_BYTES * TX_DATA_TOKEN_FLOOR
         + PRECOMPILE_ECRECOVER
         + COLD_ACCOUNT_ACCESS
