@@ -19,6 +19,9 @@ from execution_testing import (
         Op.PUSH2[bytes(Op.JUMPDEST + Op.JUMPDEST)],
         Op.PUSH1[bytes(Op.JUMPDEST)] + Op.JUMPDEST,
         Op.PUSH2[bytes(Op.JUMPDEST + Op.JUMPDEST)] + Op.JUMPDEST,
+        Op.SWAPN[bytes(Op.JUMPDEST)],
+        Op.DUPN[bytes(Op.JUMPDEST)],
+        Op.EXCHANGE[bytes(Op.JUMPDEST)],
     ],
     ids=lambda x: x.hex(),
 )
