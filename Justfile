@@ -21,13 +21,14 @@ latest_fork := "Amsterdam"
 # Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
 export COVERAGE_CORE := "sysmon"
 
-# Create the scratch directory a recipe passes to pytest's --basetemp. Recipes
-# depend on this instead of repeating the mkdir, e.g. `fill *args: (_tmp "fill")`.
+# --- Helpers ---
+
+# Create a recipe's --basetemp scratch directory
 [private]
 _tmp name:
     @mkdir -p "{{ output_dir }}/{{ name }}/tmp"
 
-# Create both the scratch and log directories for recipes that also use --log-to.
+# Create a recipe's --basetemp and --log-to directories
 [private]
 _tmp-logs name: (_tmp name)
     @mkdir -p "{{ output_dir }}/{{ name }}/logs"
