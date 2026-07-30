@@ -47,7 +47,7 @@ jobs:
           # Only single-commit (squash-merged) PRs cherry-pick cleanly; skip
           # PRs that landed as merge commits rather than failing the run.
           merge_commits: skip
-          pull_title: '[backport ${target_branch}] ${pull_title}'
+          pull_title: '${pull_title} [backport ${target_branch}]'
           pull_description: |
             Automated backport of #${pull_number} to `${target_branch}`.
           # Assign the original author so they shepherd the backport (best
