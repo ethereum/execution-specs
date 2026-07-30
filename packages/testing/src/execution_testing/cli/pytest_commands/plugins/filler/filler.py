@@ -2160,34 +2160,28 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         _log_timing("verify_engine_x_execution: starting...")
         t0 = time.time()
         engine_x_check = verify_engine_x_execution(fixture_output.directory)
-        engine_x_warning: str | None = None
-        if engine_x_check is not None:
-            if engine_x_check.compared > 0:
-                logger.info(engine_x_check.summary)
-            elif engine_x_check.skipped > 0:
-                engine_x_warning = (
-                    "Engine X execution consistency check skipped: none of "
-                    f"the {engine_x_check.skipped} Engine X fixtures have a "
-                    "blockchain_tests_engine sibling fixture to compare "
-                    "against. Leaks from pre-alloc group packing are not "
-                    "verified for this output."
-                )
-        elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
-            engine_x_warning = (
-                "Engine X execution consistency check skipped: this fill "
-                "generated no blockchain_tests_engine fixtures to compare "
-                "against (e.g. filling with `-m blockchain_test_engine_x`). "
-                "Leaks from pre-alloc group packing are not verified for this "
-                "output."
-            )
-        if engine_x_warning is not None:
-            logger.warning(engine_x_warning)
-            # Repeated in the terminal summary; a log line alone is easy to
-            # miss.
-            session.config.engine_x_check_warning = engine_x_warning  # type: ignore[attr-defined] # noqa: E501
+        if engine_x_check.compared > 0:
+            logger.info(engine_x_check.summary)
+        if engine_x_check.skip_reason is not None:
+            logger.warning(engine_x_check.skip_reason)
+            # Repeated in the terminal summary; a log line alone is easy
+            # to miss.
+            session.config.engine_x_check_warning = engine_x_check.skip_reason  # type: ignore[attr-defined] # noqa: E501
         _log_timing(
             f"verify_engine_x_execution: done in {time.time() - t0:.1f}s"
         )
+    elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
+        if exitstatus != pytest.ExitCode.OK:
+            logger.info(
+                "Engine X execution consistency check skipped: the session "
+                "did not exit cleanly."
+            )
+        else:
+            logger.info(
+                "Engine X execution consistency check skipped: optimistic "
+                "pre-alloc grouping is disabled, so packing cannot have "
+                "changed any test's execution."
+            )
 
     # Verify fixtures after merge if verification is enabled
     if session.config.getoption("verify_fixtures"):
