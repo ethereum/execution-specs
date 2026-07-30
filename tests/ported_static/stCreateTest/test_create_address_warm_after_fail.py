@@ -409,7 +409,7 @@ def test_create_address_warm_after_fail(
             value_transfer=bool(v),
             account_new=new and bool(v),
         )
-        measured = frame + call.regular_cost(fork)
+        measured = frame + call.execution_cost(fork)
         if v:
             # The callee is empty (or STOP-only), so the stipend
             # forwarded with the value returns unused.

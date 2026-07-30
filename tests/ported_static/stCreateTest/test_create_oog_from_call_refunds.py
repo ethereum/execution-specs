@@ -263,7 +263,7 @@ def test_create_oog_from_call_refunds(
         + fork.code_deposit_state_gas(code_size=OOG_DEPOSIT_SIZE)
     )
     # No init frame can receive enough to pay the OoG arms' deposit.
-    grant_bound = gas_limit - intrinsic - create_op.regular_cost(fork)
+    grant_bound = gas_limit - intrinsic - create_op.execution_cost(fork)
     assert grant_bound * 63 // 64 < deposit_price, (
         "63/64 grant must stay below the OoG deposit price"
     )
