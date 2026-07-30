@@ -812,7 +812,7 @@ def test_vector_push_in_immediate_masks_jumpdest(
     # 02 JUMP
     # 03 <opcode>
     # 04 PUSH1 0x5b
-    code = Op.PUSH1(5) + Op.JUMP + opcode[b"\x60"] + Op.JUMPDEST
+    code = Op.PUSH1(5) + Op.JUMP + opcode[bytes(Op.PUSH1)] + Op.JUMPDEST
     expected_bytes = (
         bytes.fromhex("600556") + bytes(opcode) + bytes.fromhex("605b")
     )
