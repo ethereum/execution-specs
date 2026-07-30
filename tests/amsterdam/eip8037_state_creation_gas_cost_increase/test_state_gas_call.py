@@ -1859,3 +1859,102 @@ def test_call_value_new_account_state_gas_returned_on_caller_revert(
         target: Account.NONEXISTENT,
     }
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_reverted_grandchild_spill_through_child_halt(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify a grandchild's reverted spill does not ride through the
+    child's exceptional halt into the caller's accounting: the sender
+    pays the halted child's forwarded budget exactly once, not the
+    grandchild's refilled spill on top.
+
+    The tx gas limit sits below the EIP-7825 cap, so the reservoir is
+    empty and the grandchild's set spills from `gas_left`.
+    """
+    grandchild = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.REVERT(0, 0))
+    child = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=Op.GAS, address=grandchild)) + Op.INVALID,
+    )
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                storage.store_next(0, "child_halted"),
+                Op.CALL(gas=400_000, address=child),
+            )
+            + Op.SSTORE(storage.store_next(1, "caller_completed"), 1)
+        ),
+    )
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=1_000_000,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        caller: Account(storage=storage),
+        grandchild: Account(storage={0: 0}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_soft_failed_value_call_refund_through_child_halt(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify a same-frame NEW_ACCOUNT charge-and-refund (a value CALL
+    soft-failing the balance check) performed after a reverted child
+    call, merged into a frame with its own spilled set that then
+    exceptionally halts, charges the sender the halted frame's budget
+    exactly once.
+    """
+    grandchild = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.REVERT(0, 0))
+    fresh = pre.nonexistent_account()
+    # Zero balance: the value CALL soft-fails its balance check after
+    # the up-front NEW_ACCOUNT state charge, refunded in-frame.
+    middle = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=Op.GAS, address=grandchild))
+            + Op.POP(Op.CALL(gas=Op.GAS, address=fresh, value=1))
+            + Op.STOP
+        ),
+    )
+    child = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, 1)
+            + Op.POP(Op.CALL(gas=Op.GAS, address=middle))
+            + Op.INVALID
+        ),
+    )
+
+    storage = Storage()
+    caller = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                storage.store_next(0, "child_halted"),
+                Op.CALL(gas=600_000, address=child),
+            )
+            + Op.SSTORE(storage.store_next(1, "caller_completed"), 1)
+        ),
+    )
+
+    tx = Transaction(
+        to=caller,
+        gas_limit=1_000_000,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        caller: Account(storage=storage),
+        child: Account(storage={0: 0}),
+        fresh: Account.NONEXISTENT,
+    }
+    state_test(pre=pre, post=post, tx=tx)
