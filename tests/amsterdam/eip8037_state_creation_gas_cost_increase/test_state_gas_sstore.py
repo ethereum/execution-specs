@@ -27,6 +27,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -1204,30 +1205,51 @@ def revoked_advance_call_tree(pre: Alloc) -> Address:
 def test_partially_discharged_advance_revoked_by_halt(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Verify an advance only partially dischargeable in the middle frame
     (two clears against one middle set) is fully revoked when the entry
     frame exceptionally halts, so the sender pays the entry's whole
-    forwarded budget and the caller's accounting is undisturbed.
+    forwarded budget and the caller's accounting is undisturbed. The
+    receipt pins the billing: the halted entry consumes its whole
+    forwarded budget as execution gas and the caller's slot-1 set is
+    the only surviving state charge.
     """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    entry_budget = 600_000
     entry = revoked_advance_call_tree(pre)
 
     storage = Storage()
-    caller = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                storage.store_next(0, "entry_halted"),
-                Op.CALL(gas=600_000, address=entry),
-            )
-            + Op.SSTORE(storage.store_next(1, "caller_completed"), 1)
-        ),
+    # The entry call OOGs and returns 0, so the caller's first SSTORE
+    # is a cold no-op (0 to 0) on a fresh slot rather than the cold set
+    # `execution_cost` assumes by default.
+    caller_code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=0,
+    )(
+        storage.store_next(0, "entry_halted"),
+        Op.CALL(gas=entry_budget, address=entry),
+    ) + Op.SSTORE(storage.store_next(1, "caller_completed"), 1)
+    caller = pre.deploy_contract(code=caller_code)
+
+    expected_cumulative = (
+        intrinsic_cost
+        + caller_code.execution_cost(fork)
+        + entry_budget
+        + sstore_state_gas
     )
 
     tx = Transaction(
         to=caller,
         gas_limit=1_000_000,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
     )
 
     post = {

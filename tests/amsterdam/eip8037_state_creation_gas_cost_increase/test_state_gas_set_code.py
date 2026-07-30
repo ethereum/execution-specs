@@ -1857,12 +1857,17 @@ def test_top_level_halt_keeps_intrinsic_auth_state_gas(
     ]
     _, _, auth_state_gas = _auth_gas(fork, authorization_list)
 
+    # The halt consumes the whole limit: the execution and state
+    # dimensions sum to `gas_limit` however the split falls.
     tx = Transaction(
         ty=4,
         to=recipient,
         gas_limit=gas_limit,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
+        ),
     )
 
     post = {
