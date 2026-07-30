@@ -3,7 +3,7 @@ Test EIP-7702 SetCode authorization state gas under the EIP-2780
 top-frame charge model.
 
 Under EIP-2780 (Amsterdam) an authorization's intrinsic cost is only the
-state-independent ``REGULAR_PER_AUTH_BASE_COST``; there is no intrinsic
+state-independent ``EXECUTION_PER_AUTH_BASE_COST``; there is no intrinsic
 auth state gas and there are no auth refunds. The state-dependent costs
 are charged lazily at the top frame in ``set_delegation``, keyed on each
 authority's pre-transaction state:
@@ -615,7 +615,7 @@ def test_invalid_nonce_auth_still_charges_intrinsic(
     An authorization with a wrong nonce is skipped during
     ``set_delegation``, so it writes no delegation indicator and incurs
     no top-frame charge. Its state-independent
-    ``REGULAR_PER_AUTH_BASE_COST`` is still charged in the intrinsic, and
+    ``EXECUTION_PER_AUTH_BASE_COST`` is still charged in the intrinsic, and
     the authority is left untouched.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -670,7 +670,7 @@ def test_invalid_chain_id_auth_still_charges_intrinsic(
 
     An authorization with a mismatched chain ID is skipped during
     ``set_delegation`` and incurs no top-frame charge, but its
-    ``REGULAR_PER_AUTH_BASE_COST`` is still charged in the intrinsic and
+    ``EXECUTION_PER_AUTH_BASE_COST`` is still charged in the intrinsic and
     the authority is left untouched.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -946,7 +946,7 @@ def test_mixed_valid_and_invalid_auths(
     Test mixed valid and invalid authorizations under the top-frame model.
 
     Every tuple (valid or invalid) pays the intrinsic
-    ``REGULAR_PER_AUTH_BASE_COST``. Only the valid authorizations reach
+    ``EXECUTION_PER_AUTH_BASE_COST``. Only the valid authorizations reach
     ``set_delegation`` and each writes a net-new delegation on an existing
     authority, paying the first-write ``ACCOUNT_WRITE`` and the top-frame
     ``AUTH_BASE``; the invalid (wrong nonce) tuples are skipped and pay
@@ -1923,7 +1923,7 @@ def test_invalid_auth_no_top_frame_charge(
     neither ``NEW_ACCOUNT`` / ``ACCOUNT_WRITE`` nor ``AUTH_BASE`` at the
     top frame (and, unlike the superseded EIP-8037 model, nothing is
     refilled because nothing was charged). Only the intrinsic
-    ``REGULAR_PER_AUTH_BASE_COST`` is paid and the authority is never
+    ``EXECUTION_PER_AUTH_BASE_COST`` is paid and the authority is never
     created. Swept over the reasons an authorization is rejected.
     """
     target = pre.deploy_contract(code=Op.STOP)

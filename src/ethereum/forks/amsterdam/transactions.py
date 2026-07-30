@@ -644,7 +644,7 @@ def calculate_intrinsic_cost(
     4. Calldata cost (zero and non-zero bytes).
     5. Access list entries (if applicable).
     6. Authorizations (if applicable): only the state-independent base
-       cost (`REGULAR_PER_AUTH_BASE_COST`) per tuple. The
+       cost (`EXECUTION_PER_AUTH_BASE_COST`) per tuple. The
        state-dependent account-creation and delegation-write costs are
        charged at the top frame by `set_delegation`.
 
@@ -694,7 +694,7 @@ def calculate_intrinsic_cost(
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_cost = GasCosts.REGULAR_PER_AUTH_BASE_COST * ulen(
+        auth_cost = GasCosts.EXECUTION_PER_AUTH_BASE_COST * ulen(
             tx.authorizations
         )
 

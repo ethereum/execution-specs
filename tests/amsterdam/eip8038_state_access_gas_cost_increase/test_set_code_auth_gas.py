@@ -332,7 +332,7 @@ def test_mixed_validity_multi_auth_receipt_gas(
     Pin the exact receipt gas of a transaction carrying one valid and
     one invalid authorization under the EIP-2780 top-frame charge model.
 
-    Both tuples pay the state-independent ``REGULAR_PER_AUTH_BASE_COST``
+    Both tuples pay the state-independent ``EXECUTION_PER_AUTH_BASE_COST``
     in the intrinsic. The single valid authorization's authority leaf
     already exists (a funded EOA) and gains a net-new delegation
     indicator, so at the top frame it pays the first-write

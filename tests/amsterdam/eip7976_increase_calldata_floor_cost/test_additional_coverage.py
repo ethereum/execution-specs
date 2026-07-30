@@ -701,12 +701,12 @@ class TestAuthorizationListGasCost:
         """
         Verify the authorization-list intrinsic cost under EIP-2780.
 
-        Each authorization adds exactly ``REGULAR_PER_AUTH_BASE_COST`` to
+        Each authorization adds exactly ``EXECUTION_PER_AUTH_BASE_COST`` to
         the (execution) intrinsic; the state-dependent authorization costs
         moved to the top frame. Measured on the *raw* intrinsic (before
         the EIP-7623 calldata floor is applied) the per-authorization
         delta is exactly ``num_authorizations *
-        REGULAR_PER_AUTH_BASE_COST`` -- even when the floor would
+        EXECUTION_PER_AUTH_BASE_COST`` -- even when the floor would
         otherwise mask it (e.g. a single authorization whose base cost
         stays below the floor). Each existing authority then pays the
         first-write ``ACCOUNT_WRITE`` (execution) and ``AUTH_BASE``
@@ -752,9 +752,9 @@ class TestAuthorizationListGasCost:
 
         actual_auth_cost = intrinsic_with_auth - intrinsic_without_auth
         assert actual_auth_cost == (
-            num_authorizations * gas_costs.REGULAR_PER_AUTH_BASE_COST
+            num_authorizations * gas_costs.EXECUTION_PER_AUTH_BASE_COST
         ), (
-            "auth intrinsic must be n * REGULAR_PER_AUTH_BASE_COST, got: "
+            "auth intrinsic must be n * EXECUTION_PER_AUTH_BASE_COST, got: "
             f"{actual_auth_cost}"
         )
 

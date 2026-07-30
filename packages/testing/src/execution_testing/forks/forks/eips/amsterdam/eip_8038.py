@@ -75,7 +75,7 @@ class EIP8038(BaseFork):
             TX_CREATE=create_access,
             AUTH_PER_EMPTY_ACCOUNT=account_write
             + execution_per_auth_base_cost,
-            REGULAR_PER_AUTH_BASE_COST=execution_per_auth_base_cost,
+            EXECUTION_PER_AUTH_BASE_COST=execution_per_auth_base_cost,
         )
 
     @classmethod

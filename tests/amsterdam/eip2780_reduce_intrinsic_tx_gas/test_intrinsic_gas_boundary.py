@@ -136,7 +136,7 @@ def test_intrinsic_gas_floor_boundary_with_authorizations(
 ) -> None:
     """
     Reject a type-4 transaction when ``gas_limit = intrinsic_gas - 1``,
-    where the intrinsic includes ``REGULAR_PER_AUTH_BASE_COST`` per
+    where the intrinsic includes ``EXECUTION_PER_AUTH_BASE_COST`` per
     authorization.
 
     EIP-2780 keeps only the state-independent per-authorization base

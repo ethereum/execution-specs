@@ -424,8 +424,8 @@ def test_auth_intrinsic_at_transition(
     The ``7702`` authorization intrinsic *falls* across the boundary.
     EIP-2780 moves the state-dependent authorization costs (account
     creation and the delegation-write base) out of the intrinsic and into
-    the top frame, leaving only the execution ``REGULAR_PER_AUTH_BASE_COST``
-    in the intrinsic. The post-fork single-authorization intrinsic is
+    the top frame, leaving only ``EXECUTION_PER_AUTH_BASE_COST`` in the
+    intrinsic. The post-fork single-authorization intrinsic is
     therefore strictly smaller than the pre-fork one, so a tx whose
     ``gas_limit`` equals the (lower) post-fork intrinsic is rejected with
     ``INTRINSIC_GAS_TOO_LOW`` before the fork but valid after.
