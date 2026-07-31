@@ -224,6 +224,7 @@ class T8N(Load):
         if isinstance(input_alloc, LazyAlloc):
             input_alloc = input_alloc.materialize()
         self.alloc = input_alloc.model_copy(deep=True)
+        self.alloc.migrate_state_commitment(t8n_data.fork.state_commitment())
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
         self.ommers = list(ommers)

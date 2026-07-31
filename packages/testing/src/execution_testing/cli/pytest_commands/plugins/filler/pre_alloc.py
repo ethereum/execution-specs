@@ -73,7 +73,7 @@ class Alloc(SharedAlloc):
     def __init__(
         self,
         *args: Any,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         flags: AllocFlags,
         stub_accounts: Dict[str, Account] | None = None,
         stub_eoas: Dict[str, EOA] | None = None,
@@ -495,21 +495,14 @@ def stub_eoas(
 @pytest.fixture(scope="function")
 def pre(
     alloc_flags: AllocFlags,
-    fork: Fork | None,
-    request: pytest.FixtureRequest,
+    fork: Fork | TransitionFork,
     stub_accounts: Dict[str, Account],
     stub_eoas: Dict[str, EOA],
 ) -> Alloc:
     """Return default pre allocation for all tests (Empty alloc)."""
-    # FIXME: Static tests don't have a fork so we need to get it from the node.
-    actual_fork = fork
-    if actual_fork is None:
-        assert hasattr(request.node, "fork")
-        actual_fork = request.node.fork
-
     return Alloc(
         flags=alloc_flags,
-        fork=actual_fork,
+        fork=fork,
         stub_accounts=stub_accounts,
         stub_eoas=stub_eoas,
     )
