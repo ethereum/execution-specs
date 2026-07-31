@@ -4,8 +4,8 @@ Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/E
 Covers the EIP-8038 access-list repricing:
 
 * The intrinsic surcharge per access-list entry is
-  ``TX_ACCESS_LIST_ADDRESS`` (3000) per address and
-  ``TX_ACCESS_LIST_STORAGE_KEY`` (3000) per storage key, isolated from
+  ``TX_ACCESS_LIST_ADDRESS`` per address and
+  ``TX_ACCESS_LIST_STORAGE_KEY`` per storage key, isolated from
   the EIP-7981 calldata-floor tokens that the Amsterdam intrinsic
   calculator also charges on access-list bytes.
 * A storage slot named in the access list is *warm* on its first runtime

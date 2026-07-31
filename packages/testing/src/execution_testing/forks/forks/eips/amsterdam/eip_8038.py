@@ -67,8 +67,8 @@ class EIP8038(BaseFork):
             ACCOUNT_WRITE=account_write,
             CALL_VALUE=account_write + 2_300,  # ACCOUNT_WRITE + CALL_STIPEND
             REFUND_STORAGE_CLEAR=12_480,
-            TX_ACCESS_LIST_ADDRESS=3_000,
-            TX_ACCESS_LIST_STORAGE_KEY=3_000,
+            TX_ACCESS_LIST_ADDRESS=cold_account_access - warm_access,
+            TX_ACCESS_LIST_STORAGE_KEY=cold_storage_access - warm_access,
             BLOCK_ACCESS_LIST_ITEM=2000,
             STORAGE_SET=storage_write,
             OPCODE_CREATE_BASE=create_access,
