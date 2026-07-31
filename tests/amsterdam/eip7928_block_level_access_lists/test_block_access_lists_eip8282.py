@@ -12,7 +12,6 @@ from typing import Dict, List, Tuple, Type
 
 import pytest
 from execution_testing import (
-    Address,
     Alloc,
     BalAccountExpectation,
     BalNonceChange,
@@ -328,7 +327,7 @@ def test_bal_builder_request_invalid(
     sender = prepared.sender_account
     assert sender is not None
 
-    contract = Address(request_obj.interaction_contract_address)
+    contract = request_obj.interaction_contract_address
 
     block = Block(
         txs=txs,
