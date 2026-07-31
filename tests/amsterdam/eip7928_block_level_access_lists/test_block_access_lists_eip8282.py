@@ -1,0 +1,427 @@
+"""
+Tests for the effects of EIP-8282 builder requests on EIP-7928.
+
+Pin the block access list produced by the builder deposit and exit
+predeploys: the enqueuing transactions grow the count and queue tail
+slots, and the post-execution system call dequeues the records, resetting
+or advancing the bus slots depending on whether the sweep is clean or
+partial.
+"""
+
+from typing import Dict, List, Tuple, Type
+
+import pytest
+from execution_testing import (
+    Address,
+    Alloc,
+    BalAccountExpectation,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
+    Block,
+    BlockAccessListExpectation,
+    BlockchainTestFiller,
+    FeeSystemContractRequest,
+    SystemContractInteractionBase,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
+)
+
+from ..eip8282_builder_execution_requests.helpers import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
+)
+from ..eip8282_builder_execution_requests.spec import Spec as Spec8282
+from .spec import ref_spec_7928
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
+REFERENCE_SPEC_VERSION = ref_spec_7928.version
+
+pytestmark = pytest.mark.valid_from("Amsterdam")
+
+DEPOSIT_CONTRACT = Address(Spec8282.BUILDER_DEPOSIT_CONTRACT_ADDRESS)
+EXIT_CONTRACT = Address(Spec8282.BUILDER_EXIT_CONTRACT_ADDRESS)
+
+
+def _fees(
+    request_class: Type[FeeSystemContractRequest], count: int
+) -> List[int]:
+    """
+    Return the fee each of `count` requests enqueued in a single block must
+    pay, matching the predeploy's in-call excess computation: requests
+    already queued this block beyond the target raise the fee for the next
+    one (the stored excess starts at zero).
+    """
+    return [
+        request_class.get_fee(max(i - request_class.target_per_block, 0))
+        for i in range(count)
+    ]
+
+
+def _deposit(index: int, fee: int) -> BuilderDepositRequest:
+    """Build a builder deposit request with distinct non-zero fields."""
+    return BuilderDepositRequest(
+        pubkey=index * 3 + 1,
+        withdrawal_credentials=index * 3 + 2,
+        amount=Spec8282.BUILDER_MIN_DEPOSIT // 10**9,
+        signature=index * 3 + 3,
+        fee=fee,
+    )
+
+
+def _exit(index: int, fee: int) -> BuilderExitRequest:
+    """Build a builder exit request with a distinct non-zero pubkey."""
+    return BuilderExitRequest(pubkey=index + 1, fee=fee)
+
+
+def _request_bus_expectation(
+    request_class: Type[FeeSystemContractRequest],
+    enqueues: List[Tuple[int, int]],
+    system_call_index: int,
+) -> BalAccountExpectation:
+    """
+    Build the BAL expectation for a request-bus predeploy.
+
+    `enqueues` lists `(block_access_index, cumulative_count)` for each
+    transaction that enqueues into this predeploy. The count and queue tail
+    grow with each of them; the system call at `system_call_index` then
+    resets the count and either resets the tail (clean sweep) or advances
+    the head to `max_per_block` (partial sweep), writing the new excess if
+    the enqueued total exceeded the target.
+    """
+    total = enqueues[-1][1] if enqueues else 0
+    new_excess = max(total - request_class.target_per_block, 0)
+    partial_sweep = total > request_class.max_per_block
+
+    count_changes = [
+        BalStorageChange(block_access_index=index, post_value=cumulative)
+        for index, cumulative in enqueues
+    ] + [BalStorageChange(block_access_index=system_call_index, post_value=0)]
+
+    tail_changes = [
+        BalStorageChange(block_access_index=index, post_value=cumulative)
+        for index, cumulative in enqueues
+    ]
+    head_changes = []
+    if partial_sweep:
+        # Partial sweep: the head advances past the dequeued records and
+        # the tail keeps the queue's end.
+        head_changes.append(
+            BalStorageChange(
+                block_access_index=system_call_index,
+                post_value=request_class.max_per_block,
+            )
+        )
+    else:
+        # Clean sweep: the head stays at zero (a read) and the tail resets.
+        tail_changes.append(
+            BalStorageChange(
+                block_access_index=system_call_index, post_value=0
+            )
+        )
+
+    storage_changes = []
+    if new_excess:
+        storage_changes.append(
+            BalStorageSlot(
+                slot=Spec8282.EXCESS_STORAGE_SLOT,
+                slot_changes=[
+                    BalStorageChange(
+                        block_access_index=system_call_index,
+                        post_value=new_excess,
+                    )
+                ],
+            )
+        )
+    storage_changes.append(
+        BalStorageSlot(
+            slot=Spec8282.COUNT_STORAGE_SLOT, slot_changes=count_changes
+        )
+    )
+    if head_changes:
+        storage_changes.append(
+            BalStorageSlot(
+                slot=Spec8282.QUEUE_HEAD_STORAGE_SLOT,
+                slot_changes=head_changes,
+            )
+        )
+    storage_changes.append(
+        BalStorageSlot(
+            slot=Spec8282.QUEUE_TAIL_STORAGE_SLOT, slot_changes=tail_changes
+        )
+    )
+
+    storage_reads = []
+    if not new_excess:
+        storage_reads.append(Spec8282.EXCESS_STORAGE_SLOT)
+    if not partial_sweep:
+        storage_reads.append(Spec8282.QUEUE_HEAD_STORAGE_SLOT)
+
+    kwargs: Dict = {"storage_changes": storage_changes}
+    if storage_reads:
+        kwargs["storage_reads"] = storage_reads
+    return BalAccountExpectation(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "num_requests,via_contract",
+    [
+        pytest.param(1, False, id="single_deposit_from_eoa"),
+        pytest.param(
+            Spec8282.TARGET_DEPOSIT_REQUESTS_PER_BLOCK + 1,
+            False,
+            id="target_exceeded_deposits_from_eoa",
+        ),
+        pytest.param(
+            Spec8282.MAX_DEPOSIT_REQUESTS_PER_BLOCK + 1,
+            True,
+            id="carry_over_deposits_from_contract",
+        ),
+    ],
+)
+def test_bal_builder_deposit_dequeue(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    num_requests: int,
+    via_contract: bool,
+) -> None:
+    """
+    Ensure BAL tracks the builder deposit predeploy across a clean sweep, a
+    target-exceeding sweep that writes the excess, and a partial sweep that
+    advances the queue head.
+    """
+    requests = [
+        _deposit(i, fee)
+        for i, fee in enumerate(_fees(BuilderDepositRequest, num_requests))
+    ]
+    interaction: SystemContractInteractionBase
+    if via_contract:
+        interaction = SystemContractInteractionContract(requests=requests)
+    else:
+        interaction = SystemContractInteractionTransaction(requests=requests)
+    prepared = interaction.update_pre(pre)
+    txs = prepared.transactions()
+    system_call_index = len(txs) + 1
+
+    if via_contract:
+        enqueues = [(1, num_requests)]
+    else:
+        enqueues = [(i + 1, i + 1) for i in range(num_requests)]
+
+    sender = prepared.sender_account
+    assert sender is not None
+
+    block = Block(
+        txs=txs,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(
+                            block_access_index=i + 1, post_nonce=i + 1
+                        )
+                        for i in range(len(txs))
+                    ],
+                ),
+                DEPOSIT_CONTRACT: _request_bus_expectation(
+                    BuilderDepositRequest, enqueues, system_call_index
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(pre=pre, blocks=[block], post={})
+
+
+@pytest.mark.parametrize(
+    "num_requests,via_contract",
+    [
+        pytest.param(1, False, id="single_exit_from_eoa"),
+        pytest.param(
+            Spec8282.TARGET_EXIT_REQUESTS_PER_BLOCK + 1,
+            False,
+            id="target_exceeded_exits_from_eoa",
+        ),
+        pytest.param(
+            Spec8282.MAX_EXIT_REQUESTS_PER_BLOCK + 1,
+            True,
+            id="carry_over_exits_from_contract",
+        ),
+    ],
+)
+def test_bal_builder_exit_dequeue(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    num_requests: int,
+    via_contract: bool,
+) -> None:
+    """
+    Ensure BAL tracks the builder exit predeploy across a clean sweep, a
+    target-exceeding sweep that writes the excess, and a partial sweep that
+    advances the queue head.
+    """
+    requests = [
+        _exit(i, fee)
+        for i, fee in enumerate(_fees(BuilderExitRequest, num_requests))
+    ]
+    interaction: SystemContractInteractionBase
+    if via_contract:
+        interaction = SystemContractInteractionContract(requests=requests)
+    else:
+        interaction = SystemContractInteractionTransaction(requests=requests)
+    prepared = interaction.update_pre(pre)
+    txs = prepared.transactions()
+    system_call_index = len(txs) + 1
+
+    if via_contract:
+        enqueues = [(1, num_requests)]
+    else:
+        enqueues = [(i + 1, i + 1) for i in range(num_requests)]
+
+    sender = prepared.sender_account
+    assert sender is not None
+
+    block = Block(
+        txs=txs,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(
+                            block_access_index=i + 1, post_nonce=i + 1
+                        )
+                        for i in range(len(txs))
+                    ],
+                ),
+                EXIT_CONTRACT: _request_bus_expectation(
+                    BuilderExitRequest, enqueues, system_call_index
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(pre=pre, blocks=[block], post={})
+
+
+def test_bal_builder_deposits_and_exits_same_block(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL tracks both builder predeploys when a single block
+    interleaves deposit and exit requests, pinning which transaction
+    indices each contract's bus-slot changes carry.
+    """
+    deposit_fees = _fees(BuilderDepositRequest, 2)
+    exit_fees = _fees(BuilderExitRequest, 2)
+    interactions = [
+        SystemContractInteractionTransaction(
+            requests=[_deposit(0, deposit_fees[0])]
+        ),
+        SystemContractInteractionTransaction(
+            requests=[_exit(0, exit_fees[0])]
+        ),
+        SystemContractInteractionTransaction(
+            requests=[_deposit(1, deposit_fees[1])]
+        ),
+        SystemContractInteractionTransaction(
+            requests=[_exit(1, exit_fees[1])]
+        ),
+    ]
+
+    txs = []
+    senders = []
+    for interaction in interactions:
+        prepared = interaction.update_pre(pre)
+        txs += prepared.transactions()
+        assert prepared.sender_account is not None
+        senders.append(prepared.sender_account)
+    system_call_index = len(txs) + 1
+
+    account_expectations: Dict = {
+        sender: BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(block_access_index=i + 1, post_nonce=1)
+            ],
+        )
+        for i, sender in enumerate(senders)
+    }
+    # Deposits are enqueued by transactions 1 and 3, exits by 2 and 4.
+    account_expectations[DEPOSIT_CONTRACT] = _request_bus_expectation(
+        BuilderDepositRequest, [(1, 1), (3, 2)], system_call_index
+    )
+    account_expectations[EXIT_CONTRACT] = _request_bus_expectation(
+        BuilderExitRequest, [(2, 1), (4, 2)], system_call_index
+    )
+
+    block = Block(
+        txs=txs,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations
+        ),
+    )
+
+    blockchain_test(pre=pre, blocks=[block], post={})
+
+
+@pytest.mark.parametrize(
+    "request_obj",
+    [
+        pytest.param(
+            BuilderDepositRequest(
+                pubkey=1,
+                withdrawal_credentials=2,
+                amount=Spec8282.BUILDER_MIN_DEPOSIT // 10**9,
+                signature=3,
+                fee=0,
+                valid=False,
+            ),
+            id="deposit_insufficient_fee",
+        ),
+        pytest.param(
+            BuilderExitRequest(pubkey=1, fee=0, valid=False),
+            id="exit_insufficient_fee",
+        ),
+    ],
+)
+def test_bal_builder_request_invalid(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    request_obj: FeeSystemContractRequest,
+) -> None:
+    """
+    Ensure BAL records only reads on a builder predeploy when the request
+    call reverts for an insufficient fee: the reverted enqueue leaves no
+    storage change and the system-call dequeue finds an empty queue.
+    """
+    interaction = SystemContractInteractionTransaction(requests=[request_obj])
+    prepared = interaction.update_pre(pre)
+    txs = prepared.transactions()
+    sender = prepared.sender_account
+    assert sender is not None
+
+    contract = Address(request_obj.interaction_contract_address)
+
+    block = Block(
+        txs=txs,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                contract: BalAccountExpectation(
+                    storage_reads=[
+                        Spec8282.EXCESS_STORAGE_SLOT,
+                        Spec8282.COUNT_STORAGE_SLOT,
+                        Spec8282.QUEUE_HEAD_STORAGE_SLOT,
+                        Spec8282.QUEUE_TAIL_STORAGE_SLOT,
+                    ],
+                    storage_changes=[],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(pre=pre, blocks=[block], post={})
