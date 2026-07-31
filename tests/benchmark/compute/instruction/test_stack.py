@@ -6,6 +6,9 @@ Supported Opcodes:
 - PUSHx
 - DUPx
 - SWAPx
+- DUPN
+- SWAPN
+- EXCHANGE
 """
 
 import pytest
@@ -180,5 +183,73 @@ def test_push_truncated_data(
                     ret_size=Op.PUSH0,
                 )
             )
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.parametrize(
+    "stack_index",
+    [17, 107, 235],
+    ids=lambda x: f"stack_{x}",
+)
+def test_dupn(
+    benchmark_test: BenchmarkTestFiller,
+    stack_index: int,
+) -> None:
+    """Benchmark DUPN instruction."""
+    opcode = Op.DUPN[stack_index]
+    benchmark_test(
+        target_opcode=Op.DUPN,
+        code_generator=ExtCallGenerator(
+            setup=Op.PUSH0 * opcode.min_stack_height,
+            attack_block=opcode,
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.parametrize(
+    "stack_index",
+    [17, 107, 235],
+    ids=lambda x: f"stack_{x}",
+)
+def test_swapn(
+    benchmark_test: BenchmarkTestFiller,
+    stack_index: int,
+) -> None:
+    """Benchmark SWAPN instruction."""
+    opcode = Op.SWAPN[stack_index]
+    benchmark_test(
+        target_opcode=Op.SWAPN,
+        code_generator=JumpLoopGenerator(
+            attack_block=opcode, setup=Op.PUSH0 * opcode.min_stack_height
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.parametrize(
+    "n,m",
+    [
+        pytest.param(1, 2, id="n_1_m_2"),
+        pytest.param(1, 29, id="n_1_m_29"),
+        pytest.param(14, 16, id="n_14_m_16"),
+    ],
+)
+def test_exchange(
+    benchmark_test: BenchmarkTestFiller,
+    n: int,
+    m: int,
+) -> None:
+    """Benchmark EXCHANGE instruction."""
+    opcode = Op.EXCHANGE[n, m]
+    benchmark_test(
+        target_opcode=Op.EXCHANGE,
+        code_generator=JumpLoopGenerator(
+            attack_block=opcode, setup=Op.PUSH0 * opcode.min_stack_height
         ),
     )

@@ -147,6 +147,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "opt-in."
         ),
     )
+    group.addoption(
+        "--verify-full-accounts",
+        action="store_true",
+        dest="verify_full_accounts",
+        default=False,
+        help=(
+            "Verify all predeployed targets instead of sampling. "
+            "By default, only first and last accounts per range are checked. "
+            "This flag checks every account at start_block.)"
+        ),
+    )
 
 
 def _resolve_session_fork(
