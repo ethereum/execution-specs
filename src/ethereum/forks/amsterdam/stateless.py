@@ -237,8 +237,8 @@ def verify_stateless_new_payload(
     witness = stateless_input.witness
 
     try:
-        # Note that in EEST we have one implementation per fork, so we don't need
-        # to check execution payload timestamp against the current fork activation
+        # EEST has one implementation per fork, so it does not need to check
+        # the execution payload timestamp against the current fork activation
         # information. A real implementation MUST do these checks!
 
         # Validate the headers are contiguous and compute their
