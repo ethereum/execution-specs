@@ -20,7 +20,6 @@ from .stateless import (
     ChainConfig,
     ExecutionWitness,
     ForkActivation,
-    ForkConfig,
     StatelessInput,
     StatelessValidationResult,
 )
@@ -63,11 +62,9 @@ def build_chain_config(chain_id: U64) -> ChainConfig:
     """
     return ChainConfig(
         chain_id=chain_id,
-        active_fork=ForkConfig(
-            activation=ForkActivation(
-                block_number=None,
-                timestamp=U64(0),
-            ),
+        fork_activation=ForkActivation(
+            block_number=None,
+            timestamp=U64(0),
         ),
     )
 

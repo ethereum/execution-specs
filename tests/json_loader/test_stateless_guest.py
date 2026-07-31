@@ -6,7 +6,7 @@ from typing import Tuple
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes48, Bytes96
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U8, U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.forks.amsterdam.block_access_lists import BlockAccessList
@@ -26,7 +26,6 @@ from ethereum.forks.amsterdam.stateless import (
     ChainConfig,
     ExecutionWitness,
     ForkActivation,
-    ForkConfig,
     ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
@@ -135,11 +134,9 @@ def _make_block() -> Block:
 def _expected_amsterdam_chain_config(chain_id: U64) -> ChainConfig:
     return ChainConfig(
         chain_id=chain_id,
-        active_fork=ForkConfig(
-            activation=ForkActivation(
-                block_number=None,
-                timestamp=U64(0),
-            ),
+        fork_activation=ForkActivation(
+            block_number=None,
+            timestamp=U64(0),
         ),
     )
 
@@ -203,6 +200,7 @@ def _make_stateless_output() -> StatelessValidationResult:
         new_payload_request_root=Hash32(_rb(32)),
         successful_validation=True,
         chain_config=build_chain_config(U64(1)),
+        schema_fork_index=U8(0x15),
     )
 
 
@@ -414,17 +412,21 @@ class TestSerializeStatelessOutput:
         encoded = serialize_stateless_output(original)
         recovered = deserialize_stateless_output(encoded)
         assert recovered == original
+        assert recovered.chain_config == build_chain_config(U64(1))
+        assert recovered.schema_fork_index == U8(0x15)
 
     def test_failed_validation(self) -> None:
-        """Serializes a failed validation result correctly."""
+        """Preserve the executed fork when later validation fails."""
         original = StatelessValidationResult(
             new_payload_request_root=Hash32(_rb(32)),
             successful_validation=False,
             chain_config=build_chain_config(U64(1)),
+            schema_fork_index=U8(0x15),
         )
         encoded = serialize_stateless_output(original)
         recovered = deserialize_stateless_output(encoded)
         assert recovered == original
+        assert recovered.schema_fork_index == U8(0x15)
 
 
 class TestRunStatelessGuest:
@@ -438,8 +440,23 @@ class TestRunStatelessGuest:
         assert result.new_payload_request_root == Hash32(b"\0" * 32)
         assert not result.successful_validation
         assert result.chain_config.chain_id == U64(0)
-        assert result.chain_config.active_fork.activation.block_number is None
-        assert result.chain_config.active_fork.activation.timestamp is None
+        assert result.chain_config.fork_activation.block_number is None
+        assert result.chain_config.fork_activation.timestamp is None
+        assert result.schema_fork_index == U8(0)
+
+    def test_decodable_input_reports_amsterdam_on_validation_failure(
+        self,
+    ) -> None:
+        """Decoded Amsterdam input reports its fork after execution failure."""
+        stateless_input = _make_stateless_input()
+        encoded = run_stateless_guest(
+            serialize_stateless_input(stateless_input)
+        )
+        result = deserialize_stateless_output(encoded)
+
+        assert not result.successful_validation
+        assert result.chain_config == stateless_input.chain_config
+        assert result.schema_fork_index == U8(0x15)
 
 
 class TestComputeNewPayloadRequestRoot:
@@ -474,6 +491,7 @@ class TestTransactionPublicKeys:
 
         result = verify_stateless_new_payload(invalid)
         assert not result.successful_validation
+        assert result.schema_fork_index == U8(0x15)
 
     def test_too_many_public_keys_fail_validation(self) -> None:
         """Stateless validation should fail with too many public keys."""
@@ -491,3 +509,4 @@ class TestTransactionPublicKeys:
 
         result = verify_stateless_new_payload(invalid)
         assert not result.successful_validation
+        assert result.schema_fork_index == U8(0x15)

@@ -9,7 +9,7 @@ from typing import List, Sequence, Tuple, final
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U64
+from ethereum_types.numeric import U8, U64
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
@@ -139,24 +139,23 @@ class ForkActivation:
 @final
 @slotted_freezable
 @dataclass
-class ForkConfig:
-    """
-    Per-fork configuration needed to interpret stateless inputs.
-    """
-
-    activation: ForkActivation
-
-
-@final
-@slotted_freezable
-@dataclass
 class ChainConfig:
     """
     Chain configuration needed for stateless validation.
     """
 
     chain_id: U64
-    active_fork: ForkConfig
+    """
+    Chain identifier used during payload validation and
+    execution.
+    """
+
+    fork_activation: ForkActivation
+    """
+    Activation for the fork selected by the guest schema.
+
+    Used for activation checks and retained for transition-block logic.
+    """
 
 
 @final
@@ -222,6 +221,12 @@ class StatelessValidationResult:
     chain_config: ChainConfig
     """
     Chain configuration decoded from the input. This is a sentinel default
+    when ``run_stateless_guest`` cannot decode the input bytes.
+    """
+
+    schema_fork_index: U8
+    """
+    Fork rules executed by the guest. This uses the invalid-input sentinel
     when ``run_stateless_guest`` cannot decode the input bytes.
     """
 
@@ -300,19 +305,19 @@ def _is_activation_active(
 def validate_chain_config(
     chain_config: ChainConfig,
     new_payload_request: NewPayloadRequest,
-) -> ForkConfig:
+) -> None:
     """
-    Validate and return the target payload's active fork config.
+    Validate the chain configuration for the target payload.
     """
-    active_fork = chain_config.active_fork
     execution_payload = new_payload_request.execution_payload
 
-    if not _is_activation_active(active_fork.activation, execution_payload):
+    if not _is_activation_active(
+        chain_config.fork_activation,
+        execution_payload,
+    ):
         raise InactiveForkConfigError(
-            "ChainConfig active_fork is not active for the target payload"
+            "ChainConfig fork_activation is not active for the target payload"
         )
-
-    return active_fork
 
 
 def verify_stateless_new_payload(
@@ -363,4 +368,5 @@ def verify_stateless_new_payload(
         new_payload_request_root=new_payload_request_root,
         successful_validation=successful_validation,
         chain_config=stateless_input.chain_config,
+        schema_fork_index=U8(int(ProtocolFork.Amsterdam)),
     )

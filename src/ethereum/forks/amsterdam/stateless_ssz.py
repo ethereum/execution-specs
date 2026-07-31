@@ -9,8 +9,8 @@ functions between the two representations.
 from typing import TypeAlias
 
 from ethereum_types.bytes import Bytes, Bytes48, Bytes96
-from ethereum_types.numeric import U64, U256, Uint
-from remerkleable.basic import boolean, uint64, uint256
+from ethereum_types.numeric import U8, U64, U256, Uint
+from remerkleable.basic import boolean, uint8, uint64, uint256
 from remerkleable.byte_arrays import ByteList, Bytes32, ByteVector
 from remerkleable.complex import Container
 from remerkleable.complex import List as SszList
@@ -38,7 +38,6 @@ from .stateless import (
     ChainConfig,
     ExecutionWitness,
     ForkActivation,
-    ForkConfig,
     ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
@@ -217,17 +216,11 @@ class SszForkActivation(Container):
     timestamp: SszOptionalForkActivationValue
 
 
-class SszForkConfig(Container):
-    """SSZ container mirroring ``ForkConfig``."""
-
-    activation: SszForkActivation
-
-
 class SszChainConfig(Container):
     """SSZ container mirroring ``ChainConfig``."""
 
     chain_id: uint64
-    active_fork: SszForkConfig
+    fork_activation: SszForkActivation
 
 
 class SszStatelessInput(Container):
@@ -245,6 +238,7 @@ class SszStatelessValidationResult(Container):
     new_payload_request_root: Bytes32
     successful_validation: boolean
     chain_config: SszChainConfig
+    schema_fork_index: uint8
 
 
 # --- Conversion helpers ---
@@ -576,31 +570,13 @@ def _ssz_to_fork_activation(
     )
 
 
-def _fork_config_to_ssz(
-    fork_config: ForkConfig,
-) -> SszForkConfig:
-    """Convert a ForkConfig to its SSZ form."""
-    return SszForkConfig(
-        activation=_fork_activation_to_ssz(fork_config.activation),
-    )
-
-
-def _ssz_to_fork_config(
-    ssz_fork_config: SszForkConfig,
-) -> ForkConfig:
-    """Convert an SSZ fork config back."""
-    return ForkConfig(
-        activation=_ssz_to_fork_activation(ssz_fork_config.activation),
-    )
-
-
 def _chain_config_to_ssz(
     cc: ChainConfig,
 ) -> SszChainConfig:
     """Convert a ChainConfig to its SSZ form."""
     return SszChainConfig(
         chain_id=uint64(int(cc.chain_id)),
-        active_fork=_fork_config_to_ssz(cc.active_fork),
+        fork_activation=_fork_activation_to_ssz(cc.fork_activation),
     )
 
 
@@ -610,7 +586,7 @@ def _ssz_to_chain_config(
     """Convert an SSZ chain config back."""
     return ChainConfig(
         chain_id=U64(scc.chain_id),
-        active_fork=_ssz_to_fork_config(scc.active_fork),
+        fork_activation=_ssz_to_fork_activation(scc.fork_activation),
     )
 
 
@@ -658,6 +634,7 @@ def validation_result_to_ssz(
         new_payload_request_root=Bytes32(bytes(vr.new_payload_request_root)),
         successful_validation=boolean(vr.successful_validation),
         chain_config=_chain_config_to_ssz(vr.chain_config),
+        schema_fork_index=uint8(int(vr.schema_fork_index)),
     )
 
 
@@ -671,4 +648,5 @@ def ssz_to_validation_result(
         ),
         successful_validation=bool(ssz_vr.successful_validation),
         chain_config=_ssz_to_chain_config(ssz_vr.chain_config),
+        schema_fork_index=U8(ssz_vr.schema_fork_index),
     )

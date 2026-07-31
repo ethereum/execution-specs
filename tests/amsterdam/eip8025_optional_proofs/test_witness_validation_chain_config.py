@@ -60,15 +60,11 @@ def future_timestamp_activation_chain_config(stateless_input: Any) -> Any:
 
     payload = stateless_input.new_payload_request.execution_payload
     chain_config = stateless_input.chain_config
-    active_fork = chain_config.active_fork
     return replace(
         chain_config,
-        active_fork=replace(
-            active_fork,
-            activation=ForkActivation(
-                block_number=None,
-                timestamp=U64(int(payload.timestamp) + 1),
-            ),
+        fork_activation=ForkActivation(
+            block_number=None,
+            timestamp=U64(int(payload.timestamp) + 1),
         ),
     )
 
