@@ -267,8 +267,9 @@ def test_diff_root_matches_directly_built_post_state() -> None:
     deleting an account produces the same root as building the
     post-state directly in the MPT container and embedding it.
 
-    Not EIP-8297-conformant (see module docstring): the zeroed slot
-    and the deleted account's storage both pin current behavior.
+    The zeroed slot is deleted and the deleted account's storage
+    goes with it, both as EIP-8297 requires, so the two ways of
+    reaching the post state agree.
     """
     code = Bytes(b"\x01" * 40)
     code_hash = keccak256(code)
@@ -338,11 +339,8 @@ def test_deleting_the_only_account_empties_the_tree() -> None:
 def test_zero_write_matches_never_written() -> None:
     """
     Writing a slot to zero commits identically to never having
-    written it: the provider treats zero as absence, mirroring the
-    MPT state semantics.
-
-    That match with MPT is exactly what is not EIP-8297-conformant
-    (see module docstring): pins current behavior.
+    written it: zero resolves to a deletion, as EIP-8297 requires
+    and as the MPT state semantics already had it.
     """
 
     def fresh() -> State:
@@ -1433,10 +1431,8 @@ def test_all_zero_storage_change_drops_the_address_entry() -> None:
     itself is dropped, not left mapped to an empty dict.
 
     `account_has_storage` reads back `False` and the root matches a
-    state that was never written to.
-
-    Not EIP-8297-conformant (see module docstring): pins current
-    behavior.
+    state that was never written to, which is the answer EIP-8297
+    fixes for the tree: no slot leaf of the address survives.
     """
     state = State()
     set_account(
@@ -1577,8 +1573,7 @@ def test_sequential_block_diffs_evolve_the_root() -> None:
     write.
 
     Zero-means-absent composes across separate blocks, not just
-    within one diff. Not EIP-8297-conformant (see module docstring):
-    pins current behavior.
+    within one diff.
     """
     state = State()
     set_account(

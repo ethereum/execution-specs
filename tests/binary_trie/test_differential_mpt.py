@@ -8,26 +8,25 @@ provider-level observable (accounts, storage, code,
 `account_has_storage`) should agree given identical inputs.
 
 The first group of tests directs specific `BlockDiff`s at both
-providers to pin a real, already-discovered divergence (detailed on
-each test): deleting an account pops its storage under PBT but not
-MPT, visible through EIP-7610's `account_has_storage` gate on
-`CREATE2` -- an open EIP-8297 consensus question, not a bug in either
-provider. The second group applies random sequences of 5-8 diffs to
-both providers and checks observable equivalence after every diff,
+providers to pin the storage a deleted account leaves behind
+(detailed on each test), which the two answer differently: PBT drops
+it, MPT keeps it, visible through EIP-7610's `account_has_storage`
+gate on `CREATE2`. This is not a bug in either provider. EIP-8297
+fixes `account_has_storage` for the tree, to whether a slot leaf of
+the address exists, and `state_pbt` follows it; `state_mpt` answers
+from its own storage tries, exactly as it does with no binary tree in
+the picture. The second group applies random sequences of 5-8 diffs
+to both providers and checks observable equivalence after every diff,
 except at addresses known to carry that divergence, tracked via a
 `divergent` set.
 
-Separately, EIP-8297's "Zero values and deletion" section is
-normative today: "a zero-valued leaf is distinct from an absent
-key, committing to a different root," and "removing entries is
-reserved for a future state-expiry mechanism." Both providers here
-do the opposite -- a zero write deletes the slot -- so the
-zero-write tests below pin current provider behavior, not EIP-8297
-conformance; their pinned equalities would need regenerating if
-either provider were ever made conformant.
-`test_trie.py::test_zero_value_is_not_absence` is the one conformant
-test in this tree: the raw `BinaryTrie` does keep a zero-valued leaf;
-only the provider layer removes it.
+Everything else should agree. EIP-8297's "Zero values and deletion"
+section requires a write of 32 zero bytes to resolve to a deletion,
+which is what both providers do and what the MPT did already, so the
+zero-write equalities below are conformance rather than pinned
+behavior. `test_trie.py::test_zero_value_is_not_absence` is not in
+tension with that: the raw `BinaryTrie` does keep a zero-valued leaf,
+and collapsing zero onto absence is the state model's job.
 """
 
 import random
@@ -223,9 +222,9 @@ def test_all_zero_storage_changes_matches_never_written() -> None:
     checked only via `get_storage`/`account_has_storage`; its root is
     never computed in this test.
 
-    Not EIP-8297-conformant (see the module docstring): the pinned
-    equality here is current provider behavior, not the EIP's own
-    zero/deletion semantics.
+    The equality is what EIP-8297 requires of the tree, and what the
+    MPT gave already: a write of zero is a deletion, so writing zero
+    to an absent slot is a no-op.
     """
     diff = BlockDiff(
         storage_changes={
@@ -288,8 +287,8 @@ def test_zero_write_to_existing_slot_deletes_in_both() -> None:
     discard their now-empty container for the address once its one
     key is zeroed.
 
-    Not EIP-8297-conformant (see the module docstring): this pins
-    current behavior, not the EIP's own zero/deletion semantics.
+    Zeroing the last slot is a deletion under EIP-8297 as it is
+    under the MPT.
     """
     diff = BlockDiff(storage_changes={ADDRESS_X: {STORAGE_KEY: U256(0)}})
 

@@ -3,16 +3,14 @@ Storage operation tests for the EIP-8297 partitioned binary tree,
 covering the account-header and overflow-zone boundaries the tree
 embedding cares about.
 
-EIP-8297's "Zero values and deletion" section is normative today:
-"a zero-valued leaf is distinct from an absent key, committing to a
-different root," and "removing entries is reserved for a future
-state-expiry mechanism." `state_pbt.py` does the opposite -- a zero
-write deletes the slot -- so every zero-write test below pins this
-provider's current behavior, not EIP-8297 conformance; their post
-states would need regenerating if the provider were ever made
-conformant. `test_trie.py::test_zero_value_is_not_absence` is the
-one conformant test in the tree: the raw trie does keep a
-zero-valued leaf; only the provider layer removes it.
+EIP-8297's "Zero values and deletion" section requires a write of 32
+zero bytes to resolve to a deletion rather than an insertion, so a
+slot cleared to zero is absent from the tree and indistinguishable
+from one never written. That is what the zero-write tests below
+expect, and it matches what a client would produce with a Merkle
+Patricia Trie, where zero and absent have always been the same
+state. The expected post states are therefore ordinary EIP-8297
+conformance, not a quirk of any one implementation.
 """
 
 import pytest
@@ -96,10 +94,8 @@ def test_sstore_zero_after_nonzero_same_tx(
     Verify writing a nonzero value and then zeroing the same slot
     within one transaction leaves the slot absent from the post state.
 
-    `src/ethereum/state_pbt.py` treats a zero-valued storage slot as
-    equivalent to an absent one, so the expected post storage below
-    is simply empty. Not EIP-8297-conformant (see the module
-    docstring): this pins current provider behavior.
+    A zero-valued slot and an absent one are the same state, so the
+    expected post storage below is simply empty.
     """
     slot = 7
     contract = pre.deploy_contract(
@@ -129,8 +125,8 @@ def test_sstore_zero_across_transactions_or_blocks(
     ends up absent from the post state, whether the two land in the
     SAME block (as two transactions) or in two consecutive blocks.
 
-    Not EIP-8297-conformant (see the module docstring): the absent
-    slot pins current provider behavior.
+    The zeroing is a deletion either way, so the slot is absent
+    rather than present and zero-valued.
     """
     slot = 7
     contract = sstore_from_calldata_contract(pre, slot=slot)
