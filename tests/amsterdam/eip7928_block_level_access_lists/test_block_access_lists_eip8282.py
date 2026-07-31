@@ -58,20 +58,11 @@ def _fees(
     ]
 
 
-def _deposit(index: int, fee: int) -> BuilderDepositRequest:
-    """Build a builder deposit request with distinct non-zero fields."""
-    return BuilderDepositRequest(
-        pubkey=index * 3 + 1,
-        withdrawal_credentials=index * 3 + 2,
-        amount=Spec8282.BUILDER_MIN_DEPOSIT // 10**9,
-        signature=index * 3 + 3,
-        fee=fee,
-    )
-
-
-def _exit(index: int, fee: int) -> BuilderExitRequest:
-    """Build a builder exit request with a distinct non-zero pubkey."""
-    return BuilderExitRequest(pubkey=index + 1, fee=fee)
+def _request(
+    request_class: Type[FeeSystemContractRequest], index: int, fee: int
+) -> FeeSystemContractRequest:
+    """Build a request from a sequential index, paying `fee` to enqueue."""
+    return request_class.from_index(index).copy(fee=fee)
 
 
 def _request_bus_expectation(
@@ -191,7 +182,7 @@ def test_bal_builder_deposit_dequeue(
     advances the queue head.
     """
     requests = [
-        _deposit(i, fee)
+        _request(BuilderDepositRequest, i, fee)
         for i, fee in enumerate(_fees(BuilderDepositRequest, num_requests))
     ]
     interaction: SystemContractInteractionBase
@@ -261,7 +252,7 @@ def test_bal_builder_exit_dequeue(
     advances the queue head.
     """
     requests = [
-        _exit(i, fee)
+        _request(BuilderExitRequest, i, fee)
         for i, fee in enumerate(_fees(BuilderExitRequest, num_requests))
     ]
     interaction: SystemContractInteractionBase
@@ -316,16 +307,16 @@ def test_bal_builder_deposits_and_exits_same_block(
     exit_fees = _fees(BuilderExitRequest, 2)
     interactions = [
         SystemContractInteractionTransaction(
-            requests=[_deposit(0, deposit_fees[0])]
+            requests=[_request(BuilderDepositRequest, 0, deposit_fees[0])]
         ),
         SystemContractInteractionTransaction(
-            requests=[_exit(0, exit_fees[0])]
+            requests=[_request(BuilderExitRequest, 0, exit_fees[0])]
         ),
         SystemContractInteractionTransaction(
-            requests=[_deposit(1, deposit_fees[1])]
+            requests=[_request(BuilderDepositRequest, 1, deposit_fees[1])]
         ),
         SystemContractInteractionTransaction(
-            requests=[_exit(1, exit_fees[1])]
+            requests=[_request(BuilderExitRequest, 1, exit_fees[1])]
         ),
     ]
 
