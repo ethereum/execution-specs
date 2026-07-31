@@ -80,18 +80,27 @@ jobs:
           - label: pre-shanghai
             from_fork: Frontier
             until_fork: Paris
+            fill_paths: tests
           - label: shanghai-cancun
             from_fork: Shanghai
             until_fork: Cancun
+            fill_paths: tests
           - label: prague
             from_fork: Prague
             until_fork: Prague
+            fill_paths: tests
           - label: osaka
             from_fork: Osaka
             until_fork: Osaka
-          - label: amsterdam
-            from_fork: Amsterdam
-            until_fork: Amsterdam
+            fill_paths: tests
+          # TODO: The EIP-8141 frame transaction tests fill under the
+          # ``Bogota`` pseudo-fork (Amsterdam spec + EIP-8141). Re-add an
+          # ``amsterdam`` entry with ``fill_paths: tests`` as the rest of
+          # the suite is brought up to date in subsequent PRs.
+          - label: bogota
+            from_fork: Bogota
+            until_fork: Bogota
+            fill_paths: tests/amsterdam/eip8141_frame_transactions
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
@@ -103,6 +112,7 @@ jobs:
           -m "not slow and not derived_test"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+          FILL_PATHS: ${{ matrix.fill_paths }}
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
@@ -132,9 +142,13 @@ jobs:
         with:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env-pypy
+      # TODO: Stop short of Amsterdam while only the EIP-8141 frame
+      # transaction tests are filled for that fork. Drop FILL_UNTIL as the
+      # test run is expanded in subsequent PRs.
       - name: Run fill-pypy tests
         run: just fill-pypy
         env:
+          FILL_UNTIL: Osaka
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
 
@@ -146,9 +160,13 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
+      # TODO: Stop short of Amsterdam while only the EIP-8141 frame
+      # transaction tests are filled for that fork. Drop FILL_UNTIL as the
+      # test run is expanded in subsequent PRs.
       - name: Fill and run json-loader tests
         run: just json-loader
         env:
+          FILL_UNTIL: Osaka
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
