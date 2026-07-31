@@ -5448,6 +5448,7 @@ class Opcodes(Opcode, Enum):
             "address_warm": False,
             "value_transfer": False,
             "account_new": False,
+            "stipend_returned": False,
             "new_memory_size": 0,
             "old_memory_size": 0,
             "delegated_address": False,
@@ -5499,6 +5500,9 @@ class Opcodes(Opcode, Enum):
     - address_warm: whether the address is already warm (default: False)
     - value_transfer: whether value is being transferred (default: False)
     - account_new: whether creating a new account (default: False)
+    - stipend_returned: whether the callee leaves the value-transfer
+                        stipend unconsumed, returning it to the caller
+                        (default: False)
     - new_memory_size: memory size after expansion in bytes (default: 0)
     - old_memory_size: memory size before expansion in bytes (default: 0)
     - delegated_address: whether the target is a delegated account
@@ -5527,6 +5531,7 @@ class Opcodes(Opcode, Enum):
             "address_warm": False,
             "value_transfer": False,
             "account_new": False,
+            "stipend_returned": False,
             "new_memory_size": 0,
             "old_memory_size": 0,
             "delegated_address": False,
@@ -5578,6 +5583,9 @@ class Opcodes(Opcode, Enum):
     - address_warm: whether the address is already warm (default: False)
     - value_transfer: whether value is being transferred (default: False)
     - account_new: whether creating a new account (default: False)
+    - stipend_returned: whether the callee leaves the value-transfer
+                        stipend unconsumed, returning it to the caller
+                        (default: False)
     - new_memory_size: memory size after expansion in bytes (default: 0)
     - old_memory_size: memory size before expansion in bytes (default: 0)
     - delegated_address: whether the target is a delegated account

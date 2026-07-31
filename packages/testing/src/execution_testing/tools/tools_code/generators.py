@@ -980,6 +980,27 @@ class IteratingBytecode(Bytecode):
             iterating_subcall_gas_cost * 64 // 63
         ) - iterating_subcall_gas_cost
 
+    def returned_stipend_reserve(self, *, fork: Fork) -> int:
+        """
+        Return the headroom the last iteration needs for value-bearing
+        calls modeled with `stipend_returned`.
+
+        The frame must hold the stipend when the call executes even
+        though it flows back once the callee completes, so the net
+        per-iteration cost understates the momentary requirement.
+        Earlier iterations cover it with the budget of the iterations
+        that follow them.
+        """
+        stipend_calls = max(
+            sum(
+                1
+                for opcode in bytecode.opcode_list
+                if opcode.metadata.get("stipend_returned")
+            )
+            for bytecode in (self.iterating, self.warm_iterating)
+        )
+        return stipend_calls * fork.call_value_stipend()
+
     def execution_gas_cost_by_iteration_count(
         self, *, fork: Type[ForkOpcodeInterface], iteration_count: int
     ) -> int:
@@ -1109,7 +1130,8 @@ class IteratingBytecode(Bytecode):
         for a given number of iterations.
 
         The gas limit is calculated by adding the required extra gas for the
-        last iteration due to the 63/64 rule.
+        last iteration due to the 63/64 rule and any stipend that only
+        returns to the caller after a value-bearing call completes.
         """
         tx_gas_limit = self.tx_execution_gas_cost_by_iteration_count(
             fork=fork,
@@ -1118,6 +1140,7 @@ class IteratingBytecode(Bytecode):
             **intrinsic_cost_kwargs,
         )
         tx_gas_limit += self.iterating_subcall_reserve(fork=fork)
+        tx_gas_limit += self.returned_stipend_reserve(fork=fork)
         if include_state_gas_reservoir:
             tx_gas_limit += self.state_gas_cost_by_iteration_count(
                 fork=fork, iteration_count=iteration_count
@@ -1146,7 +1169,9 @@ class IteratingBytecode(Bytecode):
             return True
 
         if caps.gas_limit is not None and (
-            self.iterating_subcall_reserve(fork=fork) + tx_execution_gas_cost
+            self.iterating_subcall_reserve(fork=fork)
+            + self.returned_stipend_reserve(fork=fork)
+            + tx_execution_gas_cost
             > caps.gas_limit
         ):
             return True
@@ -1258,14 +1283,14 @@ class IteratingBytecode(Bytecode):
         """
         gas_limit_cap = fork.transaction_gas_limit_cap()
         remaining_gas = gas_limit
-        # An out-of-gas transaction burns its whole gas limit, including
-        # the 63/64 subcall reserve, so the reserve counts against the
-        # budget too.
-        reserve = (
-            self.iterating_subcall_reserve(fork=fork)
-            if outcome is TxOutcome.OUT_OF_GAS
-            else 0
-        )
+        # The stipend reserve is part of every transaction's gas limit,
+        # which must fit within the block's remaining gas for the
+        # transaction to be includable, so it always counts against the
+        # budget. An out-of-gas transaction additionally burns its whole
+        # gas limit, including the 63/64 subcall reserve.
+        reserve = self.returned_stipend_reserve(fork=fork)
+        if outcome is TxOutcome.OUT_OF_GAS:
+            reserve += self.iterating_subcall_reserve(fork=fork)
 
         def current_caps() -> GasCaps:
             return GasCaps(

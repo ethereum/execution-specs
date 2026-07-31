@@ -212,6 +212,10 @@ def test_account_access(
                 # Gas accounting
                 address_warm=access_warm,
                 value_transfer=value_sent > 0,
+                # The callee completes without consuming the stipend
+                # (its execution cost is modeled by iterating_subcall),
+                # so the stipend flows back to the caller.
+                stipend_returned=value_sent > 0,
                 account_new=(
                     opcode == Op.CALL
                     and value_sent > 0
