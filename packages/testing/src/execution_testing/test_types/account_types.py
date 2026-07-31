@@ -370,9 +370,6 @@ class Alloc(BaseAlloc):
     def _state_module(self) -> ModuleType:
         """
         Return the spec state module implementing `self._state_commitment`.
-
-        The MPT implementation is the only one currently available; a binary
-        allocation raises until the spec `state_bmt` module exists.
         """
         if self._state_commitment is StateCommitment.BINARY:
             raise NotImplementedError(
@@ -596,11 +593,6 @@ class Alloc(BaseAlloc):
     def migrate_state_commitment(self, commitment: StateCommitment) -> None:
         """
         Switch the commitment scheme used to compute the state root.
-
-        Called by blockchain fillers at a transition-fork boundary where the
-        target fork's commitment differs from the scheme this allocation was
-        built under. Account data is scheme-independent, so only the
-        root-computation strategy changes.
         """
         if self._phase is _Phase.FROZEN:
             raise RuntimeError(
