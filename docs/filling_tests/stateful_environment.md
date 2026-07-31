@@ -14,7 +14,7 @@ Required by every run, regardless of which tests are selected.
 
 | Entry | Configuration | Used By |
 |-------|---------------|---------|
-| `deterministic-deployment-proxy` | Arachnid CREATE2 factory at `0x4e59…956C` | All tests: derives `receivers-existing-contract-*` addresses; needed for EEST pre-alloc deploys |
+| `deterministic-deployment-proxy` | Arachnid CREATE2 factory at `0x4e59…956C` | All tests: derives `receivers-existing-contract-*` addresses; needed for EEST pre-alloc deploys. **Note:** Once EIP-7997 activates, verify that the factory code is already in genesis to avoid duplicate deployment. |
 | `fill-stateful-seed` | EOA (private key `0x…01`, balance `1e28` wei) | All tests: funds accounts during `fill --stateful` |
 
 ## Test-specific
