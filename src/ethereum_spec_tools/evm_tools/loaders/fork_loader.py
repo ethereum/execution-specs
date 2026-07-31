@@ -34,6 +34,7 @@ class ForkLoad:
             (2, "FeeMarketTransaction"),
             (3, "BlobTransaction"),
             (4, "SetCodeTransaction"),
+            (6, "FrameTransaction"),
         ):
             if hasattr(transactions, attribute):
                 tx_types.append(tx_type)
@@ -279,6 +280,38 @@ class ForkLoad:
     def SetCodeTransaction(self) -> Any:
         """Set code transaction class of the fork."""
         return self._module("transactions").SetCodeTransaction
+
+    @property
+    def FrameTransaction(self) -> Any:
+        """Frame transaction class of the fork."""
+        return self._module("transactions").FrameTransaction
+
+    @property
+    def Frame(self) -> Any:
+        """Frame class of the fork."""
+        return self._module("transactions.frame_transaction").Frame
+
+    @property
+    def FrameMode(self) -> Any:
+        """Frame mode enum of the fork."""
+        return self._module("transactions.frame_transaction").FrameMode
+
+    @property
+    def FrameFlag(self) -> Any:
+        """Frame flag enum of the fork."""
+        return self._module("transactions.frame_transaction").FrameFlag
+
+    @property
+    def FrameSignature(self) -> Any:
+        """Frame signature class of the fork."""
+        return self._module("transactions.frame_transaction").FrameSignature
+
+    @property
+    def FrameSignatureScheme(self) -> Any:
+        """Frame signature scheme enum of the fork."""
+        return self._module(
+            "transactions.frame_transaction"
+        ).FrameSignatureScheme
 
     @property
     def Withdrawal(self) -> Any:

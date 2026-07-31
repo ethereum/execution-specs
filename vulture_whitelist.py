@@ -123,6 +123,9 @@ TransactionLoad.json_to_max_fee_per_gas
 TransactionLoad.json_to_max_priority_fee_per_gas
 TransactionLoad.json_to_max_fee_per_blob_gas
 TransactionLoad.json_to_blob_versioned_hashes
+TransactionLoad.json_to_sender
+TransactionLoad.json_to_frames
+TransactionLoad.json_to_signatures
 TransactionLoad.json_to_v
 TransactionLoad.json_to_y_parity
 TransactionLoad.json_to_r
