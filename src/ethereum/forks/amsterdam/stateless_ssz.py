@@ -6,8 +6,6 @@ types in ``stateless`` and ``execution_engine.types``, plus conversion
 functions between the two representations.
 """
 
-from typing import TypeAlias
-
 from ethereum_types.bytes import Bytes, Bytes48, Bytes96
 from ethereum_types.numeric import U8, U64, U256, Uint
 from remerkleable.basic import boolean, uint8, uint64, uint256
@@ -35,9 +33,7 @@ from .execution_engine.requests import (
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import Bloom, VersionedHash
 from .stateless import (
-    ChainConfig,
     ExecutionWitness,
-    ForkActivation,
     ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
@@ -72,7 +68,6 @@ MAX_BYTES_PER_HEADER = 2**10
 # 2**10 is the next power of two, with almost twice the needed capacity.
 MAX_BYTES_PER_WITNESS_NODE = 2**10
 
-MAX_OPTIONAL_FORK_ACTIVATION_VALUES = 1
 # One public key is supplied per transaction. Every valid transaction consumes
 # at least 21_000 gas, so a 500M gas block can contain at most
 # 500_000_000 // 21_000 = 23_809 transactions, rounded up to next power of 2.
@@ -96,11 +91,6 @@ STATELESS_INPUT_SCHEMA_ID_BYTES = STATELESS_INPUT_SCHEMA_ID.to_bytes(
 
 
 # --- SSZ Container types ---
-
-
-SszOptionalForkActivationValue: TypeAlias = SszList[
-    uint64, MAX_OPTIONAL_FORK_ACTIVATION_VALUES
-]
 
 
 class SszWithdrawal(Container):
@@ -209,26 +199,12 @@ class SszExecutionWitness(Container):
     headers: SszList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS]
 
 
-class SszForkActivation(Container):
-    """SSZ container mirroring ``ForkActivation``."""
-
-    block_number: SszOptionalForkActivationValue
-    timestamp: SszOptionalForkActivationValue
-
-
-class SszChainConfig(Container):
-    """SSZ container mirroring ``ChainConfig``."""
-
-    chain_id: uint64
-    fork_activation: SszForkActivation
-
-
 class SszStatelessInput(Container):
     """SSZ container mirroring ``StatelessInput``."""
 
     new_payload_request: SszNewPayloadRequest
     witness: SszExecutionWitness
-    chain_config: SszChainConfig
+    chain_id: uint64
     public_keys: SszList[ByteVector[PUBLIC_KEY_BYTES], MAX_PUBLIC_KEYS]
 
 
@@ -237,7 +213,7 @@ class SszStatelessValidationResult(Container):
 
     new_payload_request_root: Bytes32
     successful_validation: boolean
-    chain_config: SszChainConfig
+    chain_id: uint64
     schema_fork_index: uint8
 
 
@@ -532,64 +508,6 @@ def _ssz_to_witness(
     )
 
 
-def _optional_u64_to_ssz(
-    value: U64 | None,
-) -> SszOptionalForkActivationValue:
-    """Convert an optional U64 to a zero-or-one SSZ list."""
-    if value is None:
-        return SszOptionalForkActivationValue()
-    return SszOptionalForkActivationValue(uint64(int(value)))
-
-
-def _ssz_to_optional_u64(
-    ssz_value: SszOptionalForkActivationValue,
-) -> U64 | None:
-    """Convert a zero-or-one SSZ list back to an optional U64."""
-    if ssz_value.length() == 0:
-        return None
-    return U64(ssz_value.get(0))
-
-
-def _fork_activation_to_ssz(
-    activation: ForkActivation,
-) -> SszForkActivation:
-    """Convert a ForkActivation to its SSZ form."""
-    return SszForkActivation(
-        block_number=_optional_u64_to_ssz(activation.block_number),
-        timestamp=_optional_u64_to_ssz(activation.timestamp),
-    )
-
-
-def _ssz_to_fork_activation(
-    ssz_activation: SszForkActivation,
-) -> ForkActivation:
-    """Convert an SSZ fork activation back."""
-    return ForkActivation(
-        block_number=_ssz_to_optional_u64(ssz_activation.block_number),
-        timestamp=_ssz_to_optional_u64(ssz_activation.timestamp),
-    )
-
-
-def _chain_config_to_ssz(
-    cc: ChainConfig,
-) -> SszChainConfig:
-    """Convert a ChainConfig to its SSZ form."""
-    return SszChainConfig(
-        chain_id=uint64(int(cc.chain_id)),
-        fork_activation=_fork_activation_to_ssz(cc.fork_activation),
-    )
-
-
-def _ssz_to_chain_config(
-    scc: SszChainConfig,
-) -> ChainConfig:
-    """Convert an SSZ chain config back."""
-    return ChainConfig(
-        chain_id=U64(scc.chain_id),
-        fork_activation=_ssz_to_fork_activation(scc.fork_activation),
-    )
-
-
 def stateless_input_to_ssz(
     si: StatelessInput,
 ) -> SszStatelessInput:
@@ -605,7 +523,7 @@ def stateless_input_to_ssz(
             si.new_payload_request
         ),
         witness=_witness_to_ssz(si.witness),
-        chain_config=_chain_config_to_ssz(si.chain_config),
+        chain_id=uint64(int(si.chain_id)),
         public_keys=SszList[ByteVector[PUBLIC_KEY_BYTES], MAX_PUBLIC_KEYS](
             ByteVector[PUBLIC_KEY_BYTES](bytes(pk)) for pk in si.public_keys
         ),
@@ -621,7 +539,7 @@ def ssz_to_stateless_input(
             ssz_si.new_payload_request
         ),
         witness=_ssz_to_witness(ssz_si.witness),
-        chain_config=_ssz_to_chain_config(ssz_si.chain_config),
+        chain_id=U64(ssz_si.chain_id),
         public_keys=tuple(Bytes(bytes(pk)) for pk in ssz_si.public_keys),
     )
 
@@ -633,7 +551,7 @@ def validation_result_to_ssz(
     return SszStatelessValidationResult(
         new_payload_request_root=Bytes32(bytes(vr.new_payload_request_root)),
         successful_validation=boolean(vr.successful_validation),
-        chain_config=_chain_config_to_ssz(vr.chain_config),
+        chain_id=uint64(int(vr.chain_id)),
         schema_fork_index=uint8(int(vr.schema_fork_index)),
     )
 
@@ -647,6 +565,6 @@ def ssz_to_validation_result(
             bytes(ssz_vr.new_payload_request_root)
         ),
         successful_validation=bool(ssz_vr.successful_validation),
-        chain_config=_ssz_to_chain_config(ssz_vr.chain_config),
+        chain_id=U64(ssz_vr.chain_id),
         schema_fork_index=U8(ssz_vr.schema_fork_index),
     )

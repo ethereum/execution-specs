@@ -583,7 +583,7 @@ def rebuild_amsterdam_stateless_input_with_overrides(
     rebuilt_input = AmsterdamStatelessInput(
         new_payload_request=original_input.new_payload_request,
         witness=rebuilt_witness,
-        chain_config=original_input.chain_config,
+        chain_id=original_input.chain_id,
         public_keys=(
             tuple(AmsterdamBytes(bytes(key)) for key in public_keys)
             if public_keys is not None
@@ -882,7 +882,6 @@ def build_amsterdam_stateless_artifacts_from_t8n(
         serialize_stateless_output,
     )
     from ethereum.forks.amsterdam.stateless_host import (
-        build_chain_config,
         build_stateless_input,
         serialize_stateless_input,
     )
@@ -946,7 +945,7 @@ def build_amsterdam_stateless_artifacts_from_t8n(
             stateless_input
         ),
         successful_validation=True,
-        chain_config=build_chain_config(U64(chain_id)),
+        chain_id=U64(chain_id),
         schema_fork_index=U8(0x15),
     )
     stateless_output_bytes = serialize_stateless_output(stateless_output)
@@ -983,30 +982,29 @@ def decode_amsterdam_stateless_output(
     )
 
 
-def assert_amsterdam_stateless_output_chain_config(
+def assert_amsterdam_stateless_output_chain_id(
     *,
     block_number: int,
     chain_id: int,
     stateless_output: Any | None,
-    expected_chain_config: Any | None = None,
+    expected_chain_id: Any | None = None,
 ) -> None:
     """
-    Assert the stateless output reports the expected Amsterdam chain config.
+    Assert the stateless output reports the expected chain identifier.
     """
     if stateless_output is None:
         return
 
-    if expected_chain_config is None:
-        from ethereum.forks.amsterdam.stateless_host import build_chain_config
+    if expected_chain_id is None:
         from ethereum_types.numeric import U64
 
-        expected_chain_config = build_chain_config(U64(chain_id))
+        expected_chain_id = U64(chain_id)
 
-    if stateless_output.chain_config != expected_chain_config:
+    if stateless_output.chain_id != expected_chain_id:
         raise AssertionError(
-            "Stateless output chain_config mismatch for block "
-            f"{block_number}: got {stateless_output.chain_config}, "
-            f"want {expected_chain_config}"
+            "Stateless output chain_id mismatch for block "
+            f"{block_number}: got {stateless_output.chain_id}, "
+            f"want {expected_chain_id}"
         )
 
 
@@ -1016,14 +1014,10 @@ def is_invalid_input_stateless_output(stateless_output: Any) -> bool:
     """
     from ethereum_types.numeric import U8, U64
 
-    chain_config = stateless_output.chain_config
-    activation = chain_config.fork_activation
     return (
         not stateless_output.successful_validation
         and bytes(stateless_output.new_payload_request_root) == b"\0" * 32
-        and chain_config.chain_id == U64(0)
-        and activation.block_number is None
-        and activation.timestamp is None
+        and stateless_output.chain_id == U64(0)
         and stateless_output.schema_fork_index == U8(0)
     )
 
@@ -1110,12 +1104,12 @@ def verify_amsterdam_stateless_output(
         block_number=block_number,
         stateless_output=stateless_output,
     )
-    assert_amsterdam_stateless_output_chain_config(
+    assert_amsterdam_stateless_output_chain_id(
         block_number=block_number,
         chain_id=chain_id,
         stateless_output=stateless_output,
-        expected_chain_config=(
-            stateless_input.chain_config if input_bytes_modified else None
+        expected_chain_id=(
+            stateless_input.chain_id if input_bytes_modified else None
         ),
     )
 

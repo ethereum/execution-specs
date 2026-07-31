@@ -17,9 +17,7 @@ from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import VersionedHash
 from .stateless import (
-    ChainConfig,
     ExecutionWitness,
-    ForkActivation,
     StatelessInput,
     StatelessValidationResult,
 )
@@ -52,21 +50,6 @@ def deserialize_stateless_output(data: Bytes) -> StatelessValidationResult:
     """Deserialize a StatelessValidationResult from SSZ bytes."""
     ssz_obj = SszStatelessValidationResult.decode_bytes(data)
     return ssz_to_validation_result(ssz_obj)
-
-
-def build_chain_config(chain_id: U64) -> ChainConfig:
-    """
-    Build the chain configuration supported by this host.
-
-    For now the Amsterdam stateless host only describes the Amsterdam fork.
-    """
-    return ChainConfig(
-        chain_id=chain_id,
-        fork_activation=ForkActivation(
-            block_number=None,
-            timestamp=U64(0),
-        ),
-    )
 
 
 def build_stateless_input(
@@ -152,6 +135,6 @@ def build_stateless_input(
     return StatelessInput(
         new_payload_request=new_payload,
         witness=execution_witness,
-        chain_config=build_chain_config(chain_id),
+        chain_id=chain_id,
         public_keys=tuple(public_keys),
     )

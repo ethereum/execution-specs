@@ -1,4 +1,4 @@
-"""Stateless chain-config validation tests."""
+"""Stateless chain-ID validation tests."""
 
 from dataclasses import replace
 from typing import Any, Callable
@@ -22,13 +22,13 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 StatelessInputBytesModifier = Callable[[Bytes], Bytes]
-ChainConfigBuilder = Callable[[Any], Any]
+ChainIdBuilder = Callable[[Any], Any]
 
 
-def replace_chain_config(
-    build_chain_config: ChainConfigBuilder,
+def replace_chain_id(
+    build_chain_id: ChainIdBuilder,
 ) -> StatelessInputBytesModifier:
-    """Replace only the decoded stateless input chain_config."""
+    """Replace only the decoded stateless input chain ID."""
 
     def modifier(input_bytes: Bytes) -> Bytes:
         from ethereum_types.bytes import Bytes as AmsterdamBytes
@@ -45,63 +45,25 @@ def replace_chain_config(
         )
         modified_input = replace(
             stateless_input,
-            chain_config=build_chain_config(stateless_input),
+            chain_id=build_chain_id(stateless_input),
         )
         return Bytes(bytes(serialize_stateless_input(modified_input)))
 
     return modifier
 
 
-def future_timestamp_activation_chain_config(stateless_input: Any) -> Any:
-    """Move Amsterdam activation one second after the payload timestamp."""
-    from ethereum_types.numeric import U64
-
-    from ethereum.forks.amsterdam.stateless import ForkActivation
-
-    payload = stateless_input.new_payload_request.execution_payload
-    chain_config = stateless_input.chain_config
-    return replace(
-        chain_config,
-        fork_activation=ForkActivation(
-            block_number=None,
-            timestamp=U64(int(payload.timestamp) + 1),
-        ),
-    )
-
-
-def wrong_chain_id_chain_config(stateless_input: Any) -> Any:
+def wrong_chain_id(stateless_input: Any) -> Any:
     """Change chain_id from 1 to 2."""
     from ethereum_types.numeric import U64
 
-    chain_config = stateless_input.chain_config
-    if int(chain_config.chain_id) != 1:
+    if int(stateless_input.chain_id) != 1:
         raise AssertionError(
-            f"expected canonical chain_id 1, got {chain_config.chain_id}"
+            f"expected canonical chain_id 1, got {stateless_input.chain_id}"
         )
-    return replace(chain_config, chain_id=U64(2))
+    return U64(2)
 
 
-def test_validation_chain_config_future_timestamp_activation(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-) -> None:
-    """A future Amsterdam timestamp activation fails validation."""
-    blockchain_test(
-        pre=pre,
-        blocks=[
-            Block(
-                txs=[],
-                stateless_input_bytes_modifier=replace_chain_config(
-                    future_timestamp_activation_chain_config
-                ),
-                expected_stateless_validation_success=False,
-            )
-        ],
-        post={},
-    )
-
-
-def test_validation_chain_config_wrong_chain_id_legacy_signature(
+def test_validation_wrong_chain_id_legacy_signature(
     fork: Fork,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -122,8 +84,8 @@ def test_validation_chain_config_wrong_chain_id_legacy_signature(
         blocks=[
             Block(
                 txs=[tx],
-                stateless_input_bytes_modifier=replace_chain_config(
-                    wrong_chain_id_chain_config
+                stateless_input_bytes_modifier=replace_chain_id(
+                    wrong_chain_id
                 ),
                 expected_stateless_validation_success=False,
             )

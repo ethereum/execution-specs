@@ -1159,7 +1159,6 @@ def test_execution_witness_in_blockchain_fixture(
     assert sob is not None and len(sob) > 0
 
     from ethereum.forks.amsterdam.stateless_host import (
-        build_chain_config,
         deserialize_stateless_output,
     )
     from ethereum_types.bytes import Bytes as EthereumBytes
@@ -1167,7 +1166,7 @@ def test_execution_witness_in_blockchain_fixture(
 
     stateless_output = deserialize_stateless_output(EthereumBytes(bytes(sob)))
     assert stateless_output.successful_validation is True
-    assert stateless_output.chain_config == build_chain_config(U64(1))
+    assert stateless_output.chain_id == U64(1)
     assert stateless_output.schema_fork_index == U8(0x15)
 
     engine_fixture_path = Path(
