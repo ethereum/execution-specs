@@ -13,10 +13,12 @@ Supported Opcodes:
 
 import pytest
 from execution_testing import (
+    Alloc,
     BenchmarkTestFiller,
     ExtCallGenerator,
     JumpLoopGenerator,
     Op,
+    OpcodeTarget,
 )
 
 
@@ -140,6 +142,47 @@ def test_push(
         target_opcode=opcode,
         code_generator=ExtCallGenerator(
             attack_block=opcode[1] if opcode.has_data_portion() else opcode
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode,present_data_bytes",
+    [
+        pytest.param(Op.PUSH1, 0, id="PUSH1 with no data"),
+        pytest.param(Op.PUSH2, 0, id="PUSH2 with no data"),
+        pytest.param(Op.PUSH2, 1, id="PUSH2 with half its data"),
+        pytest.param(Op.PUSH32, 0, id="PUSH32 with no data"),
+        pytest.param(Op.PUSH32, 16, id="PUSH32 with half its data"),
+        pytest.param(Op.PUSH32, 31, id="PUSH32 one byte short"),
+    ],
+)
+def test_push_truncated_data(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    present_data_bytes: int,
+) -> None:
+    """
+    Benchmark a PUSH whose data portion runs past the end of the code.
+    """
+    target_contract = pre.deploy_contract(
+        code=bytes([opcode.int()]) + bytes(present_data_bytes)
+    )
+
+    benchmark_test(
+        target_opcode=OpcodeTarget(f"{opcode} truncated", Op.STATICCALL),
+        code_generator=JumpLoopGenerator(
+            attack_block=Op.POP(
+                Op.STATICCALL(
+                    gas=Op.GAS,
+                    address=target_contract,
+                    args_offset=Op.PUSH0,
+                    args_size=Op.PUSH0,
+                    ret_offset=Op.PUSH0,
+                    ret_size=Op.PUSH0,
+                )
+            )
         ),
     )
 
