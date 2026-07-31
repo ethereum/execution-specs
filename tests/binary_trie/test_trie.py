@@ -18,6 +18,7 @@ from ethereum.binary_trie.trie import (
     bytes_to_bit_list,
     copy_trie,
     encode_bit_prefix,
+    remove_subtree,
     root,
     trie_get,
     trie_set,
@@ -495,9 +496,7 @@ def test_delete_collapses_branches_to_canonical_form() -> None:
                 trie_set(fresh, key, value)
 
         assert root(trie) == root(fresh), f"deleting {doomed.hex()}"
-        assert reference.merkelize() == root(fresh), (
-            f"deleting {doomed.hex()}"
-        )
+        assert reference.merkelize() == root(fresh), f"deleting {doomed.hex()}"
 
 
 def test_delete_matches_reference_and_rebuild() -> None:
@@ -612,3 +611,44 @@ def test_overwriting_a_value_recommits_to_the_final_value() -> None:
     assert root(overwritten) != old_root
     assert root(overwritten) == root(fresh)
     assert reference.merkelize() == root(fresh)
+
+
+def test_remove_subtree_removes_exactly_the_matching_keys() -> None:
+    """
+    Removing a subtree drops every key under its prefix and nothing
+    else, leaving the commitment of a trie those keys never entered.
+    Keys that merely share a shorter prefix survive.
+    """
+    doomed = [Bytes(b"\xff\xaa" + bytes([i]) + b"\x00" * 4) for i in range(5)]
+    spared = [
+        Bytes(b"\xff\xab\x00" + b"\x00" * 4),  # diverges in byte 1
+        Bytes(b"\x00\xaa\x00" + b"\x00" * 4),  # diverges in byte 0
+    ]
+    value = Bytes32(b"\x07" * 32)
+
+    survivors = BinaryTrie()
+    for key in spared:
+        trie_set(survivors, key, value)
+
+    trie = copy_trie(survivors)
+    for key in doomed:
+        trie_set(trie, key, value)
+    assert root(trie) != root(survivors)
+
+    remove_subtree(trie, Bytes(b"\xff\xaa"))
+
+    assert trie._data == survivors._data
+    assert root(trie) == root(survivors)
+
+
+def test_remove_subtree_of_an_absent_prefix_does_nothing() -> None:
+    """
+    A prefix matching no key leaves the trie untouched.
+    """
+    trie = BinaryTrie()
+    trie_set(trie, Bytes(b"\x01\x02\x03"), Bytes32(b"\x07" * 32))
+    before = root(trie)
+
+    remove_subtree(trie, Bytes(b"\x09"))
+
+    assert root(trie) == before

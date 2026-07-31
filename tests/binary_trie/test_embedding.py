@@ -21,10 +21,14 @@ from ethereum.binary_trie.embedding import (
     get_tree_key_for_code_chunk,
     get_tree_key_for_code_hash,
     get_tree_key_for_header,
+    get_tree_key_for_overflow_code_chunk,
     get_tree_key_for_storage_slot,
+    has_overflow_code_chunks,
     key_hash,
     remove_account,
+    remove_all_storage,
     remove_code_chunks,
+    remove_overflow_code_chunks,
     remove_storage_slot,
 )
 from ethereum.binary_trie.trie import BinaryTrie, root, trie_set
@@ -315,11 +319,188 @@ def test_remove_account_restores_prior_root() -> None:
     )
     before = root(trie)
 
-    embed_account(
-        trie, ADDRESS, U64(2), U256(9), EMPTY_CODE_HASH, Bytes(b"")
-    )
+    embed_account(trie, ADDRESS, U64(2), U256(9), EMPTY_CODE_HASH, Bytes(b""))
     assert root(trie) != before
     remove_account(trie, ADDRESS)
+    assert root(trie) == before
+
+
+def test_remove_account_takes_code_chunks_and_storage_with_it() -> None:
+    """
+    An account owns its header stem and its overflow storage
+    subtree, so removing it undoes everything embedding it wrote,
+    header code chunks and storage on both sides of the header
+    boundary included, without being told which slots it held.
+    """
+    code = Bytes(b"\x01" * 40)  # two header chunks
+    code_hash = Bytes32(b"\x22" * 32)
+
+    trie = BinaryTrie()
+    embed_account(
+        trie, OTHER_ADDRESS, U64(1), U256(5), EMPTY_CODE_HASH, Bytes(b"")
+    )
+    before = root(trie)
+
+    embed_account(trie, ADDRESS, U64(2), U256(9), code_hash, code)
+    for slot in (U256(0), U256(63), U256(64), U256(1000), U256(2**200)):
+        embed_storage_slot(trie, ADDRESS, slot, Bytes32(b"\x07" * 32))
+    assert root(trie) != before
+
+    remove_account(trie, ADDRESS)
+    assert root(trie) == before
+
+
+def test_remove_account_never_reaches_the_code_zone() -> None:
+    """
+    The sweep covers the account and storage zones only, so a
+    neighbour's content-addressed overflow chunks are untouched by
+    a removal beside them.
+    """
+    long_code = Bytes(b"\x01" * 4000)  # 130 chunks: 128 header, 2 overflow
+    long_hash = Bytes32(b"\x33" * 32)
+    short_code = Bytes(b"\x02" * 40)  # two header chunks
+    short_hash = Bytes32(b"\x22" * 32)
+
+    trie = BinaryTrie()
+    embed_account(trie, OTHER_ADDRESS, U64(1), U256(5), long_hash, long_code)
+    before = root(trie)
+
+    embed_account(trie, ADDRESS, U64(2), U256(9), short_hash, short_code)
+    remove_account(trie, ADDRESS)
+
+    assert root(trie) == before
+    for chunk_id in (Uint(128), Uint(129)):
+        key = get_tree_key_for_code_chunk(OTHER_ADDRESS, long_hash, chunk_id)
+        assert key in trie._data
+
+
+def test_remove_account_leaves_overflow_code_for_the_caller() -> None:
+    """
+    Removing an account never takes content-addressed chunks with
+    it: whether they may go depends on the resulting state, which
+    the embedding cannot see. They are dropped separately, once the
+    caller has established nothing else runs the code.
+    """
+    code = Bytes(b"\x01" * 4000)  # 130 chunks: 128 header, 2 overflow
+    code_hash = Bytes32(b"\x22" * 32)
+
+    trie = BinaryTrie()
+    empty = root(trie)
+    embed_account(trie, ADDRESS, U64(1), U256(5), code_hash, code)
+    assert has_overflow_code_chunks(trie, code_hash)
+
+    remove_account(trie, ADDRESS)
+
+    overflow = [
+        get_tree_key_for_overflow_code_chunk(code_hash, chunk_id)
+        for chunk_id in (Uint(128), Uint(129))
+    ]
+    assert sorted(trie._data) == sorted(overflow)
+
+    remove_overflow_code_chunks(trie, code_hash, code)
+    assert root(trie) == empty
+    assert not has_overflow_code_chunks(trie, code_hash)
+
+
+def test_remove_overflow_code_chunks_spares_the_header() -> None:
+    """
+    Header chunks are keyed per account and go with the account, so
+    dropping a code's shared leaves leaves an account still holding
+    it otherwise intact.
+    """
+    code = Bytes(b"\x01" * 4000)
+    code_hash = Bytes32(b"\x22" * 32)
+
+    trie = BinaryTrie()
+    embed_account(trie, ADDRESS, U64(1), U256(5), code_hash, code)
+
+    remove_overflow_code_chunks(trie, code_hash, code)
+
+    for chunk_id in (Uint(0), Uint(127)):
+        key = get_tree_key_for_code_chunk(ADDRESS, code_hash, chunk_id)
+        assert key in trie._data
+    assert get_tree_key_for_basic_data(ADDRESS) in trie._data
+
+
+def test_all_zero_basic_data_is_absent_from_the_tree() -> None:
+    """
+    Zero resolves to absence over the whole value space, basic data
+    included: an account with zero nonce, zero balance and no code
+    packs to 32 zero bytes, since the version and reserved bytes are
+    zero too. Its code hash leaf still distinguishes it from an
+    account that is not there at all.
+    """
+    trie = BinaryTrie()
+    embed_account(trie, ADDRESS, U64(0), U256(0), EMPTY_CODE_HASH, Bytes(b""))
+
+    assert encode_basic_data(
+        code_size=U32(0), nonce=U64(0), balance=U256(0)
+    ) == Bytes32(b"\x00" * 32)
+    assert get_tree_key_for_basic_data(ADDRESS) not in trie._data
+    assert trie._data[get_tree_key_for_code_hash(ADDRESS)] == EMPTY_CODE_HASH
+
+
+def test_emptying_basic_data_removes_its_leaf() -> None:
+    """
+    The rule applies to updates as well as fresh writes: an account
+    drained to zero nonce and balance loses the leaf rather than
+    keeping a zero-valued one, landing on the commitment of a state
+    where it was always zero.
+    """
+    fresh = BinaryTrie()
+    embed_account(fresh, ADDRESS, U64(0), U256(0), EMPTY_CODE_HASH, Bytes(b""))
+
+    drained = BinaryTrie()
+    embed_account(
+        drained, ADDRESS, U64(3), U256(99), EMPTY_CODE_HASH, Bytes(b"")
+    )
+    assert root(drained) != root(fresh)
+
+    embed_account(
+        drained, ADDRESS, U64(0), U256(0), EMPTY_CODE_HASH, Bytes(b"")
+    )
+    assert root(drained) == root(fresh)
+
+
+def test_zero_code_chunks_are_absent_from_the_tree() -> None:
+    """
+    A chunk of 31 zero bytes encodes to 32 zero bytes and is left
+    absent like any other zero value, so chunk presence does not
+    delimit the code.
+    """
+    code = Bytes(b"\x00" * 62)  # two chunks, both entirely zero
+    code_hash = Bytes32(b"\x22" * 32)
+
+    assert chunkify_code(code) == [Bytes32(b"\x00" * 32)] * 2
+
+    trie = BinaryTrie()
+    embed_account(trie, ADDRESS, U64(1), U256(5), code_hash, code)
+
+    for chunk_id in (Uint(0), Uint(1)):
+        key = get_tree_key_for_code_chunk(ADDRESS, code_hash, chunk_id)
+        assert key not in trie._data
+    # The account is still distinguished from one with no code.
+    assert trie._data[get_tree_key_for_code_hash(ADDRESS)] == code_hash
+
+
+def test_remove_all_storage_keeps_the_account_and_its_code() -> None:
+    """
+    A storage wipe straddles the header boundary: slots `0`-`63`
+    share the header stem with the basic data and code chunks that
+    must survive, while the rest live in the overflow subtree.
+    """
+    code = Bytes(b"\x01" * 40)
+    code_hash = Bytes32(b"\x22" * 32)
+
+    trie = BinaryTrie()
+    embed_account(trie, ADDRESS, U64(1), U256(9), code_hash, code)
+    before = root(trie)
+
+    for slot in (U256(0), U256(63), U256(64), U256(1000), U256(2**200)):
+        embed_storage_slot(trie, ADDRESS, slot, Bytes32(b"\x07" * 32))
+    assert root(trie) != before
+
+    remove_all_storage(trie, ADDRESS)
     assert root(trie) == before
 
 
@@ -329,9 +510,7 @@ def test_embed_and_remove_storage_slot_roundtrip() -> None:
     removing them restores the prior commitment.
     """
     trie = BinaryTrie()
-    embed_account(
-        trie, ADDRESS, U64(1), U256(1), EMPTY_CODE_HASH, Bytes(b"")
-    )
+    embed_account(trie, ADDRESS, U64(1), U256(1), EMPTY_CODE_HASH, Bytes(b""))
     before = root(trie)
 
     embed_storage_slot(trie, ADDRESS, U256(1), Bytes32(b"\x07" * 32))
@@ -345,15 +524,16 @@ def test_embed_and_remove_storage_slot_roundtrip() -> None:
 
 def test_remove_code_chunks_leaves_the_other_header_leaves() -> None:
     """
-    Removing a code's chunks deletes one leaf per chunk and nothing
-    else: the account's basic data and code hash leaves remain.
+    Sweeping the header code range deletes every chunk leaf and
+    nothing else: the account's basic data and code hash leaves
+    remain.
     """
     code = Bytes(b"\x01" * 40)  # two header chunks
     code_hash = Bytes32(b"\x22" * 32)
 
     trie = BinaryTrie()
     embed_account(trie, ADDRESS, U64(1), U256(0), code_hash, code)
-    remove_code_chunks(trie, ADDRESS, code_hash, code)
+    remove_code_chunks(trie, ADDRESS, code_hash)
 
     expected = BinaryTrie()
     trie_set(

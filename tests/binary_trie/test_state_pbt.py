@@ -281,7 +281,7 @@ def test_diff_root_matches_directly_built_post_state() -> None:
 
 def test_deleting_the_only_account_empties_the_tree() -> None:
     """
-    Deleting the last account — bare, as deletable accounts must be —
+    Deleting the last account, bare as deletable accounts must be,
     leaves the empty tree commitment.
     """
     state = State()
@@ -358,6 +358,7 @@ def test_storage_clear_deletes_every_slot_leaf() -> None:
     leaves and its overflow-subtree slot leaves, leaving the root of
     a state where the storage was never written.
     """
+
     def account_only() -> State:
         state = State()
         set_account(
@@ -410,11 +411,11 @@ def test_delegation_change_deletes_stale_chunks() -> None:
         )
 
 
-def test_deleting_an_account_with_code_is_rejected() -> None:
+def test_deleting_an_account_removes_its_header_code_chunks() -> None:
     """
-    Deleting an account that still owns code chunk leaves violates
-    the bare-account invariant and fails loudly instead of being
-    silently mishandled.
+    Header code chunks are keyed by address, so the sweep that
+    removes an account takes them with it; no bytecode has to be
+    looked up to know how many there were.
     """
     pre = State()
     code_hash = store_code(pre, Bytes(b"\x01" * 40))
@@ -424,14 +425,98 @@ def test_deleting_an_account_with_code_is_rejected() -> None:
         Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
     )
 
-    with pytest.raises(AssertionError):
-        pre.compute_state_root(BlockDiff(account_changes={ADDRESS_A: None}))
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
 
 
-def test_deleting_an_account_with_storage_is_rejected() -> None:
+def test_deleting_the_last_holder_removes_its_overflow_code() -> None:
     """
-    Deleting an account that still owns storage slot leaves violates
-    the bare-account invariant and fails loudly.
+    Content-addressed chunks may go once no account in the resulting
+    state has their code hash. With the only holder deleted, nothing
+    references the code and its shared leaves go with it.
+    """
+    pre = State()
+    code_hash = store_code(pre, Bytes(b"\x01" * 4000))  # 130 chunks
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
+    assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
+
+
+def test_deleting_one_holder_keeps_shared_overflow_code() -> None:
+    """
+    A second account still running the bytecode keeps its chunks
+    alive: they are removed only if no account in the resulting state
+    has the code hash.
+    """
+    code = Bytes(b"\x01" * 4000)  # 130 chunks: 128 header, 2 overflow
+    pre = State()
+    code_hash = store_code(pre, code)
+    for address in (ADDRESS_A, ADDRESS_B):
+        set_account(
+            pre,
+            address,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+        )
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+    post = pre.compute_state_root(diff)
+
+    assert bytes(post) == _flat_oracle_root(pre, diff)
+
+    survivor = State()
+    assert store_code(survivor, code) == code_hash
+    set_account(
+        survivor,
+        ADDRESS_B,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+    assert post == state_root(survivor)
+
+
+def test_deleting_an_account_removes_its_storage_leaves() -> None:
+    """
+    An account can hold storage without holding code: genesis
+    allocates such accounts directly, and no bytecode is needed to
+    keep slots that were allocated rather than written. Touching one
+    empties it under EIP-161, and the deletion emits no storage diff
+    of its own, so the deletion must drop the slot leaves the account
+    still owns in the pre-state tree.
+    """
+    pre = State()
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(0), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    # A header-stem slot and an overflow-subtree slot.
+    set_storage(pre, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
+    set_storage(pre, ADDRESS_A, Bytes32(U256(300).to_be_bytes32()), U256(5))
+    set_account(
+        pre,
+        ADDRESS_B,
+        Account(nonce=Uint(1), balance=U256(9), code_hash=EMPTY_CODE_HASH),
+    )
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
+
+
+def test_deleting_a_cleared_account_removes_its_storage_leaves() -> None:
+    """
+    A pre-EIP-6780 `SELFDESTRUCT` wipes storage and removes the
+    account in one diff. The wipe is recorded against the tree, not
+    against the pre-state, so the deletion cannot tell that the
+    storage is already gone; removing the leaves twice must still
+    land on the post-state root.
     """
     pre = State()
     set_account(
@@ -441,16 +526,45 @@ def test_deleting_an_account_with_storage_is_rejected() -> None:
     )
     set_storage(pre, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
 
-    with pytest.raises(AssertionError):
-        pre.compute_state_root(BlockDiff(account_changes={ADDRESS_A: None}))
+    diff = BlockDiff(
+        storage_clears={ADDRESS_A}, account_changes={ADDRESS_A: None}
+    )
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
+
+
+def test_storage_written_to_a_deleted_account_is_not_embedded() -> None:
+    """
+    Storage belongs to an account: [`embed_flat_state`] ignores slots
+    whose address has no account, so a write landing on an address
+    the same block deletes must not reach the tree either.
+
+    [`embed_flat_state`]: ref:ethereum.state_pbt.embed_flat_state
+    """
+    pre = State()
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
+    )
+
+    diff = BlockDiff(
+        account_changes={ADDRESS_A: None},
+        storage_changes={
+            ADDRESS_A: {Bytes32(U256(3).to_be_bytes32()): U256(7)}
+        },
+    )
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
 
 
 def test_code_change_on_deployed_contract_is_rejected() -> None:
     """
     Replacing code whose chunks overflow the header stem is not
-    protocol-reachable — deployed code is immutable, and delegation
-    designators are a single chunk — and fails loudly, since the old
-    overflow chunks are content-addressed and possibly shared.
+    protocol-reachable, since deployed code is immutable and
+    delegation designators are a single chunk, and fails loudly,
+    since the old overflow chunks are content-addressed and
+    possibly shared.
     """
     old_code = Bytes(b"\x01" * 4000)  # overflows the header stem
     new_code = Bytes(b"\x02" * 40)
@@ -479,11 +593,11 @@ def test_code_change_on_deployed_contract_is_rejected() -> None:
 
 def test_random_diffs_match_flat_application_and_rebuild() -> None:
     """
-    Randomized protocol-shaped diffs — bare-account deletions,
-    delegation churn, contract storage writes and zeroes, fresh
-    deployments — produce the same root through incremental trie
-    application as through applying the diff to the flat state and
-    re-embedding everything.
+    Randomized protocol-shaped diffs, covering deletions of accounts
+    with and without allocated storage, delegation churn, contract
+    storage writes and zeroes, and fresh deployments, produce the
+    same root through incremental trie application as through
+    applying the diff to the flat state and re-embedding everything.
     """
     rng = random.Random(8297)
     long_code = Bytes(bytes(range(256)) * 16)  # overflows the header
@@ -495,7 +609,9 @@ def test_random_diffs_match_flat_application_and_rebuild() -> None:
             store_code(pre, code) for code in (DELEGATION_A, DELEGATION_B)
         ]
 
-        # EOAs: no storage; empty code or a pre-existing delegation.
+        # EOAs: empty code or a pre-existing delegation. Some hold
+        # allocated storage, which no bytecode is needed to keep and
+        # which a deletion must take with it.
         eoas = [Bytes20(rng.randbytes(20)) for _ in range(6)]
         for address in eoas:
             set_account(
@@ -505,11 +621,21 @@ def test_random_diffs_match_flat_application_and_rebuild() -> None:
                     nonce=Uint(rng.randrange(1, 5)),
                     balance=U256(rng.randrange(1, 10**9)),
                     code_hash=rng.choice(
-                        [EMPTY_CODE_HASH, EMPTY_CODE_HASH]
-                        + delegation_hashes
+                        [EMPTY_CODE_HASH, EMPTY_CODE_HASH] + delegation_hashes
                     ),
                 ),
             )
+            if rng.random() < 0.4:
+                for _ in range(rng.randrange(1, 3)):
+                    slot = rng.choice(
+                        [rng.randrange(0, 64), rng.randrange(64, 10**9)]
+                    )
+                    set_storage(
+                        pre,
+                        address,
+                        Bytes32(U256(slot).to_be_bytes32()),
+                        U256(rng.randrange(1, 100)),
+                    )
 
         # Contracts: immutable code, mutable storage.
         contracts = [Bytes20(rng.randbytes(20)) for _ in range(3)]
@@ -561,9 +687,7 @@ def test_random_diffs_match_flat_application_and_rebuild() -> None:
                 )
             if rng.random() < 0.7:
                 storage_changes[address] = {
-                    Bytes32(U256(1).to_be_bytes32()): U256(
-                        rng.choice([0, 7])
-                    ),
+                    Bytes32(U256(1).to_be_bytes32()): U256(rng.choice([0, 7])),
                     Bytes32(U256(100).to_be_bytes32()): U256(
                         rng.choice([0, 9])
                     ),
@@ -575,9 +699,7 @@ def test_random_diffs_match_flat_application_and_rebuild() -> None:
         account_changes[created] = Account(
             nonce=Uint(1), balance=U256(5), code_hash=fresh_hash
         )
-        storage_changes[created] = {
-            Bytes32(U256(2).to_be_bytes32()): U256(9)
-        }
+        storage_changes[created] = {Bytes32(U256(2).to_be_bytes32()): U256(9)}
 
         diff = BlockDiff(
             account_changes=account_changes,
@@ -585,10 +707,77 @@ def test_random_diffs_match_flat_application_and_rebuild() -> None:
             code_changes={fresh_hash: fresh_code},
         )
 
-        assert (
-            bytes(pre.compute_state_root(diff))
-            == _flat_oracle_root(pre, diff)
+        assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(
+            pre, diff
         ), f"trial {trial}"
+
+
+def test_header_root_matches_the_advanced_chain_state() -> None:
+    """
+    The fork commits a block's header root with
+    [`compute_state_root`] but advances the chain with
+    [`apply_changes_to_state`]. The two are separate
+    implementations, one walking the tree and the other the flat
+    mappings, so every block's header root must equal the root of
+    the state the chain
+    carries into the next block, or the second block of a chain is
+    built on a state the first block never committed to.
+
+    [`compute_state_root`]: ref:ethereum.state_pbt.State.compute_state_root
+    [`apply_changes_to_state`]: ref:ethereum.state_pbt.apply_changes_to_state
+    """  # noqa: E501
+    chain = State()
+    delegation_hash = store_code(chain, DELEGATION_A)
+    set_account(
+        chain,
+        ADDRESS_A,
+        Account(nonce=Uint(0), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(chain, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
+    set_storage(chain, ADDRESS_A, Bytes32(U256(300).to_be_bytes32()), U256(5))
+    set_account(
+        chain,
+        ADDRESS_B,
+        Account(nonce=Uint(1), balance=U256(9), code_hash=EMPTY_CODE_HASH),
+    )
+
+    deployed = Bytes(b"\x60\x01" * 100)
+    deployed_hash = keccak256(deployed)
+
+    blocks = [
+        # Touching an empty account that still holds storage deletes
+        # it under EIP-161, storage leaves and all.
+        BlockDiff(account_changes={ADDRESS_A: None}),
+        # Delegating an existing EOA writes a header code chunk.
+        BlockDiff(
+            account_changes={
+                ADDRESS_B: Account(
+                    nonce=Uint(2), balance=U256(9), code_hash=delegation_hash
+                )
+            }
+        ),
+        # A fresh deployment, with storage, on the delegated account's
+        # neighbour, plus the delegation being revoked.
+        BlockDiff(
+            account_changes={
+                ADDRESS_B: Account(
+                    nonce=Uint(3), balance=U256(9), code_hash=EMPTY_CODE_HASH
+                ),
+                ADDRESS_A: Account(
+                    nonce=Uint(1), balance=U256(2), code_hash=deployed_hash
+                ),
+            },
+            storage_changes={
+                ADDRESS_A: {Bytes32(U256(7).to_be_bytes32()): U256(8)}
+            },
+            code_changes={deployed_hash: deployed},
+        ),
+    ]
+
+    for number, diff in enumerate(blocks):
+        header_root = chain.compute_state_root(diff)
+        apply_changes_to_state(chain, diff)
+        assert header_root == state_root(chain), f"block {number}"
 
 
 def test_store_code_round_trips() -> None:

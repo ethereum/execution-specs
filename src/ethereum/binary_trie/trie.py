@@ -257,6 +257,30 @@ def trie_get(trie: BinaryTrie, key: Key) -> Optional[Bytes32]:
     return trie._data.get(key)
 
 
+def remove_subtree(trie: BinaryTrie, prefix: Bytes) -> None:
+    """
+    Remove every key of `trie` beginning with `prefix`; a prefix
+    matching nothing does nothing.
+
+    Keys are consumed most significant bit first, so the keys sharing
+    a `prefix` are exactly the keys of one subtree, and this removes
+    that subtree whole. Callers reach for it when the set of keys to
+    remove is known by where it sits in the tree rather than by
+    enumeration; see [`remove_account`], which drops an account's
+    unbounded storage without being told which slots it holds.
+
+    A production client would unlink the subtree's node from its
+    parent and be done, which is why this is a tree operation and not
+    a loop of removals; the scan here follows [`BinaryTrie`] storing
+    only key/value pairs.
+
+    [`remove_account`]: ref:ethereum.binary_trie.embedding.remove_account
+    [`BinaryTrie`]: ref:ethereum.binary_trie.trie.BinaryTrie
+    """
+    for key in [key for key in trie._data if key.startswith(prefix)]:
+        del trie._data[key]
+
+
 def encode_bit_prefix(prefix: Bytes) -> Bytes:
     """
     Encodes a branch prefix: a two-byte big-endian bit
