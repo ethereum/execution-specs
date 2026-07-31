@@ -11,7 +11,7 @@ name: Backport merged PR
 
 on:
   pull_request_target:
-    types: [closed, labeled]
+    types: [ closed, labeled ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -47,6 +47,9 @@ jobs:
           # Only single-commit (squash-merged) PRs cherry-pick cleanly; skip
           # PRs that landed as merge commits rather than failing the run.
           merge_commits: skip
+          # Create the working branch under `backports/**`: it is exempt from
+          # the `branch-only-forks` creation rule.
+          branch_name: 'backports/${pull_number}-to-${target_branch}'
           pull_title: '${pull_title} [backport ${target_branch}]'
           pull_description: |
             Automated backport of #${pull_number} to `${target_branch}`.
