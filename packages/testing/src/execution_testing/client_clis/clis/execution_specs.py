@@ -262,6 +262,15 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
             "Block access list exceeds gas limit"
         ),
         TransactionException.LOG_MISMATCH: "LogMismatchError",
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
+            "InvalidFrameError"
+        ),
+        TransactionException.TYPE_6_INVALID_SIGNATURE: (
+            "InvalidSignatureError"
+        ),
+        TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
+            "FrameTransactionExecutionError"
+        ),
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
         # Temporary solution for issue #1981.
