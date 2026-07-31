@@ -3,14 +3,19 @@ Tests for the raw binary tree structure.
 """
 
 import random
-from typing import Dict
+import sys
+from typing import Dict, Set
 
 import pytest
+from blake3 import blake3
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import Uint
 
 from ethereum.binary_trie.trie import (
+    BRANCH_NODE_TAG,
     EMPTY_TRIE_ROOT,
+    LEAF_NODE_TAG,
+    BinaryNode,
     BinaryTrie,
     BranchNode,
     LeafNode,
@@ -652,3 +657,379 @@ def test_remove_subtree_of_an_absent_prefix_does_nothing() -> None:
     remove_subtree(trie, Bytes(b"\x09"))
 
     assert root(trie) == before
+
+
+def test_leaf_preimage_golden_vector() -> None:
+    """
+    A single-leaf trie's root is the direct BLAKE3 hash of the leaf
+    tag, key, and value.
+
+    Reconstructed here by calling `blake3` directly, independent of
+    `merkleize`, `blake3_hash`, and the incremental reference, to pin
+    the documented leaf preimage layout on its own.
+    """
+    key = Bytes(b"\x00" + b"\xab" * 33)
+    value = Bytes32(b"\x99" * 32)
+
+    trie = BinaryTrie()
+    trie_set(trie, key, value)
+
+    assert root(trie) == blake3(b"\x00" + key + value).digest()
+
+
+def test_branch_preimage_golden_vector() -> None:
+    """
+    A two-leaf branch's root is the direct BLAKE3 hash of the branch
+    tag, a hand-packed prefix encoding, and the two leaf hashes.
+
+    The 33-byte shared stem is exactly 264 bits, a byte boundary, so
+    its most-significant-bit-first packing is the stem's own bytes;
+    only the 2-byte big-endian bit count (0x0108) is prepended by
+    hand, without calling `encode_bit_prefix`.
+    """
+    stem = b"\x11" * 33
+    low_key = Bytes(stem + b"\x00")
+    high_key = Bytes(stem + b"\x80")
+    low_value = Bytes32(b"\x22" * 32)
+    high_value = Bytes32(b"\x33" * 32)
+
+    trie = BinaryTrie()
+    trie_set(trie, low_key, low_value)
+    trie_set(trie, high_key, high_value)
+
+    prefix_encoding = b"\x01\x08" + stem
+    leaf_lo = blake3(b"\x00" + low_key + low_value).digest()
+    leaf_hi = blake3(b"\x00" + high_key + high_value).digest()
+    expected = blake3(b"\x01" + prefix_encoding + leaf_lo + leaf_hi).digest()
+
+    assert root(trie) == expected
+
+
+def test_fixed_trie_root_is_pinned() -> None:
+    """
+    A small fixed trie spanning the embedding's three key shapes
+    commits to a hardcoded root hash.
+
+    A deliberate change-detector for the hash function, node tags,
+    and prefix encoding: the EIP's hash choice is not yet final, and
+    this test is meant to fail loudly the moment any of them change.
+    To regenerate after a deliberate, reviewed change: print
+    `root(trie).hex()` for this same trie and paste the new value
+    below.
+    """
+    key_a = Bytes(b"\x00" + b"\x11" * 33)  # 34-byte key, 0x00 zone
+    key_b = Bytes(b"\x01" + b"\x22" * 33)  # 34-byte key, 0x01 zone
+    key_c = Bytes(b"\xff" + b"\x33" * 65)  # 66-byte key, 0xff zone
+
+    trie = BinaryTrie()
+    trie_set(trie, key_a, Bytes32(b"\xaa" * 32))
+    trie_set(trie, key_b, Bytes32(b"\xbb" * 32))
+    trie_set(trie, key_c, Bytes32(b"\xcc" * 32))
+
+    assert root(trie) == bytes.fromhex(
+        "580244b78611bbadd6b4b743bb973a6e4d7bcce6458a39450fc51d552437ec5a"
+    )
+
+
+def test_leaf_and_branch_tags_are_domain_separated() -> None:
+    """
+    Leaf and branch nodes hash under different, fixed tag bytes, so
+    the same payload can never collide between the two node types.
+    """
+    assert LEAF_NODE_TAG == b"\x00"
+    assert BRANCH_NODE_TAG == b"\x01"
+
+    payload = b"\x99" * 40
+    assert (
+        blake3(LEAF_NODE_TAG + payload).digest()
+        != blake3(BRANCH_NODE_TAG + payload).digest()
+    )
+
+
+def test_max_length_keys_diverging_at_last_bit() -> None:
+    """
+    Two maximum-length (8192-byte) keys differing only in their final
+    bit are accepted and pin the branch preimage at the deepest
+    prefix the encoding can represent.
+    """
+    low_key = Bytes(b"\xab" * 8191 + b"\xfe")
+    high_key = Bytes(b"\xab" * 8191 + b"\xff")
+    low_value = Bytes32(b"\x01" * 32)
+    high_value = Bytes32(b"\x02" * 32)
+
+    trie = BinaryTrie()
+    trie_set(trie, low_key, low_value)
+    trie_set(trie, high_key, high_value)
+
+    shared_bits = bytes_to_bit_list(low_key)[:-1]
+    assert len(shared_bits) == 65535
+
+    expected = blake3(
+        b"\x01"
+        + encode_bit_prefix(Bytes(shared_bits))
+        + _leaf_hash(low_key, low_value)
+        + _leaf_hash(high_key, high_value)
+    ).digest()
+    assert root(trie) == expected
+
+    # Exact-boundary accept side of the two-byte count field; the
+    # 65536 reject already exists in
+    # test_encode_bit_prefix_rejects_unrepresentable_counts.
+    assert encode_bit_prefix(Bytes(bytes(2**16 - 1)))[:2] == b"\xff\xff"
+
+
+def test_trie_set_rejects_zero_and_thirty_three_byte_values() -> None:
+    """
+    Values shorter or longer than 32 bytes are rejected.
+    """
+    trie = BinaryTrie()
+    with pytest.raises(AssertionError):
+        trie_set(
+            trie,
+            Bytes(b"\x01"),
+            Bytes(b""),  # type: ignore[arg-type]
+        )
+    with pytest.raises(AssertionError):
+        trie_set(
+            trie,
+            Bytes(b"\x02"),
+            Bytes(b"\x03" * 33),  # type: ignore[arg-type]
+        )
+
+
+def test_root_is_idempotent_and_does_not_mutate() -> None:
+    """
+    Computing the root does not mutate the trie's stored entries, and
+    repeated calls return the same value.
+    """
+    rng = random.Random(42)
+    trie = BinaryTrie()
+    for _ in range(5):
+        trie_set(trie, Bytes(rng.randbytes(32)), Bytes32(rng.randbytes(32)))
+
+    snapshot = dict(trie._data)
+    first = root(trie)
+    second = root(trie)
+
+    assert first == second
+    assert trie._data == snapshot
+
+
+def test_prefix_violation_only_fails_at_root_time() -> None:
+    """
+    A prefix-violating pair of keys is accepted and stays readable
+    through ordinary `trie_set`/`trie_get` calls; prefix-freeness is
+    only enforced lazily, when `root` walks the tree.
+
+    EIP-8297's "Tree structure" section places this rejection in
+    `insert` itself ("`insert` rejects keys that violate either
+    constraint"); this implementation's `trie_set` instead defers
+    enforcement to `root()` -- the same disclosure treatment the
+    zero-value/absence divergence receives elsewhere in this tree.
+    The practical consequence is nil for a rebuild-based reference
+    that always calls `root()` before trusting a commitment, which is
+    why this is disclosed rather than fixed.
+    """
+    prefix_key = Bytes(b"\x50" * 34)
+    extended_key = Bytes(b"\x50" * 34 + b"\x60")
+    prefix_value = Bytes32(b"\x01" * 32)
+    extended_value = Bytes32(b"\x02" * 32)
+
+    trie = BinaryTrie()
+    trie_set(trie, prefix_key, prefix_value)
+    trie_set(trie, extended_key, extended_value)
+
+    assert trie_get(trie, prefix_key) == prefix_value
+    assert trie_get(trie, extended_key) == extended_value
+
+    with pytest.raises(AssertionError):
+        root(trie)
+
+
+def assert_canonical_structure(
+    node: BinaryNode, keys: Set[Bytes], depth: Uint
+) -> None:
+    """
+    Check that `node` is the canonical `binarize` encoding of `keys`,
+    whose members all share their first `depth` bits.
+
+    Recomputes each branch's split independently from `keys`, rather
+    than trusting the node's own claimed prefix: both subtrees must
+    be non-empty (what makes the prefix maximal), the prefix must be
+    exactly the run all keys share from `depth`, and every leaf's key
+    must be one of `keys`, on the path its own bits take.
+    """
+    if len(keys) == 1:
+        assert isinstance(node, LeafNode)
+        assert node.key in keys
+        return
+
+    assert isinstance(node, BranchNode)
+    bit_lists = {key: bytes_to_bit_list(key) for key in keys}
+
+    for offset, prefix_bit in enumerate(node.prefix):
+        position = depth + Uint(offset)
+        for bits in bit_lists.values():
+            assert bits[position] == prefix_bit
+
+    split = depth + Uint(len(node.prefix))
+    left_keys = {key for key in keys if bit_lists[key][split] == 0}
+    right_keys = {key for key in keys if bit_lists[key][split] == 1}
+
+    assert len(left_keys) > 0
+    assert len(right_keys) > 0
+    assert isinstance(node.left, (BranchNode, LeafNode))
+    assert isinstance(node.right, (BranchNode, LeafNode))
+
+    assert_canonical_structure(node.left, left_keys, split + Uint(1))
+    assert_canonical_structure(node.right, right_keys, split + Uint(1))
+
+
+def test_canonical_structure_holds_for_fixed_trie() -> None:
+    """
+    The fixed trie from `test_fixed_trie_root_is_pinned` binarizes
+    into a canonical structure.
+    """
+    entries = {
+        Bytes(b"\x00" + b"\x11" * 33): Bytes32(b"\xaa" * 32),
+        Bytes(b"\x01" + b"\x22" * 33): Bytes32(b"\xbb" * 32),
+        Bytes(b"\xff" + b"\x33" * 65): Bytes32(b"\xcc" * 32),
+    }
+
+    top = binarize(entries, Uint(0))
+
+    assert_canonical_structure(top, set(entries.keys()), Uint(0))
+
+
+def test_canonical_structure_holds_for_random_corpora() -> None:
+    """
+    `binarize` produces a canonical structure over many random
+    key/value corpora, not merely the same root as the reference.
+    """
+    rng = random.Random(90210)
+
+    for trial in range(10):
+        entries = {
+            Bytes(key): Bytes32(value)
+            for key, value in random_entries(rng).items()
+        }
+
+        top = binarize(entries, Uint(0))
+        try:
+            assert_canonical_structure(top, set(entries.keys()), Uint(0))
+        except AssertionError as exc:
+            raise AssertionError(f"trial {trial}") from exc
+
+
+def _thermometer_key(ones: int, total_bits: int) -> bytes:
+    """
+    Build the `total_bits`-bit key whose first `ones` bits are one
+    and the remainder are zero, most significant bit first.
+    """
+    value = (2**ones - 1) << (total_bits - ones)
+    return value.to_bytes(total_bits // 8, "big")
+
+
+def test_deep_thermometer_chain_matches_reference() -> None:
+    """
+    A "thermometer" key set, one 66-byte key per possible run length
+    of leading one-bits, forces the deepest branch chain equal-length
+    keys can produce -- 528 levels, each splitting off the next key
+    one level below the last. The rebuild-based spec and the
+    insertion-based reference agree on its root.
+    """
+    total_bits = 8 * 66
+    entries = {
+        Bytes(_thermometer_key(ones, total_bits)): Bytes32(
+            bytes([ones % 256]) * 32
+        )
+        for ones in range(total_bits + 1)
+    }
+
+    reference = IncrementalRadixTree()
+    trie = BinaryTrie()
+    for key, value in entries.items():
+        reference.insert(key, value)
+        trie_set(trie, key, value)
+
+    assert root(trie) == reference.merkelize()
+
+
+def test_deep_chain_past_recursion_limit_is_an_implementation_limit() -> None:
+    """
+    A branch chain deeper than Python's recursion limit overflows
+    `root`'s recursive walk with `RecursionError`, even though
+    nothing about the chain violates the tree's rules.
+
+    The limit is lowered here only to make the failure cheap to
+    trigger. At the interpreter's default limit (raised to 12288 by
+    `ethereum/__init__.py`), the same failure is reachable with legal
+    maximum-length (8192-byte) keys, whose shared-prefix chains can
+    run up to 65535 branches deep; this is therefore a limit of this
+    reference implementation, not a rule the specification imposes.
+    """
+    total_bits = 8 * 34
+    entries = {
+        Bytes(_thermometer_key(ones, total_bits)): Bytes32(b"\x01" * 32)
+        for ones in range(260)
+    }
+
+    trie = BinaryTrie()
+    for key, value in entries.items():
+        trie_set(trie, key, value)
+
+    old_limit = sys.getrecursionlimit()
+    # 260 branches is already deep enough at this lowered limit; see
+    # the docstring for why the same failure applies to legal inputs
+    # at the default limit.
+    sys.setrecursionlimit(200)
+    try:
+        with pytest.raises(RecursionError):
+            root(trie)
+    finally:
+        sys.setrecursionlimit(old_limit)
+
+
+def _large_variable_length_entries(
+    rng: random.Random, count: int
+) -> Dict[bytes, bytes]:
+    """
+    Generate `count` entries mixing 34-byte account/code-zone keys
+    and 66-byte storage-zone keys, plus a handful of 200-byte keys in
+    a fourth zone.
+
+    Every zone uses a fixed, disjoint leading byte, so no key can
+    ever be a prefix of one from another zone regardless of the
+    random bytes that follow.
+    """
+    entries: Dict[bytes, bytes] = {}
+    long_key_count = min(8, count // 20)
+    for _ in range(long_key_count):
+        entries[b"\x02" + rng.randbytes(199)] = rng.randbytes(32)
+    while len(entries) < count:
+        if rng.random() < 0.5:
+            key = bytes([rng.choice((0, 1))]) + rng.randbytes(33)
+        else:
+            key = b"\xff" + rng.randbytes(65)
+        entries[key] = rng.randbytes(32)
+    return entries
+
+
+@pytest.mark.parametrize("seed", [20260727, 5551212, 918273645])
+def test_larger_random_corpora_match_reference(seed: int) -> None:
+    """
+    Larger, more varied corpora of 300-800 entries spanning three key
+    lengths still agree between the rebuild-based spec and the
+    insertion-based reference.
+    """
+    rng = random.Random(seed)
+    count = rng.randrange(300, 801)
+    entries = _large_variable_length_entries(rng, count)
+
+    reference = IncrementalRadixTree()
+    trie = BinaryTrie()
+    for key, value in entries.items():
+        reference.insert(key, value)
+        trie_set(trie, Bytes(key), Bytes32(value))
+
+    assert root(trie) == reference.merkelize()

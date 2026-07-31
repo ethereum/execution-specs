@@ -316,7 +316,10 @@ omit = [
     "*/ethereum/forks/*_glacier/*",
     "*/ethereum/forks/dao_fork/*",
     "*/ethereum/forks/bpo*/*",
-    # Experimental EIP-8297 fork: not part of any CI fill sweep _yet_.
+    # Experimental EIP-8297 fork: its scoped `fill-binary-tree` CI job
+    # runs without coverage instrumentation (no `--cov`), and the full
+    # ported sweep (`fill-binary-tree tests`) is not wired into CI at
+    # all.
     "*/ethereum/forks/binary_tree/*",
 ]
 

@@ -32,6 +32,18 @@ By default, the execution-testing framework only generates fixtures for forks th
      uv run fill --fork=Cancun --evm-bin=/opt/bin/evm -v
      ```
 
+## The Experimental `BinaryTree` Fork (EIP-8297)
+
+`BinaryTree` is Amsterdam semantics with its state commitment replaced by the [EIP-8297](https://eips.ethereum.org/EIPS/eip-8297) Partitioned Binary Tree instead of the Merkle Patricia Trie. It is registered `deployed=False`, so only `--fork BinaryTree` reaches it.
+
+```console
+just binary-trie-fork [paths]
+```
+
+A bare invocation fills only the scoped `tests/binary_tree` suite; `just binary-trie-fork tests` instead reinterprets the entire `tests/` tree against `BinaryTree`.
+
+When porting existing tests: `valid_from(...)` markers select `BinaryTree` (it subclasses `Amsterdam`), but `valid_at(...)` silently does not, so a handful of `valid_at`-pinned tests are invisible to the port with no warning at collection time.
+
 ## Further Help
 
 1. [`geth`/`evm` build documentation](https://geth.ethereum.org/docs/getting-started/installing-geth#build-from-source).
