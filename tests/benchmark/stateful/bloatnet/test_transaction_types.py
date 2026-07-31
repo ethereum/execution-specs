@@ -155,7 +155,7 @@ def test_ether_transfers_onchain_receivers(
             raise ValueError(f"Unknown case: {case_id}")
 
     sends_value = transfer_amount > 0
-    iteration_cost = (
+    execution_iteration_cost = (
         fork.transaction_intrinsic_cost_calculator()(
             sends_value=sends_value,
             recipient_type=recipient_type,
@@ -164,13 +164,27 @@ def test_ether_transfers_onchain_receivers(
             sends_value=sends_value,
             recipient_type=recipient_type,
         )
-        + fork.transaction_top_frame_state_gas(
-            sends_value=sends_value,
-            recipient_type=recipient_type,
-        )
         + receiver_execution_gas
     )
-    iteration_count = gas_benchmark_value // iteration_cost
+    state_iteration_cost = fork.transaction_top_frame_state_gas(
+        sends_value=sends_value,
+        recipient_type=recipient_type,
+    )
+    iteration_cost = execution_iteration_cost + state_iteration_cost
+    # The block header gas is the maximum across the execution and state
+    # dimensions (EIP-8037), so the block fills by the larger dimension;
+    # each transaction's gas limit must still cover both. Every included
+    # transaction needs its whole gas limit to fit in the block gas
+    # remaining on each dimension, hence the full cost of one
+    # transaction is budgeted before packing by the binding dimension.
+    binding_iteration_cost = max(
+        execution_iteration_cost, state_iteration_cost
+    )
+    iteration_count = 0
+    if gas_benchmark_value >= iteration_cost:
+        iteration_count = (
+            gas_benchmark_value - iteration_cost
+        ) // binding_iteration_cost + 1
 
     txs = []
     for _ in range(iteration_count):
