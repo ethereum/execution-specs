@@ -194,7 +194,7 @@ def authorization_transaction_cost(
 
     The recipient is a ``CONTRACT`` that runs no code, so no recipient
     top-frame charge applies and the cost reduces to the intrinsic plus
-    the authorizations' own top-frame regular and state charges. Each
+    the authorizations' own top-frame execution and state charges. Each
     authorization's charge is driven by its ``creates_account`` /
     ``writes_delegation`` / ``first_write`` annotations.
     """
@@ -203,7 +203,7 @@ def authorization_transaction_cost(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )
@@ -211,7 +211,7 @@ def authorization_transaction_cost(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )
-    return intrinsic_gas + top_frame_regular + top_frame_state
+    return intrinsic_gas + top_frame_execution + top_frame_state
 
 
 def setup_target(

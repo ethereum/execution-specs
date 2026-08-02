@@ -21,6 +21,7 @@ from execution_testing import (
     AuthorizationTuple,
     Bytecode,
     Bytes,
+    EIPChecklist,
     Fork,
     Op,
     StateTestFiller,
@@ -90,6 +91,7 @@ class TestTokenCalculation:
             ),
         ],
     )
+    @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
     def test_token_calculation_verification(
         self,
         state_test: StateTestFiller,
@@ -699,17 +701,17 @@ class TestAuthorizationListGasCost:
         """
         Verify the authorization-list intrinsic cost under EIP-2780.
 
-        Each authorization adds exactly ``REGULAR_PER_AUTH_BASE_COST`` to
-        the (regular) intrinsic; the state-dependent authorization costs
+        Each authorization adds exactly ``EXECUTION_PER_AUTH_BASE_COST`` to
+        the (execution) intrinsic; the state-dependent authorization costs
         moved to the top frame. Measured on the *raw* intrinsic (before
         the EIP-7623 calldata floor is applied) the per-authorization
         delta is exactly ``num_authorizations *
-        REGULAR_PER_AUTH_BASE_COST`` -- even when the floor would
+        EXECUTION_PER_AUTH_BASE_COST`` -- even when the floor would
         otherwise mask it (e.g. a single authorization whose base cost
         stays below the floor). Each existing authority then pays the
-        first-write ``ACCOUNT_WRITE`` (regular) and ``AUTH_BASE``
+        first-write ``ACCOUNT_WRITE`` (execution) and ``AUTH_BASE``
         (state) at the top frame, so with a STOP recipient the receipt
-        is ``max(intrinsic_regular + num_authorizations *
+        is ``max(intrinsic_execution + num_authorizations *
         (ACCOUNT_WRITE + AUTH_BASE), floor_cost)``.
         """
         gas_costs = fork.gas_costs()
@@ -750,9 +752,9 @@ class TestAuthorizationListGasCost:
 
         actual_auth_cost = intrinsic_with_auth - intrinsic_without_auth
         assert actual_auth_cost == (
-            num_authorizations * gas_costs.REGULAR_PER_AUTH_BASE_COST
+            num_authorizations * gas_costs.EXECUTION_PER_AUTH_BASE_COST
         ), (
-            "auth intrinsic must be n * REGULAR_PER_AUTH_BASE_COST, got: "
+            "auth intrinsic must be n * EXECUTION_PER_AUTH_BASE_COST, got: "
             f"{actual_auth_cost}"
         )
 
@@ -760,17 +762,17 @@ class TestAuthorizationListGasCost:
             data=calldata
         )
         # Existing authorities pay the first-write ACCOUNT_WRITE
-        # (regular) and AUTH_BASE (state) each at the top frame; the
+        # (execution) and AUTH_BASE (state) each at the top frame; the
         # STOP recipient does no execution, so the receipt is
-        # max(regular + state, floor).
-        top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+        # max(execution + state, floor).
+        top_frame_execution = fork.transaction_top_frame_gas_calculator()(
             authorizations=authorization_list,
         )
         top_frame_state = fork.transaction_top_frame_state_gas(
             authorizations=authorization_list,
         )
         expected_gas = max(
-            intrinsic_with_auth + top_frame_regular + top_frame_state,
+            intrinsic_with_auth + top_frame_execution + top_frame_state,
             floor_cost,
         )
 

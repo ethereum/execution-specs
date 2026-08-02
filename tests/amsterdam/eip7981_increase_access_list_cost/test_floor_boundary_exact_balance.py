@@ -9,6 +9,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
+    EIPChecklist,
     Fork,
     Hash,
     StateTestFiller,
@@ -24,6 +25,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7981.version
 pytestmark = pytest.mark.valid_at("EIP7981")
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "tx_type",
@@ -55,7 +57,7 @@ def test_below_amsterdam_floor_with_access_list_exact_balance(
         )
     ]
     tx_data = Bytes(b"\x01" * nonzero_bytes)
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         calldata=tx_data,
         access_list=access_list,
         return_cost_deducted_prior_execution=True,
@@ -66,7 +68,7 @@ def test_below_amsterdam_floor_with_access_list_exact_balance(
     # Pin gas_limit inside the access-list-byte uplift gap so an
     # implementation that omits this term from its floor accepts.
     gas_limit = (amsterdam_floor_no_al + amsterdam_floor) // 2
-    assert intrinsic_regular <= gas_limit < amsterdam_floor
+    assert intrinsic_execution <= gas_limit < amsterdam_floor
     assert gas_limit >= amsterdam_floor_no_al
 
     gas_price = 10

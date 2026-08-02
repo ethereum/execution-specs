@@ -201,7 +201,7 @@ def _intrinsic_gas(
     recipient_type: RecipientType = RecipientType.CONTRACT,
     sends_value: bool = False,
 ) -> int:
-    """Return the regular intrinsic gas deducted before execution."""
+    """Return the execution intrinsic gas deducted before execution."""
     return fork.transaction_intrinsic_cost_calculator()(
         recipient_type=recipient_type,
         sends_value=sends_value,
@@ -377,7 +377,7 @@ def test_account_write_authority_is_recipient(
     # delegation.
     recipient_type = RecipientType.DELEGATION_7702
     authorizations = [authorization]
-    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
         recipient_type=recipient_type,
         authorizations=authorizations,
     )
@@ -392,7 +392,7 @@ def test_account_write_authority_is_recipient(
             recipient_type=recipient_type,
             sends_value=bool(value),
         )
-        + top_frame_regular
+        + top_frame_execution
         + top_frame_state
     )
 

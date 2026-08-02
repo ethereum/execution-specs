@@ -11,6 +11,7 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     Bytes,
+    EIPChecklist,
     Fork,
     Op,
     StateTestFiller,
@@ -75,6 +76,7 @@ class TestGasConsumption:
             pytest.param(0, id="exact_gas"),
         ],
     )
+    @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
     def test_full_gas_consumption(
         self,
         state_test: StateTestFiller,
@@ -153,6 +155,7 @@ class TestGasConsumptionBelowDataFloor:
             pytest.param(0, id="exact_gas"),
         ],
     )
+    @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
     def test_gas_consumption_below_data_floor(
         self,
         state_test: StateTestFiller,

@@ -37,6 +37,8 @@ from execution_testing import (
     compute_create_address,
 )
 
+from tests.frontier.identity_precompile.spec import Spec as IdentitySpec
+
 
 @pytest.mark.parametrize("transfer_amount", [0, 1])
 @pytest.mark.parametrize("opcode", [Op.CALL, Op.CALLCODE])
@@ -159,6 +161,48 @@ def test_contract_calling_many_addresses(
         post=post,
         blocks=[Block(txs=exec_txs)],
         expected_benchmark_gas_used=total_gas_cost,
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode,value",
+    [
+        pytest.param(Op.CALL, 0, id="CALL"),
+        pytest.param(Op.CALL, 1, id="CALL with value"),
+        pytest.param(Op.CALLCODE, 0, id="CALLCODE"),
+        pytest.param(Op.CALLCODE, 1, id="CALLCODE with value"),
+        pytest.param(Op.DELEGATECALL, None, id="DELEGATECALL"),
+        pytest.param(Op.STATICCALL, None, id="STATICCALL"),
+    ],
+)
+def test_call_opcodes_to_precompile(
+    benchmark_test: BenchmarkTestFiller,
+    opcode: Op,
+    value: int | None,
+) -> None:
+    """Benchmark every call opcode dispatching to a precompile."""
+    value_kwarg: dict[str, Any] = {}
+    if value is not None:
+        value_kwarg = {"value": value}
+
+    attack_block = Op.POP(
+        opcode(
+            gas=Op.GAS,
+            address=IdentitySpec.IDENTITY,
+            args_offset=Op.PUSH0,
+            args_size=Op.PUSH0,
+            ret_offset=Op.PUSH0,
+            ret_size=Op.PUSH0,
+            **value_kwarg,
+        )
+    )
+
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            attack_block=attack_block,
+            contract_balance=10**9 if value else 0,
+        ),
     )
 
 
@@ -407,7 +451,7 @@ def test_creates_collisions(
     )
     proxy_contract = pre.deploy_contract(code=proxy_contract_code)
 
-    min_gas_required = proxy_contract_code.regular_cost(
+    min_gas_required = proxy_contract_code.execution_cost(
         fork
     ) + proxy_contract_code.state_cost(fork)
     setup = Op.PUSH20(proxy_contract) + Op.PUSH3(min_gas_required)
@@ -425,7 +469,7 @@ def test_creates_collisions(
         )
         pre.deploy_contract(address=addr, code=Op.INVALID)
     else:
-        creation_cost = proxy_contract_code.regular_cost(fork)
+        creation_cost = proxy_contract_code.execution_cost(fork)
         max_contract_count = (
             2 * gas_benchmark_value // creation_cost
             if fixed_opcode_count is None
@@ -439,6 +483,51 @@ def test_creates_collisions(
         target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=attack_block
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.CREATE,
+        Op.CREATE2,
+    ],
+)
+@pytest.mark.parametrize(
+    "revert_size",
+    [
+        pytest.param(0, id="empty revert data"),
+        pytest.param(32, id="32 bytes of revert data"),
+        pytest.param(1024, id="1KiB of revert data"),
+    ],
+)
+def test_creates_reverting_initcode(
+    benchmark_test: BenchmarkTestFiller,
+    opcode: Op,
+    revert_size: int,
+) -> None:
+    """Benchmark CREATE and CREATE2 whose initcode reverts."""
+    initcode = Op.REVERT(0, revert_size)
+
+    salt_kwarg: dict[str, Any] = {}
+    if opcode == Op.CREATE2:
+        salt_kwarg = {"salt": 0}
+
+    attack_block = Op.POP(
+        opcode(
+            value=0,
+            offset=32 - len(initcode),
+            size=len(initcode),
+            **salt_kwarg,
+        )
+    )
+
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            setup=Op.MSTORE(0, initcode.hex()),
+            attack_block=attack_block,
         ),
     )
 
@@ -761,16 +850,25 @@ def test_selfdestruct_created(
     )
 
 
-@pytest.mark.parametrize("value_bearing", [True, False])
+@pytest.mark.parametrize(
+    "value_bearing,beneficiary_is_self",
+    [
+        pytest.param(False, False, id="without value"),
+        pytest.param(True, False, id="with value moved to the creator"),
+        pytest.param(True, True, id="with value burnt to self"),
+    ],
+)
 def test_selfdestruct_initcode(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     value_bearing: bool,
+    beneficiary_is_self: bool,
     fork: Fork,
     gas_benchmark_value: int,
 ) -> None:
     """Benchmark SELFDESTRUCT instruction executed in initcode."""
-    initcode = Op.SELFDESTRUCT(Op.CALLER, address_warm=True)
+    beneficiary = Op.ADDRESS if beneficiary_is_self else Op.CALLER
+    initcode = Op.SELFDESTRUCT(beneficiary, address_warm=True)
 
     # CALLDATA[0:32] = iteration_count
     setup = (
@@ -836,9 +934,10 @@ def test_selfdestruct_initcode(
 
     total_gas_cost = sum(tx.gas_cost for tx in exec_txs)
 
+    returned_to_creator = value_bearing and not beneficiary_is_self
     post = {
         attack_code_address: Account(
-            balance=num_iterations if value_bearing else 0
+            balance=num_iterations if returned_to_creator else 0
         )
     }
 

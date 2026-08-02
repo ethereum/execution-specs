@@ -22,6 +22,7 @@ from .rpc import (
 from .rpc_types import (
     BlobAndProofV1,
     BlobAndProofV2,
+    BlobCellsAndProofsV1,
     EthConfigResponse,
     ForkConfig,
     ForkConfigBlobSchedule,
@@ -35,6 +36,7 @@ __all__ = [
     "AdminRPC",
     "BlobAndProofV1",
     "BlobAndProofV2",
+    "BlobCellsAndProofsV1",
     "BlockNotAvailableError",
     "BlockNumberType",
     "DebugRPC",

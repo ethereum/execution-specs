@@ -17,6 +17,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    EIPChecklist,
     Op,
     StateTestFiller,
     Transaction,
@@ -30,6 +31,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8024.version
 pytestmark = pytest.mark.valid_from("EIP8024")
 
 
+@EIPChecklist.Opcode.Test.StackUnderflow()
 @pytest.mark.parametrize(
     "eip8024_opcode,pushed_items",
     [

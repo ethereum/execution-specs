@@ -6,6 +6,7 @@ on:
       - master
       - mainnet
       - "forks/**"
+      - "benchmarks/**"
     paths-ignore:
       - "**.md"
       - "LICENSE*"
@@ -109,6 +110,19 @@ jobs:
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  fill-benchmark:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - name: Run fill-benchmark
+        run: just fill-benchmark
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+
   fill-pypy:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
@@ -163,10 +177,20 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/build-evmone
+      # On benchmarks/** branches, build the pinned geth so the benchmark
+      # plugin tests fill against a real client (via EVM_BIN). On every other
+      # branch this step is skipped, EVM_BIN stays empty, and those fills fall
+      # through to fill's in-repo EELS t8n.
+      - uses: ./.github/actions/build-evm-base
+        id: evm-builder
+        if: ${{ startsWith(github.ref, 'refs/heads/benchmarks/') || startsWith(github.base_ref, 'benchmarks/') }}
+        with:
+          type: benchmark
       - name: Run test-tests
         run: just test-tests
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+          EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
   binary-trie-unit-test:
     runs-on: [self-hosted-ghr, size-xl-x64]

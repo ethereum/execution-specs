@@ -95,7 +95,7 @@ def test_intrinsic_gas_floor_boundary_contract_creation(
 
     A creation tx's intrinsic includes the ``NEW_ACCOUNT`` state gas, so
     the pre-execution check rejects against the combined
-    ``regular + state`` intrinsic. The init code never runs.
+    ``execution + state`` intrinsic. The init code never runs.
     """
     sender = pre.fund_eoa(10**18)
     init_code = Op.STOP
@@ -136,7 +136,7 @@ def test_intrinsic_gas_floor_boundary_with_authorizations(
 ) -> None:
     """
     Reject a type-4 transaction when ``gas_limit = intrinsic_gas - 1``,
-    where the intrinsic includes ``REGULAR_PER_AUTH_BASE_COST`` per
+    where the intrinsic includes ``EXECUTION_PER_AUTH_BASE_COST`` per
     authorization.
 
     EIP-2780 keeps only the state-independent per-authorization base

@@ -1,6 +1,7 @@
 """Account-related types for Ethereum tests."""
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from importlib import import_module
@@ -699,3 +700,27 @@ class Alloc(BaseAlloc):
         raise NotImplementedError(
             "nonexistent_account is not implemented in the base class"
         )
+
+    def expect_account_state(
+        self,
+        addresses: Address | Sequence[Address],
+        *,
+        is_existing_account: bool = True,
+        is_contract: bool = False,
+        min_balance: int | None = None,
+        code_prefix: bytes | None = None,
+    ) -> None:
+        """
+        Register start-block expectation(s) for predeployed account(s).
+
+        Accepts a single address or a range; labels ride on the addresses
+        themselves. Used only by fill-stateful; ignored by other
+        allocations.
+        """
+
+    def verify_deployed_accounts(self, block_number: int) -> None:
+        """
+        Verify predeployed-account expectations at block_number.
+
+        No-op unless fill-stateful allocation.
+        """

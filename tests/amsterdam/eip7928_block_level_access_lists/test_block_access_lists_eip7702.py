@@ -581,7 +581,7 @@ def test_bal_7702_recipient_excluded_on_authorization_oog(
     auth = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
     authorization_list = [auth.authorization]
 
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         recipient_type=RecipientType.CONTRACT,
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
@@ -592,12 +592,12 @@ def test_bal_7702_recipient_excluded_on_authorization_oog(
     if outcome == "oog":
         # The authorization runs out at its opening NEW_ACCOUNT state
         # charge, drawn from gas_left under the zero state reservoir.
-        gas_limit = intrinsic_regular + fork.gas_costs().NEW_ACCOUNT - 1
+        gas_limit = intrinsic_execution + fork.gas_costs().NEW_ACCOUNT - 1
         recipient_expectation = None
         authority_expectation = BalAccountExpectation.empty()
         expected_authority = auth.original_account
     else:
-        top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+        top_frame_execution = fork.transaction_top_frame_gas_calculator()(
             recipient_type=RecipientType.CONTRACT,
             authorizations=authorization_list,
         )
@@ -605,7 +605,7 @@ def test_bal_7702_recipient_excluded_on_authorization_oog(
             recipient_type=RecipientType.CONTRACT,
             authorizations=authorization_list,
         )
-        gas_limit = intrinsic_regular + top_frame_regular + top_frame_state
+        gas_limit = intrinsic_execution + top_frame_execution + top_frame_state
         recipient_expectation = BalAccountExpectation.empty()
         authority_expectation = BalAccountExpectation(
             nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],

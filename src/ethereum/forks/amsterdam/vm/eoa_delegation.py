@@ -201,12 +201,12 @@ def set_delegation(evm: Evm) -> None:
     costs at the top frame.
 
     Each valid authorization is charged, on top of the
-    state-independent ``GasCosts.REGULAR_PER_AUTH_BASE_COST`` already
+    state-independent ``GasCosts.EXECUTION_PER_AUTH_BASE_COST`` already
     paid in the intrinsic cost:
 
     - ``StateGasCosts.NEW_ACCOUNT`` (state) when the authority's
       account leaf does not yet exist.
-    - ``GasCosts.ACCOUNT_WRITE`` (regular) when applying the
+    - ``GasCosts.ACCOUNT_WRITE`` (execution) when applying the
       authorization is the transaction's first write to the authority's
       leaf. Writes the transaction already prices elsewhere are
       exempt: the sender's, covered by ``TX_BASE``, and, for a

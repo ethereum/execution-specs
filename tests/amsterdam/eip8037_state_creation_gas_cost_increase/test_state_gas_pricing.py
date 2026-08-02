@@ -99,7 +99,7 @@ def test_charge_draws_entirely_from_reservoir(
 
     When the reservoir has enough gas for the SSTORE state cost,
     gas_left should not be reduced by the state charge. Verify by
-    performing a regular-gas-heavy computation after the SSTORE.
+    performing an execution-gas-heavy computation after the SSTORE.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
@@ -108,10 +108,10 @@ def test_charge_draws_entirely_from_reservoir(
         code=(
             # SSTORE draws state gas from reservoir
             Op.SSTORE(storage.store_next(1), 1)
-            # Remaining gas_left is available for regular ops
+            # Remaining gas_left is available for execution ops
             + Op.SSTORE(
                 storage.store_next(1),
-                Op.ADD(1, 0),  # Cheap regular-gas op
+                Op.ADD(1, 0),  # Cheap execution-gas op
             )
         ),
     )
@@ -183,9 +183,9 @@ def test_charge_spill_boundary(
     contract = pre.deploy_contract(code=code)
 
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
-    regular = code.regular_cost(fork)
+    execution = code.execution_cost(fork)
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    gas_limit = intrinsic + regular + sstore_state_gas + gas_delta
+    gas_limit = intrinsic + execution + sstore_state_gas + gas_delta
 
     tx = Transaction(
         to=contract,
@@ -194,7 +194,7 @@ def test_charge_spill_boundary(
     )
 
     header = Header(
-        gas_used=max(intrinsic + regular, sstore_state_gas)
+        gas_used=max(intrinsic + execution, sstore_state_gas)
         if gas_delta == 0
         else gas_limit
     )
@@ -217,7 +217,7 @@ def test_refund_cap_includes_state_gas(
 
     When state gas is drawn from gas_left (no reservoir), it counts
     toward tx_gas_used_before_refund. The 1/5 refund cap applies to
-    the combined total of regular + state gas consumed. This test
+    the combined total of execution + state gas consumed. This test
     performs an SSTORE zero-to-nonzero-to-zero sequence to generate
     a refund and verifies the transaction succeeds.
     """
@@ -248,7 +248,7 @@ def test_refund_with_reservoir_state_gas(
     Test refund when state gas is drawn from reservoir.
 
     When state gas comes from the reservoir, the refund still applies.
-    The refund_counter accumulates state + regular gas refunds, and
+    The refund_counter accumulates state + execution gas refunds, and
     the 1/5 cap uses tx_gas_used_before_refund which accounts for
     both dimensions. An SSTORE zero-to-nonzero-to-zero sequence
     should refund correctly.
@@ -270,30 +270,32 @@ def test_refund_with_reservoir_state_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def _access_list_over_regular_cap(
+def _access_list_over_execution_cap(
     fork: Fork, cap: int, *, margin_num: int = 1, margin_den: int = 1
 ) -> list[AccessList]:
     """
-    Build an access list whose intrinsic *regular* gas exceeds ``cap`` by
+    Build an access list whose intrinsic *execution* gas exceeds ``cap`` by
     roughly the factor ``margin_num / margin_den``.
 
-    Each access-list address adds a fixed amount to the regular intrinsic
+    Each access-list address adds a fixed amount to the execution intrinsic
     (the EIP-2930 address cost plus the EIP-7981 floor-token surcharge) and
     a much smaller amount to the calldata floor, so the list raises the
-    regular operand of ``max(intrinsic_regular, calldata_floor)`` over the
+    execution operand of ``max(intrinsic_execution, calldata_floor)`` over the
     cap while the floor stays below it. No state gas is incurred.
     """
     intrinsic = fork.transaction_intrinsic_cost_calculator()
-    base_regular = intrinsic(return_cost_deducted_prior_execution=True)
-    per_address_regular = (
+    base_execution = intrinsic(return_cost_deducted_prior_execution=True)
+    per_address_execution = (
         intrinsic(
             access_list=[AccessList(address=Address(0x100), storage_keys=[])],
             return_cost_deducted_prior_execution=True,
         )
-        - base_regular
+        - base_execution
     )
-    assert per_address_regular > 0
-    num_entries = (cap * margin_num) // (per_address_regular * margin_den) + 1
+    assert per_address_execution > 0
+    num_entries = (cap * margin_num) // (
+        per_address_execution * margin_den
+    ) + 1
     return [
         AccessList(address=Address(0x10000 + i), storage_keys=[])
         for i in range(num_entries)
@@ -302,18 +304,18 @@ def _access_list_over_regular_cap(
 
 @pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
-def test_intrinsic_regular_gas_exceeds_cap(
+def test_intrinsic_execution_gas_exceeds_cap(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Reject a transaction whose intrinsic *regular* gas exceeds the cap.
+    Reject a transaction whose intrinsic *execution* gas exceeds the cap.
 
-    EIP-8037 enforces ``max(intrinsic_regular, calldata_floor) <=
+    EIP-8037 enforces ``max(intrinsic_execution, calldata_floor) <=
     TX_MAX_GAS_LIMIT`` after the separate sufficiency check
     ``max(intrinsic_total, calldata_floor) <= tx.gas``. A large access list
-    raises the regular intrinsic over the cap while adding no state gas and
+    raises the execution intrinsic over the cap while adding no state gas and
     keeping the calldata floor below the cap. ``gas_limit`` is set above the
     total intrinsic so the sufficiency check passes and the cap is the only
     reason the transaction is rejected; a client that compares the intrinsic
@@ -324,16 +326,16 @@ def test_intrinsic_regular_gas_exceeds_cap(
     floor_cost = fork.transaction_data_floor_cost_calculator()
     intrinsic = fork.transaction_intrinsic_cost_calculator()
 
-    access_list = _access_list_over_regular_cap(fork, cap)
-    regular = intrinsic(
+    access_list = _access_list_over_execution_cap(fork, cap)
+    execution = intrinsic(
         access_list=access_list,
         return_cost_deducted_prior_execution=True,
     )
     floor = floor_cost(data=b"", access_list=access_list)
-    tx_gas = regular + 1_000_000
+    tx_gas = execution + 1_000_000
 
-    assert max(regular, floor) > cap, "cap check must fire"
-    assert regular <= tx_gas, "sufficiency check must not fire"
+    assert max(execution, floor) > cap, "cap check must fire"
+    assert execution <= tx_gas, "sufficiency check must not fire"
     assert floor <= tx_gas
 
     tx = Transaction(
@@ -349,21 +351,21 @@ def test_intrinsic_regular_gas_exceeds_cap(
 
 @pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
-def test_intrinsic_regular_gas_exceeds_cap_with_floor_below_cap(
+def test_intrinsic_execution_gas_exceeds_cap_with_floor_below_cap(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Reject when intrinsic *regular* gas exceeds the cap while the calldata
-    floor stays below it, isolating the regular operand of
-    ``max(intrinsic_regular, calldata_floor)``.
+    Reject when intrinsic *execution* gas exceeds the cap while the calldata
+    floor stays below it, isolating the execution operand of
+    ``max(intrinsic_execution, calldata_floor)``.
 
-    A large access list with no calldata pushes the regular intrinsic over
+    A large access list with no calldata pushes the execution intrinsic over
     the cap while the floor stays well below it, and ``gas_limit`` covers
     the total intrinsic so the sufficiency check passes. The explicit
     ``floor < cap`` assertion guarantees the rejection comes from the
-    regular operand, so a client that compares only the calldata floor
+    execution operand, so a client that compares only the calldata floor
     against the cap would wrongly accept the transaction.
     """
     cap = fork.transaction_gas_limit_cap()
@@ -371,19 +373,19 @@ def test_intrinsic_regular_gas_exceeds_cap_with_floor_below_cap(
     floor_cost = fork.transaction_data_floor_cost_calculator()
     intrinsic = fork.transaction_intrinsic_cost_calculator()
 
-    access_list = _access_list_over_regular_cap(
+    access_list = _access_list_over_execution_cap(
         fork, cap, margin_num=5, margin_den=4
     )
-    regular = intrinsic(
+    execution = intrinsic(
         access_list=access_list,
         return_cost_deducted_prior_execution=True,
     )
     floor = floor_cost(data=b"", access_list=access_list)
-    tx_gas = regular + 1_000_000
+    tx_gas = execution + 1_000_000
 
-    assert regular > cap, "regular operand must exceed the cap"
+    assert execution > cap, "execution operand must exceed the cap"
     assert floor < cap, "calldata floor must stay below the cap"
-    assert regular <= tx_gas, "sufficiency check must not fire"
+    assert execution <= tx_gas, "sufficiency check must not fire"
 
     tx = Transaction(
         ty=1,
@@ -407,7 +409,7 @@ def test_intrinsic_within_cap_gas_limit_above_cap(
     intrinsic operands stay below it.
 
     EIP-8037 relaxes the EIP-7825 cap on ``tx.gas`` itself; only
-    ``max(intrinsic_regular, calldata_floor)`` is capped. This positive
+    ``max(intrinsic_execution, calldata_floor)`` is capped. This positive
     control sets ``gas_limit`` above the cap with a small access list so
     both operands are far below it, and the transaction must execute. It is
     the accepting counterpart to the cap-rejection tests above.
@@ -421,12 +423,12 @@ def test_intrinsic_within_cap_gas_limit_above_cap(
         AccessList(address=Address(0x10000 + i), storage_keys=[])
         for i in range(16)
     ]
-    regular = intrinsic(
+    execution = intrinsic(
         access_list=access_list,
         return_cost_deducted_prior_execution=True,
     )
     floor = floor_cost(data=b"", access_list=access_list)
-    assert regular <= cap
+    assert execution <= cap
     assert floor <= cap
 
     storage = Storage()
@@ -466,26 +468,26 @@ def test_calldata_floor_enforced_with_state_gas(
     Test EIP-7623 calldata floor is enforced when EIP-8037 is active.
 
     Send 100 non-zero calldata bytes to a call transaction so the
-    regular intrinsic cost is below the calldata floor. A gas_limit
+    execution intrinsic cost is below the calldata floor. A gas_limit
     at the floor succeeds; one below the floor is rejected.
     """
     calldata = b"\x01" * 100
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     floor_cost = fork.transaction_data_floor_cost_calculator()
 
-    regular_gas = intrinsic_cost(
+    execution_gas = intrinsic_cost(
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
     )
     floor_gas = floor_cost(data=calldata)
-    assert floor_gas > regular_gas, "floor must exceed regular for test"
+    assert floor_gas > execution_gas, "floor must exceed execution for test"
 
     if above_floor:
         gas_limit = floor_gas
         error = None
     else:
-        # Between regular and floor: satisfies regular but not floor
-        gas_limit = (regular_gas + floor_gas) // 2
+        # Between execution and floor: satisfies execution but not floor
+        gas_limit = (execution_gas + floor_gas) // 2
         error = TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
 
     tx = Transaction(
@@ -556,22 +558,21 @@ def test_call_new_account_state_gas_scales_with_cpsb(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     empty = pre.fund_eoa(0)
+    call = Op.CALL(
+        gas=100_000,
+        address=empty,
+        value=1,
+        value_transfer=True,
+        account_new=True,
+    )
     storage = Storage()
     contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                storage.store_next(1, "call_success"),
-                Op.CALL(gas=100_000, address=empty, value=1),
-            )
-        ),
+        code=Op.SSTORE(storage.store_next(1, "call_success"), call),
         balance=1,
     )
 
-    tx_gas = min(gas_limit_cap + new_account_state_gas, block_gas_limit)
+    tx_gas = min(gas_limit_cap + call.state_cost(fork), block_gas_limit)
     tx = Transaction(
         to=contract,
         gas_limit=tx_gas,
@@ -599,8 +600,7 @@ def test_selfdestruct_new_beneficiary_scales_with_cpsb(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
+    new_account_state_gas = Op.SELFDESTRUCT(account_new=True).state_cost(fork)
 
     beneficiary = pre.fund_eoa(0)
     storage = Storage()

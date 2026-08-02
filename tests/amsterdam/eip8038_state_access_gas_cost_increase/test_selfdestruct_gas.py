@@ -1,8 +1,8 @@
 """
 Tests for the EIP-8038 [State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038)
-``SELFDESTRUCT`` regular-gas dimension.
+``SELFDESTRUCT`` execution-gas dimension.
 
-Under EIP-8038 ``SELFDESTRUCT`` is charged, in its *regular* gas
+Under EIP-8038 ``SELFDESTRUCT`` is charged, in its *execution* gas
 dimension:
 
 - ``OPCODE_SELFDESTRUCT_BASE`` (5,000);
@@ -11,9 +11,9 @@ dimension:
   ``WARM_ACCESS`` surcharge);
 - a net-new ``ACCOUNT_WRITE`` (8,000) when a positive balance is sent to
   an empty (or non-existent) beneficiary, replacing the legacy combined
-  25,000 regular account-creation cost.
+  25,000 execution account-creation cost.
 
-So ``regular = 5,000 + (3,000 if cold) + (8,000 if creating)``: 13,000
+So ``execution = 5,000 + (3,000 if cold) + (8,000 if creating)``: 13,000
 warm / 16,000 cold when a new beneficiary is created, 5,000 warm / 8,000
 cold otherwise.
 
@@ -29,10 +29,10 @@ still applies.
 
 The framework opcode-gas model splits the two dimensions for
 ``SELFDESTRUCT`` exactly as the spec does: ``ACCOUNT_WRITE`` is charged
-as regular gas and ``GAS_NEW_ACCOUNT`` as state gas, so
-``Op.SELFDESTRUCT(account_new=True).regular_cost(fork)`` is the regular
+as execution gas and ``GAS_NEW_ACCOUNT`` as state gas, so
+``Op.SELFDESTRUCT(account_new=True).execution_cost(fork)`` is the execution
 charge (16,000 cold / 13,000 warm) and ``.state_cost(fork)`` is
-``GAS_NEW_ACCOUNT``. These tests assert the regular dimension and verify
+``GAS_NEW_ACCOUNT``. These tests assert the execution dimension and verify
 account-creation via balances; the state dimension is owned by
 ``eip8037_state_creation_gas_cost_increase/test_state_gas_selfdestruct.py``.
 """
@@ -66,35 +66,11 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _selfdestruct_regular(fork: Fork, *, warm: bool, account_new: bool) -> int:
-    """
-    Return the EIP-8038 *regular* gas charged by SELFDESTRUCT.
-
-    ``OPCODE_SELFDESTRUCT_BASE + access + (ACCOUNT_WRITE if account_new)``;
-    the ``GAS_NEW_ACCOUNT`` account-creation cost is the EIP-8037 state
-    dimension and is excluded from ``regular_cost``.
-    """
-    gas_costs = fork.gas_costs()
-    regular = Op.SELFDESTRUCT(
-        address_warm=warm, account_new=account_new
-    ).regular_cost(fork)
-    # SELFDESTRUCT charges a cold-access surcharge only; a warm
-    # beneficiary adds nothing beyond the base (no WARM_ACCESS).
-    access = 0 if warm else gas_costs.COLD_ACCOUNT_ACCESS
-    expected = (
-        gas_costs.OPCODE_SELFDESTRUCT_BASE
-        + access
-        + (gas_costs.ACCOUNT_WRITE if account_new else 0)
-    )
-    assert regular == expected
-    return regular
-
-
 def _destructor_code(
     beneficiary: Address | Bytecode, *, warm: bool, account_new: bool
 ) -> Bytecode:
     """
-    Build SELFDESTRUCT bytecode with metadata so ``regular_cost(fork)``
+    Build SELFDESTRUCT bytecode with metadata so ``execution_cost(fork)``
     folds the beneficiary PUSH and the correct access/account-write
     charge (account-creation state gas excluded — it is charged
     separately by the spec).
@@ -106,7 +82,7 @@ def _destructor_code(
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("warm", [False, True], ids=["cold", "warm"])
-def test_selfdestruct_new_beneficiary_regular_gas(
+def test_selfdestruct_new_beneficiary_execution_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -118,16 +94,12 @@ def test_selfdestruct_new_beneficiary_regular_gas(
 
     The destructor has a non-zero balance and targets an empty,
     non-existent beneficiary, so the net-new ``ACCOUNT_WRITE`` applies:
-    ``regular = 5,000 + access + 8,000`` (13,000 warm, 16,000 cold). The
+    ``execution = 5,000 + access + 8,000`` (13,000 warm, 16,000 cold). The
     creation gas ``GAS_NEW_ACCOUNT`` is charged on the state axis (the
     EIP-8037 suite asserts it); here it is funded from the reservoir and
     the value transfer to the new beneficiary confirms the path.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
-    regular = _selfdestruct_regular(fork, warm=warm, account_new=True)
-    assert regular == (13_000 if warm else 16_000)
+    new_account_state_gas = Op.SELFDESTRUCT(account_new=True).state_cost(fork)
 
     beneficiary = Address(0xDEAD)  # empty, non-existent
 
@@ -172,13 +144,10 @@ def test_selfdestruct_alive_beneficiary_no_account_write(
     """
     SELFDESTRUCT to an already-alive beneficiary charges no ACCOUNT_WRITE.
 
-    The beneficiary already exists, so no account is created: regular =
+    The beneficiary already exists, so no account is created: execution =
     ``5,000 + (3,000 if cold)`` (5,000 warm, 8,000 cold) and no state gas is
-    charged. The block header reflects the pure regular consumption.
+    charged. The block header reflects the pure execution consumption.
     """
-    regular = _selfdestruct_regular(fork, warm=warm, account_new=False)
-    assert regular == (5_000 if warm else 8_000)
-
     beneficiary = pre.fund_eoa(amount=1)  # alive
 
     destructor_code = _destructor_code(
@@ -198,12 +167,12 @@ def test_selfdestruct_alive_beneficiary_no_account_write(
         access_list=access_list
     )
 
-    # Pure regular: intrinsic + caller frame + destructor frame (whose
-    # regular_cost folds the SELFDESTRUCT charge and beneficiary PUSH).
+    # Pure execution: intrinsic + caller frame + destructor frame (whose
+    # execution_cost folds the SELFDESTRUCT charge and beneficiary PUSH).
     expected_gas_used = (
         intrinsic
         + caller_code.gas_cost(fork)
-        + destructor_code.regular_cost(fork)
+        + destructor_code.execution_cost(fork)
     )
 
     tx = Transaction(
@@ -243,14 +212,11 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
     The beneficiary is alive because it has code, not balance: it holds a
     zero balance but a non-empty code (``Op.STOP``), so EIP-161 emptiness
     does not apply and no account is created when a positive balance is
-    sent to it. Regular = ``5,000 + (3,000 if cold)`` (5,000 warm, 8,000
+    sent to it. Execution = ``5,000 + (3,000 if cold)`` (5,000 warm, 8,000
     cold) with no ACCOUNT_WRITE and no state gas — distinct from the
     alive-via-balance case, which exercises the same path through a
     different liveness source.
     """
-    regular = _selfdestruct_regular(fork, warm=warm, account_new=False)
-    assert regular == (5_000 if warm else 8_000)
-
     # Alive via code (non-empty code), with zero balance.
     beneficiary = pre.deploy_contract(code=Op.STOP, balance=0)
 
@@ -271,12 +237,12 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
         access_list=access_list
     )
 
-    # Pure regular: intrinsic + caller frame + destructor frame (whose
-    # regular_cost folds the SELFDESTRUCT charge and beneficiary PUSH).
+    # Pure execution: intrinsic + caller frame + destructor frame (whose
+    # execution_cost folds the SELFDESTRUCT charge and beneficiary PUSH).
     expected_gas_used = (
         intrinsic
         + caller_code.gas_cost(fork)
-        + destructor_code.regular_cost(fork)
+        + destructor_code.execution_cost(fork)
     )
 
     tx = Transaction(
@@ -314,11 +280,8 @@ def test_selfdestruct_zero_balance_no_account_write(
     SELFDESTRUCT with a zero-balance destructor charges no ACCOUNT_WRITE.
 
     No value is transferred, so even a non-existent beneficiary is not
-    created: regular = ``5,000 + access`` and no state gas is charged.
+    created: execution = ``5,000 + access`` and no state gas is charged.
     """
-    regular = _selfdestruct_regular(fork, warm=warm, account_new=False)
-    assert regular == (5_000 if warm else 8_000)
-
     beneficiary = Address(0xDEAD)  # non-existent, but no value sent
 
     destructor_code = _destructor_code(
@@ -339,7 +302,7 @@ def test_selfdestruct_zero_balance_no_account_write(
     expected_gas_used = (
         intrinsic
         + caller_code.gas_cost(fork)
-        + destructor_code.regular_cost(fork)
+        + destructor_code.execution_cost(fork)
     )
 
     tx = Transaction(
@@ -382,7 +345,7 @@ def test_selfdestruct_self_or_precompile_beneficiary(
 
     The executing account is in the accessed set on entry (self), and
     precompiles are pre-warmed from the start, so neither pays a cold
-    surcharge: regular = ``5,000`` (warm base, no ``WARM_ACCESS``) with no
+    surcharge: execution = ``5,000`` (warm base, no ``WARM_ACCESS``) with no
     state gas.
 
     The destructor balance is chosen so no account creation occurs: self
@@ -391,12 +354,6 @@ def test_selfdestruct_self_or_precompile_beneficiary(
     transfer would otherwise create one and charge ``GAS_NEW_ACCOUNT`` on
     the state axis).
     """
-    gas_costs = fork.gas_costs()
-
-    regular = _selfdestruct_regular(fork, warm=True, account_new=False)
-    # SELFDESTRUCT has no warm-access surcharge: warm == base only.
-    assert regular == gas_costs.OPCODE_SELFDESTRUCT_BASE
-
     if beneficiary_kind == "self":
         # Self is warm on entry; the PUSH is `ADDRESS` (BASE=2). A
         # non-zero balance is transferred to self (no creation).
@@ -421,7 +378,7 @@ def test_selfdestruct_self_or_precompile_beneficiary(
     expected_gas_used = (
         intrinsic
         + caller_code.gas_cost(fork)
-        + destructor_code.regular_cost(fork)
+        + destructor_code.execution_cost(fork)
     )
 
     tx = Transaction(
@@ -461,23 +418,15 @@ def test_selfdestruct_oog_boundary(
     gas and one short.
 
     The destructor sends value to an empty beneficiary, charging
-    ``5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (16,000) in regular gas
+    ``5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (16,000) in execution gas
     and ``GAS_NEW_ACCOUNT`` in state gas. The child CALL frame has no state
     reservoir of its own, so the state gas spills into the forwarded
-    regular gas and the frame needs its full ``gas_cost`` total. Forwarding
+    execution gas and the frame needs its full ``gas_cost`` total. Forwarding
     exactly that total lets the SELFDESTRUCT succeed (CALL returns 1); one
     gas short OOGs (CALL returns 0) before the value transfer, so the
     beneficiary is never created.
     """
-    gas_costs = fork.gas_costs()
-
     beneficiary = Address(0xDEAD)
-    regular = _selfdestruct_regular(fork, warm=False, account_new=True)
-    assert regular == (
-        gas_costs.OPCODE_SELFDESTRUCT_BASE
-        + gas_costs.COLD_ACCOUNT_ACCESS
-        + gas_costs.ACCOUNT_WRITE
-    )
 
     destructor_code = _destructor_code(
         beneficiary, warm=False, account_new=True
@@ -485,7 +434,7 @@ def test_selfdestruct_oog_boundary(
     destructor = pre.deploy_contract(code=destructor_code, balance=1)
 
     # The child CALL frame gets no state reservoir, so the NEW_ACCOUNT
-    # state gas spills into the forwarded regular gas: forward the full
+    # state gas spills into the forwarded execution gas: forward the full
     # total. One gas short forces an out-of-gas before the value transfer.
     forwarded = destructor_code.gas_cost(fork)
     if not sufficient_gas:
@@ -534,7 +483,7 @@ def test_same_tx_created_selfdestruct_self_burn(
     to ITSELF: the originator is created in this transaction so it is
     deleted, and because a same-tx-created contract holding balance is
     alive, ``account_new`` is false for the self-beneficiary —
-    ``regular = 5,000`` (warm self, no ``ACCOUNT_WRITE``) and no
+    ``execution = 5,000`` (warm self, no ``ACCOUNT_WRITE``) and no
     SELFDESTRUCT state gas.
 
     EIP-8246 removes the SELFDESTRUCT burn, so the self-send is a no-op:
@@ -545,7 +494,7 @@ def test_same_tx_created_selfdestruct_self_burn(
     ``NEW_ACCOUNT`` is a top-frame charge levied only when the target is
     ``EMPTY`` pre-tx, but the pre-funded created target already has a
     balance, so it is never charged. The self-burn adds no state gas, so
-    the block ``gas_used`` is the pure regular consumption regardless of
+    the block ``gas_used`` is the pure execution consumption regardless of
     the burn behavior.
     """
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
@@ -564,20 +513,17 @@ def test_same_tx_created_selfdestruct_self_burn(
 
     # Self-beneficiary on a balance-bearing same-tx-created contract is
     # alive: account_new is false, so only the warm base is charged.
-    regular = _selfdestruct_regular(fork, warm=True, account_new=False)
-    assert regular == fork.gas_costs().OPCODE_SELFDESTRUCT_BASE
-
-    # Creation intrinsic is regular-only under EIP-2780; the pre-existing
+    # Creation intrinsic is execution-only under EIP-2780; the pre-existing
     # target adds no top-frame NEW_ACCOUNT and the self-burn adds no state
-    # gas, so net state gas is zero. The regular consumption exceeds the
+    # gas, so net state gas is zero. The execution consumption exceeds the
     # decomposed calldata floor, so the floor never pins the billing.
-    intrinsic_regular = intrinsic_calc(
+    intrinsic_execution = intrinsic_calc(
         calldata=bytes(init_code),
         contract_creation=True,
         return_cost_deducted_prior_execution=True,
     )
-    expected_regular = intrinsic_regular + init_code.regular_cost(fork)
-    expected_gas_used = expected_regular
+    expected_execution = intrinsic_execution + init_code.execution_cost(fork)
+    expected_gas_used = expected_execution
 
     # EIP-8246 removes the SELFDESTRUCT burn: the self-send is a no-op,
     # the balance stays in the (otherwise emptied) originator, and no
@@ -616,7 +562,7 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     A creation transaction whose initcode SELFDESTRUCTs the new contract
     to a fresh ``Address(0xDEAD)``: the fresh, non-existent beneficiary
     receives a positive balance, so ``account_new`` is true —
-    ``regular = 5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (16,000
+    ``execution = 5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (16,000
     cold) plus a beneficiary ``NEW_ACCOUNT`` on the state axis. The
     beneficiary creation charge keys on the beneficiary, while the
     originator (created in this transaction) is still deleted: a
@@ -627,7 +573,6 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     created target is alive at message entry (EIP-8037), while the fresh
     beneficiary's ``NEW_ACCOUNT`` persists.
     """
-    new_account_state_gas = fork.gas_costs().NEW_ACCOUNT
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
 
     amount = 1
@@ -644,19 +589,17 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     init_code = Op.SELFDESTRUCT.with_metadata(
         address_warm=False, account_new=True
     )(beneficiary)
+    # The creation NEW_ACCOUNT is refunded (target alive at entry) and is
+    # not part of the intrinsic under EIP-2780; only the fresh
+    # beneficiary's NEW_ACCOUNT (the SELFDESTRUCT state cost) persists.
+    new_account_state_gas = init_code.state_cost(fork)
 
-    regular = _selfdestruct_regular(fork, warm=False, account_new=True)
-    assert regular == 16_000
-
-    intrinsic_total = intrinsic_calc(
+    intrinsic_execution = intrinsic_calc(
         calldata=bytes(init_code), contract_creation=True
     )
-    # The creation NEW_ACCOUNT is refunded (target alive at entry); only
-    # the fresh beneficiary's NEW_ACCOUNT remains as net state gas.
-    intrinsic_regular = intrinsic_total - new_account_state_gas
     expected_state = new_account_state_gas
-    expected_regular = intrinsic_regular + init_code.regular_cost(fork)
-    expected_gas_used = max(expected_regular, expected_state)
+    expected_execution = intrinsic_execution + init_code.execution_cost(fork)
+    expected_gas_used = max(expected_execution, expected_state)
 
     tx = Transaction(
         to=None,
@@ -664,7 +607,7 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
         sender=sender,
         # Reservoir holds the beneficiary-creation state gas (above the
         # creation's intrinsic NEW_ACCOUNT) so it does not spill into
-        # regular gas.
+        # execution gas.
         state_gas_reservoir=new_account_state_gas,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(created, beneficiary, amount)]

@@ -118,11 +118,11 @@ class EIP8037(BaseFork):
             gas_cost_or_calculator = opcode_gas_map[opcode]
 
             if callable(gas_cost_or_calculator):
-                regular_gas = gas_cost_or_calculator(opcode)
+                execution_gas = gas_cost_or_calculator(opcode)
             else:
-                regular_gas = gas_cost_or_calculator
+                execution_gas = gas_cost_or_calculator
 
-            return regular_gas + opcode_state_calculator(opcode)
+            return execution_gas + opcode_state_calculator(opcode)
 
         return fn
 
@@ -189,11 +189,11 @@ class EIP8037(BaseFork):
             refund_or_calculator = opcode_refund_map[opcode]
 
             if callable(refund_or_calculator):
-                regular_refund = refund_or_calculator(opcode)
+                execution_refund = refund_or_calculator(opcode)
             else:
-                regular_refund = refund_or_calculator
+                execution_refund = refund_or_calculator
 
-            return regular_refund + state_refund
+            return execution_refund + state_refund
 
         return fn
 
@@ -324,7 +324,7 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate the regular RETURN gas cost: the code hash gas
+        Calculate the execution RETURN gas cost: the code hash gas
         (keccak256 of the deployed bytecode). The per byte code deposit
         cost moves to state gas, returned by `_calculate_return_state_gas`.
         """
@@ -361,8 +361,8 @@ class EIP8037(BaseFork):
         Calculate the CREATE and CREATE2 state gas cost, which is
         `NEW_ACCOUNT` (if the account did not exist before).
         Before EIP-8037 this was folded into `OPCODE_CREATE_BASE`. Under
-        EIP-8037 it is exposed here so that `OPCODE_CREATE_BASE` stays regular
-        only and matches the spec EVM constant.
+        EIP-8037 it is exposed here so that `OPCODE_CREATE_BASE` stays
+        execution-only and matches the spec EVM constant.
         """
         if opcode.metadata["account_new"]:
             return gas_costs.NEW_ACCOUNT
@@ -375,9 +375,9 @@ class EIP8037(BaseFork):
         """
         Calculate the SELFDESTRUCT state gas cost: `NEW_ACCOUNT` when a
         positive balance funds a new account. Before EIP-8037 this was
-        folded into the regular SELFDESTRUCT cost; under EIP-8037 it is
+        folded into the execution SELFDESTRUCT cost; under EIP-8037 it is
         exposed here as state gas (mirroring `_calculate_create_state_gas`)
-        so the regular cost matches the spec EVM
+        so the execution cost matches the spec EVM
         (`OPCODE_SELFDESTRUCT_BASE` + account access + the EIP-8038
         `ACCOUNT_WRITE` surcharge).
         """
@@ -390,14 +390,14 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate the regular SELFDESTRUCT gas cost. The Frontier base
-        calculation folds `NEW_ACCOUNT` into the regular cost when a
+        Calculate the execution SELFDESTRUCT gas cost. The Frontier base
+        calculation folds `NEW_ACCOUNT` into the execution cost when a
         positive balance funds a new account; EIP-8038 (the mixin between
         the base and EIP-8037 in the MRO) adds only the `ACCOUNT_WRITE`
         surcharge. EIP-8037 moves that funding cost to the state-gas
         dimension (see `_calculate_selfdestruct_state_gas`), so this
-        subtracts the `NEW_ACCOUNT` term back out of the inherited regular
-        cost; the EIP-8038 `ACCOUNT_WRITE` surcharge stays in regular gas.
+        subtracts the `NEW_ACCOUNT` term back out of the inherited execution
+        cost; the EIP-8038 `ACCOUNT_WRITE` surcharge stays in execution gas.
         """
         gas_cost = super()._calculate_selfdestruct_gas(opcode, gas_costs)
         if opcode.metadata["account_new"]:
@@ -411,7 +411,7 @@ class EIP8037(BaseFork):
         """
         Calculate the CALL state gas cost: `NEW_ACCOUNT` when a value
         transfer funds a new account. Before EIP-8037 this was folded
-        into the regular CALL cost (EIP-161); under EIP-8037 it is
+        into the execution CALL cost (EIP-161); under EIP-8037 it is
         exposed here as state gas, mirroring
         `_calculate_selfdestruct_state_gas`.
         """
@@ -426,12 +426,12 @@ class EIP8037(BaseFork):
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
         """
-        Calculate the regular CALL gas cost. The EIP-161 base
-        calculation folds `NEW_ACCOUNT` into the regular cost when a
+        Calculate the execution CALL gas cost. The EIP-161 base
+        calculation folds `NEW_ACCOUNT` into the execution cost when a
         value transfer funds a new account; EIP-8037 moves that charge
         to the state-gas dimension (see `_calculate_call_state_gas`),
         so this subtracts the `NEW_ACCOUNT` term back out of the
-        inherited regular cost.
+        inherited execution cost.
         """
         gas_cost = super()._calculate_call_gas(opcode, gas_costs)
         metadata = opcode.metadata

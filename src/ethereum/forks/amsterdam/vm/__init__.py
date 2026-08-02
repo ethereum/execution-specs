@@ -70,7 +70,8 @@ class BlockOutput:
     Contains the following:
 
     block_gas_used : `ethereum.base_types.Uint`
-        Gas used for executing all transactions.
+        Execution gas used for executing all transactions. EIP-8037
+        names this counter `block_execution_gas_used`.
     block_state_gas_used : `ethereum.base_types.Uint`
         State gas used for executing all transactions.
     cumulative_gas_used : `ethereum.base_types.Uint`

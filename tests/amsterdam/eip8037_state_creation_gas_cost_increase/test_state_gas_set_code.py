@@ -3,12 +3,12 @@ Test EIP-7702 SetCode authorization state gas under the EIP-2780
 top-frame charge model.
 
 Under EIP-2780 (Amsterdam) an authorization's intrinsic cost is only the
-state-independent ``REGULAR_PER_AUTH_BASE_COST``; there is no intrinsic
+state-independent ``EXECUTION_PER_AUTH_BASE_COST``; there is no intrinsic
 auth state gas and there are no auth refunds. The state-dependent costs
 are charged lazily at the top frame in ``set_delegation``, keyed on each
 authority's pre-transaction state:
 
-* ``NEW_ACCOUNT`` (state) + ``ACCOUNT_WRITE`` (regular) when the
+* ``NEW_ACCOUNT`` (state) + ``ACCOUNT_WRITE`` (execution) when the
   authority's account leaf does not exist pre-tx (it gets created); and
 * ``AUTH_BASE`` (state) when a net-new delegation indicator is written --
   the authority holds no delegation both before the transaction and at
@@ -18,12 +18,12 @@ authority's pre-transaction state:
 For a value-free type-4 transaction whose recipient runs code ``code``:
 
 * the receipt ``cumulative_gas_used`` is the plain sum
-  ``intrinsic_regular + top_frame_regular + top_frame_state +
-  execution_regular + execution_state`` (no refund term); and
-* the header ``gas_used`` is ``max(block_regular, block_state)`` where
-  ``block_regular = intrinsic_regular + top_frame_regular +
-  execution_regular`` and ``block_state = top_frame_state +
-  execution_state``.
+  ``intrinsic_execution + top_frame_execution + top_frame_state +
+  evm_execution + evm_state`` (no refund term); and
+* the header ``gas_used`` is ``max(block_execution, block_state)`` where
+  ``block_execution = intrinsic_execution + top_frame_execution +
+  evm_execution`` and ``block_state = top_frame_state +
+  evm_state``.
 
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037); the ``valid_from("EIP8037")``
@@ -57,6 +57,7 @@ from execution_testing import (
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
 from .spec import ref_spec_8037
+from .test_state_gas_sstore import revoked_advance_call_tree
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -70,14 +71,14 @@ def _auth_gas(
     sends_value: bool = False,
     delegation_warm: bool = False,
 ) -> tuple[int, int, int]:
-    """Return (intrinsic_regular, top_frame_regular, top_frame_state)."""
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+    """Return (intrinsic_execution, top_frame_execution, top_frame_state)."""
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=authorization_list,
         recipient_type=recipient_type,
         sends_value=sends_value,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
         recipient_type=recipient_type,
         sends_value=sends_value,
         delegation_warm=delegation_warm,
@@ -88,26 +89,26 @@ def _auth_gas(
         sends_value=sends_value,
         authorizations=authorization_list,
     )
-    return intrinsic_regular, top_frame_regular, top_frame_state
+    return intrinsic_execution, top_frame_execution, top_frame_state
 
 
 def _receipt_and_header(
-    intrinsic_regular: int,
-    top_frame_regular: int,
+    intrinsic_execution: int,
+    top_frame_execution: int,
     top_frame_state: int,
     *,
-    execution_regular: int = 0,
-    execution_state: int = 0,
+    evm_execution: int = 0,
+    evm_state: int = 0,
 ) -> tuple[int, int]:
     """
     Return the (receipt cumulative_gas_used, header gas_used) for a
     successful (non-reverting) transaction under the no-refund top-frame
     model.
     """
-    block_regular = intrinsic_regular + top_frame_regular + execution_regular
-    block_state = top_frame_state + execution_state
-    cumulative_gas_used = block_regular + block_state
-    header_gas_used = max(block_regular, block_state)
+    block_execution = intrinsic_execution + top_frame_execution + evm_execution
+    block_state = top_frame_state + evm_state
+    cumulative_gas_used = block_execution + block_state
+    header_gas_used = max(block_execution, block_state)
     return cumulative_gas_used, header_gas_used
 
 
@@ -131,8 +132,8 @@ def test_authorization_state_gas_scaling(
     Each authority is an existing funded EOA gaining a fresh delegation,
     so ``set_delegation`` charges only the top-frame ``AUTH_BASE`` per
     authorization (no ``NEW_ACCOUNT`` / ``ACCOUNT_WRITE`` and no refund).
-    The receipt gas is the regular intrinsic plus ``num_auths *
-    AUTH_BASE`` and the header ``gas_used`` is the max of the regular and
+    The receipt gas is the execution intrinsic plus ``num_auths *
+    AUTH_BASE`` and the header ``gas_used`` is the max of the execution and
     state blocks.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -149,11 +150,11 @@ def test_authorization_state_gas_scaling(
         for signer in signers
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -194,9 +195,9 @@ def test_set_code_tx_below_total_intrinsic(
     num_auths: int,
 ) -> None:
     """
-    Reject a set_code tx one gas below the (now regular-only) intrinsic.
+    Reject a set_code tx one gas below the (now execution-only) intrinsic.
 
-    Under EIP-2780 the authorization intrinsic is entirely regular (the
+    Under EIP-2780 the authorization intrinsic is entirely execution (the
     state-dependent costs moved to the top frame), so the intrinsic gas
     the transaction must cover is exactly
     ``fork.transaction_intrinsic_cost_calculator()(auth_list)``. Sweeping
@@ -245,7 +246,7 @@ def test_existing_account_no_refund(
     Its leaf exists, so ``set_delegation`` charges neither ``NEW_ACCOUNT``
     nor ``ACCOUNT_WRITE`` (and, unlike the superseded EIP-8037 behaviour,
     refunds neither); it charges only the top-frame ``AUTH_BASE``. The
-    receipt gas is therefore exactly the regular intrinsic plus
+    receipt gas is therefore exactly the execution intrinsic plus
     ``AUTH_BASE``.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -261,11 +262,11 @@ def test_existing_account_no_refund(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -322,11 +323,11 @@ def test_mixed_new_and_existing_auths(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -367,15 +368,15 @@ def test_authorization_with_sstore(
 
     The authority (an existing EOA) gains a fresh delegation, charged the
     top-frame ``AUTH_BASE``; the called recipient then performs an SSTORE
-    whose regular and state costs are charged during execution. The header
-    ``gas_used`` is the max of the regular block and the (``AUTH_BASE`` +
+    whose execution and state costs are charged during execution. The header
+    ``gas_used`` is the max of the execution block and the (``AUTH_BASE`` +
     SSTORE) state block.
     """
     storage = Storage()
     code = Op.SSTORE(storage.store_next(1), 1)
     contract = pre.deploy_contract(code=code)
-    execution_regular = code.regular_cost(fork)
-    execution_state = code.state_cost(fork)
+    evm_execution = code.execution_cost(fork)
+    evm_state = code.state_cost(fork)
 
     signer = pre.fund_eoa()
     authorization_list = [
@@ -388,15 +389,15 @@ def test_authorization_with_sstore(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     _, header_gas_used = _receipt_and_header(
-        intrinsic_regular,
-        top_frame_regular,
+        intrinsic_execution,
+        top_frame_execution,
         top_frame_state,
-        execution_regular=execution_regular,
-        execution_state=execution_state,
+        evm_execution=evm_execution,
+        evm_state=evm_state,
     )
 
     tx = Transaction(
@@ -429,15 +430,15 @@ def test_existing_account_no_refund_with_sstore(
 
     The existing authority pays only the top-frame ``AUTH_BASE`` (no
     ``NEW_ACCOUNT`` / ``ACCOUNT_WRITE`` and no refund), and the recipient's
-    SSTORE pays its own regular + state costs. The receipt gas is the
+    SSTORE pays its own execution + state costs. The receipt gas is the
     exact sum of the intrinsic, the ``AUTH_BASE`` and the SSTORE cost;
     there is no reservoir refund to draw on.
     """
     storage = Storage()
     code = Op.SSTORE(storage.store_next(1), 1)
     contract = pre.deploy_contract(code=code)
-    execution_regular = code.regular_cost(fork)
-    execution_state = code.state_cost(fork)
+    evm_execution = code.execution_cost(fork)
+    evm_state = code.state_cost(fork)
 
     signer = pre.fund_eoa()
     authorization_list = [
@@ -450,15 +451,15 @@ def test_existing_account_no_refund_with_sstore(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular,
-        top_frame_regular,
+        intrinsic_execution,
+        top_frame_execution,
         top_frame_state,
-        execution_regular=execution_regular,
-        execution_state=execution_state,
+        evm_execution=evm_execution,
+        evm_state=evm_state,
     )
 
     tx = Transaction(
@@ -569,11 +570,11 @@ def test_auth_block_gas_accounting(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     post_code = (
@@ -615,7 +616,7 @@ def test_invalid_nonce_auth_still_charges_intrinsic(
     An authorization with a wrong nonce is skipped during
     ``set_delegation``, so it writes no delegation indicator and incurs
     no top-frame charge. Its state-independent
-    ``REGULAR_PER_AUTH_BASE_COST`` is still charged in the intrinsic, and
+    ``EXECUTION_PER_AUTH_BASE_COST`` is still charged in the intrinsic, and
     the authority is left untouched.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -632,13 +633,13 @@ def test_invalid_nonce_auth_still_charges_intrinsic(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
-    assert top_frame_regular == 0
+    assert top_frame_execution == 0
     assert top_frame_state == 0
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -670,7 +671,7 @@ def test_invalid_chain_id_auth_still_charges_intrinsic(
 
     An authorization with a mismatched chain ID is skipped during
     ``set_delegation`` and incurs no top-frame charge, but its
-    ``REGULAR_PER_AUTH_BASE_COST`` is still charged in the intrinsic and
+    ``EXECUTION_PER_AUTH_BASE_COST`` is still charged in the intrinsic and
     the authority is left untouched.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -688,13 +689,13 @@ def test_invalid_chain_id_auth_still_charges_intrinsic(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
-    assert top_frame_regular == 0
+    assert top_frame_execution == 0
     assert top_frame_state == 0
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -752,11 +753,11 @@ def test_self_sponsored_authorization(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -821,11 +822,11 @@ def test_duplicate_signer_authorizations(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -860,17 +861,17 @@ def test_auth_with_calldata_and_access_list(
     """
     Test authorization combined with calldata and an access list.
 
-    The regular intrinsic folds in the calldata and access-list costs; on
+    The execution intrinsic folds in the calldata and access-list costs; on
     top of it the existing authority pays the top-frame ``AUTH_BASE`` and
-    the recipient's SSTORE pays its execution regular + state costs. The
+    the recipient's SSTORE pays its execution + state costs. The
     receipt gas is the exact sum, with no refund term. Access lists do not
     warm the authority under EIP-2780, so the auth charge is unaffected.
     """
     storage = Storage()
     code = Op.SSTORE(storage.store_next(0x42), Op.CALLDATALOAD(0))
     contract = pre.deploy_contract(code=code)
-    execution_regular = code.regular_cost(fork)
-    execution_state = code.state_cost(fork)
+    evm_execution = code.execution_cost(fork)
+    evm_state = code.state_cost(fork)
 
     signer = pre.fund_eoa()
     authorization_list = [
@@ -886,19 +887,21 @@ def test_auth_with_calldata_and_access_list(
     data = b"\x00" * 31 + b"\x42"
     access_list = [AccessList(address=contract, storage_keys=[])]
 
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=authorization_list,
         calldata=data,
         access_list=access_list,
         return_cost_deducted_prior_execution=True,
     )
-    _, top_frame_regular, top_frame_state = _auth_gas(fork, authorization_list)
+    _, top_frame_execution, top_frame_state = _auth_gas(
+        fork, authorization_list
+    )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular,
-        top_frame_regular,
+        intrinsic_execution,
+        top_frame_execution,
         top_frame_state,
-        execution_regular=execution_regular,
-        execution_state=execution_state,
+        evm_execution=evm_execution,
+        evm_state=evm_state,
     )
 
     tx = Transaction(
@@ -944,11 +947,11 @@ def test_mixed_valid_and_invalid_auths(
     Test mixed valid and invalid authorizations under the top-frame model.
 
     Every tuple (valid or invalid) pays the intrinsic
-    ``REGULAR_PER_AUTH_BASE_COST``. Only the valid authorizations reach
+    ``EXECUTION_PER_AUTH_BASE_COST``. Only the valid authorizations reach
     ``set_delegation`` and each writes a net-new delegation on an existing
     authority, paying the first-write ``ACCOUNT_WRITE`` and the top-frame
     ``AUTH_BASE``; the invalid (wrong nonce) tuples are skipped and pay
-    no top-frame charge. The receipt gas is ``intrinsic_regular +
+    no top-frame charge. The receipt gas is ``intrinsic_execution +
     num_valid * (ACCOUNT_WRITE + AUTH_BASE)``.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -977,11 +980,11 @@ def test_mixed_valid_and_invalid_auths(
         for signer in invalid_signers
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -1036,11 +1039,11 @@ def test_many_authorizations(
         for signer in signers
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -1075,7 +1078,7 @@ def test_auth_with_multiple_sstores(
 
     The existing authority pays the top-frame ``AUTH_BASE`` and the
     recipient performs five distinct zero-to-nonzero SSTOREs, each paying
-    its own regular + state cost during execution. Verifies combined
+    its own execution + state cost during execution. Verifies combined
     accounting across the top-frame and execution state charges, all drawn
     from ``gas_left`` with no refund.
     """
@@ -1085,8 +1088,8 @@ def test_auth_with_multiple_sstores(
     for _ in range(num_sstores):
         code += Op.SSTORE(storage.store_next(1), 1)
     contract = pre.deploy_contract(code=code)
-    execution_regular = code.regular_cost(fork)
-    execution_state = code.state_cost(fork)
+    evm_execution = code.execution_cost(fork)
+    evm_state = code.state_cost(fork)
 
     signer = pre.fund_eoa()
     authorization_list = [
@@ -1099,15 +1102,15 @@ def test_auth_with_multiple_sstores(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     _, header_gas_used = _receipt_and_header(
-        intrinsic_regular,
-        top_frame_regular,
+        intrinsic_execution,
+        top_frame_execution,
         top_frame_state,
-        execution_regular=execution_regular,
-        execution_state=execution_state,
+        evm_execution=evm_execution,
+        evm_state=evm_state,
     )
 
     tx = Transaction(
@@ -1149,7 +1152,7 @@ def test_authorization_exact_state_gas_boundary(
     """
     Test the intrinsic-gas boundary and the top-frame OOG behaviour.
 
-    Under EIP-2780 the intrinsic is regular-only, so the boundary keys off
+    Under EIP-2780 the intrinsic is execution-only, so the boundary keys off
     ``fork.transaction_intrinsic_cost_calculator()(auth_list)``. With
     ``gas_delta=-1`` the transaction is one gas below the intrinsic and is
     rejected as intrinsic-gas-too-low. With ``gas_delta=0`` the gas limit
@@ -1265,8 +1268,8 @@ def test_multi_tx_block_auth_and_sstore(
 
     1. a SetCode tx delegating an existing authority (top-frame
        ``AUTH_BASE``, no refund); and
-    2. a regular tx performing a zero-to-nonzero SSTORE (execution regular
-       + state).
+    2. a normal tx performing a zero-to-nonzero SSTORE (execution
+       + state gas).
 
     The per-transaction receipt ``cumulative_gas_used`` accumulates across
     the block, so tx1's receipt is its own cost and tx2's is the running
@@ -1285,11 +1288,11 @@ def test_multi_tx_block_auth_and_sstore(
             writes_delegation=True,
         ),
     ]
-    intrinsic_regular_1, top_frame_regular_1, top_frame_state_1 = _auth_gas(
-        fork, authorization_list
+    intrinsic_execution_1, top_frame_execution_1, top_frame_state_1 = (
+        _auth_gas(fork, authorization_list)
     )
     tx1_gas, _ = _receipt_and_header(
-        intrinsic_regular_1, top_frame_regular_1, top_frame_state_1
+        intrinsic_execution_1, top_frame_execution_1, top_frame_state_1
     )
     tx_1 = Transaction(
         to=contract,
@@ -1302,13 +1305,13 @@ def test_multi_tx_block_auth_and_sstore(
     storage = Storage()
     sstore_code = Op.SSTORE(storage.store_next(1), 1)
     sstore_contract = pre.deploy_contract(code=sstore_code)
-    intrinsic_regular_2 = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_execution_2 = fork.transaction_intrinsic_cost_calculator()(
         recipient_type=RecipientType.CONTRACT,
         return_cost_deducted_prior_execution=True,
     )
     tx2_gas = (
-        intrinsic_regular_2
-        + sstore_code.regular_cost(fork)
+        intrinsic_execution_2
+        + sstore_code.execution_cost(fork)
         + sstore_code.state_cost(fork)
     )
     tx_2 = Transaction(
@@ -1352,8 +1355,8 @@ def test_fresh_authority_and_sstores_full_state(
     for _ in range(num_sstores):
         code += Op.SSTORE(storage.store_next(1), 1)
     contract = pre.deploy_contract(code=code)
-    execution_regular = code.regular_cost(fork)
-    execution_state = code.state_cost(fork)
+    evm_execution = code.execution_cost(fork)
+    evm_state = code.state_cost(fork)
 
     signer = pre.fund_eoa(amount=0)
     authorization_list = [
@@ -1366,15 +1369,15 @@ def test_fresh_authority_and_sstores_full_state(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular,
-        top_frame_regular,
+        intrinsic_execution,
+        top_frame_execution,
         top_frame_state,
-        execution_regular=execution_regular,
-        execution_state=execution_state,
+        evm_execution=evm_execution,
+        evm_state=evm_state,
     )
 
     tx = Transaction(
@@ -1422,7 +1425,7 @@ def test_existing_account_auth_header_gas_used(
     Every authority is an existing account gaining a fresh delegation, so
     each pays only the top-frame ``AUTH_BASE`` (no ``NEW_ACCOUNT`` /
     ``ACCOUNT_WRITE`` and no refund). With STOP execution the header
-    ``gas_used`` is ``max(intrinsic_regular, num_auths * AUTH_BASE)``.
+    ``gas_used`` is ``max(intrinsic_execution, num_auths * AUTH_BASE)``.
     """
     contract = pre.deploy_contract(code=Op.STOP)
 
@@ -1438,11 +1441,11 @@ def test_existing_account_auth_header_gas_used(
         for signer in signers
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     _, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -1484,8 +1487,8 @@ def test_mixed_auths_header_gas_used(
 
     Existing authorities pay only ``AUTH_BASE``; new (nonexistent)
     authorities additionally pay ``NEW_ACCOUNT`` (state) + ``ACCOUNT_WRITE``
-    (regular) for the created leaf. The header ``gas_used`` is
-    ``max(block_regular, block_state)`` over the summed top-frame charges,
+    (execution) for the created leaf. The header ``gas_used`` is
+    ``max(block_execution, block_state)`` over the summed top-frame charges,
     with no refund term.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -1513,11 +1516,11 @@ def test_mixed_auths_header_gas_used(
         for signer in new_signers
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     _, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -1562,13 +1565,13 @@ def test_auth_state_gas_persists_on_top_level_revert(
     folded out of the frame's refillable pools. The recipient writes an
     SSTORE then REVERTs: the slot rolls back with the frame, so the
     SSTORE's ``STORAGE_SET`` state gas *is* refilled. The receipt is
-    therefore the intrinsic and top-frame charges (regular and state)
-    plus the regular execution gas, with only the authorization's state
+    therefore the intrinsic and top-frame charges (execution and state)
+    plus the execution gas, with only the authorization's state
     portion in the block's state component.
     """
     code = Op.SSTORE(0, 1) + Op.REVERT(0, 0)
     contract = pre.deploy_contract(code=code)
-    execution_regular = code.regular_cost(fork)
+    evm_execution = code.execution_cost(fork)
 
     signer = pre.fund_eoa()
     authorization_list = [
@@ -1581,16 +1584,16 @@ def test_auth_state_gas_persists_on_top_level_revert(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     # The SSTORE's state gas is refilled by the REVERT (the slot rolls
     # back); the authorization's state gas persists with its delegation.
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular,
-        top_frame_regular,
+        intrinsic_execution,
+        top_frame_execution,
         top_frame_state,
-        execution_regular=execution_regular,
+        evm_execution=evm_execution,
     )
 
     tx = Transaction(
@@ -1646,15 +1649,15 @@ def test_auth_state_gas_in_header_after_failure(
     and so does the state gas that paid for it (``NEW_ACCOUNT`` +
     ``AUTH_BASE`` for a fresh authority, ``AUTH_BASE`` for an existing
     one), which is folded out of the frame's refillable pools. The
-    header is ``max(block_regular, block_state)``:
+    header is ``max(block_execution, block_state)``:
 
-    * REVERT -- the unused execution budget returns, so the regular
-      component is ``intrinsic_regular + top_frame_regular +
-      execution_regular`` and the state component is the persisting
+    * REVERT -- the unused execution budget returns, so the execution
+      component is ``intrinsic_execution + top_frame_execution +
+      evm_execution`` and the state component is the persisting
       authorization state gas.
     * HALT / OOG -- the frame consumes its whole gas limit; the
       authorization state gas within it is accounted on the state
-      component, and the remainder on the regular component.
+      component, and the remainder on the execution component.
     """
     gas_limit = 500_000
 
@@ -1687,22 +1690,22 @@ def test_auth_state_gas_in_header_after_failure(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
 
     if failure_mode == "revert":
         # The authorization's state gas persists with its delegation.
         _, expected_gas_used = _receipt_and_header(
-            intrinsic_regular,
-            top_frame_regular,
+            intrinsic_execution,
+            top_frame_execution,
             top_frame_state,
-            execution_regular=revert_code.regular_cost(fork),
+            evm_execution=revert_code.execution_cost(fork),
         )
     else:
         # HALT / OOG consume the whole gas limit, of which the
         # persisting authorization state gas is accounted on the state
-        # component and the remainder on the regular component.
+        # component and the remainder on the execution component.
         expected_gas_used = max(gas_limit - top_frame_state, top_frame_state)
 
     tx = Transaction(
@@ -1743,8 +1746,8 @@ def test_auth_sender_billing_after_failure(
     top-level REVERT.
 
     The delegation persists through the REVERT, so the state gas that
-    paid for it stays billed alongside the regular gas: the sender pays
-    ``intrinsic_regular + top_frame_regular + revert_regular`` plus the
+    paid for it stays billed alongside the execution gas: the sender pays
+    ``intrinsic_execution + top_frame_execution + revert_execution`` plus the
     authorization's state charges. Both authorities pay the first-write
     ``ACCOUNT_WRITE`` and the ``AUTH_BASE``; a new authority
     additionally pays ``NEW_ACCOUNT`` for the created leaf, so its
@@ -1772,16 +1775,16 @@ def test_auth_sender_billing_after_failure(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     # The authorization's state gas persists with its delegation across
     # the REVERT and stays billed to the sender.
     expected_cumulative, header_gas_used = _receipt_and_header(
-        intrinsic_regular,
-        top_frame_regular,
+        intrinsic_execution,
+        top_frame_execution,
         top_frame_state,
-        execution_regular=revert_code.regular_cost(fork),
+        evm_execution=revert_code.execution_cost(fork),
     )
 
     tx = Transaction(
@@ -1802,6 +1805,81 @@ def test_auth_sender_billing_after_failure(
         post=post,
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=header_gas_used),
+    )
+
+
+@pytest.mark.parametrize(
+    "inner_shape",
+    [
+        pytest.param("burned_child_spill", id="burned_child_spill"),
+        pytest.param("revoked_advance", id="revoked_advance"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_halt_keeps_intrinsic_auth_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    inner_shape: str,
+) -> None:
+    """
+    Verify a top-level exceptional halt keeps the full authorization
+    state gas in the state dimension while the burned child spill stays
+    in the execution dimension: the header reports
+    ``max(gas_limit - auth_state, auth_state)`` regardless of the
+    spill shape burned inside the halted frame.
+
+    The tx gas limit sits below the EIP-7825 cap, so the reservoir is
+    empty and every state charge inside the halted frame spills from
+    `gas_left`.
+    """
+    gas_limit = 1_000_000
+
+    if inner_shape == "burned_child_spill":
+        inner = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.INVALID)
+    else:
+        inner = revoked_advance_call_tree(pre)
+
+    recipient = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=Op.GAS, address=inner)) + Op.INVALID,
+    )
+
+    delegate = pre.deploy_contract(code=Op.STOP)
+    signer = pre.fund_eoa(amount=0)
+    authorization_list = [
+        AuthorizationTuple(
+            address=delegate,
+            nonce=0,
+            signer=signer,
+            creates_account=True,
+            writes_delegation=True,
+        ),
+    ]
+    _, _, auth_state_gas = _auth_gas(fork, authorization_list)
+
+    # The halt consumes the whole limit: the execution and state
+    # dimensions sum to `gas_limit` however the split falls.
+    tx = Transaction(
+        ty=4,
+        to=recipient,
+        gas_limit=gas_limit,
+        authorization_list=authorization_list,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_limit,
+        ),
+    )
+
+    post = {
+        signer: Account(code=Spec7702.delegation_designation(delegate)),
+    }
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(
+            gas_used=max(gas_limit - auth_state_gas, auth_state_gas)
+        ),
     )
 
 
@@ -1834,8 +1912,8 @@ def test_auth_and_execution_state_oog_boundary(
     storage = Storage()
     target_code = Op.SSTORE(storage.store_next(1), 1)
     target = pre.deploy_contract(code=target_code)
-    execution_regular = target_code.regular_cost(fork)
-    execution_state = target_code.state_cost(fork)
+    evm_execution = target_code.execution_cost(fork)
+    evm_state = target_code.state_cost(fork)
 
     authority = pre.fund_eoa()
     authorization_list = [
@@ -1848,15 +1926,15 @@ def test_auth_and_execution_state_oog_boundary(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     full_cost = (
-        intrinsic_regular
-        + top_frame_regular
+        intrinsic_execution
+        + top_frame_execution
         + top_frame_state
-        + execution_regular
-        + execution_state
+        + evm_execution
+        + evm_state
     )
     gas_limit = full_cost + gas_delta
     gas_limit_cap = fork.transaction_gas_limit_cap()
@@ -1866,11 +1944,11 @@ def test_auth_and_execution_state_oog_boundary(
     fits = gas_delta >= 0
     if fits:
         _, header_gas_used = _receipt_and_header(
-            intrinsic_regular,
-            top_frame_regular,
+            intrinsic_execution,
+            top_frame_execution,
             top_frame_state,
-            execution_regular=execution_regular,
-            execution_state=execution_state,
+            evm_execution=evm_execution,
+            evm_state=evm_state,
         )
     else:
         # One gas short: execution OOGs at the top frame, consuming the
@@ -1921,7 +1999,7 @@ def test_invalid_auth_no_top_frame_charge(
     neither ``NEW_ACCOUNT`` / ``ACCOUNT_WRITE`` nor ``AUTH_BASE`` at the
     top frame (and, unlike the superseded EIP-8037 model, nothing is
     refilled because nothing was charged). Only the intrinsic
-    ``REGULAR_PER_AUTH_BASE_COST`` is paid and the authority is never
+    ``EXECUTION_PER_AUTH_BASE_COST`` is paid and the authority is never
     created. Swept over the reasons an authorization is rejected.
     """
     target = pre.deploy_contract(code=Op.STOP)
@@ -1958,13 +2036,13 @@ def test_invalid_auth_no_top_frame_charge(
     else:
         raise ValueError(f"unknown invalidity: {invalidity!r}")
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, [auth]
     )
-    assert top_frame_regular == 0
+    assert top_frame_execution == 0
     assert top_frame_state == 0
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -2023,11 +2101,11 @@ def test_same_tx_create_then_clear(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -2089,13 +2167,12 @@ def test_same_tx_clear_then_reset_pre_delegated(
         ),
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
-    assert top_frame_regular == fork.gas_costs().ACCOUNT_WRITE
     assert top_frame_state == 0
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(
@@ -2155,11 +2232,11 @@ def test_same_authority_increasing_nonce_net_once(
         for i in range(num_auths)
     ]
 
-    intrinsic_regular, top_frame_regular, top_frame_state = _auth_gas(
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
         fork, authorization_list
     )
     cumulative_gas_used, header_gas_used = _receipt_and_header(
-        intrinsic_regular, top_frame_regular, top_frame_state
+        intrinsic_execution, top_frame_execution, top_frame_state
     )
 
     tx = Transaction(

@@ -484,7 +484,7 @@ class BuiltBlock(CamelModel):
         Return the block-header gas used.
 
         Under EIP-8037 this is the maximum across the independent gas
-        dimensions (regular vs state), i.e. the value that counts against the
+        dimensions (execution vs state), i.e. the value that counts against the
         block gas limit, as opposed to ``cumulative_gas_used`` which is their
         combined sum.
         """
@@ -1472,6 +1472,10 @@ class BlockchainTest(BaseTest):
                 max_priority_fee_per_gas=max_priority_fee_per_gas,
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
             )
+
+        self.pre.verify_deployed_accounts(
+            int(HexNumber(start_block["number"]))
+        )
 
         # Materialise queued pre-alloc txs into a synthetic setup block.
         blocks_to_process: List[Block] = []

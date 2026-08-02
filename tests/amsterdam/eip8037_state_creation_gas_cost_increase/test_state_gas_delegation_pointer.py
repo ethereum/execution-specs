@@ -121,21 +121,21 @@ def test_delegation_pointer_new_account_state_gas(
     via a delegation pointer, the new-account state gas
     is charged identically to a direct call.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
     target = pre.nonexistent_account()
 
     parent_storage = Storage()
+    call = Op.CALL(
+        gas=100_000,
+        address=target,
+        value=1,
+        value_transfer=True,
+        account_new=True,
+    )
     contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                parent_storage.store_next(1),
-                Op.CALL(gas=100_000, address=target, value=1),
-            )
-        ),
+        code=Op.SSTORE(parent_storage.store_next(1), call),
         balance=1,
     )
+    new_account_state_gas = call.state_cost(fork)
 
     # EOA delegates to the contract
     delegator = pre.fund_eoa(delegation=contract, amount=1)

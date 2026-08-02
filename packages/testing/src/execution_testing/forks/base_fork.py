@@ -177,11 +177,11 @@ class AuthorizationGasInfo(Protocol):
 
 class TopFrameGasCalculator(Protocol):
     """
-    A protocol to calculate the additional regular gas charged at the
+    A protocol to calculate the additional execution gas charged at the
     top-level transaction frame, after intrinsic gas is deducted but
     before EVM execution begins.
 
-    Returns only the regular-gas portion of the post-intrinsic
+    Returns only the execution-gas portion of the post-intrinsic
     state-aware preparation (e.g. the delegated-recipient access
     charge). The state-gas portion is exposed separately by
     ``BaseFork.transaction_top_frame_state_gas`` so tests can model the
@@ -201,7 +201,7 @@ class TopFrameGasCalculator(Protocol):
         authorizations: Sequence[AuthorizationGasInfo] = (),
     ) -> int:
         """
-        Return the regular gas consumed by top-frame preparation for a
+        Return the execution gas consumed by top-frame preparation for a
         transaction at this fork.
 
         Args:
@@ -217,9 +217,9 @@ class TopFrameGasCalculator(Protocol):
                            target is already warm, charging warm rather
                            than cold access.
           authorizations: The transaction's EIP-7702 authorizations;
-                          each contributes its top-frame regular gas.
+                          each contributes its top-frame execution gas.
 
-        Returns: Regular gas added by top-frame preparation.
+        Returns: Execution gas added by top-frame preparation.
 
         """
         pass
@@ -782,7 +782,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         cls,
     ) -> TopFrameGasCalculator:
         """
-        Return a callable that calculates the additional regular gas
+        Return a callable that calculates the additional execution gas
         charged at the top-level transaction frame, after intrinsic
         gas is deducted but before EVM execution begins.
 
@@ -818,13 +818,27 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         frame, after intrinsic gas is deducted but before EVM execution
         begins. Companion to ``transaction_top_frame_gas_calculator``;
         tests targeting the spillover boundary feed this through
-        ``oog_budget_lift`` to get the equivalent regular-gas budget.
+        ``oog_budget_lift`` to get the equivalent execution-gas budget.
 
         Defaults to 0 for forks that do not perform such
         post-intrinsic preparation.
         """
         del contract_creation, sends_value, recipient_type, authorizations
         return 0
+
+    @classmethod
+    def call_value_stipend(cls) -> int:
+        """
+        Return the gas stipend forwarded to the callee of a value-bearing
+        CALL/CALLCODE.
+
+        The stipend is added to the child frame's gas and returned to the
+        caller when the callee does not consume it, so tests that pin
+        value-call gas at an exact boundary subtract it from the charged
+        total. Exposed as a named accessor so tests need not read
+        ``gas_costs().CALL_STIPEND`` directly.
+        """
+        return cls.gas_costs().CALL_STIPEND
 
     @classmethod
     def system_call_gas_limit(cls) -> int:
@@ -998,9 +1012,9 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         deploy_code_size: int = 0,
     ) -> int:
         """
-        Return the extra regular gas an out of gas budget needs to
+        Return the extra execution gas an out of gas budget needs to
         stop at the same point on this fork: the state gas EIP-8037
-        spills into regular gas for the given SSTOREs, CREATEs, and
+        spills into execution gas for the given SSTOREs, CREATEs, and
         deployed bytes. Zero before EIP-8037, so no fork guard needed.
         """
         return (

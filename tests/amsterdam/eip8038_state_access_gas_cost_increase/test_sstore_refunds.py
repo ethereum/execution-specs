@@ -11,7 +11,7 @@ transaction is never net-profitable", closing the ``x -> 0 -> x`` round
 trip; this reversal is exercised by
 ``test_sstore_clear_then_reset_nets_zero``.
 
-This module covers the EIP-8038 *regular* ``SSTORE`` refund schedule via
+This module covers the EIP-8038 *execution* ``SSTORE`` refund schedule via
 the transaction receipt's ``cumulative_gas_used``:
 
 * Clearing a slot whose original value is non-zero grants
@@ -26,7 +26,7 @@ the transaction receipt's ``cumulative_gas_used``:
 * The applied refund is capped at ``gas_used // 5`` (EIP-3529 quotient).
 
 All refunds use a non-zero original so the state-creation refund owned by
-EIP-8037 is never involved; only the EIP-8038 regular dimension is
+EIP-8037 is never involved; only the EIP-8038 execution dimension is
 exercised.
 """
 
@@ -56,7 +56,7 @@ def _cumulative_gas_used(code: Bytecode, fork: Fork) -> int:
     Return the receipt ``cumulative_gas_used`` for a single transaction
     whose execution is exactly ``code``.
 
-    Mirrors the spec: gross gas is intrinsic plus the regular and state
+    Mirrors the spec: gross gas is intrinsic plus the execution and state
     gas of the code; the applied refund is ``min(gross // 5, refund)``
     (EIP-3529 quotient cap); the receipt reports gross minus the applied
     refund.
@@ -64,7 +64,7 @@ def _cumulative_gas_used(code: Bytecode, fork: Fork) -> int:
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         return_cost_deducted_prior_execution=True
     )
-    gross = intrinsic + code.regular_cost(fork) + code.state_cost(fork)
+    gross = intrinsic + code.execution_cost(fork) + code.state_cost(fork)
     applied_refund = min(gross // 5, code.refund(fork))
     return gross - applied_refund
 
@@ -84,9 +84,6 @@ def test_sstore_clear_grants_refund(
     observed in ``cumulative_gas_used``. The non-zero original means no
     EIP-8037 state refund participates.
     """
-    gas_costs = fork.gas_costs()
-    refund_clear = gas_costs.REFUND_STORAGE_CLEAR
-
     clear = Op.SSTORE.with_metadata(
         key_warm=False,
         original_value=1,
@@ -100,14 +97,14 @@ def test_sstore_clear_grants_refund(
 
     contract = pre.deploy_contract(code=code, storage={0: 1})
 
-    # Sanity: the slot's refund counter accrues exactly one clear grant.
-    assert code.refund(fork) == refund_clear
+    # The slot's clear grants exactly one REFUND_STORAGE_CLEAR.
+    refund_clear = code.refund(fork)
     expected_cumulative = _cumulative_gas_used(code, fork)
     # The cap must not bind here, so the full grant is visible.
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         return_cost_deducted_prior_execution=True
     )
-    gross = intrinsic + code.regular_cost(fork)
+    gross = intrinsic + code.execution_cost(fork)
     assert gross // 5 > refund_clear
     assert expected_cumulative == gross - refund_clear
 
@@ -181,11 +178,6 @@ def test_sstore_restore_nonzero_refunds_write(
     burned so the quotient cap does not bind and the full refund is
     observable.
     """
-    gas_costs = fork.gas_costs()
-    storage_write = (
-        gas_costs.COLD_STORAGE_WRITE - gas_costs.COLD_STORAGE_ACCESS
-    )
-
     code = Op.SSTORE.with_metadata(
         key_warm=False,
         original_value=1,
@@ -202,12 +194,13 @@ def test_sstore_restore_nonzero_refunds_write(
 
     contract = pre.deploy_contract(code=code, storage={0: 1})
 
-    assert code.refund(fork) == storage_write
+    # Restoring the non-zero original refunds STORAGE_WRITE.
+    storage_write = code.refund(fork)
     expected_cumulative = _cumulative_gas_used(code, fork)
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         return_cost_deducted_prior_execution=True
     )
-    gross = intrinsic + code.regular_cost(fork)
+    gross = intrinsic + code.execution_cost(fork)
     assert gross // 5 > storage_write
     assert expected_cumulative == gross - storage_write
 
@@ -241,9 +234,6 @@ def test_sstore_refund_quotient_cap(
     always below the accrued refund, so the applied refund is the cap and
     ``cumulative_gas_used`` reflects ``min(gas_used // 5, accrued)``.
     """
-    gas_costs = fork.gas_costs()
-    accrued = num_clears * gas_costs.REFUND_STORAGE_CLEAR
-
     code = Bytecode()
     for slot in range(num_clears):
         code += Op.SSTORE.with_metadata(
@@ -258,11 +248,12 @@ def test_sstore_refund_quotient_cap(
         storage=dict.fromkeys(range(num_clears), 1),
     )
 
-    assert code.refund(fork) == accrued
+    # num_clears distinct clears accrue num_clears * REFUND_STORAGE_CLEAR.
+    accrued = code.refund(fork)
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         return_cost_deducted_prior_execution=True
     )
-    gross = intrinsic + code.regular_cost(fork)
+    gross = intrinsic + code.execution_cost(fork)
     # The cap binds for every parametrization (single-clear gross is far
     # below 5x a clear refund).
     cap = gross // 5
@@ -299,9 +290,7 @@ def test_sstore_refund_cap_exact_equality(
     *exactly*, the boundary between the cap binding and not binding. The
     full refund applies and ``cumulative_gas_used`` is ``gross - accrued``.
     """
-    gas_costs = fork.gas_costs()
     quotient = fork.max_refund_quotient()
-    accrued = gas_costs.REFUND_STORAGE_CLEAR
 
     clear = Op.SSTORE.with_metadata(
         key_warm=False,
@@ -309,6 +298,7 @@ def test_sstore_refund_cap_exact_equality(
         current_value=1,
         new_value=0,
     )(0, 0)
+    accrued = clear.refund(fork)
 
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         return_cost_deducted_prior_execution=True
@@ -316,10 +306,10 @@ def test_sstore_refund_cap_exact_equality(
     # Target the exact boundary: gross == quotient * accrued, so that
     # gross // quotient == accrued with no slack. Solve for the JUMPDEST
     # count from the remaining gas after intrinsic and the clear's
-    # regular cost; each JUMPDEST costs exactly 1 gas.
+    # execution cost; each JUMPDEST costs exactly 1 gas.
     jumpdest_gas = Op.JUMPDEST.gas_cost(fork)
     target_gross = quotient * accrued
-    base_gross = intrinsic + clear.regular_cost(fork)
+    base_gross = intrinsic + clear.execution_cost(fork)
     burn_gas = target_gross - base_gross
     num_jumpdest, remainder = divmod(burn_gas, jumpdest_gas)
     # An exact integer JUMPDEST count must reach the boundary; otherwise
@@ -330,8 +320,7 @@ def test_sstore_refund_cap_exact_equality(
     code = clear + Op.JUMPDEST * num_jumpdest
     contract = pre.deploy_contract(code=code, storage={0: 1})
 
-    assert code.refund(fork) == accrued
-    gross = intrinsic + code.regular_cost(fork) + code.state_cost(fork)
+    gross = intrinsic + code.execution_cost(fork) + code.state_cost(fork)
     # Exact equality: the cap is neither under nor over the accrued refund.
     assert gross == target_gross
     assert gross // quotient == accrued

@@ -1,17 +1,25 @@
 """
-Test_raw_create_gas.
+Measure the gas cost of CREATE with CodeGasMeasure, across value-transfer,
+memory-expansion, and insufficient-balance (failure) variants.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/RawCreateGasFiller.json
+state_tests/stEIP150singleCodeGasPrices/RawCreateGasMemoryFiller.json
+state_tests/stEIP150singleCodeGasPrices/RawCreateGasValueTransferFiller.json
+state_tests/stEIP150singleCodeGasPrices/RawCreateGasValueTransferMemoryFiller.json
+state_tests/stEIP150singleCodeGasPrices/RawCreateFailGasValueTransferFiller.json
+state_tests/stEIP150singleCodeGasPrices/RawCreateFailGasValueTransfer2Filler.json
+
+@manually-enhanced: Do not overwrite. Six RawCreate*Gas fillers folded into one
+CodeGasMeasure parametrize; failure path charges execution_cost (no state gas).
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    CodeGasMeasure,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -21,52 +29,85 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+GAS_SLOT = 0x1
+MEMORY_SIZE = 0x1F40  # 8000-byte init-code window for the memory variants
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stEIP150singleCodeGasPrices/RawCreateGasFiller.json"],
+    [
+        "state_tests/stEIP150singleCodeGasPrices/RawCreateGasFiller.json",
+        "state_tests/stEIP150singleCodeGasPrices/RawCreateGasMemoryFiller.json",
+        "state_tests/stEIP150singleCodeGasPrices/RawCreateGasValueTransferFiller.json",  # noqa: E501
+        "state_tests/stEIP150singleCodeGasPrices/RawCreateGasValueTransferMemoryFiller.json",  # noqa: E501
+        "state_tests/stEIP150singleCodeGasPrices/RawCreateFailGasValueTransferFiller.json",  # noqa: E501
+        "state_tests/stEIP150singleCodeGasPrices/RawCreateFailGasValueTransfer2Filler.json",  # noqa: E501
+    ],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("SpuriousDragon")
+@pytest.mark.parametrize(
+    "create_value, size, fails",
+    [
+        pytest.param(0x0, 0x0, False, id="raw_create_gas"),
+        pytest.param(0x0, MEMORY_SIZE, False, id="raw_create_gas_memory"),
+        pytest.param(0xA, 0x0, False, id="raw_create_gas_value_transfer"),
+        pytest.param(
+            0xA, MEMORY_SIZE, False, id="raw_create_gas_value_transfer_memory"
+        ),
+        pytest.param(0xB, 0x0, True, id="raw_create_fail_gas_value_transfer"),
+        pytest.param(
+            0xB, MEMORY_SIZE, True, id="raw_create_fail_gas_value_transfer2"
+        ),
+    ],
+)
 def test_raw_create_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    create_value: int,
+    size: int,
+    fails: bool,
 ) -> None:
-    """Test_raw_create_gas."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
+    """Measure CREATE gas; a balance-failure path is cheaper (no state gas)."""
+    # Init code is never written, so it is `size` zero bytes: the created
+    # contract STOPs immediately and deposits no code.
+    create_code = Op.CREATE(
+        value=create_value,
+        offset=0x0,
+        size=size,
+        new_memory_size=size,
+        init_code_size=size,
     )
-
-    # Source: lll
-    # { [0] (GAS) (CREATE 0 0 0) [[1]] (SUB @0 (GAS)) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x0))
-        + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.STOP,
-        nonce=0,
+    # Fund the creator one wei short of `create_value` on the failure cases so
+    # the CREATE aborts on the balance check; otherwise give it exactly enough.
+    balance = create_value - 1 if fails else create_value
+    contract = pre.deploy_contract(
+        code=CodeGasMeasure(
+            code=create_code,
+            extra_stack_items=1,
+            sstore_key=GAS_SLOT,
+        ),
+        balance=balance,
     )
 
     tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=500000,
+        sender=pre.fund_eoa(),
+        to=contract,
+        state_gas_reservoir=0,
     )
 
+    created = compute_create_address(address=contract, nonce=1)
+    if fails:
+        # A balance-check failure runs no init code and creates no account, so
+        # only the regular (execution) gas is charged, never state gas.
+        expected_gas = create_code.execution_cost(fork)
+        created_account = Account.NONEXISTENT
+    else:
+        expected_gas = create_code.gas_cost(fork)
+        created_account = Account(balance=create_value)
+
     post = {
-        contract_0: Account(storage={1: 32022}),
-        compute_create_address(address=contract_0, nonce=0): Account(
-            balance=0
-        ),
+        contract: Account(storage={GAS_SLOT: expected_gas}),
+        created: created_account,
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

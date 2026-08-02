@@ -8,8 +8,10 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
+    EIPChecklist,
     Fork,
     Hash,
+    Op,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
@@ -24,6 +26,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7981.version
 pytestmark = pytest.mark.valid_at("EIP7981")
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list,expected_floor_tokens",
@@ -137,6 +140,7 @@ def test_access_list_token_calculation(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list,tx_data",
@@ -190,6 +194,7 @@ def test_access_list_floor_cost_with_calldata(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list",
@@ -220,7 +225,8 @@ def test_large_access_list_cost(
     Test gas costs for large access lists.
 
     With EIP-7981, large access lists should incur:
-    1. Storage access costs (2400 per address + 1900 per key)
+    1. Storage access costs (per-address and per-key charges, priced
+       at the fork's cold access costs since EIP-8038)
     2. Data footprint costs (16 per floor token)
     """
     state_test(
@@ -230,6 +236,7 @@ def test_large_access_list_cost(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list",
@@ -259,6 +266,96 @@ def test_duplicate_access_list_entries(
     According to EIP-2930, non-unique addresses and storage keys are allowed
     and charged multiple times. EIP-7981 should maintain this behavior.
     """
+    state_test(
+        pre=pre,
+        post={},
+        tx=tx,
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
+@pytest.mark.parametrize(
+    "access_list",
+    [
+        pytest.param(
+            [
+                AccessList(
+                    address=Address(1),
+                    storage_keys=[Hash(0), Hash(1)],
+                )
+            ],
+            id="single_address_two_keys",
+        ),
+    ],
+)
+def test_access_list_data_cost_with_execution(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    access_list: list,
+) -> None:
+    """
+    Test that the access list data cost is charged when execution gas
+    dominates.
+
+    EIP-7981 charges the access list data cost as a flat surcharge on
+    both sides of the gas-used max, so it is paid in full even when the
+    intrinsic-plus-execution side exceeds the floor. An implementation
+    that only counts access list bytes toward the floor undercharges
+    exactly the surcharge here, failing the receipt pin.
+    """
+    gas_costs = fork.gas_costs()
+    surcharge = (
+        calculate_access_list_floor_tokens(access_list)
+        * gas_costs.TX_DATA_TOKEN_FLOOR
+    )
+    # One gas per JUMPDEST, sized so the execution gas strictly exceeds
+    # the surcharge under test.
+    code = Op.JUMPDEST * (surcharge + 1) + Op.STOP
+    contract = pre.deploy_contract(code)
+    execution_gas = code.gas_cost(fork)
+    assert execution_gas > surcharge
+
+    intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_gas = intrinsic_cost_calculator(
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    # The surcharge must be an explicit term of the intrinsic cost, on
+    # top of the per-entry access charges of the same transaction
+    # without an access list.
+    entry_charges = (
+        gas_costs.TX_ACCESS_LIST_ADDRESS
+        + 2 * gas_costs.TX_ACCESS_LIST_STORAGE_KEY
+    )
+    intrinsic_gas_no_access_list = intrinsic_cost_calculator(
+        return_cost_deducted_prior_execution=True,
+    )
+    assert (
+        intrinsic_gas
+        == intrinsic_gas_no_access_list + entry_charges + surcharge
+    )
+
+    # The execution side must win the max against the floor.
+    expected_gas_used = intrinsic_gas + execution_gas
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=b"", access_list=access_list
+    )
+    assert expected_gas_used > floor_gas
+
+    tx = Transaction(
+        ty=tx_type,
+        sender=pre.fund_eoa(),
+        to=contract,
+        access_list=access_list,
+        gas_limit=expected_gas_used,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
     state_test(
         pre=pre,
         post={},
