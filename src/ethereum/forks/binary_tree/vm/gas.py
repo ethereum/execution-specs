@@ -137,16 +137,15 @@ class GasCosts:
     # Transactions
     TX_BASE: Final[Uint] = Uint(12000)
     TX_CREATE: Final[Uint] = Uint(32000)
-    TX_VALUE_COST: Final[Uint] = Uint(4244)
-    TRANSFER_LOG_COST: Final[Uint] = Uint(1756)
+    TX_VALUE_COST: Final[Uint] = Uint(6000)
     TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
-    TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS
-    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = COLD_STORAGE_ACCESS
+    TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS - WARM_ACCESS
+    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = COLD_STORAGE_ACCESS - WARM_ACCESS
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
-    REGULAR_PER_AUTH_BASE_COST: Final[Uint] = (
+    EXECUTION_PER_AUTH_BASE_COST: Final[Uint] = (
         AUTH_TUPLE_BYTES * TX_DATA_TOKEN_FLOOR
         + PRECOMPILE_ECRECOVER
         + COLD_ACCOUNT_ACCESS
@@ -255,8 +254,9 @@ class GasMeter:
 
     gas_left: Uint
     """
-    Gas still available from the frame's regular grant. Pays regular
-    charges, and state charges as [spill] once the reservoir empties.
+    Gas still available from the frame's execution-gas grant. Pays
+    execution-gas charges, and state charges as [spill] once the
+    reservoir empties.
 
     [spill]: ref:ethereum.forks.binary_tree.vm.gas.GasMeter.state_gas_spilled
     """
@@ -281,7 +281,7 @@ class GasMeter:
 
     state_gas_spilled: Uint = Uint(0)
     """
-    Regular gas spent covering state charges after the reservoir
+    Execution gas spent covering state charges after the reservoir
     emptied. Credited back to `gas_left` first, in LIFO order, on a
     refund or failure. [EIP-8037] names this quantity
     `state_gas_from_gas_left`.
@@ -359,14 +359,14 @@ def check_gas(evm: "Evm", amount: Uint) -> None:
 
 def charge_gas(evm: "Evm", amount: Uint) -> None:
     """
-    Subtracts `amount` from `gas_left` (regular gas).
+    Subtracts `amount` from `gas_left` (execution gas).
 
     Parameters
     ----------
     evm :
         The current EVM.
     amount :
-        The amount of regular gas the current operation requires.
+        The amount of execution gas the current operation requires.
 
     """
     evm_trace(evm, GasAndRefund(int(amount)))
@@ -562,7 +562,7 @@ def credit_state_gas_refund(gas_meter: GasMeter, amount: StateGas) -> None:
 
 def forfeit_remaining_gas(gas_meter: GasMeter) -> None:
     """
-    Consume all remaining regular gas on an exceptional halt.
+    Consume all remaining execution gas on an exceptional halt.
 
     Parameters
     ----------
@@ -581,7 +581,7 @@ def withhold_create_gas(gas_meter: GasMeter) -> Uint:
     Withhold and return the gas made available to a `CREATE*` child.
 
     Deduct the all-but-one-64th share from the frame's `gas_left` and
-    return it as the child frame's regular gas grant.
+    return it as the child frame's execution-gas grant.
 
     Parameters
     ----------
@@ -591,7 +591,7 @@ def withhold_create_gas(gas_meter: GasMeter) -> Uint:
     Returns
     -------
     child_gas : `ethereum.base_types.Uint`
-        The regular gas granted to the child frame.
+        The execution gas granted to the child frame.
 
     """
     child_gas = max_message_call_gas(gas_meter.gas_left)
@@ -630,15 +630,15 @@ def restore_child_gas(
     Return a child frame's unused gas grant to the parent.
 
     Used when the child frame is never entered (for example, a stack
-    depth or balance check fails): the withheld regular gas and drained
-    reservoir are returned untouched.
+    depth or balance check fails): the withheld execution gas and
+    drained reservoir are returned untouched.
 
     Parameters
     ----------
     gas_meter :
         The parent frame's gas meter.
     gas :
-        The regular gas grant to return.
+        The execution gas grant to return.
     state_gas_reservoir :
         The state gas reservoir to return.
 
@@ -911,28 +911,28 @@ def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
 
 @final
 @dataclass
-class ExecutionGasAllocation:
+class EvmGasAllocation:
     """
-    Split of a transaction's execution gas across the two dimensions.
+    Split of a transaction's EVM gas across the two dimensions.
     """
 
-    regular_gas: Uint
-    """Regular gas granted to the top frame, capped by the budget."""
+    execution_gas: Uint
+    """Execution gas granted to the top frame, capped by the budget."""
 
     state_gas_reservoir: Uint
     """State gas set aside for the top frame's reservoir."""
 
 
-def allocate_execution_gas(
+def allocate_evm_gas(
     tx_gas: Uint, intrinsic: IntrinsicGasCost
-) -> ExecutionGasAllocation:
+) -> EvmGasAllocation:
     """
-    Split execution gas into a regular grant and a state reservoir.
+    Split EVM gas into an execution-gas grant and a state reservoir.
 
-    After the intrinsic cost is removed, the remaining execution gas is
-    divided into regular gas -- capped by the regular-gas budget that
-    remains below `TX_MAX_GAS_LIMIT` -- and a state gas reservoir that
-    holds whatever exceeds that cap.
+    After the intrinsic cost is removed, the remaining EVM gas is
+    divided into execution gas -- capped by the execution-gas budget
+    that remains below `TX_MAX_GAS_LIMIT` -- and a state gas reservoir
+    that holds whatever exceeds that cap.
 
     Only valid once `validate_transaction` has confirmed the transaction
     can afford its intrinsic cost, which guarantees the subtractions
@@ -947,15 +947,15 @@ def allocate_execution_gas(
 
     Returns
     -------
-    allocation : `ExecutionGasAllocation`
-        The regular gas grant and state gas reservoir.
+    allocation : `EvmGasAllocation`
+        The execution gas grant and state gas reservoir.
 
     """
-    execution_gas = tx_gas - Uint(intrinsic.regular)
-    regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
-    regular_gas = min(regular_gas_budget, execution_gas)
-    state_gas_reservoir = Uint(execution_gas - regular_gas)
-    return ExecutionGasAllocation(regular_gas, state_gas_reservoir)
+    evm_gas = tx_gas - Uint(intrinsic.execution)
+    execution_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.execution
+    execution_gas = min(execution_gas_budget, evm_gas)
+    state_gas_reservoir = Uint(evm_gas - execution_gas)
+    return EvmGasAllocation(execution_gas, state_gas_reservoir)
 
 
 @final
@@ -974,8 +974,8 @@ class TransactionGasSettlement:
     gas_left: Uint
     """Gas returned to the sender, priced at the effective gas price."""
 
-    regular_gas_used: Uint
-    """Regular gas the transaction contributes to the block total."""
+    execution_gas_used: Uint
+    """Execution gas the transaction contributes to the block total."""
 
     state_gas_used: Uint
     """State gas the transaction contributes to the block total."""
@@ -994,16 +994,17 @@ def settle_transaction_gas(
 
     Compute, in order:
 
-    - the gas used before refunds, from the gas limit less the regular
-      gas and reservoir the top frame returned;
+    - the gas used before refunds, from the gas limit less the
+      execution gas and reservoir the top frame returned;
     - the refund, capped at one fifth of that pre-refund usage;
     - the gas used, taken as the larger of the post-refund usage and the
       calldata floor, so a transaction never pays below the floor; and
     - the per-dimension block amounts: the state gas used (clamped to
-      zero, since refunds can drive it negative) and the regular gas
-      used, which carries the floor because the floor binds the regular
-      dimension. Unlike the sender-facing `gas_used`, it ignores
-      refunds: block accounting counts pre-refund gas ([EIP-7778]).
+      zero, since refunds can drive it negative) and the execution gas
+      used, which carries the floor because the floor binds the
+      execution dimension. Unlike the sender-facing `gas_used`, it
+      ignores refunds: block accounting counts pre-refund gas
+      ([EIP-7778]).
 
     Parameters
     ----------
@@ -1012,7 +1013,7 @@ def settle_transaction_gas(
     intrinsic :
         The transaction's intrinsic gas cost.
     gas_left :
-        Regular gas the top frame returned.
+        Execution gas the top frame returned.
     state_gas_left :
         State gas reservoir the top frame returned.
     refund_counter :
@@ -1034,13 +1035,13 @@ def settle_transaction_gas(
     gas_used = max(gas_used_after_refund, intrinsic.calldata_floor)
 
     settled_state_gas_used = Uint(max(0, state_gas_used))
-    regular_gas_used = max(
+    execution_gas_used = max(
         gas_used_before_refund - settled_state_gas_used,
         intrinsic.calldata_floor,
     )
     return TransactionGasSettlement(
         gas_used=gas_used,
         gas_left=tx_gas - gas_used,
-        regular_gas_used=regular_gas_used,
+        execution_gas_used=execution_gas_used,
         state_gas_used=settled_state_gas_used,
     )
