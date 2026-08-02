@@ -1,0 +1,73 @@
+name: Binary Trie Vectors
+
+# Keeps `tests/binary_trie/vectors/binary_trie_vectors.json` in step with
+# the implementation it is derived from, so a pull request that changes
+# the tree or the embedding does not have to regenerate it by hand.
+#
+# Runs only on the project branch, and only when something the vectors
+# depend on moved. The generator's output is a pure function of the
+# implementation, so a run that finds no change commits nothing — and the
+# commit it does make touches only the JSON, which is not in the paths
+# filter below, so it cannot retrigger this workflow.
+
+on:
+  push:
+    branches:
+      - "projects/binary-trie"
+    paths:
+      - "src/ethereum/binary_trie/**"
+      - "tests/binary_trie/vectors/dump_vectors.py"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: ./.github/actions/setup-uv
+
+      - name: Regenerate vectors
+        run: uv run python tests/binary_trie/vectors/dump_vectors.py
+
+      - name: Commit if the vectors changed
+        env:
+          VECTORS: tests/binary_trie/vectors/binary_trie_vectors.json
+        run: |
+          # `source_commit` is a stamp, not a vector: it changes on every
+          # run because HEAD moved. Compare the substance without it, so
+          # a push that did not alter behaviour commits nothing.
+          if git cat-file -e "HEAD:$VECTORS" 2>/dev/null; then
+            git show "HEAD:$VECTORS" > /tmp/vectors-before.json
+          else
+            # Not committed yet: nothing to compare against, so the
+            # freshly generated file is always a change worth committing.
+            echo '{}' > /tmp/vectors-before.json
+          fi
+          strip() { python3 -c "
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          d.pop('source_commit', None)
+          json.dump(d, sys.stdout, indent=2, sort_keys=True)
+          " "$1"; }
+          if [ "$(strip /tmp/vectors-before.json)" = "$(strip "$VECTORS")" ]
+          then
+            echo "Vectors unchanged; discarding the new stamp."
+            git checkout -- "$VECTORS"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$VECTORS"
+          git commit -m "chore(binary-trie): regenerate conformance vectors"
+          git push
