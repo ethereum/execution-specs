@@ -401,10 +401,10 @@ class T8N(Load):
             withdrawals = self.env.withdrawals or []
             fork_withdrawals = tuple(
                 self.fork.Withdrawal(
-                    Uint(int(w.index)),
-                    Uint(int(w.validator_index)),
+                    U64(int(w.index)),
+                    U64(int(w.validator_index)),
                     self.fork.hex_to_address(w.address.hex()),
-                    U256(int(w.amount)),
+                    U64(int(w.amount)),
                 )
                 for w in withdrawals
             )
