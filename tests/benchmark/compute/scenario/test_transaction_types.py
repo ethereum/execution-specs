@@ -406,7 +406,7 @@ def test_block_full_data(
 
         txs.append(
             Transaction(
-                to=pre.fund_eoa(),
+                to=pre.fund_eoa(amount=1),
                 data=data,
                 gas_limit=gas_available + intrinsic_cost,
                 sender=pre.fund_eoa(),

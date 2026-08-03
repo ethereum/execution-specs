@@ -721,6 +721,49 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
     return out
 
 
+_SETUP_BLOCK_GAS_HEADROOM = 0.99
+
+
+def _split_setup_blocks_by_gas(
+    blocks: List[Block], *, block_gas_limit: int
+) -> List[Block]:
+    """
+    Split each SETUP block into runs that fit one block's gas limit.
+
+    A live client inherits its gas limit from the snapshot chain and
+    cannot raise it, so setup work beyond one block's worth has to span
+    several or the client rejects the payload with ``gas limit reached``.
+    Execution blocks pass through at any size: one is the unit a
+    benchmark measures, so splitting it would change the result.
+
+    Requires single-phase blocks; run ``_split_blocks_by_phase`` first.
+    """
+    budget = int(block_gas_limit * _SETUP_BLOCK_GAS_HEADROOM)
+    out: List[Block] = []
+    for block in blocks:
+        if not block.txs or block.phase is not TestPhase.SETUP:
+            out.append(block)
+            continue
+
+        runs: List[List[Transaction]] = []
+        current_run: List[Transaction] = []
+        current_gas = 0
+        for tx in block.txs:
+            if current_run and current_gas + tx.gas_limit > budget:
+                runs.append(current_run)
+                current_run, current_gas = [], 0
+            current_run.append(tx)
+            current_gas += tx.gas_limit
+        runs.append(current_run)
+
+        if len(runs) == 1:
+            out.append(block)
+            continue
+
+        out.extend(block.model_copy(update={"txs": run}) for run in runs)
+    return out
+
+
 class BlockchainTest(BaseTest):
     """Filler type that tests multiple blocks (valid or invalid) in a chain."""
 
@@ -1510,6 +1553,10 @@ class BlockchainTest(BaseTest):
         # split into contiguous phase runs so benchmark gas isn't
         # swallowed into ``setupEngineNewPayloads``.
         blocks_to_process.extend(_split_blocks_by_phase(self.blocks))
+        blocks_to_process = _split_setup_blocks_by_gas(
+            blocks_to_process,
+            block_gas_limit=int(HexNumber(start_block["gasLimit"])),
+        )
 
         # Chain off the session start_block. We pull parent_* from a
         # FixtureHeader-validated copy of the client's block dict, but
