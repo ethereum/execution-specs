@@ -82,6 +82,46 @@ def test_case(state_test):
         ),
         pytest.param(
             generate_test(
+                valid_at='"London", "Cancun"',
+            ),
+            [],
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at",
+        ),
+        pytest.param(
+            generate_test(
+                valid_at='"Amsterdam"',
+            ),
+            ["--fork=BinaryTree"],
+            # BinaryTree is declared with
+            # `inherits_exact_fork_validity=True`, so a test pinned to
+            # its parent Amsterdam also fills for it.
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_dev_fork_inherits_validity",
+        ),
+        pytest.param(
+            generate_test(
+                valid_at='"EIP7981"',
+            ),
+            ["--fork=BinaryTree"],
+            # The EIP name resolves to Amsterdam, which BinaryTree
+            # inherits exact-fork validity from.
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_eip_dev_fork_inherits_validity",
+        ),
+        pytest.param(
+            generate_test(
+                valid_at='"Cancun"',
+            ),
+            ["--fork=BinaryTree"],
+            # Inheritance follows the parent link only: BinaryTree's
+            # parent is Amsterdam, so a test pinned to an older fork
+            # stays excluded.
+            {"passed": 0, "failed": 0, "skipped": 0, "errors": 0},
+            id="valid_at_dev_fork_older_fork_excluded",
+        ),
+        pytest.param(
+            generate_test(
                 valid_from='"EIP3675"',
                 valid_until='"EIP4844"',
             ),

@@ -343,6 +343,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _fork_by_timestamp: ClassVar[bool] = False
     _blob_constants: ClassVar[Dict[str, int]] = {}
     _deployed: ClassVar[bool] = True
+    _inherits_exact_fork_validity: ClassVar[bool] = False
     _enabled_eips: ClassVar[Set[int]] = set()
     _enabling_forks: ClassVar[Set[Type["BaseFork"]]] = set()
 
@@ -362,6 +363,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         ruleset_name: Optional[str] = None,
         fork_by_timestamp: Optional[bool] = None,
         deployed: Optional[bool] = None,
+        inherits_exact_fork_validity: bool = False,
         update_blob_constants: Optional[Dict[str, int]] = None,
         engine_new_payload_version_bump: Optional[bool] = None,
         engine_forkchoice_updated_version_bump: Optional[bool] = None,
@@ -376,6 +378,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         cls._solc_name = solc_name
         cls._ignore = ignore
         cls._bpo_fork = bpo_fork
+        cls._inherits_exact_fork_validity = inherits_exact_fork_validity
         cls._ruleset_name = ruleset_name
         cls._children = set()
         if fork_by_timestamp is None:
@@ -1323,6 +1326,18 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def ignore(cls) -> bool:
         """Return whether the fork should be ignored during test generation."""
         return cls._ignore
+
+    @classmethod
+    def inherits_exact_fork_validity(cls) -> bool:
+        """
+        Return whether markers that name this fork's parent exactly
+        (`valid_at`) also select this fork.
+
+        Declared per fork with the `inherits_exact_fork_validity` class
+        argument; meant for development forks that keep their parent's
+        semantics, so tests pinned to the parent remain meaningful.
+        """
+        return cls._inherits_exact_fork_validity
 
     @classmethod
     def bpo_fork(cls) -> bool:
