@@ -12,6 +12,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Header,
     Op,
     Requests,
     SystemContractInteractionTransaction,
@@ -93,23 +94,19 @@ def test_extra_consolidations(
     """
     modified_code: Bytecode = Bytecode()
     memory_offset: int = 0
-    amount_of_requests: int = 0
 
     for consolidation_request in requests_list:
-        # update memory_offset with the correct value
-        consolidation_request_bytes_amount: int = len(
-            bytes(consolidation_request)
-        )
-        assert consolidation_request_bytes_amount == 116, (
+        record = bytes(consolidation_request)
+        assert len(record) == 116, (
             "Expected consolidation request to be of size 116 but got size "
-            f"{consolidation_request_bytes_amount}"
+            f"{len(record)}"
         )
-        memory_offset += consolidation_request_bytes_amount
+        # Store records contiguously from offset 0 so the returned data is
+        # exactly the concatenated records (no gap, no trailing padding).
+        modified_code += Om.MSTORE(record, memory_offset)
+        memory_offset += len(record)
 
-        modified_code += Om.MSTORE(bytes(consolidation_request), memory_offset)
-        amount_of_requests += 1
-
-    modified_code += Op.RETURN(0, Op.MSIZE())
+    modified_code += Op.RETURN(0, memory_offset)
 
     pre[Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS] = Account(
         code=modified_code,
@@ -132,7 +129,7 @@ def test_extra_consolidations(
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(*requests_list),
+                header_verify=Header(requests_hash=Requests(*requests_list)),
             ),
         ],
         post={},

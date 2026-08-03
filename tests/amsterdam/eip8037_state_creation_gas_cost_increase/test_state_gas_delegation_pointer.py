@@ -41,9 +41,6 @@ def test_sstore_via_delegation_pointer(
     contract code in the EOA's context. The SSTORE state gas should
     be charged from the reservoir just as it would for a direct call.
     """
-    auth_state_gas = fork.transaction_intrinsic_state_gas(
-        authorization_count=1,
-    )
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     storage = Storage()
@@ -54,17 +51,25 @@ def test_sstore_via_delegation_pointer(
     # EOA with pre-existing delegation to the contract
     delegator = pre.fund_eoa(delegation=contract)
 
+    # The authorization re-targets an already-delegated authority whose
+    # nonce (1, from the delegation setup) no longer matches nonce=0, so
+    # it is invalid and charges no top-frame state gas.
+    authorization = AuthorizationTuple(
+        address=contract,
+        nonce=0,
+        signer=delegator,
+        creates_account=False,
+        writes_delegation=False,
+        first_write=False,
+    )
+    auth_state_gas = fork.transaction_top_frame_state_gas(
+        authorizations=[authorization]
+    )
     sender = pre.fund_eoa()
     tx = Transaction(
         to=delegator,
         state_gas_reservoir=auth_state_gas + sstore_state_gas,
-        authorization_list=[
-            AuthorizationTuple(
-                address=contract,
-                nonce=0,
-                signer=delegator,
-            ),
-        ],
+        authorization_list=[authorization],
         sender=sender,
     )
 
@@ -116,39 +121,45 @@ def test_delegation_pointer_new_account_state_gas(
     via a delegation pointer, the new-account state gas
     is charged identically to a direct call.
     """
-    gas_costs = fork.gas_costs()
-    auth_state_gas = fork.transaction_intrinsic_state_gas(
-        authorization_count=1,
-    )
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
-
-    target = 0xDEAD
+    target = pre.nonexistent_account()
 
     parent_storage = Storage()
+    call = Op.CALL(
+        gas=100_000,
+        address=target,
+        value=1,
+        value_transfer=True,
+        account_new=True,
+    )
     contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                parent_storage.store_next(1),
-                Op.CALL(gas=100_000, address=target, value=1),
-            )
-        ),
+        code=Op.SSTORE(parent_storage.store_next(1), call),
         balance=1,
     )
+    new_account_state_gas = call.state_cost(fork)
 
     # EOA delegates to the contract
     delegator = pre.fund_eoa(delegation=contract, amount=1)
+
+    # The authorization re-targets an already-delegated authority whose
+    # nonce (1, from the delegation setup) no longer matches nonce=0, so
+    # it is invalid and charges no top-frame state gas.
+    authorization = AuthorizationTuple(
+        address=contract,
+        nonce=0,
+        signer=delegator,
+        creates_account=False,
+        writes_delegation=False,
+        first_write=False,
+    )
+    auth_state_gas = fork.transaction_top_frame_state_gas(
+        authorizations=[authorization]
+    )
 
     sender = pre.fund_eoa()
     tx = Transaction(
         to=delegator,
         state_gas_reservoir=auth_state_gas + new_account_state_gas,
-        authorization_list=[
-            AuthorizationTuple(
-                address=contract,
-                nonce=0,
-                signer=delegator,
-            ),
-        ],
+        authorization_list=[authorization],
         sender=sender,
     )
 

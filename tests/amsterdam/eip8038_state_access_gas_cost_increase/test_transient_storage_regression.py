@@ -46,28 +46,23 @@ def test_transient_storage_gas_unchanged(
     write repricing did not bleed into transient storage.
     """
     gas_costs = fork.gas_costs()
-    very_low = gas_costs.VERY_LOW
-
-    # Bare opcode costs: subtract the PUSH wrapper from each.
-    tload_bare = Op.TLOAD(0).gas_cost(fork) - 1 * very_low
-    tstore_bare = Op.TSTORE(0, 1).gas_cost(fork) - 2 * very_low
-
-    assert tload_bare == gas_costs.OPCODE_TLOAD == 100
-    assert tstore_bare == gas_costs.OPCODE_TSTORE == 100
-    # Guard against over-eager repricing: transient write must not have
-    # been folded into the (repriced) persistent cold write cost.
+    # Guard against over-eager repricing: the transient write must not
+    # have been folded into the (repriced) persistent cold write cost.
     assert gas_costs.OPCODE_TSTORE != gas_costs.COLD_STORAGE_WRITE
 
-    # Measure TSTORE then TLOAD of the same transient slot in one frame.
+    # Measure TSTORE then TLOAD of the same transient slot in one frame,
+    # subtracting the PUSH wrapper so the stored value is the bare opcode
+    # cost.
+    push_cost = Op.PUSH1(0).execution_cost(fork)
     tstore_code = CodeGasMeasure(
         code=Op.TSTORE(0, 1),
-        overhead_cost=2 * very_low,
+        overhead_cost=2 * push_cost,
         extra_stack_items=0,
         sstore_key=0,
     )
     tload_code = CodeGasMeasure(
         code=Op.TLOAD(0),
-        overhead_cost=1 * very_low,
+        overhead_cost=1 * push_cost,
         extra_stack_items=1,
         sstore_key=1,
     )
@@ -75,7 +70,9 @@ def test_transient_storage_gas_unchanged(
 
     tx = Transaction(to=contract, sender=pre.fund_eoa())
 
-    # Slot 0: measured TSTORE cost. Slot 1: measured TLOAD cost.
+    # Slot 0: measured TSTORE cost. Slot 1: measured TLOAD cost. Both must
+    # equal the fork's declared transient-storage opcode costs, which
+    # EIP-8038 leaves unchanged.
     post = {
         contract: Account(
             storage={

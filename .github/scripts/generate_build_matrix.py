@@ -10,7 +10,7 @@
 Validate release inputs and generate the build matrix for release
 fixture workflows.
 
-Usage: `generate_build_matrix.py <feature> <version> [branch]`.
+Usage: `generate_build_matrix.py <feature> <version> [branch] [evm]`.
 
 First validate the dispatch inputs (see `validate_inputs`), then read
 `.github/configs/feature.yaml` and emit a flat JSON build matrix suitable
@@ -31,6 +31,7 @@ import yaml
 
 FEATURE_CONFIG = Path(".github/configs/feature.yaml")
 FORK_RANGES_CONFIG = Path(".github/configs/fork-ranges.yaml")
+EVM_CONFIG = Path(".github/configs/evm.yaml")
 
 VERSION_RE = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 
@@ -81,12 +82,13 @@ def fail(message: str) -> NoReturn:
     sys.exit(1)
 
 
-def validate_inputs(feature: str, version: str, branch: str) -> None:
+def validate_inputs(feature: str, version: str, branch: str, evm: str) -> None:
     """
     Validate the release dispatch inputs before building a matrix.
 
-    Centralize the feature/version checks here so they are unit-testable
-    rather than living as inline bash in the release workflow.
+    Centralize the feature/version/evm checks here so they are
+    unit-testable rather than living as inline bash in the release
+    workflow.
 
     For `<feat>-devnet` releases the major version (`X` of `vX.Y.Z`)
     must equal the devnet number encoded in the release branch, so a
@@ -96,6 +98,10 @@ def validate_inputs(feature: str, version: str, branch: str) -> None:
         fail("feature name is empty")
     if not VERSION_RE.match(version):
         fail(f"version '{version}' must match vX.Y.Z (e.g. v20.0.0)")
+
+    # An `evm` override must name a key in evm.yaml.
+    if evm and evm not in load_config(EVM_CONFIG):
+        fail(f"evm '{evm}' is not a key in {EVM_CONFIG}")
 
     # A bare `devnet` has no friendly `<feat>-` prefix to tag with.
     if feature in ("devnet", "-devnet"):
@@ -207,7 +213,8 @@ def main() -> None:
     args = sys.argv[1:]
     if len(args) < 2:
         print(
-            "Usage: generate_build_matrix.py <feature> <version> [branch]",
+            "Usage: generate_build_matrix.py "
+            "<feature> <version> [branch] [evm]",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -215,8 +222,9 @@ def main() -> None:
     name = args[0]
     version = args[1]
     branch = args[2] if len(args) > 2 else ""
+    evm = args[3] if len(args) > 3 else ""
 
-    validate_inputs(name, version, branch)
+    validate_inputs(name, version, branch, evm)
 
     config = load_config(FEATURE_CONFIG)
     fork_ranges = load_config(FORK_RANGES_CONFIG) or []

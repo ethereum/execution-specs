@@ -28,6 +28,9 @@ class RethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: "unexpected length",
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: "unexpected list",
         TransactionException.INVALID_CHAINID: "invalid chain ID",
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            "invalid bool value, must be 0 or 1"
+        ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "blob version not supported"
         ),

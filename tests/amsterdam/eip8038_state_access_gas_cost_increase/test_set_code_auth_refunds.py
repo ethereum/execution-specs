@@ -1,46 +1,32 @@
 """
-Tests for the EIP-7702 authorization *regular*-gas refund under
-[EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
+Tests for the EIP-7702 authorization charge on an *existing* authority
+leaf under [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
 
-When an authority's account leaf already exists, ``set_delegation``
-refunds on two independent channels:
+EIP-8038 originally over-charged every authorization as if it created a
+new account and *refunded* the difference (``ACCOUNT_WRITE`` on the
+execution channel, ``NEW_ACCOUNT`` -- and ``AUTH_BASE`` on a clear -- on
+the state channel) when the authority leaf already existed.
 
-* the **state** channel: ``StateGasCosts.NEW_ACCOUNT`` is refilled into
-  ``state_gas_reservoir`` / ``state_refund`` (and ``AUTH_BASE`` too when
-  the code slot already holds a delegation indicator). It is subtracted
-  from ``tx_state_gas`` *before* the regular refund is applied and is
-  **not** subject to the EIP-3529 one-fifth cap. This channel is the
-  subject of the EIP-8037 ``eip8037_state_creation_gas_cost_increase``
-  suite.
-* the **regular** channel: the worst-case ``GasCosts.ACCOUNT_WRITE``
-  charged in the regular intrinsic is returned via the regular refund
-  counter, and **is** subject to the one-fifth cap.
+Under EIP-2780 that over-charge-then-refund is gone: the
+state-dependent portion of each authorization is charged lazily at the
+top frame in ``set_delegation``. An existing leaf therefore never pays
+-- and is never refunded -- the ``NEW_ACCOUNT`` creation cost. It does
+pay ``ACCOUNT_WRITE`` once, for the transaction's first write to its
+leaf, since applying the authorization writes its code and nonce
+regardless of whether the leaf pre-existed. This module pins that
+reduced, refund-free charge via the exact receipt gas:
 
-This module pins the *regular* ``ACCOUNT_WRITE`` refund. The dual-channel
-accounting mirrors ``process_transaction``:
+* a non-clearing delegation on an existing empty-code leaf pays the
+  intrinsic ``EXECUTION_PER_AUTH_BASE_COST`` plus the top-frame
+  ``ACCOUNT_WRITE`` (first leaf write) and ``AUTH_BASE`` (the net-new
+  delegation indicator); and
+* a *clearing* re-authorization of an existing-delegation authority
+  writes no net-new indicator, so it pays only the intrinsic base plus
+  the first-write ``ACCOUNT_WRITE``, with no top-frame state charge at
+  all.
 
-    gas_before_regular_refund = (
-        intrinsic_regular + exec_regular
-        + intrinsic_state + exec_state
-        - state_refund            # uncapped, subtracted first
-    )
-    regular_refund = min(
-        n * ACCOUNT_WRITE,
-        gas_before_regular_refund // fork.max_refund_quotient(),
-    )
-    cumulative_gas_used = gas_before_regular_refund - regular_refund
-
-Two regimes are exercised:
-
-* a non-clearing delegation on an existing leaf, padded with cold
-  SSTOREs so ``gas_before_regular_refund`` is large and the full
-  ``n * ACCOUNT_WRITE`` clears under the cap; and
-* a *clearing* re-authorization of an existing-delegation authority,
-  where the state channel refunds the **full** per-auth state intrinsic
-  (``NEW_ACCOUNT + AUTH_BASE``). That collapses
-  ``gas_before_regular_refund`` to the regular intrinsic alone, so the
-  cap ``gas // 5`` becomes the binding term and the regular refund
-  clamps below ``ACCOUNT_WRITE``.
+In both regimes the receipt gas equals the exact charge with no refund
+term.
 """
 
 from typing import List
@@ -50,12 +36,10 @@ from execution_testing import (
     Account,
     Alloc,
     AuthorizationTuple,
-    Bytecode,
     Environment,
     Fork,
     Op,
     StateTestFiller,
-    Storage,
     Transaction,
     TransactionReceipt,
 )
@@ -70,14 +54,9 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _sstore_state_per_op(fork: Fork) -> int:
-    """Return the state gas of one cold ``0 -> 1`` SSTORE."""
-    return Op.SSTORE(new_value=1).state_cost(fork)
-
-
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @pytest.mark.parametrize("n", [1, 2])
-def test_existing_authority_regular_refund_visible(
+def test_existing_authority_no_new_account_charge(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
@@ -85,66 +64,52 @@ def test_existing_authority_regular_refund_visible(
     n: int,
 ) -> None:
     """
-    Pin the full regular ``ACCOUNT_WRITE`` refund for set-code
-    authorizations whose authority leaves already exist.
+    An authorization whose authority leaf already exists is charged the
+    reduced top-frame cost directly, with no refund.
 
-    Each authority is an existing funded EOA delegating to a fresh
-    contract, so ``set_delegation`` refunds ``NEW_ACCOUNT`` on the state
-    channel (uncapped) and ``ACCOUNT_WRITE`` on the regular channel
-    (capped). The execution is padded with ten cold ``0 -> 1`` SSTOREs
-    so ``gas_before_regular_refund`` is large and the one-fifth cap
-    exceeds ``n * ACCOUNT_WRITE``; the entire regular refund is visible
-    in the receipt.
-
-    The state refill is subtracted first and is not capped; it belongs
-    to the EIP-8037 suite and is only used here to size the receipt.
+    Each authority is an existing funded EOA gaining a fresh delegation.
+    Its leaf exists, so ``set_delegation`` charges no ``NEW_ACCOUNT``
+    (and, unlike the superseded EIP-8038 behaviour, refunds none); it
+    charges the first-write ``ACCOUNT_WRITE`` and the top-frame
+    ``AUTH_BASE`` for the net-new delegation indicator. The receipt gas
+    is therefore exactly the execution intrinsic plus
+    ``n * (ACCOUNT_WRITE + AUTH_BASE)``, with no refund term.
     """
-    gas_costs = fork.gas_costs()
-    account_write = gas_costs.ACCOUNT_WRITE
-    # Existing leaf overwritten with a fresh (non-clearing) delegation
-    # indicator: only NEW_ACCOUNT is refilled on the state channel.
-    state_refund = gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT * n
-
-    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
-        authorization_list_or_count=n,
-    )
-    intrinsic_state = fork.transaction_intrinsic_state_gas(
-        authorization_count=n,
-    )
-
-    num_sstores = 10
-    storage = Storage()
-    code = Bytecode()
-    for _ in range(num_sstores):
-        code += Op.SSTORE(storage.store_next(1), 1)
-    code += Op.STOP
-    contract = pre.deploy_contract(code=code)
-
-    exec_state = _sstore_state_per_op(fork) * num_sstores
-    # The deployed bytecode's combined cost minus its state portion is
-    # the regular execution gas (includes the PUSHes for SSTORE args).
-    exec_regular = code.gas_cost(fork) - exec_state
-
+    recipient = pre.deploy_contract(code=Op.STOP)
     delegate = pre.deploy_contract(code=Op.STOP)
     signers = [pre.fund_eoa() for _ in range(n)]
     authorization_list = [
-        AuthorizationTuple(address=delegate, nonce=0, signer=signer)
+        AuthorizationTuple(
+            address=delegate,
+            nonce=0,
+            signer=signer,
+            # Existing leaf gaining a net-new delegation indicator; the
+            # transaction's first write to the leaf.
+            creates_account=False,
+            writes_delegation=True,
+        )
         for signer in signers
     ]
 
-    gas_before_regular_refund = (
-        total_intrinsic + exec_regular + exec_state - state_refund
+    # Existing leaf + net-new delegation: the first-write ACCOUNT_WRITE
+    # and AUTH_BASE at the top frame. NEW_ACCOUNT is neither charged
+    # nor refunded, so the receipt gas is the exact charge.
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=n,
+        return_cost_deducted_prior_execution=True,
     )
-    regular_refund = min(
-        n * account_write,
-        gas_before_regular_refund // fork.max_refund_quotient(),
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+        authorizations=authorization_list,
     )
-    assert regular_refund == n * account_write
-    cumulative_gas_used = gas_before_regular_refund - regular_refund
+    top_frame_state = fork.transaction_top_frame_state_gas(
+        authorizations=authorization_list,
+    )
+    cumulative_gas_used = (
+        intrinsic_execution + top_frame_execution + top_frame_state
+    )
 
     tx = Transaction(
-        to=contract,
-        state_gas_reservoir=intrinsic_state + exec_state,
+        to=recipient,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
@@ -152,17 +117,16 @@ def test_existing_authority_regular_refund_visible(
         ),
     )
 
-    post: dict = {contract: Account(storage=storage)}
-    for signer in signers:
-        post[signer] = Account(
-            code=Spec7702.delegation_designation(delegate),
-        )
+    post = {
+        signer: Account(code=Spec7702.delegation_designation(delegate))
+        for signer in signers
+    }
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
 @pytest.mark.parametrize("n", [1, 3])
-def test_clearing_delegation_regular_refund_capped(
+def test_clearing_delegation_no_state_charge(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
@@ -170,36 +134,20 @@ def test_clearing_delegation_regular_refund_capped(
     n: int,
 ) -> None:
     """
-    Clearing a delegation refunds the full per-auth state intrinsic on
-    the state channel, which drives the regular refund into the
-    one-fifth cap.
+    Clearing an existing delegation is charged the intrinsic
+    per-authorization base plus the first-write ``ACCOUNT_WRITE``, with
+    no top-frame state charge and no refund.
 
-    Each authority already holds a delegation and re-authorizes to the
-    reset (zero) address, clearing its code. The leaf exists, so
-    ``ACCOUNT_WRITE`` is refunded on the regular channel; the code slot
-    held a delegation indicator and the new indicator is empty, so both
-    ``NEW_ACCOUNT`` and ``AUTH_BASE`` are refilled on the state channel.
-    Refunding the full per-auth state intrinsic collapses
-    ``gas_before_regular_refund`` to the regular intrinsic alone, so the
-    cap ``gas // 5`` is below ``n * ACCOUNT_WRITE`` and the regular
-    refund clamps to ``gas // 5`` (cap-saturated). No execution padding
-    is used, so the contrast with the full-refund test is purely the
-    refunded state magnitude.
+    Each authority already exists and already holds a delegation
+    indicator (delegated before the transaction), and the authorization
+    resets to the null address, so ``set_delegation`` writes no net-new
+    indicator: ``NEW_ACCOUNT`` and ``AUTH_BASE`` fall away. The clear
+    still writes the authority's leaf (code emptied, nonce bumped), so
+    the transaction's first-write ``ACCOUNT_WRITE`` applies. Nothing is
+    refunded (the over-charge is gone), so the receipt gas is exactly
+    the execution intrinsic plus ``n * ACCOUNT_WRITE``.
     """
-    gas_costs = fork.gas_costs()
-    account_write = gas_costs.ACCOUNT_WRITE
-
-    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
-        authorization_list_or_count=n,
-    )
-    intrinsic_state = fork.transaction_intrinsic_state_gas(
-        authorization_count=n,
-    )
-    # Clearing an existing delegation refills the full per-auth state
-    # intrinsic (NEW_ACCOUNT + AUTH_BASE) for every authorization.
-    state_refund = intrinsic_state
-
-    contract = pre.deploy_contract(code=Op.STOP)
+    recipient = pre.deploy_contract(code=Op.STOP)
     delegated_to = pre.deploy_contract(code=Op.STOP)
     # Authorities that already delegate; fund_eoa(delegation=...) sets
     # the authority nonce to 1, which is the expected auth nonce.
@@ -209,25 +157,33 @@ def test_clearing_delegation_regular_refund_capped(
             address=Spec7702.RESET_DELEGATION_ADDRESS,
             nonce=1,
             signer=signer,
+            # Existing leaf, delegated before the tx: clearing writes no
+            # net-new indicator, so no top-frame state charge. The clear
+            # is still the transaction's first write to the leaf.
+            creates_account=False,
+            writes_delegation=False,
         )
         for signer in signers
     ]
 
-    gas_before_regular_refund = total_intrinsic - state_refund
-    regular_refund = min(
-        n * account_write,
-        gas_before_regular_refund // fork.max_refund_quotient(),
+    # Clearing an existing delegation writes no net-new indicator, so
+    # no top-frame state charge applies and no refund fires; only the
+    # first-write ACCOUNT_WRITE is charged per authority.
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=n,
+        return_cost_deducted_prior_execution=True,
     )
-    # The cap is the binding term: the refund clamps below ACCOUNT_WRITE.
-    assert regular_refund < n * account_write
-    assert regular_refund == gas_before_regular_refund // (
-        fork.max_refund_quotient()
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+        authorizations=authorization_list,
     )
-    cumulative_gas_used = gas_before_regular_refund - regular_refund
+    top_frame_state = fork.transaction_top_frame_state_gas(
+        authorizations=authorization_list,
+    )
+    assert top_frame_state == 0
+    cumulative_gas_used = intrinsic_execution + top_frame_execution
 
     tx = Transaction(
-        to=contract,
-        state_gas_reservoir=intrinsic_state,
+        to=recipient,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
@@ -235,8 +191,5 @@ def test_clearing_delegation_regular_refund_capped(
         ),
     )
 
-    post: dict = {}
-    for signer in signers:
-        # Delegation cleared back to empty code, nonce incremented.
-        post[signer] = Account(nonce=2, code=b"")
+    post = {signer: Account(nonce=2, code=b"") for signer in signers}
     state_test(env=env, pre=pre, post=post, tx=tx)

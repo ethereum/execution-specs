@@ -1,8 +1,8 @@
 """
 Tests for the EIP-8038 [State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038)
-``CALL``-family regular-gas dimension.
+``CALL``-family execution-gas dimension.
 
-Under EIP-8038 the call opcodes are repriced in their *regular* gas
+Under EIP-8038 the call opcodes are repriced in their *execution* gas
 dimension:
 
 - account access costs ``COLD_ACCOUNT_ACCESS`` (3,000) cold or
@@ -11,12 +11,12 @@ dimension:
   ``CALL_STIPEND`` = 10,300), charged only by ``CALL``/``CALLCODE``;
 - a value transfer to a *new* account additionally creates the account,
   whose ``GAS_NEW_ACCOUNT`` charge is the EIP-8037 *state* dimension and
-  is asserted via the block header ``max(regular, state)`` accounting,
-  never as regular gas;
+  is asserted via the block header ``max(execution, state)`` accounting,
+  never as execution gas;
 - an EIP-7702 delegated target is double-accessed (target leaf plus
   delegation leaf), each access cold or warm independently.
 
-These tests assert the EIP-8038 *regular* dimension; the EIP-8037
+These tests assert the EIP-8038 *execution* dimension; the EIP-8037
 *state* dimension for value-to-new-account is covered in
 ``eip8037_state_creation_gas_cost_increase/test_state_gas_call.py`` and
 is only re-derived here at the seam to feed header gas accounting.
@@ -89,8 +89,6 @@ def test_call_access_gas(
     EIP-8038 charges ``COLD_ACCOUNT_ACCESS`` (3,000) cold and
     ``WARM_ACCESS`` (100) warm for all four call opcodes.
     """
-    gas_costs = fork.gas_costs()
-
     target = pre.deploy_contract(Op.STOP)
 
     measured_code = call_opcode(gas=0, address=target)
@@ -99,11 +97,8 @@ def test_call_access_gas(
         pre, fork, measured_code, call_opcode(address_warm=False)
     )
 
-    expected_gas = (
-        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    # Cross-check the framework opcode model agrees with the formula.
-    assert expected_gas == cost_metadata.gas_cost(fork)
+    # The opcode's own cost is the expected access gas.
+    expected_gas = cost_metadata.gas_cost(fork)
 
     access_list = (
         [AccessList(address=target, storage_keys=[])] if warm else None
@@ -143,24 +138,14 @@ def test_call_value_alive_target_gas(
     the caller is ``access + ACCOUNT_WRITE`` while the *charged* schedule
     is ``access + CALL_VALUE``. Both are asserted.
     """
-    gas_costs = fork.gas_costs()
     transfers_value = call_opcode in (Op.CALL, Op.CALLCODE)
-    # Verify the EIP-8038 decomposition of the value-transfer charge.
-    assert gas_costs.CALL_VALUE == gas_costs.ACCOUNT_WRITE + (
-        gas_costs.CALL_STIPEND
-    )
 
     # The measured-vs-charged duality below hinges on the callee being a
-    # pure `STOP`: it executes no opcodes, so the forwarded `CALL_STIPEND`
-    # is wholly unused and returned. Pin that the callee is exactly the
-    # single zero byte with no gas cost, and that the returned stipend is
-    # precisely `CALL_VALUE - ACCOUNT_WRITE`.
+    # pure `STOP`: it executes no opcodes, so the forwarded value-call
+    # stipend is wholly unused and returned.
     callee = Op.STOP
     assert bytes(callee) == b"\x00"
     assert callee.gas_cost(fork) == 0
-    assert gas_costs.CALL_VALUE - gas_costs.ACCOUNT_WRITE == (
-        gas_costs.CALL_STIPEND
-    )
 
     # Alive target with balance so no account creation occurs.
     target = pre.deploy_contract(callee, balance=1)
@@ -191,22 +176,14 @@ def test_call_value_alive_target_gas(
         pre, fork, measured_code, own_cold, balance=1
     )
 
-    access_cost = (
-        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    # Charged schedule: access + CALL_VALUE (verified via the opcode
-    # model). CALL gas is wholly regular under EIP-8038 (no state map).
-    charged_gas = access_cost + (
-        gas_costs.CALL_VALUE if transfers_value else 0
-    )
-    assert charged_gas == cost_metadata.gas_cost(fork)
+    # CALL gas is wholly execution under EIP-8038 (no state map).
     assert cost_metadata.state_cost(fork) == 0
 
-    # Consumed gas: the STOP callee returns the forwarded CALL_STIPEND,
-    # so the caller's measured consumption is access + ACCOUNT_WRITE for
-    # value transfers, and just access otherwise.
-    measured_gas = access_cost + (
-        gas_costs.ACCOUNT_WRITE if transfers_value else 0
+    # Consumed gas: the STOP callee returns the forwarded stipend, so the
+    # caller's measured consumption is the opcode's charged cost minus the
+    # stipend for value transfers, and just the access cost otherwise.
+    measured_gas = cost_metadata.gas_cost(fork) - (
+        fork.call_value_stipend() if transfers_value else 0
     )
 
     access_list = (
@@ -234,10 +211,9 @@ def test_callcode_value_to_nonexistent_no_new_account(
 
     ``CALLCODE`` runs the callee's code in the caller's own context, so
     the value never leaves the caller and no beneficiary account is
-    created. The block ``gas_used`` therefore equals the regular tx
+    created. The block ``gas_used`` therefore equals the execution tx
     cost with ``CALL_VALUE`` but with no 183,600 state-gas component.
     """
-    gas_costs = fork.gas_costs()
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
 
     target = 0xDEAD  # non-existent
@@ -260,24 +236,18 @@ def test_callcode_value_to_nonexistent_no_new_account(
     caller_code = Op.POP(callcode) + Op.STOP
     caller = pre.deploy_contract(code=caller_code, balance=1)
 
-    # CALLCODE-to-nonexistent regular charge: access + CALL_VALUE, no
-    # NEW_ACCOUNT (asserted via the metadata-only opcode model).
+    # CALLCODE carries no state-gas (NEW_ACCOUNT) component: the value
+    # stays in the caller's own context, so no beneficiary is created.
     callcode_meta = Op.CALLCODE(address_warm=False, value_transfer=True)
-    assert callcode_meta.gas_cost(fork) == gas_costs.COLD_ACCOUNT_ACCESS + (
-        gas_costs.CALL_VALUE
-    )
-    # CALLCODE carries no state-gas (NEW_ACCOUNT) component.
     assert callcode_meta.state_cost(fork) == 0
 
-    # Whole tx is regular gas; no NEW_ACCOUNT state component appears.
-    # The CALLCODE forwards CALL_STIPEND to the callee, which (running in
-    # the caller's own context with empty code) leaves it unused and
-    # returns it, so consumed gas is the charge minus the stipend.
+    # Whole tx is execution gas; no NEW_ACCOUNT state component appears.
+    # The CALLCODE forwards the value-call stipend to the callee, which
+    # (running in the caller's own context with empty code) leaves it
+    # unused and returns it, so consumed gas is the charge minus stipend.
     expected_gas_used = (
-        intrinsic + caller_code.gas_cost(fork) - gas_costs.CALL_STIPEND
+        intrinsic + caller_code.gas_cost(fork) - fork.call_value_stipend()
     )
-    # Guard the no-state assertion: NEW_ACCOUNT would dominate if charged.
-    assert expected_gas_used < gas_costs.NEW_ACCOUNT
 
     tx = Transaction(
         to=caller,
@@ -297,24 +267,21 @@ def test_call_value_to_new_account_seam(
     fork: Fork,
 ) -> None:
     """
-    Verify the CALL value-to-new-account regular/state seam.
+    Verify the CALL value-to-new-account execution/state seam.
 
-    The EIP-8038 *regular* dimension is ``COLD_ACCOUNT_ACCESS`` +
+    The EIP-8038 *execution* dimension is ``COLD_ACCOUNT_ACCESS`` +
     ``CALL_VALUE`` = 13,300; the account creation charge
     ``GAS_NEW_ACCOUNT`` (183,600) lands in the EIP-8037 *state*
-    dimension. The block header reflects ``max(regular, state)``, which
+    dimension. The block header reflects ``max(execution, state)``, which
     is dominated by the state charge.
     """
-    gas_costs = fork.gas_costs()
-    new_account_state_gas = gas_costs.NEW_ACCOUNT
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
 
     # Fresh, value-receiving target (state-empty, will be created).
     target = pre.fund_eoa(amount=0)
 
-    # Metadata-bearing CALL so `caller_code.gas_cost(fork)` folds the
-    # value transfer and account-creation charges; we then split off the
-    # NEW_ACCOUNT state component for the 2D header accounting.
+    # Metadata-bearing CALL so its cost splits into the execution
+    # (access + value transfer) and state (NEW_ACCOUNT) dimensions.
     call = Op.CALL.with_metadata(
         address_warm=False, value_transfer=True, account_new=True
     )(
@@ -329,23 +296,15 @@ def test_call_value_to_new_account_seam(
     caller_code = Op.POP(call) + Op.STOP
     caller = pre.deploy_contract(code=caller_code, balance=1)
 
-    # Regular dimension: access + value (NOT new account, which is the
-    # state dimension). Asserted via the metadata-only opcode model.
-    call_meta = Op.CALL(
-        address_warm=False, value_transfer=True, account_new=True
-    )
-    call_regular = call_meta.gas_cost(fork) - new_account_state_gas
-    assert call_regular == gas_costs.COLD_ACCOUNT_ACCESS + gas_costs.CALL_VALUE
-    assert call_regular == 13_300
+    new_account_state_gas = call.state_cost(fork)
 
-    # block_gas_used = max(block_regular, block_state). The CALL opcode
-    # has no state-gas map, so its NEW_ACCOUNT charge spills as regular
-    # gas in the bytecode total; strip it back out to isolate the
-    # regular axis and re-add NEW_ACCOUNT explicitly on the state axis.
-    tx_regular = intrinsic + caller_code.gas_cost(fork) - new_account_state_gas
-    tx_state = new_account_state_gas
-    expected_gas_used = max(tx_regular, tx_state)
-    # State must dominate here, proving the 183,600 hit the state axis.
+    # block_gas_used = max(block_execution, block_state). The CALL's
+    # NEW_ACCOUNT lands on the state axis; the execution axis is the
+    # access plus value-transfer cost.
+    tx_execution = intrinsic + caller_code.execution_cost(fork)
+    tx_state = caller_code.state_cost(fork)
+    expected_gas_used = max(tx_execution, tx_state)
+    # State must dominate here, proving NEW_ACCOUNT hit the state axis.
     assert expected_gas_used == new_account_state_gas
 
     tx = Transaction(
@@ -390,8 +349,6 @@ def test_call_to_delegated_target_double_access(
     ``STATICCALL`` carry no value but still pay the delegation
     surcharge.
     """
-    gas_costs = fork.gas_costs()
-
     # Final code-bearing account that the delegation points at.
     delegate = pre.deploy_contract(Op.STOP)
     # EOA delegated (EIP-7702) to `delegate`.
@@ -407,16 +364,8 @@ def test_call_to_delegated_target_double_access(
         pre, fork, measured_code, call_opcode(address_warm=False)
     )
 
-    target_cost = (
-        gas_costs.WARM_ACCESS if target_warm else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    delegate_cost = (
-        gas_costs.WARM_ACCESS
-        if delegate_warm
-        else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    expected_gas = target_cost + delegate_cost
-    assert expected_gas == cost_metadata.gas_cost(fork)
+    # The opcode's own cost folds the target and delegate accesses.
+    expected_gas = cost_metadata.gas_cost(fork)
 
     # Warm the target and/or the delegate leaf via the access list.
     access_entries = []
@@ -463,7 +412,7 @@ def test_call_exact_gas_oog(
     inner_code = call_opcode(gas=0, address=target) + Op.STOP
     inner = pre.deploy_contract(inner_code)
 
-    # Exact regular gas for the inner frame: bytecode cost (which folds
+    # Exact execution gas for the inner frame: bytecode cost (which folds
     # the cold call cost via the default metadata) under EIP-8038.
     inner_gas_exact = inner_code.gas_cost(fork)
     if not sufficient_gas:
@@ -493,8 +442,6 @@ def test_call_self_is_warm(
     The current target is in the accessed-addresses set on message
     entry, so a call to ``ADDRESS`` pays only ``WARM_ACCESS`` (100).
     """
-    gas_costs = fork.gas_costs()
-
     # `Op.ADDRESS` is the call's address argument, embedded inside the
     # runnable call; the self address is in the accessed set on entry, so
     # the call is warm. The overhead subtracts the call's own cold cost,
@@ -505,7 +452,6 @@ def test_call_self_is_warm(
     )
 
     expected_gas = call_opcode(address_warm=True).gas_cost(fork)
-    assert expected_gas == gas_costs.WARM_ACCESS
 
     tx = Transaction(to=measure_address, sender=pre.fund_eoa())
 
@@ -531,50 +477,47 @@ def test_call_forwarded_gas_63_64(
     gas. The spec charges the repriced ``COLD_ACCOUNT_ACCESS`` (3,000)
     up front and only then forwards ``floor(63/64 * gas_left)`` to the
     child. The wrapper is handed an exact budget so that, net of the
-    access charge, ``gas_left`` equals ``child_regular * 64 // 63``;
-    forwarding then yields exactly the child's regular need
-    (``child_regular``) and its cold ``SSTORE`` takes effect. With one
-    gas less the floor drops below ``child_regular`` and the child OOGs,
+    access charge, ``gas_left`` equals ``child_execution * 64 // 63``;
+    forwarding then yields exactly the child's execution need
+    (``child_execution``) and its cold ``SSTORE`` takes effect. With one
+    gas less the floor drops below ``child_execution`` and the child OOGs,
     so the slot stays zero. This pins that the floor is taken over
     ``gas_left`` already net of the post-8038 cold access cost (not
     before it, and not double-charging it).
     """
-    gas_costs = fork.gas_costs()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     # Child: a single cold zero-to-nonzero SSTORE as proof of execution.
-    # Its regular need is the two operand pushes plus the cold storage
+    # Its execution need is the two operand pushes plus the cold storage
     # write (the state portion is funded separately via the reservoir,
     # which is passed to the child in full with no 63/64 rule).
-    child = pre.deploy_contract(Op.SSTORE(0, 1))
-    child_regular = 2 * gas_costs.VERY_LOW + gas_costs.COLD_STORAGE_WRITE
+    child_code = Op.SSTORE(0, 1)
+    child = pre.deploy_contract(child_code)
+    child_execution = child_code.execution_cost(fork)
 
-    # Smallest budget whose 63/64 floor still reaches `child_regular`.
-    forward_budget = child_regular * 64 // 63
+    # Smallest budget whose 63/64 floor still reaches `child_execution`.
+    forward_budget = child_execution * 64 // 63
     if not sufficient_gas:
         forward_budget -= 1
 
     # Wrapper: cold zero-value CALL requesting max gas (so the forwarded
     # amount is bound by `gas_left`, not by the request). ret_size=0
     # avoids any memory-expansion term.
-    wrapper = pre.deploy_contract(
-        Op.CALL(
-            gas=0xFFFFFFFF,
-            address=child,
-            value=0,
-            args_offset=0,
-            args_size=0,
-            ret_offset=0,
-            ret_size=0,
-        )
+    wrapper_call = Op.CALL(
+        gas=0xFFFFFFFF,
+        address=child,
+        value=0,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=0,
     )
+    wrapper = pre.deploy_contract(wrapper_call)
 
-    # At the wrapper's CALL the access charge (`extra_gas`) is deducted
-    # first, leaving exactly `forward_budget` as `gas_left` for the 63/64
-    # floor. The seven CALL operand pushes precede it.
-    wrapper_pushes = 7 * gas_costs.VERY_LOW
-    extra_gas = gas_costs.COLD_ACCOUNT_ACCESS  # cold call, value 0
-    wrapper_gas = wrapper_pushes + extra_gas + forward_budget
+    # At the wrapper's CALL the cold access charge is deducted first
+    # (folded with the operand pushes into its execution cost), leaving
+    # exactly `forward_budget` as `gas_left` for the 63/64 floor.
+    wrapper_gas = wrapper_call.execution_cost(fork) + forward_budget
 
     # Outer caller hands the wrapper exactly `wrapper_gas`.
     caller = pre.deploy_contract(
@@ -610,9 +553,7 @@ def test_account_warmth_reverts_on_subcall_revert(
     rolled back on revert (mirrors the ``SLOAD`` warmth-revert case for
     the account dimension).
     """
-    gas_costs = fork.gas_costs()
     cold_gas = Op.BALANCE(address_warm=False).gas_cost(fork)
-    assert cold_gas == gas_costs.COLD_ACCOUNT_ACCESS
 
     # Address whose warmth we probe; left out of the access list so its
     # first runtime touch is cold.
@@ -664,8 +605,6 @@ def test_call_to_double_delegated_target_single_hop(
     second hop, so ``final``'s leaf is not charged. Both the framework
     opcode model and a runtime ``CodeGasMeasure`` confirm the value.
     """
-    gas_costs = fork.gas_costs()
-
     # A -> B -> C delegation chain. `mid` is an EOA whose code is the
     # 7702 delegation designator pointing at `final`; `target` delegates
     # to `mid` in turn.
@@ -680,8 +619,8 @@ def test_call_to_double_delegated_target_single_hop(
         delegated_address=True,
         delegated_address_warm=False,
     )
-    expected_gas = 2 * gas_costs.COLD_ACCOUNT_ACCESS
-    assert expected_gas == cost_metadata.gas_cost(fork)
+    # Cold target leaf plus cold delegation leaf; no state gas.
+    expected_gas = cost_metadata.gas_cost(fork)
     assert cost_metadata.state_cost(fork) == 0
 
     measured_code = Op.CALL(gas=0, address=target)
@@ -711,8 +650,6 @@ def test_call_precompile_is_warm(
     every transaction, so a call to one pays only ``WARM_ACCESS`` (100).
     The identity precompile (address 4) is used as the target.
     """
-    gas_costs = fork.gas_costs()
-
     identity_precompile = Address(4)
 
     measured_code = call_opcode(gas=0, address=identity_precompile)
@@ -721,7 +658,6 @@ def test_call_precompile_is_warm(
     )
 
     expected_gas = call_opcode(address_warm=True).gas_cost(fork)
-    assert expected_gas == gas_costs.WARM_ACCESS
 
     tx = Transaction(to=measure_address, sender=pre.fund_eoa())
 

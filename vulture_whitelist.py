@@ -28,7 +28,7 @@ from ethereum_spec_tools.evm_tools.daemon import _EvmToolHandler
 from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
-from ethereum_spec_tools.evm_tools.t8n.env import Ommer
+from ethereum_spec_tools.evm_tools.t8n.block_environment import Ommer
 from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
     FinalTrace,
     Trace,
@@ -130,8 +130,14 @@ TransactionLoad.json_to_y_parity
 TransactionLoad.json_to_r
 TransactionLoad.json_to_s
 
-# src/ethereum_spec_tools/evm_tools/t8n/env.py
+# src/ethereum_spec_tools/evm_tools/t8n/block_environment.py
 Ommer.delta
+
+# src/ethereum_spec_tools/evm_tools/t8n/__init__.py
+# `protected` is a field on the testing-package `Transaction` model;
+# T8N flips it to False for pre-EIP-155 forks before calling `sign()`.
+_unused_protected_marker = None
+_unused_protected_marker.protected  # type: ignore[attr-defined]
 
 # src/ethereum_spec_tools/evm_tools/t8n/evm_trace/eip3155.py
 Trace.gasCost

@@ -10,13 +10,13 @@ import pytest
 from pytest_metadata.plugin import metadata_key
 
 from execution_testing.base_types import Account
-from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.base_types.base_types import HexNumber
 from execution_testing.execution import BaseExecute
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.specs import BaseTest
+from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.test_types import (
     Environment,
     EnvironmentDefaults,
@@ -504,12 +504,17 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             )
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(
     items: List[pytest.Item],
 ) -> None:
     """
     Remove transition tests and add the appropriate execute markers to the
     test.
+
+    Runs tryfirst so that items collected without a fork parametrization
+    (tests not valid for the session's fork) are removed before other
+    plugins inspect item params, as in the filler plugin.
     """
     items_for_removal = []
     for i, item in enumerate(items):

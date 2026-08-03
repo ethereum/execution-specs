@@ -397,7 +397,7 @@ class FormattedTest:
     template: ClassVar[str]
 
     def __init__(self, **kwargs: str) -> None:  # noqa: D107
-        self.kwargs = kwargs
+        self.kwargs = {"markers": ""} | kwargs
 
     def format(self) -> str:  # noqa: D102
         return self.template.format(**self.kwargs)
@@ -418,7 +418,7 @@ class StateTest(FormattedTest):  # noqa: D101
         )
 
         @pytest.mark.valid_from("Istanbul")
-        def test_chainid(state_test: StateTestFiller, pre: Alloc) -> None:
+        {markers}def test_chainid(state_test: StateTestFiller, pre: Alloc) -> None:
             contract_address = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
             sender = pre.fund_eoa()
 
@@ -455,7 +455,7 @@ class BlockchainTest(FormattedTest):  # noqa: D101
         )
 
         @pytest.mark.valid_from("Istanbul")
-        def test_chainid_blockchain(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
+        {markers}def test_chainid_blockchain(blockchain_test: BlockchainTestFiller, pre: Alloc) -> None:
             contract_address = pre.deploy_contract(Op.SSTORE(1, Op.CHAINID) + Op.STOP)
             sender = pre.fund_eoa()
 
@@ -589,6 +589,53 @@ class BlockchainTest(FormattedTest):  # noqa: D101
             ],
             2,
             id="different_excess_blob_gas",
+        ),
+        # The `pre_alloc_group` marker
+        pytest.param(
+            [
+                StateTest(
+                    env="Environment()",
+                    markers="@pytest.mark.pre_alloc_group("
+                    '"separate", reason="isolate")\n',
+                ),
+                StateTest(
+                    env="Environment()",
+                    markers="@pytest.mark.pre_alloc_group("
+                    '"separate", reason="isolate")\n',
+                ),
+            ],
+            2,
+            id="separate_marker_isolates_each_test",
+        ),
+        pytest.param(
+            [
+                StateTest(
+                    env="Environment()",
+                    markers='@pytest.mark.pre_alloc_group(reason="isolate")\n',
+                ),
+                StateTest(
+                    env="Environment()",
+                    markers='@pytest.mark.pre_alloc_group(reason="isolate")\n',
+                ),
+            ],
+            2,
+            id="bare_marker_isolates_each_test",
+        ),
+        pytest.param(
+            [
+                StateTest(
+                    env="Environment()",
+                    markers="@pytest.mark.pre_alloc_group("
+                    '"custom_group", reason="shared setup")\n',
+                ),
+                StateTest(
+                    env="Environment()",
+                    markers="@pytest.mark.pre_alloc_group("
+                    '"custom_group", reason="shared setup")\n',
+                ),
+            ],
+            1,
+            id="named_group_marker_shares_one_group",
         ),
     ],
 )

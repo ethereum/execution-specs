@@ -100,21 +100,38 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
 
         # Create caller contract that repeatedly calls the target contract
         # attack = POP(
-        #             STATICCALL(GAS, target_contract_address, 0, 0, 0, 0)
+        #             (STATIC)CALL(GAS, target_contract_address, ...)
         #          )
         #
         # setup + JUMPDEST + attack + attack + ... + attack +
         # JUMP(setup_length)
-        code_sequence = Op.POP(
-            Op.STATICCALL(
-                Op.GAS,
-                self._target_contract_address,
-                Op.PUSH0,
-                Op.CALLDATASIZE,
-                Op.PUSH0,
-                Op.PUSH0,
+        #
+        # The target must be entered via CALL when it contains
+        # state-changing opcodes: a STATICCALL'd frame faults on the
+        # first one and the target executes nothing.
+        # A state-changing target must be entered via CALL, not STATICCALL.
+        # CALL takes a value argument STATICCALL lacks; push the zero value
+        # with PUSH0, one gas cheaper than the default PUSH1 0x00.
+        if self.uses_state_changing_opcode():
+            wrapper_call = Op.CALL(
+                gas=Op.GAS,
+                address=self._target_contract_address,
+                value=Op.PUSH0,
+                args_offset=Op.PUSH0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=Op.PUSH0,
+                ret_size=Op.PUSH0,
             )
-        )
+        else:
+            wrapper_call = Op.STATICCALL(
+                gas=Op.GAS,
+                address=self._target_contract_address,
+                args_offset=Op.PUSH0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=Op.PUSH0,
+                ret_size=Op.PUSH0,
+            )
+        code_sequence = Op.POP(wrapper_call)
 
         caller_code = self.generate_repeated_code(
             setup=Op.CALLDATACOPY(Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE),

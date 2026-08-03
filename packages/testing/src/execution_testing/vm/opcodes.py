@@ -5381,6 +5381,7 @@ class Opcodes(Opcode, Enum):
             "init_code_size": 0,
             "new_memory_size": 0,
             "old_memory_size": 0,
+            "account_new": True,
         },
     )
     """
@@ -5424,6 +5425,7 @@ class Opcodes(Opcode, Enum):
     - init_code_size: size of the initialization code in bytes (default: 0)
     - new_memory_size: memory size after expansion in bytes (default: 0)
     - old_memory_size: memory size before expansion in bytes (default: 0)
+    - account_new: whether creating a new account (default: True)
 
     Source: [evm.codes/#F0](https://www.evm.codes/#F0)
     """
@@ -5718,6 +5720,7 @@ class Opcodes(Opcode, Enum):
             "init_code_size": 0,
             "new_memory_size": 0,
             "old_memory_size": 0,
+            "account_new": True,
         },
     )
     """
@@ -5763,6 +5766,7 @@ class Opcodes(Opcode, Enum):
     - init_code_size: size of the initialization code in bytes (default: 0)
     - new_memory_size: memory size after expansion in bytes (default: 0)
     - old_memory_size: memory size before expansion in bytes (default: 0)
+    - account_new: whether creating a new account (default: True)
 
     Source: [evm.codes/#F5](https://www.evm.codes/#F5)
     """

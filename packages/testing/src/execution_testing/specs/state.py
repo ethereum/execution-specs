@@ -179,7 +179,7 @@ class StateTest(BaseTest):
                 f"Traces are not equivalent (gas_limit={current_gas_limit})"
             )
             return False
-        modified_tool_alloc = modified_tool_output.alloc.get()
+        modified_tool_alloc = modified_tool_output.alloc.materialize()
         try:
             self.post.verify_post_alloc(modified_tool_alloc)
         except Exception as e:
@@ -292,7 +292,7 @@ class StateTest(BaseTest):
         if self.env.base_fee_per_gas:
             # Calculate genesis base fee per gas from state test's block#1 env
             kwargs["base_fee_per_gas"] = HexNumber(
-                int(int(str(self.env.base_fee_per_gas), 0) * 8 / 7)
+                int(str(self.env.base_fee_per_gas), 0) * 8 // 7
             )
 
         if self.env.excess_blob_gas:
@@ -399,7 +399,7 @@ class StateTest(BaseTest):
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
-        output_alloc = transition_tool_output.alloc.get()
+        output_alloc = transition_tool_output.alloc.materialize()
 
         try:
             self.post.verify_post_alloc(output_alloc)
@@ -429,7 +429,7 @@ class StateTest(BaseTest):
                 self.operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
             )
             base_tool_output = transition_tool_output
-            base_tool_alloc = base_tool_output.alloc.get()
+            base_tool_alloc = base_tool_output.alloc.materialize()
             base_tool_result = base_tool_output.result
 
             assert base_tool_result.traces is not None, "Traces not found."

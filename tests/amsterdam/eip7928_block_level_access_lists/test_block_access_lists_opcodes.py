@@ -368,7 +368,7 @@ def test_bal_account_touch_system_address(
     access_opcode: Callable[[Address], Bytecode],
 ) -> None:
     """
-    Ensure a regular transaction that explicitly touches SYSTEM_ADDRESS via
+    Ensure a normal transaction that explicitly touches SYSTEM_ADDRESS via
     an account-accessing opcode includes SYSTEM_ADDRESS as an account-only
     BAL entry.
 
@@ -3092,7 +3092,7 @@ def test_bal_transient_storage_not_tracked(
     """
     alice = pre.fund_eoa()
 
-    # Contract that uses transient storage then persists to regular storage
+    # Contract that uses transient storage then persists to execution storage
     contract_code = (
         # TSTORE slot 0x01 with value 0x42 (transient storage)
         Op.TSTORE(0x01, 0x42)
@@ -3314,6 +3314,7 @@ def test_bal_create_and_oog(
         offset=32 - len(init_code_bytes),
         size=len(init_code_bytes),
         init_code_size=len(init_code_bytes),
+        account_new=False,
     )
     factory_sstore = Op.SSTORE(0x00, 1)
     oog_sink_memory_size = 10000 * 32
@@ -3339,6 +3340,8 @@ def test_bal_create_and_oog(
         initcode=init_code_bytes,
         opcode=create_opcode,
     )
+    # Pre-fund the address so no new account is created
+    pre.fund_address(created_address, 1)
 
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     create_static_cost = factory_mstore.gas_cost(
@@ -3388,7 +3391,7 @@ def test_bal_create_and_oog(
         post = {
             alice: Account(nonce=1),
             factory: Account(nonce=1, storage={0x00: 0xDEAD}),
-            created_address: Account.NONEXISTENT,
+            created_address: Account(balance=1, code=b"", nonce=0),
         }
     elif oog_boundary == OutOfGasBoundary.OOG_AFTER_TARGET_ACCESS:
         # Created address IS in BAL (accessed during collision check),
@@ -3406,7 +3409,7 @@ def test_bal_create_and_oog(
         post = {
             alice: Account(nonce=1),
             factory: Account(nonce=1, storage={0x00: 0xDEAD}),
-            created_address: Account.NONEXISTENT,
+            created_address: Account(balance=1, code=b"", nonce=0),
         }
     else:
         # SUCCESS: created address in BAL with nonce and code changes
@@ -3446,7 +3449,7 @@ def test_bal_create_and_oog(
         post = {
             alice: Account(nonce=1),
             factory: Account(nonce=2, storage={0x00: 1}),
-            created_address: Account(code=Op.STOP),
+            created_address: Account(balance=1, code=Op.STOP, nonce=1),
         }
 
     blockchain_test(

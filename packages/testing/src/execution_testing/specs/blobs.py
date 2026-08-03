@@ -23,7 +23,10 @@ class BlobsTest(BaseTest):
     pre: Alloc
     txs: List[NetworkWrappedTransaction | Transaction]
     nonexisting_blob_hashes: List[Hash] | None = None
+    interleave_nonexisting_blob_hashes: bool = False
     get_blobs_version: int | None = None
+    cell_mask: int | None = None
+    custody_columns: bytes | None = None
 
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
@@ -53,7 +56,12 @@ class BlobsTest(BaseTest):
             return BlobTransaction(
                 txs=self.txs,
                 nonexisting_blob_hashes=self.nonexisting_blob_hashes,
+                interleave_nonexisting_blob_hashes=(
+                    self.interleave_nonexisting_blob_hashes
+                ),
                 get_blobs_version=self.get_blobs_version,
+                cell_mask=self.cell_mask,
+                custody_columns=self.custody_columns,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 

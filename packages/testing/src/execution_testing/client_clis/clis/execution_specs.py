@@ -2,15 +2,16 @@
 Ethereum Specs EVM Transition Tool Interface.
 """
 
-import json
 import tempfile
-from io import StringIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
 
 from typing_extensions import override
 
-from execution_testing.client_clis.cli_types import TransitionToolOutput
+from execution_testing.client_clis.cli_types import (
+    OpcodeCount,
+    TransitionToolOutput,
+)
 from execution_testing.client_clis.file_utils import (
     dump_files_to_directory,
 )
@@ -92,77 +93,76 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         profiler: Profiler,
     ) -> TransitionToolOutput:
         """
-        Evaluate using the EELS T8N entry point.
+        Evaluate using the EELS T8N entry point in-process.
+
+        ``transition_tool_data`` is handed to ``T8N`` as-is — fork,
+        chain_id, reward, state_test, blob_schedule all flow through
+        — and ``T8N.run()`` returns the ``TransitionToolOutput``
+        directly.
         """
-        from ethereum_spec_tools.evm_tools import create_parser
         from ethereum_spec_tools.evm_tools.t8n import T8N
+        from ethereum_spec_tools.evm_tools.t8n.evm_trace.count import (
+            CountTracer,
+        )
+        from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
+            Eip3155Tracer,
+        )
+        from ethereum_spec_tools.evm_tools.t8n.evm_trace.group import (
+            GroupTracer,
+        )
 
         del slow_request, profiler
-        request_data = transition_tool_data.get_request_data()
-        request_data_json = request_data.model_dump(
-            mode="json", **model_dump_config
-        )
 
         temp_dir = tempfile.TemporaryDirectory()
-        t8n_args = [
-            "t8n",
-            "--input.alloc=stdin",
-            "--input.env=stdin",
-            "--input.txs=stdin",
-            "--output.result=stdout",
-            "--output.body=stdout",
-            "--output.alloc=stdout",
-            f"--output.basedir={temp_dir.name}",
-            f"--state.fork={request_data_json['state']['fork']}",
-            f"--state.chainid={request_data_json['state']['chainid']}",
-            f"--state.reward={request_data_json['state']['reward']}",
-        ]
 
-        if transition_tool_data.state_test:
-            t8n_args.append("--state-test")
-        if transition_tool_data.skip_stateless_validation:
-            t8n_args.append("--no-stateless")
-
-        if transition_tool_data.blob_params:
-            fork = transition_tool_data.fork
-            if fork.bpo_fork() and fork != fork.non_bpo_ancestor():
-                # Only send this information for BPO forks.
-                # TODO: This should be optimized by the t8n tool instead.
-                t8n_args.append("--input.blobParams=stdin")
-
+        tracers = None
         if self.trace:
-            t8n_args.extend(
-                [
-                    "--trace",
-                    "--trace.memory",
-                    "--trace.returndata",
-                ]
+            # TODO: Eip3155 traces still round-trip through tempfile
+            # JSON — the tracer writes one ``trace-<i>.jsonl`` per tx
+            # to ``output_basedir`` and ``collect_traces`` reads them
+            # back. Same JSON round-trip we eliminated for alloc /
+            # result / body; a follow-up should wire the tracer
+            # output through memory like the rest of the in-process
+            # path.
+            tracers = GroupTracer()
+            tracers.add(
+                Eip3155Tracer(
+                    trace_memory=True,
+                    trace_stack=True,
+                    trace_return_data=True,
+                    output_basedir=temp_dir.name,
+                )
             )
 
-        parser = create_parser()
-        t8n_options = parser.parse_args(t8n_args)
+        count_tracer = None
+        if self.supports_opcode_count:
+            count_tracer = CountTracer()
+            if tracers is None:
+                tracers = GroupTracer()
+            tracers.add(count_tracer)
 
-        out_stream = StringIO()
-
-        in_stream = StringIO(json.dumps(request_data_json["input"]))
-
-        t8n = T8N(t8n_options, out_stream, in_stream, self.fork_cache)
-        t8n.run()
-
-        output_dict = json.loads(out_stream.getvalue())
-        output: TransitionToolOutput = TransitionToolOutput.model_validate(
-            output_dict, context={"exception_mapper": self.exception_mapper}
+        t8n = T8N(
+            transition_tool_data,
+            cache=self.fork_cache,
+            tracers=tracers,
+            exception_mapper=self.exception_mapper,
         )
+        output = t8n.run()
+
+        if count_tracer is not None:
+            output.result.opcode_count = OpcodeCount.model_validate(
+                count_tracer.results()
+            )
 
         if debug_output_path:
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "input/alloc.json": request_data.input.alloc,
-                    "input/env.json": request_data.input.env,
+                    "input/alloc.json": transition_tool_data.alloc,
+                    "input/env.json": transition_tool_data.env,
                     "input/txs.json": [
                         tx.model_dump(mode="json", **model_dump_config)
-                        for tx in request_data.input.txs
+                        for tx in transition_tool_data.txs
                     ],
                 },
             )

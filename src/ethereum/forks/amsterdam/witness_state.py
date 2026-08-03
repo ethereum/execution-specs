@@ -17,6 +17,7 @@ from ethereum.state import (
     EMPTY_CODE_HASH,
     Account,
     Address,
+    BlockDiff,
     Root,
 )
 
@@ -221,6 +222,20 @@ class WitnessState:
             self.get_account_optional(address)
         storage_root = self._storage_root_cache.get(address, EMPTY_TRIE_ROOT)
         return storage_root != EMPTY_TRIE_ROOT
+
+    def compute_state_root(self, block_diff: BlockDiff) -> Root:
+        """
+        Compute the state root after applying ``block_diff``.
+
+        Conform to the implementation-agnostic ``PreState`` protocol while
+        reusing the witness-backed incremental MPT calculation.
+        """
+        state_root, _ = self.compute_state_root_and_trie_changes(
+            block_diff.account_changes,
+            block_diff.storage_changes,
+            block_diff.storage_clears,
+        )
+        return state_root
 
     def compute_state_root_and_trie_changes(
         self,

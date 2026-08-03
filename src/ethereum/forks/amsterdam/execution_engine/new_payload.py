@@ -13,8 +13,8 @@ from ethereum.state import (
     BlockDiff,
     PreState,
     Root,
-    apply_changes_to_state,
 )
+from ethereum.state_mpt import apply_changes_to_state
 
 from ..blocks import Block
 from ..fork import ChainContext, execute_block, get_last_256_block_hashes

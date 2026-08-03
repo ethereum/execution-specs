@@ -1,27 +1,25 @@
 """
-Tests for the EIP-7702 authorization *regular*-gas repricing under
+Tests for the EIP-7702 authorization *execution*-gas repricing under
 [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
 
-EIP-8037 splits each EIP-7702 authorization into a *state* component
-(refunded against the state-gas reservoir, covered by the sibling
-``eip8037_state_creation_gas_cost_increase`` suite) and a *regular*
-component. This module pins the **regular** per-authorization intrinsic
-magnitude and the repriced cold/warm account-access costs that an
-authorized delegation incurs when later accessed by a ``CALL``.
+Under EIP-2780 each EIP-7702 authorization is charged in two parts: a
+state-independent *execution* base cost paid in the intrinsic, and
+state-dependent costs (``NEW_ACCOUNT`` / ``ACCOUNT_WRITE`` for a new
+authority leaf, ``AUTH_BASE`` for a net-new delegation indicator) paid
+lazily at the top frame in ``set_delegation``. This module pins the
+**execution** per-authorization intrinsic magnitude and the repriced
+cold/warm account-access costs that an authorized delegation incurs
+when later accessed by a ``CALL``.
 
-The regular per-authorization magnitude is derived purely from fork
-helpers as::
-
-    regular_per_auth = (
-        fork.gas_costs().AUTH_PER_EMPTY_ACCOUNT
-        - fork.transaction_intrinsic_state_gas(authorization_count=1)
-    )
-
-which on Amsterdam equals ``ACCOUNT_WRITE`` (``8000``) plus the EIP-7702
-regular auth base cost (``7816``), i.e. ``15816``. The state portion that
-this subtracts off (``transaction_intrinsic_state_gas``) is exactly what
-the EIP-8037 suite asserts on the state channel; this suite never
-re-asserts it.
+The execution per-authorization intrinsic magnitude is the fixed
+per-authorization base cost charged by the intrinsic (on Amsterdam,
+``101 * 16`` calldata tokens plus the ``3000`` ecrecover, ``3000`` cold
+and ``2 * 100`` warm accesses of the EIP-7702 base), isolated here as
+the intrinsic delta of adding one authorization. The top-frame
+state charges are asserted by the sibling
+``eip8037_state_creation_gas_cost_increase`` and
+``eip2780_reduce_intrinsic_tx_gas`` suites; this suite does not
+re-assert them.
 """
 
 from typing import List
@@ -37,6 +35,7 @@ from execution_testing import (
     CodeGasMeasure,
     Environment,
     Fork,
+    Hash,
     Op,
     StateTestFiller,
     Storage,
@@ -55,18 +54,28 @@ REFERENCE_SPEC_VERSION = ref_spec_8038.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _regular_per_auth(fork: Fork) -> int:
+def _execution_per_auth(fork: Fork) -> int:
     """
-    Return the EIP-8038 *regular* intrinsic gas charged per EIP-7702
-    authorization, i.e. the total per-auth intrinsic less the EIP-8037
-    state portion.
+    Return the *execution* intrinsic gas charged per EIP-7702
+    authorization.
+
+    Under EIP-2780 the intrinsic charges only the state-independent
+    per-authorization base cost; the account-write (``ACCOUNT_WRITE``)
+    and delegation-write (``AUTH_BASE``) costs are charged lazily at the
+    top frame, not in the intrinsic. Isolated as the intrinsic delta of
+    adding one authorization.
     """
-    return fork.gas_costs().AUTH_PER_EMPTY_ACCOUNT - (
-        fork.transaction_intrinsic_state_gas(authorization_count=1)
+    calc = fork.transaction_intrinsic_cost_calculator()
+    return calc(
+        authorization_list_or_count=1,
+        return_cost_deducted_prior_execution=True,
+    ) - calc(
+        authorization_list_or_count=0,
+        return_cost_deducted_prior_execution=True,
     )
 
 
-def _regular_intrinsic(
+def _execution_intrinsic(
     fork: Fork,
     *,
     n: int,
@@ -74,17 +83,14 @@ def _regular_intrinsic(
     calldata: bytes = b"",
 ) -> int:
     """
-    Return the regular (non-state) intrinsic gas of a set-code
+    Return the intrinsic gas of a set-code
     transaction: the full intrinsic less the authorization state gas.
     """
-    total = fork.transaction_intrinsic_cost_calculator()(
+    return fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=n,
         access_list=access_list,
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
-    )
-    return total - fork.transaction_intrinsic_state_gas(
-        authorization_count=n,
     )
 
 
@@ -104,7 +110,7 @@ def _regular_intrinsic(
         pytest.param(True, id="access_list_contains_authority"),
     ],
 )
-def test_auth_regular_intrinsic_magnitude(
+def test_auth_execution_intrinsic_magnitude(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
@@ -114,14 +120,12 @@ def test_auth_regular_intrinsic_magnitude(
     authority_in_access_list: bool,
 ) -> None:
     """
-    Assert the EIP-8038 *regular* per-authorization intrinsic magnitude.
+    Assert the EIP-8038 *execution* per-authorization intrinsic magnitude.
 
-    The regular intrinsic above the ``n=0`` base must equal
-    ``n * regular_per_auth`` plus the access-list delta (derived from
+    The execution intrinsic above the ``n=0`` base must equal
+    ``n * execution_per_auth`` plus the access-list delta (derived from
     the calculator itself so the calldata-floor contribution of the
-    access-list bytes is accounted for). The state portion is excluded
-    via ``transaction_intrinsic_state_gas`` and is left to the EIP-8037
-    suite.
+    access-list bytes is accounted for).
     """
     contract = pre.deploy_contract(code=Op.STOP)
 
@@ -140,17 +144,19 @@ def test_auth_regular_intrinsic_magnitude(
             AccessList(address=signer, storage_keys=[]) for signer in signers
         ]
 
-    base_regular = _regular_intrinsic(fork, n=0)
-    regular = _regular_intrinsic(fork, n=n, access_list=access_list)
+    base_execution = _execution_intrinsic(fork, n=0)
+    execution = _execution_intrinsic(fork, n=n, access_list=access_list)
 
     # Access-list delta is derived from the calculator (it folds in the
     # calldata-floor cost of the access-list bytes), never hardcoded.
-    access_list_delta = _regular_intrinsic(
+    access_list_delta = _execution_intrinsic(
         fork, n=0, access_list=access_list
-    ) - _regular_intrinsic(fork, n=0)
+    ) - _execution_intrinsic(fork, n=0)
 
-    expected_per_auth = _regular_per_auth(fork)
-    assert regular - base_regular == n * expected_per_auth + access_list_delta
+    expected_per_auth = _execution_per_auth(fork)
+    assert (
+        execution - base_execution == n * expected_per_auth + access_list_delta
+    )
 
     sender = pre.fund_eoa()
     tx = Transaction(
@@ -181,8 +187,8 @@ def test_auth_intrinsic_oog_boundary(
     Reject a set-code transaction one gas below the full intrinsic.
 
     ``gas_limit`` is set to ``full_intrinsic - 1`` (full intrinsic =
-    regular + auth state gas). Catches an implementation that omits the
-    repriced regular per-authorization cost from the intrinsic check.
+    execution + auth state gas). Catches an implementation that omits the
+    repriced execution per-authorization cost from the intrinsic check.
     """
     contract = pre.deploy_contract(code=Op.STOP)
     authorization_list = [
@@ -230,7 +236,7 @@ def test_invalid_auth_charged_intrinsic(
     Each invalidity kind (``INVALID_NONCE``, ``INVALID_CHAIN_ID``,
     ``REPEATED_NONCE``, ``AUTHORITY_IS_CONTRACT``) makes the
     authorization invalid during processing, so it is silently skipped,
-    but its regular + state intrinsic gas is still paid. The transaction
+    but its execution + state intrinsic gas is still paid. The transaction
     succeeds.
     """
     contract = pre.deploy_contract(code=Op.STOP)
@@ -284,7 +290,7 @@ def test_invalid_auth_charged_intrinsic(
     else:
         raise ValueError(f"unknown invalidity: {invalidity!r}")
 
-    # The full intrinsic (regular + state) is charged regardless of
+    # The full intrinsic (execution + state) is charged regardless of
     # validity. Provide a comfortable gas limit and let the receipt
     # accounting be verified by the framework; the key assertion is the
     # untouched-authority post state.
@@ -324,49 +330,40 @@ def test_mixed_validity_multi_auth_receipt_gas(
 ) -> None:
     """
     Pin the exact receipt gas of a transaction carrying one valid and
-    one invalid authorization.
+    one invalid authorization under the EIP-2780 top-frame charge model.
 
-    Every authorization tuple, valid or invalid, is charged the full
-    regular + state per-authorization intrinsic. The valid
-    authorization whose authority leaf already exists refills
-    ``NEW_ACCOUNT`` on the state channel (uncapped, subtracted first)
-    and returns ``ACCOUNT_WRITE`` on the regular channel (one-fifth
-    capped). The invalid tuple is silently skipped during
-    ``set_delegation``, refilling the full per-auth state intrinsic and
-    returning its regular ``ACCOUNT_WRITE`` charge.
-
-    The dual-channel accounting mirrors ``process_transaction`` and the
-    sibling ``test_set_code_auth_refunds`` module: the state refill is
-    subtracted from ``gas_before_regular_refund`` first and uncapped,
-    then the regular refund clamps to
-    ``min(k * ACCOUNT_WRITE, gas_before_regular_refund // 5)`` where
-    ``k`` is the number of authorizations that return the regular
-    account-write charge. With no EVM execution,
-    ``gas_before_regular_refund`` reduces to the full per-authorization
-    intrinsic less the state refill, and the exact result is asserted
-    via ``expected_receipt``.
+    Both tuples pay the state-independent ``EXECUTION_PER_AUTH_BASE_COST``
+    in the intrinsic. The single valid authorization's authority leaf
+    already exists (a funded EOA) and gains a net-new delegation
+    indicator, so at the top frame it pays the first-write
+    ``ACCOUNT_WRITE`` and ``AUTH_BASE`` -- no ``NEW_ACCOUNT`` and no
+    refund. The invalid tuple is silently skipped during
+    ``set_delegation`` and pays nothing beyond the intrinsic base.
 
     Each ``invalidity`` kind (``INVALID_NONCE``, ``INVALID_CHAIN_ID``,
-    ``REPEATED_NONCE``, ``AUTHORITY_IS_CONTRACT``) yields one valid and
-    one invalid tuple, so ``n = 2`` and ``k = 2`` uniformly and every
-    kind pins the same receipt gas. This is the numeric-receipt
-    companion to ``test_invalid_auth_charged_intrinsic`` (which asserts
-    only post state).
+    ``REPEATED_NONCE``, ``AUTHORITY_IS_CONTRACT``) yields the same
+    one-valid-one-invalid shape, so every kind pins the same receipt
+    gas. This is the numeric-receipt companion to
+    ``test_invalid_auth_charged_intrinsic`` (which asserts only post
+    state).
     """
-    gas_costs = fork.gas_costs()
-    account_write = gas_costs.ACCOUNT_WRITE
-
     delegate = pre.deploy_contract(code=Op.STOP)
 
-    # The single refundable (valid, existing-leaf) authorization.
+    # The single valid authorization: an existing (funded) authority
+    # gaining a net-new delegation. It writes a delegation indicator
+    # (AUTH_BASE at the top frame) but creates no account.
     valid_signer = pre.fund_eoa()
     valid_auth = AuthorizationTuple(
-        address=delegate, nonce=0, signer=valid_signer
+        address=delegate,
+        nonce=0,
+        signer=valid_signer,
+        creates_account=False,
+        writes_delegation=True,
     )
 
-    # Build the authorization list: one valid tuple plus one invalid
-    # tuple of the requested kind. ``authority`` is the account that must
-    # end up untouched by the skipped (invalid) authorization.
+    # One valid tuple plus one invalid tuple of the requested kind. The
+    # invalid tuple is skipped in ``set_delegation``, so it neither
+    # creates an account nor writes a delegation indicator.
     authorization_list: List[AuthorizationTuple]
     post: dict = {
         valid_signer: Account(
@@ -382,6 +379,9 @@ def test_mixed_validity_multi_auth_receipt_gas(
                 address=delegate,
                 nonce=99,  # wrong nonce -> skipped
                 signer=authority,
+                creates_account=False,
+                writes_delegation=False,
+                first_write=False,
             ),
         ]
         post[authority] = Account(code=b"")
@@ -394,16 +394,25 @@ def test_mixed_validity_multi_auth_receipt_gas(
                 nonce=0,
                 chain_id=9999,  # wrong chain id -> skipped
                 signer=authority,
+                creates_account=False,
+                writes_delegation=False,
+                first_write=False,
             ),
         ]
         post[authority] = Account(code=b"")
     elif invalidity == "repeated_nonce":
         # The valid tuple consumes the signer's nonce 0; a second tuple
-        # reusing nonce 0 on the same signer is skipped. The signer is
-        # the refundable authority, delegated by its first (valid) tuple.
+        # reusing nonce 0 on the same signer is skipped.
         authorization_list = [
             valid_auth,
-            AuthorizationTuple(address=delegate, nonce=0, signer=valid_signer),
+            AuthorizationTuple(
+                address=delegate,
+                nonce=0,
+                signer=valid_signer,
+                creates_account=False,
+                writes_delegation=False,
+                first_write=False,
+            ),
         ]
     elif invalidity == "authority_is_contract":
         # An authority that is already a (non-delegation) contract is an
@@ -412,45 +421,41 @@ def test_mixed_validity_multi_auth_receipt_gas(
         authority = pre.fund_eoa(code=Op.STOP)
         authorization_list = [
             valid_auth,
-            AuthorizationTuple(address=delegate, nonce=0, signer=authority),
+            AuthorizationTuple(
+                address=delegate,
+                nonce=0,
+                signer=authority,
+                creates_account=False,
+                writes_delegation=False,
+                first_write=False,
+            ),
         ]
         post[authority] = Account(code=Op.STOP)
     else:
         raise ValueError(f"unknown invalidity: {invalidity!r}")
 
     n = len(authorization_list)
-    regular_refundable = 2
 
-    total_intrinsic = fork.transaction_intrinsic_cost_calculator()(
+    # Charge model (no refunds): the intrinsic charges the per-auth base
+    # for every tuple; the one valid authorization adds ``AUTH_BASE`` at
+    # the top frame for its net-new delegation indicator. The skipped
+    # tuple and the plain ``STOP`` recipient add nothing.
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=n,
+        return_cost_deducted_prior_execution=True,
     )
-    intrinsic_state = fork.transaction_intrinsic_state_gas(
-        authorization_count=n,
+    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+        authorizations=authorization_list,
     )
-    # The valid existing-leaf authorization refills NEW_ACCOUNT. The
-    # invalid skipped tuple refills the full per-auth state intrinsic.
-    # State refills are subtracted first and are not subject to the
-    # one-fifth cap.
-    state_refund = gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT + (
-        intrinsic_state // n
+    top_frame_state = fork.transaction_top_frame_state_gas(
+        authorizations=authorization_list,
     )
-
-    # No EVM execution (the target is a STOP), so the regular and state
-    # execution gas are both zero and ``gas_before_regular_refund``
-    # reduces to the full per-auth intrinsic less the state refill.
-    gas_before_regular_refund = total_intrinsic - state_refund
-    regular_refund = min(
-        regular_refundable * account_write,
-        gas_before_regular_refund // fork.max_refund_quotient(),
+    cumulative_gas_used = (
+        intrinsic_execution + top_frame_execution + top_frame_state
     )
-    # The one-fifth cap is generous, so both ACCOUNT_WRITE refunds clear
-    # on the regular channel.
-    assert regular_refund == regular_refundable * account_write
-    cumulative_gas_used = gas_before_regular_refund - regular_refund
 
     tx = Transaction(
         to=delegate,
-        state_gas_reservoir=intrinsic_state,
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
@@ -497,12 +502,13 @@ def test_auth_account_warming(
     ``COLD_ACCOUNT_ACCESS``. When the sponsor is the authority, the
     authority is already warm for the same reason.
 
-    All costs are taken from ``fork.gas_costs()`` so the repricing is
-    asserted against the live schedule rather than hardcoded constants.
+    All costs are derived from the fork's opcode schedule (not
+    hardcoded) so the repricing is asserted against the live values.
     """
-    gas_costs = fork.gas_costs()
-    cold = gas_costs.COLD_ACCOUNT_ACCESS
-    warm = gas_costs.WARM_ACCESS
+    # Bare account-access costs, isolated via BALANCE (no code-read
+    # surcharge and no operand push).
+    cold = Op.BALANCE.with_metadata(address_warm=False).gas_cost(fork)
+    warm = Op.BALANCE.with_metadata(address_warm=True).gas_cost(fork)
 
     delegation_target = pre.deploy_contract(code=Op.STOP)
 
@@ -536,7 +542,7 @@ def test_auth_account_warming(
     # Measure the cost of a single CALL to the authority. The CALL
     # opcode leaves one stack item (success); the overhead is the PUSHes
     # for its arguments.
-    overhead_cost = gas_costs.VERY_LOW * len(Op.CALL.kwargs)
+    overhead_cost = Op.PUSH1(0).execution_cost(fork) * len(Op.CALL.kwargs)
     storage = Storage()
     callee_code = CodeGasMeasure(
         code=Op.CALL(gas=0, address=authority),
@@ -574,13 +580,35 @@ def test_many_auths_block_limit(
     limit cap and confirm it succeeds.
 
     The authorization count is sized from the per-authorization total
-    intrinsic (regular + state) and the transaction gas-limit cap, so it
+    intrinsic (execution + state) and the transaction gas-limit cap, so it
     automatically tracks the repriced cost.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
 
-    per_auth_total = fork.gas_costs().AUTH_PER_EMPTY_ACCOUNT
+    contract = pre.deploy_contract(code=Op.STOP)
+
+    # Per-authorization total for a fresh (empty) authority: the execution
+    # intrinsic base plus the top-frame account-write, account-creation
+    # and delegation-write charges, derived from the fork's calculators
+    # so it tracks the repricing. The probe only feeds the gas
+    # calculators, so it is signed with a fixed dummy key rather than a
+    # throwaway pre-state signer.
+    probe_auth = AuthorizationTuple(
+        address=contract,
+        nonce=0,
+        secret_key=Hash(1),
+        creates_account=True,
+        writes_delegation=True,
+        first_write=True,
+    )
+    per_auth_total = (
+        _execution_per_auth(fork)
+        + fork.transaction_top_frame_gas_calculator()(
+            authorizations=[probe_auth]
+        )
+        + fork.transaction_top_frame_state_gas(authorizations=[probe_auth])
+    )
     base = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=0,
     )
@@ -588,7 +616,6 @@ def test_many_auths_block_limit(
     num_auths = (gas_limit_cap - base) // per_auth_total
     assert num_auths >= 2
 
-    contract = pre.deploy_contract(code=Op.STOP)
     signers = [pre.fund_eoa() for _ in range(num_auths)]
     authorization_list = [
         AuthorizationTuple(address=contract, nonce=0, signer=signer)

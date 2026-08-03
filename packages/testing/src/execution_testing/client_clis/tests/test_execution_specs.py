@@ -183,7 +183,8 @@ def test_evm_t8n(
                 blob_schedule=Berlin.blob_schedule(),
             ),
         )
-        assert to_json(t8n_output.alloc.get()) == expected.get("alloc")
+        assert to_json(t8n_output.alloc.materialize()) == expected.get("alloc")
+        t8n_result = to_json(t8n_output.result)
         if isinstance(default_t8n, ExecutionSpecsTransitionTool):
             # The expected output was generated with geth, instead of deleting
             # any info from this expected output, the fields not returned by
@@ -198,9 +199,11 @@ def test_evm_t8n(
                 for i, _ in enumerate(expected.get("result")["receipts"]):
                     del expected.get("result")["receipts"][i][key]
 
-            t8n_result = to_json(t8n_output.result)
             for i, _ in enumerate(expected.get("result")["rejected"]):
                 del expected.get("result")["rejected"][i]["error"]
                 del t8n_result["rejected"][i]["error"]
+
+            if "opcodeCount" in t8n_result:
+                t8n_result.pop("opcodeCount")
 
         assert t8n_result == expected.get("result")

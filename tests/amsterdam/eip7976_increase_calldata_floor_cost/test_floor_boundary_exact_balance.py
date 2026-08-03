@@ -1,6 +1,7 @@
 """
-abstract: Tests for floor-boundary rejection with exact-balance funding in [EIP-7976: Increase Calldata Floor Cost](https://eips.ethereum.org/EIPS/eip-7976).
-"""  # noqa: E501
+Tests for floor-boundary rejection with exact-balance funding in
+[EIP-7976: Increase Calldata Floor Cost](https://eips.ethereum.org/EIPS/eip-7976).
+"""
 
 import pytest
 from execution_testing import (
@@ -48,7 +49,7 @@ def test_below_amsterdam_floor_with_exact_balance_sender(
     `test_transaction_validity.py`.
     """
     tx_data = Bytes(b"\x00" * zero_bytes)
-    intrinsic_regular = fork.transaction_intrinsic_cost_calculator()(
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         calldata=tx_data,
         return_cost_deducted_prior_execution=True,
     )
@@ -61,7 +62,7 @@ def test_below_amsterdam_floor_with_exact_balance_sender(
     # (zero/nonzero both weighted by 4).
     prague_floor = 21000 + Spec7623.TX_DATA_TOKEN_FLOOR * zero_bytes
     gas_limit = (prague_floor + amsterdam_floor) // 2
-    assert intrinsic_regular <= gas_limit
+    assert intrinsic_execution <= gas_limit
     assert prague_floor <= gas_limit < amsterdam_floor
 
     gas_price = 10

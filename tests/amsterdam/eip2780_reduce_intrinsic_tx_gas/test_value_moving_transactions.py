@@ -67,11 +67,10 @@ def test_value_moving_transactions(
     ``NEW_ACCOUNT`` state charge when value is transferred.
 
     The EIP-7708 transfer log is asserted to fire exactly when
-    ``TRANSFER_LOG_COST`` is charged: for a non-self value transfer,
+    ``TX_VALUE_COST`` is charged: for a non-self value transfer,
     and never for a self-transfer (carve-out) or a zero-value tx.
     """
-    sender_initial_balance = 10**18
-    sender = pre.fund_eoa(sender_initial_balance)
+    sender = pre.fund_eoa()
     target = setup_target(pre, recipient_type, sender)
 
     target_initial_balance = (
@@ -92,16 +91,15 @@ def test_value_moving_transactions(
         recipient_type=recipient_type,
     )
     # Under the default zero state-gas reservoir, top-frame state gas
-    # spills entirely into regular gas.
+    # spills entirely into execution gas.
     total_gas_cost = intrinsic_gas + top_frame_gas + top_frame_state_gas
 
-    tx_gas_limit = total_gas_cost + 1000  # add a small buffer
-    gas_price = 1_000_000_000
+    tx_gas_limit = total_gas_cost
 
     is_self_transfer = recipient_type == RecipientType.SELF
 
     # A transfer log is emitted iff value moves to a distinct account,
-    # which is exactly when the intrinsic includes ``TRANSFER_LOG_COST``.
+    # which is exactly when the intrinsic includes ``TX_VALUE_COST``.
     # ``logs=[]`` asserts no log fires for the carved-out cases.
     if value > 0 and not is_self_transfer:
         expected_logs = [transfer_log(sender, target, value)]
@@ -113,19 +111,13 @@ def test_value_moving_transactions(
         to=target,
         value=value,
         gas_limit=tx_gas_limit,
-        gas_price=gas_price,
-        expected_receipt=TransactionReceipt(logs=expected_logs),
-    )
-
-    sender_value_delta = 0 if is_self_transfer else value
-    sender_final_balance = (
-        sender_initial_balance
-        - sender_value_delta
-        - total_gas_cost * gas_price
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=tx_gas_limit, logs=expected_logs
+        ),
     )
 
     post: dict[Address, Account | None] = {
-        sender: Account(nonce=1, balance=sender_final_balance),
+        sender: Account(nonce=1),
     }
     if not is_self_transfer:
         if recipient_type == RecipientType.EMPTY_ACCOUNT and value == 0:
@@ -165,12 +157,11 @@ def test_value_contract_creation_tx(
     intrinsic plus the execution gas.
 
     When the init code reverts, the deploy is rolled back: no code is
-    set, the value transfer is reversed, and the intrinsic
-    ``NEW_ACCOUNT`` state-gas charge is refilled to the reservoir.
-    Under the default zero state-gas reservoir, the refill cancels
-    the spilled-to-regular portion of the intrinsic exactly, so the
-    sender pays only the regular portion of the intrinsic plus the
-    few EVM gas units spent before the revert.
+    set, the value transfer is reversed, and the top-frame
+    ``NEW_ACCOUNT`` state-gas charge for the created account is
+    refilled. The sender therefore pays only the execution intrinsic
+    plus the few EVM gas units spent before the revert -- the
+    ``NEW_ACCOUNT`` charge does not appear on the receipt.
     """
     sender_initial_balance = 10**18
     sender = pre.fund_eoa(sender_initial_balance)
@@ -191,16 +182,19 @@ def test_value_contract_creation_tx(
         return_cost_deducted_prior_execution=True,
     )
 
+    # EIP-2780: the created account's ``NEW_ACCOUNT`` state gas is
+    # charged at the top frame (not the intrinsic). It must be covered
+    # by the gas limit; it is consumed on a successful deploy and
+    # refilled if the init code reverts.
+    new_account_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True,
+    )
     if tx_reverts:
-        # The ``NEW_ACCOUNT`` state portion of the intrinsic is
-        # refilled to the reservoir on revert, so it does not appear
-        # on the receipt.
-        new_account_refund = fork.transaction_intrinsic_state_gas(
-            contract_creation=True,
-        )
-        gas_used = intrinsic_gas + execution_gas - new_account_refund
+        # The deploy is rolled back, so the top-frame ``NEW_ACCOUNT``
+        # charge is refilled and does not appear on the receipt.
+        gas_used = intrinsic_gas + execution_gas
         # A tiny init code can leave the decomposed calldata floor above
-        # the regular gas actually consumed; gas_used then pins to the
+        # the execution gas actually consumed; gas_used then pins to the
         # floor, which EIP-2780 anchors on the create intrinsic base.
         gas_used = max(
             gas_used,
@@ -214,7 +208,7 @@ def test_value_contract_creation_tx(
         sender_value_delta = 0
         expected_target = None
     else:
-        gas_used = intrinsic_gas + execution_gas
+        gas_used = intrinsic_gas + new_account_state_gas + execution_gas
         sender_value_delta = value
         expected_target = Account(code=code_to_deploy, balance=value)
 
@@ -226,7 +220,7 @@ def test_value_contract_creation_tx(
         expected_logs = []
 
     gas_price = 1_000_000_000
-    gas_limit = intrinsic_gas + execution_gas + 1000
+    gas_limit = intrinsic_gas + new_account_state_gas + execution_gas + 1000
 
     tx = Transaction(
         sender=sender,

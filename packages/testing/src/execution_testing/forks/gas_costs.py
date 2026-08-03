@@ -38,7 +38,6 @@ class GasCosts:
     NEW_ACCOUNT: int
     ACCOUNT_WRITE: int = 0
     CREATE_ACCESS: int = 0
-    TRANSFER_LOG_COST: int = 0
     TX_VALUE_COST: int = 0
 
     # Contract Creation
@@ -47,6 +46,12 @@ class GasCosts:
 
     # Authorization
     AUTH_PER_EMPTY_ACCOUNT: int
+    # State gas for writing a net-new EIP-7702 delegation indicator;
+    # 0 before the state-creation repricing introduces it.
+    AUTH_BASE: int = 0
+    # State-independent execution gas charged per EIP-7702 authorization
+    # tuple; 0 before the state-access repricing introduces it.
+    EXECUTION_PER_AUTH_BASE_COST: int = 0
 
     # Utility
     MEMORY_PER_WORD: int

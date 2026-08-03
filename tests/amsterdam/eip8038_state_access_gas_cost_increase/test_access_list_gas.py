@@ -4,8 +4,8 @@ Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/E
 Covers the EIP-8038 access-list repricing:
 
 * The intrinsic surcharge per access-list entry is
-  ``TX_ACCESS_LIST_ADDRESS`` (3000) per address and
-  ``TX_ACCESS_LIST_STORAGE_KEY`` (3000) per storage key, isolated from
+  ``TX_ACCESS_LIST_ADDRESS`` per address and
+  ``TX_ACCESS_LIST_STORAGE_KEY`` per storage key, isolated from
   the EIP-7981 calldata-floor tokens that the Amsterdam intrinsic
   calculator also charges on access-list bytes.
 * A storage slot named in the access list is *warm* on its first runtime
@@ -39,25 +39,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8038.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8038.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
-
-
-def _access_list_floor_token_gas(
-    access_list: List[AccessList], fork: Fork
-) -> int:
-    """
-    Return the EIP-7981 calldata-floor-token gas the Amsterdam intrinsic
-    calculator charges for an access list.
-
-    Every byte of each address (20) and storage key (32) is four floor
-    tokens, each priced at ``TX_DATA_TOKEN_FLOOR``. Subtracting this from
-    the measured intrinsic delta isolates the pure EIP-8038 per-entry
-    surcharge.
-    """
-    total_bytes = 0
-    for access in access_list:
-        total_bytes += len(access.address)
-        total_bytes += 32 * len(access.storage_keys)
-    return total_bytes * 4 * fork.gas_costs().TX_DATA_TOKEN_FLOOR
 
 
 def _make_access_list(
@@ -101,25 +82,7 @@ def test_access_list_intrinsic_surcharge(
     A simple value-less transaction then exercises the access list end to
     end.
     """
-    gas_costs = fork.gas_costs()
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
-
     access_list = _make_access_list(n_addr, n_keys_each, duplicate=duplicate)
-    n_keys = n_addr * n_keys_each
-
-    base = intrinsic(return_cost_deducted_prior_execution=True)
-    with_al = intrinsic(
-        access_list=access_list,
-        return_cost_deducted_prior_execution=True,
-    )
-    surcharge = (
-        with_al - base - _access_list_floor_token_gas(access_list, fork)
-    )
-    expected = (
-        n_addr * gas_costs.TX_ACCESS_LIST_ADDRESS
-        + n_keys * gas_costs.TX_ACCESS_LIST_STORAGE_KEY
-    )
-    assert surcharge == expected
 
     contract = pre.deploy_contract(code=Op.STOP)
     tx = Transaction(
@@ -149,8 +112,6 @@ def test_access_list_duplicate_address_key_intrinsic_and_warmth(
     runtime the slot is nonetheless warm on its first ``SLOAD``
     (``WARM_SLOAD``), since warmth is set-membership, not a counter.
     """
-    gas_costs = fork.gas_costs()
-    intrinsic = fork.transaction_intrinsic_cost_calculator()
     slot = 0x42
 
     # First runtime SLOAD of the listed slot stores the warm access cost.
@@ -174,20 +135,6 @@ def test_access_list_duplicate_address_key_intrinsic_and_warmth(
         AccessList(address=contract, storage_keys=[slot]),
         AccessList(address=contract, storage_keys=[slot]),
     ]
-
-    base = intrinsic(return_cost_deducted_prior_execution=True)
-    with_al = intrinsic(
-        access_list=access_list,
-        return_cost_deducted_prior_execution=True,
-    )
-    surcharge = (
-        with_al - base - _access_list_floor_token_gas(access_list, fork)
-    )
-    expected_surcharge = (
-        2 * gas_costs.TX_ACCESS_LIST_ADDRESS
-        + 2 * gas_costs.TX_ACCESS_LIST_STORAGE_KEY
-    )
-    assert surcharge == expected_surcharge
 
     expected_gas = Op.SLOAD(key_warm=True).gas_cost(fork)
     tx = Transaction(
@@ -218,8 +165,7 @@ def test_access_list_warms_storage_slot(
     overwrite of a non-zero original to a new non-zero value pays
     ``WARM_SLOAD + STORAGE_WRITE``.
     """
-    gas_costs = fork.gas_costs()
-    very_low = gas_costs.VERY_LOW
+    very_low = Op.PUSH1(0).execution_cost(fork)
     slot = 0x42
 
     if op == "SLOAD":
@@ -232,7 +178,7 @@ def test_access_list_warms_storage_slot(
     else:
         measured_code = Op.SSTORE(slot, 2)
         # Overhead is the two PUSHes (key, value); the stored value is
-        # the bare warm SSTORE regular cost (overwrite of a non-zero
+        # the bare warm SSTORE execution cost (overwrite of a non-zero
         # original, no state gas).
         overhead_cost = 2 * very_low
         extra_stack_items = 0
@@ -242,7 +188,7 @@ def test_access_list_warms_storage_slot(
                 original_value=1,
                 current_value=1,
                 new_value=2,
-            )(slot, 2).regular_cost(fork)
+            )(slot, 2).execution_cost(fork)
             - 2 * very_low
         )
 

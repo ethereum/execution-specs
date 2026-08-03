@@ -190,6 +190,16 @@ class BlockTransactionExceptionWithMessage(
     pass
 
 
+ClientValidationError = (
+    BlockTransactionExceptionWithMessage | UndefinedException
+)
+"""
+A client's validation error for a rejected block: the mapped exceptions
+with the verbatim message, or `UndefinedException` if the message could
+not be mapped.
+"""
+
+
 class PayloadStatus(CamelModel):
     """Represents the status of a payload after execution."""
 
@@ -197,7 +207,7 @@ class PayloadStatus(CamelModel):
     latest_valid_hash: Hash | None
     validation_error: (
         Annotated[
-            BlockTransactionExceptionWithMessage | UndefinedException,
+            ClientValidationError,
             ExceptionMapperValidator,
         ]
         | None
@@ -311,6 +321,13 @@ class BlobAndProofV2(CamelModel):
     proofs: List[Bytes]
 
 
+class BlobCellsAndProofsV1(CamelModel):
+    """Represents a partial cell and cell-proof structure (>= Amsterdam)."""
+
+    blob_cells: List[Bytes | None]
+    proofs: List[Bytes | None]
+
+
 class GetPayloadResponse(CamelModel):
     """Represents the response of a get payload request."""
 
@@ -336,6 +353,22 @@ class GetBlobsResponse(
         self, index: int
     ) -> BlobAndProofV1 | BlobAndProofV2 | None:
         """Return the blob at the given index."""
+        return self.root[index]
+
+
+class GetBlobsV4Response(
+    EthereumTestRootModel[List[BlobCellsAndProofsV1 | None]]
+):
+    """Represents the response of an `engine_getBlobsV4` request."""
+
+    root: List[BlobCellsAndProofsV1 | None]
+
+    def __len__(self) -> int:
+        """Return the number of blob entries in the response."""
+        return len(self.root)
+
+    def __getitem__(self, index: int) -> BlobCellsAndProofsV1 | None:
+        """Return the blob cell matrix at the given index."""
         return self.root[index]
 
 

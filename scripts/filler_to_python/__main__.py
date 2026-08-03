@@ -18,6 +18,25 @@ logger = logging.getLogger(__name__)
 
 MANUALLY_ENHANCED_TAG = "@manually-enhanced"
 
+# Fillers consolidated into hand-written tests outside
+# ``tests/ported_static``; never regenerate them.
+# sstore_combinations_*:
+#   tests/istanbul/eip2200_net_gas_metering/test_sstore_combinations.py
+CONSOLIDATED_FILLERS = {
+    "sstore_combinations_initial00_ParisFiller",
+    "sstore_combinations_initial00_2_ParisFiller",
+    "sstore_combinations_initial01_ParisFiller",
+    "sstore_combinations_initial01_2_ParisFiller",
+    "sstore_combinations_initial10_ParisFiller",
+    "sstore_combinations_initial10_2_ParisFiller",
+    "sstore_combinations_initial11_ParisFiller",
+    "sstore_combinations_initial11_2_ParisFiller",
+    "sstore_combinations_initial20_ParisFiller",
+    "sstore_combinations_initial20_2_ParisFiller",
+    "sstore_combinations_initial21_ParisFiller",
+    "sstore_combinations_initial21_2_ParisFiller",
+}
+
 
 def _has_manually_enhanced_tag(file_path: Path) -> bool:
     """Check if a file has @manually-enhanced in its module docstring."""
@@ -136,6 +155,13 @@ def process_single_filler(
     Return "ok", "fail", "warn", or "skip".
     """
     try:
+        if filler_path.stem in CONSOLIDATED_FILLERS:
+            logger.info(
+                "SKIP: %s (consolidated into a hand-written test)",
+                filler_path,
+            )
+            return "skip"
+
         # Relative path for the generated test's ported_from marker
         try:
             rel_path = filler_path.relative_to(fillers_base.parent)

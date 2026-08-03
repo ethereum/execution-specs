@@ -9,6 +9,21 @@ The execution testing package provides capabilities to calculate gas costs and r
 - Validating gas cost calculations for specific opcode scenarios
 - Future-proofing tests against breaking in upcoming forks that change gas rules
 
+## Do Not Hand-Reconstruct Gas From Constants
+
+Never build an expected gas amount by summing `fork.gas_costs()` constants (`NEW_ACCOUNT`, `CALL_VALUE`, `COLD_STORAGE_WRITE`, `VERY_LOW`, ...). Re-deriving the schedule by hand duplicates the framework's own calculation and silently breaks when a future fork reprices or restructures a cost. Always derive the expectation from a framework construct that tracks the live schedule:
+
+- **The bytecode/opcode under test:** set the relevant metadata (see below) and read `bytecode.gas_cost(fork)` (execution + state), `.execution_cost(fork)`, `.state_cost(fork)`, or `.refund(fork)`. Link the exact opcode to the behavior, e.g. `Op.SELFDESTRUCT(account_new=True).state_cost(fork)`.
+- **A single bare opcode/schedule cost** comes from a metadata-only opcode: `Op.BALANCE.with_metadata(address_warm=False).gas_cost(fork)` yields the cold account-access cost with no operand pushes.
+- **Transaction-level costs:** `fork.transaction_intrinsic_cost_calculator()`, `fork.transaction_top_frame_state_gas(contract_creation=True)` (the created account's new-account state gas — on recent forks it is charged at the top frame, *not* in the intrinsic, so never subtract it from the intrinsic), `fork.transaction_data_floor_cost_calculator()`, and `fork.call_value_stipend()`.
+- **Cross-fork / fork-transition comparisons:** evaluate the *same* bytecode or intrinsic at each fork (`before = fork.fork_at(timestamp=...)`, `after = ...`) and compare the resulting costs — do not compare raw schedule constants.
+
+Additional rules:
+
+- **Do not add "self-check" assertions** that compare a framework-computed value against a `fork.gas_costs()` decomposition of the same fork. They add no coverage over the runtime behavior the test already exercises and only break on repricing.
+- **If the framework cannot express a cost, extend the framework** (wire the opcode into its gas/state map, add an accessor) rather than working around it in the test.
+- **Exception:** a test whose *subject* is a specific schedule value — for example a regression asserting that an opcode's cost is unchanged across a fork — may compare a runtime measurement (`CodeGasMeasure`) against the fork's declared `fork.gas_costs().OPCODE_*` value. Even then, never hardcode the literal number.
+
 ## Opcode Metadata
 
 Many opcodes accept metadata parameters that affect their gas cost calculations. Metadata represents runtime state information that influences gas consumption.

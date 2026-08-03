@@ -43,8 +43,20 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 ## Fork-Aware Logic
 
 - `fork >= Cancun` for conditional behavior based on fork
-- `fork.gas_costs()` returns `GasCosts` dataclass with constants like `G_WARM_SLOAD`, `G_COLD_ACCOUNT_ACCESS`, `G_BASE`, etc.
-- `fork.transaction_intrinsic_cost_calculator()` for computing tx intrinsic gas
+- `fork.fork_at(timestamp=...)` gives the fork active before/after a transition boundary
+- For gas amounts, see **Gas Cost Expectations** below — prefer framework cost constructs over reading `fork.gas_costs()` constants directly
+
+## Gas Cost Expectations
+
+Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NEW_ACCOUNT`, `CALL_VALUE`, `COLD_STORAGE_WRITE`, `VERY_LOW`, ...). Re-deriving the schedule duplicates the framework's own calculation and silently breaks when a future fork reprices. Instead:
+
+- **Read the cost off the bytecode under test.** Set the relevant opcode metadata (`account_new`, `value_transfer`, `address_warm`, `key_warm`/`original_value`/`current_value`/`new_value`, `init_code_size`, `code_deposit_size`, `new_memory_size`, ...) and use `bytecode.gas_cost(fork)` (execution + state), `.execution_cost(fork)`, `.state_cost(fork)`, or `.refund(fork)`. Link the exact opcode to the behavior — e.g. `Op.SELFDESTRUCT(account_new=True).state_cost(fork)`.
+- **Transaction-level costs:** `fork.transaction_intrinsic_cost_calculator()`; `fork.transaction_top_frame_state_gas(contract_creation=True)` for the created account's `NEW_ACCOUNT` (under EIP-2780 it is NOT part of the intrinsic — never subtract it from the intrinsic); `fork.transaction_data_floor_cost_calculator()`; `fork.call_value_stipend()`.
+- **A single bare opcode/schedule cost** (e.g. an account-access constant) comes from a metadata-only opcode: `Op.BALANCE.with_metadata(address_warm=False).gas_cost(fork)`.
+- **Fork-transition / cross-fork comparisons:** evaluate the same bytecode or intrinsic at each fork (`before = fork.fork_at(timestamp=...)`, `after = ...`) and compare `before` vs `after` costs — do not compare raw schedule constants.
+- **Do not add "self-check" asserts** that compare a framework-computed value against a `fork.gas_costs()` decomposition of the same fork; they add no coverage over the runtime behavior the test already exercises and only break on repricing.
+- **If the framework cannot express a cost, fix the framework** (wire the opcode into its gas/state map, add an accessor) rather than reconstructing it in the test. If the use case does not support the framework, the framework needs an update.
+- **Exception:** a test whose *subject* is a specific schedule value (e.g. a regression that an opcode's cost is unchanged) may compare a runtime measurement (`CodeGasMeasure`) against `fork.gas_costs().OPCODE_*`. Even then, never hardcode the literal value.
 
 ## Transactions
 

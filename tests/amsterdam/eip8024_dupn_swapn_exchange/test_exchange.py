@@ -25,6 +25,8 @@ REFERENCE_SPEC_VERSION = ref_spec_8024.version
 pytestmark = pytest.mark.valid_from("EIP8024")
 
 
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Odd()
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Even()
 @pytest.mark.parametrize(
     "n,m",
     [
@@ -95,6 +97,8 @@ def test_exchange_basic(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.AllZeros()
+@EIPChecklist.Opcode.Test.DataPortion.MaxValue()
 @pytest.mark.parametrize(
     "immediate",
     [0, 1, 15, 78, 79, 80, 81, 128, 129, 200, 255],
@@ -209,6 +213,7 @@ def test_exchange_preserves_other_items(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.StackUnderflow()
 @pytest.mark.parametrize(
     "immediate",
     # Boundaries of both valid ranges (0x00, 0x51, 0x80, 0xFF)
@@ -242,6 +247,31 @@ def test_exchange_stack_underflow(
 
     # Transaction should fail, contract storage unchanged
     post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Zero()
+@EIPChecklist.Opcode.Test.StackUnderflow()
+def test_exchange_empty_stack(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test EXCHANGE on an empty stack aborts with a stack underflow.
+    """
+    sender = pre.fund_eoa()
+
+    code = Op.SSTORE(0, 1)  # leaves the stack empty
+    code += Op.EXCHANGE[Spec.EXCHANGE_MIN_N, Spec.EXCHANGE_MIN_N + 1]
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender)
+
+    # Transaction should fail, contract storage unchanged.
+    post = {contract_address: Account(storage={0: 0})}
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -341,17 +371,18 @@ def test_endofcode_behavior(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.Opcode.Test.DataPortion.Jump()
 @pytest.mark.parametrize(
     "immediate",
     [
-        # valid immediates (0-81 / 128-255): skipped during JUMPDEST
-        # analysis, not reachable as jump targets
+        # valid immediates (0-81 / 128-255): none is 0x5b, so none is a
+        # jump target (JUMPDEST analysis is unchanged by EIP-8024)
         0x00,
         0x4F,  # 79
         0x50,  # 80 — POP (valid for EXCHANGE)
         0x51,  # 81 — MLOAD (valid for EXCHANGE)
-        # invalid immediates (82-127): not skipped during JUMPDEST
-        # analysis, only 0x5B (91) is a JUMPDEST
+        # forbidden immediates (82-127): of these only 0x5B (91) is a
+        # JUMPDEST byte and hence a valid jump target
         0x52,  # 82 — MSTORE (first invalid immediate)
         0x5A,  # 90 — GAS (invalid immediate)
         0x5B,  # 91 — JUMPDEST, only case where jump succeeds
@@ -372,8 +403,9 @@ def test_exchange_jump_to_immediate_byte(
     """
     Test jumping to EXCHANGE immediate byte position.
 
-    Valid immediates are skipped (can't jump to them).
-    Invalid immediates are not skipped - only 0x5B (JUMPDEST) allows jumping.
+    JUMPDEST analysis is unchanged by EIP-8024, so the immediate byte is
+    a valid jump target exactly when it is 0x5B, regardless of whether
+    it is a valid EXCHANGE immediate.
     """
     sender = pre.fund_eoa()
 
@@ -451,6 +483,59 @@ def test_exchange_with_push_sequence(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "n,m",
+    [
+        pytest.param(1, 2, id="adjacent"),
+        pytest.param(14, 16, id="max_n"),
+        pytest.param(1, 29, id="deepest"),
+    ],
+)
+def test_exchange_full_stack(
+    n: int,
+    m: int,
+    pre: Alloc,
+    fork: Fork,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test EXCHANGE succeeds on a completely full stack.
+
+    EXCHANGE swaps in place without pushing, so it must work at the
+    stack limit. The top 30 items hold their 1-indexed position from
+    the top; EXCHANGE[n, m] swaps positions n + 1 and m + 1, then every
+    window item is stored and checked. The topmost item is popped
+    unstored to make room for the SSTORE keys: no valid pair can touch
+    position 1, and a misplaced swap there still corrupts a checked
+    slot.
+    """
+    window = Spec.EXCHANGE_MAX_M + 1  # deepest reachable position
+
+    code = Op.PUSH0 * (fork.max_stack_height() - window)
+    for depth in range(window, 0, -1):
+        code += Op.PUSH1(depth)
+
+    code += Op.EXCHANGE[n, m]
+
+    # The stack is exactly full: pop position 1 so each SSTORE key
+    # can be pushed without overflowing.
+    code += Op.POP
+    for slot in range(1, window):
+        code += Op.PUSH1(slot) + Op.SSTORE
+    code += Op.STOP
+
+    expected = {slot: slot + 1 for slot in range(1, window)}
+    expected[n], expected[m] = expected[m], expected[n]
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=pre.fund_eoa())
+
+    post = {contract_address: Account(storage=expected)}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.Opcode.Test.ExceptionalAbort()
 @pytest.mark.parametrize(
     "immediate",
     range(82, 128),  # Forbidden range: 0x52-0x7F

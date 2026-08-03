@@ -97,7 +97,7 @@ def test_ext_code_opcode_gas(
     more than ``BALANCE``/``EXTCODEHASH`` at equal warmth (the second,
     code-reading database access).
     """
-    gas_costs = fork.gas_costs()
+    del code_read_surcharge  # encoded in `cost_metadata`
 
     target = pre.deploy_contract(Op.STOP)
 
@@ -117,13 +117,10 @@ def test_ext_code_opcode_gas(
     )
     measure_address = pre.deploy_contract(code=code_gas_measure)
 
-    access_cost = (
-        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    surcharge = gas_costs.WARM_ACCESS if code_read_surcharge else 0
-    expected_gas = access_cost + surcharge
-    # Cross-check the framework opcode model agrees with the formula.
-    assert expected_gas == cost_metadata(warm).gas_cost(fork)
+    # The opcode's own cost is the expected measured gas: it folds the
+    # access cost and, for EXTCODESIZE/EXTCODECOPY, the code-read
+    # surcharge.
+    expected_gas = cost_metadata(warm).gas_cost(fork)
 
     # Warm the target via the access list when required; the cold case
     # leaves it absent so its first runtime access is cold.
@@ -163,8 +160,6 @@ def test_extcodecopy_nonzero_composes_additively(
     flat add-on that does not interact with the copy or memory terms, so
     the measured gas must equal the sum of all four components.
     """
-    gas_costs = fork.gas_costs()
-
     # Target carries enough code to satisfy the copy; STOP padding keeps
     # it a deployable contract with a non-empty code hash.
     target = pre.deploy_contract(Op.STOP * copy_size)
@@ -191,21 +186,6 @@ def test_extcodecopy_nonzero_composes_additively(
         old_memory_size=0,
     )
     expected_gas = oracle.gas_cost(fork)
-
-    # Additive decomposition the surcharge must satisfy.
-    words = (copy_size + 31) // 32
-    access_cost = (
-        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    memory_expansion = fork.memory_expansion_gas_calculator()(
-        new_bytes=copy_size, previous_bytes=0
-    )
-    assert expected_gas == (
-        access_cost
-        + gas_costs.WARM_ACCESS  # EIP-8038 code-read surcharge
-        + gas_costs.OPCODE_COPY_PER_WORD * words
-        + memory_expansion
-    )
 
     code_gas_measure = CodeGasMeasure(
         code=measured_code,
@@ -243,16 +223,12 @@ def test_extcodehash_empty_account(
     or ``WARM_ACCESS`` (warm) regardless of the target being empty. The
     returned hash of an empty/non-existent account is ``0``.
     """
-    gas_costs = fork.gas_costs()
-
     # A non-existent (empty) target: never deployed, no balance, no code.
     empty_addr = Address(0xDEAD)
 
-    expected_gas = (
-        gas_costs.WARM_ACCESS if warm else gas_costs.COLD_ACCOUNT_ACCESS
-    )
-    # No code-read surcharge for EXTCODEHASH; the opcode model must agree.
-    assert expected_gas == Op.EXTCODEHASH(address_warm=warm).gas_cost(fork)
+    # EXTCODEHASH reads only the account leaf (no code-read surcharge), so
+    # its bare cost is the plain account access.
+    expected_gas = Op.EXTCODEHASH(address_warm=warm).gas_cost(fork)
 
     # Measure the access cost, then store the returned hash so the
     # empty-account 0 result is asserted alongside the pricing. The

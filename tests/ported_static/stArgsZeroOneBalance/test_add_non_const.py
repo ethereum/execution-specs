@@ -1,116 +1,67 @@
 """
-Test_add_non_const.
+Verify ADD over non-constant operands: the contract adds its own balance to
+itself, where that balance equals the value sent by the transaction.
 
 Ported from:
 state_tests/stArgsZeroOneBalance/addNonConstFiller.yml
+
+@manually-enhanced: Do not overwrite. Parametrized on the transaction value
+(the real discriminator), the self-referential balance reads use
+`BALANCE(ADDRESS)` instead of a hardcoded address, and the post asserts the
+`2 * tx_value` result directly; env/gas boilerplate removed. A canary slot
+keeps the `tx_value=0` arm observable (its result slot stays zero).
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    Fork,
     StateTestFiller,
     Transaction,
-)
-from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
 )
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+CANARY = 0xC0DE
+
 
 @pytest.mark.ported_from(
     ["state_tests/stArgsZeroOneBalance/addNonConstFiller.yml"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="-v0",
-        ),
-        pytest.param(
-            0,
-            0,
-            1,
-            id="-v1",
-        ),
-    ],
-)
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.parametrize("tx_value", [0, 1])
 def test_add_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    tx_value: int,
 ) -> None:
-    """Test_add_non_const."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
+    """Add the contract's own balance to itself and store the result."""
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    # Source: lll
-    # { [[ 0 ]](ADD (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
+    # ADD with non-constant operands: the contract's own balance added to
+    # itself. The balance equals the value sent by the transaction. The
+    # canary proves the code ran even when the stored result is zero.
+    target = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
-            value=Op.ADD(
-                Op.BALANCE(address=0xF1722FE346FA35E045DE07E47CF6AF9BAE8ADE0A),
-                Op.BALANCE(address=0xF1722FE346FA35E045DE07E47CF6AF9BAE8ADE0A),
-            ),
+            value=Op.ADD(Op.BALANCE(Op.ADDRESS), Op.BALANCE(Op.ADDRESS)),
         )
+        + Op.SSTORE(key=0x1, value=CANARY)
         + Op.STOP,
-        nonce=0,
-        address=Address(0xF1722FE346FA35E045DE07E47CF6AF9BAE8ADE0A),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": -1, "gas": -1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 2})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes(""),
-    ]
-    tx_gas = [400000]
-    tx_value = [0, 1]
+    # ADD(BALANCE, BALANCE) over a balance equal to the sent value.
+    post = {target: Account(storage={0: 2 * tx_value, 1: CANARY})}
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        value=tx_value,
+        protected=fork.supports_protected_txs(),
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

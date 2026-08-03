@@ -14,7 +14,7 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`consume direct`](#direct)             | Client consume tests via a `statetest` interface                                        | EVM                                                          | None          | Module test                       |
 | [`consume direct`](#direct)             | Client consume tests via a `blocktest` interface                                        | EVM, block processing                                        | None          | Module test,</br>Integration test |
 | [`consume engine`](#engine)             | Client imports blocks via Engine API `EngineNewPayload` in Hive                         | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
-| [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API                            | Staging, Hive | System test                       |
+| [`consume enginex`](#enginex)           | Client imports blocks via Engine API in Hive, optimized by client reuse            | EVM, block processing, Engine API, chain reorgs (implicit\*\*) | Staging, Hive | System test                       |
 | [`consume sync`](#sync)                 | Client syncs from another client using Engine API in Hive                               | EVM, block processing, Engine API, P2P sync                  | Staging, Hive | System test                       |
 | [`consume rlp`](#rlp)                   | Client imports RLP-encoded blocks upon start-up in Hive                                 | EVM, block processing, RLP import (sync\*)                   | Staging, Hive | System test                       |
 | [`build-block`](#block-building)        | Client builds blocks via `testing_buildBlockV1` in Hive, validated against fixture       | EVM, block production, Engine API (testing namespace)        | Staging, Hive | System test                       |
@@ -22,6 +22,8 @@ Both `consume` and `execute` provide sub-commands which correspond to different 
 | [`execute remote`](./execute/remote.md) | Tests executed against a client via JSON RPC `eth_sendRawTransaction` on a live network | EVM, JSON RPC, mempool, EL-EL/EL-CL interaction (indirectly) | Production    | System Test                       |
 
 \*sync: Depending on code paths used in the client implementation, see the [RLP vs Engine Simulator section below](#engine-vs-rlp-simulator).
+
+\*\*chain reorgs: A side-effect of client reuse, not something the test cases describe, see the [Implicit Chain Reorg Coverage section below](#implicit-chain-reorg-coverage).
 
 The following sections describe the different methods in more detail.
 
@@ -59,10 +61,12 @@ The `consume engine` command:
 
 1. **Initializes the execution client** with genesis state.
 2. **Connects via Engine API** (port 8551), primitively mocking a consensus client.
-3. **Sends a forkchoice update** to establish the chain head.
-4. **Submits payloads** using `engine_newPayload` calls.
-5. **Validates responses** against expected results.
-6. **Tests error conditions** and exception handling.
+3. **Sends a forkchoice update** to the genesis block to establish the chain head.
+4. **Verifies the client's genesis block hash** via `eth_getBlockByNumber(0)`.
+5. **Submits payloads** using `engine_newPayload` calls.
+6. **Validates responses** against expected results.
+7. **Sends a forkchoice update** after each valid payload to advance the chain head.
+8. **Tests error conditions** and exception handling.
 
 ## EngineX
 
@@ -78,29 +82,53 @@ The `consume enginex` command, for each pre-allocation group:
 
 1. **Initializes the execution client** with the group's shared genesis state.
 2. **Connects via Engine API** (port 8551).
-3. **Executes all tests in the group** against the same client:
+3. **Executes all tests in the group** against the same client. Each test:
 
-    - Submits payloads from each test using `engine_newPayload` calls.
+    - Sends a forkchoice update to the genesis block, resetting the chain head.
+    - Verifies the client's genesis block hash via `eth_getBlockByNumber(0)`; this is only done for the first test executed against the client, as genesis is immutable.
+    - Submits payloads from the test using `engine_newPayload` calls.
     - Validates responses against expected results.
+    - Sends a forkchoice update after each valid payload to advance the chain head.
     - Tests error conditions and exception handling.
 
 4. **Stops the client** when all tests in the group complete.
 
+### Implicit Chain Reorg Coverage
+
+Client reuse gives `consume enginex` coverage that `consume engine` does not have. The forkchoice update at the start of each test resets the client's head from the previous test's chain tip back to genesis. The payload that follows is therefore a sibling of a block the client already imported and considered canonical (the same parent and block number, but a different block hash), and the forkchoice update sent after it makes the new branch canonical.
+
+Every test after the first in a pre-allocation group consequently exercises the client's chain reorganization path: rolling the head state back to an ancestor, importing a competing block at an already-occupied height, and re-canonicalizing a new branch.
+
+!!! note "This coverage is implicit"
+
+    No `blockchain_test_engine_x` fixture describes a reorg; the reorgs are an artifact of how the simulator reuses clients. A test whose payloads are all invalid also leaves the head at genesis, so no rollback precedes the next test in the group.
+
+    It does mean, however, that a test which fails under `consume enginex` but passes under `consume engine` is more likely to indicate a bug in the client's reorg, head state rollback or block caching logic than in its EVM or block validation logic.
+
+### Bad-Block Cache Handling
+
+Clients typically cache the blocks they reject. Because a client is reused across a pre-allocation group, its bad-block cache persists between tests: if two tests in a group contain an identical invalid block, the client validates the first submission for real and returns the specific validation error, but may answer the resubmission from its cache with a generic error (e.g. geth's and reth's "links to previously rejected block" or Nethermind's "is known to be a part of an invalid chain") that maps to no known exception.
+
+The simulator therefore remembers the first validation error each client returns per invalid block. When a rejection does not match the test's expected exception, it is verified against the client's first rejection of the same block: it is accepted and logged ("Accepting mismatched validation error") if that first rejection matched the expected exception, and fails the test as before otherwise. This is sound because an identical block hash implies an identical block built on an identical parent chain, so the real validation outcome is deterministic. `consume engine` starts a fresh client per test and is unaffected.
+
 ### Engine vs EngineX
 
-|                      | `consume engine`                                                       | `consume enginex`                                                        |
-| -------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| **Fixture format**     | [`blockchain_test_engine`](./test_formats/blockchain_test_engine.md) | [`blockchain_test_engine_x`](./test_formats/blockchain_test_engine_x.md)                                       |
-| **Client lifecycle**   | New client per test                                                    | Client reused across tests with same pre-alloc                                                                 |
-| **Fork choice update** | FCU called for genesis and final payload                               | FCU for genesis and final payload skipped |
-| **Execution speed**    | Slower (client startup overhead)                                       | Faster (amortized startup cost)                                                                                |
-| **Test isolation**     | Full isolation                                                         | Shared genesis state within group                                                                              |
+|                         | `consume engine`                                                     | `consume enginex`                                                                          |
+| ----------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Fixture format**      | [`blockchain_test_engine`](./test_formats/blockchain_test_engine.md) | [`blockchain_test_engine_x`](./test_formats/blockchain_test_engine_x.md)                       |
+| **Client lifecycle**    | New client per test                                                  | Client reused across tests with same pre-alloc                                                 |
+| **Engine API flow**     | FCU to genesis, then an `engine_newPayload` and FCU per valid payload | Identical, to keep both methods equivalent                                                    |
+| **Genesis block check** | `eth_getBlockByNumber(0)` per test                                    | `eth_getBlockByNumber(0)` once per client; genesis is immutable                                |
+| **Execution speed**     | Slower (client startup overhead)                                     | Faster (amortized startup cost)                                                                |
+| **Test isolation**      | Full isolation                                                       | Shared client and genesis state within group; the chain head is reset to genesis for each test |
+| **Chain reorgs**        | Not exercised; each client executes one test's payloads only         | [Implicitly exercised](#implicit-chain-reorg-coverage) by every test after the first in a group |
+| **Exception matching**  | Response validated directly against the expected exception           | Identical, except a mismatched rejection is [accepted](#bad-block-cache-handling) if the client's first rejection of the identical block matched |
 
 EngineX achieves faster execution by:
 
 1. **Grouping tests** by their pre-allocation state (genesis configuration).
 2. **Reusing clients** across all tests in a group, avoiding repeated client startup.
-3. **Skipping redundant initialization** since the client is already at the expected genesis state.
+3. **Skipping the redundant genesis block check** for reused clients: the client's genesis block hash is verified once per client, instead of once per test.
 
 !!! note "When to use EngineX vs Engine"
 

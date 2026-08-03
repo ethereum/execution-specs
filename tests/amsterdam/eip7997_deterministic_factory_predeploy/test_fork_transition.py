@@ -104,3 +104,71 @@ def test_factory_deploys_across_transition(
             ),
         },
     )
+
+
+@pytest.mark.valid_at_transition_to("Amsterdam")
+@pytest.mark.pre_alloc_mutable
+def test_factory_absent_across_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    A chain that never deployed the factory transitions to Amsterdam
+    through valid blocks, and the factory address stays nonexistent.
+
+    The client MUST NOT check for the existence of the contract at
+    the fork boundary. Therefore, we verify that the BAL does
+    not contain the factory account read.
+    The block itself is valid. It is the responsibility of the
+    chain activating EIP-7997 to ensure the factory is valid
+    at the start of the fork block.
+    """
+    factory = Address(Spec.FACTORY_ADDRESS)
+    # Merging an all-zero account into the fork's pre-allocation removes
+    # the factory predeploy from the genesis allocation entirely.
+    pre[factory] = Account(nonce=0, balance=0, code=b"")
+
+    sender = pre.fund_eoa()
+    receiver = pre.fund_eoa(amount=0)
+    transfer_value = 1
+
+    timestamps = [FORK_TIMESTAMP - 1, FORK_TIMESTAMP, FORK_TIMESTAMP + 1]
+
+    blocks = []
+    for i, timestamp in enumerate(timestamps):
+        blocks.append(
+            Block(
+                timestamp=timestamp,
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        to=receiver,
+                        value=transfer_value,
+                    )
+                ],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        factory: None,
+                        sender: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1,
+                                    post_nonce=i + 1,
+                                )
+                            ],
+                        ),
+                    }
+                )
+                if timestamp >= FORK_TIMESTAMP
+                else None,
+            )
+        )
+
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post={
+            factory: Account.NONEXISTENT,
+            receiver: Account(balance=len(timestamps) * transfer_value),
+        },
+    )

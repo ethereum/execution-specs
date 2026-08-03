@@ -28,9 +28,21 @@ Each fork lives at `src/ethereum/forks/<fork_name>/`. Explore the latest fork di
 ## Adding a New Opcode
 
 1. Add to `Ops` enum in `vm/instructions/__init__.py` with hex value
-2. Implement function in appropriate `vm/instructions/<category>.py` — follows pattern: STACK → GAS (`charge_gas`) → OPERATION → PROGRAM COUNTER
+2. Implement function in appropriate `vm/instructions/<category>.py` — follows pattern: STACK → GAS (`charge_gas`) → OPERATION → PROGRAM COUNTER. Opcodes that touch state use the staged gas labels — see "Gas Handling" below.
 3. Register in `op_implementation` dict in `vm/instructions/__init__.py`
 4. Add gas constant in `vm/gas.py` if needed
+
+## Gas Handling
+
+Recent forks meter two gas dimensions: execution gas and state gas (for durable state growth). Key rules:
+
+1. Gas constants and calculations go in `vm/gas.py`; a frame's mutable gas state lives on `Evm.gas_meter`.
+2. Extend the named helper vocabulary (`charge_*`, `credit_*`, `restore_*`, `withhold_*`, ...) instead of doing gas arithmetic by hand at call sites; encode each helper's invariant as an assert.
+3. State gas is charged by the frame whose opcode causes the creation, before the child's execution-gas share is withheld; the whole reservoir passes to the child.
+4. A failing frame settles its own meter before returning, so parents incorporate children unconditionally.
+5. Opcodes that touch state use labeled stages, with all charging before the operation: `GAS (STATE-INDEPENDENT)` → `STATE ACCESS (STATE-DEPENDENT GAS)` → `STATE GAS` → `CHILD GRANT` → `OPERATION`. Simple opcodes keep the bare `GAS` marker. `generic_call`/`generic_create` contain no pricing; they run the child lifecycle: `PREFLIGHT` → `DESTINATION ACCESS` → `CHILD GRANT` → `DISPATCH` → `OUTCOME`.
+6. Avoid "frame" in gas identifiers (a future EIP claims the term); when a name diverges from the spec's variable name, cross-reference the spec name in the docstring.
+7. A gas change is behavior-preserving only if the relative order of every charge, check, and trace event is unchanged; verify with the gas-related fill tests under `tests/<fork>/`.
 
 ## Adding a New Precompile
 

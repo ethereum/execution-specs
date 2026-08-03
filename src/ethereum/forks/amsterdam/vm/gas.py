@@ -12,7 +12,7 @@ EVM gas constants and calculators.
 """
 
 from dataclasses import dataclass
-from typing import Final, List, Tuple, final
+from typing import TYPE_CHECKING, Final, List, Tuple, final
 
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
@@ -22,9 +22,16 @@ from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
 from ..fork_types import StateGas, StateGasPerByte
-from ..transactions import BlobTransaction, Transaction
-from . import Evm
+from ..transactions import (
+    TX_MAX_GAS_LIMIT,
+    BlobTransaction,
+    IntrinsicGasCost,
+    Transaction,
+)
 from .exceptions import OutOfGasError
+
+if TYPE_CHECKING:
+    from . import Evm
 
 
 # These may be patched at runtime by a future gas repricing utility to
@@ -130,16 +137,15 @@ class GasCosts:
     # Transactions
     TX_BASE: Final[Uint] = Uint(12000)
     TX_CREATE: Final[Uint] = Uint(32000)
-    TX_VALUE_COST: Final[Uint] = Uint(4244)
-    TRANSFER_LOG_COST: Final[Uint] = Uint(1756)
+    TX_VALUE_COST: Final[Uint] = Uint(6000)
     TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
-    TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS
-    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = COLD_STORAGE_ACCESS
+    TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS - WARM_ACCESS
+    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = COLD_STORAGE_ACCESS - WARM_ACCESS
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
-    REGULAR_PER_AUTH_BASE_COST: Final[Uint] = (
+    EXECUTION_PER_AUTH_BASE_COST: Final[Uint] = (
         AUTH_TUPLE_BYTES * TX_DATA_TOKEN_FLOOR
         + PRECOMPILE_ECRECOVER
         + COLD_ACCOUNT_ACCESS
@@ -240,6 +246,72 @@ BLOB_BASE_FEE_UPDATE_FRACTION = GasCosts.BLOB_BASE_FEE_UPDATE_FRACTION
 
 @final
 @dataclass
+class GasMeter:
+    """
+    Track a frame's gas consumption across both gas dimensions.
+
+    Bundle every mutable gas quantity a frame maintains, so the frame
+    and its settlement work against one object instead of a scatter of
+    fields on the [`Evm`].
+
+    [`Evm`]: ref:ethereum.forks.amsterdam.vm.Evm
+    """
+
+    gas_left: Uint
+    """
+    Gas still available from the frame's execution-gas grant. Pays
+    execution-gas charges, and state charges as [spill] once the
+    reservoir empties.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    """
+
+    state_gas_left: Uint
+    """
+    State gas still available in the frame's reservoir. Charges draw
+    from here first and spill into `gas_left` once it is empty.
+    """
+
+    state_gas_baseline: Uint
+    """
+    Reservoir level a rollback refills to: the frame's grant at entry,
+    moved down by [`commit_state_gas`][commit] when charges become
+    non-refillable.
+
+    [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
+    """
+
+    refund_counter: int = 0
+    """Gas eligible for refund at the end of the transaction."""
+
+    state_gas_spilled: Uint = Uint(0)
+    """
+    Execution gas spent covering state charges after the reservoir
+    emptied. Credited back to `gas_left` first, in LIFO order, on a
+    refund or failure. [EIP-8037] names this quantity
+    `state_gas_from_gas_left`.
+
+    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
+    """
+
+    state_gas_committed_spill: Uint = Uint(0)
+    """
+    [Spill] that [`commit_state_gas`][commit] marked non-refillable.
+    It outlives the rollbacks [`restore_state_gas`][restore] performs;
+    only [`restore_state_gas_to_entry`][entry] credits it back to
+    `gas_left`. Committed reservoir draw needs no counter of its own:
+    each commit lowers the baseline, so it is the frame's grant minus
+    `state_gas_baseline`.
+
+    [Spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
+    [restore]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas
+    [entry]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas_to_entry
+    """
+
+
+@final
+@dataclass
 class ExtendMemory:
     """
     Define the parameters for memory extension in opcodes.
@@ -273,7 +345,7 @@ class MessageCallGas:
     sub_call: Uint
 
 
-def check_gas(evm: Evm, amount: Uint) -> None:
+def check_gas(evm: "Evm", amount: Uint) -> None:
     """
     Checks if `amount` gas is available without charging it.
     Raises OutOfGasError if insufficient gas.
@@ -286,35 +358,34 @@ def check_gas(evm: Evm, amount: Uint) -> None:
         The amount of gas to check.
 
     """
-    if evm.gas_left < amount:
+    if evm.gas_meter.gas_left < amount:
         raise OutOfGasError
 
 
-def charge_gas(evm: Evm, amount: Uint) -> None:
+def charge_gas(evm: "Evm", amount: Uint) -> None:
     """
-    Subtracts `amount` from `evm.gas_left` (regular gas) and records usage.
+    Subtracts `amount` from `gas_left` (execution gas).
 
     Parameters
     ----------
     evm :
         The current EVM.
     amount :
-        The amount of regular gas the current operation requires.
+        The amount of execution gas the current operation requires.
 
     """
     evm_trace(evm, GasAndRefund(int(amount)))
 
-    if evm.gas_left < amount:
+    gas_meter = evm.gas_meter
+    if gas_meter.gas_left < amount:
         raise OutOfGasError
-    evm.gas_left -= amount
-
-    evm.regular_gas_used += amount
+    gas_meter.gas_left -= amount
 
 
-def charge_state_gas(evm: Evm, amount: StateGas) -> None:
+def charge_state_gas(evm: "Evm", amount: StateGas) -> None:
     """
     Subtracts `amount` from the state gas reservoir, then from
-    `evm.gas_left` when the reservoir is empty, tracking any [spill].
+    `gas_left` when the reservoir is empty, tracking any [spill].
 
     Parameters
     ----------
@@ -323,20 +394,262 @@ def charge_state_gas(evm: Evm, amount: StateGas) -> None:
     amount :
         The amount of state gas the current operation requires.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.Evm.state_gas_spilled
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
 
     """
     evm_trace(evm, StateGasAndRefund(int(amount)))
 
-    if evm.state_gas_left >= amount:
-        evm.state_gas_left -= amount
-    elif evm.state_gas_left + evm.gas_left >= amount:
-        remainder = amount - evm.state_gas_left
-        evm.state_gas_left = Uint(0)
-        evm.gas_left -= remainder
-        evm.state_gas_spilled += remainder
+    gas_meter = evm.gas_meter
+    if gas_meter.state_gas_left >= amount:
+        gas_meter.state_gas_left -= amount
+    elif gas_meter.state_gas_left + gas_meter.gas_left >= amount:
+        remainder = amount - gas_meter.state_gas_left
+        gas_meter.state_gas_left = Uint(0)
+        gas_meter.gas_left -= remainder
+        gas_meter.state_gas_spilled += remainder
     else:
         raise OutOfGasError
+
+
+def commit_state_gas(gas_meter: GasMeter) -> None:
+    """
+    Mark the state gas spent so far as non-refillable.
+
+    A later rollback via [`restore_state_gas`][restore] leaves the
+    state bought so far in place, so it must not credit this gas back.
+    In the top frame that protects the delegations applied by
+    [`set_delegation`][sd], which survive a failure of the dispatched
+    code. A failure that reverts the committed state as well -- one
+    raised before dispatch -- must instead undo the commit with
+    [`restore_state_gas_to_entry`][entry].
+
+    Move the baseline down to the current reservoir level and fold the
+    spill into `state_gas_committed_spill`, so later refunds route to
+    the reservoir instead of back into `gas_left`.
+
+    Parameters
+    ----------
+    gas_meter :
+        The frame's gas meter.
+
+    [sd]: ref:ethereum.forks.amsterdam.vm.eoa_delegation.set_delegation
+    [restore]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas
+    [entry]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas_to_entry
+
+    """
+    # Only charges precede a commit, so no refund has pushed the
+    # reservoir above the baseline: a commit only ever lowers it.
+    assert gas_meter.state_gas_left <= gas_meter.state_gas_baseline
+    gas_meter.state_gas_committed_spill += gas_meter.state_gas_spilled
+    gas_meter.state_gas_baseline = gas_meter.state_gas_left
+    gas_meter.state_gas_spilled = Uint(0)
+
+
+def restore_state_gas(gas_meter: GasMeter) -> None:
+    """
+    Roll the frame's state gas back to the baseline on revert or halt.
+
+    The frame's state changes are undone, so the state gas consumed
+    since the [baseline] is credited back in LIFO order: the [spill]
+    returns to `gas_left` first, then the reservoir resets to the
+    baseline. The refunds accrued on the undone changes are discarded
+    with them. State gas committed as non-refillable stays charged.
+
+    Parameters
+    ----------
+    gas_meter :
+        The frame's gas meter.
+
+    [baseline]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_baseline
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+
+    """  # noqa: E501
+    gas_meter.gas_left += gas_meter.state_gas_spilled
+    gas_meter.state_gas_spilled = Uint(0)
+    gas_meter.state_gas_left = gas_meter.state_gas_baseline
+    gas_meter.refund_counter = 0
+
+
+def restore_state_gas_to_entry(
+    gas_meter: GasMeter, state_gas_reservoir: Uint
+) -> None:
+    """
+    Roll the frame's state gas back to frame entry, undoing any commit.
+
+    Used when the transaction-state rollback also reverts the applied
+    delegations a [`commit_state_gas`][commit] protected: every state
+    charge refills -- all spill, committed or not, returns to
+    `gas_left` -- and the baseline resets to the frame's [grant].
+
+    Parameters
+    ----------
+    gas_meter :
+        The frame's gas meter.
+    state_gas_reservoir :
+        The frame's immutable state gas grant.
+
+    [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
+    [grant]: ref:ethereum.forks.amsterdam.vm.Message.state_gas_reservoir
+
+    """
+    # The baseline starts at the grant and only ever moves down.
+    assert gas_meter.state_gas_baseline <= state_gas_reservoir
+    # Only pre-dispatch failures roll back to entry, and no refund
+    # accrues before dispatch.
+    assert gas_meter.refund_counter == 0
+    gas_meter.gas_left += (
+        gas_meter.state_gas_spilled + gas_meter.state_gas_committed_spill
+    )
+    gas_meter.state_gas_spilled = Uint(0)
+    gas_meter.state_gas_committed_spill = Uint(0)
+    gas_meter.state_gas_left = state_gas_reservoir
+    gas_meter.state_gas_baseline = state_gas_reservoir
+
+
+def tx_state_gas_used(gas_meter: GasMeter, state_gas_reservoir: Uint) -> int:
+    """
+    Return the net state gas a transaction's execution consumed.
+
+    Measured off the top frame's finished gas meter: the reservoir
+    drawn down since the transaction's grant plus the [spill],
+    outstanding or committed. May be negative when refunds exceed
+    charges.
+
+    Parameters
+    ----------
+    gas_meter :
+        The top frame's finished gas meter.
+    state_gas_reservoir :
+        The transaction's immutable state gas grant.
+
+    Returns
+    -------
+    state_gas_used : `int`
+        The net state gas consumed.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+
+    """
+    # The baseline starts at the grant and only ever moves down.
+    assert gas_meter.state_gas_baseline <= state_gas_reservoir
+    return (
+        int(state_gas_reservoir)
+        - int(gas_meter.state_gas_left)
+        + int(gas_meter.state_gas_spilled)
+        + int(gas_meter.state_gas_committed_spill)
+    )
+
+
+def credit_state_gas_refund(gas_meter: GasMeter, amount: StateGas) -> None:
+    """
+    Credit a state gas refund to the local frame, in LIFO order.
+
+    State-gas charges draw from the reservoir first and from `gas_left`
+    last, so refunds credit the pool charged last first: `gas_left` up
+    to the [spill], then the reservoir. This restores the exact pools
+    the charge drew from, so the two never drift.
+
+    Parameters
+    ----------
+    gas_meter :
+        The gas meter crediting the refund.
+    amount :
+        The refund amount to credit.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+
+    """
+    from_gas_left = min(amount, gas_meter.state_gas_spilled)
+    gas_meter.gas_left += from_gas_left
+    gas_meter.state_gas_spilled -= from_gas_left
+    gas_meter.state_gas_left += amount - from_gas_left
+
+
+def forfeit_remaining_gas(gas_meter: GasMeter) -> None:
+    """
+    Consume all remaining execution gas on an exceptional halt.
+
+    Parameters
+    ----------
+    gas_meter :
+        The halted frame's gas meter.
+
+    """
+    # A rollback owes any outstanding spill back to `gas_left`; it
+    # must be restored before the remainder burns.
+    assert gas_meter.state_gas_spilled == Uint(0)
+    gas_meter.gas_left = Uint(0)
+
+
+def withhold_create_gas(gas_meter: GasMeter) -> Uint:
+    """
+    Withhold and return the gas made available to a `CREATE*` child.
+
+    Deduct the all-but-one-64th share from the frame's `gas_left` and
+    return it as the child frame's execution-gas grant.
+
+    Parameters
+    ----------
+    gas_meter :
+        The creating frame's gas meter.
+
+    Returns
+    -------
+    child_gas : `ethereum.base_types.Uint`
+        The execution gas granted to the child frame.
+
+    """
+    child_gas = max_message_call_gas(gas_meter.gas_left)
+    gas_meter.gas_left -= child_gas
+    return child_gas
+
+
+def drain_state_gas_reservoir(gas_meter: GasMeter) -> Uint:
+    """
+    Empty the frame's state gas reservoir for a child frame.
+
+    A child frame receives the parent's entire reservoir; there is no
+    all-but-one-64th rule for state gas. The parent's reservoir is
+    restored when the child returns.
+
+    Parameters
+    ----------
+    gas_meter :
+        The parent frame's gas meter.
+
+    Returns
+    -------
+    reservoir : `ethereum.base_types.Uint`
+        The state gas granted to the child frame.
+
+    """
+    reservoir = gas_meter.state_gas_left
+    gas_meter.state_gas_left = Uint(0)
+    return reservoir
+
+
+def restore_child_gas(
+    gas_meter: GasMeter, gas: Uint, state_gas_reservoir: Uint
+) -> None:
+    """
+    Return a child frame's unused gas grant to the parent.
+
+    Used when the child frame is never entered (for example, a stack
+    depth or balance check fails): the withheld execution gas and
+    drained reservoir are returned untouched.
+
+    Parameters
+    ----------
+    gas_meter :
+        The parent frame's gas meter.
+    gas :
+        The execution gas grant to return.
+    state_gas_reservoir :
+        The state gas reservoir to return.
+
+    """
+    gas_meter.gas_left += gas
+    gas_meter.state_gas_left += state_gas_reservoir
 
 
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
@@ -598,4 +911,142 @@ def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
     """
     return Uint(calculate_total_blob_gas(tx)) * calculate_blob_gas_price(
         excess_blob_gas
+    )
+
+
+@final
+@dataclass
+class EvmGasAllocation:
+    """
+    Split of a transaction's EVM gas across the two dimensions.
+    """
+
+    execution_gas: Uint
+    """Execution gas granted to the top frame, capped by the budget."""
+
+    state_gas_reservoir: Uint
+    """State gas set aside for the top frame's reservoir."""
+
+
+def allocate_evm_gas(
+    tx_gas: Uint, intrinsic: IntrinsicGasCost
+) -> EvmGasAllocation:
+    """
+    Split EVM gas into an execution-gas grant and a state reservoir.
+
+    After the intrinsic cost is removed, the remaining EVM gas is
+    divided into execution gas -- capped by the execution-gas budget
+    that remains below `TX_MAX_GAS_LIMIT` -- and a state gas reservoir
+    that holds whatever exceeds that cap.
+
+    Only valid once `validate_transaction` has confirmed the transaction
+    can afford its intrinsic cost, which guarantees the subtractions
+    below do not underflow.
+
+    Parameters
+    ----------
+    tx_gas :
+        The transaction's gas limit.
+    intrinsic :
+        The transaction's intrinsic gas cost.
+
+    Returns
+    -------
+    allocation : `EvmGasAllocation`
+        The execution gas grant and state gas reservoir.
+
+    """
+    evm_gas = tx_gas - Uint(intrinsic.execution)
+    execution_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.execution
+    execution_gas = min(execution_gas_budget, evm_gas)
+    state_gas_reservoir = Uint(evm_gas - execution_gas)
+    return EvmGasAllocation(execution_gas, state_gas_reservoir)
+
+
+@final
+@dataclass
+class TransactionGasSettlement:
+    """
+    Settled gas amounts for a finished transaction.
+
+    Hold only gas figures; the caller turns them into fee payments and
+    block-accounting updates.
+    """
+
+    gas_used: Uint
+    """Total gas charged to the sender, after refund and floor."""
+
+    gas_left: Uint
+    """Gas returned to the sender, priced at the effective gas price."""
+
+    execution_gas_used: Uint
+    """Execution gas the transaction contributes to the block total."""
+
+    state_gas_used: Uint
+    """State gas the transaction contributes to the block total."""
+
+
+def settle_transaction_gas(
+    tx_gas: Uint,
+    intrinsic: IntrinsicGasCost,
+    gas_left: Uint,
+    state_gas_left: Uint,
+    refund_counter: U256,
+    state_gas_used: int,
+) -> TransactionGasSettlement:
+    """
+    Settle a transaction's gas after execution.
+
+    Compute, in order:
+
+    - the gas used before refunds, from the gas limit less the
+      execution gas and reservoir the top frame returned;
+    - the refund, capped at one fifth of that pre-refund usage;
+    - the gas used, taken as the larger of the post-refund usage and the
+      calldata floor, so a transaction never pays below the floor; and
+    - the per-dimension block amounts: the state gas used (clamped to
+      zero, since refunds can drive it negative) and the execution gas
+      used, which carries the floor because the floor binds the
+      execution dimension. Unlike the sender-facing `gas_used`, it
+      ignores refunds: block accounting counts pre-refund gas
+      ([EIP-7778]).
+
+    Parameters
+    ----------
+    tx_gas :
+        The transaction's gas limit.
+    intrinsic :
+        The transaction's intrinsic gas cost.
+    gas_left :
+        Execution gas the top frame returned.
+    state_gas_left :
+        State gas reservoir the top frame returned.
+    refund_counter :
+        The refund the top frame accrued.
+    state_gas_used :
+        Net state gas the top frame consumed, possibly negative.
+
+    Returns
+    -------
+    settlement : `TransactionGasSettlement`
+        The settled gas amounts.
+
+    [EIP-7778]: https://eips.ethereum.org/EIPS/eip-7778
+
+    """
+    gas_used_before_refund = tx_gas - gas_left - state_gas_left
+    gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))
+    gas_used_after_refund = gas_used_before_refund - gas_refund
+    gas_used = max(gas_used_after_refund, intrinsic.calldata_floor)
+
+    settled_state_gas_used = Uint(max(0, state_gas_used))
+    execution_gas_used = max(
+        gas_used_before_refund - settled_state_gas_used,
+        intrinsic.calldata_floor,
+    )
+    return TransactionGasSettlement(
+        gas_used=gas_used,
+        gas_left=tx_gas - gas_used,
+        execution_gas_used=execution_gas_used,
+        state_gas_used=settled_state_gas_used,
     )

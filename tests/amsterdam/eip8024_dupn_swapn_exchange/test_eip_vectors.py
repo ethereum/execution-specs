@@ -787,6 +787,52 @@ def test_vector_exchange_invalid_0x52(
 
 
 @pytest.mark.parametrize(
+    "opcode",
+    [Op.DUPN, Op.SWAPN, Op.EXCHANGE],
+)
+def test_vector_push_in_immediate_masks_jumpdest(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    opcode: Op,
+) -> None:
+    """
+    Test that a PUSH1 in the would-be immediate masks a following 0x5b.
+
+    Executable form of the `e6605b` assembly vector ([INVALID_DUPN,
+    PUSH1 0x5b]), parametrized over all three opcodes. JUMPDEST analysis
+    is unchanged by EIP-8024: the byte after the opcode is analyzed as
+    PUSH1, whose data portion masks the 0x5b, so the jump to it must
+    fail. A client that instead masks the opcode's immediate would leave
+    the 0x5b at an instruction boundary, accept the jump, and succeed —
+    diverging on bytecode that is valid before and after the fork.
+    """
+    sender = pre.fund_eoa()
+
+    # 00 PUSH1 0x05
+    # 02 JUMP
+    # 03 <opcode>
+    # 04 PUSH1 0x5b
+    code = Op.PUSH1(5) + Op.JUMP + opcode[bytes(Op.PUSH1)] + Op.JUMPDEST
+    expected_bytes = (
+        bytes.fromhex("600556") + bytes(opcode) + bytes.fromhex("605b")
+    )
+    assert bytes(code) == expected_bytes
+
+    # This should never execute: position 5 is PUSH1 data, not a
+    # JUMPDEST, so the jump above aborts.
+    code += Op.SSTORE(0, 0x42)
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code, storage={0: 0xBA5E})
+    tx = Transaction(to=contract_address, sender=sender)
+
+    # Transaction fails on the invalid jump; the canary is untouched.
+    post = {contract_address: Account(storage={0: 0xBA5E})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
     "eip8024_opcode,stack_items",
     [
         pytest.param(Op.DUPN, 145, id="dupn"),

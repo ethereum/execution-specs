@@ -2,6 +2,7 @@
 Loader for code from the relevant fork.
 """
 
+from importlib import import_module
 from inspect import signature
 from typing import Any, Final
 
@@ -133,11 +134,6 @@ class ForkLoad:
     def signing_hash_155(self) -> Any:
         """signing_hash_155 function of the fork."""
         return self._module("transactions").signing_hash_155
-
-    @property
-    def has_signing_hash_155(self) -> bool:
-        """Check if the fork has a `signing_hash_155` function."""
-        return hasattr(self._module("transactions"), "signing_hash_155")
 
     @property
     def build_block_access_list(self) -> Any:
@@ -302,14 +298,6 @@ class ForkLoad:
         return self._module("transactions").LegacyTransaction
 
     @property
-    def has_legacy_transaction(self) -> bool:
-        """
-        Return `True` if the fork has a `LegacyTransaction` class, or `False`
-        otherwise.
-        """
-        return hasattr(self._module("transactions"), "LegacyTransaction")
-
-    @property
     def Access(self) -> Any:
         """Access class of the fork."""
         return self._module("transactions").Access
@@ -359,9 +347,15 @@ class ForkLoad:
         return self._module("transactions").decode_transaction
 
     @property
-    def has_decode_transaction(self) -> bool:
-        """Check if this fork has a `decode_transaction`."""
-        return hasattr(self._module("transactions"), "decode_transaction")
+    def state_provider(self) -> Any:
+        """
+        Module implementing the fork's state provider.
+
+        Resolved through the ``State`` class the fork's ``fork``
+        module imports, so each fork selects its own commitment
+        scheme (``ethereum.state_mpt``, ``ethereum.state_pbt``, ...).
+        """
+        return import_module(self._module("fork").State.__module__)
 
     @property
     def BlockState(self) -> Any:

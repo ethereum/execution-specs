@@ -1,16 +1,21 @@
 """
-abstract: Tests for transaction validity with [EIP-7981: Increase Access List Cost](https://eips.ethereum.org/EIPS/eip-7981).
-"""  # noqa: E501
+Tests for transaction validity with [EIP-7981: Increase Access List Cost](https://eips.ethereum.org/EIPS/eip-7981).
+"""
 
 import pytest
 from execution_testing import (
     AccessList,
+    Account,
     Address,
     Alloc,
     Bytes,
+    EIPChecklist,
+    Fork,
     Hash,
     StateTestFiller,
     Transaction,
+    TransactionException,
+    compute_create_address,
 )
 
 from .spec import ref_spec_7981
@@ -21,6 +26,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7981.version
 pytestmark = pytest.mark.valid_at("EIP7981")
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -76,6 +82,7 @@ def test_insufficient_gas_for_access_list(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -122,6 +129,7 @@ def test_floor_cost_validation_with_access_list(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list,tx_gas_delta",
@@ -168,6 +176,7 @@ def test_valid_gas_limits_with_access_list(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list,tx_data",
@@ -223,6 +232,7 @@ def test_mixed_zero_nonzero_bytes_floor_cost(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "tx_type,access_list",
     [
@@ -275,5 +285,78 @@ def test_transactions_without_access_list(
     state_test(
         pre=pre,
         post={},
+        tx=tx,
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
+@pytest.mark.parametrize(
+    "valid",
+    [
+        pytest.param(True, id="exact_gas"),
+        pytest.param(
+            False,
+            id="insufficient_gas_by_one",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_contract_creation_with_access_list(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    valid: bool,
+) -> None:
+    """
+    Test the intrinsic boundary of a contract-creating transaction with
+    an access list.
+
+    The EIP-7981 access list data cost stacks on top of the creation
+    intrinsic (creation access and init code charges). The created
+    account's state charge is applied at the top frame, after intrinsic
+    validation, so the exact-gas arm funds it separately while the
+    off-by-one arm pins the intrinsic requirement alone.
+    """
+    access_list = [
+        AccessList(address=Address(1), storage_keys=[Hash(0), Hash(1)])
+    ]
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        contract_creation=True,
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=b"", access_list=access_list, contract_creation=True
+    )
+    assert floor_gas <= intrinsic_gas
+
+    sender = pre.fund_eoa()
+    post: dict = {}
+    if valid:
+        gas_limit = intrinsic_gas + fork.transaction_top_frame_state_gas(
+            contract_creation=True
+        )
+        error = None
+        created = compute_create_address(address=sender, nonce=sender.nonce)
+        post[created] = Account(nonce=1, code=b"")
+    else:
+        gas_limit = intrinsic_gas - 1
+        error = TransactionException.INTRINSIC_GAS_TOO_LOW
+
+    tx = Transaction(
+        ty=tx_type,
+        sender=sender,
+        to=None,
+        access_list=access_list,
+        gas_limit=gas_limit,
+        error=error,
+    )
+
+    state_test(
+        pre=pre,
+        post=post,
         tx=tx,
     )

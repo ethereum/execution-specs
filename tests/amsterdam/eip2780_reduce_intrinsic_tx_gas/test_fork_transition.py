@@ -17,6 +17,9 @@ pre-fork ``TX_BASE`` of 21_000 as follows:
 - A self-transfer is fully carved out post-fork: it pays only the
   lowered ``TX_BASE`` with no recipient or value-transfer charge,
   regardless of value, the largest reduction.
+- A contract creation splits the flat pre-fork ``TX_CREATE`` into the
+  ``CREATE_ACCESS`` execution intrinsic and a top-frame ``NEW_ACCOUNT``
+  state charge.
 """
 
 import pytest
@@ -26,9 +29,11 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Op,
     RecipientType,
     Transaction,
     TransitionFork,
+    compute_create_address,
 )
 
 from .helpers import EOA_INITIAL_BALANCE
@@ -97,9 +102,7 @@ def test_intrinsic_reduction_across_amsterdam_transition(
     if not self_transfer:
         expected_post += post_gas_costs.COLD_ACCOUNT_ACCESS
         if value:
-            expected_post += (
-                post_gas_costs.TRANSFER_LOG_COST + post_gas_costs.TX_VALUE_COST
-            )
+            expected_post += post_gas_costs.TX_VALUE_COST
 
     timestamps = [PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP]
     expected_intrinsics = [expected_pre, expected_post]
@@ -150,5 +153,119 @@ def test_intrinsic_reduction_across_amsterdam_transition(
         post[sender] = Account(nonce=1, balance=sender_final_balance)
         if not self_transfer:
             post[target] = Account(balance=EOA_INITIAL_BALANCE + value)
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(0, id="zero_value"),
+        pytest.param(1, id="non-zero_value"),
+    ],
+)
+def test_creation_tx_intrinsic_across_amsterdam_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: TransitionFork,
+    value: int,
+) -> None:
+    """
+    Pin the EIP-2780 creation-transaction change across the Amsterdam
+    boundary.
+
+    The same creation transaction (``to=None``, ``STOP`` init code that
+    deploys empty code) is sent in a pre-fork block and a post-fork
+    block, each from a fresh sender with the gas limit pinned exactly.
+    Pre-fork the whole cost is execution intrinsic: ``TX_BASE`` plus the
+    flat ``TX_CREATE``. Post-fork the intrinsic keeps only the
+    ``CREATE_ACCESS`` execution portion of ``TX_CREATE``, while the created
+    account's ``NEW_ACCOUNT`` is charged as *state* gas at the top frame — the
+    sender-facing total is the sum of both.
+
+    The per-fork costs are hand-derived from each fork's gas constants
+    and checked against the calculators, so a calculator regression
+    fails with a clear message rather than only as a downstream balance
+    mismatch.
+    """
+    gas_price = 1_000_000_000
+    init_code = Op.STOP
+
+    pre_fork = fork.fork_at(timestamp=PRE_FORK_TIMESTAMP)
+    post_fork = fork.fork_at(timestamp=POST_FORK_TIMESTAMP)
+    pre_costs = pre_fork.gas_costs()
+    post_costs = post_fork.gas_costs()
+
+    # Shared calldata terms for the one-byte STOP init code: a single
+    # zero-byte token, plus the EIP-3860 metering of one 32-byte init
+    # code word at 2 gas. Identical on both sides of the fork.
+    assert (
+        post_costs.TX_DATA_TOKEN_STANDARD == pre_costs.TX_DATA_TOKEN_STANDARD
+    )
+    init_code_terms = pre_costs.TX_DATA_TOKEN_STANDARD + 2
+
+    # Pre-fork: flat execution intrinsic, no top-frame charge.
+    expected_pre = pre_costs.TX_BASE + pre_costs.TX_CREATE + init_code_terms
+    # Post-fork: EIP-8037 folds ``NEW_ACCOUNT`` into ``TX_CREATE``;
+    # EIP-2780 moves that state portion to the top frame, leaving the
+    # ``CREATE_ACCESS`` execution remainder in the intrinsic.
+    expected_post = (
+        post_costs.TX_BASE
+        + (post_costs.TX_CREATE - post_costs.NEW_ACCOUNT)
+        + init_code_terms
+    )
+    expected_post_state = post_costs.NEW_ACCOUNT
+
+    timestamps = [PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP]
+    expected_intrinsics = [expected_pre, expected_post]
+    expected_top_frame_states = [0, expected_post_state]
+    blocks = []
+    post: dict[Address, Account] = {}
+
+    for timestamp, expected_intrinsic, expected_state in zip(
+        timestamps, expected_intrinsics, expected_top_frame_states, strict=True
+    ):
+        sub_fork = fork.fork_at(timestamp=timestamp)
+        intrinsic_gas = sub_fork.transaction_intrinsic_cost_calculator()(
+            calldata=init_code,
+            contract_creation=True,
+            sends_value=bool(value),
+            return_cost_deducted_prior_execution=True,
+        )
+        assert intrinsic_gas == expected_intrinsic, (
+            f"creation intrinsic at timestamp {timestamp} ({sub_fork}) is "
+            f"{intrinsic_gas}, expected {expected_intrinsic}"
+        )
+        top_frame_state_gas = sub_fork.transaction_top_frame_state_gas(
+            contract_creation=True,
+        )
+        assert top_frame_state_gas == expected_state, (
+            f"top-frame state gas at timestamp {timestamp} ({sub_fork}) is "
+            f"{top_frame_state_gas}, expected {expected_state}"
+        )
+
+        sender_initial_balance = 10**18
+        sender = pre.fund_eoa(sender_initial_balance)
+        created = compute_create_address(address=sender, nonce=sender.nonce)
+
+        # The STOP init code costs no execution gas and deploys empty
+        # code (no deposit charges), so the gas limit is pinned to
+        # exactly the intrinsic plus the fork's top-frame state charge.
+        total_gas = intrinsic_gas + top_frame_state_gas
+        tx = Transaction(
+            sender=sender,
+            to=None,
+            data=init_code,
+            value=value,
+            gas_limit=total_gas,
+            gas_price=gas_price,
+        )
+        blocks.append(Block(timestamp=timestamp, txs=[tx]))
+
+        post[sender] = Account(
+            nonce=1,
+            balance=sender_initial_balance - value - total_gas * gas_price,
+        )
+        post[created] = Account(nonce=1, balance=value, code=b"")
 
     blockchain_test(pre=pre, blocks=blocks, post=post)

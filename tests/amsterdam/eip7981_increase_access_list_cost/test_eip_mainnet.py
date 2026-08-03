@@ -1,12 +1,13 @@
 """
-abstract: Crafted tests for mainnet of [EIP-7981: Increase Access List Cost](https://eips.ethereum.org/EIPS/eip-7981).
-"""  # noqa: E501
+Crafted tests for mainnet of [EIP-7981: Increase Access List Cost](https://eips.ethereum.org/EIPS/eip-7981).
+"""
 
 import pytest
 from execution_testing import (
     AccessList,
     Address,
     Alloc,
+    EIPChecklist,
     Hash,
     StateTestFiller,
     Transaction,
@@ -20,6 +21,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7981.version
 pytestmark = [pytest.mark.valid_at("EIP7981"), pytest.mark.mainnet]
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list",
@@ -92,6 +94,7 @@ def test_access_list_gas_cost(
     )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
     "access_list",

@@ -17,6 +17,7 @@ from execution_testing.fixtures.file import Fixtures
 from execution_testing.rpc import EthRPC
 
 from ..consume import FixturesSource
+from .helpers.rejected_blocks import BlockRejectionTracker
 
 
 @pytest.fixture(scope="function")
@@ -36,6 +37,20 @@ def genesis_verified_clients() -> set[str]:
     pre-alloc group, letting later tests skip the redundant check.
     """
     return set()
+
+
+@pytest.fixture(scope="session")
+def block_rejection_tracker() -> BlockRejectionTracker:
+    """
+    Return the tracker of invalid blocks rejected by each client.
+
+    In enginex mode a client is reused across a pre-alloc group, so a later
+    test can resubmit a block that the client already rejected for an earlier
+    test and receive a generic bad-block-cache error instead of the specific
+    validation error. The tracker remembers each client's first rejection so
+    the expected exception can be verified against it in that case.
+    """
+    return BlockRejectionTracker()
 
 
 @pytest.fixture(scope="function")

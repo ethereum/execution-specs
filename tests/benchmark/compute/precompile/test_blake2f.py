@@ -16,10 +16,9 @@ from execution_testing import (
     WhileGas,
 )
 
+from tests.benchmark.helper.precompile import Precompile
 from tests.istanbul.eip152_blake2.common import Blake2bInput
 from tests.istanbul.eip152_blake2.spec import Spec as Blake2bSpec
-
-from ..helpers import Precompile
 
 
 @pytest.mark.parametrize(

@@ -22,6 +22,7 @@ from execution_testing.client_clis.cli_types import (
     LazyAllocFile,
     LazyAllocJson,
     LazyAllocStr,
+    OpcodeCount,
     Result,
     TransitionToolInput,
     TransitionToolOutput,
@@ -132,7 +133,7 @@ TEST_ALLOC_STATE_ROOT = TEST_ALLOC.state_root()
 def test_lazy_alloc(ty: Type[LazyAlloc], raw: Any) -> None:
     """Test LazyAlloc types."""
     lazy_instance = ty(raw=raw, _state_root=TEST_ALLOC_STATE_ROOT)
-    assert lazy_instance.get() == TEST_ALLOC
+    assert lazy_instance.materialize() == TEST_ALLOC
     assert lazy_instance.state_root() == TEST_ALLOC_STATE_ROOT
 
 
@@ -143,7 +144,7 @@ def test_lazy_alloc_file(tmp_path: Path) -> None:
     lazy_instance = LazyAllocFile(
         raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT
     )
-    assert lazy_instance.get() == TEST_ALLOC
+    assert lazy_instance.materialize() == TEST_ALLOC
     assert lazy_instance.state_root() == TEST_ALLOC_STATE_ROOT
 
 
@@ -168,7 +169,7 @@ def test_lazy_alloc_file_handles_mixed_entries(tmp_path: Path) -> None:
     alloc_path = tmp_path / "alloc.json"
     alloc_path.write_text(alloc.model_dump_json())
     lazy_instance = LazyAllocFile(raw=alloc_path, _state_root=state_root)
-    assert lazy_instance.get() == alloc
+    assert lazy_instance.materialize() == alloc
     assert lazy_instance.state_root() == state_root
 
 
@@ -201,7 +202,7 @@ def test_model_validate_files_uses_lazy_alloc_file(tmp_path: Path) -> None:
 
     assert isinstance(output.alloc, LazyAllocFile)
     assert output.alloc.raw == alloc_path
-    assert output.alloc.get() == TEST_ALLOC
+    assert output.alloc.materialize() == TEST_ALLOC
 
 
 def test_transition_tool_input_serializes_lazy_alloc_file(
@@ -240,7 +241,7 @@ def test_to_files_copies_chained_lazy_alloc_file_without_serialize(
     """
     Chained-block handoff: `to_files` should copy the backing alloc file
     byte-for-byte rather than round-tripping through
-    `LazyAllocFile.get().model_dump_json()`. Verified by populating the
+    `LazyAllocFile.materialize().model_dump_json()`. Verified by populating the
     file with bytes that don't match what pydantic would re-emit and
     asserting those exact bytes survive the dump.
     """
@@ -312,7 +313,7 @@ def test_lazy_alloc_file_keepalive_pins_temp_dir() -> None:
     # Releasing our handle leaves the file alive via the keepalive on lazy.
     del keep
     assert alloc_path.exists()
-    assert lazy.get() == TEST_ALLOC
+    assert lazy.materialize() == TEST_ALLOC
 
     # Dropping the LazyAllocFile drops the keepalive; TemporaryDirectory's
     # finalizer wipes the directory. PyPy doesn't refcount, so trigger GC
@@ -350,10 +351,10 @@ def test_dump_files_to_directory_lazy_alloc_file_after_backing_removed(
 ) -> None:
     """
     On chained blocks, the previous block's t8n temp dir is cleaned up after
-    its alloc is materialized via ``.get()``. The resulting ``LazyAllocFile``
-    still carries a now-stale ``.raw`` path. Debug dumps must fall back to
-    re-serializing the cached ``Alloc`` instead of attempting to copy the
-    missing backing file.
+    its alloc is materialized via ``.materialize()``. The resulting
+    ``LazyAllocFile`` still carries a now-stale ``.raw`` path. Debug dumps must
+    fall back to re-serializing the cached ``Alloc`` instead of attempting to
+    copy the missing backing file.
     """
     from execution_testing.client_clis.file_utils import (
         dump_files_to_directory,
@@ -362,7 +363,7 @@ def test_dump_files_to_directory_lazy_alloc_file_after_backing_removed(
     source = tmp_path / "source_alloc.json"
     source.write_text(TEST_ALLOC.model_dump_json())
     lazy = LazyAllocFile(raw=source, _state_root=TEST_ALLOC_STATE_ROOT)
-    lazy.get()
+    lazy.materialize()
     source.unlink()
 
     dump_dir = tmp_path / "dump"
@@ -396,7 +397,7 @@ def test_lazy_alloc_file_malformed_json_raises(
     lazy = LazyAllocFile(raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT)
 
     with pytest.raises(ijson.common.IncompleteJSONError):
-        lazy.get()
+        lazy.materialize()
 
 
 @pytest.mark.parametrize(
@@ -421,7 +422,7 @@ def test_lazy_alloc_file_non_object_top_level_raises(
     lazy = LazyAllocFile(raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT)
 
     with pytest.raises(ValueError, match="Expected JSON object"):
-        lazy.get()
+        lazy.materialize()
 
 
 def test_lazy_alloc_file_empty_object_yields_empty_alloc(
@@ -435,4 +436,50 @@ def test_lazy_alloc_file_empty_object_yields_empty_alloc(
     alloc_path.write_bytes(b"{}")
     lazy = LazyAllocFile(raw=alloc_path, _state_root=TEST_ALLOC_STATE_ROOT)
 
-    assert lazy.get() == Alloc.model_validate({})
+    assert lazy.materialize() == Alloc.model_validate({})
+
+
+def _output_with_opcode_count(counts: dict) -> TransitionToolOutput:
+    """Build a minimal t8n output carrying the given opcode counts."""
+    result = Result.model_validate(
+        {
+            "stateRoot": "0x" + "00" * 32,
+            "txRoot": "0x" + "00" * 32,
+            "receiptsRoot": "0x" + "00" * 32,
+            "logsHash": "0x" + "00" * 32,
+            "logsBloom": "0x" + "00" * 256,
+            "receipts": [],
+            "gasUsed": "0x0",
+        }
+    )
+    result.opcode_count = OpcodeCount.model_validate(counts)
+    return TransitionToolOutput(
+        alloc=LazyAllocJson(
+            raw=TEST_ALLOC.model_dump(), _state_root=TEST_ALLOC_STATE_ROOT
+        ),
+        result=result,
+    )
+
+
+def test_opcode_count_accumulation() -> None:
+    """
+    `process_result` accumulates the per-test opcode count total and also
+    records each call's (per-block) count separately.
+    """
+    tool = ExecutionSpecsTransitionTool()
+    tool.reset_opcode_count()
+
+    tool.process_result(_output_with_opcode_count({"PUSH1": 5, "SSTORE": 2}))
+    tool.process_result(_output_with_opcode_count({"PUSH1": 3}))
+
+    assert tool.opcode_count == OpcodeCount.model_validate(
+        {"PUSH1": 8, "SSTORE": 2}
+    )
+    assert tool.opcode_count_per_block == [
+        OpcodeCount.model_validate({"PUSH1": 5, "SSTORE": 2}),
+        OpcodeCount.model_validate({"PUSH1": 3}),
+    ]
+
+    tool.reset_opcode_count()
+    assert tool.opcode_count == OpcodeCount({})
+    assert tool.opcode_count_per_block == []

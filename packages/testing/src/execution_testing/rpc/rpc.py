@@ -37,7 +37,6 @@ from tenacity import (
 from execution_testing.base_types import (
     Account,
     Address,
-    Alloc,
     Bytes,
     Hash,
     to_json,
@@ -45,12 +44,14 @@ from execution_testing.base_types import (
 from execution_testing.logging import (
     get_logger,
 )
+from execution_testing.test_types import Alloc
 
 from .rpc_types import (
     EthConfigResponse,
     ForkchoiceState,
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
+    GetBlobsV4Response,
     GetPayloadResponse,
     JSONRPCError,
     JSONRPCRequest,
@@ -1299,6 +1300,17 @@ class DebugRPC(EthRPC):
     used within EEST based hive simulators.
     """
 
+    # JSON-RPC "method not found" error code.
+    _METHOD_NOT_FOUND = -32601
+
+    # JSON-RPC "internal error" code. Nethermind registers debug_setHead
+    # but throws NotImplementedException, surfaced as this code.
+    _METHOD_NOT_IMPLEMENTED = -32603
+
+    # Which head-rewind method the client supports; resolved on first use
+    # so the fallback probe runs only once per session.
+    _rewind_method: str | None = None
+
     def trace_call(self, tr: dict[str, str], block_number: str) -> Any | None:
         """`debug_traceCall`: Returns pre state required for transaction."""
         params = [tr, block_number, {"tracer": "prestateTracer"}]
@@ -1306,11 +1318,73 @@ class DebugRPC(EthRPC):
             request=RPCCall(method="traceCall", params=params)
         ).result_or_raise()
 
+    def trace_block_by_hash(
+        self, block_hash: str, tracer_config: dict[str, Any]
+    ) -> Any:
+        """`debug_traceBlockByHash`: Trace every transaction in a block."""
+        params = [block_hash, tracer_config]
+        return self.post_request(
+            request=RPCCall(method="traceBlockByHash", params=params)
+        ).result_or_raise()
+
     def set_head(self, block_number: str) -> None:
-        """`debug_setHead`: Reset chain head to the given block."""
+        """`debug_setHead`: Reset chain head to the given block number."""
         self.post_request(
             request=RPCCall(method="setHead", params=[block_number])
         ).result_or_raise()
+
+    def reset_head(self, block_hash: str) -> None:
+        """`debug_resetHead`: Reset chain head to the given block hash."""
+        self.post_request(
+            request=RPCCall(method="resetHead", params=[block_hash])
+        ).result_or_raise()
+
+    def rewind_head(self, *, block_number: str, block_hash: str) -> None:
+        """
+        Rewind the chain head to a given block.
+
+        Prefer geth's ``debug_setHead`` (takes a block number); if the
+        client does not expose it (e.g. Nethermind, which returns a
+        "method not found"/"not implemented" error), fall back to
+        ``debug_resetHead`` (takes a block hash). If the client implements
+        neither, give up gracefully (``"none"``): each per-test block is
+        built on its explicit start_block parent, so the client reorgs onto
+        it without a debug rewind. The chosen method is cached after the
+        first call so the probe runs only once.
+
+        Note ``debug_setHead`` truncates the chain (geth), keeping the block
+        tree small, whereas ``debug_resetHead`` only repoints the head on
+        Nethermind — there per-test forks still accumulate as under
+        ``"none"``.
+        """
+        if self._rewind_method is None:
+            try:
+                self.set_head(block_number)
+                self._rewind_method = "setHead"
+                return
+            except JSONRPCError as e:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
+                    raise
+            try:
+                self.reset_head(block_hash)
+                self._rewind_method = "resetHead"
+                return
+            except JSONRPCError as e:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
+                    raise
+                self._rewind_method = "none"
+                return
+        if self._rewind_method == "setHead":
+            self.set_head(block_number)
+        elif self._rewind_method == "resetHead":
+            self.reset_head(block_hash)
+        # "none": no debug rewind available; the explicit-parent build reorgs.
 
 
 class EngineRPC(BaseJwtRPC):
@@ -1405,6 +1479,7 @@ class EngineRPC(BaseJwtRPC):
         payload_attributes: PayloadAttributes | None = None,
         *,
         version: int,
+        custody_columns: bytes | None = None,
     ) -> ForkchoiceUpdateResponse:
         """
         `engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the
@@ -1412,10 +1487,16 @@ class EngineRPC(BaseJwtRPC):
         """
         method = f"forkchoiceUpdatedV{version}"
 
+        params: List[Any]
         if payload_attributes is None:
             params = [to_json(forkchoice_state), None]
         else:
             params = [to_json(forkchoice_state), to_json(payload_attributes)]
+        if custody_columns is not None:
+            # Third parameter of `engine_forkchoiceUpdatedV4` (EIP-8070):
+            # a bitmap of the blob columns custodied by the node.
+            assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
+            params.append(f"0x{custody_columns.hex()}")
 
         return ForkchoiceUpdateResponse.model_validate(
             self.post_request(
@@ -1448,21 +1529,33 @@ class EngineRPC(BaseJwtRPC):
         versioned_hashes: List[Hash],
         *,
         version: int,
-    ) -> GetBlobsResponse | None:
+        indices_bitarray: int | None = None,
+    ) -> GetBlobsResponse | GetBlobsV4Response | None:
         """
         `engine_getBlobsVX`: Retrieves blobs from an execution layers tx pool.
         """
         method = f"getBlobsV{version}"
-        params = [f"{h}" for h in versioned_hashes]
+        params: List[Any] = [[f"{h}" for h in versioned_hashes]]
+
+        if version >= 4:
+            assert indices_bitarray is not None, (
+                f"getBlobsV{version} requires an indices_bitarray cell mask."
+            )
+            # `indices_bitarray` is a little-endian 16-byte bitmap where bit
+            # `i` selects cell `i` (execution-apis `engine_getBlobsV4`).
+            params.append(f"0x{indices_bitarray.to_bytes(16, 'little').hex()}")
 
         response = self.post_request(
-            request=RPCCall(method=method, params=[params]),
+            request=RPCCall(method=method, params=params),
         ).result_or_raise()
         if response is None:  # for tests that request non-existing blobs
             logger.debug("get_blobs response received but it has value: None")
             return None
 
-        return GetBlobsResponse.model_validate(
+        response_model = (
+            GetBlobsV4Response if version >= 4 else GetBlobsResponse
+        )
+        return response_model.model_validate(
             response,
             context=self.response_validation_context,
         )

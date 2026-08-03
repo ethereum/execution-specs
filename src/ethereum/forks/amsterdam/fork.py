@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Final, List, Optional, Tuple, final
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes0
+from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
@@ -35,9 +35,8 @@ from ethereum.state import (
     Address,
     BlockDiff,
     PreState,
-    State,
-    apply_changes_to_state,
 )
+from ethereum.state_mpt import State, apply_changes_to_state
 
 from . import vm
 from .block_access_lists import (
@@ -106,10 +105,12 @@ from .vm.eoa_delegation import is_valid_delegation
 from .vm.gas import (
     GasCosts,
     StateGasCosts,
+    allocate_evm_gas,
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
     calculate_total_blob_gas,
+    settle_transaction_gas,
 )
 from .vm.interpreter import MessageCallOutput, process_message_call
 
@@ -355,9 +356,7 @@ def execute_block(
         withdrawals=block.withdrawals,
     )
     block_diff = extract_block_diff(block_state)
-    block_state_root, _ = pre_state.compute_state_root_and_trie_changes(
-        block_diff.account_changes, block_diff.storage_changes
-    )
+    block_state_root = pre_state.compute_state_root(block_diff)
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
     block_logs_bloom = logs_bloom(block_output.block_logs)
@@ -580,7 +579,7 @@ def check_transaction(
         is empty.
 
     """
-    regular_gas_available = (
+    execution_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )
     state_gas_available = (
@@ -589,8 +588,8 @@ def check_transaction(
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
     # EIP-8037 per-dimension inclusion check.
-    if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
-        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
+    if min(TX_MAX_GAS_LIMIT, tx.gas) > execution_gas_available:
+        raise GasUsedExceedsLimitError("execution gas used exceeds limit")
 
     if tx.gas > state_gas_available:
         raise GasUsedExceedsLimitError("state gas used exceeds limit")
@@ -826,8 +825,6 @@ def process_unchecked_system_transaction(
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
-        intrinsic_regular_gas=Uint(0),
-        intrinsic_state_gas=Uint(0),
     )
 
     system_tx_message = Message(
@@ -1070,8 +1067,6 @@ def process_transaction(
 
     intrinsic = validate_transaction(tx, sender)
 
-    intrinsic_gas = Uint(intrinsic.regular) + Uint(intrinsic.state)
-
     (
         effective_gas_price,
         blob_versioned_hashes,
@@ -1093,12 +1088,9 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * effective_gas_price
 
-    # Split execution gas into gas_left (capped by remaining regular gas
-    # budget) and state_gas_reservoir.
-    execution_gas = tx.gas - intrinsic_gas
-    regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
-    gas = min(regular_gas_budget, execution_gas)
-    state_gas_reservoir = Uint(execution_gas - gas)
+    # Split the EVM gas into an execution-gas grant (capped by the
+    # remaining execution-gas budget) and a state gas reservoir.
+    allocation = allocate_evm_gas(tx.gas, intrinsic)
 
     increment_nonce(tx_state, sender)
 
@@ -1125,8 +1117,8 @@ def process_transaction(
         recipient=tx.to,
         value=tx.value,
         gas_price=effective_gas_price,
-        gas=gas,
-        state_gas_reservoir=state_gas_reservoir,
+        gas=allocation.execution_gas,
+        state_gas_reservoir=allocation.state_gas_reservoir,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
         state=tx_state,
@@ -1134,43 +1126,26 @@ def process_transaction(
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
-        intrinsic_regular_gas=intrinsic.regular,
-        intrinsic_state_gas=intrinsic.state,
     )
 
-    message = prepare_message(
-        block_env,
-        tx_env,
-        tx,
-    )
+    message = prepare_message(block_env, tx_env, tx)
 
     tx_output = process_message_call(message)
 
-    if isinstance(tx.to, Bytes0) and (
-        tx_output.error is not None or tx_output.created_target_alive
-    ):
-        new_account_refund = StateGasCosts.NEW_ACCOUNT
-        tx_output.state_gas_left += new_account_refund
-        tx_output.state_refund += new_account_refund
-
-    tx_gas_used_before_refund = (
-        tx.gas - tx_output.gas_left - tx_output.state_gas_left
+    settlement = settle_transaction_gas(
+        tx.gas,
+        intrinsic,
+        tx_output.gas_left,
+        tx_output.state_gas_left,
+        tx_output.refund_counter,
+        tx_output.state_gas_used,
     )
-    tx_gas_refund = min(
-        tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)
-    )
-    tx_gas_used_after_refund = tx_gas_used_before_refund - tx_gas_refund
 
-    # Transactions with less execution_gas_used than the floor pay at the
-    # floor cost.
-    tx_gas_used = max(tx_gas_used_after_refund, intrinsic.calldata_floor)
-
-    tx_gas_left = tx.gas - tx_gas_used
-    gas_refund_amount = tx_gas_left * effective_gas_price
+    gas_refund_amount = settlement.gas_left * effective_gas_price
 
     # For non-1559 transactions effective_gas_price == tx.gas_price
     priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
-    transaction_fee = tx_gas_used * priority_fee_per_gas
+    transaction_fee = settlement.gas_used * priority_fee_per_gas
 
     # refund gas
     create_ether(tx_state, sender, U256(gas_refund_amount))
@@ -1178,19 +1153,11 @@ def process_transaction(
     # transfer miner fees
     create_ether(tx_state, block_env.coinbase, U256(transaction_fee))
 
-    tx_state_gas = (
-        int(tx_env.intrinsic_state_gas)
-        + tx_output.state_gas_used
-        - int(tx_output.state_refund)
-    )
-    # Defensive guard for Uint conversion: State refunds never exceed
-    # the state charges so the value is non-negative.
-    tx_regular_gas = tx_gas_used_before_refund - Uint(max(0, tx_state_gas))
-    block_output.block_gas_used += tx_regular_gas
-    block_output.block_state_gas_used += Uint(max(0, tx_state_gas))
+    block_output.block_gas_used += settlement.execution_gas_used
+    block_output.block_state_gas_used += settlement.state_gas_used
     block_output.blob_gas_used += tx_blob_gas_used
 
-    block_output.cumulative_gas_used += tx_gas_used
+    block_output.cumulative_gas_used += settlement.gas_used
     receipt = make_receipt(
         tx, tx_output.error, block_output.cumulative_gas_used, tx_output.logs
     )

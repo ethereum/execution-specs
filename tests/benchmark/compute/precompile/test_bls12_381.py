@@ -21,7 +21,7 @@ from execution_testing import (
 )
 from py_ecc import optimized_bls12_381 as bls_curve
 
-from tests.benchmark.compute.helpers import Precompile
+from tests.benchmark.helper.precompile import Precompile
 from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
 from tests.prague.eip2537_bls_12_381_precompiles.spec import (
     build_gas_calculation_function_map,
@@ -39,35 +39,11 @@ from tests.prague.eip2537_bls_12_381_precompiles.spec import (
             marks=pytest.mark.repricing,
         ),
         pytest.param(
-            bls12381_spec.Spec.G1MSM,
-            (
-                bls12381_spec.Spec.P1
-                + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
-            )
-            * (len(bls12381_spec.Spec.G1MSM_DISCOUNT_TABLE) - 1),
-            Precompile.BLS12_G1MSM,
-            id="bls12_g1msm",
-        ),
-        pytest.param(
             bls12381_spec.Spec.G2ADD,
             bls12381_spec.Spec.G2 + bls12381_spec.Spec.P2,
             Precompile.BLS12_G2ADD,
             id="bls12_g2add",
             marks=pytest.mark.repricing,
-        ),
-        pytest.param(
-            bls12381_spec.Spec.G2MSM,
-            # TODO: the //2 is required due to a limitation of the max
-            # contract size limit. In a further iteration we can insert
-            # inputs as calldata or storage and avoid doing PUSHes which
-            # has this limitation. This also applies to G1MSM.
-            (
-                bls12381_spec.Spec.P2
-                + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
-            )
-            * (len(bls12381_spec.Spec.G2MSM_DISCOUNT_TABLE) // 2),
-            Precompile.BLS12_G2MSM,
-            id="bls12_g2msm",
         ),
         pytest.param(
             bls12381_spec.Spec.PAIRING,
@@ -96,6 +72,7 @@ from tests.prague.eip2537_bls_12_381_precompiles.spec import (
 def test_bls12_381(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
+    gas_benchmark_value: int,
     precompile_address: Address,
     calldata: bytes,
     target: OpcodeTarget,
@@ -103,6 +80,12 @@ def test_bls12_381(
     """Benchmark BLS12_381 precompile."""
     if precompile_address not in fork.precompiles():
         pytest.skip("Precompile not enabled")
+
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata
+    )
+    if intrinsic_gas_cost > gas_benchmark_value:
+        pytest.skip("calldata intrinsic gas cost exceeds the gas limit")
 
     attack_block = Op.POP(
         Op.STATICCALL(
@@ -125,6 +108,7 @@ def test_bls12_381(
 def test_bls12_g1_msm(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
+    gas_benchmark_value: int,
     k: int,
 ) -> None:
     """Benchmark BLS12_G1_MSM precompile with varying number of points."""
@@ -132,11 +116,13 @@ def test_bls12_g1_msm(
     if precompile_address not in fork.precompiles():
         pytest.skip("BLS12_G1_MSM precompile not enabled")
 
-    # Generate k pairs of (point, scalar)
-    calldata = Bytes(
-        (bls12381_spec.Spec.P1 + bls12381_spec.Scalar(bls12381_spec.Spec.Q))
-        * k
+    calldata = _g1msm_worstcase_calldata(k)
+
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata
     )
+    if intrinsic_gas_cost > gas_benchmark_value:
+        pytest.skip("k configuration exceeds the gas limit")
 
     attack_block = Op.POP(
         Op.STATICCALL(
@@ -176,11 +162,7 @@ def test_bls12_g2_msm(
     if precompile_address not in fork.precompiles():
         pytest.skip("BLS12_G2_MSM precompile not enabled")
 
-    # Generate k pairs of (point, scalar)
-    calldata = Bytes(
-        (bls12381_spec.Spec.P2 + bls12381_spec.Scalar(bls12381_spec.Spec.Q))
-        * k
-    )
+    calldata = _g2msm_worstcase_calldata(k)
 
     intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
         calldata=calldata
@@ -265,6 +247,40 @@ def _generate_bls12_g2_point(seed: int) -> Bytes:
     )
 
 
+def _g1msm_worstcase_calldata(k: int) -> Bytes:
+    """
+    Build a k-pair G1MSM input that resists MSM shortcuts.
+
+    Identical points would let the precompile factor out (sum sᵢ)·P, and
+    identical scalars would let Pippenger bucket every term together. Pairing
+    distinct points with distinct full-width scalars below the subgroup order
+    (so no term collapses to the point at infinity) forces the full k-term
+    computation.
+    """
+    rng = random.Random(0)
+    parts = [
+        bytes(_generate_bls12_g1_point(i))
+        + bytes(
+            bls12381_spec.Scalar(rng.randint(2**254, bls12381_spec.Spec.Q - 1))
+        )
+        for i in range(k)
+    ]
+    return Bytes(b"".join(parts))
+
+
+def _g2msm_worstcase_calldata(k: int) -> Bytes:
+    """G2MSM counterpart of `_g1msm_worstcase_calldata`."""
+    rng = random.Random(0)
+    parts = [
+        bytes(_generate_bls12_g2_point(i))
+        + bytes(
+            bls12381_spec.Scalar(rng.randint(2**254, bls12381_spec.Spec.Q - 1))
+        )
+        for i in range(k)
+    ]
+    return Bytes(b"".join(parts))
+
+
 def _generate_bls12_pairs(n: int, seed: int = 0) -> Bytes:
     """Generate n valid BLS12-381 (G1, G2) pairs."""
     calldata = Bytes()
@@ -285,19 +301,26 @@ def _g2add_calldata(seed: int) -> Bytes:
     return Bytes(_generate_bls12_g2_point(seed) + bls12381_spec.Spec.P2)
 
 
+# Full-width scalar just below the subgroup order. Using Q itself would be
+# congruent to 0 mod the subgroup order, so Q * P == O and the output fed
+# back into the next call would multiply the point at infinity forever. Q - 2
+# keeps every call a real scalar multiplication over a long, non-repeating
+# sequence of distinct points (its order mod Q exceeds any per-block
+# iteration count), preserving both the workload and the anti-caching intent.
+_MSM_SCALAR = bls12381_spec.Spec.Q - 2
+
+
 def _g1msm_calldata(seed: int) -> Bytes:
     """Generate G1MSM calldata with unique point."""
     return Bytes(
-        _generate_bls12_g1_point(seed)
-        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
+        _generate_bls12_g1_point(seed) + bls12381_spec.Scalar(_MSM_SCALAR)
     )
 
 
 def _g2msm_calldata(seed: int) -> Bytes:
     """Generate G2MSM calldata with unique point."""
     return Bytes(
-        _generate_bls12_g2_point(seed)
-        + bls12381_spec.Scalar(bls12381_spec.Spec.Q)
+        _generate_bls12_g2_point(seed) + bls12381_spec.Scalar(_MSM_SCALAR)
     )
 
 

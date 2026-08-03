@@ -148,6 +148,12 @@ def test_max_code_size_deposit_gas(
         contract_creation=True,
         return_cost_deducted_prior_execution=True,
     )
+    # Under EIP-2780 the created account's NEW_ACCOUNT state gas is
+    # charged at the top frame, no longer bundled in the intrinsic, so
+    # add it back into the exact-fit gas limit.
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        contract_creation=True,
+    )
 
     tx = Transaction(
         sender=alice,
@@ -155,7 +161,8 @@ def test_max_code_size_deposit_gas(
         data=initcode,
         gas_limit=(
             intrinsic_gas
-            + initcode.execution_gas(fork)
+            + top_frame_state_gas
+            + initcode.evm_gas(fork)
             + initcode.deployment_gas(fork)
             - gas_shortfall
         ),

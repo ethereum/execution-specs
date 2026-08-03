@@ -47,10 +47,10 @@ class Spec:
     STATE_BYTES_PER_STORAGE_SET = 64
     STATE_BYTES_PER_AUTH_BASE = 23
 
-    # Regular gas constants. EIP-8037 separated state from regular gas;
+    # Execution gas constants. EIP-8037 separated state from execution gas;
     # EIP-8038 then repriced them.
-    REGULAR_GAS_CREATE = 11000
-    # Total regular intrinsic per EIP-7702 authorization:
-    # ACCOUNT_WRITE (8000) + REGULAR_PER_AUTH_BASE_COST (7816).
+    EXECUTION_GAS_CREATE = 11000
+    # Total execution intrinsic per EIP-7702 authorization:
+    # ACCOUNT_WRITE (8000) + EXECUTION_PER_AUTH_BASE_COST (7816).
     PER_AUTH_BASE_COST = 15816
     GAS_COLD_STORAGE_WRITE = 13000
