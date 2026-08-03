@@ -885,8 +885,11 @@ def build_amsterdam_stateless_artifacts_from_t8n(
         build_stateless_input,
         serialize_stateless_input,
     )
+    from ethereum.forks.amsterdam.stateless_ssz import (
+        STATELESS_INPUT_SCHEMA_ID,
+    )
     from ethereum_types.bytes import Bytes as AmsterdamBytes
-    from ethereum_types.numeric import U8, U64
+    from ethereum_types.numeric import U16, U64
 
     parent_number = ZeroPaddedHexNumber(block_number - 1)
     parent_header_rlp = previous_env.block_headers.get(parent_number)
@@ -946,7 +949,7 @@ def build_amsterdam_stateless_artifacts_from_t8n(
         ),
         successful_validation=True,
         chain_id=U64(chain_id),
-        schema_fork_index=U8(0x15),
+        schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
     )
     stateless_output_bytes = serialize_stateless_output(stateless_output)
     return (
@@ -1012,13 +1015,13 @@ def is_invalid_input_stateless_output(stateless_output: Any) -> bool:
     """
     Return whether output is the invalid stateless input sentinel.
     """
-    from ethereum_types.numeric import U8, U64
+    from ethereum_types.numeric import U16, U64
 
     return (
         not stateless_output.successful_validation
         and bytes(stateless_output.new_payload_request_root) == b"\0" * 32
         and stateless_output.chain_id == U64(0)
-        and stateless_output.schema_fork_index == U8(0)
+        and stateless_output.schema_id == U16(0)
     )
 
 
@@ -1045,23 +1048,26 @@ def assert_amsterdam_stateless_output_request_root(
         )
 
 
-def assert_amsterdam_stateless_output_schema_fork_index(
+def assert_amsterdam_stateless_output_schema_id(
     *,
     block_number: int,
     stateless_output: Any,
 ) -> None:
     """
-    Assert the output identifies the fork rules executed by the guest.
+    Assert the output identifies the input schema executed by the guest.
     """
-    from ethereum_types.numeric import U8
+    from ethereum.forks.amsterdam.stateless_ssz import (
+        STATELESS_INPUT_SCHEMA_ID,
+    )
+    from ethereum_types.numeric import U16
 
-    expected_fork_index = U8(0x15)
+    expected_schema_id = U16(STATELESS_INPUT_SCHEMA_ID)
 
-    if stateless_output.schema_fork_index != expected_fork_index:
+    if stateless_output.schema_id != expected_schema_id:
         raise AssertionError(
-            "Stateless output schema_fork_index mismatch for block "
-            f"{block_number}: got {stateless_output.schema_fork_index}, "
-            f"want {expected_fork_index}"
+            "Stateless output schema_id mismatch for block "
+            f"{block_number}: got {stateless_output.schema_id}, "
+            f"want {expected_schema_id}"
         )
 
 
@@ -1100,7 +1106,7 @@ def verify_amsterdam_stateless_output(
         stateless_input=stateless_input,
         stateless_output=stateless_output,
     )
-    assert_amsterdam_stateless_output_schema_fork_index(
+    assert_amsterdam_stateless_output_schema_id(
         block_number=block_number,
         stateless_output=stateless_output,
     )

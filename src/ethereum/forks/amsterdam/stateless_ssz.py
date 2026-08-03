@@ -7,8 +7,8 @@ functions between the two representations.
 """
 
 from ethereum_types.bytes import Bytes, Bytes48, Bytes96
-from ethereum_types.numeric import U8, U64, U256, Uint
-from remerkleable.basic import boolean, uint8, uint64, uint256
+from ethereum_types.numeric import U16, U64, U256, Uint
+from remerkleable.basic import boolean, uint16, uint64, uint256
 from remerkleable.byte_arrays import ByteList, Bytes32, ByteVector
 from remerkleable.complex import Container
 from remerkleable.complex import List as SszList
@@ -214,7 +214,7 @@ class SszStatelessValidationResult(Container):
     new_payload_request_root: Bytes32
     successful_validation: boolean
     chain_id: uint64
-    schema_fork_index: uint8
+    schema_id: uint16
 
 
 # --- Conversion helpers ---
@@ -552,7 +552,7 @@ def validation_result_to_ssz(
         new_payload_request_root=Bytes32(bytes(vr.new_payload_request_root)),
         successful_validation=boolean(vr.successful_validation),
         chain_id=uint64(int(vr.chain_id)),
-        schema_fork_index=uint8(int(vr.schema_fork_index)),
+        schema_id=uint16(int(vr.schema_id)),
     )
 
 
@@ -566,5 +566,5 @@ def ssz_to_validation_result(
         ),
         successful_validation=bool(ssz_vr.successful_validation),
         chain_id=U64(ssz_vr.chain_id),
-        schema_fork_index=U8(ssz_vr.schema_fork_index),
+        schema_id=U16(ssz_vr.schema_id),
     )

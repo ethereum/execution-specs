@@ -1150,6 +1150,7 @@ def test_execution_witness_in_blockchain_fixture(
     sib = block.stateless_input_bytes
     assert sib is not None and len(sib) > 0
     from ethereum.forks.amsterdam.stateless_ssz import (
+        STATELESS_INPUT_SCHEMA_ID,
         STATELESS_INPUT_SCHEMA_ID_BYTES,
     )
 
@@ -1162,12 +1163,12 @@ def test_execution_witness_in_blockchain_fixture(
         deserialize_stateless_output,
     )
     from ethereum_types.bytes import Bytes as EthereumBytes
-    from ethereum_types.numeric import U8, U64
+    from ethereum_types.numeric import U16, U64
 
     stateless_output = deserialize_stateless_output(EthereumBytes(bytes(sob)))
     assert stateless_output.successful_validation is True
     assert stateless_output.chain_id == U64(1)
-    assert stateless_output.schema_fork_index == U8(0x15)
+    assert stateless_output.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
 
     engine_fixture_path = Path(
         "fixtures/blockchain_tests_engine/for_amsterdam/amsterdam/"
@@ -1367,8 +1368,11 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     from ethereum.forks.amsterdam.stateless_host import (
         deserialize_stateless_output,
     )
+    from ethereum.forks.amsterdam.stateless_ssz import (
+        STATELESS_INPUT_SCHEMA_ID,
+    )
     from ethereum_types.bytes import Bytes as EthereumBytes
-    from ethereum_types.numeric import U8
+    from ethereum_types.numeric import U16
 
     stateless_input = deserialize_stateless_input(
         EthereumBytes(bytes.fromhex(block["statelessInputBytes"][2:]))
@@ -1378,7 +1382,7 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     )
 
     assert stateless_output.successful_validation is True
-    assert stateless_output.schema_fork_index == U8(0x15)
+    assert stateless_output.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
     assert stateless_output.new_payload_request_root != Hash32(b"\0" * 32)
     assert (
         stateless_output.new_payload_request_root
@@ -1429,8 +1433,11 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
     from ethereum.forks.amsterdam.stateless_host import (
         deserialize_stateless_output,
     )
+    from ethereum.forks.amsterdam.stateless_ssz import (
+        STATELESS_INPUT_SCHEMA_ID,
+    )
     from ethereum_types.bytes import Bytes as EthereumBytes
-    from ethereum_types.numeric import U8
+    from ethereum_types.numeric import U16
 
     stateless_input = deserialize_stateless_input(
         EthereumBytes(bytes.fromhex(block["statelessInputBytes"][2:]))
@@ -1440,7 +1447,7 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
     )
 
     assert stateless_output.successful_validation is False
-    assert stateless_output.schema_fork_index == U8(0x15)
+    assert stateless_output.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
     assert stateless_output.new_payload_request_root != Hash32(b"\0" * 32)
     assert (
         stateless_output.new_payload_request_root

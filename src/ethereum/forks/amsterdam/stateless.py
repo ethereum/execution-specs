@@ -9,7 +9,7 @@ from typing import List, Sequence, Tuple, final
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U8, U64
+from ethereum_types.numeric import U16, U64
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
@@ -172,10 +172,11 @@ class StatelessValidationResult:
     ``run_stateless_guest`` cannot decode the input bytes.
     """
 
-    schema_fork_index: U8
+    schema_id: U16
     """
-    Fork rules executed by the guest. This uses the invalid-input sentinel
-    when ``run_stateless_guest`` cannot decode the input bytes.
+    Exact input schema decoded and executed by the guest. This uses the
+    invalid-input sentinel when ``run_stateless_guest`` cannot decode the
+    input bytes.
     """
 
 
@@ -231,6 +232,8 @@ def verify_stateless_new_payload(
     """
     Statelessly validate the execution payload.
     """
+    from .stateless_ssz import STATELESS_INPUT_SCHEMA_ID
+
     new_payload_request_root = compute_new_payload_request_root(
         stateless_input
     )
@@ -272,5 +275,5 @@ def verify_stateless_new_payload(
         new_payload_request_root=new_payload_request_root,
         successful_validation=successful_validation,
         chain_id=stateless_input.chain_id,
-        schema_fork_index=U8(int(ProtocolFork.Amsterdam)),
+        schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
     )
