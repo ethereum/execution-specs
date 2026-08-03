@@ -26,6 +26,7 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 from pytest import Mark, Metafunc, StashKey
 
+from execution_testing.base_types import StateCommitment
 from execution_testing.client_clis import TransitionTool
 from execution_testing.forks import (
     ALL_FORKS,
@@ -40,6 +41,7 @@ from execution_testing.forks import (
     get_transition_forks,
     transition_fork_to,
 )
+from execution_testing.forks.base_fork import BaseFork
 from execution_testing.logging import (
     get_logger,
 )
@@ -49,6 +51,13 @@ logger = get_logger(__name__)
 # Session-scoped cache for the lazily-computed unsupported-fork set
 # (see `get_unsupported_forks`).
 unsupported_forks_key: StashKey[FrozenSet[Fork | TransitionFork]] = StashKey()
+
+STATE_TRIE_CHOICES: Dict[str, StateCommitment] = {
+    "mpt": StateCommitment.MPT,
+    "merkle": StateCommitment.MPT,
+    "binary": StateCommitment.BINARY,
+    "bmt": StateCommitment.BINARY,
+}
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -83,6 +92,20 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="forks_until",
         default="",
         help="Fill tests until and including the specified fork.",
+    )
+    fork_group.addoption(
+        "--state-trie",
+        action="store",
+        dest="state_trie",
+        default=None,
+        type=str.lower,
+        choices=list(STATE_TRIE_CHOICES),
+        help=(
+            "Override the state-commitment scheme used to compute state "
+            "roots for every fork: 'mpt'/'merkle' for the Merkle-Patricia "
+            "trie, 'binary'/'bmt' for the binary tree. By default, each "
+            "fork defines its own scheme."
+        ),
     )
 
 
@@ -569,6 +592,9 @@ def pytest_configure(config: pytest.Config) -> None:
     forks_until = get_fork_option(config, "forks_until", "--until")
     show_fork_help = config.getoption("show_fork_help")
 
+    if state_trie := config.getoption("state_trie"):
+        BaseFork.set_state_commitment_override(STATE_TRIE_CHOICES[state_trie])
+
     dev_forks_help = textwrap.dedent(
         "To run tests for a fork under active development, it must be "
         "specified explicitly via --until=FORK.\n"
@@ -626,6 +652,11 @@ def pytest_configure(config: pytest.Config) -> None:
             "Command-line options produce empty fork range.",
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
+
+
+def pytest_unconfigure() -> None:
+    """Reset global fork state derived from command-line options."""
+    BaseFork.set_state_commitment_override(None)
 
 
 def get_unsupported_forks(

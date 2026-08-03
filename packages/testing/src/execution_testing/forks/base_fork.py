@@ -346,6 +346,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _deployed: ClassVar[bool] = True
     _enabled_eips: ClassVar[Set[int]] = set()
     _enabling_forks: ClassVar[Set[Type["BaseFork"]]] = set()
+    _state_commitment_override: ClassVar[Optional[StateCommitment]] = None
 
     # Method version bumps
     _engine_new_payload_version_bump: ClassVar[bool] = False
@@ -461,8 +462,26 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     def state_commitment(cls) -> StateCommitment:
-        """Return the state-commitment scheme for the state root."""
+        """
+        Return the state-commitment scheme for the state root.
+
+        The `--state-trie` command-line option overrides the scheme for
+        every fork.
+        """
+        if BaseFork._state_commitment_override is not None:
+            return BaseFork._state_commitment_override
         return StateCommitment.MPT
+
+    @classmethod
+    def set_state_commitment_override(
+        cls, commitment: Optional[StateCommitment]
+    ) -> None:
+        """
+        Force every fork to report `commitment` from `state_commitment`.
+
+        `None` restores the fork-defined scheme.
+        """
+        BaseFork._state_commitment_override = commitment
 
     # Header information abstract methods
     @classmethod

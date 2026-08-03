@@ -5,9 +5,10 @@ from typing import Dict
 import pytest
 from pydantic import BaseModel
 
-from execution_testing.base_types import BlobSchedule
+from execution_testing.base_types import BlobSchedule, StateCommitment
 from execution_testing.vm import Opcodes
 
+from ..base_fork import BaseFork
 from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
     BPO1,
@@ -826,3 +827,23 @@ def test_oog_budget_lift() -> None:
         )
         == 3 * sstore + 2 * create + code_64
     )
+
+
+def test_state_commitment_override() -> None:
+    """
+    `--state-trie` forces the scheme on every fork; `None` restores the
+    fork-defined default.
+    """
+    assert Frontier.state_commitment() == StateCommitment.MPT
+    assert Amsterdam.state_commitment() == StateCommitment.MPT
+    BaseFork.set_state_commitment_override(StateCommitment.BINARY)
+    try:
+        assert Frontier.state_commitment() == StateCommitment.BINARY
+        assert Amsterdam.state_commitment() == StateCommitment.BINARY
+        assert (
+            BerlinToLondonAt5.transitions_from().state_commitment()
+            == StateCommitment.BINARY
+        )
+    finally:
+        BaseFork.set_state_commitment_override(None)
+    assert Amsterdam.state_commitment() == StateCommitment.MPT
