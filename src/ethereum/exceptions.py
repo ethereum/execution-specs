@@ -73,3 +73,22 @@ class NonceOverflowError(InvalidTransaction):
     """
     Thrown when a transaction's nonce is greater than `2**64 - 2`.
     """
+
+
+class BalanceOverflowError(InvalidBlock):
+    """
+    Thrown when an account's balance is too large to fit the sixteen-byte
+    balance field of the binary tree's basic data leaf.
+    """
+
+
+class UnknownCodeHashError(EthereumException):
+    """
+    Thrown when a code hash has no bytecode stored for it in the state's
+    code store.
+
+    Indicates a malformed pre-state rather than an invalid block, so this
+    is deliberately not an [`InvalidBlock`].
+
+    [`InvalidBlock`]: ref:ethereum.exceptions.InvalidBlock
+    """

@@ -318,9 +318,10 @@ def _random_account(rng: random.Random, code_hash: Hash32) -> Account:
     Build an `Account` with `code_hash`, a random nonce below `2**64`,
     and a random balance below `2**128`.
 
-    The cap is not cosmetic: `encode_basic_data` asserts balance fits
-    its sixteen-byte field, so `2**128` or more would crash root
-    computation rather than merely being unrealistic.
+    The cap is not cosmetic: `encode_basic_data` rejects balances
+    past its sixteen-byte field with `BalanceOverflowError`, so
+    `2**128` or more would invalidate root computation rather than
+    merely being unrealistic.
     """
     return Account(
         nonce=Uint(rng.randrange(0, 2**64)),

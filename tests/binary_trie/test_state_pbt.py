@@ -71,6 +71,11 @@ from ethereum.binary_trie.trie import (
     trie_set,
 )
 from ethereum.crypto.hash import keccak256
+from ethereum.exceptions import (
+    BalanceOverflowError,
+    InvalidBlock,
+    UnknownCodeHashError,
+)
 from ethereum.state import EMPTY_CODE_HASH, Account, BlockDiff
 from ethereum.state_mpt import State as MptState
 from ethereum.state_mpt import set_account as mpt_set_account
@@ -1184,19 +1189,17 @@ def test_basic_data_leaf_bytes_carry_code_size_nonce_and_balance() -> None:
     assert leaf[16:32] == (12345).to_bytes(16, "big")  # balance
 
 
-def test_balance_at_or_above_the_sixteen_byte_field_fails_at_root_time() -> (
+def test_balance_at_or_above_the_sixteen_byte_field_rejects_at_root_time() -> (
     None
 ):
     """
-    A balance of exactly `2**128` crashes `state_root` with an
-    `AssertionError` instead of being rejected when it is set.
+    A balance of exactly `2**128` is rejected when the root is
+    computed, not when it is set.
 
-    `Account.balance` is a full `U256`; nothing between `set_account`
-    and `encode_basic_data`'s own bounds assertion enforces the
-    sixteen-byte field EIP-8297 packs it into. There is no
-    protocol-level cap on balance today, so an over-cap value crashes
-    root computation rather than invalidating the block at the point
-    it was set, a known spec gap being pinned here, not endorsed.
+    `Account.balance` is a full `U256` and `set_account` stays
+    unbounded, so the sixteen-byte field EIP-8297 packs it into is
+    enforced at commitment time, as `BalanceOverflowError` -- an
+    `InvalidBlock` -- rather than a raw `AssertionError`.
     """
     state = State()
     set_account(
@@ -1209,8 +1212,41 @@ def test_balance_at_or_above_the_sixteen_byte_field_fails_at_root_time() -> (
         ),
     )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(BalanceOverflowError):
         state_root(state)
+
+
+def test_block_diff_minting_over_cap_balance_rejects_the_block() -> None:
+    """
+    A diff that raises an account's balance to `2**128` makes
+    `compute_state_root` raise `BalanceOverflowError`: the block
+    minting the balance is invalid, and the pre-state, whose balance
+    still fits the field, embeds cleanly afterwards.
+    """
+    state = State()
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(
+            nonce=Uint(0),
+            balance=U256(2) ** U256(128) - U256(1),
+            code_hash=EMPTY_CODE_HASH,
+        ),
+    )
+    diff = BlockDiff(
+        account_changes={
+            ADDRESS_A: Account(
+                nonce=Uint(0),
+                balance=U256(2) ** U256(128),
+                code_hash=EMPTY_CODE_HASH,
+            )
+        }
+    )
+
+    with pytest.raises(BalanceOverflowError):
+        state.compute_state_root(diff)
+
+    assert state.compute_state_root(BlockDiff()) == state_root(state)
 
 
 def test_empty_code_contract_embeds_like_an_eoa() -> None:
@@ -1287,13 +1323,17 @@ def test_delegation_designator_account_embedding() -> None:
 
 def test_get_code_raises_for_an_unknown_code_hash() -> None:
     """
-    An account whose `code_hash` was never stored raises `KeyError`
-    when the root is computed, because `embed_flat_state` resolves
-    every account's code through `get_code` to size it.
+    An account whose `code_hash` was never stored raises
+    `UnknownCodeHashError` when the root is computed, because
+    `embed_flat_state` resolves every account's code through
+    `get_code` to size it.
 
-    Only `EMPTY_CODE_HASH` needs no store entry; any other unstored
-    hash is missing from `_code_store` and `get_code` raises directly.
+    Only `EMPTY_CODE_HASH` needs no store entry. An unstored hash is
+    a malformed pre-state, not an invalid block, so the error is an
+    `EthereumException` but deliberately not an `InvalidBlock`.
     """
+    assert not issubclass(UnknownCodeHashError, InvalidBlock)
+
     state = State()
     unknown_hash = keccak256(b"never stored")
     set_account(
@@ -1303,9 +1343,9 @@ def test_get_code_raises_for_an_unknown_code_hash() -> None:
     )
 
     assert state.get_code(EMPTY_CODE_HASH) == b""
-    with pytest.raises(KeyError):
+    with pytest.raises(UnknownCodeHashError):
         state.get_code(unknown_hash)
-    with pytest.raises(KeyError):
+    with pytest.raises(UnknownCodeHashError):
         state_root(state)
 
 

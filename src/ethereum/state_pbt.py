@@ -52,6 +52,7 @@ from ethereum.binary_trie.embedding import (
 from ethereum.binary_trie.trie import BinaryTrie
 from ethereum.binary_trie.trie import root as binary_tree_root
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import UnknownCodeHashError
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, BlockDiff, Root
 
 
@@ -121,11 +122,20 @@ class State:
         """
         Get the bytecode for a given code hash.
 
-        Return ``b""`` for ``EMPTY_CODE_HASH``.
-        """
+        Return ``b""`` for ``EMPTY_CODE_HASH``. Any other hash with no
+        stored bytecode raises [`UnknownCodeHashError`]: an account
+        referencing such a hash is a malformed pre-state.
+
+        [`UnknownCodeHashError`]: ref:ethereum.exceptions.UnknownCodeHashError
+        """  # noqa: E501
         if code_hash == EMPTY_CODE_HASH:
             return b""
-        return self._code_store[code_hash]
+        code = self._code_store.get(code_hash)
+        if code is None:
+            raise UnknownCodeHashError(
+                f"no bytecode stored for code hash 0x{code_hash.hex()}"
+            )
+        return code
 
     def get_account_optional(self, address: Address) -> Optional[Account]:
         """
