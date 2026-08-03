@@ -22,19 +22,33 @@ the derivation functions under test, so a wrong key that still
 produces the right leaf count -- a swapped zone byte, an off-by-one
 sub-index -- is still caught; a leaf count alone would miss it.
 
-EIP-8297's "Zero values and deletion" section is normative today:
-"a zero-valued leaf is distinct from an absent key, committing to a
-different root," and "removing entries is reserved for a future
-state-expiry mechanism." This module's `State` does the opposite --
-zero-write deletes the slot, and deleting an account drops its
-storage outright (disclosed in `state_pbt.py`'s own module
-docstring) -- so every root-equality and deletion assertion below
-pins this provider's current behavior, not EIP-8297 conformance. If
-`state_pbt` is ever made conformant, the roots pinned here must be
-regenerated. `test_trie.py::test_zero_value_is_not_absence` is the
-one conformant test in this tree: the raw `BinaryTrie` does keep a
-zero-valued leaf; only this provider layer removes it.
-"""
+EIP-8297's "Zero values and deletion" section now requires what this
+module's `State` does: a write of 32 zero bytes resolves to a
+deletion, and deleting an account removes its header leaves and its
+storage leaves. The roots asserted below are conformance, not merely
+pinned current behavior.
+
+Two things the EIP settles that are easy to misread as bugs. Zero
+means absent over the whole value space, so a chunk of 31 zero bytes
+and the basic data of an account with zero nonce, zero balance and
+no code are all left out of the tree; presence of a leaf is not what
+makes an account or a code chunk exist.
+`test_trie.py::test_zero_value_is_not_absence` still holds and is
+not in tension with that: the raw `BinaryTrie` does keep a
+zero-valued leaf, and collapsing zero onto absence is the state
+model's job, done in `embedding.state_write`.
+
+Where this provider parts company with `state_mpt` is storage owned
+by no account. The EIP fixes `account_has_storage` to whether a slot
+leaf of the address exists, so a write to an address the same diff
+deletes is dropped here; `state_mpt` keeps it. See
+`test_differential_mpt.py::test_account_delete_diverges_on_account_has_storage`
+for the EIP-7610-visible consequence, which the EIP resolves for the
+tree and leaves open for the Merkle Patricia Trie.
+"""  # noqa: E501
+
+import random
+from typing import Dict, Optional
 
 import pytest
 from blake3 import blake3
@@ -65,6 +79,7 @@ from ethereum.state_mpt import store_code as mpt_store_code
 from ethereum.state_pbt import (
     State,
     apply_changes_to_state,
+    apply_diff_to_trie,
     embed_flat_state,
     set_account,
     set_storage,
@@ -74,6 +89,11 @@ from ethereum.state_pbt import (
 
 ADDRESS_A = Bytes20(b"\xaa" * 20)
 ADDRESS_B = Bytes20(b"\xbb" * 20)
+
+# EIP-7702 delegation designators: the only protocol-reachable code
+# change on an existing account, and always a single header chunk.
+DELEGATION_A = Bytes(b"\xef\x01\x00" + b"\x11" * 20)
+DELEGATION_B = Bytes(b"\xef\x01\x00" + b"\x22" * 20)
 
 
 def embed_state(state: MptState) -> BinaryTrie:
@@ -247,8 +267,9 @@ def test_diff_root_matches_directly_built_post_state() -> None:
     deleting an account produces the same root as building the
     post-state directly in the MPT container and embedding it.
 
-    Not EIP-8297-conformant (see module docstring): the zeroed slot
-    and the deleted account's storage both pin current behavior.
+    The zeroed slot is deleted and the deleted account's storage
+    goes with it, both as EIP-8297 requires, so the two ways of
+    reaching the post state agree.
     """
     code = Bytes(b"\x01" * 40)
     code_hash = keccak256(code)
@@ -298,10 +319,8 @@ def test_diff_root_matches_directly_built_post_state() -> None:
 
 def test_deleting_the_only_account_empties_the_tree() -> None:
     """
-    Deleting the last account leaves the empty tree commitment.
-
-    Not EIP-8297-conformant (see module docstring): pins current
-    behavior -- dropping a deleted account's storage outright.
+    Deleting the last account, bare as deletable accounts must be,
+    leaves the empty tree commitment.
     """
     state = State()
     set_account(
@@ -309,7 +328,6 @@ def test_deleting_the_only_account_empties_the_tree() -> None:
         ADDRESS_A,
         Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
     )
-    set_storage(state, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
 
     computed = state.compute_state_root(
         BlockDiff(account_changes={ADDRESS_A: None})
@@ -321,11 +339,8 @@ def test_deleting_the_only_account_empties_the_tree() -> None:
 def test_zero_write_matches_never_written() -> None:
     """
     Writing a slot to zero commits identically to never having
-    written it: the provider treats zero as absence, mirroring the
-    MPT state semantics.
-
-    That match with MPT is exactly what is not EIP-8297-conformant
-    (see module docstring): pins current behavior.
+    written it: zero resolves to a deletion, as EIP-8297 requires
+    and as the MPT state semantics already had it.
     """
 
     def fresh() -> State:
@@ -352,6 +367,455 @@ def test_zero_write_matches_never_written() -> None:
         )
     )
     assert zeroed_by_diff == state_root(fresh())
+
+
+def _clone(state: State) -> State:
+    """Deep-copy a provider state's three mappings."""
+    return State(
+        _accounts=dict(state._accounts),
+        _storage={
+            address: dict(slots) for address, slots in state._storage.items()
+        },
+        _code_store=dict(state._code_store),
+    )
+
+
+def _flat_oracle_root(pre: State, diff: BlockDiff) -> bytes:
+    """
+    Compute the post-root the pre-incremental way: apply the diff to
+    a copy of the flat state and re-embed everything from scratch.
+    """
+    post = _clone(pre)
+    apply_changes_to_state(post, diff)
+    return bytes(state_root(post))
+
+
+def test_storage_clear_deletes_every_slot_leaf() -> None:
+    """
+    Clearing an account's storage removes its header-stem slot
+    leaves and its overflow-subtree slot leaves, leaving the root of
+    a state where the storage was never written.
+    """
+
+    def account_only() -> State:
+        state = State()
+        set_account(
+            state,
+            ADDRESS_A,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
+        )
+        return state
+
+    pre = account_only()
+    set_storage(pre, ADDRESS_A, Bytes32(U256(1).to_be_bytes32()), U256(7))
+    set_storage(pre, ADDRESS_A, Bytes32(U256(100).to_be_bytes32()), U256(9))
+
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    apply_diff_to_trie(trie, pre, BlockDiff(storage_clears={ADDRESS_A}))
+
+    assert root(trie) == state_root(account_only())
+
+
+def test_delegation_change_deletes_stale_chunks() -> None:
+    """
+    Re-delegating overwrites the single header chunk in place;
+    un-delegating deletes it. Both leave the root of a state that
+    only ever held the final code.
+    """
+    for new_code in (DELEGATION_B, Bytes(b"")):
+        pre = State()
+        old_hash = store_code(pre, DELEGATION_A)
+        set_account(
+            pre,
+            ADDRESS_A,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash),
+        )
+
+        new_hash = keccak256(new_code)
+        post_account = Account(
+            nonce=Uint(2), balance=U256(1), code_hash=new_hash
+        )
+        diff = BlockDiff(
+            account_changes={ADDRESS_A: post_account},
+            code_changes={new_hash: new_code} if new_code else {},
+        )
+
+        fresh = State()
+        assert store_code(fresh, new_code) == new_hash
+        set_account(fresh, ADDRESS_A, post_account)
+
+        assert pre.compute_state_root(diff) == state_root(fresh), (
+            f"new code {new_code.hex()}"
+        )
+
+
+def test_deleting_an_account_removes_its_header_code_chunks() -> None:
+    """
+    Header code chunks are keyed by address, so the sweep that
+    removes an account takes them with it; no bytecode has to be
+    looked up to know how many there were.
+    """
+    pre = State()
+    code_hash = store_code(pre, Bytes(b"\x01" * 40))
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
+
+
+def test_deleting_the_last_holder_removes_its_overflow_code() -> None:
+    """
+    Content-addressed chunks may go once no account in the resulting
+    state has their code hash. With the only holder deleted, nothing
+    references the code and its shared leaves go with it.
+    """
+    pre = State()
+    code_hash = store_code(pre, Bytes(b"\x01" * 4000))  # 130 chunks
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
+    assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
+
+
+def test_deleting_one_holder_keeps_shared_overflow_code() -> None:
+    """
+    A second account still running the bytecode keeps its chunks
+    alive: they are removed only if no account in the resulting state
+    has the code hash.
+    """
+    code = Bytes(b"\x01" * 4000)  # 130 chunks: 128 header, 2 overflow
+    pre = State()
+    code_hash = store_code(pre, code)
+    for address in (ADDRESS_A, ADDRESS_B):
+        set_account(
+            pre,
+            address,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+        )
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+    post = pre.compute_state_root(diff)
+
+    assert bytes(post) == _flat_oracle_root(pre, diff)
+
+    survivor = State()
+    assert store_code(survivor, code) == code_hash
+    set_account(
+        survivor,
+        ADDRESS_B,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+    assert post == state_root(survivor)
+
+
+def test_deleting_an_account_removes_its_storage_leaves() -> None:
+    """
+    An account can hold storage without holding code: genesis
+    allocates such accounts directly, and no bytecode is needed to
+    keep slots that were allocated rather than written. Touching one
+    empties it under EIP-161, and the deletion emits no storage diff
+    of its own, so the deletion must drop the slot leaves the account
+    still owns in the pre-state tree.
+    """
+    pre = State()
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(0), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    # A header-stem slot and an overflow-subtree slot.
+    set_storage(pre, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
+    set_storage(pre, ADDRESS_A, Bytes32(U256(300).to_be_bytes32()), U256(5))
+    set_account(
+        pre,
+        ADDRESS_B,
+        Account(nonce=Uint(1), balance=U256(9), code_hash=EMPTY_CODE_HASH),
+    )
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
+
+
+def test_deleting_a_cleared_account_removes_its_storage_leaves() -> None:
+    """
+    A pre-EIP-6780 `SELFDESTRUCT` wipes storage and removes the
+    account in one diff. The wipe is recorded against the tree, not
+    against the pre-state, so the deletion cannot tell that the
+    storage is already gone; removing the leaves twice must still
+    land on the post-state root.
+    """
+    pre = State()
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(pre, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
+
+    diff = BlockDiff(
+        storage_clears={ADDRESS_A}, account_changes={ADDRESS_A: None}
+    )
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
+
+
+def test_storage_written_to_a_deleted_account_is_not_embedded() -> None:
+    """
+    Storage belongs to an account: [`embed_flat_state`] ignores slots
+    whose address has no account, so a write landing on an address
+    the same block deletes must not reach the tree either.
+
+    [`embed_flat_state`]: ref:ethereum.state_pbt.embed_flat_state
+    """
+    pre = State()
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
+    )
+
+    diff = BlockDiff(
+        account_changes={ADDRESS_A: None},
+        storage_changes={
+            ADDRESS_A: {Bytes32(U256(3).to_be_bytes32()): U256(7)}
+        },
+    )
+
+    assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(pre, diff)
+
+
+def test_code_change_on_deployed_contract_is_rejected() -> None:
+    """
+    Replacing code whose chunks overflow the header stem is not
+    protocol-reachable, since deployed code is immutable and
+    delegation designators are a single chunk, and fails loudly,
+    since the old overflow chunks are content-addressed and
+    possibly shared.
+    """
+    old_code = Bytes(b"\x01" * 4000)  # overflows the header stem
+    new_code = Bytes(b"\x02" * 40)
+
+    pre = State()
+    old_hash = store_code(pre, old_code)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash),
+    )
+
+    new_hash = keccak256(new_code)
+    diff = BlockDiff(
+        account_changes={
+            ADDRESS_A: Account(
+                nonce=Uint(1), balance=U256(1), code_hash=new_hash
+            )
+        },
+        code_changes={new_hash: new_code},
+    )
+
+    with pytest.raises(AssertionError):
+        pre.compute_state_root(diff)
+
+
+def test_random_diffs_match_flat_application_and_rebuild() -> None:
+    """
+    Randomized protocol-shaped diffs, covering deletions of accounts
+    with and without allocated storage, delegation churn, contract
+    storage writes and zeroes, and fresh deployments, produce the
+    same root through incremental trie application as through
+    applying the diff to the flat state and re-embedding everything.
+    """
+    rng = random.Random(8297)
+    long_code = Bytes(bytes(range(256)) * 16)  # overflows the header
+
+    for trial in range(10):
+        pre = State()
+        long_hash = store_code(pre, long_code)
+        delegation_hashes = [
+            store_code(pre, code) for code in (DELEGATION_A, DELEGATION_B)
+        ]
+
+        # EOAs: empty code or a pre-existing delegation. Some hold
+        # allocated storage, which no bytecode is needed to keep and
+        # which a deletion must take with it.
+        eoas = [Bytes20(rng.randbytes(20)) for _ in range(6)]
+        for address in eoas:
+            set_account(
+                pre,
+                address,
+                Account(
+                    nonce=Uint(rng.randrange(1, 5)),
+                    balance=U256(rng.randrange(1, 10**9)),
+                    code_hash=rng.choice(
+                        [EMPTY_CODE_HASH, EMPTY_CODE_HASH] + delegation_hashes
+                    ),
+                ),
+            )
+            if rng.random() < 0.4:
+                for _ in range(rng.randrange(1, 3)):
+                    slot = rng.choice(
+                        [rng.randrange(0, 64), rng.randrange(64, 10**9)]
+                    )
+                    set_storage(
+                        pre,
+                        address,
+                        Bytes32(U256(slot).to_be_bytes32()),
+                        U256(rng.randrange(1, 100)),
+                    )
+
+        # Contracts: immutable code, mutable storage.
+        contracts = [Bytes20(rng.randbytes(20)) for _ in range(3)]
+        for address in contracts:
+            set_account(
+                pre,
+                address,
+                Account(
+                    nonce=Uint(1),
+                    balance=U256(rng.randrange(1, 10**9)),
+                    code_hash=long_hash,
+                ),
+            )
+            for _ in range(rng.randrange(1, 4)):
+                # Header slots (0-63) and overflow slots alike.
+                slot = rng.choice(
+                    [rng.randrange(0, 64), rng.randrange(64, 10**9)]
+                )
+                set_storage(
+                    pre,
+                    address,
+                    Bytes32(U256(slot).to_be_bytes32()),
+                    U256(rng.randrange(1, 100)),
+                )
+
+        account_changes: Dict[Bytes20, Optional[Account]] = {}
+        storage_changes: Dict[Bytes20, Dict[Bytes32, U256]] = {}
+        for address in eoas:
+            roll = rng.random()
+            bare = pre._accounts[address].code_hash == EMPTY_CODE_HASH
+            if roll < 0.25 and bare:
+                # EIP-6780-style same-transaction deletion.
+                account_changes[address] = None
+            elif roll < 0.6:
+                # Delegate, re-delegate, or un-delegate.
+                account_changes[address] = Account(
+                    nonce=Uint(rng.randrange(1, 5)),
+                    balance=U256(rng.randrange(1, 10**9)),
+                    code_hash=rng.choice(
+                        [EMPTY_CODE_HASH] + delegation_hashes
+                    ),
+                )
+        for address in contracts:
+            if rng.random() < 0.5:
+                account_changes[address] = Account(
+                    nonce=Uint(1),
+                    balance=U256(rng.randrange(1, 10**9)),
+                    code_hash=long_hash,
+                )
+            if rng.random() < 0.7:
+                storage_changes[address] = {
+                    Bytes32(U256(1).to_be_bytes32()): U256(rng.choice([0, 7])),
+                    Bytes32(U256(100).to_be_bytes32()): U256(
+                        rng.choice([0, 9])
+                    ),
+                }
+
+        fresh_code = Bytes(rng.randbytes(200))
+        fresh_hash = keccak256(fresh_code)
+        created = Bytes20(rng.randbytes(20))
+        account_changes[created] = Account(
+            nonce=Uint(1), balance=U256(5), code_hash=fresh_hash
+        )
+        storage_changes[created] = {Bytes32(U256(2).to_be_bytes32()): U256(9)}
+
+        diff = BlockDiff(
+            account_changes=account_changes,
+            storage_changes=storage_changes,
+            code_changes={fresh_hash: fresh_code},
+        )
+
+        assert bytes(pre.compute_state_root(diff)) == _flat_oracle_root(
+            pre, diff
+        ), f"trial {trial}"
+
+
+def test_header_root_matches_the_advanced_chain_state() -> None:
+    """
+    The fork commits a block's header root with
+    [`compute_state_root`] but advances the chain with
+    [`apply_changes_to_state`]. The two are separate
+    implementations, one walking the tree and the other the flat
+    mappings, so every block's header root must equal the root of
+    the state the chain
+    carries into the next block, or the second block of a chain is
+    built on a state the first block never committed to.
+
+    [`compute_state_root`]: ref:ethereum.state_pbt.State.compute_state_root
+    [`apply_changes_to_state`]: ref:ethereum.state_pbt.apply_changes_to_state
+    """  # noqa: E501
+    chain = State()
+    delegation_hash = store_code(chain, DELEGATION_A)
+    set_account(
+        chain,
+        ADDRESS_A,
+        Account(nonce=Uint(0), balance=U256(0), code_hash=EMPTY_CODE_HASH),
+    )
+    set_storage(chain, ADDRESS_A, Bytes32(U256(3).to_be_bytes32()), U256(4))
+    set_storage(chain, ADDRESS_A, Bytes32(U256(300).to_be_bytes32()), U256(5))
+    set_account(
+        chain,
+        ADDRESS_B,
+        Account(nonce=Uint(1), balance=U256(9), code_hash=EMPTY_CODE_HASH),
+    )
+
+    deployed = Bytes(b"\x60\x01" * 100)
+    deployed_hash = keccak256(deployed)
+
+    blocks = [
+        # Touching an empty account that still holds storage deletes
+        # it under EIP-161, storage leaves and all.
+        BlockDiff(account_changes={ADDRESS_A: None}),
+        # Delegating an existing EOA writes a header code chunk.
+        BlockDiff(
+            account_changes={
+                ADDRESS_B: Account(
+                    nonce=Uint(2), balance=U256(9), code_hash=delegation_hash
+                )
+            }
+        ),
+        # A fresh deployment, with storage, on the delegated account's
+        # neighbour, plus the delegation being revoked.
+        BlockDiff(
+            account_changes={
+                ADDRESS_B: Account(
+                    nonce=Uint(3), balance=U256(9), code_hash=EMPTY_CODE_HASH
+                ),
+                ADDRESS_A: Account(
+                    nonce=Uint(1), balance=U256(2), code_hash=deployed_hash
+                ),
+            },
+            storage_changes={
+                ADDRESS_A: {Bytes32(U256(7).to_be_bytes32()): U256(8)}
+            },
+            code_changes={deployed_hash: deployed},
+        ),
+    ]
+
+    for number, diff in enumerate(blocks):
+        header_root = chain.compute_state_root(diff)
+        apply_changes_to_state(chain, diff)
+        assert header_root == state_root(chain), f"block {number}"
 
 
 def test_store_code_round_trips() -> None:
@@ -732,7 +1196,7 @@ def test_balance_at_or_above_the_sixteen_byte_field_fails_at_root_time() -> (
     sixteen-byte field EIP-8297 packs it into. There is no
     protocol-level cap on balance today, so an over-cap value crashes
     root computation rather than invalidating the block at the point
-    it was set — a known spec gap being pinned here, not endorsed.
+    it was set, a known spec gap being pinned here, not endorsed.
     """
     state = State()
     set_account(
@@ -906,23 +1370,20 @@ def test_account_deletion_also_drops_its_storage() -> None:
     assert state.account_has_storage(ADDRESS_A) is False
 
 
-def test_storage_written_for_a_deleted_account_is_orphaned_but_not_embedded() -> (  # noqa: E501
-    None
-):
+def test_storage_written_for_a_deleted_account_is_dropped() -> None:
     """
     A diff that deletes an account and writes to its storage in the
-    same step leaves an orphaned storage entry that never reaches the
-    tree.
+    same step leaves no storage behind at all.
 
-    The account is gone, but `storage_changes`'s `setdefault`
-    recreates `_storage[A]` after the delete popped it, so
-    `account_has_storage` reads back `True` for an address with no
-    account. `embed_flat_state` skips storage for addresses missing
-    from `accounts`, so the orphan is invisible to the root.
+    Storage belongs to an account, so a write to an address the diff
+    leaves without one is dropped rather than kept as an orphan no
+    account owns. That keeps `account_has_storage` answering as
+    [EIP-8297] requires, from whether any slot leaf of the address
+    exists: `embed_flat_state` would skip such an orphan anyway, so
+    reporting storage for it would claim leaves the tree does not
+    have.
 
-    Not EIP-8297-conformant (see module docstring): relies on the
-    account-deletion-drops-storage behavior, which pins current
-    behavior, not the EIP's own semantics.
+    [EIP-8297]: https://eips.ethereum.org/EIPS/eip-8297
     """
     state = State()
     set_account(
@@ -947,7 +1408,8 @@ def test_storage_written_for_a_deleted_account_is_orphaned_but_not_embedded() ->
     )
 
     assert state.get_account_optional(ADDRESS_A) is None
-    assert state.account_has_storage(ADDRESS_A) is True
+    assert state.account_has_storage(ADDRESS_A) is False
+    assert state.get_storage(ADDRESS_A, key) == U256(0)
 
     without_a = State()
     set_account(
@@ -969,10 +1431,8 @@ def test_all_zero_storage_change_drops_the_address_entry() -> None:
     itself is dropped, not left mapped to an empty dict.
 
     `account_has_storage` reads back `False` and the root matches a
-    state that was never written to.
-
-    Not EIP-8297-conformant (see module docstring): pins current
-    behavior.
+    state that was never written to, which is the answer EIP-8297
+    fixes for the tree: no slot leaf of the address survives.
     """
     state = State()
     set_account(
@@ -1113,8 +1573,7 @@ def test_sequential_block_diffs_evolve_the_root() -> None:
     write.
 
     Zero-means-absent composes across separate blocks, not just
-    within one diff. Not EIP-8297-conformant (see module docstring):
-    pins current behavior.
+    within one diff.
     """
     state = State()
     set_account(

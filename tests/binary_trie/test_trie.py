@@ -23,6 +23,7 @@ from ethereum.binary_trie.trie import (
     bytes_to_bit_list,
     copy_trie,
     encode_bit_prefix,
+    remove_subtree,
     root,
     trie_get,
     trie_set,
@@ -430,6 +431,161 @@ def test_reference_roots_are_insertion_order_independent() -> None:
             assert reference.merkelize() == expected, f"trial {trial}"
 
 
+def test_setting_none_removes_key_and_restores_prior_root() -> None:
+    """
+    Setting a key to `None` removes it from the mapping and returns
+    the commitment to what it was before the key was inserted.
+    """
+    trie = BinaryTrie()
+    kept_key = Bytes32(b"\x01" * 32)
+    doomed_key = Bytes32(b"\x02" * 32)
+    value = Bytes32(b"\x03" * 32)
+
+    trie_set(trie, kept_key, value)
+    before = root(trie)
+
+    trie_set(trie, doomed_key, value)
+    assert root(trie) != before
+    trie_set(trie, doomed_key, None)
+
+    assert trie_get(trie, doomed_key) is None
+    assert trie_get(trie, kept_key) == value
+    assert root(trie) == before
+
+
+def test_setting_none_for_absent_key_is_a_no_op() -> None:
+    """
+    Setting `None` for a key that is not in the trie leaves the
+    commitment unchanged, including on an empty trie.
+    """
+    absent = Bytes32(b"\x0a" * 32)
+
+    trie = BinaryTrie()
+    trie_set(trie, absent, None)
+    assert root(trie) == EMPTY_TRIE_ROOT
+
+    trie_set(trie, Bytes32(b"\x0b" * 32), Bytes32(b"\x01" * 32))
+    before = root(trie)
+    trie_set(trie, absent, None)
+    assert root(trie) == before
+
+
+def test_delete_collapses_branches_to_canonical_form() -> None:
+    """
+    Deleting keys from the three-key canonical example collapses the
+    branches they held open: the commitment equals that of a trie
+    that never held the deleted key, in both implementations.
+
+    Deleting `key_1` collapses a two-leaf branch to its surviving
+    leaf; deleting `key_128` merges the top branch's prefix, its
+    split bit, and the low branch's prefix into one run.
+    """
+    stem = b"\xff" + b"\xab" * 32
+    key_0 = Bytes(stem + b"\x00")
+    key_1 = Bytes(stem + b"\x01")
+    key_128 = Bytes(stem + b"\x80")
+    value = Bytes32(b"\x44" * 32)
+
+    for doomed in (key_1, key_128):
+        trie = BinaryTrie()
+        reference = IncrementalRadixTree()
+        for key in (key_0, key_1, key_128):
+            trie_set(trie, key, value)
+            reference.insert(key, value)
+        trie_set(trie, doomed, None)
+        reference.delete(doomed)
+
+        fresh = BinaryTrie()
+        for key in (key_0, key_1, key_128):
+            if key != doomed:
+                trie_set(fresh, key, value)
+
+        assert root(trie) == root(fresh), f"deleting {doomed.hex()}"
+        assert reference.merkelize() == root(fresh), f"deleting {doomed.hex()}"
+
+
+def test_delete_matches_reference_and_rebuild() -> None:
+    """
+    Deleting a random subset of keys leaves both implementations at
+    the root of a trie that only ever held the survivors.
+    """
+    rng = random.Random(4242)
+
+    for trial in range(20):
+        entries = random_entries(rng)
+
+        reference = IncrementalRadixTree()
+        trie = BinaryTrie()
+        for key, value in entries.items():
+            reference.insert(key, value)
+            trie_set(trie, Bytes(key), Bytes32(value))
+
+        doomed = {key for key in entries if rng.random() < 0.5}
+        for key in doomed:
+            reference.delete(key)
+            trie_set(trie, Bytes(key), None)
+
+        survivors = BinaryTrie()
+        for key, value in entries.items():
+            if key not in doomed:
+                trie_set(survivors, Bytes(key), Bytes32(value))
+
+        expected = root(survivors)
+        assert root(trie) == expected, f"trial {trial}"
+        assert reference.merkelize() == expected, f"trial {trial}"
+
+
+def test_deleting_every_key_recommits_to_the_empty_root() -> None:
+    """
+    Removing every key, in an order unrelated to insertion, brings
+    both implementations back to the empty-trie commitment.
+    """
+    rng = random.Random(97)
+    entries = random_entries(rng)
+
+    reference = IncrementalRadixTree()
+    trie = BinaryTrie()
+    for key, value in entries.items():
+        reference.insert(key, value)
+        trie_set(trie, Bytes(key), Bytes32(value))
+
+    keys = list(entries)
+    rng.shuffle(keys)
+    for key in keys:
+        reference.delete(key)
+        trie_set(trie, Bytes(key), None)
+
+    assert root(trie) == EMPTY_TRIE_ROOT
+    assert reference.merkelize() == EMPTY_TRIE_ROOT
+
+
+def test_delete_then_reinsert_roundtrips() -> None:
+    """
+    Deleting a key and reinserting it with the same value restores
+    the original commitment in both implementations.
+    """
+    rng = random.Random(515)
+    entries = random_entries(rng)
+    doomed, doomed_value = next(iter(entries.items()))
+
+    reference = IncrementalRadixTree()
+    trie = BinaryTrie()
+    for key, value in entries.items():
+        reference.insert(key, value)
+        trie_set(trie, Bytes(key), Bytes32(value))
+    before = root(trie)
+    assert reference.merkelize() == before
+
+    reference.delete(doomed)
+    trie_set(trie, Bytes(doomed), None)
+    assert root(trie) != before
+
+    reference.insert(doomed, doomed_value)
+    trie_set(trie, Bytes(doomed), Bytes32(doomed_value))
+    assert root(trie) == before
+    assert reference.merkelize() == before
+
+
 def test_overwriting_a_value_recommits_to_the_final_value() -> None:
     """
     Overwriting a key's value changes the root and matches a trie
@@ -460,6 +616,47 @@ def test_overwriting_a_value_recommits_to_the_final_value() -> None:
     assert root(overwritten) != old_root
     assert root(overwritten) == root(fresh)
     assert reference.merkelize() == root(fresh)
+
+
+def test_remove_subtree_removes_exactly_the_matching_keys() -> None:
+    """
+    Removing a subtree drops every key under its prefix and nothing
+    else, leaving the commitment of a trie those keys never entered.
+    Keys that merely share a shorter prefix survive.
+    """
+    doomed = [Bytes(b"\xff\xaa" + bytes([i]) + b"\x00" * 4) for i in range(5)]
+    spared = [
+        Bytes(b"\xff\xab\x00" + b"\x00" * 4),  # diverges in byte 1
+        Bytes(b"\x00\xaa\x00" + b"\x00" * 4),  # diverges in byte 0
+    ]
+    value = Bytes32(b"\x07" * 32)
+
+    survivors = BinaryTrie()
+    for key in spared:
+        trie_set(survivors, key, value)
+
+    trie = copy_trie(survivors)
+    for key in doomed:
+        trie_set(trie, key, value)
+    assert root(trie) != root(survivors)
+
+    remove_subtree(trie, Bytes(b"\xff\xaa"))
+
+    assert trie._data == survivors._data
+    assert root(trie) == root(survivors)
+
+
+def test_remove_subtree_of_an_absent_prefix_does_nothing() -> None:
+    """
+    A prefix matching no key leaves the trie untouched.
+    """
+    trie = BinaryTrie()
+    trie_set(trie, Bytes(b"\x01\x02\x03"), Bytes32(b"\x07" * 32))
+    before = root(trie)
+
+    remove_subtree(trie, Bytes(b"\x09"))
+
+    assert root(trie) == before
 
 
 def test_leaf_preimage_golden_vector() -> None:

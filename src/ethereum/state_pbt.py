@@ -9,16 +9,17 @@ maps them to tree keys and values through
 [`ethereum.binary_trie.embedding`], and [`compute_state_root`]
 commits the result with [`ethereum.binary_trie.trie`].
 
-This provider makes two deliberate simplifications:
+This provider makes one deliberate simplification: no transition
+machinery. On mainnet the EIP's tree would start empty beside a
+frozen Merkle Patricia Trie; here all state is in the tree from the
+start, which keeps the commitment testable in isolation.
 
-- No transition machinery. On mainnet the EIP's tree would start
-  empty beside a frozen Merkle Patricia Trie; here all state is in
-  the tree from the start, which keeps the commitment testable in
-  isolation.
-- Zero means absent. A storage slot written to zero is removed
-  rather than kept as a zero-valued leaf, matching
-  [`ethereum.state_mpt`], even though the tree itself can represent
-  both.
+Zero means absent, as [EIP-8297] requires and
+[`ethereum.state_mpt`] independently does: a write of 32 zero bytes
+resolves to a deletion, so no leaf holds zero and an absent key
+reads back as the zero it stood for. The tree itself can represent
+both, which is why the collapse is the state model's to make; see
+[`ethereum.binary_trie.embedding.state_write`].
 
 [EIP-8297]: https://eips.ethereum.org/EIPS/eip-8297
 [`State`]: ref:ethereum.state_pbt.State
@@ -28,24 +29,27 @@ This provider makes two deliberate simplifications:
 [`ethereum.state_mpt`]: ref:ethereum.state_mpt
 [`ethereum.binary_trie.embedding`]: ref:ethereum.binary_trie.embedding
 [`ethereum.binary_trie.trie`]: ref:ethereum.binary_trie.trie
+[`ethereum.binary_trie.embedding.state_write`]: ref:ethereum.binary_trie.embedding.state_write
 """  # noqa: E501
 
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Mapping, Optional, final
 
 from ethereum_types.bytes import Bytes, Bytes32
-from ethereum_types.numeric import U32, U64, U256, Uint
+from ethereum_types.numeric import U64, U256
 
 from ethereum.binary_trie.embedding import (
     address20_to_address32,
-    chunkify_code,
-    encode_basic_data,
-    get_tree_key_for_basic_data,
-    get_tree_key_for_code_chunk,
-    get_tree_key_for_code_hash,
-    get_tree_key_for_storage_slot,
+    embed_account,
+    embed_storage_slot,
+    has_overflow_code_chunks,
+    remove_account,
+    remove_all_storage,
+    remove_code_chunks,
+    remove_overflow_code_chunks,
+    remove_storage_slot,
 )
-from ethereum.binary_trie.trie import BinaryTrie, trie_set
+from ethereum.binary_trie.trie import BinaryTrie
 from ethereum.binary_trie.trie import root as binary_tree_root
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, BlockDiff, Root
@@ -68,47 +72,32 @@ def embed_flat_state(
 
     Addresses appearing in `storages` but not in `accounts` are
     ignored: storage belongs to an account, so slots without one
-    have no place in the tree.
+    have no place in the tree. [`apply_diff_to_trie`] holds to the
+    same rule when it reaches the tree incrementally.
+
+    [`apply_diff_to_trie`]: ref:ethereum.state_pbt.apply_diff_to_trie
     """
     trie = BinaryTrie()
 
     for address, account in accounts.items():
-        address32 = address20_to_address32(address)
-        code = get_code(account.code_hash)
-
-        trie_set(
+        embed_account(
             trie,
-            get_tree_key_for_basic_data(address32),
-            encode_basic_data(
-                code_size=U32(len(code)),
-                nonce=U64(account.nonce),
-                balance=account.balance,
-            ),
+            address20_to_address32(address),
+            U64(account.nonce),
+            account.balance,
+            account.code_hash,
+            get_code(account.code_hash),
         )
-        trie_set(
-            trie,
-            get_tree_key_for_code_hash(address32),
-            Bytes32(account.code_hash),
-        )
-        for chunk_id, chunk in enumerate(chunkify_code(code)):
-            trie_set(
-                trie,
-                get_tree_key_for_code_chunk(
-                    address32, account.code_hash, Uint(chunk_id)
-                ),
-                chunk,
-            )
 
     for address, slots in storages.items():
         if address not in accounts:
             continue
         address32 = address20_to_address32(address)
         for key, value in slots.items():
-            trie_set(
+            embed_storage_slot(
                 trie,
-                get_tree_key_for_storage_slot(
-                    address32, U256.from_be_bytes(key)
-                ),
+                address32,
+                U256.from_be_bytes(key),
                 value.to_be_bytes32(),
             )
 
@@ -158,44 +147,145 @@ class State:
         """
         Check whether an account has any storage.
 
-        Only needed for EIP-7610.
+        Only needed for EIP-7610. The Merkle Patricia Trie answered
+        this from an account's ``storage_root``; the binary tree has
+        no such node, so the answer is whether any slot leaf of the
+        address exists; which is what an entry here means, since
+        storage without an account never reaches the tree.
         """
         return address in self._storage
 
     def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
         Compute the state root after applying `block_diff` to the
-        pre-state. The pre-state itself is not modified: the diff is
-        applied, via [`apply_changes_to_state`], to a copy.
+        pre-state. The pre-state itself is not modified: its
+        embedding is built fresh and the diff is applied to that
+        tree, via [`apply_diff_to_trie`], as explicit insertions,
+        updates, and deletions.
 
         The diff's ``code_changes`` are needed here, unlike in the
         Merkle Patricia Trie: code chunk leaves commit the code
         itself, not just its hash, and newly deployed code is not yet
         in the code store when the root is computed.
 
-        [`apply_changes_to_state`]: ref:ethereum.state_pbt.apply_changes_to_state
+        [`apply_diff_to_trie`]: ref:ethereum.state_pbt.apply_diff_to_trie
         """  # noqa: E501
-        post_state = State(
-            _accounts=dict(self._accounts),
-            _storage={
-                address: dict(slots)
-                for address, slots in self._storage.items()
-            },
-            _code_store=dict(self._code_store),
+        trie = embed_flat_state(self._accounts, self._storage, self.get_code)
+        apply_diff_to_trie(trie, self, block_diff)
+        return binary_tree_root(trie)
+
+
+def apply_diff_to_trie(
+    trie: BinaryTrie, pre_state: State, diff: BlockDiff
+) -> None:
+    """
+    Apply `diff` to `trie`, the embedding of `pre_state`, as tree
+    operations: writes become insertions or in-place updates, and
+    removals become deletions. This function decides *what* changed;
+    the embedding's operations decide which keys that touches.
+
+    Removals are addressed rather than enumerated: an account owns a
+    known region of the key space, so deleting it or wiping its
+    storage is a tree operation on that region, and the diff never
+    has to say which slots the account held. The pre-state is read
+    only for what the diff leaves implicit: an account's previous
+    code, and whether an address had an account at all.
+
+    Storage belongs to an account, so an address the diff leaves
+    without one owns no slot leaves, exactly as in
+    [`embed_flat_state`]: a deleted account's slots go with it, and
+    a write to an address the same diff deletes never reaches the
+    tree.
+
+    [`embed_flat_state`]: ref:ethereum.state_pbt.embed_flat_state
+    """  # noqa: E501
+
+    def code_for(code_hash: Hash32) -> Bytes:
+        if code_hash in diff.code_changes:
+            return diff.code_changes[code_hash]
+        return pre_state.get_code(code_hash)
+
+    def has_account(address: Address) -> bool:
+        if address in diff.account_changes:
+            return diff.account_changes[address] is not None
+        return address in pre_state._accounts
+
+    def code_hash_survives(code_hash: Hash32) -> bool:
+        """
+        Whether any account in the resulting state has `code_hash`.
+        """
+        for account in diff.account_changes.values():
+            if account is not None and account.code_hash == code_hash:
+                return True
+        return any(
+            account.code_hash == code_hash
+            for address, account in pre_state._accounts.items()
+            if address not in diff.account_changes
         )
-        apply_changes_to_state(post_state, block_diff)
-        return binary_tree_root(
-            embed_flat_state(
-                post_state._accounts,
-                post_state._storage,
-                post_state.get_code,
-            )
+
+    def drop_unreferenced_code(pre_account: Optional[Account]) -> None:
+        """
+        Remove the deleted account's shared code chunks, if it held
+        any and nothing left in the state runs that code.
+        """
+        if pre_account is None:
+            return
+        code_hash = pre_account.code_hash
+        if not has_overflow_code_chunks(trie, code_hash):
+            return
+        if code_hash_survives(code_hash):
+            return
+        remove_overflow_code_chunks(trie, code_hash, code_for(code_hash))
+
+    for address in diff.storage_clears:
+        remove_all_storage(trie, address20_to_address32(address))
+
+    for address, account in diff.account_changes.items():
+        address32 = address20_to_address32(address)
+        pre_account = pre_state._accounts.get(address)
+        if account is None:
+            remove_account(trie, address32)
+            drop_unreferenced_code(pre_account)
+            continue
+        if (
+            pre_account is not None
+            and pre_account.code_hash != account.code_hash
+        ):
+            remove_code_chunks(trie, address32, pre_account.code_hash)
+        embed_account(
+            trie,
+            address32,
+            U64(account.nonce),
+            account.balance,
+            account.code_hash,
+            code_for(account.code_hash),
         )
+
+    for address, slots in diff.storage_changes.items():
+        if not has_account(address):
+            continue
+        address32 = address20_to_address32(address)
+        for key, value in slots.items():
+            if value == U256(0):
+                remove_storage_slot(trie, address32, U256.from_be_bytes(key))
+            else:
+                embed_storage_slot(
+                    trie,
+                    address32,
+                    U256.from_be_bytes(key),
+                    value.to_be_bytes32(),
+                )
 
 
 def apply_changes_to_state(state: State, diff: BlockDiff) -> None:
     """
     Apply block-level diff to the ``State`` for the next block.
+
+    Storage belongs to an account, so a write to an address the diff
+    leaves without one is dropped rather than kept as storage no
+    account owns. That keeps [`account_has_storage`] answering as the
+    tree does, since such slots never reach the tree; see
+    [`apply_diff_to_trie`].
 
     Parameters
     ----------
@@ -204,7 +294,10 @@ def apply_changes_to_state(state: State, diff: BlockDiff) -> None:
     diff :
         Account, storage, and code changes to apply.
 
-    """
+    [`account_has_storage`]: ref:ethereum.state_pbt.State.account_has_storage
+    [`apply_diff_to_trie`]: ref:ethereum.state_pbt.apply_diff_to_trie
+
+    """  # noqa: E501
     for address in diff.storage_clears:
         state._storage.pop(address, None)
 
@@ -216,6 +309,8 @@ def apply_changes_to_state(state: State, diff: BlockDiff) -> None:
             state._accounts[address] = account
 
     for address, slots in diff.storage_changes.items():
+        if address not in state._accounts:
+            continue
         slot_values = state._storage.setdefault(address, {})
         for key, value in slots.items():
             if value == U256(0):

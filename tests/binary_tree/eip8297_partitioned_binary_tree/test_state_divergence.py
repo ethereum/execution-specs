@@ -3,10 +3,11 @@ End-to-end state-divergence tests for the EIP-8297 partitioned binary
 tree.
 
 `test_differential_mpt.py` pins, at the provider level, that MPT keeps a
-deleted account's storage trie while PBT (what `BinaryTree` uses) pops it
-with the account; EIP-7610's `account_has_storage` gate on `CREATE2`
-makes that divergence observable end-to-end. These tests pin BinaryTree's
-CURRENT behavior here — not an endorsement of either provider's choice.
+deleted account's storage trie while PBT (what `BinaryTree` uses) removes
+it with the account; EIP-7610's `account_has_storage` gate on `CREATE2`
+makes that divergence observable end-to-end. EIP-8297 settles the answer
+for the tree, from whether a slot leaf of the address exists, and leaves
+the Merkle Patricia Trie to the semantics it already had.
 """
 
 import pytest
@@ -37,9 +38,9 @@ def test_genesis_codeless_account_with_storage_persists(
 ) -> None:
     """
     Verify a genesis allocation entry that is codeless (nonce zero, no
-    code) but carries storage — unreachable by ordinary execution, only
-    constructible directly via the pre-alloc API — fills and persists
-    into the post state unchanged.
+    code) but carries storage, unreachable by ordinary execution and
+    only constructible directly via the pre-alloc API, fills and
+    persists into the post state unchanged.
     """
     slot, value = 1, 0xABCD
     account = pre.deploy_contract(
@@ -68,19 +69,21 @@ def test_create2_after_eip161_clear_of_storage_holding_account(
     pre: Alloc,
 ) -> None:
     """
-    Pin what the `BinaryTree` fork actually does when a CREATE2 call
-    targets an address that held storage, was cleared under EIP-161 in
-    an earlier block, and is retargeted by CREATE2 in a later block —
-    the end-to-end shape of the divergence pinned at the provider level
-    by `test_differential_mpt.py`'s
+    Pin what the `BinaryTree` fork does when a CREATE2 call targets an
+    address that held storage, was cleared under EIP-161 in an earlier
+    block, and is retargeted by CREATE2 in a later block. This is the
+    end-to-end shape of the divergence pinned at the provider level by
+    `test_differential_mpt.py`'s
     `test_account_delete_diverges_on_account_has_storage`.
 
     This differs from MPT: there, the orphaned storage trie keeps
-    `account_has_storage` true, so the same CREATE2 would be rejected as
-    a collision. Under the PBT provider `BinaryTree` runs, deleting the
-    account pops its storage outright, so CREATE2 is allowed to
-    proceed. Open consensus question, not a bug in either provider —
-    this pins CURRENT behavior, it does not endorse it.
+    `account_has_storage` true, so the same CREATE2 would be rejected
+    as a collision. Under EIP-8297 an address has non-empty storage
+    exactly when a slot leaf of it exists, and deleting the account
+    removes its storage leaves, so no collision remains and CREATE2
+    proceeds. The two answer differently because the tree has no
+    `storage_root` node to consult; the Merkle Patricia Trie keeps the
+    semantics it always had.
 
     The clearing step uses SELFDESTRUCT rather than a zero-value CALL:
     this fork's `modify_state` runs the destroy-if-empty check after

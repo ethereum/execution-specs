@@ -8,26 +8,25 @@ provider-level observable (accounts, storage, code,
 `account_has_storage`) should agree given identical inputs.
 
 The first group of tests directs specific `BlockDiff`s at both
-providers to pin a real, already-discovered divergence (detailed on
-each test): deleting an account pops its storage under PBT but not
-MPT, visible through EIP-7610's `account_has_storage` gate on
-`CREATE2` -- an open EIP-8297 consensus question, not a bug in either
-provider. The second group applies random sequences of 5-8 diffs to
-both providers and checks observable equivalence after every diff,
+providers to pin the storage a deleted account leaves behind
+(detailed on each test), which the two answer differently: PBT drops
+it, MPT keeps it, visible through EIP-7610's `account_has_storage`
+gate on `CREATE2`. This is not a bug in either provider. EIP-8297
+fixes `account_has_storage` for the tree, to whether a slot leaf of
+the address exists, and `state_pbt` follows it; `state_mpt` answers
+from its own storage tries, exactly as it does with no binary tree in
+the picture. The second group applies random sequences of 5-8 diffs
+to both providers and checks observable equivalence after every diff,
 except at addresses known to carry that divergence, tracked via a
 `divergent` set.
 
-Separately, EIP-8297's "Zero values and deletion" section is
-normative today: "a zero-valued leaf is distinct from an absent
-key, committing to a different root," and "removing entries is
-reserved for a future state-expiry mechanism." Both providers here
-do the opposite -- a zero write deletes the slot -- so the
-zero-write tests below pin current provider behavior, not EIP-8297
-conformance; their pinned equalities would need regenerating if
-either provider were ever made conformant.
-`test_trie.py::test_zero_value_is_not_absence` is the one conformant
-test in this tree: the raw `BinaryTrie` does keep a zero-valued leaf;
-only the provider layer removes it.
+Everything else should agree. EIP-8297's "Zero values and deletion"
+section requires a write of 32 zero bytes to resolve to a deletion,
+which is what both providers do and what the MPT did already, so the
+zero-write equalities below are conformance rather than pinned
+behavior. `test_trie.py::test_zero_value_is_not_absence` is not in
+tension with that: the raw `BinaryTrie` does keep a zero-valued leaf,
+and collapsing zero onto absence is the state model's job.
 """
 
 import random
@@ -164,24 +163,25 @@ def test_account_delete_with_same_diff_storage_writes() -> None:
     """
     A single diff that both deletes an account and writes its storage
     leaves an MPT trie holding the old key alongside the new one, and
-    a PBT dict that only ever sees the new one.
+    a PBT state holding neither.
 
     `X` starts holding `{STORAGE_KEY: STORAGE_VALUE}`. One diff sets
     `account_changes={X: None}` and, in the same diff,
     `storage_changes={X: {STORAGE_KEY_2: STORAGE_VALUE_2}}`.
     `state_mpt.apply_changes_to_state` applies the two against
     separate containers, so the write lands in the trie that still
-    holds `STORAGE_KEY`. `state_pbt.apply_changes_to_state` pops the
-    whole `_storage[X]` dict before its storage-changes loop recreates
-    it from empty, so `STORAGE_KEY` is gone but `STORAGE_KEY_2` is
-    there. Same divergence family as
+    holds `STORAGE_KEY`. `state_pbt.apply_changes_to_state` pops
+    `_storage[X]` with the account and then drops the write too,
+    since storage belongs to an account and `X` no longer has one.
+
+    Both providers still agree the account is gone. They disagree on
+    `account_has_storage`: PBT answers as [EIP-8297] requires, from
+    whether any slot leaf of the address exists, and none does. Same
+    divergence family as
     `test_account_delete_diverges_on_account_has_storage`, surfacing
     within one diff instead of across two.
 
-    Both providers still agree the account is gone, the freshly
-    written key reads back, and `account_has_storage` is `True` (an
-    orphan entry with no account -- `state_pbt.embed_flat_state` skips
-    exactly this case).
+    [EIP-8297]: https://eips.ethereum.org/EIPS/eip-8297
     """
     mpt_state = MptState()
     pbt_state = PbtState()
@@ -200,17 +200,18 @@ def test_account_delete_with_same_diff_storage_writes() -> None:
     assert mpt_state.get_account_optional(ADDRESS_X) is None
     assert pbt_state.get_account_optional(ADDRESS_X) is None
 
-    # The freshly written key: both providers agree.
+    # The freshly written key: MPT keeps it against an address with
+    # no account, PBT drops it.
     key_2 = STORAGE_KEY_2
     assert mpt_state.get_storage(ADDRESS_X, key_2) == STORAGE_VALUE_2
-    assert pbt_state.get_storage(ADDRESS_X, key_2) == STORAGE_VALUE_2
+    assert pbt_state.get_storage(ADDRESS_X, key_2) == U256(0)
 
     # The pre-existing key: MPT resurrects it, PBT does not.
     assert mpt_state.get_storage(ADDRESS_X, STORAGE_KEY) == STORAGE_VALUE
     assert pbt_state.get_storage(ADDRESS_X, STORAGE_KEY) == U256(0)
 
     assert mpt_state.account_has_storage(ADDRESS_X) is True
-    assert pbt_state.account_has_storage(ADDRESS_X) is True
+    assert pbt_state.account_has_storage(ADDRESS_X) is False
 
 
 def test_all_zero_storage_changes_matches_never_written() -> None:
@@ -221,9 +222,9 @@ def test_all_zero_storage_changes_matches_never_written() -> None:
     checked only via `get_storage`/`account_has_storage`; its root is
     never computed in this test.
 
-    Not EIP-8297-conformant (see the module docstring): the pinned
-    equality here is current provider behavior, not the EIP's own
-    zero/deletion semantics.
+    The equality is what EIP-8297 requires of the tree, and what the
+    MPT gave already: a write of zero is a deletion, so writing zero
+    to an absent slot is a no-op.
     """
     diff = BlockDiff(
         storage_changes={
@@ -286,8 +287,8 @@ def test_zero_write_to_existing_slot_deletes_in_both() -> None:
     discard their now-empty container for the address once its one
     key is zeroed.
 
-    Not EIP-8297-conformant (see the module docstring): this pins
-    current behavior, not the EIP's own zero/deletion semantics.
+    Zeroing the last slot is a deletion under EIP-8297 as it is
+    under the MPT.
     """
     diff = BlockDiff(storage_changes={ADDRESS_X: {STORAGE_KEY: U256(0)}})
 
@@ -434,13 +435,22 @@ def _mark_divergent(
     divergent: Set[Address],
 ) -> None:
     """
-    Add every address `diff` deletes while it still holds storage (in
-    either provider) to `divergent`, before `diff` is applied.
+    Add every address `diff` deletes whose storage the two providers
+    may then disagree about, before `diff` is applied.
 
-    Same divergence family as
-    `test_account_delete_diverges_on_account_has_storage`: once an
-    address is deleted while holding storage, the two providers may
-    disagree on that address's storage for the rest of the run.
+    Two families, both descended from
+    `test_account_delete_diverges_on_account_has_storage`, and both
+    rooted in MPT keeping a deleted account's storage where PBT does
+    not:
+
+    - The address already holds storage in either provider. MPT
+      leaves the storage trie in place; PBT pops it with the account.
+    - The same diff writes storage to the address. MPT records those
+      writes against an address with no account; PBT drops them,
+      since storage without an account never reaches the tree.
+
+    Either way the providers may disagree about that address's
+    storage for the rest of the run.
     """
     for address, account in diff.account_changes.items():
         if account is not None:
@@ -448,7 +458,7 @@ def _mark_divergent(
         has_storage = mpt_state.account_has_storage(
             address
         ) or pbt_state.account_has_storage(address)
-        if has_storage:
+        if has_storage or address in diff.storage_changes:
             divergent.add(address)
 
 

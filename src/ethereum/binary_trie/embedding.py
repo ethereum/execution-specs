@@ -4,7 +4,10 @@ The [EIP-8297] embedding of Ethereum state into the binary tree.
 Account and storage tries are merged into the single key/value tree
 defined in [`ethereum.binary_trie.trie`], which also holds contract
 code. This module defines how accounts, storage slots, and code
-chunks are assigned keys and packed into values.
+chunks are assigned keys and packed into values, and the operations
+that write ([`embed_account`], [`embed_storage_slot`]) and remove
+([`remove_account`], [`remove_storage_slot`], [`remove_code_chunks`])
+them.
 
 The first byte of every key is a **zone** identifier that labels the
 category of state the key holds. Account headers live in
@@ -34,7 +37,12 @@ through one shared path rather than one path each.
 [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
 [`STORAGE_ZONE`]: ref:ethereum.binary_trie.embedding.STORAGE_ZONE
 [`STEM_SUBTREE_WIDTH`]: ref:ethereum.binary_trie.embedding.STEM_SUBTREE_WIDTH
-"""
+[`embed_account`]: ref:ethereum.binary_trie.embedding.embed_account
+[`embed_storage_slot`]: ref:ethereum.binary_trie.embedding.embed_storage_slot
+[`remove_account`]: ref:ethereum.binary_trie.embedding.remove_account
+[`remove_storage_slot`]: ref:ethereum.binary_trie.embedding.remove_storage_slot
+[`remove_code_chunks`]: ref:ethereum.binary_trie.embedding.remove_code_chunks
+"""  # noqa: E501
 
 from typing import List
 
@@ -44,7 +52,14 @@ from ethereum_types.numeric import U8, U32, U64, U256, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes, right_pad_zero_bytes
 
-from .trie import Key, blake3_hash
+from .trie import (
+    BinaryTrie,
+    Key,
+    blake3_hash,
+    remove_subtree,
+    trie_get,
+    trie_set,
+)
 
 Zone = U8
 """
@@ -124,6 +139,17 @@ STEM_SUBTREE_WIDTH = Uint(256)
 Maximum number of values grouped under a single stem: the size of
 the sub-index byte's space.
 """
+
+HEADER_CHUNK_COUNT = STEM_SUBTREE_WIDTH - CODE_OFFSET
+"""
+Number of code chunks that fit in the account header stem. Chunks at
+this index and above are content-addressed in [`CODE_ZONE`] and
+shared between accounts with identical bytecode; see
+[`get_tree_key_for_code_chunk`].
+
+[`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
+[`get_tree_key_for_code_chunk`]: ref:ethereum.binary_trie.embedding.get_tree_key_for_code_chunk
+"""  # noqa: E501
 
 ACCOUNT_ZONE = Zone(0)
 """
@@ -230,6 +256,42 @@ def get_tree_key_for_header(address: Address32, sub_index: Uint) -> Key:
     return key
 
 
+def account_header_stem(address: Address32) -> Bytes:
+    """
+    Compute the stem shared by every leaf of an account's header:
+    its basic data, code hash, first storage slots, and first code
+    chunks.
+
+    Every key under this prefix belongs to `address` and no key of
+    `address`'s header sits outside it, so the prefix is the account
+    header as one addressable region; see [`remove_account`].
+
+    [`remove_account`]: ref:ethereum.binary_trie.embedding.remove_account
+    """
+    return Bytes(bytes([int(ACCOUNT_ZONE)]) + key_hash(address))
+
+
+def account_storage_prefix(address: Address32) -> Bytes:
+    """
+    Compute the prefix covering every overflow storage leaf of an
+    account, across all of its storage groups.
+
+    Unlike [`account_header_stem`] this spans many stems: it is the
+    outer digest of [`storage_tree_position`], deliberately shared by
+    an account's whole overflow storage so that storage forms one
+    contiguous key range rather than locations scattered across the
+    tree.
+
+    The range is unbounded, since an account may hold slots at any
+    of `2**256` positions, so it can only be addressed as a prefix,
+    never enumerated key by key.
+
+    [`account_header_stem`]: ref:ethereum.binary_trie.embedding.account_header_stem
+    [`storage_tree_position`]: ref:ethereum.binary_trie.embedding.storage_tree_position
+    """  # noqa: E501
+    return Bytes(bytes([int(STORAGE_ZONE)]) + key_hash(address))
+
+
 def get_tree_key_for_basic_data(address: Address32) -> Key:
     """
     Compute the key of the account's basic data leaf.
@@ -304,6 +366,35 @@ def get_tree_key_for_storage_slot(
     return key
 
 
+def get_tree_key_for_overflow_code_chunk(
+    code_hash: Hash32, chunk_id: Uint
+) -> Key:
+    """
+    Compute the key of a code chunk past [`HEADER_CHUNK_COUNT`],
+    which lives in [`CODE_ZONE`].
+
+    No address takes part: the key is content-addressed by
+    `code_hash`, so every account running the same bytecode shares
+    the leaf. That sharing is why these chunks outlive the accounts
+    referencing them; see [`remove_overflow_code_chunks`].
+
+    [`HEADER_CHUNK_COUNT`]: ref:ethereum.binary_trie.embedding.HEADER_CHUNK_COUNT
+    [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
+    [`remove_overflow_code_chunks`]: ref:ethereum.binary_trie.embedding.remove_overflow_code_chunks
+    """  # noqa: E501
+    assert chunk_id >= HEADER_CHUNK_COUNT
+    overflow = chunk_id - HEADER_CHUNK_COUNT
+    tree_index = overflow // STEM_SUBTREE_WIDTH
+    sub_index = overflow % STEM_SUBTREE_WIDTH
+    key = get_tree_key(
+        CODE_ZONE,
+        key_hash(code_hash + tree_index.to_be_bytes32()),
+        U8(sub_index),
+    )
+    assert len(key) == int(CODE_KEY_LENGTH)
+    return key
+
+
 def get_tree_key_for_code_chunk(
     address: Address32, code_hash: Hash32, chunk_id: Uint
 ) -> Key:
@@ -321,19 +412,9 @@ def get_tree_key_for_code_chunk(
 
     [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
     """
-    header_chunk_count = STEM_SUBTREE_WIDTH - CODE_OFFSET
-    if chunk_id < header_chunk_count:
+    if chunk_id < HEADER_CHUNK_COUNT:
         return get_tree_key_for_header(address, CODE_OFFSET + chunk_id)
-    overflow = chunk_id - header_chunk_count
-    tree_index = overflow // STEM_SUBTREE_WIDTH
-    sub_index = overflow % STEM_SUBTREE_WIDTH
-    key = get_tree_key(
-        CODE_ZONE,
-        key_hash(code_hash + tree_index.to_be_bytes32()),
-        U8(sub_index),
-    )
-    assert len(key) == int(CODE_KEY_LENGTH)
-    return key
+    return get_tree_key_for_overflow_code_chunk(code_hash, chunk_id)
 
 
 def chunkify_code(code: Bytes) -> List[Bytes32]:
@@ -413,3 +494,249 @@ def encode_basic_data(code_size: U32, nonce: U64, balance: U256) -> Bytes32:
         + nonce.to_be_bytes8()
         + int(balance).to_bytes(16, "big")
     )
+
+
+ZERO_VALUE = Bytes32(b"\x00" * 32)
+"""
+The value a write resolves to a deletion; see [`state_write`].
+
+[`state_write`]: ref:ethereum.binary_trie.embedding.state_write
+"""
+
+
+def state_write(trie: BinaryTrie, key: Key, value: Bytes32) -> None:
+    """
+    Write `value` at `key`, resolving 32 zero bytes to a deletion
+    rather than an insertion.
+
+    The tree itself has no value meaning absence: every 32-byte
+    value is storable, and only a key's presence distinguishes it
+    from an absent one. Collapsing zero onto absence is the state
+    model's choice, made here so that state written through this
+    module cannot commit to a zero-valued leaf, and so an absent key
+    and a zero one are the same state with the same root.
+
+    Reads recover the collapsed value: an absent key reads back as
+    the zero it stood for, whether that is an empty storage slot or
+    a code chunk of 31 zero bytes.
+    """
+    trie_set(trie, key, None if value == ZERO_VALUE else value)
+
+
+def embed_account(
+    trie: BinaryTrie,
+    address32: Address32,
+    nonce: U64,
+    balance: U256,
+    code_hash: Hash32,
+    code: Bytes,
+) -> None:
+    """
+    Write an account's leaves into `trie`: packed basic data, the
+    code hash, and one leaf per chunk of `code`.
+
+    Writing over an existing account updates its leaves in place;
+    chunk leaves of a previous, different code are not touched and
+    must be removed with [`remove_code_chunks`] first.
+
+    Every leaf goes through [`state_write`], so any of them encoding
+    to 32 zero bytes is left absent and reads back as the zero it
+    stood for. Two cases reach that:
+
+    - A chunk of 31 zero bytes, as in a run of `STOP` or a
+      zero-filled data region. Chunk presence therefore does not
+      delimit the code; its length is `code_size`.
+    - The basic data of an account with zero nonce, zero balance and
+      no code, since the version byte and the reserved bytes are
+      zero too. Such an account is still distinguished from an
+      absent one by its code hash leaf.
+
+    [`remove_code_chunks`]: ref:ethereum.binary_trie.embedding.remove_code_chunks
+    [`state_write`]: ref:ethereum.binary_trie.embedding.state_write
+    """  # noqa: E501
+    state_write(
+        trie,
+        get_tree_key_for_basic_data(address32),
+        encode_basic_data(
+            code_size=U32(len(code)),
+            nonce=nonce,
+            balance=balance,
+        ),
+    )
+    state_write(
+        trie,
+        get_tree_key_for_code_hash(address32),
+        Bytes32(code_hash),
+    )
+    for chunk_id, chunk in enumerate(chunkify_code(code)):
+        state_write(
+            trie,
+            get_tree_key_for_code_chunk(address32, code_hash, Uint(chunk_id)),
+            chunk,
+        )
+
+
+def embed_storage_slot(
+    trie: BinaryTrie,
+    address32: Address32,
+    storage_key: U256,
+    value: Bytes32,
+) -> None:
+    """
+    Write one storage slot's leaf into `trie`, in the account header
+    stem or the account's overflow storage subtree as the slot
+    number dictates.
+
+    Writing zero removes the slot's leaf, per [`state_write`], so a
+    slot cleared to zero is indistinguishable from one never
+    written.
+
+    [`state_write`]: ref:ethereum.binary_trie.embedding.state_write
+    """
+    state_write(
+        trie, get_tree_key_for_storage_slot(address32, storage_key), value
+    )
+
+
+def remove_account(trie: BinaryTrie, address32: Address32) -> None:
+    """
+    Remove an account from `trie` entirely: its basic data, code
+    hash, header code chunks, and every storage slot it holds.
+
+    An account owns exactly two regions of the key space, both fixed
+    by its address: its [`account_header_stem`] and its
+    [`account_storage_prefix`]. Removing an account is removing those
+    two subtrees, so what has to go is read off the address rather
+    than out of a list of the account's slots, which the caller may
+    not have, and which for storage is unbounded anyway.
+
+    Overflow code chunks are the one thing an account holds that it
+    does not own: they live in [`CODE_ZONE`], content-addressed, and
+    are shared with every other account running the same bytecode, so
+    they outlive the account that referenced them and are not removed
+    here. Dropping them takes a reference check against the resulting
+    state; see [`remove_overflow_code_chunks`].
+
+    Removing an absent account does nothing.
+
+    [`account_header_stem`]: ref:ethereum.binary_trie.embedding.account_header_stem
+    [`account_storage_prefix`]: ref:ethereum.binary_trie.embedding.account_storage_prefix
+    [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
+    [`remove_overflow_code_chunks`]: ref:ethereum.binary_trie.embedding.remove_overflow_code_chunks
+    """  # noqa: E501
+    remove_subtree(trie, account_header_stem(address32))
+    remove_subtree(trie, account_storage_prefix(address32))
+
+
+def has_overflow_code_chunks(trie: BinaryTrie, code_hash: Hash32) -> bool:
+    """
+    Check whether the code `code_hash` reaches past the account
+    header into [`CODE_ZONE`].
+
+    Chunks are laid out from index `0` up with no gaps, so the code
+    overflows exactly when the first chunk past
+    [`HEADER_CHUNK_COUNT`] is present. This answers from the tree
+    what the bytecode's length would otherwise have to, so a caller
+    need not fetch code it is about to stop referencing.
+
+    [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
+    [`HEADER_CHUNK_COUNT`]: ref:ethereum.binary_trie.embedding.HEADER_CHUNK_COUNT
+    """  # noqa: E501
+    key = get_tree_key_for_overflow_code_chunk(code_hash, HEADER_CHUNK_COUNT)
+    return trie_get(trie, key) is not None
+
+
+def remove_overflow_code_chunks(
+    trie: BinaryTrie, code_hash: Hash32, code: Bytes
+) -> None:
+    """
+    Remove the [`CODE_ZONE`] leaves of `code` from `trie`.
+
+    These leaves are content-addressed, so they belong to the
+    bytecode rather than to any account holding it. They may be
+    removed only once no account in the resulting state has
+    `code_hash`, which the caller establishes; removing them while an
+    account still runs that code would take its bytecode with it.
+
+    Header chunks are keyed per account and are removed with the
+    account itself, so nothing below [`HEADER_CHUNK_COUNT`] is
+    touched here.
+
+    [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
+    [`HEADER_CHUNK_COUNT`]: ref:ethereum.binary_trie.embedding.HEADER_CHUNK_COUNT
+    """  # noqa: E501
+    for chunk_id in range(int(HEADER_CHUNK_COUNT), len(chunkify_code(code))):
+        trie_set(
+            trie,
+            get_tree_key_for_overflow_code_chunk(code_hash, Uint(chunk_id)),
+            None,
+        )
+
+
+def remove_all_storage(trie: BinaryTrie, address32: Address32) -> None:
+    """
+    Remove every storage slot leaf of an account from `trie`, leaving
+    the account itself and its code in place.
+
+    An account's storage straddles the two regions its address fixes:
+    slots `0` through `63` sit in the header stem beside the basic
+    data and code that must survive, so the header is swept one slot
+    sub-index at a time, while the overflow storage subtree goes
+    whole. As in [`remove_account`], no list of the account's slots
+    is needed.
+
+    [`remove_account`]: ref:ethereum.binary_trie.embedding.remove_account
+    """
+    for sub_index in range(HEADER_STORAGE_OFFSET, CODE_OFFSET):
+        trie_set(
+            trie, get_tree_key_for_header(address32, Uint(sub_index)), None
+        )
+    remove_subtree(trie, account_storage_prefix(address32))
+
+
+def remove_storage_slot(
+    trie: BinaryTrie, address32: Address32, storage_key: U256
+) -> None:
+    """
+    Remove one storage slot's leaf from `trie`; removing an absent
+    slot does nothing.
+    """
+    trie_set(trie, get_tree_key_for_storage_slot(address32, storage_key), None)
+
+
+def remove_code_chunks(
+    trie: BinaryTrie, address32: Address32, code_hash: Hash32
+) -> None:
+    """
+    Remove the chunk leaves of the code `code_hash` from `trie` by
+    sweeping the account's whole header code range, one deletion per
+    chunk. Removing an absent chunk does nothing, so the sweep needs
+    no knowledge of how far the old code reached; header chunk keys
+    are derived from `address32` alone and ignore `code_hash`.
+
+    Chunks past [`HEADER_CHUNK_COUNT`] live in [`CODE_ZONE`],
+    content-addressed and shared between every account holding the
+    same bytecode, so no account may remove them on its own. Code
+    that overflows the header is also immutable: deployed code never
+    changes, and a delegation designator is a single chunk. So a
+    code reaching this function never has an overflow chunk to
+    strand, which is asserted rather than assumed.
+
+    [`HEADER_CHUNK_COUNT`]: ref:ethereum.binary_trie.embedding.HEADER_CHUNK_COUNT
+    [`CODE_ZONE`]: ref:ethereum.binary_trie.embedding.CODE_ZONE
+    """  # noqa: E501
+    assert (
+        trie_get(
+            trie,
+            get_tree_key_for_code_chunk(
+                address32, code_hash, HEADER_CHUNK_COUNT
+            ),
+        )
+        is None
+    )
+    for chunk_id in range(HEADER_CHUNK_COUNT):
+        trie_set(
+            trie,
+            get_tree_key_for_code_chunk(address32, code_hash, Uint(chunk_id)),
+            None,
+        )

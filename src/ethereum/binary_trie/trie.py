@@ -214,18 +214,36 @@ def copy_trie(trie: BinaryTrie) -> BinaryTrie:
     return BinaryTrie(copy.copy(trie._data))
 
 
-def trie_set(trie: BinaryTrie, key: Key, value: Bytes32) -> None:
+def trie_set(trie: BinaryTrie, key: Key, value: Optional[Bytes32]) -> None:
     """
-    Insert or update `key` in `trie` with the given `value`.
+    Insert or update `key` in `trie` with the given `value`; setting
+    `None` removes the key, and removing an absent key does nothing.
+
+    `None` can mark absence because it lies outside the value space:
+    every 32-byte value, including all zeroes, is a legitimate leaf,
+    so no stored value could play the role the Merkle Patricia
+    Trie's default value does. The same convention marks deleted
+    accounts in [`BlockDiff`], and mirrors [`trie_get`], which
+    returns `None` for absent keys.
+
+    Since [`root`] rebuilds the node structure from the surviving
+    entries, a removal needs no node surgery here: branches held
+    open by the removed key simply never form, and the trie commits
+    as if the key had never been inserted.
 
     The caller must keep keys prefix-free; see [`Key`].
 
     [`Key`]: ref:ethereum.binary_trie.trie.Key
+    [`root`]: ref:ethereum.binary_trie.trie.root
+    [`BlockDiff`]: ref:ethereum.state.BlockDiff
     """
     assert (
         len(key) >= 1
     )  # Reject the empty key since it is a prefix of every other key
     assert Uint(len(key)) <= MAX_KEY_LENGTH
+    if value is None:
+        trie._data.pop(key, None)
+        return
     assert (
         len(value) == 32
     )  # TODO: type is Bytes32 but not sure those are enforced at runtime
@@ -237,6 +255,30 @@ def trie_get(trie: BinaryTrie, key: Key) -> Optional[Bytes32]:
     Look up `key` in `trie`, returning `None` if absent.
     """
     return trie._data.get(key)
+
+
+def remove_subtree(trie: BinaryTrie, prefix: Bytes) -> None:
+    """
+    Remove every key of `trie` beginning with `prefix`; a prefix
+    matching nothing does nothing.
+
+    Keys are consumed most significant bit first, so the keys sharing
+    a `prefix` are exactly the keys of one subtree, and this removes
+    that subtree whole. Callers reach for it when the set of keys to
+    remove is known by where it sits in the tree rather than by
+    enumeration; see [`remove_account`], which drops an account's
+    unbounded storage without being told which slots it holds.
+
+    A production client would unlink the subtree's node from its
+    parent and be done, which is why this is a tree operation and not
+    a loop of removals; the scan here follows [`BinaryTrie`] storing
+    only key/value pairs.
+
+    [`remove_account`]: ref:ethereum.binary_trie.embedding.remove_account
+    [`BinaryTrie`]: ref:ethereum.binary_trie.trie.BinaryTrie
+    """
+    for key in [key for key in trie._data if key.startswith(prefix)]:
+        del trie._data[key]
 
 
 def encode_bit_prefix(prefix: Bytes) -> Bytes:

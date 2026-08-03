@@ -130,6 +130,62 @@ class IncrementalRadixTree:
             return self.Branch(node.prefix[:matched], leaf, survivor)
         return self.Branch(node.prefix[:matched], survivor, leaf)
 
+    def delete(self, key: bytes) -> None:
+        """
+        Remove `key` if present, collapsing the branch it leaves
+        behind; deleting an absent key does nothing.
+        """
+        if self.root is None:
+            return
+        if isinstance(self.root, self.Leaf):
+            if self.root.key == key:
+                self.root = None
+            return
+        self.root = self._delete(self.root, _bits(key), key, 0)
+
+    def _delete(  # type: ignore[no-untyped-def]
+        self, node, bits, key, depth
+    ):
+        assert isinstance(node, self.Branch)
+        matched = 0
+        while matched < len(node.prefix):
+            position = depth + matched
+            if position >= len(bits) or bits[position] != node.prefix[matched]:
+                return node  # The key is not in this subtree.
+            matched += 1
+        split = depth + matched
+        if split >= len(bits):
+            return node  # The key ends at the split; not present.
+
+        take_left = bits[split] == 0
+        child = node.left if take_left else node.right
+        if isinstance(child, self.Branch):
+            replacement = self._delete(child, bits, key, split + 1)
+            if take_left:
+                node.left = replacement
+            else:
+                node.right = replacement
+            return node
+
+        if child.key != key:
+            return node
+
+        # The child leaf is the deletion target: this branch now has a
+        # single subtree, so the sibling takes its place. A leaf
+        # sibling moves up unchanged (it commits its full key); a
+        # branch sibling absorbs this branch's prefix and the split
+        # bit that selected it into its own prefix.
+        sibling = node.right if take_left else node.left
+        if isinstance(sibling, self.Leaf):
+            return sibling
+        assert isinstance(sibling, self.Branch)
+        sibling_bit = 1 if take_left else 0
+        return self.Branch(
+            node.prefix + [sibling_bit] + sibling.prefix,
+            sibling.left,
+            sibling.right,
+        )
+
     def merkelize(self) -> bytes:
         """
         Compute the root hash of the reference tree.
