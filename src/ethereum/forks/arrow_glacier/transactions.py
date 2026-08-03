@@ -21,7 +21,10 @@ from ethereum.exceptions import (
 )
 from ethereum.state import Address
 
-from .exceptions import TransactionTypeError
+from .exceptions import (
+    PriorityFeeGreaterThanMaxFeeError,
+    TransactionTypeError,
+)
 
 
 @final
@@ -317,7 +320,9 @@ def validate_transaction(tx: Transaction) -> Uint:
     gas cost of the transaction after validation. It throws an
     `InsufficientTransactionGasError` exception if the transaction does not
     provide enough gas to cover the intrinsic cost, and a `NonceOverflowError`
-    exception if the nonce is greater than `2**64 - 2`.
+    exception if the nonce is greater than `2**64 - 2`. It also raises a
+    `PriorityFeeGreaterThanMaxFeeError` if the maximum priority fee per gas
+    of a fee market transaction exceeds its maximum fee per gas.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """
@@ -326,6 +331,11 @@ def validate_transaction(tx: Transaction) -> Uint:
         raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
+    if isinstance(tx, FeeMarketTransaction):
+        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
+            raise PriorityFeeGreaterThanMaxFeeError(
+                "priority fee greater than max fee"
+            )
     return intrinsic_gas
 
 
