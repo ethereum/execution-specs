@@ -6,7 +6,7 @@ from typing import Tuple
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes48, Bytes96
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U16, U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.forks.amsterdam.block_access_lists import BlockAccessList
@@ -23,10 +23,7 @@ from ethereum.forks.amsterdam.execution_engine.types import (
 )
 from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
-    ChainConfig,
     ExecutionWitness,
-    ForkActivation,
-    ForkConfig,
     ProtocolFork,
     StatelessInput,
     StatelessValidationResult,
@@ -39,7 +36,6 @@ from ethereum.forks.amsterdam.stateless_guest import (
     serialize_stateless_output,
 )
 from ethereum.forks.amsterdam.stateless_host import (
-    build_chain_config,
     build_stateless_input,
     deserialize_stateless_output,
     serialize_stateless_input,
@@ -132,18 +128,6 @@ def _make_block() -> Block:
     )
 
 
-def _expected_amsterdam_chain_config(chain_id: U64) -> ChainConfig:
-    return ChainConfig(
-        chain_id=chain_id,
-        active_fork=ForkConfig(
-            activation=ForkActivation(
-                block_number=None,
-                timestamp=U64(0),
-            ),
-        ),
-    )
-
-
 def _make_deposit_request() -> DepositRequest:
     return DepositRequest(
         pubkey=Bytes48(_rb(48)),
@@ -193,7 +177,7 @@ def _make_stateless_input() -> StatelessInput:
             codes=(Bytes(_rb(48)), Bytes(_rb(96))),
             headers=(Bytes(_rb(512)), Bytes(_rb(512))),
         ),
-        chain_config=build_chain_config(U64(1)),
+        chain_id=U64(1),
         public_keys=(Bytes(_rb(65)), Bytes(_rb(65))),
     )
 
@@ -202,25 +186,16 @@ def _make_stateless_output() -> StatelessValidationResult:
     return StatelessValidationResult(
         new_payload_request_root=Hash32(_rb(32)),
         successful_validation=True,
-        chain_config=build_chain_config(U64(1)),
+        chain_id=U64(1),
+        schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
     )
-
-
-class TestBuildChainConfig:
-    """Test host-side ChainConfig construction."""
-
-    def test_amsterdam_only(self) -> None:
-        """Builds a single Amsterdam fork entry."""
-        chain_config = build_chain_config(U64(123))
-        assert chain_config == _expected_amsterdam_chain_config(U64(123))
 
 
 class TestBuildStatelessInput:
     """Test host-side StatelessInput construction."""
 
-    def test_includes_amsterdam_chain_config(self) -> None:
-        """Includes the Amsterdam-only chain config."""
-        chain_config = build_chain_config(U64(123))
+    def test_includes_chain_id(self) -> None:
+        """Include the configured chain identifier."""
         block_access_list: BlockAccessList = []
         stateless_input = build_stateless_input(
             _make_block(),
@@ -239,7 +214,7 @@ class TestBuildStatelessInput:
             block_access_list=block_access_list,
             chain_id=U64(123),
         )
-        assert stateless_input.chain_config == chain_config
+        assert stateless_input.chain_id == U64(123)
 
     @pytest.mark.parametrize(
         ("v", "r", "s"),
@@ -319,7 +294,7 @@ class TestSerializeStatelessInput:
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
-            chain_config=build_chain_config(U64(1)),
+            chain_id=U64(1),
             public_keys=(),
         )
         encoded = serialize_stateless_input(original)
@@ -333,7 +308,7 @@ class TestSerializeStatelessInput:
         invalid = StatelessInput(
             new_payload_request=original.new_payload_request,
             witness=original.witness,
-            chain_config=original.chain_config,
+            chain_id=original.chain_id,
             public_keys=(Bytes(_rb(64)), Bytes(_rb(65))),
         )
 
@@ -367,7 +342,7 @@ class TestDeserializeStatelessInput:
                 ),
             ),
             witness=ExecutionWitness(state=(), codes=(), headers=()),
-            chain_config=build_chain_config(U64(1)),
+            chain_id=U64(1),
             public_keys=(),
         )
         encoded = serialize_stateless_input(original)
@@ -412,19 +387,24 @@ class TestSerializeStatelessOutput:
         """Encoding then decoding recovers the original result."""
         original = _make_stateless_output()
         encoded = serialize_stateless_output(original)
+        assert encoded[-2:] == STATELESS_INPUT_SCHEMA_ID.to_bytes(2, "little")
         recovered = deserialize_stateless_output(encoded)
         assert recovered == original
+        assert recovered.chain_id == U64(1)
+        assert recovered.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
 
     def test_failed_validation(self) -> None:
-        """Serializes a failed validation result correctly."""
+        """Preserve the input schema when later validation fails."""
         original = StatelessValidationResult(
             new_payload_request_root=Hash32(_rb(32)),
             successful_validation=False,
-            chain_config=build_chain_config(U64(1)),
+            chain_id=U64(1),
+            schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
         )
         encoded = serialize_stateless_output(original)
         recovered = deserialize_stateless_output(encoded)
         assert recovered == original
+        assert recovered.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
 
 
 class TestRunStatelessGuest:
@@ -437,9 +417,22 @@ class TestRunStatelessGuest:
 
         assert result.new_payload_request_root == Hash32(b"\0" * 32)
         assert not result.successful_validation
-        assert result.chain_config.chain_id == U64(0)
-        assert result.chain_config.active_fork.activation.block_number is None
-        assert result.chain_config.active_fork.activation.timestamp is None
+        assert result.chain_id == U64(0)
+        assert result.schema_id == U16(0)
+
+    def test_decodable_input_reports_schema_on_validation_failure(
+        self,
+    ) -> None:
+        """Decoded input reports its schema after execution failure."""
+        stateless_input = _make_stateless_input()
+        encoded = run_stateless_guest(
+            serialize_stateless_input(stateless_input)
+        )
+        result = deserialize_stateless_output(encoded)
+
+        assert not result.successful_validation
+        assert result.chain_id == stateless_input.chain_id
+        assert result.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
 
 
 class TestComputeNewPayloadRequestRoot:
@@ -468,12 +461,13 @@ class TestTransactionPublicKeys:
         invalid = StatelessInput(
             new_payload_request=original.new_payload_request,
             witness=original.witness,
-            chain_config=original.chain_config,
+            chain_id=original.chain_id,
             public_keys=(original.public_keys[0],),
         )
 
         result = verify_stateless_new_payload(invalid)
         assert not result.successful_validation
+        assert result.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
 
     def test_too_many_public_keys_fail_validation(self) -> None:
         """Stateless validation should fail with too many public keys."""
@@ -481,7 +475,7 @@ class TestTransactionPublicKeys:
         invalid = StatelessInput(
             new_payload_request=original.new_payload_request,
             witness=original.witness,
-            chain_config=original.chain_config,
+            chain_id=original.chain_id,
             public_keys=(
                 original.public_keys[0],
                 original.public_keys[1],
@@ -491,3 +485,4 @@ class TestTransactionPublicKeys:
 
         result = verify_stateless_new_payload(invalid)
         assert not result.successful_validation
+        assert result.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)

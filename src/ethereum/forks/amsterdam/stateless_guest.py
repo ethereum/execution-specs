@@ -3,14 +3,11 @@ Stateless guest interfaces.
 """
 
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U64
+from ethereum_types.numeric import U16, U64
 
 from ethereum.crypto.hash import Hash32
 
 from .stateless import (
-    ChainConfig,
-    ForkActivation,
-    ForkConfig,
     StatelessInput,
     StatelessValidationResult,
     verify_stateless_new_payload,
@@ -57,15 +54,8 @@ def _default_failed_stateless_output() -> StatelessValidationResult:
     return StatelessValidationResult(
         new_payload_request_root=Hash32(b"\0" * 32),
         successful_validation=False,
-        chain_config=ChainConfig(
-            chain_id=U64(0),
-            active_fork=ForkConfig(
-                activation=ForkActivation(
-                    block_number=None,
-                    timestamp=None,
-                ),
-            ),
-        ),
+        chain_id=U64(0),
+        schema_id=U16(0),
     )
 
 

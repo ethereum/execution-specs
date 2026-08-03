@@ -9,7 +9,7 @@ from typing import List, Sequence, Tuple, final
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U64
+from ethereum_types.numeric import U16, U64
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
@@ -18,7 +18,7 @@ from ethereum.state import Root
 from .blocks import Header
 from .execution_engine.new_payload import execute_new_payload_request
 from .execution_engine.requests import ExecutionRequests
-from .execution_engine.types import ExecutionPayload, NewPayloadRequest
+from .execution_engine.types import NewPayloadRequest
 from .fork import ChainContext
 from .fork_types import VersionedHash
 from .witness_state import WitnessState, build_code_db, build_node_db
@@ -106,59 +106,6 @@ class ProtocolFork(IntEnum):
     Amsterdam = 0x15
 
 
-class ChainConfigValidationError(Exception):
-    """
-    Raised when a chain config cannot be used by this stateless guest.
-    """
-
-
-class InactiveForkConfigError(ChainConfigValidationError):
-    """
-    Raised when the configured active fork is not active for the payload.
-    """
-
-
-class InvalidForkActivationError(ChainConfigValidationError):
-    """
-    Raised when a fork entry has a malformed activation point.
-    """
-
-
-@final
-@slotted_freezable
-@dataclass
-class ForkActivation:
-    """
-    Activation point for a protocol fork.
-    """
-
-    block_number: U64 | None
-    timestamp: U64 | None
-
-
-@final
-@slotted_freezable
-@dataclass
-class ForkConfig:
-    """
-    Per-fork configuration needed to interpret stateless inputs.
-    """
-
-    activation: ForkActivation
-
-
-@final
-@slotted_freezable
-@dataclass
-class ChainConfig:
-    """
-    Chain configuration needed for stateless validation.
-    """
-
-    chain_id: U64
-    active_fork: ForkConfig
-
-
 @final
 @slotted_freezable
 @dataclass
@@ -180,9 +127,9 @@ class StatelessInput:
     state transition function statelessly.
     """
 
-    chain_config: ChainConfig
+    chain_id: U64
     """
-    Chain configuration values needed during stateless validation.
+    Chain identifier used during payload validation and execution.
     """
 
     public_keys: Tuple[Bytes, ...]
@@ -219,10 +166,17 @@ class StatelessValidationResult:
     means validation failed or the guest input bytes could not be decoded.
     """
 
-    chain_config: ChainConfig
+    chain_id: U64
     """
-    Chain configuration decoded from the input. This is a sentinel default
-    when ``run_stateless_guest`` cannot decode the input bytes.
+    Chain identifier decoded from the input. This is zero when
+    ``run_stateless_guest`` cannot decode the input bytes.
+    """
+
+    schema_id: U16
+    """
+    Exact input schema decoded and executed by the guest. This uses the
+    invalid-input sentinel when ``run_stateless_guest`` cannot decode the
+    input bytes.
     """
 
 
@@ -272,65 +226,23 @@ def validate_headers(
     return headers, block_hashes
 
 
-def _is_activation_active(
-    activation: ForkActivation,
-    execution_payload: ExecutionPayload,
-) -> bool:
-    """
-    Return whether an activation point is active for the payload.
-    """
-    if activation.block_number is None and activation.timestamp is None:
-        raise InvalidForkActivationError(
-            "Fork activation must set block_number or timestamp"
-        )
-
-    if activation.block_number is not None and int(
-        execution_payload.block_number
-    ) < int(activation.block_number):
-        return False
-
-    if activation.timestamp is not None and int(
-        execution_payload.timestamp
-    ) < int(activation.timestamp):
-        return False
-
-    return True
-
-
-def validate_chain_config(
-    chain_config: ChainConfig,
-    new_payload_request: NewPayloadRequest,
-) -> ForkConfig:
-    """
-    Validate and return the target payload's active fork config.
-    """
-    active_fork = chain_config.active_fork
-    execution_payload = new_payload_request.execution_payload
-
-    if not _is_activation_active(active_fork.activation, execution_payload):
-        raise InactiveForkConfigError(
-            "ChainConfig active_fork is not active for the target payload"
-        )
-
-    return active_fork
-
-
 def verify_stateless_new_payload(
     stateless_input: StatelessInput,
 ) -> StatelessValidationResult:
     """
     Statelessly validate the execution payload.
     """
+    from .stateless_ssz import STATELESS_INPUT_SCHEMA_ID
+
     new_payload_request_root = compute_new_payload_request_root(
         stateless_input
     )
     witness = stateless_input.witness
 
     try:
-        validate_chain_config(
-            stateless_input.chain_config,
-            stateless_input.new_payload_request,
-        )
+        # EEST has one implementation per fork, so it does not need to check
+        # the execution payload timestamp against the current fork activation
+        # information. A real implementation MUST do these checks!
 
         # Validate the headers are contiguous and compute their
         # blockhashes.
@@ -338,7 +250,7 @@ def verify_stateless_new_payload(
         parent_header = decoded_headers[-1]
 
         chain_context = ChainContext(
-            chain_id=stateless_input.chain_config.chain_id,
+            chain_id=stateless_input.chain_id,
             block_hashes=block_hashes,
             parent_header=parent_header,
         )
@@ -362,5 +274,6 @@ def verify_stateless_new_payload(
     return StatelessValidationResult(
         new_payload_request_root=new_payload_request_root,
         successful_validation=successful_validation,
-        chain_config=stateless_input.chain_config,
+        chain_id=stateless_input.chain_id,
+        schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
     )

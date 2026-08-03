@@ -443,40 +443,17 @@ def finalize_stateless_artifacts(
             f"want {options.expected_validation_success}"
         )
 
-    assert_amsterdam_stateless_output_request_root(
-        fork=fork,
-        block_number=block_number,
-        timestamp=timestamp,
-        stateless_input_bytes=stateless_input_bytes,
-        stateless_output=stateless_output,
-    )
-
-    skip_chain_config_assertion = (
-        options.has_stateless_input_bytes_modifier
-        and stateless_output is not None
-        and is_invalid_stateless_input_sentinel(stateless_output)
-    )
-    if not skip_chain_config_assertion:
-        expected_chain_config = None
-        if options.has_stateless_input_bytes_modifier:
-            if stateless_input_bytes is None:
-                raise Exception(
-                    "Stateless output chain_config assertion requires "
-                    "stateless input bytes"
-                )
-            expected_chain_config = (
-                decode_amsterdam_stateless_input_chain_config(
-                    fork=fork,
-                    block_number=block_number,
-                    timestamp=timestamp,
-                    stateless_input_bytes=stateless_input_bytes,
-                )
+    if stateless_output is not None:
+        if stateless_input_bytes is None:
+            raise Exception(
+                "Stateless output verification requires stateless input bytes"
             )
-        assert_amsterdam_stateless_output_chain_config(
+        verify_amsterdam_stateless_output(
             block_number=block_number,
             chain_id=chain_id,
+            stateless_input_bytes=stateless_input_bytes,
             stateless_output=stateless_output,
-            expected_chain_config=expected_chain_config,
+            input_bytes_modified=options.has_stateless_input_bytes_modifier,
         )
 
     return replace(
@@ -606,7 +583,7 @@ def rebuild_amsterdam_stateless_input_with_overrides(
     rebuilt_input = AmsterdamStatelessInput(
         new_payload_request=original_input.new_payload_request,
         witness=rebuilt_witness,
-        chain_config=original_input.chain_config,
+        chain_id=original_input.chain_id,
         public_keys=(
             tuple(AmsterdamBytes(bytes(key)) for key in public_keys)
             if public_keys is not None
@@ -905,12 +882,14 @@ def build_amsterdam_stateless_artifacts_from_t8n(
         serialize_stateless_output,
     )
     from ethereum.forks.amsterdam.stateless_host import (
-        build_chain_config,
         build_stateless_input,
         serialize_stateless_input,
     )
+    from ethereum.forks.amsterdam.stateless_ssz import (
+        STATELESS_INPUT_SCHEMA_ID,
+    )
     from ethereum_types.bytes import Bytes as AmsterdamBytes
-    from ethereum_types.numeric import U64
+    from ethereum_types.numeric import U16, U64
 
     parent_number = ZeroPaddedHexNumber(block_number - 1)
     parent_header_rlp = previous_env.block_headers.get(parent_number)
@@ -969,7 +948,8 @@ def build_amsterdam_stateless_artifacts_from_t8n(
             stateless_input
         ),
         successful_validation=True,
-        chain_config=build_chain_config(U64(chain_id)),
+        chain_id=U64(chain_id),
+        schema_id=U16(STATELESS_INPUT_SCHEMA_ID),
     )
     stateless_output_bytes = serialize_stateless_output(stateless_output)
     return (
@@ -1005,100 +985,103 @@ def decode_amsterdam_stateless_output(
     )
 
 
-def decode_amsterdam_stateless_input_chain_config(
-    *,
-    fork: Fork,
-    block_number: int,
-    timestamp: int,
-    stateless_input_bytes: Bytes,
-) -> Any | None:
-    """
-    Decode the chain config from Amsterdam stateless input bytes.
-    """
-    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
-    if active_fork.name() != "Amsterdam":
-        return None
-
-    from ethereum.forks.amsterdam.stateless_guest import (
-        deserialize_stateless_input,
-    )
-    from ethereum_types.bytes import Bytes as AmsterdamBytes
-
-    stateless_input = deserialize_stateless_input(
-        AmsterdamBytes(bytes(stateless_input_bytes))
-    )
-    return stateless_input.chain_config
-
-
-def assert_amsterdam_stateless_output_chain_config(
+def assert_amsterdam_stateless_output_chain_id(
     *,
     block_number: int,
     chain_id: int,
     stateless_output: Any | None,
-    expected_chain_config: Any | None = None,
+    expected_chain_id: Any | None = None,
 ) -> None:
     """
-    Assert the stateless output reports the expected Amsterdam chain config.
+    Assert the stateless output reports the expected chain identifier.
     """
     if stateless_output is None:
         return
 
-    if expected_chain_config is None:
-        from ethereum.forks.amsterdam.stateless_host import build_chain_config
+    if expected_chain_id is None:
         from ethereum_types.numeric import U64
 
-        expected_chain_config = build_chain_config(U64(chain_id))
+        expected_chain_id = U64(chain_id)
 
-    if stateless_output.chain_config != expected_chain_config:
+    if stateless_output.chain_id != expected_chain_id:
         raise AssertionError(
-            "Stateless output chain_config mismatch for block "
-            f"{block_number}: got {stateless_output.chain_config}, "
-            f"want {expected_chain_config}"
+            "Stateless output chain_id mismatch for block "
+            f"{block_number}: got {stateless_output.chain_id}, "
+            f"want {expected_chain_id}"
         )
 
 
-def is_invalid_stateless_input_sentinel(stateless_output: Any) -> bool:
+def is_invalid_input_stateless_output(stateless_output: Any) -> bool:
     """
     Return whether output is the invalid stateless input sentinel.
     """
-    from ethereum_types.numeric import U64
+    from ethereum_types.numeric import U16, U64
 
-    chain_config = stateless_output.chain_config
-    active_fork = chain_config.active_fork
-    activation = active_fork.activation
     return (
         not stateless_output.successful_validation
         and bytes(stateless_output.new_payload_request_root) == b"\0" * 32
-        and chain_config.chain_id == U64(0)
-        and activation.block_number is None
-        and activation.timestamp is None
+        and stateless_output.chain_id == U64(0)
+        and stateless_output.schema_id == U16(0)
     )
 
 
 def assert_amsterdam_stateless_output_request_root(
     *,
-    fork: Fork,
     block_number: int,
-    timestamp: int,
-    stateless_input_bytes: Bytes | None,
-    stateless_output: Any | None,
+    stateless_input: Any,
+    stateless_output: Any,
 ) -> None:
     """
     Assert the output commits to the decoded Amsterdam payload request.
     """
-    if stateless_input_bytes is None or stateless_output is None:
-        return
-
-    active_fork = fork.fork_at(
-        block_number=block_number,
-        timestamp=timestamp,
-    )
-    if active_fork.name() != "Amsterdam":
-        return
-
     from ethereum.forks.amsterdam.stateless import (
         compute_new_payload_request_root,
     )
+
+    expected_root = compute_new_payload_request_root(stateless_input)
+    actual_root = stateless_output.new_payload_request_root
+    if actual_root != expected_root:
+        raise AssertionError(
+            "Stateless output new_payload_request_root mismatch for block "
+            f"{block_number}: got 0x{bytes(actual_root).hex()}, "
+            f"want 0x{bytes(expected_root).hex()}"
+        )
+
+
+def assert_amsterdam_stateless_output_schema_id(
+    *,
+    block_number: int,
+    stateless_output: Any,
+) -> None:
+    """
+    Assert the output identifies the input schema executed by the guest.
+    """
+    from ethereum.forks.amsterdam.stateless_ssz import (
+        STATELESS_INPUT_SCHEMA_ID,
+    )
+    from ethereum_types.numeric import U16
+
+    expected_schema_id = U16(STATELESS_INPUT_SCHEMA_ID)
+
+    if stateless_output.schema_id != expected_schema_id:
+        raise AssertionError(
+            "Stateless output schema_id mismatch for block "
+            f"{block_number}: got {stateless_output.schema_id}, "
+            f"want {expected_schema_id}"
+        )
+
+
+def verify_amsterdam_stateless_output(
+    *,
+    block_number: int,
+    chain_id: int,
+    stateless_input_bytes: Bytes,
+    stateless_output: Any,
+    input_bytes_modified: bool,
+) -> None:
+    """
+    Verify the public values returned by the Amsterdam stateless guest.
+    """
     from ethereum.forks.amsterdam.stateless_guest import (
         deserialize_stateless_input,
     )
@@ -1109,21 +1092,32 @@ def assert_amsterdam_stateless_output_request_root(
             AmsterdamBytes(bytes(stateless_input_bytes))
         )
     except Exception as exc:
-        if is_invalid_stateless_input_sentinel(stateless_output):
+        if input_bytes_modified and is_invalid_input_stateless_output(
+            stateless_output
+        ):
             return
         raise AssertionError(
             "Stateless input decoding failed for block "
             f"{block_number}, but its output is not the invalid-input sentinel"
         ) from exc
 
-    expected_root = compute_new_payload_request_root(stateless_input)
-    actual_root = stateless_output.new_payload_request_root
-    if actual_root != expected_root:
-        raise AssertionError(
-            "Stateless output new_payload_request_root mismatch for block "
-            f"{block_number}: got 0x{bytes(actual_root).hex()}, "
-            f"want 0x{bytes(expected_root).hex()}"
-        )
+    assert_amsterdam_stateless_output_request_root(
+        block_number=block_number,
+        stateless_input=stateless_input,
+        stateless_output=stateless_output,
+    )
+    assert_amsterdam_stateless_output_schema_id(
+        block_number=block_number,
+        stateless_output=stateless_output,
+    )
+    assert_amsterdam_stateless_output_chain_id(
+        block_number=block_number,
+        chain_id=chain_id,
+        stateless_output=stateless_output,
+        expected_chain_id=(
+            stateless_input.chain_id if input_bytes_modified else None
+        ),
+    )
 
 
 def _has_execution_witness_modifier(
