@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -191,61 +188,49 @@ def test_create_collision_to_empty2(
         address=Address(0x4B86C4ED99B87F0F396BC0C76885453C343916ED),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_1: Account(storage={}, nonce=0),
-                contract_4: Account(storage={}, code=b"", balance=10, nonce=0),
-            },
+            sender: Account(nonce=1),
+            contract_1: Account(storage={}, nonce=0),
+            contract_4: Account(storage={}, code=b"", balance=10, nonce=0),
         },
         {
-            "indexes": {"data": 0, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_1: Account(storage={1: contract_4}, nonce=1),
-                contract_4: Account(
-                    storage={1: 1}, code=b"", balance=10, nonce=1
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_1: Account(storage={1: contract_4}, nonce=1),
+            contract_4: Account(storage={1: 1}, code=b"", balance=10, nonce=1),
         },
         {
-            "indexes": {"data": [1, 2], "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_2: Account(storage={1: 0}, nonce=0),
-                contract_5: Account(storage={}, code=b"", nonce=2),
-            },
+            sender: Account(nonce=1),
+            contract_2: Account(storage={1: 0}, nonce=0),
+            contract_5: Account(storage={}, code=b"", nonce=2),
         },
         {
-            "indexes": {"data": 1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_2: Account(storage={1: 0}, nonce=0),
-                contract_5: Account(storage={}, code=b"", nonce=2),
-            },
-        },
-        {
-            "indexes": {"data": 2, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_3: Account(storage={1: 0}, nonce=0),
-                contract_6: Account(
-                    storage={},
-                    code=bytes.fromhex("1122334455"),
-                    nonce=0,
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_3: Account(storage={1: 0}, nonce=0),
+            contract_6: Account(
+                storage={},
+                code=bytes.fromhex("1122334455"),
+                nonce=0,
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 1,
+            (0, 0, 1): 1,
+            (0, 1, 0): 0,
+            (0, 1, 1): 0,
+            (1, 0, 0): 2,
+            (1, 0, 1): 2,
+            (1, 1, 0): 2,
+            (1, 1, 1): 2,
+            (2, 0, 0): 3,
+            (2, 0, 1): 3,
+            (2, 1, 0): 2,
+            (2, 1, 1): 2,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(contract_1, left_padding=True),

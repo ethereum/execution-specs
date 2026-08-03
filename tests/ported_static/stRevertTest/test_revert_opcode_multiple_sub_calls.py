@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -471,112 +468,117 @@ def test_revert_opcode_multiple_sub_calls(
         address=Address(0xD7E294F032A5CC430E9E6C4148220867E9704DCD),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                addr: Account(
-                    storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
-                ),
-                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
-            },
+            sender: Account(nonce=1),
+            addr: Account(
+                storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
+                nonce=0,
+            ),
+            addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
         },
         {
-            "indexes": {"data": 1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                addr_2: Account(
-                    storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
-                ),
-                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
-            },
+            sender: Account(nonce=1),
+            addr_2: Account(
+                storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
+                nonce=0,
+            ),
+            addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
         },
         {
-            "indexes": {"data": 2, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                addr_3: Account(
-                    storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
-                ),
-                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
-            },
+            sender: Account(nonce=1),
+            addr_3: Account(
+                storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
+                nonce=0,
+            ),
+            addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
         },
         {
-            "indexes": {"data": 3, "gas": [0, 2], "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                addr_4: Account(
-                    storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
-                ),
-                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
-            },
+            sender: Account(nonce=1),
+            addr_4: Account(
+                storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
+                nonce=0,
+            ),
+            addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
         },
         {
-            "indexes": {"data": [1, 2], "gas": 2, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                addr_4: Account(
-                    storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=0
-                ),
-                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
-            },
+            sender: Account(nonce=1),
+            addr_4: Account(
+                storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=0
+            ),
+            addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
         },
         {
-            "indexes": {"data": 0, "gas": [2], "value": [0, 1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                addr: Account(
-                    storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
-                    nonce=0,
-                ),
-                addr_2: Account(storage={}, nonce=0),
-                addr_3: Account(storage={}, nonce=0),
-                addr_4: Account(storage={}, nonce=0),
-                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
-            },
+            sender: Account(nonce=1),
+            addr: Account(
+                storage={4: 12, 5: 12, 10: 0, 11: 0, 12: 0},
+                nonce=0,
+            ),
+            addr_2: Account(storage={}, nonce=0),
+            addr_3: Account(storage={}, nonce=0),
+            addr_4: Account(storage={}, nonce=0),
+            addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
         },
         {
-            "indexes": {"data": -1, "gas": [1, 3], "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                addr: Account(
-                    storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=0
-                ),
-                addr_2: Account(storage={}, nonce=0),
-                addr_3: Account(storage={}, nonce=0),
-                addr_4: Account(storage={}, nonce=0),
-                addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
-                addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
-            },
+            sender: Account(nonce=1),
+            addr: Account(storage={4: 0, 5: 0, 10: 0, 11: 0, 12: 0}, nonce=0),
+            addr_2: Account(storage={}, nonce=0),
+            addr_3: Account(storage={}, nonce=0),
+            addr_4: Account(storage={}, nonce=0),
+            addr_5: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_6: Account(storage={1: 0, 2: 0, 3: 0}),
+            addr_7: Account(storage={1: 0, 2: 0, 3: 0}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (0, 0, 1): 0,
+            (0, 1, 0): 6,
+            (0, 1, 1): 6,
+            (0, 2, 0): 5,
+            (0, 2, 1): 5,
+            (0, 3, 0): 6,
+            (0, 3, 1): 6,
+            (1, 0, 0): 1,
+            (1, 0, 1): 1,
+            (1, 1, 0): 6,
+            (1, 1, 1): 6,
+            (1, 2, 0): 4,
+            (1, 2, 1): 4,
+            (1, 3, 0): 6,
+            (1, 3, 1): 6,
+            (2, 0, 0): 2,
+            (2, 0, 1): 2,
+            (2, 1, 0): 6,
+            (2, 1, 1): 6,
+            (2, 2, 0): 4,
+            (2, 2, 1): 4,
+            (2, 3, 0): 6,
+            (2, 3, 1): 6,
+            (3, 0, 0): 3,
+            (3, 0, 1): 3,
+            (3, 1, 0): 6,
+            (3, 1, 1): 6,
+            (3, 2, 0): 3,
+            (3, 2, 1): 3,
+            (3, 3, 0): 6,
+            (3, 3, 1): 6,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

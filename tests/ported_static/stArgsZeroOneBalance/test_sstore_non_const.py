@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -82,20 +79,12 @@ def test_sstore_non_const(
         address=Address(0x82D3D8BE7168E697ED33F2A50810FA614393171E),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={1: 0})},
-        },
-        {
-            "indexes": {"data": -1, "gas": -1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={1: 1})},
-        },
+    expect_posts: list[dict] = [
+        {target: Account(storage={1: 0})},
+        {target: Account(storage={1: 1})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 0, 1): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

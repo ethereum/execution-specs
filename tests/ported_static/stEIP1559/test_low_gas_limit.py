@@ -24,9 +24,6 @@ from execution_testing import (
     TransactionException,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -102,36 +99,18 @@ def test_low_gas_limit(
         nonce=0,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {},
-            "expect_exception": {
-                ">=Cancun": TransactionException.GAS_ALLOWANCE_EXCEEDED
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 2})},
-        },
-        {
-            "indexes": {"data": -1, "gas": 2, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 24743})},
-        },
-        {
-            "indexes": {"data": -1, "gas": 3, "value": -1},
-            "network": [">=Cancun"],
-            "result": {},
-            "expect_exception": {
-                ">=Cancun": TransactionException.INTRINSIC_GAS_TOO_LOW
-            },
-        },
+    expect_posts: list[dict] = [
+        {},
+        {target: Account(storage={0: 2})},
+        {target: Account(storage={0: 24743})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {(0, 0, 0): 0, (0, 1, 0): 1, (0, 2, 0): 2, (0, 3, 0): 0}[d, g, v]
+    ]
+    _exc = {
+        (0, 0, 0): TransactionException.GAS_ALLOWANCE_EXCEEDED,
+        (0, 3, 0): TransactionException.INTRINSIC_GAS_TOO_LOW,
+    }.get((d, g, v))
 
     tx_data = [
         Bytes("00"),

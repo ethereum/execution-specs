@@ -18,9 +18,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -291,66 +288,50 @@ def test_codecopy(
         address=Address(0x0000000000000000000000000000000000001002),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_5: Account(
-                    storage={
-                        0: 0x6040600060003960005160005560205160015500000000000000000000000000,  # noqa: E501
-                        1: 0,
-                    },
-                ),
-            },
+            contract_5: Account(
+                storage={
+                    0: 0x6040600060003960005160005560205160015500000000000000000000000000,  # noqa: E501
+                    1: 0,
+                },
+            ),
         },
         {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_5: Account(
-                    storage={
-                        0: 0x6110006000600039600051600055602051600155000000000000000000000000,  # noqa: E501
-                        1: 0,
-                    },
-                ),
-            },
+            contract_5: Account(
+                storage={
+                    0: 0x6110006000600039600051600055602051600155000000000000000000000000,  # noqa: E501
+                    1: 0,
+                },
+            ),
+        },
+        {contract_5: Account(storage={0: 0, 1: 0})},
+        {
+            contract_5: Account(
+                storage={
+                    0: 0x6010600F600E600D600C600B600A600960086007600660056004600360026001,  # noqa: E501
+                    1: 0x101010101010101010101010101016101005260206000600039604060206020,  # noqa: E501
+                    2: 0x3960005160005560205160015560405160025500000000000000000000000000,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_5: Account(storage={0: 0, 1: 0})},
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_5: Account(
-                    storage={
-                        0: 0x6010600F600E600D600C600B600A600960086007600660056004600360026001,  # noqa: E501
-                        1: 0x101010101010101010101010101016101005260206000600039604060206020,  # noqa: E501
-                        2: 0x3960005160005560205160015560405160025500000000000000000000000000,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_5: Account(
-                    storage={
-                        0: 0x3860FF5560FF5460006000396160A76000556160A76001556160A76002556000,  # noqa: E501
-                        1: 0x5160005560205160015560405160025560605160035560805160045560A05160,  # noqa: E501
-                        2: 0x5550061DEADFF60FF546000F360AA60BB60CC60DD60EE60FFF4000000000000,  # noqa: E501
-                        255: 91,
-                    },
-                ),
-            },
+            contract_5: Account(
+                storage={
+                    0: 0x3860FF5560FF5460006000396160A76000556160A76001556160A76002556000,  # noqa: E501
+                    1: 0x5160005560205160015560405160025560605160035560805160045560A05160,  # noqa: E501
+                    2: 0x5550061DEADFF60FF546000F360AA60BB60CC60DD60EE60FFF4000000000000,  # noqa: E501
+                    255: 91,
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {(0, 0, 0): 0, (1, 0, 0): 2, (2, 0, 0): 1, (3, 0, 0): 3, (4, 0, 0): 4}[
+            d, g, v
+        ]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

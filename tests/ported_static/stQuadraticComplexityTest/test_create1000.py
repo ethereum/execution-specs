@@ -17,9 +17,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -91,72 +88,34 @@ def test_create1000(
         nonce=0,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                compute_create_address(
-                    address=contract_0, nonce=866
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=780
-                ): Account.NONEXISTENT,
-                contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
-                compute_create_address(
-                    address=contract_0, nonce=959
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=393
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=499
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=19
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=327
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=493
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                compute_create_address(
-                    address=contract_0, nonce=866
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=780
-                ): Account.NONEXISTENT,
-                contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
-                compute_create_address(
-                    address=contract_0, nonce=959
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=393
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=499
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=19
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=327
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=493
-                ): Account.NONEXISTENT,
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = {
+        compute_create_address(
+            address=contract_0, nonce=866
+        ): Account.NONEXISTENT,
+        compute_create_address(
+            address=contract_0, nonce=780
+        ): Account.NONEXISTENT,
+        contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
+        compute_create_address(
+            address=contract_0, nonce=959
+        ): Account.NONEXISTENT,
+        compute_create_address(
+            address=contract_0, nonce=393
+        ): Account.NONEXISTENT,
+        compute_create_address(
+            address=contract_0, nonce=499
+        ): Account.NONEXISTENT,
+        compute_create_address(
+            address=contract_0, nonce=19
+        ): Account.NONEXISTENT,
+        compute_create_address(
+            address=contract_0, nonce=327
+        ): Account.NONEXISTENT,
+        compute_create_address(
+            address=contract_0, nonce=493
+        ): Account.NONEXISTENT,
+    }
+    _exc = None
 
     tx_data = [
         Bytes(""),

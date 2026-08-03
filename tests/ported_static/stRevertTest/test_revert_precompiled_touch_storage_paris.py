@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -491,38 +488,32 @@ def test_revert_precompiled_touch_storage_paris(
         address=Address(0x10EF6D6218ADA53728683CEC4D5160C8C72159BD),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0, 3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_5: Account(storage={0: addr_5}),
-                addr_6: Account(storage={0: addr_5}),
-                addr_7: Account(balance=10),
-                addr_8: Account(storage={0: addr_5}),
-                addr_9: Account(storage={0: addr_5}),
-                addr_10: Account(storage={0: addr_5}),
-                addr_11: Account(storage={0: addr_5}),
-                addr_12: Account(storage={0: addr_5}),
-            },
+            addr_5: Account(storage={0: addr_5}),
+            addr_6: Account(storage={0: addr_5}),
+            addr_7: Account(balance=10),
+            addr_8: Account(storage={0: addr_5}),
+            addr_9: Account(storage={0: addr_5}),
+            addr_10: Account(storage={0: addr_5}),
+            addr_11: Account(storage={0: addr_5}),
+            addr_12: Account(storage={0: addr_5}),
         },
         {
-            "indexes": {"data": [1, 2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_5: Account(storage={0: addr_5}),
-                addr_6: Account(storage={0: addr_5}),
-                addr_7: Account(storage={0: addr_5}),
-                addr_8: Account(storage={0: addr_5}),
-                addr_9: Account(storage={0: addr_5}),
-                addr_10: Account(storage={0: addr_5}),
-                addr_11: Account(storage={0: addr_5}),
-                addr_12: Account(storage={0: addr_5}),
-            },
+            addr_5: Account(storage={0: addr_5}),
+            addr_6: Account(storage={0: addr_5}),
+            addr_7: Account(storage={0: addr_5}),
+            addr_8: Account(storage={0: addr_5}),
+            addr_9: Account(storage={0: addr_5}),
+            addr_10: Account(storage={0: addr_5}),
+            addr_11: Account(storage={0: addr_5}),
+            addr_12: Account(storage={0: addr_5}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {(0, 0, 0): 0, (1, 0, 0): 1, (2, 0, 0): 1, (3, 0, 0): 0}[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

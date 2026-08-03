@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -166,28 +163,20 @@ def test_static_ab_acalls0(
         address=Address(0x718A83E869D6F4DEA50A650B9825CBFE683BDF16),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr: Account(storage={36: 0}, balance=0xDE0B6B3A76586A0),
-                addr_2: Account(storage={38: 0}),
-                target: Account(storage={0: 1, 1: 1}),
-            },
+            addr: Account(storage={36: 0}, balance=0xDE0B6B3A76586A0),
+            addr_2: Account(storage={38: 0}),
+            target: Account(storage={0: 1, 1: 1}),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_3: Account(storage={36: 0}, balance=0xDE0B6B3A76586A0),
-                addr_4: Account(storage={38: 0}),
-                target: Account(storage={0: 1, 1: 1}),
-            },
+            addr_3: Account(storage={36: 0}, balance=0xDE0B6B3A76586A0),
+            addr_4: Account(storage={38: 0}),
+            target: Account(storage={0: 1, 1: 1}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

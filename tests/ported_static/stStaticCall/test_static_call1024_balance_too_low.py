@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -132,26 +129,18 @@ def test_static_call1024_balance_too_low(
         address=Address(0xE8F28EE50521B0388CF0A623B1A89E43D022C039),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                addr_2: Account(storage={0: 1, 1: 0}),
-                target: Account(storage={0: 1, 1: 1}),
-            },
+            addr_2: Account(storage={0: 1, 1: 0}),
+            target: Account(storage={0: 1, 1: 1}),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                addr_3: Account(storage={0: 0, 1: 0}),
-                target: Account(storage={0: 1, 1: 1}),
-            },
+            addr_3: Account(storage={0: 0, 1: 0}),
+            target: Account(storage={0: 1, 1: 1}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(addr_2, left_padding=True),

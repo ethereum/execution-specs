@@ -17,9 +17,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -137,43 +134,42 @@ def test_revert_depth_create_oog(
         nonce=54,
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_1, nonce=0): Account(
-                    nonce=1
-                ),
-                contract_0: Account(storage={0: 1, 1: 1, 4: 12}),
-                contract_1: Account(storage={2: 8, 3: 12}),
-            },
+            compute_create_address(address=contract_1, nonce=0): Account(
+                nonce=1
+            ),
+            contract_0: Account(storage={0: 1, 1: 1, 4: 12}),
+            contract_1: Account(storage={2: 8, 3: 12}),
         },
         {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(
-                    address=contract_1, nonce=0
-                ): Account.NONEXISTENT,
-                contract_0: Account(storage={0: 1, 4: 12}),
-                contract_1: Account(storage={}),
-            },
+            compute_create_address(
+                address=contract_1, nonce=0
+            ): Account.NONEXISTENT,
+            contract_0: Account(storage={0: 1, 4: 12}),
+            contract_1: Account(storage={}),
         },
         {
-            "indexes": {"data": [0, 1], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(
-                    address=contract_1, nonce=0
-                ): Account.NONEXISTENT,
-                contract_0: Account(storage={}),
-                contract_1: Account(storage={}),
-            },
+            compute_create_address(
+                address=contract_1, nonce=0
+            ): Account.NONEXISTENT,
+            contract_0: Account(storage={}),
+            contract_1: Account(storage={}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 2,
+            (0, 0, 1): 2,
+            (0, 1, 0): 1,
+            (0, 1, 1): 1,
+            (1, 0, 0): 2,
+            (1, 0, 1): 2,
+            (1, 1, 0): 0,
+            (1, 1, 1): 0,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(0xEA60),

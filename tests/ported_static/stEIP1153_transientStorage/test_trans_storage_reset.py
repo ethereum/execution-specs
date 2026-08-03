@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -525,78 +522,66 @@ def test_trans_storage_reset(
         nonce=1,
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: reverter, 1: 1}),
-                reverter: Account(storage={0: 48879, 1: 1}),
-                dead: Account(storage={16: 1}),
-            },
+            target: Account(storage={0: reverter, 1: 1}),
+            reverter: Account(storage={0: 48879, 1: 1}),
+            dead: Account(storage={16: 1}),
         },
         {
-            "indexes": {"data": [3, 6, 9, 12, 15, 18], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: reverter, 1: 1}),
-                reverter: Account(storage={0: 48879, 1: 1, 16: 1}),
-            },
+            target: Account(storage={0: reverter, 1: 1}),
+            reverter: Account(storage={0: 48879, 1: 1, 16: 1}),
         },
         {
-            "indexes": {"data": [24, 27], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: reverter, 1: 1}),
-                reverter: Account(storage={0: 0xBAD0BEEF, 1: 1, 16: 32343}),
-            },
+            target: Account(storage={0: reverter, 1: 1}),
+            reverter: Account(storage={0: 0xBAD0BEEF, 1: 1, 16: 32343}),
         },
         {
-            "indexes": {
-                "data": [
-                    1,
-                    2,
-                    4,
-                    5,
-                    7,
-                    8,
-                    10,
-                    11,
-                    13,
-                    14,
-                    16,
-                    17,
-                    19,
-                    20,
-                    22,
-                    23,
-                    25,
-                    26,
-                    28,
-                    29,
-                ],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: reverter, 1: 1}),
-                reverter: Account(storage={0: 24743, 1: 0}),
-                dead: Account(storage={16: 24743}),
-            },
+            target: Account(storage={0: reverter, 1: 1}),
+            reverter: Account(storage={0: 24743, 1: 0}),
+            dead: Account(storage={16: 24743}),
         },
         {
-            "indexes": {"data": [21], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: reverter, 1: 1}),
-                reverter: Account(storage={0: 24743, 1: 1}),
-                dead: Account(storage={16: 32343}),
-            },
+            target: Account(storage={0: reverter, 1: 1}),
+            reverter: Account(storage={0: 24743, 1: 1}),
+            dead: Account(storage={16: 32343}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 3,
+            (2, 0, 0): 3,
+            (3, 0, 0): 1,
+            (4, 0, 0): 3,
+            (5, 0, 0): 3,
+            (6, 0, 0): 1,
+            (7, 0, 0): 3,
+            (8, 0, 0): 3,
+            (9, 0, 0): 1,
+            (10, 0, 0): 3,
+            (11, 0, 0): 3,
+            (12, 0, 0): 1,
+            (13, 0, 0): 3,
+            (14, 0, 0): 3,
+            (15, 0, 0): 1,
+            (16, 0, 0): 3,
+            (17, 0, 0): 3,
+            (18, 0, 0): 1,
+            (19, 0, 0): 3,
+            (20, 0, 0): 3,
+            (21, 0, 0): 4,
+            (22, 0, 0): 3,
+            (23, 0, 0): 3,
+            (24, 0, 0): 2,
+            (25, 0, 0): 3,
+            (26, 0, 0): 3,
+            (27, 0, 0): 2,
+            (28, 0, 0): 3,
+            (29, 0, 0): 3,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("d6c2107a")

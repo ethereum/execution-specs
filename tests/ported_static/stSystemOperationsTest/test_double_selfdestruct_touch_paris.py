@@ -20,9 +20,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -137,40 +134,28 @@ def test_double_selfdestruct_touch_paris(
         address=Address(0x8EC7465877D3957084DC907C0F6D8F2911A17A52),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(storage={}, balance=0, nonce=0),
-                empty_account_1: Account(balance=10),
-                empty_account_2: Account(balance=10),
-            },
+            sender: Account(nonce=1),
+            target: Account(storage={}, balance=0, nonce=0),
+            empty_account_1: Account(balance=10),
+            empty_account_2: Account(balance=10),
         },
         {
-            "indexes": {"data": -1, "gas": -1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(storage={}, balance=0, nonce=0),
-                empty_account_1: Account(balance=10),
-                empty_account_2: Account(balance=11, nonce=0),
-            },
+            sender: Account(nonce=1),
+            target: Account(storage={}, balance=0, nonce=0),
+            empty_account_1: Account(balance=10),
+            empty_account_2: Account(balance=11, nonce=0),
         },
         {
-            "indexes": {"data": -1, "gas": -1, "value": 2},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(storage={}, balance=0, nonce=0),
-                empty_account_1: Account(balance=11, nonce=0),
-                empty_account_2: Account(balance=11, nonce=0),
-            },
+            sender: Account(nonce=1),
+            target: Account(storage={}, balance=0, nonce=0),
+            empty_account_1: Account(balance=11, nonce=0),
+            empty_account_2: Account(balance=11, nonce=0),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 0, 1): 1, (0, 0, 2): 2}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

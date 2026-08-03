@@ -23,9 +23,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -97,37 +94,29 @@ def test_create2collision_selfdestructed2(
         address=Address(0xCFF64F4C5DF8F436C4F2C1AF4B2E3F9E3004C779),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={},
-                    code=bytes.fromhex("6010ff00"),
-                    balance=0,
-                    nonce=0,
-                ),
-                Address(0x0000000000000000000000000000000000000010): Account(
-                    balance=1
-                ),
-                sender: Account(nonce=1),
-            },
+            contract_0: Account(
+                storage={},
+                code=bytes.fromhex("6010ff00"),
+                balance=0,
+                nonce=0,
+            ),
+            Address(0x0000000000000000000000000000000000000010): Account(
+                balance=1
+            ),
+            sender: Account(nonce=1),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_1: Account(balance=0, nonce=1),
-                Address(0x0000000000000000000000000000000000000010): Account(
-                    balance=1
-                ),
-                sender: Account(nonce=1),
-            },
+            contract_1: Account(balance=0, nonce=1),
+            Address(0x0000000000000000000000000000000000000010): Account(
+                balance=1
+            ),
+            sender: Account(nonce=1),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     # EIP-8037 NEW_ACCOUNT state-gas pushes both the outer tx and the
     # inner CALL over their original budgets on Amsterdam. Pre-EIP-8037

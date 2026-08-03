@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -173,22 +170,21 @@ def test_oo_gin_return(
         address=Address(0xEBD3191DD8150F47E30F87927DB4592163EE9224),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 1], "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 0xDEAD60A7, 1: 0xDEAD60A7})
-            },
-        },
-        {
-            "indexes": {"data": [2, 3, 4, 5], "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0x60A760A7})},
-        },
+    expect_posts: list[dict] = [
+        {target: Account(storage={0: 0xDEAD60A7, 1: 0xDEAD60A7})},
+        {target: Account(storage={0: 0x60A760A7})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 1,
+            (3, 0, 0): 1,
+            (4, 0, 0): 1,
+            (5, 0, 0): 1,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("1a8451e6") + Hash(return_, left_padding=True) + Hash(0x36),

@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -110,50 +107,23 @@ def test_fill_stack(
         address=Address(0x4F3F701464972E74606D6EA82D4D3080599A0E79),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155"  # noqa: E501
-                    ),
-                    balance=0,
-                    nonce=0,
-                ),
-                coinbase: Account(
-                    storage={},
-                    code=bytes.fromhex("6000355415600957005b60203560003555"),
-                    nonce=0,
-                ),
-                sender: Account(storage={}, code=b"", nonce=1),
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155"  # noqa: E501
-                    ),
-                    balance=0,
-                    nonce=0,
-                ),
-                coinbase: Account(
-                    storage={},
-                    code=bytes.fromhex("6000355415600957005b60203560003555"),
-                    nonce=0,
-                ),
-                sender: Account(storage={}, code=b"", nonce=1),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = {
+        target: Account(
+            storage={},
+            code=bytes.fromhex(
+                "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155"  # noqa: E501
+            ),
+            balance=0,
+            nonce=0,
+        ),
+        coinbase: Account(
+            storage={},
+            code=bytes.fromhex("6000355415600957005b60203560003555"),
+            nonce=0,
+        ),
+        sender: Account(storage={}, code=b"", nonce=1),
+    }
+    _exc = None
 
     tx_data = [
         Bytes(

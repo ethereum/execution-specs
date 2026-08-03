@@ -36,9 +36,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -1388,496 +1385,385 @@ def test_varied_context(
     # callWriteSuicide measures a warm SSTORE-set then that SELFDESTRUCT.
     suicide_write_delta = warm_set_delta + suicide_new_delta
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={0: 2, 1: (20003 + warm_set_delta), 2: 107}
-                )
-            },
+            contract_0: Account(
+                storage={0: 2, 1: (20003 + warm_set_delta), 2: 107}
+            )
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 2,
-                        1: (22103 + cold_set_delta),
-                        2: 2107 + cold_storage_delta,
-                    }
-                )
-            },
+            contract_0: Account(
+                storage={
+                    0: 2,
+                    1: (22103 + cold_set_delta),
+                    2: 2107 + cold_storage_delta,
+                }
+            )
         },
         {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(
-                    storage={0: 2, 1: (20003 + warm_set_delta), 2: 107}
-                )
-            },
+            contract_2: Account(
+                storage={0: 2, 1: (20003 + warm_set_delta), 2: 107}
+            )
         },
         {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(
-                    storage={
-                        0: 2,
-                        1: (22103 + cold_set_delta),
-                        2: 2107 + cold_storage_delta,
-                    }
-                )
-            },
+            contract_2: Account(
+                storage={
+                    0: 2,
+                    1: (22103 + cold_set_delta),
+                    2: 2107 + cold_storage_delta,
+                }
+            )
         },
         {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_3: Account(
-                    storage={
-                        0: 2,
-                        1: (22103 + cold_set_delta),
-                        2: 2107 + cold_storage_delta,
-                        24743: 57005,
-                    }
-                )
-            },
+            contract_3: Account(
+                storage={
+                    0: 2,
+                    1: (22103 + cold_set_delta),
+                    2: 2107 + cold_storage_delta,
+                    24743: 57005,
+                }
+            )
         },
         {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_3: Account(
-                    storage={
-                        0: 2,
-                        1: (20003 + warm_set_delta),
-                        2: 107,
-                        24743: 57005,
-                    }
-                )
-            },
+            contract_3: Account(
+                storage={
+                    0: 2,
+                    1: (20003 + warm_set_delta),
+                    2: 107,
+                    24743: 57005,
+                }
+            )
         },
+        {contract_4: Account(storage={0: 2107 + cold_storage_delta})},
+        {contract_4: Account(storage={0: 107})},
+        {contract_26: Account(storage={0: (20003 + warm_set_delta), 1: 100})},
         {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_4: Account(storage={0: 2107 + cold_storage_delta})
-            },
+            contract_26: Account(
+                storage={
+                    0: (22103 + cold_set_delta),
+                    1: 2100 + cold_storage_delta,
+                }
+            )
         },
+        {contract_7: Account(storage={0: (20001 + suicide_write_delta)})},
         {
-            "indexes": {"data": [7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_4: Account(storage={0: 107})},
-        },
-        {
-            "indexes": {"data": [8], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_26: Account(
-                    storage={0: (20003 + warm_set_delta), 1: 100}
-                )
-            },
-        },
-        {
-            "indexes": {"data": [9], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_26: Account(
-                    storage={
-                        0: (22103 + cold_set_delta),
-                        1: 2100 + cold_storage_delta,
-                    }
-                )
-            },
-        },
-        {
-            "indexes": {"data": [10], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_7: Account(storage={0: (20001 + suicide_write_delta)})
-            },
-        },
-        {
-            "indexes": {"data": [11], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_7: Account(
-                    storage={
-                        0: (
-                            24601
-                            + cold_set_delta
-                            + suicide_new_delta
-                            + cold_account_delta
-                        )
-                    }
-                )
-            },
-        },
-        {
-            "indexes": {"data": [12], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_9: Account(storage={0: 100 + suicide_new_delta})
-            },
-        },
-        {
-            "indexes": {"data": [13], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_9: Account(
-                    storage={
-                        0: 4600
+            contract_7: Account(
+                storage={
+                    0: (
+                        24601
+                        + cold_set_delta
                         + suicide_new_delta
                         + cold_account_delta
-                        + cold_storage_delta
-                    }
-                )
-            },
+                    )
+                }
+            )
+        },
+        {contract_9: Account(storage={0: 100 + suicide_new_delta})},
+        {
+            contract_9: Account(
+                storage={
+                    0: 4600
+                    + suicide_new_delta
+                    + cold_account_delta
+                    + cold_storage_delta
+                }
+            )
+        },
+        {contract_11: Account(storage={0: 2989})},
+        {contract_14: Account(storage={0: 24589})},
+        {contract_14: Account(storage={0: 2989})},
+        {contract_16: Account(storage={0: 24589, 24743: 57005})},
+        {contract_16: Account(storage={0: 2989, 24743: 57005})},
+        {
+            contract_17: Account(
+                storage={
+                    0: 0,
+                    256: 103,
+                    257: 103,
+                    258: 103,
+                    259: 103,
+                    260: 103,
+                    261: 103,
+                    262: 103,
+                    263: 103,
+                    264: 103,
+                    265: 103,
+                    266: 103,
+                    267: 103,
+                    268: 103,
+                    269: 103,
+                    270: 103,
+                    271: (20003 + warm_set_delta),
+                    512: 100,
+                    513: 100,
+                    514: 100,
+                    515: 100,
+                    516: 100,
+                    517: 100,
+                    518: 100,
+                    519: 100,
+                    520: 100,
+                    521: 100,
+                    522: 100,
+                    523: 100,
+                    524: 100,
+                    525: 100,
+                    526: 100,
+                    527: 100,
+                    768: (20003 + warm_set_delta),
+                    769: (20003 + warm_set_delta),
+                    770: (20003 + warm_set_delta),
+                    771: (20003 + warm_set_delta),
+                    772: (20003 + warm_set_delta),
+                    773: (20003 + warm_set_delta),
+                    774: (20003 + warm_set_delta),
+                    775: (20003 + warm_set_delta),
+                    776: (20003 + warm_set_delta),
+                    777: (20003 + warm_set_delta),
+                    778: (20003 + warm_set_delta),
+                    779: (20003 + warm_set_delta),
+                    780: (20003 + warm_set_delta),
+                    781: (20003 + warm_set_delta),
+                    782: (20003 + warm_set_delta),
+                    783: (20003 + warm_set_delta),
+                    1024: 100,
+                    1025: 100,
+                    1026: 100,
+                    1027: 100,
+                    1028: 100,
+                    1029: 100,
+                    1030: 100,
+                    1031: 100,
+                    1032: 100,
+                    1033: 100,
+                    1034: 100,
+                    1035: 100,
+                    1036: 100,
+                    1037: 100,
+                    1038: 100,
+                    1039: 100,
+                    24743: 57005,
+                    48879: 2,
+                    61440: 48879,
+                    61441: 48879,
+                    61442: 48879,
+                    61443: 48879,
+                    61444: 48879,
+                    61445: 48879,
+                    61446: 48879,
+                    61447: 48879,
+                    61448: 48879,
+                    61449: 48879,
+                    61450: 48879,
+                    61451: 48879,
+                    61452: 48879,
+                    61453: 48879,
+                    61454: 48879,
+                    61455: 48879,
+                },
+            ),
         },
         {
-            "indexes": {"data": [14, 15], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_11: Account(storage={0: 2989})},
+            contract_17: Account(
+                storage={
+                    0: 0,
+                    256: 103,
+                    257: 103,
+                    258: 103,
+                    259: 103,
+                    260: 103,
+                    261: 103,
+                    262: 103,
+                    263: 103,
+                    264: 103,
+                    265: 103,
+                    266: 103,
+                    267: 103,
+                    268: 103,
+                    269: 103,
+                    270: 103,
+                    271: (22103 + cold_set_delta),
+                    512: 100,
+                    513: 100,
+                    514: 100,
+                    515: 100,
+                    516: 100,
+                    517: 100,
+                    518: 100,
+                    519: 100,
+                    520: 100,
+                    521: 100,
+                    522: 100,
+                    523: 100,
+                    524: 100,
+                    525: 100,
+                    526: 100,
+                    527: 2100 + cold_storage_delta,
+                    768: (22103 + cold_set_delta),
+                    769: (22103 + cold_set_delta),
+                    770: (22103 + cold_set_delta),
+                    771: (22103 + cold_set_delta),
+                    772: (22103 + cold_set_delta),
+                    773: (22103 + cold_set_delta),
+                    774: (22103 + cold_set_delta),
+                    775: (22103 + cold_set_delta),
+                    776: (22103 + cold_set_delta),
+                    777: (22103 + cold_set_delta),
+                    778: (22103 + cold_set_delta),
+                    779: (22103 + cold_set_delta),
+                    780: (22103 + cold_set_delta),
+                    781: (22103 + cold_set_delta),
+                    782: (22103 + cold_set_delta),
+                    783: (22103 + cold_set_delta),
+                    1024: 2100 + cold_storage_delta,
+                    1025: 2100 + cold_storage_delta,
+                    1026: 2100 + cold_storage_delta,
+                    1027: 2100 + cold_storage_delta,
+                    1028: 2100 + cold_storage_delta,
+                    1029: 2100 + cold_storage_delta,
+                    1030: 2100 + cold_storage_delta,
+                    1031: 2100 + cold_storage_delta,
+                    1032: 2100 + cold_storage_delta,
+                    1033: 2100 + cold_storage_delta,
+                    1034: 2100 + cold_storage_delta,
+                    1035: 2100 + cold_storage_delta,
+                    1036: 2100 + cold_storage_delta,
+                    1037: 2100 + cold_storage_delta,
+                    1038: 2100 + cold_storage_delta,
+                    1039: 2100 + cold_storage_delta,
+                    24743: 57005,
+                    48879: 2,
+                    61440: 48879,
+                    61441: 48879,
+                    61442: 48879,
+                    61443: 48879,
+                    61444: 48879,
+                    61445: 48879,
+                    61446: 48879,
+                    61447: 48879,
+                    61448: 48879,
+                    61449: 48879,
+                    61450: 48879,
+                    61451: 48879,
+                    61452: 48879,
+                    61453: 48879,
+                    61454: 48879,
+                    61455: 48879,
+                },
+            ),
         },
         {
-            "indexes": {"data": [16], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_14: Account(storage={0: 24589})},
+            compute_create_address(address=contract_18, nonce=0): Account(
+                storage={0: 65535, 1: (20017 + warm_set_delta)}
+            ),
         },
         {
-            "indexes": {"data": [17], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_14: Account(storage={0: 2989})},
+            compute_create_address(address=contract_18, nonce=0): Account(
+                storage={0: 65535, 1: (22117 + cold_set_delta)}
+            ),
         },
         {
-            "indexes": {"data": [18], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_16: Account(storage={0: 24589, 24743: 57005})},
+            Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
+                storage={0: 65535, 1: (20017 + warm_set_delta)}
+            ),
         },
         {
-            "indexes": {"data": [19], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_16: Account(storage={0: 2989, 24743: 57005})},
+            Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
+                storage={0: 65535, 1: (22117 + cold_set_delta)}
+            ),
         },
         {
-            "indexes": {"data": [20], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_17: Account(
-                    storage={
-                        0: 0,
-                        256: 103,
-                        257: 103,
-                        258: 103,
-                        259: 103,
-                        260: 103,
-                        261: 103,
-                        262: 103,
-                        263: 103,
-                        264: 103,
-                        265: 103,
-                        266: 103,
-                        267: 103,
-                        268: 103,
-                        269: 103,
-                        270: 103,
-                        271: (20003 + warm_set_delta),
-                        512: 100,
-                        513: 100,
-                        514: 100,
-                        515: 100,
-                        516: 100,
-                        517: 100,
-                        518: 100,
-                        519: 100,
-                        520: 100,
-                        521: 100,
-                        522: 100,
-                        523: 100,
-                        524: 100,
-                        525: 100,
-                        526: 100,
-                        527: 100,
-                        768: (20003 + warm_set_delta),
-                        769: (20003 + warm_set_delta),
-                        770: (20003 + warm_set_delta),
-                        771: (20003 + warm_set_delta),
-                        772: (20003 + warm_set_delta),
-                        773: (20003 + warm_set_delta),
-                        774: (20003 + warm_set_delta),
-                        775: (20003 + warm_set_delta),
-                        776: (20003 + warm_set_delta),
-                        777: (20003 + warm_set_delta),
-                        778: (20003 + warm_set_delta),
-                        779: (20003 + warm_set_delta),
-                        780: (20003 + warm_set_delta),
-                        781: (20003 + warm_set_delta),
-                        782: (20003 + warm_set_delta),
-                        783: (20003 + warm_set_delta),
-                        1024: 100,
-                        1025: 100,
-                        1026: 100,
-                        1027: 100,
-                        1028: 100,
-                        1029: 100,
-                        1030: 100,
-                        1031: 100,
-                        1032: 100,
-                        1033: 100,
-                        1034: 100,
-                        1035: 100,
-                        1036: 100,
-                        1037: 100,
-                        1038: 100,
-                        1039: 100,
-                        24743: 57005,
-                        48879: 2,
-                        61440: 48879,
-                        61441: 48879,
-                        61442: 48879,
-                        61443: 48879,
-                        61444: 48879,
-                        61445: 48879,
-                        61446: 48879,
-                        61447: 48879,
-                        61448: 48879,
-                        61449: 48879,
-                        61450: 48879,
-                        61451: 48879,
-                        61452: 48879,
-                        61453: 48879,
-                        61454: 48879,
-                        61455: 48879,
-                    },
-                ),
-            },
+            compute_create_address(address=contract_20, nonce=0): Account(
+                storage={0: 65535, 1: (20017 + warm_set_delta)}
+            ),
         },
         {
-            "indexes": {"data": [21], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_17: Account(
-                    storage={
-                        0: 0,
-                        256: 103,
-                        257: 103,
-                        258: 103,
-                        259: 103,
-                        260: 103,
-                        261: 103,
-                        262: 103,
-                        263: 103,
-                        264: 103,
-                        265: 103,
-                        266: 103,
-                        267: 103,
-                        268: 103,
-                        269: 103,
-                        270: 103,
-                        271: (22103 + cold_set_delta),
-                        512: 100,
-                        513: 100,
-                        514: 100,
-                        515: 100,
-                        516: 100,
-                        517: 100,
-                        518: 100,
-                        519: 100,
-                        520: 100,
-                        521: 100,
-                        522: 100,
-                        523: 100,
-                        524: 100,
-                        525: 100,
-                        526: 100,
-                        527: 2100 + cold_storage_delta,
-                        768: (22103 + cold_set_delta),
-                        769: (22103 + cold_set_delta),
-                        770: (22103 + cold_set_delta),
-                        771: (22103 + cold_set_delta),
-                        772: (22103 + cold_set_delta),
-                        773: (22103 + cold_set_delta),
-                        774: (22103 + cold_set_delta),
-                        775: (22103 + cold_set_delta),
-                        776: (22103 + cold_set_delta),
-                        777: (22103 + cold_set_delta),
-                        778: (22103 + cold_set_delta),
-                        779: (22103 + cold_set_delta),
-                        780: (22103 + cold_set_delta),
-                        781: (22103 + cold_set_delta),
-                        782: (22103 + cold_set_delta),
-                        783: (22103 + cold_set_delta),
-                        1024: 2100 + cold_storage_delta,
-                        1025: 2100 + cold_storage_delta,
-                        1026: 2100 + cold_storage_delta,
-                        1027: 2100 + cold_storage_delta,
-                        1028: 2100 + cold_storage_delta,
-                        1029: 2100 + cold_storage_delta,
-                        1030: 2100 + cold_storage_delta,
-                        1031: 2100 + cold_storage_delta,
-                        1032: 2100 + cold_storage_delta,
-                        1033: 2100 + cold_storage_delta,
-                        1034: 2100 + cold_storage_delta,
-                        1035: 2100 + cold_storage_delta,
-                        1036: 2100 + cold_storage_delta,
-                        1037: 2100 + cold_storage_delta,
-                        1038: 2100 + cold_storage_delta,
-                        1039: 2100 + cold_storage_delta,
-                        24743: 57005,
-                        48879: 2,
-                        61440: 48879,
-                        61441: 48879,
-                        61442: 48879,
-                        61443: 48879,
-                        61444: 48879,
-                        61445: 48879,
-                        61446: 48879,
-                        61447: 48879,
-                        61448: 48879,
-                        61449: 48879,
-                        61450: 48879,
-                        61451: 48879,
-                        61452: 48879,
-                        61453: 48879,
-                        61454: 48879,
-                        61455: 48879,
-                    },
-                ),
-            },
+            compute_create_address(address=contract_20, nonce=0): Account(
+                storage={0: 65535, 1: (22117 + cold_set_delta)}
+            ),
         },
         {
-            "indexes": {"data": [22], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_18, nonce=0): Account(
-                    storage={0: 65535, 1: (20017 + warm_set_delta)}
-                ),
-            },
+            Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
+                storage={0: 65535, 1: (20017 + warm_set_delta)}
+            ),
         },
         {
-            "indexes": {"data": [23], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_18, nonce=0): Account(
-                    storage={0: 65535, 1: (22117 + cold_set_delta)}
-                ),
-            },
+            Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
+                storage={0: 65535, 1: (22117 + cold_set_delta)}
+            ),
         },
         {
-            "indexes": {"data": [24], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
-                    storage={0: 65535, 1: (20017 + warm_set_delta)}
-                ),
-            },
+            compute_create_address(address=contract_22, nonce=0): Account(
+                storage={0: 65535, 1: (20017 + warm_set_delta), 2: 117}
+            ),
         },
         {
-            "indexes": {"data": [25], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
-                    storage={0: 65535, 1: (22117 + cold_set_delta)}
-                ),
-            },
+            compute_create_address(address=contract_22, nonce=0): Account(
+                storage={0: 65535, 1: (22117 + cold_set_delta), 2: 117}
+            ),
         },
         {
-            "indexes": {"data": [26], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_20, nonce=0): Account(
-                    storage={0: 65535, 1: (20017 + warm_set_delta)}
-                ),
-            },
+            Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
+                storage={0: 65535, 1: (20017 + warm_set_delta), 2: 117}
+            ),
         },
         {
-            "indexes": {"data": [27], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_20, nonce=0): Account(
-                    storage={0: 65535, 1: (22117 + cold_set_delta)}
-                ),
-            },
+            Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
+                storage={0: 65535, 1: (22117 + cold_set_delta), 2: 117}
+            ),
         },
         {
-            "indexes": {"data": [28], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
-                    storage={0: 65535, 1: (20017 + warm_set_delta)}
-                ),
-            },
+            contract_25: Account(
+                storage={0: 24743, 1: (20017 + warm_set_delta), 2: 117}
+            )
         },
         {
-            "indexes": {"data": [29], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
-                    storage={0: 65535, 1: (22117 + cold_set_delta)}
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [30], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_22, nonce=0): Account(
-                    storage={0: 65535, 1: (20017 + warm_set_delta), 2: 117}
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [31], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_22, nonce=0): Account(
-                    storage={0: 65535, 1: (22117 + cold_set_delta), 2: 117}
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [32], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
-                    storage={0: 65535, 1: (20017 + warm_set_delta), 2: 117}
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [33], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
-                    storage={0: 65535, 1: (22117 + cold_set_delta), 2: 117}
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [34], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_25: Account(
-                    storage={0: 24743, 1: (20017 + warm_set_delta), 2: 117}
-                )
-            },
-        },
-        {
-            "indexes": {"data": [35], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_25: Account(
-                    storage={0: 24743, 1: (22117 + cold_set_delta), 2: 117}
-                )
-            },
+            contract_25: Account(
+                storage={0: 24743, 1: (22117 + cold_set_delta), 2: 117}
+            )
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 2,
+            (3, 0, 0): 3,
+            (4, 0, 0): 4,
+            (5, 0, 0): 5,
+            (6, 0, 0): 6,
+            (7, 0, 0): 7,
+            (8, 0, 0): 8,
+            (9, 0, 0): 9,
+            (10, 0, 0): 10,
+            (11, 0, 0): 11,
+            (12, 0, 0): 12,
+            (13, 0, 0): 13,
+            (14, 0, 0): 14,
+            (15, 0, 0): 14,
+            (16, 0, 0): 15,
+            (17, 0, 0): 16,
+            (18, 0, 0): 17,
+            (19, 0, 0): 18,
+            (20, 0, 0): 19,
+            (21, 0, 0): 20,
+            (22, 0, 0): 21,
+            (23, 0, 0): 22,
+            (24, 0, 0): 23,
+            (25, 0, 0): 24,
+            (26, 0, 0): 25,
+            (27, 0, 0): 26,
+            (28, 0, 0): 27,
+            (29, 0, 0): 28,
+            (30, 0, 0): 29,
+            (31, 0, 0): 30,
+            (32, 0, 0): 31,
+            (33, 0, 0): 32,
+            (34, 0, 0): 33,
+            (35, 0, 0): 34,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -111,48 +108,40 @@ def test_return50000_2(
         address=Address(0x6123B8B3E245B90F39ED7418D320A60ABB365B9F),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                addr: Account(
-                    storage={},
-                    code=bytes.fromhex("61c34f356000526001600051f300"),
-                    nonce=0,
+            sender: Account(storage={}, code=b"", nonce=1),
+            addr: Account(
+                storage={},
+                code=bytes.fromhex("61c34f356000526001600051f300"),
+                nonce=0,
+            ),
+            target: Account(
+                storage={0: 1, 1: 50000},
+                code=bytes.fromhex(
+                    "5b61c3506080511015603f576000600061c3506000600073f2c82ca2413a9f3f06781db577400ddb6c76767d61061cf16000556001608051016080526000565b60805160015500"  # noqa: E501
                 ),
-                target: Account(
-                    storage={0: 1, 1: 50000},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015603f576000600061c3506000600073f2c82ca2413a9f3f06781db577400ddb6c76767d61061cf16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
-                    nonce=0,
-                ),
-            },
+                nonce=0,
+            ),
         },
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                addr: Account(
-                    storage={},
-                    code=bytes.fromhex("61c34f356000526001600051f300"),
-                    nonce=0,
+            sender: Account(storage={}, code=b"", nonce=1),
+            addr: Account(
+                storage={},
+                code=bytes.fromhex("61c34f356000526001600051f300"),
+                nonce=0,
+            ),
+            target: Account(
+                storage={},
+                code=bytes.fromhex(
+                    "5b61c3506080511015603f576000600061c3506000600073f2c82ca2413a9f3f06781db577400ddb6c76767d61061cf16000556001608051016080526000565b60805160015500"  # noqa: E501
                 ),
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015603f576000600061c3506000600073f2c82ca2413a9f3f06781db577400ddb6c76767d61061cf16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
-                    nonce=0,
-                ),
-            },
+                nonce=0,
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 1, (0, 1, 0): 0}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

@@ -18,9 +18,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -94,100 +91,92 @@ def test_create1000_shnghai(
         address=Address(0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                compute_create_address(
-                    address=contract_0, nonce=866
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=780
-                ): Account.NONEXISTENT,
-                contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
-                compute_create_address(
-                    address=contract_0, nonce=959
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=393
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=499
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=19
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=327
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_0, nonce=493
-                ): Account.NONEXISTENT,
-            },
+            compute_create_address(
+                address=contract_0, nonce=866
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_0, nonce=780
+            ): Account.NONEXISTENT,
+            contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
+            compute_create_address(
+                address=contract_0, nonce=959
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_0, nonce=393
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_0, nonce=499
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_0, nonce=19
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_0, nonce=327
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_0, nonce=493
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                compute_create_address(address=contract_0, nonce=866): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=780): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                contract_0: Account(
-                    storage={
-                        0: 0x7981FA24B134DEB51D71D250D7B0D9E33C8C5457,
-                        1: 1000,
-                    },
-                    balance=0xFFFFFFFFFFC21,
-                    nonce=1000,
-                ),
-                compute_create_address(address=contract_0, nonce=733): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=959): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=393): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=499): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=36): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=568): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=66): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=981): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=693): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=390): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=19): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=327): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=contract_0, nonce=493): Account(
-                    storage={}, code=b"", balance=1, nonce=1
-                ),
-            },
+            compute_create_address(address=contract_0, nonce=866): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=780): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            contract_0: Account(
+                storage={
+                    0: 0x7981FA24B134DEB51D71D250D7B0D9E33C8C5457,
+                    1: 1000,
+                },
+                balance=0xFFFFFFFFFFC21,
+                nonce=1000,
+            ),
+            compute_create_address(address=contract_0, nonce=733): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=959): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=393): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=499): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=36): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=568): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=66): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=981): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=693): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=390): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=19): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=327): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
+            compute_create_address(address=contract_0, nonce=493): Account(
+                storage={}, code=b"", balance=1, nonce=1
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 1, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

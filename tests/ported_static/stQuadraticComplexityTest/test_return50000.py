@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -110,42 +107,34 @@ def test_return50000(
         address=Address(0x6123B8B3E245B90F39ED7418D320A60ABB365B9F),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                addr: Account(
-                    storage={},
-                    code=bytes.fromhex("600161c34f35f300"),
-                    nonce=0,
-                ),
-                target: Account(storage={0: 1, 1: 50000}, nonce=0),
-            },
+            sender: Account(storage={}, code=b"", nonce=1),
+            addr: Account(
+                storage={},
+                code=bytes.fromhex("600161c34f35f300"),
+                nonce=0,
+            ),
+            target: Account(storage={0: 1, 1: 50000}, nonce=0),
         },
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                addr: Account(
-                    storage={},
-                    code=bytes.fromhex("600161c34f35f300"),
-                    nonce=0,
+            sender: Account(storage={}, code=b"", nonce=1),
+            addr: Account(
+                storage={},
+                code=bytes.fromhex("600161c34f35f300"),
+                nonce=0,
+            ),
+            target: Account(
+                storage={},
+                code=bytes.fromhex(
+                    "5b61c3506080511015603f576000600061c3506000600073aab87d565dd96e58089e1dff410fbdac4529065861061cf16000556001608051016080526000565b60805160015500"  # noqa: E501
                 ),
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015603f576000600061c3506000600073aab87d565dd96e58089e1dff410fbdac4529065861061cf16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
-                    nonce=0,
-                ),
-            },
+                nonce=0,
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 1, (0, 1, 0): 0}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

@@ -22,9 +22,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -159,28 +156,20 @@ def test_callcode_in_initcode_to_empty_contract(
         address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_1, nonce=0): Account(
-                    storage={2: 1}
-                ),
-            },
+            compute_create_address(address=contract_1, nonce=0): Account(
+                storage={2: 1}
+            ),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x9F9F2F99F78BFEDCD1F32D936203BD1C0CB00853): Account(
-                    storage={2: 1}
-                ),
-            },
+            Address(0x9F9F2F99F78BFEDCD1F32D936203BD1C0CB00853): Account(
+                storage={2: 1}
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(contract_1, left_padding=True),

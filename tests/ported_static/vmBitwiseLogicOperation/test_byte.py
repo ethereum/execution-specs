@@ -18,9 +18,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -341,107 +338,74 @@ def test_byte(
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
+        {contract_0: Account(storage={0: 1})},
+        {contract_1: Account(storage={0: 2})},
+        {contract_2: Account(storage={0: 4})},
+        {contract_3: Account(storage={0: 8})},
+        {contract_4: Account(storage={0: 16})},
+        {contract_5: Account(storage={0: 32})},
+        {contract_6: Account(storage={0: 64})},
+        {contract_7: Account(storage={0: 128})},
+        {contract_8: Account(storage={0: 0})},
+        {contract_9: Account(storage={0: 0})},
+        {contract_10: Account(storage={1: 172})},
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 1})},
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_1: Account(storage={0: 2})},
-        },
-        {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_2: Account(storage={0: 4})},
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_3: Account(storage={0: 8})},
-        },
-        {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_4: Account(storage={0: 16})},
-        },
-        {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_5: Account(storage={0: 32})},
-        },
-        {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_6: Account(storage={0: 64})},
-        },
-        {
-            "indexes": {"data": [7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_7: Account(storage={0: 128})},
-        },
-        {
-            "indexes": {"data": [8], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_8: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": [9], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_9: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": [10], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_10: Account(storage={1: 172})},
-        },
-        {
-            "indexes": {"data": [11], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_11: Account(
-                    storage={
-                        0: 0,
-                        1: 1,
-                        2: 2,
-                        3: 3,
-                        4: 4,
-                        5: 5,
-                        6: 6,
-                        7: 7,
-                        8: 8,
-                        9: 9,
-                        10: 10,
-                        11: 11,
-                        12: 12,
-                        13: 13,
-                        14: 14,
-                        15: 15,
-                        16: 16,
-                        17: 17,
-                        18: 18,
-                        19: 19,
-                        20: 20,
-                        21: 21,
-                        22: 22,
-                        23: 23,
-                        24: 24,
-                        25: 25,
-                        26: 26,
-                        27: 27,
-                        28: 28,
-                        29: 29,
-                        30: 30,
-                        31: 31,
-                    },
-                ),
-            },
+            contract_11: Account(
+                storage={
+                    0: 0,
+                    1: 1,
+                    2: 2,
+                    3: 3,
+                    4: 4,
+                    5: 5,
+                    6: 6,
+                    7: 7,
+                    8: 8,
+                    9: 9,
+                    10: 10,
+                    11: 11,
+                    12: 12,
+                    13: 13,
+                    14: 14,
+                    15: 15,
+                    16: 16,
+                    17: 17,
+                    18: 18,
+                    19: 19,
+                    20: 20,
+                    21: 21,
+                    22: 22,
+                    23: 23,
+                    24: 24,
+                    25: 25,
+                    26: 26,
+                    27: 27,
+                    28: 28,
+                    29: 29,
+                    30: 30,
+                    31: 31,
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 2,
+            (3, 0, 0): 3,
+            (4, 0, 0): 4,
+            (5, 0, 0): 5,
+            (6, 0, 0): 6,
+            (7, 0, 0): 7,
+            (8, 0, 0): 8,
+            (9, 0, 0): 9,
+            (10, 0, 0): 10,
+            (11, 0, 0): 11,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("693c6139") + Hash(contract_0, left_padding=True),

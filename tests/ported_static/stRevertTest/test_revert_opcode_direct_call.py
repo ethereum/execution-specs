@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -120,26 +117,18 @@ def test_revert_opcode_direct_call(
         address=Address(0xCEB48D108C874B5B014ACDD1A2466D65A3D01DE6),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_2: Account(storage={}),
-                target: Account(storage={0: 0, 2: 14}, nonce=0),
-            },
+            addr_2: Account(storage={}),
+            target: Account(storage={0: 0, 2: 14}, nonce=0),
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_2: Account(storage={}),
-                target: Account(storage={}),
-            },
+            addr_2: Account(storage={}),
+            target: Account(storage={}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 1, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(target, left_padding=True),

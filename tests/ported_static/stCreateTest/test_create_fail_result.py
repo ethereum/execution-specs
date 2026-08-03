@@ -19,9 +19,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -526,161 +523,114 @@ def test_create_fail_result(
         address=Address(0x000000000000000000000000000000000000600D),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_10: Account(
-                    storage={
-                        0: 0,
-                        1: 0,
-                        2: 0,
-                        16: 1,
-                        17: 64,
-                        18: 0xDEADBEEF,
-                        19: 24743,
-                    },
-                ),
-            },
+            contract_10: Account(
+                storage={
+                    0: 0,
+                    1: 0,
+                    2: 0,
+                    16: 1,
+                    17: 64,
+                    18: 0xDEADBEEF,
+                    19: 24743,
+                },
+            ),
         },
         {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_3: Account(
-                    storage={
-                        0: compute_create_address(address=contract_3, nonce=1),
-                        1: 0,
-                        2: 0,
-                        3: 0,
-                        16: 1,
-                        17: 64,
-                        18: 0xDEADBEEF,
-                        19: 24743,
-                    },
-                ),
-            },
+            contract_3: Account(
+                storage={
+                    0: compute_create_address(address=contract_3, nonce=1),
+                    1: 0,
+                    2: 0,
+                    3: 0,
+                    16: 1,
+                    17: 64,
+                    18: 0xDEADBEEF,
+                    19: 24743,
+                },
+            ),
         },
         {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_4: Account(
-                    storage={
-                        0: 0x65EE26A034447B6AC64ABDCA1CCCB7B747E4A231,
-                        1: 0,
-                        2: 0,
-                        3: 0,
-                        16: 1,
-                        17: 64,
-                        18: 0xDEADBEEF,
-                        19: 24743,
-                    },
-                ),
-            },
+            contract_4: Account(
+                storage={
+                    0: 0x65EE26A034447B6AC64ABDCA1CCCB7B747E4A231,
+                    1: 0,
+                    2: 0,
+                    3: 0,
+                    16: 1,
+                    17: 64,
+                    18: 0xDEADBEEF,
+                    19: 24743,
+                },
+            ),
         },
         {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_3: Account(
-                    storage={
-                        0: 0,
-                        1: 32,
-                        2: 0xBAD0BAD0BAD,
-                        16: 1,
-                        17: 64,
-                        18: 0xDEADBEEF,
-                        19: 24743,
-                    },
-                ),
-            },
+            contract_3: Account(
+                storage={
+                    0: 0,
+                    1: 32,
+                    2: 0xBAD0BAD0BAD,
+                    16: 1,
+                    17: 64,
+                    18: 0xDEADBEEF,
+                    19: 24743,
+                },
+            ),
         },
         {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_4: Account(
-                    storage={
-                        0: 0,
-                        1: 32,
-                        2: 0xBAD0BAD0BAD,
-                        16: 1,
-                        17: 64,
-                        18: 0xDEADBEEF,
-                        19: 24743,
-                    },
-                ),
-            },
+            contract_4: Account(
+                storage={
+                    0: 0,
+                    1: 32,
+                    2: 0xBAD0BAD0BAD,
+                    16: 1,
+                    17: 64,
+                    18: 0xDEADBEEF,
+                    19: 24743,
+                },
+            ),
         },
         {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_5: Account(
-                    storage={
-                        0: 0,
-                        1: 0,
-                        16: 1,
-                        17: 64,
-                        18: 0xDEADBEEF,
-                        19: 24743,
-                    },
-                ),
-            },
+            contract_5: Account(
+                storage={
+                    0: 0,
+                    1: 0,
+                    16: 1,
+                    17: 64,
+                    18: 0xDEADBEEF,
+                    19: 24743,
+                },
+            ),
         },
         {
-            "indexes": {"data": [7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_5: Account(
-                    storage={
-                        0: 0,
-                        1: 0,
-                        16: 1,
-                        17: 64,
-                        18: 0xDEADBEEF,
-                        19: 24743,
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [8], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_8: Account(
-                    storage={
-                        0: 0,
-                        1: 0,
-                        16: 1,
-                        17: 64,
-                        18: 0xDEADBEEF,
-                        19: 24743,
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [9], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_8: Account(
-                    storage={
-                        0: 0,
-                        1: 0,
-                        16: 1,
-                        17: 64,
-                        18: 0xDEADBEEF,
-                        19: 24743,
-                    },
-                ),
-            },
+            contract_8: Account(
+                storage={
+                    0: 0,
+                    1: 0,
+                    16: 1,
+                    17: 64,
+                    18: 0xDEADBEEF,
+                    19: 24743,
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 1,
+            (3, 0, 0): 2,
+            (4, 0, 0): 3,
+            (5, 0, 0): 4,
+            (6, 0, 0): 5,
+            (7, 0, 0): 5,
+            (8, 0, 0): 6,
+            (9, 0, 0): 6,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("1a8451e6") + Hash(0xF0) + Hash(0x6),

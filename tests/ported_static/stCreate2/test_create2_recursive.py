@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -95,37 +92,25 @@ def test_create2_recursive(
         address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                Address(0x4B17A07E119E86A0FF1FD21CDC9B4ABA196ED3F8): Account(
-                    nonce=1
-                ),
-            },
+            Address(0x4B17A07E119E86A0FF1FD21CDC9B4ABA196ED3F8): Account(
+                nonce=1
+            ),
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                Address(
-                    0x4B17A07E119E86A0FF1FD21CDC9B4ABA196ED3F8
-                ): Account.NONEXISTENT,
-            },
+            Address(
+                0x4B17A07E119E86A0FF1FD21CDC9B4ABA196ED3F8
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": -1, "gas": 2, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                Address(0x471A0E624A2AC11C82CF1FF843127F1C6AA98351): Account(
-                    nonce=1
-                ),
-            },
+            Address(0x471A0E624A2AC11C82CF1FF843127F1C6AA98351): Account(
+                nonce=1
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 1, 0): 1, (0, 2, 0): 2}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

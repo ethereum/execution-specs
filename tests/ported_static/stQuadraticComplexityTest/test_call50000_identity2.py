@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -100,38 +97,17 @@ def test_call50000_identity2(
         nonce=0,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "602a6001525b61c350608051101560325761c350600161c35060006001600461061cf16000556001608051016080526005565b60805160015560015160025500"  # noqa: E501
-                    ),
-                    nonce=0,
-                ),
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "602a6001525b61c350608051101560325761c350600161c35060006001600461061cf16000556001608051016080526005565b60805160015560015160025500"  # noqa: E501
-                    ),
-                    nonce=0,
-                ),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = {
+        sender: Account(storage={}, code=b"", nonce=1),
+        target: Account(
+            storage={},
+            code=bytes.fromhex(
+                "602a6001525b61c350608051101560325761c350600161c35060006001600461061cf16000556001608051016080526005565b60805160015560015160025500"  # noqa: E501
+            ),
+            nonce=0,
+        ),
+    }
+    _exc = None
 
     tx_data = [
         Bytes(""),

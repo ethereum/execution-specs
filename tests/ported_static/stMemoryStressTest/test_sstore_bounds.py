@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -93,34 +90,26 @@ def test_sstore_bounds(
         address=Address(0x1F2AEE312C3C47BDEB27FF5275FDDB33C543E394),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        32: 0xFFFFFFFF,
-                        64: 0xFFFFFFFFFFFFFFFF,
-                        128: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                        256: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                        0xFFFFFFFF: 1,
-                        0xFFFFFFFFFFFFFFFF: 1,
-                        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF: 1,
-                        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF: 1,  # noqa: E501
-                    },
-                    balance=1,
-                ),
-            },
+            target: Account(
+                storage={
+                    32: 0xFFFFFFFF,
+                    64: 0xFFFFFFFFFFFFFFFF,
+                    128: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                    256: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                    0xFFFFFFFF: 1,
+                    0xFFFFFFFFFFFFFFFF: 1,
+                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF: 1,
+                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF: 1,  # noqa: E501
+                },
+                balance=1,
+            ),
         },
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={}, balance=0)},
-        },
+        {target: Account(storage={}, balance=0)},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 1, (0, 1, 0): 0}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

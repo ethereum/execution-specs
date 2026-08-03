@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -493,38 +490,17 @@ def test_revert_precompiled_touch_paris(
         address=Address(0x10EF6D6218ADA53728683CEC4D5160C8C72159BD),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_5: Account(nonce=0),
-                addr_6: Account(nonce=0),
-                addr_7: Account(nonce=0),
-                addr_8: Account(nonce=0),
-                addr_9: Account(nonce=0),
-                addr_10: Account(nonce=0),
-                addr_11: Account(nonce=0),
-                addr_12: Account(nonce=0),
-            },
-        },
-        {
-            "indexes": {"data": [1, 2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_5: Account(nonce=0),
-                addr_6: Account(nonce=0),
-                addr_7: Account(nonce=0),
-                addr_8: Account(nonce=0),
-                addr_9: Account(nonce=0),
-                addr_10: Account(nonce=0),
-                addr_11: Account(nonce=0),
-                addr_12: Account(nonce=0),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = {
+        addr_5: Account(nonce=0),
+        addr_6: Account(nonce=0),
+        addr_7: Account(nonce=0),
+        addr_8: Account(nonce=0),
+        addr_9: Account(nonce=0),
+        addr_10: Account(nonce=0),
+        addr_11: Account(nonce=0),
+        addr_12: Account(nonce=0),
+    }
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -98,28 +95,20 @@ def test_call1_mb1024_calldepth(
         address=Address(0x9D15232F6851F9F3A88F88A3B358ED1579977A5A),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                addr: Account(storage={}, code=b"", nonce=0),
-                target: Account(storage={0: 69, 1: 1}, nonce=0),
-            },
+            sender: Account(storage={}, code=b"", nonce=1),
+            addr: Account(storage={}, code=b"", nonce=0),
+            target: Account(storage={0: 69, 1: 1}, nonce=0),
         },
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                addr: Account(storage={}, code=b"", nonce=0),
-                target: Account(storage={}, nonce=0),
-            },
+            sender: Account(storage={}, code=b"", nonce=1),
+            addr: Account(storage={}, code=b"", nonce=0),
+            target: Account(storage={}, nonce=0),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 1, (0, 1, 0): 0}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

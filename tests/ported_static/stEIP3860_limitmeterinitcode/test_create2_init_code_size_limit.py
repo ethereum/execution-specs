@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -140,42 +137,34 @@ def test_create2_init_code_size_limit(
         address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(storage={0: 1, 1: 1}),
-                contract_1: Account(
-                    storage={
-                        0: 0x9E7A3337D18C31FE4C1FE51AB2DA6CFD3629923D,
-                        10: 55539,
-                    },
-                ),
-                Address(0x9E7A3337D18C31FE4C1FE51AB2DA6CFD3629923D): Account(
-                    storage={},
-                    code=bytes.fromhex("600a80600080396000f3"),
-                    balance=0,
-                    nonce=1,
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(storage={0: 1, 1: 1}),
+            contract_1: Account(
+                storage={
+                    0: 0x9E7A3337D18C31FE4C1FE51AB2DA6CFD3629923D,
+                    10: 55539,
+                },
+            ),
+            Address(0x9E7A3337D18C31FE4C1FE51AB2DA6CFD3629923D): Account(
+                storage={},
+                code=bytes.fromhex("600a80600080396000f3"),
+                balance=0,
+                nonce=1,
+            ),
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
-                contract_1: Account(storage={}),
-                Address(
-                    0x67D49AE27E912B3B508D62CE1E463298DB6EDF32
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
+            contract_1: Account(storage={}),
+            Address(
+                0x67D49AE27E912B3B508D62CE1E463298DB6EDF32
+            ): Account.NONEXISTENT,
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(0xC000),

@@ -30,9 +30,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -157,32 +154,20 @@ def test_suicide(
         0x5AF31075D9DE - 10 * cold_account_access_delta - 10 * intrinsic_delta
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(balance=caller_balance),
-                contract_3: Account(balance=0xFF100000000000),
-            },
+            sender: Account(balance=caller_balance),
+            contract_3: Account(balance=0xFF100000000000),
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x000000000000000000000000000000000000DEAD): Account(
-                    balance=0x100000000000
-                ),
-            },
+            Address(0x000000000000000000000000000000000000DEAD): Account(
+                balance=0x100000000000
+            ),
         },
-        {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_3: Account(balance=0x100000000000)},
-        },
+        {contract_3: Account(balance=0x100000000000)},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1, (2, 0, 0): 2}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes("693c6139") + Hash(contract_0, left_padding=True),

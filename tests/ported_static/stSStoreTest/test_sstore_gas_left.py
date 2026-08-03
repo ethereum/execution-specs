@@ -24,9 +24,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -137,20 +134,24 @@ def test_sstore_gas_left(
         address=Address(0x4092B3905CFEA2485EA53222F41EB26E67587802),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 1, 3, 4, 6, 7], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {addr_2: Account(storage={1: 0})},
-        },
-        {
-            "indexes": {"data": [8, 2, 5], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {addr_2: Account(storage={1: 1})},
-        },
+    expect_posts: list[dict] = [
+        {addr_2: Account(storage={1: 0})},
+        {addr_2: Account(storage={1: 1})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 1,
+            (3, 0, 0): 0,
+            (4, 0, 0): 0,
+            (5, 0, 0): 1,
+            (6, 0, 0): 0,
+            (7, 0, 0): 0,
+            (8, 0, 0): 1,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Op.JUMPI(

@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -296,25 +293,40 @@ def test_pairing_test(
         nonce=0,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 1, 2, 3, 4], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 1, 1: 1})},
-        },
-        {
-            "indexes": {"data": -1, "gas": [1, 2, 3], "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={})},
-        },
-        {
-            "indexes": {"data": [5], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 1, 1: 0})},
-        },
+    expect_posts: list[dict] = [
+        {contract_0: Account(storage={0: 1, 1: 1})},
+        {contract_0: Account(storage={})},
+        {contract_0: Account(storage={0: 1, 1: 0})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (0, 1, 0): 1,
+            (0, 2, 0): 1,
+            (0, 3, 0): 1,
+            (1, 0, 0): 0,
+            (1, 1, 0): 1,
+            (1, 2, 0): 1,
+            (1, 3, 0): 1,
+            (2, 0, 0): 0,
+            (2, 1, 0): 1,
+            (2, 2, 0): 1,
+            (2, 3, 0): 1,
+            (3, 0, 0): 0,
+            (3, 1, 0): 1,
+            (3, 2, 0): 1,
+            (3, 3, 0): 1,
+            (4, 0, 0): 0,
+            (4, 1, 0): 1,
+            (4, 2, 0): 1,
+            (4, 3, 0): 1,
+            (5, 0, 0): 2,
+            (5, 1, 0): 1,
+            (5, 2, 0): 1,
+            (5, 3, 0): 1,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(0x180)

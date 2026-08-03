@@ -18,9 +18,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -2764,1338 +2761,843 @@ def test_underflow_test(
         address=Address(0x4C5F839D523E76FC3837E085A3E1538CD36E288A),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr: Account(storage={1: 24743}),
-            },
+    expect_posts: list[dict] = [
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr: Account(storage={1: 24743}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_2: Account(storage={1: 1}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_3: Account(storage={1: 24743}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_4: Account(storage={1: 1}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_5: Account(storage={1: 24743}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_6: Account(storage={1: 1}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_7: Account(storage={1: 24743}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_8: Account(storage={1: 1}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_9: Account(storage={1: 24743}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_10: Account(storage={1: 1}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_11: Account(storage={1: 24743}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_12: Account(storage={1: 1}),
+        },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_13: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_2: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_14: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_3: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_15: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_4: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_16: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_5: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_17: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_6: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_18: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_7: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_19: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_8: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_20: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [8], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_9: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_21: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [9], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_10: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_22: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [10], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_11: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_23: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [11], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_12: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_24: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [12], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_13: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_25: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [13], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_14: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_26: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [14], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_15: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_27: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [15], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_16: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_28: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [16], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_17: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_29: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [17], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_18: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_30: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [18], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_19: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_31: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [19], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_20: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_32: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [20], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_21: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_33: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [21], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_22: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_34: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [22], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_23: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_35: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [23], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_24: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_36: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [24], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_25: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_37: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [25], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_26: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_38: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [26], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_27: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_39: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [27], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_28: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_40: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [28], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_29: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_41: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [29], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_30: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_42: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [30], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_31: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_43: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [31], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_32: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_44: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [32], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_33: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_45: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [33], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_34: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_46: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [34], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_35: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_47: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [35], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_36: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_48: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [36], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_37: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_49: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [37], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_38: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_50: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [38], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_39: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_51: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [39], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_40: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_52: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [40], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_41: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_53: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [41], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_42: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_54: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [42], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_43: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_55: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [43], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_44: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_56: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [44], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_45: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_57: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [45], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_46: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_58: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [46], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_47: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_59: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [47], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_48: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_60: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [48], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_49: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_61: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [49], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_50: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_62: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [50], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_51: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_63: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [51], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_52: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_64: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [52], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_53: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_65: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [53], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_54: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_66: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [54], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_55: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_67: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [55], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_56: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_68: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [56], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_57: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_69: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [57], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_58: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_70: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [58], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_59: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_71: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [59], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_60: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_72: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [60], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_61: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_73: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [61], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_62: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_74: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [62], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_63: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_75: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [63], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_64: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_76: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [64], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_65: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_77: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [65], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_66: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_78: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [66], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_67: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_79: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [67], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_68: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_80: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [68], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_69: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_81: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [69], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_70: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_82: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [70], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_71: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_83: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [71], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_72: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_84: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [72], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_73: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_85: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [73], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_74: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_86: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [74], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_75: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_87: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [75], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_76: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_88: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [76], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_77: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_89: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [77], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_78: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_90: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [78], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_79: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_91: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [79], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_80: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_92: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [80], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_81: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_93: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [81], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_82: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_94: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [82], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_83: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_95: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [83], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_84: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_96: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [84], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_85: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_97: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [85], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_86: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_98: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [86], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_87: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_99: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [87], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_88: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_100: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [88], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_89: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_101: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [89], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_90: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_102: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [90], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_91: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_103: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [91], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_92: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_104: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [92], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_93: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_105: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [93], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_94: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_106: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [94], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_95: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_107: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [95], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_96: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_108: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [96], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_97: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_109: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [97], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_98: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_110: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [98], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_99: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_111: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [99], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_100: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_112: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [100], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_101: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_113: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [101], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_102: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_114: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [102], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_103: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_115: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [103], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_104: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_116: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [104], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_105: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_117: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [105], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_106: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_118: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [106], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_107: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_119: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [107], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_108: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_120: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [108], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_109: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_121: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [109], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_110: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_122: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [110], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_111: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_123: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [111], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_112: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_124: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [112], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_113: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_125: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [113], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_114: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_126: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [114], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_115: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_127: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [115], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_116: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_128: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [116], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_117: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_129: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [117], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_118: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_130: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [118], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_119: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_131: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [119], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_120: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_132: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [120], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_121: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_133: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [121], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_122: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_134: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [122], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_123: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_135: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [123], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_124: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_136: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [124], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_125: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_137: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [125], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_126: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_138: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [126], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_127: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_139: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [127], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_128: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_140: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [128], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_129: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_141: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [129], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_130: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_142: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [130], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_131: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_143: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [131], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_132: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_144: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [132], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_133: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_145: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [133], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_134: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_146: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [134], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_135: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_147: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [135], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_136: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_148: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [136], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_137: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_149: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [137], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_138: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_150: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [138], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_139: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_151: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [139], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_140: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_152: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [140], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_141: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_153: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [141], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_142: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_154: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [142], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_143: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_155: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [143], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_144: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_156: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [144], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_145: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_157: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [145], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_146: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_158: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [146], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_147: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_159: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [147], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_148: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_160: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [148], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_149: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_161: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [149], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_150: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_162: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [150], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_151: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_163: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [151], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_152: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_164: Account(storage={1: 1}),
         },
-        {
-            "indexes": {"data": [152], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_153: Account(storage={1: 24743}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_165: Account(storage={1: 24743}),
         },
-        {
-            "indexes": {"data": [153], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_154: Account(storage={1: 1}),
-            },
-        },
-        {
-            "indexes": {"data": [154], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_155: Account(storage={1: 24743}),
-            },
-        },
-        {
-            "indexes": {"data": [155], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_156: Account(storage={1: 1}),
-            },
-        },
-        {
-            "indexes": {"data": [156], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_157: Account(storage={1: 24743}),
-            },
-        },
-        {
-            "indexes": {"data": [157], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_158: Account(storage={1: 1}),
-            },
-        },
-        {
-            "indexes": {"data": [158], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_159: Account(storage={1: 24743}),
-            },
-        },
-        {
-            "indexes": {"data": [159], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_160: Account(storage={1: 1}),
-            },
-        },
-        {
-            "indexes": {"data": [160], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_161: Account(storage={1: 24743}),
-            },
-        },
-        {
-            "indexes": {"data": [161], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_162: Account(storage={1: 1}),
-            },
-        },
-        {
-            "indexes": {"data": [162], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_163: Account(storage={1: 24743}),
-            },
-        },
-        {
-            "indexes": {"data": [163], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_164: Account(storage={1: 1}),
-            },
-        },
-        {
-            "indexes": {"data": [164], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_165: Account(storage={1: 24743}),
-            },
-        },
-        {
-            "indexes": {"data": [165], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 24743, 1: 24743}),
-                addr_166: Account(storage={1: 1}),
-            },
+        {
+            target: Account(storage={0: 24743, 1: 24743}),
+            addr_166: Account(storage={1: 1}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 2,
+            (3, 0, 0): 3,
+            (4, 0, 0): 4,
+            (5, 0, 0): 5,
+            (6, 0, 0): 6,
+            (7, 0, 0): 7,
+            (8, 0, 0): 8,
+            (9, 0, 0): 9,
+            (10, 0, 0): 10,
+            (11, 0, 0): 11,
+            (12, 0, 0): 12,
+            (13, 0, 0): 13,
+            (14, 0, 0): 14,
+            (15, 0, 0): 15,
+            (16, 0, 0): 16,
+            (17, 0, 0): 17,
+            (18, 0, 0): 18,
+            (19, 0, 0): 19,
+            (20, 0, 0): 20,
+            (21, 0, 0): 21,
+            (22, 0, 0): 22,
+            (23, 0, 0): 23,
+            (24, 0, 0): 24,
+            (25, 0, 0): 25,
+            (26, 0, 0): 26,
+            (27, 0, 0): 27,
+            (28, 0, 0): 28,
+            (29, 0, 0): 29,
+            (30, 0, 0): 30,
+            (31, 0, 0): 31,
+            (32, 0, 0): 32,
+            (33, 0, 0): 33,
+            (34, 0, 0): 34,
+            (35, 0, 0): 35,
+            (36, 0, 0): 36,
+            (37, 0, 0): 37,
+            (38, 0, 0): 38,
+            (39, 0, 0): 39,
+            (40, 0, 0): 40,
+            (41, 0, 0): 41,
+            (42, 0, 0): 42,
+            (43, 0, 0): 43,
+            (44, 0, 0): 44,
+            (45, 0, 0): 45,
+            (46, 0, 0): 46,
+            (47, 0, 0): 47,
+            (48, 0, 0): 48,
+            (49, 0, 0): 49,
+            (50, 0, 0): 50,
+            (51, 0, 0): 51,
+            (52, 0, 0): 52,
+            (53, 0, 0): 53,
+            (54, 0, 0): 54,
+            (55, 0, 0): 55,
+            (56, 0, 0): 56,
+            (57, 0, 0): 57,
+            (58, 0, 0): 58,
+            (59, 0, 0): 59,
+            (60, 0, 0): 60,
+            (61, 0, 0): 61,
+            (62, 0, 0): 62,
+            (63, 0, 0): 63,
+            (64, 0, 0): 64,
+            (65, 0, 0): 65,
+            (66, 0, 0): 66,
+            (67, 0, 0): 67,
+            (68, 0, 0): 68,
+            (69, 0, 0): 69,
+            (70, 0, 0): 70,
+            (71, 0, 0): 71,
+            (72, 0, 0): 72,
+            (73, 0, 0): 73,
+            (74, 0, 0): 74,
+            (75, 0, 0): 75,
+            (76, 0, 0): 76,
+            (77, 0, 0): 77,
+            (78, 0, 0): 78,
+            (79, 0, 0): 79,
+            (80, 0, 0): 80,
+            (81, 0, 0): 81,
+            (82, 0, 0): 82,
+            (83, 0, 0): 83,
+            (84, 0, 0): 84,
+            (85, 0, 0): 85,
+            (86, 0, 0): 86,
+            (87, 0, 0): 87,
+            (88, 0, 0): 88,
+            (89, 0, 0): 89,
+            (90, 0, 0): 90,
+            (91, 0, 0): 91,
+            (92, 0, 0): 92,
+            (93, 0, 0): 93,
+            (94, 0, 0): 94,
+            (95, 0, 0): 95,
+            (96, 0, 0): 96,
+            (97, 0, 0): 97,
+            (98, 0, 0): 98,
+            (99, 0, 0): 99,
+            (100, 0, 0): 100,
+            (101, 0, 0): 101,
+            (102, 0, 0): 102,
+            (103, 0, 0): 103,
+            (104, 0, 0): 104,
+            (105, 0, 0): 105,
+            (106, 0, 0): 106,
+            (107, 0, 0): 107,
+            (108, 0, 0): 108,
+            (109, 0, 0): 109,
+            (110, 0, 0): 110,
+            (111, 0, 0): 111,
+            (112, 0, 0): 112,
+            (113, 0, 0): 113,
+            (114, 0, 0): 114,
+            (115, 0, 0): 115,
+            (116, 0, 0): 116,
+            (117, 0, 0): 117,
+            (118, 0, 0): 118,
+            (119, 0, 0): 119,
+            (120, 0, 0): 120,
+            (121, 0, 0): 121,
+            (122, 0, 0): 122,
+            (123, 0, 0): 123,
+            (124, 0, 0): 124,
+            (125, 0, 0): 125,
+            (126, 0, 0): 126,
+            (127, 0, 0): 127,
+            (128, 0, 0): 128,
+            (129, 0, 0): 129,
+            (130, 0, 0): 130,
+            (131, 0, 0): 131,
+            (132, 0, 0): 132,
+            (133, 0, 0): 133,
+            (134, 0, 0): 134,
+            (135, 0, 0): 135,
+            (136, 0, 0): 136,
+            (137, 0, 0): 137,
+            (138, 0, 0): 138,
+            (139, 0, 0): 139,
+            (140, 0, 0): 140,
+            (141, 0, 0): 141,
+            (142, 0, 0): 142,
+            (143, 0, 0): 143,
+            (144, 0, 0): 144,
+            (145, 0, 0): 145,
+            (146, 0, 0): 146,
+            (147, 0, 0): 147,
+            (148, 0, 0): 148,
+            (149, 0, 0): 149,
+            (150, 0, 0): 150,
+            (151, 0, 0): 151,
+            (152, 0, 0): 152,
+            (153, 0, 0): 153,
+            (154, 0, 0): 154,
+            (155, 0, 0): 155,
+            (156, 0, 0): 156,
+            (157, 0, 0): 157,
+            (158, 0, 0): 158,
+            (159, 0, 0): 159,
+            (160, 0, 0): 160,
+            (161, 0, 0): 161,
+            (162, 0, 0): 162,
+            (163, 0, 0): 163,
+            (164, 0, 0): 164,
+            (165, 0, 0): 165,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("693c6139") + Hash(addr, left_padding=True),

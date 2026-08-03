@@ -18,9 +18,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -594,83 +591,84 @@ def test_create_results(
         address=Address(0x00000000000000000000000000000000000060A7),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0, 1, 2, 4, 5, 6], "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={32: 295, 33: 551}),
-                contract_1: Account(storage={0: contract_1}),
-            },
+            contract_0: Account(storage={32: 295, 33: 551}),
+            contract_1: Account(storage={0: contract_1}),
+        },
+        {contract_0: Account(storage={32: 295, 33: 551})},
+        {
+            contract_0: Account(
+                storage={
+                    18: 18,
+                    19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
+                    20: contract_1,
+                    21: contract_1,
+                    32: 295,
+                    33: 551,
+                },
+            ),
         },
         {
-            "indexes": {"data": [3, 7], "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={32: 295, 33: 551})},
+            contract_0: Account(
+                storage={
+                    16: 32,
+                    17: contract_1,
+                    18: 18,
+                    19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
+                    20: contract_1,
+                    21: contract_1,
+                    32: 295,
+                    33: 551,
+                },
+            ),
         },
         {
-            "indexes": {
-                "data": [8, 9, 10, 11, 12, 13, 14, 15],
-                "gas": 0,
-                "value": 0,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        18: 18,
-                        19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: contract_1,
-                        21: contract_1,
-                        32: 295,
-                        33: 551,
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [16, 17], "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        16: 32,
-                        17: contract_1,
-                        18: 18,
-                        19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: contract_1,
-                        21: contract_1,
-                        32: 295,
-                        33: 551,
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {
-                "data": [18, 19, 20, 21, 22, 23, 24, 25],
-                "gas": 0,
-                "value": 0,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        16: contract_1,
-                        17: 0,
-                        18: contract_1,
-                        19: contract_1,
-                        20: contract_1,
-                        21: contract_1,
-                        32: contract_1,
-                        33: contract_1,
-                    },
-                ),
-            },
+            contract_0: Account(
+                storage={
+                    16: contract_1,
+                    17: 0,
+                    18: contract_1,
+                    19: contract_1,
+                    20: contract_1,
+                    21: contract_1,
+                    32: contract_1,
+                    33: contract_1,
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 0,
+            (3, 0, 0): 1,
+            (4, 0, 0): 0,
+            (5, 0, 0): 0,
+            (6, 0, 0): 0,
+            (7, 0, 0): 1,
+            (8, 0, 0): 2,
+            (9, 0, 0): 2,
+            (10, 0, 0): 2,
+            (11, 0, 0): 2,
+            (12, 0, 0): 2,
+            (13, 0, 0): 2,
+            (14, 0, 0): 2,
+            (15, 0, 0): 2,
+            (16, 0, 0): 3,
+            (17, 0, 0): 3,
+            (18, 0, 0): 4,
+            (19, 0, 0): 4,
+            (20, 0, 0): 4,
+            (21, 0, 0): 4,
+            (22, 0, 0): 4,
+            (23, 0, 0): 4,
+            (24, 0, 0): 4,
+            (25, 0, 0): 4,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("048071d3") + Hash(0x1) + Hash(0x1) + Hash(0x0),

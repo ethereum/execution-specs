@@ -23,9 +23,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -148,55 +145,50 @@ def test_revert_depth_create_address_collision(
         address=Address(0x3E180B1862F9D158ABB5E519A6D8605540C23682),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={0: 1, 1: 1, 4: 12}, nonce=54),
-                contract_1: Account(storage={2: 8, 3: 12}),
-            },
+            contract_0: Account(storage={0: 1, 1: 1, 4: 12}, nonce=54),
+            contract_1: Account(storage={2: 8, 3: 12}),
         },
         {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={0: 1, 4: 12}, nonce=54),
-                contract_1: Account(storage={}),
-            },
+            contract_0: Account(storage={0: 1, 4: 12}, nonce=54),
+            contract_1: Account(storage={}),
         },
         {
-            "indexes": {"data": 1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
-                    ),
-                    balance=5,
-                    nonce=54,
+            contract_0: Account(
+                storage={},
+                code=bytes.fromhex(
+                    "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
                 ),
-                contract_1: Account(storage={}),
-            },
+                balance=5,
+                nonce=54,
+            ),
+            contract_1: Account(storage={}),
         },
         {
-            "indexes": {"data": 0, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
-                    ),
-                    nonce=54,
+            contract_0: Account(
+                storage={},
+                code=bytes.fromhex(
+                    "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
                 ),
-                contract_1: Account(storage={}),
-            },
+                nonce=54,
+            ),
+            contract_1: Account(storage={}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 3,
+            (0, 0, 1): 3,
+            (0, 1, 0): 1,
+            (0, 1, 1): 1,
+            (1, 0, 0): 2,
+            (1, 0, 1): 2,
+            (1, 1, 0): 0,
+            (1, 1, 1): 0,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(0xEA60),

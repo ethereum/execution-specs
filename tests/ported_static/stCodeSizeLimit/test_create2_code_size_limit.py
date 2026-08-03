@@ -18,9 +18,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -112,33 +109,25 @@ def test_create2_code_size_limit(
         opcode=Op.CREATE2,
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: valid_create2_address,
-                        1: 1,
-                    },
-                ),
-                valid_create2_address: Account(storage={}, balance=0, nonce=1),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: valid_create2_address,
+                    1: 1,
+                },
+            ),
+            valid_create2_address: Account(storage={}, balance=0, nonce=1),
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(storage={0: 0, 1: 1}),
-                valid_create2_address: Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(storage={0: 0, 1: 1}),
+            valid_create2_address: Account.NONEXISTENT,
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx = Transaction(
         sender=sender,

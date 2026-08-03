@@ -19,9 +19,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -251,130 +248,77 @@ def test_create_large_result(
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_1: Account(
-                    storage={
-                        0: compute_create_address(address=contract_1, nonce=1),
-                        1: 0x1777F,
-                        2: 0xD956C0ABD597440481902014A37B733358EE7685461EB1B5916EEFD83381E6D9,  # noqa: E501
-                    },
-                ),
-            },
+            contract_1: Account(
+                storage={
+                    0: compute_create_address(address=contract_1, nonce=1),
+                    1: 0x1777F,
+                    2: 0xD956C0ABD597440481902014A37B733358EE7685461EB1B5916EEFD83381E6D9,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_1: Account(
-                    storage={
-                        0: 0x595C5D0C272757CFF0B3DCA4ED60D60CD6E9F58,
-                        1: 0x177C9,
-                        2: 0xD956C0ABD597440481902014A37B733358EE7685461EB1B5916EEFD83381E6D9,  # noqa: E501
-                    },
-                ),
-            },
+            contract_1: Account(
+                storage={
+                    0: 0x595C5D0C272757CFF0B3DCA4ED60D60CD6E9F58,
+                    1: 0x177C9,
+                    2: 0xD956C0ABD597440481902014A37B733358EE7685461EB1B5916EEFD83381E6D9,  # noqa: E501
+                },
+            ),
+        },
+        {contract_1: Account(storage={0: 0, 1: 44927, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 45001, 2: 0})},
+        {
+            contract_1: Account(
+                storage={
+                    0: compute_create_address(address=contract_1, nonce=1),
+                    1: 0x4BBCE4,
+                    2: 0xDCBCC213F0C91B71D38DEDD06C95CCB99467B9B05F275BED536DE1044F5F18FA,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_1: Account(storage={0: 0, 1: 44927, 2: 0})},
+            contract_1: Account(
+                storage={
+                    0: 0xA5DC71D47D0D8DCF5990E81C74E981BAF24A8FA2,
+                    1: 0x4BBD2E,
+                    2: 0xDCBCC213F0C91B71D38DEDD06C95CCB99467B9B05F275BED536DE1044F5F18FA,  # noqa: E501
+                },
+            ),
         },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_1: Account(storage={0: 0, 1: 45001, 2: 0})},
-        },
-        {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_1: Account(
-                    storage={
-                        0: compute_create_address(address=contract_1, nonce=1),
-                        1: 0x4BBCE4,
-                        2: 0xDCBCC213F0C91B71D38DEDD06C95CCB99467B9B05F275BED536DE1044F5F18FA,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_1: Account(
-                    storage={
-                        0: 0xA5DC71D47D0D8DCF5990E81C74E981BAF24A8FA2,
-                        1: 0x4BBD2E,
-                        2: 0xDCBCC213F0C91B71D38DEDD06C95CCB99467B9B05F275BED536DE1044F5F18FA,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_1: Account(storage={0: 0, 1: 48356, 2: 0})},
-        },
-        {
-            "indexes": {"data": [7], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_1: Account(storage={0: 0, 1: 48430, 2: 0})},
-        },
-        {
-            "indexes": {"data": [8], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_1: Account(storage={0: 0, 1: 0x4B16491, 2: 0})
-            },
-        },
-        {
-            "indexes": {"data": [9], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_1: Account(storage={0: 0, 1: 0x4B16492, 2: 0})
-            },
-        },
-        {
-            "indexes": {"data": [10], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_1: Account(storage={0: 0, 1: 48362, 2: 0})},
-        },
-        {
-            "indexes": {"data": [11], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_1: Account(storage={0: 0, 1: 48436, 2: 0})},
-        },
-        {
-            "indexes": {"data": [12], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_1: Account(storage={0: 0, 1: 0x4B1649D, 2: 0})
-            },
-        },
-        {
-            "indexes": {"data": [13], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_1: Account(storage={0: 0, 1: 0x4B1649E, 2: 0})
-            },
-        },
-        {
-            "indexes": {"data": [14], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_1: Account(storage={0: 0, 1: 54116, 2: 0})},
-        },
-        {
-            "indexes": {"data": [15], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_1: Account(storage={0: 0, 1: 54190, 2: 0})},
-        },
+        {contract_1: Account(storage={0: 0, 1: 48356, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 48430, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 0x4B16491, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 0x4B16492, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 48362, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 48436, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 0x4B1649D, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 0x4B1649E, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 54116, 2: 0})},
+        {contract_1: Account(storage={0: 0, 1: 54190, 2: 0})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 2,
+            (3, 0, 0): 3,
+            (4, 0, 0): 4,
+            (5, 0, 0): 5,
+            (6, 0, 0): 6,
+            (7, 0, 0): 7,
+            (8, 0, 0): 8,
+            (9, 0, 0): 9,
+            (10, 0, 0): 10,
+            (11, 0, 0): 11,
+            (12, 0, 0): 12,
+            (13, 0, 0): 13,
+            (14, 0, 0): 14,
+            (15, 0, 0): 15,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("048071d3") + Hash(0xF0) + Hash(0xF3) + Hash(0x100),

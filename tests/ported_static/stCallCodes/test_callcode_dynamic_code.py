@@ -28,9 +28,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -284,90 +281,66 @@ def test_callcode_dynamic_code(
         address=Address(0x4000000000000000000000000000000000000000),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_1: Account(
-                    storage={
-                        0: 1,
-                        10: compute_create_address(
-                            address=contract_1, nonce=0
-                        ),
-                        11: 1,
-                        20: contract_1,
-                        21: sender,
-                        22: contract_1,
-                    },
-                ),
-            },
+            contract_1: Account(
+                storage={
+                    0: 1,
+                    10: compute_create_address(address=contract_1, nonce=0),
+                    11: 1,
+                    20: contract_1,
+                    21: sender,
+                    22: contract_1,
+                },
+            ),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(
-                    storage={
-                        0: 1,
-                        10: 0x2D39FAD743351D4CF3F4717907D3DDA5E0A689A7,
-                        11: 1,
-                        20: contract_2,
-                        21: sender,
-                        22: contract_2,
-                    },
-                ),
-            },
+            contract_2: Account(
+                storage={
+                    0: 1,
+                    10: 0x2D39FAD743351D4CF3F4717907D3DDA5E0A689A7,
+                    11: 1,
+                    20: contract_2,
+                    21: sender,
+                    22: contract_2,
+                },
+            ),
         },
         {
-            "indexes": {"data": 2, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_3, nonce=0): Account(
-                    storage={
-                        0: 1,
-                        10: 0xBF1676BE6038AB86D66E00824C2E3577858040F6,
-                        11: 1,
-                        20: compute_create_address(
-                            address=contract_3, nonce=0
-                        ),
-                        21: sender,
-                        22: compute_create_address(
-                            address=contract_3, nonce=0
-                        ),
-                    },
-                    code=b"",
-                    balance=0,
-                    nonce=2,
-                ),
-            },
+            compute_create_address(address=contract_3, nonce=0): Account(
+                storage={
+                    0: 1,
+                    10: 0xBF1676BE6038AB86D66E00824C2E3577858040F6,
+                    11: 1,
+                    20: compute_create_address(address=contract_3, nonce=0),
+                    21: sender,
+                    22: compute_create_address(address=contract_3, nonce=0),
+                },
+                code=b"",
+                balance=0,
+                nonce=2,
+            ),
         },
         {
-            "indexes": {"data": 3, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_4, nonce=0): Account(
-                    storage={
-                        0: 1,
-                        10: 0xF2D6BF688FAE45DA62AB2DD4F36945BC924CC61,
-                        11: 1,
-                        20: compute_create_address(
-                            address=contract_4, nonce=0
-                        ),
-                        21: sender,
-                        22: compute_create_address(
-                            address=contract_4, nonce=0
-                        ),
-                    },
-                    code=b"",
-                    balance=0,
-                    nonce=2,
-                ),
-            },
+            compute_create_address(address=contract_4, nonce=0): Account(
+                storage={
+                    0: 1,
+                    10: 0xF2D6BF688FAE45DA62AB2DD4F36945BC924CC61,
+                    11: 1,
+                    20: compute_create_address(address=contract_4, nonce=0),
+                    21: sender,
+                    22: compute_create_address(address=contract_4, nonce=0),
+                },
+                code=b"",
+                balance=0,
+                nonce=2,
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {(0, 0, 0): 0, (1, 0, 0): 1, (2, 0, 0): 2, (3, 0, 0): 3}[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(contract_1, left_padding=True),

@@ -21,9 +21,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -217,30 +214,35 @@ def test_revert_opcode_return(
         address=Address(0x858F82BBFD84FC9EB91291458511DF77311DBD0D),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(
-                    storage={1: 0, 2: 0x726576657274206D657373616765}
-                ),
-                addr: Account(storage={}),
-            },
+            sender: Account(nonce=1),
+            target: Account(storage={1: 0, 2: 0x726576657274206D657373616765}),
+            addr: Account(storage={}),
         },
         {
-            "indexes": {"data": [1, 2, 3, 4, 5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(storage={1: 0, 2: 0}),
-                addr: Account(storage={}),
-            },
+            sender: Account(nonce=1),
+            target: Account(storage={1: 0, 2: 0}),
+            addr: Account(storage={}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (0, 1, 0): 0,
+            (1, 0, 0): 1,
+            (1, 1, 0): 1,
+            (2, 0, 0): 1,
+            (2, 1, 0): 1,
+            (3, 0, 0): 1,
+            (3, 1, 0): 1,
+            (4, 0, 0): 1,
+            (4, 1, 0): 1,
+            (5, 0, 0): 1,
+            (5, 1, 0): 1,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

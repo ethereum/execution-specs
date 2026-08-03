@@ -25,9 +25,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -219,49 +216,48 @@ def test_sstore_change_from_external_call_in_init_code(
         address=Address(0xDEA0000000000000000000000000000000000000),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
+        {contract_0: Account(storage={0: 1, 1: 1}, nonce=0)},
         {
-            "indexes": {"data": [0, 1, 3], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 1, 1: 1}, nonce=0)},
+            contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
+            Address(
+                0x6602CFC925BE62BF18470598A98F72812A1EBEF2
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {
-                "data": [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-                "gas": 0,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
-                Address(
-                    0x6602CFC925BE62BF18470598A98F72812A1EBEF2
-                ): Account.NONEXISTENT,
-            },
+            contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
+            compute_create_address(address=sender, nonce=0): Account(
+                storage={0: 1, 1: 1}, nonce=1
+            ),
         },
         {
-            "indexes": {"data": [4], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
-                compute_create_address(address=sender, nonce=0): Account(
-                    storage={0: 1, 1: 1}, nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [5, 7], "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
-                Address(0x0F446E1BD7A5DA68B5E3A305C7030E3AA8EFC293): Account(
-                    storage={0: 1, 1: 1}, nonce=1
-                ),
-            },
+            contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
+            Address(0x0F446E1BD7A5DA68B5E3A305C7030E3AA8EFC293): Account(
+                storage={0: 1, 1: 1}, nonce=1
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 1,
+            (3, 0, 0): 0,
+            (4, 0, 0): 2,
+            (5, 0, 0): 3,
+            (6, 0, 0): 1,
+            (7, 0, 0): 3,
+            (8, 0, 0): 1,
+            (9, 0, 0): 1,
+            (10, 0, 0): 1,
+            (11, 0, 0): 1,
+            (12, 0, 0): 1,
+            (13, 0, 0): 1,
+            (14, 0, 0): 1,
+            (15, 0, 0): 1,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Op.CALL(

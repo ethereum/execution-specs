@@ -22,9 +22,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -227,45 +224,44 @@ def test_double_selfdestruct_test(
         address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0, 1, 2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(
-                    0x0000000000000000000000000000000000001001
-                ): Account.NONEXISTENT,
-                Address(0x0000000000000000000000000000000000001002): Account(
-                    balance=0xF4241
-                ),
-            },
+            Address(
+                0x0000000000000000000000000000000000001001
+            ): Account.NONEXISTENT,
+            Address(0x0000000000000000000000000000000000001002): Account(
+                balance=0xF4241
+            ),
         },
         {
-            "indexes": {"data": [3, 7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x0000000000000000000000000000000000001001): Account(
-                    balance=0xF4241, nonce=0
-                ),
-                Address(
-                    0x0000000000000000000000000000000000001002
-                ): Account.NONEXISTENT,
-                contract_0: Account(nonce=1),
-            },
+            Address(0x0000000000000000000000000000000000001001): Account(
+                balance=0xF4241, nonce=0
+            ),
+            Address(
+                0x0000000000000000000000000000000000001002
+            ): Account.NONEXISTENT,
+            contract_0: Account(nonce=1),
         },
         {
-            "indexes": {"data": [4, 5, 6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x0000000000000000000000000000000000001001): Account(
-                    balance=0xF4241, nonce=0
-                ),
-                contract_0: Account(nonce=1),
-            },
+            Address(0x0000000000000000000000000000000000001001): Account(
+                balance=0xF4241, nonce=0
+            ),
+            contract_0: Account(nonce=1),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 0,
+            (3, 0, 0): 1,
+            (4, 0, 0): 2,
+            (5, 0, 0): 2,
+            (6, 0, 0): 2,
+            (7, 0, 0): 1,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("f110011002"),

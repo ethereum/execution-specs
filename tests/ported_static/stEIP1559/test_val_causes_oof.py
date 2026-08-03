@@ -17,9 +17,6 @@ from execution_testing import (
     TransactionException,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -158,36 +155,15 @@ def test_val_causes_oof(
         nonce=0,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": [0, 1], "value": 0},
-            "network": [">=Cancun"],
-            "result": {},
-        },
-        {
-            "indexes": {"data": -1, "gas": 0, "value": 1},
-            "network": [">=Cancun"],
-            "result": {},
-            "expect_exception": {
-                ">=Cancun": TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {},
-        },
-        {
-            "indexes": {"data": -1, "gas": 2, "value": -1},
-            "network": [">=Cancun"],
-            "result": {},
-            "expect_exception": {
-                ">=Cancun": TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post: dict = {}
+    _exc = {
+        (0, 0, 1): TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+        (0, 2, 0): TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+        (0, 2, 1): TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+        (1, 0, 1): TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+        (1, 2, 0): TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+        (1, 2, 1): TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+    }.get((d, g, v))
 
     tx_data = [
         Bytes("693c6139") + Hash(0x1),

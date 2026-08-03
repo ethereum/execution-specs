@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -319,28 +316,39 @@ def test_too_long_return_data_copy(
         nonce=1,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {
-                "data": [1, 4, 6, 8, 9, 10, 11, 13, 16, 18, 20, 21, 22, 23],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 24743})},
-        },
-        {
-            "indexes": {
-                "data": [0, 2, 3, 5, 7, 12, 14, 15, 17, 19],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 57005})},
-        },
+    expect_posts: list[dict] = [
+        {target: Account(storage={0: 24743})},
+        {target: Account(storage={0: 57005})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 1,
+            (1, 0, 0): 0,
+            (2, 0, 0): 1,
+            (3, 0, 0): 1,
+            (4, 0, 0): 0,
+            (5, 0, 0): 1,
+            (6, 0, 0): 0,
+            (7, 0, 0): 1,
+            (8, 0, 0): 0,
+            (9, 0, 0): 0,
+            (10, 0, 0): 0,
+            (11, 0, 0): 0,
+            (12, 0, 0): 1,
+            (13, 0, 0): 0,
+            (14, 0, 0): 1,
+            (15, 0, 0): 1,
+            (16, 0, 0): 0,
+            (17, 0, 0): 1,
+            (18, 0, 0): 0,
+            (19, 0, 0): 1,
+            (20, 0, 0): 0,
+            (21, 0, 0): 0,
+            (22, 0, 0): 0,
+            (23, 0, 0): 0,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("917694f9")

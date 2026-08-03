@@ -25,9 +25,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -145,51 +142,46 @@ def test_call_ecrecover_overflow(
         address=Address(0xDB8963071FEAE3B63E19D9D7AF8EE89A92E99356),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
+        {target: Account(storage={0: 1, 1: 0})},
         {
-            "indexes": {"data": [0, 1, 2, 4, 5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 1, 1: 0})},
+            target: Account(
+                storage={
+                    0: 1,
+                    1: 0x2182DA748249A933BF737586B80212DF19B8F829,
+                },
+            ),
         },
         {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 1,
-                        1: 0x2182DA748249A933BF737586B80212DF19B8F829,
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 1,
+                    1: 0x1B85AC3C9B09DE43659C5D04A2D9C75457D9ABF4,
+                },
+            ),
         },
         {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 1,
-                        1: 0x1B85AC3C9B09DE43659C5D04A2D9C75457D9ABF4,
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 1,
-                        1: 0xD0277C8A3ECCD462A313FC60161BAC36B16E8699,
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 1,
+                    1: 0xD0277C8A3ECCD462A313FC60161BAC36B16E8699,
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 0,
+            (3, 0, 0): 1,
+            (4, 0, 0): 0,
+            (5, 0, 0): 0,
+            (6, 0, 0): 2,
+            (7, 0, 0): 3,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("917694f9")

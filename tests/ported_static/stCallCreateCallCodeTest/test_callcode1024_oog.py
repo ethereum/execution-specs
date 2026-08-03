@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -97,20 +94,12 @@ def test_callcode1024_oog(
         address=Address(0x1B803058288DC00000F98311B059597434253374),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 146, 1: 1, 2: 0x23A51})},
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 134, 1: 1, 2: 0x20B71})},
-        },
+    expect_posts: list[dict] = [
+        {target: Account(storage={0: 146, 1: 1, 2: 0x23A51})},
+        {target: Account(storage={0: 134, 1: 1, 2: 0x20B71})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 1, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

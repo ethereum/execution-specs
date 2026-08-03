@@ -23,9 +23,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -87,36 +84,14 @@ def test_create2collision_code2(
         address=Address(0xFCE41D047B4A1D4450382DCC29EC7E5FEDC5F9A3),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    code=bytes.fromhex("010203"), balance=0, nonce=1
-                ),
-                compute_create_address(address=sender, nonce=0): Account(
-                    code=b"", balance=1, nonce=2
-                ),
-                sender: Account(nonce=1),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    code=bytes.fromhex("010203"), balance=0, nonce=1
-                ),
-                compute_create_address(address=sender, nonce=0): Account(
-                    code=b"", balance=1, nonce=2
-                ),
-                sender: Account(nonce=1),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = {
+        contract_0: Account(code=bytes.fromhex("010203"), balance=0, nonce=1),
+        compute_create_address(address=sender, nonce=0): Account(
+            code=b"", balance=1, nonce=2
+        ),
+        sender: Account(nonce=1),
+    }
+    _exc = None
 
     tx_data = [
         Op.MSTORE(offset=0x0, value=0x620102036000526003601DF3)

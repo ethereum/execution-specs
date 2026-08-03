@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -172,28 +169,12 @@ def test_static_ab_acalls1(
         address=Address(0x5E75046384134A4554C3C7061D4637CB978D5699),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                target: Account(storage={0: 1, 1: 1}),
-                addr: Account(storage={38: 0}),
-                addr_2: Account(storage={41: 0}),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                target: Account(storage={0: 1, 1: 1}),
-                addr: Account(storage={38: 0}),
-                addr_2: Account(storage={41: 0}),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = {
+        target: Account(storage={0: 1, 1: 1}),
+        addr: Account(storage={38: 0}),
+        addr_2: Account(storage={41: 0}),
+    }
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),
