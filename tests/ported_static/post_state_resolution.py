@@ -11,11 +11,10 @@ import re
 from enum import StrEnum
 from typing import Any, Iterator, Set
 
-from pydantic import BaseModel, field_validator, model_validator
-
 from execution_testing.base_types import EthereumTestRootModel
 from execution_testing.exceptions import TransactionExceptionInstanceOrList
 from execution_testing.forks import Fork, get_forks
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class CMP(StrEnum):

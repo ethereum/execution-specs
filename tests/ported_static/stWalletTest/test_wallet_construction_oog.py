@@ -22,7 +22,8 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.post_state_resolution import (
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
 
