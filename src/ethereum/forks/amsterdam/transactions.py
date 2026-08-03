@@ -590,7 +590,9 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     and a `NonceOverflowError` exception if the nonce overflows.
     It also raises an `InitCodeTooLargeError` if the code
     size of a contract creation transaction exceeds the maximum allowed
-    size.
+    size, and a `PriorityFeeGreaterThanMaxFeeError` if the maximum
+    priority fee per gas of a fee market transaction exceeds its maximum
+    fee per gas.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
