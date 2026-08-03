@@ -44,8 +44,9 @@ def test_account_at_max_balance_field_transacts(
     a value-transferring transaction successfully, with exact post
     balances on both ends.
 
-    `2**128` and above overflow the field with no protocol-level cap;
-    that gap is pinned as a unit test, not exercised here.
+    `2**128` and above cannot be committed: root computation rejects
+    the block with `BalanceOverflowError`; that bound is pinned by
+    unit tests, not exercised here.
     """
     max_balance = 2**128 - 1
     value = 12345

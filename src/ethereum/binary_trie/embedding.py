@@ -50,6 +50,7 @@ from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U8, U32, U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import BalanceOverflowError
 from ethereum.utils.byte import left_pad_zero_bytes, right_pad_zero_bytes
 
 from .trie import (
@@ -476,16 +477,22 @@ def encode_basic_data(code_size: U32, nonce: U64, balance: U256) -> Bytes32:
     The code size and nonce parameters are typed at their field
     widths; the nonce cannot exceed eight bytes by [EIP-2681].
     Balances are protocol-level `U256` values, so the parameter
-    keeps that type and the sixteen-byte field bound is asserted
-    here instead.
+    keeps that type; a balance too large for the sixteen-byte
+    field cannot be committed and raises [`BalanceOverflowError`],
+    invalidating the block whose state would hold it.
 
     TODO: `code_size` is four bytes at offset four here, one
     byte wider than EIP-7864's three-byte field at offset five.
 
     [`BASIC_DATA_LEAF_KEY`]: ref:ethereum.binary_trie.embedding.BASIC_DATA_LEAF_KEY
+    [`BalanceOverflowError`]: ref:ethereum.exceptions.BalanceOverflowError
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     """  # noqa: E501
-    assert balance < U256(2) ** U256(128)  # U128 doesn't exist
+    if balance >= U256(2) ** U256(128):  # U128 doesn't exist
+        raise BalanceOverflowError(
+            f"balance {balance} does not fit the sixteen-byte "
+            f"basic data balance field"
+        )
     return Bytes32(
         bytes([int(BASIC_DATA_VERSION)])
         # Reserved bytes: headroom for future header fields.

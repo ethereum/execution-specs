@@ -34,6 +34,7 @@ from ethereum.binary_trie.embedding import (
     remove_storage_slot,
 )
 from ethereum.binary_trie.trie import BinaryTrie, root, trie_set
+from ethereum.exceptions import BalanceOverflowError, InvalidBlock
 from ethereum.state import EMPTY_CODE_HASH as MPT_STATE_EMPTY_CODE_HASH
 
 ADDRESS = Address32(b"\x00" * 12 + b"\xaa" * 20)
@@ -752,10 +753,12 @@ def test_encode_basic_data_layout() -> None:
 
 def test_encode_basic_data_rejects_balance_past_sixteen_bytes() -> None:
     """
-    A balance that does not fit the sixteen-byte field is rejected,
-    rather than silently truncated by `to_bytes`.
+    A balance that does not fit the sixteen-byte field raises
+    `BalanceOverflowError` -- an `InvalidBlock` -- rather than being
+    silently truncated by `to_bytes`.
     """
-    with pytest.raises(AssertionError):
+    assert issubclass(BalanceOverflowError, InvalidBlock)
+    with pytest.raises(BalanceOverflowError):
         encode_basic_data(
             code_size=U32(0),
             nonce=U64(0),

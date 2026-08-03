@@ -18,6 +18,7 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import UnknownCodeHashError
 from ethereum.merkle_patricia_trie import (
     EMPTY_TRIE_ROOT,
     Trie,
@@ -50,11 +51,20 @@ class State:
         """
         Get the bytecode for a given code hash.
 
-        Return ``b""`` for ``EMPTY_CODE_HASH``.
-        """
+        Return ``b""`` for ``EMPTY_CODE_HASH``. Any other hash with no
+        stored bytecode raises [`UnknownCodeHashError`]: an account
+        referencing such a hash is a malformed pre-state.
+
+        [`UnknownCodeHashError`]: ref:ethereum.exceptions.UnknownCodeHashError
+        """  # noqa: E501
         if code_hash == EMPTY_CODE_HASH:
             return b""
-        return self._code_store[code_hash]
+        code = self._code_store.get(code_hash)
+        if code is None:
+            raise UnknownCodeHashError(
+                f"no bytecode stored for code hash 0x{code_hash.hex()}"
+            )
+        return code
 
     def get_account_optional(self, address: Address) -> Optional[Account]:
         """
