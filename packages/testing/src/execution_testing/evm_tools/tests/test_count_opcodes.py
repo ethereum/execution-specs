@@ -10,9 +10,9 @@ from typing import Callable
 
 import pytest
 
-from ethereum_spec_tools.evm_tools import create_parser
-from ethereum_spec_tools.evm_tools.t8n import ForkCache
-from ethereum_spec_tools.evm_tools.t8n.cli import run_t8n_cli
+from execution_testing.evm_tools import create_parser
+from execution_testing.evm_tools.t8n import ForkCache
+from execution_testing.evm_tools.t8n.cli import run_t8n_cli
 
 parser = create_parser()
 

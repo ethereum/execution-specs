@@ -19,7 +19,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
-from ethereum_spec_tools.evm_tools.utils import parse_hex_or_int
+from ethereum_spec_tools.utils import parse_hex_or_int
 
 
 class UnsupportedTxError(Exception):

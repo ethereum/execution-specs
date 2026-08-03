@@ -70,9 +70,17 @@ def extract_affected_forks(
             # Run all forks if something changes in the test
             # framework
             return all_forks
-        if file_path.is_relative_to("src/ethereum_spec_tools/evm_tools"):
+        if file_path.is_relative_to(
+            "packages/testing/src/execution_testing/evm_tools"
+        ):
             # Run all forks if something changes in the evm
             # tools
+            return all_forks
+        if file_path.is_relative_to(
+            "src/ethereum_spec_tools/loaders"
+        ) or file_path == Path("src/ethereum_spec_tools/utils.py"):
+            # Run all forks if something changes in the fixture/fork
+            # loading or shared helpers the evm tools depend on
             return all_forks
         if optimized and file_path.is_relative_to("src/ethereum_optimized"):
             # Run all forks if something changes in the optimized tools and

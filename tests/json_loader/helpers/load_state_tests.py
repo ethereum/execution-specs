@@ -7,14 +7,14 @@ from typing import Any, Dict, Final, Iterable, List
 import pytest
 from _pytest.config import Config
 from _pytest.nodes import Item
+from execution_testing.evm_tools import create_parser
+from execution_testing.evm_tools.statetest import read_test_case
+from execution_testing.evm_tools.t8n import ForkCache
+from execution_testing.evm_tools.t8n.cli import build_t8n_from_cli_options
 from pytest import Collector
 
 from ethereum.exceptions import StateWithEmptyAccount
 from ethereum.utils.hexadecimal import hex_to_bytes
-from ethereum_spec_tools.evm_tools import create_parser
-from ethereum_spec_tools.evm_tools.statetest import read_test_case
-from ethereum_spec_tools.evm_tools.t8n import ForkCache
-from ethereum_spec_tools.evm_tools.t8n.cli import build_t8n_from_cli_options
 
 from .. import FORKS
 from ..stash_keys import desired_forks_key, fork_cache_key

@@ -78,6 +78,7 @@ dev = [
 ]
 
 [project.scripts]
+ethereum-spec-evm = "execution_testing.evm_tools:main"
 fill = "execution_testing.cli.pytest_commands.fill:fill"
 phil = "execution_testing.cli.pytest_commands.fill:phil"
 execute = "execution_testing.cli.pytest_commands.execute:execute"
@@ -141,6 +142,7 @@ markers = [
     "some_mark: Test marker for parametrizer tests",
     "eip_checklist: Custom marker for EIP checklist tests",
     "slow: Marks tests as slow running",
+    "evm_tools: marks tests as evm_tools (deselect with '-m \"not evm_tools\"')",
 ]
 
 [tool.uv]

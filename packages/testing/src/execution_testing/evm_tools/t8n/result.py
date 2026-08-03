@@ -8,10 +8,9 @@ module.
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from ethereum_rlp import rlp
-
 from ethereum.crypto.hash import keccak256
 from ethereum.merkle_patricia_trie import root, trie_get
+from ethereum_rlp import rlp
 
 if TYPE_CHECKING:
     from execution_testing.client_clis.cli_types import (
@@ -24,9 +23,9 @@ if TYPE_CHECKING:
 def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
     """Build testing-side `TransactionReceipt`s from the block output tries."""
     # Function-scoped: ``execution_testing/__init__`` eagerly imports
-    # ``.specs`` which transitively imports ``client_clis``, which
-    # imports ``ExecutionSpecsTransitionTool`` — top-level import would
-    # cycle back into ``t8n``.
+    # ``.specs`` -> ``client_clis`` -> ``ExecutionSpecsTransitionTool``,
+    # which imports ``t8n`` to run it in-process. A top-level import here
+    # would run while ``client_clis`` is still mid-initialization.
     from execution_testing.test_types.receipt_types import (
         TransactionLog,
         TransactionReceipt,

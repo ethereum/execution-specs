@@ -21,10 +21,10 @@ from typing import (
 )
 
 from ethereum.utils.hexadecimal import hex_to_bytes
+from ethereum_spec_tools.utils import get_supported_forks
 
 from ..t8n import ForkCache
 from ..t8n.cli import build_t8n_from_cli_options
-from ..utils import get_supported_forks
 
 if TYPE_CHECKING:
     from execution_testing.client_clis.cli_types import (
