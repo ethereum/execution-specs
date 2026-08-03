@@ -94,6 +94,8 @@ Op.CREATE(value=0, offset=0, size=100, init_code_size=100, new_memory_size=100)
 - `address_warm`: Whether the call target is warm
 - `value_transfer`: Whether value is being transferred
 - `account_new`: Whether creating a new account
+- `stipend_returned`: Whether the callee leaves the value-transfer stipend
+  unconsumed so it returns to the caller (net cost drops by `CALL_STIPEND`)
 
 Example:
 

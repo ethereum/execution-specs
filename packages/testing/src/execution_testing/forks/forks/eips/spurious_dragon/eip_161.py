@@ -27,6 +27,12 @@ class EIP161(BaseFork):
         if "value_transfer" in metadata:
             if metadata["value_transfer"]:
                 base_cost += gas_costs.CALL_VALUE
+                if metadata.get("stipend_returned"):
+                    # The callee leaves the stipend unconsumed, so it
+                    # flows back to the caller; the net charge is
+                    # CALL_VALUE minus the stipend. The callee's own
+                    # execution cost is accounted separately.
+                    base_cost -= gas_costs.CALL_STIPEND
                 if metadata["account_new"]:
                     base_cost += gas_costs.NEW_ACCOUNT
             elif metadata["account_new"]:

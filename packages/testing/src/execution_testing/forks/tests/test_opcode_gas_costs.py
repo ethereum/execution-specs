@@ -343,6 +343,18 @@ from ..helpers import Fork
             Op.CALL(
                 address_warm=False,
                 value_transfer=True,
+                stipend_returned=True,
+            ),
+            Osaka.gas_costs().COLD_ACCOUNT_ACCESS
+            + Osaka.gas_costs().CALL_VALUE
+            - Osaka.gas_costs().CALL_STIPEND,
+            id="call_cold_with_value_stipend_returned",
+        ),
+        pytest.param(
+            Osaka,
+            Op.CALL(
+                address_warm=False,
+                value_transfer=True,
                 account_new=True,
                 new_memory_size=32,
             ),
