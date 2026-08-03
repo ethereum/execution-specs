@@ -335,7 +335,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     is_transition_fork: ClassVar[bool] = False
 
     _transition_tool_name: ClassVar[Optional[str]] = None
-    _solc_name: ClassVar[Optional[str]] = None
     _ignore: ClassVar[bool] = False
     _bpo_fork: ClassVar[bool] = False
     _children: ClassVar[Set[Type["BaseFork"]]] = set()
@@ -356,7 +355,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         cls,
         *,
         transition_tool_name: Optional[str] = None,
-        solc_name: Optional[str] = None,
         ignore: bool = False,
         bpo_fork: bool = False,
         ruleset_name: Optional[str] = None,
@@ -373,7 +371,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         forks.
         """
         cls._transition_tool_name = transition_tool_name
-        cls._solc_name = solc_name
         cls._ignore = ignore
         cls._bpo_fork = bpo_fork
         cls._ruleset_name = ruleset_name
@@ -1304,12 +1301,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         Return fork name as it's meant to be passed to the transition tool for
         execution.
         """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def solc_name(cls) -> str:
-        """Return fork name as it's meant to be passed to the solc compiler."""
         pass
 
     @classmethod
