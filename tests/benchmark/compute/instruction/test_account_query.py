@@ -247,6 +247,7 @@ def test_ext_account_query_cold(
 
         creation_txs = []
         with TestPhaseManager.setup():
+            creation_sender = pre.fund_eoa()
             num_creation_txs = math.ceil(
                 num_target_accounts / max_creations_per_tx
             )
@@ -257,7 +258,7 @@ def test_ext_account_query_cold(
                         to=factory_address,
                         data=Hash(addr_start),
                         gas_limit=tx_gas_limit,
-                        sender=pre.fund_eoa(),
+                        sender=creation_sender,
                     )
                 )
         blocks.append(Block(txs=creation_txs))
@@ -285,6 +286,7 @@ def test_ext_account_query_cold(
 
     execution_txs = []
     with TestPhaseManager.execution():
+        execution_sender = pre.fund_eoa()
         max_target_per_tx = (
             tx_gas_limit - intrinsic_gas_cost_calc()
         ) // cold_account_access_gas
@@ -304,7 +306,7 @@ def test_ext_account_query_cold(
                     to=op_address,
                     data=calldata,
                     gas_limit=gas_limit,
-                    sender=pre.fund_eoa(),
+                    sender=execution_sender,
                 )
             )
             gas_used += gas_limit
