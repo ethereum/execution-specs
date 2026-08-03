@@ -1602,9 +1602,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         else:
             fixture_format = request.param
         assert issubclass(fixture_format, BaseFixture)
-        if fork is None:
-            assert hasattr(request.node, "fork")
-            fork = request.node.fork
 
         class BaseTestWrapper(cls):  # type: ignore
             __is_base_test_wrapper__ = True

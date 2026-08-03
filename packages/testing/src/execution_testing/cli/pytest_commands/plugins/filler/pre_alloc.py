@@ -434,9 +434,7 @@ ALL_FIXTURE_FORMAT_NAMES.sort(key=len, reverse=True)
 
 
 @pytest.fixture(scope="function")
-def node_id_for_entropy(
-    request: pytest.FixtureRequest, fork: Fork | None
-) -> str:
+def node_id_for_entropy(request: pytest.FixtureRequest, fork: Fork) -> str:
     """
     Return the node id with the fixture format name and fork name stripped.
 
@@ -453,11 +451,6 @@ def node_id_for_entropy(
     # deterministic regardless of whether xdist is active.
     if "@" in node_id:
         node_id = node_id.rsplit("@", 1)[0]
-    if fork is None:
-        # FIXME: Static tests don't have a fork, so we need to get it from the
-        # node.
-        assert hasattr(request.node, "fork")
-        fork = request.node.fork
     for fixture_format_name in ALL_FIXTURE_FORMAT_NAMES:
         if fixture_format_name in node_id:
             parts = node_id.split("::")
@@ -495,21 +488,14 @@ def stub_eoas(
 @pytest.fixture(scope="function")
 def pre(
     alloc_flags: AllocFlags,
-    fork: Fork | None,
-    request: pytest.FixtureRequest,
+    fork: Fork,
     stub_accounts: Dict[str, Account],
     stub_eoas: Dict[str, EOA],
 ) -> Alloc:
     """Return default pre allocation for all tests (Empty alloc)."""
-    # FIXME: Static tests don't have a fork so we need to get it from the node.
-    actual_fork = fork
-    if actual_fork is None:
-        assert hasattr(request.node, "fork")
-        actual_fork = request.node.fork
-
     return Alloc(
         flags=alloc_flags,
-        fork=actual_fork,
+        fork=fork,
         stub_accounts=stub_accounts,
         stub_eoas=stub_eoas,
     )
