@@ -21,6 +21,9 @@ from ethereum.forks.amsterdam.execution_engine.types import (
     ExecutionPayload,
     NewPayloadRequest,
 )
+from ethereum.forks.amsterdam.execution_engine.validation_helpers import (
+    _payload_block,
+)
 from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
     ExecutionWitness,
@@ -265,6 +268,55 @@ class TestBuildStatelessInput:
         payload = stateless_input.new_payload_request.execution_payload
         assert payload.transactions == (Bytes(rlp.encode(tx)),)
         assert stateless_input.public_keys == ()
+
+    def test_payload_round_trip_preserves_legacy_transaction_rlp(self) -> None:
+        """Preserve canonical legacy transaction RLP through the payload."""
+        tx = LegacyTransaction(
+            nonce=U256(0),
+            gas_price=Uint(1),
+            gas=Uint(21_000),
+            to=Address(b"\x00" * 20),
+            value=U256(0),
+            data=Bytes(b"\x00" * 200_000),
+            v=U256(27),
+            r=U256(0),
+            s=U256(1),
+        )
+        block = Block(
+            header=_make_header(),
+            transactions=(tx,),
+            ommers=(),
+            withdrawals=(),
+        )
+        execution_requests = ExecutionRequests(
+            deposits=(),
+            withdrawals=(),
+            consolidations=(),
+            builder_deposits=(),
+            builder_exits=(),
+        )
+        stateless_input = build_stateless_input(
+            block,
+            execution_witness=ExecutionWitness(
+                state=(),
+                codes=(),
+                headers=(),
+            ),
+            execution_requests=execution_requests,
+            block_access_list=[],
+            chain_id=U64(1),
+        )
+
+        rebuilt_block = _payload_block(
+            stateless_input.new_payload_request.execution_payload,
+            block.header.parent_beacon_block_root,
+            execution_requests,
+        )
+
+        assert rebuilt_block.transactions == (tx,)
+        assert rlp.encode(rebuilt_block.transactions) == rlp.encode(
+            block.transactions
+        )
 
 
 class TestSerializeStatelessInput:

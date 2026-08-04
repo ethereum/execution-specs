@@ -15,6 +15,7 @@ from ethereum.state import Root
 from ..blocks import Block, Header
 from ..fork import EMPTY_OMMER_HASH
 from ..requests import compute_requests_hash
+from ..transactions import LegacyTransaction, decode_transaction
 from .requests import ExecutionRequests, encode_execution_requests
 from .types import ExecutionPayload
 
@@ -84,6 +85,18 @@ def _payload_header(
     )
 
 
+def _payload_transaction_to_block_transaction(
+    encoded_transaction: Bytes,
+) -> LegacyTransaction | Bytes:
+    """Return the canonical block representation of a payload transaction."""
+    if not encoded_transaction or encoded_transaction[0] < 0xC0:
+        return encoded_transaction
+
+    transaction = decode_transaction(encoded_transaction)
+    assert isinstance(transaction, LegacyTransaction)
+    return transaction
+
+
 def _payload_block(
     execution_payload: ExecutionPayload,
     parent_beacon_block_root: Root,
@@ -100,7 +113,10 @@ def _payload_block(
 
     return Block(
         header=header,
-        transactions=execution_payload.transactions,
+        transactions=tuple(
+            _payload_transaction_to_block_transaction(encoded_transaction)
+            for encoded_transaction in execution_payload.transactions
+        ),
         ommers=(),
         withdrawals=execution_payload.withdrawals,
     )
