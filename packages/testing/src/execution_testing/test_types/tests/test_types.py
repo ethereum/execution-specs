@@ -958,9 +958,7 @@ def test_environment_fork_requirements_preserve_extra_data() -> None:
     """Preserve extra data while applying fork requirements."""
     env = Environment(extra_data=b"current block")
 
-    assert (
-        env.set_fork_requirements(Amsterdam).extra_data == env.extra_data
-    )
+    assert env.set_fork_requirements(Amsterdam).extra_data == env.extra_data
 
 
 @pytest.mark.parametrize(

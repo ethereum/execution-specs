@@ -1,8 +1,13 @@
 """Stateless input transaction public-key tests."""
 
 import pytest
-from coincurve import ecdsa
-from coincurve.keys import PublicKey
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import (
+    Prehashed,
+    encode_dss_signature,
+)
 from execution_testing import (
     Account,
     Address,
@@ -15,6 +20,7 @@ from execution_testing import (
 from execution_testing.test_types.execution_witness.modifiers import (
     replace_public_key_at,
 )
+from spec256k1 import PublicKey
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
@@ -146,7 +152,6 @@ def _recover_public_key(
     public_key = PublicKey.from_signature_and_message(
         signature,
         signing_hash,
-        hasher=None,
     )
     return Bytes(public_key.format(compressed=False))
 
@@ -194,14 +199,17 @@ def _signature_verifies(
     signing_hash: bytes,
 ) -> bool:
     """Return whether ``public_key`` verifies the transaction signature."""
-    compact_signature = int(tx.r).to_bytes(32, byteorder="big") + int(
-        tx.s
-    ).to_bytes(32, byteorder="big")
-    der_signature = ecdsa.cdata_to_der(
-        ecdsa.deserialize_compact(compact_signature)
+    der_signature = encode_dss_signature(int(tx.r), int(tx.s))
+    verifying_key = ec.EllipticCurvePublicKey.from_encoded_point(
+        ec.SECP256K1(),
+        bytes(public_key),
     )
-    return PublicKey(bytes(public_key)).verify(
-        der_signature,
-        signing_hash,
-        hasher=None,
-    )
+    try:
+        verifying_key.verify(
+            der_signature,
+            signing_hash,
+            ec.ECDSA(Prehashed(hashes.SHA256())),
+        )
+    except InvalidSignature:
+        return False
+    return True
