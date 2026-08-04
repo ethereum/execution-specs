@@ -285,6 +285,24 @@ def test_suite_description() -> str:
     return "Execute EEST tests using hive endpoint."
 
 
+@pytest.fixture(scope="function")
+def test_case_description(request: pytest.FixtureRequest) -> str:
+    """Return the test docstring as the hive test-case description."""
+    description = getattr(request.node.function, "__doc__", None)
+    return description or ""
+
+
+@pytest.fixture(autouse=True)
+def per_test_hive_test(hive_test: HiveTest) -> None:
+    """
+    Report each pytest test as an individual hive test case.
+
+    The client runs under the session-scoped base hive test; this
+    per-test entry only propagates the individual test result to hive.
+    """
+    del hive_test
+
+
 @pytest.fixture(autouse=True, scope="session")
 def base_hive_test(
     request: pytest.FixtureRequest,
