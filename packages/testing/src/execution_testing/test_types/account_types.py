@@ -391,9 +391,10 @@ class Alloc(BaseAlloc):
                 continue
             addr = Bytes20(address)
             code = bytes(account.code) if account.code else b""
-            code_hash = (
-                spec_keccak256(code) if code else spec_state.EMPTY_CODE_HASH
-            )
+            if code:
+                code_hash = mod.store_code(state, code)
+            else:
+                code_hash = spec_state.EMPTY_CODE_HASH
             mod.set_account(
                 state,
                 addr,
@@ -413,8 +414,6 @@ class Alloc(BaseAlloc):
                     Bytes32(int(key_hi).to_bytes(32, "big")),
                     U256(value_int),
                 )
-        for stored_code in self._code_store.values():
-            mod.store_code(state, stored_code)
         return state
 
     def get_account_optional(
