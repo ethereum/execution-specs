@@ -80,20 +80,20 @@ class GasCosts:
     # Access
     WARM_ACCESS: Final[Uint] = Uint(100)
     COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(3000)
-    COLD_STORAGE_ACCESS: Final[Uint] = Uint(3000)
+    COLD_STORAGE_ACCESS: Final[Uint] = Uint(2100)
 
     # Storage
     STORAGE_WRITE: Final[Uint] = Uint(10000)
 
     # Call
-    CALL_VALUE: Final[Uint] = Uint(10300)  # ACCOUNT_WRITE + CALL_STIPEND
+    CALL_VALUE: Final[Uint] = Uint(11300)  # ACCOUNT_WRITE + CALL_STIPEND
     CALL_STIPEND: Final[Uint] = Uint(2300)
-    ACCOUNT_WRITE: Final[Uint] = Uint(8000)
+    ACCOUNT_WRITE: Final[Uint] = Uint(9000)
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
     CODE_INIT_PER_WORD: Final[Uint] = Uint(2)
-    CREATE_ACCESS: Final[Uint] = ACCOUNT_WRITE + COLD_STORAGE_ACCESS
+    CREATE_ACCESS: Final[Uint] = ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS
 
     # Utility
     ZERO: Final[Uint] = Uint(0)

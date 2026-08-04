@@ -15,7 +15,7 @@ This module covers the EIP-8038 *execution* ``SSTORE`` refund schedule via
 the transaction receipt's ``cumulative_gas_used``:
 
 * Clearing a slot whose original value is non-zero grants
-  ``REFUND_STORAGE_CLEAR`` (12480) to ``refund_counter`` (no EIP-8037
+  ``REFUND_STORAGE_CLEAR`` (11616) to ``refund_counter`` (no EIP-8037
   state refund, since no state was created).
 * Clearing then re-setting the same non-zero-original slot nets a zero
   refund: the clear grant is reversed (``refund -= REFUND_STORAGE_CLEAR``)
@@ -80,7 +80,7 @@ def test_sstore_clear_grants_refund(
     Clearing a non-zero-original slot grants ``REFUND_STORAGE_CLEAR``.
 
     Enough unrelated gas is burned so the EIP-3529 quotient cap
-    (``gas_used // 5``) does not bind, letting the full 12480 refund be
+    (``gas_used // 5``) does not bind, letting the full 11616 refund be
     observed in ``cumulative_gas_used``. The non-zero original means no
     EIP-8037 state refund participates.
     """

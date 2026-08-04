@@ -9,12 +9,12 @@ dimension:
 - a ``COLD_ACCOUNT_ACCESS`` (3,000) surcharge when the beneficiary is
   cold (a warm beneficiary adds nothing — SELFDESTRUCT has no
   ``WARM_ACCESS`` surcharge);
-- a net-new ``ACCOUNT_WRITE`` (8,000) when a positive balance is sent to
+- a net-new ``ACCOUNT_WRITE`` (9,000) when a positive balance is sent to
   an empty (or non-existent) beneficiary, replacing the legacy combined
   25,000 execution account-creation cost.
 
-So ``execution = 5,000 + (3,000 if cold) + (8,000 if creating)``: 13,000
-warm / 16,000 cold when a new beneficiary is created, 5,000 warm / 8,000
+So ``execution = 5,000 + (3,000 if cold) + (9,000 if creating)``: 14,000
+warm / 17,000 cold when a new beneficiary is created, 5,000 warm / 8,000
 cold otherwise.
 
 The beneficiary account-creation charge ``GAS_NEW_ACCOUNT`` (183,600) is
@@ -31,7 +31,7 @@ The framework opcode-gas model splits the two dimensions for
 ``SELFDESTRUCT`` exactly as the spec does: ``ACCOUNT_WRITE`` is charged
 as execution gas and ``GAS_NEW_ACCOUNT`` as state gas, so
 ``Op.SELFDESTRUCT(account_new=True).execution_cost(fork)`` is the execution
-charge (16,000 cold / 13,000 warm) and ``.state_cost(fork)`` is
+charge (17,000 cold / 14,000 warm) and ``.state_cost(fork)`` is
 ``GAS_NEW_ACCOUNT``. These tests assert the execution dimension and verify
 account-creation via balances; the state dimension is owned by
 ``eip8037_state_creation_gas_cost_increase/test_state_gas_selfdestruct.py``.
@@ -94,7 +94,7 @@ def test_selfdestruct_new_beneficiary_execution_gas(
 
     The destructor has a non-zero balance and targets an empty,
     non-existent beneficiary, so the net-new ``ACCOUNT_WRITE`` applies:
-    ``execution = 5,000 + access + 8,000`` (13,000 warm, 16,000 cold). The
+    ``execution = 5,000 + access + 9,000`` (14,000 warm, 17,000 cold). The
     creation gas ``GAS_NEW_ACCOUNT`` is charged on the state axis (the
     EIP-8037 suite asserts it); here it is funded from the reservoir and
     the value transfer to the new beneficiary confirms the path.
@@ -418,7 +418,7 @@ def test_selfdestruct_oog_boundary(
     gas and one short.
 
     The destructor sends value to an empty beneficiary, charging
-    ``5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (16,000) in execution gas
+    ``5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (17,000) in execution gas
     and ``GAS_NEW_ACCOUNT`` in state gas. The child CALL frame has no state
     reservoir of its own, so the state gas spills into the forwarded
     execution gas and the frame needs its full ``gas_cost`` total. Forwarding
@@ -562,7 +562,7 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     A creation transaction whose initcode SELFDESTRUCTs the new contract
     to a fresh ``Address(0xDEAD)``: the fresh, non-existent beneficiary
     receives a positive balance, so ``account_new`` is true —
-    ``execution = 5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (16,000
+    ``execution = 5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (17,000
     cold) plus a beneficiary ``NEW_ACCOUNT`` on the state axis. The
     beneficiary creation charge keys on the beneficiary, while the
     originator (created in this transaction) is still deleted: a

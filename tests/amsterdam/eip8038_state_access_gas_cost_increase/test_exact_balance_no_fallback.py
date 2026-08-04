@@ -83,7 +83,7 @@ def test_access_list_no_fallback(
     below the Amsterdam intrinsic.
 
     EIP-8038 raises ``TX_ACCESS_LIST_ADDRESS`` (2400 -> 2900) and
-    ``TX_ACCESS_LIST_STORAGE_KEY`` (1900 -> 2900). A client reusing the
+    ``TX_ACCESS_LIST_STORAGE_KEY`` (1900 -> 2000). A client reusing the
     old per-address/per-key constants would compute an intrinsic smaller
     by ``num_addresses * addr_delta + num_keys * key_delta``; with the
     sender funded to the wei, that fallback must not slip through.

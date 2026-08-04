@@ -8,7 +8,7 @@ dimension:
 - account access costs ``COLD_ACCOUNT_ACCESS`` (3,000) cold or
   ``WARM_ACCESS`` (100) warm;
 - a positive value transfer adds ``CALL_VALUE`` (``ACCOUNT_WRITE`` +
-  ``CALL_STIPEND`` = 10,300), charged only by ``CALL``/``CALLCODE``;
+  ``CALL_STIPEND`` = 11,300), charged only by ``CALL``/``CALLCODE``;
 - a value transfer to a *new* account additionally creates the account,
   whose ``GAS_NEW_ACCOUNT`` charge is the EIP-8037 *state* dimension and
   is asserted via the block header ``max(execution, state)`` accounting,
@@ -127,7 +127,7 @@ def test_call_value_alive_target_gas(
     """
     Measure call cost with value transfer to an already-alive target.
 
-    ``CALL``/``CALLCODE`` add ``CALL_VALUE`` (10,300) on top of the
+    ``CALL``/``CALLCODE`` add ``CALL_VALUE`` (11,300) on top of the
     access cost, where ``CALL_VALUE = ACCOUNT_WRITE + CALL_STIPEND``.
     ``DELEGATECALL``/``STATICCALL`` never transfer value, so they pay
     only the access cost regardless of any value argument. No new

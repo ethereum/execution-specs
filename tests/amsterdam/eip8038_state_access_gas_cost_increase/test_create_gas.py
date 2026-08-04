@@ -4,7 +4,7 @@ Tests for the EIP-8038 [State Access Gas Cost Increase](https://eips.ethereum.or
 
 Under EIP-8038 the contract-creation opcodes are repriced in their
 *execution* gas dimension to ``CREATE_ACCESS`` (``ACCOUNT_WRITE`` +
-``COLD_STORAGE_ACCESS`` = 11,000), on top of which the EIP-3860 init
+``COLD_ACCOUNT_ACCESS`` = 12,000), on top of which the EIP-3860 init
 code word cost (2 per word) and, for ``CREATE2`` only, an additional
 keccak word cost (6 per word) are charged. The new-account creation
 and per-byte code deposit charges are the EIP-8037 *state* dimension,
@@ -68,7 +68,7 @@ def test_create_execution_gas(
     """
     Measure the execution gas of CREATE/CREATE2 and assert the schedule.
 
-    The EIP-8038 *execution* dimension is ``CREATE_ACCESS`` (11,000) plus
+    The EIP-8038 *execution* dimension is ``CREATE_ACCESS`` (12,000) plus
     the EIP-3860 init code word cost (2 per word) plus, for ``CREATE2``
     only, an additional keccak word cost (6 per word). The EIP-8037
     account-creation state gas is excluded by subtracting

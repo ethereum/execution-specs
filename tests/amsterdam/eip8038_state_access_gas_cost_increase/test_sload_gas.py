@@ -2,7 +2,7 @@
 Tests for [EIP-8038: State Access Gas Cost Increase](https://eips.ethereum.org/EIPS/eip-8038).
 
 Covers the EIP-8038 ``SLOAD`` repricing: a cold storage slot read costs
-``COLD_STORAGE_ACCESS`` (3000) and a warm read costs ``WARM_SLOAD`` (100).
+``COLD_STORAGE_ACCESS`` (2100) and a warm read costs ``WARM_SLOAD`` (100).
 A slot is warmed either by listing it in the transaction access list or by
 a prior in-frame access; warmth acquired inside a sub-call that REVERTs is
 discarded, so a subsequent read in the outer frame is cold again.
@@ -65,7 +65,7 @@ def test_sload_gas(
     Measure the gas of a ``SLOAD`` on a slot that is either cold or
     pre-warmed via the transaction access list.
 
-    A cold read must cost ``COLD_STORAGE_ACCESS`` (3000); a warm read
+    A cold read must cost ``COLD_STORAGE_ACCESS`` (2100); a warm read
     must cost ``WARM_SLOAD`` (100).
     """
     slot = 0x42
@@ -155,7 +155,7 @@ def test_sload_warmth_reverts_on_subcall_revert(
     warmed ``(address, slot)`` pair belongs to the outer account) then
     ``REVERT``s. Back in the outer frame, that same slot's first
     ``SLOAD`` is cold again and is charged ``COLD_STORAGE_ACCESS``
-    (3000), proving the warm-slot set is rolled back on revert.
+    (2100), proving the warm-slot set is rolled back on revert.
     """
     slot = 0x42
     cold_gas = Op.SLOAD(key_warm=False).gas_cost(fork)

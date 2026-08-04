@@ -218,7 +218,7 @@ def test_call_value_cost_at_transition(
     fork: Fork,
 ) -> None:
     """
-    ``CALL_VALUE`` rises across the boundary (9000 -> 10300 on mainnet,
+    ``CALL_VALUE`` rises across the boundary (9000 -> 11300 on mainnet,
     becoming ``ACCOUNT_WRITE + CALL_STIPEND``). The constant transition
     is asserted from the derived schedules while a value-bearing ``CALL``
     is exercised in both blocks to prove it still succeeds in each
@@ -262,8 +262,8 @@ def test_create_base_cost_at_transition(
 ) -> None:
     """
     The ``CREATE`` execution base cost changes across the boundary
-    (``OPCODE_CREATE_BASE``: 32000 -> 11000 on mainnet, redefined as
-    ``ACCOUNT_WRITE + COLD_STORAGE_ACCESS``). The constant transition is
+    (``OPCODE_CREATE_BASE``: 32000 -> 12000 on mainnet, redefined as
+    ``ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS``). The constant transition is
     asserted from the derived schedules and a ``CREATE`` is exercised in
     both blocks to prove it still deploys.
     """
@@ -312,7 +312,7 @@ def test_selfdestruct_account_write_at_transition(
     """
     ``SELFDESTRUCT`` gains an ``ACCOUNT_WRITE`` charge when it sends a
     positive balance to an empty account, which is a new EIP-8038
-    parameter (0 -> 8000 on mainnet). The constant transition is
+    parameter (0 -> 9000 on mainnet). The constant transition is
     asserted from the derived schedules and a value-bearing
     ``SELFDESTRUCT`` to a fresh beneficiary is exercised in both blocks
     to prove it still runs.
