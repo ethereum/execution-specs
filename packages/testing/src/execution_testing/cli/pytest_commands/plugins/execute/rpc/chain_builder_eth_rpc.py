@@ -221,19 +221,49 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         """
         return self.block_building_lock
 
+    def _next_timestamp(self, head_block: Mapping[str, Any]) -> int:
+        """Return the timestamp of the block following ``head_block``."""
+        return int(HexNumber(head_block["timestamp"]) + 1)
+
+    def _next_fork(self, head_block: Mapping[str, Any]) -> Fork:
+        """Return the fork of the block following ``head_block``."""
+        return self.fork.fork_at(
+            block_number=0, timestamp=self._next_timestamp(head_block)
+        )
+
+    def _head_fork(self, head_block: Mapping[str, Any]) -> Fork:
+        """Return the fork of ``head_block`` itself."""
+        return self.fork.fork_at(
+            block_number=int(HexNumber(head_block["number"])),
+            timestamp=int(HexNumber(head_block["timestamp"])),
+        )
+
     def _payload_attributes(
         self,
+        head_block: Mapping[str, Any],
         *,
-        next_timestamp: int,
-        next_target_gas_limit: int,
         withdrawals: List[Withdrawal] | None = None,
     ) -> PayloadAttributes:
-        """Build payload attributes for a block at ``next_timestamp``."""
-        next_fork = self.fork.fork_at(block_number=0, timestamp=next_timestamp)
+        """
+        Build the payload attributes for the block following ``head_block``.
+        """
+        next_timestamp = self._next_timestamp(head_block)
+        next_fork = self._next_fork(head_block)
+        next_slot_number: int | None = None
+        if next_fork.engine_payload_attribute_slot_number():
+            if not self._head_fork(head_block).header_slot_number_required():
+                next_slot_number = 1
+            else:
+                assert "slotNumber" in head_block, (
+                    "fork requires a slot number in the block header but the "
+                    "client does not report one for its head block"
+                )
+                next_slot_number = int(HexNumber(head_block["slotNumber"]) + 1)
         return PayloadAttributes.for_fork(
             next_fork,
             timestamp=next_timestamp,
-            target_gas_limit=next_target_gas_limit,
+            target_gas_limit=int(HexNumber(head_block["gasLimit"])),
+            slot_number=next_slot_number,
             withdrawals=withdrawals,
         )
 
@@ -302,13 +332,8 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         forkchoice_state = ForkchoiceState(
             head_block_hash=head_block["hash"],
         )
-        next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
-        next_gas_limit = int(HexNumber(head_block["gasLimit"]))
-        next_fork = self.fork.fork_at(block_number=0, timestamp=next_timestamp)
-        payload_attributes = self._payload_attributes(
-            next_timestamp=next_timestamp,
-            next_target_gas_limit=next_gas_limit,
-        )
+        next_fork = self._next_fork(head_block)
+        payload_attributes = self._payload_attributes(head_block)
         forkchoice_updated_version = (
             next_fork.engine_forkchoice_updated_version()
         )
@@ -380,12 +405,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         with self.block_building_lock:
             head_block = self.get_block_by_number("latest")
             assert head_block is not None
-            next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
-            next_gas_limit = int(HexNumber(head_block["gasLimit"]))
-            payload_attributes = self._payload_attributes(
-                next_timestamp=next_timestamp,
-                next_target_gas_limit=next_gas_limit,
-            )
+            payload_attributes = self._payload_attributes(head_block)
             new_payload = self.testing_rpc.build_block(
                 parent_block_hash=Hash(head_block["hash"]),
                 payload_attributes=payload_attributes,
@@ -426,12 +446,8 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         with self.block_building_lock:
             head_block = self.get_block_by_number("latest")
             assert head_block is not None
-            next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
-            next_gas_limit = int(HexNumber(head_block["gasLimit"]))
             payload_attributes = self._payload_attributes(
-                next_timestamp=next_timestamp,
-                next_target_gas_limit=next_gas_limit,
-                withdrawals=withdrawals,
+                head_block, withdrawals=withdrawals
             )
             # Explicit empty list, not ``None``: per spec, ``null`` lets
             # the client pull from its mempool, but we want a
