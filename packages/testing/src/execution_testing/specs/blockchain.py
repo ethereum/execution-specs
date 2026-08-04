@@ -1016,15 +1016,23 @@ class BlockchainTest(BaseTest):
                 "provided by the transition tool"
             )
 
-            computed_block_access_list_hash = Hash(t8n_bal.rlp.keccak256())
-            assert (
-                computed_block_access_list_hash
-                == header.block_access_list_hash
-            ), (
-                "Block access list hash in header does not match the "
-                f"computed hash from BAL: {header.block_access_list_hash} "
-                f"!= {computed_block_access_list_hash}"
-            )
+            # Only meaningful when the backend attested the hash itself: then
+            # this cross-checks the backend's hash against EEST's re-encoding
+            # of the decoded BAL. When the backend does not (a client returns
+            # the BAL body only, so the header hash below is already EEST's
+            # derivation from these same bytes), the comparison is `a == a` and
+            # the re-encode it needs is the single most expensive step of a
+            # stateful fill.
+            if t8n.attests_block_access_list_hash:
+                computed_block_access_list_hash = Hash(t8n_bal.rlp.keccak256())
+                assert (
+                    computed_block_access_list_hash
+                    == header.block_access_list_hash
+                ), (
+                    "Block access list hash in header does not match the "
+                    f"computed hash from BAL: {header.block_access_list_hash} "
+                    f"!= {computed_block_access_list_hash}"
+                )
 
         if block.rlp_modifier is not None:
             # Modify any parameter specified in the `rlp_modifier` after
