@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -98,38 +95,17 @@ def test_call50000_ecrec(
         nonce=0,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015602c576000600061c3506000600160016101f4f16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
-                    nonce=0,
-                ),
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015602c576000600061c3506000600160016101f4f16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
-                    nonce=0,
-                ),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = {
+        sender: Account(storage={}, code=b"", nonce=1),
+        target: Account(
+            storage={},
+            code=bytes.fromhex(
+                "5b61c3506080511015602c576000600061c3506000600160016101f4f16000556001608051016080526000565b60805160015500"  # noqa: E501
+            ),
+            nonce=0,
+        ),
+    }
+    _exc = None
 
     tx_data = [
         Bytes(""),

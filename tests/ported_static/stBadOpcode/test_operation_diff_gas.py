@@ -28,9 +28,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -389,44 +386,30 @@ def test_operation_diff_gas(
         - 103
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 54200})},
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 54300})},
-        },
-        {
-            "indexes": {"data": [2, 3, 4, 5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_12: Account(storage={0: 2700 + cold_account_delta})
-            },
-        },
-        {
-            "indexes": {"data": [8, 6, 7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 9200})},
-        },
-        {
-            "indexes": {"data": [10], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_12: Account(storage={0: 2800 + extcode_probe_delta})
-            },
-        },
-        {
-            "indexes": {"data": [9], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 18400})},
-        },
+    expect_posts: list[dict] = [
+        {contract_12: Account(storage={0: 54200})},
+        {contract_12: Account(storage={0: 54300})},
+        {contract_12: Account(storage={0: 2700 + cold_account_delta})},
+        {contract_12: Account(storage={0: 9200})},
+        {contract_12: Account(storage={0: 2800 + extcode_probe_delta})},
+        {contract_12: Account(storage={0: 18400})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 2,
+            (3, 0, 0): 2,
+            (4, 0, 0): 2,
+            (5, 0, 0): 2,
+            (6, 0, 0): 3,
+            (7, 0, 0): 3,
+            (8, 0, 0): 3,
+            (9, 0, 0): 5,
+            (10, 0, 0): 4,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("048071d3") + Hash(0xF0) + Hash(0x0) + Hash(0x64),

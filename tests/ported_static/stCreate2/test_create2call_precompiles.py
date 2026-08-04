@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -182,112 +179,91 @@ def test_create2call_precompiles(
         address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                Address(0xF68E26002DB0F9CA9B54367C57C25E474C581622): Account(
-                    storage={0: sender, 1: 1, 2: 1}
-                ),
-            },
+            sender: Account(nonce=1),
+            Address(0xF68E26002DB0F9CA9B54367C57C25E474C581622): Account(
+                storage={0: sender, 1: 1, 2: 1}
+            ),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                Address(0x3B9EA59B92545BEB727022289665CF38FA462BAE): Account(
-                    storage={
-                        0: 0xCB39B3BDE22925B2F931111130C774761D8895E0E08437C9B396C1E97D10F34D,  # noqa: E501
-                        2: 1,
-                    },
-                ),
-            },
+            sender: Account(nonce=1),
+            Address(0x3B9EA59B92545BEB727022289665CF38FA462BAE): Account(
+                storage={
+                    0: 0xCB39B3BDE22925B2F931111130C774761D8895E0E08437C9B396C1E97D10F34D,  # noqa: E501
+                    2: 1,
+                },
+            ),
         },
         {
-            "indexes": {"data": 2, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                Address(0x7525F19E2970539FD2897357777A4C275175BCF5): Account(
-                    storage={
-                        0: 0x9C1185A5C5E9FC54612808977EE8F548B2258D31,
-                        2: 1,
-                    },
-                ),
-            },
+            sender: Account(nonce=1),
+            Address(0x7525F19E2970539FD2897357777A4C275175BCF5): Account(
+                storage={
+                    0: 0x9C1185A5C5E9FC54612808977EE8F548B2258D31,
+                    2: 1,
+                },
+            ),
         },
         {
-            "indexes": {"data": 3, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                Address(0x0EE431DB7C48FC10A9A56C909BFEFA87661442FB): Account(
-                    storage={0: 0xF34578907F, 2: 1}
-                ),
-            },
+            sender: Account(nonce=1),
+            Address(0x0EE431DB7C48FC10A9A56C909BFEFA87661442FB): Account(
+                storage={0: 0xF34578907F, 2: 1}
+            ),
         },
         {
-            "indexes": {"data": 4, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                Address(0xBBD394930B408DA783EE071CED240ECE997BC8B2): Account(
-                    storage={
-                        1: 1,
-                        2: 0x162EAD82CADEFAEAF6E9283248FDF2F2845F6396F6F17C4D5A39F820B6F6B5F9,  # noqa: E501
-                    },
-                ),
-            },
+            sender: Account(nonce=1),
+            Address(0xBBD394930B408DA783EE071CED240ECE997BC8B2): Account(
+                storage={
+                    1: 1,
+                    2: 0x162EAD82CADEFAEAF6E9283248FDF2F2845F6396F6F17C4D5A39F820B6F6B5F9,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": 5, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                Address(0x2E3EC33A50ED32C2FCBEF07A1BAB8643DB4DC670): Account(
-                    storage={0: 1, 2: 0}
-                ),
-            },
+            sender: Account(nonce=1),
+            Address(0x2E3EC33A50ED32C2FCBEF07A1BAB8643DB4DC670): Account(
+                storage={0: 1, 2: 0}
+            ),
         },
         {
-            "indexes": {"data": 6, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                Address(0xAA0AB87AA0E27E22E21671040C11F3537CDC7B3E): Account(
-                    storage={
-                        0: 1,
-                        1: 0x1F4D1D80177B1377743D1901F70D7389BE7F7A35A35BFD234A8AAEE615B88C49,  # noqa: E501
-                        2: 0x18683193AE021A2F8920FED186CDE5D9B1365116865281CCF884C1F28B1DF8F,  # noqa: E501
-                    },
-                ),
-            },
+            sender: Account(nonce=1),
+            Address(0xAA0AB87AA0E27E22E21671040C11F3537CDC7B3E): Account(
+                storage={
+                    0: 1,
+                    1: 0x1F4D1D80177B1377743D1901F70D7389BE7F7A35A35BFD234A8AAEE615B88C49,  # noqa: E501
+                    2: 0x18683193AE021A2F8920FED186CDE5D9B1365116865281CCF884C1F28B1DF8F,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": 7, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                Address(0xAB7CF4E4980432E892FA512EC2B9E8532C23AC15): Account(
-                    storage={
-                        0: 1,
-                        1: 1,
-                        2: 1,
-                        3: 1,
-                        10: 0x1DE49A4B0233273BBA8146AF82042D004F2085EC982397DB0D97DA17204CC286,  # noqa: E501
-                        11: 0x217327FFC463919BEF80CC166D09C6172639D8589799928761BCD9F22C903D4,  # noqa: E501
-                        20: 0x1DE49A4B0233273BBA8146AF82042D004F2085EC982397DB0D97DA17204CC286,  # noqa: E501
-                        21: 0x217327FFC463919BEF80CC166D09C6172639D8589799928761BCD9F22C903D4,  # noqa: E501
-                    },
-                ),
-            },
+            sender: Account(nonce=1),
+            Address(0xAB7CF4E4980432E892FA512EC2B9E8532C23AC15): Account(
+                storage={
+                    0: 1,
+                    1: 1,
+                    2: 1,
+                    3: 1,
+                    10: 0x1DE49A4B0233273BBA8146AF82042D004F2085EC982397DB0D97DA17204CC286,  # noqa: E501
+                    11: 0x217327FFC463919BEF80CC166D09C6172639D8589799928761BCD9F22C903D4,  # noqa: E501
+                    20: 0x1DE49A4B0233273BBA8146AF82042D004F2085EC982397DB0D97DA17204CC286,  # noqa: E501
+                    21: 0x217327FFC463919BEF80CC166D09C6172639D8589799928761BCD9F22C903D4,  # noqa: E501
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 2,
+            (3, 0, 0): 3,
+            (4, 0, 0): 4,
+            (5, 0, 0): 5,
+            (6, 0, 0): 6,
+            (7, 0, 0): 7,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Op.PUSH1[0x0]

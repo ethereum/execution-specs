@@ -23,9 +23,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -118,61 +115,45 @@ def test_create2collision_balance(
         address=Address(0xEC2C6832D00680ECE8FF9254F81FDAB0A5A2AC50),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(balance=1, nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    balance=1, nonce=2
-                ),
-                sender: Account(nonce=1),
-            },
+            contract_0: Account(balance=1, nonce=1),
+            compute_create_address(address=sender, nonce=0): Account(
+                balance=1, nonce=2
+            ),
+            sender: Account(nonce=1),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_1: Account(
-                    storage={1: 1}, code=b"", balance=1, nonce=1
-                ),
-                compute_create_address(address=sender, nonce=0): Account(
-                    balance=1, nonce=2
-                ),
-                sender: Account(nonce=1),
-            },
+            contract_1: Account(storage={1: 1}, code=b"", balance=1, nonce=1),
+            compute_create_address(address=sender, nonce=0): Account(
+                balance=1, nonce=2
+            ),
+            sender: Account(nonce=1),
         },
         {
-            "indexes": {"data": 2, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(
-                    storage={},
-                    code=bytes.fromhex("6001600155"),
-                    balance=1,
-                    nonce=1,
-                ),
-                compute_create_address(address=sender, nonce=0): Account(
-                    balance=1, nonce=2
-                ),
-                sender: Account(nonce=1),
-            },
+            contract_2: Account(
+                storage={},
+                code=bytes.fromhex("6001600155"),
+                balance=1,
+                nonce=1,
+            ),
+            compute_create_address(address=sender, nonce=0): Account(
+                balance=1, nonce=2
+            ),
+            sender: Account(nonce=1),
         },
         {
-            "indexes": {"data": 3, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(balance=2, nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    balance=0, nonce=2
-                ),
-                sender: Account(nonce=1),
-            },
+            contract_0: Account(balance=2, nonce=1),
+            compute_create_address(address=sender, nonce=0): Account(
+                balance=0, nonce=2
+            ),
+            sender: Account(nonce=1),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {(0, 0, 0): 0, (1, 0, 0): 1, (2, 0, 0): 2, (3, 0, 0): 3}[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Op.CREATE2(value=0x0, offset=0x0, size=0x0, salt=0x0) + Op.STOP,

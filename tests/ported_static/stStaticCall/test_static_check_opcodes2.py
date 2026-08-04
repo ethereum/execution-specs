@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -496,26 +493,31 @@ def test_static_check_opcodes2(
         address=Address(0x58D6159788915466CC2BF8A6BC7284928707959B),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0, 2, 3, 4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(storage={1: 1}),
-            },
+            sender: Account(nonce=1),
+            target: Account(storage={1: 1}),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                target: Account(storage={1: 0}),
-            },
+            sender: Account(nonce=1),
+            target: Account(storage={1: 0}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (0, 0, 1): 0,
+            (1, 0, 0): 1,
+            (1, 0, 1): 1,
+            (2, 0, 0): 0,
+            (2, 0, 1): 0,
+            (3, 0, 0): 0,
+            (3, 0, 1): 0,
+            (4, 0, 0): 0,
+            (4, 0, 1): 0,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

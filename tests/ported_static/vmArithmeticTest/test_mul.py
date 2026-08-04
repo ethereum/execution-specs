@@ -18,9 +18,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -298,61 +295,45 @@ def test_mul(
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [8, 2, 5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(storage={0: 0}),
-                contract_5: Account(storage={0: 0}),
-                contract_8: Account(storage={0: 0}),
-            },
+            contract_2: Account(storage={0: 0}),
+            contract_5: Account(storage={0: 0}),
+            contract_8: Account(storage={0: 0}),
         },
+        {contract_0: Account(storage={0: 6})},
+        {contract_1: Account(storage={0: 1})},
+        {contract_3: Account(storage={0: 23})},
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 6})},
+            contract_4: Account(
+                storage={
+                    0: 0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+                },
+            ),
         },
+        {contract_6: Account(storage={0: 1})},
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_1: Account(storage={0: 1})},
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_3: Account(storage={0: 23})},
-        },
-        {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_4: Account(
-                    storage={
-                        0: 0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_6: Account(storage={0: 1})},
-        },
-        {
-            "indexes": {"data": [7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_7: Account(
-                    storage={
-                        0: 0x47D0817E4167B1EB4F9FC722B133EF9D7D9A6FB4C2C1C442D000107A5E419561,  # noqa: E501
-                    },
-                ),
-            },
+            contract_7: Account(
+                storage={
+                    0: 0x47D0817E4167B1EB4F9FC722B133EF9D7D9A6FB4C2C1C442D000107A5E419561,  # noqa: E501
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 1,
+            (1, 0, 0): 2,
+            (2, 0, 0): 0,
+            (3, 0, 0): 3,
+            (4, 0, 0): 4,
+            (5, 0, 0): 0,
+            (6, 0, 0): 5,
+            (7, 0, 0): 6,
+            (8, 0, 0): 0,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

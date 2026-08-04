@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -221,183 +218,150 @@ def test_mcopy(
         address=Address(0xBFD584EC9DC8FBADCEA812C707E1765B4DF8FA6C),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {
-                "data": [0, 1, 2, 3, 4, 5, 18, 19],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
-                        1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
+                    1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A0A1A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
-                        1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A0A1A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
+                    1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A1A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBE,  # noqa: E501
-                        1: 0xBFC1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A1A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBE,  # noqa: E501
+                    1: 0xBFC1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [8], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
-                        1: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
+                    1: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [9], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
-                        1: 0xA1A2C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
+                    1: 0xA1A2C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [10], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A1A0A1A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
-                        1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A1A0A1A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
+                    1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [11], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
-                        1: 0xBFC1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
+                    1: 0xBFC1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [12], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xBFC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDE,  # noqa: E501
-                        1: 0xDFC1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xBFC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDE,  # noqa: E501
+                    1: 0xDFC1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [13], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBFC0,  # noqa: E501
-                        1: 0xC1C2C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBFC0,  # noqa: E501
+                    1: 0xC1C2C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [14], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xC1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDFE0,  # noqa: E501
-                        1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xC1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDFE0,  # noqa: E501
+                    1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [15], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A1C1A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
-                        1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A1C1A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
+                    1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [16], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    1: 0xC0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": [17], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
-                        1: 0xC1C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
-                        2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
-                    },
-                ),
-            },
+            target: Account(
+                storage={
+                    0: 0xA0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF,  # noqa: E501
+                    1: 0xC1C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF,  # noqa: E501
+                    2: 0xE0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF,  # noqa: E501
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 0,
+            (3, 0, 0): 0,
+            (4, 0, 0): 0,
+            (5, 0, 0): 0,
+            (6, 0, 0): 1,
+            (7, 0, 0): 2,
+            (8, 0, 0): 3,
+            (9, 0, 0): 4,
+            (10, 0, 0): 5,
+            (11, 0, 0): 6,
+            (12, 0, 0): 7,
+            (13, 0, 0): 8,
+            (14, 0, 0): 9,
+            (15, 0, 0): 10,
+            (16, 0, 0): 11,
+            (17, 0, 0): 12,
+            (18, 0, 0): 0,
+            (19, 0, 0): 0,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(0x2) + Hash(0x0) + Hash(0x0),

@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -387,42 +384,34 @@ def test_return_bounds(
         nonce=0,
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
+        {target: Account(storage={}, balance=0)},
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={}, balance=0)},
-        },
-        {
-            "indexes": {"data": -1, "gas": [1, 2], "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={
-                        1: 1,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        6: 1,
-                        7: 1,
-                        8: 1,
-                        9: 1,
-                        10: 1,
-                        11: 1,
-                        12: 1,
-                        13: 1,
-                        14: 1,
-                        15: 1,
-                        16: 1,
-                    },
-                    balance=1,
-                ),
-            },
+            target: Account(
+                storage={
+                    1: 1,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    6: 1,
+                    7: 1,
+                    8: 1,
+                    9: 1,
+                    10: 1,
+                    11: 1,
+                    12: 1,
+                    13: 1,
+                    14: 1,
+                    15: 1,
+                    16: 1,
+                },
+                balance=1,
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 1, 0): 1, (0, 2, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes(""),

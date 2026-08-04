@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -89,26 +86,18 @@ def test_out_of_gas_prefunded_contract_creation(
         address=Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": [0, 1], "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(balance=1),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(balance=1),
         },
         {
-            "indexes": {"data": -1, "gas": [2], "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(balance=2),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(balance=2),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 1, 0): 0, (0, 2, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Op.PUSH1[0x9]

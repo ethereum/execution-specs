@@ -30,9 +30,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op, Opcode
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -586,129 +583,130 @@ def test_address_opcodes(
 
     # Slot 0 holds the first access (pre-warmed in the valid cases, cold
     # in the invalid cases); slot 1 holds the always-warm second access.
-    expect_entries_: list[dict] = [
-        # valid (pre-warmed first access): both slots measure a warm
-        # access; only EXTCODESIZE/EXTCODECOPY shift.
+
+    expect_posts: list[dict] = [
         {
-            "indexes": {
-                "data": [0, 1, 4, 5, 6, 7, 8, 9, 10, 11],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 97 + balance_warm_d,
-                        1: 97 + balance_warm_d,
-                    }
-                )
-            },
+            contract_0: Account(
+                storage={
+                    0: 97 + balance_warm_d,
+                    1: 97 + balance_warm_d,
+                }
+            )
         },
         {
-            "indexes": {
-                "data": [12, 13, 16, 17, 18, 19, 20, 21, 22, 23],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 97 + extcodesize_warm_d,
-                        1: 97 + extcodesize_warm_d,
-                    }
-                )
-            },
+            contract_0: Account(
+                storage={
+                    0: 97 + extcodesize_warm_d,
+                    1: 97 + extcodesize_warm_d,
+                }
+            )
         },
         {
-            "indexes": {
-                "data": [24, 25, 28, 29, 30, 31, 32, 33, 34, 35],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 97 + extcodehash_warm_d,
-                        1: 97 + extcodehash_warm_d,
-                    }
-                )
-            },
+            contract_0: Account(
+                storage={
+                    0: 97 + extcodehash_warm_d,
+                    1: 97 + extcodehash_warm_d,
+                }
+            )
         },
         {
-            "indexes": {
-                "data": [36, 37, 40, 41, 42, 43, 44, 45, 46, 47],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 97 + extcodecopy_warm_d,
-                        1: 97 + extcodecopy_warm_d,
-                    }
-                )
-            },
-        },
-        # invalid (cold first access): slot 0 cold, slot 1 warm.
-        {
-            "indexes": {"data": [2, 3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 2597 + balance_cold_d,
-                        1: 97 + balance_warm_d,
-                        2: 0,
-                    }
-                )
-            },
+            contract_0: Account(
+                storage={
+                    0: 97 + extcodecopy_warm_d,
+                    1: 97 + extcodecopy_warm_d,
+                }
+            )
         },
         {
-            "indexes": {"data": [14, 15], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 2597 + extcodesize_cold_d,
-                        1: 97 + extcodesize_warm_d,
-                        2: 0,
-                    }
-                )
-            },
+            contract_0: Account(
+                storage={
+                    0: 2597 + balance_cold_d,
+                    1: 97 + balance_warm_d,
+                    2: 0,
+                }
+            )
         },
         {
-            "indexes": {"data": [26, 27], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 2597 + extcodehash_cold_d,
-                        1: 97 + extcodehash_warm_d,
-                        2: 0,
-                    }
-                )
-            },
+            contract_0: Account(
+                storage={
+                    0: 2597 + extcodesize_cold_d,
+                    1: 97 + extcodesize_warm_d,
+                    2: 0,
+                }
+            )
         },
         {
-            "indexes": {"data": [38, 39], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 2597 + extcodecopy_cold_d,
-                        1: 97 + extcodecopy_warm_d,
-                        2: 0,
-                    }
-                )
-            },
+            contract_0: Account(
+                storage={
+                    0: 2597 + extcodehash_cold_d,
+                    1: 97 + extcodehash_warm_d,
+                    2: 0,
+                }
+            )
+        },
+        {
+            contract_0: Account(
+                storage={
+                    0: 2597 + extcodecopy_cold_d,
+                    1: 97 + extcodecopy_warm_d,
+                    2: 0,
+                }
+            )
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 4,
+            (3, 0, 0): 4,
+            (4, 0, 0): 0,
+            (5, 0, 0): 0,
+            (6, 0, 0): 0,
+            (7, 0, 0): 0,
+            (8, 0, 0): 0,
+            (9, 0, 0): 0,
+            (10, 0, 0): 0,
+            (11, 0, 0): 0,
+            (12, 0, 0): 1,
+            (13, 0, 0): 1,
+            (14, 0, 0): 5,
+            (15, 0, 0): 5,
+            (16, 0, 0): 1,
+            (17, 0, 0): 1,
+            (18, 0, 0): 1,
+            (19, 0, 0): 1,
+            (20, 0, 0): 1,
+            (21, 0, 0): 1,
+            (22, 0, 0): 1,
+            (23, 0, 0): 1,
+            (24, 0, 0): 2,
+            (25, 0, 0): 2,
+            (26, 0, 0): 6,
+            (27, 0, 0): 6,
+            (28, 0, 0): 2,
+            (29, 0, 0): 2,
+            (30, 0, 0): 2,
+            (31, 0, 0): 2,
+            (32, 0, 0): 2,
+            (33, 0, 0): 2,
+            (34, 0, 0): 2,
+            (35, 0, 0): 2,
+            (36, 0, 0): 3,
+            (37, 0, 0): 3,
+            (38, 0, 0): 7,
+            (39, 0, 0): 7,
+            (40, 0, 0): 3,
+            (41, 0, 0): 3,
+            (42, 0, 0): 3,
+            (43, 0, 0): 3,
+            (44, 0, 0): 3,
+            (45, 0, 0): 3,
+            (46, 0, 0): 3,
+            (47, 0, 0): 3,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("1a8451e6") + Hash(0x0) + Hash(0x0),

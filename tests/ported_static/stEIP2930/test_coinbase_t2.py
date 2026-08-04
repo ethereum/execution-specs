@@ -26,9 +26,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -119,20 +116,8 @@ def test_coinbase_t2(
     # is 0 before EIP-8038.
     call_value_delta = fork.gas_costs().CALL_VALUE - 9000
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 6800 + call_value_delta})},
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 6800 + call_value_delta})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = {target: Account(storage={0: 6800 + call_value_delta})}
+    _exc = None
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

@@ -18,9 +18,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -314,154 +311,139 @@ def test_create_oo_gafter_max_codesize(
         nonce=1,
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_3: Account(storage={1: 1}, nonce=1),
-                contract_2: Account(storage={}, nonce=1),
-                compute_create_address(
-                    address=contract_2, nonce=1
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_2, nonce=10
-                ): Account.NONEXISTENT,
-            },
+            contract_3: Account(storage={1: 1}, nonce=1),
+            contract_2: Account(storage={}, nonce=1),
+            compute_create_address(
+                address=contract_2, nonce=1
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_2, nonce=10
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_3: Account(storage={1: 1}, nonce=11),
-                contract_2: Account(storage={}, nonce=1),
-                compute_create_address(address=contract_3, nonce=1): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_3, nonce=10): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(
-                    address=contract_2, nonce=1
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_2, nonce=10
-                ): Account.NONEXISTENT,
-            },
+            contract_3: Account(storage={1: 1}, nonce=11),
+            contract_2: Account(storage={}, nonce=1),
+            compute_create_address(address=contract_3, nonce=1): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_3, nonce=10): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(
+                address=contract_2, nonce=1
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_2, nonce=10
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_3: Account(storage={1: 1}, nonce=11),
-                contract_2: Account(storage={1: 1}, nonce=11),
-                compute_create_address(
-                    address=contract_3, nonce=1
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_3, nonce=10
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_2, nonce=1
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_2, nonce=4
-                ): Account.NONEXISTENT,
-                compute_create_address(address=contract_2, nonce=5): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=6): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=7): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=8): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=9): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=10): Account(
-                    storage={0: 24576}
-                ),
-            },
+            contract_3: Account(storage={1: 1}, nonce=11),
+            contract_2: Account(storage={1: 1}, nonce=11),
+            compute_create_address(
+                address=contract_3, nonce=1
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_3, nonce=10
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_2, nonce=1
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_2, nonce=4
+            ): Account.NONEXISTENT,
+            compute_create_address(address=contract_2, nonce=5): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=6): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=7): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=8): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=9): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=10): Account(
+                storage={0: 24576}
+            ),
         },
         {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_3: Account(storage={1: 1}, nonce=1),
-                contract_2: Account(storage={}, nonce=1),
-                compute_create_address(
-                    address=contract_2, nonce=1
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_2, nonce=250
-                ): Account.NONEXISTENT,
-            },
+            contract_3: Account(storage={1: 1}, nonce=1),
+            contract_2: Account(storage={}, nonce=1),
+            compute_create_address(
+                address=contract_2, nonce=1
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_2, nonce=250
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_3: Account(storage={1: 1}, nonce=251),
-                contract_2: Account(storage={}, nonce=1),
-                compute_create_address(address=contract_3, nonce=1): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_3, nonce=250): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(
-                    address=contract_2, nonce=1
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_2, nonce=250
-                ): Account.NONEXISTENT,
-            },
+            contract_3: Account(storage={1: 1}, nonce=251),
+            contract_2: Account(storage={}, nonce=1),
+            compute_create_address(address=contract_3, nonce=1): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_3, nonce=250): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(
+                address=contract_2, nonce=1
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_2, nonce=250
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                contract_3: Account(storage={1: 1}, nonce=251),
-                contract_2: Account(storage={1: 1}, nonce=251),
-                compute_create_address(
-                    address=contract_3, nonce=1
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_3, nonce=250
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_2, nonce=1
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=contract_2, nonce=244
-                ): Account.NONEXISTENT,
-                compute_create_address(address=contract_2, nonce=245): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=246): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=247): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=248): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=249): Account(
-                    storage={0: 24576}
-                ),
-                compute_create_address(address=contract_2, nonce=250): Account(
-                    storage={0: 24576}
-                ),
-            },
+            contract_3: Account(storage={1: 1}, nonce=251),
+            contract_2: Account(storage={1: 1}, nonce=251),
+            compute_create_address(
+                address=contract_3, nonce=1
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_3, nonce=250
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_2, nonce=1
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=contract_2, nonce=244
+            ): Account.NONEXISTENT,
+            compute_create_address(address=contract_2, nonce=245): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=246): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=247): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=248): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=249): Account(
+                storage={0: 24576}
+            ),
+            compute_create_address(address=contract_2, nonce=250): Account(
+                storage={0: 24576}
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 2,
+            (3, 0, 0): 3,
+            (4, 0, 0): 4,
+            (5, 0, 0): 5,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("a6f227c0") + Hash(0x0) + Hash(0xA) + Hash(0x1) + Hash(0x0),

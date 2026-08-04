@@ -18,9 +18,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -155,32 +152,22 @@ def test_create_oo_gafter_init_code_revert2(
         address=Address(0xD94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_1: Account(
-                    storage={1: 0x6460016001556000526005601BF3}
-                ),
-                compute_create_address(
-                    address=contract_3, nonce=0
-                ): Account.NONEXISTENT,
-            },
+            contract_1: Account(storage={1: 0x6460016001556000526005601BF3}),
+            compute_create_address(
+                address=contract_3, nonce=0
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(storage={1: 0}),
-                compute_create_address(
-                    address=contract_3, nonce=0
-                ): Account.NONEXISTENT,
-            },
+            contract_2: Account(storage={1: 0}),
+            compute_create_address(
+                address=contract_3, nonce=0
+            ): Account.NONEXISTENT,
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(contract_1, left_padding=True),

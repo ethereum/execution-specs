@@ -21,9 +21,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -265,60 +262,54 @@ def test_modexp_0_0_0_20500(
         address=Address(0xC305C901078781C232A2A521C2AF7980F8385EE9),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract_1: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_0: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
-                    ),
-                    balance=0,
-                    nonce=1,
+            contract_1: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_0: Account(
+                storage={},
+                code=bytes.fromhex(
+                    "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
                 ),
-                contract_2: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_3: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_4: Account(storage={}, code=b"", balance=1, nonce=0),
-                sender: Account(storage={}, code=b"", nonce=2),
-                contract_5: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_6: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_7: Account(storage={}, code=b"", balance=1, nonce=0),
-                coinbase: Account(storage={}, code=b"", nonce=0),
-                contract_8: Account(storage={}, code=b"", balance=1, nonce=0),
-            },
+                balance=0,
+                nonce=1,
+            ),
+            contract_2: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_3: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_4: Account(storage={}, code=b"", balance=1, nonce=0),
+            sender: Account(storage={}, code=b"", nonce=2),
+            contract_5: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_6: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_7: Account(storage={}, code=b"", balance=1, nonce=0),
+            coinbase: Account(storage={}, code=b"", nonce=0),
+            contract_8: Account(storage={}, code=b"", balance=1, nonce=0),
         },
         {
-            "indexes": {"data": 0, "gas": [1, 2, 3], "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract_1: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_0: Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
-                    },
-                    code=bytes.fromhex(
-                        "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
-                    ),
-                    balance=0,
-                    nonce=1,
+            contract_1: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_0: Account(
+                storage={
+                    0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
+                },
+                code=bytes.fromhex(
+                    "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
                 ),
-                contract_2: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_3: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_4: Account(storage={}, code=b"", balance=1, nonce=0),
-                sender: Account(storage={}, code=b"", nonce=2),
-                contract_5: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_6: Account(storage={}, code=b"", balance=1, nonce=0),
-                contract_7: Account(storage={}, code=b"", balance=1, nonce=0),
-                coinbase: Account(storage={}, code=b"", nonce=0),
-                contract_8: Account(storage={}, code=b"", balance=1, nonce=0),
-            },
+                balance=0,
+                nonce=1,
+            ),
+            contract_2: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_3: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_4: Account(storage={}, code=b"", balance=1, nonce=0),
+            sender: Account(storage={}, code=b"", nonce=2),
+            contract_5: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_6: Account(storage={}, code=b"", balance=1, nonce=0),
+            contract_7: Account(storage={}, code=b"", balance=1, nonce=0),
+            coinbase: Account(storage={}, code=b"", nonce=0),
+            contract_8: Account(storage={}, code=b"", balance=1, nonce=0),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {(0, 0, 0): 0, (0, 1, 0): 1, (0, 2, 0): 1, (0, 3, 0): 1}[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("30c8d1da")

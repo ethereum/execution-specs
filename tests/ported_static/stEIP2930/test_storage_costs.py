@@ -32,9 +32,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -691,152 +688,85 @@ def test_storage_costs(
     )
     d_cold_read = fork.gas_costs().COLD_STORAGE_ACCESS - 2100
 
-    expect_entries_: list[dict] = [
-        # declaredKeyWrite: warm fresh SSTORE-set.
+    expect_posts: list[dict] = [
+        {contract_0: Account(storage={0: 2, 1: 20003 + d_warm_set})},
+        {contract_0: Account(storage={0: 2, 1: 22103 + d_cold_set})},
+        {contract_3: Account(storage={0: 48879, 1: 2903 + d_warm_write})},
+        {contract_3: Account(storage={0: 48879, 1: 5003 + d_cold_write})},
+        {contract_4: Account(storage={0: 24743, 1: 103})},
+        {contract_4: Account(storage={0: 24743, 1: 2203 + d_cold_noop})},
+        {contract_5: Account(storage={1: 103})},
+        {contract_5: Account(storage={1: 2203 + d_cold_noop})},
+        {contract_2: Account(storage={0: 0, 1: 2903 + d_warm_write})},
+        {contract_2: Account(storage={0: 0, 1: 5003 + d_cold_write})},
+        {contract_1: Account(storage={1: 100})},
+        {contract_1: Account(storage={1: 2100 + d_cold_read})},
+        {contract_6: Account(storage={0: 2, 1: 103})},
+        {contract_7: Account(storage={0: 24743, 1: 100})},
+        {contract_8: Account(storage={0: 2, 1: 20000 + d_warm_set})},
+        {contract_9: Account(storage={1: 97})},
         {
-            "indexes": {"data": [0, 35], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={0: 2, 1: 20003 + d_warm_set})
-            },
+            contract_10: Account(
+                storage={
+                    0: 2,
+                    1: 100,
+                    2: 20000 + d_warm_set,
+                    24743: 57005,
+                }
+            )
         },
-        # undeclaredKeyWrite: cold fresh SSTORE-set.
         {
-            "indexes": {"data": [6, 12, 18], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={0: 2, 1: 22103 + d_cold_set})
-            },
-        },
-        # declaredKeyUpdate: warm SSTORE-reset (nonzero -> nonzero).
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_3: Account(storage={0: 48879, 1: 2903 + d_warm_write})
-            },
-        },
-        # undeclaredKeyUpdate: cold SSTORE-reset (nonzero -> nonzero).
-        {
-            "indexes": {"data": [9, 15, 21], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_3: Account(storage={0: 48879, 1: 5003 + d_cold_write})
-            },
-        },
-        # declaredKeyNOP: warm value-unchanged SSTORE (no write).
-        {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_4: Account(storage={0: 24743, 1: 103})},
-        },
-        # undeclaredKeyNOP: cold value-unchanged SSTORE.
-        {
-            "indexes": {"data": [10, 16, 22], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_4: Account(storage={0: 24743, 1: 2203 + d_cold_noop})
-            },
-        },
-        # declaredKeyNOP0: warm value-unchanged SSTORE (no write).
-        {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_5: Account(storage={1: 103})},
-        },
-        # undeclaredKeyNOP0: cold value-unchanged SSTORE.
-        {
-            "indexes": {"data": [11, 17, 23], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_5: Account(storage={1: 2203 + d_cold_noop})},
-        },
-        # declaredKeyDel: warm SSTORE-clear (nonzero -> 0).
-        {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(storage={0: 0, 1: 2903 + d_warm_write})
-            },
-        },
-        # undeclaredKeyDel: cold SSTORE-clear (nonzero -> 0).
-        {
-            "indexes": {"data": [8, 14, 20], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(storage={0: 0, 1: 5003 + d_cold_write})
-            },
-        },
-        # declaredKeyRead: warm SLOAD.
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_1: Account(storage={1: 100})},
-        },
-        # undeclaredKeyRead: cold SLOAD.
-        {
-            "indexes": {"data": [7, 13, 19], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_1: Account(storage={1: 2100 + d_cold_read})},
-        },
-        # postSSTORE write: key already warm/dirty, no fresh-set spill.
-        {
-            "indexes": {"data": [24, 25], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_6: Account(storage={0: 2, 1: 103})},
-        },
-        # postSSTORE read: key already warm.
-        {
-            "indexes": {"data": [26, 27], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_7: Account(storage={0: 24743, 1: 100})},
-        },
-        # postSLOAD write: SLOAD warms the key, then warm fresh SSTORE-set.
-        {
-            "indexes": {"data": [28, 29], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_8: Account(storage={0: 2, 1: 20000 + d_warm_set})
-            },
-        },
-        # postSLOAD read: key already warm.
-        {
-            "indexes": {"data": [30, 31], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_9: Account(storage={1: 97})},
-        },
-        # declaredTo: warm SLOAD (slot 1) + warm fresh SSTORE-set (slot 2).
-        {
-            "indexes": {"data": [32], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_10: Account(
-                    storage={
-                        0: 2,
-                        1: 100,
-                        2: 20000 + d_warm_set,
-                        24743: 57005,
-                    }
-                )
-            },
-        },
-        # undeclaredTo: cold SLOAD (slot 1) + cold fresh SSTORE-set (slot 2).
-        {
-            "indexes": {"data": [33, 34], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_10: Account(
-                    storage={
-                        0: 2,
-                        1: 2100 + d_cold_read,
-                        2: 22100 + d_cold_set,
-                        24743: 57005,
-                    }
-                ),
-            },
+            contract_10: Account(
+                storage={
+                    0: 2,
+                    1: 2100 + d_cold_read,
+                    2: 22100 + d_cold_set,
+                    24743: 57005,
+                }
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 10,
+            (2, 0, 0): 8,
+            (3, 0, 0): 2,
+            (4, 0, 0): 4,
+            (5, 0, 0): 6,
+            (6, 0, 0): 1,
+            (7, 0, 0): 11,
+            (8, 0, 0): 9,
+            (9, 0, 0): 3,
+            (10, 0, 0): 5,
+            (11, 0, 0): 7,
+            (12, 0, 0): 1,
+            (13, 0, 0): 11,
+            (14, 0, 0): 9,
+            (15, 0, 0): 3,
+            (16, 0, 0): 5,
+            (17, 0, 0): 7,
+            (18, 0, 0): 1,
+            (19, 0, 0): 11,
+            (20, 0, 0): 9,
+            (21, 0, 0): 3,
+            (22, 0, 0): 5,
+            (23, 0, 0): 7,
+            (24, 0, 0): 12,
+            (25, 0, 0): 12,
+            (26, 0, 0): 13,
+            (27, 0, 0): 13,
+            (28, 0, 0): 14,
+            (29, 0, 0): 14,
+            (30, 0, 0): 15,
+            (31, 0, 0): 15,
+            (32, 0, 0): 16,
+            (33, 0, 0): 17,
+            (34, 0, 0): 17,
+            (35, 0, 0): 0,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

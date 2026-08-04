@@ -33,9 +33,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -394,469 +391,410 @@ def test_create_address_warm_after_fail(
     # Derive the delta from the fork so it is 0 pre-EIP-8037.
     cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0, 2, 11, 4], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(
-                    address=contract_0, nonce=0
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 328,
+                    13: 316,
+                    14: 2828 + cold_account_delta,
+                    15: 316,
+                },
+                nonce=1,
+            ),
+            compute_create_address(
+                address=contract_0, nonce=0
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [0, 2, 11, 4], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(address=contract_0, nonce=0): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 32028,
+                    13: 7016,
+                    14: 34528,
+                    15: 7016,
+                },
+                nonce=1,
+            ),
+            compute_create_address(address=contract_0, nonce=0): Account(
+                code=b"", balance=2, nonce=0
+            ),
+            Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
+                code=b"", balance=2, nonce=0
+            ),
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(
-                    address=contract_0, nonce=0
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 32028,
+                    13: 7016,
+                    14: 34528,
+                    15: 7016,
+                },
+                nonce=1,
+            ),
+            Address(0x43255EE039968E0254887FC8C7172736983D878C): Account(
+                code=b"", balance=2, nonce=0
+            ),
+            Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
+                code=b"", balance=2, nonce=0
+            ),
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
-                    },
-                    nonce=1,
-                ),
-                Address(0x43255EE039968E0254887FC8C7172736983D878C): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 328,
+                    13: 316,
+                    14: 2828 + cold_account_delta,
+                    15: 316,
+                },
+                nonce=1,
+            ),
+            Address(
+                0x562D97E3E4D6D3C6E791EA64BB73D820871AA219
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [12], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
-                    },
-                    nonce=1,
-                ),
-                Address(
-                    0x562D97E3E4D6D3C6E791EA64BB73D820871AA219
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 32028,
+                    13: 7016,
+                    14: 34528,
+                    15: 7016,
+                },
+                nonce=1,
+            ),
+            Address(0x562D97E3E4D6D3C6E791EA64BB73D820871AA219): Account(
+                code=b"", balance=2, nonce=0
+            ),
+            Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
+                code=b"", balance=2, nonce=0
+            ),
         },
         {
-            "indexes": {"data": [12], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
-                    },
-                    nonce=1,
-                ),
-                Address(0x562D97E3E4D6D3C6E791EA64BB73D820871AA219): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 328,
+                    13: 316,
+                    14: 2828 + cold_account_delta,
+                    15: 316,
+                },
+                nonce=1,
+            ),
+            Address(
+                0x014001FDBEDE82315F4B8C2A7D45E980A8A4A12E
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [3], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
-                    },
-                    nonce=1,
-                ),
-                Address(
-                    0x014001FDBEDE82315F4B8C2A7D45E980A8A4A12E
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 32028,
+                    13: 7016,
+                    14: 34528,
+                    15: 7016,
+                },
+                nonce=1,
+            ),
+            Address(0x014001FDBEDE82315F4B8C2A7D45E980A8A4A12E): Account(
+                code=b"", balance=2, nonce=0
+            ),
+            Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
+                code=b"", balance=2, nonce=0
+            ),
         },
         {
-            "indexes": {"data": [3], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
-                    },
-                    nonce=1,
-                ),
-                Address(0x014001FDBEDE82315F4B8C2A7D45E980A8A4A12E): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 328,
+                    13: 316,
+                    14: 2828 + cold_account_delta,
+                    15: 316,
+                },
+                nonce=1,
+            ),
+            Address(
+                0xA13D43586820E5D97A3FD1960625D537C86DC4E7
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [5], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
-                    },
-                    nonce=1,
-                ),
-                Address(
-                    0xA13D43586820E5D97A3FD1960625D537C86DC4E7
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 32028,
+                    13: 7016,
+                    14: 34528,
+                    15: 7016,
+                },
+                nonce=1,
+            ),
+            Address(0xA13D43586820E5D97A3FD1960625D537C86DC4E7): Account(
+                code=b"", balance=2, nonce=0
+            ),
+            Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
+                code=b"", balance=2, nonce=0
+            ),
         },
         {
-            "indexes": {"data": [5], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
-                    },
-                    nonce=1,
-                ),
-                Address(0xA13D43586820E5D97A3FD1960625D537C86DC4E7): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 1,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 2828 + cold_account_delta,
+                    13: 316,
+                    14: 2828 + cold_account_delta,
+                    15: 316,
+                },
+                nonce=0,
+            ),
+            Address(
+                0xB2050FC27AB6D6D42DC0CE6F7C0BF9481A4C3FC3
+            ): Account.NONEXISTENT,
+            Address(
+                0xD4E7AE083132925A4927C1F5816238BA17B82A00
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [10], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 1,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 2828 + cold_account_delta,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
-                    },
-                    nonce=0,
-                ),
-                Address(
-                    0xB2050FC27AB6D6D42DC0CE6F7C0BF9481A4C3FC3
-                ): Account.NONEXISTENT,
-                Address(
-                    0xD4E7AE083132925A4927C1F5816238BA17B82A00
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 1,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 34528,
+                    13: 7016,
+                    14: 34528,
+                    15: 7016,
+                },
+                nonce=0,
+            ),
+            Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
+                code=b"", balance=2, nonce=0
+            ),
+            Address(0xB2050FC27AB6D6D42DC0CE6F7C0BF9481A4C3FC3): Account(
+                code=b"", balance=2, nonce=0
+            ),
         },
         {
-            "indexes": {"data": [10], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 1,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 34528,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
-                    },
-                    nonce=0,
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xB2050FC27AB6D6D42DC0CE6F7C0BF9481A4C3FC3): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 2828 + cold_account_delta,
+                    13: 316,
+                    14: 2828 + cold_account_delta,
+                    15: 316,
+                },
+                nonce=0,
+            ),
+            compute_create_address(
+                address=contract_0, nonce=0
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [8, 9, 6, 7], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 2828 + cold_account_delta,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
-                    },
-                    nonce=0,
-                ),
-                compute_create_address(
-                    address=contract_0, nonce=0
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 34528,
+                    13: 7016,
+                    14: 34528,
+                    15: 7016,
+                },
+                nonce=0,
+            ),
+            Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
+                code=b"", balance=2, nonce=0
+            ),
         },
         {
-            "indexes": {"data": [8, 9, 6, 7], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 34528,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
-                    },
-                    nonce=0,
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: compute_create_address(address=contract_0, nonce=0),
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 328,
+                    13: 316,
+                    14: 2828 + cold_account_delta,
+                    15: 316,
+                },
+                nonce=1,
+            ),
+            compute_create_address(address=contract_0, nonce=0): Account(
+                code=bytes.fromhex("00")
+            ),
         },
         {
-            "indexes": {"data": [13], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: compute_create_address(address=contract_0, nonce=0),
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(address=contract_0, nonce=0): Account(
-                    code=bytes.fromhex("00")
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: compute_create_address(address=contract_0, nonce=0),
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 7028,
+                    13: 7016,
+                    14: 34528,
+                    15: 7016,
+                },
+                nonce=1,
+            ),
+            compute_create_address(address=contract_0, nonce=0): Account(
+                code=bytes.fromhex("00"), balance=2, nonce=1
+            ),
+            Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
+                code=b"", balance=2, nonce=0
+            ),
         },
         {
-            "indexes": {"data": [13], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: compute_create_address(address=contract_0, nonce=0),
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 7028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(address=contract_0, nonce=0): Account(
-                    code=bytes.fromhex("00"), balance=2, nonce=1
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 328,
+                    13: 316,
+                    14: 2828 + cold_account_delta,
+                    15: 316,
+                },
+                nonce=1,
+            ),
+            Address(0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C): Account(
+                code=bytes.fromhex("00"), nonce=1
+            ),
         },
         {
-            "indexes": {"data": [14], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
-                    },
-                    nonce=1,
-                ),
-                Address(0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C): Account(
-                    code=bytes.fromhex("00"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [14], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: 7028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
-                    },
-                    nonce=1,
-                ),
-                Address(0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C): Account(
-                    code=bytes.fromhex("00"), balance=2, nonce=1
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_0: Account(
+                storage={
+                    0: 0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C,
+                    2: 1,
+                    3: 1,
+                    4: 1,
+                    5: 1,
+                    12: 7028,
+                    13: 7016,
+                    14: 34528,
+                    15: 7016,
+                },
+                nonce=1,
+            ),
+            Address(0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C): Account(
+                code=bytes.fromhex("00"), balance=2, nonce=1
+            ),
+            Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
+                code=b"", balance=2, nonce=0
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (0, 0, 1): 1,
+            (1, 0, 0): 0,
+            (1, 0, 1): 2,
+            (2, 0, 0): 0,
+            (2, 0, 1): 1,
+            (3, 0, 0): 5,
+            (3, 0, 1): 6,
+            (4, 0, 0): 0,
+            (4, 0, 1): 1,
+            (5, 0, 0): 7,
+            (5, 0, 1): 8,
+            (6, 0, 0): 11,
+            (6, 0, 1): 12,
+            (7, 0, 0): 11,
+            (7, 0, 1): 12,
+            (8, 0, 0): 11,
+            (8, 0, 1): 12,
+            (9, 0, 0): 11,
+            (9, 0, 1): 12,
+            (10, 0, 0): 9,
+            (10, 0, 1): 10,
+            (11, 0, 0): 0,
+            (11, 0, 1): 1,
+            (12, 0, 0): 3,
+            (12, 0, 1): 4,
+            (13, 0, 0): 13,
+            (13, 0, 1): 14,
+            (14, 0, 0): 15,
+            (14, 0, 1): 16,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("52c3fd24") + Hash(0x0),

@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -227,35 +224,24 @@ def test_msize(
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_6: Account(storage={0: 32})},
-        },
-        {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_6: Account(storage={0: 64})},
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_6: Account(storage={0: 128})},
-        },
-        {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_6: Account(storage={0: 32, 1: 64, 2: 64})},
-        },
-        {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_6: Account(storage={0: 0xB00020})},
-        },
+    expect_posts: list[dict] = [
+        {contract_6: Account(storage={0: 32})},
+        {contract_6: Account(storage={0: 64})},
+        {contract_6: Account(storage={0: 128})},
+        {contract_6: Account(storage={0: 32, 1: 64, 2: 64})},
+        {contract_6: Account(storage={0: 0xB00020})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 0,
+            (2, 0, 0): 1,
+            (3, 0, 0): 2,
+            (4, 0, 0): 3,
+            (5, 0, 0): 4,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

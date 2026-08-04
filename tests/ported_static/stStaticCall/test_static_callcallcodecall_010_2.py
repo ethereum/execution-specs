@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -147,20 +144,8 @@ def test_static_callcallcodecall_010_2(
         address=Address(0x6B21D14FFAE42852FC3A6F98DA6275E551C07008),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 1, 1: 1})},
-        },
-        {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 1, 1: 1})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = {target: Account(storage={0: 1, 1: 1})}
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

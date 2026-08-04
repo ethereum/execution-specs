@@ -26,9 +26,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -690,72 +687,57 @@ def test_oog(
         address=Address(0x00000000000000000000000000000000000100F2),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {
-                "data": [
-                    0,
-                    2,
-                    4,
-                    6,
-                    8,
-                    9,
-                    12,
-                    14,
-                    16,
-                    18,
-                    20,
-                    22,
-                    24,
-                    26,
-                    28,
-                    30,
-                    32,
-                    34,
-                    36,
-                    38,
-                    40,
-                ],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {contract_22: Account(storage={0: 1})},
-        },
-        {
-            "indexes": {
-                "data": [
-                    1,
-                    3,
-                    5,
-                    7,
-                    10,
-                    11,
-                    13,
-                    15,
-                    17,
-                    19,
-                    21,
-                    23,
-                    25,
-                    27,
-                    29,
-                    31,
-                    33,
-                    35,
-                    37,
-                    39,
-                    41,
-                ],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {contract_22: Account(storage={0: 0})},
-        },
+    expect_posts: list[dict] = [
+        {contract_22: Account(storage={0: 1})},
+        {contract_22: Account(storage={0: 0})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 0,
+            (3, 0, 0): 1,
+            (4, 0, 0): 0,
+            (5, 0, 0): 1,
+            (6, 0, 0): 0,
+            (7, 0, 0): 1,
+            (8, 0, 0): 0,
+            (9, 0, 0): 0,
+            (10, 0, 0): 1,
+            (11, 0, 0): 1,
+            (12, 0, 0): 0,
+            (13, 0, 0): 1,
+            (14, 0, 0): 0,
+            (15, 0, 0): 1,
+            (16, 0, 0): 0,
+            (17, 0, 0): 1,
+            (18, 0, 0): 0,
+            (19, 0, 0): 1,
+            (20, 0, 0): 0,
+            (21, 0, 0): 1,
+            (22, 0, 0): 0,
+            (23, 0, 0): 1,
+            (24, 0, 0): 0,
+            (25, 0, 0): 1,
+            (26, 0, 0): 0,
+            (27, 0, 0): 1,
+            (28, 0, 0): 0,
+            (29, 0, 0): 1,
+            (30, 0, 0): 0,
+            (31, 0, 0): 1,
+            (32, 0, 0): 0,
+            (33, 0, 0): 1,
+            (34, 0, 0): 0,
+            (35, 0, 0): 1,
+            (36, 0, 0): 0,
+            (37, 0, 0): 1,
+            (38, 0, 0): 0,
+            (39, 0, 0): 1,
+            (40, 0, 0): 0,
+            (41, 0, 0): 1,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("1a8451e6") + Hash(0x20) + Hash(0xFFFF),

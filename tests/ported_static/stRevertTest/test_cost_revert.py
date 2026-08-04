@@ -18,9 +18,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -471,49 +468,43 @@ def test_cost_revert(
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 21, 14, 7], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_7: Account(storage={0: 2609})},
-        },
-        {
-            "indexes": {
-                "data": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    8,
-                    9,
-                    10,
-                    11,
-                    12,
-                    13,
-                    15,
-                    16,
-                    17,
-                    18,
-                    19,
-                    20,
-                    22,
-                    23,
-                    24,
-                    25,
-                    26,
-                    27,
-                ],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun<Osaka"],
-            "result": {contract_7: Account(storage={0: 0xFFFFFF})},
-        },
+    expect_posts: list[dict] = [
+        {contract_7: Account(storage={0: 2609})},
+        {contract_7: Account(storage={0: 0xFFFFFF})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 1,
+            (3, 0, 0): 1,
+            (4, 0, 0): 1,
+            (5, 0, 0): 1,
+            (6, 0, 0): 1,
+            (7, 0, 0): 0,
+            (8, 0, 0): 1,
+            (9, 0, 0): 1,
+            (10, 0, 0): 1,
+            (11, 0, 0): 1,
+            (12, 0, 0): 1,
+            (13, 0, 0): 1,
+            (14, 0, 0): 0,
+            (15, 0, 0): 1,
+            (16, 0, 0): 1,
+            (17, 0, 0): 1,
+            (18, 0, 0): 1,
+            (19, 0, 0): 1,
+            (20, 0, 0): 1,
+            (21, 0, 0): 0,
+            (22, 0, 0): 1,
+            (23, 0, 0): 1,
+            (24, 0, 0): 1,
+            (25, 0, 0): 1,
+            (26, 0, 0): 1,
+            (27, 0, 0): 1,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("1a8451e6") + Hash(contract_0, left_padding=True) + Hash(0x0),

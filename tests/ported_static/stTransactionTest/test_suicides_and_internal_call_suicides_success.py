@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -103,28 +100,20 @@ def test_suicides_and_internal_call_suicides_success(
         address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(
-                    0x0000000000000000000000000000000000000001
-                ): Account.NONEXISTENT,
-            },
+            Address(
+                0x0000000000000000000000000000000000000001
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x0000000000000000000000000000000000000001): Account(
-                    storage={}, balance=1
-                ),
-            },
+            Address(0x0000000000000000000000000000000000000001): Account(
+                storage={}, balance=1
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(0x55F0),

@@ -29,9 +29,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -105,28 +102,20 @@ def test_manual_create(
         22100, key_warm=False, current_value=0, new_value=2
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=sender, nonce=1): Account(
-                    storage={0: 20008 + warm_set_delta, 1: 106}
-                ),
-            },
+            compute_create_address(address=sender, nonce=1): Account(
+                storage={0: 20008 + warm_set_delta, 1: 106}
+            ),
         },
         {
-            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=sender, nonce=1): Account(
-                    storage={0: 22108 + cold_set_delta, 1: 106}
-                ),
-            },
+            compute_create_address(address=sender, nonce=1): Account(
+                storage={0: 22108 + cold_set_delta, 1: 106}
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 1, (1, 0, 0): 1, (2, 0, 0): 0}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Op.GAS

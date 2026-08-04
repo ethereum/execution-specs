@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -213,38 +210,39 @@ def test_mcopy_memory_expansion_cost(
         nonce=1,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 14], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0})},
-        },
-        {
-            "indexes": {"data": [1, 2, 3, 4, 5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 768})},
-        },
-        {
-            "indexes": {
-                "data": [6, 7, 8, 9, 10, 11, 12, 13],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 1408})},
-        },
-        {
-            "indexes": {
-                "data": [15, 16, 17, 18, 19, 20, 21],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0xFA11ED})},
-        },
+    expect_posts: list[dict] = [
+        {target: Account(storage={0: 0})},
+        {target: Account(storage={0: 768})},
+        {target: Account(storage={0: 1408})},
+        {target: Account(storage={0: 0xFA11ED})},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (1, 0, 0): 1,
+            (2, 0, 0): 1,
+            (3, 0, 0): 1,
+            (4, 0, 0): 1,
+            (5, 0, 0): 1,
+            (6, 0, 0): 2,
+            (7, 0, 0): 2,
+            (8, 0, 0): 2,
+            (9, 0, 0): 2,
+            (10, 0, 0): 2,
+            (11, 0, 0): 2,
+            (12, 0, 0): 2,
+            (13, 0, 0): 2,
+            (14, 0, 0): 0,
+            (15, 0, 0): 3,
+            (16, 0, 0): 3,
+            (17, 0, 0): 3,
+            (18, 0, 0): 3,
+            (19, 0, 0): 3,
+            (20, 0, 0): 3,
+            (21, 0, 0): 3,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(0x0) + Hash(0x0) + Hash(0x0),

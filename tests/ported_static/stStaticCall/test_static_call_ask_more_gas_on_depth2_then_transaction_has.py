@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -182,30 +179,22 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         address=Address(0x8169DC735802BB5C18A777052CF4CE326B5FD725),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr: Account(storage={8: 1, 9: 1}),
-                addr_2: Account(storage={8: 0, 9: 0}),
-                addr_3: Account(storage={8: 0}),
-                target: Account(storage={0: 1, 1: 1}),
-            },
+            addr: Account(storage={8: 1, 9: 1}),
+            addr_2: Account(storage={8: 0, 9: 0}),
+            addr_3: Account(storage={8: 0}),
+            target: Account(storage={0: 1, 1: 1}),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_4: Account(storage={8: 1, 9: 1}),
-                addr_5: Account(storage={8: 0, 9: 0}),
-                addr_6: Account(storage={8: 0}),
-                target: Account(storage={0: 1, 1: 1}),
-            },
+            addr_4: Account(storage={8: 1, 9: 1}),
+            addr_5: Account(storage={8: 0, 9: 0}),
+            addr_6: Account(storage={8: 0}),
+            target: Account(storage={0: 1, 1: 1}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

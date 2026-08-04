@@ -18,9 +18,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -453,396 +450,375 @@ def test_create2_high_nonce_delegatecall(
         address=Address(0xD7D7B37FC131964CD181D47C9B705028776FE3D4),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [8, 9, 6, 7], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={1: 0, 2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(
-                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
-                ): Account.NONEXISTENT,
-                Address(
-                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={1: 0, 2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            max_nonce_minus_1: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(
+                0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
+            ): Account.NONEXISTENT,
+            Address(
+                0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
+            ): Account.NONEXISTENT,
+            Address(
+                0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [10], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={
-                        1: 0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11,
-                        65535: 0xFFFFFFFFFFFFFFFF,
-                    },
-                    nonce=18446744073709551615,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={
-                        2: 0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11,
-                        65535: 0xFFFFFFFFFFFFFFFF,
-                    },
-                    nonce=18446744073709551615,
-                ),
-                max_nonce: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11): Account(
-                    storage={1: 1}, code=bytes.fromhex("6001600155")
-                ),
-                Address(
-                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
-                ): Account.NONEXISTENT,
-                Address(
-                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={
+                    1: 0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11,
+                    65535: 0xFFFFFFFFFFFFFFFF,
+                },
+                nonce=18446744073709551615,
+            ),
+            max_nonce_minus_1: Account(
+                storage={
+                    2: 0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11,
+                    65535: 0xFFFFFFFFFFFFFFFF,
+                },
+                nonce=18446744073709551615,
+            ),
+            max_nonce: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11): Account(
+                storage={1: 1}, code=bytes.fromhex("6001600155")
+            ),
+            Address(
+                0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
+            ): Account.NONEXISTENT,
+            Address(
+                0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
+            ): Account.NONEXISTENT,
+            Address(
+                0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [11], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={1: 0, 65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce: Account(
-                    storage={2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(
-                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
-                ): Account.NONEXISTENT,
-                Address(
-                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={1: 0, 65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            max_nonce_minus_1: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce: Account(
+                storage={2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(
+                0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
+            ): Account.NONEXISTENT,
+            Address(
+                0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
+            ): Account.NONEXISTENT,
+            Address(
+                0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [0, 1, 2, 3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={
-                        1: 0x74F5960E3479218EC095E853ED1FC95E285ADC3B,
-                        2: 0x74F5960E3479218EC095E853ED1FC95E285ADC3B,
-                        65535: 0xFFFFFFFFFFFFFFFF,
-                    },
-                    nonce=18446744073709551615,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(0x74F5960E3479218EC095E853ED1FC95E285ADC3B): Account(
-                    storage={1: 1}, code=bytes.fromhex("6001600155")
-                ),
-                Address(
-                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
-                ): Account.NONEXISTENT,
-                Address(
-                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={
+                    1: 0x74F5960E3479218EC095E853ED1FC95E285ADC3B,
+                    2: 0x74F5960E3479218EC095E853ED1FC95E285ADC3B,
+                    65535: 0xFFFFFFFFFFFFFFFF,
+                },
+                nonce=18446744073709551615,
+            ),
+            max_nonce_minus_1: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(0x74F5960E3479218EC095E853ED1FC95E285ADC3B): Account(
+                storage={1: 1}, code=bytes.fromhex("6001600155")
+            ),
+            Address(
+                0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
+            ): Account.NONEXISTENT,
+            Address(
+                0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
+            ): Account.NONEXISTENT,
+            Address(
+                0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={
-                        1: 0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11,
-                        65535: 0xFFFFFFFFFFFFFFFE,
-                    },
-                    nonce=18446744073709551614,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={
-                        2: 0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11,
-                        65535: 0xFFFFFFFFFFFFFFFF,
-                    },
-                    nonce=18446744073709551615,
-                ),
-                max_nonce: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11): Account(
-                    storage={1: 1}, code=bytes.fromhex("6001600155")
-                ),
-                Address(
-                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
-                ): Account.NONEXISTENT,
-                Address(
-                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={
+                    1: 0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11,
+                    65535: 0xFFFFFFFFFFFFFFFE,
+                },
+                nonce=18446744073709551614,
+            ),
+            max_nonce_minus_1: Account(
+                storage={
+                    2: 0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11,
+                    65535: 0xFFFFFFFFFFFFFFFF,
+                },
+                nonce=18446744073709551615,
+            ),
+            max_nonce: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11): Account(
+                storage={1: 1}, code=bytes.fromhex("6001600155")
+            ),
+            Address(
+                0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
+            ): Account.NONEXISTENT,
+            Address(
+                0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
+            ): Account.NONEXISTENT,
+            Address(
+                0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [5], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={1: 0, 65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce: Account(
-                    storage={2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(
-                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
-                ): Account.NONEXISTENT,
-                Address(
-                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={1: 0, 65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce_minus_1: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce: Account(
+                storage={2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(
+                0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
+            ): Account.NONEXISTENT,
+            Address(
+                0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
+            ): Account.NONEXISTENT,
+            Address(
+                0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [18, 19, 20, 21], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={1: 0, 2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(
-                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
-                ): Account.NONEXISTENT,
-                Address(
-                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
-                ): Account.NONEXISTENT,
-                Address(
-                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={1: 0, 2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            max_nonce_minus_1: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(
+                0x4E060B3A192FD2A082A00259BE2F021AD996D71C
+            ): Account.NONEXISTENT,
+            Address(
+                0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
+            ): Account.NONEXISTENT,
+            Address(
+                0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [22], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={
-                        1: 0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020,
-                        65535: 0xFFFFFFFFFFFFFFFF,
-                    },
-                    nonce=18446744073709551615,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={
-                        2: 0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020,
-                        65535: 0xFFFFFFFFFFFFFFFF,
-                    },
-                    nonce=18446744073709551615,
-                ),
-                max_nonce: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020): Account(
-                    storage={1: 1}, code=bytes.fromhex("6001600155")
-                ),
-                Address(
-                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
-                ): Account.NONEXISTENT,
-                Address(
-                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
-                ): Account.NONEXISTENT,
-                Address(
-                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={
+                    1: 0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020,
+                    65535: 0xFFFFFFFFFFFFFFFF,
+                },
+                nonce=18446744073709551615,
+            ),
+            max_nonce_minus_1: Account(
+                storage={
+                    2: 0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020,
+                    65535: 0xFFFFFFFFFFFFFFFF,
+                },
+                nonce=18446744073709551615,
+            ),
+            max_nonce: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020): Account(
+                storage={1: 1}, code=bytes.fromhex("6001600155")
+            ),
+            Address(
+                0x4E060B3A192FD2A082A00259BE2F021AD996D71C
+            ): Account.NONEXISTENT,
+            Address(
+                0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
+            ): Account.NONEXISTENT,
+            Address(
+                0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [23], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={1: 0, 65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce: Account(
-                    storage={2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(
-                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
-                ): Account.NONEXISTENT,
-                Address(
-                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
-                ): Account.NONEXISTENT,
-                Address(
-                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={1: 0, 65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            max_nonce_minus_1: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce: Account(
+                storage={2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(
+                0x4E060B3A192FD2A082A00259BE2F021AD996D71C
+            ): Account.NONEXISTENT,
+            Address(
+                0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
+            ): Account.NONEXISTENT,
+            Address(
+                0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [12, 13, 14, 15], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={
-                        1: 0x9F07A698496A643301174853C4F7F1EAAB166BE,
-                        2: 0x9F07A698496A643301174853C4F7F1EAAB166BE,
-                        65535: 0xFFFFFFFFFFFFFFFF,
-                    },
-                    nonce=18446744073709551615,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(0x09F07A698496A643301174853C4F7F1EAAB166BE): Account(
-                    storage={1: 1}, code=bytes.fromhex("6001600155")
-                ),
-                Address(
-                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
-                ): Account.NONEXISTENT,
-                Address(
-                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
-                ): Account.NONEXISTENT,
-                Address(
-                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={
+                    1: 0x9F07A698496A643301174853C4F7F1EAAB166BE,
+                    2: 0x9F07A698496A643301174853C4F7F1EAAB166BE,
+                    65535: 0xFFFFFFFFFFFFFFFF,
+                },
+                nonce=18446744073709551615,
+            ),
+            max_nonce_minus_1: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(0x09F07A698496A643301174853C4F7F1EAAB166BE): Account(
+                storage={1: 1}, code=bytes.fromhex("6001600155")
+            ),
+            Address(
+                0x4E060B3A192FD2A082A00259BE2F021AD996D71C
+            ): Account.NONEXISTENT,
+            Address(
+                0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
+            ): Account.NONEXISTENT,
+            Address(
+                0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [16], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={
-                        1: 0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020,
-                        65535: 0xFFFFFFFFFFFFFFFE,
-                    },
-                    nonce=18446744073709551614,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={
-                        2: 0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020,
-                        65535: 0xFFFFFFFFFFFFFFFF,
-                    },
-                    nonce=18446744073709551615,
-                ),
-                max_nonce: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020): Account(
-                    storage={1: 1}, code=bytes.fromhex("6001600155")
-                ),
-                Address(
-                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
-                ): Account.NONEXISTENT,
-                Address(
-                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
-                ): Account.NONEXISTENT,
-                Address(
-                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={
+                    1: 0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020,
+                    65535: 0xFFFFFFFFFFFFFFFE,
+                },
+                nonce=18446744073709551614,
+            ),
+            max_nonce_minus_1: Account(
+                storage={
+                    2: 0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020,
+                    65535: 0xFFFFFFFFFFFFFFFF,
+                },
+                nonce=18446744073709551615,
+            ),
+            max_nonce: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020): Account(
+                storage={1: 1}, code=bytes.fromhex("6001600155")
+            ),
+            Address(
+                0x4E060B3A192FD2A082A00259BE2F021AD996D71C
+            ): Account.NONEXISTENT,
+            Address(
+                0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
+            ): Account.NONEXISTENT,
+            Address(
+                0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": [17], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(
-                    storage={1: 0, 65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce_minus_1: Account(
-                    storage={65535: 0xFFFFFFFFFFFFFFFE},
-                    nonce=18446744073709551614,
-                ),
-                max_nonce: Account(
-                    storage={2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
-                    nonce=18446744073709551615,
-                ),
-                Address(
-                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
-                ): Account.NONEXISTENT,
-                Address(
-                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
-                ): Account.NONEXISTENT,
-                Address(
-                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(
+                storage={1: 0, 65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce_minus_1: Account(
+                storage={65535: 0xFFFFFFFFFFFFFFFE},
+                nonce=18446744073709551614,
+            ),
+            max_nonce: Account(
+                storage={2: 0, 65535: 0xFFFFFFFFFFFFFFFF},
+                nonce=18446744073709551615,
+            ),
+            Address(
+                0x4E060B3A192FD2A082A00259BE2F021AD996D71C
+            ): Account.NONEXISTENT,
+            Address(
+                0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
+            ): Account.NONEXISTENT,
+            Address(
+                0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
+            ): Account.NONEXISTENT,
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 3,
+            (1, 0, 0): 3,
+            (2, 0, 0): 3,
+            (3, 0, 0): 3,
+            (4, 0, 0): 4,
+            (5, 0, 0): 5,
+            (6, 0, 0): 0,
+            (7, 0, 0): 0,
+            (8, 0, 0): 0,
+            (9, 0, 0): 0,
+            (10, 0, 0): 1,
+            (11, 0, 0): 2,
+            (12, 0, 0): 9,
+            (13, 0, 0): 9,
+            (14, 0, 0): 9,
+            (15, 0, 0): 9,
+            (16, 0, 0): 10,
+            (17, 0, 0): 11,
+            (18, 0, 0): 6,
+            (19, 0, 0): 6,
+            (20, 0, 0): 6,
+            (21, 0, 0): 6,
+            (22, 0, 0): 7,
+            (23, 0, 0): 8,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Bytes("917694f9")

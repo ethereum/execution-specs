@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -178,28 +175,18 @@ def test_static_call_basic(
         address=Address(0xD5B64FA2CA1E471B45B639A5E9C259CA24C28ACE),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
+        {target: Account(storage={0: 0, 1: 1})},
+        {target: Account(storage={0: 1, 1: 1})},
         {
-            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0, 1: 1})},
-        },
-        {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 1, 1: 1})},
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(storage={0: 1, 1: 1}),
-                addr_6: Account(balance=23),
-            },
+            target: Account(storage={0: 1, 1: 1}),
+            addr_6: Account(balance=23),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {(0, 0, 0): 0, (1, 0, 0): 0, (2, 0, 0): 1, (3, 0, 0): 2}[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

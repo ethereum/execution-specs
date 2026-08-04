@@ -21,9 +21,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -337,81 +334,60 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         address=Address(0x6BACDFA8216DBB2A09819F8739E57AE3574C9FFF),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_6: Account(storage={}),
-                target: Account(storage={10: 1}),
-                addr: Account(storage={2: 1}, nonce=0),
-            },
+            addr_6: Account(storage={}),
+            target: Account(storage={10: 1}),
+            addr: Account(storage={2: 1}, nonce=0),
         },
         {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_6: Account(storage={}),
-                addr: Account(storage={}),
-            },
+            addr_6: Account(storage={}),
+            addr: Account(storage={}),
         },
         {
-            "indexes": {"data": 1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_6: Account(storage={}),
-                target: Account(storage={10: 1}),
-                addr_2: Account(storage={2: 1}, nonce=0),
-            },
+            addr_6: Account(storage={}),
+            target: Account(storage={10: 1}),
+            addr_2: Account(storage={2: 1}, nonce=0),
         },
         {
-            "indexes": {"data": 1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_6: Account(storage={}),
-                addr_2: Account(storage={}),
-            },
+            addr_6: Account(storage={}),
+            addr_2: Account(storage={}),
         },
         {
-            "indexes": {"data": 2, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_6: Account(storage={}),
-                target: Account(storage={10: 1}),
-                addr_3: Account(storage={2: 1}, nonce=0),
-            },
+            addr_6: Account(storage={}),
+            target: Account(storage={10: 1}),
+            addr_3: Account(storage={2: 1}, nonce=0),
         },
         {
-            "indexes": {"data": 2, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_6: Account(storage={}),
-                addr_3: Account(storage={}),
-            },
+            addr_6: Account(storage={}),
+            addr_3: Account(storage={}),
         },
         {
-            "indexes": {"data": 3, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_6: Account(storage={}),
-                target: Account(storage={10: 1}),
-                addr_4: Account(storage={0: 1}, nonce=0),
-                addr_5: Account(storage={5: 1}, nonce=0),
-            },
+            addr_6: Account(storage={}),
+            target: Account(storage={10: 1}),
+            addr_4: Account(storage={0: 1}, nonce=0),
+            addr_5: Account(storage={5: 1}, nonce=0),
         },
         {
-            "indexes": {"data": 3, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                addr_6: Account(storage={}),
-                target: Account(storage={10: 255}),
-                addr_4: Account(storage={0: 0}, nonce=0),
-                addr_5: Account(storage={5: 0}, nonce=0),
-            },
+            addr_6: Account(storage={}),
+            target: Account(storage={10: 255}),
+            addr_4: Account(storage={0: 0}, nonce=0),
+            addr_5: Account(storage={5: 0}, nonce=0),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (0, 1, 0): 1,
+            (1, 0, 0): 2,
+            (1, 1, 0): 3,
+            (2, 0, 0): 4,
+            (2, 1, 0): 5,
+            (3, 0, 0): 6,
+            (3, 1, 0): 7,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(addr, left_padding=True),

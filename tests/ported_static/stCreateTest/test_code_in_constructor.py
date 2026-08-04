@@ -19,9 +19,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -249,46 +246,38 @@ def test_code_in_constructor(
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 8,
-                        1: 10,
-                        2: compute_create_address(address=contract_1, nonce=0),
-                        3: 262,
-                        4: 0,
-                        5: 0x610100610100610100395861026052600060006020610260600061DA7A62FFFF,  # noqa: E501
-                        6: 0,
-                        7: 184,
-                    },
-                ),
-            },
+            contract_0: Account(
+                storage={
+                    0: 8,
+                    1: 10,
+                    2: compute_create_address(address=contract_1, nonce=0),
+                    3: 262,
+                    4: 0,
+                    5: 0x610100610100610100395861026052600060006020610260600061DA7A62FFFF,  # noqa: E501
+                    6: 0,
+                    7: 184,
+                },
+            ),
         },
         {
-            "indexes": {"data": 1, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(
-                    storage={
-                        0: 8,
-                        1: 10,
-                        2: 0x33C409678A4289F0184C95C627BA09DA2DAEAA46,
-                        3: 262,
-                        4: 0,
-                        5: 0x610100610100610100395861026052600060006020610260600061DA7A62FFFF,  # noqa: E501
-                        6: 0,
-                        7: 184,
-                    },
-                ),
-            },
+            contract_0: Account(
+                storage={
+                    0: 8,
+                    1: 10,
+                    2: 0x33C409678A4289F0184C95C627BA09DA2DAEAA46,
+                    3: 262,
+                    4: 0,
+                    5: 0x610100610100610100395861026052600060006020610260600061DA7A62FFFF,  # noqa: E501
+                    6: 0,
+                    7: 184,
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes("83c7d758") + Hash(0x1),

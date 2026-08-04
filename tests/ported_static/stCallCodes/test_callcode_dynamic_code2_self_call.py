@@ -28,9 +28,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -177,41 +174,31 @@ def test_callcode_dynamic_code2_self_call(
         address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_1, nonce=0): Account(
-                    storage={11: 1, 12: contract_1}, balance=1
-                ),
-            },
+            compute_create_address(address=contract_1, nonce=0): Account(
+                storage={11: 1, 12: contract_1}, balance=1
+            ),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_2: Account(
-                    storage={
-                        0: 1,
-                        10: compute_create_address(
-                            address=contract_2, nonce=0
-                        ),
-                        11: 1,
-                        20: contract_2,
-                        21: sender,
-                        22: contract_2,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(address=contract_2, nonce=0): Account(
-                    storage={122: 1}, nonce=1
-                ),
-            },
+            contract_2: Account(
+                storage={
+                    0: 1,
+                    10: compute_create_address(address=contract_2, nonce=0),
+                    11: 1,
+                    20: contract_2,
+                    21: sender,
+                    22: contract_2,
+                },
+                nonce=1,
+            ),
+            compute_create_address(address=contract_2, nonce=0): Account(
+                storage={122: 1}, nonce=1
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(contract_1, left_padding=True),

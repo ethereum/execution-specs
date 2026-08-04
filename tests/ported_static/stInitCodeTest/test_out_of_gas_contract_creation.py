@@ -16,9 +16,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -81,40 +78,22 @@ def test_out_of_gas_contract_creation(
         gas_limit=100000000000000,
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            compute_create_address(
+                address=sender, nonce=0
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": 1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            compute_create_address(address=sender, nonce=0): Account(nonce=1),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {(0, 0, 0): 0, (0, 1, 0): 0, (1, 0, 0): 0, (1, 1, 0): 1}[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Op.PUSH1[0xA]

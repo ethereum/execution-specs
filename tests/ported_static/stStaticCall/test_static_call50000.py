@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -163,34 +160,26 @@ def test_static_call50000(
         address=Address(0x2E396FD4F6F2799D61F534B43175F5344C65ECAC),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                sender: Account(storage={}, code=b"", nonce=1),
-                addr: Account(storage={0: 1}, nonce=0),
-                addr_3: Account(
-                    storage={0: 0, 1: 50000},
-                    balance=0x10000000000009,
-                    nonce=0,
-                ),
-                target: Account(storage={0: 1, 1: 1}),
-            },
+            sender: Account(storage={}, code=b"", nonce=1),
+            addr: Account(storage={0: 1}, nonce=0),
+            addr_3: Account(
+                storage={0: 0, 1: 50000},
+                balance=0x10000000000009,
+                nonce=0,
+            ),
+            target: Account(storage={0: 1, 1: 1}),
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {
-                sender: Account(storage={}, nonce=1),
-                addr: Account(storage={0: 1}, balance=7000, nonce=0),
-                addr_4: Account(storage={0: 1, 32: 50000}, nonce=0),
-                target: Account(storage={0: 1, 1: 1}),
-            },
+            sender: Account(storage={}, nonce=1),
+            addr: Account(storage={0: 1}, balance=7000, nonce=0),
+            addr_4: Account(storage={0: 1, 32: 50000}, nonce=0),
+            target: Account(storage={0: 1, 1: 1}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Hash(addr_3, left_padding=True),

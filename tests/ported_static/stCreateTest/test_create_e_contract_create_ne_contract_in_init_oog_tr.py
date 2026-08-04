@@ -16,9 +16,6 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -79,38 +76,28 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
         nonce=0,
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={1: 12}),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=2
-                ),
-                compute_create_address(
-                    address=compute_create_address(address=sender, nonce=0),
-                    nonce=0,
-                ): Account.NONEXISTENT,
-            },
+            contract_0: Account(storage={1: 12}),
+            compute_create_address(address=sender, nonce=0): Account(nonce=2),
+            compute_create_address(
+                address=compute_create_address(address=sender, nonce=0),
+                nonce=0,
+            ): Account.NONEXISTENT,
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract_0: Account(storage={1: 0}),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-                compute_create_address(
-                    address=compute_create_address(address=sender, nonce=0),
-                    nonce=0,
-                ): Account.NONEXISTENT,
-            },
+            contract_0: Account(storage={1: 0}),
+            compute_create_address(
+                address=sender, nonce=0
+            ): Account.NONEXISTENT,
+            compute_create_address(
+                address=compute_create_address(address=sender, nonce=0),
+                nonce=0,
+            ): Account.NONEXISTENT,
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 1, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Op.POP(

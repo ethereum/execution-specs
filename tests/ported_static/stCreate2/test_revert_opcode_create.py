@@ -16,9 +16,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -82,20 +79,12 @@ def test_revert_opcode_create(
         nonce=0,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 12, 1: 0}, nonce=1)},
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract_0: Account(nonce=0)},
-        },
+    expect_posts: list[dict] = [
+        {contract_0: Account(storage={0: 12, 1: 0}, nonce=1)},
+        {contract_0: Account(nonce=0)},
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (0, 1, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes("600160005560016000fe6011600155"),

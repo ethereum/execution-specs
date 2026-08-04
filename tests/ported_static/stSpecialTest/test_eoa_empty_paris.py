@@ -27,9 +27,6 @@ from execution_testing import (
     TransactionException,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -246,150 +243,97 @@ def test_eoa_empty_paris(
         address=Address(0x000000000000000000000000000000000000C0DE),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 0,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 118,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_5: Account(
+                storage={
+                    0: sender,
+                    49: 0,
+                    59: 0,
+                    63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    241: 118,
+                    255: 7626 + cold_account_delta,
+                    319: 0,
+                    47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": 1, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 0,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 6818 + call_value_delta,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_5: Account(
+                storage={
+                    0: sender,
+                    49: 0,
+                    59: 0,
+                    63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    241: 6818 + call_value_delta,
+                    255: 7626 + cold_account_delta,
+                    319: 0,
+                    47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                },
+            ),
+        },
+        {},
+        {
+            sender: Account(nonce=1),
+            contract_5: Account(
+                storage={
+                    0: sender,
+                    49: 100,
+                    59: 0,
+                    63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    241: 118,
+                    255: 7626 + cold_account_delta,
+                    319: 0,
+                    47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                },
+            ),
         },
         {
-            "indexes": {"data": -1, "gas": 0, "value": 1},
-            "network": [">=Cancun"],
-            "result": {},
-            "expect_exception": {
-                ">=Cancun": TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-            },
-        },
-        {
-            "indexes": {"data": 0, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 100,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 118,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 100,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 6818 + call_value_delta,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 0, "gas": 1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 0,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 118,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": 1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_5: Account(
-                    storage={
-                        0: sender,
-                        49: 0,
-                        59: 0,
-                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 6818 + call_value_delta,
-                        255: 7626 + cold_account_delta,
-                        319: 0,
-                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                    },
-                ),
-            },
+            sender: Account(nonce=1),
+            contract_5: Account(
+                storage={
+                    0: sender,
+                    49: 100,
+                    59: 0,
+                    63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    241: 6818 + call_value_delta,
+                    255: 7626 + cold_account_delta,
+                    319: 0,
+                    47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                },
+            ),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (0, 0, 1): 2,
+            (0, 1, 0): 3,
+            (0, 1, 1): 0,
+            (1, 0, 0): 1,
+            (1, 0, 1): 2,
+            (1, 1, 0): 4,
+            (1, 1, 1): 1,
+        }[d, g, v]
+    ]
+    _exc = {
+        (0, 0, 1): TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+        (1, 0, 1): TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+    }.get((d, g, v))
 
     tx_data = [
         Bytes("693c6139") + Hash(0x0),

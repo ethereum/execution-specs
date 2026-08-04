@@ -22,9 +22,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -135,49 +132,37 @@ def test_create2_first_byte_loop(
         address=Address(0x09FDD11D68BE787A4C43F692A0778BEFC011CD35),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(storage={256: 1}, nonce=239),
-                Address(0x0D03885ED4F051B06AE83D869CD60F8EBDDE37D8): Account(
-                    nonce=1
-                ),
-                Address(0x94B507D001A223D7948119D899358A073FE5E331): Account(
-                    nonce=1
-                ),
-            },
+            sender: Account(nonce=1),
+            entry: Account(storage={256: 1}, nonce=239),
+            Address(0x0D03885ED4F051B06AE83D869CD60F8EBDDE37D8): Account(
+                nonce=1
+            ),
+            Address(0x94B507D001A223D7948119D899358A073FE5E331): Account(
+                nonce=1
+            ),
         },
         {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(storage={256: 1}, nonce=16),
-                Address(0x896E9DC41224489ED98380921EF0AEAC66115D7B): Account(
-                    nonce=1
-                ),
-                Address(0x070DB4FA29B5D139BEDB29347001BB9C3D75DC3A): Account(
-                    nonce=1
-                ),
-            },
+            sender: Account(nonce=1),
+            entry: Account(storage={256: 1}, nonce=16),
+            Address(0x896E9DC41224489ED98380921EF0AEAC66115D7B): Account(
+                nonce=1
+            ),
+            Address(0x070DB4FA29B5D139BEDB29347001BB9C3D75DC3A): Account(
+                nonce=1
+            ),
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                entry: Account(storage={239: 1, 256: 1}, nonce=1),
-                Address(
-                    0xA492678492A13F1031904DE45F26A114234B668D
-                ): Account.NONEXISTENT,
-            },
+            sender: Account(nonce=1),
+            entry: Account(storage={239: 1, 256: 1}, nonce=1),
+            Address(
+                0xA492678492A13F1031904DE45F26A114234B668D
+            ): Account.NONEXISTENT,
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[{(0, 0, 0): 0, (1, 0, 0): 2, (2, 0, 0): 1}[d, g, v]]
+    _exc = None
 
     tx_data = [
         Bytes("1a8451e6") + Hash(0x0) + Hash(0xEF),

@@ -17,9 +17,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
-    resolve_expect_post,
-)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -140,67 +137,52 @@ def test_revert_depth_create_address_collision(
         address=Address(0x97E33A176B7C8D61B356D1C170AC2119D28867DF),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
+    expect_posts: list[dict] = [
         {
-            "indexes": {"data": 1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "60016000556000600060006000600073b1b49241a4ecf7860872e686090781c906b1b437600035f1600155600c60045500"  # noqa: E501
-                    ),
-                    nonce=54,
+            target: Account(
+                storage={},
+                code=bytes.fromhex(
+                    "60016000556000600060006000600073b1b49241a4ecf7860872e686090781c906b1b437600035f1600155600c60045500"  # noqa: E501
                 ),
-                addr: Account(storage={}),
-            },
+                nonce=54,
+            ),
+            addr: Account(storage={}),
         },
         {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={0: 1, 4: 12},
-                    code=bytes.fromhex(
-                        "60016000556000600060006000600073b1b49241a4ecf7860872e686090781c906b1b437600035f1600155600c60045500"  # noqa: E501
-                    ),
-                    nonce=54,
+            target: Account(
+                storage={0: 1, 4: 12},
+                code=bytes.fromhex(
+                    "60016000556000600060006000600073b1b49241a4ecf7860872e686090781c906b1b437600035f1600155600c60045500"  # noqa: E501
                 ),
-                addr: Account(storage={}),
-            },
+                nonce=54,
+            ),
+            addr: Account(storage={}),
         },
         {
-            "indexes": {"data": 1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "60016000556000600060006000600073b1b49241a4ecf7860872e686090781c906b1b437600035f1600155600c60045500"  # noqa: E501
-                    ),
-                    balance=5,
-                    nonce=54,
+            target: Account(
+                storage={},
+                code=bytes.fromhex(
+                    "60016000556000600060006000600073b1b49241a4ecf7860872e686090781c906b1b437600035f1600155600c60045500"  # noqa: E501
                 ),
-                addr: Account(storage={}),
-            },
-        },
-        {
-            "indexes": {"data": 0, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={},
-                    code=bytes.fromhex(
-                        "60016000556000600060006000600073b1b49241a4ecf7860872e686090781c906b1b437600035f1600155600c60045500"  # noqa: E501
-                    ),
-                    nonce=54,
-                ),
-                addr: Account(storage={}),
-            },
+                balance=5,
+                nonce=54,
+            ),
+            addr: Account(storage={}),
         },
     ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    post = expect_posts[
+        {
+            (0, 0, 0): 0,
+            (0, 0, 1): 0,
+            (0, 1, 0): 1,
+            (0, 1, 1): 1,
+            (1, 0, 0): 2,
+            (1, 0, 1): 2,
+            (1, 1, 0): 0,
+            (1, 1, 1): 0,
+        }[d, g, v]
+    ]
+    _exc = None
 
     tx_data = [
         Hash(0xEA60),
