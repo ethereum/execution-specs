@@ -148,6 +148,22 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--keep-chain-head",
+        action="store_true",
+        dest="keep_chain_head",
+        default=False,
+        help=(
+            "Do not rewind the client to start_block after each test, so "
+            "the chain keeps whatever head the fill produced. Use when the "
+            "fixtures being filled CONSTRUCT state that later fixtures "
+            "depend on (deploy targets, then authorise delegations onto "
+            "them): each subsequent fill anchors on the new head, because "
+            "--snapshot-block defaults to `latest`. Leave unset for "
+            "benchmark fixtures, which must all start from an identical "
+            "prestate."
+        ),
+    )
+    group.addoption(
         "--verify-full-accounts",
         action="store_true",
         dest="verify_full_accounts",
@@ -767,6 +783,7 @@ def t8n(
 
 @pytest.fixture(autouse=True, scope="function")
 def _reset_chain_between_tests(
+    request: pytest.FixtureRequest,
     client_backend: ClientBackend,
     debug_rpc: DebugRPC,
     eth_rpc: "ChainBuilderEthRPC",
@@ -779,8 +796,17 @@ def _reset_chain_between_tests(
     so the client reorgs onto it even without a debug rewind. Afterwards we
     verify the block at the start_block number matches and fail loudly if it
     drifted (e.g. a live reorg).
+
+    Skipped entirely under ``--keep-chain-head``, where the fills build a
+    prestate incrementally and each one must see the previous one's result.
     """
     yield
+    if request.config.getoption("keep_chain_head", default=False):
+        logger.info(
+            "--keep-chain-head: leaving the chain at the head this fill "
+            "produced; the next fill will anchor on it"
+        )
+        return
     if client_backend.start_block is None:
         return
     start_hex = client_backend.start_block["number"]
