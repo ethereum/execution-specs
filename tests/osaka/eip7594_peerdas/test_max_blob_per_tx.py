@@ -128,11 +128,16 @@ def test_invalid_max_blobs_per_tx(
     number of blobs per transaction, even if the total would be within the
     block limit.
     """
+    # When the blob count also exceeds the block allowance, the reported
+    # exception depends on the fork's validation order, so accept either.
     state_test(
         env=env,
         pre=pre,
         tx=tx.with_error(
-            TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
+            [
+                TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED,
+                TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED,
+            ]
             if blob_count > fork.max_blobs_per_block()
             else TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED
         ),

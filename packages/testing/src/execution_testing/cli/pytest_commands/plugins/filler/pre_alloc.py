@@ -73,7 +73,7 @@ class Alloc(SharedAlloc):
     def __init__(
         self,
         *args: Any,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         flags: AllocFlags,
         stub_accounts: Dict[str, Account] | None = None,
         stub_eoas: Dict[str, EOA] | None = None,
@@ -434,7 +434,9 @@ ALL_FIXTURE_FORMAT_NAMES.sort(key=len, reverse=True)
 
 
 @pytest.fixture(scope="function")
-def node_id_for_entropy(request: pytest.FixtureRequest, fork: Fork) -> str:
+def node_id_for_entropy(
+    request: pytest.FixtureRequest, fork: Fork | TransitionFork
+) -> str:
     """
     Return the node id with the fixture format name and fork name stripped.
 
@@ -488,7 +490,7 @@ def stub_eoas(
 @pytest.fixture(scope="function")
 def pre(
     alloc_flags: AllocFlags,
-    fork: Fork,
+    fork: Fork | TransitionFork,
     stub_accounts: Dict[str, Account],
     stub_eoas: Dict[str, EOA],
 ) -> Alloc:

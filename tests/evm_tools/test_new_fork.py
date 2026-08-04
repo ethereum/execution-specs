@@ -86,8 +86,14 @@ def test_end_to_end(template_fork: str) -> None:
             for needle in expected:
                 assert needle in source
 
-        with (fork_dir / "fork.py").open("r") as f:
-            assert "MAX_BLOB_GAS_PER_BLOCK: Final[U64] = U64(99)" in f.read()
+        # TODO: Assert on `vm/gas.py` alone once every fork usable as a
+        # template defines the constant there (i.e. once the pre-Amsterdam
+        # forks, which define it in `fork.py`, are gone).
+        blob_gas_ceiling = "MAX_BLOB_GAS_PER_BLOCK: Final[U64] = U64(99)"
+        assert any(
+            blob_gas_ceiling in (fork_dir / relative_path).read_text()
+            for relative_path in (Path("vm") / "gas.py", Path("fork.py"))
+        )
 
         # TODO: Remove this condition once trie.py is removed from all
         # forks (i.e. fork-agnostic Trie is ported to pre-amsterdam forks).

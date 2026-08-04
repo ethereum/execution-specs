@@ -150,6 +150,9 @@ def build_genesis_header(
         pre_alloc = Alloc.merge(pre_alloc, base_pre)
     if empty_accounts := pre_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")
+    pre_alloc.migrate_state_commitment(
+        session_fork.transitions_from().state_commitment()
+    )
     state_root = pre_alloc.state_root()
     genesis = FixtureHeader(
         parent_hash=0,
@@ -280,6 +283,24 @@ def test_suite_name() -> str:
 def test_suite_description() -> str:
     """The description of the hive test suite used in this simulator."""
     return "Execute EEST tests using hive endpoint."
+
+
+@pytest.fixture(scope="function")
+def test_case_description(request: pytest.FixtureRequest) -> str:
+    """Return the test docstring as the hive test-case description."""
+    description = getattr(request.node.function, "__doc__", None)
+    return description or ""
+
+
+@pytest.fixture(autouse=True)
+def per_test_hive_test(hive_test: HiveTest) -> None:
+    """
+    Report each pytest test as an individual hive test case.
+
+    The client runs under the session-scoped base hive test; this
+    per-test entry only propagates the individual test result to hive.
+    """
+    del hive_test
 
 
 @pytest.fixture(autouse=True, scope="session")

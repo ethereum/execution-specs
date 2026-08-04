@@ -819,6 +819,10 @@ class BlockchainTest(BaseTest):
             )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
+        if pre_alloc.state_commitment() is None:
+            pre_alloc.migrate_state_commitment(
+                self.fork.transitions_from().state_commitment()
+            )
         state_root = pre_alloc.state_root()
         genesis = FixtureHeader.genesis(
             self.fork.transitions_from(), env, state_root
