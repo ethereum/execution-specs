@@ -371,12 +371,9 @@ class Alloc(BaseAlloc):
         """
         Return the spec state module implementing `self._state_commitment`.
         """
-        if self._state_commitment is StateCommitment.BINARY:
-            raise NotImplementedError(
-                "Binary-tree state commitment is not yet available: no spec "
-                "state_bmt module exists."
-            )
-        return spec_state_mpt
+        if self._state_commitment is StateCommitment.MPT:
+            return spec_state_mpt
+        raise NotImplementedError("State commitment type not yet implemented.")
 
     def _materialize_state(self) -> spec_state.PreState:
         """

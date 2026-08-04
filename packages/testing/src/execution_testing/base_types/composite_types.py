@@ -576,9 +576,7 @@ class StateCommitment(Enum):
     """
 
     MPT = auto()
-    """Merkle-Patricia trie (all forks up to the binary-tree transition)."""
-    BINARY = auto()
-    """Binary tree commitment."""
+    """Merkle-Patricia trie."""
 
 
 class AccessList(CamelModel, RLPSerializable):
