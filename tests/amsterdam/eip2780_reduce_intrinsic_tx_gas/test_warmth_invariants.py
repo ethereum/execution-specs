@@ -9,7 +9,7 @@ differently:
   listing ``tx.to`` in the access list pays the access-list cost but
   does not waive it, and the protocol-warmed coinbase is still charged
   cold when it is the recipient. The same holds for the authority
-  access folded into ``REGULAR_PER_AUTH_BASE_COST``.
+  access folded into ``EXECUTION_PER_AUTH_BASE_COST``.
 - A delegated recipient's delegation-target access is a *top-frame*
   charge that reads state, so it follows normal warm/cold accounting:
   ``WARM_ACCESS`` when the target is already warm -- the sender, the
