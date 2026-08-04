@@ -175,7 +175,7 @@ def test_intrinsic_charges_authority_in_access_list(
 ) -> None:
     """
     Authority is listed in the access list. The intrinsic charge still
-    includes the full ``REGULAR_PER_AUTH_BASE_COST``, whose folded-in
+    includes the full ``EXECUTION_PER_AUTH_BASE_COST``, whose folded-in
     authority access is charged at the cold rate.
     """
     sender = pre.fund_eoa()
