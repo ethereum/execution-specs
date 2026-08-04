@@ -166,7 +166,11 @@ def _build_stateless_artifacts(
         gas_limit=block_env.block_gas_limit,
         gas_used=Uint(result_arguments["gas_used"]),
         timestamp=block_env.time,
-        extra_data=Bytes(b""),
+        extra_data=Bytes(
+            t8n.env.extra_data
+            if "extra_data" in t8n.env.model_fields_set
+            else b""
+        ),
         prev_randao=block_env.prev_randao,
         nonce=Bytes8(b"\x00" * 8),
         base_fee_per_gas=block_env.base_fee_per_gas,
@@ -209,7 +213,18 @@ def _build_stateless_artifacts(
         stateless_output_bytes
     )
 
-    if t8n.rejected_transactions or block_exception is not None:
+    # The transition phase executes the block body before the finalized block
+    # exists, so block-level RLP validation is first observable here.
+    block_rlp_size_limit = t8n.fork.block_rlp_size_limit
+    block_rlp_limit_exceeded = (
+        block_rlp_size_limit is not None
+        and len(rlp.encode(block)) > block_rlp_size_limit
+    )
+    if (
+        t8n.rejected_transactions
+        or block_exception is not None
+        or block_rlp_limit_exceeded
+    ):
         assert not stateless_output.successful_validation
     else:
         assert stateless_output.successful_validation, (

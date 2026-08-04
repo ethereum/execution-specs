@@ -249,6 +249,12 @@ class ForkLoad:
         return self._module("blocks").Block
 
     @property
+    def block_rlp_size_limit(self) -> int | None:
+        """Return the maximum RLP-encoded block size, if defined."""
+        limit = getattr(self._module("fork"), "MAX_RLP_BLOCK_SIZE", None)
+        return int(limit) if limit is not None else None
+
+    @property
     def decode_receipt(self) -> Any:
         """decode_receipt function of the fork."""
         return self._module("blocks").decode_receipt

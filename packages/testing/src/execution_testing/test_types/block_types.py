@@ -207,7 +207,7 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
         if fork.header_slot_number_required() and self.slot_number is None:
             updated_values["slot_number"] = 0
 
-        return self.copy(**updated_values)
+        return self.copy(extra_data=self.extra_data, **updated_values)
 
     def __hash__(self) -> int:
         """Hashes the environment object."""

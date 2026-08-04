@@ -15,6 +15,7 @@ from execution_testing.base_types import (
     to_json,
 )
 from execution_testing.base_types.pydantic import CopyValidateModel
+from execution_testing.forks import Amsterdam
 
 from ..account_types import EOA, Alloc
 from ..block_types import (
@@ -951,6 +952,15 @@ def test_model_copy(model: CopyValidateModel) -> None:
     """Test that the copy method returns a correct copy of the model."""
     assert to_json(model.copy()) == to_json(model)
     assert model.copy().model_fields_set == model.model_fields_set
+
+
+def test_environment_fork_requirements_preserve_extra_data() -> None:
+    """Preserve extra data while applying fork requirements."""
+    env = Environment(extra_data=b"current block")
+
+    assert (
+        env.set_fork_requirements(Amsterdam).extra_data == env.extra_data
+    )
 
 
 @pytest.mark.parametrize(

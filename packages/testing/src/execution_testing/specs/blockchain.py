@@ -457,6 +457,9 @@ class Block(Header):
         new_env_values["gas_limit"] = (
             self.gas_limit or env.parent_gas_limit or Environment().gas_limit
         )
+        new_env_values["extra_data"] = (
+            self.extra_data if self.extra_data is not None else Bytes(b"")
+        )
         if not isinstance(self.base_fee_per_gas, Removable):
             new_env_values["base_fee_per_gas"] = self.base_fee_per_gas
         new_env_values["withdrawals"] = self.withdrawals
@@ -1027,9 +1030,7 @@ class BlockchainTest(BaseTest):
             ),
             blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
-            extra_data=(
-                block.extra_data if block.extra_data is not None else b""
-            ),
+            extra_data=env.extra_data,
             slot_number=slot_number_value,
             fork=fork,
         )
