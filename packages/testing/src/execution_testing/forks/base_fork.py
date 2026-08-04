@@ -25,6 +25,7 @@ from execution_testing.base_types import (
     AccessList,
     Address,
     BlobSchedule,
+    StateCommitment,
 )
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.vm import (
@@ -457,6 +458,11 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         else:
             if base_fork_class is not BaseFork:
                 cls._deployed = base_fork_class._deployed
+
+    @classmethod
+    def state_commitment(cls) -> StateCommitment:
+        """Return the state-commitment scheme for the state root."""
+        return StateCommitment.MPT
 
     # Header information abstract methods
     @classmethod

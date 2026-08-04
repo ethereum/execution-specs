@@ -22,7 +22,7 @@ from ethereum.crypto.hash import keccak256
 from ethereum_types.bytes import Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
-from execution_testing.base_types import Account
+from execution_testing.base_types import Account, StateCommitment
 from execution_testing.test_types import Alloc
 from execution_testing.test_types.account_types import _Phase
 
@@ -45,7 +45,7 @@ CODE = bytes.fromhex("60016002")  # PUSH1 1 PUSH1 2
 
 def _fixture_alloc() -> Alloc:
     """Build a small alloc with one EOA, one contract, and one empty acct."""
-    return Alloc.model_validate(
+    alloc = Alloc.model_validate(
         {
             ADDR_A: {"balance": 100, "nonce": 1},
             ADDR_B: {
@@ -57,6 +57,8 @@ def _fixture_alloc() -> Alloc:
             ADDR_C: {"balance": 0, "nonce": 0},
         }
     )
+    alloc.migrate_state_commitment(StateCommitment.MPT)
+    return alloc
 
 
 def _state_from_alloc(alloc: Alloc) -> spec_state_mpt.State:
@@ -235,6 +237,7 @@ def test_apply_diff_round_trip_matches_independent_post_state() -> None:
             },
         }
     )
+    alloc_post_expected.migrate_state_commitment(StateCommitment.MPT)
 
     # Build the diff that, applied to alloc_pre, should produce
     # alloc_post_expected.

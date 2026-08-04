@@ -53,6 +53,15 @@ class PreAllocGroupBuilder(CamelModel):
     )
     pre: Alloc
 
+    def model_post_init(self, __context: Any) -> None:
+        """
+        Seed the pre-alloc's commitment scheme from its genesis fork.
+        """
+        super().model_post_init(__context)
+        self.pre.migrate_state_commitment(
+            self.fork.transitions_from().state_commitment()
+        )
+
     def get_pre_account_count(self) -> int:
         """Return the amount of accounts the pre-allocation group holds."""
         return len(self.pre.root)
@@ -71,6 +80,7 @@ class PreAllocGroupBuilder(CamelModel):
 
     def add_test_alloc(self, test_id: str, new_pre: Alloc) -> None:
         """Adds a pre to this builder's pre."""
+        assert self.pre.state_commitment() == new_pre.state_commitment()
         self.pre = Alloc.merge(
             self.pre,
             new_pre,
