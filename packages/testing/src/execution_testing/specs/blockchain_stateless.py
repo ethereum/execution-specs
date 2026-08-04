@@ -484,7 +484,9 @@ def execution_witness_implicit_codes_for_block(
     if not addresses:
         return []
 
-    effective_alloc = alloc.get() if isinstance(alloc, LazyAlloc) else alloc
+    effective_alloc = (
+        alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
+    )
 
     codes: List[Bytes] = []
     seen: set[Bytes] = set()

@@ -843,7 +843,7 @@ test_module_execution_witness = textwrap.dedent(
         contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
         state_test(env=Environment(),
                     pre=pre, post={contract: Account(storage={0: 1})},
-                    tx=Transaction(to=contract, gas_limit=100_000, sender=pre.fund_eoa()))
+                    tx=Transaction(to=contract, sender=pre.fund_eoa()))
     """
 )
 
@@ -868,7 +868,7 @@ test_module_execution_witness_skip_stateless = textwrap.dedent(
     ) -> None:
         contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
         sender = pre.fund_eoa()
-        tx = Transaction(to=contract, gas_limit=100_000, sender=sender)
+        tx = Transaction(to=contract, sender=sender)
 
         blockchain_test(
             pre=pre,
@@ -1049,7 +1049,7 @@ test_module_execution_witness_rlp_modifier = textwrap.dedent(
     ) -> None:
         contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
         sender = pre.fund_eoa()
-        tx = Transaction(to=contract, gas_limit=100_000, sender=sender)
+        tx = Transaction(to=contract, sender=sender)
 
         blockchain_test(
             pre=pre,
