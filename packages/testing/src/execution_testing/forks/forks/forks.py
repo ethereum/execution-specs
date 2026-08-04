@@ -1012,6 +1012,13 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def engine_payload_attribute_target_gas_limit(cls) -> bool:
+        """
+        At genesis, payload attributes do not include the target gas limit.
+        """
+        return False
+
+    @classmethod
     def get_reward(cls) -> int:
         """
         At Genesis the expected reward amount in wei is
@@ -1633,4 +1640,10 @@ class Amsterdam(
     #  related Amsterdam specs change over time, and before Amsterdam is
     #  live on mainnet.
 
-    pass
+    @classmethod
+    def engine_payload_attribute_target_gas_limit(cls) -> bool:
+        """
+        Starting from Amsterdam, payload attributes now include the target gas
+        limit.
+        """
+        return True

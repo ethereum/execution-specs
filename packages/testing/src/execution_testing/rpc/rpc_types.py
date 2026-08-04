@@ -224,6 +224,7 @@ class PayloadAttributes(CamelModel):
     target_blobs_per_block: HexNumber | None = None
     max_blobs_per_block: HexNumber | None = None
     slot_number: HexNumber | None = None
+    target_gas_limit: HexNumber | None = None
 
     @classmethod
     def for_fork(
@@ -231,6 +232,7 @@ class PayloadAttributes(CamelModel):
         fork: Fork,
         *,
         timestamp: int,
+        target_gas_limit: int,
         prev_randao: Hash | None = None,
         suggested_fee_recipient: Address | None = None,
         withdrawals: List[Withdrawal] | None = None,
@@ -273,6 +275,11 @@ class PayloadAttributes(CamelModel):
             slot_number=(
                 HexNumber(0)
                 if fork.engine_payload_attribute_slot_number()
+                else None
+            ),
+            target_gas_limit=(
+                HexNumber(target_gas_limit)
+                if fork.engine_payload_attribute_target_gas_limit()
                 else None
             ),
         )

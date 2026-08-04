@@ -36,6 +36,7 @@ from execution_testing.rpc.rpc_types import (
 )
 from execution_testing.test_types import (
     Alloc,
+    Environment,
     Requests,
     Transaction,
     Withdrawal,
@@ -360,7 +361,7 @@ class ClientBackend:
 
     def _payload_attributes(
         self,
-        env: Any,
+        env: Environment,
         block_fork: Fork,
     ) -> PayloadAttributes:
         """Build ``PayloadAttributes`` from the test's environment."""
@@ -373,6 +374,7 @@ class ClientBackend:
         return PayloadAttributes.for_fork(
             block_fork,
             timestamp=int(env.timestamp),
+            target_gas_limit=int(env.gas_limit),
             prev_randao=Hash(env.prev_randao or 0),
             suggested_fee_recipient=env.fee_recipient,
             withdrawals=withdrawals,

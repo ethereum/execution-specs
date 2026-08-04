@@ -141,6 +141,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         self,
         *,
         next_timestamp: int,
+        next_target_gas_limit: int,
         withdrawals: List[Withdrawal] | None = None,
     ) -> PayloadAttributes:
         """Build payload attributes for a block at ``next_timestamp``."""
@@ -148,6 +149,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         return PayloadAttributes.for_fork(
             next_fork,
             timestamp=next_timestamp,
+            target_gas_limit=next_target_gas_limit,
             withdrawals=withdrawals,
         )
 
@@ -217,9 +219,11 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             head_block_hash=head_block["hash"],
         )
         next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
+        next_gas_limit = int(HexNumber(head_block["gasLimit"]))
         next_fork = self.fork.fork_at(block_number=0, timestamp=next_timestamp)
         payload_attributes = self._payload_attributes(
-            next_timestamp=next_timestamp
+            next_timestamp=next_timestamp,
+            next_target_gas_limit=next_gas_limit,
         )
         forkchoice_updated_version = (
             next_fork.engine_forkchoice_updated_version()
@@ -293,8 +297,10 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             head_block = self.get_block_by_number("latest")
             assert head_block is not None
             next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
+            next_gas_limit = int(HexNumber(head_block["gasLimit"]))
             payload_attributes = self._payload_attributes(
                 next_timestamp=next_timestamp,
+                next_target_gas_limit=next_gas_limit,
             )
             new_payload = self.testing_rpc.build_block(
                 parent_block_hash=Hash(head_block["hash"]),
@@ -337,8 +343,10 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             head_block = self.get_block_by_number("latest")
             assert head_block is not None
             next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
+            next_gas_limit = int(HexNumber(head_block["gasLimit"]))
             payload_attributes = self._payload_attributes(
                 next_timestamp=next_timestamp,
+                next_target_gas_limit=next_gas_limit,
                 withdrawals=withdrawals,
             )
             # Explicit empty list, not ``None``: per spec, ``null`` lets
