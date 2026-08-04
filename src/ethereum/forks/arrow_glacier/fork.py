@@ -37,7 +37,6 @@ from .blocks import Block, Header, Log, Receipt, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
     InsufficientMaxFeePerGasError,
-    PriorityFeeGreaterThanMaxFeeError,
     WrongChainIdError,
 )
 from .state_tracker import (
@@ -475,8 +474,6 @@ def check_transaction(
         If the sender's balance is not enough to pay for the transaction.
     InvalidSenderError :
         If the transaction is from an address that does not exist anymore.
-    PriorityFeeGreaterThanMaxFeeError :
-        If the priority fee is greater than the maximum fee per gas.
     InsufficientMaxFeePerGasError :
         If the maximum fee per gas is insufficient for the transaction.
 
@@ -495,10 +492,6 @@ def check_transaction(
     sender_account = get_account(tx_state, sender_address)
 
     if isinstance(tx, FeeMarketTransaction):
-        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
-            raise PriorityFeeGreaterThanMaxFeeError(
-                "priority fee greater than max fee"
-            )
         if tx.max_fee_per_gas < block_env.base_fee_per_gas:
             raise InsufficientMaxFeePerGasError(
                 tx.max_fee_per_gas, block_env.base_fee_per_gas
