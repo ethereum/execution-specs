@@ -42,6 +42,7 @@ exceed a JSON-safe integer is hex.
 | `embedding` | object | Tree keys derived for one fixed account. |
 | `chunkify_code` | array | `chunkify_code` inputs and outputs. |
 | `encode_basic_data` | array | Packed account header leaves. |
+| `pbt_state` | array | Whole states and the roots they commit to. |
 
 ### `trie_roots`
 
@@ -133,3 +134,69 @@ the 32-byte packed leaf, laid out big-endian throughout:
 
 The balance field is 16 bytes, so a balance must be less than `2**128`
 to be encodable.
+
+### `pbt_state`
+
+The other sections pin the trie and the embedding primitives
+separately. This one pins their composition: whole Ethereum state to
+root, which is where an embedding mistake actually shows up. The roots
+come from `src/ethereum/state_pbt.py`, the reference state provider
+built on that embedding.
+
+An array of `{name, accounts, root}`.
+
+- `accounts`: an object keyed by the account's 20-byte address, as
+  hex. Order is not significant; the root is a function of the account
+  set alone.
+- `root`: the 32-byte state root of exactly that set of accounts.
+
+Each account value:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `nonce` | number | Account nonce. |
+| `balance` | hex | Account balance, as a `0x` hex string since it can exceed a JSON-safe integer. |
+| `code` | hex | The account's bytecode; `0x` for an account with none. |
+| `code_hash` | hex | `keccak256(code)`, the value of the code-hash leaf. Derived, and repeated here because the overflow chunk keys are content-addressed by it. |
+| `storage` | object | Decimal-string slot number to the slot's 32-byte value. |
+
+Nonces are JSON numbers and every case keeps them at or below
+`2**53 - 1`, the largest integer a JSON number holds exactly. Storage
+slot numbers are object keys in full decimal expansion, matching
+`embedding`'s `storage_slot_keys`, because they range over the whole
+`2**256` space.
+
+Building the state is: for each account, write its basic data leaf
+(`encode_basic_data` over `len(code)`, `nonce`, `balance`), its
+code-hash leaf, one leaf per `chunkify_code` chunk, and one leaf per
+storage slot. Two rules decide what is *not* written, and cases below
+depend on both:
+
+- **Zero is absent.** A leaf whose 32-byte value is all zeros is not
+  stored; it reads back as the zero it stood for. This reaches a
+  storage slot written to zero, a code chunk of 31 zero bytes, and the
+  basic data of an account with no code, zero nonce and zero balance.
+  A `storage` entry with a zero value is therefore still listed in the
+  case, as part of the input a consumer must reproduce the root from,
+  even though no leaf results.
+- **Code is sized, not delimited.** Because a chunk can be absent, the
+  number of chunk leaves does not give the code's length; `code_size`
+  in the basic data leaf does.
+
+The thirteen cases and what each one covers:
+
+| Name | Covers |
+| --- | --- |
+| `empty_state` | No accounts at all. The root is `EMPTY_TRIE_ROOT`, 32 zero bytes, not the hash of anything. |
+| `single_eoa` | One EOA: exactly two leaves, basic data and code hash. |
+| `eoa_zero_nonce_and_balance` | An EOA whose basic data encodes to 32 zero bytes, so only its code-hash leaf exists; that leaf alone is what distinguishes it from an absent account. |
+| `header_code_only` | Code short enough to live entirely in header chunks, with a `PUSH32` spilling across a chunk boundary so a chunk's leading push-data count is non-zero. |
+| `overflow_code_and_boundary_storage` | 129 chunks of code, one past the header, plus storage on both sides of the header boundary. Its root is independently pinned by `tests/binary_trie/test_state_pbt.py::test_embedded_state_root_is_pinned`. |
+| `storage_across_the_header_boundary` | Slots 0, 1, 63 in the header and 64, 255, 256, `2**256 - 1` in the storage zone, each with a distinct value so a swap between any two leaves is detectable. |
+| `zero_storage_slot_is_absent` | Slots declared with a zero value beside a non-zero one; the root is that of the non-zero slot alone. |
+| `full_header_stem` | 128 chunks of code and slots 0-63: every header sub-index the embedding can ever populate, `{0, 1}` and `64`-`255`, and no overflow-zone leaf. |
+| `shared_bytecode_two_accounts` | Two accounts with identical 129-chunk code. Their header chunks are per-account and disjoint; the one overflowing chunk is content-addressed and must land on a single shared leaf, so the state has 261 leaves rather than 262. |
+| `delegation_designator` | An EIP-7702 designator, `0xef0100` followed by an address: 23 bytes, one header chunk, the only protocol-reachable code change on an existing account. |
+| `code_chunks_of_zero_bytes` | 62 zero bytes of code: both chunks are 32 zero bytes and are absent, so the account commits no chunk leaf at all while its `code_size` stays 62. |
+| `max_basic_data_fields` | A balance of `2**128 - 1`, the largest the 16-byte field holds, beside the largest JSON-safe nonce. A balance of `2**128` or more cannot be committed at all. |
+| `random_6_accounts_seed_8297` | Six pseudo-random accounts with mixed code lengths, scattered storage, and full-width balances, as a broad spread over the composition. |

@@ -10,9 +10,10 @@ tree and its state embedding.
 The vectors pin the observable outputs of `ethereum.binary_trie`: tree
 roots for a spread of key shapes, the tree keys the embedding derives
 for headers, storage slots and code chunks, `chunkify_code` output, and
-the packed `encode_basic_data` leaf. Client implementations for now should
-vendor the emitted JSON as a fixture rather than re-running this
-script.
+the packed `encode_basic_data` leaf. On top of those primitives they
+pin the composition, whole Ethereum state to root, through
+`ethereum.state_pbt`. Client implementations for now should vendor the
+emitted JSON as a fixture rather than re-running this script.
 
 A pull request does not need to run this. The `Binary Trie Vectors`
 workflow regenerates the JSON on `projects/binary-trie` whenever the
@@ -33,7 +34,7 @@ import json
 import random
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, NamedTuple, Sequence, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U32, U64, U256, Uint
@@ -50,6 +51,14 @@ from ethereum.binary_trie.embedding import (
 )
 from ethereum.binary_trie.trie import BinaryTrie, root, trie_set
 from ethereum.crypto.hash import keccak256
+from ethereum.state import Account, Address
+from ethereum.state_pbt import (
+    State,
+    set_account,
+    set_storage,
+    state_root,
+    store_code,
+)
 
 VECTORS_PATH = Path(__file__).parent / "binary_trie_vectors.json"
 
@@ -61,8 +70,30 @@ V3 = bytes.fromhex("03" * 32)
 
 ADDRESS20 = bytes.fromhex("00112233445566778899aabbccddeeff00112233")
 
+# Addresses of the `pbt_state` cases. A and B match the ones the
+# spec's own `tests/binary_trie/test_state_pbt.py` uses, so a case
+# lifted from there keeps its address.
+ADDRESS_A = b"\xaa" * 20
+ADDRESS_B = b"\xbb" * 20
+ADDRESS_C = b"\xcc" * 20
+
 PUSH4 = bytes([0x63])
 PUSH32 = bytes([0x7F])
+
+# Code sized to each side of the header/overflow boundary. The header
+# holds chunks 0-127, so 128 chunks is the largest code that stays in
+# it and 129 chunks the smallest that reaches the code zone.
+HEADER_ONLY_CODE = b"\x01" * (31 * 128)
+OVERFLOW_CODE = b"\x01" * (31 * 129)
+
+# PUSH32 at position 30, so its data spills across the first chunk
+# boundary and the second chunk opens with a non-zero push-data count.
+PUSH32_SPILL_CODE = b"\x01" * 30 + PUSH32 + bytes(range(32)) + b"\x01" * 5
+
+# Largest integer a JSON number holds exactly, used as a nonce that
+# stresses the packed field without leaving what a JSON parser can
+# represent.
+MAX_JSON_SAFE_INT = 2**53 - 1
 
 
 def hx(b: bytes) -> str:
@@ -235,6 +266,223 @@ def basic_data_cases() -> List[Dict[str, Any]]:
     ]
 
 
+class AccountSpec(NamedTuple):
+    """
+    Flat description of one account of a `pbt_state` case.
+
+    `storage` is an ordered sequence of `(slot, value)` pairs rather
+    than a mapping, so the order of the emitted JSON object is fixed
+    by the case itself.
+    """
+
+    address: bytes
+    nonce: int = 0
+    balance: int = 0
+    code: bytes = b""
+    storage: Tuple[Tuple[int, int], ...] = ()
+
+
+def pbt_state_case(
+    name: str, accounts: Sequence[AccountSpec]
+) -> Dict[str, Any]:
+    """
+    Build one `pbt_state` case: the flat account description as given,
+    beside the root `ethereum.state_pbt` commits that state to.
+
+    The root comes from `state_pbt`'s own `state_root`, driven through
+    `store_code`, `set_account` and `set_storage`, so what the case
+    pins is the composition of embedding and tree rather than a
+    re-derivation of it here.
+
+    The description is emitted as written, not as the state ends up
+    holding it: a slot declared zero stays in the JSON even though
+    `set_storage` drops it, since a consumer must reach the same root
+    from the same input.
+    """
+    state = State()
+    for spec in accounts:
+        address = Address(spec.address)
+        code_hash = store_code(state, Bytes(spec.code))
+        set_account(
+            state,
+            address,
+            Account(
+                nonce=Uint(spec.nonce),
+                balance=U256(spec.balance),
+                code_hash=code_hash,
+            ),
+        )
+        for slot, value in spec.storage:
+            set_storage(
+                state,
+                address,
+                Bytes32(U256(slot).to_be_bytes32()),
+                U256(value),
+            )
+    return {
+        "name": name,
+        "accounts": {
+            hx(spec.address): {
+                "nonce": spec.nonce,
+                "balance": hex(spec.balance),
+                "code": hx(spec.code),
+                "code_hash": hx(keccak256(Bytes(spec.code))),
+                "storage": {
+                    str(slot): hx(U256(value).to_be_bytes32())
+                    for slot, value in spec.storage
+                },
+            }
+            for spec in accounts
+        },
+        "root": hx(state_root(state)),
+    }
+
+
+def random_state_accounts() -> List[AccountSpec]:
+    """
+    Build a deterministic pseudo-random spread of accounts: mixed code
+    lengths, storage scattered over the whole slot space, and balances
+    and nonces filling their packed fields.
+
+    Slots are deduplicated because they become JSON object keys, and
+    drawn from `1` upwards because a zero value is a deletion.
+    """
+    rng = random.Random(8297)
+    specs = []
+    for _ in range(6):
+        address = bytes(rng.randrange(256) for _ in range(20))
+        code_length = rng.choice([0, 1, 31, 32, 100])
+        code = bytes(rng.randrange(256) for _ in range(code_length))
+        storage: Dict[int, int] = {}
+        while len(storage) < rng.randrange(4):
+            storage[rng.randrange(2**256)] = rng.randrange(1, 2**256)
+        specs.append(
+            AccountSpec(
+                address=address,
+                nonce=rng.randrange(2**32),
+                balance=rng.randrange(2**128),
+                code=code,
+                storage=tuple(storage.items()),
+            )
+        )
+    return specs
+
+
+def pbt_state_cases() -> List[Dict[str, Any]]:
+    """
+    Build the whole-state cases: flat state descriptions and the roots
+    `ethereum.state_pbt` commits them to.
+
+    Between them they cover both sides of every boundary the embedding
+    draws, the two ways a leaf collapses to absence, and the sharing of
+    content-addressed overflow code.
+    """
+    boundary_slots = (0, 1, 63, 64, 255, 256, 2**256 - 1)
+    return [
+        pbt_state_case("empty_state", []),
+        pbt_state_case(
+            "single_eoa",
+            [AccountSpec(address=ADDRESS_A, nonce=3, balance=10**18)],
+        ),
+        pbt_state_case(
+            "eoa_zero_nonce_and_balance",
+            [AccountSpec(address=ADDRESS_A)],
+        ),
+        pbt_state_case(
+            "header_code_only",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    balance=2**64,
+                    code=PUSH32_SPILL_CODE,
+                )
+            ],
+        ),
+        pbt_state_case(
+            "overflow_code_and_boundary_storage",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    code=OVERFLOW_CODE,
+                    storage=((63, 1), (64, 2), (256, 3)),
+                )
+            ],
+        ),
+        pbt_state_case(
+            "storage_across_the_header_boundary",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    storage=tuple(
+                        (slot, index + 1)
+                        for index, slot in enumerate(boundary_slots)
+                    ),
+                )
+            ],
+        ),
+        pbt_state_case(
+            "zero_storage_slot_is_absent",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    storage=((7, 0), (8, 9), (300, 0)),
+                )
+            ],
+        ),
+        pbt_state_case(
+            "full_header_stem",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    code=HEADER_ONLY_CODE,
+                    storage=tuple((slot, slot + 1) for slot in range(64)),
+                )
+            ],
+        ),
+        pbt_state_case(
+            "shared_bytecode_two_accounts",
+            [
+                AccountSpec(
+                    address=ADDRESS_A, nonce=1, balance=1, code=OVERFLOW_CODE
+                ),
+                AccountSpec(
+                    address=ADDRESS_B, nonce=2, balance=2, code=OVERFLOW_CODE
+                ),
+            ],
+        ),
+        pbt_state_case(
+            "delegation_designator",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    code=b"\xef\x01\x00" + ADDRESS_C,
+                )
+            ],
+        ),
+        pbt_state_case(
+            "code_chunks_of_zero_bytes",
+            [AccountSpec(address=ADDRESS_A, nonce=1, code=b"\x00" * 62)],
+        ),
+        pbt_state_case(
+            "max_basic_data_fields",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=MAX_JSON_SAFE_INT,
+                    balance=2**128 - 1,
+                )
+            ],
+        ),
+        pbt_state_case("random_6_accounts_seed_8297", random_state_accounts()),
+    ]
+
+
 def build_vectors() -> Dict[str, Any]:
     """
     Build the full vector set, without the `source_commit` stamp.
@@ -248,6 +496,7 @@ def build_vectors() -> Dict[str, Any]:
         "embedding": embedding_cases(),
         "chunkify_code": chunkify_cases(),
         "encode_basic_data": basic_data_cases(),
+        "pbt_state": pbt_state_cases(),
     }
 
 
