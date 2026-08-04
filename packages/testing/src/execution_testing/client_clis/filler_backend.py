@@ -18,7 +18,7 @@ fill's perspective.
 callers continue to work unchanged.
 """
 
-from typing import List, Protocol, runtime_checkable
+from typing import ClassVar, List, Protocol, runtime_checkable
 
 from execution_testing.exceptions import ExceptionMapper
 
@@ -42,6 +42,22 @@ class FillerBackend(Protocol):
     Maps backend-specific errors to EEST transaction/block exceptions.
     ``exception_mapper.reliable`` indicates whether the mapping is trusted
     for test assertions (t8n: True; live-client: typically False).
+    """
+
+    attests_block_access_list_hash: ClassVar[bool]
+    """
+    Whether ``Result.block_access_list_hash`` is an *independent* attestation
+    of the EIP-7928 BAL hash, i.e. computed by the backend rather than derived
+    by EEST from the BAL body the backend returned.
+
+    True for ``TransitionTool``: t8n reports the hash from the spec's own
+    ``hash_block_access_list``, so comparing it against EEST's re-encoding of
+    the decoded BAL cross-checks two implementations.
+
+    False for ``ClientBackend``: an engine ``ExecutionPayload`` carries the BAL
+    *body* but no hash, so EEST derives the hash itself. Verifying that against
+    a second derivation from the same bytes is vacuous, and the round trip it
+    requires dominates stateful fill time on BAL-heavy blocks.
     """
 
     def evaluate(

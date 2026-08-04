@@ -207,6 +207,9 @@ class TransitionTool(EthereumCLI):
     supports_opcode_count: ClassVar[bool] = False
     supports_xdist: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = False
+    # t8n computes the BAL hash itself (spec ``hash_block_access_list``), so it
+    # is worth cross-checking against EEST's own re-encoding of the BAL.
+    attests_block_access_list_hash: ClassVar[bool] = True
     fork_name_map: ClassVar[Dict[str, str]] = {}
 
     @abstractmethod
