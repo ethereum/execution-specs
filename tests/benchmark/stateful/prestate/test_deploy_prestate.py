@@ -110,9 +110,23 @@ WITHDRAWAL_AMOUNT_GWEI = 2**64 - 1
 LEGACY_FILL_SEED = Address(0x86CF016FB873D50A7B8F31EB154C9234DD31B058)
 
 # Per-block ceiling on state gas. The header's gasUsed is
-# max(execution, state), so this is what decides block count. Kept below
-# jochemnet's 1e12 limit with headroom for the execution side.
+# max(execution, state), so this bounds block count for the 24 KiB
+# families (~23.8k deploys/block). Kept below jochemnet's 1e12 limit
+# with headroom for the execution side.
 STATE_GAS_PER_BLOCK = 900_000_000_000
+
+# Balance for the dedicated deployer, funded from the seed via
+# `pre.fund_eoa`. Generous: 150k deploys at ~42.8M gas each is a few
+# thousand ETH at any sane fee, and the seed holds billions.
+DEPLOYER_BALANCE = 10**24
+
+# Hard cap on transactions per block, independent of gas. State gas does
+# not bind for cheap deploys -- a 1-byte contract costs only 185,130, so
+# the budget above would allow ~4.9M of them in one block -- but every
+# block is submitted as a single `testing_buildBlockV1` request, and
+# geth's HTTP body limit is 5 MiB. At roughly 315 bytes per encoded
+# transaction, 5,000 keeps a request near 1.6 MiB.
+MAX_TXS_PER_BLOCK = 5_000
 
 # Execution-gas allowance per CREATE2 deploy: CREATE2 (32000), the
 # 200/byte code deposit, initcode execution (an MCOPY doubling loop) and
@@ -167,8 +181,9 @@ def deploy_gas_limit(fork: Fork, *, code_size: int, initcode: bytes) -> int:
 def chunk_into_blocks(
     txs: list[Transaction], state_gas_each: int
 ) -> Generator[list[Transaction], None, None]:
-    """Split transactions into blocks bounded by STATE_GAS_PER_BLOCK."""
+    """Split transactions into blocks bounded by state gas and request size."""
     per_block = max(1, STATE_GAS_PER_BLOCK // max(1, state_gas_each))
+    per_block = min(per_block, MAX_TXS_PER_BLOCK)
     for start in range(0, len(txs), per_block):
         yield txs[start : start + per_block]
 
@@ -200,13 +215,20 @@ def test_deploy_create2_targets(
     )
     state_each = state_gas_budget(fork, code_size=code_size)
 
-    senders = yield_distinct_sender()
+    # One dedicated deployer, funded from the seed. Every address in `pre`
+    # is re-read over RPC each block by `get_alloc` (getBalance + getCode +
+    # getTransactionCount), so a distinct sender per deploy costs ~3 round
+    # trips per deploy and dominates the fill. One sender keeps that at
+    # three calls per block. It also leaves the benchmark sender pool
+    # untouched -- EEST keeps those accounts out of the pre-alloc so they
+    # stay uncached, and deploying from them would warm all 15,000.
+    deployer = pre.fund_eoa(DEPLOYER_BALANCE)
     txs = [
         Transaction(
             to=DETERMINISTIC_FACTORY_ADDRESS,
             data=salt.to_bytes(32, "big") + initcode,
             gas_limit=gas_limit,
-            sender=next(senders),
+            sender=deployer,
         )
         for salt in range(TARGET_COUNT)
     ]
@@ -242,7 +264,7 @@ def test_delegate_7702_authorities(
     delegate_target = diff_max.target_address_of()
 
     authorities = yield_distinct_delegate_receiver()
-    senders = yield_distinct_sender()
+    deployer = pre.fund_eoa(DEPLOYER_BALANCE)
 
     # An authority whose account is empty pays NEW_ACCOUNT on top of
     # AUTH_BASE; both are state gas and must be funded above the cap.
@@ -260,7 +282,7 @@ def test_delegate_7702_authorities(
         Transaction(
             to=Address(0),
             gas_limit=gas_limit,
-            sender=next(senders),
+            sender=deployer,
             authorization_list=[
                 AuthorizationTuple(
                     address=delegate_target(index),
