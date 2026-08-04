@@ -53,7 +53,7 @@ def bls12_g1_add(evm: Evm) -> None:
         If the input length is invalid.
 
     """
-    data = evm.message.data
+    data = evm.call_data
     if len(data) != 256:
         raise InvalidParameter("Invalid Input Length")
 
@@ -88,7 +88,7 @@ def bls12_g1_msm(evm: Evm) -> None:
         If the input length is invalid.
 
     """
-    data = evm.message.data
+    data = evm.call_data
     if len(data) == 0 or len(data) % LENGTH_PER_PAIR != 0:
         raise InvalidParameter("Invalid Input Length")
 
@@ -133,7 +133,7 @@ def bls12_map_fp_to_g1(evm: Evm) -> None:
         If the input length is invalid.
 
     """
-    data = evm.message.data
+    data = evm.call_data
     if len(data) != 64:
         raise InvalidParameter("Invalid Input Length")
 

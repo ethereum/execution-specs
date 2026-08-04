@@ -25,7 +25,7 @@ def modexp(evm: Evm) -> None:
     Calculates `(base**exp) % modulus` for arbitrary sized `base`, `exp` and
     `modulus`. The return value is the same length as the modulus.
     """
-    data = evm.message.data
+    data = evm.call_data
 
     # GAS
     base_length = U256.from_be_bytes(buffer_read(data, U256(0), U256(32)))
