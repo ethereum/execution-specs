@@ -81,12 +81,19 @@ def test_split_preserves_every_tx_in_order() -> None:
     assert [tx for block in out for tx in block.txs] == txs
 
 
-def test_oversized_tx_gets_its_own_block() -> None:
-    """A tx past the budget on its own is isolated, not dropped."""
-    small, huge = _tx(21_000), _tx(BLOCK_GAS_LIMIT * 3)
+def test_tx_at_the_limit_gets_its_own_block() -> None:
+    """A tx past the budget but within the limit is isolated, not dropped."""
+    small, huge = _tx(21_000), _tx(BLOCK_GAS_LIMIT)
     out = _split(Block(txs=[small, huge, small]))
     assert [len(block.txs) for block in out] == [1, 1, 1]
     assert out[1].txs[0] is huge
+
+
+def test_tx_past_the_limit_raises() -> None:
+    """A tx no block can hold fails loudly instead of being emitted."""
+    block = Block(txs=[_tx(21_000), _tx(BLOCK_GAS_LIMIT * 3)])
+    with pytest.raises(ValueError, match="no split can make it fit"):
+        _split(block)
 
 
 @pytest.mark.parametrize(

@@ -749,6 +749,12 @@ def _split_setup_blocks_by_gas(
         current_run: List[Transaction] = []
         current_gas = 0
         for tx in block.txs:
+            if tx.gas_limit > block_gas_limit:
+                raise ValueError(
+                    f"Setup tx gas_limit ({int(tx.gas_limit)}) exceeds "
+                    f"the snapshot chain's block gas limit "
+                    f"({block_gas_limit}); no split can make it fit."
+                )
             if current_run and current_gas + tx.gas_limit > budget:
                 runs.append(current_run)
                 current_run, current_gas = [], 0
@@ -760,7 +766,24 @@ def _split_setup_blocks_by_gas(
             out.append(block)
             continue
 
-        out.extend(block.model_copy(update={"txs": run}) for run in runs)
+        out.extend(
+            block.model_copy(
+                update={
+                    "txs": run_txs,
+                    "header_verify": None,
+                    "rlp_modifier": None,
+                    "expected_block_access_list": None,
+                    "expected_post_state": None,
+                    "expected_gas_used": None,
+                    "exception": None,
+                    "skip_exception_verification": False,
+                    "engine_api_error_code": None,
+                }
+            )
+            for run_txs in runs[:-1]
+        )
+        out.append(block.model_copy(update={"txs": runs[-1]}))
+
     return out
 
 
