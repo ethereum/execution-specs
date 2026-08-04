@@ -837,6 +837,43 @@ class EthRPC(BaseRPC):
             )
         ).result_or_raise()
 
+    def get_transaction_receipts(
+        self,
+        transaction_hashes: Sequence[Hash],
+        *,
+        chunk_size: int = 500,
+    ) -> List[dict[str, Any] | None]:
+        """
+        `eth_getTransactionReceipt` batch: receipts for many transactions.
+
+        Returns one entry per input hash, in the same order (see
+        `post_batch_request`, which maps responses back by request id).
+
+        Requests are chunked because clients cap batch size -- geth's
+        `--rpc.batchrequestlimit` defaults to 1000 -- and because a single
+        response carrying thousands of receipts is several megabytes.
+        """
+        if not transaction_hashes:
+            return []
+        logger.info(
+            f"Batch requesting {len(transaction_hashes)} tx receipts "
+            f"in chunks of {chunk_size}"
+        )
+        receipts: List[dict[str, Any] | None] = []
+        for start in range(0, len(transaction_hashes), chunk_size):
+            chunk = transaction_hashes[start : start + chunk_size]
+            responses = self.post_batch_request(
+                calls=[
+                    RPCCall(
+                        method="getTransactionReceipt",
+                        params=[f"{tx_hash}"],
+                    )
+                    for tx_hash in chunk
+                ]
+            )
+            receipts.extend(r.result_or_raise() for r in responses)
+        return receipts
+
     def get_storage_at(
         self,
         address: Address,
