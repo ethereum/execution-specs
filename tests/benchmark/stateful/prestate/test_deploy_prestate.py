@@ -102,6 +102,13 @@ MISSING_CONTRACT_MODES = [
 FUNDED_SENDER_COUNT = 15_000
 WITHDRAWAL_AMOUNT_GWEI = 2**64 - 1
 
+# The historical funding payload credited 15,001 addresses: the 15,000
+# senders plus this one, first, at withdrawal index 2. It is neither a
+# sender nor a delegate authority nor the Anvil dev key -- it is that
+# run's `--rpc-seed-key` account, funded so the filler itself can
+# operate. Credited here too so this block is a superset of the original.
+LEGACY_FILL_SEED = Address(0x86CF016FB873D50A7B8F31EB154C9234DD31B058)
+
 # Per-block ceiling on state gas. The header's gasUsed is
 # max(execution, state), so this is what decides block count. Kept below
 # jochemnet's 1e12 limit with headroom for the execution side.
@@ -295,16 +302,17 @@ def test_fund_sender_pool(
     the senders stay uncached: they are never touched by a transaction
     until the benchmark that uses them.
     """
+    recipients = [LEGACY_FILL_SEED, *itertools.islice(
+        yield_distinct_sender(), FUNDED_SENDER_COUNT
+    )]
     withdrawals = [
         Withdrawal(
             index=index,
             validator_index=index,
-            address=sender,
+            address=recipient,
             amount=WITHDRAWAL_AMOUNT_GWEI,
         )
-        for index, sender in enumerate(
-            itertools.islice(yield_distinct_sender(), FUNDED_SENDER_COUNT)
-        )
+        for index, recipient in enumerate(recipients)
     ]
 
     benchmark_test(
