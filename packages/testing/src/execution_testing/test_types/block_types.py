@@ -20,6 +20,7 @@ from execution_testing.base_types import (
     NumberBoundTypeVar,
     ZeroPaddedHexNumber,
 )
+from execution_testing.base_types.ssz import SszModel, Uint64
 from execution_testing.forks import Fork
 
 DEFAULT_BASE_FEE = 7
@@ -72,10 +73,12 @@ class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         return t.root_hash
 
 
-class Withdrawal(WithdrawalGeneric[HexNumber]):
-    """Withdrawal type."""
+class Withdrawal(WithdrawalGeneric[HexNumber], SszModel):
+    """Withdrawal type; also the consensus-layer SSZ container."""
 
-    pass
+    index: Uint64
+    validator_index: Uint64
+    amount: Uint64
 
 
 class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):

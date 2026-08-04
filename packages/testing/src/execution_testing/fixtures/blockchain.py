@@ -47,13 +47,27 @@ from execution_testing.base_types import (
     HexNumber,
     Number,
     ZeroPaddedHexNumber,
+    ssz,
     unwrap_annotation,
+)
+from execution_testing.base_types.ssz import (
+    SszForkSchema,
+    SszModel,
+    Uint64,
+    Uint256,
+    byte_list,
+    ssz_list,
 )
 from execution_testing.exceptions import (
     EngineAPIError,
     ExceptionInstanceOrList,
 )
-from execution_testing.forks import Fork, Paris, TransitionFork
+from execution_testing.forks import (
+    Fork,
+    Paris,
+    TransitionFork,
+    ssz_schema_fork_key,
+)
 from execution_testing.test_types import (
     BlockAccessList,
     Environment,
@@ -385,7 +399,50 @@ class FixtureHeader(CamelModel):
         return cls(**environment_values, **extras)
 
 
-class FixtureExecutionPayload(CamelModel):
+MAX_EXTRA_DATA_BYTES = 2**5
+"""Maximum ``extra_data`` length in the SSZ execution payload."""
+
+MAX_BYTES_PER_TRANSACTION = 2**30
+"""Maximum encoded size of a single transaction (consensus-specs)."""
+
+MAX_TRANSACTIONS_PER_PAYLOAD = 2**20
+"""Maximum transaction count per payload (consensus-specs)."""
+
+MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
+"""Maximum withdrawal count per payload (consensus-specs)."""
+
+MAX_BLOCK_ACCESS_LIST_BYTES = MAX_BYTES_PER_TRANSACTION
+"""Placeholder cap for the RLP-encoded block access list byte list."""
+
+
+class ForkScopedSszModel(SszModel):
+    """SSZ model whose methods resolve ``Fork`` classes to schema keys."""
+
+    @classmethod
+    def ssz_fork_key(cls, fork: Fork) -> str:
+        """Return this model's SSZ schema key for ``fork``."""
+        schema = cls.__ssz_schema__
+        if schema is None:
+            raise TypeError(
+                f"{cls.__name__} does not declare an SSZ fork schema"
+            )
+        return ssz_schema_fork_key(schema, fork)
+
+    def ssz_encode(self, fork: Fork) -> Bytes:
+        """Return the SSZ encoding of this model at ``fork``."""
+        return Bytes(ssz.encode(self, self.ssz_fork_key(fork)))
+
+    def ssz_hash_tree_root(self, fork: Fork) -> Hash:
+        """Return the SSZ hash tree root of this model at ``fork``."""
+        return Hash(ssz.hash_tree_root(self, self.ssz_fork_key(fork)))
+
+    @classmethod
+    def ssz_decode(cls, data: bytes, fork: Fork) -> Self:
+        """Decode an SSZ-encoded instance of this model at ``fork``."""
+        return ssz.decode(cls, data, cls.ssz_fork_key(fork))
+
+
+class FixtureExecutionPayload(ForkScopedSszModel):
     """
     Representation of an Ethereum execution payload within a test Fixture.
     """
@@ -401,26 +458,57 @@ class FixtureExecutionPayload(CamelModel):
     receipts_root: Hash
     logs_bloom: Bloom
 
-    number: HexNumber = Field(..., alias="blockNumber")
-    gas_limit: HexNumber
-    gas_used: HexNumber
-    timestamp: HexNumber
-    extra_data: Bytes
+    number: Uint64 = Field(..., alias="blockNumber")
+    gas_limit: Uint64
+    gas_used: Uint64
+    timestamp: Uint64
+    extra_data: Annotated[Bytes, byte_list(MAX_EXTRA_DATA_BYTES)]
     prev_randao: Hash
 
-    base_fee_per_gas: HexNumber
-    blob_gas_used: HexNumber | None = Field(None)
-    excess_blob_gas: HexNumber | None = Field(None)
+    base_fee_per_gas: Uint256
+    blob_gas_used: Uint64 | None = Field(None)
+    excess_blob_gas: Uint64 | None = Field(None)
 
     block_hash: Hash
 
-    transactions: List[Bytes]
-    withdrawals: List[Withdrawal] | None = None
+    transactions: Annotated[
+        List[Annotated[Bytes, byte_list(MAX_BYTES_PER_TRANSACTION)]],
+        ssz_list(MAX_TRANSACTIONS_PER_PAYLOAD),
+    ]
+    withdrawals: (
+        Annotated[List[Withdrawal], ssz_list(MAX_WITHDRAWALS_PER_PAYLOAD)]
+        | None
+    ) = None
 
-    block_access_list: Bytes | None = Field(
-        None, description="RLP-serialized EIP-7928 Block Access List"
+    block_access_list: (
+        Annotated[Bytes, byte_list(MAX_BLOCK_ACCESS_LIST_BYTES)] | None
+    ) = Field(None, description="RLP-serialized EIP-7928 Block Access List")
+    slot_number: Uint64 | None = Field(None)
+
+    __ssz_schema__ = SszForkSchema(
+        base_fork="Paris",
+        base=(
+            "parent_hash",
+            "fee_recipient",
+            "state_root",
+            "receipts_root",
+            "logs_bloom",
+            "prev_randao",
+            "number",
+            "gas_limit",
+            "gas_used",
+            "timestamp",
+            "extra_data",
+            "base_fee_per_gas",
+            "block_hash",
+            "transactions",
+        ),
+        appended={
+            "Shanghai": ("withdrawals",),
+            "Cancun": ("blob_gas_used", "excess_blob_gas"),
+            "Amsterdam": ("block_access_list", "slot_number"),
+        },
     )
-    slot_number: HexNumber | None = Field(None)
 
     @classmethod
     def from_fixture_header(

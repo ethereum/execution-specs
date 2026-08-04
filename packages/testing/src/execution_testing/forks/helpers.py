@@ -23,6 +23,8 @@ from pydantic import (
     model_validator,
 )
 
+from execution_testing.base_types.ssz import SszForkSchema
+
 from .base_fork import BaseFork
 from .forks import eips, forks, transition
 from .transition_base_fork import TransitionBaseClass
@@ -386,6 +388,25 @@ def get_fork_by_name(fork_name: str) -> Type[BaseFork] | None:
         if fork.name() == fork_name:
             return fork
     return None
+
+
+def ssz_schema_fork_key(schema: SszForkSchema, fork: Type[BaseFork]) -> str:
+    """
+    Return the newest schema fork key at or before ``fork``.
+
+    Transition forks compare as their destination fork.
+    """
+    for key in reversed(schema.forks()):
+        key_fork = get_fork_by_name(key)
+        if key_fork is None:
+            raise ValueError(
+                f"SSZ schema fork key {key!r} is not a known fork"
+            )
+        if fork >= key_fork:
+            return key
+    raise ValueError(
+        f"{fork.name()} predates the SSZ schema base fork {schema.base_fork!r}"
+    )
 
 
 class ForkRangeDescriptor(BaseModel):
