@@ -36,7 +36,7 @@ from .spec import ref_spec_2780
 REFERENCE_SPEC_GIT_PATH = ref_spec_2780.git_path
 REFERENCE_SPEC_VERSION = ref_spec_2780.version
 
-pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
+pytestmark = [pytest.mark.valid_at("EIP2780"), pytest.mark.mainnet]
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
