@@ -6,18 +6,21 @@ submitted.
 import time
 from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, List, Sequence, Tuple
+from typing import Any, List, Mapping, Sequence, Tuple
 from urllib.parse import urlparse
 
 from filelock import FileLock
+from pydantic import ValidationError
 
 from execution_testing.base_types import (
     Address,
     Bytes,
     Hash,
     HexNumber,
+    to_json,
 )
 from execution_testing.client_clis.cli_types import EnginePayloadMetadata
+from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import (
     DEFAULT_REQUEST_TIMEOUT,
@@ -34,6 +37,73 @@ from execution_testing.rpc.rpc_types import (
     TransactionProtocol,
 )
 from execution_testing.test_types import Withdrawal
+
+
+def _genesis_header_differences(
+    expected: FixtureHeader,
+    actual_block: Mapping[str, Any],
+) -> List[str]:
+    """
+    Return the per-field differences between the expected genesis header and
+    the genesis block returned by the client, using the header's own field
+    names.
+
+    Return an empty list when the client's block cannot be parsed as a
+    header, in which case the caller only reports the block hashes.
+    """
+    try:
+        actual_header = FixtureHeader.model_validate(actual_block)
+    except ValidationError:
+        return []
+    expected_json = to_json(expected)
+    actual_json = to_json(actual_header)
+    # A field can be missing from either side: the fork may require a header
+    # field we never set, or the client may not report one we do set.
+    fields = list(expected_json) + [
+        field for field in actual_json if field not in expected_json
+    ]
+    differences = [
+        f"{field}: expected {expected_json.get(field, '<unset>')}, "
+        f"got {actual_json.get(field, '<unset>')}"
+        # The block hash is reported separately by the caller.
+        for field in fields
+        if field != "hash"
+        and expected_json.get(field) != actual_json.get(field)
+    ]
+    if actual_header.block_hash != Hash(actual_block["hash"]):
+        differences.append(
+            "note: the client's header does not hash to the block hash it "
+            "reports when re-encoded locally, so the fields listed above may "
+            "be incomplete"
+        )
+    return differences
+
+
+class GenesisMismatchError(Exception):
+    """
+    The client's genesis block does not match the one built locally.
+    """
+
+    def __init__(
+        self,
+        expected: FixtureHeader,
+        actual_block: Mapping[str, Any],
+    ) -> None:
+        """Initialize the exception with both genesis headers."""
+        self.expected = expected
+        self.actual_block = actual_block
+        message = (
+            "the client's genesis block does not match the one built "
+            "locally:"
+            f"\n  expected block hash: {expected.block_hash}"
+            f"\n  client block hash:   {Hash(actual_block['hash'])}"
+        )
+        differences = _genesis_header_differences(expected, actual_block)
+        if differences:
+            message += "\n  differing header fields:"
+            for difference in differences:
+                message += f"\n    {difference}"
+        super().__init__(message)
 
 
 class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
@@ -62,6 +132,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         max_transactions_per_batch: int | None = None,
         request_timeout: TimeoutType = DEFAULT_REQUEST_TIMEOUT,
         testing_rpc: TestingRPC | None = None,
+        expected_genesis_header: FixtureHeader | None = None,
     ):
         """Initialize the Ethereum RPC client for the hive simulator."""
         super().__init__(
@@ -90,6 +161,8 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                     "Error occurred during initial forkchoice_updated"
                 )
             if not base_file.exists():
+                if expected_genesis_header is not None:
+                    self.verify_genesis_block(expected_genesis_header)
                 base_error_file.touch()  # Assume error
                 # Get the head block hash
                 head_block = self.get_block_by_number("latest")
@@ -125,6 +198,17 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                     raise Exception("Initial forkchoice_updated was invalid")
                 base_error_file.unlink()  # Success
                 base_file.touch()
+
+    def verify_genesis_block(self, expected: FixtureHeader) -> None:
+        """
+        Verify the client's genesis block matches the one built locally.
+        """
+        genesis_block = self.get_block_by_number(0)
+        assert genesis_block is not None, (
+            "client did not return its genesis block"
+        )
+        if Hash(genesis_block["hash"]) != expected.block_hash:
+            raise GenesisMismatchError(expected, genesis_block)
 
     @property
     def transaction_polling_context(self) -> AbstractContextManager:
