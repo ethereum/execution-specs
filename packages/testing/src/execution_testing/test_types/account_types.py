@@ -123,10 +123,13 @@ class Alloc(BaseAlloc):
 
     _phase: _Phase = PrivateAttr(default=_Phase.CONSTRUCTION)
     _code_store: Dict[Hash32, Bytes] = PrivateAttr(default_factory=dict)
-    _state_commitment: StateCommitment = PrivateAttr(
-        default=StateCommitment.MPT
-    )
-    """Commitment scheme this allocation's state root is computed under."""
+    _state_commitment: StateCommitment | None = PrivateAttr(default=None)
+    """
+    Commitment scheme this allocation's state root is computed under.
+
+    Unset by default: it must be seeded from the accompanying fork before any
+    state-root computation.
+    """
 
     @dataclass(kw_only=True)
     class UnexpectedAccountError(Exception):
@@ -371,6 +374,11 @@ class Alloc(BaseAlloc):
         """
         Return the spec state module implementing `self._state_commitment`.
         """
+        if self._state_commitment is None:
+            raise ValueError(
+                "Alloc state commitment is unset; seed it from the "
+                "accompanying fork."
+            )
         if self._state_commitment is StateCommitment.MPT:
             return spec_state_mpt
         raise NotImplementedError("State commitment type not yet implemented.")
@@ -582,11 +590,16 @@ class Alloc(BaseAlloc):
         """Lock the allocation: no further mutations allowed."""
         self._phase = _Phase.FROZEN
 
-    def state_commitment(self) -> StateCommitment:
-        """Return the commitment scheme this allocation is committed under."""
+    def state_commitment(self) -> StateCommitment | None:
+        """
+        Return the commitment scheme this allocation is committed under, or
+        `None` if it has not been seeded from a fork yet.
+        """
         return self._state_commitment
 
-    def migrate_state_commitment(self, commitment: StateCommitment) -> None:
+    def migrate_state_commitment(
+        self, commitment: StateCommitment | None
+    ) -> None:
         """
         Switch the commitment scheme used to compute the state root.
         """
