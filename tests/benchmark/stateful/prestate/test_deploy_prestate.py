@@ -120,13 +120,23 @@ STATE_GAS_PER_BLOCK = 900_000_000_000
 # thousand ETH at any sane fee, and the seed holds billions.
 DEPLOYER_BALANCE = 10**24
 
-# Hard cap on transactions per block, independent of gas. State gas does
-# not bind for cheap deploys -- a 1-byte contract costs only 185,130, so
-# the budget above would allow ~4.9M of them in one block -- but every
-# block is submitted as a single `testing_buildBlockV1` request, and
-# geth's HTTP body limit is 5 MiB. At roughly 315 bytes per encoded
-# transaction, 5,000 keeps a request near 1.6 MiB.
-MAX_TXS_PER_BLOCK = 5_000
+# Hard caps on transactions per block, independent of gas. Two different
+# 5 MiB client limits bind here, neither of them gas:
+#
+#   * `testing_buildBlockV1` carries the transactions      (RPC endpoint)
+#   * `engine_newPayloadV5` carries the block access list  (engine endpoint)
+#
+# The BAL records the *deployed code* of every account created in the
+# block, so it scales with code size, not transaction count. Measured on a
+# 1-byte family: 5,000 deploys => 383 KB BAL, 2.15 MB on the wire. At
+# 24,576 bytes that same block would be ~123 MB of BAL (~246 MB hex-encoded)
+# and newPayload returns 413. 50 deploys keeps it near 1.2 MB (~2.5 MB on
+# the wire).
+MAX_DEPLOYS_PER_BLOCK = 50
+
+# Authorisations create no code, so their BAL entries are small and the
+# transaction payload dominates again.
+MAX_AUTHS_PER_BLOCK = 5_000
 
 # Execution-gas allowance per CREATE2 deploy: CREATE2 (32000), the
 # 200/byte code deposit, initcode execution (an MCOPY doubling loop) and
@@ -179,11 +189,11 @@ def deploy_gas_limit(fork: Fork, *, code_size: int, initcode: bytes) -> int:
 
 
 def chunk_into_blocks(
-    txs: list[Transaction], state_gas_each: int
+    txs: list[Transaction], state_gas_each: int, max_per_block: int
 ) -> Generator[list[Transaction], None, None]:
     """Split transactions into blocks bounded by state gas and request size."""
     per_block = max(1, STATE_GAS_PER_BLOCK // max(1, state_gas_each))
-    per_block = min(per_block, MAX_TXS_PER_BLOCK)
+    per_block = min(per_block, max_per_block)
     for start in range(0, len(txs), per_block):
         yield txs[start : start + per_block]
 
@@ -233,7 +243,12 @@ def test_deploy_create2_targets(
         for salt in range(TARGET_COUNT)
     ]
 
-    blocks = [Block(txs=chunk) for chunk in chunk_into_blocks(txs, state_each)]
+    blocks = [
+        Block(txs=chunk)
+        for chunk in chunk_into_blocks(
+            txs, state_each, MAX_DEPLOYS_PER_BLOCK
+        )
+    ]
 
     benchmark_test(
         pre=pre,
@@ -294,7 +309,10 @@ def test_delegate_7702_authorities(
     ]
 
     blocks = [
-        Block(txs=chunk) for chunk in chunk_into_blocks(txs, per_auth_state_gas)
+        Block(txs=chunk)
+        for chunk in chunk_into_blocks(
+            txs, per_auth_state_gas, MAX_AUTHS_PER_BLOCK
+        )
     ]
 
     benchmark_test(
