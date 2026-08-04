@@ -51,6 +51,6 @@ class Spec:
     # EIP-8038 then repriced them.
     EXECUTION_GAS_CREATE = 12000
     # Total execution intrinsic per EIP-7702 authorization:
-    # ACCOUNT_WRITE (9000) + EXECUTION_PER_AUTH_BASE_COST (7816).
+    # ACCOUNT_WRITE + EXECUTION_PER_AUTH_BASE_COST.
     PER_AUTH_BASE_COST = 16816
     GAS_COLD_STORAGE_WRITE = 12100

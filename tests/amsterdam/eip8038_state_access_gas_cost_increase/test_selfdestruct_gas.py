@@ -5,19 +5,18 @@ Tests for the EIP-8038 [State Access Gas Cost Increase](https://eips.ethereum.or
 Under EIP-8038 ``SELFDESTRUCT`` is charged, in its *execution* gas
 dimension:
 
-- ``OPCODE_SELFDESTRUCT_BASE`` (5,000);
-- a ``COLD_ACCOUNT_ACCESS`` (3,000) surcharge when the beneficiary is
+- ``OPCODE_SELFDESTRUCT_BASE``;
+- a ``COLD_ACCOUNT_ACCESS`` surcharge when the beneficiary is
   cold (a warm beneficiary adds nothing — SELFDESTRUCT has no
   ``WARM_ACCESS`` surcharge);
-- a net-new ``ACCOUNT_WRITE`` (9,000) when a positive balance is sent to
-  an empty (or non-existent) beneficiary, replacing the legacy combined
-  25,000 execution account-creation cost.
+- a net-new ``ACCOUNT_WRITE`` when a positive balance is sent to
+  an empty (or non-existent) beneficiary, replacing the legacy
+  combined execution account-creation cost.
 
-So ``execution = 5,000 + (3,000 if cold) + (9,000 if creating)``: 14,000
-warm / 17,000 cold when a new beneficiary is created, 5,000 warm / 8,000
-cold otherwise.
+So ``execution = OPCODE_SELFDESTRUCT_BASE + (COLD_ACCOUNT_ACCESS if
+cold) + (ACCOUNT_WRITE if creating)``.
 
-The beneficiary account-creation charge ``GAS_NEW_ACCOUNT`` (183,600) is
+The beneficiary account-creation charge ``GAS_NEW_ACCOUNT`` is
 the EIP-8037 *state* dimension (`charge_state_gas` in the spec), covered
 in ``eip8037_state_creation_gas_cost_increase/test_state_gas_selfdestruct.py``.
 
@@ -31,7 +30,7 @@ The framework opcode-gas model splits the two dimensions for
 ``SELFDESTRUCT`` exactly as the spec does: ``ACCOUNT_WRITE`` is charged
 as execution gas and ``GAS_NEW_ACCOUNT`` as state gas, so
 ``Op.SELFDESTRUCT(account_new=True).execution_cost(fork)`` is the execution
-charge (17,000 cold / 14,000 warm) and ``.state_cost(fork)`` is
+charge and ``.state_cost(fork)`` is
 ``GAS_NEW_ACCOUNT``. These tests assert the execution dimension and verify
 account-creation via balances; the state dimension is owned by
 ``eip8037_state_creation_gas_cost_increase/test_state_gas_selfdestruct.py``.
@@ -94,7 +93,7 @@ def test_selfdestruct_new_beneficiary_execution_gas(
 
     The destructor has a non-zero balance and targets an empty,
     non-existent beneficiary, so the net-new ``ACCOUNT_WRITE`` applies:
-    ``execution = 5,000 + access + 9,000`` (14,000 warm, 17,000 cold). The
+    ``execution = OPCODE_SELFDESTRUCT_BASE + access + ACCOUNT_WRITE``. The
     creation gas ``GAS_NEW_ACCOUNT`` is charged on the state axis (the
     EIP-8037 suite asserts it); here it is funded from the reservoir and
     the value transfer to the new beneficiary confirms the path.
@@ -145,8 +144,9 @@ def test_selfdestruct_alive_beneficiary_no_account_write(
     SELFDESTRUCT to an already-alive beneficiary charges no ACCOUNT_WRITE.
 
     The beneficiary already exists, so no account is created: execution =
-    ``5,000 + (3,000 if cold)`` (5,000 warm, 8,000 cold) and no state gas is
-    charged. The block header reflects the pure execution consumption.
+    ``OPCODE_SELFDESTRUCT_BASE + (COLD_ACCOUNT_ACCESS if cold)`` and no
+    state gas is charged. The block header reflects the pure execution
+    consumption.
     """
     beneficiary = pre.fund_eoa(amount=1)  # alive
 
@@ -212,8 +212,9 @@ def test_selfdestruct_codebearing_zero_balance_beneficiary_no_account_write(
     The beneficiary is alive because it has code, not balance: it holds a
     zero balance but a non-empty code (``Op.STOP``), so EIP-161 emptiness
     does not apply and no account is created when a positive balance is
-    sent to it. Execution = ``5,000 + (3,000 if cold)`` (5,000 warm, 8,000
-    cold) with no ACCOUNT_WRITE and no state gas — distinct from the
+    sent to it. Execution = ``OPCODE_SELFDESTRUCT_BASE +
+    (COLD_ACCOUNT_ACCESS if cold)`` with no ACCOUNT_WRITE and no state
+    gas — distinct from the
     alive-via-balance case, which exercises the same path through a
     different liveness source.
     """
@@ -280,7 +281,8 @@ def test_selfdestruct_zero_balance_no_account_write(
     SELFDESTRUCT with a zero-balance destructor charges no ACCOUNT_WRITE.
 
     No value is transferred, so even a non-existent beneficiary is not
-    created: execution = ``5,000 + access`` and no state gas is charged.
+    created: execution = ``OPCODE_SELFDESTRUCT_BASE + access`` and no
+    state gas is charged.
     """
     beneficiary = Address(0xDEAD)  # non-existent, but no value sent
 
@@ -345,8 +347,8 @@ def test_selfdestruct_self_or_precompile_beneficiary(
 
     The executing account is in the accessed set on entry (self), and
     precompiles are pre-warmed from the start, so neither pays a cold
-    surcharge: execution = ``5,000`` (warm base, no ``WARM_ACCESS``) with no
-    state gas.
+    surcharge: execution = ``OPCODE_SELFDESTRUCT_BASE`` (warm base, no
+    ``WARM_ACCESS``) with no state gas.
 
     The destructor balance is chosen so no account creation occurs: self
     is alive (sending to itself never creates), and the precompile case
@@ -418,10 +420,11 @@ def test_selfdestruct_oog_boundary(
     gas and one short.
 
     The destructor sends value to an empty beneficiary, charging
-    ``5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (17,000) in execution gas
-    and ``GAS_NEW_ACCOUNT`` in state gas. The child CALL frame has no state
-    reservoir of its own, so the state gas spills into the forwarded
-    execution gas and the frame needs its full ``gas_cost`` total. Forwarding
+    ``OPCODE_SELFDESTRUCT_BASE + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE``
+    in execution gas and ``GAS_NEW_ACCOUNT`` in state gas. The child
+    CALL frame has no state reservoir of its own, so the state gas
+    spills into the forwarded execution gas and the frame needs its
+    full ``gas_cost`` total. Forwarding
     exactly that total lets the SELFDESTRUCT succeed (CALL returns 1); one
     gas short OOGs (CALL returns 0) before the value transfer, so the
     beneficiary is never created.
@@ -483,7 +486,8 @@ def test_same_tx_created_selfdestruct_self_burn(
     to ITSELF: the originator is created in this transaction so it is
     deleted, and because a same-tx-created contract holding balance is
     alive, ``account_new`` is false for the self-beneficiary —
-    ``execution = 5,000`` (warm self, no ``ACCOUNT_WRITE``) and no
+    ``execution = OPCODE_SELFDESTRUCT_BASE`` (warm self, no
+    ``ACCOUNT_WRITE``) and no
     SELFDESTRUCT state gas.
 
     EIP-8246 removes the SELFDESTRUCT burn, so the self-send is a no-op:
@@ -562,8 +566,9 @@ def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     A creation transaction whose initcode SELFDESTRUCTs the new contract
     to a fresh ``Address(0xDEAD)``: the fresh, non-existent beneficiary
     receives a positive balance, so ``account_new`` is true —
-    ``execution = 5,000 + COLD_ACCOUNT_ACCESS + ACCOUNT_WRITE`` (17,000
-    cold) plus a beneficiary ``NEW_ACCOUNT`` on the state axis. The
+    ``execution = OPCODE_SELFDESTRUCT_BASE + COLD_ACCOUNT_ACCESS +
+    ACCOUNT_WRITE`` plus a beneficiary ``NEW_ACCOUNT`` on the state
+    axis. The
     beneficiary creation charge keys on the beneficiary, while the
     originator (created in this transaction) is still deleted: a
     ``Transfer`` log is emitted (not a ``Burn``).

@@ -82,8 +82,8 @@ def test_access_list_no_fallback(
     Reject an access-list transaction whose ``gas_limit`` is one gas
     below the Amsterdam intrinsic.
 
-    EIP-8038 raises ``TX_ACCESS_LIST_ADDRESS`` (2400 -> 2900) and
-    ``TX_ACCESS_LIST_STORAGE_KEY`` (1900 -> 2000). A client reusing the
+    EIP-8038 raises ``TX_ACCESS_LIST_ADDRESS`` and
+    ``TX_ACCESS_LIST_STORAGE_KEY``. A client reusing the
     old per-address/per-key constants would compute an intrinsic smaller
     by ``num_addresses * addr_delta + num_keys * key_delta``; with the
     sender funded to the wei, that fallback must not slip through.
@@ -218,7 +218,7 @@ def test_cold_account_access_no_fallback(
 
     Under EIP-2780 every non-create, non-self transaction pays one
     ``COLD_ACCOUNT_ACCESS`` in its intrinsic for touching the recipient;
-    EIP-8038 raises that constant (2600 -> 3000). A client reusing the
+    EIP-8038 raises that constant. A client reusing the
     old ``COLD_ACCOUNT_ACCESS`` would compute an intrinsic smaller by the
     per-access delta, and with the sender funded to the wei that fallback
     must not execute.
