@@ -240,8 +240,6 @@ def setup_target(
             return sender
         case RecipientType.DELEGATION_7702:
             delegated_to = pre.deploy_contract(code=Op.STOP)
-            return pre.deploy_contract(
-                code=Spec7702.delegation_designation(delegated_to)
-            )
+            return pre.fund_eoa(amount=0, delegation=delegated_to)
         case _:
             raise ValueError(f"Unsupported recipient type {recipient_type}")
