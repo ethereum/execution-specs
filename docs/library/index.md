@@ -11,4 +11,5 @@ Execution spec tests consists of several packages that implement helper classes 
 - [`execution_testing.test_types`](./execution_testing_test_types.md) - provides Ethereum types built on top of the base types which are used to define test cases and interact with other libraries.
 - [`execution_testing.vm`](./execution_testing_vm.md) - provides definitions for the Ethereum Virtual Machine (EVM) as used to define bytecode in test cases.
 - [`execution_testing.client_clis`](./execution_testing_client_clis.md) - a wrapper for the transition (`t8n`) tool.
+- [`execution_testing.evm_tools`](./execution_testing_evm_tools.md) - the `ethereum-spec-evm` CLI: `t8n`, `b11r`, and state-test tools that run the execution specs directly.
 - [`pytest_plugins`](./pytest_plugins/index.md) - contains pytest customizations that provide additional functionality for generating test fixtures.

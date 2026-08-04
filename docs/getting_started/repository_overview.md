@@ -39,7 +39,7 @@ Contains the implementation of the Ethereum consensus tests available in this re
 
 #### `packages/execution_testing/`
 
-Contains the `execution_testing` package which provides tools to define test cases and to interface with `t8n` command interfaces that are required to generate tests. Additionally, it contains packages that enable test case execution by customizing pytest which acts as the test framework.
+Contains the `execution_testing` package which provides tools to define test cases and to interface with `t8n` command interfaces that are required to generate tests. Additionally, it contains packages that enable test case execution by customizing pytest which acts as the test framework. It also ships the reference EVM `t8n` implementation, which `fill` runs in-process to generate the fixtures in this repository, and which external consumers can drive through the `ethereum-spec-evm` CLI.
 
 #### `docs/`
 

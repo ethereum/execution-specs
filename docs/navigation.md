@@ -98,6 +98,7 @@
       * [Execution Testing Test Types Package](library/execution_testing_test_types.md)
       * [Execution Testing VM Package](library/execution_testing_vm.md)
       * [Execution Testing Client CLIs Package](library/execution_testing_client_clis.md)
+      * [Execution Testing EVM Tools Package](library/execution_testing_evm_tools.md)
       * [Pytest Plugins](library/pytest_plugins/index.md)
           * [Filler](library/pytest_plugins/filler.md)
           * [Forks](library/pytest_plugins/forks.md)
