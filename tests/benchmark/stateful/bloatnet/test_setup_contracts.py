@@ -2,8 +2,10 @@
 
 import os
 
+import pytest
 from execution_testing import (
     DETERMINISTIC_FACTORY_ADDRESS,
+    DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
     Account,
     Alloc,
@@ -59,27 +61,46 @@ def deployment_gas(
     account creation and the code deposit charge is split back out; the
     margin lands on the regular side, which is what it pays for.
     """
+    initcode_size = len(initcode)
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=b"\xff" * 32 + initcode
     )
     create_cost = Op.CREATE2(
         value=0,
         offset=0,
-        size=len(initcode),
+        size=initcode_size,
         salt=0,
-        init_code_size=len(initcode),
+        # Gas accounting
+        init_code_size=initcode_size,
     ).gas_cost(fork)
+    # The factory frame wrapped around that CREATE2: its own bytecode,
+    # less the CREATE2 already counted above, plus the copy of the
+    # initcode out of the calldata that the bytecode alone cannot size.
+    factory_cost = (
+        DETERMINISTIC_FACTORY_BYTECODE.gas_cost(fork)
+        - Op.CREATE2(value=0, offset=0, size=0, salt=0).gas_cost(fork)
+        + Op.CALLDATACOPY(
+            dest_offset=0,
+            offset=32,
+            size=initcode_size,
+            # Gas accounting
+            data_size=initcode_size,
+            old_memory_size=0,
+            new_memory_size=initcode_size,
+        ).gas_cost(fork)
+    )
     deposit_cost = Op.RETURN(
         0,
         runtime_size,
         code_deposit_size=runtime_size,
     ).gas_cost(fork)
-    base = intrinsic + create_cost + deposit_cost
+    base = intrinsic + factory_cost + create_cost + deposit_cost
     state = fork.create_state_gas(code_size=runtime_size)
     regular = base - state + base // 16 + EXECUTION_GAS_BUFFER
     return regular, state
 
 
+@pytest.mark.valid_from("Amsterdam")
 def test_deploy_existing_contracts(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
