@@ -322,8 +322,9 @@ def test_code_chunk_key_matrix(chunk_id: int) -> None:
     """
     A matrix of code chunk ids rebuilds each expected key from
     scratch: every chunk is content-addressed in the code zone, and
-    the stem changes exactly where `chunk_id // 256` does, at the
-    group boundaries 255 -> 256 and 511 -> 512.
+    the stem changes exactly where `chunk_id // 256` does. The
+    rollover itself is pinned separately by
+    `test_code_group_rollover_changes_the_stem`.
     """
     tree_index = chunk_id // 256
     sub_index = chunk_id % 256
@@ -337,10 +338,25 @@ def test_code_chunk_key_matrix(chunk_id: int) -> None:
     assert len(key) == 34
     assert key[0] == 1
 
-    if sub_index == 0 and chunk_id > 0:
-        previous = get_tree_key_for_code_chunk(CODE_HASH, Uint(chunk_id - 1))
-        assert previous[:-1] != key[:-1], "group rollover must change stem"
-        assert previous[-1] == 255
+
+def test_code_group_rollover_changes_the_stem() -> None:
+    """
+    Crossing a code-group boundary changes the key's stem, not just
+    its sub-index: chunk 255 sits at group 0's last sub-index and
+    chunk 256 opens group 1 under a fresh hash-derived stem, and
+    likewise at 511 -> 512. Kept out of the key matrix so narrowing
+    the matrix's parameters can never silently retire this check.
+    """
+    for last_of_group, first_of_next in ((255, 256), (511, 512)):
+        last_key = get_tree_key_for_code_chunk(
+            CODE_HASH, Uint(last_of_group)
+        )
+        next_key = get_tree_key_for_code_chunk(
+            CODE_HASH, Uint(first_of_next)
+        )
+        assert last_key[-1] == 255
+        assert next_key[-1] == 0
+        assert last_key[:-1] != next_key[:-1], "rollover must change stem"
 
 
 def test_max_code_size_chunk_keys() -> None:

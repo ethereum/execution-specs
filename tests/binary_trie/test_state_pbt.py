@@ -1387,10 +1387,25 @@ def test_shared_delegation_designator_follows_its_last_authority() -> None:
     trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
     apply_diff_to_trie(trie, pre, step_1)
     stem_b = _code_zone_stem(hash_b, 0)
-    assert stem_a + bytes([0]) in trie._data, (
-        "the other authority still delegates to the old target"
+    assert {key for key in trie._data if key[0] == 1} == {
+        stem_a + bytes([0]),
+        stem_b + bytes([0]),
+    }, "exactly the two designators' leaves, the old one kept for B"
+
+    step_1_post = State()
+    assert store_code(step_1_post, DELEGATION_A) == hash_a
+    assert store_code(step_1_post, DELEGATION_B) == hash_b
+    set_account(
+        step_1_post,
+        ADDRESS_A,
+        Account(nonce=Uint(2), balance=U256(1), code_hash=hash_b),
     )
-    assert stem_b + bytes([0]) in trie._data
+    set_account(
+        step_1_post,
+        ADDRESS_B,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=hash_a),
+    )
+    assert pre.compute_state_root(step_1) == state_root(step_1_post)
 
     apply_changes_to_state(pre, step_1)
     step_2 = BlockDiff(
@@ -1405,6 +1420,20 @@ def test_shared_delegation_designator_follows_its_last_authority() -> None:
     assert {key for key in trie._data if key[0] == 1} == {
         stem_b + bytes([0])
     }, "the last authority leaving must take the old designator with it"
+
+    step_2_post = State()
+    assert store_code(step_2_post, DELEGATION_B) == hash_b
+    set_account(
+        step_2_post,
+        ADDRESS_A,
+        Account(nonce=Uint(2), balance=U256(1), code_hash=hash_b),
+    )
+    set_account(
+        step_2_post,
+        ADDRESS_B,
+        Account(nonce=Uint(2), balance=U256(1), code_hash=EMPTY_CODE_HASH),
+    )
+    assert pre.compute_state_root(step_2) == state_root(step_2_post)
 
 
 def test_shared_code_survives_until_the_last_holder_is_gone() -> None:
@@ -1464,6 +1493,163 @@ def test_two_holders_deleted_in_one_block_drop_the_code_once() -> None:
         )
 
     diff = BlockDiff(account_changes={ADDRESS_A: None, ADDRESS_B: None})
+
+    assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
+
+
+def test_contract_deleted_then_recreated_with_different_code() -> None:
+    """
+    A sole holder's deletion drops its chunks in one block; the next
+    block re-creates the address with different code through its own
+    diff. Each block's root is computed incrementally and must match
+    a fresh embed of that block's post state -- the drop and the
+    re-add land in separate tries, rebuilt from the advanced flat
+    state, so nothing of the old code may linger.
+    """
+    old_code = _distinct_chunk_code(3)
+    new_code = _distinct_chunk_code(2, salt=40)
+
+    pre = State()
+    old_hash = store_code(pre, old_code)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash),
+    )
+
+    delete = BlockDiff(account_changes={ADDRESS_A: None})
+    assert pre.compute_state_root(delete) == EMPTY_TRIE_ROOT
+    apply_changes_to_state(pre, delete)
+
+    new_hash = keccak256(new_code)
+    recreated = Account(nonce=Uint(1), balance=U256(2), code_hash=new_hash)
+    recreate = BlockDiff(
+        account_changes={ADDRESS_A: recreated},
+        code_changes={new_hash: new_code},
+    )
+
+    fresh = State()
+    assert store_code(fresh, new_code) == new_hash
+    set_account(fresh, ADDRESS_A, recreated)
+    assert pre.compute_state_root(recreate) == state_root(fresh)
+
+
+def test_code_change_and_storage_writes_share_a_diff() -> None:
+    """
+    One diff both replaces a sole holder's code -- dropping the old
+    chunks -- and writes its storage. The sweeps touch disjoint
+    zones and the storage loop runs after the account loop; the
+    combination must land on the root of a fresh embed of the post
+    state.
+    """
+    old_code = _distinct_chunk_code(3)
+    new_code = _distinct_chunk_code(2, salt=50)
+    slot = Bytes32(U256(2).to_be_bytes32())
+
+    pre = State()
+    old_hash = store_code(pre, old_code)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash),
+    )
+    set_storage(pre, ADDRESS_A, slot, U256(5))
+
+    new_hash = keccak256(new_code)
+    changed = Account(nonce=Uint(2), balance=U256(1), code_hash=new_hash)
+    diff = BlockDiff(
+        account_changes={ADDRESS_A: changed},
+        storage_changes={ADDRESS_A: {slot: U256(9)}},
+        code_changes={new_hash: new_code},
+    )
+
+    fresh = State()
+    assert store_code(fresh, new_code) == new_hash
+    set_account(fresh, ADDRESS_A, changed)
+    set_storage(fresh, ADDRESS_A, slot, U256(9))
+    assert pre.compute_state_root(diff) == state_root(fresh)
+
+
+def test_group_exact_code_fills_group_zero_and_nothing_more() -> None:
+    """
+    Code of exactly 256 chunks fills code group 0 to its last
+    sub-index and derives no key in group 1: the group boundary is
+    exclusive on the right, `chunk_id // 256`.
+    """
+    code = Bytes(b"\x01" * (31 * 256))  # 256 chunks, none zero
+
+    pre = State()
+    code_hash = store_code(pre, code)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+
+    group_0_stem = _code_zone_stem(code_hash, 0)
+    group_1_stem = _code_zone_stem(code_hash, 1)
+    code_zone_keys = {key for key in trie._data if key[0] == 1}
+    assert code_zone_keys == {
+        group_0_stem + bytes([sub_index]) for sub_index in range(256)
+    }
+    assert not any(key.startswith(group_1_stem) for key in trie._data)
+
+
+def test_change_to_an_unresolvable_code_hash_is_a_pre_state_error() -> None:
+    """
+    A diff that points an account at a code hash resolvable neither
+    from its `code_changes` nor from the store fails with
+    `UnknownCodeHashError` when the root is computed: malformed
+    input, deliberately not an invalid block.
+    """
+    pre = State()
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
+    )
+    phantom = keccak256(b"never stored")
+    diff = BlockDiff(
+        account_changes={
+            ADDRESS_A: Account(
+                nonce=Uint(1), balance=U256(1), code_hash=phantom
+            )
+        },
+    )
+
+    with pytest.raises(UnknownCodeHashError):
+        pre.compute_state_root(diff)
+    assert not issubclass(UnknownCodeHashError, InvalidBlock)
+
+
+def test_absent_chunk_in_a_later_group_does_not_stall_removal() -> None:
+    """
+    A multi-group code with an all-zero chunk in group 1 has a hole
+    where that leaf would sit. Deleting the last holder must remove
+    every present chunk on both sides of the hole, leaving the empty
+    root.
+    """
+    chunk_count = 258
+    mutable = bytearray(b"\x01" * (31 * chunk_count))
+    mutable[31 * 256 : 31 * 257] = b"\x00" * 31  # chunk 256, group 1
+    code = Bytes(bytes(mutable))
+
+    pre = State()
+    code_hash = store_code(pre, code)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    group_1_stem = _code_zone_stem(code_hash, 1)
+    assert group_1_stem + bytes([0]) not in trie._data  # the hole
+    assert group_1_stem + bytes([1]) in trie._data
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
 
     assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
 
