@@ -754,7 +754,7 @@ def _convert_amsterdam_withdrawals(
         Withdrawal as AmsterdamWithdrawal,
     )
     from ethereum.state import Address as AmsterdamAddress
-    from ethereum_types.numeric import U64, U256
+    from ethereum_types.numeric import U64
 
     if withdrawals is None:
         return ()
@@ -763,7 +763,7 @@ def _convert_amsterdam_withdrawals(
             index=U64(int(withdrawal.index)),
             validator_index=U64(int(withdrawal.validator_index)),
             address=AmsterdamAddress(bytes(withdrawal.address)),
-            amount=U256(int(withdrawal.amount)),
+            amount=U64(int(withdrawal.amount)),
         )
         for withdrawal in withdrawals
     )

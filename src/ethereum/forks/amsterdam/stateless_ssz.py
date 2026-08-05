@@ -236,7 +236,7 @@ def _ssz_to_withdrawal(sw: SszWithdrawal) -> Withdrawal:
         index=U64(sw.index),
         validator_index=U64(sw.validator_index),
         address=Address(bytes(sw.address)),
-        amount=U256(sw.amount),
+        amount=U64(sw.amount),
     )
 
 
