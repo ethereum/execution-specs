@@ -331,7 +331,17 @@ def validate_header(chain: BlockChain, header: Header) -> None:
     assert isinstance(FORK_CRITERIA, ByBlockNumber)
 
     expected_base_fee_per_gas = INITIAL_BASE_FEE
-    if header.number != FORK_CRITERIA.block_number:
+    if header.number == FORK_CRITERIA.block_number:
+        # The fork block has no parent base fee to extrapolate from, so the
+        # base fee is fixed. The gas limit is still bounded, but relative to
+        # the parent's gas limit scaled by the elasticity multiplier, because
+        # the fork doubles the gas limit while holding the gas target
+        # constant.
+        if not check_gas_limit(
+            header.gas_limit, parent_header.gas_limit * ELASTICITY_MULTIPLIER
+        ):
+            raise InvalidBlock
+    else:
         # For every block except the first, calculate the base fee per gas
         # based on the parent block.
         expected_base_fee_per_gas = calculate_base_fee_per_gas(
