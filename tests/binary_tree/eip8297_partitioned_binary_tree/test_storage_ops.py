@@ -42,11 +42,11 @@ pytestmark = pytest.mark.valid_from("BinaryTree")
         pytest.param(0, id="header_slot_0"),
         pytest.param(1, id="header_slot_1"),
         pytest.param(
-            Spec.CODE_OFFSET - Spec.HEADER_STORAGE_OFFSET - 1,
+            Spec.HEADER_STORAGE_SLOTS - 1,
             id="header_last_63",
         ),
         pytest.param(
-            Spec.CODE_OFFSET - Spec.HEADER_STORAGE_OFFSET,
+            Spec.HEADER_STORAGE_SLOTS,
             id="overflow_first_64",
         ),
         pytest.param(
@@ -258,8 +258,9 @@ def test_storage_under_7702_delegation_lands_on_authority(
     `authority` is the transaction's `to` and so actually executes
     here, unlike a designation merely written by `pre.fund_eoa` and
     never exercised: asserting its `code` checks that the designation
-    still reads back correctly after a real call, from the account's
-    header code chunks rather than a dedicated MPT field.
+    still reads back correctly after a real call, from its
+    content-addressed code-zone chunk rather than a dedicated MPT
+    field.
     """
     slot, value = 3, 0xC0FFEE
     delegate_code = Op.SSTORE(slot, value) + Op.STOP

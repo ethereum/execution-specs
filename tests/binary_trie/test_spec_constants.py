@@ -15,9 +15,9 @@ from ethereum.binary_trie.embedding import (
     BASIC_DATA_LEAF_KEY,
     CODE_HASH_LEAF_KEY,
     CODE_KEY_LENGTH,
-    CODE_OFFSET,
     CODE_ZONE,
     HEADER_STORAGE_OFFSET,
+    HEADER_STORAGE_SLOTS,
     PUSH1,
     PUSH32,
     PUSH_OFFSET,
@@ -50,7 +50,7 @@ def test_spec_constants_match_implementation() -> None:
     assert Spec.BASIC_DATA_LEAF_KEY == BASIC_DATA_LEAF_KEY
     assert Spec.CODE_HASH_LEAF_KEY == CODE_HASH_LEAF_KEY
     assert Spec.HEADER_STORAGE_OFFSET == HEADER_STORAGE_OFFSET
-    assert Spec.CODE_OFFSET == CODE_OFFSET
+    assert Spec.HEADER_STORAGE_SLOTS == HEADER_STORAGE_SLOTS
     assert Spec.STEM_SUBTREE_WIDTH == STEM_SUBTREE_WIDTH
     assert Spec.PUSH_OFFSET == PUSH_OFFSET
     assert Spec.PUSH1 == PUSH1
@@ -71,11 +71,14 @@ def test_spec_header_offset_invariant_holds() -> None:
     The EIP's stated invariant holds for the implementation's own
     constants.
 
-    EIP text: "It is a required invariant that `STEM_SUBTREE_WIDTH >
-    CODE_OFFSET > HEADER_STORAGE_OFFSET`." Every header/overflow split
-    derived elsewhere in the embedding silently assumes this ordering.
+    EIP text: "It is a required invariant that `HEADER_STORAGE_OFFSET
+    + HEADER_STORAGE_SLOTS <= STEM_SUBTREE_WIDTH`." The header
+    storage sweep and the storage-slot key split silently assume the
+    header slots fit inside one stem's sub-index space.
     """
-    assert STEM_SUBTREE_WIDTH > CODE_OFFSET > HEADER_STORAGE_OFFSET
+    assert (
+        HEADER_STORAGE_OFFSET + HEADER_STORAGE_SLOTS <= STEM_SUBTREE_WIDTH
+    )
 
 
 def test_spec_basic_data_offsets_match_encode_basic_data() -> None:

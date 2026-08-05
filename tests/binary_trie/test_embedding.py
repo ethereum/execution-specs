@@ -23,17 +23,14 @@ from ethereum.binary_trie.embedding import (
     get_tree_key_for_code_chunk,
     get_tree_key_for_code_hash,
     get_tree_key_for_header,
-    get_tree_key_for_overflow_code_chunk,
     get_tree_key_for_storage_slot,
-    has_overflow_code_chunks,
     key_hash,
     remove_account,
     remove_all_storage,
     remove_code_chunks,
-    remove_overflow_code_chunks,
     remove_storage_slot,
 )
-from ethereum.binary_trie.trie import BinaryTrie, root, trie_set
+from ethereum.binary_trie.trie import BinaryTrie, root
 from ethereum.exceptions import BalanceOverflowError, InvalidBlock
 from ethereum.state import EMPTY_CODE_HASH as MPT_STATE_EMPTY_CODE_HASH
 
@@ -62,12 +59,12 @@ def _storage_overflow_key(
     return bytes([255]) + prefix + suffix + bytes([sub_index])
 
 
-def _code_overflow_key(
+def _code_chunk_key(
     code_hash: Bytes32, tree_index_bytes: bytes, sub_index: int
 ) -> bytes:
     """
     Build `0x01 || H(C || tree_index_bytes) || sub_index`, the
-    34-byte overflow code-chunk key, from scratch.
+    34-byte content-addressed code-chunk key, from scratch.
     """
     digest = blake3(bytes(code_hash) + tree_index_bytes).digest()
     return bytes([1]) + digest + bytes([sub_index])
@@ -270,86 +267,80 @@ def test_storage_tree_index_is_a_32_byte_big_endian_suffix() -> None:
     assert key != narrow_key
 
 
-def test_code_chunk_in_header_vector() -> None:
+def test_code_chunk_vector() -> None:
     """
-    EIP sub-index vector: code chunk 5 lives in the header at
-    sub-index 0x85.
+    EIP key vector: code chunk 5 lives in the code zone at sub-index
+    0x05, with the 33-byte stem `0x01 || H(C || 0)`.
+    """
+    code_hash = Bytes32(blake3(b"some code").digest())
+
+    key = get_tree_key_for_code_chunk(code_hash, Uint(5))
+    assert key == _code_chunk_key(code_hash, (0).to_bytes(32, "big"), 0x05)
+
+
+def test_code_chunk_second_group_vector() -> None:
+    """
+    EIP key vector: chunk 300 lands in code group 1 at sub-index
+    0x2C, with the 33-byte stem `0x01 || H(C || 1)`.
     """
     code_hash = Bytes32(blake3(b"some code").digest())
 
-    key = get_tree_key_for_code_chunk(ADDRESS, code_hash, Uint(5))
-    assert key == _header_stem(ADDRESS) + bytes([0x85])
+    key = get_tree_key_for_code_chunk(code_hash, Uint(300))
+    assert key == _code_chunk_key(code_hash, (1).to_bytes(32, "big"), 0x2C)
 
 
-def test_code_chunk_overflow_vector() -> None:
+def test_code_keys_are_content_addressed() -> None:
     """
-    Chunk 300 overflows to sub-index 0xAC with the 33-byte stem
-    `0x01 || H(C || 0)`.
-    """
-    code_hash = Bytes32(blake3(b"some code").digest())
-    digest = blake3(code_hash + (0).to_bytes(32, "big")).digest()
-    stem = bytes([1]) + digest
-
-    key = get_tree_key_for_code_chunk(ADDRESS, code_hash, Uint(300))
-    assert key == stem + bytes([0xAC])
-
-
-def test_overflow_code_is_content_addressed() -> None:
-    """
-    Overflow chunks depend only on the code hash; header chunks stay
-    per-account.
+    Chunk keys depend only on the code hash and chunk id: no address
+    takes part in the derivation, so accounts sharing bytecode share
+    every chunk key, and distinct bytecodes share none, their stems
+    diverging at the hash.
     """
     code_hash = Bytes32(blake3(b"shared bytecode").digest())
-    other = Address32(b"\x00" * 12 + b"\xbb" * 20)
+    other_hash = Bytes32(blake3(b"different bytecode").digest())
 
-    assert get_tree_key_for_code_chunk(
-        ADDRESS, code_hash, Uint(200)
-    ) == get_tree_key_for_code_chunk(other, code_hash, Uint(200))
-    assert get_tree_key_for_code_chunk(
-        ADDRESS, code_hash, Uint(5)
-    ) != get_tree_key_for_code_chunk(other, code_hash, Uint(5))
+    for chunk_id in (0, 5, 200):
+        ours = get_tree_key_for_code_chunk(code_hash, Uint(chunk_id))
+        theirs = get_tree_key_for_code_chunk(other_hash, Uint(chunk_id))
+        assert ours != theirs
+        assert ours[:-1] != theirs[:-1], "stems must differ, not just keys"
 
 
 @pytest.mark.parametrize(
     "chunk_id",
     [
-        pytest.param(0, id="chunk-0-header-first"),
-        pytest.param(126, id="chunk-126-header"),
-        pytest.param(127, id="chunk-127-header-last"),
-        pytest.param(128, id="chunk-128-overflow-group-0-first"),
-        pytest.param(129, id="chunk-129-overflow-group-0"),
-        pytest.param(383, id="chunk-383-overflow-group-0-last"),
-        pytest.param(384, id="chunk-384-overflow-group-1-first"),
-        pytest.param(385, id="chunk-385-overflow-group-1"),
+        pytest.param(0, id="chunk-0-group-0-first"),
+        pytest.param(1, id="chunk-1-group-0"),
+        pytest.param(255, id="chunk-255-group-0-last"),
+        pytest.param(256, id="chunk-256-group-1-first"),
+        pytest.param(257, id="chunk-257-group-1"),
+        pytest.param(511, id="chunk-511-group-1-last"),
+        pytest.param(512, id="chunk-512-group-2-first"),
     ],
 )
 def test_code_chunk_key_matrix(chunk_id: int) -> None:
     """
     A matrix of code chunk ids rebuilds each expected key from
-    scratch, header form below 128 and content-addressed overflow
-    form at and above it.
-
-    Both forms are 34 bytes, but the zone byte switches from
-    `ACCOUNT_ZONE` (0) to `CODE_ZONE` (1) exactly at the 127 -> 128
-    boundary.
+    scratch: every chunk is content-addressed in the code zone, and
+    the stem changes exactly where `chunk_id // 256` does, at the
+    group boundaries 255 -> 256 and 511 -> 512.
     """
-    if chunk_id < 128:
-        expected = _header_stem(ADDRESS) + bytes([128 + chunk_id])
-        expected_zone = 0
-    else:
-        overflow = chunk_id - 128
-        tree_index = overflow // 256
-        sub_index = overflow % 256
-        expected = _code_overflow_key(
-            CODE_HASH, tree_index.to_bytes(32, "big"), sub_index
-        )
-        expected_zone = 1
+    tree_index = chunk_id // 256
+    sub_index = chunk_id % 256
+    expected = _code_chunk_key(
+        CODE_HASH, tree_index.to_bytes(32, "big"), sub_index
+    )
 
-    key = get_tree_key_for_code_chunk(ADDRESS, CODE_HASH, Uint(chunk_id))
+    key = get_tree_key_for_code_chunk(CODE_HASH, Uint(chunk_id))
 
     assert key == expected
     assert len(key) == 34
-    assert key[0] == expected_zone
+    assert key[0] == 1
+
+    if sub_index == 0 and chunk_id > 0:
+        previous = get_tree_key_for_code_chunk(CODE_HASH, Uint(chunk_id - 1))
+        assert previous[:-1] != key[:-1], "group rollover must change stem"
+        assert previous[-1] == 255
 
 
 def test_max_code_size_chunk_keys() -> None:
@@ -358,23 +349,22 @@ def test_max_code_size_chunk_keys() -> None:
     `ethereum.forks.binary_tree.vm.interpreter`) chunkifies into
     `ceil(65536 / 31) == 2115` chunks.
 
-    The last chunk, id 2114, is well past the 128-chunk header and
-    lands in the code zone at group 7, sub-index 194; the
-    group/sub-index are computed here from the EIP formula, with the
-    concrete numbers also asserted so the arithmetic stays pinned.
+    The last chunk, id 2114, lands in the code zone at group 8,
+    sub-index 66; the group/sub-index are computed here from the EIP
+    formula, with the concrete numbers also asserted so the
+    arithmetic stays pinned.
     """
     max_code_size = 0x10000
     chunk_count = (max_code_size + 30) // 31
     assert chunk_count == 2115
 
     last_chunk_id = chunk_count - 1
-    overflow = last_chunk_id - 128
-    tree_index = overflow // 256
-    sub_index = overflow % 256
-    assert (tree_index, sub_index) == (7, 194)
+    tree_index = last_chunk_id // 256
+    sub_index = last_chunk_id % 256
+    assert (tree_index, sub_index) == (8, 66)
 
-    key = get_tree_key_for_code_chunk(ADDRESS, CODE_HASH, Uint(last_chunk_id))
-    expected = _code_overflow_key(
+    key = get_tree_key_for_code_chunk(CODE_HASH, Uint(last_chunk_id))
+    expected = _code_chunk_key(
         CODE_HASH, tree_index.to_bytes(32, "big"), sub_index
     )
 
@@ -398,9 +388,10 @@ def test_key_derivations_assert_their_own_key_length(
     `get_tree_key_for_storage_slot`'s `STORAGE_KEY_LENGTH`, and
     `get_tree_key_for_code_chunk`'s `CODE_KEY_LENGTH` -- fires
     instead of silently returning a malformed key. The storage slot
-    and code chunk id are each chosen in that derivation's own
-    OVERFLOW range, so the call reaches that function's own assert
-    rather than delegating to `get_tree_key_for_header`'s.
+    is chosen in the storage zone's range, so the call reaches that
+    function's own assert rather than delegating to
+    `get_tree_key_for_header`'s; every code chunk id reaches the
+    code derivation directly.
     """
     monkeypatch.setattr(
         "ethereum.binary_trie.embedding.key_hash",
@@ -414,7 +405,7 @@ def test_key_derivations_assert_their_own_key_length(
         get_tree_key_for_storage_slot(ADDRESS, U256(1000))
 
     with pytest.raises(AssertionError):
-        get_tree_key_for_code_chunk(ADDRESS, CODE_HASH, Uint(300))
+        get_tree_key_for_code_chunk(CODE_HASH, Uint(300))
 
 
 def test_chunkify_empty_code() -> None:
@@ -787,14 +778,15 @@ def test_remove_account_restores_prior_root() -> None:
     assert root(trie) == before
 
 
-def test_remove_account_takes_code_chunks_and_storage_with_it() -> None:
+def test_remove_account_takes_header_and_storage_with_it() -> None:
     """
     An account owns its header stem and its overflow storage
-    subtree, so removing it undoes everything embedding it wrote,
-    header code chunks and storage on both sides of the header
-    boundary included, without being told which slots it held.
+    subtree, so removing it undoes its basic data, code hash, and
+    storage on both sides of the header boundary, without being told
+    which slots it held. Its code chunks are content-addressed, not
+    owned, and stay behind until `remove_code_chunks` drops them.
     """
-    code = Bytes(b"\x01" * 40)  # two header chunks
+    code = Bytes(b"\x01" * 40)  # two chunks, both in the code zone
     code_hash = Bytes32(b"\x22" * 32)
 
     trie = BinaryTrie()
@@ -809,18 +801,20 @@ def test_remove_account_takes_code_chunks_and_storage_with_it() -> None:
     assert root(trie) != before
 
     remove_account(trie, ADDRESS)
+    assert root(trie) != before, "content-addressed chunks stay behind"
+    remove_code_chunks(trie, code_hash, code)
     assert root(trie) == before
 
 
 def test_remove_account_never_reaches_the_code_zone() -> None:
     """
-    The sweep covers the account and storage zones only, so a
-    neighbour's content-addressed overflow chunks are untouched by
-    a removal beside them.
+    The sweep covers the account and storage zones only, so
+    content-addressed chunks -- a neighbour's or the removed
+    account's own -- are untouched by a removal beside them.
     """
-    long_code = Bytes(b"\x01" * 4000)  # 130 chunks: 128 header, 2 overflow
+    long_code = Bytes(b"\x01" * 4000)  # 130 chunks, one code group
     long_hash = Bytes32(b"\x33" * 32)
-    short_code = Bytes(b"\x02" * 40)  # two header chunks
+    short_code = Bytes(b"\x02" * 40)  # two chunks
     short_hash = Bytes32(b"\x22" * 32)
 
     trie = BinaryTrie()
@@ -830,58 +824,58 @@ def test_remove_account_never_reaches_the_code_zone() -> None:
     embed_account(trie, ADDRESS, U64(2), U256(9), short_hash, short_code)
     remove_account(trie, ADDRESS)
 
+    for chunk_id in (Uint(0), Uint(129)):
+        assert get_tree_key_for_code_chunk(long_hash, chunk_id) in trie._data
+    for chunk_id in (Uint(0), Uint(1)):
+        assert get_tree_key_for_code_chunk(short_hash, chunk_id) in trie._data
+
+    remove_code_chunks(trie, short_hash, short_code)
     assert root(trie) == before
-    for chunk_id in (Uint(128), Uint(129)):
-        key = get_tree_key_for_code_chunk(OTHER_ADDRESS, long_hash, chunk_id)
-        assert key in trie._data
 
 
-def test_remove_account_leaves_overflow_code_for_the_caller() -> None:
+def test_remove_account_leaves_code_for_the_caller() -> None:
     """
     Removing an account never takes content-addressed chunks with
     it: whether they may go depends on the resulting state, which
     the embedding cannot see. They are dropped separately, once the
     caller has established nothing else runs the code.
     """
-    code = Bytes(b"\x01" * 4000)  # 130 chunks: 128 header, 2 overflow
+    code = Bytes(b"\x01" * 4000)  # 130 chunks
     code_hash = Bytes32(b"\x22" * 32)
 
     trie = BinaryTrie()
     empty = root(trie)
     embed_account(trie, ADDRESS, U64(1), U256(5), code_hash, code)
-    assert has_overflow_code_chunks(trie, code_hash)
 
     remove_account(trie, ADDRESS)
 
-    overflow = [
-        get_tree_key_for_overflow_code_chunk(code_hash, chunk_id)
-        for chunk_id in (Uint(128), Uint(129))
+    residue = [
+        get_tree_key_for_code_chunk(code_hash, Uint(chunk_id))
+        for chunk_id in range(130)
     ]
-    assert sorted(trie._data) == sorted(overflow)
+    assert sorted(trie._data) == sorted(residue)
 
-    remove_overflow_code_chunks(trie, code_hash, code)
+    remove_code_chunks(trie, code_hash, code)
     assert root(trie) == empty
-    assert not has_overflow_code_chunks(trie, code_hash)
 
 
-def test_remove_overflow_code_chunks_spares_the_header() -> None:
+def test_remove_code_chunks_spares_the_header() -> None:
     """
-    Header chunks are keyed per account and go with the account, so
-    dropping a code's shared leaves leaves an account still holding
-    it otherwise intact.
+    Dropping a code's shared leaves removes exactly the code zone's
+    keys for it: a holder's basic data and code hash leaves are in
+    the account zone and survive untouched.
     """
-    code = Bytes(b"\x01" * 4000)
+    code = Bytes(b"\x01" * 4000)  # 130 chunks
     code_hash = Bytes32(b"\x22" * 32)
 
     trie = BinaryTrie()
     embed_account(trie, ADDRESS, U64(1), U256(5), code_hash, code)
 
-    remove_overflow_code_chunks(trie, code_hash, code)
+    remove_code_chunks(trie, code_hash, code)
 
-    for chunk_id in (Uint(0), Uint(127)):
-        key = get_tree_key_for_code_chunk(ADDRESS, code_hash, chunk_id)
-        assert key in trie._data
+    assert all(key[0] != 1 for key in trie._data)
     assert get_tree_key_for_basic_data(ADDRESS) in trie._data
+    assert trie._data[get_tree_key_for_code_hash(ADDRESS)] == code_hash
 
 
 def test_all_zero_basic_data_is_absent_from_the_tree() -> None:
@@ -939,7 +933,7 @@ def test_zero_code_chunks_are_absent_from_the_tree() -> None:
     embed_account(trie, ADDRESS, U64(1), U256(5), code_hash, code)
 
     for chunk_id in (Uint(0), Uint(1)):
-        key = get_tree_key_for_code_chunk(ADDRESS, code_hash, chunk_id)
+        key = get_tree_key_for_code_chunk(code_hash, chunk_id)
         assert key not in trie._data
     # The account is still distinguished from one with no code.
     assert trie._data[get_tree_key_for_code_hash(ADDRESS)] == code_hash
@@ -948,8 +942,10 @@ def test_zero_code_chunks_are_absent_from_the_tree() -> None:
 def test_remove_all_storage_keeps_the_account_and_its_code() -> None:
     """
     A storage wipe straddles the header boundary: slots `0`-`63`
-    share the header stem with the basic data and code chunks that
-    must survive, while the rest live in the overflow subtree.
+    share the header stem with the basic data and code hash that
+    must survive, while the rest live in the overflow subtree. The
+    account's code chunks sit in the code zone, out of the sweep's
+    reach entirely.
     """
     code = Bytes(b"\x01" * 40)
     code_hash = Bytes32(b"\x22" * 32)
@@ -982,29 +978,6 @@ def test_embed_and_remove_storage_slot_roundtrip() -> None:
     remove_storage_slot(trie, ADDRESS, U256(1))
     remove_storage_slot(trie, ADDRESS, U256(1000))
     assert root(trie) == before
-
-
-def test_remove_code_chunks_leaves_the_other_header_leaves() -> None:
-    """
-    Sweeping the header code range deletes every chunk leaf and
-    nothing else: the account's basic data and code hash leaves
-    remain.
-    """
-    code = Bytes(b"\x01" * 40)  # two header chunks
-    code_hash = Bytes32(b"\x22" * 32)
-
-    trie = BinaryTrie()
-    embed_account(trie, ADDRESS, U64(1), U256(0), code_hash, code)
-    remove_code_chunks(trie, ADDRESS, code_hash)
-
-    expected = BinaryTrie()
-    trie_set(
-        expected,
-        get_tree_key_for_basic_data(ADDRESS),
-        encode_basic_data(code_size=U32(40), nonce=U64(1), balance=U256(0)),
-    )
-    trie_set(expected, get_tree_key_for_code_hash(ADDRESS), code_hash)
-    assert root(trie) == root(expected)
 
 
 def test_encode_basic_data_maximum_fields() -> None:
