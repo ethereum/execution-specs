@@ -275,9 +275,7 @@ def sigparam(evm: Evm) -> None:
     param = pop(evm.stack)
 
     if param == U256(0x04):
-        # STACK (copy operation): memOffset, dataOffset, length — same order
-        # as FRAMEDATACOPY/CALLDATACOPY (EIP-8141, aligned by ethereum/EIPs
-        # commit 4a9ad32c).
+        # STACK (copy operation)
         memory_offset = pop(evm.stack)
         data_offset = pop(evm.stack)
         length = pop(evm.stack)
