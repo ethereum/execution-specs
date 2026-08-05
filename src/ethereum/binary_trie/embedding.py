@@ -30,10 +30,10 @@ Code is not keyed by account at all: every chunk lives in
 [`CODE_ZONE`], content-addressed by code hash, so contracts with
 identical bytecode share their chunk leaves.
 
-Overflow storage and code keep the co-location at coarser
-granularity: each shares a stem per [`STEM_SUBTREE_WIDTH`]
-consecutive slots or chunks, so neighboring values are still proved
-through one shared path rather than one path each.
+Overflow storage and code are co-located at coarser granularity:
+aligned groups of up to [`STEM_SUBTREE_WIDTH`] consecutive slots or
+chunks share a stem, so neighboring values are still proved through
+one shared path rather than one path each.
 
 [EIP-8297]: https://eips.ethereum.org/EIPS/eip-8297
 [`ethereum.binary_trie.trie`]: ref:ethereum.binary_trie.trie
@@ -134,10 +134,13 @@ Sub-index of storage slot `0` within the account header stem. Slots
 
 HEADER_STORAGE_SLOTS = Uint(64)
 """
-Number of storage slots co-located in the account header stem.
-Slots at this index and above live in [`STORAGE_ZONE`]; see
+Number of storage slots co-located in the account header stem:
+slots `0` through `HEADER_STORAGE_SLOTS - 1` live there, at
+sub-indices counted from [`HEADER_STORAGE_OFFSET`], and every later
+slot lives in [`STORAGE_ZONE`]; see
 [`get_tree_key_for_storage_slot`].
 
+[`HEADER_STORAGE_OFFSET`]: ref:ethereum.binary_trie.embedding.HEADER_STORAGE_OFFSET
 [`STORAGE_ZONE`]: ref:ethereum.binary_trie.embedding.STORAGE_ZONE
 [`get_tree_key_for_storage_slot`]: ref:ethereum.binary_trie.embedding.get_tree_key_for_storage_slot
 """  # noqa: E501
@@ -468,8 +471,9 @@ def encode_basic_data(code_size: U32, nonce: U64, balance: U256) -> Bytes32:
     field cannot be committed and raises [`BalanceOverflowError`],
     invalidating the block whose state would hold it.
 
-    TODO: `code_size` is four bytes at offset four here, one
-    byte wider than EIP-7864's three-byte field at offset five.
+    The four-byte `code_size` at offset four matches EIP-8297; it is
+    one byte wider than EIP-7864's three-byte field at offset five,
+    from which this layout descends.
 
     [`BASIC_DATA_LEAF_KEY`]: ref:ethereum.binary_trie.embedding.BASIC_DATA_LEAF_KEY
     [`BalanceOverflowError`]: ref:ethereum.exceptions.BalanceOverflowError

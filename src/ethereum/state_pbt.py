@@ -177,7 +177,9 @@ class State:
         The diff's ``code_changes`` are needed here, unlike in the
         Merkle Patricia Trie: code chunk leaves commit the code
         itself, not just its hash, and newly deployed code is not yet
-        in the code store when the root is computed.
+        in the code store when the root is computed. The same lookup
+        serves removals, resolving the bytecode whose chunks a
+        deletion or code change sweeps away.
 
         [`apply_diff_to_trie`]: ref:ethereum.state_pbt.apply_diff_to_trie
         """  # noqa: E501
@@ -195,12 +197,18 @@ def apply_diff_to_trie(
     removals become deletions. This function decides *what* changed;
     the embedding's operations decide which keys that touches.
 
-    Removals are addressed rather than enumerated: an account owns a
-    known region of the key space, so deleting it or wiping its
-    storage is a tree operation on that region, and the diff never
-    has to say which slots the account held. The pre-state is read
-    only for what the diff leaves implicit: an account's previous
-    code, and whether an address had an account at all.
+    Account and storage removals are addressed rather than
+    enumerated: an account owns a known region of the key space, so
+    deleting it or wiping its storage is a tree operation on that
+    region, and the diff never has to say which slots the account
+    held. Code is the exception on both counts: its chunks sit in a
+    shared region no account owns, so removal enumerates them from
+    the bytecode, and it may happen at all only after
+    `code_hash_survives` has scanned every account the diff does not
+    touch to establish that nothing remaining still runs the code.
+    Beyond that scan, the pre-state supplies what the diff leaves
+    implicit: an account's previous code, and whether an address had
+    an account at all.
 
     Storage belongs to an account, so an address the diff leaves
     without one owns no slot leaves, exactly as in

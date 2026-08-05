@@ -1002,8 +1002,8 @@ def test_encode_basic_data_maximum_fields() -> None:
     bytes.
 
     `code_size` fills all four of its bytes at offset 4 -- one byte
-    wider than EIP-7864's three-byte field at offset 5, per the
-    in-code TODO on `encode_basic_data` -- `nonce` fills eight bytes
+    wider than EIP-7864's three-byte field at offset 5, as
+    `encode_basic_data`'s note records -- `nonce` fills eight bytes
     and `balance` sixteen.
     """
     value = encode_basic_data(

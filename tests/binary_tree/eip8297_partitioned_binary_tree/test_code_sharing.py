@@ -5,10 +5,13 @@ delegations share their chunk leaves, and removing one holder's code
 -- by account deletion or by a code change -- must never take a
 surviving holder's bytecode with it.
 
-Fixtures observe only per-account state and roots, so these tests pin
-execution survival across the events that trigger the shared-leaf
-removal check; the leaf-level sharing and removal oracles live in
-`tests/binary_trie/test_state_pbt.py`.
+Fixtures observe only per-account state and roots, so what these
+tests pin is execution survival plus the fixture root a conforming
+client must reproduce; the leaf-level sharing and removal oracles
+live in `tests/binary_trie/test_state_pbt.py`. Of the two, only the
+re-delegation test drives the shared-leaf removal check while
+filling: a same-transaction twin never enters the block's pre-state,
+so its deletion has no code to reclaim (see that test's docstring).
 """
 
 import pytest
@@ -43,17 +46,25 @@ def test_shared_code_survives_sibling_same_tx_selfdestruct(
     deletes such an account), across the block boundary where the
     tree commits.
 
-    The twin's deletion is the event that triggers the shared-code
-    removal check: both contracts hold the same content-addressed
-    chunks, so removing the twin must leave the survivor's bytecode
-    in place. The twin must self-destruct from its *deployed* code,
-    called in its creation transaction -- a SELFDESTRUCT inside
-    initcode never deploys, never holds the shared code hash, and
-    would exercise nothing.
+    The twin's deletion never reaches the shared-code removal check
+    in this implementation: created and destroyed within one
+    transaction, the twin is absent from the block's pre-state, so
+    there is no previous account to read a code hash from. Under
+    EIP-6780 that is true of every SELFDESTRUCT deletion, which is
+    why the removal check's deletion arm lives in handcrafted-diff
+    unit tests rather than here. What this fixture pins is the
+    committed root: a client that strips the shared chunks when the
+    twin goes -- taking the survivor's bytecode with them -- commits
+    to a different state root and fails the fixture. The twin still
+    must self-destruct from its *deployed* code, called in its
+    creation transaction: a SELFDESTRUCT inside initcode never
+    deploys and nets the account out of the diff entirely.
     """
     slot, value = 1, 0xC0DE
-    # calldata[0] != 0 self-destructs; calldata[0] == 0 stores
-    # calldata[32:64]. The JUMPDEST lands at byte 13, asserted below.
+    # A nonzero first calldata WORD self-destructs; zero stores
+    # calldata[32:64]. JUMPI reads the full 32-byte word -- the
+    # driver's flag word leaves calldata byte 0 itself as 0x00. The
+    # JUMPDEST lands at byte 13, asserted below.
     branchy = (
         Op.JUMPI(13, Op.CALLDATALOAD(0))
         + Op.SSTORE(slot, Op.CALLDATALOAD(32))

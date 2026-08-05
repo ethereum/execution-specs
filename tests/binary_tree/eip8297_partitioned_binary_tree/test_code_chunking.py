@@ -169,8 +169,8 @@ def test_push_data_straddles_chunk_boundary(
     the opcode byte itself has to sit in the chunk before the data,
     since a 32-byte immediate alone can touch at most two), and the
     code-group split at byte `GROUP_CODE_BYTES` (7936), chunks
-    255/256 -- the one boundary where key derivation moves to a new
-    stem (the `tree_index` advances) rather than just the next
+    255/256 -- the first boundary where key derivation moves to a
+    new stem (the `tree_index` advances) rather than just the next
     sub-index.
 
     What this pins is that a client's chunk *assembly* -- stripping

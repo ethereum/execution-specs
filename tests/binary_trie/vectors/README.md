@@ -39,7 +39,7 @@ exceed a JSON-safe integer is hex.
 | `source` | string | The repository and branch the vectors originate from. |
 | `source_commit` | string | Commit of the implementation these values were generated from. |
 | `trie_roots` | array | Tree roots for a spread of key shapes. |
-| `embedding` | object | Tree keys derived for one fixed account. |
+| `embedding` | object | Tree keys derived for one fixed account and one fixed code hash. |
 | `chunkify_code` | array | `chunkify_code` inputs and outputs. |
 | `encode_basic_data` | array | Packed account header leaves. |
 | `pbt_state` | array | Whole states and the roots they commit to. |
@@ -75,7 +75,9 @@ The nine cases and the structural property each one covers:
 
 ### `embedding`
 
-All keys in this section belong to a single test account.
+The header and storage keys in this section belong to a single test
+account; the chunk keys belong to a standalone code hash, which no
+address touches.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -85,7 +87,7 @@ All keys in this section belong to a single test account.
 | `code_hash_key` | hex | Tree key of the account's code-hash header leaf. |
 | `storage_slot_keys` | object | Decimal-string slot number to tree key. |
 | `code_chunk_keys` | object | Decimal-string chunk index to tree key. |
-| `code_hash` | hex | Keccak hash of the test account's bytecode; the content address every chunk key derives from. |
+| `code_hash` | hex | Keccak hash of a standalone one-byte code; the content address every chunk key derives from. |
 
 `storage_slot_keys` carries slots 0, 1, 63, 64, 255, 256, 511, 512, and
 `2**200`. Slots below 64 live in the account header, so the 63/64 pair

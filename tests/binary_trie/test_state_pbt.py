@@ -16,7 +16,10 @@ Later groups pin exact key sets, the BASIC_DATA leaf's byte layout,
 and further provider semantics: `storage_clears` ordering,
 account-delete/storage-orphan interactions, the asymmetry between
 `set_account` and the diff path, pre-state immutability, sequential
-diffs, and the storage sub-index boundaries. Key sets are rebuilt
+diffs, and the storage sub-index boundaries. A final group follows
+the content-addressed code lifecycle: chunk-leaf sharing, the
+survives-check on deletion and on code change, delegation
+designators, and removal across code groups. Key sets are rebuilt
 from raw `blake3` and literal zone/sub-index bytes, never by calling
 the derivation functions under test, so a wrong key that still
 produces the right leaf count -- a swapped zone byte, an off-by-one
@@ -1014,7 +1017,7 @@ def test_embedded_state_root_is_pinned() -> None:
     )
 
 
-def test_embedded_key_set_for_a_fully_occupied_header_stem() -> None:
+def test_embedded_key_set_for_maximum_header_occupancy() -> None:
     """
     An account with 64 header storage slots fills every header
     sub-index this embedding can ever populate, and embeds to exactly
@@ -1065,7 +1068,7 @@ def test_embedded_key_set_for_a_fully_occupied_header_stem() -> None:
         for chunk_id in range(128)
     }
     assert embedded._data.keys() == header_keys | code_zone_keys, (
-        "a fully-occupied header plus its code must produce no other key"
+        "maximum header occupancy plus its code must produce no other key"
     )
 
 
@@ -1130,9 +1133,12 @@ def _distinct_chunk_code(chunk_count: int, *, salt: int = 1) -> Bytes:
     repeats of `_code_chunk_filler_byte(salt + i)`.
 
     The default salt starts past filler byte zero, so every chunk of
-    a short code is nonzero and present in the tree; two codes built
-    with salts fewer than `len(_NON_PUSH_BYTES)` apart share no
-    chunk value across their overlapping indices.
+    a code shorter than `len(_NON_PUSH_BYTES) - salt` chunks is
+    nonzero and present in the tree; a longer code wraps back through
+    zero and gains one absent chunk per cycle, a hole its callers
+    rely on removal skipping. Two codes built with salts fewer than
+    `len(_NON_PUSH_BYTES)` apart share no chunk value across their
+    overlapping indices.
     """
     return Bytes(
         b"".join(
@@ -1315,6 +1321,8 @@ def test_code_change_by_the_last_holder_drops_every_group() -> None:
     removal bug scoped to `tree_index == 0` -- sweeping sub-indices
     without ever advancing the group -- is caught only here.
     """
+    # The filler cycle passes zero at chunk 223, leaving that chunk
+    # absent -- a hole the removal sweep must treat as a no-op.
     old_code = _distinct_chunk_code(257)
     new_code = Bytes(bytes(range(1, 63)))  # 2 chunks, no push opcodes
 
