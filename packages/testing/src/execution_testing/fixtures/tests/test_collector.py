@@ -425,3 +425,167 @@ class TestLegacyCompatibility:
         new_output = new_files[0].read_text()
 
         assert new_output == legacy_output
+
+
+class TestStreamingWrites:
+    """
+    Tests for the streaming write/merge path.
+
+    Fixtures for the stateful benchmarks reach several gigabytes each. The
+    write and merge must therefore never hold a whole fixture in memory, and
+    must still produce output byte-identical to `json.dumps`.
+    """
+
+    def _make_big_fixture(self, nonce: int, payload_kb: int) -> BaseFixture:
+        """A fixture whose JSON is large enough to dwarf any copy budget."""
+        fixture = TransactionFixture(
+            transaction="0x" + "ab" * (payload_kb * 512),
+            result={"Paris": FixtureResult(intrinsic_gas=nonce)},
+        )
+        fixture.fill_info(
+            "t8n-test",
+            f"big fixture {nonce}",
+            fixture_source_url="http://example.com",
+            ref_spec=None,
+            _info_metadata={},
+        )
+        return fixture
+
+    def test_merge_does_not_materialise_the_fixture(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """
+        Merging must allocate far less than the fixture it merges.
+
+        The previous implementation embedded each fixture as an escaped string
+        inside a JSONL envelope, then on merge read that line back, parsed it
+        and re-indented it with `.replace()` -- several full-size copies, so
+        peak allocation exceeded the document size. This pins the streaming
+        behaviour deterministically rather than by timing.
+        """
+        import tracemalloc
+
+        collector = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        fixture = self._make_big_fixture(0, payload_kb=4096)
+        collector.add_fixture(_make_info("big", module_path), fixture)
+        collector.close_streaming_files()
+
+        document_size = sum(
+            p.stat().st_size for p in output_dir.rglob("*.fixture.json")
+        )
+        assert document_size > 4_000_000, (
+            "fixture not large enough to be a test"
+        )
+
+        tracemalloc.start()
+        merge_partial_fixture_files(output_dir)
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        # Generous: a streaming merge needs a copy chunk plus the index, so
+        # well under the document. The old code peaked above document_size.
+        assert peak < document_size // 2, (
+            f"merge peaked at {peak} bytes for a {document_size}-byte "
+            "fixture -- it is not streaming"
+        )
+
+    def test_large_fixture_output_matches_json_dumps(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """A multi-megabyte fixture must still round-trip byte-identically."""
+        collector = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        fixture = self._make_big_fixture(1, payload_kb=512)
+        info = _make_info("big", module_path)
+        collector.add_fixture(info, fixture)
+        collector.close_streaming_files()
+        merge_partial_fixture_files(output_dir)
+
+        written = next(
+            p for p in output_dir.rglob("*.json") if ".partial." not in p.name
+        ).read_text()
+        expected = json.dumps(
+            {info.get_id(): fixture.json_dict_with_info()}, indent=4
+        )
+        assert written == expected
+
+    def test_existing_target_is_folded_in(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """
+        A second session must accumulate into the existing target file.
+
+        The existing document is folded in by byte range rather than parsed,
+        so this also covers `_iter_document_entries` against real output.
+        """
+        first = _make_fixture(0)
+        first_info = _make_info("first", module_path)
+        collector = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        collector.add_fixture(first_info, first)
+        collector.close_streaming_files()
+        merge_partial_fixture_files(output_dir)
+
+        second = _make_fixture(1)
+        second_info = _make_info("second", module_path)
+        collector2 = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        collector2.add_fixture(second_info, second)
+        collector2.close_streaming_files()
+        merge_partial_fixture_files(output_dir)
+
+        target = next(
+            p for p in output_dir.rglob("*.json") if ".partial." not in p.name
+        )
+        written = target.read_text()
+        expected = json.dumps(
+            dict(
+                sorted(
+                    {
+                        first_info.get_id(): first.json_dict_with_info(),
+                        second_info.get_id(): second.json_dict_with_info(),
+                    }.items()
+                )
+            ),
+            indent=4,
+        )
+        assert written == expected
+        assert json.loads(written), "must remain valid JSON"
+
+    def test_part_and_seed_files_are_cleaned_up(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """No part, index or seed file may survive a merge."""
+        collector = FixtureCollector(
+            output_dir=output_dir,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        for i in range(3):
+            collector.add_fixture(
+                _make_info(f"t{i}", module_path), _make_fixture(i)
+            )
+        collector.close_streaming_files()
+        merge_partial_fixture_files(output_dir)
+
+        assert not list(output_dir.rglob("*.fixture.json"))
+        assert not list(output_dir.rglob("*.partial.*.jsonl"))
+        assert not list(output_dir.rglob("*.seed.json"))
