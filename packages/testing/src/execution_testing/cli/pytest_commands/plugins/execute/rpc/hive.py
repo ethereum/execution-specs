@@ -309,7 +309,6 @@ def per_test_hive_test(client: Client, hive_test: HiveTest) -> None:
 
 @pytest.fixture(autouse=True, scope="session")
 def base_hive_test(
-    request: pytest.FixtureRequest,
     test_suite: HiveTestSuite,
     session_temp_folder: Path,
 ) -> Generator[HiveTest, None, None]:
@@ -349,11 +348,17 @@ def base_hive_test(
 
     yield test
 
-    test_pass = True
-    test_details = "All tests have completed"
-    if request.session.testsfailed > 0:
+    # Individual results are reported by the per-test hive test cases,
+    # and hive marks this test as the multi-test lifecycle owner, so it
+    # always passes unless the client failed to start (the client
+    # fixture leaves its error file behind on startup failure).
+    client_error_file = session_temp_folder / "hive_client.err"
+    if client_error_file.exists():
         test_pass = False
-        test_details = "One or more tests have failed"
+        test_details = "Failed to start the client."
+    else:
+        test_pass = True
+        test_details = "Multi-test client context completed."
 
     with FileLock(users_lock_file):
         with open(users_file, "r") as f:
