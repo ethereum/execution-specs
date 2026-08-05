@@ -524,7 +524,7 @@ def process_frames(
     tx_state = tx_env.state
 
     journal = FrameJournal(
-        warm_addresses=set(),
+        warm_addresses={tx.sender},
         warm_storage_keys=set(),
         unused_gas=Uint(0),
         refund_counter=0,
