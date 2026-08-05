@@ -116,6 +116,12 @@ def test_trie_set_rejects_malformed_inputs() -> None:
     """
     Empty keys, keys past the maximum length, and values that are not
     32 bytes are rejected.
+
+    The EIP's `state_root` asserts these bounds when the root is
+    computed; `trie_set` enforcing them at write time is strictly
+    earlier, and `root` re-checks every entry regardless, so a
+    malformed entry can neither enter the map nor reach a
+    commitment.
     """
     trie = BinaryTrie()
     with pytest.raises(AssertionError):
@@ -821,14 +827,12 @@ def test_prefix_violation_only_fails_at_root_time() -> None:
     through ordinary `trie_set`/`trie_get` calls; prefix-freeness is
     only enforced lazily, when `root` walks the tree.
 
-    EIP-8297's "Tree structure" section places this rejection in
-    `insert` itself ("`insert` rejects keys that violate either
-    constraint"); this implementation's `trie_set` instead defers
-    enforcement to `root()` -- the same disclosure treatment the
-    zero-value/absence divergence receives elsewhere in this tree.
-    The practical consequence is nil for a rebuild-based reference
-    that always calls `root()` before trusting a commitment, which is
-    why this is disclosed rather than fixed.
+    That is exactly where EIP-8297 places the rejection: "Computing
+    the root rejects keys that violate either constraint", and
+    `state_root` in the spec's pseudocode is where the checks run.
+    So this pins conformance, not a divergence: a pair of writes the
+    spec's tree could never commit to stays observable through the
+    map interface but can produce no root.
     """
     prefix_key = Bytes(b"\x50" * 34)
     extended_key = Bytes(b"\x50" * 34 + b"\x60")

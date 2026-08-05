@@ -148,6 +148,11 @@ Maximum number of values grouped under a single stem: the size of
 the sub-index byte's space.
 """
 
+# EIP-8297, "Tree embedding": "It is a required invariant that
+# `HEADER_STORAGE_OFFSET + HEADER_STORAGE_SLOTS <= STEM_SUBTREE_WIDTH`."
+# The header storage sweep and the storage key split assume it.
+assert HEADER_STORAGE_OFFSET + HEADER_STORAGE_SLOTS <= STEM_SUBTREE_WIDTH
+
 ACCOUNT_ZONE = Zone(0)
 """
 Zone byte of account header stems.

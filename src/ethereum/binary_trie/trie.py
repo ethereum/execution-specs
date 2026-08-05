@@ -377,8 +377,20 @@ def root(trie: BinaryTrie) -> Hash32:
     An empty trie commits to [`EMPTY_TRIE_ROOT`]; any other trie
     commits to the hash of its canonical node structure.
 
+    Every entry is validated before hashing, as in the EIP's
+    `state_root`: computing the root rejects out-of-range keys and
+    values that are not 32 bytes, even though [`trie_set`] already
+    enforced both at write time. Prefix-freeness is enforced during
+    the walk itself, in [`binarize`].
+
     [`EMPTY_TRIE_ROOT`]: ref:ethereum.binary_trie.trie.EMPTY_TRIE_ROOT
+    [`trie_set`]: ref:ethereum.binary_trie.trie.trie_set
+    [`binarize`]: ref:ethereum.binary_trie.trie.binarize
     """
+    for key, value in trie._data.items():
+        assert len(key) >= 1
+        assert Uint(len(key)) <= MAX_KEY_LENGTH
+        assert len(value) == 32
     if len(trie._data) == 0:
         return EMPTY_TRIE_ROOT
     return merkleize(binarize(trie._data, Uint(0)))
