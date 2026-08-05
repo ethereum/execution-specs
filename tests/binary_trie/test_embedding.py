@@ -20,10 +20,13 @@ from ethereum.binary_trie.embedding import (
     encode_basic_data,
     get_tree_key,
     get_tree_key_for_basic_data,
+    encode_delegation,
     get_tree_key_for_code_chunk,
     get_tree_key_for_code_hash,
+    get_tree_key_for_delegation,
     get_tree_key_for_header,
     get_tree_key_for_storage_slot,
+    is_delegation,
     key_hash,
     remove_account,
     remove_all_storage,
@@ -31,6 +34,7 @@ from ethereum.binary_trie.embedding import (
     remove_storage_slot,
 )
 from ethereum.binary_trie.trie import BinaryTrie, root
+from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import BalanceOverflowError, InvalidBlock
 from ethereum.state import EMPTY_CODE_HASH as MPT_STATE_EMPTY_CODE_HASH
 
@@ -127,6 +131,49 @@ def test_header_key_vectors() -> None:
 
     assert get_tree_key_for_basic_data(ADDRESS) == stem + b"\x00"
     assert get_tree_key_for_code_hash(ADDRESS) == stem + b"\x01"
+
+
+def test_delegation_key_vector() -> None:
+    """
+    EIP key vector: an account's delegation leaf is its header stem
+    at sub-index `0x02`, 34 bytes in total.
+
+    The sub-index is what distinguishes a delegation from a code
+    hash, so the two keys must differ; a discriminator that instead
+    read the leaf's leading bytes would let an attacker grind code
+    whose hash begins with the marker and have the contract read as
+    delegated.
+    """
+    stem = _header_stem(ADDRESS)
+
+    key = get_tree_key_for_delegation(ADDRESS)
+
+    assert key == stem + b"\x02"
+    assert len(key) == 34
+    assert key != get_tree_key_for_code_hash(ADDRESS)
+
+
+def test_delegation_leaf_value_layout() -> None:
+    """
+    EIP value vector: the leaf holds the indicator followed by nine
+    zero bytes.
+
+    The target is a distinct byte per position, so a reversal or an
+    off-by-one slice shows. The nine trailing zeros are what set this
+    apart from the chunk encoding, which reserves a leading byte for
+    its push-data count and so pads with eight: the two encodings are
+    the same length and share no byte position.
+    """
+    target = bytes(range(1, 21))
+    designator = Bytes(b"\xef\x01\x00" + target)
+
+    value = encode_delegation(designator)
+
+    assert len(value) == 32
+    assert value[:3] == b"\xef\x01\x00"
+    assert value[3:23] == target
+    assert value[23:] == b"\x00" * 9
+    assert value != chunkify_code(designator)[0]
 
 
 def test_storage_slot_in_header_vector() -> None:
@@ -701,13 +748,138 @@ def test_chunkify_consecutive_pushes_across_boundary() -> None:
     assert chunks[1][0] == 1
 
 
-def test_chunkify_delegation_designator() -> None:
-    """
-    An EIP-7702 delegation designator chunkifies like any other code.
+CODE_HASHING_TO_THE_DELEGATION_MARKER = Bytes(
+    bytes.fromhex("0000000000000000000000000000000000000000637401")
+)
+"""
+Deployable 23-byte code whose Keccak hash begins `0xef0100`.
 
-    `0xEF0100` followed by the 20-byte delegate address is 23 bytes;
-    `0xEF` is not a push opcode, so the single chunk's leading byte
-    is 0 and the payload is zero-padded from 23 to 31 bytes.
+Found by grinding roughly 2**24 candidates offline, the work the
+EIP names when rejecting a discriminator that reads a leaf's leading
+bytes. It opens with `STOP`, so [EIP-3541] permits its deployment.
+
+[EIP-3541]: https://eips.ethereum.org/EIPS/eip-3541
+"""
+
+
+@pytest.mark.parametrize(
+    "code, delegated",
+    [
+        pytest.param(
+            Bytes(b"\xef\x01\x00" + b"\x11" * 20), True, id="indicator"
+        ),
+        pytest.param(
+            Bytes(b"\xef\x01\x00" + b"\x11" * 20 + b"\x00"),
+            False,
+            id="one-byte-too-long",
+        ),
+        pytest.param(
+            Bytes(b"\xef\x01\x00" + b"\x11" * 19),
+            False,
+            id="one-byte-too-short",
+        ),
+        pytest.param(
+            Bytes(b"\xef\x01\x01" + b"\x11" * 20), False, id="wrong-marker"
+        ),
+        pytest.param(Bytes(b"\x01" * 23), False, id="right-length-no-marker"),
+        pytest.param(Bytes(b""), False, id="no-code"),
+        pytest.param(
+            CODE_HASHING_TO_THE_DELEGATION_MARKER,
+            False,
+            id="hash-begins-with-the-marker",
+        ),
+    ],
+)
+def test_delegation_is_classified_by_code_never_by_hash(
+    code: Bytes, delegated: bool
+) -> None:
+    """
+    An indicator is the marker and the exact length, both read from
+    the code itself.
+
+    The last case is the one the EIP's rationale turns on: its code
+    hash begins with the marker, which a discriminator reading the
+    code hash leaf's leading bytes would take for a delegation to an
+    attacker-chosen address. Classifying by the code keeps it a
+    contract, and putting the delegation at its own sub-index means
+    the leaf that answers the question is the one whose presence is
+    the answer.
+    """
+    assert is_delegation(code) is delegated
+    if code == CODE_HASHING_TO_THE_DELEGATION_MARKER:
+        assert keccak256(code)[:3] == b"\xef\x01\x00"
+
+
+def test_embed_account_reads_the_code_not_the_code_hash() -> None:
+    """
+    Which leaf an account gets is decided by its code alone.
+
+    `embed_account` is handed both the code and its hash, so this
+    passes a hash that contradicts the code in each direction: a
+    contract whose hash begins with the marker still gets a code hash
+    leaf and a chunk, and an indicator still gets a delegation leaf
+    even when handed an ordinary hash. Only an implementation that
+    consults the hash can tell these apart, and that is the design
+    the EIP rejects.
+    """
+    contract = CODE_HASHING_TO_THE_DELEGATION_MARKER
+    contract_hash = keccak256(contract)
+    designator = Bytes(b"\xef\x01\x00" + b"\x11" * 20)
+
+    trie = BinaryTrie()
+    embed_account(trie, ADDRESS, U64(1), U256(0), contract_hash, contract)
+
+    stem = _header_stem(ADDRESS)
+    assert stem + b"\x01" in trie._data
+    assert stem + b"\x02" not in trie._data
+    assert get_tree_key_for_code_chunk(contract_hash, Uint(0)) in trie._data
+
+    other = BinaryTrie()
+    embed_account(
+        other, ADDRESS, U64(1), U256(0), keccak256(designator), designator
+    )
+
+    assert stem + b"\x02" in other._data
+    assert stem + b"\x01" not in other._data
+    assert not any(key[0] == 1 for key in other._data)
+
+
+def test_remove_account_takes_the_delegation_leaf() -> None:
+    """
+    Deleting a delegated account removes its delegation leaf with the
+    rest of its header.
+
+    The sweep is a subtree removal over the header stem, so it covers
+    every sub-index by construction. What this guards is a rewrite
+    into an enumeration of the sub-indices in use -- the shape
+    `remove_all_storage` already has -- which would be correct for
+    the code hash leaf and silently orphan the delegation one.
+    """
+    designator = Bytes(b"\xef\x01\x00" + b"\x11" * 20)
+
+    trie = BinaryTrie()
+    empty = root(trie)
+    embed_account(
+        trie, ADDRESS, U64(1), U256(5), keccak256(designator), designator
+    )
+    assert _header_stem(ADDRESS) + b"\x02" in trie._data
+
+    remove_account(trie, ADDRESS)
+
+    assert trie._data == {}
+    assert root(trie) == empty
+
+
+def test_chunkify_designator_shaped_code_still_chunks() -> None:
+    """
+    `chunkify_code` has no notion of delegation: given designator
+    bytes it chunks them like any other code.
+
+    No account reaches this, since a delegated account's indicator
+    goes to its header leaf and is never chunked. What the case pins
+    is that the two encodings of the same 23 bytes stay distinct --
+    the chunk spends its leading byte on a push-data count and pads
+    with eight zeros, where the leaf pads with nine.
     """
     designator = bytes([0xEF, 0x01, 0x00]) + b"\xcc" * 20
     assert len(designator) == 23
@@ -717,6 +889,7 @@ def test_chunkify_delegation_designator() -> None:
 
     assert len(chunks) == 1
     assert chunks[0] == Bytes32(bytes([0]) + designator + b"\x00" * 8)
+    assert chunks[0] != encode_delegation(code)
 
 
 def test_encode_basic_data_layout() -> None:

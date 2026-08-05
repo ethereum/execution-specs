@@ -52,7 +52,7 @@ tree and leaves open for the Merkle Patricia Trie.
 """  # noqa: E501
 
 import random
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import pytest
 from blake3 import blake3
@@ -1333,6 +1333,151 @@ def test_deleting_the_last_holder_drops_every_group() -> None:
     assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
 
 
+@pytest.mark.parametrize(
+    "code, storage_slots, delegated",
+    [
+        pytest.param(Bytes(b""), (), False, id="codeless_eoa"),
+        pytest.param(
+            _distinct_chunk_code(3), (), False, id="contract"
+        ),
+        pytest.param(DELEGATION_A, (), True, id="delegated_eoa"),
+        pytest.param(
+            DELEGATION_A, (0, 63, 64), True, id="delegated_with_storage"
+        ),
+    ],
+)
+def test_every_account_holds_exactly_one_of_the_two_leaves(
+    code: Bytes, storage_slots: Tuple[int, ...], delegated: bool
+) -> None:
+    """
+    Being delegated and holding contract code are exclusive, so an
+    account holds the code hash leaf or the delegation leaf and never
+    both, whatever else it carries.
+
+    The shapes are parametrized because a single one cannot tell the
+    rule from an implementation that hardcodes an answer: suppress
+    the code hash leaf everywhere and only the codeless and contract
+    cases fail; write both leaves and only the delegated ones do.
+    """
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    header_stem = _account_header_stem(address32)
+
+    state = State()
+    code_hash = store_code(state, code)
+    set_account(
+        state,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+    for slot in storage_slots:
+        set_storage(
+            state, ADDRESS_A, Bytes32(U256(slot).to_be_bytes32()), U256(7)
+        )
+
+    trie = embed_flat_state(state._accounts, state._storage, state.get_code)
+
+    held = {
+        sub_index
+        for sub_index in (1, 2)
+        if header_stem + bytes([sub_index]) in trie._data
+    }
+    assert held == ({2} if delegated else {1})
+
+
+def test_delegating_replaces_the_code_hash_leaf() -> None:
+    """
+    An account that delegates gains a delegation leaf and loses the
+    code hash leaf it held a moment earlier.
+
+    The incremental path re-embeds over a trie that still carries the
+    pre-state leaf, so an implementation that writes the delegation
+    leaf without removing the code hash leaf leaves the account
+    holding both. The key set is asserted on both the incremental
+    trie and a fresh embedding, since a root comparison alone would
+    move together with the bug: both sides embed through the same
+    function.
+    """
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    header_stem = _account_header_stem(address32)
+
+    pre = State()
+    delegation_hash = store_code(pre, DELEGATION_A)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH),
+    )
+    assert (
+        header_stem + bytes([1])
+        in embed_flat_state(pre._accounts, pre._storage, pre.get_code)._data
+    )
+
+    delegated = Account(
+        nonce=Uint(2), balance=U256(1), code_hash=delegation_hash
+    )
+    diff = BlockDiff(
+        account_changes={ADDRESS_A: delegated},
+        code_changes={delegation_hash: DELEGATION_A},
+    )
+
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    apply_diff_to_trie(trie, pre, diff)
+    assert header_stem + bytes([1]) not in trie._data
+    assert trie._data[header_stem + bytes([2])] == Bytes32(
+        bytes(DELEGATION_A) + b"\x00" * 9
+    )
+
+    fresh = State()
+    assert store_code(fresh, DELEGATION_A) == delegation_hash
+    set_account(fresh, ADDRESS_A, delegated)
+    fresh_trie = embed_flat_state(
+        fresh._accounts, fresh._storage, fresh.get_code
+    )
+    assert header_stem + bytes([1]) not in fresh_trie._data
+    assert pre.compute_state_root(diff) == state_root(fresh)
+
+
+def test_undelegating_restores_the_empty_code_hash_leaf() -> None:
+    """
+    An authorization to the zero address clears the delegation,
+    replacing the leaf with a code hash leaf holding the hash of
+    empty bytecode and zeroing `code_size`.
+
+    The restored leaf must be present, not merely absent-as-zero: the
+    empty-code hash is what distinguishes an account that exists from
+    one that does not, and an implementation that removed the
+    delegation leaf without writing it back would erase the account.
+    """
+    address32 = b"\x00" * 12 + bytes(ADDRESS_A)
+    header_stem = _account_header_stem(address32)
+    empty_code_hash = bytes.fromhex(
+        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+    )
+
+    pre = State()
+    delegation_hash = store_code(pre, DELEGATION_A)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=delegation_hash),
+    )
+
+    cleared = Account(
+        nonce=Uint(2), balance=U256(1), code_hash=EMPTY_CODE_HASH
+    )
+    diff = BlockDiff(account_changes={ADDRESS_A: cleared})
+
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    apply_diff_to_trie(trie, pre, diff)
+    assert header_stem + bytes([2]) not in trie._data
+    assert trie._data[header_stem + bytes([1])] == empty_code_hash
+    assert trie._data[header_stem + bytes([0])][4:8] == b"\x00" * 4
+
+    fresh = State()
+    set_account(fresh, ADDRESS_A, cleared)
+    assert pre.compute_state_root(diff) == state_root(fresh)
+
+
 def test_authorities_to_one_target_hold_separate_delegation_leaves() -> None:
     """
     Two EOAs delegating to the same target hold one delegation leaf
@@ -1738,6 +1883,20 @@ def test_account_has_storage_matches_the_embedded_leaf_set() -> None:
     cleared = fresh(key_header, key_bucket)
     apply_changes_to_state(cleared, BlockDiff(storage_clears={ADDRESS_A}))
 
+    def delegated(*slots: Bytes32) -> State:
+        state = State()
+        delegation_hash = store_code(state, DELEGATION_A)
+        set_account(
+            state,
+            ADDRESS_A,
+            Account(
+                nonce=Uint(1), balance=U256(1), code_hash=delegation_hash
+            ),
+        )
+        for slot in slots:
+            set_storage(state, ADDRESS_A, slot, U256(7))
+        return state
+
     expectations = [
         (no_storage, False),
         (header_only, True),
@@ -1745,6 +1904,11 @@ def test_account_has_storage_matches_the_embedded_leaf_set() -> None:
         (zeroed, False),
         (deleted, False),
         (cleared, False),
+        # The delegation leaf sits below the storage sub-indices, so
+        # holding one is not holding storage.
+        (delegated(), False),
+        (delegated(key_header), True),
+        (delegated(key_bucket), True),
     ]
     for state, expected in expectations:
         assert state.account_has_storage(ADDRESS_A) is expected
