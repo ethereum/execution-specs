@@ -295,14 +295,16 @@ def test_case_description(request: pytest.FixtureRequest) -> str:
 
 
 @pytest.fixture(autouse=True)
-def per_test_hive_test(hive_test: HiveTest) -> None:
+def per_test_hive_test(client: Client, hive_test: HiveTest) -> None:
     """
     Report each pytest test as an individual hive test case.
 
-    The client runs under the session-scoped base hive test; this
-    per-test entry only propagates the individual test result to hive.
+    The client runs under the session-scoped base hive test; register
+    it with each per-test entry so hive attaches the client and its
+    log segment to the individual test case and marks the base test
+    as the multi-test lifecycle owner.
     """
-    del hive_test
+    hive_test.register_multi_test_client(client)
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -430,6 +432,11 @@ def client(
         users += 1
         with open(users_file, "w") as f:
             json.dump(users, f)
+
+    # Set on every worker (the client object is shared across xdist
+    # workers via JSON serialization) so that per-test hive test cases
+    # can register with the client.
+    client.multi_test = True
 
     yield client
 
