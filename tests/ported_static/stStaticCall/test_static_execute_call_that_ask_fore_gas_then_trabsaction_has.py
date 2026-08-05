@@ -1,29 +1,45 @@
 """
-Test_static_execute_call_that_ask_fore_gas_then_trabsaction_has.
+Verify a STATICCALL that asks for more gas than is available is clamped to
+63/64 of the remaining gas (EIP-150), across callees that succeed, out-of-gas,
+and violate the static context.
 
 Ported from:
 state_tests/stStaticCall/static_ExecuteCallThatAskForeGasThenTrabsactionHasFiller.json
+
+@manually-enhanced: Do not overwrite. An outer call caps the caller frame so
+the callee budgets are fork-independent; the flag slot is pre-written so the
+post-call store is a cheap dirty-warm write affordable from the 1/64
+retention even under EIP-8037; distinct flag values discriminate success,
+callee failure, and caller OOG (the ported {1: 0} expectation could not).
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
-    Hash,
+    Fork,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+FLAG_SLOT = 0x1
+# Pre-written sentinel: if the caller frame dies after the call, the slot
+# keeps this value instead of reverting to an ambiguous zero.
+FLAG_PREWRITE = 0xFF
+# Stored flag = 0x10 + STATICCALL result: 0x11 success, 0x10 failure.
+FLAG_BASE = 0x10
+
+# Far larger than any gas the caller frame can hold, so the EIP-150 clamp
+# (not the operand) decides what the callee receives.
+OVERSIZED_GAS_ASK = 2**61
+# The outer call pins the caller frame's budget: large enough to cover the
+# caller's own cold flag store (~111k under EIP-8037) and the successful
+# callee, small enough that the looping callee (~6.5M) still runs out.
+CALLER_GAS = 1_000_000
 
 
 @pytest.mark.ported_from(
@@ -31,132 +47,85 @@ REFERENCE_SPEC_VERSION = "N/A"
         "state_tests/stStaticCall/static_ExecuteCallThatAskForeGasThenTrabsactionHasFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.slow
+@pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
-    "d, g, v",
+    "callee_kind, callee_succeeds",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="d0",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="d2",
-        ),
+        pytest.param("mstore", True, id="d0"),
+        pytest.param("extcodesize_loop", False, id="d1"),
+        pytest.param("sstore_static_violation", False, id="d2"),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    callee_kind: str,
+    callee_succeeds: bool,
 ) -> None:
-    """Test_static_execute_call_that_ask_fore_gas_then_trabsaction_has."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0x989680)
+    """A STATICCALL asking for more gas than available gets 63/64 of it."""
+    if callee_kind == "mstore":
+        # Trivial: succeeds well within the forwarded gas.
+        callee = pre.deploy_contract(
+            code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP
+        )
+    elif callee_kind == "extcodesize_loop":
+        # 50000 EXTCODESIZE iterations (~6.5M gas): must exhaust the
+        # clamped forwarded gas, proving the callee did not receive the
+        # oversized ask.
+        callee = pre.deploy_contract(
+            code=Op.JUMPDEST
+            + Op.JUMPI(
+                pc=0x1C,
+                condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350)),
+            )
+            + Op.POP(Op.EXTCODESIZE(address=0x1))
+            + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
+            + Op.JUMP(pc=0x0)
+            + Op.JUMPDEST
+            + Op.STOP,
+        )
+    else:
+        # SSTORE inside a static context: exceptional halt regardless of
+        # gas.
+        callee = pre.deploy_contract(
+            code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP
+        )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    # Source: lll
-    # { [[1]] (STATICCALL 600000 (CALLDATALOAD 0) 0 0 0 0) }
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
-            key=0x1,
-            value=Op.STATICCALL(
-                gas=0x927C0,
-                address=Op.CALLDATALOAD(offset=0x0),
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
+    # The flag slot is written twice: the pre-write pays the cold/state
+    # cost with the full budget, so the post-call store is a dirty-warm
+    # write the 1/64 retention can always afford.
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(key=FLAG_SLOT, value=FLAG_PREWRITE)
+        + Op.SSTORE(
+            key=FLAG_SLOT,
+            value=Op.ADD(
+                FLAG_BASE,
+                Op.STATICCALL(gas=OVERSIZED_GAS_ASK, address=callee),
             ),
         )
         + Op.STOP,
-        nonce=0,
-        address=Address(0xA256EBCC5536CDA56E04C39FE9584ECC7594A438),  # noqa: E501
     )
-    # Source: lll
-    # { (MSTORE 1 1) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
-        balance=0x186A0,
-        nonce=0,
-        address=Address(0x3DC16A13CF554533F380CC938A2C1AB04DAC534F),  # noqa: E501
-    )
-    # Source: lll
-    # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
-    addr_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPDEST
-        + Op.JUMPI(
-            pc=0x1C, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
-        )
-        + Op.POP(Op.EXTCODESIZE(address=0x1))
-        + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
-        + Op.JUMP(pc=0x0)
-        + Op.JUMPDEST
+
+    # The outer call pins the caller frame's gas so the callee budgets do
+    # not depend on the tx gas limit; the clamp must always bite.
+    assert CALLER_GAS < OVERSIZED_GAS_ASK, "the 63/64 clamp must apply"
+    entry = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=CALLER_GAS, address=caller))
         + Op.STOP,
-        balance=0x186A0,
-        nonce=0,
-        address=Address(0x73EF1878A0F2C9629DEDC1B1E9BE8D77DCF93688),  # noqa: E501
     )
-    # Source: lll
-    # { (SSTORE 1 1) }
-    addr_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
-        balance=0x186A0,
-        nonce=0,
-        address=Address(0xCE4CCBFFAF450AE2126EB96DCD7C891F37764F20),  # noqa: E501
-    )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [1, 2], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={1: 0})},
-        },
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {target: Account(storage={1: 1})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Hash(addr, left_padding=True),
-        Hash(addr_2, left_padding=True),
-        Hash(addr_3, left_padding=True),
-    ]
-    tx_gas = [100000]
 
     tx = Transaction(
-        sender=sender,
-        to=target,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=entry,
+        state_gas_reservoir=0,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    post = {
+        entry: Account(storage={0: 1}),
+        caller: Account(
+            storage={FLAG_SLOT: FLAG_BASE + (1 if callee_succeeds else 0)},
+        ),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)

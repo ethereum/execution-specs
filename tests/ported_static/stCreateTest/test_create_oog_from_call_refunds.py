@@ -1,8 +1,17 @@
 """
-Test_create_oog_from_call_refunds.
+Verify that gas refunds earned during (or via calls made from) a CREATE's
+init code cannot rescue the creation from an out-of-gas failure: each OoG
+variant burns the whole budget through the dispatcher's INVALID, while
+the NoOoG variants deploy and keep their refunds.
 
 Ported from:
 state_tests/stCreateTest/CreateOOGFromCallRefundsFiller.yml
+
+@manually-enhanced: Do not overwrite. The gas limit and the sender's
+exact prefund are derived from the fork so the child's 63/64 grant
+covers the deepest nested-create chain (EIP-8037 state gas included)
+yet stays below the 5000-byte code-deposit price that drives the OoG
+arms.
 """
 
 import pytest
@@ -12,7 +21,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -27,6 +35,11 @@ from tests.ported_static.post_state_resolution import (
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+# Returning this much code makes the deposit unaffordable in the OoG
+# variants; the gas limit below is derived against it.
+OOG_DEPOSIT_SIZE = 0x1388
+TX_GAS_PRICE = 10
 
 
 @pytest.mark.ported_from(
@@ -191,8 +204,7 @@ def test_create_oog_from_call_refunds(
     g: int,
     v: int,
 ) -> None:
-    """Test_create_oog_from_call_refunds."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+    """Refunds earned inside a creation cannot avert its OOG."""
     contract_0 = Address(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA)
     contract_1 = Address(0x000000000000000000000000000000000000001A)
     contract_2 = Address(0x000000000000000000000000000000000000001B)
@@ -226,15 +238,38 @@ def test_create_oog_from_call_refunds(
         key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
+    # Budget: covers the deepest NoOoG chain (a nested CREATE with
+    # EIP-8037 peak state gas at each level) while any init frame's
+    # 63/64 grant stays below the OoG arms' code-deposit price. The
+    # intrinsic bound uses all-non-zero calldata (selector + address).
+    gas_costs = fork.gas_costs()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"\xff" * 36
+    )
+    create_op = Op.CREATE(
+        value=0x0,
+        offset=0x0,
+        size=0x40,
+        new_memory_size=0x40,
+        init_code_size=0x40,
+    )
+    gas_limit = (
+        intrinsic
+        + create_op.gas_cost(fork)
+        + OOG_DEPOSIT_SIZE * gas_costs.CODE_DEPOSIT_PER_BYTE
+    )
+    deposit_price = (
+        OOG_DEPOSIT_SIZE * gas_costs.CODE_DEPOSIT_PER_BYTE
+        + fork.code_deposit_state_gas(code_size=OOG_DEPOSIT_SIZE)
+    )
+    # No init frame can receive enough to pay the OoG arms' deposit.
+    grant_bound = gas_limit - intrinsic - create_op.execution_cost(fork)
+    assert grant_bound * 63 // 64 < deposit_price, (
+        "63/64 grant must stay below the OoG deposit price"
     )
 
-    pre[sender] = Account(balance=0x3D0900, nonce=1)
+    # The exact prefund makes "all gas burned" observable as balance 0.
+    pre[sender] = Account(balance=gas_limit * TX_GAS_PRICE, nonce=1)
     # Source: yul
     # berlin
     # {
@@ -294,7 +329,7 @@ def test_create_oog_from_call_refunds(
         code=Op.SSTORE(key=0x0, value=0x1)
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.SSTORE(key=0x1, value=0x0)
-        + Op.RETURN(offset=0x0, size=0x1388),
+        + Op.RETURN(offset=0x0, size=OOG_DEPOSIT_SIZE),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000001B),  # noqa: E501
     )
@@ -464,7 +499,7 @@ def test_create_oog_from_call_refunds(
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.RETURN(offset=0x0, size=0x1388),
+        + Op.RETURN(offset=0x0, size=OOG_DEPOSIT_SIZE),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000002B),  # noqa: E501
     )
@@ -560,7 +595,7 @@ def test_create_oog_from_call_refunds(
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.RETURN(offset=0x0, size=0x1388),
+        + Op.RETURN(offset=0x0, size=OOG_DEPOSIT_SIZE),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000004B),  # noqa: E501
     )
@@ -583,7 +618,7 @@ def test_create_oog_from_call_refunds(
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.RETURN(offset=0x0, size=0x1388),
+        + Op.RETURN(offset=0x0, size=OOG_DEPOSIT_SIZE),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000003B),  # noqa: E501
     )
@@ -655,7 +690,7 @@ def test_create_oog_from_call_refunds(
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.RETURN(offset=0x0, size=0x1388),
+        + Op.RETURN(offset=0x0, size=OOG_DEPOSIT_SIZE),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000005B),  # noqa: E501
     )
@@ -745,7 +780,7 @@ def test_create_oog_from_call_refunds(
             ret_offset=Op.DUP1,
             ret_size=0x0,
         )
-        + Op.RETURN(offset=0x0, size=0x1388),
+        + Op.RETURN(offset=0x0, size=OOG_DEPOSIT_SIZE),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000006B),  # noqa: E501
     )
@@ -789,7 +824,7 @@ def test_create_oog_from_call_refunds(
         code=Op.SSTORE(key=0x0, value=0x1)
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.SSTORE(key=0x1, value=0x0)
-        + Op.PUSH2[0x1388]
+        + Op.PUSH2[OOG_DEPOSIT_SIZE]
         + Op.PUSH1[0x1]
         + Op.PUSH1[0x0]
         + Op.PUSH3[0xC0DE1]
@@ -855,7 +890,7 @@ def test_create_oog_from_call_refunds(
         code=Op.SSTORE(key=0x0, value=0x1)
         + Op.SSTORE(key=Op.DUP1, value=0x1)
         + Op.SSTORE(key=0x1, value=0x0)
-        + Op.PUSH2[0x1388]
+        + Op.PUSH2[OOG_DEPOSIT_SIZE]
         + Op.PUSH1[0x1]
         + Op.PUSH1[0x0]
         + Op.PUSH3[0xC0DE1]
@@ -1123,15 +1158,14 @@ def test_create_oog_from_call_refunds(
         Bytes("693c6139") + Hash(contract_23, left_padding=True),
         Bytes("693c6139") + Hash(contract_24, left_padding=True),
     ]
-    tx_gas = [400000]
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
+        gas_limit=gas_limit,
+        gas_price=TX_GAS_PRICE,
         nonce=1,
         error=_exc,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

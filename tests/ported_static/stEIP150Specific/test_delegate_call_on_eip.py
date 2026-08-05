@@ -1,17 +1,23 @@
 """
-Test_delegate_call_on_eip.
+Measure a DELEGATECALL that asks for more gas than its frame holds: the
+EIP-150 clamp decides the grant, the delegate writes into the caller's
+storage, and the measured cost is the call plus the delegate's work.
 
 Ported from:
 state_tests/stEIP150Specific/DelegateCallOnEIPFiller.json
+
+@manually-enhanced: Do not overwrite. An outer call pins the frame budget
+so the oversized ask always clamps; the DELEGATECALL is measured with
+CodeGasMeasure (success flag inside the window) and the expectation is the
+composite plus the delegate's fork-priced store.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    CodeGasMeasure,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -20,62 +26,79 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+DELEGATE_VALUE = 0x12
+FLAG_SLOT = 0x9
+GAS_SLOT = 0x8
+
+# The ported ask (600000): above the pinned frame budget, so the EIP-150
+# clamp decides the grant on every fork.
+ASK_GAS = 0x927C0
+CALLER_GAS = 400_000
+
 
 @pytest.mark.ported_from(
     ["state_tests/stEIP150Specific/DelegateCallOnEIPFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Berlin")
 def test_delegate_call_on_eip(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_delegate_call_on_eip."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xE8D4A51000)
+    """Measure a clamped DELEGATECALL running a store in the caller."""
+    # Runs in the caller's storage context: one cold fresh store.
+    delegate_store = Op.SSTORE(
+        key=0x0,
+        value=DELEGATE_VALUE,
+        key_warm=False,
+        original_value=0,
+        new_value=DELEGATE_VALUE,
+    )
+    delegate = pre.deploy_contract(code=delegate_store + Op.STOP)
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
+    delegatecall_code = Op.DELEGATECALL(
+        gas=ASK_GAS,
+        address=delegate,
+        address_warm=False,
+    )
+    flag_store = Op.SSTORE(
+        key=FLAG_SLOT,
+        value=delegatecall_code,
+        key_warm=False,
+        original_value=0,
+        new_value=1,
+    )
+    target = pre.deploy_contract(
+        code=CodeGasMeasure(
+            code=flag_store,
+            extra_stack_items=0,
+            sstore_key=GAS_SLOT,
+        ),
     )
 
-    # Source: lll
-    # { (SSTORE 0 0x12) }
-    addr = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x12) + Op.STOP,
-        nonce=0,
-    )
-    # Source: lll
-    # { [8] (GAS) (SSTORE 9 (DELEGATECALL 600000 <contract:0x1000000000000000000000000000000000000105> 0 0 0 0)) [[8]] (SUB @8 (GAS)) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x8, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x9,
-            value=Op.DELEGATECALL(
-                gas=0x927C0,
-                address=addr,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.SSTORE(key=0x8, value=Op.SUB(Op.MLOAD(offset=0x8), Op.GAS))
+    assert CALLER_GAS < ASK_GAS, "the 63/64 clamp must apply"
+    entry = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=CALLER_GAS, address=target))
         + Op.STOP,
-        nonce=0,
     )
 
     tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=600000,
+        sender=pre.fund_eoa(),
+        to=entry,
+        state_gas_reservoir=0,
     )
 
-    post = {target: Account(storage={0: 18, 8: 46841, 9: 1})}
+    measured = flag_store.gas_cost(fork) + delegate_store.gas_cost(fork)
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    post = {
+        entry: Account(storage={0: 1}),
+        target: Account(
+            storage={
+                0: DELEGATE_VALUE,
+                GAS_SLOT: measured,
+                FLAG_SLOT: 1,
+            },
+        ),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)

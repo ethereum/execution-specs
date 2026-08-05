@@ -1,123 +1,54 @@
 """
-Test_out_of_gas_contract_creation.
+Verify a contract-creation transaction whose init code runs out of gas (or
+halts on invalid code) leaves no account behind, while a sufficient budget
+creates it.
 
 Ported from:
 state_tests/stInitCodeTest/OutOfGasContractCreationFiller.json
+
+@manually-enhanced: Do not overwrite. Both transaction budgets are derived
+from the fork (intrinsic + the created account's top-frame state gas + the
+init code's metadata-priced cost), so the insufficient arm keeps running
+out mid-init-code and the sufficient arm keeps succeeding on every fork;
+the success post pins the final storage value, not just the nonce.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
+    Bytecode,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
-@pytest.mark.ported_from(
-    ["state_tests/stInitCodeTest/OutOfGasContractCreationFiller.json"],
-)
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="d0-g0",
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="d0-g1",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1-g0",
-        ),
-        pytest.param(
-            1,
-            1,
-            0,
-            id="d1-g1",
-        ),
-    ],
-)
-def test_out_of_gas_contract_creation(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    d: int,
-    g: int,
-    v: int,
-) -> None:
-    """Test_out_of_gas_contract_creation."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(
-        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+def storage_writes_initcode() -> Bytecode:
+    """Six stores to one slot: one cold set, then five dirty warm writes."""
+    code = Op.SSTORE(
+        key=0x1, value=0x1, key_warm=False, original_value=0, new_value=1
     )
+    for value in range(2, 7):
+        code += Op.SSTORE(
+            key=0x1,
+            value=value,
+            key_warm=True,
+            original_value=0,
+            current_value=value - 1,
+            new_value=value,
+        )
+    return code
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000000000,
-    )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
+def stack_underflow_initcode() -> Bytecode:
+    """The ported junk init code: CALLCODE underflows the stack."""
+    return (
         Op.PUSH1[0xA]
         + Op.CODECOPY(dest_offset=0x0, offset=0xC, size=Op.DUP1)
         + Op.PUSH1[0x0]
@@ -127,24 +58,75 @@ def test_out_of_gas_contract_creation(
         + Op.PUSH1[0x0]
         + Op.BYTE(Op.DUP2, Op.CALLDATALOAD(offset=Op.DUP1))
         + Op.DUP2
-        + Op.STOP,
-        Op.SSTORE(key=0x1, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x2)
-        + Op.SSTORE(key=0x1, value=0x3)
-        + Op.SSTORE(key=0x1, value=0x4)
-        + Op.SSTORE(key=0x1, value=0x5)
-        + Op.SSTORE(key=0x1, value=0x6),
-    ]
-    tx_gas = [56000, 150000]
-    tx_value = [1]
+        + Op.STOP
+    )
 
+
+@pytest.mark.ported_from(
+    ["state_tests/stInitCodeTest/OutOfGasContractCreationFiller.json"],
+)
+@pytest.mark.valid_from("Berlin")
+@pytest.mark.parametrize(
+    "invalid_initcode",
+    [
+        pytest.param(True, id="d0"),
+        pytest.param(False, id="d1"),
+    ],
+)
+@pytest.mark.parametrize(
+    "enough_gas",
+    [
+        pytest.param(False, id="g0"),
+        pytest.param(True, id="g1"),
+    ],
+)
+def test_out_of_gas_contract_creation(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    invalid_initcode: bool,
+    enough_gas: bool,
+) -> None:
+    """An under-budgeted or invalid init code creates no account."""
+    if invalid_initcode:
+        initcode = stack_underflow_initcode()
+    else:
+        initcode = storage_writes_initcode()
+
+    # The insufficient budget runs out midway through the init code; the
+    # sufficient one covers it with margin. EIP-8037 charges the created
+    # account's state gas to the creation transaction's top frame.
+    overhead = fork.transaction_intrinsic_cost_calculator()(
+        calldata=initcode,
+        contract_creation=True,
+    ) + fork.transaction_top_frame_state_gas(contract_creation=True)
+    # The sufficient margin must exceed the EIP-2200 stipend (2300), or
+    # the final SSTOREs of the init code fail their minimum-gas check.
+    initcode_cost = storage_writes_initcode().gas_cost(fork)
+    gas_limit = overhead + (
+        initcode_cost + 5_000 if enough_gas else initcode_cost // 2
+    )
+
+    sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=None,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        data=initcode,
+        gas_limit=gas_limit,
+        value=1,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    created = compute_create_address(address=sender, nonce=0)
+    if enough_gas and not invalid_initcode:
+        created_account: Account | None = Account(
+            nonce=1, code=b"", storage={1: 6}, balance=1
+        )
+    else:
+        # OOG / invalid init code: the creation is rolled back entirely.
+        created_account = Account.NONEXISTENT
+    post = {
+        sender: Account(nonce=1),
+        created: created_account,
+    }
+
+    state_test(pre=pre, post=post, tx=tx)

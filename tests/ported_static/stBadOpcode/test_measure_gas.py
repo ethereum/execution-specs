@@ -1,17 +1,21 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com.
+Measure the minimum gas each opcode needs to succeed via a binary
+search (by Ori Pomerantz qbzzt1@gmail.com).
 
 Ported from:
 state_tests/stBadOpcode/measureGasFiller.yml
 
 @manually-enhanced: Do not overwrite. A binary search measures the gas
-an opcode needs to succeed. Only the EXTCODE case shifts: it runs a
-warm `EXTCODESIZE` plus a warm `EXTCODECOPY` (the target is warmed by
-earlier search iterations), and EIP-8038 adds a flat +100 to each warm
-extcode access. The stored threshold therefore grows by the sum of the
-two opcodes' warm `(Amsterdam - Cancun)` cost deltas, derived from the
-fork's own gas model so it is exactly 0 before EIP-8038; do not
-hardcode the Amsterdam number.
+an opcode needs to succeed. The EXTCODE case runs a warm `EXTCODESIZE`
+plus a warm `EXTCODECOPY` (the target is warmed by earlier search
+iterations), and EIP-8038 adds a flat +100 to each warm extcode
+access; its threshold grows by the two opcodes' warm cost deltas. The
+CREATE/CREATE2 thresholds equal the probe bytecode's own
+`gas_cost(fork)` (EIP-8037 adds new-account state gas), and the search
+bound is supplied via calldata (same 3-byte width as the ported PUSH2
+60000, keeping JUMP targets and the CODESIZE trick intact) so those
+cases cannot saturate. All values derive from the fork's own gas
+model; do not hardcode them.
 """
 
 import pytest
@@ -240,7 +244,12 @@ def test_measure_gas(
     #   sstore(0, max)
     # }
     contract_12 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH2[0xEA60]
+        # The search's upper bound comes from calldata (word at 0x24):
+        # EIP-8037's state gas pushes the CREATE/CREATE2 thresholds past
+        # the ported PUSH2 60000 bound, and CALLDATALOAD keeps the same
+        # 3-byte width so the hand-coded JUMP targets and the CODESIZE
+        # constant trick below are unaffected.
+        code=Op.CALLDATALOAD(offset=0x24)
         + Op.ADD(Op.CALLDATALOAD(offset=0x4), 0xC0DE00)
         + Op.PUSH1[0x0]
         + Op.JUMPDEST
@@ -393,16 +402,36 @@ def test_measure_gas(
         - 103
     )
 
+    # The measured threshold for the CREATE/CREATE2 probes is exactly the
+    # probe bytecode's own cost (operand pushes + opcode); mirroring the
+    # deployed code in the metadata keeps the expectation fork-derived —
+    # EIP-8037 adds the new-account state gas and reprices the base.
+    create_probe_cost = Op.CREATE(
+        value=Op.DUP1,
+        offset=0x0,
+        size=0x200,
+        new_memory_size=0x200,
+        init_code_size=0x200,
+    ).gas_cost(fork)
+    create2_probe_cost = Op.CREATE2(
+        value=Op.DUP1,
+        offset=0x0,
+        size=0x200,
+        salt=Op.ADD(0x5A17, Op.GAS),
+        new_memory_size=0x200,
+        init_code_size=0x200,
+    ).gas_cost(fork)
+
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 32089})},
+            "result": {contract_12: Account(storage={0: create_probe_cost})},
         },
         {
             "indexes": {"data": [1], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 32193})},
+            "result": {contract_12: Account(storage={0: create2_probe_cost})},
         },
         {
             "indexes": {"data": [2, 3], "gas": -1, "value": -1},
@@ -440,18 +469,22 @@ def test_measure_gas(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    # Second calldata word: the binary search's upper bound. The bisection
+    # boundary is independent of the starting bound, so one generous value
+    # (covering EIP-8037's ~216k CREATE threshold) works on every fork.
+    search_max = Hash(0x100000)
     tx_data = [
-        Bytes("693c6139") + Hash(0xF0),
-        Bytes("693c6139") + Hash(0xF5),
-        Bytes("693c6139") + Hash(0xF1),
-        Bytes("693c6139") + Hash(0xF2),
-        Bytes("693c6139") + Hash(0xF4),
-        Bytes("693c6139") + Hash(0xFA),
-        Bytes("693c6139") + Hash(0x51),
-        Bytes("693c6139") + Hash(0x52),
-        Bytes("693c6139") + Hash(0x53),
-        Bytes("693c6139") + Hash(0x20),
-        Bytes("693c6139") + Hash(0x3B),
+        Bytes("693c6139") + Hash(0xF0) + search_max,
+        Bytes("693c6139") + Hash(0xF5) + search_max,
+        Bytes("693c6139") + Hash(0xF1) + search_max,
+        Bytes("693c6139") + Hash(0xF2) + search_max,
+        Bytes("693c6139") + Hash(0xF4) + search_max,
+        Bytes("693c6139") + Hash(0xFA) + search_max,
+        Bytes("693c6139") + Hash(0x51) + search_max,
+        Bytes("693c6139") + Hash(0x52) + search_max,
+        Bytes("693c6139") + Hash(0x53) + search_max,
+        Bytes("693c6139") + Hash(0x20) + search_max,
+        Bytes("693c6139") + Hash(0x3B) + search_max,
     ]
     tx_gas = [16777216]
 

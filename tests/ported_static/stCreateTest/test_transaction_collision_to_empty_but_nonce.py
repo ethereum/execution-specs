@@ -1,22 +1,26 @@
 """
-Test_transaction_collision_to_empty_but_nonce.
+Verify a contract-creation transaction whose target address already has a
+non-zero nonce: the collision aborts the creation, consumes the whole gas
+limit, transfers no value, and leaves the existing account untouched.
 
 Ported from:
 state_tests/stCreateTest/TransactionCollisionToEmptyButNonceFiller.json
+
+@manually-enhanced: Do not overwrite. Budgets are derived from the fork
+(bare intrinsic and a fully-funded creation); the post asserts the
+colliding account's empty code, nonce, and unchanged zero balance.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Environment,
+    Fork,
     Header,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -28,89 +32,67 @@ REFERENCE_SPEC_VERSION = "N/A"
         "state_tests/stCreateTest/TransactionCollisionToEmptyButNonceFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="-g0-v0",
-        ),
-        pytest.param(
-            0,
-            0,
-            1,
-            id="-g0-v1",
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="-g1-v0",
-        ),
-        pytest.param(
-            0,
-            1,
-            1,
-            id="-g1-v1",
-        ),
-    ],
+    "full_budget", [True, False], ids=["full-budget", "intrinsic-only"]
 )
+@pytest.mark.parametrize("tx_value", [0, 1], ids=["v0", "v1"])
 @pytest.mark.pre_alloc_mutable
 def test_transaction_collision_to_empty_but_nonce(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    full_budget: bool,
+    tx_value: int,
 ) -> None:
-    """Test_transaction_collision_to_empty_but_nonce."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x6295EE1B4F6DD65047762F924ECD367C17EABF8F)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    """Creation collision with a nonce burns the whole gas limit."""
+    # Init code that would store a flag if it ever ran.
+    initcode = Op.SSTORE(
+        key=0x1,
+        value=0x1,
+        key_warm=False,
+        original_value=0,
+        new_value=1,
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=initcode,
+        contract_creation=True,
+        sends_value=tx_value > 0,
     )
+    if full_budget:
+        # Enough to fund the whole creation (even at the fresh-target
+        # EIP-8037 price) — the collision must still consume all of it.
+        gas_limit = (
+            intrinsic
+            + fork.transaction_top_frame_state_gas(contract_creation=True)
+            + initcode.gas_cost(fork)
+        )
+    else:
+        gas_limit = intrinsic
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    pre[contract_0] = Account(balance=0, nonce=1)
-
-    tx_data = [
-        Op.SSTORE(key=0x1, value=0x1),
-    ]
-    tx_gas = [600000, 54000]
-    tx_value = [0, 1]
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=sender, nonce=0)
+    pre[created] = Account(nonce=1)
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
+        data=initcode,
+        gas_limit=gas_limit,
+        value=tx_value,
     )
 
     post = {
         sender: Account(nonce=1),
-        contract_0: Account(storage={1: 0}, nonce=1),
+        # The colliding account is untouched: the init code never ran and
+        # the transferred value never arrived.
+        created: Account(storage={}, code=b"", nonce=1, balance=0),
     }
 
     state_test(
-        env=env,
         pre=pre,
         post=post,
         tx=tx,
-        blockchain_test_header_verify=Header(
-            gas_used=tx_gas[g],
-        ),
+        blockchain_test_header_verify=Header(gas_used=gas_limit),
     )

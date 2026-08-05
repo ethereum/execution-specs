@@ -1,18 +1,24 @@
 """
-Test_create_e_contract_then_call_to_non_existent_acc.
+Verify a CREATE of an empty contract followed by a CALL to a non-existent
+account: both operations are gas-measured, the created address and the
+call's success flag are stored, and the absent callee stays non-existent.
 
 Ported from:
 state_tests/stCreateTest/CREATE_EContract_ThenCALLToNonExistentAccFiller.json
+
+@manually-enhanced: Do not overwrite. The ported absolute GAS snapshots
+(slots 0/2/100) are re-expressed as two CodeGasMeasure windows asserted
+via the fork's gas model, the created address and call flag stay in the
+measured windows' SSTOREs, and the callee is a dynamic non-existent
+account called with all gas forwarded.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    CodeGasMeasure,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -22,80 +28,95 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+CREATE_GAS_SLOT = 0x0
+ADDRESS_SLOT = 0x1
+CALL_GAS_SLOT = 0x2
+FLAG_SLOT = 0x3
+
 
 @pytest.mark.ported_from(
     [
         "state_tests/stCreateTest/CREATE_EContract_ThenCALLToNonExistentAccFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Berlin")
 def test_create_e_contract_then_call_to_non_existent_acc(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_create_e_contract_then_call_to_non_existent_acc."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    """Measure a CREATE of an empty contract and a call to no account."""
+    absent = pre.nonexistent_account()
+
+    # CREATE over never-written memory: the all-STOP init code deposits
+    # nothing, leaving an empty account with nonce 1.
+    create_code = Op.CREATE(
+        value=0x0,
+        offset=0x0,
+        size=0x20,
+        new_memory_size=0x20,
+        init_code_size=0x20,
+    )
+    # Storing the created address keeps it observable and folds the
+    # store into the measured window (the address is non-zero, so the
+    # placeholder new_value only sizes the zero->non-zero transition).
+    store_create = Op.SSTORE(
+        ADDRESS_SLOT,
+        create_code,
+        key_warm=False,
+        original_value=0,
+        new_value=1,
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
+    # A value-less call to an absent account creates nothing on any
+    # fork; the callee consumes no gas, so the window measures only the
+    # cold CALL itself. Storing the success flag keeps it observable.
+    call_code = Op.CALL(
+        address=absent,
+        address_warm=False,
+        value_transfer=False,
+        account_new=False,
+    )
+    store_flag = Op.SSTORE(
+        FLAG_SLOT,
+        call_code,
+        key_warm=False,
+        original_value=0,
+        new_value=1,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    # Source: lll
-    # { [[0]](GAS) [[1]] (CREATE 0 0 32) [[2]](GAS) [[3]] (CALL 60000 0xe1ecf98489fa9ed60a664fc4998db699cfa39d40 0 0 0 0 0) [[100]] (GAS) }  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x0, offset=0x0, size=0x20))
-        + Op.SSTORE(key=0x2, value=Op.GAS)
-        + Op.SSTORE(
-            key=0x3,
-            value=Op.CALL(
-                gas=0xEA60,
-                address=0xE1ECF98489FA9ED60A664FC4998DB699CFA39D40,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
+    contract = pre.deploy_contract(
+        code=CodeGasMeasure(
+            code=store_create,
+            sstore_key=CREATE_GAS_SLOT,
         )
-        + Op.SSTORE(key=0x64, value=Op.GAS)
-        + Op.STOP,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+        + CodeGasMeasure(
+            code=store_flag,
+            sstore_key=CALL_GAS_SLOT,
+        )
     )
 
     tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=Bytes(""),
-        gas_limit=600000,
+        sender=pre.fund_eoa(),
+        to=contract,
+        state_gas_reservoir=0,
     )
 
     post = {
-        contract_0: Account(
+        contract: Account(
             storage={
-                0: 0x8D5B6,
-                1: compute_create_address(address=contract_0, nonce=0),
-                2: 0x7ABF8,
-                3: 1,
-                100: 0x6F50B,
+                CREATE_GAS_SLOT: store_create.gas_cost(fork),
+                ADDRESS_SLOT: compute_create_address(
+                    address=contract, nonce=1
+                ),
+                CALL_GAS_SLOT: store_flag.gas_cost(fork),
+                FLAG_SLOT: 1,
             },
         ),
-        compute_create_address(address=contract_0, nonce=0): Account(nonce=1),
-        Address(
-            0xE1ECF98489FA9ED60A664FC4998DB699CFA39D40
-        ): Account.NONEXISTENT,
+        compute_create_address(address=contract, nonce=1): Account(
+            nonce=1, code=b"", balance=0
+        ),
+        absent: Account.NONEXISTENT,
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
