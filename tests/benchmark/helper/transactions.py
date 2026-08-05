@@ -10,6 +10,7 @@ from execution_testing import (
     Fork,
     Hash,
     Transaction,
+    TransactionWithCost,
 )
 
 from .enums import CacheStrategy
@@ -133,6 +134,51 @@ def pack_transactions_into_blocks(
 
         current_txs.append(tx)
         current_gas += tx_gas_limit
+
+    if current_txs:
+        blocks.append(Block(txs=current_txs))
+
+    return blocks
+
+
+def pack_transactions_with_cost_into_blocks(
+    transactions: list[TransactionWithCost],
+    gas_limit: int,
+) -> list[Block]:
+    """
+    Pack transactions into blocks, tracking both gas dimensions.
+
+    A transaction is includable only while its gas limit still fits the
+    room left in the regular and in the state dimension alike, so the
+    room a block has left is measured against the larger of the two
+    running totals. Raise when a single transaction cannot fit an empty
+    block, which no packing can rescue.
+    """
+    if not transactions:
+        return []
+
+    blocks: list[Block] = []
+    current_txs: list[TransactionWithCost] = []
+    current_regular = 0
+    current_state = 0
+
+    for tx in transactions:
+        tx_gas_limit = int(tx.gas_limit)
+        if tx_gas_limit > gas_limit:
+            raise ValueError(
+                f"transaction gas limit {tx_gas_limit} exceeds the "
+                f"{gas_limit} block gas limit"
+            )
+        room = gas_limit - max(current_regular, current_state)
+        if tx_gas_limit > room and current_txs:
+            blocks.append(Block(txs=current_txs))
+            current_txs = []
+            current_regular = 0
+            current_state = 0
+
+        current_txs.append(tx)
+        current_regular += tx.regular_cost
+        current_state += tx.state_cost
 
     if current_txs:
         blocks.append(Block(txs=current_txs))
