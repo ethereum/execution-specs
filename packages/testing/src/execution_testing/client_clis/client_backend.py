@@ -36,6 +36,7 @@ from execution_testing.rpc.rpc_types import (
 )
 from execution_testing.test_types import (
     Alloc,
+    Environment,
     Requests,
     Transaction,
     Withdrawal,
@@ -360,7 +361,7 @@ class ClientBackend:
 
     def _payload_attributes(
         self,
-        env: Any,
+        env: Environment,
         block_fork: Fork,
     ) -> PayloadAttributes:
         """Build ``PayloadAttributes`` from the test's environment."""
@@ -370,13 +371,18 @@ class ClientBackend:
         parent_beacon_block_root: Hash | None = None
         if block_fork.header_beacon_root_required():
             parent_beacon_block_root = Hash(env.parent_beacon_block_root or 0)
+        slot_number: int | None = None
+        if env.slot_number is not None:
+            slot_number = int(env.slot_number)
         return PayloadAttributes.for_fork(
             block_fork,
             timestamp=int(env.timestamp),
+            target_gas_limit=int(env.gas_limit),
             prev_randao=Hash(env.prev_randao or 0),
             suggested_fee_recipient=env.fee_recipient,
             withdrawals=withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
+            slot_number=slot_number,
         )
 
     def _finalize(

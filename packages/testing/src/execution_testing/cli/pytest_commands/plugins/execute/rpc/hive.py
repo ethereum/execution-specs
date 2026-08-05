@@ -28,6 +28,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
     Alloc,
+    BlockAccessList,
     ChainConfig,
     Environment,
     Requests,
@@ -182,9 +183,10 @@ def build_genesis_header(
         requests_hash=Requests()
         if genesis_fork.header_requests_required()
         else None,
-        block_access_list_hash=Hash(EmptyTrieRoot)
+        block_access_list_hash=BlockAccessList().rlp_hash
         if genesis_fork.header_bal_hash_required()
         else None,
+        slot_number=0 if genesis_fork.header_slot_number_required() else None,
     )
 
     return (pre_alloc, genesis)
@@ -458,6 +460,7 @@ def eth_rpc(
     session_temp_folder: Path,
     max_transactions_per_batch: int | None,
     use_testing_build_block: bool,
+    base_pre_genesis: Tuple[Alloc, FixtureHeader],
 ) -> EthRPC:
     """Initialize ethereum RPC client for the execution client under test."""
     get_payload_wait_time = request.config.getoption("get_payload_wait_time")
@@ -474,4 +477,5 @@ def eth_rpc(
         transaction_wait_timeout=tx_wait_timeout,
         max_transactions_per_batch=max_transactions_per_batch,
         testing_rpc=testing_rpc,
+        expected_genesis_header=base_pre_genesis[1],
     )

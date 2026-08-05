@@ -6,18 +6,21 @@ submitted.
 import time
 from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, List, Sequence, Tuple
+from typing import Any, List, Mapping, Sequence, Tuple
 from urllib.parse import urlparse
 
 from filelock import FileLock
+from pydantic import ValidationError
 
 from execution_testing.base_types import (
     Address,
     Bytes,
     Hash,
     HexNumber,
+    to_json,
 )
 from execution_testing.client_clis.cli_types import EnginePayloadMetadata
+from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import (
     DEFAULT_REQUEST_TIMEOUT,
@@ -34,6 +37,73 @@ from execution_testing.rpc.rpc_types import (
     TransactionProtocol,
 )
 from execution_testing.test_types import Withdrawal
+
+
+def _genesis_header_differences(
+    expected: FixtureHeader,
+    actual_block: Mapping[str, Any],
+) -> List[str]:
+    """
+    Return the per-field differences between the expected genesis header and
+    the genesis block returned by the client, using the header's own field
+    names.
+
+    Return an empty list when the client's block cannot be parsed as a
+    header, in which case the caller only reports the block hashes.
+    """
+    try:
+        actual_header = FixtureHeader.model_validate(actual_block)
+    except ValidationError:
+        return []
+    expected_json = to_json(expected)
+    actual_json = to_json(actual_header)
+    # A field can be missing from either side: the fork may require a header
+    # field we never set, or the client may not report one we do set.
+    fields = list(expected_json) + [
+        field for field in actual_json if field not in expected_json
+    ]
+    differences = [
+        f"{field}: expected {expected_json.get(field, '<unset>')}, "
+        f"got {actual_json.get(field, '<unset>')}"
+        # The block hash is reported separately by the caller.
+        for field in fields
+        if field != "hash"
+        and expected_json.get(field) != actual_json.get(field)
+    ]
+    if actual_header.block_hash != Hash(actual_block["hash"]):
+        differences.append(
+            "note: the client's header does not hash to the block hash it "
+            "reports when re-encoded locally, so the fields listed above may "
+            "be incomplete"
+        )
+    return differences
+
+
+class GenesisMismatchError(Exception):
+    """
+    The client's genesis block does not match the one built locally.
+    """
+
+    def __init__(
+        self,
+        expected: FixtureHeader,
+        actual_block: Mapping[str, Any],
+    ) -> None:
+        """Initialize the exception with both genesis headers."""
+        self.expected = expected
+        self.actual_block = actual_block
+        message = (
+            "the client's genesis block does not match the one built "
+            "locally:"
+            f"\n  expected block hash: {expected.block_hash}"
+            f"\n  client block hash:   {Hash(actual_block['hash'])}"
+        )
+        differences = _genesis_header_differences(expected, actual_block)
+        if differences:
+            message += "\n  differing header fields:"
+            for difference in differences:
+                message += f"\n    {difference}"
+        super().__init__(message)
 
 
 class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
@@ -62,6 +132,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         max_transactions_per_batch: int | None = None,
         request_timeout: TimeoutType = DEFAULT_REQUEST_TIMEOUT,
         testing_rpc: TestingRPC | None = None,
+        expected_genesis_header: FixtureHeader | None = None,
     ):
         """Initialize the Ethereum RPC client for the hive simulator."""
         super().__init__(
@@ -90,6 +161,8 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                     "Error occurred during initial forkchoice_updated"
                 )
             if not base_file.exists():
+                if expected_genesis_header is not None:
+                    self.verify_genesis_block(expected_genesis_header)
                 base_error_file.touch()  # Assume error
                 # Get the head block hash
                 head_block = self.get_block_by_number("latest")
@@ -126,6 +199,17 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 base_error_file.unlink()  # Success
                 base_file.touch()
 
+    def verify_genesis_block(self, expected: FixtureHeader) -> None:
+        """
+        Verify the client's genesis block matches the one built locally.
+        """
+        genesis_block = self.get_block_by_number(0)
+        assert genesis_block is not None, (
+            "client did not return its genesis block"
+        )
+        if Hash(genesis_block["hash"]) != expected.block_hash:
+            raise GenesisMismatchError(expected, genesis_block)
+
     @property
     def transaction_polling_context(self) -> AbstractContextManager:
         """
@@ -137,17 +221,49 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         """
         return self.block_building_lock
 
+    def _next_timestamp(self, head_block: Mapping[str, Any]) -> int:
+        """Return the timestamp of the block following ``head_block``."""
+        return int(HexNumber(head_block["timestamp"]) + 1)
+
+    def _next_fork(self, head_block: Mapping[str, Any]) -> Fork:
+        """Return the fork of the block following ``head_block``."""
+        return self.fork.fork_at(
+            block_number=0, timestamp=self._next_timestamp(head_block)
+        )
+
+    def _head_fork(self, head_block: Mapping[str, Any]) -> Fork:
+        """Return the fork of ``head_block`` itself."""
+        return self.fork.fork_at(
+            block_number=int(HexNumber(head_block["number"])),
+            timestamp=int(HexNumber(head_block["timestamp"])),
+        )
+
     def _payload_attributes(
         self,
+        head_block: Mapping[str, Any],
         *,
-        next_timestamp: int,
         withdrawals: List[Withdrawal] | None = None,
     ) -> PayloadAttributes:
-        """Build payload attributes for a block at ``next_timestamp``."""
-        next_fork = self.fork.fork_at(block_number=0, timestamp=next_timestamp)
+        """
+        Build the payload attributes for the block following ``head_block``.
+        """
+        next_timestamp = self._next_timestamp(head_block)
+        next_fork = self._next_fork(head_block)
+        next_slot_number: int | None = None
+        if next_fork.engine_payload_attribute_slot_number():
+            if not self._head_fork(head_block).header_slot_number_required():
+                next_slot_number = 1
+            else:
+                assert "slotNumber" in head_block, (
+                    "fork requires a slot number in the block header but the "
+                    "client does not report one for its head block"
+                )
+                next_slot_number = int(HexNumber(head_block["slotNumber"]) + 1)
         return PayloadAttributes.for_fork(
             next_fork,
             timestamp=next_timestamp,
+            target_gas_limit=int(HexNumber(head_block["gasLimit"])),
+            slot_number=next_slot_number,
             withdrawals=withdrawals,
         )
 
@@ -216,11 +332,8 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         forkchoice_state = ForkchoiceState(
             head_block_hash=head_block["hash"],
         )
-        next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
-        next_fork = self.fork.fork_at(block_number=0, timestamp=next_timestamp)
-        payload_attributes = self._payload_attributes(
-            next_timestamp=next_timestamp
-        )
+        next_fork = self._next_fork(head_block)
+        payload_attributes = self._payload_attributes(head_block)
         forkchoice_updated_version = (
             next_fork.engine_forkchoice_updated_version()
         )
@@ -292,10 +405,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         with self.block_building_lock:
             head_block = self.get_block_by_number("latest")
             assert head_block is not None
-            next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
-            payload_attributes = self._payload_attributes(
-                next_timestamp=next_timestamp,
-            )
+            payload_attributes = self._payload_attributes(head_block)
             new_payload = self.testing_rpc.build_block(
                 parent_block_hash=Hash(head_block["hash"]),
                 payload_attributes=payload_attributes,
@@ -336,10 +446,8 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         with self.block_building_lock:
             head_block = self.get_block_by_number("latest")
             assert head_block is not None
-            next_timestamp = int(HexNumber(head_block["timestamp"]) + 1)
             payload_attributes = self._payload_attributes(
-                next_timestamp=next_timestamp,
-                withdrawals=withdrawals,
+                head_block, withdrawals=withdrawals
             )
             # Explicit empty list, not ``None``: per spec, ``null`` lets
             # the client pull from its mempool, but we want a

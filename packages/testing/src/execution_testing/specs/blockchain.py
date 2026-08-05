@@ -132,6 +132,7 @@ def apply_new_parent(
     updated["parent_gas_used"] = new_parent.gas_used
     updated["parent_gas_limit"] = new_parent.gas_limit
     updated["parent_ommers_hash"] = new_parent.ommers_hash
+    updated["parent_slot_number"] = new_parent.slot_number
     block_hashes = env.block_hashes.copy()
     block_hashes[new_parent.number] = new_parent.block_hash
     updated["block_hashes"] = block_hashes
