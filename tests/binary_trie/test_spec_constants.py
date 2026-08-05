@@ -76,9 +76,7 @@ def test_spec_header_offset_invariant_holds() -> None:
     storage sweep and the storage-slot key split silently assume the
     header slots fit inside one stem's sub-index space.
     """
-    assert (
-        HEADER_STORAGE_OFFSET + HEADER_STORAGE_SLOTS <= STEM_SUBTREE_WIDTH
-    )
+    assert HEADER_STORAGE_OFFSET + HEADER_STORAGE_SLOTS <= STEM_SUBTREE_WIDTH
 
 
 def test_spec_basic_data_offsets_match_encode_basic_data() -> None:

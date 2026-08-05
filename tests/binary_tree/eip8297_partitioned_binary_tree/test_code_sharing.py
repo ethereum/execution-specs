@@ -126,12 +126,8 @@ def test_shared_designator_survives_peer_redelegation(
     """
     slot_1, value_1 = 1, 0xD1
     slot_2, value_2 = 2, 0xD2
-    delegate_1 = pre.deploy_contract(
-        code=Op.SSTORE(slot_1, value_1) + Op.STOP
-    )
-    delegate_2 = pre.deploy_contract(
-        code=Op.SSTORE(slot_2, value_2) + Op.STOP
-    )
+    delegate_1 = pre.deploy_contract(code=Op.SSTORE(slot_1, value_1) + Op.STOP)
+    delegate_2 = pre.deploy_contract(code=Op.SSTORE(slot_2, value_2) + Op.STOP)
 
     authority_a = pre.fund_eoa(0, delegation=delegate_1)
     authority_b = pre.fund_eoa(0, delegation=delegate_1)
