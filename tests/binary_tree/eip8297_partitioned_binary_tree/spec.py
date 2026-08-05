@@ -13,7 +13,7 @@ class ReferenceSpec:
 
 ref_spec_8297 = ReferenceSpec(
     git_path="EIPS/eip-8297.md",
-    version="78525144ee85c57f50e5e6675ca3561d3101caeb",
+    version="6c054508d3cee38911bcc265e5f1c5416077d99a",
 )
 
 
@@ -33,14 +33,14 @@ class Spec:
     BASIC_DATA_LEAF_KEY = 0
     CODE_HASH_LEAF_KEY = 1
 
-    # Header stem layout: HEADER_STORAGE_OFFSET and CODE_OFFSET are
-    # themselves sub-indices marking where the storage and code
-    # sub-ranges start within the header stem's 256-wide space; the
-    # counts of co-located slots/chunks are the differences,
-    # CODE_OFFSET - HEADER_STORAGE_OFFSET (64) and STEM_SUBTREE_WIDTH
-    # - CODE_OFFSET (128) (see "Tree embedding").
+    # Header stem layout: HEADER_STORAGE_OFFSET is itself a sub-index
+    # marking where the storage sub-range starts within the header
+    # stem's 256-wide space, and HEADER_STORAGE_SLOTS counts the
+    # co-located slots. The sub-indices in use are the two fixed
+    # leaves and that storage range; no key defined by the EIP
+    # resolves to any other sub-index (see "Tree embedding").
     HEADER_STORAGE_OFFSET = 64
-    CODE_OFFSET = 128
+    HEADER_STORAGE_SLOTS = 64
     STEM_SUBTREE_WIDTH = 256
 
     # Code chunking: CODE_CHUNK_SIZE (31) is the code-payload length
@@ -88,41 +88,6 @@ class Spec:
     BASIC_DATA_NONCE_WIDTH = 8
     BASIC_DATA_BALANCE_OFFSET = 16
     BASIC_DATA_BALANCE_WIDTH = 16
-
-    @classmethod
-    def header_storage_sub_index(cls, slot: int) -> int:
-        """
-        Return the account header sub-index for storage `slot`.
-
-        Only valid for `slot < CODE_OFFSET - HEADER_STORAGE_OFFSET`
-        (slots 0..63), which live in the account header's stem rather
-        than the storage zone (see "Storage").
-        """
-        return cls.HEADER_STORAGE_OFFSET + slot
-
-    @classmethod
-    def storage_group_index(cls, slot: int) -> int:
-        """
-        Return the storage group (`tree_index`) that `slot` belongs to.
-
-        Applies to slots stored in the storage zone, i.e.
-        `slot >= CODE_OFFSET - HEADER_STORAGE_OFFSET` (see "Storage").
-        An aligned range of `STEM_SUBTREE_WIDTH` slots sharing one
-        `tree_index` forms one storage group. Group 0 is the
-        exception: slots 0..63 live in the header, so its storage-zone
-        leaves are slots 64..255 only.
-        """
-        return slot // cls.STEM_SUBTREE_WIDTH
-
-    @classmethod
-    def storage_sub_index(cls, slot: int) -> int:
-        """
-        Return `slot`'s sub-index within its storage group.
-
-        Applies to slots stored in the storage zone, i.e.
-        `slot >= CODE_OFFSET - HEADER_STORAGE_OFFSET` (see "Storage").
-        """
-        return slot % cls.STEM_SUBTREE_WIDTH
 
     @classmethod
     def code_chunk_count(cls, code_size: int) -> int:

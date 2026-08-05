@@ -16,6 +16,9 @@ on:
       - "projects/binary-trie"
     paths:
       - "src/ethereum/binary_trie/**"
+      - "src/ethereum/state_pbt.py"
+      - "src/ethereum/state.py"
+      - "src/ethereum/crypto/**"
       - "tests/binary_trie/vectors/dump_vectors.py"
   workflow_dispatch:
 

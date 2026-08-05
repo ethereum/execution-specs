@@ -278,6 +278,12 @@ binary-trie-unit-test *args:
     @mkdir -p "{{ output_dir }}/binary-trie-unit-test/tmp"
     uv run pytest \
         -n {{ xdist_workers }} \
+        --cov=ethereum.binary_trie \
+        --cov=ethereum.state_pbt \
+        --cov-branch \
+        --cov-report=term \
+        --cov-report "xml:{{ output_dir }}/binary-trie-unit-test/coverage.xml" \
+        --no-cov-on-fail \
         --basetemp="{{ output_dir }}/binary-trie-unit-test/tmp" \
         "$@" \
         tests/binary_trie

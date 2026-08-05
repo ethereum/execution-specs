@@ -42,11 +42,9 @@ from ethereum.binary_trie.embedding import (
     address20_to_address32,
     embed_account,
     embed_storage_slot,
-    has_overflow_code_chunks,
     remove_account,
     remove_all_storage,
     remove_code_chunks,
-    remove_overflow_code_chunks,
     remove_storage_slot,
 )
 from ethereum.binary_trie.trie import BinaryTrie
@@ -69,7 +67,10 @@ def embed_flat_state(
     slot key, and `get_code` resolves a code hash to its bytecode.
     Every account contributes its basic data and code hash leaves,
     one leaf per code chunk, and one leaf per storage slot it has in
-    `storages`.
+    `storages`. Chunk leaves are content-addressed, so accounts with
+    identical bytecode write the same leaves with the same values;
+    the repetition is idempotent and the embedding is independent of
+    account order.
 
     Addresses appearing in `storages` but not in `accounts` are
     ignored: storage belongs to an account, so slots without one
@@ -176,7 +177,9 @@ class State:
         The diff's ``code_changes`` are needed here, unlike in the
         Merkle Patricia Trie: code chunk leaves commit the code
         itself, not just its hash, and newly deployed code is not yet
-        in the code store when the root is computed.
+        in the code store when the root is computed. The same lookup
+        serves removals, resolving the bytecode whose chunks a
+        deletion or code change sweeps away.
 
         [`apply_diff_to_trie`]: ref:ethereum.state_pbt.apply_diff_to_trie
         """  # noqa: E501
@@ -194,12 +197,18 @@ def apply_diff_to_trie(
     removals become deletions. This function decides *what* changed;
     the embedding's operations decide which keys that touches.
 
-    Removals are addressed rather than enumerated: an account owns a
-    known region of the key space, so deleting it or wiping its
-    storage is a tree operation on that region, and the diff never
-    has to say which slots the account held. The pre-state is read
-    only for what the diff leaves implicit: an account's previous
-    code, and whether an address had an account at all.
+    Account and storage removals are addressed rather than
+    enumerated: an account owns a known region of the key space, so
+    deleting it or wiping its storage is a tree operation on that
+    region, and the diff never has to say which slots the account
+    held. Code is the exception on both counts: its chunks sit in a
+    shared region no account owns, so removal enumerates them from
+    the bytecode, and it may happen at all only after
+    `code_hash_survives` has scanned every account the diff does not
+    touch to establish that nothing remaining still runs the code.
+    Beyond that scan, the pre-state supplies what the diff leaves
+    implicit: an account's previous code, and whether an address had
+    an account at all.
 
     Storage belongs to an account, so an address the diff leaves
     without one owns no slot leaves, exactly as in
@@ -235,17 +244,23 @@ def apply_diff_to_trie(
 
     def drop_unreferenced_code(pre_account: Optional[Account]) -> None:
         """
-        Remove the deleted account's shared code chunks, if it held
-        any and nothing left in the state runs that code.
+        Remove an account's code chunks once nothing in the
+        resulting state runs that code.
+
+        Serves both ways an account stops referencing its code:
+        deletion of the account, and a change of its `code_hash`, as
+        when a delegation is set, redirected, or cleared. The chunks
+        are content-addressed and possibly shared, so they go only
+        when `code_hash_survives` finds no remaining holder.
         """
         if pre_account is None:
             return
         code_hash = pre_account.code_hash
-        if not has_overflow_code_chunks(trie, code_hash):
+        if code_hash == EMPTY_CODE_HASH:
             return
         if code_hash_survives(code_hash):
             return
-        remove_overflow_code_chunks(trie, code_hash, code_for(code_hash))
+        remove_code_chunks(trie, code_hash, code_for(code_hash))
 
     for address in diff.storage_clears:
         remove_all_storage(trie, address20_to_address32(address))
@@ -261,7 +276,7 @@ def apply_diff_to_trie(
             pre_account is not None
             and pre_account.code_hash != account.code_hash
         ):
-            remove_code_chunks(trie, address32, pre_account.code_hash)
+            drop_unreferenced_code(pre_account)
         embed_account(
             trie,
             address32,

@@ -1,10 +1,10 @@
 """
 Code-chunking tests for the EIP-8297 partitioned binary tree: EIP-8297
-stores bytecode as 31-byte chunks (128 per-account header chunks, then
-content-addressed overflow chunks), making code SIZE and code SHAPE
-newly consensus-relevant. These tests pin that the chunking layer stays
+stores bytecode as content-addressed 31-byte chunks, grouped 256 to a
+stem ("code groups"), making code SIZE and code SHAPE newly
+consensus-relevant. These tests pin that the chunking layer stays
 completely invisible to execution semantics at every boundary that
-matters: chunk edges, the header/overflow split, code identity, and the
+matters: chunk edges, the code-group split, code identity, and the
 code-size/initcode-size limits.
 """
 
@@ -44,14 +44,12 @@ pytestmark = pytest.mark.valid_from("BinaryTree")
 # a zero write this suite's own convention treats as not observable.
 _MIN_WRITE_PREFIX_LEN = len(Op.SSTORE(0, 0xCAFE) + Op.STOP)
 
-# 31 * 128: the account header holds exactly this many code bytes
-# before overflowing into content-addressed chunks -- 128 is the
-# COUNT of header code chunks (STEM_SUBTREE_WIDTH - CODE_OFFSET), not
-# CODE_OFFSET itself, which is the sub-index chunk 0 starts at (see
-# "Tree embedding" in the EIP).
-HEADER_CODE_BYTES = Spec.CODE_CHUNK_SIZE * (
-    Spec.STEM_SUBTREE_WIDTH - Spec.CODE_OFFSET
-)
+# 31 * 256: one code group -- an aligned range of STEM_SUBTREE_WIDTH
+# chunks sharing a stem -- holds exactly this many code bytes. Code of
+# this size fills group 0 exactly; one more byte starts a chunk in
+# group 1, whose keys carry a new `tree_index` and therefore a new
+# stem (see "Code" in the EIP).
+GROUP_CODE_BYTES = Spec.CODE_CHUNK_SIZE * Spec.STEM_SUBTREE_WIDTH
 
 
 @pytest.mark.parametrize(
@@ -61,8 +59,10 @@ HEADER_CODE_BYTES = Spec.CODE_CHUNK_SIZE * (
         pytest.param(1, id="1_byte"),
         pytest.param(31, id="31_bytes_single_chunk"),
         pytest.param(32, id="32_bytes_crosses_first_boundary"),
-        pytest.param(HEADER_CODE_BYTES, id="3968_bytes_header_exact"),
-        pytest.param(HEADER_CODE_BYTES + 1, id="3969_bytes_first_overflow"),
+        pytest.param(GROUP_CODE_BYTES, id="7936_bytes_group_exact"),
+        pytest.param(
+            GROUP_CODE_BYTES + 1, id="7937_bytes_first_of_second_group"
+        ),
         # Deliberately not marked `slow`, despite the large code size.
         pytest.param(65536, id="65536_bytes_max_code_size"),
     ],
@@ -78,8 +78,9 @@ def test_deploy_and_execute_at_code_size(
     exact size back through `EXTCODESIZE`, and reports the plain
     `keccak256` of its own code back through `EXTCODEHASH` -- across
     sizes spanning empty code, a single chunk, the first chunk
-    boundary, the exact header/overflow split, and the first overflow
-    chunk, proving the overflow chunk does not alter code identity.
+    boundary, the exact code-group split, and the first chunk of the
+    second group, proving the group rollover does not alter code
+    identity.
 
     The 0- and 1-byte contracts have no room for a `SSTORE` (the
     minimal encoding needs `_MIN_WRITE_PREFIX_LEN` bytes), so those
@@ -144,11 +145,11 @@ def test_deploy_and_execute_at_code_size(
             id="two_chunk_boundaries",
         ),
         pytest.param(
-            HEADER_CODE_BYTES - 2,
+            GROUP_CODE_BYTES - 2,
             4,
             0xDEADBEEF,
-            {127, 128},
-            id="header_overflow_boundary",
+            {255, 256},
+            id="code_group_boundary",
         ),
     ],
 )
@@ -167,9 +168,10 @@ def test_push_data_straddles_chunk_boundary(
     immediate wide enough to touch three consecutive chunks (0, 1, 2 --
     the opcode byte itself has to sit in the chunk before the data,
     since a 32-byte immediate alone can touch at most two), and the
-    header/overflow split at byte `HEADER_CODE_BYTES` (3968), chunks
-    127/128 -- the only boundary where key derivation changes ZONE
-    rather than just advancing the chunk index.
+    code-group split at byte `GROUP_CODE_BYTES` (7936), chunks
+    255/256 -- the first boundary where key derivation moves to a
+    new stem (the `tree_index` advances) rather than just the next
+    sub-index.
 
     What this pins is that a client's chunk *assembly* -- stripping
     exactly one metadata byte per chunk when reconstructing code --
@@ -259,7 +261,7 @@ def test_jump_into_pushdata_is_invalid(
     "dest",
     [
         pytest.param(Spec.CODE_CHUNK_SIZE, id="byte_31_first_boundary"),
-        pytest.param(HEADER_CODE_BYTES, id="byte_3968_into_overflow"),
+        pytest.param(GROUP_CODE_BYTES, id="byte_7936_into_second_group"),
     ],
 )
 def test_jumpdest_at_chunk_boundary_is_valid(
@@ -269,8 +271,8 @@ def test_jumpdest_at_chunk_boundary_is_valid(
 ) -> None:
     """
     Verify a real `JUMPDEST` located exactly at a chunk boundary --
-    byte 31 (the first byte of chunk 1) and, separately, byte 3968
-    (the first byte of the first overflow chunk) -- is jumpable, and
+    byte 31 (the first byte of chunk 1) and, separately, byte 7936
+    (the first byte of the second code group) -- is jumpable, and
     execution resumes normally past it.
     """
     slot = 0
@@ -390,18 +392,18 @@ def test_byte_identical_code_two_contracts_independent(
 ) -> None:
     """
     Verify two contracts deployed with byte-identical code -- long
-    enough (3969 bytes) to need an overflow chunk -- execute correctly
+    enough (7937 bytes) to span two code groups -- execute correctly
     and independently: each SSTOREs its own call's calldata into the
     same slot, proving via distinct post-state storage that the two
     never share execution state.
 
-    Overflow chunks may be shared in the tree (content-addressed)
-    between byte-identical contracts; that sharing must stay invisible
-    to execution. Leaf-level sharing itself is pinned in
+    Chunk leaves are shared in the tree (content-addressed) between
+    byte-identical contracts; that sharing must stay invisible to
+    execution. Leaf-level sharing itself is pinned in
     `test_state_pbt.py`, not here.
     """
     slot = 0
-    size = HEADER_CODE_BYTES + 1
+    size = GROUP_CODE_BYTES + 1
     write_from_calldata = Op.SSTORE(slot, Op.CALLDATALOAD(0)) + Op.STOP
     shared_code = write_from_calldata + Op.INVALID * (
         size - len(write_from_calldata)
@@ -543,17 +545,17 @@ def test_delegated_eoa_executes_chunked_delegate(
     pre: Alloc,
 ) -> None:
     """
-    Verify an EIP-7702-delegated EOA executes a chunked (3969-byte,
-    overflow-chunk-carrying) delegate's code and writes to the
-    AUTHORITY's own storage.
+    Verify an EIP-7702-delegated EOA executes a chunked (7937-byte,
+    two-code-group) delegate's code and writes to the AUTHORITY's own
+    storage.
 
     Storage landing on the authority is already pinned generally in
     `test_storage_ops.py`; the point here is narrower -- that a
-    23-byte delegation designator plus an overflow-carrying delegate
-    both work together.
+    23-byte delegation designator plus a multi-group delegate both
+    work together.
     """
     slot, value = 5, 0xC0FFEE
-    size = HEADER_CODE_BYTES + 1
+    size = GROUP_CODE_BYTES + 1
     delegate_code = sstore_then_pad(slot=slot, value=value, total_size=size)
 
     delegate = pre.deploy_contract(code=delegate_code)
