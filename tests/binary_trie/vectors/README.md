@@ -83,10 +83,9 @@ All keys in this section belong to a single test account.
 | `address32` | hex | Its 32-byte tree form. |
 | `basic_data_key` | hex | Tree key of the account's basic-data header leaf. |
 | `code_hash_key` | hex | Tree key of the account's code-hash header leaf. |
-| `header_sub_index_255_key` | hex | Tree key at header sub-index 255, the last sub-index of the header stem. |
 | `storage_slot_keys` | object | Decimal-string slot number to tree key. |
 | `code_chunk_keys` | object | Decimal-string chunk index to tree key. |
-| `code_hash` | hex | Keccak hash of the test account's bytecode; the content address the overflow chunk keys derive from. |
+| `code_hash` | hex | Keccak hash of the test account's bytecode; the content address every chunk key derives from. |
 
 `storage_slot_keys` carries slots 0, 1, 63, 64, 255, 256, 511, 512, and
 `2**200`. Slots below 64 live in the account header, so the 63/64 pair
@@ -96,14 +95,16 @@ exercises the `U256` arithmetic on a slot number no fixture can reach by
 counting. Note that the object key for the large slot is its full
 decimal expansion, not an exponent.
 
-`code_chunk_keys` carries chunk indices 0, 1, 127, 128, 129, 383 and
-384. Chunks below 128 live in the account header, so the 127/128 pair
-straddles the boundary between the header and the code zone, and the
-383/384 pair crosses from one overflow stem to the next.
+`code_chunk_keys` carries chunk indices 0, 1, 255, 256, 257, 511, 512
+and 2114. Every chunk lives in the code zone, 256 chunks to a stem
+("code groups"), so the 255/256 and 511/512 pairs each cross from one
+stem to the next; 2114 is the last chunk of a maximum-size (65536-byte)
+code, in group 8.
 
-Overflow code is content-addressed, so the chunk keys past the header
-are derived from `code_hash` rather than from the address
-alone. A consumer reproducing these keys must feed in that same hash.
+Code is content-addressed: chunk keys are derived from `code_hash` and
+the chunk index alone, with no address involved, so contracts with
+identical bytecode share their chunk leaves. A consumer reproducing
+these keys must feed in that same hash.
 
 ### `chunkify_code`
 
@@ -157,7 +158,7 @@ Each account value:
 | `nonce` | number | Account nonce. |
 | `balance` | hex | Account balance, as a `0x` hex string since it can exceed a JSON-safe integer. |
 | `code` | hex | The account's bytecode; `0x` for an account with none. |
-| `code_hash` | hex | `keccak256(code)`, the value of the code-hash leaf. Derived, and repeated here because the overflow chunk keys are content-addressed by it. |
+| `code_hash` | hex | `keccak256(code)`, the value of the code-hash leaf. Derived, and repeated here because the chunk keys are content-addressed by it. |
 | `storage` | object | Decimal-string slot number to the slot's 32-byte value. |
 
 Nonces are JSON numbers and every case keeps them at or below
@@ -183,20 +184,22 @@ depend on both:
   number of chunk leaves does not give the code's length; `code_size`
   in the basic data leaf does.
 
-The thirteen cases and what each one covers:
+The fifteen cases and what each one covers:
 
 | Name | Covers |
 | --- | --- |
 | `empty_state` | No accounts at all. The root is `EMPTY_TRIE_ROOT`, 32 zero bytes, not the hash of anything. |
 | `single_eoa` | One EOA: exactly two leaves, basic data and code hash. |
 | `eoa_zero_nonce_and_balance` | An EOA whose basic data encodes to 32 zero bytes, so only its code-hash leaf exists; that leaf alone is what distinguishes it from an absent account. |
-| `header_code_only` | Code short enough to live entirely in header chunks, with a `PUSH32` spilling across a chunk boundary so a chunk's leading push-data count is non-zero. |
-| `overflow_code_and_boundary_storage` | 129 chunks of code, one past the header, plus storage on both sides of the header boundary. Its root is independently pinned by `tests/binary_trie/test_state_pbt.py::test_embedded_state_root_is_pinned`. |
+| `code_with_push_data_spill` | Short code with a `PUSH32` spilling across a chunk boundary, so a chunk's leading push-data count is non-zero. |
+| `code_and_boundary_storage` | 129 chunks of code beside storage on both sides of the header boundary. Its root is independently pinned by `tests/binary_trie/test_state_pbt.py::test_embedded_state_root_is_pinned`. |
+| `code_across_the_group_boundary` | 257 chunks of code, one past a full code group, so its chunk keys span two stems (`tree_index` 0 and 1). |
 | `storage_across_the_header_boundary` | Slots 0, 1, 63 in the header and 64, 255, 256, `2**256 - 1` in the storage zone, each with a distinct value so a swap between any two leaves is detectable. |
 | `zero_storage_slot_is_absent` | Slots declared with a zero value beside a non-zero one; the root is that of the non-zero slot alone. |
-| `full_header_stem` | 128 chunks of code and slots 0-63: every header sub-index the embedding can ever populate, `{0, 1}` and `64`-`255`, and no overflow-zone leaf. |
-| `shared_bytecode_two_accounts` | Two accounts with identical 129-chunk code. Their header chunks are per-account and disjoint; the one overflowing chunk is content-addressed and must land on a single shared leaf, so the state has 261 leaves rather than 262. |
-| `delegation_designator` | An EIP-7702 designator, `0xef0100` followed by an address: 23 bytes, one header chunk, the only protocol-reachable code change on an existing account. |
+| `full_header_occupancy` | Slots 0-63 filling every header storage sub-index beside 128 chunks of code: the header holds exactly `{0, 1}` and `64`-`127` -- sub-indices 128-255 are unallocated -- and every chunk leaf sits in the code zone. |
+| `shared_bytecode_two_accounts` | Two accounts with identical 129-chunk code. Every chunk is content-addressed and must land on a single shared leaf per chunk, so the state has 133 leaves rather than 262. |
+| `short_shared_code_two_accounts` | Two accounts with identical 2-chunk code, the common sharing case: 6 leaves rather than 8. |
+| `delegation_designator` | An EIP-7702 designator, `0xef0100` followed by an address: 23 bytes, one content-addressed chunk, shared by every authority delegating to the same target. |
 | `code_chunks_of_zero_bytes` | 62 zero bytes of code: both chunks are 32 zero bytes and are absent, so the account commits no chunk leaf at all while its `code_size` stays 62. |
 | `max_basic_data_fields` | A balance of `2**128 - 1`, the largest the 16-byte field holds, beside the largest JSON-safe nonce. A balance of `2**128` or more cannot be committed at all. |
 | `random_6_accounts_seed_8297` | Six pseudo-random accounts with mixed code lengths, scattered storage, and full-width balances, as a broad spread over the composition. |

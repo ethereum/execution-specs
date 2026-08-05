@@ -46,7 +46,6 @@ from ethereum.binary_trie.embedding import (
     get_tree_key_for_basic_data,
     get_tree_key_for_code_chunk,
     get_tree_key_for_code_hash,
-    get_tree_key_for_header,
     get_tree_key_for_storage_slot,
 )
 from ethereum.binary_trie.trie import BinaryTrie, root, trie_set
@@ -80,11 +79,21 @@ ADDRESS_C = b"\xcc" * 20
 PUSH4 = bytes([0x63])
 PUSH32 = bytes([0x7F])
 
-# Code sized to each side of the header/overflow boundary. The header
-# holds chunks 0-127, so 128 chunks is the largest code that stays in
-# it and 129 chunks the smallest that reaches the code zone.
-HEADER_ONLY_CODE = b"\x01" * (31 * 128)
-OVERFLOW_CODE = b"\x01" * (31 * 129)
+# 129 chunks of code: the crafted size
+# `tests/binary_trie/test_state_pbt.py::test_embedded_state_root_is_pinned`
+# uses, kept identical so the `code_and_boundary_storage` case and that
+# test pin the same root from two directions.
+CODE_129_CHUNKS = b"\x01" * (31 * 129)
+
+# 128 chunks of code beside a fully occupied header: any size works for
+# the `full_header_occupancy` case, since code never shares the header
+# stem; this one keeps the case's historical shape.
+CODE_128_CHUNKS = b"\x01" * (31 * 128)
+
+# Code sized just past the code-group boundary. A group holds 256
+# chunks under one stem, so 257 chunks is the smallest code whose keys
+# span two stems (`tree_index` 0 and 1).
+TWO_GROUP_CODE = b"\x01" * (31 * 257)
 
 # PUSH32 at position 30, so its data spills across the first chunk
 # boundary and the second chunk opens with a non-zero push-data count.
@@ -179,10 +188,13 @@ def trie_root_cases() -> List[Dict[str, Any]]:
 def embedding_cases() -> Dict[str, Any]:
     """
     Build the embedding cases: the tree keys one fixed account derives
-    for its header leaves, storage slots and code chunks.
+    for its header leaves and storage slots, and the keys one fixed
+    code hash derives for its chunks.
 
-    The storage slot and code chunk indices straddle the header/overflow
-    boundaries, so a client that mis-splits either zone disagrees here.
+    The storage slot indices straddle the header/overflow boundary and
+    the chunk indices the code-group boundaries (and the last chunk of
+    a maximum-size code), so a client that mis-splits either zone
+    disagrees here.
     """
     address32 = address20_to_address32(Bytes20(ADDRESS20))
     code_hash = keccak256(b"\xfe")  # hash of some 1-byte code
@@ -191,20 +203,15 @@ def embedding_cases() -> Dict[str, Any]:
         "address32": hx(address32),
         "basic_data_key": hx(get_tree_key_for_basic_data(address32)),
         "code_hash_key": hx(get_tree_key_for_code_hash(address32)),
-        "header_sub_index_255_key": hx(
-            get_tree_key_for_header(address32, Uint(255))
-        ),
         "storage_slot_keys": {
             str(slot): hx(get_tree_key_for_storage_slot(address32, U256(slot)))
             for slot in [0, 1, 63, 64, 255, 256, 511, 512, 2**200]
         },
         "code_chunk_keys": {
             str(cid): hx(
-                get_tree_key_for_code_chunk(
-                    address32, Bytes32(code_hash), Uint(cid)
-                )
+                get_tree_key_for_code_chunk(Bytes32(code_hash), Uint(cid))
             )
-            for cid in [0, 1, 127, 128, 129, 383, 384]
+            for cid in [0, 1, 255, 256, 257, 511, 512, 2114]
         },
         "code_hash": hx(code_hash),
     }
@@ -375,7 +382,7 @@ def pbt_state_cases() -> List[Dict[str, Any]]:
 
     Between them they cover both sides of every boundary the embedding
     draws, the two ways a leaf collapses to absence, and the sharing of
-    content-addressed overflow code.
+    content-addressed code.
     """
     boundary_slots = (0, 1, 63, 64, 255, 256, 2**256 - 1)
     return [
@@ -389,7 +396,7 @@ def pbt_state_cases() -> List[Dict[str, Any]]:
             [AccountSpec(address=ADDRESS_A)],
         ),
         pbt_state_case(
-            "header_code_only",
+            "code_with_push_data_spill",
             [
                 AccountSpec(
                     address=ADDRESS_A,
@@ -400,13 +407,23 @@ def pbt_state_cases() -> List[Dict[str, Any]]:
             ],
         ),
         pbt_state_case(
-            "overflow_code_and_boundary_storage",
+            "code_and_boundary_storage",
             [
                 AccountSpec(
                     address=ADDRESS_A,
                     nonce=1,
-                    code=OVERFLOW_CODE,
+                    code=CODE_129_CHUNKS,
                     storage=((63, 1), (64, 2), (256, 3)),
+                )
+            ],
+        ),
+        pbt_state_case(
+            "code_across_the_group_boundary",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    code=TWO_GROUP_CODE,
                 )
             ],
         ),
@@ -434,12 +451,12 @@ def pbt_state_cases() -> List[Dict[str, Any]]:
             ],
         ),
         pbt_state_case(
-            "full_header_stem",
+            "full_header_occupancy",
             [
                 AccountSpec(
                     address=ADDRESS_A,
                     nonce=1,
-                    code=HEADER_ONLY_CODE,
+                    code=CODE_128_CHUNKS,
                     storage=tuple((slot, slot + 1) for slot in range(64)),
                 )
             ],
@@ -448,10 +465,21 @@ def pbt_state_cases() -> List[Dict[str, Any]]:
             "shared_bytecode_two_accounts",
             [
                 AccountSpec(
-                    address=ADDRESS_A, nonce=1, balance=1, code=OVERFLOW_CODE
+                    address=ADDRESS_A, nonce=1, balance=1, code=CODE_129_CHUNKS
                 ),
                 AccountSpec(
-                    address=ADDRESS_B, nonce=2, balance=2, code=OVERFLOW_CODE
+                    address=ADDRESS_B, nonce=2, balance=2, code=CODE_129_CHUNKS
+                ),
+            ],
+        ),
+        pbt_state_case(
+            "short_shared_code_two_accounts",
+            [
+                AccountSpec(
+                    address=ADDRESS_A, nonce=1, balance=1, code=b"\xfe" * 40
+                ),
+                AccountSpec(
+                    address=ADDRESS_B, nonce=2, balance=2, code=b"\xfe" * 40
                 ),
             ],
         ),
