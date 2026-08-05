@@ -10,13 +10,13 @@ Written primarily by Paweł Bylica (@chfast). Somewhat modified by Ori (@qbzzt)
 Ported from:
 state_tests/stCreateTest/CreateAddressWarmAfterFailFiller.yml
 
-@manually-enhanced: Do not overwrite. The post-state records the
-measured cost of accessing the create address after a failed CREATE,
-which is a cold account access. EIP-8038 reprices a cold account
-access from 2 600 to 3 000, so each such measurement gains 400 at
-Amsterdam. Derive that delta from the fork's gas model so it is
-exactly 0 pre-EIP-8037 and tracks parameter changes; do not hardcode
-the Amsterdam value.
+@manually-enhanced: Do not overwrite. The post-state records measured
+probe-CALL costs; derive them from the fork's gas model (CALL regular
+cost with warm/cold, value-transfer, and new-account metadata, minus
+the returned stipend) plus the dispatcher's fixed framing gas, so
+EIP-2929/8037/8038 repricings track automatically. The transaction
+gas limit carries reservoir headroom for the state gas the dispatcher
+incurs on EIP-8037 forks, keeping state gas out of the measurements.
 """
 
 import pytest
@@ -390,10 +390,43 @@ def test_create_address_warm_after_fail(
         address=Address(0x00000000000000000000000000000000000C0DEC),  # noqa: E501
     )
 
-    # The create address access after a failed CREATE is cold here;
-    # EIP-8038 reprices a cold account access from 2 600 to 3 000.
-    # Derive the delta from the fork so it is 0 pre-EIP-8037.
-    cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
+    # The dispatcher measures each probe CALL with a GAS-delta window.
+    # The window's framing (stack shuffling, the two dirty-warm SSTOREs
+    # bracketing the call, and the closing GAS read) is baked into the
+    # ported bytecode blob and fork-stable; the CALL's own cost is
+    # derived from the fork so warm/cold, value-transfer, and
+    # new-account repricings (EIP-2929, EIP-8037, EIP-8038) track
+    # automatically. On EIP-8037 forks the state-gas component is paid
+    # from the transaction's reservoir (see the gas limit below), so
+    # the windows observe only the regular cost.
+    first_call_frame = 228
+    repeat_call_frame = 216
+
+    def measured_call(frame: int, *, warm: bool, new: bool) -> int:
+        """Compute the gas one dispatcher probe-CALL window measures."""
+        call = Op.CALL(
+            address_warm=warm,
+            value_transfer=bool(v),
+            account_new=new and bool(v),
+        )
+        measured = frame + call.execution_cost(fork)
+        if v:
+            # The callee is empty (or STOP-only), so the stipend
+            # forwarded with the value returns unused.
+            measured -= fork.gas_costs().CALL_STIPEND
+        return measured
+
+    # Slot 12: first call to the CREATE target. Warm if a failed CREATE
+    # accessed it (the subject, EIP-2929), cold if the creating frame
+    # itself failed (or CREATE aborted on a nonce overflow), and an
+    # existing account when the CREATE succeeded.
+    warm_new_call = measured_call(first_call_frame, warm=True, new=True)
+    cold_new_call = measured_call(first_call_frame, warm=False, new=True)
+    warm_existing_call = measured_call(first_call_frame, warm=True, new=False)
+    # Slots 13/15: repeated calls, always warm to an existing account.
+    repeat_call = measured_call(repeat_call_frame, warm=True, new=False)
+    # Slot 14: first call to the never-created empty address.
+    empty_call = cold_new_call
 
     expect_entries_: list[dict] = [
         {
@@ -408,10 +441,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -432,10 +465,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -459,10 +492,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -483,10 +516,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -510,10 +543,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -534,10 +567,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -561,10 +594,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -585,10 +618,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -612,10 +645,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -636,10 +669,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 32028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
+                        12: warm_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -663,10 +696,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 2828 + cold_account_delta,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
+                        12: cold_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=0,
                 ),
@@ -690,10 +723,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 34528,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
+                        12: cold_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=0,
                 ),
@@ -717,10 +750,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 2828 + cold_account_delta,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
+                        12: cold_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=0,
                 ),
@@ -741,10 +774,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 34528,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
+                        12: cold_new_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=0,
                 ),
@@ -765,10 +798,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
+                        12: warm_existing_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -789,10 +822,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 7028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
+                        12: warm_existing_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -816,10 +849,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 328,
-                        13: 316,
-                        14: 2828 + cold_account_delta,
-                        15: 316,
+                        12: warm_existing_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -840,10 +873,10 @@ def test_create_address_warm_after_fail(
                         3: 1,
                         4: 1,
                         5: 1,
-                        12: 7028,
-                        13: 7016,
-                        14: 34528,
-                        15: 7016,
+                        12: warm_existing_call,
+                        13: repeat_call,
+                        14: empty_call,
+                        15: repeat_call,
                     },
                     nonce=1,
                 ),
@@ -876,12 +909,22 @@ def test_create_address_warm_after_fail(
         Bytes("52c3fd24") + Hash(0x7),
         Bytes("52c3fd24") + Hash(0x11),
     ]
-    # The dispatcher writes to ~14 fresh storage slots; under EIP-8037
-    # each slot's 32-byte cost is settled at frame end out of the
-    # reservoir/`gas_left` (~37_500 gas/slot on Amsterdam). Add that
-    # headroom — `sstore_state_gas` is 0 pre-EIP-8037, so the budget
-    # is unchanged on older forks.
-    tx_gas = [16777216 + 14 * Op.SSTORE(new_value=1).state_cost(fork)]
+    # Under EIP-8037 the gas above the execution cap becomes the
+    # state-gas reservoir. Size it to cover every state charge the
+    # dispatcher can incur — nine 0→non-zero SSTOREs, the CREATE's
+    # peak new-account charge plus up to two accounts created by the
+    # value-bearing probe calls (one spare), and the code deposit —
+    # so no state gas spills into the measured windows. The headroom
+    # is 0 pre-EIP-8037, leaving the budget unchanged on older forks.
+    state_gas_headroom = (
+        9 * Op.SSTORE(new_value=1).state_cost(fork)
+        + 4
+        * Op.CALL(
+            address_warm=True, value_transfer=True, account_new=True
+        ).state_cost(fork)
+        + fork.code_deposit_state_gas(code_size=1)
+    )
+    tx_gas = [16777216 + state_gas_headroom]
     tx_value = [0, 1]
 
     tx = Transaction(

@@ -1,8 +1,17 @@
 """
-Https://ropsten.etherscan.io/tx/0x8ec445380649f6c75a042a438ea9256c2fab2a...
+Verify the Ropsten "crashing transaction" attack replay: a creation
+transaction whose init code CREATEs children in a loop while more than
+50000 gas remains, then deposits its runtime code.
 
 Ported from:
 state_tests/stAttackTest/CrashingTransactionFiller.json
+
+@manually-enhanced: Do not overwrite. On pre-EIP-8037 forks the loop
+drains to the ported child count (created nonce 124); under EIP-8037
+with the revised EIP-8038 pricing an iteration is dearer (new-account
+plus code-deposit state gas spill from the frame) but still fits the
+loop's 50000-gas guard, so the loop drains earlier and deposits with
+fewer children — the split post pins both child counts.
 """
 
 import pytest
@@ -11,6 +20,7 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -25,12 +35,14 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stAttackTest/CrashingTransactionFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+# Required: the sender is funded at the attack's historical nonce 3270.
 @pytest.mark.pre_alloc_mutable
 def test_crashing_transaction(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Https://ropsten."""
+    """Replay the attack loop; EIP-8037 shrinks the child count."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000, nonce=3270)
 
@@ -95,13 +107,25 @@ def test_crashing_transaction(
         gas_price=11,
     )
 
-    post = {
-        sender: Account(nonce=3271),
-        compute_create_address(address=sender, nonce=3270): Account(
+    created = compute_create_address(address=sender, nonce=3270)
+    if fork.is_eip_enabled(8037):
+        # An iteration's state gas spill makes each pass dearer while
+        # still fitting the loop's 50000-gas guard, so the loop drains
+        # after far fewer children than the ported count.
+        created_account = Account(
+            code=bytes.fromhex("60606040526008565b00"),
+            balance=1,
+            nonce=23,
+        )
+    else:
+        created_account = Account(
             code=bytes.fromhex("60606040526008565b00"),
             balance=1,
             nonce=124,
-        ),
+        )
+    post = {
+        sender: Account(nonce=3271),
+        created: created_account,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

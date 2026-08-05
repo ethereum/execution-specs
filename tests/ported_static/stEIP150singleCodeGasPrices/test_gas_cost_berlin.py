@@ -1,5 +1,6 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Measure the gas cost of each opcode via a crafted one-opcode contract
+(by Ori Pomerantz qbzzt1@gmail.com).
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/gasCostBerlinFiller.yml
@@ -7,6 +8,9 @@ state_tests/stEIP150singleCodeGasPrices/gasCostBerlinFiller.yml
 @manually-enhanced: Do not overwrite. This crafts a one-opcode
 contract, CALLs it, and stores the opcode's measured gas minus the
 data's hardcoded Cancun-era expected cost (so the net is normally 0).
+The SSTORE case (d40) derives its net from the fork — EIP-8037 moves
+the bulk into state gas — and the crafted CALL forwards effectively
+all gas (0xFFFFFF, same PUSH3 width) so that case cannot OOG.
 EIP-8038 reprices state access, so four opcodes now exceed their old
 expected cost by a fork-derived delta: `BALANCE` and `SELFDESTRUCT`
 (cold account, `COLD_ACCOUNT_ACCESS` 2600 -> 3000, +400), `EXTCODESIZE`
@@ -733,10 +737,18 @@ def test_gas_cost_berlin(
     # Each measured opcode subtracts its Cancun-era expected cost, so the
     # net is the (Amsterdam - Cancun) repricing of the one state access
     # it performs (cold address 0 / cold fresh slot), keyed by data index.
+    # EIP-8037 moves the bulk of a zero->nonzero SSTORE into state gas;
+    # the explicit gas limit equals the cap (zero reservoir), so the
+    # crafted contract's GAS delta observes the full cost. The data word
+    # encodes the 0x5654 (22100) pre-8037 cost, so the net is 0 there.
+    sstore_new_slot_cost = Op.SSTORE(
+        key_warm=False, original_value=0, new_value=1
+    ).gas_cost(fork)
     measured_delta = {
         23: cold_account_delta,  # BALANCE
         31: code_read_delta,  # EXTCODESIZE
         39: cold_storage_delta,  # SLOAD
+        40: sstore_new_slot_cost - 0x5654,  # SSTORE zero->nonzero
         45: cold_account_delta,  # SELFDESTRUCT
     }.get(d, 0)
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -839,7 +851,12 @@ def test_gas_cost_berlin(
         + Op.MSTORE(offset=0x300, value=Op.GAS)
         + Op.POP(
             Op.CALL(
-                gas=0x10000,
+                # Effectively "all gas": EIP-8037 repriced the SSTORE case
+                # (d40) past the ported 0x10000 budget, OOGing the callee.
+                # 0xFFFFFF keeps the same PUSH3 width, so the hand-coded
+                # JUMP targets and every measurement stay unchanged
+                # (unused gas returns to the caller).
+                gas=0xFFFFFF,
                 address=Op.MLOAD(offset=0x280),
                 value=0x0,
                 args_offset=0x0,

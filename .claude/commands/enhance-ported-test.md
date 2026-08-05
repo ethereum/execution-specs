@@ -526,69 +526,11 @@ persists with the sentinel) plus the callee-side observable already
 separate the outcomes. Validated on
 `test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided`.
 
-**Any *exact* budget off the intrinsic calculator needs the EIP-7623
-kwarg.** `transaction_intrinsic_cost_calculator()` returns `max(intrinsic,
-calldata_floor)`, but the floor is only compared against *after* execution —
-it is never deducted up front. So whenever the derived number stands for
-"gas taken before the first opcode" — a one-gas OOG boundary, an exact
-success budget, an EIP-3529 refund cap — pass
-`return_cost_deducted_prior_execution=True` if the transaction carries
-calldata. **The bug hides until an EIP-7981 fork:** the delta is 0 from
-Berlin through Osaka and 238 on Amsterdam for a 5-byte creation payload, so
-a boundary tuned without the kwarg passes on every fork that exists today
-and silently goes slack on the future one — and the symptom is an *OOG arm
-that stops OOG-ing*, i.e. a test that fails only once someone runs
-`--fork Amsterdam`.
-**Keep the default (no kwarg) when the number is a validity floor** rather
-than an execution budget: a tx whose `gas_limit` falls below
-`max(intrinsic, floor)` is rejected outright, which is a different outcome
-from running out of gas.
-Validated on `test_refund_suicide50procent_cap` and
-`test_transaction_collision_to_empty2`, whose OOG arm had been loosened to
-"half the store's cost" to work around this, with a comment misattributing
-it to a pre-Shanghai init-code word cost.
-
-**Read the trace when a derived budget does not line up.** `fill --traces
---evm-dump-dir <dir>` writes, per transaction, `input/txs.json`,
-`output/result.json` and a `trace-*.jsonl`. Subtracting the first trace
-entry's `gas` from the tx `gas` gives the intrinsic the EVM *actually*
-charged, which is what settles a disagreement with any calculator; on
-EIP-8037 forks the per-step `gasCost`/`stateGasCost` split shows where a
-composite's cost really lands. Far faster than bisecting `gas_limit` by
-re-filling, and it produced the 238 above in one run.
-
-**Gates are not costs, and `gas_cost()` only knows costs.** Several EVM
-rules are *preconditions on `gas_left`* rather than charges, so a budget
-derived from `gas_cost(fork)` is exactly right and still too small. The
-canonical one is EIP-2200 (Istanbul+): **any** `SSTORE` halts when it runs
-with `CALL_STIPEND` (2300) gas or less still available — including a
-100-gas dirty-warm rewrite. No amount of fixing `_calculate_sstore*` can
-express that, because it is not part of the price.
-
-*Tell it apart in a trace:* a gated halt shows `gasCost: 0x0` next to an
-`error`, while a genuine can't-afford shows the real cost. `SSTORE
-gas_left=2300 cost=0 OutOfGasError` is the signature.
-
-*Derive the headroom instead of padding.* The **last** gated op is the one
-running closest to empty, so it sets the requirement:
-```
-last_charge = Op.SSTORE(key_warm=True, original_value=…, current_value=…,
-                        new_value=…).gas_cost(fork)   # bare `55`, no PUSHes
-headroom    = fork.gas_costs().CALL_STIPEND - last_charge + 1
-gas_limit   = overhead + code.gas_cost(fork) + headroom
-```
-A bare opcode carrying only metadata prices the charge alone (same trick as
-`Op.RETURN(code_deposit_size=n)`). This is what turns "add 5,000 and hope"
-into a real one-gas boundary — and because it targets only the *last* gated
-op, it is invariant in how many precede it. Validated on
-`test_out_of_gas_contract_creation`, whose arms now straddle
-`gas_left = 2301` / `2300` exactly.
-
-*Same family, when an "impossible" budget is really a gate:* an
-`SSTORE` in a `STATICCALL` subtree, `RETURNDATACOPY` reading past the
-return buffer, stack under/overflow, an EIP-684 address collision. Each
-aborts the frame outright rather than charging for it, so the fix is
-always to model the gate, never to inflate the budget until it passes.
+**Refund-cap derivations need the EIP-7623 kwarg.** The EIP-3529 cap's
+base is the gas deducted before execution, which excludes the calldata
+floor: pass `return_cost_deducted_prior_execution=True` to the intrinsic
+calculator whenever the tx has calldata, or the derived `executed` (and
+the cap) overstate. Validated on `test_refund_suicide50procent_cap`.
 
 **A CREATE address collision burns the child's gas allowance** (the
 EIP-684 path): the withheld child grant is consumed, nothing is created,
@@ -609,27 +551,15 @@ a derived budget that must survive pre-Istanbul forks needs an explicit
 headroom constant for it (named, commented). Observed on
 `test_revert_depth_create_address_collision`'s ConstantinopleFix sweep.
 
-**Code-deposit cost comes from `Op.RETURN`'s metadata — never a per-byte
-formula.** Annotate the init code's terminator,
-`Op.RETURN(offset=o, size=n, code_deposit_size=n)`, and `gas_cost(fork)`
-includes the deposit charge, correct on both sides of the EIP-8037 boundary
-(10 bytes costs 2,000 before it; 15,306 after, once the per-byte price became
-state gas). The annotated and unannotated forms assemble to **identical
-bytes**, so building both yields an exact two-sided boundary out of the fork's
-own model, with no EIP branch:
-```
-child              = stage + Op.RETURN(offset=o, size=n)
-child_with_deposit = stage + Op.RETURN(offset=o, size=n, code_deposit_size=n)
-assert child.gas_cost(fork) <= granted < child_with_deposit.gas_cost(fork)
-```
-`fork.gas_costs().CODE_DEPOSIT_PER_BYTE` (200) is a **last resort**: it is the
-*pre-8037* constant and understates the real charge ~7.5x on 8037 forks. Use
-it only where understating is the safe direction — a *sufficiency* budget
-overshoots, an "is this unaffordable?" guard stays conservative — and never in
-a one-gas-short *boundary*, which it silently funds on Amsterdam. Branching on
-`fork.is_eip_enabled(8037)` to patch it up is the wrong fix; the metadata
-removes the branch entirely. Validated on
-`test_create_oog_after_init_code_returndata_size`.
+**EIP-8037 repriced the code deposit's regular part — boundaries beware.**
+On 8037 forks the deposit charges only the keccak word cost
+(`OPCODE_KECCAK256_PER_WORD * ceil32(len)/32`, ~6 gas) as regular gas plus
+`len * 1530` state; `fork.gas_costs().CODE_DEPOSIT_PER_BYTE` (200) is the
+*pre-8037* constant. Using 200/byte in a *sufficiency* budget merely
+overshoots (safe); using it in a one-gas-short *boundary* silently funds
+the deposit on Amsterdam. Branch on `fork.is_eip_enabled(8037)` for exact
+deposit boundaries. Validated on
+`test_create_oo_gafter_init_code_returndata_size`.
 
 **Match the intrinsic calculator's kwargs to the transaction's shape.**
 `fork.transaction_intrinsic_cost_calculator()()` defaults to

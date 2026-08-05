@@ -312,6 +312,29 @@ def test_oog(
     # nested CALL to a cold contract plus the copy; the reprice eats the
     # slack, so add it back to that one budget.
     cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
+    # The CREATE/CREATE2 success budgets are derived: EIP-8037 adds the
+    # new-account state gas (~183k), far past the ported 0xFFFF budget.
+    create_budget = (
+        Op.CREATE(
+            value=0x0,
+            offset=0x10000,
+            size=0x20,
+            new_memory_size=0x10020,
+            init_code_size=0x20,
+        ).gas_cost(fork)
+        + 1_000
+    )
+    create2_budget = (
+        Op.CREATE2(
+            value=0x0,
+            offset=0x10000,
+            size=0x20,
+            salt=0x5A17,
+            new_memory_size=0x10020,
+            init_code_size=0x20,
+        ).gas_cost(fork)
+        + 1_000
+    )
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x0000000000000000000000000000000000010020)
     contract_1 = Address(0x0000000000000000000000000000000000010037)
@@ -787,9 +810,9 @@ def test_oog(
         Bytes("1a8451e6") + Hash(0xA3) + Hash(0x39D0),
         Bytes("1a8451e6") + Hash(0xA4) + Hash(0xFFFF),
         Bytes("1a8451e6") + Hash(0xA4) + Hash(0x39D0),
-        Bytes("1a8451e6") + Hash(0xF0) + Hash(0xFFFF),
+        Bytes("1a8451e6") + Hash(0xF0) + Hash(create_budget),
         Bytes("1a8451e6") + Hash(0xF0) + Hash(0x7D00),
-        Bytes("1a8451e6") + Hash(0xF5) + Hash(0xFFFF),
+        Bytes("1a8451e6") + Hash(0xF5) + Hash(create2_budget),
         Bytes("1a8451e6") + Hash(0xF5) + Hash(0x7D00),
         Bytes("1a8451e6") + Hash(0xF3) + Hash(0xFFFF),
         Bytes("1a8451e6") + Hash(0xF3) + Hash(0x36B0),

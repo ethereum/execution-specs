@@ -1,11 +1,15 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Measure the gas cost of each opcode via a crafted one-opcode contract
+(by Ori Pomerantz qbzzt1@gmail.com).
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/gasCostFiller.yml
 
 @manually-enhanced: Do not overwrite. This crafts a one-opcode
 contract, CALLs it, and stores the opcode's measured gas via `Op.GAS`.
+The SSTORE case (d40) derives its cost from the fork — EIP-8037 moves
+the bulk into state gas — and the crafted CALL forwards effectively
+all gas (0xFFFFFF, same PUSH3 width) so that case cannot OOG.
 EIP-8038 reprices state access, so four opcodes shift: `BALANCE` and
 `SELFDESTRUCT` (cold account, `COLD_ACCOUNT_ACCESS` 2600 -> 3000, +400),
 `EXTCODESIZE` (cold account plus the extra `WARM_ACCESS` charged for
@@ -734,6 +738,12 @@ def test_gas_cost(
     code_read_delta = cold_account_delta + (
         gas_costs.WARM_ACCESS if fork.is_eip_enabled(8037) else 0
     )
+    # EIP-8037 moves the bulk of a zero->nonzero SSTORE into state gas;
+    # the explicit gas limit equals the cap (zero reservoir), so the
+    # crafted contract's GAS delta observes the full cost.
+    sstore_new_slot_cost = Op.SSTORE(
+        key_warm=False, original_value=0, new_value=1
+    ).gas_cost(fork)
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
@@ -837,7 +847,12 @@ def test_gas_cost(
         + Op.MSTORE(offset=0x300, value=Op.GAS)
         + Op.POP(
             Op.CALL(
-                gas=0x10000,
+                # Effectively "all gas": EIP-8037 repriced the SSTORE case
+                # (d40) past the ported 0x10000 budget, OOGing the callee.
+                # 0xFFFFFF keeps the same PUSH3 width, so the hand-coded
+                # JUMP targets and every measurement stay unchanged
+                # (unused gas returns to the caller).
+                gas=0xFFFFFF,
                 address=Op.MLOAD(offset=0x280),
                 value=0x0,
                 args_offset=0x0,
@@ -1102,10 +1117,18 @@ def test_gas_cost(
             },
         },
         {
+            # SSTORE zero->nonzero to a fresh cold slot. Stored value =
+            # actual cost minus the 0x4E20 expected-cost operand in the
+            # data word minus the file-wide 0x258 baseline; 1500 before
+            # EIP-8037, dominated by state gas after.
             "indexes": {"data": [40], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr: Account(storage=_storage_with_any({0: 1500}, [1]))
+                addr: Account(
+                    storage=_storage_with_any(
+                        {0: sstore_new_slot_cost - 0x4E20 - 0x258}, [1]
+                    )
+                )
             },
         },
         {

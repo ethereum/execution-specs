@@ -1,12 +1,15 @@
 """
-Test_callcallcallcode_001_suicide_end.
+Verify a CALLCODE -> CALLCODE -> (DELEGATECALL + SELFDESTRUCT) chain:
+every store lands in the outermost target's storage and the SELFDESTRUCT
+(running in the target's context) destroys the target.
 
 Ported from:
 state_tests/stCallDelegateCodesCallCodeHomestead/callcallcallcode_001_SuicideEndFiller.json
 
-@manually-enhanced: Do not overwrite. The hardcoded inner-CALL gas
-values (50k / 100k / 150k) were tuned to the pre-EIP-8037 gas budget.
-
+@manually-enhanced: Do not overwrite. The three call budgets are derived
+bottom-up from the fork (each frame pays its stores' state gas from its
+own grant under EIP-8037), and the target's post code is coupled to the
+composed bytecode (the gas operand varies by fork).
 """
 
 import pytest
@@ -38,17 +41,16 @@ def test_callcallcallcode_001_suicide_end(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Test_callcallcallcode_001_suicide_end."""
-    # EIP-8037 inner-CALL gas bumps: original values restored for
-    # pre-EIP-8037 forks; bumped values cover the per-storage state-
-    # gas spill into regular gas on Amsterdam.
-    outer_call_gas = 150000
-    middle_call_gas = 100000
-    inner_call_gas = 50000
-    if fork.is_eip_enabled(8037):
-        outer_call_gas = 1000000
-        middle_call_gas = 800000
-        inner_call_gas = 100000
+    """Chained callcode stores land in the target; it self-destructs."""
+    # Derived bottom-up call budgets: with a zero state-gas reservoir
+    # each frame pays its stores' state gas from its own grant, so every
+    # level's budget covers its callee plus its own work with margin.
+    store_cost = Op.SSTORE(
+        key=0x3, value=0x1, key_warm=False, original_value=0, new_value=1
+    ).gas_cost(fork)
+    inner_call_gas = store_cost + 5_000
+    middle_call_gas = inner_call_gas + 2 * store_cost + 30_000
+    outer_call_gas = middle_call_gas + store_cost + 30_000
 
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
@@ -72,8 +74,8 @@ def test_callcallcallcode_001_suicide_end(
     )
     # Source: lll
     # {  [[ 0 ]] (CALLCODE 150000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) }  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(
+    target_code = (
+        Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
                 gas=outer_call_gas,
@@ -85,7 +87,10 @@ def test_callcallcallcode_001_suicide_end(
                 ret_size=0x40,
             ),
         )
-        + Op.STOP,
+        + Op.STOP
+    )
+    target = pre.deploy_contract(  # noqa: F841
+        code=target_code,
         balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address(0xA74CA10B765DCDA3B60687F73F2881E2A56EDA64),  # noqa: E501
@@ -141,9 +146,10 @@ def test_callcallcallcode_001_suicide_end(
     post = {
         target: Account(
             storage={0: 1, 1: 1, 2: 1, 3: 1},
-            code=bytes.fromhex(
-                "6040600060406000600073eaf8c2ae0d01a880cea4e1aa88def5edd153d57b620249f0f260005500"  # noqa: E501
-            ),
+            # Coupled to the deployed bytecode (the gas operand varies
+            # by fork), proving SELFDESTRUCT in a CALLCODE context kills
+            # nothing here.
+            code=target_code,
             balance=0,
             nonce=0,
         ),

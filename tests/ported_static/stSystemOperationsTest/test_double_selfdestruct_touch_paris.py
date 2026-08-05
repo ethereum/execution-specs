@@ -1,11 +1,13 @@
 """
-A single contract can execute SELFDESTRUCT multiple times using by...
-
-multiple times. The second and later SELFDESTRUCTs have little effect but can
-touch some new beneficiary addresses.
+Verify a contract executing SELFDESTRUCT twice in one transaction: the
+second has little effect but touches a new beneficiary address.
 
 Ported from:
 state_tests/stSystemOperationsTest/doubleSelfdestructTouch_ParisFiller.yml
+
+@manually-enhanced: Do not overwrite. Both forwarded call budgets derive
+from the fork (the callee's cold first-set store is state-priced under
+EIP-8037 and must fit the grant).
 """
 
 import pytest
@@ -85,6 +87,16 @@ def test_double_selfdestruct_touch_paris(
         gas_limit=30000000,
     )
 
+    # Derived budget for each selfdestruct call: the callee's cold
+    # first-set store is state-priced under EIP-8037 and must fit the
+    # grant; the margin covers its SLOAD, SELFDESTRUCT, and accesses.
+    sd_call_gas = (
+        Op.SSTORE(
+            key=0x0, value=0x1, key_warm=False, original_value=0, new_value=1
+        ).gas_cost(fork)
+        + 20_000
+    )
+
     pre[sender] = Account(balance=0x5F5E102)
     pre[empty_account_1] = Account(balance=10)
     pre[empty_account_2] = Account(balance=10)
@@ -120,7 +132,7 @@ def test_double_selfdestruct_touch_paris(
         + Op.SWAP1
         + Op.POP(
             Op.CALL(
-                gas=0x11170,
+                gas=sd_call_gas,
                 address=0x29E4504A3D2A0E0AE0EBBBEFEDD4570639B3EBEE,
                 value=Op.DUP6,
                 args_offset=Op.DUP1,
@@ -131,7 +143,7 @@ def test_double_selfdestruct_touch_paris(
         )
         + Op.SUB
         + Op.PUSH20[0x29E4504A3D2A0E0AE0EBBBEFEDD4570639B3EBEE]
-        + Op.PUSH3[0x11170]
+        + Op.PUSH3[sd_call_gas]
         + Op.CALL
         + Op.STOP,
         nonce=0,

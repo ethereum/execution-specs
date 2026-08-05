@@ -1,8 +1,14 @@
 """
-Test_test_contract_interaction.
+Verify a Solidity contract creating a child and interacting with it
+through its dispatcher within the same transaction.
 
 Ported from:
 state_tests/stSolidityTest/TestContractInteractionFiller.json
+
+@manually-enhanced: Do not overwrite. The EIP-8037 state gas of the
+in-test creations is added to the ported budget as a fork-derived
+surcharge (exactly 0 before EIP-8037), preserving the ported
+behavior on every fork.
 """
 
 import pytest
@@ -15,6 +21,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,8 +36,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_test_contract_interaction(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test_test_contract_interaction."""
+    """Create a child contract and interact with it in one transaction."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x5F5E100)
 
@@ -165,7 +173,11 @@ def test_test_contract_interaction(
         sender=sender,
         to=target,
         data=Bytes("c0406226"),
-        gas_limit=350000,
+        # EIP-8037 surcharge (0 before): the created child's new-account
+        # and code-deposit state gas spill into this budget.
+        gas_limit=350000
+        + fork.create_state_gas()
+        + fork.code_deposit_state_gas(code_size=0x81),
         value=1,
     )
 
