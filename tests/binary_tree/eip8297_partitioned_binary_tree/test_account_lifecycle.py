@@ -20,12 +20,17 @@ from execution_testing import (
 )
 
 from .helpers import FACTORY_CANARY_SLOT, create_contract_via_factory
-from .spec import ref_spec_8297
+from .spec import Spec, ref_spec_8297
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8297.version
 
 pytestmark = pytest.mark.valid_from("BinaryTree")
+
+# 31 * 128: the last byte of code that still fits the account header.
+HEADER_CODE_BYTES = Spec.CODE_CHUNK_SIZE * (
+    Spec.STEM_SUBTREE_WIDTH - Spec.CODE_OFFSET
+)
 
 
 def test_fund_fresh_eoa_via_value_transfer(
@@ -304,5 +309,65 @@ def test_precompile_touch_and_value_transfer(
             else Account(balance=value, nonce=0, code=b"", storage={})
         ),
         contract: Account(storage={canary_slot: 1}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_removal_keeps_overflow_code_a_survivor_shares(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Destroy an account whose bytecode overflows into the code zone while
+    another account still runs that same bytecode.
+
+    An account owns its header stem and its storage prefix, and removing
+    it removes those two subtrees. Its overflow code chunks are not in
+    either: they are content-addressed, so byte-identical contracts share
+    one set of leaves, and those leaves outlive any single account
+    referencing them. Dropping them along with the account would leave
+    the survivor's code half-committed and move the state root.
+
+    The victim is created and destroyed inside one transaction, which
+    post-EIP-6780 is the only way an account with code and storage is
+    removed at all. It writes storage on both sides of the header
+    boundary first, so the removal has to reach the storage zone as well
+    as the header.
+    """
+    beneficiary = pre.fund_eoa(amount=0)
+    header_slot, zone_slot = 5, 300
+
+    # Long enough to reach the code zone, and self-destructing so the
+    # victim can be destroyed by a call rather than from its own
+    # constructor -- it has to hold code and storage when it goes.
+    shared_code = Op.SELFDESTRUCT(beneficiary)
+    shared_code += Op.INVALID * (HEADER_CODE_BYTES + 1 - len(shared_code))
+    assert len(shared_code) == HEADER_CODE_BYTES + 1
+
+    # Deployed before the transaction, so EIP-6780 leaves it in place: a
+    # call would only sweep its balance. It is the reference holder of
+    # the shared overflow chunks.
+    survivor = pre.deploy_contract(code=shared_code)
+
+    initcode = Initcode(
+        deploy_code=shared_code,
+        initcode_prefix=Op.SSTORE(header_slot, 1) + Op.SSTORE(zone_slot, 2),
+    )
+    template = pre.deploy_contract(code=initcode)
+    factory = pre.deploy_contract(
+        code=Op.EXTCODECOPY(template, 0, 0, len(initcode))
+        + Op.MSTORE(32, Op.CREATE(offset=0, size=len(initcode)))
+        + Op.POP(Op.CALL(address=Op.MLOAD(32)))
+        + Op.SSTORE(FACTORY_CANARY_SLOT, 1)
+        + Op.STOP
+    )
+    victim = compute_create_address(address=factory, nonce=1)
+
+    tx = Transaction(sender=pre.fund_eoa(), to=factory, gas_limit=10_000_000)
+
+    post = {
+        victim: Account.NONEXISTENT,
+        survivor: Account(code=shared_code),
+        factory: Account(storage={FACTORY_CANARY_SLOT: 1}),
     }
     state_test(pre=pre, post=post, tx=tx)
