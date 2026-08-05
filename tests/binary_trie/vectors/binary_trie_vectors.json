@@ -1,6 +1,6 @@
 {
   "source": "ethereum/execution-specs projects/binary-trie",
-  "source_commit": "aa9669ad2d19af11ac3fbc915086139bc6dafe64",
+  "source_commit": "58faeb09b95fd022200974c7bf8a6c3e84712c25",
   "trie_roots": [
     {
       "name": "empty",
@@ -313,6 +313,7 @@
     "address32": "0x00000000000000000000000000112233445566778899aabbccddeeff00112233",
     "basic_data_key": "0x00f4e42504054ae2ba2c9aab59b7cafad1e3df583c385d10fcb8ab0a0ab82e7a0800",
     "code_hash_key": "0x00f4e42504054ae2ba2c9aab59b7cafad1e3df583c385d10fcb8ab0a0ab82e7a0801",
+    "delegation_key": "0x00f4e42504054ae2ba2c9aab59b7cafad1e3df583c385d10fcb8ab0a0ab82e7a0802",
     "storage_slot_keys": {
       "0": "0x00f4e42504054ae2ba2c9aab59b7cafad1e3df583c385d10fcb8ab0a0ab82e7a0840",
       "1": "0x00f4e42504054ae2ba2c9aab59b7cafad1e3df583c385d10fcb8ab0a0ab82e7a0841",
@@ -629,7 +630,57 @@
           "storage": {}
         }
       },
-      "root": "0xdf2b686b724286d221dcb683c0d8eb3d56ccf15328ba76f6ac923618d0683b99"
+      "root": "0x54f3446a8fb2084f179500f728221fed07d3d2f4ca46117fa6465ab91276908c"
+    },
+    {
+      "name": "two_authorities_one_target",
+      "accounts": {
+        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+          "nonce": 1,
+          "balance": "0x1",
+          "code": "0xef0100cccccccccccccccccccccccccccccccccccccccc",
+          "code_hash": "0xf50ecf6d1bbb82ea6d6efb33e0cff6b48a6946a9dce2445b330537fa26d12e6d",
+          "storage": {}
+        },
+        "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": {
+          "nonce": 2,
+          "balance": "0x2",
+          "code": "0xef0100cccccccccccccccccccccccccccccccccccccccc",
+          "code_hash": "0xf50ecf6d1bbb82ea6d6efb33e0cff6b48a6946a9dce2445b330537fa26d12e6d",
+          "storage": {}
+        }
+      },
+      "root": "0xf6a805ce1770a4549d4bbd4c55d55fd9f0f49e98161912c34ef4bdd3a44ee9cb"
+    },
+    {
+      "name": "delegation_with_storage",
+      "accounts": {
+        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+          "nonce": 1,
+          "balance": "0x0",
+          "code": "0xef0100cccccccccccccccccccccccccccccccccccccccc",
+          "code_hash": "0xf50ecf6d1bbb82ea6d6efb33e0cff6b48a6946a9dce2445b330537fa26d12e6d",
+          "storage": {
+            "0": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "63": "0x0000000000000000000000000000000000000000000000000000000000000002",
+            "64": "0x0000000000000000000000000000000000000000000000000000000000000003"
+          }
+        }
+      },
+      "root": "0x0eb6d553cb8eb7d227c98855e12bedfa83ff896c16fcfc125bc597d92a9aadf6"
+    },
+    {
+      "name": "code_hash_starting_with_the_delegation_marker",
+      "accounts": {
+        "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+          "nonce": 1,
+          "balance": "0x0",
+          "code": "0x0000000000000000000000000000000000000000637401",
+          "code_hash": "0xef0100f360bf074f90f948bcf767f30c5c3717d735b6af03fdf7efff4fcc2ecf",
+          "storage": {}
+        }
+      },
+      "root": "0x3f1cf36a116be3dcdec395fc44fdb92ea71511471ec0bf7c447c7b40ef4a4396"
     },
     {
       "name": "code_chunks_of_zero_bytes",
