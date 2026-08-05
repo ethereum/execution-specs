@@ -96,7 +96,7 @@ class Load(BaseLoad):
             hex_to_u64(raw.get("index")),
             hex_to_u64(raw.get("validatorIndex")),
             self.fork.hex_to_address(raw.get("address")),
-            hex_to_u256(raw.get("amount")),
+            hex_to_u64(raw.get("amount")),
         ]
 
         return self.fork.Withdrawal(*parameters)
