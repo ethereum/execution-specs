@@ -1,5 +1,5 @@
 """
 EVM Trace Implementations.
 
-See [`ethereum.trace`](ref:ethereum.trace).
+See the spec's `ethereum.trace` module for the trace event definitions.
 """
