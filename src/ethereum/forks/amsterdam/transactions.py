@@ -19,13 +19,22 @@ from ethereum.crypto.elliptic_curve import (
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import (
     InsufficientTransactionGasError,
+    InvalidBlock,
     InvalidSignatureError,
+    NonceMismatchError,
     NonceOverflowError,
 )
 from ethereum.state import Address
 
 from .exceptions import (
+    BlobCountExceededError,
+    EmptyAuthorizationListError,
     InitCodeTooLargeError,
+    InsufficientMaxFeePerGasError,
+    InvalidBlobVersionedHashError,
+    NoBlobDataError,
+    PriorityFeeGreaterThanMaxFeeError,
+    TransactionTypeContractCreationError,
     TransactionTypeError,
 )
 from .fork_types import Authorization, ExecutionGas, VersionedHash
@@ -49,6 +58,16 @@ class IntrinsicGasCost:
 
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
 SECP256K1_UNCOMPRESSED_PUBLIC_KEY_PREFIX = b"\x04"
+
+BLOB_COUNT_LIMIT = 6
+"""
+Maximum number of blobs a single transaction may carry.
+"""
+
+VERSIONED_HASH_VERSION_KZG = b"\x01"
+"""
+Version byte that every blob versioned hash must start with.
+"""
 
 ACCESS_LIST_ADDRESS_FLOOR_TOKENS = Uint(80)
 """
@@ -593,12 +612,48 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     and a `NonceOverflowError` exception if the nonce overflows.
     It also raises an `InitCodeTooLargeError` if the code
     size of a contract creation transaction exceeds the maximum allowed
-    size.
+    size, and a `PriorityFeeGreaterThanMaxFeeError` if the maximum
+    priority fee per gas of a fee market transaction exceeds its maximum
+    fee per gas.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
+
+    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
+        raise NonceOverflowError("Nonce too high")
+
+    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
+        raise InitCodeTooLargeError("Code size too large")
+
+    if isinstance(tx, FeeMarketCapableTransaction):
+        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
+            raise PriorityFeeGreaterThanMaxFeeError(
+                "priority fee greater than max fee"
+            )
+
+    if isinstance(tx, BlobTransaction):
+        blob_count = len(tx.blob_versioned_hashes)
+        if blob_count == 0:
+            raise NoBlobDataError("no blob data in transaction")
+        if blob_count > BLOB_COUNT_LIMIT:
+            raise BlobCountExceededError(
+                f"Tx has {blob_count} blobs. Max allowed: {BLOB_COUNT_LIMIT}"
+            )
+        for blob_versioned_hash in tx.blob_versioned_hashes:
+            if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
+                raise InvalidBlobVersionedHashError(
+                    "invalid blob versioned hash"
+                )
+
+    if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
+        if not isinstance(tx.to, Address):
+            raise TransactionTypeContractCreationError(tx)
+
+    if isinstance(tx, SetCodeTransaction):
+        if not any(tx.authorizations):
+            raise EmptyAuthorizationListError("empty authorization list")
 
     intrinsic = calculate_intrinsic_cost(tx, sender)
     intrinsic_gas = Uint(intrinsic.execution)
@@ -606,8 +661,6 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
     if intrinsic.calldata_floor > tx.gas:
         raise InsufficientTransactionGasError("Insufficient calldata floor")
-    if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
-        raise InitCodeTooLargeError("Code size too large")
     if intrinsic.execution > TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
             "Intrinsic execution gas exceeds TX_MAX_GAS_LIMIT"
@@ -616,8 +669,6 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
         raise InsufficientTransactionGasError(
             "Intrinsic calldata floor exceeds TX_MAX_GAS_LIMIT"
         )
-    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise NonceOverflowError("Nonce too high")
 
     return intrinsic
 
@@ -739,6 +790,55 @@ def count_tokens_in_data(data: bytes) -> Uint:
     num_non_zeros = ulen(data) - num_zeros
 
     return num_zeros + num_non_zeros * Uint(4)
+
+
+def calculate_effective_gas_price(
+    tx: Transaction, base_fee_per_gas: Uint
+) -> Uint:
+    """
+    Calculate the price per unit of gas the transaction actually pays.
+
+    A fee-market transaction pays the base fee plus a priority fee
+    capped by both of its fee caps; its maximum fee must cover the base
+    fee, or an `InsufficientMaxFeePerGasError` is raised. A transaction
+    priced with a plain gas price pays that price outright, which must
+    likewise cover the base fee.
+    """
+    if isinstance(tx, FeeMarketCapableTransaction):
+        if tx.max_fee_per_gas < base_fee_per_gas:
+            raise InsufficientMaxFeePerGasError(
+                tx.max_fee_per_gas, base_fee_per_gas
+            )
+
+        priority_fee_per_gas = min(
+            tx.max_priority_fee_per_gas,
+            tx.max_fee_per_gas - base_fee_per_gas,
+        )
+        return priority_fee_per_gas + base_fee_per_gas
+
+    if tx.gas_price < base_fee_per_gas:
+        raise InvalidBlock
+    return tx.gas_price
+
+
+def calculate_max_gas_fee(tx: Transaction, gas_limit: Uint) -> Uint:
+    """
+    Calculate the largest execution-gas fee the transaction can incur:
+    `gas_limit` priced at the transaction's fee cap.
+    """
+    if isinstance(tx, FeeMarketCapableTransaction):
+        return gas_limit * tx.max_fee_per_gas
+    return gas_limit * tx.gas_price
+
+
+def check_nonce(tx: Transaction, sender_nonce: Uint) -> None:
+    """
+    Check that the transaction's nonce equals the sender's next nonce.
+    """
+    if sender_nonce > Uint(tx.nonce):
+        raise NonceMismatchError("nonce too low")
+    elif sender_nonce < Uint(tx.nonce):
+        raise NonceMismatchError("nonce too high")
 
 
 def chain_id(tx: Transaction) -> None | U64:

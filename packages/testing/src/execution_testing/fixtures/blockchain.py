@@ -564,6 +564,7 @@ class FixtureEngineNewPayload(CamelModel):
             withdrawals=execution_payload.withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
             slot_number=execution_payload.slot_number,
+            target_gas_limit=execution_payload.gas_limit,
         )
 
     @staticmethod

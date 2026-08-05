@@ -9,6 +9,7 @@ from typing import Any, Type
 import ijson  # type: ignore[import-untyped]
 import pytest
 
+from execution_testing.base_types import StateCommitment
 from execution_testing.client_clis import (
     CLINotFoundInPathError,
     EvmOneTransitionTool,
@@ -116,6 +117,7 @@ def test_unknown_binary_path() -> None:
 TEST_ALLOC = Alloc.model_validate(
     {0xA: {"balance": 1, "nonce": 2, "code": "0x00"}}
 )
+TEST_ALLOC.migrate_state_commitment(StateCommitment.MPT)
 TEST_ALLOC_STATE_ROOT = TEST_ALLOC.state_root()
 
 
@@ -165,6 +167,7 @@ def test_lazy_alloc_file_handles_mixed_entries(tmp_path: Path) -> None:
             0xC: {"balance": "0xff", "nonce": 0, "code": "0x"},
         }
     )
+    alloc.migrate_state_commitment(StateCommitment.MPT)
     state_root = alloc.state_root()
     alloc_path = tmp_path / "alloc.json"
     alloc_path.write_text(alloc.model_dump_json())

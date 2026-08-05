@@ -247,6 +247,27 @@ test-ci-scripts *args:
 
 # --- Benchmarks ---
 
+# test_return_revert is excluded: its max-size INVALID-padded callees make
+# EELS re-scan jumpdests on every call (100-270s per test, ~60% of the
+# suite's runtime); the geth-backed benchmarks/** CI still fills it.
+# Fill benchmark tests at 1M gas with the in-repo EELS t8n
+[group('benchmark tests')]
+fill-benchmark *args: (_tmp-logs "fill-benchmark")
+    uv run fill \
+        --gas-benchmark-values 1 \
+        --fork "{{ latest_fork }}" \
+        -m "not slow and not derived_test" \
+        -k "not test_return_revert" \
+        -n {{ xdist_workers }} --dist=loadgroup \
+        --skip-index \
+        --output="{{ output_dir }}/fill-benchmark/fixtures" \
+        --basetemp="{{ output_dir }}/fill-benchmark/tmp" \
+        --log-to "{{ output_dir }}/fill-benchmark/logs" \
+        --clean \
+        --durations=20 \
+        "$@" \
+        tests/benchmark/compute
+
 # Smoke-test benchmark tests: fill blockchain_test fixtures, then verify against EELS.
 [group('benchmark tests')]
 bench-gas *args: (_tmp-logs "bench-gas")

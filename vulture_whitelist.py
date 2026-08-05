@@ -199,6 +199,7 @@ PatchHygiene
 SetConstantCommand.visit_AnnAssign_target
 SetConstantCommand.leave_AnnAssign_target
 SetConstantCommand.leave_AnnAssign
+SetConstantCommand.leave_Module
 
 # src/ethereum_spec_tools/new_fork/codemod/remove_docstring.py - codemod class
 from ethereum_spec_tools.new_fork.codemod.remove_docstring import (

@@ -15,14 +15,14 @@ This module covers the EIP-8038 *execution* ``SSTORE`` refund schedule via
 the transaction receipt's ``cumulative_gas_used``:
 
 * Clearing a slot whose original value is non-zero grants
-  ``REFUND_STORAGE_CLEAR`` (12480) to ``refund_counter`` (no EIP-8037
+  ``REFUND_STORAGE_CLEAR`` to ``refund_counter`` (no EIP-8037
   state refund, since no state was created).
 * Clearing then re-setting the same non-zero-original slot nets a zero
   refund: the clear grant is reversed (``refund -= REFUND_STORAGE_CLEAR``)
   exactly when ``original != 0 and current == 0`` and a non-zero value is
   written back.
 * Restoring a non-zero-original slot to its original value refunds the
-  write cost ``STORAGE_WRITE`` (10000).
+  write cost ``STORAGE_WRITE``.
 * The applied refund is capped at ``gas_used // 5`` (EIP-3529 quotient).
 
 All refunds use a non-zero original so the state-creation refund owned by
@@ -80,7 +80,7 @@ def test_sstore_clear_grants_refund(
     Clearing a non-zero-original slot grants ``REFUND_STORAGE_CLEAR``.
 
     Enough unrelated gas is burned so the EIP-3529 quotient cap
-    (``gas_used // 5``) does not bind, letting the full 12480 refund be
+    (``gas_used // 5``) does not bind, letting the full clear refund be
     observed in ``cumulative_gas_used``. The non-zero original means no
     EIP-8037 state refund participates.
     """
@@ -174,7 +174,7 @@ def test_sstore_restore_nonzero_refunds_write(
     Restoring a non-zero-original slot refunds the write cost.
 
     The slot is changed (charging ``STORAGE_WRITE``) then restored to its
-    original non-zero value, refunding ``STORAGE_WRITE`` (10000). Gas is
+    original non-zero value, refunding ``STORAGE_WRITE``. Gas is
     burned so the quotient cap does not bind and the full refund is
     observable.
     """

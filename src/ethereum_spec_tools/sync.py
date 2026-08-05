@@ -616,7 +616,7 @@ class BlockDownloader(ForkTracking):
                         self.module("utils.hexadecimal").hex_to_address(
                             j["address"]
                         ),
-                        hex_to_u256(j["amount"]),
+                        hex_to_u64(j["amount"]),
                     )
                 )
 

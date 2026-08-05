@@ -14,7 +14,7 @@ Implementations of the EVM system related instructions.
 from dataclasses import dataclass
 from typing import final
 
-from ethereum_types.bytes import Bytes, Bytes0
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.state import Address
@@ -40,13 +40,13 @@ from ...vm.eoa_delegation import (
 from .. import (
     CALL_SUCCESS,
     Evm,
-    Message,
     emit_transfer_log,
     incorporate_child,
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
     GasCosts,
+    GasMeter,
     StateGasCosts,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
@@ -79,13 +79,14 @@ def generic_create(
     collision check, the child's gas grant, the child frame itself,
     and the resolution of its outcome back into the creating frame.
     """
-    # This import causes a circular import error
-    # if it's not moved inside this method
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
+    # These imports cause a circular import error
+    # if they're not moved inside this method
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create
+    from ...vm.runtime import get_valid_jump_destinations
 
-    tx_state = evm.message.tx_env.state
+    tx_state = evm.tx_env.state
 
-    call_data = memory_read_bytes(
+    init_code = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
 
@@ -94,13 +95,13 @@ def generic_create(
     # PREFLIGHT
     # Abort without spawning the child: nothing has been charged or
     # withheld for it yet.
-    sender_address = evm.message.current_target
+    sender_address = evm.current_target
     sender = get_account(tx_state, sender_address)
 
     if (
         sender.balance < endowment
         or sender.nonce == Uint(2**64 - 1)
-        or evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT
+        or evm.depth + Uint(1) > STACK_DEPTH_LIMIT
     ):
         push(evm.stack, U256(0))
         return
@@ -138,27 +139,45 @@ def generic_create(
 
     # DISPATCH
 
-    child_message = Message(
-        block_env=evm.message.block_env,
-        tx_env=evm.message.tx_env,
-        caller=evm.message.current_target,
-        target=Bytes0(),
-        gas=create_message_gas,
-        state_gas_reservoir=create_message_state_gas_reservoir,
-        value=endowment,
-        data=b"",
-        code=call_data,
+    child_evm = Evm(
+        # Context
+        block_env=evm.block_env,
+        tx_env=evm.tx_env,
+        parent_evm=evm,
+        depth=evm.depth + Uint(1),
+        # Call Parameters
+        caller=evm.current_target,
         current_target=contract_address,
-        depth=evm.message.depth + Uint(1),
-        code_address=None,
+        value=endowment,
+        call_data=b"",
         should_transfer_value=True,
         is_static=False,
+        disable_precompiles=False,
+        # Code
+        code_address=None,
+        code=init_code,
+        valid_jump_destinations=get_valid_jump_destinations(init_code),
+        # Machine State
+        gas_meter=GasMeter(
+            gas_left=create_message_gas,
+            state_gas_left=create_message_state_gas_reservoir,
+            state_gas_baseline=create_message_state_gas_reservoir,
+        ),
+        pc=Uint(0),
+        stack=[],
+        memory=bytearray(),
+        return_data=b"",
+        # Accrued Effects
+        logs=(),
+        accounts_to_delete=set(),
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        disable_precompiles=False,
-        parent_evm=evm,
+        # Outcome
+        running=True,
+        output=b"",
+        error=None,
     )
-    child_evm = process_create_message(child_message)
+    child_evm = process_create(child_evm)
 
     # OUTCOME
     # The child settled its own gas; absorb it and resolve the
@@ -172,7 +191,7 @@ def generic_create(
         push(evm.stack, U256(0))
     else:
         evm.return_data = b""
-        push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
+        push(evm.stack, U256.from_be_bytes(child_evm.current_target))
 
 
 def create(evm: Evm) -> None:
@@ -189,7 +208,7 @@ def create(evm: Evm) -> None:
     # if it's not moved inside this method
     from ...vm.interpreter import MAX_INIT_CODE_SIZE
 
-    if evm.message.is_static:
+    if evm.is_static:
         raise WriteInStaticContext
 
     # STACK
@@ -213,10 +232,8 @@ def create(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     contract_address = compute_contract_address(
-        evm.message.current_target,
-        get_account(
-            evm.message.tx_env.state, evm.message.current_target
-        ).nonce,
+        evm.current_target,
+        get_account(evm.tx_env.state, evm.current_target).nonce,
     )
 
     generic_create(
@@ -248,7 +265,7 @@ def create2(evm: Evm) -> None:
     # if it's not moved inside this method
     from ...vm.interpreter import MAX_INIT_CODE_SIZE
 
-    if evm.message.is_static:
+    if evm.is_static:
         raise WriteInStaticContext
 
     # STACK
@@ -277,7 +294,7 @@ def create2(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     contract_address = compute_create2_contract_address(
-        evm.message.current_target,
+        evm.current_target,
         salt,
         memory_read_bytes(evm.memory, memory_start_position, memory_size),
     )
@@ -365,17 +382,15 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
     that abort without spawning, the child frame itself, and the
     resolution of its outcome back into the calling frame.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_call
+    from ...vm.runtime import get_valid_jump_destinations
 
     evm.return_data = b""
 
     # PREFLIGHT
     # Abort without spawning the child: both grants return untouched
     # and any account-creation charge refills.
-    if (
-        evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT
-        or params.insufficient_balance
-    ):
+    if evm.depth + Uint(1) > STACK_DEPTH_LIMIT or params.insufficient_balance:
         restore_child_gas(
             evm.gas_meter, params.gas, params.state_gas_reservoir
         )
@@ -391,28 +406,46 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
         params.memory_input_size,
     )
 
-    child_message = Message(
-        block_env=evm.message.block_env,
-        tx_env=evm.message.tx_env,
+    child_evm = Evm(
+        # Context
+        block_env=evm.block_env,
+        tx_env=evm.tx_env,
+        parent_evm=evm,
+        depth=evm.depth + Uint(1),
+        # Call Parameters
         caller=params.caller,
-        target=params.to,
-        gas=params.gas,
-        state_gas_reservoir=params.state_gas_reservoir,
-        value=params.value,
-        data=call_data,
-        code=params.code,
         current_target=params.to,
-        depth=evm.message.depth + Uint(1),
-        code_address=params.code_address,
+        value=params.value,
+        call_data=call_data,
         should_transfer_value=params.should_transfer_value,
-        is_static=params.is_staticcall or evm.message.is_static,
+        is_static=params.is_staticcall or evm.is_static,
+        disable_precompiles=params.disable_precompiles,
+        # Code
+        code_address=params.code_address,
+        code=params.code,
+        valid_jump_destinations=get_valid_jump_destinations(params.code),
+        # Machine State
+        gas_meter=GasMeter(
+            gas_left=params.gas,
+            state_gas_left=params.state_gas_reservoir,
+            state_gas_baseline=params.state_gas_reservoir,
+        ),
+        pc=Uint(0),
+        stack=[],
+        memory=bytearray(),
+        return_data=b"",
+        # Accrued Effects
+        logs=(),
+        accounts_to_delete=set(),
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        disable_precompiles=params.disable_precompiles,
-        parent_evm=evm,
+        # Outcome
+        running=True,
+        output=b"",
+        error=None,
     )
 
-    child_evm = process_message(child_message)
+    child_evm = process_call(child_evm)
 
     # OUTCOME
     # The child settled its own gas; absorb it and resolve the
@@ -455,7 +488,7 @@ def call(evm: Evm) -> None:
     memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
 
-    if evm.message.is_static and value != U256(0):
+    if evm.is_static and value != U256(0):
         raise WriteInStaticContext
 
     # GAS (STATE-INDEPENDENT)
@@ -486,7 +519,7 @@ def call(evm: Evm) -> None:
     # Perform the accesses and complete the state-dependent pricing --
     # a delegation adds its access cost -- then charge the execution
     # gas.
-    tx_state = evm.message.tx_env.state
+    tx_state = evm.tx_env.state
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
@@ -535,7 +568,7 @@ def call(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
 
-    sender_balance = get_account(tx_state, evm.message.current_target).balance
+    sender_balance = get_account(tx_state, evm.current_target).balance
 
     generic_call(
         evm,
@@ -543,7 +576,7 @@ def call(evm: Evm) -> None:
             gas=message_call_gas.sub_call,
             state_gas_reservoir=call_state_gas_reservoir,
             value=value,
-            caller=evm.message.current_target,
+            caller=evm.current_target,
             to=to,
             code_address=code_address,
             should_transfer_value=True,
@@ -585,7 +618,7 @@ def callcode(evm: Evm) -> None:
     # GAS (STATE-INDEPENDENT)
     # Price what is computable without touching state, and check it is
     # affordable before any state access is performed.
-    to = evm.message.current_target
+    to = evm.current_target
 
     extend_memory = calculate_gas_extend_memory(
         evm.memory,
@@ -612,7 +645,7 @@ def callcode(evm: Evm) -> None:
     # Perform the accesses and complete the state-dependent pricing --
     # a delegation adds its access cost; the execution gas is charged
     # with the child grant.
-    tx_state = evm.message.tx_env.state
+    tx_state = evm.tx_env.state
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
 
@@ -650,7 +683,7 @@ def callcode(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
 
-    sender_balance = get_account(tx_state, evm.message.current_target).balance
+    sender_balance = get_account(tx_state, evm.current_target).balance
 
     generic_call(
         evm,
@@ -658,7 +691,7 @@ def callcode(evm: Evm) -> None:
             gas=message_call_gas.sub_call,
             state_gas_reservoir=call_state_gas_reservoir,
             value=value,
-            caller=evm.message.current_target,
+            caller=evm.current_target,
             to=to,
             code_address=code_address,
             should_transfer_value=True,
@@ -687,7 +720,7 @@ def selfdestruct(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    if evm.message.is_static:
+    if evm.is_static:
         raise WriteInStaticContext
 
     # STACK
@@ -707,7 +740,7 @@ def selfdestruct(evm: Evm) -> None:
     # STATE ACCESS (STATE-DEPENDENT GAS)
     # Perform the access; the pricing completes with the state gas
     # below.
-    tx_state = evm.message.tx_env.state
+    tx_state = evm.tx_env.state
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
@@ -719,7 +752,7 @@ def selfdestruct(evm: Evm) -> None:
     account_write_gas = Uint(0)
     if (
         not is_account_alive(tx_state, beneficiary)
-        and get_account(tx_state, evm.message.current_target).balance != 0
+        and get_account(tx_state, evm.current_target).balance != 0
     ):
         state_gas = StateGasCosts.NEW_ACCOUNT
         account_write_gas = GasCosts.ACCOUNT_WRITE
@@ -731,7 +764,7 @@ def selfdestruct(evm: Evm) -> None:
     charge_state_gas(evm, state_gas)
 
     # OPERATION
-    originator = evm.message.current_target
+    originator = evm.current_target
     originator_balance = get_account(tx_state, originator).balance
 
     # Transfer balance
@@ -810,7 +843,7 @@ def delegatecall(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
-    tx_state = evm.message.tx_env.state
+    tx_state = evm.tx_env.state
     code_hash = get_account(tx_state, code_address).code_hash
     code = get_code(tx_state, code_hash, code_address)
 
@@ -836,9 +869,9 @@ def delegatecall(evm: Evm) -> None:
         GenericCall(
             gas=message_call_gas.sub_call,
             state_gas_reservoir=call_state_gas_reservoir,
-            value=evm.message.value,
-            caller=evm.message.caller,
-            to=evm.message.current_target,
+            value=evm.value,
+            caller=evm.caller,
+            to=evm.current_target,
             code_address=code_address,
             should_transfer_value=False,
             is_staticcall=False,
@@ -913,7 +946,7 @@ def staticcall(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
-    tx_state = evm.message.tx_env.state
+    tx_state = evm.tx_env.state
     code_hash = get_account(tx_state, code_address).code_hash
     code = get_code(tx_state, code_hash, code_address)
 
@@ -940,7 +973,7 @@ def staticcall(evm: Evm) -> None:
             gas=message_call_gas.sub_call,
             state_gas_reservoir=call_state_gas_reservoir,
             value=U256(0),
-            caller=evm.message.current_target,
+            caller=evm.current_target,
             to=to,
             code_address=code_address,
             should_transfer_value=True,

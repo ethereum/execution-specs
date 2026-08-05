@@ -32,7 +32,7 @@ def identity(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    data = evm.message.data
+    data = evm.call_data
 
     # GAS
     word_count = ceil32(ulen(data)) // Uint(32)

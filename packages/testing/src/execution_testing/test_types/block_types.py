@@ -135,6 +135,7 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     )
     parent_blob_gas_used: ZeroPaddedHexNumber | None = Field(None)
     parent_excess_blob_gas: ZeroPaddedHexNumber | None = Field(None)
+    parent_slot_number: ZeroPaddedHexNumber | None = Field(None)
     parent_beacon_block_root: Hash | None = Field(None)
 
     block_hashes: Dict[ZeroPaddedHexNumber, Hash] = Field(default_factory=dict)
@@ -205,7 +206,11 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
             updated_values["parent_beacon_block_root"] = 0
 
         if fork.header_slot_number_required() and self.slot_number is None:
-            updated_values["slot_number"] = 0
+            updated_values["slot_number"] = (
+                int(self.parent_slot_number) + 1
+                if self.parent_slot_number is not None
+                else 0
+            )
 
         return self.copy(extra_data=self.extra_data, **updated_values)
 

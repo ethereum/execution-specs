@@ -16,12 +16,17 @@ from typing import TYPE_CHECKING, Final, List, Tuple, final
 
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
+from ethereum.exceptions import GasUsedExceedsLimitError
 from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
 from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
-from ..fork_types import StateGas, StateGasPerByte
+from ..exceptions import (
+    BlobGasLimitExceededError,
+    InsufficientMaxFeePerBlobGasError,
+)
+from ..fork_types import StateGas, StateGasPerByte, VersionedHash
 from ..transactions import (
     TX_MAX_GAS_LIMIT,
     BlobTransaction,
@@ -31,7 +36,7 @@ from ..transactions import (
 from .exceptions import OutOfGasError
 
 if TYPE_CHECKING:
-    from . import Evm
+    from . import BlockEnvironment, BlockOutput, Evm
 
 
 # These may be patched at runtime by a future gas repricing utility to
@@ -75,20 +80,20 @@ class GasCosts:
     # Access
     WARM_ACCESS: Final[Uint] = Uint(100)
     COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(3000)
-    COLD_STORAGE_ACCESS: Final[Uint] = Uint(3000)
+    COLD_STORAGE_ACCESS: Final[Uint] = Uint(2100)
 
     # Storage
     STORAGE_WRITE: Final[Uint] = Uint(10000)
 
     # Call
-    CALL_VALUE: Final[Uint] = Uint(10300)  # ACCOUNT_WRITE + CALL_STIPEND
+    CALL_VALUE: Final[Uint] = Uint(11300)  # ACCOUNT_WRITE + CALL_STIPEND
     CALL_STIPEND: Final[Uint] = Uint(2300)
-    ACCOUNT_WRITE: Final[Uint] = Uint(8000)
+    ACCOUNT_WRITE: Final[Uint] = Uint(9000)
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
     CODE_INIT_PER_WORD: Final[Uint] = Uint(2)
-    CREATE_ACCESS: Final[Uint] = ACCOUNT_WRITE + COLD_STORAGE_ACCESS
+    CREATE_ACCESS: Final[Uint] = ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS
 
     # Utility
     ZERO: Final[Uint] = Uint(0)
@@ -242,6 +247,9 @@ class GasCosts:
 BLOB_SCHEDULE_TARGET = GasCosts.BLOB_SCHEDULE_TARGET
 BLOB_SCHEDULE_MAX = GasCosts.BLOB_SCHEDULE_MAX
 BLOB_BASE_FEE_UPDATE_FRACTION = GasCosts.BLOB_BASE_FEE_UPDATE_FRACTION
+MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
+    GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
+)
 
 
 @final
@@ -362,6 +370,23 @@ def check_gas(evm: "Evm", amount: Uint) -> None:
         raise OutOfGasError
 
 
+def charge_gas_from_meter(gas_meter: GasMeter, amount: Uint) -> None:
+    """
+    Subtracts `amount` from `gas_left` (execution gas).
+
+    Parameters
+    ----------
+    gas_meter :
+        The gas meter.
+    amount :
+        The amount of execution gas the current operation requires.
+
+    """
+    if gas_meter.gas_left < amount:
+        raise OutOfGasError
+    gas_meter.gas_left -= amount
+
+
 def charge_gas(evm: "Evm", amount: Uint) -> None:
     """
     Subtracts `amount` from `gas_left` (execution gas).
@@ -376,10 +401,33 @@ def charge_gas(evm: "Evm", amount: Uint) -> None:
     """
     evm_trace(evm, GasAndRefund(int(amount)))
 
-    gas_meter = evm.gas_meter
-    if gas_meter.gas_left < amount:
+    charge_gas_from_meter(evm.gas_meter, amount)
+
+
+def charge_state_gas_from_meter(gas_meter: GasMeter, amount: StateGas) -> None:
+    """
+    Subtracts `amount` from the state gas reservoir, then from
+    `gas_left` when the reservoir is empty, tracking any [spill].
+
+    Parameters
+    ----------
+    gas_meter :
+        The gas meter.
+    amount :
+        The amount of state gas the current operation requires.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+
+    """
+    if gas_meter.state_gas_left >= amount:
+        gas_meter.state_gas_left -= amount
+    elif gas_meter.state_gas_left + gas_meter.gas_left >= amount:
+        remainder = amount - gas_meter.state_gas_left
+        gas_meter.state_gas_left = Uint(0)
+        gas_meter.gas_left -= remainder
+        gas_meter.state_gas_spilled += remainder
+    else:
         raise OutOfGasError
-    gas_meter.gas_left -= amount
 
 
 def charge_state_gas(evm: "Evm", amount: StateGas) -> None:
@@ -399,16 +447,7 @@ def charge_state_gas(evm: "Evm", amount: StateGas) -> None:
     """
     evm_trace(evm, StateGasAndRefund(int(amount)))
 
-    gas_meter = evm.gas_meter
-    if gas_meter.state_gas_left >= amount:
-        gas_meter.state_gas_left -= amount
-    elif gas_meter.state_gas_left + gas_meter.gas_left >= amount:
-        remainder = amount - gas_meter.state_gas_left
-        gas_meter.state_gas_left = Uint(0)
-        gas_meter.gas_left -= remainder
-        gas_meter.state_gas_spilled += remainder
-    else:
-        raise OutOfGasError
+    charge_state_gas_from_meter(evm.gas_meter, amount)
 
 
 def commit_state_gas(gas_meter: GasMeter) -> None:
@@ -489,9 +528,9 @@ def restore_state_gas_to_entry(
         The frame's immutable state gas grant.
 
     [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
-    [grant]: ref:ethereum.forks.amsterdam.vm.Message.state_gas_reservoir
+    [grant]: ref:ethereum.forks.amsterdam.vm.TransactionEnvironment.state_gas_reservoir
 
-    """
+    """  # noqa: E501
     # The baseline starts at the grant and only ever moves down.
     assert gas_meter.state_gas_baseline <= state_gas_reservoir
     # Only pre-dispatch failures roll back to entry, and no refund
@@ -914,6 +953,96 @@ def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
     )
 
 
+def check_max_fee_per_blob_gas(
+    blob_versioned_hashes: Tuple[VersionedHash, ...],
+    max_fee_per_blob_gas: U256,
+    excess_blob_gas: U64,
+) -> None:
+    """
+    Check that a transaction carrying blobs pays at least the blob gas
+    price.
+
+    A transaction without blobs pays no blob fee, so its fee cap is not
+    checked.
+
+    Parameters
+    ----------
+    blob_versioned_hashes :
+        The transaction's blob versioned hashes.
+    max_fee_per_blob_gas :
+        The transaction's fee cap per unit of blob gas.
+    excess_blob_gas :
+        The block's excess blob gas.
+
+    Raises
+    ------
+    InsufficientMaxFeePerBlobGasError :
+        If the fee cap does not cover the blob gas price.
+
+    """
+    if not blob_versioned_hashes:
+        return
+
+    blob_gas_price = calculate_blob_gas_price(excess_blob_gas)
+    if Uint(max_fee_per_blob_gas) < blob_gas_price:
+        raise InsufficientMaxFeePerBlobGasError(
+            "insufficient max fee per blob gas"
+        )
+
+
+def check_block_gas_capacity(
+    block_env: "BlockEnvironment",
+    block_output: "BlockOutput",
+    tx_gas: Uint,
+    tx_blob_gas: U64,
+) -> None:
+    """
+    Check that the transaction fits the block's remaining gas capacity.
+
+    Each dimension is checked against its own remaining budget:
+    execution gas, where a single transaction can consume at most
+    [`TX_MAX_GAS_LIMIT`]; state gas; and blob gas.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    block_output :
+        The block output for the current block.
+    tx_gas :
+        The transaction's gas limit.
+    tx_blob_gas :
+        The blob gas used by the transaction.
+
+    Raises
+    ------
+    GasUsedExceedsLimitError :
+        If the transaction exceeds the block's remaining execution or
+        state gas.
+    BlobGasLimitExceededError :
+        If the transaction exceeds the block's remaining blob gas.
+
+    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.transactions.TX_MAX_GAS_LIMIT
+
+    """  # noqa: E501
+    execution_gas_available = (
+        block_env.block_gas_limit - block_output.block_gas_used
+    )
+    state_gas_available = (
+        block_env.block_gas_limit - block_output.block_state_gas_used
+    )
+    blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
+
+    if min(TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
+        raise GasUsedExceedsLimitError("execution gas used exceeds limit")
+
+    if tx_gas > state_gas_available:
+        raise GasUsedExceedsLimitError("state gas used exceeds limit")
+
+    if tx_blob_gas > blob_gas_available:
+        raise BlobGasLimitExceededError("blob gas limit exceeded")
+
+
 @final
 @dataclass
 class EvmGasAllocation:
@@ -988,7 +1117,7 @@ class TransactionGasSettlement:
 
 def settle_transaction_gas(
     tx_gas: Uint,
-    intrinsic: IntrinsicGasCost,
+    calldata_floor: Uint,
     gas_left: Uint,
     state_gas_left: Uint,
     refund_counter: U256,
@@ -1015,8 +1144,8 @@ def settle_transaction_gas(
     ----------
     tx_gas :
         The transaction's gas limit.
-    intrinsic :
-        The transaction's intrinsic gas cost.
+    calldata_floor :
+        The transaction's calldata floor gas.
     gas_left :
         Execution gas the top frame returned.
     state_gas_left :
@@ -1037,12 +1166,12 @@ def settle_transaction_gas(
     gas_used_before_refund = tx_gas - gas_left - state_gas_left
     gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))
     gas_used_after_refund = gas_used_before_refund - gas_refund
-    gas_used = max(gas_used_after_refund, intrinsic.calldata_floor)
+    gas_used = max(gas_used_after_refund, calldata_floor)
 
     settled_state_gas_used = Uint(max(0, state_gas_used))
     execution_gas_used = max(
         gas_used_before_refund - settled_state_gas_used,
-        intrinsic.calldata_floor,
+        calldata_floor,
     )
     return TransactionGasSettlement(
         gas_used=gas_used,
