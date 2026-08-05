@@ -1231,14 +1231,15 @@ def test_short_identical_code_shares_both_chunk_leaves() -> None:
 
 
 @pytest.mark.parametrize(
-    "survivor_in_diff",
+    "survivor_placement",
     [
-        pytest.param(False, id="survivor_untouched_in_pre_state"),
-        pytest.param(True, id="survivor_touched_by_the_same_diff"),
+        pytest.param("pre_state", id="survivor_untouched_in_pre_state"),
+        pytest.param("diff_first", id="survivor_listed_before_the_loser"),
+        pytest.param("diff_last", id="survivor_listed_after_the_loser"),
     ],
 )
 def test_code_change_keeps_chunks_a_survivor_still_holds(
-    survivor_in_diff: bool,
+    survivor_placement: str,
 ) -> None:
     """
     Account A's code hash changes from H to H' while account B still
@@ -1247,10 +1248,13 @@ def test_code_change_keeps_chunks_a_survivor_still_holds(
 
     `code_hash_survives` has two arms -- the diff's own values and
     the untouched pre-state -- and a survivor can satisfy either, so
-    both are exercised: B left alone in the pre-state, and B touched
-    by the same diff (a balance bump) so it counts through the diff
-    arm instead. The two codes share no chunk value, so removing the
-    wrong bytecode's leaves cannot go unnoticed.
+    the diff arm is exercised beside the pre-state one. Within the
+    diff, the survivor's position matters more than it looks: listed
+    after the loser, `embed_account` re-writes whatever a broken
+    removal took, so only the survivor-first ordering detects an
+    implementation that skips the diff arm entirely. The two codes
+    share no chunk value, so removing the wrong bytecode's leaves
+    cannot go unnoticed.
     """
     old_code = _distinct_chunk_code(3)
     new_code = _distinct_chunk_code(2, salt=10)
@@ -1266,10 +1270,15 @@ def test_code_change_keeps_chunks_a_survivor_still_holds(
         )
 
     changed = Account(nonce=Uint(1), balance=U256(1), code_hash=new_hash)
-    account_changes: Dict[Bytes20, Optional[Account]] = {ADDRESS_A: changed}
     survivor = Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash)
-    if survivor_in_diff:
-        survivor = Account(nonce=Uint(1), balance=U256(2), code_hash=old_hash)
+    touched = Account(nonce=Uint(1), balance=U256(2), code_hash=old_hash)
+    account_changes: Dict[Bytes20, Optional[Account]] = {}
+    if survivor_placement == "diff_first":
+        survivor = touched
+        account_changes[ADDRESS_B] = survivor
+    account_changes[ADDRESS_A] = changed
+    if survivor_placement == "diff_last":
+        survivor = touched
         account_changes[ADDRESS_B] = survivor
     diff = BlockDiff(
         account_changes=account_changes,
@@ -1455,6 +1464,27 @@ def test_two_holders_deleted_in_one_block_drop_the_code_once() -> None:
     diff = BlockDiff(account_changes={ADDRESS_A: None, ADDRESS_B: None})
 
     assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
+
+
+def test_deleting_an_unknown_address_is_a_no_op() -> None:
+    """
+    A diff may delete an address the pre-state never held. Removing
+    the absent account's regions is a no-op, and the code check is
+    skipped outright -- there is no previous account to read a code
+    hash from -- leaving the root exactly where the pre-state's was.
+    """
+    pre = State()
+    code_hash = store_code(pre, _distinct_chunk_code(2))
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+    before = state_root(pre)
+
+    diff = BlockDiff(account_changes={ADDRESS_B: None})
+
+    assert pre.compute_state_root(diff) == before
 
 
 def test_removing_code_with_an_absent_first_chunk_leaves_nothing() -> None:
@@ -1846,6 +1876,11 @@ def test_set_account_none_leaves_storage_while_the_diff_path_clears_it() -> (
     and the other through `apply_changes_to_state`, diverge on
     `account_has_storage` depending only on which route deleted the
     account.
+
+    Rooting both states shows the divergence stops at the flat map:
+    the embedding skips storage whose address has no account, so the
+    orphaned slots never reach the tree and both states commit to
+    the empty root.
     """
     key = Bytes32(U256(1).to_be_bytes32())
 
@@ -1873,6 +1908,8 @@ def test_set_account_none_leaves_storage_while_the_diff_path_clears_it() -> (
     assert via_diff.get_account_optional(ADDRESS_A) is None
     assert via_set_account.account_has_storage(ADDRESS_A) is True
     assert via_diff.account_has_storage(ADDRESS_A) is False
+    assert state_root(via_set_account) == EMPTY_TRIE_ROOT
+    assert state_root(via_diff) == EMPTY_TRIE_ROOT
 
 
 def test_set_storage_requires_an_existing_account() -> None:
