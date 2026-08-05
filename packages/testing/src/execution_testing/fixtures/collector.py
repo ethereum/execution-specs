@@ -13,6 +13,7 @@ from typing import (
     IO,
     ClassVar,
     Dict,
+    Iterator,
     List,
     Literal,
     Optional,
@@ -28,16 +29,92 @@ from .base import BaseFixture
 from .consume import FixtureConsumer
 from .file import Fixtures
 
+#: Suffix of a per-fixture part file. Each fixture is written to its own file
+#: containing nothing but that fixture's indented JSON, so neither the write
+#: nor the merge ever holds a whole fixture in memory.
+PART_SUFFIX = ".fixture.json"
+
+#: Characters copied per read when streaming a part file into the merged
+#: output. Deliberately small: a single fixture line can itself be megabytes
+#: (one payload's transactions, or a block access list, is one hex string on
+#: one line), so copying line-by-line would still scale with the longest line.
+COPY_CHUNK_SIZE = 1 << 16
+
+#: A top-level key line in a document this module wrote. `json.dumps(...,
+#: indent=4)` puts top-level keys at exactly four spaces, and JSON escapes
+#: newlines inside strings, so a line can only start this way at depth one.
+_TOP_LEVEL_KEY = re.compile(r'^ {4}("(?:[^"\\]|\\.)*"): ')
+
+
+def _copy_indented(src: Path, out: IO[str]) -> None:
+    r"""
+    Append `src` to `out`, indenting every line but the first by four spaces.
+
+    Reproduces `value.replace("\\n", "\\n    ")` byte for byte without
+    materialising either the value or the indented copy. Copying proceeds in
+    fixed-size chunks rather than by line: chunk-wise replacement is exact
+    because the pattern is the single character "\\n", which can never be
+    split across a boundary, and a chunk never spans more than
+    `COPY_CHUNK_SIZE` characters however long the line is.
+    """
+    with open(src) as f:
+        while True:
+            chunk = f.read(COPY_CHUNK_SIZE)
+            if not chunk:
+                break
+            out.write(chunk.replace("\n", "\n    "))
+
+
+def _copy_range(src: IO[str], out: IO[str], start: int, end: int) -> None:
+    """Copy `src[start:end]` to `out` in bounded chunks."""
+    src.seek(start)
+    remaining = end - start
+    while remaining > 0:
+        chunk = src.read(min(COPY_CHUNK_SIZE, remaining))
+        if not chunk:
+            break
+        out.write(chunk)
+        remaining -= len(chunk)
+
+
+def _iter_document_entries(path: Path) -> Iterator[Tuple[str, int, int]]:
+    """
+    Yield `(key, value_start, value_end)` for each top-level entry of a
+    fixture document previously written by this module.
+
+    Used to fold an existing target file into a new merge without parsing it,
+    so re-running a session against an existing output stays O(1) in memory.
+    The byte range is the value exactly as written, already indented for
+    re-emission at depth one.
+    """
+    with open(path) as f:
+        pending = None
+        offset = 0
+        for line in f:
+            match = _TOP_LEVEL_KEY.match(line)
+            if match:
+                if pending is not None:
+                    # The previous value ended before this line, minus ",\n".
+                    yield pending[0], pending[1], offset - 2
+                pending = (json.loads(match.group(1)), offset + match.end())
+            offset += len(line)
+        if pending is not None:
+            # The last value ends before the document's closing "\n}".
+            yield pending[0], pending[1], offset - 2
+
 
 def merge_partial_fixture_files(output_dir: Path) -> None:
     """
-    Merge all partial fixture JSONL files into final JSON fixture files.
+    Merge per-fixture part files into final JSON fixture files.
 
-    Called at session end after all workers have written their partials.
-    Each partial file contains JSONL lines: {"k": fixture_id, "v": json_str}
+    Called at session end after all workers have written their parts. Each
+    worker appends one tiny JSONL line per fixture -- {"k": fixture_id,
+    "p": part_filename} -- to a per-target index, and writes the fixture
+    itself to `part_filename`.
 
-    Processes one target file at a time, reading its partials sequentially
-    into a dict. Memory = O(entries per target), freed before next target.
+    Memory is O(number of fixtures) for the index plus one copy chunk: a
+    single fixture is never held in memory, however large it is. Output is
+    byte-identical to `json.dumps(dict(sorted(...)), indent=4)`.
     """
     # Find all partial files
     partial_files = list(output_dir.rglob("*.partial.*.jsonl"))
@@ -62,48 +139,72 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
 
     # Merge each group into its target file
     for target_path, partials in partials_by_target.items():
-        # Seed from existing target file (if any) so that
-        # repeated single-test sessions accumulate into one file.
-        entries: Dict[str, str] = {}
+        # `sources` maps a fixture id to where its already-formatted value
+        # lives, never to the value itself. Two shapes:
+        #   ("part", path)        -- a per-fixture part file
+        #   ("seed", start, end)  -- a byte range of the existing target
+        sources: Dict[str, Tuple] = {}
+        part_files: List[Path] = []
+
+        # Fold in the existing target (if any) so repeated single-test
+        # sessions accumulate into one file, as before. Recorded as byte
+        # ranges rather than parsed, so a huge target costs nothing.
+        seed_path: Optional[Path] = None
         if target_path.exists():
-            with open(target_path) as existing:
-                try:
-                    existing_data = json.load(existing)
-                    for k, v in existing_data.items():
-                        entries[k] = json.dumps(v, indent=4)
-                except json.JSONDecodeError:
-                    pass
+            seed_path = target_path.with_suffix(".seed.json")
+            target_path.replace(seed_path)
+            try:
+                for key, start, end in _iter_document_entries(seed_path):
+                    sources[key] = ("seed", start, end)
+            except (OSError, ValueError):
+                sources.clear()
 
         for partial in partials:
             with open(partial) as f:
                 for line in f:
                     line = line.strip()
-                    if line:
-                        entry = json.loads(line)
-                        entries[entry["k"]] = entry["v"]
+                    if not line:
+                        continue
+                    entry = json.loads(line)
+                    part_path = partial.parent / entry["p"]
+                    sources[entry["k"]] = ("part", part_path)
+                    part_files.append(part_path)
 
-        # Write sorted entries to output file
-        with open(target_path, "w") as out_f:
-            out_f.write("{\n")
-            sorted_keys = sorted(entries.keys())
-            last_idx = len(sorted_keys) - 1
-            for i, key in enumerate(sorted_keys):
-                key_json = json.dumps(key)
-                value_indented = entries[key].replace("\n", "\n    ")
-                out_f.write(f"    {key_json}: {value_indented}")
-                out_f.write(",\n" if i < last_idx else "\n")
-            out_f.write("}")
+        # Write sorted entries, streaming each value from its source.
+        seed_handle = open(seed_path) if seed_path is not None else None
+        try:
+            with open(target_path, "w") as out_f:
+                out_f.write("{\n")
+                sorted_keys = sorted(sources.keys())
+                last_idx = len(sorted_keys) - 1
+                for i, key in enumerate(sorted_keys):
+                    out_f.write(f"    {json.dumps(key)}: ")
+                    source = sources[key]
+                    if source[0] == "part":
+                        _copy_indented(source[1], out_f)
+                    else:
+                        assert seed_handle is not None
+                        _copy_range(seed_handle, out_f, source[1], source[2])
+                    out_f.write(",\n" if i < last_idx else "\n")
+                out_f.write("}")
+        finally:
+            if seed_handle is not None:
+                seed_handle.close()
 
-        # Free memory before processing next target
-        entries.clear()
+        sources.clear()
 
-        # Clean up partial files
+        # Clean up index files, their part files, and the seed copy.
         for partial in partials:
             partial.unlink()
             # Also remove lock files
             lock_file = partial.with_suffix(".lock")
             if lock_file.exists():
                 lock_file.unlink()
+        for part in part_files:
+            if part.exists():
+                part.unlink()
+        if seed_path is not None and seed_path.exists():
+            seed_path.unlink()
 
 
 @dataclass(kw_only=True, slots=True)
@@ -223,6 +324,8 @@ class FixtureCollector:
     # Streaming file handles - kept open for module duration
     _partial_fixture_files: Dict[Path, IO[str]] = field(default_factory=dict)
     _partial_index_file: Optional[IO[str]] = field(default=None)
+    # Monotonic per-collector counter making part-file names unique.
+    _part_counter: int = field(default=0)
     _worker_id_cached: bool = field(default=False, init=False)
 
     # Lightweight tracking for verification (path, format class, debug_path)
@@ -334,13 +437,35 @@ class FixtureCollector:
         fixture_id: str,
         fixture: BaseFixture,
     ) -> None:
-        """Stream a single fixture to its partial JSONL file."""
-        value = json.dumps(fixture.json_dict_with_info(), indent=4)
-        line = json.dumps({"k": fixture_id, "v": value}) + "\n"
+        """
+        Write a fixture to its own part file and index it.
+
+        `json.dump` serialises straight into the file, so the fixture's JSON
+        is never materialised as a string. The previous approach built the
+        whole document with `json.dumps` and then embedded it, escaped, in a
+        JSONL envelope -- two full-size copies on write and three more on
+        merge, i.e. ~7x the fixture size. Benchmark prestate fixtures reach
+        7 GB, where that reliably exhausted a 60 GB host.
+        """
+        part_path = self._next_part_path(fixture_path)
+        part_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(part_path, "w") as part_f:
+            json.dump(fixture.json_dict_with_info(), part_f, indent=4)
 
         f = self._get_partial_fixture_file(fixture_path)
-        f.write(line)
+        f.write(json.dumps({"k": fixture_id, "p": part_path.name}) + "\n")
         f.flush()  # Ensure data is written immediately
+
+    def _next_part_path(self, fixture_path: Path) -> Path:
+        """Return a unique part-file path for the next fixture of a target."""
+        worker_id = self._get_worker_id()
+        suffix = f".{worker_id}" if worker_id else ".main"
+        stem = fixture_path.name[: -len(fixture_path.suffix)]
+        seq = self._part_counter
+        self._part_counter += 1
+        return (
+            fixture_path.parent / f"{stem}.partial{suffix}.{seq}{PART_SUFFIX}"
+        )
 
     def _get_partial_index_file(self) -> "IO[str]":
         """Get or create the file handle for streaming index entries."""
