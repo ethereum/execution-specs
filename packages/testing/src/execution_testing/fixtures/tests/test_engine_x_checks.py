@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import pytest
+from ethereum_rlp import rlp
 
 from execution_testing.fixtures.engine_x_checks import (
     ENGINE_X_FIXTURES_DIR,
@@ -22,22 +23,30 @@ SIBLING_ID = (
 
 
 def _payload(
-    *, gas_used: str, state_root: str, block_hash: str
+    *,
+    gas_used: str,
+    state_root: str,
+    block_hash: str,
+    parent_hash: str = f"0x{'00' * 31}aa",
+    block_access_list: str | None = None,
 ) -> Dict[str, Any]:
     """Build a single newPayload entry."""
+    payload = {
+        "parentHash": parent_hash,
+        "stateRoot": state_root,
+        "blockHash": block_hash,
+        "gasUsed": gas_used,
+        "receiptsRoot": f"0x{'11' * 32}",
+        "logsBloom": f"0x{'00' * 256}",
+        "transactions": ["0xf86b..."],
+    }
+    if block_access_list is not None:
+        payload["blockAccessList"] = block_access_list
     return {
         "newPayloadVersion": "4",
         "forkchoiceUpdatedVersion": "3",
         "params": [
-            {
-                "parentHash": f"0x{'00' * 31}aa",
-                "stateRoot": state_root,
-                "blockHash": block_hash,
-                "gasUsed": gas_used,
-                "receiptsRoot": f"0x{'11' * 32}",
-                "logsBloom": f"0x{'00' * 256}",
-                "transactions": ["0xf86b..."],
-            },
+            payload,
             [],
             f"0x{'00' * 32}",
         ],
@@ -76,6 +85,134 @@ def test_identical_execution_passes(tmp_path: Path) -> None:
     assert result is not None
     assert result.compared == 1
     assert "1 Engine X fixtures execute identically" in result.summary
+
+
+def _bal(parent_hash: bytes, *extra: bytes) -> str:
+    """
+    Encode a minimal BAL-shaped RLP structure embedding a parent hash.
+
+    Storage values are RLP-encoded with leading zeros trimmed, matching
+    the EIP-2935 history write of the parent hash in a real BAL.
+    """
+    values = [parent_hash.lstrip(b"\x00"), *extra]
+    return "0x" + rlp.encode([values, []]).hex()
+
+
+def test_bal_embedded_parent_hash_passes(tmp_path: Path) -> None:
+    """
+    The EIP-2935 write embeds each side's own parent hash in its BAL; a BAL
+    differing only by that embedded value does not trip the check, even
+    when one side's hash is stored with its leading zero byte trimmed.
+    """
+    sibling_parent = bytes.fromhex("aa" * 32)
+    engine_x_parent = bytes.fromhex("00" + "bb" * 31)
+    _write_fixture(
+        tmp_path,
+        SIBLING_FIXTURES_DIR,
+        SIBLING_ID,
+        [
+            _payload(
+                gas_used="0x5208",
+                state_root="0x01",
+                block_hash="0x02",
+                parent_hash="0x" + sibling_parent.hex(),
+                block_access_list=_bal(sibling_parent),
+            )
+        ],
+    )
+    _write_fixture(
+        tmp_path,
+        ENGINE_X_FIXTURES_DIR,
+        ENGINE_X_ID,
+        [
+            _payload(
+                gas_used="0x5208",
+                state_root="0xaa",
+                block_hash="0xbb",
+                parent_hash="0x" + engine_x_parent.hex(),
+                block_access_list=_bal(engine_x_parent),
+            )
+        ],
+    )
+
+    result = verify_engine_x_execution(tmp_path)
+
+    assert result is not None
+    assert result.compared == 1
+
+
+def test_bal_drift_raises(tmp_path: Path) -> None:
+    """A BAL difference beyond the embedded parent hash fails loudly."""
+    sibling_parent = bytes.fromhex("aa" * 32)
+    engine_x_parent = bytes.fromhex("bb" * 32)
+    _write_fixture(
+        tmp_path,
+        SIBLING_FIXTURES_DIR,
+        SIBLING_ID,
+        [
+            _payload(
+                gas_used="0x5208",
+                state_root="0x01",
+                block_hash="0x02",
+                parent_hash="0x" + sibling_parent.hex(),
+                block_access_list=_bal(sibling_parent),
+            )
+        ],
+    )
+    _write_fixture(
+        tmp_path,
+        ENGINE_X_FIXTURES_DIR,
+        ENGINE_X_ID,
+        [
+            _payload(
+                gas_used="0x5208",
+                state_root="0xaa",
+                block_hash="0xbb",
+                parent_hash="0x" + engine_x_parent.hex(),
+                block_access_list=_bal(engine_x_parent, b"\x01"),
+            )
+        ],
+    )
+
+    with pytest.raises(EngineXExecutionDriftError) as exc_info:
+        verify_engine_x_execution(tmp_path)
+
+    assert "blockAccessList" in str(exc_info.value)
+
+
+def test_malformed_bal_compared_verbatim(tmp_path: Path) -> None:
+    """An undecodable BAL (negative test) is compared verbatim."""
+    _write_fixture(
+        tmp_path,
+        SIBLING_FIXTURES_DIR,
+        SIBLING_ID,
+        [
+            _payload(
+                gas_used="0x5208",
+                state_root="0x01",
+                block_hash="0x02",
+                block_access_list="0xdeadbeef",
+            )
+        ],
+    )
+    _write_fixture(
+        tmp_path,
+        ENGINE_X_FIXTURES_DIR,
+        ENGINE_X_ID,
+        [
+            _payload(
+                gas_used="0x5208",
+                state_root="0xaa",
+                block_hash="0xbb",
+                block_access_list="0xdeadbeef",
+            )
+        ],
+    )
+
+    result = verify_engine_x_execution(tmp_path)
+
+    assert result is not None
+    assert result.compared == 1
 
 
 def test_execution_drift_raises(tmp_path: Path) -> None:

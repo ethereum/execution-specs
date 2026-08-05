@@ -2127,8 +2127,6 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     # Log immediately when hook is entered (before any early returns)
     _log_timing(f"pytest_sessionfinish ENTERED (worker={is_worker})")
 
-    del exitstatus
-
     # Save pre-allocation groups after phase 1
     fixture_output: FixtureOutput = session.config.fixture_output  # type: ignore[attr-defined]
     session_instance: FillingSession = session.config.filling_session  # type: ignore[attr-defined]
@@ -2221,36 +2219,42 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
 
     # Loudly fail the fill if pre-alloc group packing changed any Engine X
-    # test's execution (raises on drift, like a pre-alloc collision).
-    _log_timing("verify_engine_x_execution: starting...")
-    t0 = time.time()
-    engine_x_check = verify_engine_x_execution(fixture_output.directory)
-    engine_x_warning: str | None = None
-    if engine_x_check is not None:
-        if engine_x_check.compared > 0:
-            logger.info(engine_x_check.summary)
-        elif engine_x_check.skipped > 0:
+    # test's execution (raises on drift, like a pre-alloc collision). Only
+    # checked on an otherwise clean session: raising from this hook aborts
+    # the terminal FAILURES/short-summary sections, so it would hide any
+    # test failures (which already fail the fill and must surface first).
+    if exitstatus == pytest.ExitCode.OK:
+        _log_timing("verify_engine_x_execution: starting...")
+        t0 = time.time()
+        engine_x_check = verify_engine_x_execution(fixture_output.directory)
+        engine_x_warning: str | None = None
+        if engine_x_check is not None:
+            if engine_x_check.compared > 0:
+                logger.info(engine_x_check.summary)
+            elif engine_x_check.skipped > 0:
+                engine_x_warning = (
+                    "Engine X execution consistency check skipped: none of "
+                    f"the {engine_x_check.skipped} Engine X fixtures have a "
+                    "blockchain_tests_engine sibling fixture to compare "
+                    "against. Leaks from pre-alloc group packing are not "
+                    "verified for this output."
+                )
+        elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
             engine_x_warning = (
-                "Engine X execution consistency check skipped: none of "
-                f"the {engine_x_check.skipped} Engine X fixtures have a "
-                "blockchain_tests_engine sibling fixture to compare "
-                "against. Leaks from pre-alloc group packing are not "
-                "verified for this output."
+                "Engine X execution consistency check skipped: this fill "
+                "generated no blockchain_tests_engine fixtures to compare "
+                "against (e.g. filling with `-m blockchain_test_engine_x`). "
+                "Leaks from pre-alloc group packing are not verified for "
+                "this output."
             )
-    elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
-        engine_x_warning = (
-            "Engine X execution consistency check skipped: this fill "
-            "generated no blockchain_tests_engine fixtures to compare "
-            "against (e.g. filling with `-m blockchain_test_engine_x`). "
-            "Leaks from pre-alloc group packing are not verified for this "
-            "output."
+        if engine_x_warning is not None:
+            logger.warning(engine_x_warning)
+            # Repeated in the terminal summary; a log line alone is easy
+            # to miss.
+            session.config.engine_x_check_warning = engine_x_warning  # type: ignore[attr-defined] # noqa: E501
+        _log_timing(
+            f"verify_engine_x_execution: done in {time.time() - t0:.1f}s"
         )
-    if engine_x_warning is not None:
-        logger.warning(engine_x_warning)
-        # Repeated in the terminal summary; a log line alone is easy to
-        # miss.
-        session.config.engine_x_check_warning = engine_x_warning  # type: ignore[attr-defined] # noqa: E501
-    _log_timing(f"verify_engine_x_execution: done in {time.time() - t0:.1f}s")
 
     # Verify fixtures after merge if verification is enabled
     if session.config.getoption("verify_fixtures"):

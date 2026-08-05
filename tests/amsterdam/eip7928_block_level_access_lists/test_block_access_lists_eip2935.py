@@ -136,7 +136,17 @@ def test_bal_2935_empty_block(
 @pytest.mark.parametrize(
     "query_block_number,is_valid",
     [
-        pytest.param(0, True, id="valid_block_number"),
+        pytest.param(
+            0,
+            True,
+            id="valid_block_number",
+            marks=pytest.mark.pre_alloc_group(
+                "separate",
+                reason="Queries the genesis hash from the history "
+                "contract and stores it, so the BAL contains the genesis "
+                "hash itself, which changes under any shared genesis.",
+            ),
+        ),
         pytest.param(1042, False, id="block_number_out_of_range"),
     ],
 )
