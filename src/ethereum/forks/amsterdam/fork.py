@@ -41,7 +41,12 @@ from .block_access_lists import (
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import WrongChainIdError
-from .fork_types import Authorization, BlockAccessIndex
+from .fork_types import (
+    Authorization,
+    BlockAccessIndex,
+    ExecutionGas,
+    StateGas,
+)
 from .requests import (
     BUILDER_DEPOSIT_REQUEST_TYPE,
     BUILDER_EXIT_REQUEST_TYPE,
@@ -106,7 +111,7 @@ SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
 BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
-SYSTEM_TRANSACTION_GAS = Uint(30000000)
+SYSTEM_TRANSACTION_GAS = ExecutionGas(Uint(30000000))
 SYSTEM_MAX_SSTORES_PER_CALL = Uint(16)
 """
 Upper bound on the number of new storage slots a single system call is
@@ -757,7 +762,7 @@ def process_unchecked_system_transaction(
         gas_limit=SYSTEM_TRANSACTION_GAS,
         effective_gas_price=block_env.base_fee_per_gas,
         execution_gas_grant=SYSTEM_TRANSACTION_GAS,
-        state_gas_reservoir=(
+        state_gas_reservoir=StateGas(
             StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
         ),
         calldata_floor=Uint(0),
