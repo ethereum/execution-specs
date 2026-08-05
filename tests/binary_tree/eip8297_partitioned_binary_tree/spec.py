@@ -90,41 +90,6 @@ class Spec:
     BASIC_DATA_BALANCE_WIDTH = 16
 
     @classmethod
-    def header_storage_sub_index(cls, slot: int) -> int:
-        """
-        Return the account header sub-index for storage `slot`.
-
-        Only valid for `slot < HEADER_STORAGE_SLOTS` (slots 0..63),
-        which live in the account header's stem rather than the
-        storage zone (see "Storage").
-        """
-        return cls.HEADER_STORAGE_OFFSET + slot
-
-    @classmethod
-    def storage_group_index(cls, slot: int) -> int:
-        """
-        Return the storage group (`tree_index`) that `slot` belongs to.
-
-        Applies to slots stored in the storage zone, i.e.
-        `slot >= HEADER_STORAGE_SLOTS` (see "Storage").
-        An aligned range of `STEM_SUBTREE_WIDTH` slots sharing one
-        `tree_index` forms one storage group. Group 0 is the
-        exception: slots 0..63 live in the header, so its storage-zone
-        leaves are slots 64..255 only.
-        """
-        return slot // cls.STEM_SUBTREE_WIDTH
-
-    @classmethod
-    def storage_sub_index(cls, slot: int) -> int:
-        """
-        Return `slot`'s sub-index within its storage group.
-
-        Applies to slots stored in the storage zone, i.e.
-        `slot >= HEADER_STORAGE_SLOTS` (see "Storage").
-        """
-        return slot % cls.STEM_SUBTREE_WIDTH
-
-    @classmethod
     def code_chunk_count(cls, code_size: int) -> int:
         """
         Return the number of chunks `chunkify_code` splits `code_size`
