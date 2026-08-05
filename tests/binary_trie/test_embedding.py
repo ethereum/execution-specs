@@ -348,12 +348,8 @@ def test_code_group_rollover_changes_the_stem() -> None:
     the matrix's parameters can never silently retire this check.
     """
     for last_of_group, first_of_next in ((255, 256), (511, 512)):
-        last_key = get_tree_key_for_code_chunk(
-            CODE_HASH, Uint(last_of_group)
-        )
-        next_key = get_tree_key_for_code_chunk(
-            CODE_HASH, Uint(first_of_next)
-        )
+        last_key = get_tree_key_for_code_chunk(CODE_HASH, Uint(last_of_group))
+        next_key = get_tree_key_for_code_chunk(CODE_HASH, Uint(first_of_next))
         assert last_key[-1] == 255
         assert next_key[-1] == 0
         assert last_key[:-1] != next_key[:-1], "rollover must change stem"

@@ -1664,10 +1664,11 @@ def test_absent_chunk_in_a_later_group_does_not_stall_removal() -> None:
 
 def test_push_data_continuation_chunk_of_zero_bytes_is_present() -> None:
     """
-    A chunk whose 31 code bytes are all zero is absent only when its
-    leading byte is zero too. The EIP, "Code": "Zero bytes that
-    continue PUSHDATA from an earlier chunk do not qualify, since
-    byte 0 then records the continuation."
+    Zero bytes that continue PUSHDATA from an earlier chunk do not
+    qualify as a zero chunk -- the EIP's "Code" section is explicit
+    that byte 0 then records the continuation -- so a chunk whose 31
+    code bytes are all zero is absent only when its leading byte is
+    zero too.
 
     Here `PUSH32` ends chunk 0 and its data fills chunk 1 with 31
     zero bytes, so chunk 1 encodes to `0x1f` followed by zeros -- not
@@ -1693,9 +1694,7 @@ def test_push_data_continuation_chunk_of_zero_bytes_is_present() -> None:
     stem = _code_zone_stem(code_hash, 0)
     continuation_key = stem + bytes([1])
     assert continuation_key in trie._data
-    assert trie._data[continuation_key] == Bytes32(
-        bytes([31]) + b"\x00" * 31
-    )
+    assert trie._data[continuation_key] == Bytes32(bytes([31]) + b"\x00" * 31)
 
     diff = BlockDiff(account_changes={ADDRESS_A: None})
 
