@@ -121,7 +121,7 @@ def test_cold_account_access_at_transition(
 ) -> None:
     """
     ``BALANCE`` of a cold account costs ``COLD_ACCOUNT_ACCESS``, which
-    rises across the Amsterdam boundary (2600 -> 3000 on mainnet). The
+    rises across the Amsterdam boundary. The
     same opcode is measured before and after; each block asserts its
     regime's derived cost.
     """
@@ -167,9 +167,9 @@ def test_ext_code_surcharge_at_transition(
     """
     The EIP-8038 ``EXT*`` code-read surcharge appears at the fork. The
     surcharge equals ``EXTCODESIZE`` minus ``BALANCE`` at equal warmth:
-    it is zero before the fork and one ``WARM_ACCESS`` (100) after. That
+    it is zero before the fork and one ``WARM_ACCESS`` after. That
     comparison is computed from the opcode model. On-chain, each block
-    measures only a cold ``EXTCODESIZE`` (2600 before, 3100 after): its
+    measures only a cold ``EXTCODESIZE``: its
     rise reflects the surcharge on top of the cold-access repricing, and
     ``BALANCE`` is never executed.
     """
@@ -218,8 +218,8 @@ def test_call_value_cost_at_transition(
     fork: Fork,
 ) -> None:
     """
-    ``CALL_VALUE`` rises across the boundary (9000 -> 10300 on mainnet,
-    becoming ``ACCOUNT_WRITE + CALL_STIPEND``). The constant transition
+    ``CALL_VALUE`` rises across the boundary, becoming
+    ``ACCOUNT_WRITE + CALL_STIPEND``. The constant transition
     is asserted from the derived schedules while a value-bearing ``CALL``
     is exercised in both blocks to prove it still succeeds in each
     regime.
@@ -262,8 +262,8 @@ def test_create_base_cost_at_transition(
 ) -> None:
     """
     The ``CREATE`` execution base cost changes across the boundary
-    (``OPCODE_CREATE_BASE``: 32000 -> 11000 on mainnet, redefined as
-    ``ACCOUNT_WRITE + COLD_STORAGE_ACCESS``). The constant transition is
+    (``OPCODE_CREATE_BASE`` is redefined as
+    ``ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS``). The constant transition is
     asserted from the derived schedules and a ``CREATE`` is exercised in
     both blocks to prove it still deploys.
     """
@@ -312,7 +312,7 @@ def test_selfdestruct_account_write_at_transition(
     """
     ``SELFDESTRUCT`` gains an ``ACCOUNT_WRITE`` charge when it sends a
     positive balance to an empty account, which is a new EIP-8038
-    parameter (0 -> 8000 on mainnet). The constant transition is
+    parameter. The constant transition is
     asserted from the derived schedules and a value-bearing
     ``SELFDESTRUCT`` to a fresh beneficiary is exercised in both blocks
     to prove it still runs.

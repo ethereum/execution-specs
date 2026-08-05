@@ -5,10 +5,10 @@ Tests for the EIP-8038 [State Access Gas Cost Increase](https://eips.ethereum.or
 Under EIP-8038 the call opcodes are repriced in their *execution* gas
 dimension:
 
-- account access costs ``COLD_ACCOUNT_ACCESS`` (3,000) cold or
-  ``WARM_ACCESS`` (100) warm;
+- account access costs ``COLD_ACCOUNT_ACCESS`` cold or
+  ``WARM_ACCESS`` warm;
 - a positive value transfer adds ``CALL_VALUE`` (``ACCOUNT_WRITE`` +
-  ``CALL_STIPEND`` = 10,300), charged only by ``CALL``/``CALLCODE``;
+  ``CALL_STIPEND``), charged only by ``CALL``/``CALLCODE``;
 - a value transfer to a *new* account additionally creates the account,
   whose ``GAS_NEW_ACCOUNT`` charge is the EIP-8037 *state* dimension and
   is asserted via the block header ``max(execution, state)`` accounting,
@@ -86,8 +86,8 @@ def test_call_access_gas(
     """
     Measure the access cost of every call opcode with no value transfer.
 
-    EIP-8038 charges ``COLD_ACCOUNT_ACCESS`` (3,000) cold and
-    ``WARM_ACCESS`` (100) warm for all four call opcodes.
+    EIP-8038 charges ``COLD_ACCOUNT_ACCESS`` cold and ``WARM_ACCESS``
+    warm for all four call opcodes.
     """
     target = pre.deploy_contract(Op.STOP)
 
@@ -127,13 +127,13 @@ def test_call_value_alive_target_gas(
     """
     Measure call cost with value transfer to an already-alive target.
 
-    ``CALL``/``CALLCODE`` add ``CALL_VALUE`` (10,300) on top of the
+    ``CALL``/``CALLCODE`` add ``CALL_VALUE`` on top of the
     access cost, where ``CALL_VALUE = ACCOUNT_WRITE + CALL_STIPEND``.
     ``DELEGATECALL``/``STATICCALL`` never transfer value, so they pay
     only the access cost regardless of any value argument. No new
     account is created (the target is alive), so no state gas is charged.
 
-    The ``CALL_STIPEND`` (2,300) is forwarded to the callee; with a
+    The ``CALL_STIPEND`` is forwarded to the callee; with a
     ``STOP`` callee it is unused and returned, so the gas *consumed* by
     the caller is ``access + ACCOUNT_WRITE`` while the *charged* schedule
     is ``access + CALL_VALUE``. Both are asserted.
@@ -212,7 +212,8 @@ def test_callcode_value_to_nonexistent_no_new_account(
     ``CALLCODE`` runs the callee's code in the caller's own context, so
     the value never leaves the caller and no beneficiary account is
     created. The block ``gas_used`` therefore equals the execution tx
-    cost with ``CALL_VALUE`` but with no 183,600 state-gas component.
+    cost with ``CALL_VALUE`` but with no ``GAS_NEW_ACCOUNT`` state-gas
+    component.
     """
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
 
@@ -270,10 +271,9 @@ def test_call_value_to_new_account_seam(
     Verify the CALL value-to-new-account execution/state seam.
 
     The EIP-8038 *execution* dimension is ``COLD_ACCOUNT_ACCESS`` +
-    ``CALL_VALUE`` = 13,300; the account creation charge
-    ``GAS_NEW_ACCOUNT`` (183,600) lands in the EIP-8037 *state*
-    dimension. The block header reflects ``max(execution, state)``, which
-    is dominated by the state charge.
+    ``CALL_VALUE``; the account creation charge ``GAS_NEW_ACCOUNT``
+    lands in the EIP-8037 *state* dimension. The block header reflects
+    ``max(execution, state)``, which is dominated by the state charge.
     """
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
 
@@ -344,8 +344,8 @@ def test_call_to_delegated_target_double_access(
     The spec applies the delegation surcharge to every call opcode
     (``CALL``/``CALLCODE``/``DELEGATECALL``/``STATICCALL``), so each
     reads two account leaves: the target's leaf and the delegation's
-    leaf. Each is charged independently as ``WARM_ACCESS`` (100) or
-    ``COLD_ACCOUNT_ACCESS`` (3,000) by warmth. ``DELEGATECALL`` and
+    leaf. Each is charged independently as ``WARM_ACCESS`` or
+    ``COLD_ACCOUNT_ACCESS`` by warmth. ``DELEGATECALL`` and
     ``STATICCALL`` carry no value but still pay the delegation
     surcharge.
     """
@@ -440,7 +440,7 @@ def test_call_self_is_warm(
     Verify a self-call is warm: the executing account is pre-warmed.
 
     The current target is in the accessed-addresses set on message
-    entry, so a call to ``ADDRESS`` pays only ``WARM_ACCESS`` (100).
+    entry, so a call to ``ADDRESS`` pays only ``WARM_ACCESS``.
     """
     # `Op.ADDRESS` is the call's address argument, embedded inside the
     # runnable call; the self address is in the accessed set on entry, so
@@ -474,7 +474,7 @@ def test_call_forwarded_gas_63_64(
     cold access charge.
 
     A wrapper performs a cold, zero-value ``CALL`` requesting maximum
-    gas. The spec charges the repriced ``COLD_ACCOUNT_ACCESS`` (3,000)
+    gas. The spec charges the repriced ``COLD_ACCOUNT_ACCESS``
     up front and only then forwards ``floor(63/64 * gas_left)`` to the
     child. The wrapper is handed an exact budget so that, net of the
     access charge, ``gas_left`` equals ``child_execution * 64 // 63``;
@@ -549,7 +549,7 @@ def test_account_warmth_reverts_on_subcall_revert(
     ``DELEGATECALL`` (so the warmed address belongs to the shared
     accessed-addresses set) then ``REVERT``s. Back in the outer frame,
     that same address's first ``BALANCE`` is cold again and is charged
-    ``COLD_ACCOUNT_ACCESS`` (3,000), proving the warm-address set is
+    ``COLD_ACCOUNT_ACCESS``, proving the warm-address set is
     rolled back on revert (mirrors the ``SLOAD`` warmth-revert case for
     the account dimension).
     """
@@ -601,7 +601,7 @@ def test_call_to_double_delegated_target_single_hop(
     an EOA delegated to ``final`` (C), a code-bearing account. A cold
     ``CALL`` to ``target`` reads exactly two account leaves -- the
     target's and its delegation's -- and is charged
-    ``2 * COLD_ACCOUNT_ACCESS`` (6,000). The chain is not followed a
+    ``2 * COLD_ACCOUNT_ACCESS``. The chain is not followed a
     second hop, so ``final``'s leaf is not charged. Both the framework
     opcode model and a runtime ``CodeGasMeasure`` confirm the value.
     """
@@ -647,7 +647,7 @@ def test_call_precompile_is_warm(
     Verify a call to a precompile is warm from the start.
 
     Precompiles are part of the accessed-addresses set from the start of
-    every transaction, so a call to one pays only ``WARM_ACCESS`` (100).
+    every transaction, so a call to one pays only ``WARM_ACCESS``.
     The identity precompile (address 4) is used as the target.
     """
     identity_precompile = Address(4)
@@ -676,18 +676,19 @@ def test_call_value_stipend_is_usable(
     value: int,
 ) -> None:
     """
-    The ``CALL`` value-transfer stipend (``CALL_STIPEND`` = 2,300) is
+    The ``CALL`` value-transfer stipend ``CALL_STIPEND`` is
     forwarded to the callee and usable for execution.
 
     The caller forwards ``gas=0``, so the callee receives only the stipend
-    (2,300) when a positive value is sent, and nothing otherwise. The
-    callee runs a small amount of work (well under 2,300 gas) then stops:
+    when a positive value is sent, and nothing otherwise. The
+    callee runs a small amount of work (well under the stipend) then
+    stops:
     with the stipend the call succeeds (returns 1); without value (no
     stipend, zero forwarded gas) the work runs out of gas and the call
     fails (returns 0). This proves the stipend is not merely returned but
     is spendable by the callee.
     """
-    # ~250 gas of cheap work: comfortably within the 2,300 stipend, far
+    # ~250 gas of cheap work: comfortably within the stipend, far
     # above the zero gas forwarded when no value (so no stipend) is sent.
     work = (Op.PUSH1(0) + Op.POP) * 50 + Op.STOP
     callee = pre.deploy_contract(code=work)

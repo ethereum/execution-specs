@@ -433,7 +433,20 @@ def test_state_reservoir_lets_tx_gas_exceed_execution_gas_limit_cap() -> None:
     fork = CustomAmsterdam.with_tx_gas_limit_cap(cap)
     bytecode = IteratingBytecode(iterating=Op.SSTORE(0, 1))
 
-    total_iterations = (cap // Op.SSTORE(0, 1).execution_cost(fork=fork)) - 1
+    # Largest iteration count the tx splitter accepts for a single tx:
+    # execution gas plus the subcall reserve must fit the cap, derived
+    # from the helper's own (linear) cost model.
+    cost_one = bytecode.tx_execution_gas_cost_by_iteration_count(
+        fork=fork, iteration_count=1
+    )
+    per_iteration = (
+        bytecode.tx_execution_gas_cost_by_iteration_count(
+            fork=fork, iteration_count=2
+        )
+        - cost_one
+    )
+    reserve = bytecode.iterating_subcall_reserve(fork=fork)
+    total_iterations = 1 + (cap - reserve - cost_one) // per_iteration
     counts = list(
         bytecode.tx_iterations_by_total_iteration_count(
             fork=fork, total_iterations=total_iterations
