@@ -94,6 +94,7 @@ from ethereum.state_pbt import (
 
 ADDRESS_A = Bytes20(b"\xaa" * 20)
 ADDRESS_B = Bytes20(b"\xbb" * 20)
+ADDRESS_C = Bytes20(b"\xcc" * 20)
 
 # EIP-7702 delegation designators: the main protocol-reachable code
 # change on an existing account, and always a single content-addressed
@@ -1121,6 +1122,24 @@ def _code_chunk_filler_byte(chunk_id: int) -> int:
     return _NON_PUSH_BYTES[chunk_id % len(_NON_PUSH_BYTES)]
 
 
+def _distinct_chunk_code(chunk_count: int, *, salt: int = 1) -> Bytes:
+    """
+    Build code of `chunk_count` chunks, chunk `i` filled with 31
+    repeats of `_code_chunk_filler_byte(salt + i)`.
+
+    The default salt starts past filler byte zero, so every chunk of
+    a short code is nonzero and present in the tree; two codes built
+    with salts fewer than `len(_NON_PUSH_BYTES)` apart share no
+    chunk value across their overlapping indices.
+    """
+    return Bytes(
+        b"".join(
+            bytes([_code_chunk_filler_byte(salt + i)]) * 31
+            for i in range(chunk_count)
+        )
+    )
+
+
 def test_chunk_values_are_distinct_across_the_code_group_boundary() -> None:
     r"""
     Chunks 254-257, each filled with its own distinct byte, get their
@@ -1171,6 +1190,300 @@ def test_chunk_values_are_distinct_across_the_code_group_boundary() -> None:
     assert trie._data[group_0_stem + bytes([255])] == expected_chunk(255)
     assert trie._data[group_1_stem + bytes([0])] == expected_chunk(256)
     assert trie._data[group_1_stem + bytes([1])] == expected_chunk(257)
+
+
+def test_short_identical_code_shares_both_chunk_leaves() -> None:
+    """
+    Two accounts with the same 2-chunk code -- the common case under
+    content addressing -- embed to exactly six leaves: two header
+    pairs and one shared copy of each chunk, with the chunk values
+    pinned per key.
+
+    The two chunks carry distinct bytes, so a wrong chunk landing in
+    the right key set -- swapped values, a copy under a wrong stem --
+    cannot cancel out.
+    """
+    code = _distinct_chunk_code(2)
+    state = MptState()
+    code_hash = mpt_store_code(state, code)
+    for address in (ADDRESS_A, ADDRESS_B):
+        mpt_set_account(
+            state,
+            address,
+            Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
+        )
+
+    embedded = embed_state(state)
+
+    stem_a = _account_header_stem(b"\x00" * 12 + bytes(ADDRESS_A))
+    stem_b = _account_header_stem(b"\x00" * 12 + bytes(ADDRESS_B))
+    code_stem = _code_zone_stem(code_hash, 0)
+    assert set(embedded._data.keys()) == {
+        stem_a + bytes([0]),
+        stem_a + bytes([1]),
+        stem_b + bytes([0]),
+        stem_b + bytes([1]),
+        code_stem + bytes([0]),
+        code_stem + bytes([1]),
+    }
+    for chunk_id, chunk in enumerate(chunkify_code(code)):
+        assert embedded._data[code_stem + bytes([chunk_id])] == chunk
+
+
+@pytest.mark.parametrize(
+    "survivor_in_diff",
+    [
+        pytest.param(False, id="survivor_untouched_in_pre_state"),
+        pytest.param(True, id="survivor_touched_by_the_same_diff"),
+    ],
+)
+def test_code_change_keeps_chunks_a_survivor_still_holds(
+    survivor_in_diff: bool,
+) -> None:
+    """
+    Account A's code hash changes from H to H' while account B still
+    holds H: H's chunks must survive, H''s must appear, and the root
+    must equal a fresh embed of the post state.
+
+    `code_hash_survives` has two arms -- the diff's own values and
+    the untouched pre-state -- and a survivor can satisfy either, so
+    both are exercised: B left alone in the pre-state, and B touched
+    by the same diff (a balance bump) so it counts through the diff
+    arm instead. The two codes share no chunk value, so removing the
+    wrong bytecode's leaves cannot go unnoticed.
+    """
+    old_code = _distinct_chunk_code(3)
+    new_code = _distinct_chunk_code(2, salt=10)
+
+    pre = State()
+    old_hash = store_code(pre, old_code)
+    new_hash = keccak256(new_code)
+    for address in (ADDRESS_A, ADDRESS_B):
+        set_account(
+            pre,
+            address,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash),
+        )
+
+    changed = Account(nonce=Uint(1), balance=U256(1), code_hash=new_hash)
+    account_changes: Dict[Bytes20, Optional[Account]] = {ADDRESS_A: changed}
+    survivor = Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash)
+    if survivor_in_diff:
+        survivor = Account(nonce=Uint(1), balance=U256(2), code_hash=old_hash)
+        account_changes[ADDRESS_B] = survivor
+    diff = BlockDiff(
+        account_changes=account_changes,
+        code_changes={new_hash: new_code},
+    )
+
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    apply_diff_to_trie(trie, pre, diff)
+    old_stem = _code_zone_stem(old_hash, 0)
+    new_stem = _code_zone_stem(new_hash, 0)
+    for chunk_id in range(3):
+        assert old_stem + bytes([chunk_id]) in trie._data
+    for chunk_id in range(2):
+        assert new_stem + bytes([chunk_id]) in trie._data
+
+    fresh = State()
+    assert store_code(fresh, old_code) == old_hash
+    assert store_code(fresh, new_code) == new_hash
+    set_account(fresh, ADDRESS_A, changed)
+    set_account(fresh, ADDRESS_B, survivor)
+    assert pre.compute_state_root(diff) == state_root(fresh)
+
+
+def test_code_change_by_the_last_holder_drops_every_group() -> None:
+    """
+    The changing account was the only holder of a code spanning two
+    code groups (257 chunks): its change must remove group 1's
+    chunks as well as group 0's, leaving the code zone holding only
+    the new code and the root that of a fresh embed.
+
+    Every legacy-size code in this suite fits inside group 0, so a
+    removal bug scoped to `tree_index == 0` -- sweeping sub-indices
+    without ever advancing the group -- is caught only here.
+    """
+    old_code = _distinct_chunk_code(257)
+    new_code = Bytes(bytes(range(1, 63)))  # 2 chunks, no push opcodes
+
+    pre = State()
+    old_hash = store_code(pre, old_code)
+    new_hash = keccak256(new_code)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=old_hash),
+    )
+
+    changed = Account(nonce=Uint(1), balance=U256(1), code_hash=new_hash)
+    diff = BlockDiff(
+        account_changes={ADDRESS_A: changed},
+        code_changes={new_hash: new_code},
+    )
+
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    apply_diff_to_trie(trie, pre, diff)
+    new_stem = _code_zone_stem(new_hash, 0)
+    code_zone_keys = {key for key in trie._data if key[0] == 1}
+    assert code_zone_keys == {
+        new_stem + bytes([0]),
+        new_stem + bytes([1]),
+    }
+
+    fresh = State()
+    assert store_code(fresh, new_code) == new_hash
+    set_account(fresh, ADDRESS_A, changed)
+    assert pre.compute_state_root(diff) == state_root(fresh)
+
+
+def test_shared_delegation_designator_follows_its_last_authority() -> None:
+    """
+    Two EOAs delegating to the same target share one designator
+    chunk. One authority re-delegating to a different target must
+    leave that chunk in place for the other while writing the new
+    designator's chunk; the remaining authority clearing its
+    delegation afterwards removes it, leaving only the re-delegated
+    designator.
+
+    Re-delegating to the *same* target would be a code-hash no-op
+    that exercises nothing, so the staircase switches targets.
+    """
+    pre = State()
+    hash_a = store_code(pre, DELEGATION_A)
+    for address in (ADDRESS_A, ADDRESS_B):
+        set_account(
+            pre,
+            address,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=hash_a),
+        )
+
+    stem_a = _code_zone_stem(hash_a, 0)
+    initial = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    assert {key for key in initial._data if key[0] == 1} == {
+        stem_a + bytes([0])
+    }, "both authorities must share one designator leaf"
+
+    hash_b = keccak256(DELEGATION_B)
+    step_1 = BlockDiff(
+        account_changes={
+            ADDRESS_A: Account(
+                nonce=Uint(2), balance=U256(1), code_hash=hash_b
+            )
+        },
+        code_changes={hash_b: DELEGATION_B},
+    )
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    apply_diff_to_trie(trie, pre, step_1)
+    stem_b = _code_zone_stem(hash_b, 0)
+    assert stem_a + bytes([0]) in trie._data, (
+        "the other authority still delegates to the old target"
+    )
+    assert stem_b + bytes([0]) in trie._data
+
+    apply_changes_to_state(pre, step_1)
+    step_2 = BlockDiff(
+        account_changes={
+            ADDRESS_B: Account(
+                nonce=Uint(2), balance=U256(1), code_hash=EMPTY_CODE_HASH
+            )
+        },
+    )
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    apply_diff_to_trie(trie, pre, step_2)
+    assert {key for key in trie._data if key[0] == 1} == {
+        stem_b + bytes([0])
+    }, "the last authority leaving must take the old designator with it"
+
+
+def test_shared_code_survives_until_the_last_holder_is_gone() -> None:
+    """
+    Three accounts share one bytecode. Deleting them one block at a
+    time keeps the chunk leaves through the first two deletions --
+    pinned by key after each step -- and the third deletion takes
+    them with it, returning the tree to empty.
+    """
+    code = _distinct_chunk_code(3)
+    addresses = (ADDRESS_A, ADDRESS_B, ADDRESS_C)
+
+    pre = State()
+    code_hash = store_code(pre, code)
+    for address in addresses:
+        set_account(
+            pre,
+            address,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+        )
+
+    stem = _code_zone_stem(code_hash, 0)
+    chunk_keys = {stem + bytes([chunk_id]) for chunk_id in range(3)}
+
+    for deletions_so_far, address in enumerate(addresses):
+        diff = BlockDiff(account_changes={address: None})
+        trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+        apply_diff_to_trie(trie, pre, diff)
+        present = chunk_keys & set(trie._data.keys())
+        if deletions_so_far < 2:
+            assert present == chunk_keys, (
+                f"deletion {deletions_so_far + 1} of 3 must keep the "
+                "shared chunks"
+            )
+        else:
+            assert present == set()
+            assert root(trie) == EMPTY_TRIE_ROOT
+        apply_changes_to_state(pre, diff)
+
+
+def test_two_holders_deleted_in_one_block_drop_the_code_once() -> None:
+    """
+    Both remaining holders of a bytecode go in the same block: the
+    first removal drops the shared chunks and the second finds them
+    already gone, a no-op rather than an error, leaving the empty
+    root.
+    """
+    code = _distinct_chunk_code(2)
+
+    pre = State()
+    code_hash = store_code(pre, code)
+    for address in (ADDRESS_A, ADDRESS_B):
+        set_account(
+            pre,
+            address,
+            Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+        )
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None, ADDRESS_B: None})
+
+    assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
+
+
+def test_removing_code_with_an_absent_first_chunk_leaves_nothing() -> None:
+    """
+    A code whose first chunk is 31 zero bytes has no leaf at chunk 0
+    -- zero collapses to absence -- so a presence probe on any fixed
+    chunk could call the code leafless and leak the rest. Deleting
+    the last holder must remove every later chunk regardless,
+    leaving the empty root.
+    """
+    code = Bytes(b"\x00" * 31 + bytes(_distinct_chunk_code(2)))
+
+    pre = State()
+    code_hash = store_code(pre, code)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+
+    stem = _code_zone_stem(code_hash, 0)
+    before = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    assert stem + bytes([0]) not in before._data
+    assert stem + bytes([1]) in before._data
+    assert stem + bytes([2]) in before._data
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+
+    assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
 
 
 def test_basic_data_leaf_bytes_carry_code_size_nonce_and_balance() -> None:
