@@ -11,7 +11,7 @@ from typing import Dict, List, Type
 import pytest
 from pydantic import TypeAdapter
 
-from execution_testing.base_types import to_json
+from execution_testing.base_types import StateCommitment, to_json
 from execution_testing.client_clis import (
     ExecutionSpecsTransitionTool,
     TransitionTool,
@@ -93,7 +93,9 @@ def test_calc_state_root(
     expected_hash: bytes,
 ) -> None:
     """Test calculation of the state root against expected hash."""
-    assert Alloc(alloc).state_root().startswith(expected_hash)
+    test_alloc = Alloc(alloc)
+    test_alloc.migrate_state_commitment(StateCommitment.MPT)
+    assert test_alloc.state_root().startswith(expected_hash)
 
 
 @pytest.mark.parametrize("evm_tool", [ExecutionSpecsTransitionTool])

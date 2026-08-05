@@ -4,7 +4,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
-from importlib import import_module
+from types import ModuleType
 from typing import (
     Any,
     Dict,
@@ -17,6 +17,8 @@ from typing import (
 )
 
 import ethereum.state as spec_state
+import ethereum.state_mpt as spec_state_mpt
+import ethereum.state_pbt as spec_state_pbt
 from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
 from ethereum_types.bytes import Bytes, Bytes20
@@ -30,6 +32,7 @@ from execution_testing.base_types import (
     Hash,
     HashInt,
     Number,
+    StateCommitment,
     Storage,
     StorageRootType,
 )
@@ -120,8 +123,14 @@ class Alloc(BaseAlloc):
     """
 
     _phase: _Phase = PrivateAttr(default=_Phase.CONSTRUCTION)
-    _state_provider_name: Optional[str] = PrivateAttr(default=None)
     _code_store: Dict[Hash32, Bytes] = PrivateAttr(default_factory=dict)
+    _state_commitment: StateCommitment | None = PrivateAttr(default=None)
+    """
+    Commitment scheme this allocation's state root is computed under.
+
+    Unset by default: it must be seeded from the accompanying fork before any
+    state-root computation.
+    """
 
     @dataclass(kw_only=True)
     class UnexpectedAccountError(Exception):
@@ -200,6 +209,7 @@ class Alloc(BaseAlloc):
         alloc_1: "Alloc",
         alloc_2: "Alloc",
         key_collision_mode: KeyCollisionMode = KeyCollisionMode.OVERWRITE,
+        state_commitment: StateCommitment | None = None,
     ) -> "Alloc":
         """Return merged allocation of two sources."""
         overlapping_keys = alloc_1.root.keys() & alloc_2.root.keys()
@@ -223,18 +233,21 @@ class Alloc(BaseAlloc):
                             account_1=account_1,
                             account_2=account_2,
                         )
-        merged = alloc_1.model_dump()
+        merged = alloc_1.model_copy(deep=True)
 
         for address, other_account in alloc_2.root.items():
-            merged_account = Account.merge(
-                merged.get(address, None), other_account
-            )
+            merged_account = Account.merge(merged.get(address), other_account)
             if merged_account:
                 merged[address] = merged_account
             elif address in merged:
-                merged.pop(address, None)
+                merged.root.pop(address, None)
 
-        return Alloc(merged)
+        if state_commitment is not None:
+            merged.migrate_state_commitment(state_commitment)
+        else:
+            # By default, state commitment of the second alloc takes precedence
+            merged.migrate_state_commitment(alloc_2.state_commitment())
+        return merged
 
     def __iter__(self) -> Iterator[Address]:  # type: ignore [override]
         """Return iterator over the allocation."""
@@ -300,12 +313,8 @@ class Alloc(BaseAlloc):
         ]
 
     def state_root(self) -> Hash:
-        """
-        Return the state root of the allocation, committed through
-        the installed state provider (see [`set_state_provider`]).
-        """
-        provider = self._resolve_provider()
-        return Hash(provider.state_root(self._materialize_state(provider)))
+        """Return state root of the allocation."""
+        return Hash(self._state_module().state_root(self._materialize_state()))
 
     def verify_post_alloc(self, got_alloc: "Alloc") -> None:
         """
@@ -362,49 +371,42 @@ class Alloc(BaseAlloc):
             self._build_cache()
             self._phase = _Phase.LIVE
 
-    def _resolve_provider(self) -> Any:
+    def _state_module(self) -> ModuleType:
         """
-        Return the installed state provider module, defaulting to the
-        Merkle Patricia Trie. Providers are held by module name
-        rather than as module objects, which `model_copy(deep=True)`
-        could not pickle when blockchain tests deep-copy the alloc
-        between chained blocks.
+        Return the spec state module implementing `self._state_commitment`.
         """
-        return import_module(self._state_provider_name or "ethereum.state_mpt")
+        if self._state_commitment is None:
+            raise ValueError(
+                "Alloc state commitment is unset; seed it from the "
+                "accompanying fork."
+            )
+        if self._state_commitment is StateCommitment.MPT:
+            return spec_state_mpt
+        if self._state_commitment is StateCommitment.BINARY_TREE:
+            return spec_state_pbt
+        raise NotImplementedError("State commitment type not yet implemented.")
 
-    def set_state_provider(self, name: str) -> None:
+    def _materialize_state(self) -> spec_state.PreState:
         """
-        Install the state provider module (by name) committing this
-        allocation when no explicit fork is passed to `state_root`.
+        Build a spec-side `PreState` mirror of `self.root` using the
+        implementation module for this allocation's commitment scheme.
 
-        Called by the transition tool so block state roots use the
-        fork's own commitment scheme.
+        Used as the trie-backed delegate for `compute_state_root` (a
+        cold, once-per-block call). The materialized state is not
+        retained.
         """
-        self._state_provider_name = name
-
-    def _materialize_state(self, provider: Any = None) -> Any:
-        """
-        Build an in-memory provider `State` mirror of `self.root`.
-
-        Used as the delegate for `compute_state_root` (a cold,
-        once-per-block call). Both provider modules expose the same
-        construction surface. The materialized state is not retained.
-        """
-        if provider is None:
-            provider = self._resolve_provider()
-        state = provider.State()
+        mod = self._state_module()
+        state: spec_state.PreState = mod.State()
         for address, account in self.root.items():
             if account is None:
                 continue
             addr = Bytes20(address)
             code = bytes(account.code) if account.code else b""
-            # Store bytecode from the allocation entry itself: the
-            # `_code_store` cache only exists once the alloc is LIVE,
-            # but materialization must also work before that (the
-            # genesis path), and code-content commitments read the
-            # bytes.
-            code_hash = provider.store_code(state, code)
-            provider.set_account(
+            if code:
+                code_hash = mod.store_code(state, code)
+            else:
+                code_hash = spec_state.EMPTY_CODE_HASH
+            mod.set_account(
                 state,
                 addr,
                 spec_state.Account(
@@ -417,7 +419,7 @@ class Alloc(BaseAlloc):
                 value_int = int(value_hi)
                 if value_int == 0:
                     continue
-                provider.set_storage(
+                mod.set_storage(
                     state,
                     addr,
                     Bytes32(int(key_hi).to_bytes(32, "big")),
@@ -494,8 +496,8 @@ class Alloc(BaseAlloc):
         instances.
         """
         self._ensure_live()
-        state = self._materialize_state(self._resolve_provider())
-        return Hash32(state.compute_state_root(block_diff))
+        state = self._materialize_state()
+        return state.compute_state_root(block_diff)
 
     # ------------------------------------------------------------------
     # Lifecycle: apply_diff and freeze
@@ -590,6 +592,25 @@ class Alloc(BaseAlloc):
     def freeze(self) -> None:
         """Lock the allocation: no further mutations allowed."""
         self._phase = _Phase.FROZEN
+
+    def state_commitment(self) -> StateCommitment | None:
+        """
+        Return the commitment scheme this allocation is committed under, or
+        `None` if it has not been seeded from a fork yet.
+        """
+        return self._state_commitment
+
+    def migrate_state_commitment(
+        self, commitment: StateCommitment | None
+    ) -> None:
+        """
+        Switch the commitment scheme used to compute the state root.
+        """
+        if self._phase is _Phase.FROZEN:
+            raise RuntimeError(
+                "migrate_state_commitment not allowed: Alloc is FROZEN"
+            )
+        self._state_commitment = commitment
 
     def deterministic_deploy_contract(
         self,

@@ -33,14 +33,24 @@ class Message(Protocol):
 class Evm(Protocol):
     """
     The class describes the EVM interface common to every fork's trace.
+
+    The message-scoped fields (`depth`, `tx_env`, `parent_evm`) are
+    described by [`Message`][msg]. Older forks carry them on
+    `evm.message`; forks that merge the message into the frame expose
+    them on `evm` itself, so `evm` satisfies both protocols. Tracers
+    resolve the carrier with `getattr(evm, "message", evm)`.
+
+    [msg]: ref:ethereum_spec_tools.evm_tools.t8n.evm_trace.protocols.Message
     """
+
+    # TODO: Rethink the tracer interface so it does not probe
+    # fork-specific frame layouts.
 
     pc: Uint
     stack: list[U256]
     memory: bytearray
     code: Bytes
     running: bool
-    message: Message
 
 
 @runtime_checkable

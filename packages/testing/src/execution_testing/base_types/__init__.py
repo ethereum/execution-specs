@@ -27,6 +27,7 @@ from .composite_types import (
     Alloc,
     BlobSchedule,
     ForkBlobSchedule,
+    StateCommitment,
     Storage,
     StorageRootType,
 )
@@ -77,6 +78,7 @@ __all__ = (
     "ReferenceSpec",
     "RLPSerializable",
     "SignableRLPSerializable",
+    "StateCommitment",
     "Storage",
     "StorageKey",
     "StorageRootType",

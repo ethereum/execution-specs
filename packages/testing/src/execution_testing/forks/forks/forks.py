@@ -12,6 +12,7 @@ from execution_testing.base_types import (
     Address,
     BlobSchedule,
     Bytes,
+    StateCommitment,
     ZeroPaddedHexNumber,
 )
 from execution_testing.base_types.conversions import BytesConvertible
@@ -41,10 +42,7 @@ from .helpers import ceiling_division
 
 
 # All forks must be listed here !!! in the order they were introduced !!!
-class Frontier(
-    BaseFork,
-    solc_name="homestead",
-):
+class Frontier(BaseFork):
     """Frontier fork."""
 
     @classmethod
@@ -56,13 +54,6 @@ class Frontier(
         if cls._transition_tool_name is not None:
             return cls._transition_tool_name
         return cls.name()
-
-    @classmethod
-    def solc_name(cls) -> str:
-        """Return fork name as it's meant to be passed to the solc compiler."""
-        if cls._solc_name is not None:
-            return cls._solc_name
-        return cls.name().lower()
 
     @classmethod
     def header_base_fee_required(cls) -> bool:
@@ -1022,6 +1013,13 @@ class Frontier(
         return False
 
     @classmethod
+    def engine_payload_attribute_target_gas_limit(cls) -> bool:
+        """
+        At genesis, payload attributes do not include the target gas limit.
+        """
+        return False
+
+    @classmethod
     def get_reward(cls) -> int:
         """
         At Genesis the expected reward amount in wei is
@@ -1419,7 +1417,6 @@ class Constantinople(
 
 class ConstantinopleFix(
     Constantinople,
-    solc_name="constantinople",
     ruleset_name="PETERSBURG",
 ):
     """Constantinople Fix fork."""
@@ -1443,7 +1440,6 @@ class Istanbul(
 # Glacier forks skipped, unless explicitly specified
 class MuirGlacier(
     Istanbul,
-    solc_name="istanbul",
     ignore=True,
 ):
     """Muir Glacier fork."""
@@ -1474,7 +1470,6 @@ class London(
 # Glacier forks skipped, unless explicitly specified
 class ArrowGlacier(
     London,
-    solc_name="london",
     ignore=True,
 ):
     """Arrow Glacier fork."""
@@ -1484,7 +1479,6 @@ class ArrowGlacier(
 
 class GrayGlacier(
     ArrowGlacier,
-    solc_name="london",
     ignore=True,
 ):
     """Gray Glacier fork."""
@@ -1555,7 +1549,6 @@ class Osaka(
     eips.EIP7951,
     eips.EIP7883,
     Prague,
-    solc_name="cancun",
 ):
     """Osaka fork."""
 
@@ -1648,7 +1641,13 @@ class Amsterdam(
     #  related Amsterdam specs change over time, and before Amsterdam is
     #  live on mainnet.
 
-    pass
+    @classmethod
+    def engine_payload_attribute_target_gas_limit(cls) -> bool:
+        """
+        Starting from Amsterdam, payload attributes now include the target gas
+        limit.
+        """
+        return True
 
 
 class BinaryTree(
@@ -1662,4 +1661,7 @@ class BinaryTree(
     the spec fork's own imports; the transition tool reflects it.
     """
 
-    pass
+    @classmethod
+    def state_commitment(cls) -> StateCommitment:
+        """Commit state through the EIP-8297 partitioned binary tree."""
+        return StateCommitment.BINARY_TREE

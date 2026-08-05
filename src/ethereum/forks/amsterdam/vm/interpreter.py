@@ -14,7 +14,7 @@ A straightforward interpreter that executes EVM code.
 from dataclasses import dataclass
 from typing import Optional, Set, Tuple, final
 
-from ethereum_types.bytes import Bytes, Bytes0
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.exceptions import EthereumException
@@ -32,7 +32,9 @@ from ethereum.trace import (
 from ethereum.utils.numeric import ceil32
 
 from ..blocks import Log
+from ..fork_types import ExecutionGas, StateGas
 from ..state_tracker import (
+    TransactionState,
     account_deployable,
     copy_tx_state,
     destroy_storage,
@@ -46,14 +48,13 @@ from ..state_tracker import (
     restore_tx_state,
     set_code,
 )
-from ..vm import Message
-from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import (
     GasCosts,
     GasMeter,
     StateGasCosts,
     charge_gas,
     charge_state_gas,
+    charge_state_gas_from_meter,
     commit_state_gas,
     forfeit_remaining_gas,
     restore_state_gas,
@@ -62,9 +63,12 @@ from ..vm.gas import (
 )
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import (
+    BlockEnvironment,
     Evm,
+    TransactionEnvironment,
     emit_transfer_log,
 )
+from .eoa_delegation import resolve_delegated_code_address, set_delegation
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -84,106 +88,252 @@ MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
 
 @final
 @dataclass
-class MessageCallOutput:
+class TransactionOutput:
     """
-    Output of a particular message call.
+    Settled output of a transaction's top-level call.
 
-    Contains the following:
-
-          1. `gas_left`: remaining gas after execution.
-          2. `refund_counter`: gas to refund after execution.
-          3. `logs`: list of `Log` generated during execution.
-          4. `accounts_to_delete`: Contracts which have self-destructed.
-          5. `error`: The error from the execution if any.
-          6. `return_data`: The output of the execution.
-          7. `state_gas_left`: remaining state gas after execution.
-          8. `state_gas_used`: State gas used during execution.
+    Carry the figures fee settlement and the receipt need, so the
+    frame itself never leaves the interpreter.
     """
 
-    gas_left: Uint
+    gas_left: ExecutionGas
+    """Execution gas remaining after execution."""
+
     refund_counter: U256
+    """Gas eligible for refund at the end of the transaction."""
+
     logs: Tuple[Log, ...]
+    """Logs emitted during execution; empty when it failed."""
+
     accounts_to_delete: Set[Address]
+    """Accounts self-destructed during execution; empty when it failed."""
+
     error: Optional[EthereumException]
+    """The error the execution halted with, if any."""
+
     return_data: Bytes
-    state_gas_left: Uint
+    """The output of the execution."""
+
+    state_gas_left: StateGas
+    """State gas remaining in the reservoir after execution."""
+
     state_gas_used: int
+    """Net state gas consumed; negative when refunds exceed charges."""
 
 
-def process_message_call(message: Message) -> MessageCallOutput:
+def charge_value_transfer_to_non_alive_account(
+    state: TransactionState,
+    gas_meter: GasMeter,
+    recipient: Address,
+    value: U256,
+) -> None:
     """
-    If `message.target` is empty then it creates a smart contract
-    else it executes a call from the `message.caller` to the `message.target`.
+    Charge the state gas for creating `recipient` when a value
+    transfer revives an account that is not alive.
+    """
+    if value > U256(0) and not is_account_alive(state, recipient):
+        charge_state_gas_from_meter(gas_meter, StateGasCosts.NEW_ACCOUNT)
+
+
+def create_evm(
+    block_env: BlockEnvironment,
+    tx_env: TransactionEnvironment,
+    gas_meter: GasMeter,
+) -> Evm:
+    """
+    Build the transaction's top-level frame.
+
+    Apply the EIP-7702 authorizations, charge the state-dependent
+    dispatch costs to `gas_meter`, and resolve the code the frame
+    runs. A preparation failure -- a creation-address collision or
+    insufficient gas -- raises instead of building a frame, leaving
+    the caller to roll back the state and gas the preparation charged
+    and settle the transaction without dispatching.
+    """
+    current_target = tx_env.recipient
+    if tx_env.is_create:
+        call_data = Bytes(b"")
+    else:
+        call_data = tx_env.data
+
+    code_address: Optional[Address] = None
+    disable_precompiles = False
+    accessed_addresses: Set[Address] = set()
+    accessed_storage_keys = set(tx_env.access_list_storage_keys)
+
+    ## Apply the 7702 delegations
+    if tx_env.authorizations != ():
+        accessed_authorities = set_delegation(block_env, tx_env, gas_meter)
+        accessed_addresses.update(accessed_authorities)
+        commit_state_gas(gas_meter)
+
+    ## Warm up the access sets
+    accessed_addresses.add(block_env.coinbase)
+    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
+    accessed_addresses.add(tx_env.origin)
+    accessed_addresses.update(tx_env.access_list_addresses)
+    accessed_addresses.add(current_target)
+
+    ## Resolve dispatch and charge its state-dependent costs
+    if tx_env.is_create:
+        if not account_deployable(tx_env.state, current_target):
+            raise AddressCollision()
+
+        if (
+            get_pre_state_account(tx_env.state, current_target)
+            == EMPTY_ACCOUNT
+        ):
+            charge_state_gas_from_meter(gas_meter, StateGasCosts.NEW_ACCOUNT)
+
+        code = tx_env.data
+    else:
+        charge_value_transfer_to_non_alive_account(
+            tx_env.state, gas_meter, current_target, tx_env.value
+        )
+
+        code_address, disable_precompiles = resolve_delegated_code_address(
+            tx_env.state, gas_meter, accessed_addresses, tx_env.recipient
+        )
+
+        code = get_code(
+            tx_env.state,
+            get_account(tx_env.state, code_address).code_hash,
+        )
+
+    ## Build the frame
+    return Evm(
+        # Context
+        block_env=block_env,
+        tx_env=tx_env,
+        parent_evm=None,
+        depth=Uint(0),
+        # Call Parameters
+        caller=tx_env.origin,
+        current_target=current_target,
+        value=tx_env.value,
+        call_data=call_data,
+        should_transfer_value=True,
+        is_static=False,
+        disable_precompiles=disable_precompiles,
+        # Code
+        code_address=code_address,
+        code=code,
+        valid_jump_destinations=get_valid_jump_destinations(code),
+        # Machine State
+        gas_meter=gas_meter,
+        pc=Uint(0),
+        stack=[],
+        memory=bytearray(),
+        return_data=b"",
+        # Accrued Effects
+        logs=(),
+        accounts_to_delete=set(),
+        accessed_addresses=accessed_addresses,
+        accessed_storage_keys=accessed_storage_keys,
+        # Outcome
+        running=True,
+        output=b"",
+        error=None,
+    )
+
+
+def process_top_level(
+    block_env: BlockEnvironment,
+    tx_env: TransactionEnvironment,
+) -> TransactionOutput:
+    """
+    Execute the top level of a transaction.
+
+    Prepare the transaction's top-level EVM frame and dispatch it: a
+    contract creation or a call, per the transaction environment. A
+    preparation failure rolls back everything the preparation changed
+    and never dispatches; the transaction then settles as if
+    execution halted at entry, forfeiting its entire gas grant.
 
     Parameters
     ----------
-    message :
-        Transaction specific items.
+    block_env :
+        Environment for the Ethereum Virtual Machine.
+    tx_env :
+        Environment for the transaction.
 
     Returns
     -------
-    output : `MessageCallOutput`
-        Output of the message call
+    tx_output : `TransactionOutput`
+        The settled output of the top-level execution.
 
     """
-    tx_state = message.tx_env.state
-    if message.target == Bytes0(b""):
-        if account_deployable(tx_state, message.current_target):
-            evm = process_create_message(message)
-        else:
-            return MessageCallOutput(
-                gas_left=Uint(0),
-                refund_counter=U256(0),
-                logs=tuple(),
-                accounts_to_delete=set(),
-                error=AddressCollision(),
-                return_data=Bytes(b""),
-                state_gas_left=message.state_gas_reservoir,
-                state_gas_used=0,
-            )
-    else:
-        # Authorizations and delegation resolution are handled at the
-        # top frame inside ``process_message`` (depth 0), so their
-        # state-dependent gas charges go through the EVM gas pools and
-        # an out-of-gas there halts the frame cleanly.
-        evm = process_message(message)
+    gas_meter = GasMeter(
+        gas_left=tx_env.execution_gas_grant,
+        state_gas_left=tx_env.state_gas_reservoir,
+        state_gas_baseline=tx_env.state_gas_reservoir,
+    )
 
+    prep_snapshot = copy_tx_state(tx_env.state)
+    try:
+        evm = create_evm(block_env, tx_env, gas_meter)
+    except ExceptionalHalt as halt:
+        # The rollback also reverts any applied delegations, so their
+        # state gas commit is undone with it: roll state gas back to
+        # frame entry, refilling every state charge.
+        restore_tx_state(tx_env.state, prep_snapshot)
+        restore_state_gas_to_entry(gas_meter, tx_env.state_gas_reservoir)
+        forfeit_remaining_gas(gas_meter)
+        return TransactionOutput(
+            gas_left=gas_meter.gas_left,
+            refund_counter=U256(gas_meter.refund_counter),
+            logs=(),
+            accounts_to_delete=set(),
+            error=halt,
+            return_data=Bytes(b""),
+            state_gas_left=gas_meter.state_gas_left,
+            state_gas_used=tx_state_gas_used(
+                gas_meter, tx_env.state_gas_reservoir
+            ),
+        )
+
+    if tx_env.is_create:
+        process_create(evm)
+    else:
+        process_call(evm)
+
+    # A failed execution contributes no logs or self-destructs.
     if evm.error:
         logs: Tuple[Log, ...] = ()
-        accounts_to_delete = set()
+        accounts_to_delete: Set[Address] = set()
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
 
     tx_end = TransactionEnd(
-        int(message.gas) - int(evm.gas_meter.gas_left), evm.output, evm.error
+        int(tx_env.execution_gas_grant) - int(gas_meter.gas_left),
+        evm.output,
+        evm.error,
     )
     evm_trace(evm, tx_end)
 
-    # A failed frame settles its meter with a zero refund counter, so
-    # the refunds can be read unconditionally.
-    return MessageCallOutput(
-        gas_left=evm.gas_meter.gas_left,
-        refund_counter=U256(evm.gas_meter.refund_counter),
+    return TransactionOutput(
+        gas_left=gas_meter.gas_left,
+        refund_counter=U256(gas_meter.refund_counter),
         logs=logs,
         accounts_to_delete=accounts_to_delete,
         error=evm.error,
         return_data=evm.output,
-        state_gas_left=evm.gas_meter.state_gas_left,
+        state_gas_left=gas_meter.state_gas_left,
         state_gas_used=tx_state_gas_used(
-            evm.gas_meter, message.state_gas_reservoir
+            gas_meter, tx_env.state_gas_reservoir
         ),
     )
 
 
-def process_create_message(message: Message) -> Evm:
+def process_create(evm: Evm) -> Evm:
     """
     Executes a call to create a smart contract.
 
     Parameters
     ----------
-    message :
-        Transaction specific items.
+    evm :
+        Currently running evm.
 
     Returns
     -------
@@ -191,7 +341,7 @@ def process_create_message(message: Message) -> Evm:
         Items containing execution specific objects.
 
     """
-    tx_state = message.tx_env.state
+    tx_state = evm.tx_env.state
     # take snapshot of state before processing the message
     snapshot = copy_tx_state(tx_state)
 
@@ -202,17 +352,17 @@ def process_create_message(message: Message) -> Evm:
     #   `CREATE` or `CREATE2` call.
     # * The first `CREATE` happened before Spurious Dragon and left empty
     #   code.
-    destroy_storage(tx_state, message.current_target)
+    destroy_storage(tx_state, evm.current_target)
 
     # In the previously mentioned edge case the preexisting storage is ignored
     # for gas refund purposes. In order to do this we must track created
     # accounts. This tracking is also needed to respect the constraints
     # added to SELFDESTRUCT by EIP-6780.
-    mark_account_created(tx_state, message.current_target)
+    mark_account_created(tx_state, evm.current_target)
 
-    increment_nonce(tx_state, message.current_target)
+    increment_nonce(tx_state, evm.current_target)
 
-    evm = process_message(message)
+    evm = process_call(evm)
     if not evm.error:
         contract_code = evm.output
         try:
@@ -222,7 +372,7 @@ def process_create_message(message: Message) -> Evm:
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
             # Hash cost for computing keccak256 of deployed bytecode
-            code_hash_gas = (
+            code_hash_gas = ExecutionGas(
                 GasCosts.OPCODE_KECCAK256_PER_WORD
                 * ceil32(ulen(contract_code))
                 // Uint(32)
@@ -241,91 +391,20 @@ def process_create_message(message: Message) -> Evm:
             evm.output = b""
             evm.error = error
         else:
-            set_code(tx_state, message.current_target, contract_code)
+            set_code(tx_state, evm.current_target, contract_code)
     else:
         restore_tx_state(tx_state, snapshot)
     return evm
 
 
-def prepare_dispatch(evm: Evm) -> None:
-    """
-    Charge the state-dependent dispatch costs and resolve the code the
-    top frame will run.
-
-    Runs at the top frame (depth 0), after any EIP-7702 authorizations
-    have been applied by ``set_delegation`` and before the call is
-    dispatched:
-
-    - charges the ``NEW_ACCOUNT`` state gas for a contract creation
-      whose target leaf does not yet exist, or for a value transfer to
-      a recipient that is not yet alive; and
-    - resolves a delegation on the recipient, charging the warm or
-      cold account access and pointing the frame at the delegated
-      code.
-
-    The creation target is checked against the transaction pre-state:
-    ``process_create_message`` has already bumped the target's nonce
-    by the time this runs, so a live check would always see the
-    account. The recipient check is live, so an authority
-    materialized earlier in the transaction is not charged
-    ``NEW_ACCOUNT`` again.
-
-    This function must not mutate the transaction state. Every charge
-    here pays for state that only materializes inside the dispatched
-    frame and rolls back with it, so these charges stay refillable --
-    unlike the ``set_delegation`` charges, whose state outlives a
-    dispatch failure and whose gas the caller folds into the frame
-    baseline. The no-mutation rule is also what keeps the caller's
-    execution snapshot equal to the state at that fold.
-
-    Insufficient gas raises an ``ExceptionalHalt``; the caller rolls
-    back the whole preparation -- including the applied authorizations
-    -- and halts the frame without dispatching.
-    """
-    message = evm.message
-    tx_state = message.tx_env.state
-
-    if message.target == Bytes0(b""):
-        if (
-            get_pre_state_account(tx_state, message.current_target)
-            == EMPTY_ACCOUNT
-        ):
-            charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
-    else:
-        recipient = message.current_target
-        if message.value > U256(0) and not is_account_alive(
-            tx_state, recipient
-        ):
-            charge_state_gas(evm, StateGasCosts.NEW_ACCOUNT)
-        recipient_code = get_code(
-            tx_state, get_account(tx_state, recipient).code_hash
-        )
-        delegated_address = get_delegated_code_address(recipient_code)
-        if delegated_address is not None:
-            if delegated_address in evm.accessed_addresses:
-                charge_gas(evm, GasCosts.WARM_ACCESS)
-            else:
-                charge_gas(evm, GasCosts.COLD_ACCOUNT_ACCESS)
-                evm.accessed_addresses.add(delegated_address)
-
-            message.disable_precompiles = True
-            message.code_address = delegated_address
-            message.code = get_code(
-                tx_state,
-                get_account(tx_state, delegated_address).code_hash,
-            )
-        else:
-            message.code = recipient_code
-
-
-def process_message(message: Message) -> Evm:
+def process_call(evm: Evm) -> Evm:
     """
     Move ether and execute the relevant code.
 
     Parameters
     ----------
-    message :
-        Transaction specific items.
+    evm :
+        The EVM frame to execute.
 
     Returns
     -------
@@ -333,82 +412,32 @@ def process_message(message: Message) -> Evm:
         Items containing execution specific objects
 
     """
-    tx_state = message.tx_env.state
-    if message.depth > STACK_DEPTH_LIMIT:
+    tx_state = evm.tx_env.state
+    if evm.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
-
-    evm = Evm(
-        pc=Uint(0),
-        stack=[],
-        memory=bytearray(),
-        code=Bytes(b""),
-        gas_meter=GasMeter(
-            gas_left=message.gas,
-            state_gas_left=message.state_gas_reservoir,
-            state_gas_baseline=message.state_gas_reservoir,
-        ),
-        valid_jump_destinations=set(),
-        logs=(),
-        running=True,
-        message=message,
-        output=b"",
-        accounts_to_delete=set(),
-        return_data=b"",
-        error=None,
-        accessed_addresses=message.accessed_addresses,
-        accessed_storage_keys=message.accessed_storage_keys,
-    )
-
-    if message.depth == Uint(0):
-        prep_snapshot = copy_tx_state(tx_state)
-        try:
-            if message.tx_env.authorizations != ():
-                set_delegation(evm)
-                # The applied delegations outlive a failure of the
-                # dispatched code, so their state gas is committed as
-                # non-refillable; a later failure restores only to the
-                # post-commit baseline.
-                commit_state_gas(evm.gas_meter)
-            prepare_dispatch(evm)
-        except ExceptionalHalt as error:
-            evm_trace(evm, OpException(error))
-            restore_tx_state(tx_state, prep_snapshot)
-            # The rollback reverts any applied delegations, so the
-            # commit above is undone with it: roll state gas back to
-            # frame entry, refilling every state charge.
-            restore_state_gas_to_entry(
-                evm.gas_meter, message.state_gas_reservoir
-            )
-            forfeit_remaining_gas(evm.gas_meter)
-            evm.error = error
-            return evm
-
-    assert message.code is not None
-    evm.code = message.code
-    evm.valid_jump_destinations = get_valid_jump_destinations(message.code)
 
     snapshot = copy_tx_state(tx_state)
 
     # Execute message code and handle errors
     try:
-        if message.should_transfer_value and message.value != 0:
+        if evm.should_transfer_value and evm.value != 0:
             move_ether(
                 tx_state,
-                message.caller,
-                message.current_target,
-                message.value,
+                evm.caller,
+                evm.current_target,
+                evm.value,
             )
-            if message.caller != message.current_target:
+            if evm.caller != evm.current_target:
                 emit_transfer_log(
                     evm,
-                    message.caller,
-                    message.current_target,
-                    message.value,
+                    evm.caller,
+                    evm.current_target,
+                    evm.value,
                 )
-        if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            if not message.disable_precompiles:
-                evm_trace(evm, PrecompileStart(evm.message.code_address))
-                PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+        if evm.code_address in PRE_COMPILED_CONTRACTS:
+            if not evm.disable_precompiles:
+                evm_trace(evm, PrecompileStart(evm.code_address))
+                PRE_COMPILED_CONTRACTS[evm.code_address](evm)
                 evm_trace(evm, PrecompileEnd())
         else:
             while evm.running and evm.pc < ulen(evm.code):

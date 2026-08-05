@@ -114,18 +114,23 @@ def test_bal_sstore_and_oog(
     """
     Test BAL recording with SSTORE at various OOG boundaries and success.
 
-    The slot read is recorded in the BAL only once the cold access cost
-    is covered. Post-repricing that cost (COLD_STORAGE_ACCESS) exceeds the
-    EIP-2200 stipend, so clearing the stipend sentry alone no longer
-    records the read. The stipend + 1 case pins the old sentry boundary
-    against regressions to sentry-gated recording.
+    ``SSTORE`` clears two gates before the write cost: the EIP-2200
+    stipend sentry (``gas_left`` must exceed ``CALL_STIPEND``) and the
+    cold access charge (``COLD_STORAGE_ACCESS``). The slot read is
+    recorded in the BAL only once both are cleared, so the recording
+    gate is the higher of the two — which one dominates depends on the
+    fork's schedule, and the expectations below are derived from that
+    relation rather than assuming it.
 
-    1. OOG at the stipend, below the access cost -> no BAL changes
-    2. OOG above the stipend but below access cost (probed at
-       stipend + 1 and access cost - 1) -> no BAL changes
-    3. OOG at the access cost, write unaffordable -> storage read in BAL
-    4. OOG at exact gas minus 1 -> storage read in BAL
-    5. exact gas (success) -> storage write in BAL
+    1. OOG at the stipend -> sentry fires, no BAL changes
+    2. OOG at stipend + 1 -> sentry cleared by one; the read is
+       recorded only if this also covers the access cost
+    3. OOG at access cost - 1 -> below one of the two gates, no BAL
+       changes
+    4. OOG at the recording gate, write unaffordable -> storage read in
+       BAL
+    5. OOG at exact gas minus 1 -> storage read in BAL
+    6. exact gas (success) -> storage write in BAL
     """
     alice = pre.fund_eoa()
 
@@ -145,26 +150,29 @@ def test_bal_sstore_and_oog(
     push_code = Op.PUSH1(0x42) + Op.PUSH1(0x01)
     push_cost = push_code.gas_cost(fork)
 
-    # CALL_STIPEND is a threshold check, not a gas cost. The cold access
-    # cost gates the read into the BAL and now exceeds the stipend.
+    # CALL_STIPEND is a threshold check, not a gas cost. The read is
+    # recorded once the sentry is cleared and the access cost is
+    # affordable, so the recording gate is the higher of the two.
     stipend = fork.gas_costs().CALL_STIPEND
     cold_access = fork.gas_costs().COLD_STORAGE_ACCESS
+    read_gate = max(cold_access, stipend + 1)
 
     if out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND:
-        # gas_left == stipend: fails the check, below the access cost.
+        # gas_left == stipend: fails the sentry check outright.
         tx_gas_limit = intrinsic_gas_cost + push_cost + stipend
     elif out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND_PLUS_1:
-        # gas_left == stipend + 1: clears the stipend sentry by one but
-        # cannot afford the access, so OOG before the read.
+        # gas_left == stipend + 1: clears the stipend sentry by one;
+        # whether the access is then affordable depends on the schedule.
         tx_gas_limit = intrinsic_gas_cost + push_cost + stipend + 1
     elif out_of_gas_at == OutOfGasAt.ABOVE_STIPEND_BELOW_ACCESS:
-        # gas_left == access cost - 1: clears the stipend sentry but
-        # cannot afford the access, so OOG before the read.
+        # gas_left == access cost - 1: cannot afford the access (when
+        # the stipend dominates, the sentry fires first instead), so
+        # OOG before the read either way.
         tx_gas_limit = intrinsic_gas_cost + push_cost + cold_access - 1
     elif out_of_gas_at == OutOfGasAt.ACCESS_COVERED_OOG_ON_WRITE:
-        # gas_left == access cost: access affordable (read recorded),
-        # then OOG on the write cost.
-        tx_gas_limit = intrinsic_gas_cost + push_cost + cold_access
+        # gas_left == read gate: sentry cleared and access affordable
+        # (read recorded), then OOG on the write cost.
+        tx_gas_limit = intrinsic_gas_cost + push_cost + read_gate
     elif out_of_gas_at == OutOfGasAt.EXACT_GAS_MINUS_1:
         # fail at the final charge at exact gas - 1 (boundary condition).
         tx_gas_limit = intrinsic_gas_cost + full_cost - 1
@@ -178,11 +186,14 @@ def test_bal_sstore_and_oog(
         gas_limit=tx_gas_limit,
     )
 
-    # The read is recorded only once the access cost is covered: the
+    # The read is recorded only once the recording gate is covered: the
     # frame reaches the implicit SLOAD before any later OOG.
     expect_storage_read = out_of_gas_at in (
         OutOfGasAt.ACCESS_COVERED_OOG_ON_WRITE,
         OutOfGasAt.EXACT_GAS_MINUS_1,
+    ) or (
+        out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND_PLUS_1
+        and stipend + 1 >= cold_access
     )
     expect_storage_write = out_of_gas_at is None
 

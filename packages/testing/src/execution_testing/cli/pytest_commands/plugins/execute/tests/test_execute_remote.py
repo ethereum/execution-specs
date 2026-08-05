@@ -107,6 +107,7 @@ def _build_client_genesis(seed_keys: List[EOA]) -> dict:
     genesis_alloc = Alloc.merge(
         Alloc.model_validate(TEST_FORK.pre_allocation_blockchain()),
         Alloc(alloc_dict),
+        state_commitment=TEST_FORK.state_commitment(),
     )
     if empty_accounts := genesis_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")

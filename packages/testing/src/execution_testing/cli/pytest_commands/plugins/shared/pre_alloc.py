@@ -61,7 +61,7 @@ class Alloc(BaseAlloc):
     def __init__(
         self,
         *args: Any,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         flags: AllocFlags,
         stub_eoas: Dict[str, EOA] | None = None,
         **kwargs: Any,
@@ -70,6 +70,7 @@ class Alloc(BaseAlloc):
         super().__init__(*args, **kwargs)
         self._fork = fork
         self._flags = flags
+        self._state_commitment = fork.transitions_from().state_commitment()
         if stub_eoas is not None:
             self._stub_eoas = stub_eoas
 

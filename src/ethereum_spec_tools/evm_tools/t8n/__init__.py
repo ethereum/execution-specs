@@ -224,9 +224,7 @@ class T8N(Load):
         if isinstance(input_alloc, LazyAlloc):
             input_alloc = input_alloc.materialize()
         self.alloc = input_alloc.model_copy(deep=True)
-        # Commit state through the fork's own provider (e.g. the
-        # EIP-8297 binary tree), not the MPT default.
-        self.alloc.set_state_provider(self.fork.state_provider.__name__)
+        self.alloc.migrate_state_commitment(t8n_data.fork.state_commitment())
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
         self.ommers = list(ommers)
@@ -404,10 +402,10 @@ class T8N(Load):
             withdrawals = self.env.withdrawals or []
             fork_withdrawals = tuple(
                 self.fork.Withdrawal(
-                    Uint(int(w.index)),
-                    Uint(int(w.validator_index)),
+                    U64(int(w.index)),
+                    U64(int(w.validator_index)),
                     self.fork.hex_to_address(w.address.hex()),
-                    U256(int(w.amount)),
+                    U64(int(w.amount)),
                 )
                 for w in withdrawals
             )

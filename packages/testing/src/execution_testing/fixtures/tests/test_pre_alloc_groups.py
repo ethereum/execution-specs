@@ -6,10 +6,7 @@ from typing import Dict
 
 import pytest
 
-from execution_testing.base_types import Account, Address
-from execution_testing.client_clis.transition_tool import (
-    spec_calc_state_root,
-)
+from execution_testing.base_types import Account, Address, StateCommitment
 from execution_testing.fixtures.pre_alloc_groups import (
     TEST_GROUP_INDEX_FILE,
     GroupIndexEntry,
@@ -532,21 +529,27 @@ def test_pack_isolates_disagreeing_shared_address(tmp_path: Path) -> None:
     ]
 
 
-def _binary_tree_pre() -> Alloc:
+def _binary_tree_pre(
+    commitment: StateCommitment | None = None,
+) -> Alloc:
     """
     Build a small, deterministic pre-allocation for genesis tests.
 
-    A fresh `Alloc` is returned on every call because `calculate_genesis`
-    and `spec_calc_state_root` install a state provider on the instance
-    they are given (a side effect), so the same instance cannot be reused
-    across assertions that expect different providers.
+    A fresh `Alloc` is returned on every call because a state
+    commitment, once migrated onto an instance (whether explicitly via
+    `commitment` or by a builder seeding it from its fork), sticks to
+    it -- so the same instance cannot be reused across assertions that
+    expect different commitment schemes.
     """
-    return Alloc(
+    alloc = Alloc(
         {
             Address(0x1000): Account(balance=1000, nonce=1),
             Address(0x2000): Account(balance=2, code=b"\x00"),
         }
     )
+    if commitment is not None:
+        alloc.migrate_state_commitment(commitment)
+    return alloc
 
 
 def _binary_tree_genesis_environment() -> Environment:
@@ -559,9 +562,9 @@ def test_calculate_genesis_binary_tree_fork_uses_binary_tree_root() -> None:
     A `BinaryTree`-fork builder's genesis `state_root` is the fork's
     binary-tree root, not the plain MPT root of the same allocation.
 
-    Regression test: `calculate_genesis` used to call `state_root()`
-    directly on the plain `Alloc`, always computing the MPT root
-    regardless of `self.fork`.
+    Regression test: `calculate_genesis` used to always compute the
+    MPT root regardless of `self.fork`; the builder now seeds the
+    pre-alloc's commitment scheme from the fork on construction.
     """
     builder = PreAllocGroupBuilder(
         environment=_binary_tree_genesis_environment(),
@@ -571,9 +574,13 @@ def test_calculate_genesis_binary_tree_fork_uses_binary_tree_root() -> None:
 
     genesis = builder.calculate_genesis()
 
-    assert genesis.state_root != _binary_tree_pre().state_root()
-    assert genesis.state_root == spec_calc_state_root(
-        alloc=_binary_tree_pre(), fork=BinaryTree
+    assert (
+        genesis.state_root
+        != _binary_tree_pre(StateCommitment.MPT).state_root()
+    )
+    assert (
+        genesis.state_root
+        == _binary_tree_pre(StateCommitment.BINARY_TREE).state_root()
     )
 
 
@@ -582,15 +589,14 @@ def test_group_pre_alloc_state_root_is_fork_correct_after_reload(
 ) -> None:
     """
     `GroupPreAlloc.state_root()` returns the fork-correct root even after
-    a disk round trip, where private attrs -- including any state
-    provider `spec_calc_state_root` would install -- do not survive
-    `model_dump`/`model_validate`.
+    a disk round trip, where private attrs -- including the migrated
+    state commitment -- do not survive `model_dump`/`model_validate`.
 
-    `PreAllocGroup.model_post_init` seeds `_cached_state_root` from
+    `PreAllocGroup.model_post_init` re-seeds the commitment from the
+    group's fork and caches `_cached_state_root` from
     `genesis.state_root` on every construction (including the one
     `from_file` performs after its dump/validate round trip), so this
-    pins that the cache -- not a reinstalled provider -- is what keeps
-    a reloaded group's pre-allocation fork-correct.
+    pins that a reloaded group's pre-allocation stays fork-correct.
     """
     builder = PreAllocGroupBuilder(
         test_ids=["tests/a.py::test_a"],
@@ -605,6 +611,9 @@ def test_group_pre_alloc_state_root_is_fork_correct_after_reload(
 
     group = PreAllocGroup.from_file(group_file)
 
-    expected = spec_calc_state_root(alloc=_binary_tree_pre(), fork=BinaryTree)
+    expected = _binary_tree_pre(StateCommitment.BINARY_TREE).state_root()
     assert group.pre.state_root() == expected
-    assert group.pre.state_root() != _binary_tree_pre().state_root()
+    assert (
+        group.pre.state_root()
+        != _binary_tree_pre(StateCommitment.MPT).state_root()
+    )

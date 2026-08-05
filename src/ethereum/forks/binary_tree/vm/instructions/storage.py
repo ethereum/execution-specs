@@ -13,7 +13,7 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
-from ...fork_types import StateGas
+from ...fork_types import ExecutionGas, StateGas
 from ...state_tracker import (
     get_storage,
     get_storage_original,
@@ -49,15 +49,15 @@ def sload(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    if (evm.message.current_target, key) in evm.accessed_storage_keys:
+    if (evm.current_target, key) in evm.accessed_storage_keys:
         charge_gas(evm, GasCosts.WARM_ACCESS)
     else:
-        evm.accessed_storage_keys.add((evm.message.current_target, key))
+        evm.accessed_storage_keys.add((evm.current_target, key))
         charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
 
     # OPERATION
-    tx_state = evm.message.tx_env.state
-    value = get_storage(tx_state, evm.message.current_target, key)
+    tx_state = evm.tx_env.state
+    value = get_storage(tx_state, evm.current_target, key)
 
     push(evm.stack, value)
 
@@ -75,7 +75,7 @@ def sstore(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    if evm.message.is_static:
+    if evm.is_static:
         raise WriteInStaticContext
 
     # STACK
@@ -85,11 +85,11 @@ def sstore(evm: Evm) -> None:
     # GAS (STATE-INDEPENDENT)
     # Price what is computable without touching state, and check it is
     # affordable before any state access is performed.
-    gas_cost = Uint(0)
+    gas_cost = GasCosts.ZERO
 
     # Access cost: cold or warm, always charged.
     is_cold_access = (
-        evm.message.current_target,
+        evm.current_target,
         key,
     ) not in evm.accessed_storage_keys
     if is_cold_access:
@@ -101,20 +101,20 @@ def sstore(evm: Evm) -> None:
     # records the slot read in the Block Access List. Post-repricing the
     # access cost can exceed the stipend, so the EIP-2200 stipend sentry
     # (`gas_left > CALL_STIPEND`) is no longer sufficient on its own.
-    check_gas(evm, max(gas_cost, GasCosts.CALL_STIPEND + Uint(1)))
+    check_gas(
+        evm, max(gas_cost, ExecutionGas(GasCosts.CALL_STIPEND + Uint(1)))
+    )
 
     # STATE ACCESS (STATE-DEPENDENT GAS)
     # Perform the access and complete the state-dependent pricing from
     # the slot's original and current values, adjusting the
     # transaction's refunds.
     if is_cold_access:
-        evm.accessed_storage_keys.add((evm.message.current_target, key))
+        evm.accessed_storage_keys.add((evm.current_target, key))
 
-    tx_state = evm.message.tx_env.state
-    original_value = get_storage_original(
-        tx_state, evm.message.current_target, key
-    )
-    current_value = get_storage(tx_state, evm.message.current_target, key)
+    tx_state = evm.tx_env.state
+    original_value = get_storage_original(tx_state, evm.current_target, key)
+    current_value = get_storage(tx_state, evm.current_target, key)
 
     state_gas = StateGas(Uint(0))
 
@@ -154,7 +154,7 @@ def sstore(evm: Evm) -> None:
     # reservoir on frame failure.
     charge_gas(evm, gas_cost)
     charge_state_gas(evm, state_gas)
-    set_storage(tx_state, evm.message.current_target, key, new_value)
+    set_storage(tx_state, evm.current_target, key, new_value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -178,9 +178,7 @@ def tload(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_TLOAD)
 
     # OPERATION
-    value = get_transient_storage(
-        evm.message.tx_env.state, evm.message.current_target, key
-    )
+    value = get_transient_storage(evm.tx_env.state, evm.current_target, key)
     push(evm.stack, value)
 
     # PROGRAM COUNTER
@@ -197,7 +195,7 @@ def tstore(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    if evm.message.is_static:
+    if evm.is_static:
         raise WriteInStaticContext
 
     # STACK
@@ -207,8 +205,8 @@ def tstore(evm: Evm) -> None:
     # GAS
     charge_gas(evm, GasCosts.OPCODE_TSTORE)
     set_transient_storage(
-        evm.message.tx_env.state,
-        evm.message.current_target,
+        evm.tx_env.state,
+        evm.current_target,
         key,
         new_value,
     )

@@ -17,6 +17,7 @@ from typing import Callable
 from ethereum_types.numeric import Uint
 
 from ...blocks import Log
+from ...fork_types import ExecutionGas
 from .. import Evm
 from ..exceptions import WriteInStaticContext
 from ..gas import (
@@ -58,18 +59,20 @@ def log_n(evm: Evm, num_topics: int) -> None:
     )
     charge_gas(
         evm,
-        GasCosts.OPCODE_LOG_BASE
-        + GasCosts.OPCODE_LOG_DATA_PER_BYTE * Uint(size)
-        + GasCosts.OPCODE_LOG_TOPIC * Uint(num_topics)
-        + extend_memory.cost,
+        ExecutionGas(
+            GasCosts.OPCODE_LOG_BASE
+            + GasCosts.OPCODE_LOG_DATA_PER_BYTE * Uint(size)
+            + GasCosts.OPCODE_LOG_TOPIC * Uint(num_topics)
+            + extend_memory.cost
+        ),
     )
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    if evm.message.is_static:
+    if evm.is_static:
         raise WriteInStaticContext
     log_entry = Log(
-        address=evm.message.current_target,
+        address=evm.current_target,
         topics=tuple(topics),
         data=memory_read_bytes(evm.memory, memory_start_index, size),
     )

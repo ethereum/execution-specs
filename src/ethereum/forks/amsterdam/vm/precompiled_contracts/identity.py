@@ -15,6 +15,7 @@ from ethereum_types.numeric import Uint, ulen
 
 from ethereum.utils.numeric import ceil32
 
+from ...fork_types import ExecutionGas
 from ...vm import Evm
 from ...vm.gas import (
     GasCosts,
@@ -32,14 +33,16 @@ def identity(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    data = evm.message.data
+    data = evm.call_data
 
     # GAS
     word_count = ceil32(ulen(data)) // Uint(32)
     charge_gas(
         evm,
-        GasCosts.PRECOMPILE_IDENTITY_BASE
-        + GasCosts.PRECOMPILE_IDENTITY_PER_WORD * word_count,
+        ExecutionGas(
+            GasCosts.PRECOMPILE_IDENTITY_BASE
+            + GasCosts.PRECOMPILE_IDENTITY_PER_WORD * word_count
+        ),
     )
 
     # OPERATION

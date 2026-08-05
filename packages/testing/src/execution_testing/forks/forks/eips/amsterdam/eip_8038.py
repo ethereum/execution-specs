@@ -42,7 +42,7 @@ class EIP8038(BaseFork):
 
         warm_access = 100
         cold_account_access = 3_000
-        cold_storage_access = 3_000
+        cold_storage_access = 2_100
         storage_write = 10_000
         # The framework models the SSTORE write via the compound
         # COLD_STORAGE_WRITE (access + write), so preserve the invariant
@@ -50,8 +50,8 @@ class EIP8038(BaseFork):
         cold_storage_write = cold_storage_access + storage_write
         # Surcharge for the first write to an account leaf, introduced as a
         # standalone parameter by this repricing.
-        account_write = 8_000
-        create_access = 11_000
+        account_write = 9_000
+        create_access = account_write + cold_account_access
         # ecRecover stays PRECOMPILE_ECRECOVER (3000) until EIP-7904 lands.
         execution_per_auth_base_cost = (
             1_616 + 3_000 + cold_account_access + 2 * warm_access
@@ -66,7 +66,7 @@ class EIP8038(BaseFork):
             COLD_STORAGE_WRITE=cold_storage_write,
             ACCOUNT_WRITE=account_write,
             CALL_VALUE=account_write + 2_300,  # ACCOUNT_WRITE + CALL_STIPEND
-            REFUND_STORAGE_CLEAR=12_480,
+            REFUND_STORAGE_CLEAR=11_616,
             TX_ACCESS_LIST_ADDRESS=cold_account_access - warm_access,
             TX_ACCESS_LIST_STORAGE_KEY=cold_storage_access - warm_access,
             BLOCK_ACCESS_LIST_ITEM=2000,

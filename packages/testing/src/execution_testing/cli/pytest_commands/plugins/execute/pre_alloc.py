@@ -1299,19 +1299,13 @@ def pre(
     request: pytest.FixtureRequest,
 ) -> Generator[Alloc, None, None]:
     """Return default pre allocation for all tests (Empty alloc)."""
-    # FIXME: Static tests don't have a fork so we need to get it from the node.
-    actual_fork = fork
-    if actual_fork is None:
-        assert hasattr(request.node, "fork")
-        actual_fork = request.node.fork
-
     # Prepare the pre-alloc
     logger.debug(
         f"Initializing pre-alloc for test {request.node.nodeid} "
-        f"(fork={actual_fork}, chain_id={chain_config.chain_id})"
+        f"(fork={fork}, chain_id={chain_config.chain_id})"
     )
     pre = Alloc(
-        fork=actual_fork,
+        fork=fork,
         flags=alloc_flags,
         stub_eoas=stub_eoas,
         sender=worker_key,

@@ -15,7 +15,7 @@ from ethereum.state_pbt import state_root as pbt_state_root
 from ethereum_types.bytes import Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
-from execution_testing.base_types import Hash
+from execution_testing.base_types import Hash, StateCommitment
 from execution_testing.client_clis import (
     CLINotFoundInPathError,
     EvmOneTransitionTool,
@@ -33,9 +33,6 @@ from execution_testing.client_clis.cli_types import (
     Result,
     TransitionToolInput,
     TransitionToolOutput,
-)
-from execution_testing.client_clis.transition_tool import (
-    spec_calc_state_root,
 )
 from execution_testing.forks import Amsterdam, BinaryTree
 from execution_testing.test_types import Alloc, Environment
@@ -127,6 +124,7 @@ def test_unknown_binary_path() -> None:
 TEST_ALLOC = Alloc.model_validate(
     {0xA: {"balance": 1, "nonce": 2, "code": "0x00"}}
 )
+TEST_ALLOC.migrate_state_commitment(StateCommitment.MPT)
 TEST_ALLOC_STATE_ROOT = TEST_ALLOC.state_root()
 
 
@@ -176,6 +174,7 @@ def test_lazy_alloc_file_handles_mixed_entries(tmp_path: Path) -> None:
             0xC: {"balance": "0xff", "nonce": 0, "code": "0x"},
         }
     )
+    alloc.migrate_state_commitment(StateCommitment.MPT)
     state_root = alloc.state_root()
     alloc_path = tmp_path / "alloc.json"
     alloc_path.write_text(alloc.model_dump_json())
@@ -496,16 +495,17 @@ def test_opcode_count_accumulation() -> None:
     assert tool.opcode_count_per_block == []
 
 
-def _state_root_test_alloc() -> Alloc:
+def _state_root_test_alloc(commitment: StateCommitment) -> Alloc:
     """
-    Build a small, deterministic two-account allocation.
+    Build a small, deterministic two-account allocation committed
+    through `commitment`.
 
-    A fresh `Alloc` is returned on every call because `spec_calc_state_root`
-    installs a state provider on the instance it is given (a side effect),
-    so a shared module-level allocation cannot be reused across assertions
-    that expect different providers.
+    A fresh `Alloc` is returned on every call because a state
+    commitment, once migrated onto an instance, sticks to it -- a
+    shared module-level allocation could not be reused across
+    assertions that expect different commitment schemes.
     """
-    return Alloc.model_validate(
+    alloc = Alloc.model_validate(
         {
             0xA: {
                 "balance": 1000,
@@ -516,25 +516,29 @@ def _state_root_test_alloc() -> Alloc:
             0xB: {"balance": 5, "nonce": 0, "code": "0x"},
         }
     )
+    alloc.migrate_state_commitment(commitment)
+    return alloc
 
 
-def test_spec_calc_state_root_binary_tree_matches_state_pbt() -> None:
+def test_binary_tree_state_root_matches_state_pbt() -> None:
     """
-    `spec_calc_state_root` under the `BinaryTree` fork returns a root
-    that differs from the plain MPT `state_root()` and matches the root
-    computed directly through `ethereum.state_pbt` for the same accounts.
+    An alloc committed through `StateCommitment.BINARY_TREE` returns a
+    root that differs from the plain MPT `state_root()` and matches the
+    root computed directly through `ethereum.state_pbt` for the same
+    accounts.
     """
-    mpt_root = _state_root_test_alloc().state_root()
+    mpt_root = _state_root_test_alloc(StateCommitment.MPT).state_root()
 
-    binary_tree_root = spec_calc_state_root(
-        alloc=_state_root_test_alloc(), fork=BinaryTree
-    )
+    binary_tree_root = _state_root_test_alloc(
+        StateCommitment.BINARY_TREE
+    ).state_root()
     assert binary_tree_root != mpt_root
 
     # Build the same accounts directly through `ethereum.state_pbt`,
     # mirroring `Alloc._materialize_state`.
     state = PBTState()
-    for address, account in _state_root_test_alloc().root.items():
+    alloc = _state_root_test_alloc(StateCommitment.BINARY_TREE)
+    for address, account in alloc.root.items():
         assert account is not None
         addr = Bytes20(address)
         code = bytes(account.code) if account.code else b""
@@ -561,15 +565,11 @@ def test_spec_calc_state_root_binary_tree_matches_state_pbt() -> None:
     assert Hash(pbt_state_root(state)) == binary_tree_root
 
 
-def test_spec_calc_state_root_mpt_fork_matches_plain_state_root() -> None:
+def test_fork_state_commitment_wiring() -> None:
     """
-    `spec_calc_state_root` on a fork the spec commits via the plain MPT
-    (e.g. `Amsterdam`) equals `Alloc.state_root()` directly -- the
-    fallback path is unchanged.
+    `BinaryTree` selects the EIP-8297 binary-tree commitment while its
+    parent `Amsterdam` stays on the MPT -- the property every alloc
+    seeding site relies on to pick the right state module.
     """
-    plain_root = _state_root_test_alloc().state_root()
-
-    assert (
-        spec_calc_state_root(alloc=_state_root_test_alloc(), fork=Amsterdam)
-        == plain_root
-    )
+    assert Amsterdam.state_commitment() is StateCommitment.MPT
+    assert BinaryTree.state_commitment() is StateCommitment.BINARY_TREE

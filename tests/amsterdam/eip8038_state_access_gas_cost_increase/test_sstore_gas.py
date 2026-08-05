@@ -151,13 +151,13 @@ def test_sstore_cold_then_warm_same_slot(
 ) -> None:
     """
     A first ``SSTORE`` on a cold slot warms it; the second in-frame
-    ``SSTORE`` of the same slot is charged only ``WARM_SLOAD`` (100).
+    ``SSTORE`` of the same slot is charged only ``WARM_SLOAD``.
 
     The slot starts non-zero (original 1) and is left unlisted, so the
     first write is cold and is its first change (original == current !=
-    new), costing ``COLD_STORAGE_ACCESS + STORAGE_WRITE`` (3000 + 10000).
+    new), costing ``COLD_STORAGE_ACCESS + STORAGE_WRITE``.
     That write warms the slot, so the second write -- which moves the slot
-    again without being a first change -- costs only ``WARM_SLOAD`` (100),
+    again without being a first change -- costs only ``WARM_SLOAD``,
     with no further ``STORAGE_WRITE``. Slot 0 records the cold first write
     and slot 1 the warm second write; the data slot keeps its final value.
     """
