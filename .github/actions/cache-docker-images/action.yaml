@@ -28,9 +28,11 @@ runs:
 
     - name: Pull and save Docker images
       shell: bash
+      env:
+        IMAGES: ${{ inputs.images }}
       run: |
         mkdir -p /tmp/docker-images
-        for image in ${{ inputs.images }}; do
+        for image in ${IMAGES}; do
           # Create a safe filename from image name
           filename=$(echo "$image" | sed 's/[\/:]/-/g').tar.gz
           if [ ! -f "/tmp/docker-images/$filename" ]; then

@@ -24,8 +24,15 @@ runs:
   steps:
     - name: Download binary
       shell: bash
+      env:
+        REPO_OWNER: ${{ inputs.repo_owner }}
+        REPO_NAME: ${{ inputs.repo_name }}
+        VERSION: ${{ inputs.version }}
+        REMOTE_NAME: ${{ inputs.remote_name }}
+        BINARY_NAME: ${{ inputs.binary_name }}
+        EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
       run: |
-        curl -sSL "https://github.com/${{ inputs.repo_owner }}/${{ inputs.repo_name }}/releases/download/${{ inputs.version }}/${{ inputs.remote_name }}" -o ./${{ inputs.binary_name }}
-        echo "${{ inputs.expected_sha256 }}  ${{ inputs.binary_name }}" | sha256sum -c -
-        sudo mv ./${{ inputs.binary_name }} /usr/local/bin/${{ inputs.binary_name }}
-        sudo chmod +x /usr/local/bin/${{ inputs.binary_name }}
+        curl -sSL "https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${VERSION}/${REMOTE_NAME}" -o "./${BINARY_NAME}"
+        echo "${EXPECTED_SHA256}  ${BINARY_NAME}" | sha256sum -c -
+        sudo mv "./${BINARY_NAME}" "/usr/local/bin/${BINARY_NAME}"
+        sudo chmod +x "/usr/local/bin/${BINARY_NAME}"
