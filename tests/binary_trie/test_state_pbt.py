@@ -56,6 +56,8 @@ from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U32, U64, U256, Uint
 
 from ethereum.binary_trie.embedding import (
+    HEADER_STORAGE_OFFSET,
+    HEADER_STORAGE_SLOTS,
     address20_to_address32,
     chunkify_code,
     encode_basic_data,
@@ -1464,6 +1466,116 @@ def test_two_holders_deleted_in_one_block_drop_the_code_once() -> None:
     diff = BlockDiff(account_changes={ADDRESS_A: None, ADDRESS_B: None})
 
     assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
+
+
+def test_push_data_continuation_chunk_of_zero_bytes_is_present() -> None:
+    """
+    A chunk whose 31 code bytes are all zero is absent only when its
+    leading byte is zero too. The EIP, "Code": "Zero bytes that
+    continue PUSHDATA from an earlier chunk do not qualify, since
+    byte 0 then records the continuation."
+
+    Here `PUSH32` ends chunk 0 and its data fills chunk 1 with 31
+    zero bytes, so chunk 1 encodes to `0x1f` followed by zeros -- not
+    the zero value -- and its leaf must be in the tree. An
+    implementation keying absence off the 31-byte code slice alone
+    would drop it and corrupt the committed code. Deleting the last
+    holder must still take it away with the rest.
+    """
+    # PUSH32 at position 30: data occupies positions 31..62, so chunk
+    # 1's code bytes are 31 zero bytes of push data.
+    code = Bytes(b"\x01" * 30 + b"\x7f" + b"\x00" * 31)
+    assert len(code) == 62  # two chunks
+
+    pre = State()
+    code_hash = store_code(pre, code)
+    set_account(
+        pre,
+        ADDRESS_A,
+        Account(nonce=Uint(1), balance=U256(1), code_hash=code_hash),
+    )
+
+    trie = embed_flat_state(pre._accounts, pre._storage, pre.get_code)
+    stem = _code_zone_stem(code_hash, 0)
+    continuation_key = stem + bytes([1])
+    assert continuation_key in trie._data
+    assert trie._data[continuation_key] == Bytes32(
+        bytes([31]) + b"\x00" * 31
+    )
+
+    diff = BlockDiff(account_changes={ADDRESS_A: None})
+
+    assert pre.compute_state_root(diff) == EMPTY_TRIE_ROOT
+
+
+def test_account_has_storage_matches_the_embedded_leaf_set() -> None:
+    """
+    EIP-8297 defines non-empty storage by leaf existence: a leaf at
+    one of the header's storage sub-indices or anywhere in the
+    address's storage bucket. The provider answers from its flat
+    map, which stays equivalent only through upkeep on every
+    mutation path; this pins the equivalence itself, over states
+    reached through `set_*` calls and through applied diffs.
+
+    The one deliberate exception is storage orphaned by
+    `set_account(..., None)`, whose flat/leaf divergence
+    `test_set_account_none_leaves_storage_while_the_diff_path_clears_it`
+    pins separately.
+    """
+
+    def storage_leaf_exists(state: State, address: Bytes20) -> bool:
+        trie = embed_flat_state(
+            state._accounts, state._storage, state.get_code
+        )
+        address32 = b"\x00" * 12 + bytes(address)
+        header_stem = _account_header_stem(address32)
+        bucket_prefix = bytes([0xFF]) + blake3(address32).digest()
+        first = int(HEADER_STORAGE_OFFSET)
+        last = int(HEADER_STORAGE_OFFSET + HEADER_STORAGE_SLOTS) - 1
+        return any(
+            (key.startswith(header_stem) and first <= key[-1] <= last)
+            or key.startswith(bucket_prefix)
+            for key in trie._data
+        )
+
+    key_header = Bytes32(U256(3).to_be_bytes32())
+    key_bucket = Bytes32(U256(1000).to_be_bytes32())
+    account = Account(
+        nonce=Uint(1), balance=U256(1), code_hash=EMPTY_CODE_HASH
+    )
+
+    def fresh(*slots: Bytes32) -> State:
+        state = State()
+        set_account(state, ADDRESS_A, account)
+        for slot in slots:
+            set_storage(state, ADDRESS_A, slot, U256(7))
+        return state
+
+    no_storage = fresh()
+    header_only = fresh(key_header)
+    bucket_only = fresh(key_bucket)
+    zeroed = fresh(key_header)
+    apply_changes_to_state(
+        zeroed, BlockDiff(storage_changes={ADDRESS_A: {key_header: U256(0)}})
+    )
+    deleted = fresh(key_header, key_bucket)
+    apply_changes_to_state(
+        deleted, BlockDiff(account_changes={ADDRESS_A: None})
+    )
+    cleared = fresh(key_header, key_bucket)
+    apply_changes_to_state(cleared, BlockDiff(storage_clears={ADDRESS_A}))
+
+    expectations = [
+        (no_storage, False),
+        (header_only, True),
+        (bucket_only, True),
+        (zeroed, False),
+        (deleted, False),
+        (cleared, False),
+    ]
+    for state, expected in expectations:
+        assert state.account_has_storage(ADDRESS_A) is expected
+        assert storage_leaf_exists(state, ADDRESS_A) is expected
 
 
 def test_deleting_an_unknown_address_is_a_no_op() -> None:
