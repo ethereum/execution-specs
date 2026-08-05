@@ -204,6 +204,12 @@ jobs:
         run: just binary-trie-unit-test
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        with:
+          files: .just/binary-trie-unit-test/coverage.xml
+          flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   binary-trie-fork:
     runs-on: [self-hosted-ghr, size-xl-x64]
