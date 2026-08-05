@@ -550,9 +550,10 @@ def test_delegated_eoa_executes_chunked_delegate(
     storage.
 
     Storage landing on the authority is already pinned generally in
-    `test_storage_ops.py`; the point here is narrower -- that a
-    23-byte delegation designator plus a multi-group delegate both
-    work together.
+    `test_storage_ops.py`; the point here is narrower -- that an
+    authority's 23-byte designator, which is a header leaf and never
+    chunked, works together with a delegate whose own code spans two
+    code groups.
     """
     slot, value = 5, 0xC0FFEE
     size = GROUP_CODE_BYTES + 1
