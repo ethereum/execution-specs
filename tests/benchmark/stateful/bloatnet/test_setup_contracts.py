@@ -12,7 +12,7 @@ from execution_testing import (
     Fork,
     Hash,
     Op,
-    Transaction,
+    TransactionWithCost,
     compute_create2_address,
 )
 
@@ -24,7 +24,7 @@ from tests.benchmark.helper.account_sender_receiver import (
     DELEGATE_BASE_KEY,
 )
 from tests.benchmark.helper.transactions import (
-    pack_transactions_into_blocks,
+    pack_transactions_with_cost_into_blocks,
 )
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
@@ -47,13 +47,17 @@ CONTRACT_MODES = [
 EXECUTION_GAS_BUFFER = 50_000
 
 
-def deployment_gas_limit(
+def deployment_gas(
     fork: Fork, initcode: bytes, runtime_size: int
-) -> int:
+) -> tuple[int, int]:
     """
-    Return the gas limit for one CREATE2 deployment, derived from the
-    intrinsic, CREATE2, and code-deposit costs with a margin for the
-    factory and initcode execution.
+    Return the (regular, state) gas for one CREATE2 deployment, derived
+    from the intrinsic, CREATE2, and code-deposit costs with a margin
+    for the factory and initcode execution.
+
+    The opcode costs are two-dimensional totals, so the state gas the
+    account creation and the code deposit charge is split back out; the
+    margin lands on the regular side, which is what it pays for.
     """
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=b"\xff" * 32 + initcode
@@ -71,7 +75,9 @@ def deployment_gas_limit(
         code_deposit_size=runtime_size,
     ).gas_cost(fork)
     base = intrinsic + create_cost + deposit_cost
-    return base + base // 16 + EXECUTION_GAS_BUFFER
+    state = fork.create_state_gas(code_size=runtime_size)
+    regular = base - state + base // 16 + EXECUTION_GAS_BUFFER
+    return regular, state
 
 
 def test_deploy_existing_contracts(
@@ -92,15 +98,19 @@ def test_deploy_existing_contracts(
     for account_mode in CONTRACT_MODES:
         creator = AccountCreator(account_mode)
         initcode = creator.initcode
-        gas_limit = deployment_gas_limit(fork, initcode, creator.runtime_size)
+        regular_gas, state_gas = deployment_gas(
+            fork, initcode, creator.runtime_size
+        )
         sender = pre.fund_eoa()
         for salt in range(RECEIVER_CONTRACT_COUNT):
             txs.append(
-                Transaction(
+                TransactionWithCost(
                     to=DETERMINISTIC_FACTORY_ADDRESS,
                     data=Hash(salt) + initcode,
-                    gas_limit=gas_limit,
+                    gas_limit=regular_gas + state_gas,
                     sender=sender,
+                    regular_cost=regular_gas,
+                    state_cost=state_gas,
                 )
             )
         # Nonce 1 at the CREATE2-derived address proves deployment.
@@ -115,51 +125,77 @@ def test_deploy_existing_contracts(
     # Delegate authority i to the i-th DIFF receiver (EIP-7702).
     delegation_sender = pre.fund_eoa()
     intrinsic = fork.transaction_intrinsic_cost_calculator()
+    top_frame = fork.transaction_top_frame_gas_calculator()
     # DIFF receivers share one initcode; build it once for CREATE2 derivation.
     diff_initcode = AccountCreator(
         AccountMode.EXISTING_CONTRACT_DIFF_MAX
     ).initcode
 
-    base_gas = intrinsic(authorization_list_or_count=0)
-    per_auth_gas = intrinsic(authorization_list_or_count=1) - base_gas
+    authorizations = []
+    for i in range(RECEIVER_CONTRACT_COUNT):
+        authority = EOA(key=DELEGATE_BASE_KEY + i)
+        target = compute_create2_address(
+            address=DETERMINISTIC_FACTORY_ADDRESS,
+            salt=i,
+            initcode=diff_initcode,
+        )
+        authorizations.append(
+            AuthorizationTuple(
+                address=target,
+                nonce=0,
+                signer=authority,
+                # The authorities are deterministic and never funded, so
+                # applying the delegation is what brings them into being.
+                creates_account=True,
+            )
+        )
+        if i == 0 or i == RECEIVER_CONTRACT_COUNT - 1:
+            post[authority] = Account(
+                nonce=1,
+                code=Spec7702.delegation_designation(target),
+            )
+
+    def authorization_gas(
+        authorization_list: list[AuthorizationTuple],
+    ) -> tuple[int, int]:
+        """Return the (regular, state) gas an authorization list costs."""
+        regular = intrinsic(
+            authorization_list_or_count=len(authorization_list)
+        ) + top_frame(authorizations=authorization_list)
+        state = fork.transaction_top_frame_state_gas(
+            authorizations=authorization_list
+        )
+        return regular, state
+
     gas_buffer = 100_000
+    base_regular, base_state = authorization_gas([])
+    one_regular, one_state = authorization_gas(authorizations[:1])
+    per_auth_gas = (one_regular + one_state) - (base_regular + base_state)
     auths_per_tx = max(
-        1, (tx_gas_limit - gas_buffer - base_gas) // per_auth_gas
+        1,
+        (tx_gas_limit - gas_buffer - base_regular - base_state)
+        // per_auth_gas,
     )
 
     for start in range(0, RECEIVER_CONTRACT_COUNT, auths_per_tx):
-        count = min(auths_per_tx, RECEIVER_CONTRACT_COUNT - start)
-        authorization_list = []
-        for i in range(start, start + count):
-            authority = EOA(key=DELEGATE_BASE_KEY + i)
-            target = compute_create2_address(
-                address=DETERMINISTIC_FACTORY_ADDRESS,
-                salt=i,
-                initcode=diff_initcode,
-            )
-            authorization_list.append(
-                AuthorizationTuple(address=target, nonce=0, signer=authority)
-            )
-            if i == 0 or i == RECEIVER_CONTRACT_COUNT - 1:
-                post[authority] = Account(
-                    nonce=1,
-                    code=Spec7702.delegation_designation(target),
-                )
-
+        authorization_list = authorizations[start : start + auths_per_tx]
+        regular_gas, state_gas = authorization_gas(authorization_list)
         txs.append(
-            Transaction(
+            TransactionWithCost(
                 to=delegation_sender,
-                gas_limit=(
-                    intrinsic(authorization_list_or_count=count) + gas_buffer
-                ),
+                gas_limit=regular_gas + state_gas + gas_buffer,
                 sender=delegation_sender,
                 authorization_list=authorization_list,
+                regular_cost=regular_gas + gas_buffer,
+                state_cost=state_gas,
             )
         )
 
     benchmark_test(
         post=post,
-        blocks=pack_transactions_into_blocks(txs, gas_benchmark_value),
+        blocks=pack_transactions_with_cost_into_blocks(
+            txs, gas_benchmark_value
+        ),
         skip_gas_used_validation=True,
         expected_receipt_status=1,
     )
