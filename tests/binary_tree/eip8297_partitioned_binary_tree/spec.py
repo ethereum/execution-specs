@@ -11,9 +11,12 @@ class ReferenceSpec:
     version: str
 
 
+# Pinned to the head of ethereum/EIPs#12114, which moves delegation
+# indicators into the account header and is not yet merged. Bump to
+# the master commit once it lands.
 ref_spec_8297 = ReferenceSpec(
     git_path="EIPS/eip-8297.md",
-    version="6c054508d3cee38911bcc265e5f1c5416077d99a",
+    version="af6b5eda6d1d9f3a20c3688464b630252b019d80",
 )
 
 
@@ -27,16 +30,19 @@ class Spec:
     instead of checking the implementation against itself.
     """
 
-    # Header leaf sub-indices: which of the two fixed leaves in an
-    # account's header stem a header value lives at (see "Header
-    # values").
+    # Header leaf sub-indices: which fixed leaf of an account's
+    # header stem a header value lives at (see "Header values").
+    # Being delegated and holding contract code are exclusive, so
+    # every account that exists holds exactly one of the code hash
+    # and delegation leaves (see "Delegation").
     BASIC_DATA_LEAF_KEY = 0
     CODE_HASH_LEAF_KEY = 1
+    DELEGATION_LEAF_KEY = 2
 
     # Header stem layout: HEADER_STORAGE_OFFSET is itself a sub-index
     # marking where the storage sub-range starts within the header
     # stem's 256-wide space, and HEADER_STORAGE_SLOTS counts the
-    # co-located slots. The sub-indices in use are the two fixed
+    # co-located slots. The sub-indices in use are the three fixed
     # leaves and that storage range; no key defined by the EIP
     # resolves to any other sub-index (see "Tree embedding").
     HEADER_STORAGE_OFFSET = 64
