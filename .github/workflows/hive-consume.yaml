@@ -69,7 +69,14 @@ env:
 jobs:
   cache-docker-images:
     name: Cache Docker Images
-    runs-on: [self-hosted-ghr, size-l-x64]
+    # On PRs this job is normally a pure cache restore (~12s), so run it on a
+    # GitHub-hosted runner instead of paying the ~2.5 min self-hosted
+    # provisioning wait, which would gate every test-hive job. Push and
+    # dispatch runs stay on self-hosted so the weekly cache is populated from
+    # GHR egress IPs, avoiding Docker Hub's per-IP rate limits on the shared
+    # GitHub-hosted IPs. A PR that lands right after the weekly cache-key
+    # rollover pulls the 3 images unauthenticated; that rare miss is accepted.
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["self-hosted-ghr", "size-l-x64"]') }}
     steps:
       - name: Checkout execution-specs
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
