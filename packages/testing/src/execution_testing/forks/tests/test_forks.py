@@ -1,6 +1,7 @@
 """Test fork utilities."""
 
-from typing import Dict
+import dataclasses
+from typing import Any, Dict, Iterator, List, Tuple, Type
 
 import pytest
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from pydantic import BaseModel
 from execution_testing.base_types import BlobSchedule
 from execution_testing.vm import Opcodes
 
+from ..base_fork import MEMOIZED_FORK_METHODS, BaseFork
 from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
     BPO1,
@@ -828,3 +830,105 @@ def test_oog_budget_lift() -> None:
         )
         == 3 * sstore + 2 * create + code_64
     )
+
+
+def _all_fork_classes() -> List[Type[BaseFork]]:
+    """
+    Return every concrete fork class.
+
+    Transition forks are excluded: they are assembled from
+    `TransitionBaseClass` rather than `BaseFork`, so they do not declare the
+    memoized methods at all and delegate to a concrete fork per block.
+    """
+    return sorted(get_forks(), key=str)
+
+
+def _memoized_caches() -> Iterator[Tuple[Type[Any], str, Any]]:
+    """
+    Yield ``(owner, method_name, cache)`` for every memoized override.
+
+    An override is memoized by `BaseForkMeta` at class-creation time, so the
+    caches live on the classes that declared the method, not on the leaf fork.
+    """
+    owners: set = set()
+    for fork in _all_fork_classes():
+        owners.update(fork.__mro__)
+    for owner in owners:
+        for method_name in MEMOIZED_FORK_METHODS:
+            member = owner.__dict__.get(method_name)
+            if not isinstance(member, classmethod):
+                continue
+            function = member.__func__
+            if hasattr(function, "cache_clear"):
+                yield owner, method_name, function
+
+
+def test_memoized_fork_methods_are_installed() -> None:
+    """Every fork must resolve each memoized name to a cached override."""
+    for fork in _all_fork_classes():
+        for method_name in MEMOIZED_FORK_METHODS:
+            resolved = getattr(fork, method_name)
+            assert hasattr(resolved.__func__, "cache_info"), (
+                f"{fork}.{method_name} resolves to an uncached override"
+            )
+
+
+def test_memoized_fork_methods_return_a_stable_object() -> None:
+    """Repeat calls hand out one object, so the super() chain runs once."""
+    for fork in _all_fork_classes():
+        for method_name in MEMOIZED_FORK_METHODS:
+            first = getattr(fork, method_name)()
+            assert getattr(fork, method_name)() is first
+
+
+def test_memoized_fork_methods_are_not_shared_between_forks() -> None:
+    """
+    A cache is keyed on the fork, so no fork may serve another's value.
+
+    This is the property that a single shared cache -- or one keyed on the
+    declaring class rather than ``cls`` -- would violate: every fork late in
+    the chain would answer with whichever fork warmed the cache first.
+    """
+    for method_name in MEMOIZED_FORK_METHODS:
+        # Recompute from cold and require the same values, which fails if a
+        # value was ever keyed on anything other than the fork itself.
+        warm = {
+            str(fork): getattr(fork, method_name)()
+            for fork in _all_fork_classes()
+        }
+        for _, _, function in _memoized_caches():
+            function.cache_clear()
+        for fork in reversed(_all_fork_classes()):
+            assert getattr(fork, method_name)() == warm[str(fork)], (
+                f"{fork}.{method_name} changed when recomputed in a "
+                "different order"
+            )
+
+        # Forks that differ in these values must not collapse onto one object.
+        assert Amsterdam.gas_costs() is not Cancun.gas_costs()
+        assert Amsterdam.gas_costs() != Cancun.gas_costs()
+
+
+def test_memoized_fork_methods_return_immutable_values() -> None:
+    """
+    Callers share one object, so a mutable return value would let one caller
+    corrupt every later one. This enforces the contract documented on
+    `MEMOIZED_FORK_METHODS`.
+    """
+    for method_name in MEMOIZED_FORK_METHODS:
+        value = getattr(Amsterdam, method_name)()
+        assert dataclasses.is_dataclass(value)
+        field_name = next(iter(dataclasses.fields(value))).name
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            setattr(value, field_name, 0)
+
+
+def test_abstract_memoized_declarations_are_left_alone() -> None:
+    """
+    The abstract declarations on `BaseFork` have no value to cache, and
+    wrapping them would hide them from `abc`'s unimplemented-method check.
+    """
+    for method_name in MEMOIZED_FORK_METHODS:
+        declaration = BaseFork.__dict__[method_name]
+        assert getattr(declaration, "__isabstractmethod__", False)
+        assert not hasattr(declaration.__func__, "cache_info")
