@@ -3,10 +3,14 @@
 from typing import Tuple
 
 import pytest
+from spec256k1 import PublicKey
 
-from execution_testing.base_types import AccessList, Hash
+from execution_testing.base_types import AccessList, Address, Hash
 
+from .. import transaction_types
+from ..account_types import EOA
 from ..transaction_types import Transaction
+from ..utils import keccak256
 
 
 @pytest.mark.parametrize(
@@ -299,3 +303,89 @@ def test_gas_limit_none_alias_is_unset(alias: str) -> None:
     tx = Transaction.model_validate({alias: None})
     assert "gas_limit" not in tx.model_fields_set
     assert tx.gas_limit == 21_000
+
+
+class TestSenderDerivation:
+    """
+    Tests for deriving the sender without recovering it from the signature.
+
+    Recovering the public key from the signature costs more than the signing
+    itself, and the signer's address is usually already known. These tests pin
+    the equivalence and, importantly, the case where the declared sender is
+    *not* the signer.
+    """
+
+    KEY_A = Hash(bytes(range(1, 33)))
+    KEY_B = Hash(bytes(range(33, 65)))
+
+    def _tx(self, **kwargs: object) -> Transaction:
+        return Transaction(ty=0, gas_limit=21_000, nonce=0, **kwargs)
+
+    def test_derived_sender_matches_recovery(self) -> None:
+        """
+        Deriving from the private key must equal recovering from the signature.
+
+        This is the property the whole change rests on: the signature was
+        produced by `secret_key`, so recovery can only return that key.
+        """
+        signed = self._tx(secret_key=self.KEY_A).with_signature_and_sender()
+
+        recovered = PublicKey.from_signature_and_message(
+            signed.signature_bytes,
+            signed.rlp_signing_bytes().keccak256(),
+        )
+        expected = Address(
+            keccak256(recovered.format(compressed=False)[1:])[32 - 20 :]
+        )
+        assert signed.sender == expected
+
+    def test_known_sender_is_reused_without_a_public_key_operation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        When the declared sender holds the signing key, no public-key
+        operation may happen at all -- that is the point of the fast path.
+        """
+        sender = EOA(key=self.KEY_A)
+
+        def _boom(*_args: object, **_kwargs: object) -> object:
+            raise AssertionError(
+                "recovered the public key even though the sender was known"
+            )
+
+        monkeypatch.setattr(
+            transaction_types.PublicKey, "from_signature_and_message", _boom
+        )
+        signed = self._tx(sender=sender).with_signature_and_sender()
+        assert signed.sender == sender
+
+    def test_reassigned_sender_does_not_override_the_signer(self) -> None:
+        """
+        A sender that does not hold the signing key must not be trusted.
+
+        `Transaction` sets `validate_assignment=True`, so `sender` can be
+        reassigned after construction while `secret_key` keeps the original
+        key. Trusting `sender` here would emit a transaction whose `sender`
+        field contradicts its own signature.
+        """
+        signer = EOA(key=self.KEY_A)
+        other = EOA(key=self.KEY_B)
+        assert signer != other
+
+        tx = self._tx(sender=signer)
+        assert tx.secret_key == self.KEY_A, "secret_key comes from sender.key"
+        tx.sender = other  # allowed: validate_assignment
+
+        signed = tx.with_signature_and_sender()
+        assert signed.sender == signer, (
+            "the signer must win, not the sender field"
+        )
+
+    def test_keyless_sender_falls_back_to_derivation(self) -> None:
+        """`EOA.key` is optional, so a keyless sender must not be trusted."""
+        keyless = EOA(address=0x1234)
+        assert keyless.key is None
+
+        tx = self._tx(sender=keyless, secret_key=self.KEY_A)
+        signed = tx.with_signature_and_sender()
+        assert signed.sender == EOA(key=self.KEY_A)
