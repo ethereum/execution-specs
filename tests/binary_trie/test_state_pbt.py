@@ -1337,9 +1337,7 @@ def test_deleting_the_last_holder_drops_every_group() -> None:
     "code, storage_slots, delegated",
     [
         pytest.param(Bytes(b""), (), False, id="codeless_eoa"),
-        pytest.param(
-            _distinct_chunk_code(3), (), False, id="contract"
-        ),
+        pytest.param(_distinct_chunk_code(3), (), False, id="contract"),
         pytest.param(DELEGATION_A, (), True, id="delegated_eoa"),
         pytest.param(
             DELEGATION_A, (0, 63, 64), True, id="delegated_with_storage"
@@ -1889,9 +1887,7 @@ def test_account_has_storage_matches_the_embedded_leaf_set() -> None:
         set_account(
             state,
             ADDRESS_A,
-            Account(
-                nonce=Uint(1), balance=U256(1), code_hash=delegation_hash
-            ),
+            Account(nonce=Uint(1), balance=U256(1), code_hash=delegation_hash),
         )
         for slot in slots:
             set_storage(state, ADDRESS_A, slot, U256(7))
@@ -2123,9 +2119,9 @@ def test_delegation_designator_account_embedding() -> None:
     assert embedded._data[delegation_key] == Bytes32(
         bytes(designator) + b"\x00" * 9
     )
-    assert (
-        _code_zone_stem(code_hash, 0) + bytes([0]) not in embedded._data
-    ), "the designator must reach no code-zone leaf"
+    assert _code_zone_stem(code_hash, 0) + bytes([0]) not in embedded._data, (
+        "the designator must reach no code-zone leaf"
+    )
 
     basic_data = embedded._data[basic_data_key]
     assert basic_data[4:8] == (23).to_bytes(4, "big")  # code_size
