@@ -27,15 +27,18 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     Block,
     BlockchainTestFiller,
     Op,
     RecipientType,
     Transaction,
+    TransactionReceipt,
     TransitionFork,
     compute_create_address,
 )
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import EOA_INITIAL_BALANCE
 from .spec import ref_spec_2780
 
@@ -267,5 +270,101 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
             balance=sender_initial_balance - value - total_gas * gas_price,
         )
         post[created] = Account(nonce=1, balance=value, code=b"")
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+def test_setcode_tx_across_amsterdam_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: TransitionFork,
+) -> None:
+    """
+    Pin the EIP-2780 authorization repricing across the Amsterdam
+    boundary.
+    """
+    gas_price = 1_000_000_000
+
+    pre_costs = fork.fork_at(timestamp=PRE_FORK_TIMESTAMP).gas_costs()
+    post_costs = fork.fork_at(timestamp=POST_FORK_TIMESTAMP).gas_costs()
+
+    # Pre-fork: EIP-7702 charges the full per-authorization cost in the
+    # intrinsic; an empty authority earns no existing-authority refund.
+    expected_pre = pre_costs.TX_BASE + pre_costs.AUTH_PER_EMPTY_ACCOUNT
+    # Post-fork: EIP-2780 decomposition across the three charge layers.
+    expected_post = (
+        post_costs.TX_BASE
+        + post_costs.COLD_ACCOUNT_ACCESS
+        + post_costs.EXECUTION_PER_AUTH_BASE_COST
+        + post_costs.ACCOUNT_WRITE
+        + post_costs.NEW_ACCOUNT
+        + post_costs.AUTH_BASE
+    )
+
+    timestamps = [PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP]
+    expected_totals = [expected_pre, expected_post]
+    blocks = []
+    post: dict[Address, Account] = {}
+
+    for timestamp, expected_total in zip(
+        timestamps, expected_totals, strict=True
+    ):
+        sub_fork = fork.fork_at(timestamp=timestamp)
+        recipient = pre.deploy_contract(code=Op.STOP)
+        delegate_to = pre.deploy_contract(code=Op.STOP)
+        authority = pre.fund_eoa(amount=0)
+        authorization = AuthorizationTuple(
+            address=delegate_to,
+            nonce=0,
+            signer=authority,
+            creates_account=True,
+        )
+
+        intrinsic_gas = sub_fork.transaction_intrinsic_cost_calculator()(
+            recipient_type=RecipientType.CONTRACT,
+            authorization_list_or_count=[authorization],
+            return_cost_deducted_prior_execution=True,
+        )
+        top_frame_gas = sub_fork.transaction_top_frame_gas_calculator()(
+            recipient_type=RecipientType.CONTRACT,
+            authorizations=[authorization],
+        )
+        top_frame_state_gas = sub_fork.transaction_top_frame_state_gas(
+            recipient_type=RecipientType.CONTRACT,
+            authorizations=[authorization],
+        )
+        total_gas = intrinsic_gas + top_frame_gas + top_frame_state_gas
+        assert total_gas == expected_total, (
+            f"set-code total at timestamp {timestamp} ({sub_fork}) is "
+            f"{total_gas}, expected {expected_total}"
+        )
+
+        sender_initial_balance = 10**18
+        sender = pre.fund_eoa(sender_initial_balance)
+
+        # Both recipient and delegate run ``STOP`` (no execution gas),
+        # so the receipt pins the intrinsic and top-frame layers alone.
+        tx = Transaction(
+            sender=sender,
+            to=recipient,
+            authorization_list=[authorization],
+            gas_limit=total_gas,
+            max_fee_per_gas=gas_price,
+            max_priority_fee_per_gas=gas_price,
+            expected_receipt=TransactionReceipt(
+                cumulative_gas_used=total_gas,
+            ),
+        )
+        blocks.append(Block(timestamp=timestamp, txs=[tx]))
+
+        post[sender] = Account(
+            nonce=1,
+            balance=sender_initial_balance - total_gas * gas_price,
+        )
+        post[authority] = Account(
+            nonce=1,
+            balance=0,
+            code=Spec7702.delegation_designation(delegate_to),
+        )
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
