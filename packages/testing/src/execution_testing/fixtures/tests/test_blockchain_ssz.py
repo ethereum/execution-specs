@@ -28,6 +28,7 @@ from execution_testing.base_types.ssz import (
 from execution_testing.forks import (
     BPO1,
     Amsterdam,
+    BPO2ToAmsterdamAtTime15k,
     Cancun,
     Fork,
     London,
@@ -35,6 +36,7 @@ from execution_testing.forks import (
     Paris,
     Prague,
     Shanghai,
+    ShanghaiToCancunAtTime15k,
     ssz_schema_fork_key,
 )
 from execution_testing.test_types import Withdrawal
@@ -385,6 +387,16 @@ def test_payload_ssz_field_order(
         pytest.param(Osaka, "Cancun", id="Osaka"),
         pytest.param(BPO1, "Cancun", id="BPO1"),
         pytest.param(Amsterdam, "Amsterdam", id="Amsterdam"),
+        pytest.param(
+            ShanghaiToCancunAtTime15k,
+            "Cancun",
+            id="ShanghaiToCancunAtTime15k",
+        ),
+        pytest.param(
+            BPO2ToAmsterdamAtTime15k,
+            "Amsterdam",
+            id="BPO2ToAmsterdamAtTime15k",
+        ),
     ],
 )
 def test_fork_key_resolution(fork: Fork, expected_key: str) -> None:

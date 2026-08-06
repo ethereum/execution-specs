@@ -403,15 +403,17 @@ MAX_EXTRA_DATA_BYTES = 2**5
 """Maximum ``extra_data`` length in the SSZ execution payload."""
 
 MAX_BYTES_PER_TRANSACTION = 2**30
-"""Maximum encoded size of a single transaction (consensus-specs)."""
+"""Maximum encoded size of a single transaction."""
 
 MAX_TRANSACTIONS_PER_PAYLOAD = 2**20
-"""Maximum transaction count per payload (consensus-specs)."""
+"""Maximum transaction count per payload."""
 
 MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
-"""Maximum withdrawal count per payload (consensus-specs)."""
+"""Maximum withdrawal count per payload."""
 
-MAX_BLOCK_ACCESS_LIST_BYTES = MAX_BYTES_PER_TRANSACTION
+# TODO: EIP-8146 defines this as 2**23 for RLP-encoded block access
+# lists; revisit once the value is finalized and verified.
+MAX_BLOCK_ACCESS_LIST_BYTES = 2**23
 """Placeholder cap for the RLP-encoded block access list byte list."""
 
 
