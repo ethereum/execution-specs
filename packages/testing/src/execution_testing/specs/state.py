@@ -517,7 +517,7 @@ class StateTest(BaseTest):
     def generate(
         self,
         t8n: TransitionTool,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
     ) -> FillResult:
         """Generate the BlockchainTest fixture."""
         self.check_exception_test(exception=self.tx.error is not None)
@@ -533,7 +533,7 @@ class StateTest(BaseTest):
     def execute(
         self,
         *,
-        execute_format: ExecuteFormat,
+        execute_format: ExecuteFormat | LabeledExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         if execute_format == TransactionPost:

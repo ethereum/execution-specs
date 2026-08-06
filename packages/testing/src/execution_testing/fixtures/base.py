@@ -318,14 +318,27 @@ class LabeledFixtureFormat:
         """
         Check if two labeled fixture formats are equal.
 
+        Two labeled formats are equal only when they share both format and
+        label, so one format can carry more than one label.
+
         If the other object is a FixtureFormat type, the format of the labeled
         fixture format will be compared with the format of the other object.
         """
         if isinstance(other, LabeledFixtureFormat):
-            return self.format == other.format
+            return self.format == other.format and self.label == other.label
         if isinstance(other, type) and issubclass(other, BaseFixture):
             return self.format == other
         return False
+
+    def __hash__(self) -> int:
+        """
+        Return the hash of the wrapped format.
+
+        A labeled format compares equal to the plain format it wraps, so both
+        must hash alike. Two labels of one format collide, which is allowed
+        since they no longer compare equal.
+        """
+        return hash(self.format)
 
 
 # Annotated type alias for a base fixture class

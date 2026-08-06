@@ -575,7 +575,7 @@ class BenchmarkTest(BaseTest):
     def generate(
         self,
         t8n: TransitionTool,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
     ) -> FillResult:
         """Generate the blockchain test fixture."""
         self.check_exception_test(
@@ -627,7 +627,7 @@ class BenchmarkTest(BaseTest):
     def execute(
         self,
         *,
-        execute_format: ExecuteFormat,
+        execute_format: ExecuteFormat | LabeledExecuteFormat,
     ) -> BaseExecute:
         """Execute the benchmark test by sending it to the live network."""
         if execute_format == TransactionPost:

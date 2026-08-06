@@ -1236,7 +1236,8 @@ class BlockchainTest(BaseTest):
     def make_hive_fixture(
         self,
         t8n: FillerBackend,
-        fixture_format: FixtureFormat = BlockchainEngineFixture,
+        fixture_format: FixtureFormat
+        | LabeledFixtureFormat = BlockchainEngineFixture,
     ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
@@ -1614,7 +1615,7 @@ class BlockchainTest(BaseTest):
     def generate(
         self,
         t8n: FillerBackend,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
     ) -> FillResult:
         """Generate the BlockchainTest fixture."""
         if fixture_format == BlockchainEngineStatefulFixture:
@@ -1633,7 +1634,7 @@ class BlockchainTest(BaseTest):
     def execute(
         self,
         *,
-        execute_format: ExecuteFormat,
+        execute_format: ExecuteFormat | LabeledExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         if execute_format == TransactionPost:

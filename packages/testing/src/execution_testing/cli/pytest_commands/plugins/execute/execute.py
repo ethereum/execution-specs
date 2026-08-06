@@ -11,7 +11,7 @@ from pytest_metadata.plugin import metadata_key
 
 from execution_testing.base_types import Account
 from execution_testing.base_types.base_types import HexNumber
-from execution_testing.execution import BaseExecute
+from execution_testing.execution import BaseExecute, LabeledExecuteFormat
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
@@ -332,7 +332,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         del fixed_opcode_count
         execute_format = request.param
         assert execute_format in BaseExecute.formats.values()
-        assert issubclass(execute_format, BaseExecute)
+        assert isinstance(execute_format, LabeledExecuteFormat) or issubclass(
+            execute_format, BaseExecute
+        )
 
         if execute_format.requires_engine_rpc:
             assert engine_rpc is not None, (
@@ -523,10 +525,9 @@ def pytest_collection_modifyitems(
             continue
         fork: Fork | TransitionFork = params["fork"]
         spec_type, execute_format = get_spec_format_for_item(params)
-        assert issubclass(execute_format, BaseExecute)
         markers = list(item.iter_markers())
         if spec_type.discard_execute_format_by_marks(
-            execute_format, fork, markers
+            execute_format.format_class(), fork, markers
         ):
             items_for_removal.append(i)
             continue

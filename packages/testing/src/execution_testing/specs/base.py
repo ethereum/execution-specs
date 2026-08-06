@@ -114,9 +114,13 @@ def labeled_format_parameter_set(
 
     The label will be used in the test id and also will be added as a marker to
     the generated test case when filling/executing the test.
+
+    The format keeps its label, so a spec type that labels one format more
+    than once can tell which of them it is filling. Call `format_class()` to
+    strip the label.
     """
     return pytest.param(
-        format_with_or_without_label.format_class(),
+        format_with_or_without_label,
         id=format_with_or_without_label.format_id(),
         marks=format_with_or_without_label.marks()
         + [
@@ -289,7 +293,7 @@ class BaseTest(BaseModel):
         self,
         *,
         t8n: TransitionTool,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
     ) -> FillResult:
         """Generate the test fixture using the given fixture format."""
         pass
@@ -297,7 +301,7 @@ class BaseTest(BaseModel):
     def execute(
         self,
         *,
-        execute_format: ExecuteFormat,
+        execute_format: ExecuteFormat | LabeledExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         raise Exception(f"Unsupported execute format: {execute_format}")

@@ -8,6 +8,7 @@ from execution_testing.client_clis import TransitionTool
 from execution_testing.execution import BaseExecute, BlobTransaction
 from execution_testing.fixtures import (
     FixtureFormat,
+    LabeledFixtureFormat,
 )
 from execution_testing.test_types import (
     NetworkWrappedTransaction,
@@ -40,7 +41,7 @@ class BlobsTest(BaseTest):
         self,
         *,
         t8n: TransitionTool,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
     ) -> FillResult:
         """Generate the list of test fixtures."""
         del t8n
@@ -49,7 +50,7 @@ class BlobsTest(BaseTest):
     def execute(
         self,
         *,
-        execute_format: ExecuteFormat,
+        execute_format: ExecuteFormat | LabeledExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         if execute_format == BlobTransaction:
