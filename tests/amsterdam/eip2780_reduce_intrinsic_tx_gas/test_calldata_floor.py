@@ -351,17 +351,6 @@ def test_calldata_floor_with_authorizations(
     A data-heavy type-4 transaction whose calldata floor exceeds the
     full authorization total: the intrinsic plus the authorization's
     top-frame execution and state charges.
-
-    Authorization tuples add no floor tokens, so the floor must be
-    grown past the total by calldata alone.
-
-    - ``floor_binds``: ``gas_used`` pins to the floor. The
-      authorization's ``ACCOUNT_WRITE`` execution gas and ``AUTH_BASE``
-      state gas are masked by the binding floor while the delegation
-      still lands on the authority.
-    - ``below_floor``: a gas limit one short of the floor still covers
-      the intrinsic, so the rejection is pinned to the floor check,
-      before ``set_delegation`` runs; the authority is untouched.
     """
     sender = pre.fund_eoa()
     recipient = pre.deploy_contract(code=Op.STOP)

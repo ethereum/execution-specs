@@ -282,23 +282,6 @@ def test_setcode_tx_across_amsterdam_transition(
     """
     Pin the EIP-2780 authorization repricing across the Amsterdam
     boundary.
-
-    The same set-code transaction shape -- one authorization whose
-    empty authority delegates to a ``STOP`` contract, sent to a
-    ``STOP`` contract recipient -- is sent in a pre-fork and a
-    post-fork block from fresh senders and authorities. Pre-fork the
-    whole authorization cost is intrinsic: ``AUTH_PER_EMPTY_ACCOUNT``
-    on top of the flat ``TX_BASE``. Post-fork only the
-    state-independent ``EXECUTION_PER_AUTH_BASE_COST`` stays intrinsic
-    (plus the recipient's ``COLD_ACCOUNT_ACCESS``), while the
-    state-dependent remainder moves to the top frame as
-    ``ACCOUNT_WRITE`` execution gas plus ``NEW_ACCOUNT`` and
-    ``AUTH_BASE`` state gas.
-
-    The per-fork totals returned by the calculators are also checked
-    against a hand-derived decomposition built from each fork's gas
-    constants, so a calculator regression fails here with a clear
-    message rather than only as a downstream balance mismatch.
     """
     gas_price = 1_000_000_000
 
