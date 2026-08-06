@@ -87,6 +87,17 @@ def test_enginex_strips_xdist_load_shorthand(
         assert "--dist=loadgroup" in args
 
 
+def test_enginex_without_parallelism_still_sets_loadgroup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Loadgroup is set even without xdist args (inert without `-n`)."""
+    monkeypatch.delenv("HIVE_PARALLELISM", raising=False)
+
+    args = HiveEnvironmentProcessor("enginex").process_args([])
+
+    assert args[args.index("--dist") + 1] == "loadgroup"
+
+
 def test_consume_engine_parallelism_does_not_force_loadgroup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

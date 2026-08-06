@@ -108,9 +108,7 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
 
         # For enginex: ensure xdist uses loadgroup distribution so tests with
         # the same xdist_group marker (pre-alloc group) run on the same worker
-        if self.command_name == "enginex" and self._has_parallelism_flag(
-            modified_args
-        ):
+        if self.command_name == "enginex":
             modified_args = self._ensure_loadgroup_dist(modified_args)
 
         if os.getenv("HIVE_RANDOM_SEED") is not None:
@@ -160,6 +158,9 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
         group. Any xdist distribution mode other than loadgroup can split a
         pre-alloc group across workers, causing each worker to start its own
         group client and defer cleanup until session teardown.
+
+        `--dist=loadgroup` is inert when xdist is not active (no `-n`), so
+        it is safe to ensure unconditionally.
         """
         modified_args = args[:]
         found_dist = False
