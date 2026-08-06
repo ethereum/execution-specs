@@ -183,11 +183,18 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
                 if arg != "--dist=loadgroup":
                     modified_args[index] = "--dist=loadgroup"
                     changed_dist = True
+            elif arg == "-d":
+                # xdist's shorthand for `--dist=load`; it clobbers any
+                # `--dist` value during pytest-xdist's cmdline hook, so
+                # it must be removed rather than overridden.
+                del modified_args[index]
+                changed_dist = True
+                continue
             index += 1
 
         if not found_dist:
             modified_args.extend(["--dist", "loadgroup"])
-        elif changed_dist:
+        if changed_dist:
             warnings.warn(
                 "`consume enginex` requires `--dist=loadgroup`; overriding "
                 "the provided xdist distribution mode.",
