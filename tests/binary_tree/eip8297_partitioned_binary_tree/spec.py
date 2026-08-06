@@ -11,12 +11,9 @@ class ReferenceSpec:
     version: str
 
 
-# Pinned to the head of ethereum/EIPs#12114, which moves delegation
-# indicators into the account header and is not yet merged. Bump to
-# the master commit once it lands.
 ref_spec_8297 = ReferenceSpec(
     git_path="EIPS/eip-8297.md",
-    version="af6b5eda6d1d9f3a20c3688464b630252b019d80",
+    version="2f0a8bed002f527f6cec450edecb89887896ac87",
 )
 
 
