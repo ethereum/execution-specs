@@ -6,16 +6,17 @@ from typing import Dict
 
 import pytest
 
-from execution_testing.base_types import Account, Address
+from execution_testing.base_types import Account, Address, StateCommitment
 from execution_testing.fixtures.pre_alloc_groups import (
     TEST_GROUP_INDEX_FILE,
     GroupIndexEntry,
+    PreAllocGroup,
     PreAllocGroupBuilder,
     pack_pre_alloc_groups,
     packed_group_hash_for_test,
     read_test_group_index,
 )
-from execution_testing.forks import Fork, Osaka, Prague
+from execution_testing.forks import BinaryTree, Fork, Osaka, Prague
 from execution_testing.test_types import Alloc, Environment
 
 
@@ -526,3 +527,93 @@ def test_pack_isolates_disagreeing_shared_address(tmp_path: Path) -> None:
         "tests/b.py::test_b",
         "tests/c.py::test_c",
     ]
+
+
+def _binary_tree_pre(
+    commitment: StateCommitment | None = None,
+) -> Alloc:
+    """
+    Build a small, deterministic pre-allocation for genesis tests.
+
+    A fresh `Alloc` is returned on every call because a state
+    commitment, once migrated onto an instance (whether explicitly via
+    `commitment` or by a builder seeding it from its fork), sticks to
+    it -- so the same instance cannot be reused across assertions that
+    expect different commitment schemes.
+    """
+    alloc = Alloc(
+        {
+            Address(0x1000): Account(balance=1000, nonce=1),
+            Address(0x2000): Account(balance=2, code=b"\x00"),
+        }
+    )
+    if commitment is not None:
+        alloc.migrate_state_commitment(commitment)
+    return alloc
+
+
+def _binary_tree_genesis_environment() -> Environment:
+    """Build a genesis-ready environment for the `BinaryTree` fork."""
+    return Environment().set_fork_requirements(BinaryTree)
+
+
+def test_calculate_genesis_binary_tree_fork_uses_binary_tree_root() -> None:
+    """
+    A `BinaryTree`-fork builder's genesis `state_root` is the fork's
+    binary-tree root, not the plain MPT root of the same allocation.
+
+    Regression test: `calculate_genesis` used to always compute the
+    MPT root regardless of `self.fork`; the builder now seeds the
+    pre-alloc's commitment scheme from the fork on construction.
+    """
+    builder = PreAllocGroupBuilder(
+        environment=_binary_tree_genesis_environment(),
+        fork=BinaryTree,
+        pre=_binary_tree_pre(),
+    )
+
+    genesis = builder.calculate_genesis()
+
+    assert (
+        genesis.state_root
+        != _binary_tree_pre(StateCommitment.MPT).state_root()
+    )
+    assert (
+        genesis.state_root
+        == _binary_tree_pre(StateCommitment.BINARY_TREE).state_root()
+    )
+
+
+def test_group_pre_alloc_state_root_is_fork_correct_after_reload(
+    tmp_path: Path,
+) -> None:
+    """
+    `GroupPreAlloc.state_root()` returns the fork-correct root even after
+    a disk round trip, where private attrs -- including the migrated
+    state commitment -- do not survive `model_dump`/`model_validate`.
+
+    `PreAllocGroup.model_post_init` re-seeds the commitment from the
+    group's fork and caches `_cached_state_root` from
+    `genesis.state_root` on every construction (including the one
+    `from_file` performs after its dump/validate round trip), so this
+    pins that a reloaded group's pre-allocation stays fork-correct.
+    """
+    builder = PreAllocGroupBuilder(
+        test_ids=["tests/a.py::test_a"],
+        environment=_binary_tree_genesis_environment(),
+        fork=BinaryTree,
+        pre=_binary_tree_pre(),
+    )
+    group_file = tmp_path / "0x01.json"
+    group_file.write_text(
+        builder.model_dump_json(by_alias=True, exclude_none=True, indent=2)
+    )
+
+    group = PreAllocGroup.from_file(group_file)
+
+    expected = _binary_tree_pre(StateCommitment.BINARY_TREE).state_root()
+    assert group.pre.state_root() == expected
+    assert (
+        group.pre.state_root()
+        != _binary_tree_pre(StateCommitment.MPT).state_root()
+    )

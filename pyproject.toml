@@ -28,6 +28,7 @@ dependencies = [
     "ethereum-rlp>=0.1.6,<0.2",
     "cryptography>=45.0.1,<46",
     "platformdirs>=4.2,<5",
+    "blake3>=1.0,<2",
     "libcst>=1.8,<2",
 ]
 
@@ -55,6 +56,7 @@ packages = [
     "ethereum.forks.frontier.vm.precompiled_contracts",
     "ethereum.utils",
     "ethereum.crypto",
+    "ethereum.binary_trie",
     "ethereum_optimized",
     "ethereum.forks.homestead",
     "ethereum.forks.homestead.utils",
@@ -179,6 +181,12 @@ packages = [
     "ethereum.forks.amsterdam.vm.instructions",
     "ethereum.forks.amsterdam.vm.precompiled_contracts",
     "ethereum.forks.amsterdam.vm.precompiled_contracts.bls12_381",
+    "ethereum.forks.binary_tree",
+    "ethereum.forks.binary_tree.utils",
+    "ethereum.forks.binary_tree.vm",
+    "ethereum.forks.binary_tree.vm.instructions",
+    "ethereum.forks.binary_tree.vm.precompiled_contracts",
+    "ethereum.forks.binary_tree.vm.precompiled_contracts.bls12_381",
 ]
 
 [tool.setuptools.package-data]
@@ -308,6 +316,11 @@ omit = [
     "*/ethereum/forks/*_glacier/*",
     "*/ethereum/forks/dao_fork/*",
     "*/ethereum/forks/bpo*/*",
+    # Experimental EIP-8297 fork: its scoped `fill-binary-tree` CI job
+    # runs without coverage instrumentation (no `--cov`), and the full
+    # ported sweep (`fill-binary-tree tests`) is not wired into CI at
+    # all.
+    "*/ethereum/forks/binary_tree/*",
 ]
 
 [tool.coverage.report]

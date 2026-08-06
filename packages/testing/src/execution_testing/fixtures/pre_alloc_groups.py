@@ -566,7 +566,13 @@ class GroupPreAlloc(Alloc):
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
 
     def state_root(self) -> Hash:
-        """On pre-alloc groups, which are normally very big, always cache."""
+        """
+        On pre-alloc groups, which are normally very big, always cache.
+
+        The cache is seeded from `genesis.state_root` on every
+        construction path, including `from_file`, so fixing
+        `calculate_genesis()` makes the cache fork-correct everywhere.
+        """
         if self._cached_state_root is not None:
             return self._cached_state_root
         return super().state_root()

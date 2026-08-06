@@ -192,6 +192,38 @@ jobs:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
           EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
+  binary-trie-unit-test:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-uv
+      - name: Run binary-trie-unit-test tests
+        run: just binary-trie-unit-test
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        with:
+          files: .just/binary-trie-unit-test/coverage.xml
+          flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  binary-trie-fork:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-uv
+      - name: Run binary-trie-fork tests
+        run: just binary-trie-fork tests/binary_tree
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+
   test-tests-pypy:
     runs-on: [self-hosted-ghr, size-l-x64]
     needs: static

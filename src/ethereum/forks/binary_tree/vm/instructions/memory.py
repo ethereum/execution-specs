@@ -1,0 +1,179 @@
+"""
+Ethereum Virtual Machine (EVM) Memory Instructions.
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Implementations of the EVM Memory instructions.
+"""
+
+from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import U256, Uint
+
+from ethereum.utils.numeric import ceil32
+
+from ...fork_types import ExecutionGas
+from .. import Evm
+from ..gas import (
+    GasCosts,
+    calculate_gas_extend_memory,
+    charge_gas,
+)
+from ..memory import memory_read_bytes, memory_write
+from ..stack import pop, push
+
+
+def mstore(evm: Evm) -> None:
+    """
+    Stores a word to memory.
+    This also expands the memory, if the memory is
+    insufficient to store the word.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    start_position = pop(evm.stack)
+    value = pop(evm.stack).to_be_bytes32()
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(start_position, U256(len(value)))]
+    )
+
+    charge_gas(evm, GasCosts.OPCODE_MSTORE_BASE + extend_memory.cost)
+
+    # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
+    memory_write(evm.memory, start_position, value)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def mstore8(evm: Evm) -> None:
+    """
+    Stores a byte to memory.
+    This also expands the memory, if the memory is
+    insufficient to store the word.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    start_position = pop(evm.stack)
+    value = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(start_position, U256(1))]
+    )
+
+    charge_gas(evm, GasCosts.OPCODE_MSTORE8_BASE + extend_memory.cost)
+
+    # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
+    normalized_bytes_value = Bytes([value & U256(0xFF)])
+    memory_write(evm.memory, start_position, normalized_bytes_value)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def mload(evm: Evm) -> None:
+    """
+    Loads a word from memory.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    start_position = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(start_position, U256(32))]
+    )
+    charge_gas(evm, GasCosts.OPCODE_MLOAD_BASE + extend_memory.cost)
+
+    # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
+    value = U256.from_be_bytes(
+        memory_read_bytes(evm.memory, start_position, U256(32))
+    )
+    push(evm.stack, value)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def msize(evm: Evm) -> None:
+    """
+    Pushes the size of active memory in bytes onto the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_MSIZE)
+
+    # OPERATION
+    push(evm.stack, U256(len(evm.memory)))
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def mcopy(evm: Evm) -> None:
+    """
+    Copies the bytes in memory from one location to another.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    destination = pop(evm.stack)
+    source = pop(evm.stack)
+    length = pop(evm.stack)
+
+    # GAS
+    words = ceil32(Uint(length)) // Uint(32)
+    copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
+
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(source, length), (destination, length)]
+    )
+    charge_gas(
+        evm,
+        GasCosts.OPCODE_MCOPY_BASE + copy_gas_cost + extend_memory.cost,
+    )
+
+    # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
+    value = memory_read_bytes(evm.memory, source, length)
+    memory_write(evm.memory, destination, value)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)

@@ -12,6 +12,7 @@ from execution_testing.base_types import (
     Address,
     BlobSchedule,
     Bytes,
+    StateCommitment,
     ZeroPaddedHexNumber,
 )
 from execution_testing.base_types.conversions import BytesConvertible
@@ -1647,3 +1648,20 @@ class Amsterdam(
         limit.
         """
         return True
+
+
+class BinaryTree(
+    Amsterdam,
+    deployed=False,
+):
+    """
+    Experimental EIP-8297 fork: state is committed through the
+    Partitioned Binary Tree instead of the Merkle Patricia Trie.
+    For testing purposes only. The commitment scheme is selected by
+    the spec fork's own imports; the transition tool reflects it.
+    """
+
+    @classmethod
+    def state_commitment(cls) -> StateCommitment:
+        """Commit state through the EIP-8297 partitioned binary tree."""
+        return StateCommitment.BINARY_TREE

@@ -155,6 +155,33 @@ fill-release *args:
         --log-level=DEBUG \
         "$@"
 
+# Fill the consensus tests for the experimental EIP-8297 binary tree
+# fork; only reachable via --fork BinaryTree (deployed=False), which
+# the framework rejects if combined with --until, so this recipe omits
+# --until instead of mirroring `fill`'s --until "{{ latest_fork }}".
+[group('consensus tests')]
+binary-trie-fork *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "{{ output_dir }}/binary-trie-fork/tmp" \
+        "{{ output_dir }}/binary-trie-fork/logs"
+    # A caller-supplied path replaces the default instead of extending
+    # it: appending "$@" ahead of a hardcoded "tests/binary_tree" (the
+    # `fill` shape) would still collect the whole tree, since any
+    # narrower path a caller passes is already inside it.
+    paths="${@:-tests/binary_tree}"
+    uv run fill \
+        -m "not slow" \
+        -n {{ xdist_workers }} --dist=loadgroup \
+        --skip-index \
+        --output="{{ output_dir }}/binary-trie-fork/fixtures" \
+        --basetemp="{{ output_dir }}/binary-trie-fork/tmp" \
+        --log-to "{{ output_dir }}/binary-trie-fork/logs" \
+        --clean \
+        --fork BinaryTree \
+        --durations=50 \
+        $paths
+
 # --- Integration Tests ---
 
 # Fill the base coverage consensus tests using EELS with PyPy
@@ -244,6 +271,22 @@ test-tests-pypy *args: (_tmp "test-tests-pypy")
 [group('unit tests')]
 test-ci-scripts *args:
     uv run pytest "$@" .github/scripts/tests/
+
+# Run the binary trie unit tests
+[group('unit tests')]
+binary-trie-unit-test *args:
+    @mkdir -p "{{ output_dir }}/binary-trie-unit-test/tmp"
+    uv run pytest \
+        -n {{ xdist_workers }} \
+        --cov=ethereum.binary_trie \
+        --cov=ethereum.state_pbt \
+        --cov-branch \
+        --cov-report=term \
+        --cov-report "xml:{{ output_dir }}/binary-trie-unit-test/coverage.xml" \
+        --no-cov-on-fail \
+        --basetemp="{{ output_dir }}/binary-trie-unit-test/tmp" \
+        "$@" \
+        tests/binary_trie
 
 # --- Benchmarks ---
 

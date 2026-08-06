@@ -578,6 +578,9 @@ class StateCommitment(Enum):
     MPT = auto()
     """Merkle-Patricia trie."""
 
+    BINARY_TREE = auto()
+    """EIP-8297 partitioned binary tree."""
+
 
 class AccessList(CamelModel, RLPSerializable):
     """Access List for transactions."""

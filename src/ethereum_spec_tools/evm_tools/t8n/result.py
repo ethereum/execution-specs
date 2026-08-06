@@ -11,7 +11,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from ethereum_rlp import rlp
 
 from ethereum.crypto.hash import keccak256
+from ethereum.exceptions import InvalidBlock
 from ethereum.merkle_patricia_trie import root, trie_get
+from ethereum.state import BlockDiff
 
 if TYPE_CHECKING:
     from execution_testing.client_clis.cli_types import (
@@ -79,7 +81,16 @@ def build_result(
     from execution_testing.client_clis.cli_types import Result as TestingResult
 
     diff = t8n.fork.extract_block_diff(t8n._block_state)
-    state_root = t8n.alloc.compute_state_root(diff)
+    try:
+        state_root = t8n.alloc.compute_state_root(diff)
+    except InvalidBlock as e:
+        # The executed block produced state that cannot be committed
+        # (e.g. a balance past the sixteen-byte basic data field). Such
+        # a block is rejected and leaves the chain state unchanged, so
+        # report the pre-state root.
+        if block_exception is None:
+            block_exception = f"{e}"
+        state_root = t8n.alloc.compute_state_root(BlockDiff())
 
     arguments: Dict[str, Any] = {
         "state_root": state_root,

@@ -18,6 +18,7 @@ from typing import (
 
 import ethereum.state as spec_state
 import ethereum.state_mpt as spec_state_mpt
+import ethereum.state_pbt as spec_state_pbt
 from ethereum.crypto.hash import Hash32
 from ethereum.crypto.hash import keccak256 as spec_keccak256
 from ethereum_types.bytes import Bytes, Bytes20
@@ -381,6 +382,8 @@ class Alloc(BaseAlloc):
             )
         if self._state_commitment is StateCommitment.MPT:
             return spec_state_mpt
+        if self._state_commitment is StateCommitment.BINARY_TREE:
+            return spec_state_pbt
         raise NotImplementedError("State commitment type not yet implemented.")
 
     def _materialize_state(self) -> spec_state.PreState:

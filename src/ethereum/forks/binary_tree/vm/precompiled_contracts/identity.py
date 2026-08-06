@@ -1,0 +1,49 @@
+"""
+Ethereum Virtual Machine (EVM) IDENTITY PRECOMPILED CONTRACT.
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Implementation of the `IDENTITY` precompiled contract.
+"""
+
+from ethereum_types.numeric import Uint, ulen
+
+from ethereum.utils.numeric import ceil32
+
+from ...fork_types import ExecutionGas
+from ...vm import Evm
+from ...vm.gas import (
+    GasCosts,
+    charge_gas,
+)
+
+
+def identity(evm: Evm) -> None:
+    """
+    Writes the message data to output.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    data = evm.call_data
+
+    # GAS
+    word_count = ceil32(ulen(data)) // Uint(32)
+    charge_gas(
+        evm,
+        ExecutionGas(
+            GasCosts.PRECOMPILE_IDENTITY_BASE
+            + GasCosts.PRECOMPILE_IDENTITY_PER_WORD * word_count
+        ),
+    )
+
+    # OPERATION
+    evm.output = data
