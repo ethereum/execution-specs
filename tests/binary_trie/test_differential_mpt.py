@@ -39,6 +39,8 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.binary_trie.embedding import (
     address20_to_address32,
     get_tree_key_for_code_hash,
+    get_tree_key_for_delegation,
+    is_delegation,
 )
 from ethereum.binary_trie.trie import EMPTY_TRIE_ROOT as PBT_EMPTY_TRIE_ROOT
 from ethereum.crypto.hash import Hash32, keccak256
@@ -528,6 +530,8 @@ def _assert_equivalent(
 
     # Ground-truth spot-check for the case the checks above would miss
     # (see docstring): a leaf `embed_flat_state` silently drops.
+    # Every account holds exactly one of the code hash and delegation
+    # leaves, so which one is present is itself part of the check.
     embedded = embed_flat_state(
         pbt_state._accounts, pbt_state._storage, pbt_state.get_code
     )
@@ -536,10 +540,18 @@ def _assert_equivalent(
         if account is None:
             continue
         address32 = address20_to_address32(address)
-        assert (
-            embedded._data.get(get_tree_key_for_code_hash(address32))
-            == account.code_hash
+        code_hash_leaf = embedded._data.get(
+            get_tree_key_for_code_hash(address32)
         )
+        delegation_leaf = embedded._data.get(
+            get_tree_key_for_delegation(address32)
+        )
+        if is_delegation(pbt_state.get_code(account.code_hash)):
+            assert code_hash_leaf is None
+            assert delegation_leaf is not None
+        else:
+            assert code_hash_leaf == account.code_hash
+            assert delegation_leaf is None
 
 
 @pytest.mark.parametrize("seed", [8297, 7610, 20260727])

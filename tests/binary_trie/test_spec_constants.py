@@ -7,6 +7,7 @@ implementation's values is caught here, rather than checked against
 itself; nothing else compares the two.
 """
 
+from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U32, U64, U256
 
 from ethereum.binary_trie.embedding import (
@@ -16,6 +17,9 @@ from ethereum.binary_trie.embedding import (
     CODE_HASH_LEAF_KEY,
     CODE_KEY_LENGTH,
     CODE_ZONE,
+    DELEGATION_CODE_LENGTH,
+    DELEGATION_LEAF_KEY,
+    DELEGATION_MARKER,
     HEADER_STORAGE_OFFSET,
     HEADER_STORAGE_SLOTS,
     PUSH1,
@@ -25,11 +29,17 @@ from ethereum.binary_trie.embedding import (
     STORAGE_KEY_LENGTH,
     STORAGE_ZONE,
     encode_basic_data,
+    is_delegation,
 )
 from ethereum.binary_trie.trie import (
     BRANCH_NODE_TAG,
     LEAF_NODE_TAG,
     MAX_KEY_LENGTH,
+)
+from ethereum.forks.binary_tree.vm.eoa_delegation import (
+    EOA_DELEGATED_CODE_LENGTH,
+    EOA_DELEGATION_MARKER,
+    is_valid_delegation,
 )
 from tests.binary_tree.eip8297_partitioned_binary_tree.spec import Spec
 
@@ -49,6 +59,7 @@ def test_spec_constants_match_implementation() -> None:
     """
     assert Spec.BASIC_DATA_LEAF_KEY == BASIC_DATA_LEAF_KEY
     assert Spec.CODE_HASH_LEAF_KEY == CODE_HASH_LEAF_KEY
+    assert Spec.DELEGATION_LEAF_KEY == DELEGATION_LEAF_KEY
     assert Spec.HEADER_STORAGE_OFFSET == HEADER_STORAGE_OFFSET
     assert Spec.HEADER_STORAGE_SLOTS == HEADER_STORAGE_SLOTS
     assert Spec.STEM_SUBTREE_WIDTH == STEM_SUBTREE_WIDTH
@@ -77,6 +88,39 @@ def test_spec_header_offset_invariant_holds() -> None:
     header slots fit inside one stem's sub-index space.
     """
     assert HEADER_STORAGE_OFFSET + HEADER_STORAGE_SLOTS <= STEM_SUBTREE_WIDTH
+
+
+def test_delegation_constants_match_the_fork_that_produces_them() -> None:
+    """
+    The embedding's delegation constants equal the fork's, and the
+    two agree on which codes are indicators.
+
+    `ethereum.binary_trie` may not import from a fork, so it carries
+    its own copy of EIP-7702's marker and length, exactly as it does
+    for `EMPTY_CODE_HASH`. A copy that drifted would classify code
+    the EVM treats as a delegation as ordinary code, or the reverse,
+    and commit a tree that disagrees with execution.
+
+    The edge cases matter as much as the constants: an indicator is
+    the marker *and* the exact length, so a code one byte too long,
+    one byte too short, or carrying a near-miss marker is contract
+    code, not a delegation.
+    """
+    assert DELEGATION_MARKER == EOA_DELEGATION_MARKER
+    assert DELEGATION_CODE_LENGTH == EOA_DELEGATED_CODE_LENGTH
+
+    target = b"\x11" * 20
+    cases = [
+        Bytes(EOA_DELEGATION_MARKER + target),
+        Bytes(EOA_DELEGATION_MARKER + target + b"\x00"),
+        Bytes(EOA_DELEGATION_MARKER + target[:-1]),
+        Bytes(b"\xef\x01\x01" + target),
+        Bytes(b"\xef\x00\x00" + target),
+        Bytes(b""),
+        Bytes(b"\x60" * 23),
+    ]
+    for code in cases:
+        assert is_delegation(code) == is_valid_delegation(code), code.hex()
 
 
 def test_spec_basic_data_offsets_match_encode_basic_data() -> None:

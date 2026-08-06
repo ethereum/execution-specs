@@ -1,17 +1,18 @@
 """
-Code-sharing tests for the EIP-8297 partitioned binary tree: code is
-content-addressed, so byte-identical contracts and same-target
-delegations share their chunk leaves, and removing one holder's code
--- by account deletion or by a code change -- must never take a
-surviving holder's bytecode with it.
+Code-sharing tests for the EIP-8297 partitioned binary tree:
+contract code is content-addressed, so byte-identical contracts
+share their chunk leaves and removing one holder's code must never
+take a surviving holder's bytecode with it. Delegation indicators
+are deliberately outside that scheme -- each lives in its own
+account's header -- so an authority's delegation is private to it.
 
 Fixtures observe only per-account state and roots, so what these
 tests pin is execution survival plus the fixture root a conforming
-client must reproduce; the leaf-level sharing and removal oracles
-live in `tests/binary_trie/test_state_pbt.py`. Of the two, only the
-re-delegation test drives the shared-leaf removal check while
-filling: a same-transaction twin never enters the block's pre-state,
-so its deletion has no code to reclaim (see that test's docstring).
+client must reproduce; the leaf-level oracles live in
+`tests/binary_trie/test_state_pbt.py`. Neither test drives the
+shared-leaf removal check while filling: a same-transaction twin
+never enters the block's pre-state, and a delegation reaches no
+shared leaf at all.
 """
 
 import pytest
@@ -23,8 +24,10 @@ from execution_testing import (
     BlockchainTestFiller,
     Initcode,
     Op,
+    StateTestFiller,
     Transaction,
     compute_create_address,
+    keccak256,
 )
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
@@ -32,6 +35,18 @@ from .spec import ref_spec_8297
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8297.version
+
+CODE_HASHING_TO_THE_DELEGATION_MARKER = bytes.fromhex(
+    "61c0de60015500000000000000000000000000002d6a99"
+)
+"""
+Deployable contract, 23 bytes, whose Keccak hash begins `0xef0100`.
+
+`SSTORE(1, 0xC0DE)` then `STOP`, padded with a ground suffix. It is
+both the length of a delegation indicator and hashed to look like
+one, so it defeats a discriminator reading the code hash's leading
+bytes even where that reader also requires `code_size == 23`.
+"""
 
 pytestmark = pytest.mark.valid_from("BinaryTree")
 
@@ -125,15 +140,18 @@ def test_shared_designator_survives_peer_redelegation(
 ) -> None:
     """
     Verify two EOAs delegating to the same target -- whose designators
-    are byte-identical code, one shared chunk in the tree -- stay
-    independent when one re-delegates to a different target: the
-    other's delegation keeps executing afterwards.
+    are byte-identical -- stay independent when one re-delegates to a
+    different target: the other's delegation keeps executing
+    afterwards.
 
-    The re-delegation changes the first authority's code hash, the
-    event that triggers the shared-leaf removal check for the old
-    designator while its peer still holds it. The two delegates write
-    distinct slots and values, so which code each authority executes
-    is observable in the post state.
+    Each authority holds its designator in its own account header, so
+    re-delegating rewrites one leaf and touches nothing the peer
+    owns. The two delegates write distinct slots and values, so which
+    code each authority executes is observable in the post state; the
+    separation of the leaves themselves is pinned in
+    `test_state_pbt.py`, and shows up here only in the committed
+    root, which a client that shared one leaf between the two would
+    not reproduce.
     """
     slot_1, value_1 = 1, 0xD1
     slot_2, value_2 = 2, 0xD2
@@ -179,3 +197,44 @@ def test_shared_designator_survives_peer_redelegation(
             delegate_2: Account(storage={}),
         },
     )
+
+
+def test_contract_hashing_to_the_delegation_marker_executes_as_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify a contract whose CODE HASH begins with the delegation
+    marker still executes as code.
+
+    This is the attack the header placement is designed against.
+    Grinding bytecode until its hash begins `0xef0100` costs about
+    2**24 offline hashes, so if a client decided "delegated" by
+    reading the leading bytes of the leaf holding the code hash, an
+    attacker could deploy this contract and have every such client
+    treat it as delegated to an address of their choosing -- here
+    bytes 3 through 23 of the hash, which holds no code.
+
+    The difference is visible in the alloc, not only in the state
+    root: a conforming client runs the code and the `SSTORE` lands,
+    while a client reading the value instead of the key dispatches
+    to a codeless address, returns successfully, and writes nothing.
+    """
+    slot, value = 1, 0xC0DE
+    code = CODE_HASHING_TO_THE_DELEGATION_MARKER
+    assert keccak256(code)[:3] == b"\xef\x01\x00"
+    assert len(code) == 23
+    assert code[0] != 0xEF  # deployable: EIP-3541 rejects only 0xEF
+
+    target = pre.deploy_contract(code=code)
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.CALL(address=target)) + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
+
+    post = {
+        caller: Account(storage={0: 1}),
+        target: Account(code=code, storage={slot: value}),
+    }
+    state_test(pre=pre, post=post, tx=tx)

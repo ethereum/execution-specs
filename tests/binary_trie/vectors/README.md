@@ -85,6 +85,7 @@ address touches.
 | `address32` | hex | Its 32-byte tree form. |
 | `basic_data_key` | hex | Tree key of the account's basic-data header leaf. |
 | `code_hash_key` | hex | Tree key of the account's code-hash header leaf. |
+| `delegation_key` | hex | Tree key of the account's delegation header leaf. An account holds this or the code-hash leaf, never both. |
 | `storage_slot_keys` | object | Decimal-string slot number to tree key. |
 | `code_chunk_keys` | object | Decimal-string chunk index to tree key. |
 | `code_hash` | hex | Keccak hash of a standalone one-byte code; the content address every chunk key derives from. |
@@ -107,6 +108,10 @@ Code is content-addressed: chunk keys are derived from `code_hash` and
 the chunk index alone, with no address involved, so contracts with
 identical bytecode share their chunk leaves. A consumer reproducing
 these keys must feed in that same hash.
+
+A delegation indicator is the exception, and is not code: it is keyed
+by its account, at `delegation_key`, so two accounts delegating to the
+same target share nothing.
 
 ### `chunkify_code`
 
@@ -172,8 +177,8 @@ slot numbers are object keys in full decimal expansion, matching
 Building the state is: for each account, write its basic data leaf
 (`encode_basic_data` over `len(code)`, `nonce`, `balance`), its
 code-hash leaf, one leaf per `chunkify_code` chunk, and one leaf per
-storage slot. Two rules decide what is *not* written, and cases below
-depend on both:
+storage slot. Three rules decide what is *not* written that way, and
+cases below depend on all of them:
 
 - **Zero is absent.** A leaf whose 32-byte value is all zeros is not
   stored; it reads back as the zero it stood for. This reaches a
@@ -185,8 +190,17 @@ depend on both:
 - **Code is sized, not delimited.** Because a chunk can be absent, the
   number of chunk leaves does not give the code's length; `code_size`
   in the basic data leaf does.
+- **Exactly one of the code-hash and delegation leaves.** An account
+  whose `code` is an EIP-7702 indicator — the three bytes `0xef0100`
+  and a 20-byte address, 23 bytes exactly — writes that code to its
+  delegation leaf instead, right-padded with nine zero bytes, and
+  writes neither a code-hash leaf nor any chunk. Every other account
+  writes a code-hash leaf and no delegation leaf. The test is on the
+  code, never on its hash: `code_hash_starting_with_the_delegation_marker`
+  is a contract whose `code_hash` begins with the marker and must
+  still be embedded as code.
 
-The fifteen cases and what each one covers:
+The eighteen cases and what each one covers:
 
 | Name | Covers |
 | --- | --- |
@@ -201,7 +215,10 @@ The fifteen cases and what each one covers:
 | `full_header_occupancy` | Slots 0-63 filling every header storage sub-index beside 128 chunks of code: the header holds exactly `{0, 1}` and `64`-`127` -- sub-indices 128-255 are unallocated -- and every chunk leaf sits in the code zone. |
 | `shared_bytecode_two_accounts` | Two accounts with identical 129-chunk code. Every chunk is content-addressed and must land on a single shared leaf per chunk, so the state has 133 leaves rather than 262. |
 | `short_shared_code_two_accounts` | Two accounts with identical 2-chunk code, the common sharing case: 6 leaves rather than 8. |
-| `delegation_designator` | An EIP-7702 designator, `0xef0100` followed by an address: 23 bytes, one content-addressed chunk, shared by every authority delegating to the same target. |
+| `delegation_designator` | An EIP-7702 designator, `0xef0100` followed by an address: 23 bytes held in one account-header leaf, right-padded with nine zero bytes, with `code_size` 23 and no code-hash or code-zone leaf. |
+| `two_authorities_one_target` | Two accounts delegating to the same target. Their leaves carry identical values under different header stems, so the state has four leaves and the code zone stays empty — a client that content-addressed the indicator would produce one shared leaf and a different root. |
+| `delegation_with_storage` | A delegated account with storage on both sides of the header boundary: the delegation leaf sits below the storage sub-indices and neither disturbs the other. |
+| `code_hash_starting_with_the_delegation_marker` | A deployable contract whose `code_hash` begins `0xef0100`. It must embed as code — a code-hash leaf and a chunk — since the delegation test reads the code, not its hash. |
 | `code_chunks_of_zero_bytes` | 62 zero bytes of code: both chunks are 32 zero bytes and are absent, so the account commits no chunk leaf at all while its `code_size` stays 62. |
 | `max_basic_data_fields` | A balance of `2**128 - 1`, the largest the 16-byte field holds, beside the largest JSON-safe nonce. A balance of `2**128` or more cannot be committed at all. |
 | `random_6_accounts_seed_8297` | Six pseudo-random accounts with mixed code lengths, scattered storage, and full-width balances, as a broad spread over the composition. |

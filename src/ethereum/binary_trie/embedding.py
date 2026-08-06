@@ -23,8 +23,9 @@ co-located values, all reachable through the same branch of the
 tree.
 
 This keeps data that is accessed together cheap to prove: an
-account's header stem holds its basic data, code hash, and first
-storage slots, so one proof path covers them all.
+account's header stem holds its basic data, its code hash or its
+delegation, and its first storage slots, so one proof path covers
+them all.
 
 Code is not keyed by account at all: every chunk lives in
 [`CODE_ZONE`], content-addressed by code hash, so contracts with
@@ -108,6 +109,42 @@ the version so readers can tell the encodings apart.
 CODE_HASH_LEAF_KEY = Uint(1)
 """
 Sub-index of the account header leaf holding the code hash.
+
+An account that is delegated holds no such leaf; its code is its
+delegation indicator, kept at [`DELEGATION_LEAF_KEY`] instead. Every
+account that exists holds exactly one of the two.
+
+[`DELEGATION_LEAF_KEY`]: ref:ethereum.binary_trie.embedding.DELEGATION_LEAF_KEY
+"""  # noqa: E501
+
+DELEGATION_LEAF_KEY = Uint(2)
+"""
+Sub-index of the account header leaf holding a delegation indicator.
+
+The leaf determines both the code and its hash: a code read takes
+the leading `code_size` bytes of the value, and `EXTCODEHASH` hashes
+them. Holding it in the header rather than as content-addressed code
+keeps the indicator private to one account, so replacing or clearing
+a delegation touches no leaf another account shares; see
+[`embed_account`].
+
+[`embed_account`]: ref:ethereum.binary_trie.embedding.embed_account
+"""
+
+DELEGATION_MARKER = Bytes(b"\xef\x01\x00")
+"""
+Leading bytes marking an account's code as a delegation indicator.
+
+Defined here rather than imported so this module stays independent
+of any fork, as [`EMPTY_CODE_HASH`] is; the constants test pins both
+against the fork that produces them.
+
+[`EMPTY_CODE_HASH`]: ref:ethereum.binary_trie.embedding.EMPTY_CODE_HASH
+"""
+
+DELEGATION_CODE_LENGTH = Uint(23)
+"""
+Length of a delegation indicator: the marker and a 20-byte address.
 """
 
 EMPTY_CODE_HASH = keccak256(b"")
@@ -256,9 +293,10 @@ def get_tree_key_for_header(address: Address32, sub_index: Uint) -> Key:
     alone, so each account has exactly one header stem. The header is
     not one key: it is up to [`STEM_SUBTREE_WIDTH`] separate leaves
     sharing that stem, and `sub_index` selects which one; basic
-    data, code hash, or an early storage slot. The embedding derives
-    no header key outside those sub-indices, so the rest of the
-    stem's space is unallocated and reserved.
+    data, code hash, delegation, or an early storage slot. The
+    embedding derives no header key outside those sub-indices, so
+    the rest of the stem's space is unallocated and reserved for
+    future header fields.
 
     [`ACCOUNT_ZONE`]: ref:ethereum.binary_trie.embedding.ACCOUNT_ZONE
     [`STEM_SUBTREE_WIDTH`]: ref:ethereum.binary_trie.embedding.STEM_SUBTREE_WIDTH
@@ -271,7 +309,8 @@ def get_tree_key_for_header(address: Address32, sub_index: Uint) -> Key:
 def account_header_stem(address: Address32) -> Bytes:
     """
     Compute the stem shared by every leaf of an account's header:
-    its basic data, code hash, and first storage slots.
+    its basic data, its code hash or its delegation, and its first
+    storage slots.
 
     Every key under this prefix belongs to `address` and no key of
     `address`'s header sits outside it, so the prefix is the account
@@ -315,6 +354,44 @@ def get_tree_key_for_code_hash(address: Address32) -> Key:
     Compute the key of the account's code hash leaf.
     """
     return get_tree_key_for_header(address, CODE_HASH_LEAF_KEY)
+
+
+def get_tree_key_for_delegation(address: Address32) -> Key:
+    """
+    Compute the key of the account's delegation leaf.
+    """
+    return get_tree_key_for_header(address, DELEGATION_LEAF_KEY)
+
+
+def is_delegation(code: Bytes) -> bool:
+    """
+    Check whether `code` is a delegation indicator.
+
+    Deployed code may not begin with the marker's first byte, so an
+    account holds an indicator only by delegating; the classification
+    is a function of the code alone, never of its hash, which an
+    attacker could otherwise grind to have a contract read as
+    delegated.
+    """
+    return (
+        Uint(len(code)) == DELEGATION_CODE_LENGTH
+        and code[: len(DELEGATION_MARKER)] == DELEGATION_MARKER
+    )
+
+
+def encode_delegation(code: Bytes) -> Bytes32:
+    """
+    Pack a delegation indicator into the 32-byte value stored at
+    [`DELEGATION_LEAF_KEY`].
+
+    The indicator occupies the leading bytes and the remainder is
+    zero. This is not the chunk encoding: a chunk reserves its first
+    byte for a push-data count, which an indicator, never being
+    executed as code, does not carry.
+
+    [`DELEGATION_LEAF_KEY`]: ref:ethereum.binary_trie.embedding.DELEGATION_LEAF_KEY
+    """  # noqa: E501
+    return Bytes32(right_pad_zero_bytes(code, 32))
 
 
 def storage_tree_position(address: Address32, tree_index: U256) -> Bytes:
@@ -529,10 +606,19 @@ def embed_account(
     code: Bytes,
 ) -> None:
     """
-    Write an account's leaves into `trie`: packed basic data, the
-    code hash, and one leaf per chunk of `code`.
+    Write an account's leaves into `trie`: packed basic data, then
+    either a delegation leaf or a code hash leaf and one leaf per
+    chunk of `code`.
 
-    Writing over an existing account updates its leaves in place.
+    Being delegated and holding contract code are exclusive, so an
+    account holds exactly one of the two leaves and the other is
+    removed here. Writing over an existing account updates its leaves
+    in place and is told nothing of what the account was before, so
+    both removals are unconditional: an account that has just
+    delegated still carries the code hash leaf it held a moment ago,
+    and one that has just cleared its delegation still carries the
+    delegation leaf.
+
     Chunk leaves are content-addressed, so accounts sharing bytecode
     write the same leaves with the same values, and a re-embedding
     is idempotent. Leaves of a previous, different code are not
@@ -550,7 +636,7 @@ def embed_account(
     - The basic data of an account with zero nonce, zero balance and
       no code, since the version byte and the reserved bytes are
       zero too. Such an account is still distinguished from an
-      absent one by its code hash leaf.
+      absent one by the one header leaf it always holds.
 
     [`remove_code_chunks`]: ref:ethereum.binary_trie.embedding.remove_code_chunks
     [`state_write`]: ref:ethereum.binary_trie.embedding.state_write
@@ -564,6 +650,16 @@ def embed_account(
             balance=balance,
         ),
     )
+    if is_delegation(code):
+        state_write(
+            trie,
+            get_tree_key_for_delegation(address32),
+            encode_delegation(code),
+        )
+        trie_set(trie, get_tree_key_for_code_hash(address32), None)
+        return
+
+    trie_set(trie, get_tree_key_for_delegation(address32), None)
     state_write(
         trie,
         get_tree_key_for_code_hash(address32),
@@ -601,8 +697,8 @@ def embed_storage_slot(
 
 def remove_account(trie: BinaryTrie, address32: Address32) -> None:
     """
-    Remove an account from `trie` entirely: its basic data, code
-    hash, and every storage slot it holds.
+    Remove an account from `trie` entirely: its basic data, its code
+    hash or delegation, and every storage slot it holds.
 
     An account owns exactly two regions of the key space, both fixed
     by its address: its [`account_header_stem`] and its
@@ -663,10 +759,10 @@ def remove_all_storage(trie: BinaryTrie, address32: Address32) -> None:
 
     An account's storage straddles the two regions its address fixes:
     the header slots sit in the header stem beside the basic data
-    and code hash that must survive, so the header is swept one slot
-    sub-index at a time, while the overflow storage subtree goes
-    whole. As in [`remove_account`], no list of the account's slots
-    is needed.
+    and the code hash or delegation that must survive, so the header
+    is swept one slot sub-index at a time, while the overflow
+    storage subtree goes whole. As in [`remove_account`], no list of
+    the account's slots is needed.
 
     [`remove_account`]: ref:ethereum.binary_trie.embedding.remove_account
     """

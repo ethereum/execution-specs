@@ -258,9 +258,10 @@ def test_storage_under_7702_delegation_lands_on_authority(
     `authority` is the transaction's `to` and so actually executes
     here, unlike a designation merely written by `pre.fund_eoa` and
     never exercised: asserting its `code` checks that the designation
-    still reads back correctly after a real call, from its
-    content-addressed code-zone chunk rather than a dedicated MPT
-    field.
+    still reads back correctly after a real call, from the delegation
+    leaf of its own account header rather than a dedicated MPT field.
+    Its storage shares that header stem without disturbing it, the
+    delegation sub-index sitting below the storage ones.
     """
     slot, value = 3, 0xC0FFEE
     delegate_code = Op.SSTORE(slot, value) + Op.STOP

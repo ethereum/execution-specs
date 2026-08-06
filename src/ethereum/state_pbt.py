@@ -42,6 +42,7 @@ from ethereum.binary_trie.embedding import (
     address20_to_address32,
     embed_account,
     embed_storage_slot,
+    is_delegation,
     remove_account,
     remove_all_storage,
     remove_code_chunks,
@@ -210,6 +211,13 @@ def apply_diff_to_trie(
     implicit: an account's previous code, and whether an address had
     an account at all.
 
+    Only a deleted account reaches that scan. A live account cannot
+    replace non-empty code: deployment requires an empty code hash,
+    an indicator may not be deployed as code, and a delegation is
+    not code at all, being a header leaf its account replaces on its
+    own. So a code change needs no reclamation, and re-embedding the
+    account is the whole of it.
+
     Storage belongs to an account, so an address the diff leaves
     without one owns no slot leaves, exactly as in
     [`embed_flat_state`]: a deleted account's slots go with it, and
@@ -244,19 +252,21 @@ def apply_diff_to_trie(
 
     def drop_unreferenced_code(pre_account: Optional[Account]) -> None:
         """
-        Remove an account's code chunks once nothing in the
+        Remove a deleted account's code chunks once nothing in the
         resulting state runs that code.
 
-        Serves both ways an account stops referencing its code:
-        deletion of the account, and a change of its `code_hash`, as
-        when a delegation is set, redirected, or cleared. The chunks
-        are content-addressed and possibly shared, so they go only
-        when `code_hash_survives` finds no remaining holder.
+        The chunks are content-addressed and possibly shared, so they
+        go only when `code_hash_survives` finds no remaining holder.
+        A delegation indicator is exempt: it lives in its account's
+        header, so deleting the account takes it and there is no
+        shared leaf to reclaim.
         """
         if pre_account is None:
             return
         code_hash = pre_account.code_hash
         if code_hash == EMPTY_CODE_HASH:
+            return
+        if is_delegation(code_for(code_hash)):
             return
         if code_hash_survives(code_hash):
             return
@@ -272,11 +282,6 @@ def apply_diff_to_trie(
             remove_account(trie, address32)
             drop_unreferenced_code(pre_account)
             continue
-        if (
-            pre_account is not None
-            and pre_account.code_hash != account.code_hash
-        ):
-            drop_unreferenced_code(pre_account)
         embed_account(
             trie,
             address32,

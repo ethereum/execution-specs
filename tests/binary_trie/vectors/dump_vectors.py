@@ -46,7 +46,9 @@ from ethereum.binary_trie.embedding import (
     get_tree_key_for_basic_data,
     get_tree_key_for_code_chunk,
     get_tree_key_for_code_hash,
+    get_tree_key_for_delegation,
     get_tree_key_for_storage_slot,
+    is_delegation,
 )
 from ethereum.binary_trie.trie import BinaryTrie, root, trie_set
 from ethereum.crypto.hash import keccak256
@@ -194,7 +196,9 @@ def embedding_cases() -> Dict[str, Any]:
     The storage slot indices straddle the header/overflow boundary and
     the chunk indices the code-group boundaries (and the last chunk of
     a maximum-size code), so a client that mis-splits either zone
-    disagrees here.
+    disagrees here. The account's own leaves cover all three header
+    sub-indices, though no account holds both the code hash and the
+    delegation one.
     """
     address32 = address20_to_address32(Bytes20(ADDRESS20))
     code_hash = keccak256(b"\xfe")  # hash of some 1-byte code
@@ -203,6 +207,7 @@ def embedding_cases() -> Dict[str, Any]:
         "address32": hx(address32),
         "basic_data_key": hx(get_tree_key_for_basic_data(address32)),
         "code_hash_key": hx(get_tree_key_for_code_hash(address32)),
+        "delegation_key": hx(get_tree_key_for_delegation(address32)),
         "storage_slot_keys": {
             str(slot): hx(get_tree_key_for_storage_slot(address32, U256(slot)))
             for slot in [0, 1, 63, 64, 255, 256, 511, 512, 2**200]
@@ -360,6 +365,10 @@ def random_state_accounts() -> List[AccountSpec]:
         address = bytes(rng.randrange(256) for _ in range(20))
         code_length = rng.choice([0, 1, 31, 32, 100])
         code = bytes(rng.randrange(256) for _ in range(code_length))
+        # A generated delegation indicator would silently turn one of
+        # these accounts into a delegation case; no drawn length can
+        # be one, and this keeps that true if the lengths change.
+        assert not is_delegation(Bytes(code))
         storage: Dict[int, int] = {}
         while len(storage) < rng.randrange(4):
             storage[rng.randrange(2**256)] = rng.randrange(1, 2**256)
@@ -490,6 +499,46 @@ def pbt_state_cases() -> List[Dict[str, Any]]:
                     address=ADDRESS_A,
                     nonce=1,
                     code=b"\xef\x01\x00" + ADDRESS_C,
+                )
+            ],
+        ),
+        pbt_state_case(
+            "two_authorities_one_target",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    balance=1,
+                    code=b"\xef\x01\x00" + ADDRESS_C,
+                ),
+                AccountSpec(
+                    address=ADDRESS_B,
+                    nonce=2,
+                    balance=2,
+                    code=b"\xef\x01\x00" + ADDRESS_C,
+                ),
+            ],
+        ),
+        pbt_state_case(
+            "delegation_with_storage",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    code=b"\xef\x01\x00" + ADDRESS_C,
+                    storage=((0, 1), (63, 2), (64, 3)),
+                )
+            ],
+        ),
+        pbt_state_case(
+            "code_hash_starting_with_the_delegation_marker",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    code=bytes.fromhex(
+                        "0000000000000000000000000000000000000000637401"
+                    ),
                 )
             ],
         ),
