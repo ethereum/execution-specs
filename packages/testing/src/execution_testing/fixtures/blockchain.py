@@ -561,7 +561,13 @@ class FixtureEngineNewPayload(CamelModel):
             withdrawals=execution_payload.withdrawals,
             parent_beacon_block_root=parent_beacon_block_root,
             slot_number=execution_payload.slot_number,
-            target_gas_limit=execution_payload.gas_limit,
+            # targetGasLimit exists from V4 onwards; earlier versions must
+            # not carry the field even though every payload has a gas limit.
+            target_gas_limit=(
+                execution_payload.gas_limit
+                if self.forkchoice_updated_version >= 4
+                else None
+            ),
         )
 
     @staticmethod
