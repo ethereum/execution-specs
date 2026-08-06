@@ -188,7 +188,7 @@ def pytest_html_report_title(report: Any) -> None:
 
 
 # NOTE: ``transactions_per_block``, ``default_gas_price``, ``dry_run``,
-# ``max_transactions_per_batch``, ``use_testing_build_block``,
+# ``max_batch_size``, ``use_testing_build_block``,
 # ``default_max_fee_per_gas``, ``default_max_priority_fee_per_gas``,
 # ``default_max_fee_per_blob_gas``, ``max_priority_fee_per_gas``,
 # ``max_fee_per_gas``, ``max_fee_per_blob_gas``, ``gas_price``, and
