@@ -1,10 +1,10 @@
 """
-Test that the `derived_test` marker tracks the first fixture format that is
+Test that the `primary_format` marker tracks the first fixture format that is
 actually generated for a test, not merely the first entry in
 ``supported_fixture_formats``.
 
-Two ways the positional-first format can drop out, leaving a fixture that
-used to be tagged ``derived_test`` purely because of its list position:
+Two ways the positional-first format can drop out, leaving a later format as
+the test's effective primary:
 
 1. A single-format marker such as ``blockchain_test_engine_only`` discards
    the test's default (primary) format.
@@ -12,8 +12,8 @@ used to be tagged ``derived_test`` purely because of its list position:
    session, which only generates EngineX fixtures) excludes the primary
    format from parametrization entirely.
 
-In both cases the surviving format is the test's effective primary, so it
-must stay unmarked and remain selectable via ``-m "not derived_test"``.
+In both cases the surviving format is the test's effective primary, so it must
+carry the mark and stay selectable via ``-m primary_format``.
 """
 
 import textwrap
@@ -95,7 +95,7 @@ def write_test_module(pytester: pytest.Pytester, module_source: str) -> None:
             NORMAL_BLOCKCHAIN_MODULE,
             "-blockchain_test]",
             "-blockchain_test_engine]",
-            id="normal_test_still_marks_derived",
+            id="normal_test_primary_is_default_format",
         ),
         pytest.param(
             STATE_ONLY_MODULE,
@@ -105,16 +105,15 @@ def write_test_module(pytester: pytest.Pytester, module_source: str) -> None:
         ),
     ],
 )
-def test_not_derived_test_selects_primary_survivor(
+def test_primary_format_selects_first_survivor(
     pytester: pytest.Pytester,
     module_source: str,
     present: str,
     absent: str,
 ) -> None:
     """
-    Collect with ``-m "not derived_test"`` and assert the test's primary
-    (first surviving) fixture format is selected while its derived formats are
-    not.
+    Collect with ``-m primary_format`` and assert the test's primary (first
+    surviving) fixture format is selected while its other formats are not.
     """
     write_test_module(pytester, module_source)
 
@@ -124,34 +123,28 @@ def test_not_derived_test_selects_primary_survivor(
         "--fork",
         FORK,
         "-m",
-        "not derived_test",
+        "primary_format",
         TEST_MODULE_DIR,
         "--collect-only",
         "-q",
     )
 
     assert result.ret == 0, f"Collection failed:\n{result.outlines}"
-    assert any(present in line for line in result.outlines), (
-        f"Expected {present!r} to be collected:\n{result.outlines}"
-    )
-    assert not any(absent in line for line in result.outlines), (
-        f"Expected {absent!r} to be absent under `not derived_test`:\n"
-        f"{result.outlines}"
-    )
+    result.stdout.fnmatch_lines([f"*{present}"])
+    result.stdout.no_fnmatch_line(f"*{absent}")
 
 
-def test_not_derived_test_selects_session_filter_survivor(
+def test_primary_format_selects_session_filter_survivor(
     pytester: pytest.Pytester,
 ) -> None:
     """
     Collect a plain state test in a ``--generate-pre-alloc-groups`` session
-    with ``-m "not derived_test"`` and assert that the only format generated
-    in this session (EngineX) is selected as the test's primary.
+    with ``-m primary_format`` and assert that the only format generated in
+    this session (EngineX) is selected as the test's primary.
 
     The session-level format filter (``should_generate_format``) excludes all
-    other formats before parametrization, so the EngineX fixture must not
-    inherit a ``derived_test`` mark from its position in
-    ``supported_fixture_formats``.
+    other formats before parametrization, so the EngineX fixture must receive
+    the mark despite its position in ``supported_fixture_formats``.
     """
     write_test_module(pytester, NORMAL_STATE_MODULE)
 
@@ -162,18 +155,14 @@ def test_not_derived_test_selects_session_filter_survivor(
         FORK,
         "--generate-pre-alloc-groups",
         "-m",
-        "not derived_test",
+        "primary_format",
         TEST_MODULE_DIR,
         "--collect-only",
         "-q",
     )
 
-    engine_x = "-blockchain_test_engine_x_from_state_test]"
     assert result.ret == 0, f"Collection failed:\n{result.outlines}"
-    assert any(engine_x in line for line in result.outlines), (
-        f"Expected {engine_x!r} to be collected:\n{result.outlines}"
+    result.stdout.fnmatch_lines(
+        ["*-blockchain_test_engine_x_from_state_test]"]
     )
-    assert not any("-state_test]" in line for line in result.outlines), (
-        "Expected the state test format to be excluded by the session "
-        f"format filter:\n{result.outlines}"
-    )
+    result.stdout.no_fnmatch_line("*-state_test]")

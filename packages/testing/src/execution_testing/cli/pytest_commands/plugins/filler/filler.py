@@ -1855,12 +1855,14 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                 parameter = labeled_format_parameter_set(
                     format_with_or_without_label
                 )
-                # The first surviving format is the test's primary; the
-                # rest are derived from it (e.g. a BlockchainTest derived
-                # from a StateTest) and can be deselected with
-                # `-m "not derived_test"`.
-                if parameters:
-                    parameter.marks.append(pytest.mark.derived_test)  # type: ignore
+                # The first surviving format is the test's primary: filling it
+                # alone exercises the test once, so `-m primary_format` selects
+                # exactly one fixture per test. The formats that follow are
+                # additional serializations of the same spec, or translations
+                # into another spec's format (e.g. a BlockchainTest generated
+                # from a StateTest).
+                if not parameters:
+                    parameter.marks.append(pytest.mark.primary_format)  # type: ignore
                 parameters.append(parameter)
             metafunc.parametrize(
                 [test_type.pytest_parameter_name()],

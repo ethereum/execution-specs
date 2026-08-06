@@ -193,8 +193,8 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "derived_test: Mark a test as a derived test (E.g. a BlockchainTest "
-        "that is derived from a StateTest).",
+        "primary_format: Mark the first fixture format generated for a test. "
+        "Select with `-m primary_format` to fill every test exactly once.",
     )
     config.addinivalue_line(
         "markers",
