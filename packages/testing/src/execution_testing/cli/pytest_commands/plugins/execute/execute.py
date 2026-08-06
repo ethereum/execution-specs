@@ -26,7 +26,6 @@ from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
 from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
-    labeled_format_parameter_set,
     option_was_explicitly_set,
 )
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
@@ -483,13 +482,11 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
             parameter_set = []
             for (
-                format_with_or_without_label
-            ) in test_type.supported_execute_formats:
-                param = labeled_format_parameter_set(
-                    format_with_or_without_label
-                )
+                execute_format,
+                param,
+            ) in test_type.execute_format_parameters():
                 if (
-                    format_with_or_without_label.requires_engine_rpc
+                    execute_format.requires_engine_rpc
                     and not engine_rpc_supported
                 ):
                     param.marks.append(  # type: ignore

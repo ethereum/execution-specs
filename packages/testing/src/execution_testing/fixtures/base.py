@@ -196,6 +196,36 @@ class BaseFixture(CamelModel):
         raise NotImplementedError
 
     @classmethod
+    def format_class(cls) -> "Type[BaseFixture]":
+        """Get the fixture format."""
+        return cls
+
+    @classmethod
+    def format_id(cls) -> str:
+        """Get string used as identifier for this format."""
+        return cls.format_name.lower()
+
+    @classmethod
+    def marks(cls) -> List[pytest.MarkDecorator | pytest.Mark]:
+        """
+        Get list of pytest marks that need to be added to a test produced
+        with this fixture format.
+        """
+        marks: List[pytest.MarkDecorator | pytest.Mark] = [
+            getattr(
+                pytest.mark,
+                cls.format_name.lower(),
+            ),
+        ]
+        if cls.transition_tool_cache_key:
+            marks.append(
+                pytest.mark.transition_tool_cache_key(
+                    cls.transition_tool_cache_key
+                )
+            )
+        return marks
+
+    @classmethod
     def supports_fork(cls, fork: Fork | TransitionFork) -> bool:
         """
         Return whether the fixture can be generated for the given fork.
@@ -240,11 +270,7 @@ class LabeledFixtureFormat:
         description: str,
     ):
         """Initialize the fixture format with a custom label."""
-        self.format = (
-            fixture_format.format
-            if isinstance(fixture_format, LabeledFixtureFormat)
-            else fixture_format
-        )
+        self.format = fixture_format.format_class()
         self.label = label
         self.description = description
         if label not in LabeledFixtureFormat.registered_labels:
@@ -259,6 +285,29 @@ class LabeledFixtureFormat:
     def format_phases(self) -> Set[FixtureFillingPhase]:
         """Get the filling format phases where it should be included."""
         return self.format.format_phases
+
+    def format_class(self) -> Type[BaseFixture]:
+        """Get the format without label."""
+        return self.format
+
+    def format_id(self) -> str:
+        """Get string used as identifier for this format."""
+        return self.label
+
+    def marks(self) -> List[pytest.MarkDecorator | pytest.Mark]:
+        """
+        Get list of pytest marks that need to be added to a test produced
+        with this fixture format.
+        """
+        marks: List[pytest.MarkDecorator | pytest.Mark] = self.format.marks()
+        if self.label.lower() != self.format.format_name.lower():
+            marks.append(
+                getattr(
+                    pytest.mark,
+                    self.label.lower(),
+                ),
+            )
+        return marks
 
     @property
     def transition_tool_cache_key(self) -> str:

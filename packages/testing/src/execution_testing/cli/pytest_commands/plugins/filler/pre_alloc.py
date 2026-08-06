@@ -24,7 +24,6 @@ from execution_testing.base_types.conversions import (
     BytesConvertible,
     NumberConvertible,
 )
-from execution_testing.fixtures import LabeledFixtureFormat
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.specs import BaseTest
 from execution_testing.test_types import (
@@ -420,11 +419,7 @@ ALL_FIXTURE_FORMAT_NAMES: List[str] = []
 
 for spec in BaseTest.spec_types.values():
     for labeled_fixture_format in spec.supported_fixture_formats:
-        name = (
-            labeled_fixture_format.label
-            if isinstance(labeled_fixture_format, LabeledFixtureFormat)
-            else labeled_fixture_format.format_name.lower()
-        )
+        name = labeled_fixture_format.format_id()
         if name not in ALL_FIXTURE_FORMAT_NAMES:
             ALL_FIXTURE_FORMAT_NAMES.append(name)
 

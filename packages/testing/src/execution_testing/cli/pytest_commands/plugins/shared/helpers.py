@@ -4,16 +4,7 @@ import os
 from typing import Any, Dict, Tuple, Type
 
 import pytest
-from _pytest.mark.structures import ParameterSet
 
-from execution_testing.execution import (
-    ExecuteFormat,
-    LabeledExecuteFormat,
-)
-from execution_testing.fixtures import (
-    FixtureFormat,
-    LabeledFixtureFormat,
-)
 from execution_testing.specs import BaseTest
 
 
@@ -68,64 +59,6 @@ def get_rpc_endpoint(config: pytest.Config) -> str | None:
     return config.getoption("rpc_endpoint", None) or os.environ.get(
         "RPC_ENDPOINT"
     )
-
-
-def labeled_format_parameter_set(
-    format_with_or_without_label: LabeledExecuteFormat
-    | LabeledFixtureFormat
-    | ExecuteFormat
-    | FixtureFormat,
-) -> ParameterSet:
-    """
-    Return a parameter set from a fixture/execute format and parse a label if
-    there's any.
-
-    The label will be used in the test id and also will be added as a marker to
-    the generated test case when filling/executing the test.
-    """
-    transition_tool_cache_key = getattr(
-        format_with_or_without_label, "transition_tool_cache_key", ""
-    )
-    if transition_tool_cache_key:
-        marks = [
-            pytest.mark.transition_tool_cache_key(transition_tool_cache_key),
-        ]
-    else:
-        marks = []
-    if isinstance(
-        format_with_or_without_label, LabeledExecuteFormat
-    ) or isinstance(format_with_or_without_label, LabeledFixtureFormat):
-        parameter_id = format_with_or_without_label.label
-        return pytest.param(
-            format_with_or_without_label.format,
-            id=parameter_id,
-            marks=[
-                getattr(
-                    pytest.mark,
-                    format_with_or_without_label.format_name.lower(),
-                ),
-                getattr(
-                    pytest.mark,
-                    parameter_id.lower(),
-                ),
-                pytest.mark.fixture_format_id(parameter_id),
-            ]
-            + marks,
-        )
-    else:
-        parameter_id = format_with_or_without_label.format_name.lower()
-        return pytest.param(
-            format_with_or_without_label,
-            id=parameter_id,
-            marks=[
-                getattr(
-                    pytest.mark,
-                    parameter_id,
-                ),
-                pytest.mark.fixture_format_id(parameter_id),
-            ]
-            + marks,
-        )
 
 
 def get_spec_format_for_item(

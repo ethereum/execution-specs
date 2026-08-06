@@ -13,10 +13,12 @@ from typing import (
     Generator,
     List,
     Sequence,
+    Tuple,
     Type,
 )
 
 import pytest
+from _pytest.mark.structures import ParameterSet
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
 
@@ -100,6 +102,31 @@ class FillResult(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
+def labeled_format_parameter_set(
+    format_with_or_without_label: LabeledExecuteFormat
+    | LabeledFixtureFormat
+    | ExecuteFormat
+    | FixtureFormat,
+) -> ParameterSet:
+    """
+    Return a parameter set from a fixture/execute format and parse a label if
+    there's any.
+
+    The label will be used in the test id and also will be added as a marker to
+    the generated test case when filling/executing the test.
+    """
+    return pytest.param(
+        format_with_or_without_label.format_class(),
+        id=format_with_or_without_label.format_id(),
+        marks=format_with_or_without_label.marks()
+        + [
+            pytest.mark.fixture_format_id(
+                format_with_or_without_label.format_id()
+            )
+        ],
+    )
+
+
 class BaseTest(BaseModel):
     """
     Represents a base Ethereum test which must return a single test fixture.
@@ -151,6 +178,68 @@ class BaseTest(BaseModel):
         """
         del fixture_format, markers
         return False
+
+    @classmethod
+    def fixture_format_parameters(
+        cls,
+        *,
+        markers: List[pytest.Mark],
+    ) -> List[Tuple[FixtureFormat | LabeledFixtureFormat, ParameterSet]]:
+        """
+        Return one pytest parameter per fixture format this spec type fills,
+        paired with the format it fills, so the caller can narrow the formats
+        down to the ones its session generates.
+
+        The first format not vetoed by `discard_fixture_format_by_marks` is
+        the primary and is marked `primary_format`, so `-m primary_format`
+        fills each test once. Only sessions that generate a single format per
+        test can filter that primary out, and there the marker is moot.
+
+        An override that parametrizes further must leave exactly one parameter
+        marked `primary_format`.
+        """
+        parameters: List[
+            Tuple[FixtureFormat | LabeledFixtureFormat, ParameterSet]
+        ] = []
+        for format_with_or_without_label in cls.supported_fixture_formats:
+            if cls.discard_fixture_format_by_marks(
+                format_with_or_without_label.format_class(),
+                markers,
+            ):
+                continue
+            parameter = labeled_format_parameter_set(
+                format_with_or_without_label
+            )
+            if not parameters:
+                parameter.marks.append(pytest.mark.primary_format)  # type: ignore
+            parameters.append((format_with_or_without_label, parameter))
+        return parameters
+
+    @classmethod
+    def execute_format_parameters(
+        cls,
+    ) -> List[Tuple[LabeledExecuteFormat, ParameterSet]]:
+        """
+        Return one pytest parameter per execute format this spec type runs.
+
+        Each element pairs the labeled format with the parameter that executes
+        it, so the caller can inspect what the format requires of the session
+        (e.g. an Engine RPC) and skip or select it accordingly.
+
+        Formats are not vetoed here the way `fixture_format_parameters` vetoes
+        them: `discard_execute_format_by_marks` needs the fork, which is only
+        parametrized later, so the caller applies it during collection.
+
+        Subclasses may override this to parametrize further, e.g. to execute a
+        single execute format more than once.
+        """
+        return [
+            (
+                labeled_execute_format,
+                labeled_format_parameter_set(labeled_execute_format),
+            )
+            for labeled_execute_format in cls.supported_execute_formats
+        ]
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:

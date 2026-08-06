@@ -1,19 +1,17 @@
 """
-Test that the `primary_format` marker tracks the first fixture format that is
-actually generated for a test, not merely the first entry in
+Test that the `primary_format` marker tracks the first fixture format a test
+actually generates, not merely the first entry in
 ``supported_fixture_formats``.
 
-Two ways the positional-first format can drop out, leaving a later format as
-the test's effective primary:
+A single-format marker such as ``blockchain_test_engine_only`` discards the
+test's default (primary) format, so a later format becomes the effective
+primary and must carry the mark to stay selectable via ``-m primary_format``.
 
-1. A single-format marker such as ``blockchain_test_engine_only`` discards
-   the test's default (primary) format.
-2. A session-level format filter (e.g. a ``--generate-pre-alloc-groups``
-   session, which only generates EngineX fixtures) excludes the primary
-   format from parametrization entirely.
-
-In both cases the surviving format is the test's effective primary, so it must
-carry the mark and stay selectable via ``-m primary_format``.
+The session-level format filter (``should_generate_format``) can drop the
+default format too, but only in sessions that generate a single format per
+test (``--generate-pre-alloc-groups``, ``fill --stateful``). There is nothing
+to deduplicate there, so the marker is not a useful selector; the last test
+pins that one-format-per-test property instead.
 """
 
 import textwrap
@@ -134,17 +132,19 @@ def test_primary_format_selects_first_survivor(
     result.stdout.no_fnmatch_line(f"*{absent}")
 
 
-def test_primary_format_selects_session_filter_survivor(
+def test_pre_alloc_group_session_generates_one_format_per_test(
     pytester: pytest.Pytester,
 ) -> None:
     """
-    Collect a plain state test in a ``--generate-pre-alloc-groups`` session
-    with ``-m primary_format`` and assert that the only format generated in
-    this session (EngineX) is selected as the test's primary.
+    Collect a plain state test in a ``--generate-pre-alloc-groups`` session and
+    assert it yields a single fixture format.
 
-    The session-level format filter (``should_generate_format``) excludes all
-    other formats before parametrization, so the EngineX fixture must receive
-    the mark despite its position in ``supported_fixture_formats``.
+    The session-level format filter narrows every spec type to EngineX in this
+    phase, so each test already generates exactly one fixture and there is
+    nothing for ``primary_format`` to deduplicate. The mark that
+    ``fixture_format_parameters`` put on the default format is filtered out
+    along with it, which is why ``-m primary_format`` is not a useful selector
+    in this session.
     """
     write_test_module(pytester, NORMAL_STATE_MODULE)
 
@@ -154,15 +154,16 @@ def test_primary_format_selects_session_filter_survivor(
         "--fork",
         FORK,
         "--generate-pre-alloc-groups",
-        "-m",
-        "primary_format",
         TEST_MODULE_DIR,
         "--collect-only",
         "-q",
     )
 
     assert result.ret == 0, f"Collection failed:\n{result.outlines}"
+    collected = [line for line in result.outlines if "::test_case[" in line]
+    assert len(collected) == 1, (
+        f"Expected a single fixture format:\n{result.outlines}"
+    )
     result.stdout.fnmatch_lines(
         ["*-blockchain_test_engine_x_from_state_test]"]
     )
-    result.stdout.no_fnmatch_line("*-state_test]")

@@ -99,16 +99,7 @@ class StateTest(BaseTest):
         for fixture_format in BlockchainTest.supported_fixture_formats
         # Exclude sync fixtures from state tests - they don't make sense for
         # state tests
-        if not (
-            (
-                hasattr(fixture_format, "__name__")
-                and "Sync" in fixture_format.__name__
-            )
-            or (
-                hasattr(fixture_format, "format")
-                and "Sync" in fixture_format.format.__name__
-            )
-        )
+        if "Sync" not in fixture_format.format_class().__name__
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
