@@ -386,6 +386,33 @@ def test_extcodecopy_past_end_zero_pads(
     state_test(pre=pre, post=post, tx=tx)
 
 
+def test_extcodecopy_from_initcode_clones_chunked_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify initcode that EXTCODECOPYs a deployed multi-chunk contract
+    deploys a byte-identical clone sharing every chunk leaf.
+    """
+    template_code = sstore_then_pad(slot=0, value=0xC0DE, total_size=100)
+    assert Spec.code_chunk_count(len(template_code)) == 4
+    template = pre.deploy_contract(code=template_code)
+
+    initcode = Op.EXTCODECOPY(template, 0, 0, len(template_code)) + Op.RETURN(
+        0, len(template_code)
+    )
+
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=None, data=initcode)
+    clone = tx.created_contract
+
+    post = {
+        clone: Account(nonce=1, code=template_code),
+        template: Account(storage={}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
 def test_byte_identical_code_two_contracts_independent(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -536,6 +563,82 @@ def test_initcode_size_limit_boundary(
         created: (
             Account.NONEXISTENT if over_limit else Account(code=deploy_code)
         ),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "immediate_bytes_present",
+    [
+        pytest.param(0, id="push2_opcode_is_the_last_byte"),
+        pytest.param(1, id="one_of_two_immediate_bytes_present"),
+    ],
+)
+def test_code_ends_in_truncated_push(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    immediate_bytes_present: int,
+) -> None:
+    """
+    Verify code ending in a PUSH2 with its immediate truncated by the
+    end of code executes to the implicit STOP and keeps its identity
+    through chunking.
+    """
+    marker_slot = 5
+    prefix = Op.SSTORE(marker_slot, 0xE)
+    pad = Op.JUMPDEST * (Spec.CODE_CHUNK_SIZE - len(prefix))
+    tail = bytes([Op.PUSH2.int()]) + b"\xaa" * immediate_bytes_present
+    code = bytes(prefix + pad) + tail
+    assert len(code) == Spec.CODE_CHUNK_SIZE + 1 + immediate_bytes_present
+    assert code[Spec.CODE_CHUNK_SIZE] == Op.PUSH2.int()
+
+    target = pre.deploy_contract(code=code)
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.CALL(address=target))
+        + Op.SSTORE(1, Op.EXTCODESIZE(target))
+        + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
+
+    post = {
+        target: Account(code=code, storage={marker_slot: 0xE}),
+        caller: Account(storage={0: 1, 1: len(code)}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_code_with_all_zero_chunk(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify a whole aligned chunk of zero bytes -- an absent leaf under
+    zero-collapse -- deploys, is jumped over, and still counts toward
+    EXTCODEHASH.
+    """
+    marker_a, marker_b = 6, 7
+    zero_start = Spec.CODE_CHUNK_SIZE
+    zero_end = 2 * Spec.CODE_CHUNK_SIZE
+    head = Op.SSTORE(marker_a, 0xF) + Op.JUMP(zero_end)
+    pad = Op.JUMPDEST * (zero_start - len(head))
+    landing = Op.JUMPDEST + Op.SSTORE(marker_b, 1) + Op.STOP
+    code = bytes(head + pad) + b"\x00" * Spec.CODE_CHUNK_SIZE + bytes(landing)
+    assert code[zero_start:zero_end] == b"\x00" * Spec.CODE_CHUNK_SIZE
+    assert code[zero_end] == 0x5B
+
+    target = pre.deploy_contract(code=code)
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.CALL(address=target))
+        + Op.SSTORE(1, Op.EQ(Op.EXTCODEHASH(target), keccak256(code)))
+        + Op.STOP
+    )
+
+    tx = Transaction(sender=pre.fund_eoa(), to=caller)
+
+    post = {
+        target: Account(code=code, storage={marker_a: 0xF, marker_b: 1}),
+        caller: Account(storage={0: 1, 1: 1}),
     }
     state_test(pre=pre, post=post, tx=tx)
 

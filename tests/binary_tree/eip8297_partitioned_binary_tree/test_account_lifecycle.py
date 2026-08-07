@@ -12,10 +12,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Initcode,
     Op,
     StateTestFiller,
     Transaction,
+    compute_create2_address,
     compute_create_address,
 )
 
@@ -306,3 +309,76 @@ def test_precompile_touch_and_value_transfer(
         contract: Account(storage={canary_slot: 1}),
     }
     state_test(pre=pre, post=post, tx=tx)
+
+
+def test_create2_recreate_with_different_code(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Verify CREATE2 re-occupying a same-tx-destroyed address deploys
+    the new code with nothing inherited in either storage home. The
+    address pins the initcode hash, so the code difference comes from
+    branching on NUMBER.
+    """
+    header_slot, overflow_slot = 2, 0x400
+
+    # Code X: flag zero writes both storage homes, nonzero destructs.
+    x_dest = 1
+    for _ in range(3):
+        x_head = (
+            Op.JUMPI(x_dest, Op.CALLDATALOAD(0))
+            + Op.SSTORE(header_slot, 0xA)
+            + Op.SSTORE(overflow_slot, 0xB)
+            + Op.STOP
+        )
+        x_dest = len(x_head)
+    code_x = x_head + Op.JUMPDEST + Op.SELFDESTRUCT(Op.CALLER)
+    code_y = Op.SSTORE(3, 0xC) + Op.STOP
+    assert bytes(code_x)[x_dest] == 0x5B
+    assert len(bytes(code_x)) != len(bytes(code_y))
+
+    # Initcode: X in block 1, Y after; offsets are a push-width fixed
+    # point.
+    x_len, y_len = len(bytes(code_x)), len(bytes(code_y))
+    y_dest = data_off = 1
+    for _ in range(3):
+        prologue = Op.JUMPI(y_dest, Op.GT(Op.NUMBER, 1))
+        x_arm = Op.CODECOPY(0, data_off, x_len) + Op.RETURN(0, x_len)
+        y_arm = (
+            Op.JUMPDEST
+            + Op.CODECOPY(0, data_off + x_len, y_len)
+            + Op.RETURN(0, y_len)
+        )
+        y_dest = len(prologue) + len(x_arm)
+        data_off = y_dest + len(y_arm)
+    initcode = prologue + x_arm + y_arm + code_x + code_y
+    assert bytes(initcode)[y_dest] == 0x5B
+    assert bytes(initcode)[data_off : data_off + x_len] == bytes(code_x)
+    assert bytes(initcode)[data_off + x_len :] == bytes(code_y)
+
+    salt = 0x51DE
+    factory = pre.deploy_contract(
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(0, Op.CREATE2(0, 0, Op.CALLDATASIZE, salt))
+        + Op.MSTORE(0, 0)
+        + Op.SSTORE(1, Op.CALL(address=Op.SLOAD(0), args_size=32))
+        + Op.MSTORE(0, 1)
+        + Op.SSTORE(2, Op.CALL(address=Op.SLOAD(0), args_size=32))
+        + Op.STOP
+    )
+    child = compute_create2_address(factory, salt, initcode)
+    sender = pre.fund_eoa()
+
+    blocks = [
+        Block(
+            txs=[Transaction(sender=sender, to=factory, data=bytes(initcode))]
+        )
+        for _ in range(2)
+    ]
+
+    post = {
+        factory: Account(nonce=3, storage={0: child, 1: 1, 2: 1}),
+        child: Account(nonce=1, code=code_y, storage={3: 0xC}),
+    }
+    blockchain_test(pre=pre, blocks=blocks, post=post)
