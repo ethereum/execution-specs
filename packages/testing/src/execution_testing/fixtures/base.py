@@ -304,6 +304,28 @@ class LabeledFixtureFormat:
         """Get the format without label."""
         return self.format
 
+    def supports_fork(self, fork: Fork | TransitionFork) -> bool:
+        """
+        Return whether this label can be filled for the given fork.
+
+        Defers to the wrapped format. A label whose fixture only makes sense
+        for some forks overrides this.
+        """
+        return self.format.supports_fork(fork)
+
+    def discard_fixture_format_by_marks(
+        self,
+        fork: Fork | TransitionFork,
+        markers: List[pytest.Mark],
+    ) -> bool:
+        """
+        Discard this label from filling if the appropriate marker is used.
+
+        Defers to the wrapped format, so a label can veto itself without
+        affecting the other labels of the same format.
+        """
+        return self.format.discard_fixture_format_by_marks(fork, markers)
+
     def format_id(self) -> str:
         """Get string used as identifier for this format."""
         return self.label

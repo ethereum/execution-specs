@@ -1889,10 +1889,9 @@ def pytest_collection_modifyitems(
             )
             specs_without_fixture_formats[spec_name].add(test_file)
             continue
-        # Vetoes apply to the format itself; a label only distinguishes two
-        # parametrizations of the same format, so it is stripped here.
-        fixture_format_class = fixture_format.format_class()
-        if not fixture_format_class.supports_fork(fork):
+        # The format keeps its label throughout, so a label can veto itself
+        # without affecting the other labels of the same format.
+        if not fixture_format.supports_fork(fork):
             items_for_removal.append(i)
             continue
 
@@ -1900,7 +1899,7 @@ def pytest_collection_modifyitems(
 
         # Both the fixture format itself and the spec filling it have a chance
         # to veto the filling of a specific format.
-        if fixture_format_class.discard_fixture_format_by_marks(fork, markers):
+        if fixture_format.discard_fixture_format_by_marks(fork, markers):
             items_for_removal.append(i)
             continue
         # Only static tests can be discarded here: dynamic tests never
