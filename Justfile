@@ -215,7 +215,6 @@ spec-tools *args: (_tmp "spec-tools")
     uv run pytest \
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/spec-tools/tmp" \
-        --ignore=tests/evm_tools/test_count_opcodes.py \
         "$@" \
         tests/evm_tools
 
