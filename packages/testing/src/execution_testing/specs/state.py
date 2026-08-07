@@ -223,7 +223,7 @@ class StateTest(BaseTest):
     @classmethod
     def discard_fixture_format_by_marks(
         cls,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
         markers: List[pytest.Mark],
     ) -> bool:
         """

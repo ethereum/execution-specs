@@ -1905,9 +1905,7 @@ def pytest_collection_modifyitems(
             continue
         # Only static tests can be discarded here: dynamic tests never
         # generate discarded formats (see pytest_generate_tests above).
-        if spec_type.discard_fixture_format_by_marks(
-            fixture_format_class, markers
-        ):
+        if spec_type.discard_fixture_format_by_marks(fixture_format, markers):
             items_for_removal.append(i)
             continue
         for marker in markers:

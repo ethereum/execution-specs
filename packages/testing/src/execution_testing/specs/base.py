@@ -173,12 +173,15 @@ class BaseTest(BaseModel):
     @classmethod
     def discard_fixture_format_by_marks(
         cls,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
         markers: List[pytest.Mark],
     ) -> bool:
         """
         Discard a fixture format from filling if the appropriate marker is
         used.
+
+        The format keeps its label: comparing it against a plain format
+        matches every label of it, `format_id()` identifies a single one.
         """
         del fixture_format, markers
         return False
@@ -207,7 +210,7 @@ class BaseTest(BaseModel):
         ] = []
         for format_with_or_without_label in cls.supported_fixture_formats:
             if cls.discard_fixture_format_by_marks(
-                format_with_or_without_label.format_class(),
+                format_with_or_without_label,
                 markers,
             ):
                 continue
