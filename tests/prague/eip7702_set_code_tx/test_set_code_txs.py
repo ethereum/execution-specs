@@ -4062,6 +4062,7 @@ def test_many_delegations(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 def test_invalid_transaction_after_authorization(
     blockchain_test: BlockchainTestFiller,

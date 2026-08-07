@@ -194,6 +194,7 @@ def test_insufficient_gas_for_sstore_state_cost(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "exceed_block_gas_limit",
     [
@@ -247,6 +248,7 @@ def test_block_execution_gas_limit(
     blockchain_test(pre=pre, post={}, blocks=[block])
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "delta",
     [

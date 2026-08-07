@@ -198,6 +198,12 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "inclusion_test: Mark a test that verifies whether a transaction can "
+        "be included in a block. The transaction under test is the last one "
+        "of the last block.",
+    )
+    config.addinivalue_line(
+        "markers",
         "tagged: Marks a static test as tagged. Tags are used to generate "
         "dynamic addresses for static tests at fill time. All tagged tests "
         "are compatible with dynamic address generation.",
