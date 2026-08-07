@@ -132,6 +132,7 @@ def test_tx_max_nonce(state_test: StateTestFiller, pre: Alloc) -> None:
     state_test(pre=pre, post={sender: Account(nonce=max_nonce)}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 def test_tx_nonce_overflow(
     transaction_test: TransactionTestFiller,
