@@ -206,23 +206,28 @@ class BaseFixture(CamelModel):
         return cls.format_name.lower()
 
     @classmethod
-    def marks(cls) -> List[pytest.MarkDecorator | pytest.Mark]:
+    def marks(
+        cls, *, transition_tool_cache_key: str | None = None
+    ) -> List[pytest.MarkDecorator | pytest.Mark]:
         """
         Get list of pytest marks that need to be added to a test produced
         with this fixture format.
+
+        `transition_tool_cache_key` overrides the format's own key.
         """
+        cache_key = (
+            cls.transition_tool_cache_key
+            if transition_tool_cache_key is None
+            else transition_tool_cache_key
+        )
         marks: List[pytest.MarkDecorator | pytest.Mark] = [
             getattr(
                 pytest.mark,
                 cls.format_name.lower(),
             ),
         ]
-        if cls.transition_tool_cache_key:
-            marks.append(
-                pytest.mark.transition_tool_cache_key(
-                    cls.transition_tool_cache_key
-                )
-            )
+        if cache_key:
+            marks.append(pytest.mark.transition_tool_cache_key(cache_key))
         return marks
 
     @classmethod
@@ -268,11 +273,20 @@ class LabeledFixtureFormat:
         fixture_format: "Type[BaseFixture] | LabeledFixtureFormat",
         label: str,
         description: str,
+        transition_tool_cache_key: str | None = None,
     ):
-        """Initialize the fixture format with a custom label."""
+        """
+        Initialize the fixture format with a custom label.
+
+        `transition_tool_cache_key` defaults to the wrapped format's key. A
+        label that asks the transition tool for something different must set
+        its own key, or an empty string to opt out of caching, since labels
+        sharing a key also share cached output.
+        """
         self.format = fixture_format.format_class()
         self.label = label
         self.description = description
+        self._transition_tool_cache_key = transition_tool_cache_key
         if label not in LabeledFixtureFormat.registered_labels:
             LabeledFixtureFormat.registered_labels[label] = self
 
@@ -299,7 +313,9 @@ class LabeledFixtureFormat:
         Get list of pytest marks that need to be added to a test produced
         with this fixture format.
         """
-        marks: List[pytest.MarkDecorator | pytest.Mark] = self.format.marks()
+        marks: List[pytest.MarkDecorator | pytest.Mark] = self.format.marks(
+            transition_tool_cache_key=self._transition_tool_cache_key
+        )
         if self.label.lower() != self.format.format_name.lower():
             marks.append(
                 getattr(
@@ -311,8 +327,10 @@ class LabeledFixtureFormat:
 
     @property
     def transition_tool_cache_key(self) -> str:
-        """Get the transition tool cache key."""
-        return self.format.transition_tool_cache_key
+        """Get the transition tool cache key, or the wrapped format's."""
+        if self._transition_tool_cache_key is None:
+            return self.format.transition_tool_cache_key
+        return self._transition_tool_cache_key
 
     def __eq__(self, other: Any) -> bool:
         """
