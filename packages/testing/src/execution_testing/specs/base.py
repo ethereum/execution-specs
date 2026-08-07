@@ -280,7 +280,7 @@ class BaseTest(BaseModel):
     @classmethod
     def discard_execute_format_by_marks(
         cls,
-        execute_format: ExecuteFormat,
+        execute_format: ExecuteFormat | LabeledExecuteFormat,
         fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:

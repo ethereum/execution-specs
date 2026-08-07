@@ -527,7 +527,7 @@ def pytest_collection_modifyitems(
         spec_type, execute_format = get_spec_format_for_item(params)
         markers = list(item.iter_markers())
         if spec_type.discard_execute_format_by_marks(
-            execute_format.format_class(), fork, markers
+            execute_format, fork, markers
         ):
             items_for_removal.append(i)
             continue
