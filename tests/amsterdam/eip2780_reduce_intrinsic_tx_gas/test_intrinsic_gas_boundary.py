@@ -37,6 +37,7 @@ REFERENCE_SPEC_VERSION = ref_spec_2780.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize("recipient_type", RECIPIENT_TYPES_NON_CREATE)
 @pytest.mark.parametrize(
@@ -80,6 +81,7 @@ def test_intrinsic_gas_floor_boundary(
     state_test(pre=pre, tx=tx, post={})
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "value",
@@ -125,6 +127,7 @@ def test_intrinsic_gas_floor_boundary_contract_creation(
     state_test(pre=pre, tx=tx, post={})
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "authorization_count",
@@ -184,6 +187,7 @@ def test_intrinsic_gas_floor_boundary_with_authorizations(
     state_test(pre=pre, tx=tx, post=pre)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types
 def test_intrinsic_gas_floor_boundary_all_tx_types(

@@ -489,6 +489,7 @@ def test_multi_block_dimension_flip(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "tx_gas_delta, expected_exception",
     [
@@ -604,6 +605,7 @@ def test_tx_gas_limit_block_boundary(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "delta",
     [
@@ -936,6 +938,7 @@ def test_base_fee_per_gas_follows_dominant_dimension(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "delta",
     [
@@ -1011,6 +1014,7 @@ def test_cumulative_block_state_gas_boundary(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "over_by",
     [

@@ -111,6 +111,7 @@ def initcode(fork: Fork, initcode_name: str) -> Initcode:
 """Test cases using a contract creating transaction"""
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize(

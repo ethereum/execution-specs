@@ -234,6 +234,7 @@ def test_simple_gas_accounting(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "refund_tx_reverts",
     [
@@ -530,6 +531,7 @@ def test_varying_calldata_costs(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "refund_tx_reverts",
     [

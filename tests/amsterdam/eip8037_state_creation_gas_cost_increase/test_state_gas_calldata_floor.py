@@ -126,6 +126,7 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "exceeds_cap",
     [

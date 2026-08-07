@@ -334,6 +334,7 @@ def test_block_state_gas_limit_boundary(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
 def test_creation_tx_execution_check_uses_full_tx_gas(
@@ -416,6 +417,7 @@ def test_creation_tx_execution_check_uses_full_tx_gas(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
 def test_single_tx_state_check_exceeds_block_limit(
@@ -458,6 +460,7 @@ def test_single_tx_state_check_exceeds_block_limit(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
 def test_creation_tx_state_check_exceeded(

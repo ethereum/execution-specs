@@ -1132,6 +1132,7 @@ def test_account_warming(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     **gas_test_parameter_args(include_pre_authorized=False)
 )

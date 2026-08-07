@@ -3533,6 +3533,7 @@ def test_reset_code(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
 def test_contract_create(
@@ -3561,6 +3562,7 @@ def test_contract_create(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
 def test_empty_authorization_list(
@@ -4181,6 +4183,7 @@ def test_authorization_reusing_nonce(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "set_code_type",
     list(AddressType),
@@ -4257,6 +4260,7 @@ def test_set_code_from_account_with_non_delegating_code(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "max_fee_per_gas, max_priority_fee_per_gas, expected_error",
     [

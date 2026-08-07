@@ -61,6 +61,7 @@ def gas_costs_before_increase(
     return ancestor.gas_costs()
 
 
+@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
@@ -136,6 +137,7 @@ def test_access_list_no_fallback(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
@@ -205,6 +207,7 @@ def test_authorization_no_fallback(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 def test_cold_account_access_no_fallback(

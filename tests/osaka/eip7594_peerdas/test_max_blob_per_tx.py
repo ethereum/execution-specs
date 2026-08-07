@@ -117,6 +117,7 @@ def test_valid_max_blobs_per_tx(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork(
     "blob_count",
     lambda fork: [
@@ -159,6 +160,7 @@ def test_invalid_max_blobs_per_tx(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork(
     "blob_count",
     lambda fork: [

@@ -91,6 +91,7 @@ def test_sstore_state_gas_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
+@pytest.mark.inclusion_test
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork()
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()

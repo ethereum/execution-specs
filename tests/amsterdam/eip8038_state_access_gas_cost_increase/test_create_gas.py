@@ -279,6 +279,7 @@ class TestCreateTxGasBoundary:
         execution += initcode.deployment_gas(fork)
         return execution
 
+    @pytest.mark.inclusion_test
     @pytest.mark.parametrize(
         "gas_test_case",
         [

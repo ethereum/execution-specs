@@ -69,6 +69,7 @@ def _floor_dominating_calldata(fork: Fork) -> Bytes:
     return Bytes(b"\x00" * byte_count)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "outcome",
     [
@@ -231,6 +232,7 @@ def _floor_dominating_initcode(fork: Fork) -> Bytes:
     return Bytes(b"\x00" * byte_count)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "outcome",
     [
@@ -330,6 +332,7 @@ def test_calldata_floor_contract_creation(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "outcome",
     [

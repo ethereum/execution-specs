@@ -178,6 +178,7 @@ def test_authorization_state_gas_scaling(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "num_auths",
@@ -1131,6 +1132,7 @@ def test_auth_with_multiple_sstores(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "gas_delta",
     [
