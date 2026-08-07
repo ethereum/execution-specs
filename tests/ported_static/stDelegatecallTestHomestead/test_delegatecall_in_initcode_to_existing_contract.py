@@ -22,12 +22,13 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytecode,
+    Macros,
+    Op,
+    Opcodes,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -44,15 +45,7 @@ DELEGATE_WRITE_SLOT = 2
 # Written by the delegate with the CALLER it observes (still the
 # runner: DELEGATECALL preserves the init frame's caller).
 DELEGATE_CALLER_SLOT = 0xB
-
-
-def memory_stores(data: bytes) -> Bytecode:
-    """Write the given bytes to memory starting at offset zero."""
-    code = Bytecode()
-    for offset in range(0, len(data), 32):
-        chunk = data[offset : offset + 32].ljust(32, b"\x00")
-        code += Op.MSTORE(offset, int.from_bytes(chunk, "big"))
-    return code
+DELEGATE_VALUE_SLOT = 0xC
 
 
 @pytest.mark.ported_from(
@@ -60,15 +53,18 @@ def memory_stores(data: bytes) -> Bytecode:
         "state_tests/stDelegatecallTestHomestead/delegatecallInInitcodeToExistingContractFiller.json"  # noqa: E501
     ],
 )
+@pytest.mark.with_all_create_opcodes
 @pytest.mark.valid_from("SpuriousDragon")
 def test_delegatecall_in_initcode_to_existing_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    create_opcode: Opcodes,
 ) -> None:
     """A DELEGATECALL in init code runs in the created account."""
     existing = pre.deploy_contract(
         code=Op.SSTORE(key=DELEGATE_WRITE_SLOT, value=1)
         + Op.SSTORE(key=DELEGATE_CALLER_SLOT, value=Op.CALLER)
+        + Op.SSTORE(key=DELEGATE_VALUE_SLOT, value=Op.CALLVALUE)
         + Op.STOP,
     )
 
@@ -80,17 +76,18 @@ def test_delegatecall_in_initcode_to_existing_contract(
         + Op.SSTORE(key=INITCODE_CALLER_SLOT, value=Op.CALLER)
         + Op.STOP
     )
-    initcode_bytes = bytes(initcode)
 
     runner = pre.deploy_contract(
-        code=memory_stores(initcode_bytes)
-        + Op.CREATE(value=CREATE_ENDOWMENT, offset=0, size=len(initcode_bytes))
+        code=Macros.MSTORE(initcode)
+        + create_opcode(value=CREATE_ENDOWMENT, offset=0, size=len(initcode))
         + Op.STOP,
         balance=RUNNER_BALANCE,
     )
 
     # Deployed contracts start at nonce 1.
-    created = compute_create_address(address=runner, nonce=1)
+    created = compute_create_address(
+        address=runner, nonce=1, initcode=initcode, opcode=create_opcode
+    )
 
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -108,6 +105,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
                 INITCODE_CALLER_SLOT: runner,
                 DELEGATE_WRITE_SLOT: 1,
                 DELEGATE_CALLER_SLOT: runner,
+                DELEGATE_VALUE_SLOT: CREATE_ENDOWMENT,
             },
         ),
         runner: Account(

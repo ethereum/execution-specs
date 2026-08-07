@@ -23,7 +23,6 @@ from execution_testing import (
     Fork,
     StateTestFiller,
     Transaction,
-    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -73,21 +72,23 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
     # failed call), makes the oversized ask, and deposits no code. Only a
     # POP runs after the call: the 1/64 retention on the starved arm is
     # far below the EIP-2200 stipend an SSTORE would require.
-    canary_store = Op.SSTORE(
-        key=CANARY_SLOT,
-        value=CANARY,
-        key_warm=False,
-        original_value=0,
-        new_value=CANARY,
+    initcode = (
+        Op.SSTORE(
+            key=CANARY_SLOT,
+            value=CANARY,
+            key_warm=False,
+            original_value=0,
+            new_value=CANARY,
+        )
+        + Op.CALL(
+            gas=OVERSIZED_GAS_ASK,
+            address=writer,
+            address_warm=False,
+            value_transfer=False,
+            account_new=False,
+        )
+        + Op.STOP
     )
-    ask_call = Op.CALL(
-        gas=OVERSIZED_GAS_ASK,
-        address=writer,
-        address_warm=False,
-        value_transfer=False,
-        account_new=False,
-    )
-    initcode = canary_store + Op.POP(ask_call) + Op.STOP
 
     # Derive the two budgets around the callee's fork-priced cost: the
     # clamped grant (63/64 of the base left after the charges made before
@@ -97,21 +98,25 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
         fork.transaction_intrinsic_cost_calculator()(
             calldata=initcode,
             contract_creation=True,
+            return_cost_deducted_prior_execution=True,
         )
         # EIP-8037 charges the created account's state gas to the
         # creation transaction's top frame (zero before Amsterdam).
         + fork.transaction_top_frame_state_gas(contract_creation=True)
-        + canary_store.gas_cost(fork)
-        + ask_call.gas_cost(fork)
+        + initcode.gas_cost(fork)
     )
     callee_needed = writer_store.gas_cost(fork)
-    if call_covered:
-        base = -(-callee_needed * 64 // 63) + 2_000
-    else:
-        base = callee_needed // 2
+    # The grant, base - base // 64, is a step function that repeats at
+    # every multiple of 64, so one gas less does not always forward less:
+    # step until the grant really crosses the callee's cost.
+    base = callee_needed * 64 // 63
+    while base - base // 64 < callee_needed:
+        base += 1
+    if not call_covered:
+        while base - base // 64 >= callee_needed:
+            base -= 1
     assert base < OVERSIZED_GAS_ASK, "the 63/64 clamp must apply"
     gas_limit = overhead + base
-
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
@@ -120,7 +125,7 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
         gas_limit=gas_limit,
     )
 
-    created = compute_create_address(address=sender, nonce=0)
+    created = tx.created_contract
     post = {
         created: Account(
             nonce=1,

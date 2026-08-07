@@ -86,7 +86,9 @@ def test_transaction64_rule(
     # afford the trailing store from what the callee hands back, shaped to
     # the parametrized residue mod 64. The +1024 margin absorbs the ops
     # around the store.
-    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True
+    )
     min_base = store_code.gas_cost(fork) + 1024
     base = -(-min_base // 64) * 64 + residue
     assert base < OVERSIZED_GAS_ASK, "the 63/64 clamp must apply"

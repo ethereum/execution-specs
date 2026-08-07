@@ -1,31 +1,38 @@
 """
-Verify a self-recursive CALL chain that terminates by out-of-gas.
+Verify self-recursive CALL, CALLCODE and DELEGATECALL chains that
+terminate by out-of-gas.
 
 Each level bumps a shared depth counter, forwards almost all its gas to
-a call to itself (keeping a 10,000 reserve for its post-call stores),
-then records the call's success flag and a depth marker. Levels too deep
-to afford their stores halt and roll back, so the surviving storage pins
+a self-call (keeping a 10,000 reserve for its post-call stores), then
+records the call's success flag and a depth marker. Levels too deep to
+afford their stores halt and roll back, so the surviving storage pins
 the exact depth the budget reaches under the EIP-150 63/64 rule.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/Call1024OOGFiller.json
+state_tests/stCallCreateCallCodeTest/Callcode1024OOGFiller.json
+state_tests/stDelegatecallTestHomestead/Call1024OOGFiller.json
+state_tests/stDelegatecallTestHomestead/Delegatecall1024OOGFiller.json
 
 @manually-enhanced: Do not overwrite. The post state is predicted by an
 exact fork-derived replay of the recursion's gas flow (EIP-150 grants,
 warm/cold and SSTORE pricing via opcode metadata, EIP-8037 state-gas
 spill), validated against the ported Cancun depths; the hardcoded
-self-address is replaced by ADDRESS.
+self-address is replaced by ADDRESS. Four fillers from two legacy
+suites are joined into one opcode parametrization, every budget run
+against every opcode, so the whole scope is visible in one file.
 """
 
 import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytecode,
     Fork,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
+from execution_testing.vm import Op, Opcode
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -41,32 +48,37 @@ DEPTH_CUTOFF = 1025
 # The marker store writes 1 + DEPTH_MARKER * depth.
 DEPTH_MARKER = 1000
 
-RECURSIVE_CALL_OP = Op.CALL
 
-RECURSION_CODE = (
-    Op.SSTORE(
-        key=COUNTER_SLOT,
-        value=Op.ADD(Op.SLOAD(key=COUNTER_SLOT), 1),
-    )
-    + Op.SSTORE(
-        key=RESULT_SLOT,
-        value=RECURSIVE_CALL_OP(
-            gas=Op.MUL(
-                Op.SUB(Op.GAS, GAS_RESERVE),
-                Op.SUB(1, Op.DIV(Op.SLOAD(key=COUNTER_SLOT), DEPTH_CUTOFF)),
+def recursion_code(call_opcode: Opcode) -> Bytecode:
+    """Build the self-recursive body for the given call opcode."""
+    return (
+        Op.SSTORE(
+            key=COUNTER_SLOT,
+            value=Op.ADD(Op.SLOAD(key=COUNTER_SLOT), 1),
+        )
+        + Op.SSTORE(
+            key=RESULT_SLOT,
+            value=call_opcode(
+                gas=Op.MUL(
+                    Op.SUB(Op.GAS, GAS_RESERVE),
+                    Op.SUB(
+                        1, Op.DIV(Op.SLOAD(key=COUNTER_SLOT), DEPTH_CUTOFF)
+                    ),
+                ),
+                address=Op.ADDRESS,
             ),
-            address=Op.ADDRESS,
-        ),
+        )
+        + Op.SSTORE(
+            key=MARKER_SLOT,
+            value=Op.ADD(1, Op.MUL(Op.SLOAD(key=COUNTER_SLOT), DEPTH_MARKER)),
+        )
+        + Op.STOP
     )
-    + Op.SSTORE(
-        key=MARKER_SLOT,
-        value=Op.ADD(1, Op.MUL(Op.SLOAD(key=COUNTER_SLOT), DEPTH_MARKER)),
-    )
-    + Op.STOP
-)
 
 
-def predict_recursion_storage(fork: Fork, tx_gas_limit: int) -> dict[int, int]:
+def predict_recursion_storage(
+    fork: Fork, call_opcode: Opcode, tx_gas_limit: int
+) -> dict[int, int]:
     """
     Replay the recursion's gas flow and return the surviving storage.
 
@@ -119,11 +131,11 @@ def predict_recursion_storage(fork: Fork, tx_gas_limit: int) -> dict[int, int]:
             Op.DIV(Op.SLOAD(key=COUNTER_SLOT, key_warm=True), DEPTH_CUTOFF),
         ),
     )
-    call_upfront = RECURSIVE_CALL_OP(address_warm=True).gas_cost(fork)
+    call_upfront = call_opcode(address_warm=True).gas_cost(fork)
     # Everything charged before GAS reads gas_left: the call's argument
     # pushes, ADDRESS, and the ask expression through the GAS opcode.
     pre_gas_read = (
-        RECURSIVE_CALL_OP(
+        call_opcode(
             gas=ask_expr, address=Op.ADDRESS, address_warm=True
         ).gas_cost(fork)
         - call_upfront
@@ -219,9 +231,22 @@ def predict_recursion_storage(fork: Fork, tx_gas_limit: int) -> dict[int, int]:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallCreateCallCodeTest/Call1024OOGFiller.json"],
+    [
+        "state_tests/stCallCreateCallCodeTest/Call1024OOGFiller.json",
+        "state_tests/stCallCreateCallCodeTest/Callcode1024OOGFiller.json",
+        "state_tests/stDelegatecallTestHomestead/Call1024OOGFiller.json",
+        "state_tests/stDelegatecallTestHomestead/Delegatecall1024OOGFiller.json",  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Berlin")
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALL, id="call"),
+        pytest.param(Op.CALLCODE, id="callcode"),
+        pytest.param(Op.DELEGATECALL, id="delegatecall"),
+    ],
+)
 @pytest.mark.parametrize(
     # Ported budgets; each pins a distinct OOG-terminated depth.
     "tx_gas_limit",
@@ -231,10 +256,11 @@ def test_call1024_oog(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    call_opcode: Opcode,
     tx_gas_limit: int,
 ) -> None:
-    """Pin the depth an OOG-terminated CALL self-recursion reaches."""
-    target = pre.deploy_contract(code=RECURSION_CODE)
+    """Pin the depth an OOG-terminated self-recursion reaches."""
+    target = pre.deploy_contract(code=recursion_code(call_opcode))
 
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -243,7 +269,9 @@ def test_call1024_oog(
     )
 
     post = {
-        target: Account(storage=predict_recursion_storage(fork, tx_gas_limit)),
+        target: Account(
+            storage=predict_recursion_storage(fork, call_opcode, tx_gas_limit)
+        ),
     }
 
     state_test(pre=pre, post=post, tx=tx)
