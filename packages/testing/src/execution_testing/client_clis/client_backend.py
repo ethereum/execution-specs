@@ -436,10 +436,21 @@ class ClientBackend:
     def _fetch_receipts(
         self, txs: List[Transaction]
     ) -> List[TransactionReceipt]:
-        """Fetch receipts for each transaction. TODO: batch via JSON-RPC."""
+        """
+        Fetch receipts for every transaction in the block, batched.
+
+        One request per transaction makes fill time latency-bound: a block
+        of 5,000 transactions costs 5,000 sequential round trips, which
+        against a non-local client dominates everything else the fill does
+        (the client executes such a block in ~150ms).
+        """
+        if not txs:
+            return []
+        receipt_data_list = self.eth_rpc.get_transaction_receipts(
+            [tx.hash for tx in txs]
+        )
         receipts: List[TransactionReceipt] = []
-        for tx in txs:
-            receipt_data = self.eth_rpc.get_transaction_receipt(tx.hash)
+        for tx, receipt_data in zip(txs, receipt_data_list, strict=True):
             if receipt_data is None:
                 raise RuntimeError(
                     f"No receipt found for transaction {tx.hash}"
