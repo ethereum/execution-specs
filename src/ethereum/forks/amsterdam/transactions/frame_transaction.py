@@ -70,6 +70,22 @@ are subject to additional validity constraints, checked in
 [vft]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.validate_frame_transaction
 """  # noqa: E501
 
+EXPIRY_VERIFIER_CODE: Final[Bytes] = Bytes(
+    bytes.fromhex("60083614600a575f5ffd5b5f3560c01c4211601657005b5f5ffd")
+)
+"""
+Runtime code of the expiry verifier contract, installed at
+[`EXPIRY_VERIFIER`][ev] when the fork activates (see [`apply_fork`][af]).
+
+The code reverts unless called with exactly [`EXPIRY_DATA_LENGTH`][edl]
+bytes of calldata holding an unsigned big-endian expiry timestamp at or
+after the current block timestamp.
+
+[ev]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.EXPIRY_VERIFIER
+[af]: ref:ethereum.forks.amsterdam.fork.apply_fork
+[edl]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.EXPIRY_DATA_LENGTH
+"""  # noqa: E501
+
 EXPIRY_DATA_LENGTH: Final[int] = 8
 """
 Exact length, in bytes, of an expiry verifier frame's data: an unsigned

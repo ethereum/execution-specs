@@ -28,8 +28,19 @@ from ethereum.exceptions import (
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff
-from ethereum.state_mpt import State, apply_changes_to_state
+from ethereum.state import (
+    EMPTY_ACCOUNT,
+    EMPTY_CODE_HASH,
+    Account,
+    Address,
+    BlockDiff,
+)
+from ethereum.state_mpt import (
+    State,
+    apply_changes_to_state,
+    set_account,
+    store_code,
+)
 
 from . import vm
 from .block_access_lists import (
@@ -85,7 +96,11 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .transactions.frame_transaction import FrameTransaction
+from .transactions.frame_transaction import (
+    EXPIRY_VERIFIER,
+    EXPIRY_VERIFIER_CODE,
+    FrameTransaction,
+)
 from .utils.address import compute_contract_address
 from .utils.hexadecimal import hex_to_address
 from .vm.eoa_delegation import is_valid_delegation
@@ -173,24 +188,35 @@ class BlockChain:
 
 def apply_fork(old: BlockChain) -> BlockChain:
     """
-    Transforms the state from the previous hard fork (`old`) into the block
-    chain object for this hard fork and returns it.
+    Transform the state from the previous hard fork (`old`) into the
+    block chain object for this hard fork and return it.
 
-    When forks need to implement an irregular state transition, this function
-    is used to handle the irregularity. See the :ref:`DAO Fork <dao-fork>` for
-    an example.
+    As required by [EIP-8141], the runtime code of the expiry verifier
+    contract ([`EXPIRY_VERIFIER_CODE`][evc]) is installed at
+    [`EXPIRY_VERIFIER`][ev] when this fork activates. Only the code is
+    installed: the account's other fields are left untouched, so a
+    previously nonexistent account keeps a zero nonce and any balance
+    the account held before the fork is preserved.
 
-    Parameters
-    ----------
-    old :
-        Previous block chain object.
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    [ev]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.EXPIRY_VERIFIER
+    [evc]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.EXPIRY_VERIFIER_CODE
+    """  # noqa: E501
+    state = old.state
+    existing_account = state.get_account_optional(EXPIRY_VERIFIER)
+    if existing_account is None:
+        existing_account = EMPTY_ACCOUNT
 
-    Returns
-    -------
-    new : `BlockChain`
-        Upgraded block chain object for this hard fork.
-
-    """
+    code_hash = store_code(state, EXPIRY_VERIFIER_CODE)
+    set_account(
+        state,
+        EXPIRY_VERIFIER,
+        Account(
+            nonce=existing_account.nonce,
+            balance=existing_account.balance,
+            code_hash=code_hash,
+        ),
+    )
     return old
 
 

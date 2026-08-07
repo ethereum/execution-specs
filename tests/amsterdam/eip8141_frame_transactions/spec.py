@@ -30,6 +30,9 @@ class Spec:
     FRAME_TX_PER_FRAME_COST = 475
     ENTRY_POINT = Address(0xAA)
     EXPIRY_VERIFIER = Address(0x8141)
+    EXPIRY_VERIFIER_CODE = bytes.fromhex(
+        "60083614600a575f5ffd5b5f3560c01c4211601657005b5f5ffd"
+    )
     EXPIRY_DATA_LENGTH = 8
     MAX_FRAMES = 64
 
