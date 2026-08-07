@@ -292,7 +292,9 @@ class ClientBackend:
         assert np_version is not None
         assert fcu_version is not None
 
-        receipts = self._fetch_receipts(txs)
+        receipts = self._fetch_receipts(
+            txs, get_payload_response.execution_payload.block_hash
+        )
         result = self._build_result(
             built_payload=get_payload_response.execution_payload,
             execution_requests=get_payload_response.execution_requests,
@@ -434,29 +436,50 @@ class ClientBackend:
         )
 
     def _fetch_receipts(
-        self, txs: List[Transaction]
+        self,
+        txs: List[Transaction],
+        block_hash: Optional[Hash] = None,
     ) -> List[TransactionReceipt]:
         """
-        Fetch receipts for every transaction in the block, batched.
+        Fetch a receipt for every transaction, in transaction order.
 
-        One request per transaction makes fill time latency-bound: a block
-        of 5,000 transactions costs 5,000 sequential round trips, which
-        against a non-local client dominates everything else the fill does
-        (the client executes such a block in ~150ms).
+        Given a `block_hash`, one `eth_getBlockReceipts` fetches the whole
+        block's receipts at once. Returned receipts are matched to
+        transactions by hash rather than byposition, so the block-level
+        response may arrive in any order. Any receipt it did not include is
+        fetched individually with a batched`eth_getTransactionReceipt`;
+        an error is raised only if a receipt is still missing after
+        that fallback.
         """
         if not txs:
             return []
-        receipt_data_list = self.eth_rpc.get_transaction_receipts(
-            [tx.hash for tx in txs]
-        )
-        receipts: List[TransactionReceipt] = []
-        for tx, receipt_data in zip(txs, receipt_data_list, strict=True):
-            if receipt_data is None:
-                raise RuntimeError(
-                    f"No receipt found for transaction {tx.hash}"
-                )
-            receipts.append(TransactionReceipt.model_validate(receipt_data))
-        return receipts
+        receipt_data_by_hash: Dict[Hash, Any] = {}
+        if block_hash is not None:
+            block_receipts = self.eth_rpc.get_block_receipts(block_hash)
+            for receipt_data in block_receipts or []:
+                tx_hash = receipt_data.get("transactionHash")
+                if tx_hash is not None:
+                    receipt_data_by_hash[Hash(tx_hash)] = receipt_data
+        missing = [
+            tx.hash for tx in txs if tx.hash not in receipt_data_by_hash
+        ]
+        if missing:
+            fetched = self.eth_rpc.get_transaction_receipts(missing)
+            for tx_hash, fetched_data in zip(missing, fetched, strict=True):
+                if fetched_data is not None:
+                    receipt_data_by_hash[tx_hash] = fetched_data
+        still_missing = [
+            tx.hash for tx in txs if tx.hash not in receipt_data_by_hash
+        ]
+        if still_missing:
+            raise RuntimeError(
+                f"No receipt found for {len(still_missing)} of {len(txs)} "
+                f"transactions, first missing: {still_missing[0]}"
+            )
+        return [
+            TransactionReceipt.model_validate(receipt_data_by_hash[tx.hash])
+            for tx in txs
+        ]
 
     def _build_result(
         self,
