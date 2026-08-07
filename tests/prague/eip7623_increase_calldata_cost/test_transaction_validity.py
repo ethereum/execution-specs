@@ -23,7 +23,10 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7623.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7623.version
 
 ENABLE_FORK = Prague
-pytestmark = [pytest.mark.valid_from(str(ENABLE_FORK))]
+pytestmark = [
+    pytest.mark.valid_from(str(ENABLE_FORK)),
+    pytest.mark.inclusion_test,
+]
 
 
 # All tests in this file are parametrized with the following parameters:

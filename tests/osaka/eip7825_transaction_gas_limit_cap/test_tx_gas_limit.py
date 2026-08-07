@@ -87,6 +87,7 @@ def tx_gas_limit_cap_tests(fork: Fork) -> List[ParameterSet]:
     ]
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork("tx_gas_limit,error", tx_gas_limit_cap_tests)
 @pytest.mark.with_all_tx_types
 @pytest.mark.valid_from("Prague")
