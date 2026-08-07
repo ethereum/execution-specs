@@ -13,7 +13,6 @@ from remerkleable.basic import uint8
 from remerkleable.byte_arrays import ByteList, ByteVector
 from remerkleable.complex import Container
 from remerkleable.complex import List as SszList
-from remerkleable.union import Union as SszUnion
 
 from execution_testing.base_types import (
     Address,
@@ -428,10 +427,9 @@ class EthConfigResponse(CamelModel):
     last: ForkConfig | None = None
 
 
-# SSZ schema for the REST POST /new-payload-with-witness response.
+# SSZ schema for the REST witness payload response.
 
-VALIDATION_ERROR_MAX = 8192
-MAX_WITNESS_BYTES = 2**30  # 1 GiB
+MAX_ERROR_BYTES = 1024
 MAX_WITNESS_ITEMS = 2**20
 MAX_WITNESS_ITEM_BYTES = 2**20
 
@@ -442,11 +440,15 @@ class _SszExecutionWitness(Container):
     headers: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
 
 
-class _SszNewPayloadWithWitnessResponse(Container):
+class _SszPayloadStatus(Container):
     status: uint8
-    latest_valid_hash: SszUnion[None, ByteVector[32]]
-    validation_error: SszUnion[None, ByteList[VALIDATION_ERROR_MAX]]
-    witness: ByteList[MAX_WITNESS_BYTES]
+    latest_valid_hash: SszList[ByteVector[32], 1]
+    validation_error: SszList[ByteList[MAX_ERROR_BYTES], 1]
+
+
+class _SszPayloadStatusWithWitness(Container):
+    payload_status: _SszPayloadStatus
+    witness: SszList[_SszExecutionWitness, 1]
 
 
 class _NewPayloadWithWitnessJSONRPCResult(CamelModel):
@@ -465,7 +467,6 @@ _SSZ_STATUS_TO_ENUM: Dict[int, PayloadStatusEnum] = {
     1: PayloadStatusEnum.INVALID,
     2: PayloadStatusEnum.SYNCING,
     3: PayloadStatusEnum.ACCEPTED,
-    4: PayloadStatusEnum.INVALID_BLOCK_HASH,
 }
 
 
@@ -573,32 +574,34 @@ class NewPayloadWithWitnessResponse:
 
     @classmethod
     def from_ssz_bytes(cls, data: bytes) -> Self:
-        """Decode an SSZ-encoded NewPayloadWithWitnessResponseV1 body."""
-        resp = _SszNewPayloadWithWitnessResponse.decode_bytes(data)
+        """Decode an SSZ-encoded PayloadStatusWithWitness body."""
+        resp = _SszPayloadStatusWithWitness.decode_bytes(data)
+        payload_status = resp.payload_status
 
-        status_int = int(resp.status)
+        status_int = int(payload_status.status)
         try:
             status = _SSZ_STATUS_TO_ENUM[status_int]
         except KeyError as e:
             raise ValueError(f"Unknown SSZ status byte: {status_int}") from e
 
         latest_valid_hash: Hash | None = None
-        if resp.latest_valid_hash.selector() == 1:
-            latest_valid_hash = Hash(bytes(resp.latest_valid_hash.value()))
+        if payload_status.latest_valid_hash.length() > 0:
+            latest_valid_hash = Hash(
+                bytes(payload_status.latest_valid_hash[0])
+            )
 
         validation_error: str | None = None
-        if resp.validation_error.selector() == 1:
-            raw = bytes(resp.validation_error.value())
+        if payload_status.validation_error.length() > 0:
+            raw = bytes(payload_status.validation_error[0])
             validation_error = raw.decode("utf-8", errors="replace")
 
         witness: ExecutionWitness | None = None
-        witness_bytes = bytes(resp.witness)
-        if witness_bytes:
+        if resp.witness.length() > 0:
             if status != PayloadStatusEnum.VALID:
                 raise ValueError(
                     f"{status.value} SSZ response must not contain a witness"
                 )
-            inner = _SszExecutionWitness.decode_bytes(witness_bytes)
+            inner = resp.witness[0]
             witness = ExecutionWitness(
                 state=[Bytes(bytes(x)) for x in inner.state],
                 codes=[Bytes(bytes(x)) for x in inner.codes],

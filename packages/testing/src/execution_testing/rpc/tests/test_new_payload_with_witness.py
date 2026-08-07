@@ -7,64 +7,57 @@ from remerkleable.basic import uint8
 from remerkleable.byte_arrays import ByteList, ByteVector
 
 from execution_testing.rpc.rpc_types import (
-    MAX_WITNESS_BYTES,
+    MAX_ERROR_BYTES,
     MAX_WITNESS_ITEM_BYTES,
-    VALIDATION_ERROR_MAX,
     NewPayloadWithWitnessResponse,
     PayloadStatusEnum,
     _SszExecutionWitness,
-    _SszNewPayloadWithWitnessResponse,
+    _SszPayloadStatus,
+    _SszPayloadStatusWithWitness,
 )
 
 
 def _build_inner_witness(
     state: list[bytes], codes: list[bytes], headers: list[bytes]
-) -> bytes:
-    inner = _SszExecutionWitness(
+) -> _SszExecutionWitness:
+    return _SszExecutionWitness(
         state=[ByteList[MAX_WITNESS_ITEM_BYTES](b) for b in state],
         codes=[ByteList[MAX_WITNESS_ITEM_BYTES](b) for b in codes],
         headers=[ByteList[MAX_WITNESS_ITEM_BYTES](b) for b in headers],
     )
-    return inner.encode_bytes()
 
 
 def _build_response(
     status: int,
     latest_valid_hash: bytes | None,
     validation_error: str | None,
-    witness_bytes: bytes,
+    witness: _SszExecutionWitness | None,
 ) -> bytes:
-    fields = _SszNewPayloadWithWitnessResponse.fields()
-    lvh_type = fields["latest_valid_hash"]
-    ve_type = fields["validation_error"]
-
     if latest_valid_hash is None:
-        lvh = lvh_type(selector=0, value=None)
+        lvh = []
     else:
-        lvh = lvh_type(selector=1, value=ByteVector[32](latest_valid_hash))
+        lvh = [ByteVector[32](latest_valid_hash)]
 
     if validation_error is None:
-        ve = ve_type(selector=0, value=None)
+        ve = []
     else:
-        ve = ve_type(
-            selector=1,
-            value=ByteList[VALIDATION_ERROR_MAX](
-                validation_error.encode("utf-8")
-            ),
-        )
+        ve = [
+            ByteList[MAX_ERROR_BYTES](validation_error.encode("utf-8")),
+        ]
 
-    resp = _SszNewPayloadWithWitnessResponse(
-        status=uint8(status),
-        latest_valid_hash=lvh,
-        validation_error=ve,
-        witness=ByteList[MAX_WITNESS_BYTES](witness_bytes),
+    payload_status = _SszPayloadStatus(
+        status=uint8(status), latest_valid_hash=lvh, validation_error=ve
+    )
+    resp = _SszPayloadStatusWithWitness(
+        payload_status=payload_status,
+        witness=[] if witness is None else [witness],
     )
     return resp.encode_bytes()
 
 
 def test_decode_valid_with_witness() -> None:
     """A VALID response carries latestValidHash and a non-empty witness."""
-    witness_bytes = _build_inner_witness(
+    witness = _build_inner_witness(
         state=[b"\xaa\xaa", b"\xbb\xbb\xbb"],
         codes=[b"\x60\x01"],
         headers=[b"\xf9\x02"],
@@ -73,7 +66,7 @@ def test_decode_valid_with_witness() -> None:
         status=0,
         latest_valid_hash=b"\x11" * 32,
         validation_error=None,
-        witness_bytes=witness_bytes,
+        witness=witness,
     )
 
     decoded = NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
@@ -97,7 +90,7 @@ def test_decode_invalid_with_validation_error() -> None:
         status=1,
         latest_valid_hash=None,
         validation_error="invalid state root",
-        witness_bytes=b"",
+        witness=None,
     )
 
     decoded = NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
@@ -114,7 +107,7 @@ def test_decode_syncing_empty_witness() -> None:
         status=2,
         latest_valid_hash=None,
         validation_error=None,
-        witness_bytes=b"",
+        witness=None,
     )
 
     decoded = NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
@@ -131,10 +124,23 @@ def test_decode_unknown_status_byte_raises() -> None:
         status=99,
         latest_valid_hash=None,
         validation_error=None,
-        witness_bytes=b"",
+        witness=None,
     )
 
     with pytest.raises(ValueError, match="Unknown SSZ status byte: 99"):
+        NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
+
+
+def test_decode_invalid_block_hash_status_byte_raises() -> None:
+    """SSZ PayloadStatus no longer includes INVALID_BLOCK_HASH."""
+    raw = _build_response(
+        status=4,
+        latest_valid_hash=None,
+        validation_error=None,
+        witness=None,
+    )
+
+    with pytest.raises(ValueError, match="Unknown SSZ status byte: 4"):
         NewPayloadWithWitnessResponse.from_ssz_bytes(raw)
 
 
@@ -144,7 +150,7 @@ def test_decode_invalid_with_witness_raises() -> None:
         status=1,
         latest_valid_hash=None,
         validation_error="invalid state root",
-        witness_bytes=_build_inner_witness(
+        witness=_build_inner_witness(
             state=[b"\xaa"],
             codes=[],
             headers=[],
