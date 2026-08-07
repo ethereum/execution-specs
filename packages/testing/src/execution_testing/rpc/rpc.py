@@ -240,6 +240,10 @@ class BaseRPC:
         self.request_id_counter = count(1)
         self.response_validation_context = response_validation_context
         self.request_timeout = request_timeout
+        if max_batch_size is not None and max_batch_size < 1:
+            raise ValueError(
+                f"max_batch_size must be >= 1, got {max_batch_size}"
+            )
         self.max_batch_size = max_batch_size or self.DEFAULT_MAX_BATCH_SIZE
         if self.max_batch_size > self.OVERLOAD_THRESHOLD:
             logger.warning(
