@@ -11,11 +11,12 @@ from typing import List
 
 import pytest
 from execution_testing import (
+    EOA,
     Account,
+    Address,
     Alloc,
     Bytecode,
     Bytes,
-    Environment,
     Frame,
     FrameSignature,
     Op,
@@ -60,8 +61,8 @@ def verify_frame() -> Frame:
 
 
 def probe_transaction(
-    sender: object,
-    probe: object,
+    sender: EOA,
+    probe: Address,
     signatures: List[FrameSignature] | None = None,
 ) -> Transaction:
     """
@@ -115,10 +116,44 @@ def test_txparam(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=probe_transaction(sender, probe),
         post={probe: Account(storage={SLOT_RESULT: expected})},
+    )
+
+
+def test_txparam_max_cost(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Check `TXPARAM`'s max cost selector against the payer's escrow.
+
+    The maximum cost is charged to the payer in full when payment is
+    approved and the surplus is only refunded at settlement, so during
+    frame execution the sender's balance is short of its funding by
+    exactly the value the selector reports.
+    """
+    sender_funds = 10**18
+    sender = pre.fund_eoa(amount=sender_funds)
+    probe = pre.deploy_contract(
+        code=Op.SSTORE(
+            SLOT_RESULT,
+            Op.EQ(
+                Op.TXPARAM(Spec.TXPARAM_MAX_COST),
+                Op.SUB(
+                    sender_funds,
+                    Op.BALANCE(Op.TXPARAM(Spec.TXPARAM_SENDER)),
+                ),
+            ),
+        )
+        + Op.STOP
+    )
+
+    state_test(
+        pre=pre,
+        tx=probe_transaction(sender, probe),
+        post={probe: Account(storage={SLOT_RESULT: 1})},
     )
 
 
@@ -127,33 +162,49 @@ def test_txparam_sender_and_sig_hash(
     pre: Alloc,
 ) -> None:
     """
-    Read the sender and the canonical signature hash through `TXPARAM`
-    and check the hash is the one the sender's signature entry was
-    verified over.
+    Read the sender and the canonical signature hash through `TXPARAM`.
+
+    The canonical hash covers the raw signature bytes of the entry
+    signing it, so its value is not known when the test is authored and
+    the probe can only pin that it reads back nonzero. The `msg`
+    readback of an explicit-digest entry, by contrast, is pinned to the
+    exact digest the entry was verified over.
     """
+    explicit_msg = Bytes(b"\x5a" * 32)
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
         code=Op.SSTORE(SLOT_RESULT, Op.TXPARAM(Spec.TXPARAM_SENDER))
         + Op.SSTORE(
             SLOT_RESULT + 1,
-            Op.EQ(
-                Op.TXPARAM(Spec.TXPARAM_SIG_HASH),
-                Op.SIGPARAM(0, Spec.SIGPARAM_MSG),
-            ),
+            Op.ISZERO(Op.TXPARAM(Spec.TXPARAM_SIG_HASH)),
         )
+        + Op.SSTORE(SLOT_RESULT + 2, Op.SIGPARAM(1, Spec.SIGPARAM_MSG))
         + Op.STOP
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
-        tx=probe_transaction(sender, probe),
+        tx=probe_transaction(
+            sender,
+            probe,
+            signatures=[
+                FrameSignature(
+                    scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)
+                ),
+                FrameSignature(
+                    scheme=Spec.SCHEME_SECP256K1,
+                    signer=Bytes(sender),
+                    msg=explicit_msg,
+                ),
+            ],
+        ),
         post={
             probe: Account(
-                # An entry with an empty `msg` reads back as zero, the
-                # reserved representation of the canonical hash case,
-                # so it never equals the hash itself.
-                storage={SLOT_RESULT: sender, SLOT_RESULT + 1: 0}
+                storage={
+                    SLOT_RESULT: sender,
+                    SLOT_RESULT + 1: 0,
+                    SLOT_RESULT + 2: int.from_bytes(explicit_msg, "big"),
+                }
             )
         },
     )
@@ -211,7 +262,6 @@ def test_frameparam(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=probe_transaction(sender, probe),
         post={probe: Account(storage={SLOT_RESULT: expected})},
@@ -234,12 +284,65 @@ def test_frameparam_resolved_target(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=probe_transaction(sender, probe),
         post={
             probe: Account(
                 storage={SLOT_RESULT: sender, SLOT_RESULT + 1: probe}
+            )
+        },
+    )
+
+
+def test_frameparam_atomic_batch_set(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Read the atomic batch flag of a frame that carries it back as one
+    through `FRAMEPARAM`, both via the dedicated selector and the raw
+    flags.
+
+    A flagged frame cannot be the transaction's last, so a `DEFAULT`
+    frame targeting the sender trails the batch.
+    """
+    sender = pre.fund_eoa()
+    probe = pre.deploy_contract(
+        code=Op.SSTORE(
+            SLOT_RESULT, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_ATOMIC_BATCH)
+        )
+        + Op.SSTORE(SLOT_RESULT + 1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_FLAGS))
+        + Op.STOP
+    )
+
+    tx = Transaction(
+        sender=sender,
+        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
+        max_fee_per_gas=MAX_FEE,
+        frames=[
+            verify_frame(),
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=probe,
+                gas_limit=PROBE_FRAME_GAS,
+            ),
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                gas_limit=100_000,
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            probe: Account(
+                storage={
+                    SLOT_RESULT: 1,
+                    SLOT_RESULT + 1: Spec.ATOMIC_BATCH_FLAG,
+                }
             )
         },
     )
@@ -277,7 +380,60 @@ def test_frameparam_halts(
     )
 
     state_test(
-        env=Environment(),
+        pre=pre,
+        tx=probe_transaction(sender, probe),
+        post={probe: Account(storage={SLOT_RESULT: 0})},
+    )
+
+
+@pytest.mark.parametrize(
+    "halting_read",
+    [
+        pytest.param(
+            Op.POP(Op.TXPARAM(0x0C)),
+            id="txparam_undefined_param",
+        ),
+        pytest.param(
+            Op.POP(Op.SIGPARAM(0, 0x05)),
+            id="sigparam_undefined_param",
+        ),
+        pytest.param(
+            Op.POP(Op.SIGPARAM(1, Spec.SIGPARAM_SCHEME)),
+            id="sigparam_signature_index_out_of_bounds",
+        ),
+        pytest.param(
+            Op.POP(Op.FRAMEDATALOAD(0, 2)),
+            id="framedataload_frame_index_out_of_bounds",
+        ),
+        pytest.param(
+            Op.FRAMEDATACOPY(0, 0, 32, 2),
+            id="framedatacopy_frame_index_out_of_bounds",
+        ),
+    ],
+)
+def test_introspection_halts(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    halting_read: Bytecode,
+) -> None:
+    """
+    `TXPARAM`, `SIGPARAM`, `FRAMEDATALOAD` and `FRAMEDATACOPY` halt
+    exceptionally on undefined selectors and out of bounds indices.
+    The halt fails the frame without invalidating the transaction,
+    because the frame does not run in `VERIFY` mode.
+
+    The probe transaction carries two frames and one signature entry,
+    so frame index 2 and signature index 1 are the first indices out
+    of bounds. The probe writes a marker before the halting read, so
+    a read that returned a value instead of halting would leave the
+    marker behind.
+    """
+    sender = pre.fund_eoa()
+    probe = pre.deploy_contract(
+        code=Op.SSTORE(SLOT_RESULT, 0xFF) + halting_read + Op.STOP
+    )
+
+    state_test(
         pre=pre,
         tx=probe_transaction(sender, probe),
         post={probe: Account(storage={SLOT_RESULT: 0})},
@@ -321,7 +477,6 @@ def test_framedataload(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=probe_transaction(sender, probe),
         post={probe: Account(storage={SLOT_RESULT: expected})},
@@ -346,7 +501,6 @@ def test_framedatacopy(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=probe_transaction(sender, probe),
         post={
@@ -404,7 +558,6 @@ def test_sigparam(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=probe_transaction(
             sender,
@@ -419,6 +572,68 @@ def test_sigparam(
             ],
         ),
         post={probe: Account(storage={SLOT_RESULT: expected})},
+    )
+
+
+def test_sigparam_resolved_signer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Read the resolved signer of a protocol-validated entry through
+    `SIGPARAM`, and check the same read against an `ARBITRARY` entry
+    halts the frame instead: the protocol assigns no signer to bytes
+    it does not validate.
+
+    The refused probe writes a marker before the halting read, so a
+    read that returned a value instead of halting would leave the
+    marker behind.
+    """
+    sender = pre.fund_eoa()
+    resolved = pre.deploy_contract(
+        code=Op.SSTORE(
+            SLOT_RESULT, Op.SIGPARAM(0, Spec.SIGPARAM_RESOLVED_SIGNER)
+        )
+        + Op.STOP
+    )
+    refused = pre.deploy_contract(
+        code=Op.SSTORE(SLOT_RESULT, 0xFF)
+        + Op.POP(Op.SIGPARAM(1, Spec.SIGPARAM_RESOLVED_SIGNER))
+        + Op.STOP
+    )
+
+    tx = Transaction(
+        sender=sender,
+        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
+        max_fee_per_gas=MAX_FEE,
+        frames=[
+            verify_frame(),
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                target=resolved,
+                gas_limit=PROBE_FRAME_GAS,
+            ),
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                target=refused,
+                gas_limit=PROBE_FRAME_GAS,
+            ),
+        ],
+        signatures=[
+            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            FrameSignature(
+                scheme=Spec.SCHEME_ARBITRARY, signature=ARBITRARY_WITNESS
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            resolved: Account(storage={SLOT_RESULT: sender}),
+            refused: Account(storage={SLOT_RESULT: 0}),
+        },
     )
 
 
@@ -492,7 +707,6 @@ def test_sigparam_copy_arbitrary(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={

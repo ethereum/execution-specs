@@ -14,7 +14,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
-    Environment,
     Frame,
     FrameReceipt,
     FrameSignature,
@@ -79,7 +78,6 @@ def test_transfer_with_default_code(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={
@@ -129,7 +127,6 @@ def test_contract_sender_approves(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={
@@ -195,7 +192,6 @@ def test_eoa_paymaster(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={
@@ -286,52 +282,11 @@ def test_atomic_batch_rollback(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={
             sender: Account(nonce=1),
             target: Account(storage={SLOT_EXECUTED: 0}),
-        },
-    )
-
-
-def test_txparam_sender_introspection(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """
-    Read the transaction sender through `TXPARAM` from a `DEFAULT`
-    frame and store it.
-    """
-    sender = pre.fund_eoa()
-    target = pre.deploy_contract(
-        code=Op.SSTORE(SLOT_EXECUTED, Op.TXPARAM(Spec.TXPARAM_SENDER))
-        + Op.STOP
-    )
-
-    tx = Transaction(
-        sender=sender,
-        frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-                gas_limit=100_000,
-            ),
-            Frame(
-                mode=Spec.MODE_DEFAULT,
-                target=target,
-                gas_limit=200_000,
-            ),
-        ],
-    )
-
-    state_test(
-        env=Environment(),
-        pre=pre,
-        tx=tx,
-        post={
-            target: Account(storage={SLOT_EXECUTED: sender}),
         },
     )
 
@@ -366,7 +321,6 @@ def test_sender_frame_before_approval(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={
@@ -407,7 +361,6 @@ def test_verify_frame_reverts(
     )
 
     state_test(
-        env=Environment(),
         pre=pre,
         tx=tx,
         post={},
