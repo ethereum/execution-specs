@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from execution_testing.base_types import Address, Bytes, Hash
+from execution_testing.base_types import Address, Bytes, Hash, HexNumber
 from execution_testing.exceptions import BlockException
 from execution_testing.fixtures.blockchain import (
     BlockchainFixture,
@@ -127,7 +127,16 @@ def test_invalid_blocks_are_skipped() -> None:
     calls = derive_rpc_calls(make_fixture([valid, invalid]))
 
     # Two per canonical block: the hash form and the full-object form.
-    assert methods(calls).count("eth_getBlockByNumber") == 2
+    assert numbered(calls).count("eth_getBlockByNumber") == 2
+
+
+def numbered(calls: List[Any]) -> List[str]:
+    """Return the methods of the calls that name a block by number."""
+    return [
+        call.method
+        for call in calls
+        if call.params and str(call.params[0]).startswith("0x")
+    ]
 
 
 def test_empty_block_yields_no_receipt_calls() -> None:
@@ -136,7 +145,7 @@ def test_empty_block_yields_no_receipt_calls() -> None:
 
     assert "eth_getTransactionReceipt" not in methods(calls)
     assert "eth_getTransactionByHash" not in methods(calls)
-    assert methods(calls).count("eth_getBlockByNumber") == 2
+    assert numbered(calls).count("eth_getBlockByNumber") == 2
 
 
 def test_calls_serialize_into_the_fixture(
@@ -223,7 +232,8 @@ def test_blocks_can_be_supplied_directly(
     """
     from_fixture = derive_rpc_calls(single_block_fixture)
     from_blocks = derive_module.derive_rpc_calls_for_blocks(
-        single_block_fixture.blocks
+        single_block_fixture.blocks,
+        genesis=derive_module.genesis_block(single_block_fixture),
     )
 
     assert [c.method for c in from_blocks] == [c.method for c in from_fixture]
@@ -314,6 +324,70 @@ def test_state_reads_query_the_head_block() -> None:
 
     assert balance.params[1] == "0x1"
     assert balance.result == "0x7"
+
+
+def test_genesis_is_reached_through_the_earliest_tag(
+    single_block_fixture: BlockchainFixture,
+) -> None:
+    """
+    `earliest` names genesis, which no chain block covers.
+
+    Genesis is the one block with no parent and no transactions, and the
+    fixture stores it as a header rather than a block, so it is otherwise
+    never projected.
+    """
+    calls = derive_rpc_calls(single_block_fixture)
+    earliest = [c for c in calls if c.params and c.params[0] == "earliest"]
+
+    block = next(c for c in earliest if c.method == "eth_getBlockByNumber")
+    receipts = next(c for c in earliest if c.method == "eth_getBlockReceipts")
+
+    assert block.result["number"] == "0x0"
+    assert block.result["hash"] == str(single_block_fixture.genesis.block_hash)
+    assert receipts.result == []
+
+
+def test_latest_resolves_to_the_head_block(
+    single_block_fixture: BlockchainFixture,
+) -> None:
+    """`latest` asserts the same object as the head block's own number."""
+    calls = derive_rpc_calls(single_block_fixture)
+    head = single_block_fixture.blocks[0].header  # type: ignore[union-attr]
+
+    latest = next(
+        c
+        for c in calls
+        if c.method == "eth_getBlockByNumber" and c.params[0] == "latest"
+    )
+    by_number = next(
+        c
+        for c in calls
+        if c.method == "eth_getBlockByNumber"
+        and c.params == [str(HexNumber(head.number)), True]
+    )
+
+    assert latest.result == by_number.result
+
+
+def test_safe_and_finalized_are_not_asserted(
+    single_block_fixture: BlockchainFixture,
+) -> None:
+    """
+    The forkchoice tags are left alone.
+
+    Measured against go-ethereum: neither consume simulator sets a safe or
+    finalized block, so both answer `-32000 safe block not found` rather
+    than returning the head. Any expectation here would describe our
+    harness rather than the chain.
+    """
+    tags = {
+        str(call.params[0])
+        for call in derive_rpc_calls(single_block_fixture)
+        if call.params
+    }
+
+    assert "safe" not in tags
+    assert "finalized" not in tags
 
 
 def test_explicit_check_requires_an_expectation() -> None:

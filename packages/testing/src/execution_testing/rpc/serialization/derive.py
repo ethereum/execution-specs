@@ -7,11 +7,13 @@ by hash, and each transaction contributes a receipt lookup. The `rpc`
 marker is only a switch — there is no parameter information for it to
 carry.
 
-That also bounds what this can cover. Enumeration answers "given this
-chain, is the response correct"; it cannot answer "given a nonsensical
-request, is the error correct", because no chain produces a nonsensical
-request. Block tags, reversed ranges and missing entities belong in
-hand-written tests instead.
+The block tags are the one exception. They name nothing the chain
+produced, but they resolve to blocks it does have, so no test author has
+to supply anything for them either.
+
+What remains out of reach is anything requiring a chain shaped differently
+from the one the test wrote — a reversed log range, a hash belonging to
+another chain. Those belong in hand-written checks.
 """
 
 import logging
@@ -91,7 +93,29 @@ a fixture. Exceeding it is logged rather than silently truncated.
 def derive_rpc_calls(fixture: "BlockchainFixture") -> List[FixtureRPCCall]:
     """Return the RPC expectations implied by a fixture's chain."""
     return derive_rpc_calls_for_blocks(
-        fixture.blocks, post_state=fixture.post_state
+        fixture.blocks,
+        post_state=fixture.post_state,
+        genesis=genesis_block(fixture),
+    )
+
+
+def genesis_block(fixture: "BlockchainFixture") -> FixtureBlock:
+    """
+    Reassemble the fixture's genesis block from its header and RLP.
+
+    A fixture stores genesis as a header and an encoding rather than as a
+    block, because nothing else needs it in block form. `withdrawals` is
+    recovered from the header: a chain that commits to a withdrawals root
+    reports an empty list at genesis, and an earlier one has no such field.
+    """
+    return FixtureBlock(
+        header=fixture.genesis,
+        txs=[],
+        receipts=[],
+        withdrawals=(
+            [] if fixture.genesis.withdrawals_root is not None else None
+        ),
+        rlp=fixture.genesis_rlp,
     )
 
 
@@ -186,6 +210,7 @@ def _state_calls(
 def derive_rpc_calls_for_blocks(
     blocks: Sequence[Any],
     post_state: Any = None,
+    genesis: FixtureBlock | None = None,
 ) -> List[FixtureRPCCall]:
     """
     Return the RPC expectations implied by a canonical chain.
@@ -193,6 +218,7 @@ def derive_rpc_calls_for_blocks(
     Takes blocks rather than a fixture because the engine formats carry
     payloads instead, and their blocks have to be assembled during
     generation where the transition tool output is still available.
+    `genesis` is separate for the same reason: it is not one of them.
 
     Invalid blocks are skipped: they never enter the canonical chain, so a
     client is right to report nothing for them.
@@ -203,6 +229,7 @@ def derive_rpc_calls_for_blocks(
     calls: List[FixtureRPCCall] = []
     all_logs: List[Any] = []
     highest_block = 0
+    head: FixtureBlock | None = None
 
     for block in blocks:
         if not isinstance(block, FixtureBlock):
@@ -211,6 +238,8 @@ def derive_rpc_calls_for_blocks(
         header = block.header
         block_result = block_response(block).to_rpc()
         number = str(block_result["number"])
+        if head is None or int(header.number) >= highest_block:
+            head = block
         highest_block = max(highest_block, int(header.number))
 
         calls.append(
@@ -324,7 +353,54 @@ def derive_rpc_calls_for_blocks(
             method="eth_blockNumber", params=[], result=hex(highest_block)
         )
     )
+    calls.extend(_tag_calls(head if head is not None else genesis, genesis))
     calls.extend(_state_calls(blocks, post_state, hex(highest_block)))
 
     _reject_unsatisfiable(calls)
+    return calls
+
+
+def _tag_calls(
+    head: FixtureBlock | None, genesis: FixtureBlock | None
+) -> List[FixtureRPCCall]:
+    """
+    Return the queries that name a block by tag rather than by number.
+
+    Post-merge `latest` is the head block and `earliest` is genesis, both
+    of which are projected already, so the expectations cost nothing beyond
+    a second copy of a response — which the release tarball's compression
+    largely removes again.
+
+    `safe` and `finalized` are deliberately absent. Neither consume
+    simulator sets a safe or a finalized block in its forkchoice state, and
+    go-ethereum answers both with `-32000 safe block not found` rather than
+    with the head. Asserting the head there would encode our own harness's
+    forkchoice, and asserting the error would encode its absence; setting
+    the two to the head instead would forbid the reorgs other tests depend
+    on. The tags stay out until something makes them mean the chain rather
+    than the harness.
+
+    Only the full-transaction form is emitted per tag: it strictly contains
+    the hash form, and the hash form is already asserted by number.
+    """
+    calls: List[FixtureRPCCall] = []
+    for tag, block in (("earliest", genesis), ("latest", head)):
+        if block is None:
+            continue
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBlockByNumber",
+                params=[tag, True],
+                result=block_response(block, full_transactions=True).to_rpc(),
+            )
+        )
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBlockReceipts",
+                params=[tag],
+                result=[
+                    receipt.to_rpc() for receipt in receipt_responses(block)
+                ],
+            )
+        )
     return calls
