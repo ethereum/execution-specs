@@ -402,6 +402,7 @@ def test_tx_types() -> None:  # noqa: D103
 @pytest.mark.parametrize(
     "fork",
     [
+        pytest.param(Shanghai, id="Shanghai"),
         pytest.param(Berlin, id="Berlin"),
         pytest.param(Istanbul, id="Istanbul"),
         pytest.param(Homestead, id="Homestead"),
@@ -434,7 +435,8 @@ def test_tx_intrinsic_gas_functions(  # noqa: D103
     if create_tx:
         if fork >= Homestead:
             intrinsic_gas += 32000
-        intrinsic_gas += 2
+        if fork >= Shanghai:
+            intrinsic_gas += 2
     assert (
         fork.transaction_intrinsic_cost_calculator()(
             calldata=calldata,

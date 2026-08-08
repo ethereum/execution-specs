@@ -42,11 +42,12 @@ so a failure is attributable.
 - **Checkpoint / done:** fill the whole `valid_from` range (omit `--fork`) so all
   deployed forks are exercised.
 - **Probe the future fork:** explicitly `--fork Amsterdam` (or the latest fork
-  that enables new EIPs). A ported test listed in `amsterdam_skip_list.txt` will
-  always show `sss` there — to see its *real* behavior, temporarily remove its
-  entry from that file, fill, then restore (or, once fixed, remove it for good —
-  see Finishing). A gas/state-cost change there is the most likely future
-  breakage.
+  that enables new EIPs). A gas/state-cost change there is the most likely
+  future breakage. (Historical note: broken tests used to be parked in a
+  `tests/ported_static/amsterdam_skip_list.txt` consumed by a local conftest;
+  the list was emptied and both were removed. If a future fork's repricing
+  breaks tests en masse, the same parking pattern — a substring-matched skip
+  list plus a `pytest_collection_modifyitems` hook — is in git history.)
 - **`fill` output:** writes to `./fixtures` (`--clean` resets it), or pass
   `--output <dir>` for a scratch location. Do **not** use `-o` — that is
   pytest's `--override-ini`, not the output dir.
@@ -77,8 +78,8 @@ gas the tx receives, so the body executes fully. See `write-test.md` "Transactio
 - **Gas-snapshot tests are gas-sensitive.** If the post asserts a stored `GAS`
   reading or a `SUB(@gas_before, GAS)` delta (legacy slots `0` / `0x64`), the
   test *measures gas* — handle it under step 10 (preserve via `CodeGasMeasure`),
-  do not just strip `gas_limit`. This is the dominant `amsterdam_skip_list.txt`
-  shape: the stored gas value is exactly what EIP-8037 re-prices and breaks.
+  do not just strip `gas_limit`. This was the dominant skip-list shape:
+  the stored gas value is exactly what EIP-8037 re-prices and breaks.
 - **EIP-8037 caveat:** when you omit `gas_limit` on a test that *measures* an
   operation incurring **state gas** (account creation, storage writes), add
   `state_gas_reservoir=0` to the tx, or that state gas is silently dropped from
@@ -294,8 +295,8 @@ ties a `CREATE`'s `size` operand to the memory/gas math that depends on it.
   on `test_make_money`.
 
 ### 10. (Gas-subject / gas-snapshot tests) Replace hardcoded gas with dynamic calculation
-Covers both tests that *assert* a gas amount and the dominant
-`amsterdam_skip_list.txt` shape: a legacy `GAS` snapshot / `SUB(@gas_before,
+Covers both tests that *assert* a gas amount and the dominant broken-port
+shape: a legacy `GAS` snapshot / `SUB(@gas_before,
 GAS)` delta stored to slot `0`/`0x64`. That stored value is *why* EIP-8037
 breaks the test, but it is real coverage — **preserve and fork-robustify it, do
 not drop it.**
@@ -386,6 +387,20 @@ previous_bytes=)`; EIP-3860 init-code words → `fork.gas_costs().CODE_INIT_PER_
 * ceil(size/32)`. You can also call `.gas_cost` / `.regular_cost` / `.state_cost`
 on exactly the measured bytecode.
 
+**Reservoir-less sub-calls pay state gas from their regular grant.** With
+the tx reservoir at 0, a sub-frame's state charges spill from its own
+`gas_left` — a delegate that does one first-set SSTORE needs its *whole*
+~111k inside the forwarded grant on Amsterdam, not just the ~13k regular
+part. Size derived sub-call budgets from the callee composite's full
+`gas_cost(fork)`. Corollaries: (a) a *failed* sub-frame contributes its
+entire forfeited grant to the parent's measured window, not its "cost";
+(b) `SSTORE(flag, <call>)` silently degrades to a ~3k no-op store when
+the call fails — the flag reads 0 and no state gas is charged, which can
+mask a broken callee behind a plausible-looking measurement. Validated on
+`test_new_gas_price_for_codes` (delegate budget derived; failed value
+calls return their stipends: subtract one `CALL_STIPEND` per failed
+value-bearing call from window measurements).
+
 **Nested / callee-side measurements.** When the measured op is a `CALL` whose
 callee does real work, the measured cost = `call_code.gas_cost(fork) +
 callee_code.gas_cost(fork)` (the CALL's own cost plus what the callee consumed).
@@ -401,6 +416,88 @@ with a placeholder `new_value`: its cost depends only on the zero->non-zero
 transition, not the magnitude — which also breaks the `forward_gas`/`new_value`
 circularity.) Set `state_gas_reservoir=0` so the state gas is captured.
 Validated on `test_raw_call_gas`.
+
+**An expensive store after a callee that eats all forwarded gas — pre-write
+the slot.** When a frame must SSTORE a result *after* a subcall that
+deliberately consumes its whole 63/64 grant (an OOG-probe callee), the frame
+retains only 1/64 — under EIP-8037 that cannot afford a cold zero→nonzero
+store (~111k), and pre-8037 it often couldn't afford the cold 2.2k either
+(making the ported `{slot: 0}` expectation vacuous: caller-OOG and
+callee-failure were indistinguishable). Fix: write a sentinel to the slot
+*before* the call (paying cold + state with the full budget), then store
+`BASE + result` after it — now a dirty-warm write (100 gas) the retention
+always covers, and the three outcomes (success `BASE+1`, failure `BASE`,
+caller OOG `sentinel`) are all distinct. Validated on
+`test_static_execute_call_that_ask_fore_gas_then_trabsaction_has`.
+**Caveat — EIP-2200's stipend rule caps this trick.** Any SSTORE (even a
+100-gas dirty-warm one) exceptionally halts unless `gas_left > 2300`
+(Istanbul+), so the 1/64 retention must exceed ~2400, i.e. the pre-call
+budget must exceed ~154k. When the scenario *requires* a smaller budget
+(e.g. a starved arm whose forwarded gas must undercut the callee's cost),
+no post-call SSTORE is possible at all: write the sentinel *before* the
+call and put nothing but a `POP` after it — frame completion (the account
+persists with the sentinel) plus the callee-side observable already
+separate the outcomes. Validated on
+`test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided`.
+
+**Refund-cap derivations need the EIP-7623 kwarg.** The EIP-3529 cap's
+base is the gas deducted before execution, which excludes the calldata
+floor: pass `return_cost_deducted_prior_execution=True` to the intrinsic
+calculator whenever the tx has calldata, or the derived `executed` (and
+the cap) overstate. Validated on `test_refund_suicide50procent_cap`.
+
+**A CREATE address collision burns the child's gas allowance** (the
+EIP-684 path): the withheld child grant is consumed, nothing is created,
+and under EIP-8037 the new-account state charge is refunded. Useful to
+build always-failing creator frames with predictable consumption.
+Validated on `test_revert_depth_create_address_collision`.
+
+**Loop-to-depth-1024 cannot replace loop-to-OOG.** With 63/64
+attenuation, reaching depth 1024 needs ~e^16 × the terminal gas — no
+legal budget gets there. For call-loop depth tests the honest shape is a
+fixed named budget with per-gas-schedule-era pinned depth counts, each
+shift explained (±1 frame ≈ 64·ln(cost ratio)). Validated on
+`test_loop_calls_depth_then_revert`.
+
+**Framework wart: the SSTORE dirty-rewrite composite prices 100 on every
+fork**, but Constantinople/Petersburg charge 5,000 for a dirty re-store —
+a derived budget that must survive pre-Istanbul forks needs an explicit
+headroom constant for it (named, commented). Observed on
+`test_revert_depth_create_address_collision`'s ConstantinopleFix sweep.
+
+**EIP-8037 repriced the code deposit's regular part — boundaries beware.**
+On 8037 forks the deposit charges only the keccak word cost
+(`OPCODE_KECCAK256_PER_WORD * ceil32(len)/32`, ~6 gas) as regular gas plus
+`len * 1530` state; `fork.gas_costs().CODE_DEPOSIT_PER_BYTE` (200) is the
+*pre-8037* constant. Using 200/byte in a *sufficiency* budget merely
+overshoots (safe); using it in a one-gas-short *boundary* silently funds
+the deposit on Amsterdam. Branch on `fork.is_eip_enabled(8037)` for exact
+deposit boundaries. Validated on
+`test_create_oo_gafter_init_code_returndata_size`.
+
+**Match the intrinsic calculator's kwargs to the transaction's shape.**
+`fork.transaction_intrinsic_cost_calculator()()` defaults to
+`sends_value=False`; under EIP-2780 a value-bearing transaction's intrinsic
+includes the folded value-transfer cost (~5.9k), so a derived budget or
+GAS-observation formula silently skews by that amount on Amsterdam only.
+Pass `sends_value=True` when the tx carries value — or drop an incidental
+tx `value` entirely (step 5) so the default holds. Validated on
+`test_store_gas_on_create`.
+
+**A creation transaction's top frame pays new-account state gas
+(EIP-8037) — but only for a fresh target.** When deriving a create-tx
+budget, the intrinsic calculator does not include the created account's
+state gas — add
+`fork.transaction_top_frame_state_gas(contract_creation=True)` (183,600 on
+Amsterdam, 0 before) or the whole creation silently OOGs only on the
+future fork. Exception: `prepare_dispatch` charges it only when the
+target's *pre-state* account is `EMPTY_ACCOUNT` — a prefunded create
+address pays nothing (validated on
+`test_out_of_gas_prefunded_contract_creation`, whose budgets omit the
+term). A nested CREATE's new-account state is charged to the parent
+before the 63/64 withhold and refunded if the child fails, so a derived
+budget must cover its *peak* (use the composite `gas_cost(fork)`), even
+on paths where the net is zero.
 
 **Measuring forwarded gas / the EIP-150 63/64 rule (the `*_gas_ask` shape).**
 Ported fillers probe "how much gas does a subcall receive when it asks for more
@@ -499,11 +596,10 @@ Not yet covered by a validated walkthrough; figure out and append when hit:
 
 ## Finishing
 
-**Remove the skip-list entry.** Once the test passes on the future fork, delete
-its line from `tests/ported_static/amsterdam_skip_list.txt` and decrement both
-its per-directory count header (`# stXxx (N)`) and the `# Total entries:` count.
-Confirm with a full-range fill (`--fork` omitted) with the entry gone — that is
-the definition of done.
+**Confirm with a full-range fill** (`--fork` omitted) — every deployed fork
+green is the definition of done. (If a skip list is ever reintroduced for a
+future fork, also delete the test's entry and keep its count headers
+accurate.)
 
 **Final sweep checklist** — each of these has been missed in practice; check
 them one by one before calling the test done:

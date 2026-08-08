@@ -8,7 +8,7 @@
 # Entries are substring-matched against each pytest nodeid (after
 # stripping the fixture-format suffix in conftest.py).
 #
-# Total entries: 153
+# Total entries: 130
 
 # stAttackTest (1)
 stAttackTest/test_crashing_transaction.py::test_crashing_transaction[fork_Amsterdam]
@@ -19,20 +19,9 @@ stBadOpcode/test_measure_gas.py::test_measure_gas[fork_Amsterdam-CREATE]
 stBadOpcode/test_operation_diff_gas.py::test_operation_diff_gas[fork_Amsterdam-CREATE2]
 stBadOpcode/test_operation_diff_gas.py::test_operation_diff_gas[fork_Amsterdam-CREATE]
 
-# stCallCodes (3)
-stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d0]
-stCallCodes/test_callcode_in_initcode_to_existing_contract.py::test_callcode_in_initcode_to_existing_contract[fork_Amsterdam-d1]
-stCallCodes/test_callcode_in_initcode_to_existing_contract_with_value_transfer.py::test_callcode_in_initcode_to_existing_contract_with_value_transfer[fork_Amsterdam]
+# stCallCodes (0)
 
-# stCallCreateCallCodeTest (11)
-stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g0]
-stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g1]
-stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g2]
-stCallCreateCallCodeTest/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g3]
-stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g0]
-stCallCreateCallCodeTest/test_callcode1024_oog.py::test_callcode1024_oog[fork_Amsterdam--g1]
-stCallCreateCallCodeTest/test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided.py::test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided[fork_Amsterdam--g0]
-stCallCreateCallCodeTest/test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided.py::test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided[fork_Amsterdam--g1]
+# stCallCreateCallCodeTest (3)
 stCallCreateCallCodeTest/test_create_name_registrator_per_txs_not_enough_gas.py::test_create_name_registrator_per_txs_not_enough_gas[fork_Amsterdam--g0]
 stCallCreateCallCodeTest/test_create_name_registrator_per_txs_not_enough_gas.py::test_create_name_registrator_per_txs_not_enough_gas[fork_Amsterdam--g1]
 stCallCreateCallCodeTest/test_create_name_registrator_pre_store1_not_enough_gas.py::test_create_name_registrator_pre_store1_not_enough_gas[fork_Amsterdam]
@@ -111,20 +100,12 @@ stCreateTest/test_transaction_collision_to_empty_but_code.py::test_transaction_c
 stCreateTest/test_transaction_collision_to_empty_but_nonce.py::test_transaction_collision_to_empty_but_nonce[fork_Amsterdam--g1-v0]
 stCreateTest/test_transaction_collision_to_empty_but_nonce.py::test_transaction_collision_to_empty_but_nonce[fork_Amsterdam--g1-v1]
 
-# stDelegatecallTestHomestead (4)
-stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g0]
-stDelegatecallTestHomestead/test_call1024_oog.py::test_call1024_oog[fork_Amsterdam--g1]
-stDelegatecallTestHomestead/test_delegatecall1024_oog.py::test_delegatecall1024_oog[fork_Amsterdam]
-stDelegatecallTestHomestead/test_delegatecall_in_initcode_to_existing_contract.py::test_delegatecall_in_initcode_to_existing_contract[fork_Amsterdam]
+# stDelegatecallTestHomestead (0)
 
-# stEIP150Specific (7)
-stEIP150Specific/test_call_ask_more_gas_on_depth2_then_transaction_has.py::test_call_ask_more_gas_on_depth2_then_transaction_has[fork_Amsterdam]
+# stEIP150Specific (3)
 stEIP150Specific/test_create_and_gas_inside_create.py::test_create_and_gas_inside_create[fork_Amsterdam]
 stEIP150Specific/test_delegate_call_on_eip.py::test_delegate_call_on_eip[fork_Amsterdam]
 stEIP150Specific/test_new_gas_price_for_codes.py::test_new_gas_price_for_codes[fork_Amsterdam]
-stEIP150Specific/test_transaction64_rule_d64e0.py::test_transaction64_rule_d64e0[fork_Amsterdam]
-stEIP150Specific/test_transaction64_rule_d64m1.py::test_transaction64_rule_d64m1[fork_Amsterdam]
-stEIP150Specific/test_transaction64_rule_d64p1.py::test_transaction64_rule_d64p1[fork_Amsterdam]
 
 # stEIP150singleCodeGasPrices (2)
 stEIP150singleCodeGasPrices/test_gas_cost.py::test_gas_cost[fork_Amsterdam-d40]
@@ -145,8 +126,7 @@ stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_p
 stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_prefunded_contract_creation[fork_Amsterdam--g1]
 stInitCodeTest/test_out_of_gas_prefunded_contract_creation.py::test_out_of_gas_prefunded_contract_creation[fork_Amsterdam--g2]
 
-# stMemExpandingEIP150Calls (4)
-stMemExpandingEIP150Calls/test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_calls.py::test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_calls[fork_Amsterdam]
+# stMemExpandingEIP150Calls (3)
 stMemExpandingEIP150Calls/test_call_goes_oog_on_second_level_with_mem_expanding_calls.py::test_call_goes_oog_on_second_level_with_mem_expanding_calls[fork_Amsterdam]
 stMemExpandingEIP150Calls/test_create_and_gas_inside_create_with_mem_expanding_calls.py::test_create_and_gas_inside_create_with_mem_expanding_calls[fork_Amsterdam]
 stMemExpandingEIP150Calls/test_new_gas_price_for_codes_with_mem_expanding_calls.py::test_new_gas_price_for_codes_with_mem_expanding_calls[fork_Amsterdam]
@@ -194,10 +174,7 @@ stStaticCall/test_static_create_empty_contract_and_call_it_0wei.py::test_static_
 stStaticCall/test_static_create_empty_contract_with_storage_and_call_it_0wei.py::test_static_create_empty_contract_with_storage_and_call_it_0wei[fork_Amsterdam]
 stStaticCall/test_static_execute_call_that_ask_fore_gas_then_trabsaction_has.py::test_static_execute_call_that_ask_fore_gas_then_trabsaction_has[fork_Amsterdam-d0]
 
-# stSystemOperationsTest (5)
-stSystemOperationsTest/test_ab_acalls0.py::test_ab_acalls0[fork_Amsterdam]
-stSystemOperationsTest/test_ab_acalls3.py::test_ab_acalls3[fork_Amsterdam]
-stSystemOperationsTest/test_call_recursive_bomb3.py::test_call_recursive_bomb3[fork_Amsterdam]
+# stSystemOperationsTest (2)
 stSystemOperationsTest/test_double_selfdestruct_touch_paris.py::test_double_selfdestruct_touch_paris[fork_Amsterdam--v1]
 stSystemOperationsTest/test_double_selfdestruct_touch_paris.py::test_double_selfdestruct_touch_paris[fork_Amsterdam--v2]
 
