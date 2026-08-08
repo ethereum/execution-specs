@@ -1,0 +1,228 @@
+"""
+Project filled fixture data onto JSON-RPC response objects.
+
+The expected value of an RPC call is derived from the Python spec's own
+output rather than recorded from a client. By the time a fixture is
+written, `t8n` has already produced the receipts, logs and post-state, and
+the header has been assembled; everything here is a pure function of that
+data. No client is consulted and no execution is repeated.
+
+The fields that do not exist in consensus data are derived as follows:
+
+| field                | derivation                                    |
+| -------------------- | --------------------------------------------- |
+| `blockHash`          | header                                        |
+| `blockTimestamp`     | header                                        |
+| `transactionIndex`   | position in the block                         |
+| `logIndex`           | position within the block, across receipts    |
+| `from`               | transaction sender, known to the filler       |
+| `contractAddress`    | sender and nonce, for creations               |
+| `gasUsed` (per tx)   | difference of consecutive `cumulativeGasUsed` |
+| `effectiveGasPrice`  | transaction gas fields and the base fee       |
+| `size`               | length of the RLP-encoded block               |
+"""
+
+from typing import List
+
+import ethereum_rlp as eth_rlp
+
+from execution_testing.base_types import (
+    Address,
+    Bloom,
+    Bytes,
+    HexNumber,
+)
+from execution_testing.fixtures.blockchain import (
+    FixtureBlock,
+    FixtureTransaction,
+)
+from execution_testing.fixtures.common import FixtureTransactionReceipt
+from execution_testing.test_types.utils import int_to_bytes
+
+from .types import RPCBlock, RPCLog, RPCReceipt
+
+
+def effective_gas_price(
+    transaction: FixtureTransaction,
+    base_fee_per_gas: HexNumber | None,
+) -> HexNumber:
+    """
+    Return the gas price actually charged to the sender.
+
+    Before EIP-1559 this is the transaction's `gasPrice`. After it, the
+    sender pays the base fee plus whatever priority fee fits under the
+    cap they set.
+    """
+    if transaction.gas_price is not None:
+        return HexNumber(transaction.gas_price)
+
+    assert transaction.max_fee_per_gas is not None, (
+        "transaction has neither gas_price nor max_fee_per_gas"
+    )
+    if base_fee_per_gas is None:
+        return HexNumber(transaction.max_fee_per_gas)
+
+    priority_fee = min(
+        HexNumber(transaction.max_priority_fee_per_gas or 0),
+        HexNumber(transaction.max_fee_per_gas) - base_fee_per_gas,
+    )
+    return HexNumber(base_fee_per_gas + priority_fee)
+
+
+def contract_address(transaction: FixtureTransaction) -> Address | None:
+    """
+    Return the address created by the transaction, if it is a creation.
+
+    `Transaction.created_contract` is not available here: a fixture
+    transaction is a `TransactionGeneric`, which carries the signed fields
+    but none of the derived properties.
+    """
+    if transaction.to is not None:
+        return None
+    sender = _sender_of(transaction)
+    encoded = Bytes(
+        eth_rlp.encode([sender, int_to_bytes(int(transaction.nonce))])
+    )
+    return Address(encoded.keccak256()[-20:])
+
+
+def receipt_responses(block: FixtureBlock) -> List[RPCReceipt]:
+    """
+    Project a block's consensus receipts onto RPC receipt objects.
+
+    `logIndex` counts across the whole block rather than restarting per
+    transaction, so the receipts must be projected together.
+    """
+    block_hash = block.header.block_hash
+    block_number = HexNumber(block.header.number)
+    timestamp = HexNumber(block.header.timestamp)
+    base_fee = (
+        HexNumber(block.header.base_fee_per_gas)
+        if block.header.base_fee_per_gas is not None
+        else None
+    )
+
+    responses: List[RPCReceipt] = []
+    previous_cumulative_gas_used = 0
+    log_index = 0
+
+    for index, receipt in enumerate(block.receipts or []):
+        transaction = block.txs[index]
+        cumulative_gas_used = int(receipt.cumulative_gas_used)
+
+        logs: List[RPCLog] = []
+        for log in receipt.logs:
+            assert log.address is not None, "log is missing an address"
+            assert log.topics is not None, "log is missing topics"
+            assert log.data is not None, "log is missing data"
+            logs.append(
+                RPCLog(
+                    address=log.address,
+                    topics=log.topics,
+                    data=log.data,
+                    block_hash=block_hash,
+                    block_number=block_number,
+                    block_timestamp=timestamp,
+                    transaction_hash=receipt.transaction_hash,
+                    transaction_index=HexNumber(index),
+                    log_index=HexNumber(log_index),
+                )
+            )
+            log_index += 1
+
+        responses.append(
+            RPCReceipt(
+                transaction_hash=receipt.transaction_hash,
+                transaction_index=HexNumber(index),
+                block_hash=block_hash,
+                block_number=block_number,
+                sender=_sender_of(transaction),
+                to=transaction.to,
+                cumulative_gas_used=HexNumber(cumulative_gas_used),
+                gas_used=HexNumber(
+                    cumulative_gas_used - previous_cumulative_gas_used
+                ),
+                contract_address=contract_address(transaction),
+                logs=logs,
+                logs_bloom=Bloom(receipt.bloom),
+                ty=HexNumber(receipt.ty),
+                effective_gas_price=effective_gas_price(transaction, base_fee),
+                status=_status_of(receipt),
+                root=receipt.post_state,
+            )
+        )
+        previous_cumulative_gas_used = cumulative_gas_used
+
+    return responses
+
+
+def block_response(block: FixtureBlock) -> RPCBlock:
+    """
+    Project a fixture block onto an RPC block object.
+
+    Only the transaction-hash form is produced. The full-object form,
+    returned when a request sets `fullTransactions`, needs a transaction
+    projection that is not implemented yet.
+    """
+    header = block.header
+    assert block.rlp is not None, "block is missing its RLP encoding"
+
+    return RPCBlock(
+        block_hash=header.block_hash,
+        parent_hash=header.parent_hash,
+        ommers_hash=header.ommers_hash,
+        fee_recipient=header.fee_recipient,
+        state_root=header.state_root,
+        transactions_root=header.transactions_trie,
+        receipts_root=header.receipts_root,
+        logs_bloom=header.logs_bloom,
+        difficulty=HexNumber(header.difficulty),
+        number=HexNumber(header.number),
+        gas_limit=HexNumber(header.gas_limit),
+        gas_used=HexNumber(header.gas_used),
+        timestamp=HexNumber(header.timestamp),
+        extra_data=header.extra_data,
+        prev_randao=header.prev_randao,
+        nonce=Bytes(header.nonce),
+        size=HexNumber(len(block.rlp)),
+        transactions=[
+            receipt.transaction_hash for receipt in (block.receipts or [])
+        ],
+        base_fee_per_gas=_optional_number(header.base_fee_per_gas),
+        withdrawals_root=header.withdrawals_root,
+        blob_gas_used=_optional_number(header.blob_gas_used),
+        excess_blob_gas=_optional_number(header.excess_blob_gas),
+        parent_beacon_block_root=header.parent_beacon_block_root,
+        requests_hash=header.requests_hash,
+    )
+
+
+def _sender_of(transaction: FixtureTransaction) -> Address:
+    """Return the transaction's sender, which the filler always knows."""
+    assert transaction.sender is not None, "transaction has no sender"
+    return Address(transaction.sender)
+
+
+def _status_of(receipt: FixtureTransactionReceipt) -> HexNumber | None:
+    """
+    Return the receipt status, or None before Byzantium.
+
+    Pre-Byzantium receipts carry a post-state root instead, and the two are
+    mutually exclusive in the response.
+    """
+    if receipt.status is None:
+        return None
+    return HexNumber(1 if receipt.status else 0)
+
+
+def _optional_number(value: int | None) -> HexNumber | None:
+    """Convert an optional header quantity to minimal-hex form."""
+    return None if value is None else HexNumber(value)
+
+
+__all__ = [
+    "block_response",
+    "contract_address",
+    "effective_gas_price",
+    "receipt_responses",
+]
