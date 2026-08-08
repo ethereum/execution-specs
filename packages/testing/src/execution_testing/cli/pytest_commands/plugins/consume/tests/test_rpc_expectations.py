@@ -49,6 +49,7 @@ def fixture() -> BlockchainFixture:
 def rpc_returning(results: List[Any]) -> MagicMock:
     """Return a mock client whose batch call yields the given responses."""
     client = MagicMock()
+    client.namespace = "eth"
     client.post_batch_request.return_value = [
         MagicMock(result=result, error=None) for result in results
     ]
@@ -58,6 +59,7 @@ def rpc_returning(results: List[Any]) -> MagicMock:
 def erroring_rpc(code: int, message: str = "boom") -> MagicMock:
     """Return a mock client whose batch call yields a JSON-RPC error."""
     client = MagicMock()
+    client.namespace = "eth"
     client.post_batch_request.return_value = [
         MagicMock(result=None, error=MagicMock(code=code, message=message))
     ]
@@ -72,6 +74,46 @@ def test_conforming_client_passes(fixture: BlockchainFixture) -> None:
     verify_rpc_expectations(client, fixture)
 
     client.post_batch_request.assert_called_once()
+
+
+def test_namespace_is_stripped_before_sending(
+    fixture: BlockchainFixture,
+) -> None:
+    """
+    Sent methods are unqualified, because the client re-adds its namespace.
+
+    Fixtures store the wire name, so passing it through unchanged produces
+    `eth_eth_getBlockByNumber` and every call fails with -32601. A mock
+    accepts anything, so only a real client exposes this.
+    """
+    assert fixture.rpc is not None
+    client = rpc_returning([call.result for call in fixture.rpc])
+    client.namespace = "eth"
+
+    verify_rpc_expectations(client, fixture)
+
+    sent = client.post_batch_request.call_args.kwargs["calls"]
+    assert [call.method for call in sent] == [
+        "getBlockByNumber",
+        "getBlockByHash",
+        "getTransactionReceipt",
+    ]
+
+
+def test_foreign_namespace_is_rejected(fixture: BlockchainFixture) -> None:
+    """
+    A method outside the client's namespace fails loudly.
+
+    `debug_getRawBlock` cannot go through an `eth` client, and silently
+    mangling it into `eth_debug_getRawBlock` would report a spurious
+    -32601 against the client instead of naming our own mistake.
+    """
+    fixture.rpc = [FixtureRPCCall(method="debug_getRawBlock", params=["0x1"])]
+    client = rpc_returning([None])
+    client.namespace = "eth"
+
+    with pytest.raises(ValueError, match="debug"):
+        verify_rpc_expectations(client, fixture)
 
 
 def test_absent_section_makes_no_calls(

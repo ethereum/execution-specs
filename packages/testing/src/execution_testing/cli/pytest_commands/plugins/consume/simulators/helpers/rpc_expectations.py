@@ -34,6 +34,24 @@ def _describe(call: FixtureRPCCall) -> str:
     return f"{call.method}({', '.join(repr(p) for p in call.params)})"
 
 
+def _unqualified(method: str, namespace: str) -> str:
+    """
+    Strip the namespace a client re-applies when building the request.
+
+    Fixtures store the wire name (`eth_getBlockByNumber`) because that is
+    what the OpenRPC schema keys on and what a client team reads. The RPC
+    clients here are namespaced and prepend their own prefix, so passing
+    the wire name through unchanged asks for `eth_eth_getBlockByNumber`.
+    """
+    prefix = f"{namespace}_"
+    if not method.startswith(prefix):
+        raise ValueError(
+            f"{method} cannot be sent through a {namespace!r} client; "
+            f"it needs a client for the {method.split('_')[0]!r} namespace"
+        )
+    return method.removeprefix(prefix)
+
+
 def _compare(call: FixtureRPCCall, response: Any) -> str | None:
     """
     Return a failure message for one response, or None if it is acceptable.
@@ -88,7 +106,11 @@ def verify_rpc_expectations(
     logger.info(f"Replaying {len(calls)} derived RPC expectations...")
     responses = eth_rpc.post_batch_request(
         calls=[
-            RPCCall(method=call.method, params=call.params) for call in calls
+            RPCCall(
+                method=_unqualified(call.method, eth_rpc.namespace),
+                params=call.params,
+            )
+            for call in calls
         ]
     )
 
