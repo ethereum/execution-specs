@@ -8,6 +8,8 @@
 
 # AI
 .claude/settings.local.json
+# Agent worktrees; transient checkouts, never part of the repo
+.claude/worktrees/
 CLAUDE.local.md
 .mb/
 mb/
