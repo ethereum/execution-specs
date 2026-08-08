@@ -100,3 +100,6 @@ site/
 
 # Temporary data; used for generated checklists
 tmp/
+
+# Local design docs; not part of the published mkdocs site
+docs/plans/

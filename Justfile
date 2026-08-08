@@ -397,6 +397,27 @@ crops:
 
 # --- Housekeeping ---
 
+# Regenerate the vendored OpenRPC schema from execution-apis (requires Go)
+[group('housekeeping')]
+refresh-openrpc tag="v1.0.0-beta.7":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Flags mirror hive's rpc-compat Dockerfile, so the schema we validate
+    # against matches the one clients are tested against upstream.
+    dest="$(pwd)/packages/testing/src/execution_testing/rpc/schemas/openrpc.json"
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    git clone --depth 1 -b "{{ tag }}" -q \
+        https://github.com/ethereum/execution-apis.git "$work"
+    cd "$work/tools" && go build -o specgen ./cmd/specgen
+    cd "$work" && ./tools/specgen -o "$dest" -deref \
+        -schemas 'src/schemas' -schemas 'src/engine/openrpc/schemas' \
+        -methods 'src/eth' -methods 'src/debug' -methods 'src/txpool' \
+        -methods 'src/engine/openrpc/methods' -methods 'src/testing' \
+        -error-groups 'src/error-groups'
+    echo "Regenerated from {{ tag }} ($(git -C "$work" rev-parse HEAD))."
+    echo "Update the pin table in the schemas README if the tag changed."
+
 # Remove caches and build artifacts (.pytest_cache, .mypy_cache, __pycache__, ...)
 [group('housekeeping')]
 clean *args:
