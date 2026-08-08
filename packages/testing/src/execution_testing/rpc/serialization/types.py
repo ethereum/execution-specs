@@ -76,6 +76,93 @@ class RPCLog(RPCResponseModel):
     """Always false here; only a reorged log is removed."""
 
 
+class RPCAccessListEntry(RPCResponseModel):
+    """An EIP-2930 access list entry as returned within a transaction."""
+
+    address: Address
+    storage_keys: List[Hash]
+
+
+class RPCAuthorization(RPCResponseModel):
+    """An EIP-7702 authorization as returned within a transaction."""
+
+    chain_id: HexNumber
+    address: Address
+    nonce: HexNumber
+    y_parity: HexNumber
+    r: HexNumber
+    s: HexNumber
+
+
+class RPCTransaction(RPCResponseModel):
+    """
+    A transaction as returned by `eth_getTransactionByHash` and friends.
+
+    One model covers every transaction type, with `conditional_fields`
+    dropping what does not apply. The schema defines a separate variant per
+    type and their requirements differ in ways that are easy to get wrong:
+    legacy carries `v` while typed transactions carry `yParity`; 1559 and
+    later require `gasPrice` *as well as* the fee caps, holding the
+    effective price; and 4844 and 7702 cannot be creations, so `to` is
+    required rather than nullable there.
+    """
+
+    conditional_fields: ClassVar[Tuple[str, ...]] = (
+        "v",
+        "y_parity",
+        "chain_id",
+        "access_list",
+        "gas_price",
+        "max_fee_per_gas",
+        "max_priority_fee_per_gas",
+        "max_fee_per_blob_gas",
+        "blob_versioned_hashes",
+        "authorization_list",
+    )
+
+    block_hash: Hash
+    block_number: HexNumber
+    block_timestamp: HexNumber
+    transaction_index: HexNumber
+    transaction_hash: Hash = Field(..., alias="hash")
+    sender: Address = Field(..., alias="from")
+    to: Address | None
+    """Null for a creation; the schema forbids creations from 4844 and 7702."""
+    value: HexNumber
+    gas: HexNumber
+    input: Bytes
+    nonce: HexNumber
+    ty: HexNumber = Field(..., alias="type")
+    r: HexNumber
+    s: HexNumber
+
+    v: HexNumber | None = None
+    """Legacy only; typed transactions report `yParity` instead."""
+    y_parity: HexNumber | None = None
+    """Typed transactions only."""
+    chain_id: HexNumber | None = None
+    """Absent from legacy transactions."""
+    access_list: List[RPCAccessListEntry] | None = None
+    """Absent from legacy transactions; may be empty from 2930 onwards."""
+    gas_price: HexNumber | None = None
+    """
+    The price actually paid.
+
+    Required from legacy through 1559 and later, where it holds the
+    effective gas price rather than a field the sender set.
+    """
+    max_fee_per_gas: HexNumber | None = None
+    """EIP-1559 and later."""
+    max_priority_fee_per_gas: HexNumber | None = None
+    """EIP-1559 and later."""
+    max_fee_per_blob_gas: HexNumber | None = None
+    """EIP-4844 only."""
+    blob_versioned_hashes: List[Hash] | None = None
+    """EIP-4844 only."""
+    authorization_list: List[RPCAuthorization] | None = None
+    """EIP-7702 only."""
+
+
 class RPCWithdrawal(RPCResponseModel):
     """A withdrawal as returned within a block object."""
 
@@ -152,12 +239,15 @@ class RPCBlock(RPCResponseModel):
     nonce: Bytes
     size: HexNumber
     """Length of the RLP-encoded block, which the header does not carry."""
-    transactions: List[Hash]
+    transactions: List[Any]
     """
-    Transaction hashes.
+    Transaction hashes, or full objects when the request asked for them.
 
-    The full-object form, returned when the request sets `fullTransactions`,
-    is not implemented yet.
+    Which form appears is chosen by the request's second parameter. The
+    union is deliberately untyped: pydantic resolves `List[Hash] |
+    List[Dict]` by trying `Hash` on each entry first, and `Hash` raises
+    `TypeError` rather than a validation error, so the union never falls
+    through to the object form. Shape is enforced by the schema instead.
     """
     uncles: List[Hash] = Field(default_factory=list)
 

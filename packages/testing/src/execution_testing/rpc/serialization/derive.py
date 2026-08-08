@@ -19,7 +19,11 @@ from typing import TYPE_CHECKING, Any, List, Sequence
 from execution_testing.fixtures.blockchain import FixtureBlock
 from execution_testing.fixtures.common import FixtureRPCCall
 
-from .projection import block_response, receipt_responses
+from .projection import (
+    block_response,
+    receipt_responses,
+    transaction_responses,
+)
 from .schema import SchemaViolationError, validate_result
 
 if TYPE_CHECKING:
@@ -91,6 +95,8 @@ def derive_rpc_calls_for_blocks(
     `_reject_unsatisfiable`.
     """
     calls: List[FixtureRPCCall] = []
+    all_logs: List[Any] = []
+    highest_block = 0
 
     for block in blocks:
         if not isinstance(block, FixtureBlock):
@@ -99,6 +105,7 @@ def derive_rpc_calls_for_blocks(
         header = block.header
         block_result = block_response(block).to_rpc()
         number = str(block_result["number"])
+        highest_block = max(highest_block, int(header.number))
 
         calls.append(
             FixtureRPCCall(
@@ -115,7 +122,47 @@ def derive_rpc_calls_for_blocks(
             )
         )
 
-        for receipt in receipt_responses(block):
+        full = block_response(block, full_transactions=True).to_rpc()
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBlockByNumber",
+                params=[number, True],
+                result=full,
+            )
+        )
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBlockByHash",
+                params=[str(header.block_hash), True],
+                result=full,
+            )
+        )
+
+        count = len(block.txs)
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBlockTransactionCountByNumber",
+                params=[number],
+                result=hex(count),
+            )
+        )
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBlockTransactionCountByHash",
+                params=[str(header.block_hash)],
+                result=hex(count),
+            )
+        )
+
+        receipts = receipt_responses(block)
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBlockReceipts",
+                params=[number],
+                result=[receipt.to_rpc() for receipt in receipts],
+            )
+        )
+        for receipt in receipts:
             calls.append(
                 FixtureRPCCall(
                     method="eth_getTransactionReceipt",
@@ -123,6 +170,54 @@ def derive_rpc_calls_for_blocks(
                     result=receipt.to_rpc(),
                 )
             )
+
+        for index, transaction in enumerate(transaction_responses(block)):
+            projected = transaction.to_rpc()
+            calls.append(
+                FixtureRPCCall(
+                    method="eth_getTransactionByHash",
+                    params=[str(transaction.transaction_hash)],
+                    result=projected,
+                )
+            )
+            calls.append(
+                FixtureRPCCall(
+                    method="eth_getTransactionByBlockNumberAndIndex",
+                    params=[number, hex(index)],
+                    result=projected,
+                )
+            )
+            calls.append(
+                FixtureRPCCall(
+                    method="eth_getTransactionByBlockHashAndIndex",
+                    params=[str(header.block_hash), hex(index)],
+                    result=projected,
+                )
+            )
+
+        all_logs.extend(
+            log.to_rpc() for receipt in receipts for log in receipt.logs
+        )
+
+    if all_logs:
+        # Only when there is at least one log. The schema types this result
+        # as `oneOf` an array of log objects and an array of hashes, and an
+        # empty array satisfies both, which `oneOf` forbids — so an empty
+        # result is unrepresentable even though it is perfectly legal in
+        # practice. Worth reporting upstream rather than working around
+        # more cleverly.
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getLogs",
+                params=[{"fromBlock": "0x0", "toBlock": hex(highest_block)}],
+                result=all_logs,
+            )
+        )
+    calls.append(
+        FixtureRPCCall(
+            method="eth_blockNumber", params=[], result=hex(highest_block)
+        )
+    )
 
     _reject_unsatisfiable(calls)
     return calls

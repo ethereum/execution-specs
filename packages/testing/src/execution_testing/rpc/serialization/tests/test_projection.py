@@ -27,6 +27,7 @@ from execution_testing.rpc.serialization import (
     contract_address,
     effective_gas_price,
     receipt_responses,
+    transaction_responses,
 )
 
 SENDER = Address(0xA1)
@@ -352,3 +353,91 @@ def test_block_lists_transaction_hashes() -> None:
     response = block_response(make_block(transactions, receipts)).to_rpc()
 
     assert response["transactions"] == [str(Hash(0xAA)), str(Hash(0xBB))]
+
+
+def test_legacy_transaction_reports_v_not_y_parity() -> None:
+    """
+    A legacy transaction carries `v`; typed ones carry `yParity`.
+
+    The schema splits on this per type, so emitting both, or the wrong
+    one, fails validation.
+    """
+    block = make_block([make_transaction(ty=0)], [make_receipt(21_000)])
+
+    projected = transaction_responses(block)[0].to_rpc()
+
+    assert projected["v"] is not None
+    assert "yParity" not in projected
+    assert "chainId" not in projected
+    assert "accessList" not in projected
+
+
+def test_typed_transaction_reports_y_parity_not_v() -> None:
+    """A typed transaction carries `yParity`, `chainId` and an access list."""
+    block = make_block(
+        [
+            make_transaction(
+                ty=2,
+                gas_price=None,
+                max_fee_per_gas=100,
+                max_priority_fee_per_gas=2,
+            )
+        ],
+        [make_receipt(21_000, ty=2)],
+        base_fee_per_gas=7,
+    )
+
+    projected = transaction_responses(block)[0].to_rpc()
+
+    assert "v" not in projected
+    assert projected["yParity"] is not None
+    assert projected["accessList"] == []
+    assert projected["maxFeePerGas"] == "0x64"
+
+
+def test_fee_market_transaction_reports_effective_gas_price() -> None:
+    """
+    `gasPrice` is required from 1559 onwards and holds the price paid.
+
+    The sender never set it, so reporting the cap instead would be wrong.
+    """
+    block = make_block(
+        [
+            make_transaction(
+                ty=2,
+                gas_price=None,
+                max_fee_per_gas=100,
+                max_priority_fee_per_gas=2,
+            )
+        ],
+        [make_receipt(21_000, ty=2)],
+        base_fee_per_gas=7,
+    )
+
+    projected = transaction_responses(block)[0].to_rpc()
+
+    assert projected["gasPrice"] == "0x9"
+
+
+def test_creation_transaction_reports_null_to() -> None:
+    """A creation reports `to` as null rather than omitting it."""
+    block = make_block([make_transaction(to=None)], [make_receipt(21_000)])
+
+    projected = transaction_responses(block)[0].to_rpc()
+
+    assert "to" in projected
+    assert projected["to"] is None
+
+
+def test_full_block_form_embeds_transaction_objects() -> None:
+    """The full form returns objects; the default form returns hashes."""
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+
+    hashes = block_response(block).to_rpc()["transactions"]
+    objects = block_response(block, full_transactions=True).to_rpc()[
+        "transactions"
+    ]
+
+    assert hashes == [str(Hash(0xDEAD))]
+    assert isinstance(objects[0], dict)
+    assert objects[0]["hash"] == str(Hash(0xDEAD))

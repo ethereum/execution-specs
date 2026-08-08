@@ -39,7 +39,15 @@ from execution_testing.fixtures.blockchain import (
 from execution_testing.fixtures.common import FixtureTransactionReceipt
 from execution_testing.test_types.utils import int_to_bytes
 
-from .types import RPCBlock, RPCLog, RPCReceipt, RPCWithdrawal
+from .types import (
+    RPCAccessListEntry,
+    RPCAuthorization,
+    RPCBlock,
+    RPCLog,
+    RPCReceipt,
+    RPCTransaction,
+    RPCWithdrawal,
+)
 
 
 def effective_gas_price(
@@ -156,6 +164,105 @@ def receipt_responses(block: FixtureBlock) -> List[RPCReceipt]:
     return responses
 
 
+def _is_typed(transaction: FixtureTransaction) -> bool:
+    """Return whether the transaction is typed rather than legacy."""
+    return int(transaction.ty) > 0
+
+
+def transaction_responses(block: FixtureBlock) -> List[RPCTransaction]:
+    """
+    Project a block's transactions onto RPC transaction objects.
+
+    Type determines which fields appear. Legacy transactions report `v`
+    and typed ones `yParity`; `gasPrice` is present throughout, holding
+    the effective price from EIP-1559 onwards rather than a value the
+    sender chose.
+    """
+    header = block.header
+    base_fee = (
+        HexNumber(header.base_fee_per_gas)
+        if header.base_fee_per_gas is not None
+        else None
+    )
+    receipts = block.receipts or []
+    assert len(receipts) == len(block.txs), (
+        "every transaction needs its receipt to supply the hash"
+    )
+
+    responses: List[RPCTransaction] = []
+    for index, transaction in enumerate(block.txs):
+        receipt = receipts[index]
+        responses.append(
+            RPCTransaction(
+                block_hash=header.block_hash,
+                block_number=HexNumber(header.number),
+                block_timestamp=HexNumber(header.timestamp),
+                transaction_index=HexNumber(index),
+                transaction_hash=receipt.transaction_hash,
+                sender=_sender_of(transaction),
+                to=transaction.to,
+                value=HexNumber(transaction.value),
+                gas=HexNumber(transaction.gas_limit),
+                input=transaction.data,
+                nonce=HexNumber(transaction.nonce),
+                ty=HexNumber(transaction.ty),
+                r=HexNumber(transaction.r),
+                s=HexNumber(transaction.s),
+                v=None if _is_typed(transaction) else HexNumber(transaction.v),
+                y_parity=(
+                    HexNumber(transaction.v)
+                    if _is_typed(transaction)
+                    else None
+                ),
+                chain_id=(
+                    HexNumber(transaction.chain_id)
+                    if _is_typed(transaction)
+                    else None
+                ),
+                access_list=(
+                    [
+                        RPCAccessListEntry(
+                            address=entry.address,
+                            storage_keys=list(entry.storage_keys),
+                        )
+                        for entry in (transaction.access_list or [])
+                    ]
+                    if _is_typed(transaction)
+                    else None
+                ),
+                gas_price=effective_gas_price(transaction, base_fee),
+                max_fee_per_gas=_optional_number(transaction.max_fee_per_gas),
+                max_priority_fee_per_gas=_optional_number(
+                    transaction.max_priority_fee_per_gas
+                ),
+                max_fee_per_blob_gas=_optional_number(
+                    transaction.max_fee_per_blob_gas
+                ),
+                blob_versioned_hashes=(
+                    list(transaction.blob_versioned_hashes)
+                    if transaction.blob_versioned_hashes is not None
+                    else None
+                ),
+                authorization_list=(
+                    [
+                        RPCAuthorization(
+                            chain_id=HexNumber(authorization.chain_id),
+                            address=authorization.address,
+                            nonce=HexNumber(authorization.nonce),
+                            y_parity=HexNumber(authorization.v),
+                            r=HexNumber(authorization.r),
+                            s=HexNumber(authorization.s),
+                        )
+                        for authorization in transaction.authorization_list
+                    ]
+                    if transaction.authorization_list is not None
+                    else None
+                ),
+            )
+        )
+    return responses
+
+
 def withdrawal_responses(
     block: FixtureBlock,
 ) -> List[RPCWithdrawal] | None:
@@ -179,13 +286,15 @@ def withdrawal_responses(
     ]
 
 
-def block_response(block: FixtureBlock) -> RPCBlock:
+def block_response(
+    block: FixtureBlock, *, full_transactions: bool = False
+) -> RPCBlock:
     """
     Project a fixture block onto an RPC block object.
 
-    Only the transaction-hash form is produced. The full-object form,
-    returned when a request sets `fullTransactions`, needs a transaction
-    projection that is not implemented yet.
+    `full_transactions` selects the form the request asked for: the hash
+    list, or the transaction objects a client returns when the second
+    parameter is true.
     """
     header = block.header
     assert block.rlp is not None, "block is missing its RLP encoding"
@@ -208,9 +317,17 @@ def block_response(block: FixtureBlock) -> RPCBlock:
         prev_randao=header.prev_randao,
         nonce=Bytes(header.nonce),
         size=HexNumber(len(block.rlp)),
-        transactions=[
-            receipt.transaction_hash for receipt in (block.receipts or [])
-        ],
+        transactions=(
+            [tx.to_rpc() for tx in transaction_responses(block)]
+            if full_transactions
+            else [
+                # Stringified because `transactions` is untyped: with `Any`
+                # pydantic has no `Hash` serializer and would try to decode
+                # the raw bytes as utf-8.
+                str(receipt.transaction_hash)
+                for receipt in (block.receipts or [])
+            ]
+        ),
         base_fee_per_gas=_optional_number(header.base_fee_per_gas),
         withdrawals_root=header.withdrawals_root,
         blob_gas_used=_optional_number(header.blob_gas_used),
@@ -249,5 +366,6 @@ __all__ = [
     "contract_address",
     "effective_gas_price",
     "receipt_responses",
+    "transaction_responses",
     "withdrawal_responses",
 ]

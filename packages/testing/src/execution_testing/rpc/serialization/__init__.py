@@ -15,6 +15,7 @@ from .projection import (
     contract_address,
     effective_gas_price,
     receipt_responses,
+    transaction_responses,
     withdrawal_responses,
 )
 from .schema import (
@@ -24,18 +25,24 @@ from .schema import (
     validate_result,
 )
 from .types import (
+    RPCAccessListEntry,
+    RPCAuthorization,
     RPCBlock,
     RPCLog,
     RPCReceipt,
     RPCResponseModel,
+    RPCTransaction,
     RPCWithdrawal,
 )
 
 __all__ = [
+    "RPCAccessListEntry",
+    "RPCAuthorization",
     "RPCBlock",
     "RPCLog",
     "RPCReceipt",
     "RPCResponseModel",
+    "RPCTransaction",
     "RPCWithdrawal",
     "SchemaViolationError",
     "block_response",
@@ -46,6 +53,7 @@ __all__ = [
     "openrpc_spec",
     "receipt_responses",
     "result_validator",
+    "transaction_responses",
     "validate_result",
     "withdrawal_responses",
 ]

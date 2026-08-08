@@ -1,6 +1,6 @@
 """Test replay of derived RPC expectations against a client."""
 
-from typing import Any, Dict, List
+from typing import Any, List
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,7 +16,6 @@ from execution_testing.fixtures.blockchain import (
 from execution_testing.fixtures.common import FixtureRPCCall
 from execution_testing.forks import Amsterdam
 from execution_testing.rpc.serialization import (
-    block_response,
     derive_rpc_calls,
 )
 from execution_testing.rpc.serialization.tests.test_projection import (
@@ -45,6 +44,28 @@ def fixture() -> BlockchainFixture:
     )
     built.rpc = derive_rpc_calls(built)
     return built
+
+
+def results_of(fixture: BlockchainFixture) -> List[Any]:
+    """
+    Copy a fixture's expected results, ready to be perturbed.
+
+    Not every result is an object: transaction counts are quantities and
+    `eth_getBlockReceipts` is a list, so a blanket `dict()` would fail.
+    """
+    assert fixture.rpc is not None
+    return [
+        dict(call.result) if isinstance(call.result, dict) else call.result
+        for call in fixture.rpc
+    ]
+
+
+def first_of(fixture: BlockchainFixture, method: str) -> int:
+    """Return the index of the first call to the named method."""
+    assert fixture.rpc is not None
+    return next(
+        i for i, call in enumerate(fixture.rpc) if call.method == method
+    )
 
 
 def rpc_returning(results: List[Any]) -> MagicMock:
@@ -94,11 +115,9 @@ def test_namespace_is_stripped_before_sending(
     verify_rpc_expectations(client, fixture)
 
     sent = client.post_batch_request.call_args.kwargs["calls"]
-    assert [call.method for call in sent] == [
-        "getBlockByNumber",
-        "getBlockByHash",
-        "getTransactionReceipt",
-    ]
+    assert sent, "nothing was sent"
+    assert not any(call.method.startswith("eth_") for call in sent)
+    assert "getBlockByNumber" in {call.method for call in sent}
 
 
 def test_foreign_namespace_is_rejected(fixture: BlockchainFixture) -> None:
@@ -136,8 +155,8 @@ def test_absent_section_makes_no_calls(
 def test_missing_required_field_fails(fixture: BlockchainFixture) -> None:
     """A response missing a required field is rejected."""
     assert fixture.rpc is not None
-    results: List[Dict[str, Any]] = [dict(call.result) for call in fixture.rpc]
-    del results[0]["size"]
+    results = results_of(fixture)
+    del results[first_of(fixture, "eth_getBlockByNumber")]["size"]
 
     with pytest.raises(AssertionError, match="size"):
         verify_rpc_expectations(rpc_returning(results), fixture)
@@ -151,8 +170,8 @@ def test_zero_padded_quantity_fails(fixture: BlockchainFixture) -> None:
     encoding pads and the RPC encoding does not.
     """
     assert fixture.rpc is not None
-    results = [dict(call.result) for call in fixture.rpc]
-    results[0]["number"] = "0x01"
+    results = results_of(fixture)
+    results[first_of(fixture, "eth_getBlockByNumber")]["number"] = "0x01"
 
     with pytest.raises(AssertionError, match="number"):
         verify_rpc_expectations(rpc_returning(results), fixture)
@@ -244,9 +263,13 @@ def test_all_failures_are_reported_together() -> None:
 
     broken = []
     for call in built.rpc:
-        result = dict(call.result)
-        result.pop("size", None)
-        result.pop("logsBloom", None)
+        result = call.result
+        if isinstance(result, dict):
+            result = {
+                k: v
+                for k, v in result.items()
+                if k not in ("size", "logsBloom")
+            }
         broken.append(result)
 
     with pytest.raises(AssertionError, match=r"\d+ of \d+ RPC expectations"):
@@ -263,8 +286,8 @@ def test_wrong_value_of_right_shape_fails(
     reason the expectation is stored rather than recomputed.
     """
     assert fixture.rpc is not None
-    results = [dict(call.result) for call in fixture.rpc]
-    results[0]["gasUsed"] = "0x1234"  # valid hex, wrong number
+    results = results_of(fixture)
+    results[first_of(fixture, "eth_getBlockByNumber")]["gasUsed"] = "0x1234"
 
     with pytest.raises(AssertionError, match="gasUsed"):
         verify_rpc_expectations(rpc_returning(results), fixture)
@@ -273,7 +296,7 @@ def test_wrong_value_of_right_shape_fails(
 def test_difference_names_the_path(fixture: BlockchainFixture) -> None:
     """A nested mismatch reports where it is, not just that it exists."""
     assert fixture.rpc is not None
-    results = [dict(call.result) for call in fixture.rpc]
+    results = results_of(fixture)
     receipt = next(r for r in results if isinstance(r, dict) and "logs" in r)
     receipt["cumulativeGasUsed"] = "0xdead"
 
@@ -293,13 +316,17 @@ def test_checksummed_addresses_are_accepted(
     comparison would fail a conforming client.
     """
     assert fixture.rpc is not None
-    results = []
-    for call in fixture.rpc:
-        result = dict(call.result)
-        for key, value in result.items():
-            if isinstance(value, str) and len(value) == 42:
-                result[key] = value.upper().replace("0X", "0x")
-        results.append(result)
+
+    def checksummed(value: Any) -> Any:
+        if isinstance(value, str) and len(value) == 42:
+            return value.upper().replace("0X", "0x")
+        if isinstance(value, dict):
+            return {k: checksummed(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [checksummed(v) for v in value]
+        return value
+
+    results = [checksummed(call.result) for call in fixture.rpc]
 
     verify_rpc_expectations(rpc_returning(results), fixture)
 
@@ -316,8 +343,8 @@ def test_unasserted_block_fields_are_ignored(
     """
     assert fixture.rpc is not None
     results = [
-        dict(call.result, withdrawals=[])
-        if call.method.startswith("eth_getBlock")
+        dict(call.result, someUnmodelledField="0x1")
+        if call.method in ("eth_getBlockByNumber", "eth_getBlockByHash")
         else call.result
         for call in fixture.rpc
     ]
@@ -355,8 +382,8 @@ def test_missing_asserted_field_fails(fixture: BlockchainFixture) -> None:
     can require it — exactly the gap exact comparison exists to close.
     """
     assert fixture.rpc is not None
-    results = [dict(call.result) for call in fixture.rpc]
-    del results[0]["difficulty"]
+    results = results_of(fixture)
+    del results[first_of(fixture, "eth_getBlockByNumber")]["difficulty"]
 
     with pytest.raises(AssertionError, match="difficulty: missing"):
         verify_rpc_expectations(rpc_returning(results), fixture)
@@ -384,9 +411,9 @@ def test_dropped_log_entry_fails() -> None:
 
     results = []
     for call in built.rpc:
-        result = dict(call.result)
-        if result.get("logs"):
-            result["logs"] = result["logs"][:1]
+        result = call.result
+        if isinstance(result, dict) and result.get("logs"):
+            result = dict(result, logs=result["logs"][:1])
         results.append(result)
 
     with pytest.raises(AssertionError, match="entries"):
@@ -419,11 +446,12 @@ def test_reported_differences_are_capped() -> None:
 
     results = []
     for call in built.rpc:
-        result = dict(call.result)
-        if result.get("logs"):
-            result["logs"] = [
-                dict(log, data="0xbeef") for log in result["logs"]
-            ]
+        result = call.result
+        if isinstance(result, dict) and result.get("logs"):
+            result = dict(
+                result,
+                logs=[dict(log, data="0xbeef") for log in result["logs"]],
+            )
         results.append(result)
 
     with pytest.raises(AssertionError, match="and 5 more"):
@@ -435,9 +463,16 @@ def test_block_queried_by_number_and_hash_agree(
 ) -> None:
     """The two block lookups assert the same object."""
     assert fixture.rpc is not None
-    block = fixture.blocks[0]
-    expected = block_response(block).to_rpc()  # type: ignore[arg-type]
+    by_number = {
+        call.params[1]: call.result
+        for call in fixture.rpc
+        if call.method == "eth_getBlockByNumber"
+    }
+    by_hash = {
+        call.params[1]: call.result
+        for call in fixture.rpc
+        if call.method == "eth_getBlockByHash"
+    }
 
-    for call in fixture.rpc:
-        if call.method in ("eth_getBlockByNumber", "eth_getBlockByHash"):
-            assert call.result == expected
+    assert set(by_number) == {False, True}
+    assert by_number == by_hash

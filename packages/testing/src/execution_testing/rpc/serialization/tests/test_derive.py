@@ -124,7 +124,8 @@ def test_invalid_blocks_are_skipped() -> None:
 
     calls = derive_rpc_calls(make_fixture([valid, invalid]))
 
-    assert methods(calls).count("eth_getBlockByNumber") == 1
+    # Two per canonical block: the hash form and the full-object form.
+    assert methods(calls).count("eth_getBlockByNumber") == 2
 
 
 def test_empty_block_yields_no_receipt_calls() -> None:
@@ -132,7 +133,8 @@ def test_empty_block_yields_no_receipt_calls() -> None:
     calls = derive_rpc_calls(make_fixture([make_block([], [])]))
 
     assert "eth_getTransactionReceipt" not in methods(calls)
-    assert methods(calls).count("eth_getBlockByNumber") == 1
+    assert "eth_getTransactionByHash" not in methods(calls)
+    assert methods(calls).count("eth_getBlockByNumber") == 2
 
 
 def test_calls_serialize_into_the_fixture(
@@ -172,7 +174,7 @@ def test_broken_projection_fails_at_derivation(
     monkeypatch.setattr(
         derive_module,
         "block_response",
-        lambda _block: _BadProjection(good),
+        lambda _block, **_kwargs: _BadProjection(good),
     )
 
     with pytest.raises(ProjectionError, match="projection bug"):
