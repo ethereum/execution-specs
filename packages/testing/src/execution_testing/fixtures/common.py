@@ -45,6 +45,16 @@ class FixtureRPCCall(CamelModel):
     method: str
     params: List[Any] = Field(default_factory=list)
     result: Any = None
+    result_keccak: Hash | None = None
+    """
+    Digest of the expected result, used instead of the result itself.
+
+    Only for responses whose value is large and already present elsewhere
+    in the fixture — contract bytecode is in `pre` and `postState`, so
+    repeating it here would duplicate the largest field in the file for no
+    added assertion. A client can still check its own answer by hashing it,
+    and a byte-level diff of a bytecode blob would be unreadable anyway.
+    """
     error_code: int | None = None
     """
     Set when the call is expected to fail.

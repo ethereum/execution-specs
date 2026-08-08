@@ -4,11 +4,12 @@ from typing import Any, Dict, List
 
 import pytest
 
-from execution_testing.base_types import Bytes, Hash
+from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.exceptions import BlockException
 from execution_testing.fixtures.blockchain import (
     BlockchainFixture,
     FixtureConfig,
+    FixtureWithdrawal,
     InvalidFixtureBlock,
 )
 from execution_testing.forks import Amsterdam
@@ -20,6 +21,7 @@ from execution_testing.rpc.serialization import (
 from execution_testing.rpc.serialization.derive import ProjectionError
 
 from .test_projection import (
+    RECIPIENT,
     make_block,
     make_header,
     make_receipt,
@@ -226,3 +228,89 @@ def test_blocks_can_be_supplied_directly(
 
     assert [c.method for c in from_blocks] == [c.method for c in from_fixture]
     assert [c.result for c in from_blocks] == [c.result for c in from_fixture]
+
+
+def make_post_state(**accounts: Any) -> Dict[Any, Any]:
+    """Return a post-state mapping addresses to accounts."""
+    return dict(accounts)
+
+
+def test_touched_accounts_covers_the_parties_involved() -> None:
+    """
+    Senders, recipients, creations, withdrawals and the coinbase.
+
+    A post-state holds every pre-allocated account, so asserting all of
+    them would multiply the fixture without adding coverage.
+    """
+    from execution_testing.rpc.serialization.derive import touched_accounts
+
+    block = make_block(
+        [make_transaction(), make_transaction(to=None, nonce=1)],
+        [
+            make_receipt(21_000, transaction_hash=Hash(0xAA)),
+            make_receipt(42_000, transaction_hash=Hash(0xBB)),
+        ],
+    )
+    block.withdrawals = [
+        FixtureWithdrawal(
+            index=0, validator_index=0, address=Address(0xCC), amount=1
+        )
+    ]
+
+    touched = touched_accounts([block])
+
+    assert Address(0xA1) in touched  # sender
+    assert Address(0xB2) in touched  # recipient
+    assert Address(0xCC) in touched  # withdrawal recipient
+    assert Address(3) in touched  # fee recipient
+    assert len(touched) == len(set(touched)), "addresses must not repeat"
+
+
+def test_state_reads_are_absent_without_a_post_state(
+    single_block_fixture: BlockchainFixture,
+) -> None:
+    """No post-state means no state reads, rather than empty assertions."""
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        single_block_fixture.blocks, post_state=None
+    )
+
+    assert "eth_getBalance" not in methods(calls)
+
+
+def test_code_is_asserted_by_digest() -> None:
+    """
+    `eth_getCode` stores a digest, not the bytecode.
+
+    The code is already in `pre` and `postState`, so repeating it would
+    duplicate the largest field in the fixture for no added assertion.
+    """
+    from execution_testing.test_types.account_types import Account
+
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+    post_state = {
+        RECIPIENT: Account(nonce=0, balance=5, code=b"\x60\x00", storage={})
+    }
+
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        [block], post_state=post_state
+    )
+    code_call = next(c for c in calls if c.method == "eth_getCode")
+
+    assert code_call.result is None
+    assert code_call.result_keccak == Bytes(b"\x60\x00").keccak256()
+
+
+def test_state_reads_query_the_head_block() -> None:
+    """State reads name the head block, which the post-state describes."""
+    from execution_testing.test_types.account_types import Account
+
+    block = make_block([make_transaction()], [make_receipt(21_000)], number=1)
+    post_state = {RECIPIENT: Account(nonce=1, balance=7, code=b"", storage={})}
+
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        [block], post_state=post_state
+    )
+    balance = next(c for c in calls if c.method == "eth_getBalance")
+
+    assert balance.params[1] == "0x1"
+    assert balance.result == "0x7"

@@ -1234,7 +1234,9 @@ class BlockchainTest(BaseTest):
             ),
         )
         if self.emit_rpc_expectations:
-            fixture.rpc = derive_rpc_calls_for_blocks(fixture_blocks)
+            fixture.rpc = derive_rpc_calls_for_blocks(
+                fixture_blocks, post_state=alloc
+            )
         return FillResult(
             fixture=fixture,
             gas_optimization=None,
@@ -1394,7 +1396,9 @@ class BlockchainTest(BaseTest):
             fixture = BlockchainEngineFixture(**fixture_data)
 
         if self.emit_rpc_expectations:
-            fixture.rpc = derive_rpc_calls_for_blocks(rpc_blocks)
+            fixture.rpc = derive_rpc_calls_for_blocks(
+                rpc_blocks, post_state=alloc
+            )
 
         return FillResult(
             fixture=fixture,

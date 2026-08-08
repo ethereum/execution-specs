@@ -30,6 +30,7 @@ import logging
 import re
 from typing import Any, Iterator, List
 
+from execution_testing.base_types import Bytes
 from execution_testing.fixtures.blockchain import (
     BlockchainEngineFixtureCommon,
     BlockchainFixture,
@@ -162,6 +163,21 @@ def _compare(call: FixtureRPCCall, response: Any) -> str | None:
         validate_result(call.method, response.result)
     except SchemaViolationError as violation:
         return f"{_describe(call)}: {violation}"
+
+    if call.result_keccak is not None:
+        if not isinstance(response.result, str):
+            return (
+                f"{_describe(call)}: expected a hex string, got "
+                f"{type(response.result).__name__}"
+            )
+        digest = Bytes(response.result).keccak256()
+        if digest != call.result_keccak:
+            return (
+                f"{_describe(call)}: digest mismatch, expected "
+                f"{call.result_keccak}, got {digest} "
+                f"({len(response.result) // 2 - 1} bytes returned)"
+            )
+        return None
 
     differences = list(
         _differences(_normalized(call.result), _normalized(response.result))

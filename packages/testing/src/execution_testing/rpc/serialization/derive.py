@@ -14,13 +14,16 @@ request. Block tags, reversed ranges and missing entities belong in
 hand-written tests instead.
 """
 
-from typing import TYPE_CHECKING, Any, List, Sequence
+import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Sequence
 
+from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.fixtures.blockchain import FixtureBlock
 from execution_testing.fixtures.common import FixtureRPCCall
 
 from .projection import (
     block_response,
+    contract_address,
     receipt_responses,
     transaction_responses,
 )
@@ -28,6 +31,9 @@ from .schema import SchemaViolationError, validate_result
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import BlockchainFixture
+
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectionError(AssertionError):
@@ -57,6 +63,8 @@ def _reject_unsatisfiable(calls: List[FixtureRPCCall]) -> None:
     for call in calls:
         if call.error_code is not None:
             continue  # An expected error carries no result to check.
+        if call.result_keccak is not None:
+            continue  # A digest has no result to validate the shape of.
         try:
             validate_result(call.method, call.result)
         except SchemaViolationError as violation:
@@ -73,13 +81,111 @@ def _reject_unsatisfiable(calls: List[FixtureRPCCall]) -> None:
             ) from unknown
 
 
+MAX_STORAGE_SLOTS_PER_ACCOUNT = 32
+"""
+Cap on asserted storage slots, so one storage-heavy account cannot dominate
+a fixture. Exceeding it is logged rather than silently truncated.
+"""
+
+
 def derive_rpc_calls(fixture: "BlockchainFixture") -> List[FixtureRPCCall]:
     """Return the RPC expectations implied by a fixture's chain."""
-    return derive_rpc_calls_for_blocks(fixture.blocks)
+    return derive_rpc_calls_for_blocks(
+        fixture.blocks, post_state=fixture.post_state
+    )
+
+
+def touched_accounts(blocks: Sequence[Any]) -> List[Address]:
+    """
+    Return the accounts a chain plausibly changed, in a stable order.
+
+    A post-state holds every pre-allocated account, most of which the test
+    never went near. Asserting all of them would multiply the fixture for
+    no added coverage, so the set is narrowed to the ones the blocks
+    actually reach: senders, recipients, created contracts, withdrawal
+    recipients and the fee recipient.
+    """
+    seen: Dict[Address, None] = {}
+    for block in blocks:
+        if not isinstance(block, FixtureBlock):
+            continue
+        seen.setdefault(block.header.fee_recipient, None)
+        for transaction in block.txs:
+            if transaction.sender is not None:
+                seen.setdefault(Address(transaction.sender), None)
+            if transaction.to is not None:
+                seen.setdefault(transaction.to, None)
+            created = contract_address(transaction)
+            if created is not None:
+                seen.setdefault(created, None)
+        for withdrawal in block.withdrawals or []:
+            seen.setdefault(withdrawal.address, None)
+    return list(seen)
+
+
+def _state_calls(
+    blocks: Sequence[Any], post_state: Any, block_tag: str
+) -> List[FixtureRPCCall]:
+    """
+    Return state reads for the accounts the chain touched.
+
+    Contract code is asserted by digest; see `FixtureRPCCall.result_keccak`.
+    """
+    if post_state is None:
+        return []
+    # `Alloc` is a pydantic root model with no mapping interface, while
+    # tests pass a plain dict; normalize rather than special-casing.
+    accounts = getattr(post_state, "root", post_state)
+
+    calls: List[FixtureRPCCall] = []
+    for address in touched_accounts(blocks):
+        account = accounts.get(address)
+        if account is None:
+            continue
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBalance",
+                params=[str(address), block_tag],
+                result=hex(int(account.balance or 0)),
+            )
+        )
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getTransactionCount",
+                params=[str(address), block_tag],
+                result=hex(int(account.nonce or 0)),
+            )
+        )
+        code = Bytes(account.code or b"")
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getCode",
+                params=[str(address), block_tag],
+                result_keccak=code.keccak256(),
+            )
+        )
+        slots = list((account.storage or {}).items())
+        if len(slots) > MAX_STORAGE_SLOTS_PER_ACCOUNT:
+            logger.info(
+                f"{address}: asserting "
+                f"{MAX_STORAGE_SLOTS_PER_ACCOUNT} of {len(slots)} "
+                f"storage slots"
+            )
+            slots = slots[:MAX_STORAGE_SLOTS_PER_ACCOUNT]
+        for slot, value in slots:
+            calls.append(
+                FixtureRPCCall(
+                    method="eth_getStorageAt",
+                    params=[str(address), str(Hash(slot)), block_tag],
+                    result=str(Hash(value)),
+                )
+            )
+    return calls
 
 
 def derive_rpc_calls_for_blocks(
     blocks: Sequence[Any],
+    post_state: Any = None,
 ) -> List[FixtureRPCCall]:
     """
     Return the RPC expectations implied by a canonical chain.
@@ -218,6 +324,7 @@ def derive_rpc_calls_for_blocks(
             method="eth_blockNumber", params=[], result=hex(highest_block)
         )
     )
+    calls.extend(_state_calls(blocks, post_state, hex(highest_block)))
 
     _reject_unsatisfiable(calls)
     return calls
