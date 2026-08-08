@@ -206,3 +206,21 @@ class _BadProjection:
     def to_rpc(self) -> Dict[str, Any]:
         """Return the defective block object."""
         return self.payload
+
+
+def test_blocks_can_be_supplied_directly(
+    single_block_fixture: BlockchainFixture,
+) -> None:
+    """
+    Derivation accepts a block list, not only a fixture.
+
+    The engine formats carry payloads rather than blocks, so their blocks
+    are assembled during generation and handed over directly.
+    """
+    from_fixture = derive_rpc_calls(single_block_fixture)
+    from_blocks = derive_module.derive_rpc_calls_for_blocks(
+        single_block_fixture.blocks
+    )
+
+    assert [c.method for c in from_blocks] == [c.method for c in from_fixture]
+    assert [c.result for c in from_blocks] == [c.result for c in from_fixture]

@@ -84,6 +84,7 @@ from execution_testing.fixtures.common import (
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork
+from execution_testing.rpc.serialization import derive_rpc_calls_for_blocks
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -741,6 +742,14 @@ class BlockchainTest(BaseTest):
     """
     Include transaction receipts in the fixture output.
     """
+    emit_rpc_expectations: bool = False
+    """
+    Derive JSON-RPC expectations for the resulting chain.
+
+    Set from the `rpc` marker before filling. The engine formats do not
+    otherwise assemble fixture blocks, so this must be known during
+    generation rather than applied to the finished fixture.
+    """
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -1224,6 +1233,8 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
             ),
         )
+        if self.emit_rpc_expectations:
+            fixture.rpc = derive_rpc_calls_for_blocks(fixture_blocks)
         return FillResult(
             fixture=fixture,
             gas_optimization=None,
@@ -1240,6 +1251,11 @@ class BlockchainTest(BaseTest):
     ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
+        # The engine formats carry payloads, not blocks, and a payload has
+        # no receipts and no decoded senders. Assemble the blocks the
+        # projection needs here, where the transition tool output is still
+        # in hand, and only when they will actually be used.
+        rpc_blocks: List[FixtureBlock] = []
 
         pre, genesis = self.make_genesis(
             apply_pre_allocation_blockchain=fixture_format
@@ -1274,6 +1290,10 @@ class BlockchainTest(BaseTest):
             fixture_payloads.append(
                 built_block.get_fixture_engine_new_payload()
             )
+            if self.emit_rpc_expectations and block.exception is None:
+                fixture_block = built_block.get_fixture_block()
+                if isinstance(fixture_block, FixtureBlock):
+                    rpc_blocks.append(fixture_block)
             if block.exception is None:
                 alloc = built_block.alloc
                 state_root = built_block.state_root
@@ -1372,6 +1392,9 @@ class BlockchainTest(BaseTest):
                 }
             )
             fixture = BlockchainEngineFixture(**fixture_data)
+
+        if self.emit_rpc_expectations:
+            fixture.rpc = derive_rpc_calls_for_blocks(rpc_blocks)
 
         return FillResult(
             fixture=fixture,

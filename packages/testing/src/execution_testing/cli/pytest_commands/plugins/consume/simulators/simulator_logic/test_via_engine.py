@@ -42,6 +42,7 @@ from ..helpers.rejected_blocks import (
     BlockRejectionTracker,
     verify_block_rejection,
 )
+from ..helpers.rpc_expectations import verify_rpc_expectations
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
@@ -231,3 +232,5 @@ def test_blockchain_via_engine(
                                 f"{PayloadStatusEnum.VALID}, got {status}"
                             )
         logger.info("All payloads processed successfully.")
+    with timing_data.time("Verify RPC expectations"):
+        verify_rpc_expectations(eth_rpc, fixture)

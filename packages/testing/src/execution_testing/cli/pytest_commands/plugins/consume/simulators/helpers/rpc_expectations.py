@@ -30,7 +30,10 @@ import logging
 import re
 from typing import Any, Iterator, List
 
-from execution_testing.fixtures import BlockchainFixture
+from execution_testing.fixtures.blockchain import (
+    BlockchainEngineFixtureCommon,
+    BlockchainFixture,
+)
 from execution_testing.fixtures.common import FixtureRPCCall
 from execution_testing.rpc import EthRPC
 from execution_testing.rpc.rpc_types import RPCCall
@@ -177,7 +180,7 @@ def _compare(call: FixtureRPCCall, response: Any) -> str | None:
 
 def verify_rpc_expectations(
     eth_rpc: EthRPC,
-    fixture: BlockchainFixture,
+    fixture: BlockchainFixture | BlockchainEngineFixtureCommon,
 ) -> None:
     """
     Check a client's responses against the fixture's stored expectations.

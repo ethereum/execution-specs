@@ -9,7 +9,7 @@ and vectors can exist before any client implements a feature.
 `projection` maps consensus data onto them.
 """
 
-from .derive import derive_rpc_calls
+from .derive import derive_rpc_calls, derive_rpc_calls_for_blocks
 from .projection import (
     block_response,
     contract_address,
@@ -41,6 +41,7 @@ __all__ = [
     "block_response",
     "contract_address",
     "derive_rpc_calls",
+    "derive_rpc_calls_for_blocks",
     "effective_gas_price",
     "openrpc_spec",
     "receipt_responses",

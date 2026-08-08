@@ -881,6 +881,16 @@ class BlockchainEngineFixtureCommon(BaseFixture):
     last_block_hash: Hash = Field(..., alias="lastblockhash")
     config: FixtureConfig
 
+    rpc: List[FixtureRPCCall] | None = None
+    """
+    JSON-RPC expectations derived from this chain.
+
+    Populated only for tests marked `rpc`. The engine path exercises a
+    different client code path from bulk RLP import, and receipt storage
+    and log indexing can plausibly differ between them, so the same
+    expectations are worth asserting on both.
+    """
+
     def get_fork(self) -> Fork | TransitionFork | None:
         """Return fixture's `Fork`."""
         return self.fork

@@ -14,7 +14,7 @@ request. Block tags, reversed ranges and missing entities belong in
 hand-written tests instead.
 """
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Any, List, Sequence
 
 from execution_testing.fixtures.blockchain import FixtureBlock
 from execution_testing.fixtures.common import FixtureRPCCall
@@ -70,8 +70,19 @@ def _reject_unsatisfiable(calls: List[FixtureRPCCall]) -> None:
 
 
 def derive_rpc_calls(fixture: "BlockchainFixture") -> List[FixtureRPCCall]:
+    """Return the RPC expectations implied by a fixture's chain."""
+    return derive_rpc_calls_for_blocks(fixture.blocks)
+
+
+def derive_rpc_calls_for_blocks(
+    blocks: Sequence[Any],
+) -> List[FixtureRPCCall]:
     """
-    Return the RPC expectations implied by a fixture's canonical chain.
+    Return the RPC expectations implied by a canonical chain.
+
+    Takes blocks rather than a fixture because the engine formats carry
+    payloads instead, and their blocks have to be assembled during
+    generation where the transition tool output is still available.
 
     Invalid blocks are skipped: they never enter the canonical chain, so a
     client is right to report nothing for them.
@@ -81,7 +92,7 @@ def derive_rpc_calls(fixture: "BlockchainFixture") -> List[FixtureRPCCall]:
     """
     calls: List[FixtureRPCCall] = []
 
-    for block in fixture.blocks:
+    for block in blocks:
         if not isinstance(block, FixtureBlock):
             continue
 
