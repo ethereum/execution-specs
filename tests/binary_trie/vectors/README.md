@@ -200,7 +200,7 @@ cases below depend on all of them:
   is a contract whose `code_hash` begins with the marker and must
   still be embedded as code.
 
-The twenty cases and what each one covers:
+The twenty-one cases and what each one covers:
 
 | Name | Covers |
 | --- | --- |
@@ -222,5 +222,6 @@ The twenty cases and what each one covers:
 | `code_chunks_of_zero_bytes` | 62 zero bytes of code: both chunks are 32 zero bytes and are absent, so the account commits no chunk leaf at all while its `code_size` stays 62. |
 | `zero_chunk_across_the_group_boundary` | 300 chunks of code with chunks 5, 255 and 256 all zero: one absent chunk inside group 0, one at its last sub-index and one at the first sub-index of group 1, leaving 297 chunk leaves under two stems. Absence and the group split are read off different halves of the chunk id, so a client that mis-splits still commits the holes, under the wrong stem or the wrong sub-index. |
 | `shared_bytecode_with_absent_chunks` | Two accounts running the code above. Absence and content addressing have to compose: the state holds 301 leaves — the same 297 chunk leaves shared, plus two headers — not 598. |
+| `zero_chunk_alone_in_its_group` | 257 chunks of code whose last chunk is the only zero one, so group 1 holds the single chunk id the code reaches and places no leaf for it. Its stem is absent entirely: a group is materialized by the leaves it commits, not by the chunk ids the code spans. 256 chunk leaves under one stem. |
 | `max_basic_data_fields` | A balance of `2**128 - 1`, the largest the 16-byte field holds, beside the largest JSON-safe nonce. A balance of `2**128` or more cannot be committed at all. |
 | `random_6_accounts_seed_8297` | Six pseudo-random accounts with mixed code lengths, scattered storage, and full-width balances, as a broad spread over the composition. |

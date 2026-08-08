@@ -122,6 +122,12 @@ def _zeroed_chunks(chunk_count: int, zeroed: Sequence[int]) -> bytes:
 # holes -- under the wrong stem or the wrong sub-index.
 ZERO_CHUNK_ACROSS_GROUPS_CODE = _zeroed_chunks(300, (5, 255, 256))
 
+# 257 chunks with only the last one zero, so group 1 holds the single
+# chunk id the code reaches and places no leaf for it. Its stem is
+# absent from the tree: a group is materialized by the leaves it
+# commits, not by the chunk ids the code spans.
+ZERO_CHUNK_ALONE_IN_GROUP_CODE = _zeroed_chunks(257, (256,))
+
 # Largest integer a JSON number holds exactly, used as a nonce that
 # stresses the packed field without leaving what a JSON parser can
 # represent.
@@ -590,6 +596,16 @@ def pbt_state_cases() -> List[Dict[str, Any]]:
                     nonce=2,
                     code=ZERO_CHUNK_ACROSS_GROUPS_CODE,
                 ),
+            ],
+        ),
+        pbt_state_case(
+            "zero_chunk_alone_in_its_group",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    code=ZERO_CHUNK_ALONE_IN_GROUP_CODE,
+                )
             ],
         ),
         pbt_state_case(
