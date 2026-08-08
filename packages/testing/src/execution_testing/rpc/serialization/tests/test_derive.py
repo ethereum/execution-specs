@@ -283,6 +283,37 @@ def test_touched_accounts_covers_the_parties_involved() -> None:
     assert len(touched) == len(set(touched)), "addresses must not repeat"
 
 
+def test_authorization_authority_is_touched() -> None:
+    """
+    The account a delegation is written to is asserted.
+
+    An authority is neither the sender nor the recipient, so nothing else
+    reaches it — yet it is the account an EIP-7702 transaction changes:
+    its code becomes a delegation designator and its nonce advances.
+    """
+    from execution_testing.fixtures.common import FixtureAuthorizationTuple
+    from execution_testing.rpc.serialization.derive import touched_accounts
+
+    authority = Address(0xDD)
+    transaction = make_transaction(
+        ty=4,
+        authorization_list=[
+            FixtureAuthorizationTuple(
+                chain_id=1,
+                address=RECIPIENT,
+                nonce=0,
+                v=0,
+                r=1,
+                s=2,
+                signer=authority,
+            )
+        ],
+    )
+    block = make_block([transaction], [make_receipt(21_000)])
+
+    assert authority in touched_accounts([block])
+
+
 def test_state_reads_are_absent_without_a_post_state(
     single_block_fixture: BlockchainFixture,
 ) -> None:
@@ -294,31 +325,55 @@ def test_state_reads_are_absent_without_a_post_state(
     assert "eth_getBalance" not in methods(calls)
 
 
-def test_code_is_asserted_by_digest() -> None:
+def code_read(code: bytes) -> Any:
+    """Return the `eth_getCode` expectation for an account with that code."""
+    from execution_testing.test_types.account_types import Account
+
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+    post_state = {
+        RECIPIENT: Account(nonce=0, balance=5, code=code, storage={})
+    }
+
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        [block], post_state=post_state
+    )
+    return next(
+        c
+        for c in calls
+        if c.method == "eth_getCode" and c.params[0] == str(RECIPIENT)
+    )
+
+
+def test_long_code_is_asserted_by_digest() -> None:
     """
     `eth_getCode` stores a digest, not the bytecode.
 
     The code is already in `pre` and `postState`, so repeating it would
     duplicate the largest field in the fixture for no added assertion.
     """
-    from execution_testing.test_types.account_types import Account
+    code = b"\x60\x00" * 32
 
-    block = make_block([make_transaction()], [make_receipt(21_000)])
-    post_state = {
-        RECIPIENT: Account(nonce=0, balance=5, code=b"\x60\x00", storage={})
-    }
+    call = code_read(code)
 
-    calls = derive_module.derive_rpc_calls_for_blocks(
-        [block], post_state=post_state
-    )
-    code_call = next(
-        c
-        for c in calls
-        if c.method == "eth_getCode" and c.params[0] == str(RECIPIENT)
-    )
+    assert call.result is None
+    assert call.result_keccak == Bytes(code).keccak256()
 
-    assert code_call.result is None
-    assert code_call.result_keccak == Bytes(b"\x60\x00").keccak256()
+
+def test_short_code_is_asserted_by_value() -> None:
+    """
+    Code no larger than a digest is stored as itself.
+
+    A digest would be the bigger of the two and would turn a legible
+    failure into "digest mismatch" — which matters for the short values
+    that carry meaning, such as an EIP-7702 delegation designator naming
+    the account it points at.
+    """
+    designator = b"\xef\x01\x00" + bytes(RECIPIENT)
+
+    call = code_read(designator)
+
+    assert call.result == str(Bytes(designator))
+    assert call.result_keccak is None
 
 
 def test_state_reads_query_the_head_block() -> None:
@@ -477,7 +532,7 @@ def test_absent_account_reads_are_zero_valued(
 
     assert by_method["eth_getBalance"].result == "0x0"
     assert by_method["eth_getTransactionCount"].result == "0x0"
-    assert by_method["eth_getCode"].result_keccak == Bytes(b"").keccak256()
+    assert by_method["eth_getCode"].result == "0x"
     assert by_method["eth_getStorageAt"].result == str(Hash(0))
 
 

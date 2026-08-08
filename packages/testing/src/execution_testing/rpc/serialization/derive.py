@@ -94,6 +94,14 @@ Cap on asserted storage slots, so one storage-heavy account cannot dominate
 a fixture. Exceeding it is logged rather than silently truncated.
 """
 
+DIGEST_LENGTH = 32
+"""
+Size above which a code read is asserted by digest rather than by value.
+
+At or below it the code is no larger than the digest would be, so storing
+the digest would cost more and say less.
+"""
+
 INVALID_PARAMS = -32602
 """
 JSON-RPC's own code for a parameter that could not be interpreted.
@@ -152,7 +160,13 @@ def touched_accounts(blocks: Sequence[Any]) -> List[Address]:
     never went near. Asserting all of them would multiply the fixture for
     no added coverage, so the set is narrowed to the ones the blocks
     actually reach: senders, recipients, created contracts, withdrawal
-    recipients and the fee recipient.
+    recipients, authorization authorities and the fee recipient.
+
+    An authority is reached without ever appearing as a sender or a
+    recipient, and it is the account an EIP-7702 transaction changes most
+    visibly — its code becomes a delegation designator and its nonce
+    advances — so leaving it out would miss the whole point of the
+    transaction type.
     """
     seen: Dict[Address, None] = {}
     for block in blocks:
@@ -167,6 +181,9 @@ def touched_accounts(blocks: Sequence[Any]) -> List[Address]:
             created = contract_address(transaction)
             if created is not None:
                 seen.setdefault(created, None)
+            for authorization in transaction.authorization_list or []:
+                if authorization.signer is not None:
+                    seen.setdefault(Address(authorization.signer), None)
         for withdrawal in block.withdrawals or []:
             seen.setdefault(withdrawal.address, None)
     return list(seen)
@@ -183,9 +200,15 @@ def _account_reads(
     Return the four state reads for one account, minus the block tag.
 
     The tag is left off because each read is emitted twice; see
-    `_tagged_and_untagged`. Contract code is asserted by digest, for the
-    reasons in `FixtureRPCCall.result_keccak`.
+    `_tagged_and_untagged`.
+
+    Contract code is asserted by digest once it is larger than the digest,
+    for the reasons in `FixtureRPCCall.result_keccak`. Below that the code
+    itself is both smaller and legible in a diff, which matters most for
+    the two short values that carry meaning: empty code, and an EIP-7702
+    delegation designator naming the account it points at.
     """
+    code = Bytes(account.code or b"")
     reads: List[AccountRead] = [
         (
             "eth_getBalance",
@@ -202,8 +225,8 @@ def _account_reads(
         (
             "eth_getCode",
             [str(address)],
-            None,
-            Bytes(account.code or b"").keccak256(),
+            str(code) if len(code) <= DIGEST_LENGTH else None,
+            None if len(code) <= DIGEST_LENGTH else code.keccak256(),
         ),
     ]
     reads.extend(
