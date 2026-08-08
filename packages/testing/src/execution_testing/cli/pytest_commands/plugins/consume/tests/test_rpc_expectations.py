@@ -60,6 +60,21 @@ def results_of(fixture: BlockchainFixture) -> List[Any]:
     ]
 
 
+def conforming_results(fixture: BlockchainFixture) -> List[Any]:
+    """
+    Return what a correct client would answer for each stored call.
+
+    A digest-asserted call stores no result, so its preimage is supplied
+    instead. Every such call in these fixtures reads the code of an
+    account that does not exist, which is empty.
+    """
+    assert fixture.rpc is not None
+    return [
+        "0x" if call.result_keccak is not None else call.result
+        for call in fixture.rpc
+    ]
+
+
 def first_of(fixture: BlockchainFixture, method: str) -> int:
     """Return the index of the first call to the named method."""
     assert fixture.rpc is not None
@@ -90,8 +105,7 @@ def erroring_rpc(code: int, message: str = "boom") -> MagicMock:
 
 def test_conforming_client_passes(fixture: BlockchainFixture) -> None:
     """A client echoing the stored expectations satisfies the check."""
-    assert fixture.rpc is not None
-    client = rpc_returning([call.result for call in fixture.rpc])
+    client = rpc_returning(conforming_results(fixture))
 
     verify_rpc_expectations(client, fixture)
 
@@ -108,8 +122,7 @@ def test_namespace_is_stripped_before_sending(
     `eth_eth_getBlockByNumber` and every call fails with -32601. A mock
     accepts anything, so only a real client exposes this.
     """
-    assert fixture.rpc is not None
-    client = rpc_returning([call.result for call in fixture.rpc])
+    client = rpc_returning(conforming_results(fixture))
     client.namespace = "eth"
 
     verify_rpc_expectations(client, fixture)
@@ -326,7 +339,7 @@ def test_checksummed_addresses_are_accepted(
             return [checksummed(v) for v in value]
         return value
 
-    results = [checksummed(call.result) for call in fixture.rpc]
+    results = [checksummed(result) for result in conforming_results(fixture)]
 
     verify_rpc_expectations(rpc_returning(results), fixture)
 
@@ -343,10 +356,13 @@ def test_unasserted_block_fields_are_ignored(
     """
     assert fixture.rpc is not None
     results = [
-        dict(call.result, someUnmodelledField="0x1")
+        dict(result, someUnmodelledField="0x1")
         if call.method in ("eth_getBlockByNumber", "eth_getBlockByHash")
-        else call.result
-        for call in fixture.rpc
+        and isinstance(result, dict)
+        else result
+        for call, result in zip(
+            fixture.rpc, conforming_results(fixture), strict=True
+        )
     ]
 
     verify_rpc_expectations(rpc_returning(results), fixture)
@@ -363,10 +379,13 @@ def test_unknown_receipt_field_is_rejected(
     """
     assert fixture.rpc is not None
     results = [
-        dict(call.result, someNonstandardField="0x1")
+        dict(result, someNonstandardField="0x1")
         if call.method == "eth_getTransactionReceipt"
-        else call.result
-        for call in fixture.rpc
+        and isinstance(result, dict)
+        else result
+        for call, result in zip(
+            fixture.rpc, conforming_results(fixture), strict=True
+        )
     ]
 
     with pytest.raises(AssertionError, match="Additional properties"):
@@ -467,12 +486,67 @@ def test_block_queried_by_number_and_hash_agree(
         call.params[1]: call.result
         for call in fixture.rpc
         if call.method == "eth_getBlockByNumber"
+        and str(call.params[0]).startswith("0x")
     }
     by_hash = {
         call.params[1]: call.result
         for call in fixture.rpc
-        if call.method == "eth_getBlockByHash"
+        if call.method == "eth_getBlockByHash" and call.result is not None
     }
 
     assert set(by_number) == {False, True}
     assert by_number == by_hash
+
+
+def test_expected_null_fails_when_something_is_returned(
+    fixture: BlockchainFixture,
+) -> None:
+    """
+    A lookup that should find nothing must actually find nothing.
+
+    The zero hash names no block, so a client answering with one is
+    reporting a block that does not exist.
+    """
+    assert fixture.rpc is not None
+    nothing = str(Hash(0))
+    index = next(
+        i
+        for i, call in enumerate(fixture.rpc)
+        if call.method == "eth_getBlockByHash" and call.params[0] == nothing
+    )
+    results = conforming_results(fixture)
+    results[index] = results[first_of(fixture, "eth_getBlockByNumber")]
+
+    with pytest.raises(AssertionError, match="expected None"):
+        verify_rpc_expectations(rpc_returning(results), fixture)
+
+
+def test_expected_error_fails_when_the_call_succeeds() -> None:
+    """
+    A malformed request that a client accepts is a failure.
+
+    Only the code is asserted, but its absence is asserted too: a client
+    silently truncating an over-long storage key would otherwise pass.
+    """
+    genesis = make_header(number=0, gas_used=0)
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+    built = BlockchainFixture(
+        fork=Amsterdam,
+        genesis=genesis,
+        genesis_rlp=Bytes(b"\xc0"),
+        blocks=[block],
+        last_block_hash=block.header.block_hash,
+        pre={},
+        post_state={},
+        config=FixtureConfig(fork=Amsterdam, chain_id=1),
+    )
+    built.rpc = [
+        FixtureRPCCall(
+            method="eth_getStorageAt",
+            params=[str(make_transaction().to), "0xasdf", "0x1"],
+            error_code=-32602,
+        )
+    ]
+
+    with pytest.raises(AssertionError, match="got a successful response"):
+        verify_rpc_expectations(rpc_returning([str(Hash(0))]), built)

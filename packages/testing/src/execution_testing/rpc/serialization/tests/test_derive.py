@@ -78,9 +78,12 @@ def test_every_transaction_gets_a_receipt_lookup(
 ) -> None:
     """Each transaction contributes a receipt call keyed by its hash."""
     calls = derive_rpc_calls(single_block_fixture)
-    receipts = [c for c in calls if c.method == "eth_getTransactionReceipt"]
+    receipts = [
+        c
+        for c in calls
+        if c.method == "eth_getTransactionReceipt" and c.result is not None
+    ]
 
-    assert len(receipts) == 2
     assert [c.params[0] for c in receipts] == [
         str(Hash(0xAA)),
         str(Hash(0xBB)),
@@ -108,6 +111,8 @@ def test_derived_results_conform_to_the_schema(
 ) -> None:
     """Enumeration produces spec-conformant results, not just plausible."""
     for call in derive_rpc_calls(single_block_fixture):
+        if call.error_code is not None or call.result_keccak is not None:
+            continue  # Neither carries a result to validate.
         validate_result(call.method, call.result)
 
 
@@ -142,9 +147,10 @@ def numbered(calls: List[Any]) -> List[str]:
 def test_empty_block_yields_no_receipt_calls() -> None:
     """A block with no transactions still gets its block queries."""
     calls = derive_rpc_calls(make_fixture([make_block([], [])]))
+    from_chain = [c for c in calls if c.result is not None]
 
-    assert "eth_getTransactionReceipt" not in methods(calls)
-    assert "eth_getTransactionByHash" not in methods(calls)
+    assert "eth_getTransactionReceipt" not in methods(from_chain)
+    assert "eth_getTransactionByHash" not in methods(from_chain)
     assert numbered(calls).count("eth_getBlockByNumber") == 2
 
 
@@ -233,6 +239,7 @@ def test_blocks_can_be_supplied_directly(
     from_fixture = derive_rpc_calls(single_block_fixture)
     from_blocks = derive_module.derive_rpc_calls_for_blocks(
         single_block_fixture.blocks,
+        post_state=single_block_fixture.post_state,
         genesis=derive_module.genesis_block(single_block_fixture),
     )
 
@@ -304,7 +311,11 @@ def test_code_is_asserted_by_digest() -> None:
     calls = derive_module.derive_rpc_calls_for_blocks(
         [block], post_state=post_state
     )
-    code_call = next(c for c in calls if c.method == "eth_getCode")
+    code_call = next(
+        c
+        for c in calls
+        if c.method == "eth_getCode" and c.params[0] == str(RECIPIENT)
+    )
 
     assert code_call.result is None
     assert code_call.result_keccak == Bytes(b"\x60\x00").keccak256()
@@ -324,6 +335,63 @@ def test_state_reads_query_the_head_block() -> None:
 
     assert balance.params[1] == "0x1"
     assert balance.result == "0x7"
+
+
+def test_state_reads_are_emitted_with_and_without_a_block_tag() -> None:
+    """
+    Every state read is asserted twice, once naming no block at all.
+
+    Omitting the parameter defaults to latest, so the answers must agree;
+    the point is the client's defaulting path, which the numbered form
+    never exercises.
+    """
+    from execution_testing.test_types.account_types import Account
+
+    block = make_block([make_transaction()], [make_receipt(21_000)], number=1)
+    post_state = {RECIPIENT: Account(nonce=1, balance=7, code=b"", storage={})}
+
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        [block], post_state=post_state
+    )
+    balances = [c for c in calls if c.method == "eth_getBalance"]
+    for_recipient = [c for c in balances if c.params[0] == str(RECIPIENT)]
+
+    assert [c.params for c in for_recipient] == [
+        [str(RECIPIENT), "0x1"],
+        [str(RECIPIENT)],
+    ]
+    assert {c.result for c in for_recipient} == {"0x7"}
+
+
+def test_a_zeroed_storage_slot_is_still_asserted() -> None:
+    """
+    A slot the chain wrote zero to is read back.
+
+    `Storage` tests as false when every value is zero, so the obvious
+    `account.storage or {}` silently drops exactly the case where a client
+    might wrongly report the previous value.
+    """
+    from execution_testing.test_types.account_types import Account
+
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+    post_state = {
+        RECIPIENT: Account(nonce=0, balance=0, code=b"", storage={7: 0})
+    }
+
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        [block], post_state=post_state
+    )
+    slots = [
+        c
+        for c in calls
+        if c.method == "eth_getStorageAt"
+        and c.params[0] == str(RECIPIENT)
+        and c.error_code is None
+    ]
+
+    assert slots, "the zeroed slot was dropped"
+    assert slots[0].params[1] == str(Hash(7))
+    assert slots[0].result == str(Hash(0))
 
 
 def test_genesis_is_reached_through_the_earliest_tag(
@@ -388,6 +456,103 @@ def test_safe_and_finalized_are_not_asserted(
 
     assert "safe" not in tags
     assert "finalized" not in tags
+
+
+def test_absent_account_reads_are_zero_valued(
+    single_block_fixture: BlockchainFixture,
+) -> None:
+    """
+    A missing account reads as empty, not as null.
+
+    The state is a total function, so an unallocated address has zero
+    balance, zero nonce, no code and all-zero storage — the distinction
+    from a missing block, which really is null.
+    """
+    calls = derive_rpc_calls(single_block_fixture)
+    absent = derive_module._absent_account(
+        single_block_fixture.blocks[0].header.block_hash  # type: ignore
+    )
+    for_absent = [c for c in calls if c.params and c.params[0] == str(absent)]
+    by_method = {c.method: c for c in for_absent}
+
+    assert by_method["eth_getBalance"].result == "0x0"
+    assert by_method["eth_getTransactionCount"].result == "0x0"
+    assert by_method["eth_getCode"].result_keccak == Bytes(b"").keccak256()
+    assert by_method["eth_getStorageAt"].result == str(Hash(0))
+
+
+def test_absent_account_is_skipped_when_the_address_exists() -> None:
+    """
+    Nothing is asserted about an address the chain allocated.
+
+    The address is derived by hashing, so a collision is not credible, but
+    a wrong absence claim would be a projection bug rather than a client
+    one.
+    """
+    from execution_testing.test_types.account_types import Account
+
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+    absent = derive_module._absent_account(block.header.block_hash)
+    post_state = {
+        RECIPIENT: Account(nonce=0, balance=1, code=b"", storage={}),
+        absent: Account(nonce=3, balance=9, code=b"", storage={}),
+    }
+
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        [block], post_state=post_state
+    )
+    for_absent = [c for c in calls if c.params and c.params[0] == str(absent)]
+
+    assert for_absent == []
+
+
+def test_absent_entities_expect_null(
+    single_block_fixture: BlockchainFixture,
+) -> None:
+    """
+    The zero hash names nothing, on any chain.
+
+    Distinct from a missing account: a lookup by hash that finds nothing
+    returns null rather than a zero-valued object.
+    """
+    calls = derive_rpc_calls(single_block_fixture)
+    nothing = str(Hash(0))
+    for_nothing = [c for c in calls if c.params and c.params[0] == nothing]
+
+    assert {c.method for c in for_nothing} == {
+        "eth_getTransactionByHash",
+        "eth_getTransactionReceipt",
+        "eth_getBlockByHash",
+        "eth_getBlockReceipts",
+    }
+    assert all(c.result is None for c in for_nothing)
+    assert all(c.error_code is None for c in for_nothing)
+
+
+def test_malformed_storage_keys_expect_invalid_params() -> None:
+    """
+    A key that cannot be decoded is rejected before any lookup.
+
+    Measured against go-ethereum, which answers `-32602` to both. The
+    request names an account that exists, so the key is the only thing
+    wrong with it.
+    """
+    from execution_testing.test_types.account_types import Account
+
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+    post_state = {RECIPIENT: Account(nonce=0, balance=1, code=b"", storage={})}
+
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        [block], post_state=post_state
+    )
+    malformed = [c for c in calls if c.error_code is not None]
+
+    assert [c.params[1] for c in malformed] == [
+        "0x" + "0" * 65,
+        "0xasdf",
+    ]
+    assert all(c.error_code == -32602 for c in malformed)
+    assert all(c.params[0] == str(RECIPIENT) for c in malformed)
 
 
 def test_explicit_check_requires_an_expectation() -> None:
