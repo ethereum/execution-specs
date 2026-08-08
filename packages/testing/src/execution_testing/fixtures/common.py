@@ -62,6 +62,49 @@ class FixtureRPCCall(CamelModel):
     Error *messages* are client-specific wording and are never compared;
     only the code and the shape of the error are.
     """
+    round_trip: bool = False
+    """
+    Marks an expectation whose value the harness declared, not the spec.
+
+    Every other call here asserts something the Python spec computed, so a
+    disagreement means the client is wrong about Ethereum. A round-trip
+    call instead asserts "return what I told you", and the only such thing
+    at present is the `safe`/`finalized` block tags: the consensus layer
+    hands those to the execution client through `engine_forkchoiceUpdated`
+    and the client's whole job is to remember them. The spec has nothing to
+    say about either.
+
+    The distinction is recorded in the artifact rather than left to the
+    code that emits it, because the fixture is what a client team reads and
+    they are entitled to know which assertions descend from a
+    specification and which describe the test harness. A consumer that
+    cannot supply the declaration must skip these; see
+    `FixtureForkchoiceState`.
+    """
+
+
+class FixtureForkchoiceState(CamelModel):
+    """
+    The forkchoice triple a consumer must declare to a client.
+
+    `safe` and `finalized` are not properties of the chain or of the state
+    transition: they are values the consensus layer tells the execution
+    client, and the client only has to remember them. There is therefore
+    nothing to derive, and the three hashes are recorded here so that the
+    consumer sending `engine_forkchoiceUpdated` and the round-trip
+    expectations replayed afterwards cannot disagree about what was
+    declared.
+
+    Only the Engine API can deliver this, so only the engine fixture
+    formats carry the field. `consume rlp` never opens the engine port, so
+    a client it drives has no safe or finalized block at all and the
+    matching expectations are neither emitted into that format nor
+    replayed from it.
+    """
+
+    head_block_hash: Hash
+    safe_block_hash: Hash
+    finalized_block_hash: Hash
 
 
 class FixtureForkBlobSchedule(CamelModel):

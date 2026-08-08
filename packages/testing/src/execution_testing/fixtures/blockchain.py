@@ -73,6 +73,7 @@ from .base import BaseFixture, FixtureFillingPhase
 from .common import (
     FixtureAuthorizationTuple,
     FixtureBlobSchedule,
+    FixtureForkchoiceState,
     FixtureRPCCall,
     FixtureTransactionReceipt,
 )
@@ -889,6 +890,18 @@ class BlockchainEngineFixtureCommon(BaseFixture):
     different client code path from bulk RLP import, and receipt storage
     and log indexing can plausibly differ between them, so the same
     expectations are worth asserting on both.
+    """
+
+    rpc_forkchoice: FixtureForkchoiceState | None = None
+    """
+    The forkchoice triple the consumer must declare before replaying.
+
+    Present only when a test tagged some of its blocks `safe` or
+    `finalized`. The engine simulator's final `engine_forkchoiceUpdated`
+    carries these three hashes instead of the head alone, which is what
+    makes the round-trip expectations in `rpc` satisfiable; without it a
+    client answers `safe block not found`. This is the only fixture field
+    that instructs a consumer rather than describing the chain.
     """
 
     def get_fork(self) -> Fork | TransitionFork | None:
