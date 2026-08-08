@@ -24,6 +24,11 @@ convenience:
   is incomplete by design — it currently omits `withdrawals`, for
   instance — and a client returning a field we have not modelled yet is
   not thereby wrong. Only what we assert is enforced.
+
+A handful of expectations are flagged `round_trip`, meaning their value
+came from what this harness declared rather than from the spec. They are
+replayed only by a consumer that made the declaration, and a failure of
+one says so; see `_replayable`.
 """
 
 import logging
@@ -46,9 +51,19 @@ from execution_testing.rpc.serialization import (
 logger = logging.getLogger(__name__)
 
 
+ROUND_TRIP_NOTE = " [round trip: value declared by the harness, not derived]"
+"""
+Appended to a round-trip failure so the report says where the value came
+from. A client team reading "expected block 2, got block 3" is owed the
+fact that block 2 is the answer because the simulator said so in
+`engine_forkchoiceUpdated`, not because the spec computed it.
+"""
+
+
 def _describe(call: FixtureRPCCall) -> str:
     """Return a short identifier for a call, for use in failures."""
-    return f"{call.method}({', '.join(repr(p) for p in call.params)})"
+    described = f"{call.method}({', '.join(repr(p) for p in call.params)})"
+    return described + (ROUND_TRIP_NOTE if call.round_trip else "")
 
 
 def _unqualified(method: str, namespace: str) -> str:
@@ -194,6 +209,40 @@ def _compare(call: FixtureRPCCall, response: Any) -> str | None:
     )
 
 
+def _replayable(
+    calls: List[FixtureRPCCall],
+    fixture: BlockchainFixture | BlockchainEngineFixtureCommon,
+) -> List[FixtureRPCCall]:
+    """
+    Drop the expectations this consumer is not in a position to assert.
+
+    A `round_trip` call is only true because someone told the client so,
+    and the only channel for that is `engine_forkchoiceUpdated`. A consumer
+    that never opens the engine port therefore has no standing to assert
+    it: `consume rlp` waits on 8545 and sends no forkchoice update at all,
+    so a client it drives has no safe or finalized block and is right to
+    say so.
+
+    The filler already keeps these out of the RLP fixture, which is why
+    only the engine formats declare a forkchoice state. The check is
+    repeated here so that the two facts cannot drift apart into a
+    confidently wrong assertion, keyed on the declaration rather than on
+    the format name: whoever can honour the declaration can assert what it
+    implies, and nobody else.
+    """
+    declared = getattr(fixture, "rpc_forkchoice", None)
+    if declared is not None:
+        return calls
+    replayable = [call for call in calls if not call.round_trip]
+    skipped = len(calls) - len(replayable)
+    if skipped:
+        logger.info(
+            f"Skipping {skipped} round-trip expectations: this fixture "
+            f"declares no forkchoice state for them to round-trip against"
+        )
+    return replayable
+
+
 def verify_rpc_expectations(
     eth_rpc: EthRPC,
     fixture: BlockchainFixture | BlockchainEngineFixtureCommon,
@@ -208,11 +257,18 @@ def verify_rpc_expectations(
     together: a client that gets one field wrong usually gets it wrong
     everywhere, and surfacing them one run at a time wastes a slow loop.
     """
-    calls: List[FixtureRPCCall] | None = fixture.rpc
+    stored: List[FixtureRPCCall] | None = fixture.rpc
+    if not stored:
+        return
+    calls = _replayable(stored, fixture)
     if not calls:
         return
 
-    logger.info(f"Replaying {len(calls)} derived RPC expectations...")
+    round_trips = sum(call.round_trip for call in calls)
+    logger.info(
+        f"Replaying {len(calls) - round_trips} derived RPC expectations "
+        f"and {round_trips} round-trip ones..."
+    )
     responses = eth_rpc.post_batch_request(
         calls=[
             RPCCall(

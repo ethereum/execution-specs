@@ -10,10 +10,14 @@ from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.rp
     verify_rpc_expectations,
 )
 from execution_testing.fixtures.blockchain import (
+    BlockchainEngineXFixture,
     BlockchainFixture,
     FixtureConfig,
 )
-from execution_testing.fixtures.common import FixtureRPCCall
+from execution_testing.fixtures.common import (
+    FixtureForkchoiceState,
+    FixtureRPCCall,
+)
 from execution_testing.forks import Amsterdam
 from execution_testing.rpc.serialization import (
     derive_rpc_calls,
@@ -550,3 +554,111 @@ def test_expected_error_fails_when_the_call_succeeds() -> None:
 
     with pytest.raises(AssertionError, match="got a successful response"):
         verify_rpc_expectations(rpc_returning([str(Hash(0))]), built)
+
+
+def engine_fixture(
+    calls: List[FixtureRPCCall],
+    forkchoice: FixtureForkchoiceState | None,
+) -> BlockchainEngineXFixture:
+    """
+    Return an engine fixture carrying the given calls and declaration.
+
+    Payloads are irrelevant here: replay reads only the stored calls and
+    the forkchoice declaration, and an empty chain keeps the fixture to
+    what the assertion is about.
+    """
+    built = BlockchainEngineXFixture(
+        fork=Amsterdam,
+        last_block_hash=Hash(0),
+        config=FixtureConfig(fork=Amsterdam, chain_id=1),
+        pre_hash="",
+        payloads=[],
+    )
+    built.rpc = calls
+    built.rpc_forkchoice = forkchoice
+    return built
+
+
+def tagged_call(tag: str) -> FixtureRPCCall:
+    """Return a round-trip expectation for one forkchoice tag."""
+    return FixtureRPCCall(
+        method="eth_getBlockTransactionCountByNumber",
+        params=[tag],
+        result="0x0",
+        round_trip=True,
+    )
+
+
+DECLARATION = FixtureForkchoiceState(
+    head_block_hash=Hash(3),
+    safe_block_hash=Hash(2),
+    finalized_block_hash=Hash(1),
+)
+
+
+def test_round_trip_calls_are_replayed_when_declared() -> None:
+    """
+    A consumer that made the declaration asserts what it implies.
+
+    The engine simulator sends the triple in its final
+    `engine_forkchoiceUpdated`, so the client has been told which blocks
+    these tags name and is obliged to answer.
+    """
+    built = engine_fixture(
+        [tagged_call("safe"), tagged_call("finalized")],
+        DECLARATION,
+    )
+    client = rpc_returning(["0x0", "0x0"])
+
+    verify_rpc_expectations(client, built)
+
+    sent = client.post_batch_request.call_args.kwargs["calls"]
+    assert [call.params[0] for call in sent] == ["safe", "finalized"]
+
+
+def test_round_trip_calls_are_skipped_without_a_declaration() -> None:
+    """
+    A consumer that cannot declare the triple must not assert it.
+
+    `consume rlp` never opens the engine port, so a client it drives has no
+    safe or finalized block and answering `safe block not found` is
+    correct. Sending the call anyway would fail a conforming client.
+    """
+    built = engine_fixture(
+        [tagged_call("safe"), tagged_call("finalized")],
+        None,
+    )
+
+    client = rpc_returning([])
+    verify_rpc_expectations(client, built)
+
+    client.post_batch_request.assert_not_called()
+
+
+def test_derived_calls_survive_the_skip() -> None:
+    """Dropping the round trips leaves everything else replayed."""
+    derived = FixtureRPCCall(method="eth_blockNumber", params=[], result="0x3")
+    built = engine_fixture([derived, tagged_call("safe")], None)
+    client = rpc_returning(["0x3"])
+
+    verify_rpc_expectations(client, built)
+
+    sent = client.post_batch_request.call_args.kwargs["calls"]
+    assert [call.method for call in sent] == ["blockNumber"]
+
+
+def test_a_wrong_tag_answer_says_where_the_value_came_from() -> None:
+    """
+    A round-trip failure is labelled, not blurred in with the rest.
+
+    Every other expectation here means "the spec says so". This one means
+    "you were told so", and a client team debugging it is owed the
+    difference — the answer is only correct relative to a forkchoice
+    update this harness sent.
+    """
+    built = engine_fixture([tagged_call("safe")], DECLARATION)
+
+    with pytest.raises(AssertionError, match="round trip") as failure:
+        verify_rpc_expectations(rpc_returning(["0x1"]), built)
+
+    assert "declared by the harness" in str(failure.value)
