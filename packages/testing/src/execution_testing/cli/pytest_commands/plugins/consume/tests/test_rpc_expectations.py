@@ -22,6 +22,7 @@ from execution_testing.rpc.serialization import (
 from execution_testing.rpc.serialization.tests.test_projection import (
     make_block,
     make_header,
+    make_log,
     make_receipt,
     make_transaction,
 )
@@ -250,6 +251,183 @@ def test_all_failures_are_reported_together() -> None:
 
     with pytest.raises(AssertionError, match=r"\d+ of \d+ RPC expectations"):
         verify_rpc_expectations(rpc_returning(broken), built)
+
+
+def test_wrong_value_of_right_shape_fails(
+    fixture: BlockchainFixture,
+) -> None:
+    """
+    A schema-valid but incorrect value is caught.
+
+    This is the case schema validation alone cannot see, and the entire
+    reason the expectation is stored rather than recomputed.
+    """
+    assert fixture.rpc is not None
+    results = [dict(call.result) for call in fixture.rpc]
+    results[0]["gasUsed"] = "0x1234"  # valid hex, wrong number
+
+    with pytest.raises(AssertionError, match="gasUsed"):
+        verify_rpc_expectations(rpc_returning(results), fixture)
+
+
+def test_difference_names_the_path(fixture: BlockchainFixture) -> None:
+    """A nested mismatch reports where it is, not just that it exists."""
+    assert fixture.rpc is not None
+    results = [dict(call.result) for call in fixture.rpc]
+    receipt = next(r for r in results if isinstance(r, dict) and "logs" in r)
+    receipt["cumulativeGasUsed"] = "0xdead"
+
+    with pytest.raises(AssertionError) as raised:
+        verify_rpc_expectations(rpc_returning(results), fixture)
+
+    assert "cumulativeGasUsed: expected" in str(raised.value)
+
+
+def test_checksummed_addresses_are_accepted(
+    fixture: BlockchainFixture,
+) -> None:
+    """
+    A client returning EIP-55 addresses passes.
+
+    The schema's address pattern permits mixed case, so byte-wise
+    comparison would fail a conforming client.
+    """
+    assert fixture.rpc is not None
+    results = []
+    for call in fixture.rpc:
+        result = dict(call.result)
+        for key, value in result.items():
+            if isinstance(value, str) and len(value) == 42:
+                result[key] = value.upper().replace("0X", "0x")
+        results.append(result)
+
+    verify_rpc_expectations(rpc_returning(results), fixture)
+
+
+def test_unasserted_block_fields_are_ignored(
+    fixture: BlockchainFixture,
+) -> None:
+    """
+    A block field the projection does not model is not a client error.
+
+    Geth returns `withdrawals`, which the projection omits; failing on it
+    would report our own incompleteness as a client bug. The block schema
+    permits additional properties, so this is legal for a client to do.
+    """
+    assert fixture.rpc is not None
+    results = [
+        dict(call.result, withdrawals=[])
+        if call.method.startswith("eth_getBlock")
+        else call.result
+        for call in fixture.rpc
+    ]
+
+    verify_rpc_expectations(rpc_returning(results), fixture)
+
+
+def test_unknown_receipt_field_is_rejected(
+    fixture: BlockchainFixture,
+) -> None:
+    """
+    A receipt carrying an unmodelled field fails, unlike a block.
+
+    The receipt schema sets `additionalProperties: false`, so the two are
+    genuinely different and the schema layer is what draws the line.
+    """
+    assert fixture.rpc is not None
+    results = [
+        dict(call.result, someNonstandardField="0x1")
+        if call.method == "eth_getTransactionReceipt"
+        else call.result
+        for call in fixture.rpc
+    ]
+
+    with pytest.raises(AssertionError, match="Additional properties"):
+        verify_rpc_expectations(rpc_returning(results), fixture)
+
+
+def test_missing_asserted_field_fails(fixture: BlockchainFixture) -> None:
+    """
+    Omitting a field we assert fails even when the schema allows its
+    absence.
+
+    `difficulty` is optional in the schema, so only the stored expectation
+    can require it — exactly the gap exact comparison exists to close.
+    """
+    assert fixture.rpc is not None
+    results = [dict(call.result) for call in fixture.rpc]
+    del results[0]["difficulty"]
+
+    with pytest.raises(AssertionError, match="difficulty: missing"):
+        verify_rpc_expectations(rpc_returning(results), fixture)
+
+
+def test_dropped_log_entry_fails() -> None:
+    """A response omitting a log is caught, by length before value."""
+    genesis = make_header(number=0, gas_used=0)
+    block = make_block(
+        [make_transaction()],
+        [make_receipt(21_000, logs=[make_log(1), make_log(2)])],
+    )
+    built = BlockchainFixture(
+        fork=Amsterdam,
+        genesis=genesis,
+        genesis_rlp=Bytes(b"\xc0"),
+        blocks=[block],
+        last_block_hash=block.header.block_hash,
+        pre={},
+        post_state={},
+        config=FixtureConfig(fork=Amsterdam, chain_id=1),
+    )
+    built.rpc = derive_rpc_calls(built)
+    assert built.rpc is not None
+
+    results = []
+    for call in built.rpc:
+        result = dict(call.result)
+        if result.get("logs"):
+            result["logs"] = result["logs"][:1]
+        results.append(result)
+
+    with pytest.raises(AssertionError, match="entries"):
+        verify_rpc_expectations(rpc_returning(results), built)
+
+
+def test_reported_differences_are_capped() -> None:
+    """
+    A badly wrong response reports a bounded number of differences.
+
+    Without a cap, one broken call buries every other failure in the run.
+    Each log's `data` is schema-valid here, so the schema layer passes and
+    the differences all come from the value comparison.
+    """
+    genesis = make_header(number=0, gas_used=0)
+    logs = [make_log(topic) for topic in range(15)]
+    block = make_block([make_transaction()], [make_receipt(21_000, logs=logs)])
+    built = BlockchainFixture(
+        fork=Amsterdam,
+        genesis=genesis,
+        genesis_rlp=Bytes(b"\xc0"),
+        blocks=[block],
+        last_block_hash=block.header.block_hash,
+        pre={},
+        post_state={},
+        config=FixtureConfig(fork=Amsterdam, chain_id=1),
+    )
+    built.rpc = derive_rpc_calls(built)
+    assert built.rpc is not None
+
+    results = []
+    for call in built.rpc:
+        result = dict(call.result)
+        if result.get("logs"):
+            result["logs"] = [
+                dict(log, data="0xbeef") for log in result["logs"]
+            ]
+        results.append(result)
+
+    with pytest.raises(AssertionError, match="and 5 more"):
+        verify_rpc_expectations(rpc_returning(results), built)
 
 
 def test_block_queried_by_number_and_hash_agree(

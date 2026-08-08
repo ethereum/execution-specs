@@ -7,15 +7,28 @@ specification rather than against another client. The fixture is the
 contract: pinning a fixture release pins what "correct" means, regardless
 of which version of this simulator replays it.
 
-Comparison is currently schema-based. Every response is checked against
-the method's OpenRPC result schema, which catches missing required fields,
-wrong types and malformed values, but not a wrong value of the right
-shape. Exact comparison is the intended end state and is what the stored
-results exist for; see the design notes on the two-phase rollout.
+Comparison runs in two layers. The response is first checked against the
+method's OpenRPC result schema, which gives a precise message for a
+missing field or a malformed value, and is then compared value by value
+against the stored expectation. The schema layer alone cannot catch a
+wrong value of the right shape, which is the whole reason the expectation
+is stored.
+
+Two deliberate relaxations, both required for correctness rather than
+convenience:
+
+- **Hex case is normalized.** The schema's address pattern is
+  `^0x[0-9a-fA-F]{40}$`, so a client returning EIP-55 checksummed
+  addresses is conforming. Byte-wise comparison would fail it.
+- **Fields the expectation does not mention are ignored.** The projection
+  is incomplete by design — it currently omits `withdrawals`, for
+  instance — and a client returning a field we have not modelled yet is
+  not thereby wrong. Only what we assert is enforced.
 """
 
 import logging
-from typing import Any, List
+import re
+from typing import Any, Iterator, List
 
 from execution_testing.fixtures import BlockchainFixture
 from execution_testing.fixtures.common import FixtureRPCCall
@@ -52,6 +65,70 @@ def _unqualified(method: str, namespace: str) -> str:
     return method.removeprefix(prefix)
 
 
+HEX_STRING = re.compile(r"^0x[0-9a-fA-F]*$")
+
+MAX_REPORTED_DIFFERENCES = 10
+"""Cap per call, so one badly wrong response cannot bury the others."""
+
+
+def _normalized(value: Any) -> Any:
+    """
+    Lowercase hex strings so equal values compare equal.
+
+    Only hex is touched. Quantities and hashes are already lowercase by
+    schema, so this is a no-op for them and matters only where mixed case
+    is permitted.
+    """
+    if isinstance(value, str):
+        return value.lower() if HEX_STRING.match(value) else value
+    if isinstance(value, list):
+        return [_normalized(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _normalized(item) for key, item in value.items()}
+    return value
+
+
+def _differences(expected: Any, actual: Any, path: str = "") -> Iterator[str]:
+    """
+    Yield a path-anchored message for each field the response gets wrong.
+
+    Walks the expectation rather than the response, so fields we do not
+    assert are not treated as errors.
+    """
+    where = path or "<root>"
+
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict):
+            yield f"{where}: expected an object, got {type(actual).__name__}"
+            return
+        for key, want in expected.items():
+            if key not in actual:
+                yield f"{path}/{key}".lstrip("/") + ": missing from response"
+                continue
+            yield from _differences(
+                want, actual[key], f"{path}/{key}".lstrip("/")
+            )
+        return
+
+    if isinstance(expected, list):
+        if not isinstance(actual, list):
+            yield f"{where}: expected a list, got {type(actual).__name__}"
+            return
+        if len(expected) != len(actual):
+            yield (
+                f"{where}: expected {len(expected)} entries, got {len(actual)}"
+            )
+            return
+        for index, (want, got) in enumerate(
+            zip(expected, actual, strict=False)
+        ):
+            yield from _differences(want, got, f"{path}/{index}".lstrip("/"))
+        return
+
+    if expected != actual:
+        yield f"{where}: expected {expected!r}, got {actual!r}"
+
+
 def _compare(call: FixtureRPCCall, response: Any) -> str | None:
     """
     Return a failure message for one response, or None if it is acceptable.
@@ -82,7 +159,20 @@ def _compare(call: FixtureRPCCall, response: Any) -> str | None:
         validate_result(call.method, response.result)
     except SchemaViolationError as violation:
         return f"{_describe(call)}: {violation}"
-    return None
+
+    differences = list(
+        _differences(_normalized(call.result), _normalized(response.result))
+    )
+    if not differences:
+        return None
+
+    shown = differences[:MAX_REPORTED_DIFFERENCES]
+    remaining = len(differences) - len(shown)
+    if remaining:
+        shown.append(f"... and {remaining} more")
+    return f"{_describe(call)}:\n" + "\n".join(
+        f"      {difference}" for difference in shown
+    )
 
 
 def verify_rpc_expectations(
