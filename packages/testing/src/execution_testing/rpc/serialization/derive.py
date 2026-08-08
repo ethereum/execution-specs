@@ -20,9 +20,53 @@ from execution_testing.fixtures.blockchain import FixtureBlock
 from execution_testing.fixtures.common import FixtureRPCCall
 
 from .projection import block_response, receipt_responses
+from .schema import SchemaViolationError, validate_result
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import BlockchainFixture
+
+
+class ProjectionError(AssertionError):
+    """
+    Raised when a derived expectation does not conform to the schema.
+
+    Distinct from `SchemaViolationError`, which reports a *client* whose
+    response is wrong. This reports *us*: the projection produced an
+    expectation that no conforming client could ever satisfy.
+    """
+
+
+def _reject_unsatisfiable(calls: List[FixtureRPCCall]) -> None:
+    """
+    Refuse to emit an expectation no conforming client could satisfy.
+
+    `FixtureRPCCall.result` is `Any`, so neither the fixture model nor
+    `checkfixtures` can tell a projected block from a bare string. Without
+    a check here a broken projection is written into a release and reaches
+    a client team as "your response is wrong", sending them to debug an
+    assertion that was never valid. Validating at the point of derivation
+    keeps the bad state out of the artifact entirely.
+
+    Unknown method names are rejected by the same call, since the schema
+    has no result definition to validate against.
+    """
+    for call in calls:
+        if call.error_code is not None:
+            continue  # An expected error carries no result to check.
+        try:
+            validate_result(call.method, call.result)
+        except SchemaViolationError as violation:
+            raise ProjectionError(
+                f"derived expectation for {call.method} is not "
+                f"schema-conformant, so it cannot be satisfied by any "
+                f"client. This is a projection bug, not a client bug.\n"
+                f"{violation}"
+            ) from violation
+        except KeyError as unknown:
+            raise ProjectionError(
+                f"derived a call to {call.method}, which the vendored "
+                f"OpenRPC schema does not define"
+            ) from unknown
 
 
 def derive_rpc_calls(fixture: "BlockchainFixture") -> List[FixtureRPCCall]:
@@ -31,6 +75,9 @@ def derive_rpc_calls(fixture: "BlockchainFixture") -> List[FixtureRPCCall]:
 
     Invalid blocks are skipped: they never enter the canonical chain, so a
     client is right to report nothing for them.
+
+    Every derived expectation is validated before being returned; see
+    `_reject_unsatisfiable`.
     """
     calls: List[FixtureRPCCall] = []
 
@@ -66,4 +113,5 @@ def derive_rpc_calls(fixture: "BlockchainFixture") -> List[FixtureRPCCall]:
                 )
             )
 
+    _reject_unsatisfiable(calls)
     return calls

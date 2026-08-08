@@ -12,10 +12,12 @@ from execution_testing.fixtures.blockchain import (
     InvalidFixtureBlock,
 )
 from execution_testing.forks import Amsterdam
+from execution_testing.rpc.serialization import derive as derive_module
 from execution_testing.rpc.serialization import (
     derive_rpc_calls,
     validate_result,
 )
+from execution_testing.rpc.serialization.derive import ProjectionError
 
 from .test_projection import (
     make_block,
@@ -152,3 +154,55 @@ def test_absent_marker_leaves_the_section_unset(
 ) -> None:
     """A fixture carries no `rpc` section unless one is derived."""
     assert single_block_fixture.rpc is None
+
+
+def test_broken_projection_fails_at_derivation(
+    single_block_fixture: BlockchainFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    A non-conformant projection is refused rather than written out.
+
+    `FixtureRPCCall.result` is `Any`, so nothing downstream can tell a
+    projected block from a bare string. Were this to reach a release it
+    would surface as "your response is wrong" to a client team debugging
+    an assertion that was never satisfiable.
+    """
+    good = derive_rpc_calls(single_block_fixture)[0].result
+    monkeypatch.setattr(
+        derive_module,
+        "block_response",
+        lambda _block: _BadProjection(good),
+    )
+
+    with pytest.raises(ProjectionError, match="projection bug"):
+        derive_rpc_calls(single_block_fixture)
+
+
+def test_unknown_method_fails_at_derivation(
+    single_block_fixture: BlockchainFixture,
+) -> None:
+    """A call the schema does not define is refused at derivation."""
+    calls = derive_rpc_calls(single_block_fixture)
+    calls[0].method = "eth_notAMethod"
+
+    with pytest.raises(ProjectionError, match="does not define"):
+        derive_module._reject_unsatisfiable(calls)
+
+
+class _BadProjection:
+    """
+    Stand-in projection with a realistic defect.
+
+    Structurally a block, but quantities are zero-padded the way the
+    consensus types encode them. This is the exact regression the guard
+    exists for: plausible enough to survive every downstream check, and
+    unsatisfiable by any conforming client.
+    """
+
+    def __init__(self, good: Dict[str, Any]) -> None:
+        self.payload = dict(good, number="0x01")
+
+    def to_rpc(self) -> Dict[str, Any]:
+        """Return the defective block object."""
+        return self.payload
