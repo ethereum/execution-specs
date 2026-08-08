@@ -101,6 +101,27 @@ TWO_GROUP_CODE = b"\x01" * (31 * 257)
 # boundary and the second chunk opens with a non-zero push-data count.
 PUSH32_SPILL_CODE = b"\x01" * 30 + PUSH32 + bytes(range(32)) + b"\x01" * 5
 
+
+def _zeroed_chunks(chunk_count: int, zeroed: Sequence[int]) -> bytes:
+    """
+    Build `chunk_count` chunks of filler with `zeroed` set to 31 zero
+    bytes each. The filler is `ADD`, which takes no push data, so a
+    zeroed chunk also carries a zero push-data count and its whole
+    32-byte value is zero.
+    """
+    code = bytearray(b"\x01" * (31 * chunk_count))
+    for chunk in zeroed:
+        code[31 * chunk : 31 * (chunk + 1)] = bytes(31)
+    return bytes(code)
+
+
+# 300 chunks with all-zero chunks at 5, 255 and 256: one inside a
+# group, one at the end of group 0 and one at the start of group 1.
+# Absence and the group split are derived from different halves of the
+# chunk id, so a client that gets the split wrong still commits the
+# holes -- under the wrong stem or the wrong sub-index.
+ZERO_CHUNK_ACROSS_GROUPS_CODE = _zeroed_chunks(300, (5, 255, 256))
+
 # Largest integer a JSON number holds exactly, used as a nonce that
 # stresses the packed field without leaving what a JSON parser can
 # represent.
@@ -545,6 +566,31 @@ def pbt_state_cases() -> List[Dict[str, Any]]:
         pbt_state_case(
             "code_chunks_of_zero_bytes",
             [AccountSpec(address=ADDRESS_A, nonce=1, code=b"\x00" * 62)],
+        ),
+        pbt_state_case(
+            "zero_chunk_across_the_group_boundary",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    code=ZERO_CHUNK_ACROSS_GROUPS_CODE,
+                )
+            ],
+        ),
+        pbt_state_case(
+            "shared_bytecode_with_absent_chunks",
+            [
+                AccountSpec(
+                    address=ADDRESS_A,
+                    nonce=1,
+                    code=ZERO_CHUNK_ACROSS_GROUPS_CODE,
+                ),
+                AccountSpec(
+                    address=ADDRESS_B,
+                    nonce=2,
+                    code=ZERO_CHUNK_ACROSS_GROUPS_CODE,
+                ),
+            ],
         ),
         pbt_state_case(
             "max_basic_data_fields",
