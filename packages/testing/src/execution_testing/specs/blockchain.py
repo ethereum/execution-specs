@@ -8,6 +8,7 @@ from typing import (
     Dict,
     Generator,
     List,
+    Literal,
     Sequence,
     Tuple,
     Type,
@@ -80,6 +81,7 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.fixtures.common import (
     FixtureBlobSchedule,
+    FixtureForkchoiceState,
     FixtureRPCCall,
     FixtureTransactionReceipt,
 )
@@ -392,6 +394,25 @@ class Block(Header):
     """EIP-7843: override only the engine payload slotNumber field."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
+    forkchoice_tag: Literal["safe", "finalized"] | None = None
+    """
+    Declare this block as the chain's safe or finalized block.
+
+    Neither is a property of the chain: the consensus layer names them
+    through `engine_forkchoiceUpdated` and the client just remembers. The
+    declaration therefore has to come from somewhere, and it sits on the
+    block rather than on the test so that it survives inserting a block
+    ahead of it — an index into `blocks` would silently start naming a
+    different block.
+
+    One tag per block, so `safe` and `finalized` can never be the same
+    block. That is deliberate rather than a limitation: when the two
+    coincide, a client that answers every tag with the head passes, which
+    is exactly the weakness of the recorded corpus this exists to fix.
+
+    Only the engine fixture formats carry the declaration, and only tests
+    marked `rpc` may make one.
+    """
 
     @property
     def phase(self) -> TestPhase | None:
@@ -754,6 +775,7 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
                             "exception": None,
                             "skip_exception_verification": False,
                             "engine_api_error_code": None,
+                            "forkchoice_tag": None,
                         }
                     )
                 )
@@ -819,6 +841,58 @@ class BlockchainTest(BaseTest):
         ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
     }
+
+    def model_post_init(self, __context: Any, /) -> None:
+        """Reject a forkchoice declaration no consumer could honour."""
+        super().model_post_init(__context)
+        tagged = [
+            (index, block)
+            for index, block in enumerate(self.blocks)
+            if block.forkchoice_tag is not None
+        ]
+        if not tagged:
+            return
+        positions: Dict[str, int] = {}
+        for index, block in tagged:
+            tag = str(block.forkchoice_tag)
+            if block.exception is not None:
+                raise ValueError(
+                    f"block {index} is tagged {tag!r} but is expected to be "
+                    "rejected; a block outside the canonical chain can be "
+                    "neither safe nor finalized"
+                )
+            if tag in positions:
+                raise ValueError(
+                    f"blocks {positions[tag]} and {index} are both tagged "
+                    f"{tag!r}; the chain has one of each"
+                )
+            positions[tag] = index
+        if set(positions) != {"safe", "finalized"}:
+            missing = ({"safe", "finalized"} - set(positions)).pop()
+            raise ValueError(
+                f"no block is tagged {missing!r}; declare both tags or "
+                "neither, because a client handed only one of them has to "
+                "fall back on client-specific behaviour for the other"
+            )
+        if positions["finalized"] > positions["safe"]:
+            raise ValueError(
+                "the finalized block comes after the safe block; the chain "
+                "finalizes behind the safe head, never ahead of it"
+            )
+        head = max(
+            (
+                index
+                for index, block in enumerate(self.blocks)
+                if block.exception is None
+            ),
+            default=-1,
+        )
+        if positions["safe"] >= head:
+            raise ValueError(
+                "the head block is tagged 'safe', so two of the three tags "
+                "name the same block and a client that answers every tag "
+                "with the head would pass; leave a block above the safe one"
+            )
 
     @classmethod
     def discard_fixture_format_by_marks(
@@ -1190,6 +1264,7 @@ class BlockchainTest(BaseTest):
         t8n: FillerBackend,
     ) -> FillResult:
         """Create a fixture from the blockchain test definition."""
+        self.check_forkchoice_declaration()
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
 
         pre, genesis = self.make_genesis(apply_pre_allocation_blockchain=True)
@@ -1294,6 +1369,24 @@ class BlockchainTest(BaseTest):
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 
+    def check_forkchoice_declaration(self) -> None:
+        """
+        Refuse a forkchoice declaration nothing will ever read.
+
+        The tags only reach a client through the `rpc` section, which is
+        emitted only for a marked test, so an unmarked test that tags its
+        blocks silently asserts nothing. Checked before any block is built
+        so the mistake costs no transition-tool work.
+        """
+        if self.emit_rpc_expectations:
+            return
+        if any(block.forkchoice_tag is not None for block in self.blocks):
+            raise ValueError(
+                "blocks are tagged 'safe' or 'finalized' but the test is "
+                "not marked `rpc`, so nothing would ever read the "
+                "declaration; add `pytest.mark.rpc` or drop the tags"
+            )
+
     def explicit_rpc_calls(self) -> List[FixtureRPCCall]:
         """Return the author-declared checks as fixture calls."""
         return [
@@ -1312,12 +1405,14 @@ class BlockchainTest(BaseTest):
         fixture_format: FixtureFormat = BlockchainEngineFixture,
     ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
+        self.check_forkchoice_declaration()
         fixture_payloads: List[FixtureEngineNewPayload] = []
         # The engine formats carry payloads, not blocks, and a payload has
         # no receipts and no decoded senders. Assemble the blocks the
         # projection needs here, where the transition tool output is still
         # in hand, and only when they will actually be used.
         rpc_blocks: List[FixtureBlock] = []
+        forkchoice_tags: Dict[str, Hash] = {}
 
         pre, genesis = self.make_genesis(
             apply_pre_allocation_blockchain=fixture_format
@@ -1356,6 +1451,10 @@ class BlockchainTest(BaseTest):
                 fixture_block = built_block.get_fixture_block()
                 if isinstance(fixture_block, FixtureBlock):
                     rpc_blocks.append(fixture_block)
+            if block.forkchoice_tag is not None:
+                forkchoice_tags[block.forkchoice_tag] = (
+                    built_block.header.block_hash
+                )
             if block.exception is None:
                 alloc = built_block.alloc
                 state_root = built_block.state_root
@@ -1458,10 +1557,19 @@ class BlockchainTest(BaseTest):
         if self.emit_rpc_expectations:
             fixture.rpc = (
                 derive_rpc_calls_for_blocks(
-                    rpc_blocks, post_state=alloc, genesis=genesis
+                    rpc_blocks,
+                    post_state=alloc,
+                    genesis=genesis,
+                    forkchoice_tags=forkchoice_tags,
                 )
                 + self.explicit_rpc_calls()
             )
+            if forkchoice_tags:
+                fixture.rpc_forkchoice = FixtureForkchoiceState(
+                    head_block_hash=head_hash,
+                    safe_block_hash=forkchoice_tags["safe"],
+                    finalized_block_hash=forkchoice_tags["finalized"],
+                )
 
         return FillResult(
             fixture=fixture,
