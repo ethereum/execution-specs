@@ -16,13 +16,18 @@ decoded and so never reach a state lookup. None of them needs a test author
 to supply anything, and emitting them per marked test costs a few short
 strings.
 
+The one exception is the `safe` and `finalized` block tags, whose answer no
+chain determines: a test declares which of its blocks those are and the
+consumer tells the client, so the expectation is a round trip rather than a
+derivation. Those calls are flagged as such; see `_forkchoice_tag_calls`.
+
 What remains out of reach is anything requiring a chain shaped differently
 from the one the test wrote — a reversed log range, a hash belonging to
 another chain. Those belong in hand-written checks.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple
 
 from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.fixtures.blockchain import FixtureBlock
@@ -394,6 +399,7 @@ def derive_rpc_calls_for_blocks(
     blocks: Sequence[Any],
     post_state: Any = None,
     genesis: FixtureBlock | None = None,
+    forkchoice_tags: Mapping[str, Hash] | None = None,
 ) -> List[FixtureRPCCall]:
     """
     Return the RPC expectations implied by a canonical chain.
@@ -405,6 +411,11 @@ def derive_rpc_calls_for_blocks(
 
     Invalid blocks are skipped: they never enter the canonical chain, so a
     client is right to report nothing for them.
+
+    `forkchoice_tags` maps `safe` and `finalized` onto blocks of this
+    chain, and is supplied only where a consumer can actually declare them.
+    It is the one input here that is not read off the chain; see
+    `_forkchoice_tag_calls`.
 
     Every derived expectation is validated before being returned; see
     `_reject_unsatisfiable`.
@@ -537,6 +548,7 @@ def derive_rpc_calls_for_blocks(
         )
     )
     calls.extend(_tag_calls(head if head is not None else genesis, genesis))
+    calls.extend(_forkchoice_tag_calls(blocks, forkchoice_tags))
     calls.extend(
         _state_calls(
             blocks,
@@ -562,14 +574,9 @@ def _tag_calls(
     a second copy of a response — which the release tarball's compression
     largely removes again.
 
-    `safe` and `finalized` are deliberately absent. Neither consume
-    simulator sets a safe or a finalized block in its forkchoice state, and
-    go-ethereum answers both with `-32000 safe block not found` rather than
-    with the head. Asserting the head there would encode our own harness's
-    forkchoice, and asserting the error would encode its absence; setting
-    the two to the head instead would forbid the reorgs other tests depend
-    on. The tags stay out until something makes them mean the chain rather
-    than the harness.
+    `safe` and `finalized` are absent here and handled by
+    `_forkchoice_tag_calls` instead, because their answer comes from what
+    the harness declared rather than from the chain.
 
     Only the full-transaction form is emitted per tag: it strictly contains
     the hash form, and the hash form is already asserted by number.
@@ -592,6 +599,80 @@ def _tag_calls(
                 result=[
                     receipt.to_rpc() for receipt in receipt_responses(block)
                 ],
+            )
+        )
+    return calls
+
+
+FORKCHOICE_TAGS = ("safe", "finalized")
+"""
+The two block tags no chain can answer on its own.
+
+Ordered head-wards first, matching the order `latest`, `safe`, `finalized`
+walks back through the chain.
+"""
+
+
+def _forkchoice_tag_calls(
+    blocks: Sequence[Any], tags: Mapping[str, Hash] | None
+) -> List[FixtureRPCCall]:
+    """
+    Return the queries answered by what the harness declared.
+
+    `safe` and `finalized` are the one place in this module where the
+    expected value is not spec-derived. The consensus layer tells the
+    execution client which blocks those are, through
+    `engine_forkchoiceUpdated`, and the client's only obligation is to hand
+    them back. The property is still well defined — "return the block I
+    told you about" — but it is a different kind of assertion, so every
+    call produced here is flagged `round_trip` and a consumer that cannot
+    make the declaration must skip it rather than assert it.
+
+    What the declaration buys is a test the recorded corpus cannot express.
+    `rpc-compat` points head, safe and finalized at the *same* block, so a
+    client that ignores both fields and answers with the head passes every
+    tag. Because this chain is ours to shape, the three can name three
+    different blocks, and then only a client tracking three separate
+    pointers can answer all of them.
+
+    A tag naming a block outside this chain is a harness bug rather than a
+    client bug, and is rejected here for the same reason
+    `_reject_unsatisfiable` exists: no client could satisfy it.
+    """
+    if not tags:
+        return []
+    by_hash = {
+        block.header.block_hash: block
+        for block in blocks
+        if isinstance(block, FixtureBlock)
+    }
+    calls: List[FixtureRPCCall] = []
+    for tag in FORKCHOICE_TAGS:
+        block_hash = tags.get(tag)
+        if block_hash is None:
+            continue
+        block = by_hash.get(block_hash)
+        if block is None:
+            raise ProjectionError(
+                f"the {tag!r} tag names block {block_hash}, which is not a "
+                f"valid block of this chain, so no client could resolve it"
+            )
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBlockByNumber",
+                params=[tag, True],
+                result=block_response(block, full_transactions=True).to_rpc(),
+                round_trip=True,
+            )
+        )
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getBlockReceipts",
+                params=[tag],
+                result=[
+                    receipt.to_rpc() for receipt in receipt_responses(block)
+                ],
+                round_trip=True,
             )
         )
     return calls

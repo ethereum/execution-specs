@@ -492,16 +492,17 @@ def test_latest_resolves_to_the_head_block(
     assert latest.result == by_number.result
 
 
-def test_safe_and_finalized_are_not_asserted(
+def test_safe_and_finalized_need_a_declaration(
     single_block_fixture: BlockchainFixture,
 ) -> None:
     """
-    The forkchoice tags are left alone.
+    Without a declaration the forkchoice tags are left alone.
 
-    Measured against go-ethereum: neither consume simulator sets a safe or
-    finalized block, so both answer `-32000 safe block not found` rather
-    than returning the head. Any expectation here would describe our
-    harness rather than the chain.
+    Measured against go-ethereum: a client whose forkchoice state names no
+    safe or finalized block answers `-32000 safe block not found` rather
+    than returning the head. An expectation emitted here anyway would
+    describe our harness rather than the chain, so it is emitted only where
+    the harness actually makes the declaration.
     """
     tags = {
         str(call.params[0])
@@ -511,6 +512,119 @@ def test_safe_and_finalized_are_not_asserted(
 
     assert "safe" not in tags
     assert "finalized" not in tags
+
+
+def three_block_chain() -> List[Any]:
+    """Return three blocks whose projections differ from each other."""
+    return [
+        make_block(
+            [make_transaction(nonce=number - 1)],
+            [make_receipt(21_000, transaction_hash=Hash(number))],
+            number=number,
+        )
+        for number in (1, 2, 3)
+    ]
+
+
+def forkchoice_calls(blocks: List[Any], **tags: Hash) -> List[Any]:
+    """Return the calls derived for a chain with the given tags."""
+    return derive_module.derive_rpc_calls_for_blocks(
+        blocks, forkchoice_tags=tags
+    )
+
+
+def test_declared_tags_resolve_to_their_own_blocks() -> None:
+    """
+    Each tag returns the block it was pointed at, not the head.
+
+    Three distinct blocks is the whole point: `rpc-compat` points head,
+    safe and finalized at one block, so a client that answers every tag
+    with the head passes. Here only a client tracking three pointers can.
+    """
+    blocks = three_block_chain()
+    calls = forkchoice_calls(
+        blocks,
+        safe=blocks[1].header.block_hash,
+        finalized=blocks[0].header.block_hash,
+    )
+
+    resolved = {
+        call.params[0]: call.result["hash"]
+        for call in calls
+        if call.method == "eth_getBlockByNumber"
+        and call.params[0] in ("latest", "safe", "finalized")
+    }
+
+    assert resolved == {
+        "finalized": str(blocks[0].header.block_hash),
+        "safe": str(blocks[1].header.block_hash),
+        "latest": str(blocks[2].header.block_hash),
+    }
+    assert len(set(resolved.values())) == 3
+
+
+def test_declared_tags_are_flagged_as_round_trips() -> None:
+    """
+    Only the declared tags claim a value the spec did not produce.
+
+    The flag is what lets a consumer that cannot make the declaration skip
+    them, and what tells a client team reading the fixture that this one
+    expectation describes the harness.
+    """
+    blocks = three_block_chain()
+    calls = forkchoice_calls(
+        blocks,
+        safe=blocks[1].header.block_hash,
+        finalized=blocks[0].header.block_hash,
+    )
+
+    flagged = {
+        (call.method, call.params[0]) for call in calls if call.round_trip
+    }
+
+    assert flagged == {
+        ("eth_getBlockByNumber", "safe"),
+        ("eth_getBlockByNumber", "finalized"),
+        ("eth_getBlockReceipts", "safe"),
+        ("eth_getBlockReceipts", "finalized"),
+    }
+
+
+def test_declared_receipts_follow_the_tagged_block() -> None:
+    """`eth_getBlockReceipts` resolves the tag to the same block."""
+    blocks = three_block_chain()
+    calls = forkchoice_calls(
+        blocks,
+        safe=blocks[1].header.block_hash,
+        finalized=blocks[0].header.block_hash,
+    )
+
+    receipts = {
+        call.params[0]: call.result
+        for call in calls
+        if call.method == "eth_getBlockReceipts"
+        and call.params[0] in ("safe", "finalized")
+    }
+
+    assert receipts["finalized"][0]["blockNumber"] == "0x1"
+    assert receipts["safe"][0]["blockNumber"] == "0x2"
+
+
+def test_a_tag_naming_another_chain_is_rejected() -> None:
+    """
+    A tag pointing outside the chain fails at derivation.
+
+    No client could resolve it, so this is a harness bug of exactly the
+    kind `_reject_unsatisfiable` exists to keep out of an artifact.
+    """
+    blocks = three_block_chain()
+
+    with pytest.raises(ProjectionError, match="not a valid block"):
+        forkchoice_calls(
+            blocks,
+            safe=Hash(0xDEADBEEF),
+            finalized=blocks[0].header.block_hash,
+        )
 
 
 def test_absent_account_reads_are_zero_valued(
