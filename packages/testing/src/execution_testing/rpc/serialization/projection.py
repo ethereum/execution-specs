@@ -39,7 +39,7 @@ from execution_testing.fixtures.blockchain import (
 from execution_testing.fixtures.common import FixtureTransactionReceipt
 from execution_testing.test_types.utils import int_to_bytes
 
-from .types import RPCBlock, RPCLog, RPCReceipt
+from .types import RPCBlock, RPCLog, RPCReceipt, RPCWithdrawal
 
 
 def effective_gas_price(
@@ -156,6 +156,29 @@ def receipt_responses(block: FixtureBlock) -> List[RPCReceipt]:
     return responses
 
 
+def withdrawal_responses(
+    block: FixtureBlock,
+) -> List[RPCWithdrawal] | None:
+    """
+    Project a block's withdrawals, or None before Shanghai.
+
+    The empty list and absence mean different things: from Shanghai
+    onwards a block reports an empty list when it has no withdrawals,
+    while an earlier block has no such field at all.
+    """
+    if block.withdrawals is None:
+        return None
+    return [
+        RPCWithdrawal(
+            index=HexNumber(withdrawal.index),
+            validator_index=HexNumber(withdrawal.validator_index),
+            address=withdrawal.address,
+            amount=HexNumber(withdrawal.amount),
+        )
+        for withdrawal in block.withdrawals
+    ]
+
+
 def block_response(block: FixtureBlock) -> RPCBlock:
     """
     Project a fixture block onto an RPC block object.
@@ -194,6 +217,7 @@ def block_response(block: FixtureBlock) -> RPCBlock:
         excess_blob_gas=_optional_number(header.excess_blob_gas),
         parent_beacon_block_root=header.parent_beacon_block_root,
         requests_hash=header.requests_hash,
+        withdrawals=withdrawal_responses(block),
     )
 
 
@@ -225,4 +249,5 @@ __all__ = [
     "contract_address",
     "effective_gas_price",
     "receipt_responses",
+    "withdrawal_responses",
 ]

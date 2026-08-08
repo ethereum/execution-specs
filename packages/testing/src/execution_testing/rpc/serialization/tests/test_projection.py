@@ -16,6 +16,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureBlock,
     FixtureHeader,
     FixtureTransaction,
+    FixtureWithdrawal,
 )
 from execution_testing.fixtures.common import (
     FixtureTransactionLog,
@@ -287,6 +288,50 @@ def test_fork_optional_header_fields_appear_when_set() -> None:
     assert response["baseFeePerGas"] == "0x7"
     assert response["blobGasUsed"] == "0x20000"
     assert response["excessBlobGas"] == "0x0"
+
+
+def test_withdrawals_absent_before_shanghai() -> None:
+    """A block with no withdrawals field omits it entirely."""
+    block = make_block([], [])
+    assert block.withdrawals is None
+
+    assert "withdrawals" not in block_response(block).to_rpc()
+
+
+def test_empty_withdrawals_are_reported_not_omitted() -> None:
+    """
+    An empty list is distinct from absence.
+
+    From Shanghai a block always reports its withdrawals, so omitting the
+    field for a block that simply had none would be wrong.
+    """
+    block = make_block([], [])
+    block.withdrawals = []
+
+    response = block_response(block).to_rpc()
+
+    assert response["withdrawals"] == []
+
+
+def test_withdrawals_use_minimal_hex() -> None:
+    """Withdrawal quantities are converted out of the zero-padded form."""
+    block = make_block([], [])
+    block.withdrawals = [
+        FixtureWithdrawal(
+            index=1, validator_index=16, address=RECIPIENT, amount=0
+        )
+    ]
+
+    withdrawals = block_response(block).to_rpc()["withdrawals"]
+
+    assert withdrawals == [
+        {
+            "index": "0x1",
+            "validatorIndex": "0x10",
+            "address": str(RECIPIENT),
+            "amount": "0x0",
+        }
+    ]
 
 
 def test_block_size_is_the_rlp_length() -> None:

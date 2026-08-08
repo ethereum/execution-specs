@@ -76,6 +76,15 @@ class RPCLog(RPCResponseModel):
     """Always false here; only a reorged log is removed."""
 
 
+class RPCWithdrawal(RPCResponseModel):
+    """A withdrawal as returned within a block object."""
+
+    index: HexNumber
+    validator_index: HexNumber
+    address: Address
+    amount: HexNumber
+
+
 class RPCReceipt(RPCResponseModel):
     """A transaction receipt as returned by `eth_getTransactionReceipt`."""
 
@@ -122,6 +131,7 @@ class RPCBlock(RPCResponseModel):
         "excess_blob_gas",
         "parent_beacon_block_root",
         "requests_hash",
+        "withdrawals",
     )
 
     block_hash: Hash = Field(..., alias="hash")
@@ -163,3 +173,10 @@ class RPCBlock(RPCResponseModel):
     """Absent before Cancun."""
     requests_hash: Hash | None = None
     """Absent before Prague."""
+    withdrawals: List[RPCWithdrawal] | None = None
+    """
+    Absent before Shanghai.
+
+    An empty list is meaningful and is not omitted: from Shanghai onwards
+    a block always reports its withdrawals, even when there are none.
+    """
