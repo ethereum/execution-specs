@@ -314,3 +314,25 @@ def test_state_reads_query_the_head_block() -> None:
 
     assert balance.params[1] == "0x1"
     assert balance.result == "0x7"
+
+
+def test_explicit_check_requires_an_expectation() -> None:
+    """
+    A check must expect an error or a null, and not both.
+
+    Anything else has a spec-derived value and belongs to derivation; a
+    hand-written result would reintroduce the maintained expectation this
+    design avoids.
+    """
+    from execution_testing.specs.blockchain import RPCExpectation
+
+    with pytest.raises(ValueError, match="error code or a null"):
+        RPCExpectation(method="eth_getBlockByNumber", params=["0x1"])
+
+    with pytest.raises(ValueError, match="both an error and a result"):
+        RPCExpectation(
+            method="eth_getBlockByNumber",
+            params=["0x1"],
+            error_code=-32602,
+            expect_null=True,
+        )

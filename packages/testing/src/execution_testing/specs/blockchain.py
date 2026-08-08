@@ -80,6 +80,7 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.fixtures.common import (
     FixtureBlobSchedule,
+    FixtureRPCCall,
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
@@ -182,6 +183,43 @@ def payload_metadata_to_fixture(
         forkchoice_updated_version=meta.forkchoice_updated_version,
         phase=phase,
     )
+
+
+class RPCExpectation(CamelModel):
+    """
+    An explicitly authored JSON-RPC check, declared alongside the blocks.
+
+    Derivation reads its parameters off the chain, so it can only ever ask
+    questions the chain answers. It cannot express a reversed block range,
+    a hash that belongs to nothing, or a block tag, because no chain
+    produces those. Those are declared here instead.
+
+    A result is never written by hand — that would reintroduce the
+    hand-maintained expectation this design exists to avoid. Only the two
+    outcomes with no spec-derived value are expressible: an error code, or
+    an explicit null for a lookup that should find nothing.
+    """
+
+    method: str
+    params: List[Any] = Field(default_factory=list)
+    error_code: int | None = None
+    """The JSON-RPC error code expected. Messages are never compared."""
+    expect_null: bool = False
+    """Expect a successful response whose result is null."""
+
+    def model_post_init(self, __context: Any) -> None:
+        """Reject a check that asserts nothing, or two things at once."""
+        super().model_post_init(__context)
+        if self.error_code is None and not self.expect_null:
+            raise ValueError(
+                f"{self.method}: an explicit check must expect either an "
+                "error code or a null result; anything else has a "
+                "spec-derived value and should be left to derivation"
+            )
+        if self.error_code is not None and self.expect_null:
+            raise ValueError(
+                f"{self.method}: cannot expect both an error and a result"
+            )
 
 
 class Header(CamelModel):
@@ -742,6 +780,13 @@ class BlockchainTest(BaseTest):
     """
     Include transaction receipts in the fixture output.
     """
+    rpc_checks: List[RPCExpectation] = Field(default_factory=list)
+    """
+    Explicit JSON-RPC checks for cases derivation cannot reach.
+
+    Emitted only alongside the derived section, so a test declaring these
+    must also carry the `rpc` marker.
+    """
     emit_rpc_expectations: bool = False
     """
     Derive JSON-RPC expectations for the resulting chain.
@@ -1234,8 +1279,9 @@ class BlockchainTest(BaseTest):
             ),
         )
         if self.emit_rpc_expectations:
-            fixture.rpc = derive_rpc_calls_for_blocks(
-                fixture_blocks, post_state=alloc
+            fixture.rpc = (
+                derive_rpc_calls_for_blocks(fixture_blocks, post_state=alloc)
+                + self.explicit_rpc_calls()
             )
         return FillResult(
             fixture=fixture,
@@ -1245,6 +1291,18 @@ class BlockchainTest(BaseTest):
             benchmark_opcode_count=benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
         )
+
+    def explicit_rpc_calls(self) -> List[FixtureRPCCall]:
+        """Return the author-declared checks as fixture calls."""
+        return [
+            FixtureRPCCall(
+                method=check.method,
+                params=check.params,
+                error_code=check.error_code,
+                result=None,
+            )
+            for check in self.rpc_checks
+        ]
 
     def make_hive_fixture(
         self,
@@ -1396,8 +1454,9 @@ class BlockchainTest(BaseTest):
             fixture = BlockchainEngineFixture(**fixture_data)
 
         if self.emit_rpc_expectations:
-            fixture.rpc = derive_rpc_calls_for_blocks(
-                rpc_blocks, post_state=alloc
+            fixture.rpc = (
+                derive_rpc_calls_for_blocks(rpc_blocks, post_state=alloc)
+                + self.explicit_rpc_calls()
             )
 
         return FillResult(

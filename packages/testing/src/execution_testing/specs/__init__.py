@@ -14,6 +14,7 @@ from .blockchain import (
     BlockchainTestFiller,
     BlockchainTestSpec,
     Header,
+    RPCExpectation,
 )
 from .state import StateTest, StateTestFiller, StateTestSpec
 from .transaction import (
@@ -37,6 +38,7 @@ __all__ = (
     "BlockchainTestSpec",
     "Block",
     "Header",
+    "RPCExpectation",
     "OpcodeTarget",
     "StateTest",
     "StateTestFiller",
