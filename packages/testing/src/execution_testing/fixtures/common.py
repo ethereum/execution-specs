@@ -31,6 +31,29 @@ from execution_testing.test_types.transaction_types import (
 )
 
 
+class FixtureRPCCall(CamelModel):
+    """
+    A JSON-RPC request paired with the response the spec requires.
+
+    The result is derived from the transition tool's own output rather than
+    recorded from a client, so it is an assertion about the specification
+    rather than about any implementation. Storing it in the fixture keeps
+    the expectation pinned to the released artifact instead of to whichever
+    version of the consumer happens to replay it.
+    """
+
+    method: str
+    params: List[Any] = Field(default_factory=list)
+    result: Any = None
+    error_code: int | None = None
+    """
+    Set when the call is expected to fail.
+
+    Error *messages* are client-specific wording and are never compared;
+    only the code and the shape of the error are.
+    """
+
+
 class FixtureForkBlobSchedule(CamelModel):
     """Representation of the blob schedule of a given fork."""
 

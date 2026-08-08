@@ -73,6 +73,7 @@ from .base import BaseFixture, FixtureFillingPhase
 from .common import (
     FixtureAuthorizationTuple,
     FixtureBlobSchedule,
+    FixtureRPCCall,
     FixtureTransactionReceipt,
 )
 
@@ -853,6 +854,16 @@ class BlockchainFixture(BlockchainFixtureCommon):
     blocks: List[FixtureBlock | InvalidFixtureBlock]
     seal_engine: Literal["NoProof"] = Field("NoProof")
     transition_tool_cache_key: ClassVar[str] = "blockchain_test"
+
+    rpc: List[FixtureRPCCall] | None = None
+    """
+    JSON-RPC expectations derived from this chain.
+
+    Populated only for tests marked `rpc`, because the derivation branches
+    on the shape of the blocks rather than on what the test exercises, so
+    emitting it corpus-wide would grow the release artifact without adding
+    coverage.
+    """
 
 
 @post_state_validator()

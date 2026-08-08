@@ -77,6 +77,7 @@ from execution_testing.forks import (
     TransitionFork,
     get_transition_forks,
 )
+from execution_testing.rpc.serialization import derive_rpc_calls
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import FillResult, OpMode
 from execution_testing.test_types import EnvironmentDefaults
@@ -1736,6 +1737,10 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     and fill_result.post_verifications is not None
                 ):
                     fixture.post_verifications = fill_result.post_verifications
+                if request.node.get_closest_marker(
+                    "rpc"
+                ) is not None and isinstance(fixture, BlockchainFixture):
+                    fixture.rpc = derive_rpc_calls(fixture)
                 # If operation mode is benchmarking, check the gas used.
                 self.validate_benchmark_gas(
                     benchmark_gas_used=fill_result.benchmark_gas_used,
