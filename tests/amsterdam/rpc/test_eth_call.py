@@ -171,3 +171,39 @@ def test_declared_call_at_historical_states(
             ),
         ],
     )
+
+
+def test_declared_call_sees_its_own_gas_bought(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    A probe reporting the balance of whoever called it.
+
+    The subtlest agreement in the whole method, and the one a derivation
+    is most likely to get wrong. A message is charged for its gas before
+    its frame runs, exactly as a transaction is, so a contract reading
+    its caller's balance sees the debited figure rather than the stored
+    one. Deriving the answer from the state as stored would produce a
+    value that looks right and is wrong by `gas * gasPrice`.
+
+    It only bites because the message states an explicit price. A client
+    left to default `gasPrice` would buy gas for nothing and see the
+    undebited balance, which is the concrete reason the price is stated
+    rather than left out.
+    """
+    probe = pre.deploy_contract(
+        Op.MSTORE(0, Op.BALANCE(Op.CALLER)) + Op.RETURN(0, 32)
+    )
+    sender = pre.fund_eoa()
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[Transaction(sender=sender, to=probe)])],
+        post={},
+        rpc_checks=[
+            RPCExpectation(
+                method="eth_call",
+                params=[{"from": sender, "to": probe}, "0x0"],
+                derive_result=True,
+            )
+        ],
+    )
