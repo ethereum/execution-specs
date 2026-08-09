@@ -1028,6 +1028,8 @@ def process_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
+    *,
+    asserted_sender: Optional[Address] = None,
 ) -> vm.TransactionResult:
     """
     Execute a transaction against the provided environment.
@@ -1051,6 +1053,12 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+    asserted_sender :
+        The sender named by the caller, for a transaction that carries no
+        signature to recover one from. Forwarded unchanged to
+        `check_transaction`, which is where asserting a sender takes
+        effect and where what it waives is described. Consensus block
+        execution leaves this as ``None``.
 
     Returns
     -------
@@ -1075,7 +1083,13 @@ def process_transaction(
             actual=tx_chain_id,
         )
 
-    tx_env = check_transaction(block_env, block_output, tx, index)
+    tx_env = check_transaction(
+        block_env,
+        block_output,
+        tx,
+        index,
+        asserted_sender=asserted_sender,
+    )
 
     update_sender_state(block_env, tx_env, tx)
 
