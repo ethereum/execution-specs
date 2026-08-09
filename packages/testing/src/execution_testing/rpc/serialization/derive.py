@@ -400,14 +400,7 @@ def _malformed_key_calls(
     Addressed to an account that exists, so the only defect in the request
     is the key and a client has no other ground on which to refuse it.
     """
-    addressee = next(
-        (
-            address
-            for address in touched_accounts(blocks)
-            if accounts.get(address) is not None
-        ),
-        None,
-    )
+    addressee = _first_stored_account(accounts, blocks)
     if addressee is None:
         return []
     return [
@@ -523,37 +516,81 @@ def _blob_base_fee_call(
     ]
 
 
-GAS_PRICE_ORACLES = ("eth_gasPrice",)
+SHAPE_ONLY_METHODS = (
+    "eth_gasPrice",
+    "eth_maxPriorityFeePerGas",
+    "eth_syncing",
+)
 """
-Methods whose answer is a client's own suggestion rather than a fact.
+Parameterless methods whose answer no specification determines.
 
-A gas-price oracle reports what the client would advise paying next. No
-specification fixes the heuristic — geth samples recent blocks, others
-differ, and every answer is correct — so there is nothing here for the
-Python spec to derive and nothing a recorded corpus could pin either:
-`rpc-compat` has no test for any of them.
+Two kinds, both ending in the same place. `eth_gasPrice` and
+`eth_maxPriorityFeePerGas` are oracle suggestions — a client reports what
+it would advise paying next, the heuristic is its own, and every answer is
+correct. `eth_syncing` reports a client's opinion of its own progress,
+which is a fact about the process rather than about the chain; a consumer
+here has imported the chain and would expect `false`, but that is the
+harness's expectation of a client, not the spec's.
 
-The shape is specified even where the value is not, so the response is
-held to the method's OpenRPC result schema and to nothing else. That is
-the same compromise `rpc-compat` makes with its `speconly` tests, and it
-is worth stating plainly how little it buys for this particular family:
-the result schema is a bare quantity pattern, so all it establishes is
-that the client answers at all and answers with an unpadded hex number.
+The shape is specified even where the value is not, so each response is
+held to its OpenRPC result schema and to nothing else — the compromise
+`rpc-compat` makes with its `speconly` tests. How much that buys varies
+sharply and is worth stating plainly rather than counting as three equal
+methods: the two oracles have a bare quantity pattern for a schema, so
+all they establish is that the client answers and answers with an
+unpadded hex number, while `eth_syncing` at least pins a choice between
+`false` and an object with three named quantities and no other fields.
 """
 
 
-def _shape_only_calls() -> List[FixtureRPCCall]:
+def _shape_only_calls(
+    accounts: Any, blocks: Sequence[Any], block_tag: str
+) -> List[FixtureRPCCall]:
     """
     Return the calls whose value no specification determines.
 
-    Enumerated unconditionally rather than authored, on the same grounds as
-    the block tags: they take no parameters, so there is nothing for a test
-    to choose, and one short string each is the entire cost.
+    The parameterless ones are enumerated unconditionally, on the same
+    grounds as the block tags: nothing is left for a test to choose and one
+    short string each is the entire cost.
+
+    `eth_getStorageValues` needs an account and a slot, which are read off
+    the chain like every other parameter here. Its *value* is derivable in
+    principle — the post-state holds it — but the schema types a slot value
+    as `hex encoded bytes` with no fixed width, so whether the answer is
+    32 bytes or a trimmed quantity is a client's choice rather than a
+    specified one. Pinning it would enshrine whichever spelling we happened
+    to measure, which is precisely the trap this suite exists to avoid.
     """
-    return [
+    calls = [
         FixtureRPCCall(method=method, params=[], assertion="schema")
-        for method in GAS_PRICE_ORACLES
+        for method in SHAPE_ONLY_METHODS
     ]
+    addressee = _first_stored_account(accounts, blocks)
+    if addressee is not None:
+        calls.append(
+            FixtureRPCCall(
+                method="eth_getStorageValues",
+                params=[{str(addressee): [str(Hash(0))]}, block_tag],
+                assertion="schema",
+            )
+        )
+    return calls
+
+
+def _first_stored_account(
+    accounts: Any, blocks: Sequence[Any]
+) -> Address | None:
+    """Return a touched account the post-state actually holds, if any."""
+    if accounts is None:
+        return None
+    return next(
+        (
+            address
+            for address in touched_accounts(blocks)
+            if accounts.get(address) is not None
+        ),
+        None,
+    )
 
 
 def derive_rpc_calls_for_blocks(
@@ -749,7 +786,15 @@ def derive_rpc_calls_for_blocks(
         )
     )
     calls.extend(_absent_entity_calls())
-    calls.extend(_shape_only_calls())
+    calls.extend(
+        _shape_only_calls(
+            None
+            if post_state is None
+            else getattr(post_state, "root", post_state),
+            blocks,
+            hex(highest_block),
+        )
+    )
 
     _reject_unsatisfiable(calls)
     return calls

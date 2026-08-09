@@ -68,6 +68,7 @@ SHAPE_ONLY_ANSWERS = {
     "eth_gasPrice": "0x3b9aca00",
     "eth_maxPriorityFeePerGas": "0x0",
     "eth_syncing": False,
+    "eth_getStorageValues": {},
 }
 """
 A schema-conformant answer for each method asserted on shape alone.

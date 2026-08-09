@@ -1118,3 +1118,44 @@ def test_a_partial_expectation_survives_the_guard() -> None:
                 )
             ]
         )
+
+
+def test_shape_only_methods_are_all_derived() -> None:
+    """
+    Each method with no derivable answer is enumerated exactly once.
+
+    Pinned as a list rather than as a count, so adding one to the tier is
+    a deliberate act with a visible diff. A schema-only call inflates the
+    apparent size of a run's coverage without adding to its strength, and
+    that trade should never be made silently.
+    """
+    calls = derive_rpc_calls(make_fixture([make_block([], [])]))
+
+    weakest = [c.method for c in calls if c.assertion == "schema"]
+    assert weakest == [
+        "eth_gasPrice",
+        "eth_maxPriorityFeePerGas",
+        "eth_syncing",
+    ]
+    assert all(c.result is None for c in calls if c.assertion == "schema")
+
+
+def test_storage_values_names_an_account_the_chain_holds() -> None:
+    """
+    Its parameters are read off the chain, like every other call here.
+
+    Only the value is unasserted. Addressing an account that does not
+    exist would leave the client free to refuse the request, and a
+    refusal would then pass for a well-formed answer.
+    """
+    from execution_testing.test_types.account_types import Account
+
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+    fixture = make_fixture([block])
+    fixture.post_state = {RECIPIENT: Account(balance=1)}  # type: ignore
+
+    calls = derive_rpc_calls(fixture)
+
+    stored = next(c for c in calls if c.method == "eth_getStorageValues")
+    assert stored.assertion == "schema"
+    assert list(stored.params[0]) == [str(RECIPIENT)]
