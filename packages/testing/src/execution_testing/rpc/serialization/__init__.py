@@ -13,6 +13,7 @@ from .derive import derive_rpc_calls, derive_rpc_calls_for_blocks
 from .execution import (
     ACCESS_LIST_ROUNDS,
     CALL_GAS_LIMIT,
+    EXECUTED_METHODS,
     REVERT_ERROR_CODE,
     AccessListOutcome,
     CallOutcome,
@@ -72,6 +73,7 @@ __all__ = [
     "ACCESS_LIST_ROUNDS",
     "CALL_GAS_LIMIT",
     "COMPUTABLE_METHODS",
+    "EXECUTED_METHODS",
     "REVERT_ERROR_CODE",
     "AccessListOutcome",
     "CallOutcome",

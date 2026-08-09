@@ -74,6 +74,18 @@ Fund it in the pre-alloc with `pre.fund_address`, which takes a bare
 address."""
 
 
+EXECUTED_METHODS = frozenset({"eth_call", "eth_createAccessList"})
+"""
+The declared methods whose answer comes from running a message.
+
+Both need a state per block rather than only the chain's last one,
+because a declared message names whichever block it likes. Collecting
+those states costs a materialization per block, so a test that declares
+neither method should not pay for them; naming the two here is what lets
+the generator tell the difference.
+"""
+
+
 ACCESS_LIST_ROUNDS = 8
 """
 The most times a message is re-run while its access list settles.
@@ -739,6 +751,7 @@ def compute_declared_access_list(
 
 __all__ = [
     "ACCESS_LIST_ROUNDS",
+    "EXECUTED_METHODS",
     "BLOCK_TAGS_NO_CHAIN_DETERMINES",
     "CALL_GAS_LIMIT",
     "REVERT_ERROR_CODE",

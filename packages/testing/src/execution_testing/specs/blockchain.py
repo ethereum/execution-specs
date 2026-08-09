@@ -88,6 +88,7 @@ from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork
 from execution_testing.rpc.serialization import (
     COMPUTABLE_METHODS,
+    EXECUTED_METHODS,
     derive_rpc_calls_for_blocks,
 )
 from execution_testing.rpc.serialization.execution import (
@@ -1454,7 +1455,7 @@ class BlockchainTest(BaseTest):
         collects that itself.
         """
         return any(
-            check.method == "eth_call" and check.derive_result
+            check.method in EXECUTED_METHODS and check.derive_result
             for check in self.rpc_checks
         )
 
