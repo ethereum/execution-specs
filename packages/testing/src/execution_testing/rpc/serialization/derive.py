@@ -39,9 +39,11 @@ from .execution import (
     REVERT_ERROR_CODE,
     CallReplay,
     CallSite,
+    DeclaredAccessList,
     DeclaredCall,
     UnrunnableCallError,
     call_message,
+    create_access_list,
     run_call,
 )
 from .filters import compute_result
@@ -492,6 +494,63 @@ def _replayed_call_calls(
     return calls
 
 
+def _replayed_access_list_calls(
+    replays: Sequence[CallReplay],
+) -> List[FixtureRPCCall]:
+    """
+    Return an `eth_createAccessList` for each message the chain replayed.
+
+    The same messages `_replayed_call_calls` runs, asked a different
+    question: not what the message returned but what it *touched*, and
+    what it would cost with that declared up front.
+
+    This is the method where a derived expectation most clearly beats a
+    recorded one. execution-apis has four `eth_createAccessList` tests and
+    marks every one of them `speconly` — asserting the shape of the
+    response and nothing about its value — because the recording client's
+    answer was not treated as authoritative. The touched set is not a
+    matter of opinion, though: it follows from executing the message, so
+    the specification can state it exactly.
+
+    A reverting message is stored one rung weaker. A client reports the
+    revert as a free-text `error` field beside the list rather than as a
+    JSON-RPC error, and the wording is its own; see `AccessListOutcome`.
+    """
+    calls: List[FixtureRPCCall] = []
+    for replay in replays:
+        try:
+            outcome = create_access_list(
+                replay.site,
+                sender=replay.sender,
+                to=replay.to,
+                data=replay.data,
+                value=replay.value,
+                gas=replay.gas,
+            )
+        except UnrunnableCallError as unrunnable:
+            logger.info(f"no eth_createAccessList derived: {unrunnable}")
+            continue
+        calls.append(
+            FixtureRPCCall(
+                method="eth_createAccessList",
+                params=[
+                    call_message(
+                        sender=replay.sender,
+                        to=replay.to,
+                        data=replay.data,
+                        value=replay.value,
+                        gas=replay.gas,
+                        gas_price=replay.site.gas_price,
+                    ),
+                    hex(replay.site.number),
+                ],
+                result=outcome.result,
+                assertion=outcome.assertion,
+            )
+        )
+    return calls
+
+
 def _declared_calls(
     declared: Sequence[Any],
     logs: Sequence[Any],
@@ -505,40 +564,44 @@ def _declared_calls(
     which `RPCExpectation` enforces at construction and this reasserts by
     having nowhere to put one.
 
-    A computed answer is usually the result. `eth_call` is the exception,
-    because it is executed rather than selected and an execution can
-    revert, which a client reports as an error rather than a result. Its
-    outcome therefore decides which of the two the expectation becomes,
-    instead of the author having to know in advance which way the message
-    will go.
+    A computed answer is usually the result. The two executed methods are
+    the exceptions, because an execution can revert and neither of them
+    reports a revert as a result. `eth_call` reports it as a JSON-RPC
+    error, and `eth_createAccessList` as free text beside a list it still
+    computed, which is only honest at the `partial` tier. Either way the
+    outcome decides what the expectation becomes, instead of the author
+    having to know in advance which way the message will go.
     """
     calls: List[FixtureRPCCall] = []
     for check in declared:
         result = None
         params = check.params
         error_code = check.error_code
+        assertion = (
+            "schema" if getattr(check, "schema_only", False) else "exact"
+        )
         if getattr(check, "derive_result", False):
             result = compute_result(
                 check.method, check.params, logs, call_sites
             )
             if isinstance(result, DeclaredCall):
                 # A call's parameters are completed by derivation, not
-                # stored as written; see `compute_declared_call`.
+                # stored as written; see `_declared_message`.
                 params = result.params
                 reverted = result.outcome.reverted
                 error_code = REVERT_ERROR_CODE if reverted else None
                 result = None if reverted else result.outcome.return_data
+            elif isinstance(result, DeclaredAccessList):
+                params = result.params
+                assertion = result.outcome.assertion
+                result = result.outcome.result
         calls.append(
             FixtureRPCCall(
                 method=check.method,
                 params=params,
                 error_code=error_code,
                 result=result,
-                assertion=(
-                    "schema"
-                    if getattr(check, "schema_only", False)
-                    else "exact"
-                ),
+                assertion=assertion,
             )
         )
     return calls
@@ -851,11 +914,11 @@ def derive_rpc_calls_for_blocks(
     result is still computed here from the chain's own logs — see
     `_declared_calls`.
 
-    `call_replays` carries the messages to execute for `eth_call`, each
-    paired with the state it runs against. They are assembled during
-    generation rather than read off the blocks here, because a finished
-    fixture keeps neither the signing keys nor the intermediate states a
-    call needs; see `_replayed_call_calls`.
+    `call_replays` carries the messages to execute for `eth_call` and
+    `eth_createAccessList`, each paired with the state it runs against.
+    They are assembled during generation rather than read off the blocks
+    here, because a finished fixture keeps neither the signing keys nor
+    the intermediate states a call needs; see `_replayed_call_calls`.
 
     `call_sites` carries one state per block, and is supplied only where
     a test declared a call of its own — a declared message names whatever
@@ -1009,6 +1072,7 @@ def derive_rpc_calls_for_blocks(
     calls.extend(_tag_calls(head if head is not None else genesis, genesis))
     calls.extend(_forkchoice_tag_calls(blocks, forkchoice_tags))
     calls.extend(_replayed_call_calls(call_replays))
+    calls.extend(_replayed_access_list_calls(call_replays))
     calls.extend(_declared_calls(declared, all_logs, call_sites))
     calls.extend(
         _state_calls(

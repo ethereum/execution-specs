@@ -351,6 +351,13 @@ class ForkLoad:
         return self._module("utils.hexadecimal").hex_to_root
 
     @property
+    def PRE_COMPILED_CONTRACTS(self) -> Any:
+        """Precompiled contracts of the fork, keyed by address."""
+        return self._module(
+            "vm.precompiled_contracts.mapping"
+        ).PRE_COMPILED_CONTRACTS
+
+    @property
     def BlockEnvironment(self) -> Any:
         """Block environment class of the fork."""
         return self._module("vm").BlockEnvironment

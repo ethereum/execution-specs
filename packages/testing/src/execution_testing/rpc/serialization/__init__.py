@@ -11,15 +11,21 @@ and vectors can exist before any client implements a feature.
 
 from .derive import derive_rpc_calls, derive_rpc_calls_for_blocks
 from .execution import (
+    ACCESS_LIST_ROUNDS,
     CALL_GAS_LIMIT,
     REVERT_ERROR_CODE,
+    AccessListOutcome,
     CallOutcome,
     CallReplay,
     CallSite,
+    DeclaredAccessList,
     DeclaredCall,
+    MessageResult,
     UnrunnableCallError,
     call_message,
+    compute_declared_access_list,
     compute_declared_call,
+    create_access_list,
     environment_at,
     run_call,
 )
@@ -63,13 +69,17 @@ from .types import (
 )
 
 __all__ = [
+    "ACCESS_LIST_ROUNDS",
     "CALL_GAS_LIMIT",
     "COMPUTABLE_METHODS",
     "REVERT_ERROR_CODE",
+    "AccessListOutcome",
     "CallOutcome",
     "CallReplay",
     "CallSite",
+    "DeclaredAccessList",
     "DeclaredCall",
+    "MessageResult",
     "UncomputableCallError",
     "UnrunnableCallError",
     "RPCAccessListEntry",
@@ -90,8 +100,10 @@ __all__ = [
     "block_response",
     "contract_address",
     "call_message",
+    "compute_declared_access_list",
     "compute_declared_call",
     "compute_result",
+    "create_access_list",
     "derive_rpc_calls",
     "derive_rpc_calls_for_blocks",
     "effective_gas_price",

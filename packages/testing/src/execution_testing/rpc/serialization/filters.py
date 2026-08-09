@@ -15,7 +15,11 @@ never the answer.
 
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence
 
-from .execution import UnrunnableCallError, compute_declared_call
+from .execution import (
+    UnrunnableCallError,
+    compute_declared_access_list,
+    compute_declared_call,
+)
 
 if TYPE_CHECKING:
     from .execution import CallSite
@@ -136,25 +140,31 @@ def compute_result(
     """
     Return the spec's answer to a declared call.
 
-    Two rules exist, and they answer in different currencies. A filter is
-    a *selection* over data the chain already produced, so its answer is
-    the result itself. A call is an *execution*, which can end in a
-    revert, and a revert is reported as an error rather than a result —
-    so `eth_call` answers with a `CallOutcome` and the caller decides
-    which of the two the expectation becomes. Anything else has to be
-    enumerated, expected to error, or expected to be null.
+    Three rules exist, and they answer in different currencies. A filter
+    is a *selection* over data the chain already produced, so its answer
+    is the result itself. The other two are *executions*, which can end in
+    a revert, and the two methods report one differently: `eth_call`
+    reports it as a JSON-RPC error, while `eth_createAccessList` reports
+    it as a string beside an otherwise complete result. Each therefore
+    answers with its own outcome object and the caller decides what the
+    expectation becomes. Anything else has to be enumerated, expected to
+    error, or expected to be null.
     """
     if method == "eth_getLogs":
         return filter_logs(logs, params)
     if method == "eth_call":
         return compute_declared_call(params, call_sites)
+    if method == "eth_createAccessList":
+        return compute_declared_access_list(params, call_sites)
     raise UncomputableCallError(
         f"{method} has no rule for computing a declared result; it must "
         "expect an error or a null instead"
     )
 
 
-COMPUTABLE_METHODS = frozenset({"eth_getLogs", "eth_call"})
+COMPUTABLE_METHODS = frozenset(
+    {"eth_getLogs", "eth_call", "eth_createAccessList"}
+)
 """
 Methods a declared call may ask to have computed.
 

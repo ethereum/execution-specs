@@ -1,5 +1,5 @@
 """
-Answer an `eth_call` by running one message against a named state.
+Answer a call-shaped request by running one message against a state.
 
 Every other JSON-RPC expectation the testing package derives is a
 *projection*: the transition tool already computed the answer and the
@@ -32,10 +32,22 @@ the sender be an externally owned account -- both being properties of a
 sender derived from a signature. A call may therefore name any address,
 including a contract and the zero address, which is what a client allows
 and what the tool could not express while it had to sign.
+
+## The warm sets
+
+`eth_createAccessList` needs more than the return data: it needs the
+addresses and storage slots the message touched. The EVM already tracks
+both, as `accessed_addresses` and `accessed_storage_keys` on the frame,
+because warm-versus-cold pricing depends on them — so nothing is
+re-tracked here. What is needed is a way to *read* them, and the
+specification already publishes the settled top-level frame to a tracer
+when it emits `TransactionEnd`. The tracer installed by `run` keeps that
+frame instead of discarding it, which is why this needs no change to any
+fork.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Final, Optional
+from typing import TYPE_CHECKING, Any, Dict, Final, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, Uint
@@ -57,6 +69,22 @@ if TYPE_CHECKING:
     )
 
 
+@dataclass(frozen=True)
+class AccessListEntry:
+    """
+    One address, and the storage slots of it the message touched.
+
+    The shape EIP-2930 gives an access-list entry, and the shape
+    `eth_createAccessList` answers in.
+    """
+
+    address: Bytes
+    """The account the entry declares."""
+
+    storage_keys: Tuple[Bytes, ...]
+    """Its touched slots, ascending; empty when only the account was."""
+
+
 @dataclass
 class CallResult:
     """
@@ -66,6 +94,11 @@ class CallResult:
     carried too because it decides *how* the data is reported: a revert
     returns its data under an error object, while a successful call
     returns it as the result.
+
+    The gas and the access list are for `eth_createAccessList`, which
+    reports both. They are collected unconditionally rather than behind a
+    flag, because the EVM tracks them whatever the caller asked for and
+    reading them off the settled frame costs nothing.
     """
 
     return_data: Bytes
@@ -74,10 +107,110 @@ class CallResult:
     error: Optional[EthereumException]
     """The error the message halted with, if any."""
 
+    gas_used: Uint = Uint(0)
+    """Gas charged to the sender, after refunds."""
+
+    access_list: Tuple[AccessListEntry, ...] = ()
+    """
+    The entries an access list would have to declare; see
+    `declarable_access_list`.
+    """
+
     @property
     def succeeded(self) -> bool:
         """Return whether the message ran to completion."""
         return self.error is None
+
+
+def _frame_attribute(evm: Any, name: str) -> Any:
+    """
+    Read a frame parameter, whichever shape the fork's frame has.
+
+    A frame's parameters live directly on `Evm` in later forks and on the
+    `Message` it holds in earlier ones. Both are the specification's own
+    layout, so the reader accommodates them rather than picking one.
+    """
+    try:
+        return getattr(evm, name)
+    except AttributeError:
+        return getattr(evm.message, name)
+
+
+def declarable_access_list(
+    evm: Any, precompiles: Set[Any]
+) -> Tuple[AccessListEntry, ...]:
+    """
+    Return the entries an access list for `evm`'s message would declare.
+
+    The warm sets are read off the settled top-level frame; the work here
+    is deciding which of their members are worth declaring, and the answer
+    follows from what an access list is *for*. Declaring an entry costs
+    gas and buys warmth, so an address that is already warm by rule buys
+    nothing and is left out:
+
+    - **the precompiles**, warmed at the start of every transaction;
+    - **the sender**, likewise;
+    - **the recipient** — for a creation, the address being created;
+    - **the fee recipient**, on the forks that warm it.
+
+    The first three are excluded on the strength of the specification
+    rather than on any client's convention. Storage slots have no such
+    rule — the recipient's own slots start cold — so all of them are
+    declared, which is why an excluded address can still appear here
+    carrying slots.
+
+    The fee recipient is excluded unconditionally, including on the forks
+    that do not warm it. The two cases differ only for a message whose
+    opcodes *name* the fee recipient, which is then dropped from a list it
+    belongs in; a warming fork would drop it from a list it does not
+    belong in either way, so one exotic shape is mis-answered rather than
+    two rules maintained.
+
+    Two further cases the specification and go-ethereum answer
+    differently, both documented rather than reconciled:
+
+    - **An address created during the message.** The specification warms
+      it, so it is warm here and excluded from nothing; go-ethereum's
+      tracer watches opcodes and never sees a created address, so it omits
+      it. Declaring it would be pointless — a created account is warm for
+      free — so go-ethereum is right and this is not.
+    - **A frame that reverted.** The specification discards a failed
+      child's warm sets, as the pricing rules require; go-ethereum's
+      tracer keeps them. Declaring what a reverted frame touched *would*
+      pay off if the frame is retried, so go-ethereum is arguably right
+      here too.
+
+    A fork predating warm-and-cold accounting has no sets to read and
+    yields nothing.
+
+    Both levels are sorted ascending. An access list is a set and no
+    specification fixes an order for one, so an order is chosen here only
+    to make the derived value reproducible from run to run.
+    """
+    warm_addresses = getattr(evm, "accessed_addresses", None)
+    if warm_addresses is None:
+        return ()
+    warm_slots = evm.accessed_storage_keys
+
+    rule_warmed = set(precompiles)
+    rule_warmed.add(_frame_attribute(evm, "tx_env").origin)
+    rule_warmed.add(_frame_attribute(evm, "current_target"))
+    rule_warmed.add(_frame_attribute(evm, "block_env").coinbase)
+
+    slots_by_address: Dict[Any, Set[Any]] = {}
+    for address, key in warm_slots:
+        slots_by_address.setdefault(address, set()).add(key)
+
+    declared = set(warm_addresses) - rule_warmed | set(slots_by_address)
+    return tuple(
+        AccessListEntry(
+            address=Bytes(address),
+            storage_keys=tuple(
+                Bytes(key) for key in sorted(slots_by_address.get(address, ()))
+            ),
+        )
+        for address in sorted(declared)
+    )
 
 
 class EthCall(Load):
@@ -155,8 +288,19 @@ class EthCall(Load):
         # Tracing is a process-global setting, and a fill run has an
         # opcode counter installed for the benchmark path. A call is not
         # part of any block, so letting it reach that counter would
-        # attribute opcodes to a block that never executed them.
-        previous_tracer = trace.set_evm_trace(trace.discard_evm_trace)
+        # attribute opcodes to a block that never executed them. The
+        # tracer installed instead discards every event but one: the
+        # frame handed to `TransactionEnd` is the settled top-level frame,
+        # and its warm sets are what an access list is derived from.
+        settled: List[Any] = []
+
+        def keep_the_top_level_frame(
+            evm: object, event: trace.TraceEvent
+        ) -> None:
+            if isinstance(event, trace.TransactionEnd):
+                settled.append(evm)
+
+        previous_tracer = trace.set_evm_trace(keep_the_top_level_frame)
         try:
             result = self.fork.process_transaction(
                 block_env,
@@ -168,9 +312,26 @@ class EthCall(Load):
         finally:
             trace.set_evm_trace(previous_tracer)
 
+        # A message rejected before its frame was built emits no
+        # `TransactionEnd`, having no frame to report; it touched nothing.
+        access_list = (
+            declarable_access_list(
+                settled[-1], set(self.fork.PRE_COMPILED_CONTRACTS)
+            )
+            if settled
+            else ()
+        )
         return CallResult(
-            return_data=Bytes(result.return_data), error=result.error
+            return_data=Bytes(result.return_data),
+            error=result.error,
+            gas_used=result.gas_used,
+            access_list=access_list,
         )
 
 
-__all__ = ["CallResult", "EthCall"]
+__all__ = [
+    "AccessListEntry",
+    "CallResult",
+    "EthCall",
+    "declarable_access_list",
+]

@@ -1,5 +1,5 @@
 """
-Derive `eth_call` expectations by executing a message against the chain.
+Derive call-shaped expectations by executing a message against the chain.
 
 Every other method in this package is a projection: the transition tool
 already computed the answer and the code here reformats it. `eth_call` is
@@ -72,6 +72,21 @@ balance sees. An address the test holds no key for is fine — the sender
 is asserted, not recovered — but an address holding nothing is not.
 Fund it in the pre-alloc with `pre.fund_address`, which takes a bare
 address."""
+
+
+ACCESS_LIST_ROUNDS = 8
+"""
+The most times a message is re-run while its access list settles.
+
+Attaching an access list changes what the message costs, so a message
+whose control flow depends on `GAS` can touch something new on the second
+run. The answer is the *fixed point*: re-run with what was found until a
+run finds nothing further, which is what go-ethereum does and the only
+definition under which the reported gas belongs to the reported list.
+
+Convergence is not guaranteed — a contract can be written to oscillate —
+so the loop is bounded and a message that does not settle derives nothing
+rather than looping forever. Every case seen so far settles in two."""
 
 
 CALL_GAS_LIMIT = 30_000_000
@@ -175,6 +190,39 @@ class CallOutcome:
 
 
 @dataclass(frozen=True)
+class AccessListOutcome:
+    """What the specification answers for `eth_createAccessList`."""
+
+    access_list: List[Dict[str, Any]]
+    """The entries a client is expected to report."""
+
+    gas_used: int
+    """What the message costs with those entries attached."""
+
+    reverted: bool
+    """
+    Whether the message halted with a revert.
+
+    A client reports the halt as an `error` string alongside the list
+    rather than as a JSON-RPC error, and the wording is its own, so this
+    decides the tier the expectation is stored at rather than its shape.
+    """
+
+    @property
+    def result(self) -> Dict[str, Any]:
+        """Return the response body a client is expected to produce."""
+        return {
+            "accessList": self.access_list,
+            "gasUsed": hex(self.gas_used),
+        }
+
+    @property
+    def assertion(self) -> str:
+        """Return the tier this outcome can honestly be stored at."""
+        return "partial" if self.reverted else "exact"
+
+
+@dataclass(frozen=True)
 class CallReplay:
     """
     A message to run as a call, and the state to run it against.
@@ -274,7 +322,27 @@ def _account(state: "Alloc", address: Address) -> Any:
     return accounts.get(address)
 
 
-def run_call(
+@dataclass(frozen=True)
+class MessageResult:
+    """Everything one execution of a message produced."""
+
+    return_data: str
+    """Hex-encoded output of the top-level frame."""
+
+    reverted: bool
+    """Whether the message halted with a revert."""
+
+    gas_used: int
+    """Gas charged to the sender, after refunds."""
+
+    access_list: List[Dict[str, Any]]
+    """
+    The entries an access list would declare, in the shape a client
+    answers in. Sorted, and sorted within each entry.
+    """
+
+
+def _run_message(
     site: CallSite,
     *,
     sender: Address,
@@ -282,9 +350,10 @@ def run_call(
     data: Bytes,
     value: int,
     gas: int,
-) -> CallOutcome:
+    access_list: Sequence[Mapping[str, Any]] = (),
+) -> MessageResult:
     """
-    Run one message at `site` and report what the specification answers.
+    Run one message at `site` and report everything it produced.
 
     `sender` is any address at all. The message is unsigned and the
     address is asserted through `process_transaction`, so a contract and
@@ -300,7 +369,12 @@ def run_call(
     second is reported by a code — `-32000` in go-ethereum — that no
     specification fixes, so pinning it would enshrine one client's
     choice.
+
+    `access_list` is what the message carries, not what it produced. It
+    is empty for a call, and for an access-list derivation it is the list
+    the previous round found; see `create_access_list`.
     """
+    from execution_testing.base_types import AccessList
     from execution_testing.test_types import Transaction
 
     gas_price = site.gas_price
@@ -335,11 +409,19 @@ def run_call(
         to=to,
         value=value,
         data=data,
+        access_list=[
+            AccessList(
+                address=Address(entry["address"]),
+                storage_keys=[Hash(key) for key in entry["storageKeys"]],
+            )
+            for entry in access_list
+        ]
+        or None,
         **fees,
     )
 
     # Lazy, and the only place the testing package reaches the spec's own
-    # machinery for this method. See the module docstring.
+    # machinery for these methods. See the module docstring.
     from ethereum.exceptions import EthereumException
     from ethereum_spec_tools.evm_tools.call import EthCall
 
@@ -358,19 +440,99 @@ def run_call(
             f"admitted: {rejected!r}"
         ) from rejected
 
-    return_data = str(Bytes(result.return_data))
-    if result.error is None:
-        return CallOutcome(return_data=return_data, reverted=False)
-    if type(result.error).__name__ == "Revert":
-        return CallOutcome(return_data=return_data, reverted=True)
-    raise UnrunnableCallError(
-        f"a call from {sender} at block {site.number} halted with "
-        f"{result.error!r}, which clients report under a code no "
-        f"specification fixes"
+    if result.error is not None and type(result.error).__name__ != "Revert":
+        raise UnrunnableCallError(
+            f"a call from {sender} at block {site.number} halted with "
+            f"{result.error!r}, which clients report under a code no "
+            f"specification fixes"
+        )
+
+    return MessageResult(
+        return_data=str(Bytes(result.return_data)),
+        reverted=result.error is not None,
+        gas_used=int(result.gas_used),
+        access_list=[
+            {
+                "address": str(Address(entry.address)),
+                "storageKeys": [str(Hash(key)) for key in entry.storage_keys],
+            }
+            for entry in result.access_list
+        ],
     )
 
 
-def _resolve_site(reference: Any, sites: Sequence[CallSite]) -> CallSite:
+def run_call(
+    site: CallSite,
+    *,
+    sender: Address,
+    to: Address | None,
+    data: Bytes,
+    value: int,
+    gas: int,
+) -> CallOutcome:
+    """Run one message at `site` and report what `eth_call` answers."""
+    result = _run_message(
+        site, sender=sender, to=to, data=data, value=value, gas=gas
+    )
+    return CallOutcome(
+        return_data=result.return_data, reverted=result.reverted
+    )
+
+
+def create_access_list(
+    site: CallSite,
+    *,
+    sender: Address,
+    to: Address | None,
+    data: Bytes,
+    value: int,
+    gas: int,
+) -> AccessListOutcome:
+    """
+    Run one message at `site` and report what `eth_createAccessList` says.
+
+    The touched set is not read off a single run. Attaching a list makes
+    its entries warm and charges for them up front, so the gas the method
+    reports — the gas the message would need *with the list attached* —
+    can only come from a run that carried it. The message is therefore
+    re-run with what the previous round found until a round finds nothing
+    new, and the gas reported is that last round's; see
+    `ACCESS_LIST_ROUNDS`.
+
+    A reverting message still has an answer, unlike `eth_call`: a client
+    reports the failure as a string field beside a perfectly good access
+    list rather than as a JSON-RPC error. The string is client wording and
+    is not derived, which is what drops a reverting expectation to the
+    `partial` tier.
+    """
+    declared: List[Dict[str, Any]] = []
+    for _ in range(ACCESS_LIST_ROUNDS):
+        result = _run_message(
+            site,
+            sender=sender,
+            to=to,
+            data=data,
+            value=value,
+            gas=gas,
+            access_list=declared,
+        )
+        if result.access_list == declared:
+            return AccessListOutcome(
+                access_list=declared,
+                gas_used=result.gas_used,
+                reverted=result.reverted,
+            )
+        declared = result.access_list
+    raise UnrunnableCallError(
+        f"the access list for a call from {sender} at block {site.number} "
+        f"did not settle in {ACCESS_LIST_ROUNDS} rounds, so no gas figure "
+        f"belongs to any of the lists found"
+    )
+
+
+def _resolve_site(
+    method: str, reference: Any, sites: Sequence[CallSite]
+) -> CallSite:
     """
     Return the site a declared call's block parameter names.
 
@@ -381,7 +543,7 @@ def _resolve_site(reference: Any, sites: Sequence[CallSite]) -> CallSite:
     """
     if not sites:
         raise UnrunnableCallError(
-            "eth_call has no state to run against: the chain produced no "
+            f"{method} has no state to run against: the chain produced no "
             "block whose end state could be named"
         )
     by_number = {site.number: site for site in sites}
@@ -392,19 +554,19 @@ def _resolve_site(reference: Any, sites: Sequence[CallSite]) -> CallSite:
         return min(sites, key=lambda site: site.number)
     if named in BLOCK_TAGS_NO_CHAIN_DETERMINES:
         raise UnrunnableCallError(
-            f"eth_call at {named!r} names a block no chain determines, so "
+            f"{method} at {named!r} names a block no chain determines, so "
             "there is no state to derive an answer from; name a number"
         )
     try:
         number = int(named, 16)
     except ValueError as malformed:
         raise UnrunnableCallError(
-            f"eth_call block parameter {reference!r} is neither a "
+            f"{method} block parameter {reference!r} is neither a "
             f"quantity nor a tag this chain can resolve"
         ) from malformed
     if number not in by_number:
         raise UnrunnableCallError(
-            f"eth_call names block {number}, which this chain does not "
+            f"{method} names block {number}, which this chain does not "
             f"have; it runs from {min(by_number)} to {max(by_number)}"
         )
     return by_number[number]
@@ -420,30 +582,45 @@ a client's own view of what it might build next.
 
 
 @dataclass(frozen=True)
-class DeclaredCall:
+class DeclaredMessage:
     """
-    A declared call's completed parameters, and the answer to them.
+    A declared call's completed parameters, and where to run them.
 
-    The parameters are returned alongside the answer because they are
-    not the ones the author wrote; see `compute_declared_call`.
+    The parameters are kept alongside the site because they are not the
+    ones the author wrote; see `_declared_message`.
     """
 
     params: List[Any]
     """The parameters as they must be stored, not as they were written."""
 
-    outcome: CallOutcome
-    """What the specification answers for them."""
+    site: CallSite
+    """The block the message names."""
+
+    sender: Address
+    """The account the message is sent from, asserted rather than signed."""
+
+    to: Address | None
+    """The recipient, or None for a creation."""
+
+    data: Bytes
+    """The message's calldata."""
+
+    value: int
+    """The wei the message carries."""
+
+    gas: int
+    """The gas the message is given."""
 
 
-def compute_declared_call(
-    params: Sequence[Any], sites: Sequence[CallSite]
-) -> DeclaredCall:
+def _declared_message(
+    method: str, params: Sequence[Any], sites: Sequence[CallSite]
+) -> DeclaredMessage:
     """
-    Return the specification's answer to a call a test declared.
+    Read a declared message, and complete the fields it left out.
 
     The author supplies the question — enumeration cannot invent a
-    message — and the answer is still computed here, which is the rule
-    every declared check in this package follows.
+    message — and the answer is still computed by the caller, which is the
+    rule every declared check in this package follows.
 
     **The stored message is not the written one.** An author writes the
     part that carries meaning — sender, recipient, calldata, value — and
@@ -463,35 +640,28 @@ def compute_declared_call(
     """
     if len(params) < 2 or not isinstance(params[0], Mapping):
         raise UnrunnableCallError(
-            "eth_call needs a message object and a block to compute a result"
+            f"{method} needs a message object and a block to compute a result"
         )
     message, reference = params[0], params[1]
-    site = _resolve_site(reference, sites)
+    site = _resolve_site(method, reference, sites)
 
-    sender = message.get("from")
-    if sender is None:
+    declared_sender = message.get("from")
+    if declared_sender is None:
         raise UnrunnableCallError(
-            "eth_call names no sender; a message must state `from`, which "
+            f"{method} names no sender; a message must state `from`, which "
             "a client would otherwise default to the zero address"
         )
 
     declared_to = message.get("to")
+    sender = Address(declared_sender)
     to = None if declared_to is None else Address(declared_to)
     data = Bytes(message.get("input", message.get("data", b"")))
     value = int(message.get("value", 0))
     gas = int(message.get("gas", CALL_GAS_LIMIT))
-    outcome = run_call(
-        site,
-        sender=Address(sender),
-        to=to,
-        data=data,
-        value=value,
-        gas=gas,
-    )
-    return DeclaredCall(
+    return DeclaredMessage(
         params=[
             call_message(
-                sender=Address(sender),
+                sender=sender,
                 to=to,
                 data=data,
                 value=value,
@@ -500,22 +670,91 @@ def compute_declared_call(
             ),
             reference,
         ],
-        outcome=outcome,
+        site=site,
+        sender=sender,
+        to=to,
+        data=data,
+        value=value,
+        gas=gas,
+    )
+
+
+@dataclass(frozen=True)
+class DeclaredCall:
+    """A declared `eth_call`'s completed parameters, and its answer."""
+
+    params: List[Any]
+    """The parameters as they must be stored, not as they were written."""
+
+    outcome: CallOutcome
+    """What the specification answers for them."""
+
+
+@dataclass(frozen=True)
+class DeclaredAccessList:
+    """A declared access list's completed parameters, and its answer."""
+
+    params: List[Any]
+    """The parameters as they must be stored, not as they were written."""
+
+    outcome: AccessListOutcome
+    """What the specification answers for them."""
+
+
+def compute_declared_call(
+    params: Sequence[Any], sites: Sequence[CallSite]
+) -> DeclaredCall:
+    """Return the specification's answer to a call a test declared."""
+    message = _declared_message("eth_call", params, sites)
+    return DeclaredCall(
+        params=message.params,
+        outcome=run_call(
+            message.site,
+            sender=message.sender,
+            to=message.to,
+            data=message.data,
+            value=message.value,
+            gas=message.gas,
+        ),
+    )
+
+
+def compute_declared_access_list(
+    params: Sequence[Any], sites: Sequence[CallSite]
+) -> DeclaredAccessList:
+    """Return the access list the spec derives for a declared message."""
+    message = _declared_message("eth_createAccessList", params, sites)
+    return DeclaredAccessList(
+        params=message.params,
+        outcome=create_access_list(
+            message.site,
+            sender=message.sender,
+            to=message.to,
+            data=message.data,
+            value=message.value,
+            gas=message.gas,
+        ),
     )
 
 
 __all__ = [
+    "ACCESS_LIST_ROUNDS",
     "BLOCK_TAGS_NO_CHAIN_DETERMINES",
     "CALL_GAS_LIMIT",
     "REVERT_ERROR_CODE",
     "SENDER_MUST_BE_SOLVENT",
+    "AccessListOutcome",
     "CallOutcome",
     "CallReplay",
     "CallSite",
+    "DeclaredAccessList",
     "DeclaredCall",
+    "MessageResult",
     "UnrunnableCallError",
     "call_message",
+    "compute_declared_access_list",
     "compute_declared_call",
+    "create_access_list",
     "environment_at",
     "run_call",
 ]
