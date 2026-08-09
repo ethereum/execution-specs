@@ -175,7 +175,6 @@ def declarable_access_list(
       opcode names a delegation target, and so it omits one. This is the
       case where the specification is right, and the derivation refuses
       such a message rather than asserting an answer no client gives.
-
     - **An address created during the message.** The specification warms
       it, so it is warm here and excluded from nothing; go-ethereum's
       tracer watches opcodes and never sees a created address, so it omits
