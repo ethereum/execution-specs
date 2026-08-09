@@ -110,6 +110,25 @@ def fee_history_answer(oldest: str) -> Dict[str, Any]:
     }
 
 
+def config_answer(current: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Return a complete `eth_config` response around a partial `current`.
+
+    The one field the derivation withholds is `blobSchedule`, because a
+    consumer configures it and the fixture does not. A response still has
+    to carry it, so a plausible one is supplied here.
+    """
+    complete = dict(current)
+    complete.setdefault("activationTime", 0)
+    complete.setdefault("forkId", "0xdeadbeef")
+    complete["blobSchedule"] = {
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716,
+    }
+    return {"current": complete, "next": None, "last": None}
+
+
 PARTIAL_ANSWERS = {
     "eth_capabilities": lambda call: capabilities_answer(
         call.result["head"]["number"], call.result["head"]["hash"]
@@ -117,6 +136,7 @@ PARTIAL_ANSWERS = {
     "eth_feeHistory": lambda call: fee_history_answer(
         call.result["oldestBlock"]
     ),
+    "eth_config": lambda call: config_answer(call.result["current"]),
 }
 """
 A complete response agreeing with each partial expectation.

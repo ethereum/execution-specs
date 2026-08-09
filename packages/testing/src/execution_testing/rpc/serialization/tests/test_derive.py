@@ -261,6 +261,7 @@ def test_blocks_can_be_supplied_directly(
         post_state=single_block_fixture.post_state,
         genesis=derive_module.genesis_block(single_block_fixture),
         chain_id=int(single_block_fixture.config.chain_id),
+        fork=single_block_fixture.config.fork,
     )
 
     assert [c.method for c in from_blocks] == [c.method for c in from_fixture]
@@ -1193,3 +1194,69 @@ def test_fee_history_pins_the_range_it_asked_for() -> None:
     assert history.assertion == "partial"
     assert history.params == ["0x1", "0x1", []]
     assert history.result == {"oldestBlock": "0x1"}
+
+
+def test_config_asserts_five_of_its_six_fields() -> None:
+    """
+    Everything in `current` except the blob schedule is reproducible.
+
+    The schedule is decided by how a consumer configures the client, not
+    by the fixture, and the two diverge in practice. Asserting the five
+    that are known-correct beats asserting none, which is what a
+    schema-only tier would have left here.
+    """
+    calls = derive_rpc_calls(make_fixture([make_block([], [], number=1)]))
+
+    config = next(c for c in calls if c.method == "eth_config")
+    assert config.assertion == "partial"
+    current = config.result["current"]
+    assert set(current) == {
+        "activationTime",
+        "chainId",
+        "forkId",
+        "precompiles",
+        "systemContracts",
+    }
+    assert current["chainId"] == "0x1"
+    assert current["precompiles"]["ECREC"] == "0x" + "00" * 19 + "01"
+
+
+def test_config_fork_id_reduces_to_the_genesis_hash() -> None:
+    """
+    Every fork activates at genesis in a consume run.
+
+    EIP-6122 excludes genesis-activated forks from the hash, so nothing
+    is appended to the genesis hash and the fork id is its checksum.
+    """
+    from binascii import crc32
+
+    fixture = make_fixture([make_block([], [], number=1)])
+    calls = derive_rpc_calls(fixture)
+
+    config = next(c for c in calls if c.method == "eth_config")
+    expected = crc32(bytes(fixture.genesis.block_hash))
+    assert config.result["current"]["forkId"] == f"0x{expected:08x}"
+
+
+def test_config_withholds_the_genesis_dependent_fields_on_a_transition() -> (
+    None
+):
+    """
+    A transition chain has a fork activating after genesis.
+
+    Its consumer therefore configures a non-zero activation time, which
+    both changes `activationTime` and enters the EIP-6122 hash. Neither is
+    known here, so neither is asserted; the three that depend only on
+    which fork is active at the head still are.
+    """
+    fixture = make_fixture([make_block([], [], number=1)])
+    fixture.config.fork = CancunToPragueAtTime15k
+
+    calls = derive_rpc_calls(fixture)
+
+    config = next(c for c in calls if c.method == "eth_config")
+    assert set(config.result["current"]) == {
+        "chainId",
+        "precompiles",
+        "systemContracts",
+    }

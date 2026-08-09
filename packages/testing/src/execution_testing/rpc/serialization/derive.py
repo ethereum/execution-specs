@@ -33,6 +33,7 @@ from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.fixtures.blockchain import FixtureBlock
 from execution_testing.fixtures.common import FixtureRPCCall
 from execution_testing.forks import Fork, TransitionFork
+from execution_testing.rpc.rpc_types import calculate_fork_id
 
 from .filters import compute_result
 from .projection import (
@@ -577,6 +578,71 @@ def _shape_only_calls(
     return calls
 
 
+def _config_call(
+    head: FixtureBlock | None,
+    genesis: FixtureBlock | None,
+    fork: Fork | TransitionFork | None,
+    chain_id: int | None,
+) -> List[FixtureRPCCall]:
+    """
+    Return five of the six fields of the fork a client believes it is on.
+
+    `eth_config` is the motivating case for asserting part of a response.
+    Everything in `current` except `blobSchedule` is reproducible here:
+    `chainId` is what the fixture asks a consumer to configure,
+    `precompiles` and `systemContracts` are the head fork's own, and
+    `activationTime` and `forkId` follow from a genesis that activates
+    every fork at once — which reduces the EIP-6122 hash to
+    `crc32(genesis_hash)`, since that specification excludes
+    genesis-activated forks.
+
+    `blobSchedule` is left out because it is decided by how the *consumer*
+    configures the client rather than by the fixture, and the two
+    demonstrably disagree: `ruleset_format` drops the Amsterdam blob
+    variables, so go-ethereum falls back to its own defaults. Asserting
+    five known-correct fields beats asserting none, and beats inventing
+    the sixth.
+
+    A transition chain gets three of the five. Its consumer configures a
+    fork to activate after genesis, so the activation time is neither zero
+    nor known here and the fork id is no longer the genesis hash alone.
+    The three that survive depend only on which fork is active at the
+    head, which is a question the chain does answer.
+    """
+    if head is None or genesis is None or fork is None or chain_id is None:
+        return []
+    header = head.header
+    head_fork = fork.fork_at(
+        block_number=int(header.number), timestamp=int(header.timestamp)
+    )
+    current: Dict[str, Any] = {
+        "chainId": hex(chain_id),
+        "precompiles": {
+            address.label: str(address)
+            for address in head_fork.precompiles()
+            if address.label is not None
+        },
+        "systemContracts": {
+            address.label: str(address)
+            for address in head_fork.system_contracts()
+            if address.label is not None
+        },
+    }
+    if not fork.is_transition_fork:
+        current["activationTime"] = 0
+        current["forkId"] = str(
+            calculate_fork_id(genesis.header.block_hash, set())
+        )
+    return [
+        FixtureRPCCall(
+            method="eth_config",
+            params=[],
+            result={"current": current},
+            assertion="partial",
+        )
+    ]
+
+
 def _partial_value_calls(
     head: FixtureBlock | None, highest_block: int
 ) -> List[FixtureRPCCall]:
@@ -850,6 +916,7 @@ def derive_rpc_calls_for_blocks(
         )
     )
     calls.extend(_partial_value_calls(head, highest_block))
+    calls.extend(_config_call(head, genesis, fork, chain_id))
 
     _reject_unsatisfiable(calls)
     return calls
