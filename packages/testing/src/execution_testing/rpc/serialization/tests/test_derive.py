@@ -1260,3 +1260,31 @@ def test_config_withholds_the_genesis_dependent_fields_on_a_transition() -> (
         "precompiles",
         "systemContracts",
     }
+
+
+def test_the_weaker_tiers_are_a_closed_inventory() -> None:
+    """
+    Census of every expectation that pins less than a whole response.
+
+    Pinned here as an exhaustive list, because the failure mode of a
+    weaker tier is not a wrong assertion but an inflated one: a run that
+    reports seventy-six expectations while a handful of them assert only
+    that the client replied. Adding a method to either tier must therefore
+    be a visible diff with a reviewer attached, and the fields a partial
+    call names must be written down where they can be argued with.
+    """
+    calls = derive_rpc_calls(make_fixture([make_block([], [], number=1)]))
+
+    weaker = {
+        call.method: (call.assertion, sorted(call.result or ()))
+        for call in calls
+        if call.assertion != "exact"
+    }
+    assert weaker == {
+        "eth_gasPrice": ("schema", []),
+        "eth_maxPriorityFeePerGas": ("schema", []),
+        "eth_syncing": ("schema", []),
+        "eth_capabilities": ("partial", ["head"]),
+        "eth_feeHistory": ("partial", ["oldestBlock"]),
+        "eth_config": ("partial", ["current"]),
+    }
