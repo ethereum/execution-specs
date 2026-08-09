@@ -491,6 +491,23 @@ def run_call(
     )
 
 
+DELEGATION_MARKER = bytes.fromhex("ef0100")
+"""
+The prefix of the code a delegated account carries.
+
+Read here only to *refuse* a derivation; see `create_access_list`.
+"""
+
+
+def _is_delegated(state: "Alloc", address: Address | None) -> bool:
+    """Return whether `address` holds a delegation designator."""
+    if address is None:
+        return False
+    account = _account(state, address)
+    code = bytes(getattr(account, "code", b"") or b"")
+    return code.startswith(DELEGATION_MARKER)
+
+
 def create_access_list(
     site: CallSite,
     *,
@@ -516,7 +533,24 @@ def create_access_list(
     list rather than as a JSON-RPC error. The string is client wording and
     is not derived, which is what drops a reverting expectation to the
     `partial` tier.
+
+    **A message to a delegated account derives nothing.** Resolving a
+    delegation reads the target's account, and the specification charges
+    a cold access for it and warms it — so declaring the target saves
+    exactly that, and the target belongs in the list. go-ethereum builds
+    its list by watching opcodes, and no opcode names a delegation
+    target, so it omits one and reports the higher gas that follows. This
+    is the one disagreement in the method where the specification is the
+    side that is right, and asserting it would fail every client rather
+    than catch one. It is refused rather than weakened: a list missing an
+    entry is not a partial answer, it is a wrong one.
     """
+    if _is_delegated(site.state, to):
+        raise UnrunnableCallError(
+            f"{to} is delegated at block {site.number}, and clients omit "
+            f"the delegation target from the access list where the "
+            f"specification declares it; no expectation here would hold"
+        )
     declared: List[Dict[str, Any]] = []
     for _ in range(ACCESS_LIST_ROUNDS):
         result = _run_message(

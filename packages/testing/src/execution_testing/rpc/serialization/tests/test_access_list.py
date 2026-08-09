@@ -271,3 +271,28 @@ def test_a_test_may_declare_an_access_list() -> None:
         params=[{"from": SENDER, "to": READS_A_SLOT}, "0x0"],
         derive_result=True,
     )
+
+
+DELEGATED = Address(0xDE1E)
+DELEGATE_TARGET = Address(0x7A76)
+
+
+def test_a_delegated_recipient_derives_nothing() -> None:
+    """
+    The one disagreement where the specification is the right side.
+
+    Resolving a delegation reads the target's account and warms it, so
+    declaring the target saves gas and it belongs in the list. Clients
+    build the list by watching opcodes and no opcode names a delegation
+    target, so they omit it. Asserting the correct answer would fail
+    every client, and a list missing an entry is a wrong answer rather
+    than a partial one, so nothing is derived at all.
+    """
+    site = make_site()
+    site.state.root[DELEGATE_TARGET] = Account(balance=0, code=bytes(Op.STOP))
+    site.state.root[DELEGATED] = Account(
+        balance=0, code=bytes.fromhex("ef0100") + bytes(DELEGATE_TARGET)
+    )
+
+    with pytest.raises(UnrunnableCallError, match="is delegated"):
+        derive(DELEGATED, site=site)

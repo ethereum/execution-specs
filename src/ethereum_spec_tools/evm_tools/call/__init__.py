@@ -166,8 +166,15 @@ def declarable_access_list(
     belong in either way, so one exotic shape is mis-answered rather than
     two rules maintained.
 
-    Two further cases the specification and go-ethereum answer
-    differently, both documented rather than reconciled:
+    Three further cases the specification and go-ethereum answer
+    differently, documented rather than reconciled:
+
+    - **A delegation target.** Resolving a delegation reads the target's
+      account and warms it, so declaring the target saves a cold access
+      and it belongs here; go-ethereum's tracer watches opcodes, no
+      opcode names a delegation target, and so it omits one. This is the
+      case where the specification is right, and the derivation refuses
+      such a message rather than asserting an answer no client gives.
 
     - **An address created during the message.** The specification warms
       it, so it is warm here and excluded from nothing; go-ethereum's
