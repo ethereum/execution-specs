@@ -1,6 +1,6 @@
 """Test replay of derived RPC expectations against a client."""
 
-from typing import Any, List
+from typing import Any, Dict, List
 from unittest.mock import MagicMock
 
 import pytest
@@ -80,6 +80,53 @@ honest measure of how much it asserts.
 """
 
 
+def capabilities_answer(number: str, block_hash: str) -> Dict[str, Any]:
+    """
+    Return a complete `eth_capabilities` response naming the given head.
+
+    A partial expectation stores only `head`, but a *response* is still
+    held to the whole schema, so the other six resources have to be here.
+    Their values are a node's own configuration and nothing asserts them;
+    these are what go-ethereum v1.17.6 answered under hive.
+    """
+    served = {"disabled": False, "oldestBlock": "0x0"}
+    return {
+        "head": {"number": number, "hash": block_hash},
+        "state": served,
+        "tx": served,
+        "logs": served,
+        "receipts": served,
+        "blocks": served,
+        "stateproofs": served,
+    }
+
+
+def fee_history_answer(oldest: str) -> Dict[str, Any]:
+    """Return a complete `eth_feeHistory` response for a one-block range."""
+    return {
+        "oldestBlock": oldest,
+        "baseFeePerGas": ["0x7", "0x7"],
+        "gasUsedRatio": [0.0],
+    }
+
+
+PARTIAL_ANSWERS = {
+    "eth_capabilities": lambda call: capabilities_answer(
+        call.result["head"]["number"], call.result["head"]["hash"]
+    ),
+    "eth_feeHistory": lambda call: fee_history_answer(
+        call.result["oldestBlock"]
+    ),
+}
+"""
+A complete response agreeing with each partial expectation.
+
+Echoing the stored subset back would fail, and rightly: weakening what is
+*asserted* never weakens what a conforming client must *return*. The
+response is validated against the full result schema either way.
+"""
+
+
 def conforming_results(fixture: BlockchainFixture) -> List[Any]:
     """
     Return what a correct client would answer for each stored call.
@@ -93,6 +140,8 @@ def conforming_results(fixture: BlockchainFixture) -> List[Any]:
     for call in fixture.rpc:
         if call.assertion == "schema":
             answers.append(SHAPE_ONLY_ANSWERS[call.method])
+        elif call.assertion == "partial":
+            answers.append(PARTIAL_ANSWERS[call.method](call))
         elif call.result_keccak is not None:
             answers.append("0x")
         else:
@@ -760,3 +809,78 @@ def test_a_missing_method_fails_a_schema_only_call() -> None:
 
     with pytest.raises(AssertionError, match="expected a result, got error"):
         verify_rpc_expectations(erroring_rpc(-32601, "no such method"), built)
+
+
+HEAD_HASH = "0x" + "ab" * 32
+
+
+def partial_call() -> FixtureRPCCall:
+    """Return an expectation naming one field of a larger response."""
+    return FixtureRPCCall(
+        method="eth_capabilities",
+        params=[],
+        result={"head": {"number": "0x2", "hash": HEAD_HASH}},
+        assertion="partial",
+    )
+
+
+def test_a_partial_call_ignores_the_fields_it_does_not_name() -> None:
+    """
+    The rest of the response is genuinely unasserted.
+
+    A node's retention windows are its own configuration, so a client
+    reporting whatever it likes for them must still pass, however far it
+    strays from what any other client would say.
+    """
+    built = engine_fixture([partial_call()], None)
+    answered = capabilities_answer("0x2", HEAD_HASH)
+    answered["logs"] = {"disabled": True}
+    answered["tx"]["deleteStrategy"] = {
+        "type": "window",
+        "retentionBlocks": "0x1",
+    }
+
+    verify_rpc_expectations(rpc_returning([answered]), built)
+
+
+def test_a_partial_call_still_fails_on_a_field_it_names() -> None:
+    """
+    The negative control for the middle tier.
+
+    Naming fewer fields must not weaken the ones named, or a partial
+    expectation would be a schema-only one wearing a stored value.
+    """
+    built = engine_fixture([partial_call()], None)
+
+    with pytest.raises(AssertionError, match="partial value") as failure:
+        verify_rpc_expectations(
+            rpc_returning([capabilities_answer("0x3", HEAD_HASH)]), built
+        )
+
+    assert "head/number: expected '0x2', got '0x3'" in str(failure.value)
+
+
+def test_a_partial_call_still_holds_the_whole_response_to_the_schema() -> None:
+    """
+    Weakening what is asserted does not weaken what must be returned.
+
+    A partial expectation says the spec cannot compute the other fields,
+    not that a client may omit them. Dropping a required one is still a
+    shape violation.
+    """
+    built = engine_fixture([partial_call()], None)
+    answered = capabilities_answer("0x2", HEAD_HASH)
+    del answered["blocks"]
+
+    with pytest.raises(AssertionError, match="'blocks' is a required"):
+        verify_rpc_expectations(rpc_returning([answered]), built)
+
+
+def test_a_partial_call_fails_when_its_field_is_absent() -> None:
+    """A field we assert must be present, not merely not contradicted."""
+    built = engine_fixture([partial_call()], None)
+    answered = capabilities_answer("0x2", HEAD_HASH)
+    del answered["head"]["number"]
+
+    with pytest.raises(AssertionError, match="required|missing"):
+        verify_rpc_expectations(rpc_returning([answered]), built)

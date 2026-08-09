@@ -577,6 +577,60 @@ def _shape_only_calls(
     return calls
 
 
+def _partial_value_calls(
+    head: FixtureBlock | None, highest_block: int
+) -> List[FixtureRPCCall]:
+    """
+    Return the calls where part of the answer is determined and part is not.
+
+    Both of these would otherwise fall to the schema-only tier, and both
+    are worth more than that, because a method with no *derivable* answer
+    is not the same as a method with no derivable *field*.
+
+    `eth_capabilities` describes what data a node holds — retention
+    windows, which resources are enabled — all of which is that node's
+    configuration and none of ours. Its `head` is not: the latest block a
+    client knows is the head of the chain it just imported, and we know
+    its number and its hash.
+
+    `eth_feeHistory` computes its range from the request, so a window of
+    one block ending at the head must report the head as its oldest. That
+    catches an off-by-one in range selection, which is the classic defect
+    here and one no schema can express. The rest of the response is left
+    alone: `baseFeePerGas` would be derivable from the headers were it not
+    for its final entry, which extrapolates the block after the newest and
+    so belongs to fee-history semantics rather than to any block, and a
+    list cannot be asserted a prefix at a time — the comparison requires
+    equal lengths, deliberately, since a short array is usually the bug.
+
+    Neither asserted field comes from the Python spec in the way a receipt
+    does; `head` is read off the chain and `oldestBlock` follows from the
+    request. Both are fully determined rather than left to a client's
+    discretion, which is what separates them from the tier below.
+    """
+    if head is None:
+        return []
+    return [
+        FixtureRPCCall(
+            method="eth_capabilities",
+            params=[],
+            result={
+                "head": {
+                    "number": hex(highest_block),
+                    "hash": str(head.header.block_hash),
+                }
+            },
+            assertion="partial",
+        ),
+        FixtureRPCCall(
+            method="eth_feeHistory",
+            params=["0x1", hex(highest_block), []],
+            result={"oldestBlock": hex(highest_block)},
+            assertion="partial",
+        ),
+    ]
+
+
 def _first_stored_account(
     accounts: Any, blocks: Sequence[Any]
 ) -> Address | None:
@@ -795,6 +849,7 @@ def derive_rpc_calls_for_blocks(
             hex(highest_block),
         )
     )
+    calls.extend(_partial_value_calls(head, highest_block))
 
     _reject_unsatisfiable(calls)
     return calls

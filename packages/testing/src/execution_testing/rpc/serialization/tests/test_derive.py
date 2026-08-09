@@ -1159,3 +1159,37 @@ def test_storage_values_names_an_account_the_chain_holds() -> None:
     stored = next(c for c in calls if c.method == "eth_getStorageValues")
     assert stored.assertion == "schema"
     assert list(stored.params[0]) == [str(RECIPIENT)]
+
+
+def test_capabilities_pins_the_head_and_nothing_else() -> None:
+    """
+    The one field of a node's capabilities that the chain determines.
+
+    Retention windows and which resources a node serves are its own
+    configuration. The block it last saw is not — a consumer has just
+    imported this chain, so the head is ours to state.
+    """
+    block = make_block([], [], number=1)
+    calls = derive_rpc_calls(make_fixture([block]))
+
+    capabilities = next(c for c in calls if c.method == "eth_capabilities")
+    assert capabilities.assertion == "partial"
+    assert capabilities.result == {
+        "head": {"number": "0x1", "hash": str(block.header.block_hash)}
+    }
+
+
+def test_fee_history_pins_the_range_it_asked_for() -> None:
+    """
+    A one-block window ending at the head is oldest at the head.
+
+    An off-by-one in range selection is the classic defect here, and the
+    schema cannot express it: every wrong answer is a well-formed
+    quantity.
+    """
+    calls = derive_rpc_calls(make_fixture([make_block([], [], number=1)]))
+
+    history = next(c for c in calls if c.method == "eth_feeHistory")
+    assert history.assertion == "partial"
+    assert history.params == ["0x1", "0x1", []]
+    assert history.result == {"oldestBlock": "0x1"}
