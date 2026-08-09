@@ -35,6 +35,13 @@ from execution_testing.fixtures.common import FixtureRPCCall
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc.rpc_types import calculate_fork_id
 
+from .execution import (
+    REVERT_ERROR_CODE,
+    CallReplay,
+    UnrunnableCallError,
+    call_message,
+    run_call,
+)
 from .filters import compute_result
 from .projection import (
     block_access_list_response,
@@ -414,6 +421,76 @@ def _malformed_key_calls(
     ]
 
 
+def _replayed_call_calls(
+    replays: Sequence[CallReplay],
+) -> List[FixtureRPCCall]:
+    """
+    Return an `eth_call` for each message replayed against the chain.
+
+    This is the first expectation in the suite that is not a projection.
+    Every other one reformats an answer the transition tool already
+    computed; here the answer exists only because the message was
+    executed at fill time, against a state and a block context no
+    transaction ever saw together.
+
+    **Which transactions are replayed.** The first of each block, and
+    only the first, against the state at the end of the block before it.
+    That is the one position where the state a call sees is the state the
+    transaction actually saw, so the call exercises the scenario the test
+    wrote rather than an artificial one. It is also the only position
+    where the message is *guaranteed* to be admissible: a later
+    transaction's sender may not exist, hold the balance, or be at the
+    right nonce until its predecessors have run, and a call rejected on
+    admission asserts nothing about the EVM. The cost is one execution
+    per block rather than one per transaction, so a block holding two
+    hundred transactions costs what a block holding one costs.
+
+    The alternative the design records — replaying every transaction —
+    would broaden state coverage at the price of both of those. It
+    remains available per block by adding sites, and is not taken here.
+
+    A message that reverts derives an error rather than a result, because
+    that is how a client reports one; see `REVERT_ERROR_CODE`. A message
+    that cannot run at all derives nothing and says so in the log, since
+    an expectation no one can satisfy is worse than a missing one.
+    """
+    calls: List[FixtureRPCCall] = []
+    for replay in replays:
+        try:
+            outcome = run_call(
+                replay.site,
+                sender=replay.sender,
+                signing_key=replay.signing_key,
+                to=replay.to,
+                data=replay.data,
+                value=replay.value,
+                gas=replay.gas,
+            )
+        except UnrunnableCallError as unrunnable:
+            logger.info(f"no eth_call derived: {unrunnable}")
+            continue
+        params: List[Any] = [
+            call_message(
+                sender=replay.sender,
+                to=replay.to,
+                data=replay.data,
+                value=replay.value,
+                gas=replay.gas,
+                gas_price=replay.site.gas_price,
+            ),
+            hex(replay.site.number),
+        ]
+        calls.append(
+            FixtureRPCCall(
+                method="eth_call",
+                params=params,
+                error_code=REVERT_ERROR_CODE if outcome.reverted else None,
+                result=None if outcome.reverted else outcome.return_data,
+            )
+        )
+    return calls
+
+
 def _declared_calls(
     declared: Sequence[Any], logs: Sequence[Any]
 ) -> List[FixtureRPCCall]:
@@ -721,6 +798,7 @@ def derive_rpc_calls_for_blocks(
     declared: Sequence[Any] = (),
     chain_id: int | None = None,
     fork: Fork | TransitionFork | None = None,
+    call_replays: Sequence[CallReplay] = (),
 ) -> List[FixtureRPCCall]:
     """
     Return the RPC expectations implied by a canonical chain.
@@ -750,6 +828,12 @@ def derive_rpc_calls_for_blocks(
     are the author's, because enumeration cannot invent a filter, but any
     result is still computed here from the chain's own logs — see
     `_declared_calls`.
+
+    `call_replays` carries the messages to execute for `eth_call`, each
+    paired with the state it runs against. They are assembled during
+    generation rather than read off the blocks here, because a finished
+    fixture keeps neither the signing keys nor the intermediate states a
+    call needs; see `_replayed_call_calls`.
 
     Every derived expectation is validated before being returned; see
     `_reject_unsatisfiable`.
@@ -896,6 +980,7 @@ def derive_rpc_calls_for_blocks(
     calls.extend(_blob_base_fee_call(head, fork))
     calls.extend(_tag_calls(head if head is not None else genesis, genesis))
     calls.extend(_forkchoice_tag_calls(blocks, forkchoice_tags))
+    calls.extend(_replayed_call_calls(call_replays))
     calls.extend(_declared_calls(declared, all_logs))
     calls.extend(
         _state_calls(

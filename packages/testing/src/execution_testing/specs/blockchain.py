@@ -90,6 +90,12 @@ from execution_testing.rpc.serialization import (
     COMPUTABLE_METHODS,
     derive_rpc_calls_for_blocks,
 )
+from execution_testing.rpc.serialization.execution import (
+    CALL_GAS_LIMIT,
+    CallReplay,
+    CallSite,
+    environment_at,
+)
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -1313,6 +1319,11 @@ class BlockchainTest(BaseTest):
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
+        call_replays: List[CallReplay] = []
+        parent = genesis.header
+        block_hashes: Dict[int, Hash] = {
+            int(genesis.header.number): genesis.header.block_hash
+        }
         for block in self.blocks:
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
@@ -1324,6 +1335,16 @@ class BlockchainTest(BaseTest):
                 previous_alloc=alloc,
             )
             block_number = int(built_block.header.number)
+            if self.emit_rpc_expectations and block.exception is None:
+                replay = self.call_replay_for_block(
+                    authored=block,
+                    built_block=built_block,
+                    parent=parent,
+                    parent_alloc=alloc,
+                    block_hashes=block_hashes,
+                )
+                if replay is not None:
+                    call_replays.append(replay)
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = built_block.cumulative_gas_used()
@@ -1354,6 +1375,8 @@ class BlockchainTest(BaseTest):
                 state_root = built_block.state_root
                 env = apply_new_parent(built_block.env, built_block.header)
                 head = built_block.header.block_hash
+                parent = built_block.header
+                block_hashes[block_number] = built_block.header.block_hash
             else:
                 invalid_blocks += 1
 
@@ -1397,6 +1420,7 @@ class BlockchainTest(BaseTest):
                 declared=self.rpc_checks,
                 chain_id=int(self.chain_id),
                 fork=self.fork,
+                call_replays=call_replays,
             )
         return FillResult(
             fixture=fixture,
@@ -1405,6 +1429,66 @@ class BlockchainTest(BaseTest):
             benchmark_block_gas_used=benchmark_block_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
+        )
+
+    def call_replay_for_block(
+        self,
+        *,
+        authored: Block,
+        built_block: BuiltBlock,
+        parent: FixtureHeader,
+        parent_alloc: Alloc | LazyAlloc,
+        block_hashes: Dict[int, Hash],
+    ) -> CallReplay | None:
+        """
+        Return the message to replay as an `eth_call` for one block.
+
+        The first transaction of the block, run against the state at the
+        end of the block before it — the one position where a call sees
+        exactly the state the transaction itself saw. See
+        `_replayed_call_calls` for why only the first.
+
+        Returns None where there is nothing to replay or no key to sign
+        with. The key comes from the *authored* transaction, because
+        signing discards it, while every executed value comes from the
+        built one, because the filler may have chosen the gas limit.
+        """
+        if not built_block.txs or not authored.txs:
+            return None
+        executed = built_block.txs[0]
+        origin = authored.txs[0]
+
+        signing_key = getattr(origin.sender, "key", None)
+        if signing_key is None:
+            signing_key = origin.secret_key
+        if signing_key is None or executed.sender is None:
+            # See `SENDER_MUST_BE_SIGNABLE`: without a key the message
+            # cannot be executed, because the spec recovers its sender.
+            return None
+
+        parent_number = int(parent.number)
+        site = CallSite(
+            number=parent_number,
+            # A `MaterializedAlloc` is already in memory, so this is a
+            # no-op on the in-process path; it is here for the backends
+            # where the post-state is fetched rather than returned.
+            state=parent_alloc.materialize()
+            if isinstance(parent_alloc, LazyAlloc)
+            else parent_alloc,
+            environment=environment_at(parent, block_hashes),
+            fork=self.fork.fork_at(
+                block_number=parent_number, timestamp=int(parent.timestamp)
+            ),
+            chain_id=int(self.chain_id),
+        )
+        return CallReplay(
+            site=site,
+            sender=Address(executed.sender),
+            signing_key=Hash(signing_key),
+            to=executed.to,
+            data=executed.data,
+            value=int(executed.value),
+            gas=min(int(executed.gas_limit), CALL_GAS_LIMIT),
         )
 
     def check_forkchoice_declaration(self) -> None:
@@ -1452,6 +1536,11 @@ class BlockchainTest(BaseTest):
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
+        call_replays: List[CallReplay] = []
+        parent = genesis.header
+        block_hashes: Dict[int, Hash] = {
+            int(genesis.header.number): genesis.header.block_hash
+        }
         for block in self.blocks:
             built_block = self.generate_block_data(
                 t8n=t8n,
@@ -1460,6 +1549,16 @@ class BlockchainTest(BaseTest):
                 previous_alloc=alloc,
             )
             block_number = int(built_block.header.number)
+            if self.emit_rpc_expectations and block.exception is None:
+                replay = self.call_replay_for_block(
+                    authored=block,
+                    built_block=built_block,
+                    parent=parent,
+                    parent_alloc=alloc,
+                    block_hashes=block_hashes,
+                )
+                if replay is not None:
+                    call_replays.append(replay)
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = built_block.cumulative_gas_used()
@@ -1486,6 +1585,8 @@ class BlockchainTest(BaseTest):
                 state_root = built_block.state_root
                 env = apply_new_parent(built_block.env, built_block.header)
                 head_hash = built_block.header.block_hash
+                parent = built_block.header
+                block_hashes[block_number] = built_block.header.block_hash
             else:
                 invalid_blocks += 1
 
@@ -1589,6 +1690,7 @@ class BlockchainTest(BaseTest):
                 declared=self.rpc_checks,
                 chain_id=int(self.chain_id),
                 fork=self.fork,
+                call_replays=call_replays,
             )
             if forkchoice_tags:
                 fixture.rpc_forkchoice = FixtureForkchoiceState(

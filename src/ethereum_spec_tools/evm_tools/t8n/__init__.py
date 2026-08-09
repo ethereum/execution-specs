@@ -9,7 +9,6 @@ from contextlib import AbstractContextManager
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
     Final,
     List,
     Optional,
@@ -33,7 +32,10 @@ from ethereum_spec_tools.forks import (
 )
 
 from ..loaders.fixture_loader import Load
-from ..loaders.transaction_loader import TransactionLoad, UnsupportedTxError
+from ..loaders.transaction_loader import (
+    UnsupportedTxError,
+    load_testing_transaction,
+)
 from ..utils import get_stream_logger, resolve_fork
 from .block_environment import Ommer, build_block_environment
 from .evm_trace.group import GroupTracer
@@ -261,42 +263,11 @@ class T8N(Load):
         """
         Convert a testing ``Transaction`` into the fork's tx object.
 
-        TODO: Replace with ``self.fork.decode_transaction(tx.rlp())``
-        once two pieces land in a follow-up PR:
-
-        1. Pre-Berlin forks gain a ``decode_transaction``. Pre-Berlin forks
-           predate typed txs and currently expose no decode entry
-           point — block decoding produces the legacy class directly.
-        2. The testing exception_mapper learns to surface
-           ``DecodingError`` (raised when a contract-creating typed tx
-           like ``BlobTransaction`` (``to=None``) reaches
-           ``decode_transaction``) as the canonical
-           ``TransactionTypeContractCreationError``. Today
-           ``TransactionLoad`` constructs the tx object even when its
-           shape is illegal for the fork, so ``check_transaction``
-           inside ``process_transaction`` raises the canonical error.
-
-        Until both are in place, we go through ``TransactionLoad``
-        (the JSON loader) which handles both concerns.
+        The bridging lives in ``load_testing_transaction`` so that every
+        tool executing a testing transaction agrees on it; see there for
+        why the JSON loader is still in the path.
         """
-        raw: Dict[str, Any] = tx.model_dump(
-            mode="json", by_alias=True, exclude_none=True
-        )
-        # Bridge testing-side aliases (geth-compatible) to the names
-        # ``TransactionLoad`` expects.
-        if "input" in raw:
-            raw.setdefault("data", raw["input"])
-        if "gas" in raw:
-            raw.setdefault("gasLimit", raw["gas"])
-        # ``to == None`` is dumped as JSON ``null``; ``TransactionLoad``
-        # treats the empty string as the contract-creation sentinel.
-        if raw.get("to") in (None, "0x"):
-            raw["to"] = ""
-        # Ensure the ``type`` field is set so ``TransactionLoad``
-        # dispatches to the right tx class (testing's dump uses ``ty``
-        # which serializes to ``type`` only on some fork variants).
-        raw.setdefault("type", "0x" + format(int(tx.ty), "02x"))
-        return TransactionLoad(raw, self.fork).read()
+        return load_testing_transaction(tx, self.fork)
 
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""
