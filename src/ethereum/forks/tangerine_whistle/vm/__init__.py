@@ -96,6 +96,30 @@ class TransactionEnvironment:
 
 @final
 @dataclass
+class TransactionResult:
+    """
+    Outcome of executing a transaction.
+
+    Carry what the block accumulators and the receipt do not preserve:
+    the return data of the transaction's top-level frame, the gas it
+    consumed before refunds, and the error it halted with.
+    """
+
+    return_data: Bytes
+    """The output of the transaction's top-level frame."""
+
+    gas_used: Uint
+    """Gas charged to the sender, after refunds."""
+
+    gas_used_before_refund: Uint
+    """Gas the transaction consumed before refunds were applied."""
+
+    error: Optional[EthereumException]
+    """The error the transaction halted with, if any."""
+
+
+@final
+@dataclass
 class Message:
     """
     Items that are used by contract creation or message call.
