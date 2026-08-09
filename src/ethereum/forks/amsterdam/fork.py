@@ -1012,7 +1012,7 @@ def process_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
-) -> None:
+) -> vm.TransactionResult:
     """
     Execute a transaction against the provided environment.
 
@@ -1035,6 +1035,11 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+
+    Returns
+    -------
+    tx_result : `vm.TransactionResult`
+        The return data, gas used and error of the transaction.
 
     """
     block_env.block_access_list_builder.block_access_index = BlockAccessIndex(
@@ -1096,6 +1101,13 @@ def process_transaction(
 
     incorporate_tx_into_block(
         tx_env.state, block_env.block_access_list_builder
+    )
+
+    return vm.TransactionResult(
+        return_data=tx_output.return_data,
+        gas_used=settlement.gas_used,
+        gas_used_before_refund=settlement.gas_used_before_refund,
+        error=tx_output.error,
     )
 
 
