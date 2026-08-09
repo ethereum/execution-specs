@@ -3,6 +3,8 @@ Test_callcodecallcode_11.
 
 Ported from:
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcode_11Filler.json
+
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -65,7 +67,6 @@ def test_callcodecallcode_11(
         code=Op.SSTORE(
             key=0x1,
             value=Op.DELEGATECALL(
-                gas=0x3D090,
                 address=addr_2,
                 args_offset=0x0,
                 args_size=0x40,
@@ -82,7 +83,6 @@ def test_callcodecallcode_11(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
-                gas=0x55730,
                 address=addr,
                 args_offset=0x0,
                 args_size=0x40,
@@ -95,12 +95,7 @@ def test_callcodecallcode_11(
         nonce=0,
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=3000000,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""))
 
     post = {
         target: Account(

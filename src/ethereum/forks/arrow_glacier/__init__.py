@@ -21,7 +21,7 @@ in this fork.
 - [Nethermind 1.11.7][nm]
 
 [EIP-4345]: https://eips.ethereum.org/EIPS/eip-4345
-[Besu 21.10.0]: https://github.com/hyperledger/besu/releases/tag/21.10.0
+[Besu 21.10.0]: https://github.com/besu-eth/besu/releases/tag/21.10.0
 [e]: https://github.com/ledgerwatch/erigon/releases/tag/v2021.11.01
 [js]: https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%405.6.0
 [Geth 1.10.12]: https://github.com/ethereum/go-ethereum/releases/tag/v1.10.12

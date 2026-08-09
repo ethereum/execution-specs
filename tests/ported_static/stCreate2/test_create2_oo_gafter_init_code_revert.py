@@ -13,10 +13,12 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +32,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_create2_oo_gafter_init_code_revert(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Calls a contract that runs CREATE2 which deploy a code."""
@@ -85,7 +88,7 @@ def test_create2_oo_gafter_init_code_revert(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=75000,
+        gas_limit=2075000 if fork >= Amsterdam else 75000,
     )
 
     post = {

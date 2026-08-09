@@ -1,8 +1,10 @@
 """Procedures to consume fixtures from Github releases."""
 
 import json
+import logging
 import os
 import re
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +13,9 @@ from urllib.parse import urlparse
 
 import platformdirs
 import requests
-from pydantic import BaseModel, Field, RootModel
+from pydantic import BaseModel, Field, RootModel, ValidationError
+
+logger = logging.getLogger(__name__)
 
 CACHED_RELEASE_INFORMATION_FILE = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests"))
@@ -20,6 +24,7 @@ CACHED_RELEASE_INFORMATION_FILE = (
 
 SUPPORTED_REPOS = [
     "ethereum/execution-spec-tests",
+    "ethereum/execution-specs",
     "ethereum/tests",
     "ethereum/legacytests",
 ]
@@ -41,6 +46,16 @@ class AssetNotFoundError(Exception):
         super().__init__(f"Asset not found: {release_string}")
 
 
+TESTS_FEATURE_NAME = "tests"
+
+BARE_VERSION_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+
+# TODO: Legacy EEST `stable`/`develop` releases (bare `vX.Y.Z` git tags on
+# the archived ethereum/execution-spec-tests repo) remain resolvable so
+# existing consumers don't break; remove after 2026-08 (see #3085).
+LEGACY_FEATURE_NAMES = {"stable", "develop"}
+
+
 @dataclass(kw_only=True)
 class ReleaseTag:
     """A descriptor for a release."""
@@ -54,13 +69,20 @@ class ReleaseTag:
         Create a release descriptor from a string.
 
         The release source can be in the format `tag_name@version` or just
-        `tag_name`.
+        `tag_name`. A bare `latest` or `vX.Y.Z` resolves to the mainnet
+        `tests` release.
         """
         version: str | None
         if "@" in release_string:
             tag_name, version = release_string.split("@")
             if version == "" or version.lower() == "latest":
                 version = None
+        elif release_string.lower() == "latest":
+            tag_name = TESTS_FEATURE_NAME
+            version = None
+        elif BARE_VERSION_RE.match(release_string):
+            tag_name = TESTS_FEATURE_NAME
+            version = release_string
         else:
             tag_name = release_string
             version = None
@@ -69,28 +91,52 @@ class ReleaseTag:
     @staticmethod
     def is_release_string(release_string: str) -> bool:
         """Check if the release string is in the correct format."""
-        return "@" in release_string
+        return (
+            "@" in release_string
+            or release_string.lower() == "latest"
+            or BARE_VERSION_RE.match(release_string) is not None
+        )
 
-    def __eq__(self, value: object) -> bool:
-        """
-        Check if the release descriptor matches the string value.
+    @property
+    def feature_name(self) -> str:
+        """Get the feature name, without the `tests-` git tag prefix."""
+        return self.tag_name.removeprefix("tests-")
 
-        Returns True if the value is the same as the tag name or the tag name
-        and version.
+    def matches_tag(self, tag: str) -> bool:
         """
-        assert isinstance(value, str), f"Expected a string, but got: {value}"
+        Check whether a release git tag matches this descriptor.
+
+        Fixture releases are tagged `tests-<feature>@vX.Y.Z`, except the
+        default `tests` feature which tags as `tests@vX.Y.Z`. Both the
+        friendly feature name (`bal-devnet@v7.0.0`) and the full tag
+        (`tests-bal-devnet@v7.0.0`) are accepted as input.
+        """
+        if self.feature_name in LEGACY_FEATURE_NAMES:
+            # Legacy releases tag as bare `vX.Y.Z`; the asset name check
+            # in `ReleaseInformation.__contains__` selects the feature.
+            if self.version is not None:
+                return tag == self.version
+            return BARE_VERSION_RE.match(tag) is not None
         if self.version is not None:
-            # normal release, e.g., stable@v4.0.0
-            normal_release_match = value == self.version
-            # pre release, e.g., pectra-devnet-6@v1.0.0
-            pre_release_match = value == f"{self.tag_name}@{self.version}"
-            return normal_release_match or pre_release_match
-        return value.startswith(self.tag_name)
+            return tag in (
+                f"{self.tag_name}@{self.version}",
+                f"tests-{self.feature_name}@{self.version}",
+            )
+        return tag.startswith(
+            (f"{self.tag_name}@", f"tests-{self.feature_name}@")
+        )
 
     @property
     def asset_name(self) -> str:
-        """Get the asset name."""
-        return f"fixtures_{self.tag_name}.tar.gz"
+        """
+        Get the asset name for this feature.
+
+        The default `tests` feature ships a plain `fixtures.tar.gz`; every
+        other feature ships `fixtures_<feature>.tar.gz`.
+        """
+        if self.feature_name == TESTS_FEATURE_NAME:
+            return "fixtures.tar.gz"
+        return f"fixtures_{self.feature_name}.tar.gz"
 
 
 class Asset(BaseModel):
@@ -128,12 +174,12 @@ class ReleaseInformation(BaseModel):
 
     def __contains__(self, release_descriptor: ReleaseTag) -> bool:
         """Check if the release information contains the release descriptor."""
-        if release_descriptor.version is not None:
-            return release_descriptor == self.tag_name
-        for asset in self.assets.root:
-            if asset.name == release_descriptor.asset_name:
-                return True
-        return False
+        # Require the expected asset too, so a matching tag whose fixture
+        # tarball is missing is skipped rather than resolved.
+        return release_descriptor.matches_tag(self.tag_name) and any(
+            asset.name == release_descriptor.asset_name
+            for asset in self.assets.root
+        )
 
     def get_asset(self, release_descriptor: ReleaseTag) -> Asset:
         """Get the asset URL."""
@@ -175,28 +221,44 @@ def parse_release_information(
     release_information: List,
 ) -> List[ReleaseInformation]:
     """Parse the release information from the Github API."""
-    return Releases.model_validate(release_information).root
+    # Skip drafts (only visible with maintainer credentials): they have no
+    # `published_at` and their assets are not downloadable.
+    published = [
+        release
+        for release in release_information
+        if not release.get("draft", False)
+    ]
+    return Releases.model_validate(published).root
 
 
 def download_release_information(
     destination_file: Path | None,
 ) -> List[ReleaseInformation]:
     """
-    Download all releases from the GitHub API, handling pagination properly.
+    Download recent releases from the GitHub API, following pagination.
 
-    GitHub's API returns releases in pages of 30 by default. This function
-    follows the pagination links to ensure we get every release, which is
-    crucial for finding older versions or latest releases.
+    Request pages of 100 releases (the API maximum) and follow the
+    pagination links up to `max_pages` pages, so resolution sees the 200
+    most recent releases per repo. Older releases fall outside this
+    window and cannot be resolved.
+
+    Authenticate with `GITHUB_TOKEN` (or `GH_TOKEN`) when set:
+    authenticated requests get 5000 requests/hour instead of the
+    unauthenticated 60/hour per IP address.
     """
+    headers = {}
+    github_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
     all_releases = []
     for repo in SUPPORTED_REPOS:
         current_url: str | None = (
-            f"https://api.github.com/repos/{repo}/releases"
+            f"https://api.github.com/repos/{repo}/releases?per_page=100"
         )
         max_pages = 2
         while current_url and max_pages > 0:
             max_pages -= 1
-            response = requests.get(current_url)
+            response = requests.get(current_url, headers=headers)
             response.raise_for_status()
             all_releases.extend(response.json())
             current_url = None
@@ -210,8 +272,17 @@ def download_release_information(
 
     if destination_file:
         destination_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(destination_file, "w") as file:
+        # Write via a uniquely-named temporary file so a concurrent
+        # reader never sees a partially-written cache and concurrent
+        # writers never share a path.
+        with tempfile.NamedTemporaryFile(
+            "w",
+            dir=destination_file.parent,
+            suffix=".tmp",
+            delete=False,
+        ) as file:
             json.dump(all_releases, file)
+        Path(file.name).replace(destination_file)
     return parse_release_information(all_releases)
 
 
@@ -224,80 +295,136 @@ def parse_release_information_from_file(
     return parse_release_information(release_information)
 
 
+RELEASE_VERSION_RE = re.compile(r"@v(\d+)\.(\d+)\.(\d+)")
+
+
+def find_release(
+    release_string: str, release_information: List[ReleaseInformation]
+) -> ReleaseInformation:
+    """
+    Find the release matching the release descriptor string.
+
+    When multiple releases match (a `latest` version), return the highest
+    version, tie-broken by publish time, so a patch published on an older
+    release line never wins over a newer line.
+    """
+    release_descriptor = ReleaseTag.from_string(release_string)
+    matches = [
+        release
+        for release in release_information
+        if release_descriptor in release
+    ]
+    if not matches:
+        raise NoSuchReleaseError(release_string)
+
+    def sort_key(
+        release: ReleaseInformation,
+    ) -> tuple[tuple[int, ...], datetime]:
+        version = RELEASE_VERSION_RE.search(release.tag_name)
+        numbers = (
+            tuple(int(number) for number in version.groups())
+            if version
+            else (0, 0, 0)
+        )
+        return (numbers, release.published_at)
+
+    return max(matches, key=sort_key)
+
+
+def resolves_pinned_release(
+    release_string: str,
+    release_information: List[ReleaseInformation],
+) -> bool:
+    """
+    Check whether the release information resolves a pinned version.
+
+    A release descriptor with an explicit version refers to an immutable
+    git tag: once it resolves, a refresh of the release information
+    cannot change the result.
+    """
+    if ReleaseTag.from_string(release_string).version is None:
+        return False
+    try:
+        find_release(release_string, release_information)
+    except NoSuchReleaseError:
+        return False
+    return True
+
+
 def get_release_url_from_release_information(
     release_string: str, release_information: List[ReleaseInformation]
 ) -> str:
     """Get the URL for a specific release."""
-    release_descriptor = ReleaseTag.from_string(release_string)
-    for release in release_information:
-        if release_descriptor in release:
-            return release.get_asset(release_descriptor).url
-    raise NoSuchReleaseError(release_string)
+    release = find_release(release_string, release_information)
+    return release.get_asset(ReleaseTag.from_string(release_string)).url
+
+
+def resolve_release(release_string: str) -> ReleaseInformation:
+    """
+    Resolve a release descriptor string to its release information.
+
+    Refresh the cached release information beforehand as needed (see
+    `get_release_information`).
+    """
+    return find_release(
+        release_string, get_release_information(release_string)
+    )
 
 
 def get_release_page_url(release_string: str) -> str:
+    """Get the GitHub release page URL for a release descriptor."""
+    return resolve_release(release_string).url
+
+
+def get_release_information(
+    release_string: str | None = None,
+) -> List[ReleaseInformation]:
     """
-    Return the GitHub Release page URL for a specific release descriptor.
+    Get the release information, refreshing the cache file as needed.
 
-    This function can handle:
-    - A standard release string (e.g., "eip7692@latest") from
-      execution-spec-tests only.
-    - A direct asset download link (e.g.,
-      "https://github.com/ethereum/execution-spec-tests/releases/
-      download/v4.0.0/fixtures_eip7692.tar.gz").
+    Return the cached release information if the cache file is fresh
+    (younger than 4 hours; any age when running inside a CI environment
+    or a Docker container). A stale cache is also used without
+    refreshing when `release_string` pins an exact version that the
+    cache already resolves: release tags are immutable, so the cached
+    entry cannot be outdated. Otherwise re-download the release
+    information, keeping the stale cache as a fallback in case the
+    GitHub API is unavailable (e.g. rate-limited).
     """
-    release_information = get_release_information()
-
-    # Case 1: If it's a direct GitHub Releases download link, find which
-    # release in `release_information` has an asset with this exact URL.
-    repo_pattern = "|".join(re.escape(repo) for repo in SUPPORTED_REPOS)
-    regex_pattern = rf"https://github\.com/({repo_pattern})/releases/download/"
-    if re.match(regex_pattern, release_string):
-        for release in release_information:
-            for asset in release.assets.root:
-                if asset.url == release_string:
-                    return release.url  # The HTML page for this release
-        raise NoSuchReleaseError(
-            f"No release found for asset URL: {release_string}"
-        )
-
-    # Case 2: Otherwise, treat it as a release descriptor (e.g.,
-    # "eip7692@latest")
-    release_descriptor = ReleaseTag.from_string(release_string)
-    for release in release_information:
-        if release_descriptor in release:
-            return release.url
-
-    # If nothing matched, raise
-    raise NoSuchReleaseError(release_string)
-
-
-def get_release_information() -> List[ReleaseInformation]:
-    """
-    Get the release information.
-
-    First check if the cached release information file exists. If it does, but
-    it is older than 4 hours, delete the file, unless running inside a CI
-    environment or a Docker container. Then download the release information
-    from the Github API and save it to the cache file.
-    """
+    cached_information: List[ReleaseInformation] | None = None
     if CACHED_RELEASE_INFORMATION_FILE.exists():
-        last_modified = CACHED_RELEASE_INFORMATION_FILE.stat().st_mtime
-        if (
-            datetime.now().timestamp() - last_modified
-        ) < 4 * 60 * 60 or is_docker_or_ci():
-            return parse_release_information_from_file(
+        try:
+            cached_information = parse_release_information_from_file(
                 CACHED_RELEASE_INFORMATION_FILE
             )
-        CACHED_RELEASE_INFORMATION_FILE.unlink()
-    if not CACHED_RELEASE_INFORMATION_FILE.exists():
+        except (json.JSONDecodeError, ValidationError):
+            logger.warning(
+                "Ignoring corrupt release information cache at "
+                f"{CACHED_RELEASE_INFORMATION_FILE}."
+            )
+        else:
+            last_modified = CACHED_RELEASE_INFORMATION_FILE.stat().st_mtime
+            cache_age = datetime.now().timestamp() - last_modified
+            if cache_age < 4 * 60 * 60 or is_docker_or_ci():
+                return cached_information
+            if release_string is not None and resolves_pinned_release(
+                release_string, cached_information
+            ):
+                return cached_information
+    try:
         return download_release_information(CACHED_RELEASE_INFORMATION_FILE)
-    return parse_release_information_from_file(CACHED_RELEASE_INFORMATION_FILE)
+    except requests.RequestException as error:
+        if cached_information is None:
+            raise
+        logger.warning(
+            f"Could not refresh release information from the GitHub API "
+            f"({error}); falling back to the stale cache at "
+            f"{CACHED_RELEASE_INFORMATION_FILE}."
+        )
+        return cached_information
 
 
 def get_release_url(release_string: str) -> str:
-    """Get the URL for a specific release."""
-    release_information = get_release_information()
-    return get_release_url_from_release_information(
-        release_string, release_information
-    )
+    """Get the asset download URL for a release descriptor."""
+    release = resolve_release(release_string)
+    return release.get_asset(ReleaseTag.from_string(release_string)).url

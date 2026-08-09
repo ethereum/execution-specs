@@ -43,7 +43,6 @@ def test_test_structures_and_variabless(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     pre[sender] = Account(balance=0x2540BE400)
@@ -231,7 +230,6 @@ def test_test_structures_and_variabless(
         sender=sender,
         to=target,
         data=Bytes("c0406226"),
-        gas_limit=350000,
         value=100,
     )
 

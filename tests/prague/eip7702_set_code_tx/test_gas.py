@@ -34,6 +34,9 @@ from execution_testing import (
     extend_with_defaults,
 )
 
+from ...amsterdam.eip8037_state_creation_gas_cost_increase.spec import (
+    Spec as Spec8037,
+)
 from .helpers import AddressType, ChainIDType
 from .spec import Spec, ref_spec_7702
 
@@ -431,9 +434,10 @@ def authorize_to_address(
             return pre.fund_eoa(1)
         case AddressType.CONTRACT:
             return pre.deploy_contract(Op.STOP)
-    raise ValueError(
-        f"Unsupported authorization address case: {request.param}"
-    )
+        case _:
+            raise ValueError(
+                f"Unsupported authorization address case: {request.param}"
+            )
 
 
 @pytest.fixture()
@@ -794,13 +798,27 @@ def gas_test_parameter_args(
         ]
 
     if include_many:
-        # Fit as many authorizations as possible within the transaction gas
-        # limit.
-        max_gas = 16_777_216 - 21_000
+        # Fit as many authorizations as possible within the
+        # transaction gas limit cap. Under EIP-8037 the per-auth
+        # intrinsic grows with cpsb; on older forks it is
+        # `Spec.AUTH_PER_EMPTY_ACCOUNT`. Divide by the larger so the
+        # count fits at any fork — older forks simply exercise fewer
+        # authorizations than the cap allows.
+        eip_8037_auth_cost = (
+            Spec8037.PER_AUTH_BASE_COST
+            + (
+                Spec8037.STATE_BYTES_PER_NEW_ACCOUNT
+                + Spec8037.STATE_BYTES_PER_AUTH_BASE
+            )
+            * Spec8037.COST_PER_STATE_BYTE
+        )
+        max_gas = Spec8037.TX_MAX_GAS_LIMIT - 21_000  # TX_BASE
         if execution_gas_allowance:
             # Leave some gas for the execution of the test code.
             max_gas -= 1_000_000
-        many_authorizations_count = max_gas // Spec.AUTH_PER_EMPTY_ACCOUNT
+        many_authorizations_count = max_gas // max(
+            Spec.AUTH_PER_EMPTY_ACCOUNT, eip_8037_auth_cost
+        )
         cases += [
             pytest.param(
                 {
@@ -841,6 +859,11 @@ def gas_test_parameter_args(
     )
 )
 @pytest.mark.slow()
+# TODO[EIP-8037]: discount accounting here uses Prague refund_counter
+# mechanics (with the EIP-3529 1/5 cap). On Amsterdam the existing-authority
+# refund flows through state_gas_reservoir / state_refund and is not capped
+# the same way. Needs a fork-aware rewrite before this can run on Amsterdam.
+@pytest.mark.valid_before("EIP8037")
 def test_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -950,6 +973,7 @@ def test_gas_cost(
 def test_account_warming(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     authorization_list_with_properties: List[AuthorizationWithProperties],
     authorization_list: List[AuthorizationTuple],
     access_list: List[AccessList],
@@ -965,8 +989,9 @@ def test_account_warming(
     # check.
     overhead_cost = 3 * len(Op.CALL.kwargs)
 
-    cold_account_cost = 2600
-    warm_account_cost = 100
+    gas_costs = fork.gas_costs()
+    cold_account_cost = gas_costs.COLD_ACCOUNT_ACCESS
+    warm_account_cost = gas_costs.WARM_ACCESS
 
     access_list_addresses = {
         access_list.address for access_list in access_list
@@ -1077,7 +1102,6 @@ def test_account_warming(
                 overhead_cost=overhead_cost,
                 extra_stack_items=1,
                 sstore_key=check_address,
-                stop=False,
             )
             for check_address in addresses_to_check
         )
@@ -1089,7 +1113,6 @@ def test_account_warming(
     )
 
     tx = Transaction(
-        gas_limit=1_000_000,
         to=callee_address,
         authorization_list=authorization_list if authorization_list else None,
         access_list=access_list,
@@ -1169,6 +1192,7 @@ def test_intrinsic_gas_cost(
 def test_self_set_code_cost(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     pre_authorized: bool,
 ) -> None:
     """Test set to code account access cost when it delegates to itself."""
@@ -1178,6 +1202,10 @@ def test_self_set_code_cost(
         auth_signer = pre.fund_eoa(0)
 
     slot_call_cost = 1
+
+    gas_costs = fork.gas_costs()
+    cold_account_cost = gas_costs.COLD_ACCOUNT_ACCESS
+    warm_account_cost = gas_costs.WARM_ACCESS
 
     overhead_cost = 3 * len(Op.CALL.kwargs)
 
@@ -1190,10 +1218,13 @@ def test_self_set_code_cost(
 
     callee_address = pre.deploy_contract(callee_code)
     callee_storage = Storage()
-    callee_storage[slot_call_cost] = 200 if not pre_authorized else 2700
+    callee_storage[slot_call_cost] = (
+        2 * warm_account_cost
+        if not pre_authorized
+        else cold_account_cost + warm_account_cost
+    )
 
     tx = Transaction(
-        gas_limit=1_000_000,
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(
@@ -1263,7 +1294,7 @@ def test_call_to_pre_authorized_oog(
     )
 
     expected_block_access_list = None
-    if fork.header_bal_hash_required():
+    if fork.is_eip_enabled(7928):
         # Sender nonce changes, callee is accessed but storage unchanged (OOG)
         # auth_signer is tracked (we read its code to check delegation)
         # delegation is NOT tracked (OOG before reading it)

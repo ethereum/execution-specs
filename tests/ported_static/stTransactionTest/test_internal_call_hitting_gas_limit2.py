@@ -40,7 +40,6 @@ def test_internal_call_hitting_gas_limit2(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=47766,
     )
 
     # Source: lll

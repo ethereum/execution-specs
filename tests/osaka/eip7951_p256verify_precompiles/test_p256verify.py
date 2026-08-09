@@ -1120,7 +1120,6 @@ def test_precompile_will_return_success_with_tx_value(
     contract_address = pre.deploy_contract(call_256verify_bytecode)
     tx = Transaction(
         sender=sender,
-        gas_limit=1000000,
         to=contract_address,
         value=1000,
         data=input_data,
@@ -1262,9 +1261,7 @@ def test_contract_creation_transaction(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=1000000,
         to=None,
-        value=0,
         data=contract_bytecode + input_data,
     )
 
@@ -1345,7 +1342,6 @@ def test_contract_initcode(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=200_000,
         to=factory_contract_address,
         value=0,
         data=call_256verify_bytecode + input_data,

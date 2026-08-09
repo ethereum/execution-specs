@@ -3,6 +3,9 @@ Puts the base 0, exponent 0 and modulus 0 into the MODEXP precompile,...
 
 Ported from:
 state_tests/stPreCompiledContracts2/modexp_0_0_0_35000Filler.json
+@manually-enhanced: Do not overwrite. tx_gas values bumped on
+Amsterdam to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
+
 """
 
 import pytest
@@ -268,6 +271,9 @@ def test_modexp_0_0_0_35000(
         + Hash(0x0),
     ]
     tx_gas = [57040, 90000, 110000, 200000]
+    if fork.is_eip_enabled(8037):
+        # EIP-8037 state-gas spill OoGs the SSTORE; bump to fit.
+        tx_gas = [200000, 200000, 200000, 200000]
 
     tx = Transaction(
         sender=sender,

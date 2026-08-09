@@ -16,13 +16,11 @@ from execution_testing import (
     Bytecode,
     Fork,
     Op,
-    Storage,
 )
-from execution_testing.base_types.base_types import HashInt
 
 from .helpers import (
     CURSOR_INIT,
-    CURSOR_SLOT,
+    StorageInitRange,
     cursor_read,
     cursor_write,
     gas_check_loop_contract,
@@ -87,6 +85,7 @@ def test_bal_max_account_access(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
     """Test BAL with maximum unique account accesses via BALANCE."""
     setup = cursor_read() + Op.PUSH3(BASE_ADDR) + Op.ADD
@@ -103,11 +102,15 @@ def test_bal_max_account_access(
         Address(BASE_ADDR + i): BalAccountExpectation.empty()
         for i in range(CURSOR_INIT, total + CURSOR_INIT)
     }
+    authority = pre.fund_eoa(amount=0)
     run_bal_benchmark(
         pre=pre,
+        fork=fork,
         benchmark_test=benchmark_test,
         contract_code=create_balance_loop_contract(plan.gas_threshold),
-        contract_storage=Storage({HashInt(CURSOR_SLOT): HashInt(CURSOR_INIT)}),
         plan=plan,
+        tx_gas_limit=tx_gas_limit,
+        authority=authority,
+        storage_init_ranges=[StorageInitRange(0, 1, CURSOR_INIT)],
         extra_expectations=extra,
     )

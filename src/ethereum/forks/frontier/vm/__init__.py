@@ -13,23 +13,24 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
+from ethereum.merkle_patricia_trie import Trie
 from ethereum.state import Address
 
 from ..blocks import Log, Receipt
-from ..state import State
+from ..state_tracker import BlockState, TransactionState
 from ..transactions import Transaction
-from ..trie import Trie
 
 __all__ = ("Environment", "Evm", "Message")
 
 
+@final
 @dataclass
 class BlockEnvironment:
     """
@@ -37,7 +38,7 @@ class BlockEnvironment:
     """
 
     chain_id: U64
-    state: State
+    state: BlockState
     block_gas_limit: Uint
     block_hashes: List[Hash32]
     coinbase: Address
@@ -46,6 +47,7 @@ class BlockEnvironment:
     difficulty: Uint
 
 
+@final
 @dataclass
 class BlockOutput:
     """
@@ -77,19 +79,22 @@ class BlockOutput:
     block_logs: Tuple[Log, ...] = field(default_factory=tuple)
 
 
+@final
 @dataclass
 class TransactionEnvironment:
     """
-    Items that are used by contract creation or message call.
+    Items that are used while processing a transaction.
     """
 
     origin: Address
     gas_price: Uint
     gas: Uint
+    state: TransactionState
     index_in_block: Uint
     tx_hash: Optional[Hash32]
 
 
+@final
 @dataclass
 class Message:
     """
@@ -110,6 +115,7 @@ class Message:
     parent_evm: Optional["Evm"]
 
 
+@final
 @dataclass
 class Evm:
     """The internal state of the virtual machine."""

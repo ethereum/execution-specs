@@ -13,24 +13,25 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
+from ethereum.merkle_patricia_trie import Trie
 from ethereum.state import Address
 
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Authorization, VersionedHash
-from ..state import State, TransientStorage
+from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
-from ..trie import Trie
 
 __all__ = ("Environment", "Evm", "Message")
 
 
+@final
 @dataclass
 class BlockEnvironment:
     """
@@ -38,7 +39,7 @@ class BlockEnvironment:
     """
 
     chain_id: U64
-    state: State
+    state: BlockState
     block_gas_limit: Uint
     block_hashes: List[Hash32]
     coinbase: Address
@@ -50,6 +51,7 @@ class BlockEnvironment:
     parent_beacon_block_root: Hash32
 
 
+@final
 @dataclass
 class BlockOutput:
     """
@@ -92,10 +94,11 @@ class BlockOutput:
     requests: List[Bytes] = field(default_factory=list)
 
 
+@final
 @dataclass
 class TransactionEnvironment:
     """
-    Items that are used by contract creation or message call.
+    Items that are used while processing a transaction.
     """
 
     origin: Address
@@ -103,13 +106,14 @@ class TransactionEnvironment:
     gas: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
-    transient_storage: TransientStorage
+    state: TransactionState
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
 
 
+@final
 @dataclass
 class Message:
     """
@@ -135,6 +139,7 @@ class Message:
     parent_evm: Optional["Evm"]
 
 
+@final
 @dataclass
 class Evm:
     """The internal state of the virtual machine."""

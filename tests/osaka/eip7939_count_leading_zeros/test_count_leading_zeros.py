@@ -117,7 +117,6 @@ def test_clz_opcode_scenarios(
     tx = Transaction(
         to=contract_address,
         sender=sender,
-        gas_limit=200_000,
     )
     post = {
         contract_address: Account(storage={"0x00": expected_clz}),
@@ -131,18 +130,15 @@ def test_clz_gas_cost(
 ) -> None:
     """Test CLZ opcode gas cost."""
     contract_address = pre.deploy_contract(
-        Op.SSTORE(
-            0,
-            CodeGasMeasure(
-                code=Op.CLZ(Op.PUSH1(1)),
-                extra_stack_items=1,
-                overhead_cost=Op.PUSH1.gas_cost(fork),
-            ),
+        CodeGasMeasure(
+            code=Op.CLZ(Op.PUSH1(1)),
+            extra_stack_items=1,
+            overhead_cost=Op.PUSH1.gas_cost(fork),
         ),
         storage={"0x00": "0xdeadbeef"},
     )
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=200_000)
+    tx = Transaction(to=contract_address, sender=sender)
     post = {
         contract_address: Account(  # Cost measured is CLZ + PUSH1
             storage={"0x00": Op.CLZ.gas_cost(fork)}
@@ -181,7 +177,7 @@ def test_clz_gas_cost_boundary(
         storage={"0x00": "0xdeadbeef"},
     )
 
-    tx = Transaction(to=call_address, sender=pre.fund_eoa(), gas_limit=200_000)
+    tx = Transaction(to=call_address, sender=pre.fund_eoa())
 
     post = {
         call_address: Account(storage={"0x00": 0 if gas_cost_delta < 0 else 1})
@@ -205,11 +201,7 @@ def test_clz_stack_underflow(state_test: StateTestFiller, pre: Alloc) -> None:
         code=Op.SSTORE(0, Op.CALL(gas=0xFFFF, address=callee_address)),
         storage={"0x00": "0xdeadbeef"},
     )
-    tx = Transaction(
-        to=caller_address,
-        sender=sender,
-        gas_limit=200_000,
-    )
+    tx = Transaction(to=caller_address, sender=sender)
     post = {
         caller_address: Account(
             storage={"0x00": 0}  # Call failed due to stack underflow
@@ -242,7 +234,6 @@ def test_clz_stack_not_overflow(
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=6_000_000,
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -267,11 +258,7 @@ def test_clz_push_operation_same_value(
 
     code_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(
-        to=code_address,
-        sender=pre.fund_eoa(),
-        gas_limit=12_000_000,
-    )
+    tx = Transaction(to=code_address, sender=pre.fund_eoa())
 
     post = {
         code_address: Account(
@@ -308,7 +295,6 @@ def test_clz_fork_transition(
                     to=caller_address,
                     sender=sender,
                     nonce=0,
-                    gas_limit=200_000,
                 )
             ],
         ),
@@ -319,7 +305,6 @@ def test_clz_fork_transition(
                     to=caller_address,
                     sender=sender,
                     nonce=1,
-                    gas_limit=200_000,
                 )
             ],
         ),
@@ -330,7 +315,6 @@ def test_clz_fork_transition(
                     to=caller_address,
                     sender=sender,
                     nonce=2,
-                    gas_limit=200_000,
                 )
             ],
         ),
@@ -392,20 +376,20 @@ def test_clz_jump_operation(
     if valid_jump:
         code += Op.JUMPDEST
 
-    code += Op.CLZ + Op.PUSH0 + Op.SSTORE + Op.RETURN(0, 0)
+    callee_code = code + Op.CLZ + Op.PUSH0 + Op.SSTORE + Op.RETURN(0, 0)
 
-    callee_address = pre.deploy_contract(code=code)
+    callee_address = pre.deploy_contract(code=callee_code)
 
+    caller_forwarded_gas = 0xFFFF
+    caller_code = Op.SSTORE(
+        0, Op.CALL(gas=caller_forwarded_gas, address=callee_address)
+    )
     caller_address = pre.deploy_contract(
-        code=Op.SSTORE(0, Op.CALL(gas=0xFFFF, address=callee_address)),
+        code=caller_code,
         storage={"0x00": "0xdeadbeef"},
     )
 
-    tx = Transaction(
-        to=caller_address,
-        sender=pre.fund_eoa(),
-        gas_limit=200_000,
-    )
+    tx = Transaction(to=caller_address, sender=pre.fund_eoa())
 
     expected_clz = 255 - bits
 
@@ -430,7 +414,7 @@ def test_clz_from_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test the address opcode in a set-code transaction."""
+    """Test the CLZ opcode in a set-code transaction."""
     storage = Storage()
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
@@ -445,7 +429,6 @@ def test_clz_from_set_code(
     set_code_to_address = pre.deploy_contract(set_code)
 
     tx = Transaction(
-        gas_limit=200_000,
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -519,11 +502,7 @@ def test_clz_code_copy_operation(
             }
         )
     }
-    tx = Transaction(
-        to=clz_contract_address,
-        sender=pre.fund_eoa(),
-        gas_limit=200_000,
-    )
+    tx = Transaction(to=clz_contract_address, sender=pre.fund_eoa())
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -582,11 +561,7 @@ def test_clz_with_memory_operation(
         ),
     }
 
-    tx = Transaction(
-        to=clz_contract_address,
-        sender=pre.fund_eoa(),
-        gas_limit=200_000,
-    )
+    tx = Transaction(to=clz_contract_address, sender=pre.fund_eoa())
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -607,12 +582,7 @@ def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc) -> None:
 
     contract_address = compute_create_address(address=sender_address, nonce=0)
 
-    tx = Transaction(
-        to=None,
-        gas_limit=6_000_000,
-        data=init_code,
-        sender=sender_address,
-    )
+    tx = Transaction(to=None, data=init_code, sender=sender_address)
 
     post = {
         contract_address: Account(storage=storage),
@@ -627,7 +597,7 @@ def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc) -> None:
 def test_clz_initcode_create(
     state_test: StateTestFiller, pre: Alloc, opcode: Op
 ) -> None:
-    """Test CLZ opcode behavior when creating a contract."""
+    """Test CLZ opcode behavior in initcode executed via CREATE/CREATE2."""
     bits = [0, 1, 64, 128, 255]  # expected values: [255, 254, 191, 127, 0]
 
     storage = Storage()
@@ -655,7 +625,6 @@ def test_clz_initcode_create(
 
     tx = Transaction(
         to=factory_contract_address,
-        gas_limit=200_000,
         data=ext_code,
         sender=sender_address,
     )
@@ -729,7 +698,6 @@ def test_clz_call_operation(
     callee_address = pre.deploy_contract(code=callee_code)
 
     caller_code = opcode(
-        gas=0xFFFF,
         address=callee_address,
         ret_offset=0,
         ret_size=len(test_cases) * 0x20,
@@ -742,11 +710,7 @@ def test_clz_call_operation(
 
     caller_address = pre.deploy_contract(code=caller_code)
 
-    tx = Transaction(
-        to=caller_address,
-        sender=pre.fund_eoa(),
-        gas_limit=200_000,
-    )
+    tx = Transaction(to=caller_address, sender=pre.fund_eoa())
 
     post = {}
 

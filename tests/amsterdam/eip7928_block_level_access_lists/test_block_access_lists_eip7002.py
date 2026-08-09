@@ -16,14 +16,14 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Op,
+    SystemContractInteractionBase,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
     Transaction,
 )
 
 from ...prague.eip7002_el_triggerable_withdrawals.helpers import (
     WithdrawalRequest,
-    WithdrawalRequestContract,
-    WithdrawalRequestInteractionBase,
-    WithdrawalRequestTransaction,
 )
 from ...prague.eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
 from .spec import ref_spec_7928
@@ -201,7 +201,6 @@ def test_bal_7002_clean_sweep(
         to=Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
         value=withdrawal_request.fee,
         data=withdrawal_request.calldata,
-        gas_limit=200_000,
     )
 
     # Build queue writes and reads based on pubkey
@@ -307,7 +306,6 @@ def test_bal_7002_partial_sweep(
             to=eip7002_address,
             value=withdrawal_request.fee,
             data=withdrawal_request.calldata,
-            gas_limit=200_000,
         )
         for sender, withdrawal_request in zip(
             senders, withdrawal_requests, strict=True
@@ -473,7 +471,6 @@ def test_bal_7002_no_withdrawal_requests(
         sender=alice,
         to=bob,
         value=value,
-        gas_limit=200_000,
     )
 
     block = Block(
@@ -530,30 +527,31 @@ def test_bal_7002_request_from_contract(
     fee = Spec7002.get_fee(0)
 
     # Create withdrawal request interaction using Prague helper
-    interaction = WithdrawalRequestContract(
-        requests=[
-            WithdrawalRequest(
-                validator_pubkey=0x01,
-                amount=0,
-                fee=fee,
-            )
-        ],
+    withdrawal_requests = [
+        WithdrawalRequest(
+            validator_pubkey=0x01,
+            amount=0,
+            fee=fee,
+        )
+    ]
+    interaction = SystemContractInteractionContract(
+        requests=withdrawal_requests,
         contract_balance=fee,
     )
 
     # Set up pre-state using helper
-    interaction.update_pre(pre)
+    prepared = interaction.update_pre(pre)
 
-    alice = interaction.sender_account
-    relay_contract = interaction.contract_address
+    alice = prepared.sender_account
+    relay_contract = prepared.contract_address
 
     # Build queue storage slots with contract as source
     queue_writes, queue_reads = _build_queue_storage_slots(
-        [relay_contract], interaction.requests
+        [relay_contract], withdrawal_requests
     )
 
     block = Block(
-        txs=interaction.transactions(),
+        txs=prepared.transactions(),
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
@@ -627,7 +625,7 @@ def test_bal_7002_request_from_contract(
     "interaction",
     [
         pytest.param(
-            WithdrawalRequestTransaction(
+            SystemContractInteractionTransaction(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -640,7 +638,7 @@ def test_bal_7002_request_from_contract(
             id="insufficient_fee",
         ),
         pytest.param(
-            WithdrawalRequestTransaction(
+            SystemContractInteractionTransaction(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -656,7 +654,7 @@ def test_bal_7002_request_from_contract(
             id="calldata_too_short",
         ),
         pytest.param(
-            WithdrawalRequestTransaction(
+            SystemContractInteractionTransaction(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -672,21 +670,21 @@ def test_bal_7002_request_from_contract(
             id="calldata_too_long",
         ),
         pytest.param(
-            WithdrawalRequestTransaction(
+            SystemContractInteractionTransaction(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
                         amount=0,
                         fee=Spec7002.get_fee(0),
-                        gas_limit=25_000,  # Insufficient gas
                         valid=False,
                     )
-                ]
+                ],
+                gas_limits=[25_000],  # Insufficient gas
             ),
             id="oog",
         ),
         pytest.param(
-            WithdrawalRequestContract(
+            SystemContractInteractionContract(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -700,7 +698,7 @@ def test_bal_7002_request_from_contract(
             id="invalid_call_type_delegatecall",
         ),
         pytest.param(
-            WithdrawalRequestContract(
+            SystemContractInteractionContract(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -714,7 +712,7 @@ def test_bal_7002_request_from_contract(
             id="invalid_call_type_staticcall",
         ),
         pytest.param(
-            WithdrawalRequestContract(
+            SystemContractInteractionContract(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -728,7 +726,7 @@ def test_bal_7002_request_from_contract(
             id="invalid_call_type_callcode",
         ),
         pytest.param(
-            WithdrawalRequestContract(
+            SystemContractInteractionContract(
                 requests=[
                     WithdrawalRequest(
                         validator_pubkey=0x01,
@@ -746,7 +744,7 @@ def test_bal_7002_request_from_contract(
 def test_bal_7002_request_invalid(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    interaction: WithdrawalRequestInteractionBase,
+    interaction: SystemContractInteractionBase,
 ) -> None:
     """
     Ensure BAL correctly handles invalid withdrawal request scenarios.
@@ -766,9 +764,9 @@ def test_bal_7002_request_invalid(
     - No withdrawal request is queued
     """
     # Use helper to set up pre-state and get transaction
-    interaction.update_pre(pre)
-    tx = interaction.transactions()[0]
-    alice = interaction.sender_account
+    prepared = interaction.update_pre(pre)
+    tx = prepared.transactions()[0]
+    alice = prepared.sender_account
 
     # Build account expectations
     account_expectations = {
@@ -801,8 +799,8 @@ def test_bal_7002_request_invalid(
     }
 
     # Add relay contract to post-state for contract scenarios
-    if isinstance(interaction, WithdrawalRequestContract):
-        post[interaction.contract_address] = Account()
+    if isinstance(prepared, SystemContractInteractionContract):
+        post[prepared.contract_address] = Account()
 
     blockchain_test(
         pre=pre,

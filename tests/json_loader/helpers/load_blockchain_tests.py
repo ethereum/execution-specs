@@ -12,6 +12,7 @@ from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, StateWithEmptyAccount
+from ethereum.state_mpt import close_state
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
@@ -102,7 +103,16 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
     def runtest(self) -> None:
         """Run a blockchain state test from JSON test case data."""
         json_data = self.test_dict
-        if "postState" not in json_data:
+        has_post_state = "postState" in json_data
+        allow_post_state_hash = self.config.getoption(
+            "allow_post_state_hash", False
+        )
+        post_state_hash_only = (
+            not has_post_state
+            and "postStateHash" in json_data
+            and allow_post_state_hash
+        )
+        if not has_post_state and not post_state_hash_only:
             pytest.xfail(
                 f"{self.test_file}[{self.test_key}] doesn't have post state"
             )
@@ -176,7 +186,7 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
                 #       of all of them.
                 with pytest.raises((EthereumException, RLPException)):
                     add_block_to_chain(chain, json_block, load, mock_pow)
-                    load.fork.close_state(chain.state)
+                    close_state(chain.state)
                 return
             else:
                 add_block_to_chain(chain, json_block, load, mock_pow)
@@ -186,10 +196,11 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
             keccak256(rlp.encode(chain.blocks[-1].header)) == last_block_hash
         )
 
-        expected_post_state = load.json_to_state(json_data["postState"])
-        assert chain.state == expected_post_state
-        load.fork.close_state(chain.state)
-        load.fork.close_state(expected_post_state)
+        if has_post_state:
+            expected_post_state = load.json_to_state(json_data["postState"])
+            assert chain.state == expected_post_state
+            close_state(expected_post_state)
+        close_state(chain.state)
 
     def reportinfo(self) -> Tuple[Path, int, str]:
         """Return information for test reporting."""

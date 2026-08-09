@@ -328,6 +328,9 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "InsufficientMaxFeePerBlobGas: Not enough to cover blob gas fee"
         ),
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            "InvalidTxSignature: Signature is invalid."
+        ),
         TransactionException.TYPE_1_TX_PRE_FORK: (
             "InvalidTxType: Transaction type in Custom is not supported"
         ),
@@ -347,10 +350,10 @@ class NethermindExceptionMapper(ExceptionMapper):
             "blob transaction of type create"
         ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
-            "MissingAuthorizationList: Must be set"
+            "EIP-7702 transaction with empty auth list"
         ),
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            "NotAllowedCreateTransaction: To must be set"
+            "EIP-7702 transaction cannot be used to create contract"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "InvalidTxType: Transaction type in Custom is not supported"
@@ -405,6 +408,19 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             r"insufficient sender balance|"
             r"insufficient MaxFeePerGas for sender balance"
+            r"|insufficient funds for gas \* price \+ value"
+            r"|insufficient funds for transfer|insufficient funds for gas"
+        ),
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
+            r"max fee per gas less than block base fee"
+        ),
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
+            r"max fee per blob gas less than block blob gas fee"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_LOW: (r"nonce too low"),
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (r"nonce too high"),
+        TransactionException.INVALID_CHAINID: (
+            r"InvalidTxChainId|Signature is invalid."
         ),
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
             r"Transaction \d+ is not valid"
@@ -418,7 +434,7 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"exceeded MaxBlobGas per transaction=\d+"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"TxGasLimitCapExceeded: Gas limit \d+ \w+ cap of \d+\.?"
+            r"TxGasLimitCapExceeded:"
         ),
         BlockException.INCORRECT_EXCESS_BLOB_GAS: (
             r"HeaderExcessBlobGasMismatch: Excess blob gas in header "
@@ -429,10 +445,12 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"calculated hash 0x[0-9a-f]+"
         ),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
-            r"(Withdrawals|Consolidations)Empty: Contract is not deployed\."
+            r"(Withdrawals|Consolidations|BuilderDeposits|BuilderExits)"
+            r"Empty: Contract is not deployed\."
         ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
-            r"(Withdrawals|Consolidations)Failed: Contract execution failed\."
+            r"(Withdrawals|Consolidations|BuilderDeposits|BuilderExits)"
+            r"Failed: Contract execution failed\."
         ),
         # BAL Exceptions — specific exceptions have unique patterns, but
         # INVALID_BLOCK_ACCESS_LIST and INCORRECT_BLOCK_FORMAT intentionally
@@ -442,14 +460,18 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"InvalidBlockLevelAccessListHash:"
             r"|InvalidBlockLevelAccessList:"
+            r"|BlockLevelAccessListIndexOutOfRange:"
             r"|could not be parsed as a block: "
             r"Error decoding block access list:"
+            r"|Error decoding block access list:"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"could not be parsed as a block: "
             r"Error decoding block access list:"
+            r"|Error decoding block access list:"
         ),
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
             r"TxGasLimitCapExceeded:"
+            r"|BlockAccessListGasLimitExceeded:"
         ),
     }

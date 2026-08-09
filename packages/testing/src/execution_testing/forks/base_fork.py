@@ -2,6 +2,7 @@
 
 import re
 from abc import ABCMeta, abstractmethod
+from enum import Enum, auto
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -11,6 +12,7 @@ from typing import (
     Mapping,
     Optional,
     Protocol,
+    Sequence,
     Set,
     Sized,
     Type,
@@ -23,6 +25,7 @@ from execution_testing.base_types import (
     AccessList,
     Address,
     BlobSchedule,
+    StateCommitment,
 )
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.vm import (
@@ -31,6 +34,7 @@ from execution_testing.vm import (
     Opcodes,
 )
 
+from ..recipient_type import RecipientType
 from .gas_costs import GasCosts
 
 
@@ -60,8 +64,23 @@ class TransactionDataFloorCostCalculator(Protocol):
     Calculate the transaction floor cost due to its calldata for a given fork.
     """
 
-    def __call__(self, *, data: BytesConvertible) -> int:
-        """Return transaction gas cost of calldata given its contents."""
+    def __call__(
+        self,
+        *,
+        data: BytesConvertible,
+        access_list: List[AccessList] | None = None,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
+    ) -> int:
+        """
+        Return transaction gas cost of calldata given its contents.
+
+        The defaults model a zero-value call to another account. Forks
+        that anchor the floor on the transaction's intrinsic base
+        (EIP-2780) add gas for these arguments, so create, value-bearing,
+        and self-transfer transactions must pass them explicitly.
+        """
         pass
 
 
@@ -110,6 +129,8 @@ class TransactionIntrinsicCostCalculator(Protocol):
         access_list: List[AccessList] | None = None,
         authorization_list_or_count: Sized | int | None = None,
         return_cost_deducted_prior_execution: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
     ) -> int:
         """
         Return the intrinsic gas cost of a transaction given its properties.
@@ -129,8 +150,77 @@ class TransactionIntrinsicCostCalculator(Protocol):
                                                 that is deducted from the gas
                                                 limit before the transaction
                                                 starts execution.
+          sends_value: Whether the transaction transfers a non-zero value.
+                       Forks that itemize the value-transfer charge in
+                       intrinsic gas use this flag; ignored by older forks.
+          recipient_type: Category of the transaction recipient. Forks
+                          that vary intrinsic gas by recipient kind use this;
+                          ignored by older forks.
 
         Returns: Gas cost of a transaction
+
+        """
+        pass
+
+
+class AuthorizationGasInfo(Protocol):
+    """
+    Structural view of an EIP-7702 authorization's effect on the
+    pre-state, used to compute its top-frame gas. The test
+    ``AuthorizationTuple`` satisfies it via its ``creates_account``,
+    ``writes_delegation``, and ``first_write`` fields.
+    """
+
+    creates_account: bool
+    writes_delegation: bool
+    first_write: bool
+
+
+class TopFrameGasCalculator(Protocol):
+    """
+    A protocol to calculate the additional execution gas charged at the
+    top-level transaction frame, after intrinsic gas is deducted but
+    before EVM execution begins.
+
+    Returns only the execution-gas portion of the post-intrinsic
+    state-aware preparation (e.g. the delegated-recipient access
+    charge). The state-gas portion is exposed separately by
+    ``BaseFork.transaction_top_frame_state_gas`` so tests can model the
+    two-dimensional reservoir explicitly or sum the two via
+    ``oog_budget_lift`` when targeting the spillover boundary.
+
+    Returns 0 for forks that do not perform any such preparation.
+    """
+
+    def __call__(
+        self,
+        *,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
+        delegation_warm: bool = False,
+        authorizations: Sequence[AuthorizationGasInfo] = (),
+    ) -> int:
+        """
+        Return the execution gas consumed by top-frame preparation for a
+        transaction at this fork.
+
+        Args:
+          contract_creation: Whether the transaction creates a contract.
+                             Top-frame charges are zero for creates;
+                             equivalent charges are paid via intrinsic
+                             gas.
+          sends_value: Whether the transaction transfers a non-zero
+                       value.
+          recipient_type: Category of the transaction recipient.
+                          Drives the conditional charges.
+          delegation_warm: Whether a delegated recipient's delegation
+                           target is already warm, charging warm rather
+                           than cold access.
+          authorizations: The transaction's EIP-7702 authorizations;
+                          each contributes its top-frame execution gas.
+
+        Returns: Execution gas added by top-frame preparation.
 
         """
         pass
@@ -168,6 +258,13 @@ class ExcessBlobGasCalculator(Protocol):
         pass
 
 
+class RefundTypes(Enum):
+    """Enum used to describe all refund types a fork can have."""
+
+    STORAGE_CLEAR = auto()
+    AUTHORIZATION_EXISTING_AUTHORITY = auto()
+
+
 class BaseForkMeta(ABCMeta):
     """Metaclass for BaseFork."""
 
@@ -198,54 +295,35 @@ class BaseForkMeta(ABCMeta):
     @staticmethod
     def _is_subclass_of(a: "BaseForkMeta", b: "BaseForkMeta") -> bool:
         """
-        Check if `a` is a subclass of `b`, taking fork transitions and
-        variants (created by `with_env_gas_limit`) into account.
+        Check if `a` is a subclass of `b`, taking fork transitions into
+        account.
         """
-        # Resolve variants to canonical identity so comparisons between
-        # a variant and a canonical descendant fork work as expected.
-        a = BaseForkMeta._identity(a)
-        b = BaseForkMeta._identity(b)
         a = BaseForkMeta._maybe_transitioned(a)
         b = BaseForkMeta._maybe_transitioned(b)
         return issubclass(a, b)
 
-    @staticmethod
-    def _identity(fork_cls: "BaseForkMeta") -> "BaseForkMeta":
-        """Return the canonical fork class, resolving variants."""
-        base = getattr(fork_cls, "_base_fork", None)
-        return base if base is not None else fork_cls
-
-    def __eq__(cls, other: object) -> bool:
-        """Compare fork identity, treating variants as equal to parents."""
-        if not isinstance(other, BaseForkMeta):
-            return NotImplemented
-        return BaseForkMeta._identity(cls) is BaseForkMeta._identity(other)
-
-    def __hash__(cls) -> int:
-        """Hash by canonical fork identity."""
-        return id(BaseForkMeta._identity(cls))
-
     def __gt__(cls, other: "BaseForkMeta") -> bool:
         """Compare if a fork is newer than some other fork (cls > other)."""
-        return cls != other and BaseForkMeta._is_subclass_of(cls, other)
+        return cls is not other and BaseForkMeta._is_subclass_of(cls, other)
 
     def __ge__(cls, other: "BaseForkMeta") -> bool:
         """
         Compare if a fork is newer than or equal to some other fork (cls >=
         other).
         """
-        return cls == other or BaseForkMeta._is_subclass_of(cls, other)
+        return cls is other or BaseForkMeta._is_subclass_of(cls, other)
 
     def __lt__(cls, other: "BaseForkMeta") -> bool:
         """Compare if a fork is older than some other fork (cls < other)."""
-        return cls != other and BaseForkMeta._is_subclass_of(other, cls)
+        # "Older" means other is a subclass of cls, but not the same.
+        return cls is not other and BaseForkMeta._is_subclass_of(other, cls)
 
     def __le__(cls, other: "BaseForkMeta") -> bool:
         """
         Compare if a fork is older than or equal to some other fork (cls <=
         other).
         """
-        return cls == other or BaseForkMeta._is_subclass_of(other, cls)
+        return cls is other or BaseForkMeta._is_subclass_of(other, cls)
 
 
 class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
@@ -258,17 +336,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     is_transition_fork: ClassVar[bool] = False
 
     _transition_tool_name: ClassVar[Optional[str]] = None
-    _solc_name: ClassVar[Optional[str]] = None
     _ignore: ClassVar[bool] = False
     _bpo_fork: ClassVar[bool] = False
     _children: ClassVar[Set[Type["BaseFork"]]] = set()
     _ruleset_name: ClassVar[Optional[str]] = None
     _fork_by_timestamp: ClassVar[bool] = False
     _blob_constants: ClassVar[Dict[str, int]] = {}
-
-    # Environment overrides (set on variants created by with_env_gas_limit)
-    _base_fork: ClassVar[Optional[Type["BaseFork"]]] = None
-    _env_gas_limit: ClassVar[int] = 0
     _deployed: ClassVar[bool] = True
     _enabled_eips: ClassVar[Set[int]] = set()
     _enabling_forks: ClassVar[Set[Type["BaseFork"]]] = set()
@@ -283,7 +356,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         cls,
         *,
         transition_tool_name: Optional[str] = None,
-        solc_name: Optional[str] = None,
         ignore: bool = False,
         bpo_fork: bool = False,
         ruleset_name: Optional[str] = None,
@@ -300,7 +372,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         forks.
         """
         cls._transition_tool_name = transition_tool_name
-        cls._solc_name = solc_name
         cls._ignore = ignore
         cls._bpo_fork = bpo_fork
         cls._ruleset_name = ruleset_name
@@ -385,6 +456,11 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
             if base_fork_class is not BaseFork:
                 cls._deployed = base_fork_class._deployed
 
+    @classmethod
+    def state_commitment(cls) -> StateCommitment:
+        """Return the state-commitment scheme for the state root."""
+        return StateCommitment.MPT
+
     # Header information abstract methods
     @classmethod
     @abstractmethod
@@ -451,12 +527,24 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def header_slot_number_required(cls) -> bool:
+        """Return true if the header must contain slot number (EIP-7843)."""
+        pass
+
     # Gas related abstract methods
 
     @classmethod
     @abstractmethod
     def gas_costs(cls) -> GasCosts:
         """Return dataclass with the gas costs constants for the fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def minimum_block_gas_limit(cls) -> int:
+        """Return the minimum block gas limit for it to be considered valid."""
         pass
 
     @classmethod
@@ -471,6 +559,47 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         - Constants (int): Direct gas cost values from gas_costs()
         - Callables: Functions that take the opcode instance with metadata and
                      return gas cost
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_state_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state gas costs.
+
+        An int value is a multiplier of `cost_per_state_byte`. A
+        callable takes the opcode instance with metadata and returns
+        the full state gas cost.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their gas refunds.
+
+        An int value is a direct gas refund. A callable takes the
+        opcode instance with metadata and returns the gas refund.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_state_refund_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to their state refunds.
+
+        An int value is a multiplier of `cost_per_state_byte`. A
+        callable takes the opcode instance with metadata and returns
+        the state refund.
         """
         pass
 
@@ -601,6 +730,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def cost_per_state_byte(cls) -> int:
+        """
+        Return the cost per state byte for this fork.
+        """
+        pass
+
     # Fee helpers
     @classmethod
     @abstractmethod
@@ -642,6 +779,77 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         for the fork.
         """
         pass
+
+    @classmethod
+    def transaction_top_frame_gas_calculator(
+        cls,
+    ) -> TopFrameGasCalculator:
+        """
+        Return a callable that calculates the additional execution gas
+        charged at the top-level transaction frame, after intrinsic
+        gas is deducted but before EVM execution begins.
+
+        Defaults to returning 0 for forks that do not perform such
+        post-intrinsic preparation.
+        """
+
+        def fn(
+            *,
+            contract_creation: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
+            delegation_warm: bool = False,
+            authorizations: Sequence[AuthorizationGasInfo] = (),
+        ) -> int:
+            del contract_creation, sends_value, recipient_type
+            del delegation_warm, authorizations
+            return 0
+
+        return fn
+
+    @classmethod
+    def transaction_top_frame_state_gas(
+        cls,
+        *,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
+        authorizations: Sequence[AuthorizationGasInfo] = (),
+    ) -> int:
+        """
+        Return the state gas charged at the top-level transaction
+        frame, after intrinsic gas is deducted but before EVM execution
+        begins. Companion to ``transaction_top_frame_gas_calculator``;
+        tests targeting the spillover boundary feed this through
+        ``oog_budget_lift`` to get the equivalent execution-gas budget.
+
+        Defaults to 0 for forks that do not perform such
+        post-intrinsic preparation.
+        """
+        del contract_creation, sends_value, recipient_type, authorizations
+        return 0
+
+    @classmethod
+    def call_value_stipend(cls) -> int:
+        """
+        Return the gas stipend forwarded to the callee of a value-bearing
+        CALL/CALLCODE.
+
+        The stipend is added to the child frame's gas and returned to the
+        caller when the callee does not consume it, so tests that pin
+        value-call gas at an exact boundary subtract it from the charged
+        total. Exposed as a named accessor so tests need not read
+        ``gas_costs().CALL_STIPEND`` directly.
+        """
+        return cls.gas_costs().CALL_STIPEND
+
+    @classmethod
+    def system_call_gas_limit(cls) -> int:
+        """
+        Return the total gas budget the system transaction grants the
+        target contract.
+        """
+        return 0
 
     @classmethod
     @abstractmethod
@@ -780,6 +988,46 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def state_gas_reservoir_enabled(cls) -> bool:
+        """
+        Return True if the fork enables a state gas reservoir.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def code_deposit_state_gas(cls, *, code_size: int) -> int:
+        """Return state gas for code deposit of the given size."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def create_state_gas(cls, *, code_size: int = 0) -> int:
+        """Return total state gas for CREATE."""
+        pass
+
+    @classmethod
+    def oog_budget_lift(
+        cls,
+        *,
+        sstores_before_oog: int = 0,
+        creates_before_oog: int = 0,
+        deploy_code_size: int = 0,
+    ) -> int:
+        """
+        Return the extra execution gas an out of gas budget needs to
+        stop at the same point on this fork: the state gas EIP-8037
+        spills into execution gas for the given SSTOREs, CREATEs, and
+        deployed bytes. Zero before EIP-8037, so no fork guard needed.
+        """
+        return (
+            sstores_before_oog * Opcodes.SSTORE(new_value=1).state_cost(cls)
+            + creates_before_oog * cls.create_state_gas()
+            + cls.code_deposit_state_gas(code_size=deploy_code_size)
+        )
+
+    @classmethod
+    @abstractmethod
     def block_rlp_size_limit(cls) -> int | None:
         """
         Return the maximum RLP size of a block in bytes, or None if no limit is
@@ -896,6 +1144,22 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def engine_payload_attribute_slot_number(cls) -> bool:
+        """
+        Return true if the payload attributes include the slot number.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def engine_payload_attribute_target_gas_limit(cls) -> bool:
+        """
+        Return true if the payload attributes include the target gas limit.
+        """
+        pass
+
     # Engine API method versions
     @classmethod
     def engine_new_payload_version(cls) -> Optional[int]:
@@ -1002,6 +1266,15 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """Return max request type supported by the fork."""
         pass
 
+    @classmethod
+    @abstractmethod
+    def refund_types(cls) -> List[RefundTypes]:
+        """
+        Return the list of refund types that are possible given current
+        fork logic.
+        """
+        pass
+
     # Meta information about the fork
     @classmethod
     def name(cls) -> str:
@@ -1042,12 +1315,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         Return fork name as it's meant to be passed to the transition tool for
         execution.
         """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def solc_name(cls) -> str:
-        """Return fork name as it's meant to be passed to the solc compiler."""
         pass
 
     @classmethod
@@ -1131,24 +1398,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def children(cls) -> Set[Type["BaseFork"]]:
         """Return the children forks."""
         return set(cls._children)
-
-    @classmethod
-    def with_env_gas_limit(cls, env_gas_limit: int) -> Type["BaseFork"]:
-        """Return a new fork class with the specified environment gas limit."""
-        new_cls = type(cls.__name__, (cls,), {})
-        # __init_subclass__ resets per-class overrides; restore from parent.
-        new_cls._env_gas_limit = env_gas_limit  # type: ignore[attr-defined]
-        new_cls._base_fork = cls._base_fork or cls  # type: ignore[attr-defined]
-        new_cls._transition_tool_name = (  # type: ignore[attr-defined]
-            cls._transition_tool_name
-        )
-        new_cls._solc_name = cls._solc_name  # type: ignore[attr-defined]
-        new_cls._ignore = cls._ignore  # type: ignore[attr-defined]
-        new_cls._bpo_fork = cls._bpo_fork  # type: ignore[attr-defined]
-        new_cls._ruleset_name = cls._ruleset_name  # type: ignore[attr-defined]
-        # Prevent the variant from appearing in fork traversals.
-        cls._children.discard(new_cls)
-        return new_cls
 
     @classmethod
     @abstractmethod

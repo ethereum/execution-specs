@@ -3,6 +3,8 @@ Test_random_statetest457.
 
 Ported from:
 state_tests/stRandom2/randomStatetest457Filler.json
+
+@manually-enhanced: Do not overwrite. tx `gas_limit` has been removed.
 """
 
 import pytest
@@ -43,7 +45,6 @@ def test_random_statetest457(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
@@ -87,7 +88,6 @@ def test_random_statetest457(
         data=Bytes(
             "44417f00000000000000000000000000000000000000000000000000000000000000017f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe6f949fa28af308a37a136c626218927d"  # noqa: E501
         ),
-        gas_limit=100000,
         value=0x12DE4990,
     )
 

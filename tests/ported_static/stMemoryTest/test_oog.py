@@ -3,6 +3,15 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stMemoryTest/oogFiller.yml
+
+@manually-enhanced: Do not overwrite. Each parametrization forwards a
+fixed in-bytecode gas budget to an inner operation and asserts whether
+it succeeds. The `0x3E` (RETURNDATACOPY) success case routes through a
+nested value-0 CALL to a cold contract; EIP-8038's cold account access
+reprice consumes the budget's slack and OOGs the copy. Bump only that
+budget by the fork-derived `COLD_ACCOUNT_ACCESS - 2600` so the success
+path stays funded; the value is exactly 0 before EIP-8038 and all
+other budgets are untouched.
 """
 
 import pytest
@@ -17,10 +26,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -297,6 +307,11 @@ def test_oog(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
+    # EIP-8038 cold account access reprice; 0 before EIP-8038. The
+    # `0x3E` RETURNDATACOPY success case forwards just enough gas for a
+    # nested CALL to a cold contract plus the copy; the reprice eats the
+    # slack, so add it back to that one budget.
+    cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x0000000000000000000000000000000000010020)
     contract_1 = Address(0x0000000000000000000000000000000000010037)
@@ -753,7 +768,7 @@ def test_oog(
         Bytes("1a8451e6") + Hash(0x3C) + Hash(0xFFFF),
         Bytes("1a8451e6") + Hash(0x3C) + Hash(0x2BC),
         Bytes("1a8451e6") + Hash(0x3E) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0x3E) + Hash(0xC02),
+        Bytes("1a8451e6") + Hash(0x3E) + Hash(0xC02 + cold_account_delta),
         Bytes("1a8451e6") + Hash(0x3E) + Hash(0x7D0),
         Bytes("1a8451e6") + Hash(0x3E) + Hash(0xC01),
         Bytes("1a8451e6") + Hash(0x51) + Hash(0xFFFF),

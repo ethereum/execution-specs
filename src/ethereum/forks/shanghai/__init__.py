@@ -36,7 +36,7 @@ bytecode, and deprecates the self-destruct EVM instruction.
 [EIP-3860]: https://eips.ethereum.org/EIPS/eip-3860
 [EIP-4895]: https://eips.ethereum.org/EIPS/eip-4895
 [Geth 1.11.5]: https://github.com/ethereum/go-ethereum/releases/tag/v1.11.5
-[Besu 23.1.2]: https://github.com/hyperledger/besu/releases/tag/23.1.2
+[Besu 23.1.2]: https://github.com/besu-eth/besu/releases/tag/23.1.2
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.17.3
 [e]: https://github.com/ledgerwatch/erigon/releases/tag/v2.41.0
 [js]: https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%406.4.0

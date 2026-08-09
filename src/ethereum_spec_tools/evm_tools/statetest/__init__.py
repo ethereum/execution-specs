@@ -9,13 +9,27 @@ import sys
 from copy import deepcopy
 from dataclasses import dataclass
 from io import StringIO
-from typing import Any, Dict, Generator, Iterable, List, Optional, TextIO
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    TextIO,
+)
 
 from ethereum.utils.hexadecimal import hex_to_bytes
 
-from ..t8n import T8N, ForkCache
-from ..t8n.t8n_types import Result
+from ..t8n import ForkCache
+from ..t8n.cli import build_t8n_from_cli_options
 from ..utils import get_supported_forks
+
+if TYPE_CHECKING:
+    from execution_testing.client_clis.cli_types import (
+        Result as TestingResult,
+    )
 
 
 @dataclass
@@ -87,7 +101,7 @@ def run_test_case(
     fork_cache: ForkCache,
     t8n_extra: Optional[List[str]] = None,
     output_basedir: Optional[str | TextIO] = None,
-) -> Result:
+) -> "TestingResult":
     """
     Runs a single general state test.
     """
@@ -156,7 +170,8 @@ def run_test_case(
     if output_basedir is not None:
         t8n_options.output_basedir = output_basedir
 
-    t8n = T8N(t8n_options, out_stream, in_stream, fork_cache)
+    del out_stream  # statetest reads ``t8n.result`` directly.
+    t8n = build_t8n_from_cli_options(t8n_options, in_stream, fork_cache)
     t8n.run_state_test()
     return t8n.result
 

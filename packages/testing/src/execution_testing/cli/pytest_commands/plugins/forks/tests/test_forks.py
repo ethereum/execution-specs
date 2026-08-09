@@ -5,7 +5,10 @@ import pytest
 from execution_testing.client_clis.clis.execution_specs import (
     ExecutionSpecsTransitionTool,
 )
-from execution_testing.fixtures import LabeledFixtureFormat
+from execution_testing.fixtures import (
+    FixtureFillingPhase,
+    LabeledFixtureFormat,
+)
 from execution_testing.forks import (
     BPO1,
     BPO2,
@@ -21,6 +24,12 @@ from execution_testing.forks.forks.transition import (
     OsakaToBPO1AtTime15k,
 )
 from execution_testing.specs import StateTest
+
+STATE_TEST_FILL_FORMATS = [
+    f
+    for f in StateTest.supported_fixture_formats
+    if FixtureFillingPhase.FILL in f.format_phases
+]
 
 
 @pytest.fixture
@@ -54,12 +63,10 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
         for f in forks_from_until(all_forks[0], all_forks[-1])
         if not f.ignore() and t8n.is_fork_supported(f)
     ]
-    expected_passed = len(forks_under_test) * len(
-        StateTest.supported_fixture_formats
-    )
+    expected_passed = len(forks_under_test) * len(STATE_TEST_FILL_FORMATS)
     stdout = "\n".join(result.stdout.lines)
     for test_fork in forks_under_test:
-        for fixture_format in StateTest.supported_fixture_formats:
+        for fixture_format in STATE_TEST_FILL_FORMATS:
             if isinstance(fixture_format, LabeledFixtureFormat):
                 fixture_format_label = fixture_format.label
                 fixture_format = fixture_format.format
@@ -112,12 +119,10 @@ def test_from_london_option_no_validity_marker(
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v", "--from", fork)
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(fork_map[fork], all_forks[-1])
-    expected_passed = len(forks_under_test) * len(
-        StateTest.supported_fixture_formats
-    )
+    expected_passed = len(forks_under_test) * len(STATE_TEST_FILL_FORMATS)
     stdout = "\n".join(result.stdout.lines)
     for test_fork in forks_under_test:
-        for fixture_format in StateTest.supported_fixture_formats:
+        for fixture_format in STATE_TEST_FILL_FORMATS:
             if isinstance(fixture_format, LabeledFixtureFormat):
                 fixture_format_label = fixture_format.label
                 fixture_format = fixture_format.format
@@ -177,15 +182,13 @@ def test_from_london_until_shanghai_option_no_validity_marker(
     forks_under_test = forks_from_until(
         fork_map["London"], fork_map["Shanghai"]
     )
-    expected_passed = len(forks_under_test) * len(
-        StateTest.supported_fixture_formats
-    )
+    expected_passed = len(forks_under_test) * len(STATE_TEST_FILL_FORMATS)
     stdout = "\n".join(result.stdout.lines)
     if ArrowGlacier in forks_under_test:
         forks_under_test.remove(ArrowGlacier)
-        expected_passed -= len(StateTest.supported_fixture_formats)
+        expected_passed -= len(STATE_TEST_FILL_FORMATS)
     for test_fork in forks_under_test:
-        for fixture_format in StateTest.supported_fixture_formats:
+        for fixture_format in STATE_TEST_FILL_FORMATS:
             if isinstance(fixture_format, LabeledFixtureFormat):
                 fixture_format_label = fixture_format.label
                 fixture_format = fixture_format.format
@@ -237,14 +240,12 @@ def test_from_paris_until_paris_option_no_validity_marker(
         "-c", "pytest-fill.ini", "-v", "--from", "paris", "--until", "paris"
     )
     forks_under_test = forks_from_until(fork_map["Paris"], fork_map["Paris"])
-    expected_passed = len(forks_under_test) * len(
-        StateTest.supported_fixture_formats
-    )
+    expected_passed = len(forks_under_test) * len(STATE_TEST_FILL_FORMATS)
     stdout: str = "\n".join(result.stdout.lines)
     assert len(stdout) > 0, "stdout is empty string"
 
     for test_fork in forks_under_test:
-        for fixture_format in StateTest.supported_fixture_formats:
+        for fixture_format in STATE_TEST_FILL_FORMATS:
             if isinstance(fixture_format, LabeledFixtureFormat):
                 fixture_format_label = fixture_format.label
                 fixture_format = fixture_format.format

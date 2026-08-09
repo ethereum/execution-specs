@@ -3,7 +3,7 @@ State Tracking for Block Execution.
 
 Track state changes on top of a read-only ``PreState``.  At block end,
 accumulated diffs feed into
-``PreState.compute_state_root_and_trie_changes()``.
+``PreState.compute_state_root()``.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -19,7 +19,7 @@ within a single transaction and supports copy-on-write rollback.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from .block_access_lists import BlockAccessListBuilder
 
 
+@final
 @dataclass
 class BlockState:
     """
@@ -62,6 +63,7 @@ class BlockState:
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
 
 
+@final
 @dataclass
 class TransactionState:
     """
@@ -90,6 +92,73 @@ class TransactionState:
     )
 
 
+def get_pre_state_account_optional(
+    tx_state: TransactionState, address: Address
+) -> Optional[Account]:
+    """
+    Get the `Account` object at an address that existed before the current
+    transaction, or `None` (rather than [`EMPTY_ACCOUNT`]) if there was no
+    account at the address at that point.
+
+    Use [`get_pre_state_account()`][pre] if the difference between a
+    non-existent account and [`EMPTY_ACCOUNT`] isn't important.
+
+    [`EMPTY_ACCOUNT`]: ref:ethereum.state.EMPTY_ACCOUNT
+    [pre]: ref:ethereum.forks.amsterdam.state_tracker.get_pre_state_account
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address to look up.
+
+    Returns
+    -------
+    account : ``Optional[Account]``
+        Account at address before the current transaction.
+
+    """
+    tx_state.account_reads.add(address)
+    if address in tx_state.parent.account_writes:
+        return tx_state.parent.account_writes[address]
+    return tx_state.parent.pre_state.get_account_optional(address)
+
+
+def get_pre_state_account(
+    tx_state: TransactionState, address: Address
+) -> Account:
+    """
+    Get the `Account` object at an address that existed before the current
+    transaction, or [`EMPTY_ACCOUNT`]) if there was no account at the address
+    at that point.
+
+    Use [`get_pre_state_account_optional()`][opt] if the difference between a
+    non-existent account and [`EMPTY_ACCOUNT`] is material.
+
+    [`EMPTY_ACCOUNT`]: ref:ethereum.state.EMPTY_ACCOUNT
+    [opt]: ref:ethereum.forks.amsterdam.state_tracker.get_pre_state_account_optional
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address to look up.
+
+    Returns
+    -------
+    account : ``Account``
+        Account at address before the current transaction.
+
+    """  # noqa: E501
+    account = get_pre_state_account_optional(tx_state, address)
+    if account is None:
+        return EMPTY_ACCOUNT
+    else:
+        return account
+
+
 def get_account_optional(
     tx_state: TransactionState, address: Address
 ) -> Optional[Account]:
@@ -113,9 +182,7 @@ def get_account_optional(
     tx_state.account_reads.add(address)
     if address in tx_state.account_writes:
         return tx_state.account_writes[address]
-    if address in tx_state.parent.account_writes:
-        return tx_state.parent.account_writes[address]
-    return tx_state.parent.pre_state.get_account_optional(address)
+    return get_pre_state_account_optional(tx_state, address)
 
 
 def get_account(tx_state: TransactionState, address: Address) -> Account:
@@ -140,10 +207,10 @@ def get_account(tx_state: TransactionState, address: Address) -> Account:
 
     """
     account = get_account_optional(tx_state, address)
-    if isinstance(account, Account):
-        return account
-    else:
+    if account is None:
         return EMPTY_ACCOUNT
+    else:
+        return account
 
 
 def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
@@ -278,28 +345,18 @@ def account_exists(tx_state: TransactionState, address: Address) -> bool:
     return get_account_optional(tx_state, address) is not None
 
 
-def account_has_code_or_nonce(
-    tx_state: TransactionState, address: Address
-) -> bool:
+def account_deployable(tx_state: TransactionState, address: Address) -> bool:
     """
-    Check if an account has non-zero nonce or non-empty code.
-
-    Parameters
-    ----------
-    tx_state :
-        The transaction state.
-    address :
-        Address of the account that needs to be checked.
-
-    Returns
-    -------
-    has_code_or_nonce : ``bool``
-        True if the account has non-zero nonce or non-empty code,
-        False otherwise.
-
+    Check if an account's code can be written to.
     """
     account = get_account(tx_state, address)
-    return account.nonce != Uint(0) or account.code_hash != EMPTY_CODE_HASH
+    if account.nonce != Uint(0) or account.code_hash != EMPTY_CODE_HASH:
+        return False
+
+    if account_has_storage(tx_state, address):
+        return False
+
+    return True
 
 
 def account_has_storage(tx_state: TransactionState, address: Address) -> bool:
@@ -431,10 +488,9 @@ def destroy_account(tx_state: TransactionState, address: Address) -> None:
     """
     Completely remove the account at ``address`` and all of its storage.
 
-    This function is made available exclusively for the ``SELFDESTRUCT``
-    opcode. It is expected that ``SELFDESTRUCT`` will be disabled in a
-    future hardfork and this function will be removed. Only supports same
-    transaction destruction.
+    Invoked by ``modify_state`` (and the coinbase fee-credit path) to
+    clean up an account that has become empty (zero nonce, empty
+    code, and zero balance) so it does not appear in the post-state.
 
     Parameters
     ----------
@@ -446,6 +502,30 @@ def destroy_account(tx_state: TransactionState, address: Address) -> None:
     """
     destroy_storage(tx_state, address)
     set_account(tx_state, address, None)
+
+
+def clear_account_preserving_balance(
+    tx_state: TransactionState, address: Address
+) -> None:
+    """
+    Clear an account's nonce, code, and storage while preserving its
+    balance.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account to modify.
+
+    """
+
+    def clear_account(account: Account) -> None:
+        account.nonce = Uint(0)
+        account.code_hash = EMPTY_CODE_HASH
+
+    destroy_storage(tx_state, address)
+    modify_state(tx_state, address, clear_account)
 
 
 def destroy_storage(tx_state: TransactionState, address: Address) -> None:
@@ -566,6 +646,29 @@ def move_ether(
 
     modify_state(tx_state, sender_address, reduce_sender_balance)
     modify_state(tx_state, recipient_address, increase_recipient_balance)
+
+
+def create_ether(
+    tx_state: TransactionState, address: Address, amount: U256
+) -> None:
+    """
+    Add newly created ether to an account.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account to which ether is added.
+    amount :
+        The amount of ether to be added to the account of interest.
+
+    """
+
+    def increase_balance(account: Account) -> None:
+        account.balance += amount
+
+    modify_state(tx_state, address, increase_balance)
 
 
 def set_account_balance(

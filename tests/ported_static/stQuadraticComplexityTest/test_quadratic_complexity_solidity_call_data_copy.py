@@ -3,6 +3,9 @@ Test_quadratic_complexity_solidity_call_data_copy.
 
 Ported from:
 state_tests/stQuadraticComplexityTest/QuadraticComplexitySolidity_CallDataCopyFiller.json
+
+@manually-enhanced: Do not overwrite. Post-state expectations corrected
+manually (see PR #2784).
 """
 
 import pytest
@@ -152,9 +155,14 @@ def test_quadratic_complexity_solidity_call_data_copy(
         value=tx_value[v],
     )
 
+    # With `g=1` the tx completes the inner CALL loop and the
+    # leading `SSTORE(0, 50000)` (the loop-counter snapshot taken
+    # before entering the loop body) commits. With `g=0` the tx
+    # OOGs and rolls everything back, leaving storage empty.
+    contract_0_storage = {0: 0xC350} if g == 1 else {}
     post = {
         contract_0: Account(
-            storage={},
+            storage=contract_0_storage,
             code=bytes.fromhex(
                 "60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056"  # noqa: E501
             ),

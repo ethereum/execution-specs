@@ -617,6 +617,25 @@ def test_fork_covariant_markers(
             "filter_combinations deselected all",
             id="filter_combinations_empty_set_error",
         ),
+        pytest.param(
+            """
+            import pytest
+
+            @pytest.mark.parametrize("a", [1, 2])
+            @pytest.mark.filter_combinations(
+                lambda nonexistent_param, **_: True,
+                reason="predicate names a parameter that does not exist",
+            )
+            @pytest.mark.valid_from("Cancun")
+            @pytest.mark.valid_until("Cancun")
+            @pytest.mark.state_test_only
+            def test_case(state_test, a):
+                pass
+            """,
+            {},
+            "cannot be called with the item's params",
+            id="filter_combinations_bad_predicate_signature_error",
+        ),
     ],
 )
 def test_filter_combinations(

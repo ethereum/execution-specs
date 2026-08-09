@@ -42,7 +42,6 @@ def test_returndatasize_after_successful_callcode(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=111669149696,
     )
 
     # Source: lll
@@ -81,7 +80,6 @@ def test_returndatasize_after_successful_callcode(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=100000,
     )
 
     post = {target: Account(storage={0: 6})}

@@ -101,6 +101,7 @@ class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     excess_blob_gas: NumberBoundTypeVar | None = Field(
         None, alias="currentExcessBlobGas"
     )
+    slot_number: NumberBoundTypeVar | None = Field(None, alias="slotNumber")
 
     parent_difficulty: NumberBoundTypeVar | None = Field(None)
     parent_timestamp: NumberBoundTypeVar | None = Field(None)
@@ -134,6 +135,7 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     )
     parent_blob_gas_used: ZeroPaddedHexNumber | None = Field(None)
     parent_excess_blob_gas: ZeroPaddedHexNumber | None = Field(None)
+    parent_slot_number: ZeroPaddedHexNumber | None = Field(None)
     parent_beacon_block_root: Hash | None = Field(None)
 
     block_hashes: Dict[ZeroPaddedHexNumber, Hash] = Field(default_factory=dict)
@@ -199,6 +201,13 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
             and self.parent_beacon_block_root is None
         ):
             updated_values["parent_beacon_block_root"] = 0
+
+        if fork.header_slot_number_required() and self.slot_number is None:
+            updated_values["slot_number"] = (
+                int(self.parent_slot_number) + 1
+                if self.parent_slot_number is not None
+                else 0
+            )
 
         return self.copy(**updated_values)
 

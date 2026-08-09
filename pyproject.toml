@@ -21,11 +21,11 @@ classifiers = [
 ]
 dependencies = [
     "pycryptodome>=3.22,<4",
-    "coincurve>=20,<21",
+    "spec256k1>=0.2.3,<0.3",
     "typing_extensions>=4.4",
     "py-ecc>=8.0.0b2,<9",
-    "ethereum-types>=0.3.0,<0.4",
-    "ethereum-rlp>=0.1.5,<0.2",
+    "ethereum-types>=0.4.1,<0.5",
+    "ethereum-rlp>=0.1.6,<0.2",
     "cryptography>=45.0.1,<46",
     "platformdirs>=4.2,<5",
     "libcst>=1.8,<2",
@@ -214,7 +214,7 @@ test = [
 ]
 lint = [
     "codespell==2.4.1",
-    "mypy==1.20.0",
+    "mypy==2.1.0",
     "ruff==0.13.2",
     "vulture==2.14.0",
     "types-requests>=2.31,<2.33",
@@ -225,7 +225,7 @@ actionlint = [
     "shellcheck-py>=0.10",
 ]
 doc = [
-    "docc>=0.5.1,<0.6.0",
+    "docc>=0.6.1,<0.7.0",
     "fladrif>=0.2.0,<0.3.0",
     "mistletoe>=1.5.0,<2",
 ]
@@ -255,8 +255,13 @@ dev = [
     { include-group = "actionlint" },
     { include-group = "doc" },
     { include-group = "mkdocs" },
-    "ethereum-execution[optimized]",
     "psutil>=7.2.2",
+]
+# Opt-in (not part of dev): native-accelerated state and ethash for the
+# sync tool. ethash has no CPython 3.14 wheels, so installing this group
+# requires a C toolchain on 3.14.
+optimized = [
+    "ethereum-execution[optimized]",
 ]
 
 [tool.setuptools.dynamic]
@@ -273,9 +278,11 @@ whitelist = "ethereum_spec_tools.whitelist:main"
 [project.entry-points."docc.plugins"]
 "ethereum_spec_tools.docc.listing" = "ethereum_spec_tools.docc:EthereumListingDiscover"
 "ethereum_spec_tools.docc.discover" = "ethereum_spec_tools.docc:EthereumDiscover"
+"ethereum_spec_tools.docc.python" = "ethereum_spec_tools.docc:EthereumPythonDiscover"
 "ethereum_spec_tools.docc.build" = "ethereum_spec_tools.docc:EthereumBuilder"
 "ethereum_spec_tools.docc.fix-indexes" = "ethereum_spec_tools.docc:FixIndexTransform"
 "ethereum_spec_tools.docc.minimize-diffs" = "ethereum_spec_tools.docc:MinimizeDiffsTransform"
+"ethereum_spec_tools.docc.prune-references" = "ethereum_spec_tools.docc:PruneReferencesTransform"
 
 [project.entry-points."docc.plugins.html"]
 "ethereum_spec_tools.docc:DiffNode" = "ethereum_spec_tools.docc:render_diff"
@@ -291,15 +298,23 @@ markers = [
     "json_state_tests: marks tests as json_state_tests (deselect with '-m \"not json_state_tests\"')",
     "vm_test: marks tests as vm_test (deselect with '-m \"not vm_test\"')",
     "eels_base_coverage: Minimized subset selected to preserve high EELS line-coverage parity (select with '-m eels_base_coverage')",
+    "fork: marks JSON fixture tests by fork",
     "repricing: marks tests for gas repricing analysis",
     "stub_parametrize: parametrize test from address stubs by prefix",
 ]
 
 [tool.coverage.run]
 omit = [
-    "*/ethereum/*_glacier/*",
-    "*/ethereum/dao_fork/*",
+    "*/ethereum/forks/*_glacier/*",
+    "*/ethereum/forks/dao_fork/*",
+    "*/ethereum/forks/bpo*/*",
 ]
+
+[tool.coverage.report]
+# `ethereum.forks` is a namespace package (no `__init__.py`); without this
+# option, coverage skips it when reporting never-imported files at 0%, so
+# forks absent from a run silently drop out of the coverage denominator.
+include_namespace_packages = true
 
 [tool.docc]
 context = [
@@ -311,7 +326,7 @@ context = [
 discovery = [
     "docc.search.discover",
     "docc.html.discover",
-    "docc.python.discover",
+    "ethereum_spec_tools.docc.python",
     "ethereum_spec_tools.docc.discover",
     "ethereum_spec_tools.docc.listing",
     "docc.files.discover",
@@ -332,6 +347,9 @@ transform = [
     "ethereum_spec_tools.docc.fix-indexes",
     "ethereum_spec_tools.docc.minimize-diffs",
     "docc.references.index",
+    # prune-references must run after the index is populated and before
+    # any transform that resolves references (search, html).
+    "ethereum_spec_tools.docc.prune-references",
     "docc.search.transform",
     "docc.html.transform",
 ]
@@ -341,7 +359,7 @@ excluded_references = [
     "ethereum_spec_tools.lint.lints",   # This is a namespace package.
 ]
 
-[tool.docc.plugins."docc.python.discover"]
+[tool.docc.plugins."ethereum_spec_tools.docc.python"]
 paths = [
     "src",
 ]
@@ -439,6 +457,10 @@ builtin = "clear,code,usage"
 # Version control & tooling, build artifacts, data files, test fixtures, temp files, lock files
 skip = [
     ".devcontainer",
+    # Local AI memory and notes files (gitignored, may exist as symlinks)
+    "CLAUDE.local.md",
+    ".mb",
+    "mb",
     ".git",
     ".just",
     ".venv",
@@ -482,6 +504,22 @@ warn_redundant_casts = true
 ignore_missing_imports = false
 mypy_path = ["src", "packages/testing/src", "packages/testing/stubs"]
 files = ["src", "tests", "packages"]
+enable_error_code = [
+    "truthy-iterable",
+    "unused-awaitable",
+    "redundant-self",
+    "unused-ignore",
+    "unimported-reveal",
+    "exhaustive-match",
+    "deprecated",
+
+   #"mutable-override",
+   #"truthy-bool",
+   #"explicit-override",
+   #"ignore-without-code",
+   #"possibly-undefined",
+   #"redundant-expr",
+]
 exclude = [
     "^\\.cache/",
     "^\\.devcontainer/",
@@ -497,6 +535,11 @@ exclude = [
     "^tests/json_loader/fixtures/",
 ]
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# remerkleable ships no type stubs / py.typed marker.
+module = "remerkleable.*"
+ignore_missing_imports = true
 
 [tool.uv]
 required-version = ">=0.7.0"

@@ -17,7 +17,7 @@ from ethereum_types.numeric import Uint
 
 from ethereum.state import Address
 
-from ..state import get_account, get_code
+from ..state_tracker import get_account, get_code
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from .address import compute_contract_address
@@ -49,7 +49,7 @@ def prepare_message(
     if isinstance(tx.to, Bytes0):
         current_target = compute_contract_address(
             tx_env.origin,
-            get_account(block_env.state, tx_env.origin).nonce - Uint(1),
+            get_account(tx_env.state, tx_env.origin).nonce - Uint(1),
         )
         msg_data = Bytes(b"")
         code = tx.data
@@ -57,8 +57,8 @@ def prepare_message(
     elif isinstance(tx.to, Address):
         current_target = tx.to
         msg_data = tx.data
-        account = get_account(block_env.state, tx.to)
-        code = get_code(block_env.state, account.code_hash)
+        account = get_account(tx_env.state, tx.to)
+        code = get_code(tx_env.state, account.code_hash)
 
         code_address = tx.to
     else:

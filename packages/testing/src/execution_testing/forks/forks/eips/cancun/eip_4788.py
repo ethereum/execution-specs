@@ -19,9 +19,20 @@ class EIP4788(BaseFork):
     """EIP-4788 class."""
 
     @classmethod
+    def empty_block_bal_item_count(cls) -> int:
+        """Add block-level access list elements for an empty block."""
+        # Beacon roots contract: 1 address + 1 write + 1 read = 3
+        return super(EIP4788, cls).empty_block_bal_item_count() + 3
+
+    @classmethod
     def header_beacon_root_required(cls) -> bool:
         """Parent beacon block root is required."""
         return True
+
+    @classmethod
+    def system_call_gas_limit(cls) -> int:
+        """Gas budget for the system-call mechanism (30M)."""
+        return 30_000_000
 
     @classmethod
     def system_contracts(cls) -> List[Address]:
@@ -38,8 +49,9 @@ class EIP4788(BaseFork):
                 "57602036146024575f5ffd5b5f35801560495762001fff810690"
                 "815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd"
                 "5b62001fff42064281555f359062001fff015500",
-            }
-        } | super(EIP4788, cls).pre_allocation_blockchain()  # type: ignore
+            },
+            **super(EIP4788, cls).pre_allocation_blockchain(),
+        }
 
     @classmethod
     def engine_new_payload_beacon_root(cls) -> bool:

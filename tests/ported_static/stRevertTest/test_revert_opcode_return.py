@@ -3,6 +3,10 @@ Test_revert_opcode_return.
 
 Ported from:
 state_tests/stRevertTest/RevertOpcodeReturnFiller.json
+@manually-enhanced: Do not overwrite. tx_gas[1] bumped on Amsterdam to
+cover EIP-8037 state-gas spill from target's two SSTORE-sets;
+pre-EIP-8037 unchanged.
+
 """
 
 import pytest
@@ -17,10 +21,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -247,6 +252,8 @@ def test_revert_opcode_return(
         Hash(addr_6, left_padding=True),
     ]
     tx_gas = [800000, 80000]
+    if fork.is_eip_enabled(8037):
+        tx_gas = [800000, 250_000]
 
     tx = Transaction(
         sender=sender,

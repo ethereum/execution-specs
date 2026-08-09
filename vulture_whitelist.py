@@ -19,10 +19,13 @@ from ethereum_spec_tools.evm_tools.daemon import _EvmToolHandler
 from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
-from ethereum_spec_tools.evm_tools.t8n.env import Ommer
+from ethereum_spec_tools.evm_tools.t8n.block_environment import Ommer
 from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
     FinalTrace,
     Trace,
+)
+from ethereum_spec_tools.lint.lints.final_decorator import (
+    FinalDecoratorHygiene,
 )
 from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
@@ -53,15 +56,29 @@ EvmTracer.__call__
 # src/ethereum/optimized/state_db.py
 State.rollback_db_transaction
 
+# src/ethereum_optimized/state_db.py - registered as patches via @add_item
+from ethereum_optimized.state_db import (
+    begin_transaction,
+    commit_transaction,
+    rollback_transaction,
+)
+
+begin_transaction
+commit_transaction
+rollback_transaction
+
 # src/ethereum_spec_tools/docc.py
 docc.EthereumDiscover
 docc.EthereumBuilder
+docc.EthereumPythonDiscover
 docc.EthereumListingDiscover
 docc.DiffSource.show_in_listing
 docc.FixIndexTransform
 docc.FixIndexTransform.transform
 docc.MinimizeDiffsTransform
 docc.MinimizeDiffsTransform.transform
+docc.PruneReferencesTransform
+docc.PruneReferencesTransform.transform
 docc._FixIndexVisitor.enter
 docc._DoccAdapter.shallow_equals
 docc._DoccAdapter.shallow_hash
@@ -104,8 +121,14 @@ TransactionLoad.json_to_y_parity
 TransactionLoad.json_to_r
 TransactionLoad.json_to_s
 
-# src/ethereum_spec_tools/evm_tools/t8n/env.py
+# src/ethereum_spec_tools/evm_tools/t8n/block_environment.py
 Ommer.delta
+
+# src/ethereum_spec_tools/evm_tools/t8n/__init__.py
+# `protected` is a field on the testing-package `Transaction` model;
+# T8N flips it to False for pre-EIP-155 forks before calling `sign()`.
+_unused_protected_marker = None
+_unused_protected_marker.protected  # type: ignore[attr-defined]
 
 # src/ethereum_spec_tools/evm_tools/t8n/evm_trace/eip3155.py
 Trace.gasCost
@@ -113,7 +136,12 @@ Trace.memSize
 Trace.returnData
 Trace.refund
 Trace.opName
+Trace.stateGas
+Trace.stateGasCost
 FinalTrace.gasUsed
+
+# src/ethereum_spec_tools/lint/lints/final_decorator.py
+FinalDecoratorHygiene
 
 # src/ethereum_spec_tools/lint/lints/uint_len.py
 UintLenHygiene
@@ -121,6 +149,7 @@ UintLenHygiene
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py
 GlacierForksHygiene
 GlacierForksHygiene.visit_AnnAssign
+GlacierForksHygiene.visit_Pass
 
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py
 ImportHygiene
@@ -161,6 +190,7 @@ PatchHygiene
 SetConstantCommand.visit_AnnAssign_target
 SetConstantCommand.leave_AnnAssign_target
 SetConstantCommand.leave_AnnAssign
+SetConstantCommand.leave_Module
 
 # src/ethereum_spec_tools/new_fork/codemod/remove_docstring.py - codemod class
 from ethereum_spec_tools.new_fork.codemod.remove_docstring import (

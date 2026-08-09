@@ -19,6 +19,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     CalldataCase,
+    Fork,
     Initcode,
     Op,
     Switch,
@@ -29,7 +30,7 @@ from execution_testing import (
 
 @pytest.mark.valid_from("Constantinople")
 def test_tx_selfdestruct_balance_bug(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """
     Test that the vulnerability is not present by checking the balance of the
@@ -104,40 +105,40 @@ def test_tx_selfdestruct_balance_bug(
                     sender=sender,
                     to=cc_address,
                     data=aa_code,
-                    gas_limit=1000000,
                 ),
                 # Dummy tx to store balance of 0xaa after first TX.
                 Transaction(
                     sender=sender,
                     to=balance_address_1,
-                    gas_limit=100000,
                 ),
                 # Sender calls 0xaa with 5 wei.
                 Transaction(
                     sender=sender,
                     to=aa_location,
-                    gas_limit=100000,
                     value=5,
                 ),
                 # Dummy tx to store balance of 0xaa after second TX.
                 Transaction(
                     sender=sender,
                     to=balance_address_2,
-                    gas_limit=100000,
                 ),
             ],
         ),
     ]
 
+    # per EIP-8246
+    if fork.is_eip_enabled(8246):
+        probe_1_balance = 4
+        probe_2_balance = 9
+    else:
+        probe_1_balance = 0
+        probe_2_balance = 5
+
     post = {
         # Check call from caller has succeeded.
         cc_address: Account(nonce=2, storage={0xCA1101: 1}),
-        # Check balance of 0xaa after tx 1 is 0 wei, i.e self-destructed.
-        # Vulnerable versions should return 1 wei.
-        balance_address_1: Account(storage={0xBA1AA: 0}),
-        # Check that 0xaa exists and balance after tx 2 is 5 wei.
-        # Vulnerable versions should return 6 wei.
-        balance_address_2: Account(storage={0xBA1AA: 5}),
+        balance_address_1: Account(storage={0xBA1AA: probe_1_balance}),
+        balance_address_2: Account(storage={0xBA1AA: probe_2_balance}),
         aa_location: Account(storage={0: 0}),
     }
 

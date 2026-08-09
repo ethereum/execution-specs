@@ -3,6 +3,14 @@ Test_eoa_empty_paris.
 
 Ported from:
 state_tests/stSpecialTest/eoaEmptyParisFiller.yml
+
+@manually-enhanced: Do not overwrite. Two measured slots shift under
+EIP-8038. Slot 0xF1 times a CALL that forwards `value` to the (warm)
+origin EOA: when `value` is nonzero it gains the value-transfer
+reprice `CALL_VALUE - 9000`; the value-0 cases are unchanged. Slot
+0xFF times a value-0 CALL to a cold contract and gains the cold
+account reprice `COLD_ACCOUNT_ACCESS - 2600`. Both deltas come from
+the fork's own gas model, so each is exactly 0 before EIP-8038.
 """
 
 import pytest
@@ -19,10 +27,11 @@ from execution_testing import (
     TransactionException,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -97,6 +106,13 @@ def test_eoa_empty_paris(
     v: int,
 ) -> None:
     """Test_eoa_empty_paris."""
+    # EIP-8038 deltas, each 0 before EIP-8038. Slot 0xF1's value-bearing
+    # CALL to the warm origin gains the value-transfer reprice; slot
+    # 0xFF's value-0 CALL to a cold contract gains the cold account
+    # reprice.
+    gas_costs = fork.gas_costs()
+    call_value_delta = gas_costs.CALL_VALUE - 9000
+    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x000000000000000000000000000000000000BAD1)
     contract_1 = Address(0x000000000000000000000000000000000000BAD2)
@@ -244,7 +260,7 @@ def test_eoa_empty_paris(
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         241: 118,
-                        255: 7626,
+                        255: 7626 + cold_account_delta,
                         319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -265,8 +281,8 @@ def test_eoa_empty_paris(
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 6818,
-                        255: 7626,
+                        241: 6818 + call_value_delta,
+                        255: 7626 + cold_account_delta,
                         319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -296,7 +312,7 @@ def test_eoa_empty_paris(
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         241: 118,
-                        255: 7626,
+                        255: 7626 + cold_account_delta,
                         319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -317,8 +333,8 @@ def test_eoa_empty_paris(
                         49: 100,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 6818,
-                        255: 7626,
+                        241: 6818 + call_value_delta,
+                        255: 7626 + cold_account_delta,
                         319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -340,7 +356,7 @@ def test_eoa_empty_paris(
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         241: 118,
-                        255: 7626,
+                        255: 7626 + cold_account_delta,
                         319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
@@ -361,8 +377,8 @@ def test_eoa_empty_paris(
                         49: 0,
                         59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
-                        241: 6818,
-                        255: 7626,
+                        241: 6818 + call_value_delta,
+                        255: 7626 + cold_account_delta,
                         319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501

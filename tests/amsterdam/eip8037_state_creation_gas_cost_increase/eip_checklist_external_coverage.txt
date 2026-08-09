@@ -1,0 +1,3 @@
+general/code_coverage/eels = TODO: re-run coverage after spec stabilizes. Preliminary: vm/__init__.py 95%, utils/message.py 94%, vm/gas.py 89%, transactions.py 87%, vm/interpreter.py 85%, state.py 84%, vm/instructions/storage.py 77%, vm/instructions/system.py 67%, fork.py 56%
+general/code_coverage/test_coverage = 236 tests pass with --cov; key state gas paths (reservoir, gas splitting, SSTORE/CREATE/CALL/SELFDESTRUCT/SET_CODE state gas charging) are covered
+general/code_coverage/missed_lines = Missed lines are mostly non-EIP-8037 code: fork.py header validation and PoW functions, system.py EXTCALL/EXTDELEGATECALL paths, storage.py TSTORE/TLOAD, eoa_delegation.py edge-case auth branches

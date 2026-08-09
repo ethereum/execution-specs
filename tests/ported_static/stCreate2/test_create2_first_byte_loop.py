@@ -3,6 +3,10 @@ Test_create2_first_byte_loop.
 
 Ported from:
 state_tests/stCreate2/CREATE2_FirstByte_loopFiller.yml
+@manually-enhanced: Do not overwrite. Gas bumped fork-conditionally
+to cover EIP-8037 state-gas spill into regular gas; pre-EIP-8037
+behavior unchanged.
+
 """
 
 import pytest
@@ -18,10 +22,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -64,6 +69,11 @@ def test_create2_first_byte_loop(
     v: int,
 ) -> None:
     """Test_create2_first_byte_loop."""
+    # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
+    outer_tx_gas = 16777216
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 83886080
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
@@ -175,7 +185,7 @@ def test_create2_first_byte_loop(
         Bytes("1a8451e6") + Hash(0xEF) + Hash(0xF0),
         Bytes("1a8451e6") + Hash(0xF0) + Hash(0x100),
     ]
-    tx_gas = [16777216]
+    tx_gas = [outer_tx_gas]
 
     tx = Transaction(
         sender=sender,

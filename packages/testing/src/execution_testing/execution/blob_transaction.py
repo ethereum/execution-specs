@@ -14,11 +14,20 @@ from execution_testing.logging import (
 from execution_testing.rpc import (
     BlobAndProofV1,
     BlobAndProofV2,
+    BlobCellsAndProofsV1,
     EngineRPC,
     EthRPC,
 )
-from execution_testing.rpc.rpc_types import GetBlobsResponse
+from execution_testing.rpc.rpc_types import (
+    ForkchoiceState,
+    GetBlobsResponse,
+    GetBlobsV4Response,
+    JSONRPCError,
+    PayloadStatusEnum,
+)
 from execution_testing.test_types import (
+    Blob,
+    Environment,
     NetworkWrappedTransaction,
     Transaction,
 )
@@ -29,6 +38,20 @@ from execution_testing.test_types.transaction_types import (
 from .base import BaseExecute, ExecuteResult
 
 logger = get_logger(__name__)
+
+CUSTODY_COLUMNS_BYTE_LENGTH = 16
+"""Byte length of a well-formed `custodyColumns` bitmap (EIP-8070)."""
+
+
+def _interleave_hashes(a: List[Hash], b: List[Hash]) -> List[Hash]:
+    """Interleave two hash lists, starting with `a`, appending leftovers."""
+    interleaved: List[Hash] = []
+    for x, y in zip(a, b, strict=False):
+        interleaved.extend((x, y))
+    shorter_length = min(len(a), len(b))
+    interleaved.extend(a[shorter_length:])
+    interleaved.extend(b[shorter_length:])
+    return interleaved
 
 
 def _validate_blob_and_proof(
@@ -106,6 +129,81 @@ def _validate_blob_and_proof(
         )
 
 
+def _validate_cells_and_proofs(
+    expected_blob: Blob | None,
+    received: BlobCellsAndProofsV1 | None,
+    cell_mask: int,
+    index: int,
+) -> None:
+    """
+    Validate a received `engine_getBlobsV4` cell matrix against a local blob.
+
+    The response is a compact matrix: for each existing blob the client
+    returns only the cells selected by `cell_mask`, ordered by ascending
+    cell index, so `blob_cells[k]` is the k-th requested cell. When
+    `expected_blob` is `None` (a non-existing hash), the whole entry must be
+    `null`.
+
+    Per execution-apis `engine_getBlobsV4`, `cell_mask` is a little-endian
+    16-byte bitmap where bit `i` selects cell `i` (see `EngineRPC.get_blobs`).
+    Network-wrapped txs deliver the full blob, so the client holds every
+    requested cell; a returned `null` means an unavailable cell and fails.
+    """
+    if expected_blob is None:
+        if received is None:
+            logger.info(
+                f"Blob at index {index} correctly returned null "
+                "(non-existing blob hash)"
+            )
+            return
+        raise ValueError(
+            f"Blob at index {index} should be null (non-existing hash), "
+            f"but client returned a cell matrix."
+        )
+    if received is None:
+        raise ValueError(f"Received cell matrix at index {index} is empty.")
+
+    assert expected_blob.cells is not None, (
+        "Local blob has no cells; getBlobsV4 requires a fork with cell proofs."
+    )
+    assert isinstance(expected_blob.proof, list), (
+        "Local blob proof is not a cell-proof list."
+    )
+    # Compact matrix: the client returns only the requested cells, in
+    # ascending cell-index order (bit `i` of the mask selects cell `i`).
+    requested_indices = [
+        i for i in range(len(expected_blob.cells)) if (cell_mask >> i) & 1
+    ]
+    if len(received.blob_cells) != len(requested_indices):
+        raise ValueError(
+            f"Cell matrix at index {index} has {len(received.blob_cells)} "
+            f"cells, expected {len(requested_indices)}."
+        )
+    if len(received.proofs) != len(requested_indices):
+        raise ValueError(
+            f"Proof matrix at index {index} has {len(received.proofs)} "
+            f"proofs, expected {len(requested_indices)}."
+        )
+
+    for pos, cell_index in enumerate(requested_indices):
+        recv_cell = received.blob_cells[pos]
+        recv_proof = received.proofs[pos]
+        if recv_cell is None or recv_proof is None:
+            raise ValueError(
+                f"Requested cell {cell_index} at blob index {index} was "
+                "returned as null."
+            )
+        if recv_cell != expected_blob.cells[cell_index]:
+            raise ValueError(
+                f"Cell mismatch at blob index {index}, cell {cell_index}."
+            )
+        if recv_proof != expected_blob.proof[cell_index]:
+            raise ValueError(
+                f"Cell proof mismatch at blob index {index}, "
+                f"cell {cell_index}."
+            )
+
+
 def versioned_hashes_with_blobs_and_proofs(
     tx: NetworkWrappedTransaction,
 ) -> Dict[Hash, BlobAndProofV1 | BlobAndProofV2]:
@@ -147,32 +245,117 @@ class BlobTransaction(BaseExecute):
 
     txs: List[NetworkWrappedTransaction | Transaction]
     nonexisting_blob_hashes: List[Hash] | None = None
+    interleave_nonexisting_blob_hashes: bool = False
     get_blobs_version: int | None = None
+    cell_mask: int | None = None
+    custody_columns: bytes | None = None
 
-    def get_required_sender_balances(
+    def prepare_transactions(
         self,
         *,
+        env: Environment,
         gas_price: int,
         max_fee_per_gas: int,
         max_priority_fee_per_gas: int,
         max_fee_per_blob_gas: int,
         fork: Fork,
-    ) -> Dict[Address, int]:
-        """Get the required sender balances."""
-        balances: Dict[Address, int] = {}
+    ) -> None:
+        """Prepare transactions by setting their final gas properties."""
+        txs: List[Transaction] = []
         for tx in self.txs:
-            sender = tx.sender
-            assert sender is not None, "Sender is None"
+            if isinstance(tx, NetworkWrappedTransaction):
+                txs.append(tx.tx)
+            else:
+                txs.append(tx)
+        max_tx_gas_limit = Transaction.calculate_max_gas_limit(
+            txs=txs,
+            env_gas_limit=int(env.gas_limit),
+            transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+            state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+        )
+        for tx in txs:
+            tx.set_gas_limit(
+                max_gas_limit=max_tx_gas_limit,
+                transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+                state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+            )
             tx.set_gas_price(
                 gas_price=gas_price,
                 max_fee_per_gas=max_fee_per_gas,
                 max_priority_fee_per_gas=max_priority_fee_per_gas,
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
             )
+
+    def get_required_sender_balances(
+        self, *, fork: Fork
+    ) -> Dict[Address, int]:
+        """Get the required sender balances."""
+        balances: Dict[Address, int] = {}
+        for tx in self.txs:
+            sender = tx.sender
+            assert sender is not None, "Sender is None"
             if sender not in balances:
                 balances[sender] = 0
             balances[sender] += tx.signer_minimum_balance(fork=fork)
         return balances
+
+    def _update_custody_columns(
+        self,
+        fork: Fork,
+        eth_rpc: EthRPC,
+        engine_rpc: EngineRPC,
+    ) -> None:
+        """
+        Send a forkchoice update carrying the `custodyColumns` bitmap.
+
+        A 16-byte bitmap must be accepted with a VALID payload status
+        (custody set update errors must not affect the forkchoice flow,
+        per `engine_forkchoiceUpdatedV4`); any other length must be
+        rejected with `-32602: Invalid params`.
+        """
+        assert self.custody_columns is not None
+        fcu_version = fork.engine_forkchoice_updated_version()
+        assert fcu_version is not None and fcu_version >= 4, (
+            "custodyColumns requires engine_forkchoiceUpdatedV4."
+        )
+        latest_block = eth_rpc.get_block_by_number("latest")
+        assert latest_block is not None, "Failed to fetch the latest block."
+        forkchoice_state = ForkchoiceState(
+            head_block_hash=Hash(latest_block["hash"]),
+        )
+        valid_length = len(self.custody_columns) == CUSTODY_COLUMNS_BYTE_LENGTH
+        try:
+            response = engine_rpc.forkchoice_updated(
+                forkchoice_state,
+                None,
+                version=fcu_version,
+                custody_columns=self.custody_columns,
+            )
+        except JSONRPCError as e:
+            if valid_length:
+                raise
+            if e.code != -32602:
+                raise ValueError(
+                    f"Expected error -32602 (Invalid params) for a "
+                    f"{len(self.custody_columns)}-byte custodyColumns, "
+                    f"got {e.code}: {e.message}"
+                ) from e
+            logger.info(
+                f"Client correctly rejected a "
+                f"{len(self.custody_columns)}-byte custodyColumns bitmap."
+            )
+            return
+        if not valid_length:
+            raise ValueError(
+                f"Client accepted a {len(self.custody_columns)}-byte "
+                "custodyColumns bitmap; expected -32602 (Invalid params)."
+            )
+        status = response.payload_status.status
+        if status != PayloadStatusEnum.VALID:
+            raise ValueError(
+                f"forkchoiceUpdatedV{fcu_version} with custodyColumns "
+                f"returned payload status {status}, expected VALID."
+            )
 
     def execute(
         self,
@@ -183,6 +366,7 @@ class BlobTransaction(BaseExecute):
     ) -> ExecuteResult:
         """Execute the format."""
         versioned_hashes: Dict[Hash, BlobAndProofV1 | BlobAndProofV2] = {}
+        blobs_by_hash: Dict[Hash, Blob] = {}
         sent_txs: List[Transaction] = []
         for tx_index, tx in enumerate(self.txs):
             tx = tx.with_signature_and_sender()
@@ -193,6 +377,8 @@ class BlobTransaction(BaseExecute):
                 versioned_hashes.update(
                     versioned_hashes_with_blobs_and_proofs(tx)
                 )
+                for blob in tx.blob_objects:
+                    blobs_by_hash[blob.versioned_hash] = blob
             else:
                 sent_txs.append(tx)
             label = (
@@ -232,10 +418,27 @@ class BlobTransaction(BaseExecute):
 
         list_versioned_hashes = list(versioned_hashes.keys())
         if self.nonexisting_blob_hashes is not None:
-            list_versioned_hashes.extend(self.nonexisting_blob_hashes)
+            if self.interleave_nonexisting_blob_hashes:
+                assert version >= 4, (
+                    "interleave_nonexisting_blob_hashes is only supported "
+                    "with getBlobsV4."
+                )
+                list_versioned_hashes = _interleave_hashes(
+                    self.nonexisting_blob_hashes, list_versioned_hashes
+                )
+            else:
+                list_versioned_hashes.extend(self.nonexisting_blob_hashes)
 
-        blob_response: GetBlobsResponse | None = engine_rpc.get_blobs(
-            list_versioned_hashes, version=version
+        if self.custody_columns is not None:
+            self._update_custody_columns(fork, eth_rpc, engine_rpc)
+
+        indices_bitarray = self.cell_mask if version >= 4 else None
+        blob_response: GetBlobsResponse | GetBlobsV4Response | None = (
+            engine_rpc.get_blobs(
+                list_versioned_hashes,
+                version=version,
+                indices_bitarray=indices_bitarray,
+            )
         )
 
         if version <= 2:
@@ -259,6 +462,7 @@ class BlobTransaction(BaseExecute):
                     f"getBlobsV{version} returned 'null' but all "
                     "requested blobs should exist."
                 )
+                assert isinstance(blob_response, GetBlobsResponse)
                 local_blobs_and_proofs = list(versioned_hashes.values())
                 assert len(blob_response) == len(local_blobs_and_proofs), (
                     f"Expected {len(local_blobs_and_proofs)} blobs and "
@@ -280,6 +484,7 @@ class BlobTransaction(BaseExecute):
                     "response, but V3 should always return an array "
                     "(with null entries for missing blobs)."
                 )
+            assert isinstance(blob_response, GetBlobsResponse)
             expected_blobs_and_proofs: List[
                 BlobAndProofV1 | BlobAndProofV2 | None
             ] = list(versioned_hashes.values())
@@ -309,10 +514,38 @@ class BlobTransaction(BaseExecute):
                     f"blobs and {nonexisting_count} null entries for "
                     "missing blobs"
                 )
+        elif version == 4:
+            # V4 (EIP-8070): partial cell matrix, selected by cell_mask
+            assert self.cell_mask is not None, (
+                f"getBlobsV{version} requires a cell_mask."
+            )
+            if blob_response is None:
+                raise ValueError(
+                    f"getBlobsV{version} returned 'null' for the entire "
+                    "response, but V4 should always return an array "
+                    "(with null entries for missing blobs)."
+                )
+            assert isinstance(blob_response, GetBlobsV4Response)
+            # `blobs_by_hash` only holds existing blobs, so non-existing
+            # hashes map to `None` at their exact request positions.
+            expected_blobs: List[Blob | None] = [
+                blobs_by_hash.get(vh) for vh in list_versioned_hashes
+            ]
+            if len(blob_response) != len(expected_blobs):
+                raise ValueError(
+                    f"Expected {len(expected_blobs)} blob responses, "
+                    f"got {len(blob_response)}."
+                )
+            for i, (expected_cells, received_cells) in enumerate(
+                zip(expected_blobs, blob_response.root, strict=True)
+            ):
+                _validate_cells_and_proofs(
+                    expected_cells, received_cells, self.cell_mask, i
+                )
         else:
             raise NotImplementedError(
                 f"getBlobsV{version} is not supported. "
-                "Supported versions: V1, V2, V3."
+                "Supported versions: V1, V2, V3, V4."
             )
 
         eth_rpc.wait_for_transactions(sent_txs)

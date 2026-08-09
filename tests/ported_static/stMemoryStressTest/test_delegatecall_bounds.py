@@ -54,9 +54,7 @@ def test_delegatecall_bounds(
 ) -> None:
     """Test_delegatecall_bounds."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(
-        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-    )
+    sender = pre.fund_eoa(amount=2**128 - 1)
 
     env = Environment(
         fee_recipient=coinbase,

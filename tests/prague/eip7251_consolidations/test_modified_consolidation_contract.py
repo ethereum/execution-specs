@@ -12,17 +12,16 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Header,
     Op,
     Requests,
+    SystemContractInteractionTransaction,
     Transaction,
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
 
-from .helpers import (
-    ConsolidationRequest,
-    ConsolidationRequestTransaction,
-)
+from .helpers import ConsolidationRequest
 from .spec import Spec as Spec_EIP7251
 from .spec import ref_spec_7251
 
@@ -95,23 +94,19 @@ def test_extra_consolidations(
     """
     modified_code: Bytecode = Bytecode()
     memory_offset: int = 0
-    amount_of_requests: int = 0
 
     for consolidation_request in requests_list:
-        # update memory_offset with the correct value
-        consolidation_request_bytes_amount: int = len(
-            bytes(consolidation_request)
-        )
-        assert consolidation_request_bytes_amount == 116, (
+        record = bytes(consolidation_request)
+        assert len(record) == 116, (
             "Expected consolidation request to be of size 116 but got size "
-            f"{consolidation_request_bytes_amount}"
+            f"{len(record)}"
         )
-        memory_offset += consolidation_request_bytes_amount
+        # Store records contiguously from offset 0 so the returned data is
+        # exactly the concatenated records (no gap, no trailing padding).
+        modified_code += Om.MSTORE(record, memory_offset)
+        memory_offset += len(record)
 
-        modified_code += Om.MSTORE(bytes(consolidation_request), memory_offset)
-        amount_of_requests += 1
-
-    modified_code += Op.RETURN(0, Op.MSIZE())
+    modified_code += Op.RETURN(0, memory_offset)
 
     pre[Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS] = Account(
         code=modified_code,
@@ -121,20 +116,20 @@ def test_extra_consolidations(
 
     # given a list of consolidation requests construct a consolidation request
     # transaction
-    consolidation_request_transaction = ConsolidationRequestTransaction(
+    consolidation_request_transaction = SystemContractInteractionTransaction(
         requests=requests_list
     )
     # prepare consolidation senders
-    consolidation_request_transaction.update_pre(pre=pre)
+    prepared = consolidation_request_transaction.update_pre(pre=pre)
     # get transaction list
-    txs: List[Transaction] = consolidation_request_transaction.transactions()
+    txs: List[Transaction] = prepared.transactions()
 
     blockchain_test(
         pre=pre,
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(*requests_list),
+                header_verify=Header(requests_hash=Requests(*requests_list)),
             ),
         ],
         post={},
@@ -150,8 +145,8 @@ def test_extra_consolidations(
 )
 def test_system_contract_errors() -> None:
     """
-    Test system contract raising different errors when called by the system
-    account at the end of the block execution.
+    Test consolidation system contract raising different errors when called by
+    the system account at the end of the block execution.
 
     To see the list of generated tests, please refer to the
     `generate_system_contract_error_test` decorator definition.

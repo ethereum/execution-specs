@@ -291,6 +291,96 @@ EXPECTED_BPO5 = json.loads("""
 }
 """)
 EXPECTED_BPO5_FORK_ID = ForkHash("0xd3a4880b")
+EXPECTED_OSAKA = json.loads("""
+{
+    "activationTime": 1753477608,
+    "blobSchedule": {
+    "baseFeeUpdateFraction": 5007716,
+    "max": 12,
+    "target": 9
+    },
+    "chainId": "0x88bb0",
+    "forkId": "0x5e2e4e84",
+    "precompiles": {
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BLS12_G1ADD": "0x000000000000000000000000000000000000000b",
+    "BLS12_G1MSM": "0x000000000000000000000000000000000000000c",
+    "BLS12_G2ADD": "0x000000000000000000000000000000000000000d",
+    "BLS12_G2MSM": "0x000000000000000000000000000000000000000e",
+    "BLS12_MAP_FP2_TO_G2": "0x0000000000000000000000000000000000000011",
+    "BLS12_MAP_FP_TO_G1": "0x0000000000000000000000000000000000000010",
+    "BLS12_PAIRING_CHECK": "0x000000000000000000000000000000000000000f",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "P256VERIFY": "0x0000000000000000000000000000000000000100",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
+    },
+    "systemContracts": {
+    "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
+    "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x00000961ef480eb55e80d19ad83579a64c007002"
+  }
+}
+""")
+EXPECTED_OSAKA_FORK_ID = ForkHash("0x5e2e4e84")
+# Amsterdam (EIP-8282) adds the builder deposit and exit request predeploys
+# to the `systemContracts` reported by `eth_config`.
+EXPECTED_AMSTERDAM = json.loads("""
+{
+    "activationTime": 1753575912,
+    "blobSchedule": {
+    "baseFeeUpdateFraction": 5007716,
+    "max": 12,
+    "target": 9
+    },
+    "chainId": "0x88bb0",
+    "forkId": "0x9d7b6bfb",
+    "precompiles": {
+    "BLAKE2F": "0x0000000000000000000000000000000000000009",
+    "BLS12_G1ADD": "0x000000000000000000000000000000000000000b",
+    "BLS12_G1MSM": "0x000000000000000000000000000000000000000c",
+    "BLS12_G2ADD": "0x000000000000000000000000000000000000000d",
+    "BLS12_G2MSM": "0x000000000000000000000000000000000000000e",
+    "BLS12_MAP_FP2_TO_G2": "0x0000000000000000000000000000000000000011",
+    "BLS12_MAP_FP_TO_G1": "0x0000000000000000000000000000000000000010",
+    "BLS12_PAIRING_CHECK": "0x000000000000000000000000000000000000000f",
+    "BN254_ADD": "0x0000000000000000000000000000000000000006",
+    "BN254_MUL": "0x0000000000000000000000000000000000000007",
+    "BN254_PAIRING": "0x0000000000000000000000000000000000000008",
+    "ECREC": "0x0000000000000000000000000000000000000001",
+    "ID": "0x0000000000000000000000000000000000000004",
+    "KZG_POINT_EVALUATION": "0x000000000000000000000000000000000000000a",
+    "MODEXP": "0x0000000000000000000000000000000000000005",
+    "P256VERIFY": "0x0000000000000000000000000000000000000100",
+    "RIPEMD160": "0x0000000000000000000000000000000000000003",
+    "SHA256": "0x0000000000000000000000000000000000000002"
+    },
+    "systemContracts": {
+    "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+    "BUILDER_DEPOSIT_CONTRACT_ADDRESS":
+                           "0x0000bff46984e3725691fa540a8c7589300d8282",
+    "BUILDER_EXIT_CONTRACT_ADDRESS":
+                           "0x000064d678505ad48f8ccb093bc65613800e8282",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
+    "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x00000961ef480eb55e80d19ad83579a64c007002"
+  }
+}
+""")
+EXPECTED_AMSTERDAM_FORK_ID = ForkHash("0x9d7b6bfb")
 
 CURRENT_FILE = Path(realpath(__file__))
 CURRENT_FOLDER = CURRENT_FILE.parent
@@ -426,6 +516,32 @@ HoodiWithBPOs:
       target: 15
       max: 20
       baseFeeUpdateFraction: 5007716
+
+HoodiWithAmsterdam:
+  chainId:              0x88BB0
+  genesisHash:          0xbbe312868b376a3001692a646dd2d7d1e4406380dfd86b98aa8a34d1557c971b
+  forkActivationTimes:
+    Cancun:             0
+    Prague:             1742999832
+    Osaka:              1753477608
+    Amsterdam:          1753575912
+  blobSchedule:
+    Cancun:
+      target: 3
+      max: 6
+      baseFeeUpdateFraction: 3338477
+    Prague:
+      target: 6
+      max: 9
+      baseFeeUpdateFraction: 5007716
+    Osaka:
+      target: 9
+      max: 12
+      baseFeeUpdateFraction: 5007716
+    Amsterdam:
+      target: 9
+      max: 12
+      baseFeeUpdateFraction: 5007716
 """  # noqa: E501
 
 
@@ -527,6 +643,24 @@ def eth_config(network: NetworkConfig, current_time: int) -> EthConfigResponse:
                 current=EXPECTED_BPO5,
             ),
             id="Hoodi_prague_with_bpos_5",
+        ),
+        pytest.param(
+            "HoodiWithAmsterdam",
+            1753477608,
+            EthConfigResponse(
+                current=EXPECTED_OSAKA,
+                next=EXPECTED_AMSTERDAM,
+                last=EXPECTED_AMSTERDAM,
+            ),
+            id="Hoodi_osaka_next_amsterdam",
+        ),
+        pytest.param(
+            "HoodiWithAmsterdam",
+            1753575912,
+            EthConfigResponse(
+                current=EXPECTED_AMSTERDAM,
+            ),
+            id="Hoodi_amsterdam",
         ),
     ],
     indirect=["network"],

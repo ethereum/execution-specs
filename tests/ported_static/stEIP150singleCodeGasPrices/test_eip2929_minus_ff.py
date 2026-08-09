@@ -3,6 +3,15 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/eip2929-ffFiller.yml
+
+@manually-enhanced: Do not overwrite. The first expect-entry (the
+`simple`/NOP case) measures a `CALL` into a contract that
+`SELFDESTRUCT`s with an as-yet-untouched (cold) beneficiary. EIP-8038
+reprices the cold account access (`COLD_ACCOUNT_ACCESS`, 2600 -> 3000),
+so that cost shifts by `COLD_ACCOUNT_ACCESS - 2600`, derived from the
+fork's own constant so it is exactly 0 pre-EIP-8038. The other entry
+pre-warms the beneficiary, so its cost is unchanged. Do not hardcode
+the Amsterdam number.
 """
 
 import pytest
@@ -17,10 +26,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -99,6 +109,8 @@ def test_eip2929_minus_ff(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
+    # EIP-8038 cold account repricing (2600 -> 3000); 0 on earlier forks.
+    cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x000000000000000000000000000000000000DE57)
     contract_1 = Address(0x000000000000000000000000000000000000CA11)
@@ -315,7 +327,11 @@ def test_eip2929_minus_ff(
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_2: Account(storage={0: 7726, 1: 105})},
+            "result": {
+                contract_2: Account(
+                    storage={0: 7726 + cold_account_delta, 1: 105}
+                )
+            },
         },
         {
             "indexes": {

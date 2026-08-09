@@ -6,6 +6,7 @@ import pytest
 from pydantic import BaseModel
 
 from execution_testing.base_types import BlobSchedule
+from execution_testing.vm import Opcodes
 
 from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
@@ -13,6 +14,7 @@ from ..forks.forks import (
     BPO2,
     BPO3,
     BPO4,
+    BPO5,
     Amsterdam,
     Berlin,
     Cancun,
@@ -24,7 +26,6 @@ from ..forks.forks import (
     Paris,
     Prague,
     Shanghai,
-    SpuriousDragon,
 )
 from ..forks.transition import (
     BerlinToLondonAt5,
@@ -401,6 +402,7 @@ def test_tx_types() -> None:  # noqa: D103
 @pytest.mark.parametrize(
     "fork",
     [
+        pytest.param(Shanghai, id="Shanghai"),
         pytest.param(Berlin, id="Berlin"),
         pytest.param(Istanbul, id="Istanbul"),
         pytest.param(Homestead, id="Homestead"),
@@ -433,7 +435,8 @@ def test_tx_intrinsic_gas_functions(  # noqa: D103
     if create_tx:
         if fork >= Homestead:
             intrinsic_gas += 32000
-        intrinsic_gas += 2
+        if fork >= Shanghai:
+            intrinsic_gas += 2
     assert (
         fork.transaction_intrinsic_cost_calculator()(
             calldata=calldata,
@@ -683,6 +686,67 @@ class TestSelectedForkSetWithTransitionBoundaries:
         assert BPO1ToBPO2AtTime15k in result
         assert BPO2ToAmsterdamAtTime15k not in result
 
+    def test_until_amsterdam_includes_bpo_siblings(self) -> None:
+        """`--until=Amsterdam` pulls in the parallel BPO branch."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from=set(),
+            forks_until={Amsterdam},
+        )
+        normal = self._normal_forks(result)
+        assert {BPO1, BPO2, BPO3, BPO4, BPO5, Amsterdam} <= normal
+        assert BPO2ToBPO3AtTime15k in result
+        assert BPO3ToBPO4AtTime15k in result
+
+    def test_from_osaka_until_amsterdam_spans_bpo_branch(self) -> None:
+        """`--from=Osaka --until=Amsterdam` spans the full BPO branch."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={Osaka},
+            forks_until={Amsterdam},
+        )
+        assert self._normal_forks(result) == {
+            Osaka,
+            BPO1,
+            BPO2,
+            BPO3,
+            BPO4,
+            BPO5,
+            Amsterdam,
+        }
+
+    def test_until_amsterdam_bpo_siblings_disabled(self) -> None:
+        """`bpo_siblings=False` keeps the parallel BPO branch out."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from=set(),
+            forks_until={Amsterdam},
+            bpo_siblings=False,
+        )
+        normal = self._normal_forks(result)
+        assert {BPO1, BPO2, Amsterdam} <= normal
+        assert not ({BPO3, BPO4, BPO5} & normal)
+
+    def test_until_bpo2_excludes_later_bpo_siblings(self) -> None:
+        """`--until=BPO2` must not pull in the later BPO branch."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from=set(),
+            forks_until={BPO2},
+        )
+        normal = self._normal_forks(result)
+        assert {BPO1, BPO2} <= normal
+        assert not ({BPO3, BPO4, BPO5} & normal)
+
+    def test_from_amsterdam_until_amsterdam_excludes_bpos(self) -> None:
+        """`--from=Amsterdam --until=Amsterdam` stays Amsterdam-only."""
+        result = get_selected_fork_set(
+            single_fork=set(),
+            forks_from={Amsterdam},
+            forks_until={Amsterdam},
+        )
+        assert self._normal_forks(result) == {Amsterdam}
+
 
 def test_blob_constants() -> None:  # noqa: D103
     assert Osaka.get_blob_constant("AMOUNT_CELL_PROOFS") == 128
@@ -734,23 +798,33 @@ def test_eips() -> None:  # noqa: D103
     assert Shanghai.is_eip_enabled(3855)
 
 
-def test_fork_variant_ordering() -> None:
+def test_oog_budget_lift() -> None:
     """
-    Variants from `with_env_gas_limit` must compare consistently with
-    their canonical parent: equal to the parent, ordered identically
-    against other canonical forks.
+    `Fork.oog_budget_lift` returns zero pre-EIP-8037 and the cumulative
+    SSTORE-set + CREATE + code-deposit state-gas spill on Amsterdam.
     """
-    variant = London.with_env_gas_limit(30_000_000)
-
-    assert variant == London
-    assert hash(variant) == hash(London)
-
-    assert variant > SpuriousDragon
-    assert variant >= SpuriousDragon
-    assert variant < Cancun
-    assert variant <= Cancun
-
-    assert not (variant > London)
-    assert not (variant < London)
-    assert variant >= London
-    assert variant <= London
+    # Pre-EIP-8037: state_gas helpers are 0, so any lift is 0.
+    assert Cancun.oog_budget_lift(sstores_before_oog=1) == 0
+    assert Cancun.oog_budget_lift(creates_before_oog=1) == 0
+    assert (
+        Cancun.oog_budget_lift(
+            sstores_before_oog=3, creates_before_oog=2, deploy_code_size=64
+        )
+        == 0
+    )
+    # Amsterdam: lift composes the three state-gas helpers.
+    sstore = Opcodes.SSTORE(new_value=1).state_cost(Amsterdam)
+    create = Amsterdam.create_state_gas()
+    code_64 = Amsterdam.code_deposit_state_gas(code_size=64)
+    assert Amsterdam.oog_budget_lift() == 0
+    assert Amsterdam.oog_budget_lift(sstores_before_oog=1) == sstore
+    assert Amsterdam.oog_budget_lift(creates_before_oog=1) == create
+    assert Amsterdam.oog_budget_lift(deploy_code_size=64) == code_64
+    assert (
+        Amsterdam.oog_budget_lift(
+            sstores_before_oog=3,
+            creates_before_oog=2,
+            deploy_code_size=64,
+        )
+        == 3 * sstore + 2 * create + code_64
+    )

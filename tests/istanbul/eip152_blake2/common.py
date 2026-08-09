@@ -1,8 +1,6 @@
 """Common classes used in the BLAKE2b precompile tests."""
 
-from dataclasses import dataclass
-
-from execution_testing import Bytes, TestParameterGroup
+from execution_testing import Bytes, Fork, TestParameterGroup
 
 from .spec import Spec, SpecTestVectors
 
@@ -37,7 +35,7 @@ class Blake2bInput(TestParameterGroup):
     t_1: int | Bytes = SpecTestVectors.BLAKE2_OFFSET_COUNTER_1
     f: bool | int = True
 
-    def create_blake2b_tx_data(self) -> bytes:
+    def __bytes__(self) -> bytes:
         """Generate input for the BLAKE2b precompile."""
         _rounds = self.rounds.to_bytes(
             length=self.rounds_length, byteorder="big"
@@ -62,20 +60,20 @@ class Blake2bInput(TestParameterGroup):
 
         return _rounds + self.h + self.m + _t_0 + _t_1 + _f
 
+    def estimate_gas(self, fork: Fork) -> int:
+        """Estimate the gas used by the precompile call."""
+        return self.rounds * fork.gas_costs().PRECOMPILE_BLAKE2F_PER_ROUND
 
-@dataclass(kw_only=True, frozen=True, repr=False)
+
 class ExpectedOutput(TestParameterGroup):
     """
     Expected test result.
 
     Attributes:
-      call_succeeds (str | bool): A hex string or boolean to indicate
-                                  whether the call was successful or not.
       data_1 (str): String value of the first updated state vector.
       data_2 (str): String value of the second updated state vector.
 
     """
 
-    call_succeeds: str | bool
     data_1: str
     data_2: str

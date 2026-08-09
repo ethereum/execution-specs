@@ -17,10 +17,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -248,7 +249,6 @@ def test_revert_opcode_multiple_sub_calls(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
@@ -585,7 +585,12 @@ def test_revert_opcode_multiple_sub_calls(
         Hash(addr_3, left_padding=True),
         Hash(addr_4, left_padding=True),
     ]
-    tx_gas = [800000, 126200, 160000, 50000]
+    tx_gas = [
+        None if fork.is_eip_enabled(8037) else 800000,
+        126200,
+        None if fork.is_eip_enabled(8037) else 160000,
+        50000,
+    ]
     tx_value = [0, 10]
 
     tx = Transaction(

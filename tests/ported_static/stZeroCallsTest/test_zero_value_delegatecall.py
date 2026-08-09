@@ -3,6 +3,16 @@ Test_zero_value_delegatecall.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_DELEGATECALLFiller.json
+
+@manually-enhanced: Do not overwrite. The `gas_limit` is derived from
+the fork intrinsic calculator instead of a hardcoded literal, so the
+post-intrinsic execution budget stays fixed at 600_000 across forks:
+`gas_limit = 600_000 + (intrinsic - 21_000)`, where `21_000` is the
+pre-EIP-2780 baseline intrinsic. EIP-2780 lowers the intrinsic for
+non-self, non-value txs, and the `SSTORE(0, GAS)` post assertion
+(`0x8D5B6`) pins `Op.GAS` at a fixed execution point, so the remaining
+gas after the intrinsic deduction must not shift. Do not hardcode the
+gas limit.
 """
 
 import pytest
@@ -13,6 +23,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -30,6 +41,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_zero_value_delegatecall(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_zero_value_delegatecall."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -69,11 +81,18 @@ def test_zero_value_delegatecall(
         address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
+    # Preserve Cancun's post-intrinsic execution budget across
+    # forks; EIP-2780 lowers the intrinsic for non-self non-value
+    # txs, and the Op.GAS storage assertion depends on the
+    # remaining gas at a fixed execution point.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    gas_limit = 600_000 + (intrinsic - 21_000)
+
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=600000,
+        gas_limit=gas_limit,
     )
 
     post = {

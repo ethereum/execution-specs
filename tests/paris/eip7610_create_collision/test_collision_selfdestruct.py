@@ -10,6 +10,7 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -27,6 +28,7 @@ REFERENCE_SPEC_VERSION = "80ef48d0bbb5a4939ade51caaaac57b5df6acd4e"
 def test_selfdestruct_after_create2_collision(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that a failed CREATE2 collision does not count as creation.
@@ -72,7 +74,12 @@ def test_selfdestruct_after_create2_collision(
         + Op.SSTORE(
             storage.store_next(1, "create2_call_success"),
             Op.CALL(
-                gas=500_000,
+                # The colliding CREATE2 consumes 63/64 of the deployer's
+                # gas (the account-creation state gas is charged then
+                # refunded on collision under EIP-8037); size the budget
+                # so the surviving 1/64 still covers the deployer's cold
+                # SSTORE of the CREATE2 result.
+                gas=500_000 + 64 * fork.gas_costs().COLD_STORAGE_WRITE,
                 address=deployer,
                 args_size=Op.CALLDATASIZE,
             ),
@@ -80,7 +87,7 @@ def test_selfdestruct_after_create2_collision(
         # Call target to trigger SELFDESTRUCT
         + Op.SSTORE(
             storage.store_next(1, "selfdestruct_call_success"),
-            Op.CALL(gas=100_000, address=target_address),
+            Op.CALL(gas=500_000, address=target_address),
         )
         + Op.STOP
     )
@@ -109,7 +116,6 @@ def test_selfdestruct_after_create2_collision(
         tx=Transaction(
             sender=sender,
             to=controller,
-            gas_limit=2_000_000,
             data=initcode,
         ),
     )

@@ -3,6 +3,8 @@ Test_callcodecallcodecall_110_suicide_end.
 
 Ported from:
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecallcodecall_110_SuicideEndFiller.json
+
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -59,7 +61,6 @@ def test_callcodecallcodecall_110_suicide_end(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
-                gas=0x249F0,
                 address=0x2CAC1D43F00E8B40B63426AB460C7E8717EE6455,
                 args_offset=0x0,
                 args_size=0x40,
@@ -78,7 +79,6 @@ def test_callcodecallcodecall_110_suicide_end(
         code=Op.SSTORE(
             key=0x1,
             value=Op.DELEGATECALL(
-                gas=0x186A0,
                 address=0x94C8F980AEECBB6575B12AE614A249FC3E836F21,
                 args_offset=0x0,
                 args_size=0x40,
@@ -97,7 +97,6 @@ def test_callcodecallcodecall_110_suicide_end(
         code=Op.SSTORE(
             key=0x2,
             value=Op.CALLCODE(
-                gas=0xC350,
                 address=0x73B954EBC05BB0FF4A0F6A13A054D50AD1584099,
                 value=0x0,
                 args_offset=0x0,
@@ -113,12 +112,7 @@ def test_callcodecallcodecall_110_suicide_end(
         address=Address(0x94C8F980AEECBB6575B12AE614A249FC3E836F21),  # noqa: E501
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=3000000,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""))
 
     post = {
         target: Account(storage={0: 1, 1: 1, 2: 1, 3: 1}),

@@ -4,7 +4,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Environment,
     StateTestFiller,
     Transaction,
 )
@@ -153,8 +152,6 @@ def test_precompiles(
     """
     Tests the behavior of `RIPEMD-160` precompiled contract.
     """
-    env = Environment()
-
     account = pre.deploy_contract(
         code=Op.CALLDATACOPY(0, 0, len(msg))
         + Op.MLOAD(0)
@@ -174,11 +171,10 @@ def test_precompiles(
     tx = Transaction(
         to=account,
         sender=pre.fund_eoa(),
-        gas_limit=1_000_0000,
         data=msg,
         protected=fork.supports_protected_txs(),
     )
 
     post = {account: Account(storage={0: output if not oog else 0})}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

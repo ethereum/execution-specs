@@ -15,12 +15,14 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -30,6 +32,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCodeSizeLimit/create2CodeSizeLimitFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_before("EIP7954")
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -94,6 +97,22 @@ def test_create2_code_size_limit(
         address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
     )
 
+    # Initcode: PUSH2 <size> PUSH1 0 RETURN. Sizes scale with
+    # fork.max_code_size() so pre-7954 forks get the original 0x6000
+    # / 0x6001 and Amsterdam+ gets 0x8000 / 0x8001.
+    max_code_size = fork.max_code_size()
+    tx_data = [
+        Bytes(b"\x61" + max_code_size.to_bytes(2) + b"\x60\x00\xf3"),
+        Bytes(b"\x61" + (max_code_size + 1).to_bytes(2) + b"\x60\x00\xf3"),
+    ]
+    tx_gas = [15000000]
+    valid_create2_address = compute_create_address(
+        address=contract_0,
+        salt=0,
+        initcode=tx_data[0],
+        opcode=Op.CREATE2,
+    )
+
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
@@ -102,13 +121,11 @@ def test_create2_code_size_limit(
                 sender: Account(nonce=1),
                 contract_0: Account(
                     storage={
-                        0: 0x81C305016AB9CA56033A07CC37E7A30FC3E079AC,
+                        0: valid_create2_address,
                         1: 1,
                     },
                 ),
-                Address(0x81C305016AB9CA56033A07CC37E7A30FC3E079AC): Account(
-                    storage={}, balance=0, nonce=1
-                ),
+                valid_create2_address: Account(storage={}, balance=0, nonce=1),
             },
         },
         {
@@ -117,20 +134,12 @@ def test_create2_code_size_limit(
             "result": {
                 sender: Account(nonce=1),
                 contract_0: Account(storage={0: 0, 1: 1}),
-                Address(
-                    0x81C305016AB9CA56033A07CC37E7A30FC3E079AC
-                ): Account.NONEXISTENT,
+                valid_create2_address: Account.NONEXISTENT,
             },
         },
     ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("6160006000f3"),
-        Bytes("6160016000f3"),
-    ]
-    tx_gas = [15000000]
 
     tx = Transaction(
         sender=sender,

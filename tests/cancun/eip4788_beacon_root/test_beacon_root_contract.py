@@ -348,7 +348,6 @@ def test_beacon_root_selfdestruct(
                     Transaction(
                         sender=pre.fund_eoa(),
                         to=self_destruct_caller_address,
-                        gas_limit=100_000,
                     )
                 ]
             )
@@ -501,7 +500,6 @@ def test_multi_block_beacon_root_timestamp_calls(
                         sender=sender,
                         to=current_call_account_address,
                         data=Hash(timestamp),
-                        gas_limit=1_000_000,
                     )
                 ],
                 parent_beacon_block_root=beacon_root,
@@ -637,7 +635,6 @@ def test_beacon_root_transition(
                         sender=sender,
                         to=current_call_account_address,
                         data=Hash(timestamp),
-                        gas_limit=1_000_000,
                     )
                 ],
                 parent_beacon_block_root=beacon_root if transitioned else None,

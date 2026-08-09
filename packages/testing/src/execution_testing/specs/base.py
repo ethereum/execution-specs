@@ -94,6 +94,7 @@ class FillResult(BaseModel):
     fixture: BaseFixture
     gas_optimization: int | None
     benchmark_gas_used: int | None = None
+    benchmark_block_gas_used: int | None = None
     benchmark_opcode_count: OpcodeCount | None = None
     post_verifications: PostVerifications | None = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
@@ -142,14 +143,13 @@ class BaseTest(BaseModel):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
         Discard a fixture format from filling if the appropriate marker is
         used.
         """
-        del fork, fixture_format, markers
+        del fixture_format, markers
         return False
 
     @classmethod
@@ -170,7 +170,7 @@ class BaseTest(BaseModel):
 
     @classmethod
     def from_test(
-        cls: Type[Self],
+        cls,
         *,
         base_test: "BaseTest",
         **kwargs: Any,
@@ -260,11 +260,24 @@ class BaseTest(BaseModel):
         )
 
     def validate_benchmark_gas(
-        self, *, benchmark_gas_used: int | None, gas_benchmark_value: int
+        self,
+        *,
+        benchmark_gas_used: int | None,
+        gas_benchmark_value: int,
+        benchmark_block_gas_used: int | None = None,
     ) -> None:
         """
         Validates the total consumed gas of the last block in the test matches
         the expectation of the benchmark test.
+
+        ``benchmark_gas_used`` is the combined gas across all dimensions (the
+        receipt ``cumulativeGasUsed``) and is checked against
+        ``expected_benchmark_gas_used``. ``benchmark_block_gas_used`` is the
+        block-header gas, i.e. the maximum across the independent gas
+        dimensions (EIP-8037); it is what must stay within the block gas
+        limit, because the combined value can legitimately exceed it. When it
+        is not available (e.g. execute mode), the combined value is used for
+        the ceiling check instead.
 
         Requires the following fields to be set:
         - expected_benchmark_gas_used
@@ -288,9 +301,17 @@ class BaseTest(BaseModel):
                 f"({expected_benchmark_gas_used}), "
                 f"difference: {diff}"
             )
-        # Gas used should never exceed the maximum benchmark gas allowed.
-        assert benchmark_gas_used <= gas_benchmark_value, (
-            f"benchmark_gas_used ({benchmark_gas_used}) exceeds maximum "
+        # No single gas dimension may exceed the block gas limit. The
+        # block-header gas is the max across dimensions; the combined
+        # execution+state gas may exceed the target under EIP-8037, so the
+        # ceiling is checked against the header value when available.
+        block_gas_used = (
+            benchmark_block_gas_used
+            if benchmark_block_gas_used is not None
+            else benchmark_gas_used
+        )
+        assert block_gas_used <= gas_benchmark_value, (
+            f"benchmark block gas used ({block_gas_used}) exceeds maximum "
             "benchmark gas allowed for this configuration: "
             f"{gas_benchmark_value}"
         )
@@ -308,7 +329,7 @@ class BaseTest(BaseModel):
         receipts match. Catches silent OOG failures that roll
         back state and invalidate benchmarks.
         """
-        if "expected_receipt_status" not in self.model_fields_set:
+        if self.expected_receipt_status is None:
             return
         for i, receipt in enumerate(receipts):
             if receipt.status is not None and (

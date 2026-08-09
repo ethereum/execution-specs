@@ -149,34 +149,14 @@ def post(
 
 
 @pytest.fixture
-def tx_gas_limit(fork: Fork, input_data: bytes, precompile_gas: int) -> int:
-    """
-    Transaction gas limit used for the test (Can be overridden in the test).
-    """
-    intrinsic_gas_cost_calculator = (
-        fork.transaction_intrinsic_cost_calculator()
-    )
-    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    extra_gas = 100_000
-    return (
-        extra_gas
-        + intrinsic_gas_cost_calculator(calldata=input_data)
-        + memory_expansion_gas_calculator(new_bytes=len(input_data))
-        + precompile_gas
-    )
-
-
-@pytest.fixture
 def tx(
     input_data: bytes,
-    tx_gas_limit: int,
     call_contract_address: Address,
     sender: EOA,
 ) -> Transaction:
     """Transaction for the test."""
     return Transaction(
         ty=0x02,
-        gas_limit=tx_gas_limit,
         data=input_data,
         to=call_contract_address,
         sender=sender,

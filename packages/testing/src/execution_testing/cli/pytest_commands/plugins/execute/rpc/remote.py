@@ -10,7 +10,7 @@ from execution_testing.test_types.chain_config_types import (
     ChainConfigDefaults,
 )
 
-from ...shared.helpers import get_rpc_endpoint
+from ...shared.helpers import get_rpc_endpoint, is_help_or_collectonly_mode
 from .chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
 
 
@@ -94,6 +94,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     """Check if a chain ID configuration is provided."""
+    if is_help_or_collectonly_mode(config):
+        return
+
     # Verify chain ID config is consistent with the remote RPC endpoint
     rpc_endpoint = get_rpc_endpoint(config)
     if rpc_endpoint is None:
@@ -172,7 +175,7 @@ def eth_rpc(
     engine_rpc: EngineRPC | None,
     session_fork: Fork | TransitionFork,
     session_temp_folder: Path,
-    max_transactions_per_batch: int | None,
+    max_batch_size: int | None,
     use_testing_build_block: bool,
 ) -> EthRPC:
     """Initialize ethereum RPC client for the execution client under test."""
@@ -186,7 +189,7 @@ def eth_rpc(
         return EthRPC(
             rpc_endpoint,
             transaction_wait_timeout=tx_wait_timeout,
-            max_transactions_per_batch=max_transactions_per_batch,
+            max_batch_size=max_batch_size,
         )
     get_payload_wait_time = request.config.getoption("get_payload_wait_time")
     testing_rpc = None
@@ -202,6 +205,6 @@ def eth_rpc(
         else session_temp_folder,
         get_payload_wait_time=get_payload_wait_time,
         transaction_wait_timeout=tx_wait_timeout,
-        max_transactions_per_batch=max_transactions_per_batch,
+        max_batch_size=max_batch_size,
         testing_rpc=testing_rpc,
     )

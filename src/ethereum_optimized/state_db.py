@@ -15,7 +15,6 @@ This module contains functions that can be monkey patched into the fork's
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from importlib import import_module
 from types import SimpleNamespace
 from typing import Any, ClassVar, Dict, List, Optional, Set, cast
 
@@ -33,6 +32,7 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import EMPTY_CODE_HASH
+from ethereum_spec_tools.forks import Hardfork
 
 from .utils import add_item
 
@@ -52,17 +52,15 @@ class UnmodifiedType:
 Unmodified = UnmodifiedType()
 
 
-def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
+def get_optimized_state_patches(fork: Hardfork) -> Dict[str, Any]:
     """
     Get a dictionary of functions/objects to be monkey patched into the state
     to make it optimized.
     """
     patches: Dict[str, Any] = {}
 
-    types_mod = cast(
-        Any, import_module("ethereum.forks." + fork + ".fork_types")
-    )
-    state_mod = cast(Any, import_module("ethereum.forks." + fork + ".state"))
+    types_mod = cast(Any, fork.module("fork_types"))
+    state_mod = cast(Any, fork.module("state"))
     Account = types_mod.Account  # noqa N806
 
     has_transient_storage = hasattr(state_mod, "TransientStorage")

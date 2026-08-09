@@ -13,6 +13,7 @@ from execution_testing import (
     Bytes,
     Environment,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 from execution_testing.forks import Fork
@@ -146,6 +147,10 @@ def test_static_callcodecallcodecall_110_suicide_end(
         value=tx_value[v],
     )
 
-    post = {target: Account(storage={0: 1, 1: 0x2CEC03}, balance=0, nonce=0)}
+    target_storage = Storage.model_validate({0: 1, 1: 0x2CEC03})
+    if fork.is_eip_enabled(8037):
+        target_storage = Storage.model_validate({0: 1})
+        target_storage.set_expect_any(1)
+    post = {target: Account(storage=target_storage, balance=0, nonce=0)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

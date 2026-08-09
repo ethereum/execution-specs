@@ -16,10 +16,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -66,7 +67,6 @@ def test_static_call10(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     addr = pre.fund_eoa(amount=7000)  # noqa: F841
@@ -171,6 +171,8 @@ def test_static_call10(
         Hash(addr_3, left_padding=True),
     ]
     tx_gas = [200000]
+    if fork.is_eip_enabled(8037):
+        tx_gas[0] += 4 * Op.SSTORE(new_value=1).state_cost(fork)
     tx_value = [10]
 
     tx = Transaction(

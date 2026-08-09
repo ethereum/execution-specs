@@ -3,6 +3,16 @@ Test_revert_opcode_calls.
 
 Ported from:
 state_tests/stRevertTest/RevertOpcodeCallsFiller.json
+@manually-enhanced: Do not overwrite. Gas bumped fork-conditionally
+to cover EIP-8037 state-gas spill into regular gas; pre-EIP-8037
+behavior unchanged. The d3 call chain ends in a fresh SSTORE-set in
+the outermost (transaction) frame; with an empty state-gas reservoir
+that set's state gas spills into regular gas, so the success path
+(g=0) runs out at the final `SSTORE` unless the outer budget absorbs
+the spill. Lift `tx_gas[0]` by one fresh-set SSTORE state cost via
+`fork.oog_budget_lift`, which is exactly 0 pre-EIP-8037 and tracks
+the parameter. g=1 (the OoG case) keeps the original budget.
+
 """
 
 import pytest
@@ -16,10 +26,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -92,6 +103,15 @@ def test_revert_opcode_calls(
     v: int,
 ) -> None:
     """Test_revert_opcode_calls."""
+    # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
+    inner_call_gas = 50000
+    inner_call_gas_2 = 100000
+    inner_call_gas_3 = 260000
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 1000000
+        inner_call_gas_2 = 1000000
+        inner_call_gas_3 = 1300000
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
 
@@ -101,7 +121,6 @@ def test_revert_opcode_calls(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     # Source: lll
@@ -110,7 +129,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0xA,
             value=Op.CALL(
-                gas=0x3F7A0,
+                gas=inner_call_gas_3,
                 address=Op.CALLDATALOAD(offset=0x0),
                 value=0x0,
                 args_offset=0x0,
@@ -141,7 +160,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x4,
             value=Op.CALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
@@ -162,7 +181,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
@@ -183,7 +202,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x0,
             value=Op.DELEGATECALL(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 args_offset=0x0,
                 args_size=0x0,
@@ -203,7 +222,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALLCODE(
-                gas=0xC350,
+                gas=inner_call_gas,
                 address=0x93A599BDE9A3B6390AFDB06952AA5EC0B8C44F3B,
                 value=0x0,
                 args_offset=0x0,
@@ -224,7 +243,7 @@ def test_revert_opcode_calls(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0x186A0,
+                gas=inner_call_gas_2,
                 address=0x652761B88018EA027F6F27E456FE55C2DC5D6A91,
                 value=0x0,
                 args_offset=0x0,
@@ -322,7 +341,12 @@ def test_revert_opcode_calls(
         Hash(addr_3, left_padding=True),
         Hash(addr_4, left_padding=True),
     ]
-    tx_gas = [460000, 83622]
+    # The g=0 success path bottoms out on a fresh SSTORE-set in the
+    # transaction frame whose EIP-8037 state gas spills (empty
+    # reservoir). Lift the outer budget by that spilled state cost so
+    # the chain still completes on Amsterdam; 0 pre-EIP-8037.
+    g0_lift = fork.oog_budget_lift(sstores_before_oog=1)
+    tx_gas = [460000 + g0_lift, 83622]
 
     tx = Transaction(
         sender=sender,

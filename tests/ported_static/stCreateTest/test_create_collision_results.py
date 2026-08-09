@@ -68,7 +68,6 @@ def test_create_collision_results(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=4294967296,
     )
 
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
@@ -241,13 +240,11 @@ def test_create_collision_results(
         Bytes("01"),
         Bytes("02"),
     ]
-    tx_gas = [16777216]
 
     tx = Transaction(
         sender=sender,
         to=contract_2,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
     )
 
     post = {

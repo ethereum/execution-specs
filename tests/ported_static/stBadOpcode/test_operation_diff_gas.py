@@ -3,6 +3,16 @@ Ori Pomerantz   qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stBadOpcode/operationDiffGasFiller.yml
+
+@manually-enhanced: Do not overwrite. A search measures the gas an
+opcode needs to succeed. Two access classes shift under EIP-8038: the
+CALL-family probes (`CALL`/`CALLCODE`/`DELEGATECALL`/`STATICCALL`) make
+one cold account access to the callee, repricing by
+`COLD_ACCOUNT_ACCESS - 2600`; the EXTCODE probe runs a cold
+`EXTCODESIZE` plus a warm `EXTCODECOPY`, each carrying the extra
+extcode surcharge. Every delta is derived from the fork's own gas
+model, so it is exactly 0 before EIP-8038 and tracks future parameter
+changes; do not hardcode the Amsterdam numbers.
 """
 
 import pytest
@@ -18,10 +28,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -358,6 +369,27 @@ def test_operation_diff_gas(
         address=Address(0x0000000000000000000000000000000000C0DEF2),  # noqa: E501
     )
 
+    # The CALL-family probes make one cold account access to the callee;
+    # EIP-8038 reprices it by `COLD_ACCOUNT_ACCESS - 2600`. The EXTCODE
+    # probe runs a cold `EXTCODESIZE` plus a warm `EXTCODECOPY`, each
+    # carrying the extcode surcharge. Both deltas come from the fork gas
+    # model, so they are 0 before EIP-8038. The EXTCODECOPY metadata
+    # mirrors the measured access (a 0x20-byte copy into already-expanded
+    # memory) so only the account-access component varies across forks.
+    gas_costs = fork.gas_costs()
+    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
+    extcode_probe_delta = (
+        Op.EXTCODESIZE.with_metadata(address_warm=False).gas_cost(fork) - 2600
+    ) + (
+        Op.EXTCODECOPY.with_metadata(
+            address_warm=True,
+            data_size=0x20,
+            new_memory_size=0x120,
+            old_memory_size=0x120,
+        ).gas_cost(fork)
+        - 103
+    )
+
     expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
@@ -372,7 +404,9 @@ def test_operation_diff_gas(
         {
             "indexes": {"data": [2, 3, 4, 5], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 2700})},
+            "result": {
+                contract_12: Account(storage={0: 2700 + cold_account_delta})
+            },
         },
         {
             "indexes": {"data": [8, 6, 7], "gas": -1, "value": -1},
@@ -382,7 +416,9 @@ def test_operation_diff_gas(
         {
             "indexes": {"data": [10], "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {contract_12: Account(storage={0: 2800})},
+            "result": {
+                contract_12: Account(storage={0: 2800 + extcode_probe_delta})
+            },
         },
         {
             "indexes": {"data": [9], "gas": -1, "value": -1},

@@ -202,7 +202,6 @@ def test_blobhash_gas_cost(
         "sender": sender,
         "to": address,
         "data": Hash(0),
-        "gas_limit": 500_000,
         "max_fee_per_blob_gas": (fork.min_base_fee_per_blob_gas() * 10)
         if tx_type == 3
         else None,
@@ -277,7 +276,6 @@ def test_blobhash_scenarios(
                         sender=sender,
                         to=address,
                         data=Hash(0),
-                        gas_limit=500_000,
                         access_list=[],
                         max_fee_per_blob_gas=(
                             fork.min_base_fee_per_blob_gas() * 10
@@ -342,7 +340,6 @@ def test_blobhash_invalid_blob_index(
                         ty=Spec.BLOB_TX_TYPE,
                         sender=sender,
                         to=address,
-                        gas_limit=500_000,
                         data=Hash(0),
                         access_list=[],
                         max_fee_per_blob_gas=(
@@ -396,7 +393,6 @@ def test_blobhash_multiple_txs_in_block(
             sender=sender,
             to=address,
             data=Hash(0),
-            gas_limit=500_000,
             access_list=[] if tx_type >= 1 else None,
             max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10)
             if tx_type >= 3

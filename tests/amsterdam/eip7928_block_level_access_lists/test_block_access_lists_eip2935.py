@@ -12,7 +12,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    Fork,
     Hash,
     Op,
     Transaction,
@@ -56,7 +55,6 @@ def block_hash_system_call_expectations(block_number: int) -> dict:
 def test_bal_2935_simple(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Ensure BAL captures history storage writes during system call.
@@ -71,19 +69,9 @@ def test_bal_2935_simple(
 
     transfer_value = 10
 
-    tx1 = Transaction(
-        sender=alice,
-        to=charlie,
-        value=transfer_value,
-        gas_limit=fork.transaction_gas_limit_cap(),
-    )
+    tx1 = Transaction(sender=alice, to=charlie, value=transfer_value)
 
-    tx2 = Transaction(
-        sender=bob,
-        to=charlie,
-        value=transfer_value,
-        gas_limit=fork.transaction_gas_limit_cap(),
-    )
+    tx2 = Transaction(sender=bob, to=charlie, value=transfer_value)
 
     account_expectations = block_hash_system_call_expectations(0)
 
@@ -162,7 +150,6 @@ def test_bal_2935_empty_block(
 def test_bal_2935_query(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
     query_block_number: int,
     is_valid: bool,
     value: int,
@@ -204,7 +191,6 @@ def test_bal_2935_query(
         to=oracle,
         data=Hash(query_block_number),
         value=value,
-        gas_limit=fork.transaction_gas_limit_cap(),
     )
 
     # A setup up block that writes genesis block-hash
@@ -291,7 +277,6 @@ def test_bal_2935_query(
 def test_bal_2935_selfdestruct_to_history_storage(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Ensure BAL captures SELFDESTRUCT to history storage address alongside
@@ -314,11 +299,7 @@ def test_bal_2935_selfdestruct_to_history_storage(
         balance=contract_balance,
     )
 
-    tx = Transaction(
-        sender=alice,
-        to=selfdestruct_contract,
-        gas_limit=fork.transaction_gas_limit_cap(),
-    )
+    tx = Transaction(sender=alice, to=selfdestruct_contract)
 
     account_expectations = block_hash_system_call_expectations(0)
 
@@ -372,7 +353,6 @@ def test_bal_2935_selfdestruct_to_history_storage(
 def test_bal_2935_invalid_calldata_size(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
     calldata_size: int,
     value: int,
 ) -> None:
@@ -409,13 +389,7 @@ def test_bal_2935_invalid_calldata_size(
     # Pad calldata to requested size
     calldata = b"\x00" * calldata_size
 
-    tx = Transaction(
-        sender=alice,
-        to=oracle,
-        data=calldata,
-        value=value,
-        gas_limit=fork.transaction_gas_limit_cap(),
-    )
+    tx = Transaction(sender=alice, to=oracle, data=calldata, value=value)
 
     # Block 1: Setup block that writes genesis block-hash via system call
     block_1 = Block(
@@ -466,4 +440,35 @@ def test_bal_2935_invalid_calldata_size(
         pre=pre,
         blocks=[block_1, block_2],
         post=post_state,
+    )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_2935_absent_contract(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure an undeployed history contract is still recorded in the BAL.
+
+    Overriding the genesis contract with an empty account drops it from the
+    pre-state. The block-start system call reads the now-absent account
+    (recording it) and finds no code to run, so the address is in the BAL
+    with an empty AccountChanges. Unreachable on mainnet,
+    consensus-relevant on custom or test chains.
+    """
+    pre[HISTORY_STORAGE_ADDRESS] = Account(code=b"", nonce=0, balance=0)
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation.empty(),
+                    }
+                ),
+            )
+        ],
+        post={HISTORY_STORAGE_ADDRESS: Account.NONEXISTENT},
     )

@@ -166,7 +166,16 @@ def scenarios(
         ProgramReturnDataSize(),
         ProgramReturnDataCopy(),
         ProgramExtCodehash(),
-        ProgramBlockhash(),
+        pytest.param(
+            ProgramBlockhash(),
+            marks=pytest.mark.pre_alloc_group(
+                "separate",
+                reason="The program feeds BLOCKHASH(0), the genesis hash, "
+                "to the gas-hash contract, so gas usage depends on the "
+                "exact genesis pre-allocation; sharing a genesis with any "
+                "other test changes the execution.",
+            ),
+        ),
         ProgramCoinbase(),
         ProgramTimestamp(),
         ProgramNumber(),
@@ -224,6 +233,11 @@ def test_scenarios(
         tx_max_gas = 1_000_000
         if test_program.id == ProgramInvalidOpcode().id:
             tx_max_gas = 10_000_000 if fork.is_eip_enabled(8037) else 7_000_000
+        if (
+            test_program.id == ProgramAllFrontierOpcodes().id
+            and fork.is_eip_enabled(8037)
+        ):
+            tx_max_gas = 10_000_000
         if scenario.category == "double_call_combinations":
             tx_max_gas *= 2
 

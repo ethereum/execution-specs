@@ -24,9 +24,12 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
     compute_create_address,
 )
 from execution_testing.forks import Cancun
+
+from tests.amsterdam.eip7708_eth_transfer_logs.spec import transfer_log
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
@@ -197,6 +200,7 @@ def test_create_selfdestruct_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
     create_opcode: Op,
@@ -231,8 +235,8 @@ def test_create_selfdestruct_same_tx(
         initcode=selfdestruct_contract_initcode,
         opcode=create_opcode,
     )
-    for i in range(len(sendall_recipient_addresses)):
-        if sendall_recipient_addresses[i] == SELF_ADDRESS:
+    for i, addr in enumerate(sendall_recipient_addresses):
+        if addr == SELF_ADDRESS:
             sendall_recipient_addresses[i] = selfdestruct_contract_address
     if selfdestruct_contract_initial_balance > 0:
         pre.fund_address(
@@ -281,8 +285,13 @@ def test_create_selfdestruct_same_tx(
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
+    # Precompute entry_code_address (for Transfer log sender attribution)
+    entry_code_address = compute_create_address(address=sender, nonce=0)
+
     # Call the self-destructing contract multiple times as required, increasing
-    # the wei sent each time
+    # the wei sent each time. Also track the sequence of EIP-7708 logs so they
+    # can be asserted as expected receipt logs.
+    expected_logs_after_tx_value: list = []
     entry_code_balance = 0
     for i, sendall_recipient in zip(
         range(call_times), cycle(sendall_recipient_addresses)
@@ -303,19 +312,40 @@ def test_create_selfdestruct_same_tx(
         entry_code_balance += i
         selfdestruct_contract_current_balance += i
 
+        # CALL with value > 0 emits a Transfer log (entry_code -> contract)
+        if i > 0:
+            expected_logs_after_tx_value.append(
+                transfer_log(
+                    entry_code_address, selfdestruct_contract_address, i
+                )
+            )
+
+        # SELFDESTRUCT emits a Transfer log to a different address, or a Burn
+        # log when sending to self (contract was created in this tx).
+        if selfdestruct_contract_current_balance > 0:
+            if sendall_recipient != selfdestruct_contract_address:
+                expected_logs_after_tx_value.append(
+                    transfer_log(
+                        selfdestruct_contract_address,
+                        sendall_recipient,
+                        selfdestruct_contract_current_balance,
+                    )
+                )
+
         # Balance is always sent to other contracts
         if sendall_recipient != selfdestruct_contract_address:
             sendall_final_balances[sendall_recipient] += (
                 selfdestruct_contract_current_balance
             )
-
-        # Self-destructing contract must always have zero balance after the
-        # call because the self-destruct always happens in the same transaction
-        # in this test
-        selfdestruct_contract_current_balance = 0
+            selfdestruct_contract_current_balance = 0
+        elif not fork.is_eip_enabled(8246):
+            # per EIP-8246
+            selfdestruct_contract_current_balance = 0
 
         entry_code += Op.SSTORE(
-            entry_code_storage.store_next(0),
+            entry_code_storage.store_next(
+                selfdestruct_contract_current_balance
+            ),
             Op.BALANCE(selfdestruct_contract_address),
         )
 
@@ -339,10 +369,9 @@ def test_create_selfdestruct_same_tx(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
-    entry_code_address = tx.created_contract
+    assert tx.created_contract == entry_code_address
 
     post: Dict[Address, Account] = {
         entry_code_address: Account(
@@ -354,13 +383,32 @@ def test_create_selfdestruct_same_tx(
     for address, balance in sendall_final_balances.items():
         post[address] = Account(balance=balance, storage={0: 1})
 
-    post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
+    if fork.is_eip_enabled(8246) and selfdestruct_contract_current_balance > 0:
+        # per EIP-8246
+        post[selfdestruct_contract_address] = Account(
+            balance=selfdestruct_contract_current_balance,
+            nonce=0,
+            code=b"",
+            storage={},
+        )
+    else:
+        post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
+
+    if fork.is_eip_enabled(7708):
+        expected_logs = []
+        if entry_code_balance > 0:
+            # tx value transfer: sender -> entry_code_address
+            expected_logs.append(
+                transfer_log(sender, entry_code_address, entry_code_balance)
+            )
+        expected_logs.extend(expected_logs_after_tx_value)
+        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
 
     state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
-@pytest.mark.parametrize("call_times", [0, 1])
+@pytest.mark.parametrize("call_times", [0, 1, 2])
 @pytest.mark.parametrize(
     "selfdestruct_contract_initial_balance",
     [0, 100_000],
@@ -370,6 +418,7 @@ def test_self_destructing_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
     create_opcode: Op,
@@ -436,6 +485,7 @@ def test_self_destructing_initcode(
     # Call the self-destructing contract multiple times as required, increasing
     # the wei sent each time
     entry_code_balance = 0
+    selfdestruct_contract_address_remaining_balance = 0
     for i in range(call_times):
         entry_code += Op.SSTORE(
             entry_code_storage.store_next(1),
@@ -451,8 +501,13 @@ def test_self_destructing_initcode(
         )
         entry_code_balance += i
 
+        if fork.is_eip_enabled(8246):
+            # After the first call, this call value will become stuck since
+            # EIP-8246 disables self-destruct burns.
+            selfdestruct_contract_address_remaining_balance += i
+
         entry_code += Op.SSTORE(
-            entry_code_storage.store_next(0),
+            entry_code_storage.store_next(entry_code_balance),
             Op.BALANCE(selfdestruct_contract_address),
         )
 
@@ -474,7 +529,6 @@ def test_self_destructing_initcode(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
     entry_code_address = tx.created_contract
@@ -483,11 +537,39 @@ def test_self_destructing_initcode(
         entry_code_address: Account(
             storage=entry_code_storage,
         ),
-        selfdestruct_contract_address: Account.NONEXISTENT,  # type: ignore
+        selfdestruct_contract_address: Account.NONEXISTENT
+        if selfdestruct_contract_address_remaining_balance == 0
+        else Account(balance=selfdestruct_contract_address_remaining_balance),  # type: ignore
         sendall_recipient_addresses[0]: Account(
             balance=sendall_amount, storage={0: 1}
         ),
     }
+
+    expected_logs = []
+    if fork.is_eip_enabled(7708):
+        # tx value transfer: sender -> entry_code_address (created contract)
+        if entry_code_balance > 0:
+            expected_logs.append(
+                transfer_log(sender, entry_code_address, entry_code_balance)
+            )
+        # Initcode SELFDESTRUCT sends pre-existing balance to the recipient.
+        if selfdestruct_contract_initial_balance > 0:
+            expected_logs.append(
+                transfer_log(
+                    selfdestruct_contract_address,
+                    sendall_recipient_addresses[0],
+                    selfdestruct_contract_initial_balance,
+                )
+            )
+        # CALLs to the destroyed contract transfer ETH to it.
+        for i in range(call_times):
+            if i > 0:
+                expected_logs.append(
+                    transfer_log(
+                        entry_code_address, selfdestruct_contract_address, i
+                    )
+                )
+    tx.expected_receipt = TransactionReceipt(logs=expected_logs)
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -502,6 +584,7 @@ def test_self_destructing_initcode_create_tx(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     tx_value: int,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
@@ -521,7 +604,6 @@ def test_self_destructing_initcode_create_tx(
         value=tx_value,
         data=selfdestruct_code,
         to=None,
-        gas_limit=500_000,
     )
     selfdestruct_contract_address = tx.created_contract
     if selfdestruct_contract_initial_balance > 0:
@@ -540,6 +622,22 @@ def test_self_destructing_initcode_create_tx(
             balance=sendall_amount, storage={0: 1}
         ),
     }
+
+    if fork.is_eip_enabled(7708):
+        expected_logs = []
+        if tx_value > 0:
+            expected_logs.append(
+                transfer_log(sender, selfdestruct_contract_address, tx_value)
+            )
+        if sendall_amount > 0:
+            expected_logs.append(
+                transfer_log(
+                    selfdestruct_contract_address,
+                    sendall_recipient_addresses[0],
+                    sendall_amount,
+                )
+            )
+        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -571,6 +669,7 @@ def test_recreate_self_destructed_contract_different_txs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
@@ -597,7 +696,7 @@ def test_recreate_self_destructed_contract_different_txs(
     entry_code_storage = Storage()
     sendall_amount = selfdestruct_contract_initial_balance
 
-    # Bytecode used to create the contract
+    # Validate bytecode used to create the contract
     assert create_opcode != Op.CREATE, (
         "cannot recreate contract using CREATE opcode"
     )
@@ -645,18 +744,38 @@ def test_recreate_self_destructed_contract_different_txs(
             selfdestruct_contract_address,
             selfdestruct_contract_initial_balance,
         )
-    for i in range(len(sendall_recipient_addresses)):
-        if sendall_recipient_addresses[i] == SELF_ADDRESS:
+    for i, addr in enumerate(sendall_recipient_addresses):
+        if addr == SELF_ADDRESS:
             sendall_recipient_addresses[i] = selfdestruct_contract_address
 
     txs: List[Transaction] = []
     for i in range(recreate_times + 1):
+        expected_receipt = None
+        if fork.is_eip_enabled(7708):
+            # First tx: contract is recreated at the pre-funded address, then
+            # SELFDESTRUCTs transferring initial_balance to the recipient
+            # (or emitting a Burn log when SD to self). Subsequent txs see
+            # address with 0 balance (destroyed+cleared), so no log.
+            tx_logs: list = []
+            if i == 0 and selfdestruct_contract_initial_balance > 0:
+                if (
+                    sendall_recipient_addresses[0]
+                    != selfdestruct_contract_address
+                ):
+                    tx_logs.append(
+                        transfer_log(
+                            selfdestruct_contract_address,
+                            sendall_recipient_addresses[0],
+                            selfdestruct_contract_initial_balance,
+                        )
+                    )
+            expected_receipt = TransactionReceipt(logs=tx_logs)
         txs.append(
             Transaction(
                 data=Hash(i),
                 sender=sender,
                 to=entry_code_address,
-                gas_limit=500_000,
+                expected_receipt=expected_receipt,
             )
         )
         entry_code_storage[i] = selfdestruct_contract_address
@@ -665,9 +784,25 @@ def test_recreate_self_destructed_contract_different_txs(
         entry_code_address: Account(
             storage=entry_code_storage,
         ),
-        selfdestruct_contract_address: Account.NONEXISTENT,  # type: ignore
     }
-    if sendall_recipient_addresses[0] != selfdestruct_contract_address:
+    self_target = (
+        sendall_recipient_addresses[0] == selfdestruct_contract_address
+    )
+    if (
+        fork.is_eip_enabled(8246)
+        and self_target
+        and selfdestruct_contract_initial_balance > 0
+    ):
+        # per EIP-8246
+        post[selfdestruct_contract_address] = Account(
+            balance=selfdestruct_contract_initial_balance,
+            nonce=0,
+            code=b"",
+            storage={},
+        )
+    else:
+        post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
+    if not self_target:
         post[sendall_recipient_addresses[0]] = Account(
             balance=sendall_amount, storage={0: 1}
         )
@@ -737,6 +872,7 @@ def test_selfdestruct_pre_existing(
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
@@ -760,8 +896,8 @@ def test_selfdestruct_pre_existing(
     )
     entry_code_storage = Storage()
 
-    for i in range(len(sendall_recipient_addresses)):
-        if sendall_recipient_addresses[i] == SELF_ADDRESS:
+    for i, addr in enumerate(sendall_recipient_addresses):
+        if addr == SELF_ADDRESS:
             sendall_recipient_addresses[i] = selfdestruct_contract_address
 
     # Create a dict to record the expected final balances
@@ -780,8 +916,12 @@ def test_selfdestruct_pre_existing(
     # destructing contract, as many times as required
     entry_code = Bytecode()
 
+    # Pre-compute the entry_code_address to use for Transfer log attribution.
+    entry_code_address = compute_create_address(address=sender, nonce=0)
+
     # Call the self-destructing contract multiple times as required, increasing
     # the wei sent each time
+    expected_logs_after_tx_value: list = []
     entry_code_balance = 0
     for i, sendall_recipient in zip(
         range(call_times), cycle(sendall_recipient_addresses)
@@ -801,6 +941,31 @@ def test_selfdestruct_pre_existing(
         )
         entry_code_balance += i
         selfdestruct_contract_current_balance += i
+
+        # CALL with nonzero value emits Transfer(entry_code -> contract).
+        if i > 0:
+            expected_logs_after_tx_value.append(
+                transfer_log(
+                    entry_code_address, selfdestruct_contract_address, i
+                )
+            )
+
+        # SELFDESTRUCT emits Transfer to a different recipient; for a
+        # pre-existing contract sending to itself, no log is emitted (balance
+        # stays). Pre-Cancun, SD also burns on self, but EIP-7708 is
+        # Amsterdam+, long after EIP-6780 is enabled, so the self-keep path
+        # applies here.
+        if (
+            sendall_recipient != selfdestruct_contract_address
+            and selfdestruct_contract_current_balance > 0
+        ):
+            expected_logs_after_tx_value.append(
+                transfer_log(
+                    selfdestruct_contract_address,
+                    sendall_recipient,
+                    selfdestruct_contract_current_balance,
+                )
+            )
 
         # Balance is always sent to other contracts
         if sendall_recipient != selfdestruct_contract_address:
@@ -844,10 +1009,9 @@ def test_selfdestruct_pre_existing(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
-    entry_code_address = tx.created_contract
+    assert tx.created_contract == entry_code_address
 
     post: Dict[Address, Account] = {
         entry_code_address: Account(
@@ -869,6 +1033,15 @@ def test_selfdestruct_pre_existing(
     else:
         post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
+    if fork.is_eip_enabled(7708):
+        expected_logs = []
+        if entry_code_balance > 0:
+            expected_logs.append(
+                transfer_log(sender, entry_code_address, entry_code_balance)
+            )
+        expected_logs.extend(expected_logs_after_tx_value)
+        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
+
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -880,6 +1053,7 @@ def test_selfdestruct_created_same_block_different_tx(
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
     call_times: int,
@@ -959,20 +1133,59 @@ def test_selfdestruct_created_same_block_different_tx(
     else:
         post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
+    tx1_receipt = None
+    tx2_receipt = None
+    if fork.is_eip_enabled(7708):
+        tx1_logs = []
+        if selfdestruct_contract_initial_balance > 0:
+            tx1_logs.append(
+                transfer_log(
+                    sender,
+                    selfdestruct_contract_address,
+                    selfdestruct_contract_initial_balance,
+                )
+            )
+        tx1_receipt = TransactionReceipt(logs=tx1_logs)
+
+        tx2_logs = []
+        if entry_code_balance > 0:
+            tx2_logs.append(
+                transfer_log(sender, entry_code_address, entry_code_balance)
+            )
+        running_balance = selfdestruct_contract_initial_balance
+        for i in range(call_times):
+            if i > 0:
+                tx2_logs.append(
+                    transfer_log(
+                        entry_code_address, selfdestruct_contract_address, i
+                    )
+                )
+            running_balance += i
+            if running_balance > 0:
+                tx2_logs.append(
+                    transfer_log(
+                        selfdestruct_contract_address,
+                        sendall_recipient_addresses[0],
+                        running_balance,
+                    )
+                )
+            running_balance = 0
+        tx2_receipt = TransactionReceipt(logs=tx2_logs)
+
     txs = [
         Transaction(
             value=selfdestruct_contract_initial_balance,
             data=selfdestruct_contract_initcode,
             sender=sender,
             to=None,
-            gas_limit=500_000,
+            expected_receipt=tx1_receipt,
         ),
         Transaction(
             value=entry_code_balance,
             data=entry_code,
             sender=sender,
             to=None,
-            gas_limit=500_000,
+            expected_receipt=tx2_receipt,
         ),
     ]
 
@@ -988,6 +1201,7 @@ def test_calling_from_new_contract_to_pre_existing_contract(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     sendall_recipient_addresses: List[Address],
     create_opcode: Op,
     call_opcode: Op,
@@ -1118,8 +1332,36 @@ def test_calling_from_new_contract_to_pre_existing_contract(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
+
+    if fork.is_eip_enabled(7708):
+        # The new contract's body is a DELEGATECALL/CALLCODE to the pre-
+        # existing selfdestruct code, so SELFDESTRUCT runs in the NEW
+        # contract's context and transfers its balance to the recipient.
+        expected_logs = []
+        if entry_code_balance > 0:
+            expected_logs.append(
+                transfer_log(sender, entry_code_address, entry_code_balance)
+            )
+        running_balance = selfdestruct_contract_initial_balance
+        for i in range(call_times):
+            if i > 0:
+                expected_logs.append(
+                    transfer_log(
+                        entry_code_address, selfdestruct_contract_address, i
+                    )
+                )
+            running_balance += i
+            if running_balance > 0:
+                expected_logs.append(
+                    transfer_log(
+                        selfdestruct_contract_address,
+                        sendall_recipient_addresses[0],
+                        running_balance,
+                    )
+                )
+            running_balance = 0
+        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -1135,6 +1377,7 @@ def test_calling_from_pre_existing_contract_to_new_contract(
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
     call_opcode: Op,
@@ -1252,7 +1495,6 @@ def test_calling_from_pre_existing_contract_to_new_contract(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
     )
 
     entry_code_address = tx.created_contract
@@ -1277,6 +1519,42 @@ def test_calling_from_pre_existing_contract_to_new_contract(
     else:
         post[caller_address] = Account.NONEXISTENT  # type: ignore
 
+    if fork.is_eip_enabled(7708):
+        # SELFDESTRUCT runs in the caller (pre-existing) contract's context
+        # via DELEGATECALL/CALLCODE, so the Transfer log attributes the
+        # balance flow from the caller to the recipient.
+        expected_logs = []
+        if entry_code_balance > 0:
+            expected_logs.append(
+                transfer_log(sender, entry_code_address, entry_code_balance)
+            )
+        if selfdestruct_contract_initial_balance > 0:
+            # CREATE with value: entry_code -> new selfdestruct_contract
+            expected_logs.append(
+                transfer_log(
+                    entry_code_address,
+                    selfdestruct_contract_address,
+                    selfdestruct_contract_initial_balance,
+                )
+            )
+        caller_running_balance = pre_existing_contract_initial_balance
+        for i in range(call_times):
+            if i > 0:
+                expected_logs.append(
+                    transfer_log(entry_code_address, caller_address, i)
+                )
+            caller_running_balance += i
+            if caller_running_balance > 0:
+                expected_logs.append(
+                    transfer_log(
+                        caller_address,
+                        sendall_recipient_addresses[0],
+                        caller_running_balance,
+                    )
+                )
+            caller_running_balance = 0
+        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
+
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -1297,6 +1575,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
     create_opcode: Op,
@@ -1377,8 +1656,11 @@ def test_create_selfdestruct_same_tx_increased_nonce(
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
+    entry_code_address = compute_create_address(address=sender, nonce=0)
+
     # Call the self-destructing contract multiple times as required, increasing
     # the wei sent each time
+    expected_logs_after_tx_value: list = []
     entry_code_balance = 0
     for i, sendall_recipient in zip(
         range(call_times), cycle(sendall_recipient_addresses)
@@ -1398,6 +1680,28 @@ def test_create_selfdestruct_same_tx_increased_nonce(
         )
         entry_code_balance += i
         selfdestruct_contract_current_balance += i
+
+        # CALL with value > 0 emits a Transfer log (entry_code -> contract).
+        # The inner CREATE(value=0) prepended to selfdestruct_code does not
+        # emit a log (zero value).
+        if i > 0:
+            expected_logs_after_tx_value.append(
+                transfer_log(
+                    entry_code_address, selfdestruct_contract_address, i
+                )
+            )
+
+        # SELFDESTRUCT always sends to a pre-deployed recipient in this test
+        # (SELF_ADDRESS is not parametrized here), so a Transfer log is
+        # emitted whenever the contract has a nonzero balance.
+        if selfdestruct_contract_current_balance > 0:
+            expected_logs_after_tx_value.append(
+                transfer_log(
+                    selfdestruct_contract_address,
+                    sendall_recipient,
+                    selfdestruct_contract_current_balance,
+                )
+            )
 
         # Balance is always sent to other contracts
         if sendall_recipient != selfdestruct_contract_address:
@@ -1435,10 +1739,9 @@ def test_create_selfdestruct_same_tx_increased_nonce(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
     )
 
-    entry_code_address = tx.created_contract
+    assert tx.created_contract == entry_code_address
 
     post: Dict[Address, Account] = {
         entry_code_address: Account(
@@ -1468,6 +1771,15 @@ def test_create_selfdestruct_same_tx_increased_nonce(
 
     post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
+    if fork.is_eip_enabled(7708):
+        expected_logs = []
+        if entry_code_balance > 0:
+            expected_logs.append(
+                transfer_log(sender, entry_code_address, entry_code_balance)
+            )
+        expected_logs.extend(expected_logs_after_tx_value)
+        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
+
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -1478,6 +1790,7 @@ def test_create_and_destroy_multiple_contracts_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     num_contracts: int,
     selfdestruct_contract_initial_balance: int,
 ) -> None:
@@ -1567,11 +1880,9 @@ def test_create_and_destroy_multiple_contracts_same_tx(
     entry_code += Op.RETURN(32, 1)
 
     tx = Transaction(
-        value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
     )
 
     post: Dict[Address, Account] = {
@@ -1583,6 +1894,23 @@ def test_create_and_destroy_multiple_contracts_same_tx(
     for addr in contract_addresses:
         post[addr] = Account.NONEXISTENT  # type: ignore
 
+    if fork.is_eip_enabled(7708):
+        # Each contract SELFDESTRUCTs to a shared recipient after being created
+        # in the same tx. CREATE2 uses value=0 and CALLs use value=0, so the
+        # only Transfer logs are emitted when each contract's pre-funded
+        # balance is sent to the recipient via SELFDESTRUCT.
+        expected_logs = []
+        if selfdestruct_contract_initial_balance > 0:
+            for addr in contract_addresses:
+                expected_logs.append(
+                    transfer_log(
+                        addr,
+                        sendall_recipient,
+                        selfdestruct_contract_initial_balance,
+                    )
+                )
+        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
+
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -1593,6 +1921,7 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     selfdestruct_contract_initial_balance: int,
 ) -> None:
     """
@@ -1694,16 +2023,46 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
         + Op.STOP
     )
 
+    tx1_receipt = None
+    tx2_receipt = None
+    if fork.is_eip_enabled(7708):
+        # Tx1: only A SELFDESTRUCTs (flag=1), transferring its pre-funded
+        # balance to the shared recipient. B gets called with flag=0 and
+        # returns without emitting any log.
+        tx1_logs = []
+        if selfdestruct_contract_initial_balance > 0:
+            tx1_logs.append(
+                transfer_log(
+                    contract_a_address,
+                    sendall_recipient,
+                    selfdestruct_contract_initial_balance,
+                )
+            )
+        tx1_receipt = TransactionReceipt(logs=tx1_logs)
+
+        # Tx2: B (now pre-existing) SELFDESTRUCTs transferring its
+        # pre-funded balance to the recipient.
+        tx2_logs = []
+        if selfdestruct_contract_initial_balance > 0:
+            tx2_logs.append(
+                transfer_log(
+                    contract_b_address,
+                    sendall_recipient,
+                    selfdestruct_contract_initial_balance,
+                )
+            )
+        tx2_receipt = TransactionReceipt(logs=tx2_logs)
+
     txs = [
         Transaction(
             sender=sender,
             to=entry_code_address,
-            gas_limit=1_000_000,
+            expected_receipt=tx1_receipt,
         ),
         Transaction(
             sender=sender,
             to=tx2_caller,
-            gas_limit=500_000,
+            expected_receipt=tx2_receipt,
         ),
     ]
 
@@ -1742,6 +2101,7 @@ def test_parent_creates_child_selfdestruct_one(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     destroy_parent: bool,
     selfdestruct_contract_initial_balance: int,
 ) -> None:
@@ -1825,11 +2185,9 @@ def test_parent_creates_child_selfdestruct_one(
     entry_code += Op.RETURN(32, 1)
 
     tx = Transaction(
-        value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
     )
 
     post: Dict[Address, Account] = {
@@ -1857,6 +2215,22 @@ def test_parent_creates_child_selfdestruct_one(
             storage={0: 1},
         )
 
+    if fork.is_eip_enabled(7708):
+        # Only the SELFDESTRUCT that actually runs emits a log. Both parent
+        # and child are pre-funded via pre.fund_address, so whichever
+        # SELFDESTRUCTs to the shared recipient transfers its initial_balance.
+        expected_logs = []
+        if selfdestruct_contract_initial_balance > 0:
+            source = parent_address if destroy_parent else child_address
+            expected_logs.append(
+                transfer_log(
+                    source,
+                    sendall_recipient,
+                    selfdestruct_contract_initial_balance,
+                )
+            )
+        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
+
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -1868,6 +2242,7 @@ def test_recursive_contract_creation_and_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
+    fork: Fork,
     recursion_depth: int,
     selfdestruct_on_unwind: bool,
     selfdestruct_contract_initial_balance: int,
@@ -1985,11 +2360,9 @@ def test_recursive_contract_creation_and_selfdestruct(
     entry_code += Op.RETURN(32, 1)
 
     tx = Transaction(
-        value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=2_000_000,
     )
 
     post: Dict[Address, Account] = {
@@ -2021,5 +2394,26 @@ def test_recursive_contract_creation_and_selfdestruct(
         balance=total_sendall,
         storage={0: 1},
     )
+
+    if fork.is_eip_enabled(7708):
+        # CREATE/CALL all use value=0, so the only Transfer logs come from
+        # each SELFDESTRUCT that runs. On unwind every contract SDs, starting
+        # from the deepest; otherwise only the deepest SDs.
+        expected_logs = []
+        if selfdestruct_contract_initial_balance > 0:
+            sd_sources = (
+                list(reversed(contract_addresses))
+                if selfdestruct_on_unwind
+                else [contract_addresses[-1]]
+            )
+            for addr in sd_sources:
+                expected_logs.append(
+                    transfer_log(
+                        addr,
+                        sendall_recipient,
+                        selfdestruct_contract_initial_balance,
+                    )
+                )
+        tx.expected_receipt = TransactionReceipt(logs=expected_logs)
 
     state_test(pre=pre, post=post, tx=tx)

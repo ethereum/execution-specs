@@ -14,7 +14,6 @@ from execution_testing import (
     Alloc,
     Bytecode,
     CodeGasMeasure,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -22,7 +21,7 @@ from execution_testing import (
     ceiling_division,
 )
 
-from .common import INF_POINT, Z
+from .common import INF_POINT, Z_Y_VALID_ENDIANNESS, Z
 from .spec import Spec, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
@@ -41,8 +40,8 @@ def precompile_input(proof: Literal["correct", "incorrect"]) -> bytes:
     versioned_hash = Spec.kzg_to_versioned_hash(kzg_commitment)
     return (
         versioned_hash
-        + z.to_bytes(32, "little")
-        + y.to_bytes(32, "little")
+        + z.to_bytes(32, Z_Y_VALID_ENDIANNESS)
+        + y.to_bytes(32, Z_Y_VALID_ENDIANNESS)
         + kzg_commitment
         + kzg_proof
     )
@@ -149,15 +148,12 @@ def tx(
     pre: Alloc,
     precompile_caller_address: Address,
     precompile_input: bytes,
-    fork: Fork,
 ) -> Transaction:
     """Prepare transaction used to call the precompile caller account."""
     return Transaction(
         sender=pre.fund_eoa(),
         data=precompile_input,
         to=precompile_caller_address,
-        value=0,
-        gas_limit=fork.gas_costs().PRECOMPILE_POINT_EVALUATION * 20,
     )
 
 
@@ -218,9 +214,4 @@ def test_point_evaluation_precompile_gas_usage(
     Test using different gas limits (exact gas, insufficient gas, extra gas) -
     Test using correct and incorrect proofs
     """
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)

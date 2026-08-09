@@ -16,10 +16,9 @@ from execution_testing import (
     WhileGas,
 )
 
+from tests.benchmark.helper.precompile import Precompile
 from tests.istanbul.eip152_blake2.common import Blake2bInput
 from tests.istanbul.eip152_blake2.spec import Spec as Blake2bSpec
-
-from ..helpers import Precompile, concatenate_parameters
 
 
 @pytest.mark.parametrize(
@@ -27,13 +26,7 @@ from ..helpers import Precompile, concatenate_parameters
     [
         pytest.param(
             Blake2bSpec.BLAKE2_PRECOMPILE_ADDRESS,
-            concatenate_parameters(
-                [
-                    Blake2bInput(
-                        rounds=0xFFFF, f=True
-                    ).create_blake2b_tx_data(),
-                ]
-            ),
+            Blake2bInput(rounds=0xFFFF, f=True),
             id="blake2f",
         ),
     ],
@@ -76,7 +69,7 @@ def test_blake2f_benchmark(
     if precompile_address not in fork.precompiles():
         pytest.skip("Precompile not enabled")
 
-    calldata = Blake2bInput(rounds=num_rounds, f=True).create_blake2b_tx_data()
+    calldata = Blake2bInput(rounds=num_rounds, f=True)
 
     attack_block = Op.POP(
         Op.STATICCALL(
@@ -163,9 +156,7 @@ def test_blake2f_uncachable(
 
     iteration_cost = loop.gas_cost(fork)
 
-    base_calldata = Blake2bInput(
-        rounds=num_rounds, f=True
-    ).create_blake2b_tx_data()
+    base_calldata = bytes(Blake2bInput(rounds=num_rounds, f=True))
 
     txs: list[Transaction] = []
     remaining_gas = gas_benchmark_value

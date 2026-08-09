@@ -3,6 +3,13 @@ Test_high_gas_limit.
 
 Ported from:
 state_tests/stTransactionTest/HighGasLimitFiller.json
+
+@manually-enhanced: Do not overwrite. The tx sends value to an empty
+recipient, so EIP-2780 charges ``NEW_ACCOUNT`` state gas at the top
+frame; with the default zero state-gas reservoir that charge spills into
+regular gas. Instead of the original hardcoded ``gas_limit``, lift the
+100000 base by ``fork.transaction_top_frame_state_gas`` so the budget
+covers the spillover and stays exactly 0 on pre-EIP-2780 forks.
 """
 
 import pytest
@@ -13,6 +20,8 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
+    RecipientType,
     StateTestFiller,
     Transaction,
 )
@@ -29,6 +38,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_high_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_high_gas_limit."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -45,15 +55,21 @@ def test_high_gas_limit(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-    )
+    pre[sender] = Account(balance=2**128 - 1)
 
+    # EIP-2780 charges ``NEW_ACCOUNT`` state gas at the top frame when
+    # value is sent to an empty recipient; with the default zero
+    # state-gas reservoir that charge spills into regular gas, so lift
+    # ``gas_limit`` by exactly that amount (0 on pre-EIP-2780 forks).
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
+    )
     tx = Transaction(
         sender=sender,
         to=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
         data=Bytes("3240349548983454"),
-        gas_limit=100000,
+        gas_limit=100000 + top_frame_state_gas,
         value=900,
     )
 

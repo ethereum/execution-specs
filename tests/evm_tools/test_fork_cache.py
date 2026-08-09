@@ -13,7 +13,7 @@ from ethereum.fork_criteria import (
     Unscheduled,
 )
 from ethereum_spec_tools.evm_tools.t8n import ForkCache
-from ethereum_spec_tools.forks import Hardfork
+from ethereum_spec_tools.forks import ForkOverrides, Hardfork
 
 pytestmark = pytest.mark.evm_tools
 
@@ -38,6 +38,13 @@ class DummyTemporaryFork:
 def _template() -> Hardfork:
     """Return the Amsterdam fork template."""
     return Hardfork(importlib.import_module("ethereum.forks.amsterdam"))
+
+
+def _seen_overrides(seen: dict[str, Any]) -> ForkOverrides:
+    """Return the ForkOverrides passed to Hardfork.clone."""
+    overrides = seen["overrides"]
+    assert isinstance(overrides, ForkOverrides)
+    return overrides
 
 
 def _different_fork_criteria(
@@ -141,7 +148,9 @@ def test_fork_cache_returns_template_for_identical_overrides(
         ByBlockNumber | ByTimestamp | Unscheduled,
     )
 
-    def clone(*args: Any, **kwargs: Any) -> DummyTemporaryFork:
+    def clone(
+        template: Hardfork, overrides: ForkOverrides
+    ) -> DummyTemporaryFork:
         pytest.fail("Hardfork.clone() should not run for identical overrides")
 
     monkeypatch.setattr(Hardfork, "clone", clone)
@@ -164,8 +173,12 @@ def test_fork_cache_clones_when_fork_criteria_changes_template(
     cloned = DummyTemporaryFork()
     seen: dict[str, Any] = {}
 
-    def clone(*args: Any, **kwargs: Any) -> DummyTemporaryFork:
-        seen.update(kwargs)
+    def clone(
+        template: Hardfork,
+        overrides: ForkOverrides,
+    ) -> DummyTemporaryFork:
+        seen["template"] = template
+        seen["overrides"] = overrides
         return cloned
 
     monkeypatch.setattr(Hardfork, "clone", clone)
@@ -182,7 +195,7 @@ def test_fork_cache_clones_when_fork_criteria_changes_template(
 
     assert fork is cloned
     assert seen["template"] is template
-    assert seen["fork_criteria"] == changed_fork_criteria
+    assert _seen_overrides(seen).fork_criteria == changed_fork_criteria
 
 
 @pytest.mark.parametrize("field", OVERRIDE_FIELDS)
@@ -194,7 +207,9 @@ def test_fork_cache_returns_template_for_each_identical_blob_override(
     template = _template()
     value = _override_defaults(template)[field]
 
-    def clone(*args: Any, **kwargs: Any) -> DummyTemporaryFork:
+    def clone(
+        template: Hardfork, overrides: ForkOverrides
+    ) -> DummyTemporaryFork:
         pytest.fail("Hardfork.clone() should not run for identical overrides")
 
     monkeypatch.setattr(Hardfork, "clone", clone)
@@ -217,8 +232,12 @@ def test_fork_cache_clones_for_each_changed_blob_override(
     cloned = DummyTemporaryFork()
     seen: dict[str, Any] = {}
 
-    def clone(*args: Any, **kwargs: Any) -> DummyTemporaryFork:
-        seen.update(kwargs)
+    def clone(
+        template: Hardfork,
+        overrides: ForkOverrides,
+    ) -> DummyTemporaryFork:
+        seen["template"] = template
+        seen["overrides"] = overrides
         return cloned
 
     monkeypatch.setattr(Hardfork, "clone", clone)
@@ -228,7 +247,7 @@ def test_fork_cache_clones_for_each_changed_blob_override(
 
     assert fork is cloned
     assert seen["template"] is template
-    assert seen[field] == changed_value
+    assert getattr(_seen_overrides(seen), field) == changed_value
 
 
 def test_fork_cache_reuses_cached_clone_for_identical_changed_request(

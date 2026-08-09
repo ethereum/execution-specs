@@ -113,6 +113,53 @@ class ConsolidationRequest(RequestBase, CamelModel):
         )
 
 
+class BuilderDepositRequest(RequestBase, CamelModel):
+    """Builder Deposit Request type (EIP-8282)."""
+
+    pubkey: BLSPublicKey
+    """The public key of the beacon chain builder."""
+    withdrawal_credentials: Hash
+    """The withdrawal credentials of the beacon chain builder."""
+    amount: HexNumber
+    """The amount in gwei of the builder deposit."""
+    signature: BLSSignature
+    """
+    The signature of the deposit using the builder's private key that matches
+    the `pubkey`.
+    """
+
+    type: ClassVar[int] = 3
+    """Placeholder request-type byte pending the EIP-8282 final allocation."""
+
+    def __bytes__(self) -> bytes:
+        """Return builder deposit's attributes as bytes."""
+        return (
+            bytes(self.pubkey)
+            + bytes(self.withdrawal_credentials)
+            + self.amount.to_bytes(8, "little")
+            + bytes(self.signature)
+        )
+
+
+class BuilderExitRequest(RequestBase, CamelModel):
+    """Builder Exit Request type (EIP-8282)."""
+
+    source_address: Address = Address(0)
+    """
+    The address of the execution layer account that made the builder exit
+    request.
+    """
+    pubkey: BLSPublicKey
+    """The public key of the builder to exit."""
+
+    type: ClassVar[int] = 4
+    """Placeholder request-type byte pending the EIP-8282 final allocation."""
+
+    def __bytes__(self) -> bytes:
+        """Return builder exit's attributes as bytes."""
+        return bytes(self.source_address) + bytes(self.pubkey)
+
+
 def requests_list_to_bytes(
     requests_list: List[RequestBase] | Bytes | SupportsBytes,
 ) -> Bytes:

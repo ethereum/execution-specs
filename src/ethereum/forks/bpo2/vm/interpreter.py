@@ -12,7 +12,7 @@ A straightforward interpreter that executes EVM code.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Set, Tuple
+from typing import Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
@@ -31,17 +31,16 @@ from ethereum.trace import (
 )
 
 from ..blocks import Log
-from ..state import (
-    account_has_code_or_nonce,
-    account_has_storage,
-    begin_transaction,
-    commit_transaction,
+from ..state_tracker import (
+    account_deployable,
+    copy_tx_state,
+    destroy_storage,
     get_account,
     get_code,
     increment_nonce,
     mark_account_created,
     move_ether,
-    rollback_transaction,
+    restore_tx_state,
     set_code,
 )
 from ..vm import Message
@@ -66,6 +65,7 @@ MAX_CODE_SIZE = 0x6000
 MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
 
 
+@final
 @dataclass
 class MessageCallOutput:
     """
@@ -105,13 +105,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
         Output of the message call
 
     """
-    block_env = message.block_env
+    tx_state = message.tx_env.state
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
-        is_collision = account_has_code_or_nonce(
-            block_env.state, message.current_target
-        ) or account_has_storage(block_env.state, message.current_target)
-        if is_collision:
+        if account_deployable(tx_state, message.current_target):
+            evm = process_create_message(message)
+        else:
             return MessageCallOutput(
                 gas_left=Uint(0),
                 refund_counter=U256(0),
@@ -120,8 +119,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 error=AddressCollision(),
                 return_data=Bytes(b""),
             )
-        else:
-            evm = process_create_message(message)
     else:
         if message.tx_env.authorizations != ():
             refund_counter += set_delegation(message)
@@ -131,8 +128,8 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.disable_precompiles = True
             message.accessed_addresses.add(delegated_address)
             message.code = get_code(
-                block_env.state,
-                get_account(block_env.state, delegated_address).code_hash,
+                tx_state,
+                get_account(tx_state, delegated_address).code_hash,
             )
             message.code_address = delegated_address
 
@@ -176,17 +173,26 @@ def process_create_message(message: Message) -> Evm:
         Items containing execution specific objects.
 
     """
-    state = message.block_env.state
-    transient_storage = message.tx_env.transient_storage
+    tx_state = message.tx_env.state
     # take snapshot of state before processing the message
-    begin_transaction(state, transient_storage)
+    snapshot = copy_tx_state(tx_state)
 
-    # The list of created accounts is used by `get_storage_original`.
-    # Additionally, the list is needed to respect the constraints
+    # If the address where the account is being created has storage, it is
+    # destroyed. This can only happen in the following highly unlikely
+    # circumstances:
+    # * The address created by a `CREATE` call collides with a subsequent
+    #   `CREATE` or `CREATE2` call.
+    # * The first `CREATE` happened before Spurious Dragon and left empty
+    #   code.
+    destroy_storage(tx_state, message.current_target)
+
+    # In the previously mentioned edge case the preexisting storage is ignored
+    # for gas refund purposes. In order to do this we must track created
+    # accounts. This tracking is also needed to respect the constraints
     # added to SELFDESTRUCT by EIP-6780.
-    mark_account_created(state, message.current_target)
+    mark_account_created(tx_state, message.current_target)
 
-    increment_nonce(state, message.current_target)
+    increment_nonce(tx_state, message.current_target)
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
@@ -201,15 +207,14 @@ def process_create_message(message: Message) -> Evm:
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
         except ExceptionalHalt as error:
-            rollback_transaction(state, transient_storage)
+            restore_tx_state(tx_state, snapshot)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
-            set_code(state, message.current_target, contract_code)
-            commit_transaction(state, transient_storage)
+            set_code(tx_state, message.current_target, contract_code)
     else:
-        rollback_transaction(state, transient_storage)
+        restore_tx_state(tx_state, snapshot)
     return evm
 
 
@@ -228,11 +233,10 @@ def process_message(message: Message) -> Evm:
         Items containing execution specific objects
 
     """
-    state = message.block_env.state
+    tx_state = message.tx_env.state
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
-    transient_storage = message.tx_env.transient_storage
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
     evm = Evm(
@@ -255,11 +259,14 @@ def process_message(message: Message) -> Evm:
     )
 
     # take snapshot of state before processing the message
-    begin_transaction(state, transient_storage)
+    snapshot = copy_tx_state(tx_state)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
-            state, message.caller, message.current_target, message.value
+            tx_state,
+            message.caller,
+            message.current_target,
+            message.value,
         )
 
     try:
@@ -291,9 +298,5 @@ def process_message(message: Message) -> Evm:
         evm.error = error
 
     if evm.error:
-        # revert state to the last saved checkpoint
-        # since the message call resulted in an error
-        rollback_transaction(state, transient_storage)
-    else:
-        commit_transaction(state, transient_storage)
+        restore_tx_state(tx_state, snapshot)
     return evm

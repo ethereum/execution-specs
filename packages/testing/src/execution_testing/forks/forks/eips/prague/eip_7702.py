@@ -13,8 +13,10 @@ from execution_testing.base_types import AccessList
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.vm import OpcodeBase
 
+from .....recipient_type import RecipientType
 from ....base_fork import (
     BaseFork,
+    RefundTypes,
     TransactionIntrinsicCostCalculator,
 )
 from ....gas_costs import GasCosts
@@ -73,7 +75,11 @@ class EIP7702(BaseFork):
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
             return_cost_deducted_prior_execution: bool = False,
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
+            del sends_value, recipient_type
+
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
                 contract_creation=contract_creation,
@@ -95,3 +101,12 @@ class EIP7702(BaseFork):
             return intrinsic_cost
 
         return fn
+
+    @classmethod
+    def refund_types(cls) -> List[RefundTypes]:
+        """
+        At Prague, existing authorization refund is introduced.
+        """
+        refunds = super(EIP7702, cls).refund_types()
+        refunds.append(RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY)
+        return refunds

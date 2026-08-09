@@ -3,6 +3,8 @@ Call -> callcode -> call -> code, params check.
 
 Ported from:
 state_tests/stCallCodes/callcallcodecall_010Filler.json
+
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -63,7 +65,6 @@ def test_callcallcodecall_010(
         code=Op.SSTORE(
             key=0x2,
             value=Op.CALL(
-                gas=0x3D090,
                 address=addr_3,
                 value=0x3,
                 args_offset=0x0,
@@ -82,7 +83,6 @@ def test_callcallcodecall_010(
         code=Op.SSTORE(
             key=0x1,
             value=Op.CALLCODE(
-                gas=0x493E0,
                 address=addr_2,
                 value=0x2,
                 args_offset=0x0,
@@ -101,7 +101,6 @@ def test_callcallcodecall_010(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0x55730,
                 address=addr,
                 value=0x1,
                 args_offset=0x0,
@@ -115,12 +114,7 @@ def test_callcallcodecall_010(
         nonce=0,
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=3000000,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""))
 
     post = {
         addr: Account(storage={1: 1, 2: 1}),

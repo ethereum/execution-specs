@@ -52,7 +52,6 @@ def test_call_insufficient_balance(
 
     tx = Transaction(
         to=contract_address,
-        gas_limit=100_000,
         sender=pre.fund_eoa(),
     )
 

@@ -239,6 +239,198 @@ pytestmark = [
             Spec.INF_G1,
             id="generator_no_scalar",
         ),
+        # Ported from pointMulAdd / pointMulAdd2 (ECADD vs ECMUL)
+        pytest.param(
+            Spec.S1 + Scalar(2),
+            Spec.S1x2,
+            id="s1_times_two",
+        ),
+        pytest.param(
+            Spec.S1 + Scalar(3),
+            Spec.S1x3,
+            id="s1_times_three",
+        ),
+        pytest.param(
+            Spec.S1x3 + Scalar(0),
+            Spec.INF_G1,
+            id="s1x3_times_zero",
+        ),
+        pytest.param(
+            PointG1(Spec.S1x3.x, Spec.P - Spec.S1x3.y) + Scalar(2),
+            PointG1(
+                0x255E468453D7636CC1563E43F7521755F95E6C56043C7321B4AE04E772945FB0,
+                0x225C5F1623620FD84BFBAB2D861A9D1E570F7727C540F403085998EBAF407C4,
+            ),
+            id="neg_s1x3_times_two",
+        ),
+        pytest.param(
+            Spec.S1x3 + Scalar(Spec.N - 1),
+            PointG1(Spec.S1x3.x, Spec.P - Spec.S1x3.y),
+            id="s1x3_times_group_order_minus_one",
+        ),
+        pytest.param(
+            Spec.S1x3 + Scalar(Spec.N - 2),
+            PointG1(
+                0x255E468453D7636CC1563E43F7521755F95E6C56043C7321B4AE04E772945FB0,
+                0x225C5F1623620FD84BFBAB2D861A9D1E570F7727C540F403085998EBAF407C4,
+            ),
+            id="s1x3_times_group_order_minus_two",
+        ),
+        pytest.param(
+            Spec.S1x2 + Scalar(1),
+            Spec.S1x2,
+            id="s1x2_times_one",
+        ),
+        pytest.param(
+            Spec.INF_G1 + Scalar(3),
+            Spec.INF_G1,
+            id="inf_times_three",
+        ),
+        pytest.param(
+            Spec.INF_G1 + Scalar(Spec.N - 2),
+            Spec.INF_G1,
+            id="inf_times_group_order_minus_two",
+        ),
+        pytest.param(
+            Spec.INF_G1 + Scalar(Spec.P - 1),
+            Spec.INF_G1,
+            id="inf_times_field_modulus_minus_one",
+        ),
+        pytest.param(
+            Spec.INF_G1 + Scalar(Spec.P - 2),
+            Spec.INF_G1,
+            id="inf_times_field_modulus_minus_two",
+        ),
+        pytest.param(
+            Spec.INF_G1 + Scalar(2**256 - 2),
+            Spec.INF_G1,
+            id="inf_times_2_pow_256_minus_2",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(2),
+            PointG1(Spec.G1x2.x, Spec.P - Spec.G1x2.y),
+            id="neg_generator_times_two",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(3),
+            PointG1(
+                0x769BF9AC56BEA3FF40232BCB1B6BD159315D84715B8E679F2D355961915ABF0,
+                0x5ACB4B400E90C0063006A39F478F3E865E306DD5CD56F356E2E8CD8FE7EDAE6,
+            ),
+            id="neg_generator_times_three",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(0),
+            Spec.INF_G1,
+            id="neg_generator_times_zero",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(Spec.N - 1),
+            Spec.G1,
+            id="neg_generator_times_group_order_minus_one",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(Spec.N - 2),
+            Spec.G1x2,
+            id="neg_generator_times_group_order_minus_two",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(1),
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y),
+            id="neg_generator_times_one",
+        ),
+        pytest.param(
+            Spec.SAMPLE_G1 + Scalar(2),
+            PointG1(
+                0x1FD3B816D9951DCB9AA9797D25E51A865987703AE83CD69C4658679F0350AE2B,
+                0x29CE3D80A74DDC13784BEB25CA9FBFD048A3265A32C6F38B92060C5093A0E7A7,
+            ),
+            id="sample_times_two",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(Spec.P - 1),
+            Spec.SAMPLE_G1,
+            id="neg_generator_times_field_modulus_minus_one",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(Spec.P - 2),
+            PointG1(
+                0x2C15ED1902E189486AB6B625AA982510AEF6246B21A1E1BCEA382DA4D735E8BA,
+                0x2103E58CBD2FA8081763442AB46C26A9B8051E9B049C3948C8D7D0E139C5E3F,
+            ),
+            id="neg_generator_times_field_modulus_minus_two",
+        ),
+        pytest.param(
+            PointG1(Spec.G1x2_256_1.x, Spec.P - Spec.G1x2_256_1.y) + Scalar(2),
+            PointG1(
+                0x2FA739D4CDE056D8FD75427345CBB34159856E06A4FFAD64159C4773F23FBF4B,
+                0x1EED5D5325C31FC89DD541A13D7F63B981FAE8D4BF78A6B08A38A601FCFEA97B,
+            ),
+            id="neg_g1x2_256_1_times_two",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(2**256 - 1),
+            PointG1(Spec.G1x2_256_1.x, Spec.P - Spec.G1x2_256_1.y),
+            id="neg_generator_times_2_pow_256_minus_1",
+        ),
+        pytest.param(
+            PointG1(Spec.G1.x, Spec.P - Spec.G1.y) + Scalar(2**256 - 2),
+            PointG1(
+                0x8E2142845DB159BD105879A109FE7A6F254ED3DDAE0E9CD8A2AEAE05E5F647B,
+                0x221108EE615499D2E0A1113CA1A858A34E055F9DA2D30E6E6AB392B049944A92,
+            ),
+            id="neg_generator_times_2_pow_256_minus_2",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(3),
+            PointG1(
+                0x769BF9AC56BEA3FF40232BCB1B6BD159315D84715B8E679F2D355961915ABF0,
+                0x2AB799BEE0489429554FDB7C8D086475319E63B40B9C5B57CDF1FF3DD9FE2261,
+            ),
+            id="generator_times_three",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(Spec.N - 2),
+            PointG1(Spec.G1x2.x, Spec.P - Spec.G1x2.y),
+            id="generator_times_group_order_minus_two",
+        ),
+        pytest.param(
+            PointG1(Spec.SAMPLE_G1.x, Spec.P - Spec.SAMPLE_G1.y) + Scalar(2),
+            PointG1(
+                0x1FD3B816D9951DCB9AA9797D25E51A865987703AE83CD69C4658679F0350AE2B,
+                0x69610F239E3C41640045A90B6E1988D4EDE443735AAD701AA1A7FC644DC15A0,
+            ),
+            id="neg_sample_times_two",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(Spec.P - 1),
+            PointG1(Spec.SAMPLE_G1.x, Spec.P - Spec.SAMPLE_G1.y),
+            id="generator_times_field_modulus_minus_one",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(Spec.P - 2),
+            PointG1(
+                0x2C15ED1902E189486AB6B625AA982510AEF6246B21A1E1BCEA382DA4D735E8BA,
+                0x2E54101A155EA5A936DA1173D63A95F2FC0118A7B82806F8AF930F08C4E09F08,
+            ),
+            id="generator_times_field_modulus_minus_two",
+        ),
+        pytest.param(
+            Spec.G1x2_256_1 + Scalar(2),
+            PointG1(
+                0x2FA739D4CDE056D8FD75427345CBB34159856E06A4FFAD64159C4773F23FBF4B,
+                0x1176F11FBB6E80611A7B04154401F4A4158681BCA8F923DCB1E7E614DB7E53CC,
+            ),
+            id="g1x2_256_1_times_two",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(2**256 - 2),
+            PointG1(
+                0x8E2142845DB159BD105879A109FE7A6F254ED3DDAE0E9CD8A2AEAE05E5F647B,
+                0xE5345847FDD0656D7AF3479DFD8FFBA497C0AF3C59EBC1ED16CF9668EE8B2B5,
+            ),
+            id="generator_times_2_pow_256_minus_2",
+        ),
     ],
 )
 @pytest.mark.ported_from(
@@ -280,6 +472,8 @@ pytestmark = [
         "https://github.com/ethereum/legacytests/tree/master/Cancun/GeneralStateTests/stZeroKnowledge2/ecmul_1-2_0_21000_96Filler.json",
         "https://github.com/ethereum/legacytests/tree/master/Cancun/GeneralStateTests/stZeroKnowledge2/ecmul_1-2_1_21000_128Filler.json",
         "https://github.com/ethereum/legacytests/tree/master/Cancun/GeneralStateTests/stZeroKnowledge2/ecmul_1-2_1_21000_96Filler.json",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stZeroKnowledge/pointMulAddFiller.json",
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stZeroKnowledge/pointMulAdd2Filler.json",
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2403"],
 )

@@ -3,6 +3,13 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP1559/lowGasLimitFiller.yml
+
+@manually-enhanced: Do not overwrite. The `-g3` case must sit just below
+the fork intrinsic to trigger `INTRINSIC_GAS_TOO_LOW`. EIP-2780 decomposes
+and lowers the intrinsic, so the original hardcoded `20000` is no longer
+below it; instead derive `intrinsic - 1` from the fork's
+`transaction_intrinsic_cost_calculator()` for the single zero-byte
+calldata so the boundary stays correct across the repricing.
 """
 
 import pytest
@@ -17,10 +24,11 @@ from execution_testing import (
     TransactionException,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -129,7 +137,13 @@ def test_low_gas_limit(
     tx_data = [
         Bytes("00"),
     ]
-    tx_gas = [90000, 50000, 25000, 20000]
+    # -g3 must sit below the fork's intrinsic to trigger
+    # ``INTRINSIC_GAS_TOO_LOW``. EIP-2780 lowers the intrinsic so the
+    # original ``20000`` is no longer below it; derive the boundary.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=Bytes("00"),
+    )
+    tx_gas = [90000, 50000, 25000, intrinsic - 1]
     tx_access_lists: dict[int, list] = {
         0: [],
     }

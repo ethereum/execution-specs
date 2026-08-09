@@ -10,7 +10,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Environment,
     Hash,
     Op,
     StateTestFiller,
@@ -121,7 +120,6 @@ def tx(  # noqa: D103
         sender=pre.fund_eoa(),
         to=code_address,
         data=Hash(dest) + Hash(src) + Hash(length),
-        gas_limit=1_000_000,
     )
 
 
@@ -197,12 +195,7 @@ def test_valid_mcopy_operations(
       - Memory extensions (copy to a location that is out of bounds)
       - Memory clear (copy from a location that is out of bounds).
     """
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
 
 
 PATTERN = bytes.fromhex(
@@ -287,14 +280,12 @@ def test_mcopy_repeated(
     post = {contract: Account(storage=storage)}
 
     state_test(
-        env=Environment(),
         pre=pre,
         post=post,
         tx=Transaction(
             sender=pre.fund_eoa(),
             to=contract,
             data=Hash(dest) + Hash(src) + Hash(length),
-            gas_limit=1_000_000,
         ),
     )
 
@@ -314,9 +305,4 @@ def test_mcopy_on_empty_memory(
     Perform MCOPY operations on an empty memory, using different offsets and
     lengths.
     """
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)

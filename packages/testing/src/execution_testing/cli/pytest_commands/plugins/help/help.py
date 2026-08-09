@@ -32,6 +32,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Show help options only for the fill command and exit.",
     )
     help_group.addoption(
+        "--fill-stateful-help",
+        action="store_true",
+        dest="show_fill_stateful_help",
+        default=False,
+        help=(
+            "Show help options only for the fill-stateful command and exit."
+        ),
+    )
+    help_group.addoption(
         "--consume-help",
         action="store_true",
         dest="show_consume_help",
@@ -99,12 +108,23 @@ def pytest_configure(config: pytest.Config) -> None:
             "pytest-fill.ini",
             [
                 "evm",
-                "solc",
                 "fork range",
                 "filler location",
                 "defining debug",
                 "pre-allocation behavior during test filling",
                 "ported",
+                "benchmark",
+            ],
+        )
+    elif config.getoption("show_fill_stateful_help"):
+        show_specific_help(
+            config,
+            "pytest-fill-stateful.ini",
+            [
+                "fill_stateful",
+                "stateful fixture",
+                "remote RPC configuration",
+                "filler location",
                 "benchmark",
             ],
         )

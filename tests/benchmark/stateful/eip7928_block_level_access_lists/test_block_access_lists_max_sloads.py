@@ -17,10 +17,10 @@ from execution_testing import (
     BenchmarkTestFiller,
     Bytecode,
     Fork,
-    Storage,
 )
 
 from .helpers import (
+    StorageInitRange,
     cursor_read,
     gas_check_loop_contract,
     plan_benchmark,
@@ -66,6 +66,7 @@ def test_bal_max_sloads(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     reverse: bool,
 ) -> None:
     """Test BAL with maximum sequential SLOADs via cursor."""
@@ -81,16 +82,20 @@ def test_bal_max_sloads(
     # Cursor starts at slot 0; forward reads slots 1..total,
     # reverse reads slots total..1.
     cursor_start = total if reverse else 1
-    storage = Storage(
-        {0: cursor_start} | {i: i for i in range(1, total + 1)}  # type: ignore
-    )
+    authority = pre.fund_eoa(amount=0)
     run_bal_benchmark(
         pre=pre,
+        fork=fork,
         benchmark_test=benchmark_test,
         contract_code=create_sload_loop_contract(
             plan.gas_threshold, reverse=reverse
         ),
-        contract_storage=storage,
         plan=plan,
+        tx_gas_limit=tx_gas_limit,
+        authority=authority,
+        storage_init_ranges=[
+            StorageInitRange(1, total, 0),
+            StorageInitRange(0, 1, cursor_start),
+        ],
         data_slot_reads=list(range(1, total + 1)),
     )

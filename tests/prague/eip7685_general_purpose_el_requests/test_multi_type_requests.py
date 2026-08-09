@@ -10,44 +10,29 @@ from typing import Callable, Dict, Generator, List, Tuple
 
 import pytest
 from execution_testing import (
-    EOA,
-    Account,
-    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
     BlockException,
-    Bytecode,
     Bytes,
     Environment,
+    FeeSystemContractRequest,
     Fork,
-    Header,
-    Op,
     ParameterSet,
     Requests,
-    Storage,
+    SystemContractInteractionContract,
+    SystemContractInteractionTransaction,
+    SystemContractRequest,
     TestAddress,
-    Transaction,
 )
 
-from ..eip6110_deposits.helpers import (
-    DepositContract,
-    DepositRequest,
-    DepositTransaction,
+from ...amsterdam.eip8282_builder_execution_requests.helpers import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
 )
-from ..eip6110_deposits.spec import Spec as Spec_EIP6110
-from ..eip7002_el_triggerable_withdrawals.helpers import (
-    WithdrawalRequest,
-    WithdrawalRequestContract,
-    WithdrawalRequestTransaction,
-)
-from ..eip7002_el_triggerable_withdrawals.spec import Spec as Spec_EIP7002
-from ..eip7251_consolidations.helpers import (
-    ConsolidationRequest,
-    ConsolidationRequestContract,
-    ConsolidationRequestTransaction,
-)
-from ..eip7251_consolidations.spec import Spec as Spec_EIP7251
+from ..eip6110_deposits.helpers import DepositRequest
+from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
+from ..eip7251_consolidations.helpers import ConsolidationRequest
 from .spec import ref_spec_7685
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_7685.git_path
@@ -56,286 +41,111 @@ REFERENCE_SPEC_VERSION: str = ref_spec_7685.version
 pytestmark: pytest.MarkDecorator = pytest.mark.valid_from("Prague")
 
 
-def single_deposit(i: int) -> DepositRequest:  # noqa: D103
-    return DepositRequest(
-        pubkey=(i * 3),
-        withdrawal_credentials=(i * 3) + 1,
-        amount=32_000_000_000,
-        signature=(i * 3) + 2,
-        index=i,
+# All request types under test, in ascending request-type order. Adding a new
+# request type here makes the permutations and parametrizations pick it up.
+# Required for future forks to add new request types to this dictionary.
+REQUEST_TYPES: List[type[SystemContractRequest]] = [
+    DepositRequest,
+    WithdrawalRequest,
+    ConsolidationRequest,
+    BuilderDepositRequest,
+    BuilderExitRequest,
+]
+REQUEST_TYPE_BY_ADDRESS = {
+    rt.interaction_contract_address: rt for rt in REQUEST_TYPES
+}
+# Number of requests used for request types that have no per-block cap (e.g.
+# deposits), to exercise "many in a single block".
+UNCAPPED_REQUEST_SAMPLE = 18
+
+
+def request_type_to_id_str(ty: type[SystemContractRequest]) -> str:
+    """Return an id-friendly string from the system contract request."""
+    return ty.__name__.removesuffix("Request").lower()
+
+
+def request_types_from_fork(fork: Fork) -> List[type[SystemContractRequest]]:
+    """Return the types of system contract requests for a given fork."""
+    assert len(REQUEST_TYPES) > fork.max_request_type(), (
+        f"Request type {fork.max_request_type()} not in REQUEST_TYPES. "
+        "Test needs update"
+    )
+    return REQUEST_TYPES[: fork.max_request_type() + 1]
+
+
+def eoa_interaction(
+    request_type: type[SystemContractRequest], i: int = 0
+) -> SystemContractInteractionTransaction:
+    """Build an EOA-originated interaction for a single request."""
+    return SystemContractInteractionTransaction(
+        requests=[request_type.from_index(i)]
     )
 
 
-def single_deposit_from_eoa(i: int) -> DepositTransaction:  # noqa: D103
-    return DepositTransaction(requests=[single_deposit(i)])
-
-
-def single_deposit_from_contract(i: int) -> DepositContract:  # noqa: D103
-    return DepositContract(requests=[single_deposit(i)])
-
-
-def single_withdrawal(i: int) -> WithdrawalRequest:  # noqa: D103
-    return WithdrawalRequest(
-        validator_pubkey=i + 1,
-        amount=0,
-        fee=1,
+def contract_interaction(
+    request_type: type[SystemContractRequest], i: int = 0
+) -> SystemContractInteractionContract:
+    """Build a relay-contract-originated interaction for a single request."""
+    return SystemContractInteractionContract(
+        requests=[request_type.from_index(i)]
     )
 
 
-def single_withdrawal_from_eoa(i: int) -> WithdrawalRequestTransaction:  # noqa: D103
-    return WithdrawalRequestTransaction(requests=[single_withdrawal(i)])
+def get_fork_permutations(fork: Fork) -> Generator[ParameterSet, None, None]:
+    """Get request permutations for a given fork."""
+    request_types = request_types_from_fork(fork)
 
+    # EOA permutations
+    for perm in permutations(request_types):
+        perm_id = "+".join(
+            [f"{request_type_to_id_str(rt)}_from_eoa" for rt in perm]
+        )
+        yield pytest.param([eoa_interaction(rt) for rt in perm], id=perm_id)
 
-def single_withdrawal_from_contract(i: int) -> WithdrawalRequestContract:  # noqa: D103
-    return WithdrawalRequestContract(requests=[single_withdrawal(i)])
-
-
-def single_consolidation(i: int) -> ConsolidationRequest:  # noqa: D103
-    return ConsolidationRequest(
-        source_pubkey=(i * 2),
-        target_pubkey=(i * 2) + 1,
-        fee=1,
-    )
-
-
-def single_consolidation_from_eoa(i: int) -> ConsolidationRequestTransaction:  # noqa: D103
-    return ConsolidationRequestTransaction(requests=[single_consolidation(i)])
-
-
-def single_consolidation_from_contract(i: int) -> ConsolidationRequestContract:  # noqa: D103
-    return ConsolidationRequestContract(requests=[single_consolidation(i)])
-
-
-def get_permutations(n: int = 3) -> Generator[ParameterSet, None, None]:
-    """Return possible permutations of the requests from an EOA."""
-    requests: list = [
-        (
-            "deposit",
-            single_deposit(0),
-        ),
-        (
-            "withdrawal",
-            single_withdrawal(0),
-        ),
-        (
-            "consolidation",
-            single_consolidation(0),
-        ),
-    ]
-    for perm in permutations(requests, n):
+    # Contract permutations
+    for perm in permutations(request_types):
+        perm_id = "+".join(
+            [f"{request_type_to_id_str(rt)}_from_contract" for rt in perm]
+        )
         yield pytest.param(
-            [p[1] for p in perm], id="+".join([p[0] for p in perm])
+            [contract_interaction(rt) for rt in perm], id=perm_id
         )
 
-
-def get_eoa_permutations(n: int = 3) -> Generator[ParameterSet, None, None]:
-    """Return possible permutations of the requests from an EOA."""
-    requests: list = [
-        (
-            "deposit_from_eoa",
-            single_deposit_from_eoa(0),
-        ),
-        (
-            "withdrawal_from_eoa",
-            single_withdrawal_from_eoa(0),
-        ),
-        (
-            "consolidation_from_eoa",
-            single_consolidation_from_eoa(0),
-        ),
-    ]
-    for perm in permutations(requests, n):
+    # Multiple request types from same transaction
+    for perm in permutations(request_types):
         yield pytest.param(
-            [p[1] for p in perm], id="+".join([p[0] for p in perm])
+            [
+                SystemContractInteractionContract(
+                    requests=[rt.from_index(0) for rt in perm]
+                )
+            ],
+            id="+".join(request_type_to_id_str(rt) for rt in perm)
+            + "_from_same_tx",
         )
+    # Empty requests
+    yield pytest.param([], id="empty_requests")
 
-
-def get_contract_permutations(
-    n: int = 3,
-) -> Generator[ParameterSet, None, None]:
-    """Return possible permutations of the requests from a contract."""
-    requests: list = [
-        (
-            "deposit_from_contract",
-            single_deposit_from_contract(0),
-        ),
-        (
-            "withdrawal_from_contract",
-            single_withdrawal_from_contract(0),
-        ),
-        (
-            "consolidation_from_contract",
-            single_consolidation_from_contract(0),
-        ),
-    ]
-    for perm in permutations(requests, n):
-        yield pytest.param(
-            [p[1] for p in perm], id="+".join([p[0] for p in perm])
+    # One more than the per-block cap of each request type, so the surplus of
+    # capped types carries over to a following block. Uncapped types (e.g.
+    # deposits) have no cap, so an arbitrary sample count is used and all are
+    # included in the same block.
+    over_cap_interactions: List[SystemContractInteractionContract] = []
+    ids: List[str] = []
+    for rt in request_types:
+        if issubclass(rt, FeeSystemContractRequest):
+            cap = rt.max_per_block
+        else:
+            cap = UNCAPPED_REQUEST_SAMPLE
+        over_cap_interactions.append(
+            SystemContractInteractionContract(
+                requests=[rt.from_index(i) for i in range(cap + 1)]
+            )
         )
+        ids.append(f"{request_type_to_id_str(rt)}_over_cap")
+    yield pytest.param(over_cap_interactions, id="+".join(ids))
 
 
-@pytest.mark.parametrize(
-    "requests",
-    [
-        *get_eoa_permutations(),
-        *get_contract_permutations(),
-        pytest.param(
-            [
-                single_deposit_from_eoa(0),
-                single_withdrawal_from_eoa(0),
-                single_deposit_from_contract(1),
-            ],
-            id="deposit_from_eoa+withdrawal_from_eoa+deposit_from_contract",
-        ),
-        pytest.param(
-            [
-                single_deposit_from_eoa(0),
-                single_consolidation_from_eoa(0),
-                single_deposit_from_contract(1),
-            ],
-            id="deposit_from_eoa+consolidation_from_eoa+deposit_from_contract",
-        ),
-        pytest.param(
-            [
-                single_consolidation_from_eoa(0),
-                single_deposit_from_eoa(0),
-                single_consolidation_from_contract(1),
-            ],
-            id="consolidation_from_eoa+deposit_from_eoa+consolidation_from_contract",
-        ),
-        pytest.param(
-            [
-                single_consolidation_from_eoa(0),
-                single_withdrawal_from_eoa(0),
-                single_consolidation_from_contract(1),
-            ],
-            id="consolidation_from_eoa+withdrawal_from_eoa+consolidation_from_contract",
-        ),
-        pytest.param(
-            [
-                single_withdrawal_from_eoa(0),
-                single_consolidation_from_eoa(0),
-                single_withdrawal_from_contract(1),
-            ],
-            id="withdrawal_from_eoa+consolidation_from_eoa+withdrawal_from_contract",
-        ),
-        pytest.param(
-            [
-                single_withdrawal_from_eoa(0),
-                single_deposit_from_eoa(0),
-                single_withdrawal_from_contract(1),
-            ],
-            id="withdrawal_from_eoa+deposit_from_eoa+withdrawal_from_contract",
-        ),
-        pytest.param(
-            [],
-            id="empty_requests",
-        ),
-        # contract: consolidation + withdrawal
-        pytest.param(
-            [
-                single_withdrawal_from_eoa(0),
-                single_consolidation_from_contract(0),
-                single_withdrawal_from_contract(1),
-            ],
-            id="withdrawal_from_eoa+consolidation_from_contract+withdrawal_from_contract",
-        ),
-        pytest.param(
-            [
-                single_deposit_from_eoa(0),
-                single_consolidation_from_contract(0),
-                single_withdrawal_from_contract(0),
-            ],
-            id="deposit_from_eoa+consolidation_from_contract+withdrawal_from_contract",
-        ),
-        pytest.param(
-            [
-                single_consolidation_from_eoa(0),
-                single_consolidation_from_contract(1),
-                single_withdrawal_from_contract(0),
-            ],
-            id="consolidation_from_eoa+consolidation_from_contract+withdrawal_from_contract",
-        ),
-        # contract: consolidation + deposit
-        pytest.param(
-            [
-                single_withdrawal_from_eoa(0),
-                single_consolidation_from_contract(0),
-                single_deposit_from_contract(0),
-            ],
-            id="withdrawal_from_eoa+consolidation_from_contract+deposit_from_contract",
-        ),
-        pytest.param(
-            [
-                single_deposit_from_eoa(0),
-                single_consolidation_from_contract(0),
-                single_deposit_from_contract(1),
-            ],
-            id="deposit_from_eoa+consolidation_from_contract+deposit_from_contract",
-        ),
-        pytest.param(
-            [
-                single_consolidation_from_eoa(0),
-                single_consolidation_from_contract(1),
-                single_deposit_from_contract(0),
-            ],
-            id="consolidation_from_eoa+consolidation_from_contract+deposit_from_contract",
-        ),
-        # contract: withdrawal + deposit
-        pytest.param(
-            [
-                single_withdrawal_from_eoa(0),
-                single_withdrawal_from_contract(1),
-                single_deposit_from_contract(0),
-            ],
-            id="withdrawal_from_eoa+withdrawal_from_contract+deposit_from_contract",
-        ),
-        pytest.param(
-            [
-                single_deposit_from_eoa(0),
-                single_withdrawal_from_contract(0),
-                single_deposit_from_contract(1),
-            ],
-            id="deposit_from_eoa+withdrawal_from_contract+deposit_from_contract",
-        ),
-        pytest.param(
-            [
-                single_consolidation_from_eoa(0),
-                single_withdrawal_from_contract(0),
-                single_deposit_from_contract(0),
-            ],
-            id="consolidation_from_eoa+withdrawal_from_contract+deposit_from_contract",
-        ),
-        # testing upper limits of each request type per slot if it exists
-        pytest.param(
-            [
-                single_consolidation_from_contract(0),
-                single_consolidation_from_contract(1),
-                # the following performs single_withdrawal_from_contract(0) to
-                # (16)
-                *[
-                    single_withdrawal_from_contract(i)
-                    for i in range(
-                        0,
-                        16,
-                    )
-                ],
-                # single_withdrawal_from_contract(16) not allowed cuz only 16
-                # MAX WITHDRAWALS PER BLOCK (EIP-7002)
-                # the following performs single_deposit_from_contract(0) to
-                # (18)
-                *[
-                    single_deposit_from_contract(i)
-                    for i in range(
-                        0,
-                        18,
-                    )
-                ],
-            ],
-            id="max_withdrawals_per_slot+max_consolidations_per_slot+unlimited_deposits_per_slot",
-        ),
-    ],
-)
+@pytest.mark.parametrize_by_fork("requests", get_fork_permutations)
 @pytest.mark.eels_base_coverage
 def test_valid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
@@ -343,109 +153,17 @@ def test_valid_multi_type_requests(
     blocks: List[Block],
 ) -> None:
     """
-    Test making a deposit to the beacon chain deposit contract and a withdrawal
-    in the same block.
+    Test valid combinations of every request type in the same block, from
+    EOAs and from relay contracts, including per-type maximums.
     """
     blockchain_test(
-        genesis_environment=Environment(),
+        genesis_environment=Environment(
+            # Per-type maximums exceed the default block gas limit.
+            gas_limit=500_000_000
+        ),
         pre=pre,
         post={},
         blocks=blocks,
-    )
-
-
-@pytest.mark.parametrize("requests", [*get_permutations()])
-def test_valid_multi_type_request_from_same_tx(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    requests: List[DepositRequest | WithdrawalRequest | ConsolidationRequest],
-    fork: Fork,
-) -> None:
-    """
-    Test making a deposit to the beacon chain deposit contract and a withdrawal
-    in the same tx.
-    """
-    withdrawal_request_fee: int = 1
-    consolidation_request_fee: int = 1
-
-    calldata: bytes = b""
-    contract_code: Bytecode = Bytecode()
-    total_value: int = 0
-    storage: Storage = Storage()
-
-    for request in requests:
-        calldata_start: int = len(calldata)
-        current_calldata: bytes = request.calldata
-        calldata += current_calldata
-
-        contract_code += Op.CALLDATACOPY(
-            0, calldata_start, len(current_calldata)
-        )
-
-        call_contract_address: int = 0
-        value: int = 0
-        if isinstance(request, DepositRequest):
-            call_contract_address = Spec_EIP6110.DEPOSIT_CONTRACT_ADDRESS
-            value = request.value
-        elif isinstance(request, WithdrawalRequest):
-            call_contract_address = (
-                Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
-            )
-            value = withdrawal_request_fee
-        elif isinstance(request, ConsolidationRequest):
-            call_contract_address = (
-                Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
-            )
-            value = consolidation_request_fee
-
-        total_value += value
-
-        contract_code += Op.SSTORE(
-            storage.store_next(1),
-            Op.CALL(
-                address=call_contract_address,
-                value=value,
-                args_offset=0,
-                args_size=len(current_calldata),
-            ),
-        )
-
-    sender: EOA = pre.fund_eoa()
-    contract_address: Address = pre.deploy_contract(
-        code=contract_code,
-    )
-
-    tx: Transaction = Transaction(
-        gas_limit=10_000_000,
-        to=contract_address,
-        value=total_value,
-        data=calldata,
-        sender=sender,
-    )
-
-    blockchain_test(
-        genesis_environment=Environment(),
-        pre=pre,
-        post={
-            contract_address: Account(
-                storage=storage,
-            )
-        },
-        blocks=[
-            Block(
-                txs=[tx],
-                header_verify=Header(
-                    requests_hash=Requests(
-                        *[
-                            request.with_source_address(contract_address)
-                            for request in sorted(
-                                requests, key=lambda r: r.type
-                            )
-                        ],
-                    )
-                ),
-            )
-        ],
     )
 
 
@@ -456,43 +174,29 @@ def invalid_requests_block_combinations(
     """
     Return a list of invalid request combinations for the given fork.
 
-    In the event of a new request type, the `all_request_types` dictionary
-    should be updated with the new request type and its corresponding
-    request-generating transaction.
+    Combinations are derived from `REQUEST_TYPES` for the fork, so a new
+    request type is picked up by adding it there. The hand-crafted
+    "incorrect order" cases remain valid for more types but are not
+    exhaustive, so revisit them when adding a type.
 
     Returned parameters are: requests, block_body_override_requests, exception
     """
 
     def func(fork: Fork) -> List[ParameterSet]:
-        assert fork.max_request_type() == 2, (
-            "Test update is needed for new request types"
-        )
+        request_types = request_types_from_fork(fork)
 
+        # Per type: the EOA interaction that triggers it, and the bare request
+        # (source-addressed) used to build the block body. Source addressing is
+        # a no-op for fee-less requests (e.g. deposits) whose bytes omit it.
         all_request_types: Dict[
             str,
-            Tuple[
-                DepositTransaction
-                | WithdrawalRequestTransaction
-                | ConsolidationRequestTransaction,
-                DepositRequest | WithdrawalRequest | ConsolidationRequest,
-            ],
+            Tuple[SystemContractInteractionTransaction, SystemContractRequest],
         ] = {
-            "deposit": (
-                single_deposit_from_eoa(0),  # eoa_request
-                single_deposit(0),  # block_request
-            ),
-            "withdrawal": (
-                single_withdrawal_from_eoa(0),  # eoa_request
-                single_withdrawal(0).with_source_address(
-                    TestAddress
-                ),  # block_request
-            ),
-            "consolidation": (
-                single_consolidation_from_eoa(0),  # eoa_request
-                single_consolidation(0).with_source_address(
-                    TestAddress
-                ),  # block_request
-            ),
+            request_type_to_id_str(request_type): (
+                eoa_interaction(request_type, 0),
+                request_type.from_index(0).with_source_address(TestAddress),
+            )
+            for request_type in request_types
         }
 
         expected_exceptions: List[BlockException] = [
@@ -560,9 +264,7 @@ def invalid_requests_block_combinations(
             *[r[1] for r in all_request_types.values()]
         ).requests_list  # Requests automatically adds the type byte
         correct_order_transactions: List[
-            DepositTransaction
-            | WithdrawalRequestTransaction
-            | ConsolidationRequestTransaction
+            SystemContractInteractionTransaction
         ] = [r[0] for r in all_request_types.values()]
 
         # Send first element to the end
@@ -668,7 +370,7 @@ def invalid_requests_block_combinations(
 def test_invalid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    blocks: List[Block],
+    override_blocks: List[Block],
 ) -> None:
     """
     Negative testing for all request types in the same block.
@@ -683,7 +385,7 @@ def test_invalid_multi_type_requests(
         genesis_environment=Environment(),
         pre=pre,
         post={},
-        blocks=blocks,
+        blocks=override_blocks,
     )
 
 
@@ -697,7 +399,7 @@ def test_invalid_multi_type_requests(
 def test_invalid_multi_type_requests_engine(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    blocks: List[Block],
+    override_blocks: List[Block],
 ) -> None:
     """
     Negative testing for all request types in the same block with incorrect
@@ -725,5 +427,5 @@ def test_invalid_multi_type_requests_engine(
         genesis_environment=Environment(),
         pre=pre,
         post={},
-        blocks=blocks,
+        blocks=override_blocks,
     )

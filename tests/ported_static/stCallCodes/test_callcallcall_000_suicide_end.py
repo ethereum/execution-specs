@@ -3,6 +3,8 @@ Call -> call -> (call -> code) suicide.
 
 Ported from:
 state_tests/stCallCodes/callcallcall_000_SuicideEndFiller.json
+
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -57,7 +59,6 @@ def test_callcallcall_000_suicide_end(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0x249F0,
                 address=0x77B749FFFF7EC61D31C79ED104F230A7959B2879,
                 value=0x0,
                 args_offset=0x0,
@@ -77,7 +78,6 @@ def test_callcallcall_000_suicide_end(
         code=Op.SSTORE(
             key=0x1,
             value=Op.CALL(
-                gas=0x186A0,
                 address=0xD957E143AD2C011BC6A2B142795F1A9BA70D0680,
                 value=0x0,
                 args_offset=0x0,
@@ -97,7 +97,6 @@ def test_callcallcall_000_suicide_end(
         code=Op.SSTORE(
             key=0x2,
             value=Op.CALL(
-                gas=0xC350,
                 address=0xCB6497F0337B6CD0F7239A8819295EC7D1DAFD34,
                 value=0x0,
                 args_offset=0x0,
@@ -113,12 +112,7 @@ def test_callcallcall_000_suicide_end(
         address=Address(0xD957E143AD2C011BC6A2B142795F1A9BA70D0680),  # noqa: E501
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=3000000,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""))
 
     post = {
         addr: Account(balance=0x4A817C800),

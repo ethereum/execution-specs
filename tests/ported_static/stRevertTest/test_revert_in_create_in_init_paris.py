@@ -3,6 +3,8 @@ Test_revert_in_create_in_init_paris.
 
 Ported from:
 state_tests/stRevertTest/RevertInCreateInInit_ParisFiller.json
+
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -43,7 +45,6 @@ def test_revert_in_create_in_init_paris(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=42949672960,
     )
 
     pre[addr] = Account(balance=10, storage={0: 1})
@@ -65,7 +66,6 @@ def test_revert_in_create_in_init_paris(
         + Op.MSTORE(offset=0x0, value=0x112233)
         + Op.REVERT(offset=0x0, size=0x20)
         + Op.STOP,
-        gas_limit=200000,
     )
 
     post = {addr: Account(storage={0: 1}, balance=10)}

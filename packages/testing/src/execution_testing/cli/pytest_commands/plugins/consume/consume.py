@@ -43,10 +43,9 @@ from execution_testing.tools.utility.versioning import (
 
 from .releases import (
     ReleaseTag,
-    get_release_page_url,
-    get_release_url,
     is_release_url,
     is_url,
+    resolve_release,
 )
 
 CACHED_DOWNLOADS_DIRECTORY = (
@@ -260,12 +259,15 @@ class FixturesSource:
         extract_to: Optional[Path] = None,
     ) -> "FixturesSource":
         """
-        Create a fixture source from a release spec (e.g., develop@latest).
+        Create a fixture source from a release spec (e.g., tests@latest).
         """
         if cache_folder is None:
             cache_folder = CACHED_DOWNLOADS_DIRECTORY
-        url = get_release_url(spec)
-        release_page = get_release_page_url(url)
+        # Resolve the spec once; the download URL and the release page
+        # both derive from the same release information.
+        release = resolve_release(spec)
+        url = release.get_asset(ReleaseTag.from_string(spec)).url
+        release_page = release.url
 
         destination_folder = extract_to or FixtureDownloader.get_cache_path(
             url, cache_folder
@@ -376,8 +378,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
             "Specify the JSON test fixtures source. Can be a local "
             "directory, a URL pointing to a fixtures.tar.gz archive, a "
             "release name and version in the form of `NAME@v1.2.3` "
-            "(`stable` and `develop` are valid release names, and `latest` "
-            "is a valid version), or the special keyword 'stdin'. "
+            "(e.g. `tests@v20.0.0` or `bal-devnet@v7.0.0`, with or "
+            "without the `tests-` tag prefix, and `latest` is a valid "
+            "version), a bare `latest` or `vX.Y.Z` which resolves the "
+            "mainnet `tests` release, or the special keyword 'stdin'. "
             f"Defaults to the following local directory: '{default_input()}'."
         ),
     )

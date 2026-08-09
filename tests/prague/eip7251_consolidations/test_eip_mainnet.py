@@ -1,6 +1,6 @@
 """
-abstract: Crafted tests for mainnet of [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251).
-"""  # noqa: E501
+Crafted tests for mainnet of [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251).
+"""
 
 from typing import List
 
@@ -9,10 +9,11 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    SystemContractInteractionTransaction,
 )
 
-from .helpers import ConsolidationRequest, ConsolidationRequestTransaction
-from .spec import Spec, ref_spec_7251
+from .helpers import ConsolidationRequest
+from .spec import ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7251.version
@@ -21,17 +22,16 @@ pytestmark = [pytest.mark.valid_at("Prague"), pytest.mark.mainnet]
 
 
 @pytest.mark.parametrize(
-    "blocks_consolidation_requests",
+    "system_contract_interactions_per_block",
     [
         pytest.param(
             [
                 [
-                    ConsolidationRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             ConsolidationRequest(
                                 source_pubkey=0x01,
                                 target_pubkey=0x02,
-                                fee=Spec.get_fee(0),
                             )
                         ],
                     ),

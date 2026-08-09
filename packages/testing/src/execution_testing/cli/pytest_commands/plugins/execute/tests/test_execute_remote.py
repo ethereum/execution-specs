@@ -107,6 +107,7 @@ def _build_client_genesis(seed_keys: List[EOA]) -> dict:
     genesis_alloc = Alloc.merge(
         Alloc.model_validate(TEST_FORK.pre_allocation_blockchain()),
         Alloc(alloc_dict),
+        state_commitment=TEST_FORK.state_commitment(),
     )
     if empty_accounts := genesis_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")
@@ -306,7 +307,7 @@ def chain_builder_eth_rpc(
         session_temp_folder=session_temp_folder,
         get_payload_wait_time=1,
         transaction_wait_timeout=20,
-        max_transactions_per_batch=10,
+        max_batch_size=10,
         testing_rpc=TestingRPC(rpc_endpoint),
     )
 

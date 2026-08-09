@@ -21,6 +21,7 @@ import dataclasses
 import logging
 import os
 from collections import defaultdict
+from functools import total_ordering
 from itertools import tee, zip_longest
 from pathlib import PurePath
 from typing import (
@@ -51,8 +52,11 @@ from docc.plugins.listing import (
     ListingNode,
     ListingSource,
 )
-from docc.plugins.python import PythonBuilder
+from docc.plugins.python import PythonBuilder, PythonDiscover
+from docc.plugins.python.cst import PythonSource
 from docc.plugins.references import Definition, Reference
+from docc.plugins.references import Index as ReferenceIndex
+from docc.plugins.references import ReferenceError as DoccReferenceError
 from docc.settings import PluginSettings
 from docc.source import Source
 from docc.transform import Transform
@@ -76,6 +80,44 @@ def pairwise(iterable: Iterable[G]) -> Iterable[Tuple[G, G]]:
     return zip(a, b, strict=False)
 
 
+@total_ordering
+@dataclasses.dataclass(frozen=True)
+class _EthereumSortKey:
+    sort: int
+    path: PurePath
+
+    def __lt__(self, other: object) -> bool:
+        if isinstance(other, _EthereumSortKey):
+            return (self.sort, self.path) < (other.sort, other.path)
+        elif isinstance(other, PurePath):
+            return self.path < other
+        return NotImplemented
+
+
+class _EthereumPythonSource(PythonSource):
+    _sort: Final[int]
+
+    def __init__(
+        self,
+        root_path: PurePath,
+        relative_path: PurePath,
+        absolute_path: PurePath,
+        sort: int,
+    ) -> None:
+        super().__init__(root_path, relative_path, absolute_path)
+        self._sort = sort
+
+    @override
+    def listing_order_key(
+        self,
+    ) -> Tuple[bool, _EthereumSortKey, None]:
+        return (
+            self.index_dir is None,
+            _EthereumSortKey(self._sort, self.output_path),
+            None,
+        )
+
+
 class _EthereumListingSource(ListingSource):
     _sort: Final[int]
 
@@ -83,17 +125,20 @@ class _EthereumListingSource(ListingSource):
         self,
         relative_path: PurePath,
         output_path: PurePath,
-        sources: Set[Source],
         sort: int,
     ) -> None:
-        super().__init__(relative_path, output_path, sources)
+        super().__init__(relative_path, output_path)
         self._sort = sort
 
     @override
     def listing_order_key(
         self,
-    ) -> Tuple[bool, Tuple[int, PurePath], None]:
-        return (self.is_leaf, (self._sort, self.output_path), None)
+    ) -> Tuple[bool, _EthereumSortKey, None]:
+        return (
+            self.index_dir is None,
+            _EthereumSortKey(self._sort, self.output_path),
+            None,
+        )
 
 
 def _find_forks(config: PluginSettings) -> List[Hardfork]:
@@ -101,8 +146,44 @@ def _find_forks(config: PluginSettings) -> List[Hardfork]:
     return Hardfork.discover([str(forks)])
 
 
+def _only_forks() -> Set[str]:
+    """
+    Parse the `DOCC_ONLY_FORKS` fork subset from the environment.
+
+    Return the lower-cased fork short names to render, or an empty set
+    when the whole fork range should be rendered.
+    """
+    value = os.environ.get("DOCC_ONLY_FORKS", "")
+    return {f.strip().lower() for f in value.split(",") if f.strip()}
+
+
 def _diff_path(before: Hardfork, after: Hardfork) -> PurePath:
     return PurePath("diffs") / before.short_name / after.short_name
+
+
+class _ForkOrder:
+    forks: List[PurePath]
+    diffs: List[PurePath]
+
+    def __init__(self, config: PluginSettings) -> None:
+        forks = _find_forks(config)
+        self.forks = [
+            config.unresolve_path(PurePath(f.path))
+            for f in forks
+            if f.path is not None
+        ]
+        self.diffs = [_diff_path(b, a).parent for b, a in pairwise(forks)]
+
+    def index(self, parent: PurePath) -> Optional[int]:
+        for idx, fork in enumerate(self.forks):
+            if parent.is_relative_to(fork):
+                return idx
+
+        for idx, diff in enumerate(self.diffs):
+            if parent.is_relative_to(diff):
+                return idx
+
+        return None
 
 
 class EthereumListingDiscover(ListingDiscover):
@@ -111,43 +192,162 @@ class EthereumListingDiscover(ListingDiscover):
     chronological order.
     """
 
-    fork_order: List[PurePath]
-    diff_order: List[PurePath]
+    _fork_order: _ForkOrder
 
     def __init__(self, config: PluginSettings) -> None:
         super().__init__(config)
-        forks = _find_forks(config)
-        self.fork_order = [
-            config.unresolve_path(PurePath(f.path))
-            for f in forks
-            if f.path is not None
-        ]
-        self.diff_order = [_diff_path(b, a).parent for b, a in pairwise(forks)]
-
-    def _fork_index(self, parent: PurePath) -> Optional[int]:
-        for idx, fork in enumerate(self.fork_order):
-            if parent.is_relative_to(fork):
-                return idx
-
-        for idx, diff in enumerate(self.diff_order):
-            if parent.is_relative_to(diff):
-                return idx
-
-        return None
+        self._fork_order = _ForkOrder(config)
 
     @override
     def _listing_source(
         self, source: Source, parent: PurePath
     ) -> ListingSource:
-        index = self._fork_index(parent)
+        index = self._fork_order.index(parent)
         if index is None:
             return super()._listing_source(source, parent)
         return _EthereumListingSource(
             parent,
             parent / "index",
-            set(),
             -index,  # Reverse chronological order
         )
+
+
+class EthereumPythonDiscover(PythonDiscover):
+    """
+    Changes the sort order of python files so they render in hard fork
+    chronological order.
+    """
+
+    _fork_order: _ForkOrder
+
+    def __init__(self, config: PluginSettings) -> None:
+        super().__init__(config)
+        self._fork_order = _ForkOrder(config)
+        self._apply_fork_filter(config)
+
+    def _apply_fork_filter(self, config: PluginSettings) -> None:
+        """
+        Exclude fork packages not listed in `DOCC_ONLY_FORKS`.
+
+        The variable holds comma-separated fork short names (for example
+        `amsterdam,osaka`). When unset or empty, render every fork. When
+        no listed name matches a known fork, disable the filter so a bad
+        value cannot produce an empty (but successful) build.
+        """
+        keep = _only_forks()
+        if not keep:
+            return
+        forks = _find_forks(config)
+        known = {f.short_name.lower() for f in forks}
+        if not keep & known:
+            logging.warning(
+                "DOCC_ONLY_FORKS matches no known fork; rendering all"
+            )
+            return
+        dropped = [
+            config.unresolve_path(PurePath(f.path))
+            for f in forks
+            if f.path is not None and f.short_name.lower() not in keep
+        ]
+        logging.info(
+            "DOCC_ONLY_FORKS: rendering %d of %d fork package(s)",
+            len(forks) - len(dropped),
+            len(forks),
+        )
+        # `excluded_paths` is declared `Final` upstream; replace it here,
+        # before discovery runs, to narrow the rendered sources.
+        self.excluded_paths = [  # type: ignore[misc]
+            *self.excluded_paths,
+            *dropped,
+        ]
+
+    @override
+    def _python_source(
+        self,
+        root_path: PurePath,
+        relative_path: PurePath,
+        absolute_path: PurePath,
+    ) -> PythonSource:
+        index = self._fork_order.index(relative_path)
+        if index is None:
+            return super()._python_source(
+                root_path, relative_path, absolute_path
+            )
+        return _EthereumPythonSource(
+            root_path,
+            relative_path,
+            absolute_path,
+            -index,  # Reverse chronological order
+        )
+
+
+class PruneReferencesTransform(Transform):
+    """
+    Drop references into fork packages excluded from the build.
+
+    When `DOCC_ONLY_FORKS` narrows discovery, links into excluded fork
+    packages have no definition. Replace each such reference with its
+    plain content so rendering succeeds without a link. References to
+    anything else are left alone, so genuinely broken identifiers still
+    fail the build.
+    """
+
+    def __init__(self, config: PluginSettings) -> None:
+        pass
+
+    def transform(self, context: Context) -> None:
+        """
+        Apply the transformation to the given document.
+        """
+        keep = _only_forks()
+        if not keep:
+            return
+        context[Document].root.visit(_PruneReferencesVisitor(context, keep))
+
+
+class _PruneReferencesVisitor(Visitor):
+    _context: Context
+    _keep: Set[str]
+    _stack: List[Node]
+
+    def __init__(self, context: Context, keep: Set[str]) -> None:
+        self._context = context
+        self._keep = keep
+        self._stack = []
+
+    def _prunable(self, node: Node) -> bool:
+        """
+        Check whether the node links into an excluded fork package.
+        """
+        if not isinstance(node, Reference):
+            return False
+        parts = node.identifier.split(".")
+        if parts[:2] != ["ethereum", "forks"] or len(parts) < 3:
+            return False
+        if parts[2].lower() in self._keep:
+            return False
+        try:
+            self._context[ReferenceIndex].lookup(node.identifier)
+        except DoccReferenceError:
+            return True
+        return False
+
+    @override
+    def enter(self, node: Node) -> Visit:
+        if self._stack:
+            replacement = node
+            while self._prunable(replacement):
+                assert isinstance(replacement, Reference)
+                replacement = replacement.child
+            if replacement is not node:
+                self._stack[-1].replace_child(node, replacement)
+                node = replacement
+        self._stack.append(node)
+        return Visit.TraverseChildren
+
+    @override
+    def exit(self, node: Node) -> None:
+        self._stack.pop()
 
 
 class EthereumDiscover(Discover):
@@ -169,6 +369,11 @@ class EthereumDiscover(Discover):
         """
         if os.environ.get("DOCC_SKIP_DIFFS"):
             logging.info("Skipping diff discovery (DOCC_SKIP_DIFFS)")
+            return
+
+        if _only_forks():
+            # Fork-subset builds have no complete fork pairs to diff.
+            logging.info("Skipping diff discovery (DOCC_ONLY_FORKS)")
             return
 
         forks = {f.path: f for f in self.forks if f.path is not None}
@@ -213,6 +418,9 @@ class EthereumDiscover(Discover):
                 after_source = by_fork[after].get(path, None)
 
                 assert before_source or after_source
+
+                if path.name == "__init__.py":
+                    path = path.with_name("index")
 
                 output_path = _diff_path(before, after) / path
 
@@ -281,6 +489,19 @@ class DiffSource(Generic[S], Source, Listable):
         Where to write the output from this Source relative to the output path.
         """
         return self._output_path
+
+    @property
+    def index_dir(self) -> Optional[PurePath]:
+        """
+        For index sources, the directory the source indexes. For other sources,
+        `None`.
+
+        For example, for an output path of `./foo/index`, this should return
+        `./foo`.
+        """
+        if self.output_path.name == "index":
+            return self.output_path.parent
+        return None
 
 
 class AfterNode(Node):

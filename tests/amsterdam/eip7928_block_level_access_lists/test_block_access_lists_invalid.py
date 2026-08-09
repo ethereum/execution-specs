@@ -21,12 +21,16 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Bytes,
+    EIPChecklist,
+    EngineAPIError,
     Environment,
     Fork,
     Hash,
     Header,
     Initcode,
     Op,
+    RecipientType,
     Storage,
     Transaction,
     Withdrawal,
@@ -35,6 +39,7 @@ from execution_testing import (
 from execution_testing.test_types.block_access_list.modifiers import (
     append_account,
     append_change,
+    append_empty_slot,
     append_storage,
     duplicate_account,
     duplicate_balance_change,
@@ -52,6 +57,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     remove_balances,
     remove_code,
     remove_nonces,
+    remove_slot_change,
     remove_storage,
     remove_storage_reads,
     reverse_accounts,
@@ -86,7 +92,6 @@ def test_bal_invalid_missing_nonce(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -131,7 +136,6 @@ def test_bal_invalid_nonce_value(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -179,11 +183,7 @@ def test_bal_invalid_storage_value(
         storage=storage.canary(),
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=contract,
-        gas_limit=100_000,
-    )
+    tx = Transaction(sender=sender, to=contract)
 
     blockchain_test(
         pre=pre,
@@ -258,14 +258,12 @@ def test_bal_invalid_tx_order(
         sender=sender1,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     tx2 = Transaction(
         sender=sender2,
         to=receiver,
         value=2 * 10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -331,7 +329,6 @@ def test_bal_invalid_account(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -389,7 +386,6 @@ def test_bal_invalid_duplicate_account(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -441,7 +437,6 @@ def test_bal_invalid_account_order(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -493,17 +488,12 @@ def test_bal_invalid_complex_corruption(
         storage=storage.canary(),
     )
 
-    tx1 = Transaction(
-        sender=sender,
-        to=contract,
-        gas_limit=100_000,
-    )
+    tx1 = Transaction(sender=sender, to=contract)
 
     tx2 = Transaction(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -602,7 +592,6 @@ def test_bal_invalid_missing_account(
             sender=sender,
             to=omitted,
             value=10**15,
-            gas_limit=21_000,
         )
         post: dict = {
             sender: Account(balance=10**18, nonce=0),
@@ -619,11 +608,7 @@ def test_bal_invalid_missing_account(
     elif scenario == "access_only":
         omitted = pre.fund_eoa(amount=1)
         checker = pre.deploy_contract(code=Op.BALANCE(omitted))
-        tx = Transaction(
-            sender=sender,
-            to=checker,
-            gas_limit=100_000,
-        )
+        tx = Transaction(sender=sender, to=checker)
         post = {
             sender: Account(balance=10**18, nonce=0),
             omitted: Account(balance=1),
@@ -676,7 +661,6 @@ def test_bal_invalid_missing_withdrawal_account(
         sender=alice,
         to=bob,
         value=5,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -831,7 +815,6 @@ def test_bal_invalid_balance_value(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -1005,7 +988,6 @@ def test_bal_invalid_extraneous_entries(
         sender=alice,
         to=oracle,
         value=transfer_value,
-        gas_limit=1_000_000,
     )
 
     blockchain_test(
@@ -1047,6 +1029,72 @@ def test_bal_invalid_extraneous_entries(
                         charlie=charlie,
                     )
                 ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "pre_storage,oracle_expectation,slot_to_inject",
+    [
+        pytest.param(
+            {},
+            BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x42
+                            )
+                        ],
+                    )
+                ],
+            ),
+            1,
+            id="unrelated_slot",
+        ),
+        pytest.param(
+            {0: 0x42},
+            BalAccountExpectation(storage_reads=[0]),
+            0,
+            id="demoted_noop",
+        ),
+    ],
+)
+def test_bal_invalid_empty_slot_changes(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    pre_storage: dict,
+    oracle_expectation: BalAccountExpectation,
+    slot_to_inject: int,
+) -> None:
+    """Reject BAL containing a SlotChanges with an empty slot_changes list."""
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.SSTORE(0, 0x42), storage=pre_storage)
+    tx = Transaction(sender=alice, to=oracle, gas_limit=1_000_000)
+
+    blockchain_test(
+        pre=pre,
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        oracle: oracle_expectation,
+                    }
+                ).modify(append_empty_slot(oracle, slot=slot_to_inject)),
             )
         ],
     )
@@ -1120,7 +1168,6 @@ def test_bal_invalid_duplicate_entries(
         sender=alice,
         to=oracle,
         value=100,
-        gas_limit=2_000_000,
     )
 
     blockchain_test(
@@ -1181,6 +1228,7 @@ def test_bal_invalid_duplicate_entries(
     )
 
 
+@EIPChecklist.BlockHeaderField.Test.ValueBehavior.Reject()
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
 def test_bal_invalid_hash_mismatch(
@@ -1203,7 +1251,6 @@ def test_bal_invalid_hash_mismatch(
         sender=sender,
         to=receiver,
         value=10**15,
-        gas_limit=21_000,
     )
 
     blockchain_test(
@@ -1287,7 +1334,6 @@ def test_bal_invalid_field_entries(
         sender=alice,
         to=oracle,
         value=100,
-        gas_limit=2_000_000,
     )
 
     blockchain_test(
@@ -1422,14 +1468,21 @@ def test_bal_invalid_missing_coinbase(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
     )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    total_intrinsic_gas = intrinsic_gas + top_frame_state_gas
     gas_price = 0xA
 
     tx = Transaction(
         sender=alice,
         to=bob,
         value=100,
-        gas_limit=intrinsic_gas + 1000,
+        gas_limit=total_intrinsic_gas + 1000,
         gas_price=gas_price,
     )
 
@@ -1439,7 +1492,7 @@ def test_bal_invalid_missing_coinbase(
         parent_gas_used=0,
         parent_gas_limit=genesis_env.gas_limit,
     )
-    tip = (gas_price - base_fee_per_gas) * intrinsic_gas
+    tip = (gas_price - base_fee_per_gas) * total_intrinsic_gas
 
     blockchain_test(
         pre=pre,
@@ -1504,14 +1557,21 @@ def test_bal_invalid_coinbase_balance_value(
         calldata=b"",
         contract_creation=False,
         access_list=[],
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+        sends_value=True,
     )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.EMPTY_ACCOUNT,
+    )
+    total_intrinsic_gas = intrinsic_gas + top_frame_state_gas
     gas_price = 0xA
 
     tx = Transaction(
         sender=alice,
         to=bob,
         value=100,
-        gas_limit=intrinsic_gas + 1000,
+        gas_limit=total_intrinsic_gas + 1000,
         gas_price=gas_price,
     )
 
@@ -1521,7 +1581,7 @@ def test_bal_invalid_coinbase_balance_value(
         parent_gas_used=0,
         parent_gas_limit=genesis_env.gas_limit,
     )
-    tip = (gas_price - base_fee_per_gas) * intrinsic_gas
+    tip = (gas_price - base_fee_per_gas) * total_intrinsic_gas
 
     blockchain_test(
         pre=pre,
@@ -1622,6 +1682,436 @@ def test_bal_invalid_extraneous_coinbase(
                     append_account(BalAccountChange(address=coinbase)),
                     sort_accounts_by_address(),
                 ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "invalid_bal_payload",
+    [
+        pytest.param(b"", id="empty_byte_string"),
+        pytest.param(b"\x80", id="rlp_non_list"),
+        pytest.param(b"\xc1", id="rlp_truncated_list"),
+    ],
+)
+def test_bal_invalid_engine_payload_encoding(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    invalid_bal_payload: bytes,
+) -> None:
+    """
+    Reject a `newPayload` whose `blockAccessList` does not decode as an RLP
+    list: the empty byte string `0x` (an empty BAL is `0xc0`), the RLP
+    empty byte string `0x80` (valid RLP but not a list), or a truncated
+    list header `0xc1`.
+    """
+    sender = pre.fund_eoa()
+    receiver = pre.nonexistent_account()
+
+    tx = Transaction(sender=sender, to=receiver)
+
+    blockchain_test(
+        pre=pre,
+        post={
+            sender: Account(nonce=0),
+            receiver: None,
+        },
+        blocks=[
+            Block(
+                txs=[tx],
+                engine_new_payload_block_access_list=Bytes(
+                    invalid_bal_payload
+                ),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                engine_api_error_code=EngineAPIError.InvalidParams,
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_noop_storage_change(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject a BAL storage change whose post-value equals
+    the value already present at the start of the transaction.
+
+    Oracle performs a round-trip write: SSTORE(0, 0x42) with slot 0
+    already at 0x42. The canonical BAL demotes such a no-op write to a
+    storage_reads entry. The BAL is corrupted into exactly the shape a
+    builder without no-op demotion would emit: the raw write recorded as
+    a storage_changes entry (post_value == pre-tx value) and the read
+    dropped.
+    """
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.SSTORE(0, 0x42), storage={0: 0x42})
+
+    tx = Transaction(sender=alice, to=oracle, gas_limit=1_000_000)
+
+    blockchain_test(
+        pre=pre,
+        # The block reverts and the post state remains unchanged.
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        oracle: BalAccountExpectation(
+                            storage_reads=[0],
+                        ),
+                    }
+                ).modify(
+                    remove_storage_reads(oracle),
+                    append_storage(
+                        address=oracle,
+                        slot=0,
+                        change=BalStorageChange(
+                            block_access_index=1, post_value=0x42
+                        ),
+                    ),
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            lambda oracle, code: append_change(  # noqa: ARG005
+                account=oracle,
+                change=BalBalanceChange(block_access_index=1, post_balance=0),
+            ),
+            id="noop_balance_change",
+        ),
+        pytest.param(
+            lambda oracle, code: append_change(  # noqa: ARG005
+                account=oracle,
+                change=BalNonceChange(block_access_index=1, post_nonce=1),
+            ),
+            id="noop_nonce_change",
+        ),
+        pytest.param(
+            lambda oracle, code: append_change(
+                account=oracle,
+                change=BalCodeChange(block_access_index=1, new_code=code),
+            ),
+            id="noop_code_change",
+        ),
+    ],
+)
+def test_bal_invalid_noop_value_change(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    modifier: Callable,
+) -> None:
+    """
+    Test that clients reject a BAL balance/nonce/code change entry whose
+    post-value equals the account's real, unchanged value.
+
+    Oracle legitimately appears in the BAL only via a storage read (slot
+    0 is read, not written). Its balance (0), nonce (1), and code are
+    never touched by the transaction. The BAL is corrupted by appending
+    a change entry for one of these fields whose post-value equals the
+    account's actual unchanged value -- distinct from the wrong-value
+    corruption covered elsewhere, since here post == pre exactly.
+    """
+    alice = pre.fund_eoa()
+    code = Op.SLOAD(0)
+    oracle = pre.deploy_contract(code=code, storage={0: 0x42})
+
+    tx = Transaction(sender=alice, to=oracle)
+
+    blockchain_test(
+        pre=pre,
+        # The block reverts and the post state remains unchanged.
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        oracle: BalAccountExpectation(
+                            storage_reads=[0],
+                        ),
+                    }
+                ).modify(modifier(oracle=oracle, code=code)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_missing_storage_write(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject a BAL that omits a storage write that was
+    actually performed.
+
+    Writer's storage slot 0 goes from 0 (default) to 1. The BAL is
+    corrupted by removing the account's storage_changes entirely.
+    Unlike `test_bal_invalid_field_entries[missing_storage_change]`,
+    the account has no other changes, so the corrupted entry degrades
+    to an access-only (empty) entry -- a shape that is legitimate for
+    merely-touched accounts.
+    """
+    alice = pre.fund_eoa()
+    writer = pre.deploy_contract(code=Op.SSTORE(0, 1))
+
+    tx = Transaction(sender=alice, to=writer)
+
+    blockchain_test(
+        pre=pre,
+        # The block reverts and the post state remains unchanged.
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        writer: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=0,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        )
+                                    ],
+                                ),
+                            ],
+                        ),
+                    }
+                ).modify(remove_storage(writer)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_missing_created_code(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject a BAL that omits the deployed code of a
+    contract created via a contract-creation transaction.
+
+    Complements `test_bal_invalid_field_entries[missing_code_change]`,
+    which covers the CREATE-opcode path.
+    """
+    alice = pre.fund_eoa()
+    runtime_code = Op.STOP
+    initcode = Initcode(deploy_code=runtime_code)
+    created = compute_create_address(address=alice)
+
+    tx = Transaction(sender=alice, to=None, data=initcode)
+
+    blockchain_test(
+        pre=pre,
+        # The block reverts and the post state remains unchanged.
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        created: BalAccountExpectation(
+                            code_changes=[
+                                BalCodeChange(
+                                    block_access_index=1,
+                                    new_code=runtime_code,
+                                )
+                            ],
+                        ),
+                    }
+                ).modify(remove_code(created)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_omitted_slot_change_at_index(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject a BAL that drops a slot's earlier change
+    while keeping its later one, misattributing the slot's first
+    recorded change to a later transaction than the one that made it.
+
+    Two transactions each write storage slot 0 of the same contract via
+    the transaction's call value. The BAL is corrupted by removing only
+    the first transaction's slot_changes entry for slot 0, leaving the
+    second transaction's entry as the slot's only recorded change.
+    """
+    alice = pre.fund_eoa()
+    writer = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLVALUE))
+
+    tx1 = Transaction(sender=alice, to=writer, value=1)
+    tx2 = Transaction(sender=alice, to=writer, value=2)
+
+    blockchain_test(
+        pre=pre,
+        # The block reverts and the post state remains unchanged.
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx1, tx2],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                                BalNonceChange(
+                                    block_access_index=2, post_nonce=2
+                                ),
+                            ],
+                        ),
+                        writer: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1, post_balance=1
+                                ),
+                                BalBalanceChange(
+                                    block_access_index=2, post_balance=3
+                                ),
+                            ],
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=0,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        ),
+                                        BalStorageChange(
+                                            block_access_index=2,
+                                            post_value=2,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    }
+                ).modify(
+                    remove_slot_change(writer, slot=0, block_access_index=1)
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_phantom_read_on_selfdestruct(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clients reject a BAL with a phantom storage read for an
+    account created and destroyed within the same transaction.
+
+    A contract-creation transaction's init code immediately
+    SELFDESTRUCTs, sending its endowment to beneficiary, without ever
+    returning runtime code. Per EIP-6780 the created account is created
+    and destroyed within the same transaction, so it has zero net BAL
+    changes (its balance and code never persist), but the account still
+    legitimately appears in the BAL as an entry with empty changes. The
+    BAL is corrupted by injecting a phantom storage read for a slot the
+    account never touched.
+    """
+    alice = pre.fund_eoa()
+    beneficiary = pre.fund_eoa(amount=0)
+    endowment = 100
+    phantom_slot = 0x07
+
+    initcode = Op.SELFDESTRUCT(beneficiary)
+    created = compute_create_address(address=alice)
+
+    tx = Transaction(sender=alice, to=None, data=initcode, value=endowment)
+
+    blockchain_test(
+        pre=pre,
+        # The block reverts and the post state remains unchanged.
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        created: BalAccountExpectation.empty(),
+                        beneficiary: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=endowment,
+                                )
+                            ],
+                        ),
+                    }
+                ).modify(insert_storage_read(created, phantom_slot)),
             )
         ],
     )

@@ -3,6 +3,8 @@ Test_random_statetest19.
 
 Ported from:
 state_tests/stRandom/randomStatetest19Filler.json
+
+@manually-enhanced: Do not overwrite. Explicit gas values removed.
 """
 
 import pytest
@@ -43,7 +45,6 @@ def test_random_statetest19(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
@@ -91,7 +92,6 @@ def test_random_statetest19(
         data=Bytes(
             "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe3a7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe417f0000000000000000000000000000000000000000000000000000000000000001587f000000000000000000000000000000000000000000000000000000000000c3506fff59876660063b7c8df1ff088a8414"  # noqa: E501
         ),
-        gas_limit=100000,
         value=0x1DCD74DE,
     )
 

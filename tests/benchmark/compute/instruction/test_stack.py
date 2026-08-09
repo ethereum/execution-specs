@@ -6,14 +6,19 @@ Supported Opcodes:
 - PUSHx
 - DUPx
 - SWAPx
+- DUPN
+- SWAPN
+- EXCHANGE
 """
 
 import pytest
 from execution_testing import (
+    Alloc,
     BenchmarkTestFiller,
     ExtCallGenerator,
     JumpLoopGenerator,
     Op,
+    OpcodeTarget,
 )
 
 
@@ -137,5 +142,114 @@ def test_push(
         target_opcode=opcode,
         code_generator=ExtCallGenerator(
             attack_block=opcode[1] if opcode.has_data_portion() else opcode
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode,present_data_bytes",
+    [
+        pytest.param(Op.PUSH1, 0, id="PUSH1 with no data"),
+        pytest.param(Op.PUSH2, 0, id="PUSH2 with no data"),
+        pytest.param(Op.PUSH2, 1, id="PUSH2 with half its data"),
+        pytest.param(Op.PUSH32, 0, id="PUSH32 with no data"),
+        pytest.param(Op.PUSH32, 16, id="PUSH32 with half its data"),
+        pytest.param(Op.PUSH32, 31, id="PUSH32 one byte short"),
+    ],
+)
+def test_push_truncated_data(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    present_data_bytes: int,
+) -> None:
+    """
+    Benchmark a PUSH whose data portion runs past the end of the code.
+    """
+    target_contract = pre.deploy_contract(
+        code=bytes([opcode.int()]) + bytes(present_data_bytes)
+    )
+
+    benchmark_test(
+        target_opcode=OpcodeTarget(f"{opcode} truncated", Op.STATICCALL),
+        code_generator=JumpLoopGenerator(
+            attack_block=Op.POP(
+                Op.STATICCALL(
+                    gas=Op.GAS,
+                    address=target_contract,
+                    args_offset=Op.PUSH0,
+                    args_size=Op.PUSH0,
+                    ret_offset=Op.PUSH0,
+                    ret_size=Op.PUSH0,
+                )
+            )
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.parametrize(
+    "stack_index",
+    [17, 107, 235],
+    ids=lambda x: f"stack_{x}",
+)
+def test_dupn(
+    benchmark_test: BenchmarkTestFiller,
+    stack_index: int,
+) -> None:
+    """Benchmark DUPN instruction."""
+    opcode = Op.DUPN[stack_index]
+    benchmark_test(
+        target_opcode=Op.DUPN,
+        code_generator=ExtCallGenerator(
+            setup=Op.PUSH0 * opcode.min_stack_height,
+            attack_block=opcode,
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.parametrize(
+    "stack_index",
+    [17, 107, 235],
+    ids=lambda x: f"stack_{x}",
+)
+def test_swapn(
+    benchmark_test: BenchmarkTestFiller,
+    stack_index: int,
+) -> None:
+    """Benchmark SWAPN instruction."""
+    opcode = Op.SWAPN[stack_index]
+    benchmark_test(
+        target_opcode=Op.SWAPN,
+        code_generator=JumpLoopGenerator(
+            attack_block=opcode, setup=Op.PUSH0 * opcode.min_stack_height
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.parametrize(
+    "n,m",
+    [
+        pytest.param(1, 2, id="n_1_m_2"),
+        pytest.param(1, 29, id="n_1_m_29"),
+        pytest.param(14, 16, id="n_14_m_16"),
+    ],
+)
+def test_exchange(
+    benchmark_test: BenchmarkTestFiller,
+    n: int,
+    m: int,
+) -> None:
+    """Benchmark EXCHANGE instruction."""
+    opcode = Op.EXCHANGE[n, m]
+    benchmark_test(
+        target_opcode=Op.EXCHANGE,
+        code_generator=JumpLoopGenerator(
+            attack_block=opcode, setup=Op.PUSH0 * opcode.min_stack_height
         ),
     )

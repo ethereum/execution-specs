@@ -12,17 +12,16 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Header,
     Op,
     Requests,
+    SystemContractInteractionTransaction,
     Transaction,
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
 
-from .helpers import (
-    WithdrawalRequest,
-    WithdrawalRequestTransaction,
-)
+from .helpers import WithdrawalRequest
 from .spec import Spec as Spec_EIP7002
 from .spec import ref_spec_7002
 
@@ -96,21 +95,19 @@ def test_extra_withdrawals(
     """
     modified_code: Bytecode = Bytecode()
     memory_offset: int = 0
-    amount_of_requests: int = 0
 
     for withdrawal_request in requests_list:
-        # update memory_offset with the correct value
-        withdrawal_request_bytes_amount: int = len(bytes(withdrawal_request))
-        assert withdrawal_request_bytes_amount == 76, (
+        record = bytes(withdrawal_request)
+        assert len(record) == 76, (
             "Expected withdrawal request to be of size 76 but got size "
-            f"{withdrawal_request_bytes_amount}"
+            f"{len(record)}"
         )
-        memory_offset += withdrawal_request_bytes_amount
+        # Store records contiguously from offset 0 so the returned data is
+        # exactly the concatenated records (no gap, no trailing padding).
+        modified_code += Om.MSTORE(record, memory_offset)
+        memory_offset += len(record)
 
-        modified_code += Om.MSTORE(bytes(withdrawal_request), memory_offset)
-        amount_of_requests += 1
-
-    modified_code += Op.RETURN(0, Op.MSIZE())
+    modified_code += Op.RETURN(0, memory_offset)
 
     pre[Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS] = Account(
         code=modified_code,
@@ -120,20 +117,20 @@ def test_extra_withdrawals(
 
     # given a list of withdrawal requests construct a withdrawal request
     # transaction
-    withdrawal_request_transaction = WithdrawalRequestTransaction(
+    withdrawal_request_transaction = SystemContractInteractionTransaction(
         requests=requests_list
     )
     # prepare withdrawal senders
-    withdrawal_request_transaction.update_pre(pre=pre)
+    prepared = withdrawal_request_transaction.update_pre(pre=pre)
     # get transaction list
-    txs: List[Transaction] = withdrawal_request_transaction.transactions()
+    txs: List[Transaction] = prepared.transactions()
 
     blockchain_test(
         pre=pre,
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(*requests_list),
+                header_verify=Header(requests_hash=Requests(*requests_list)),
             ),
         ],
         post={},

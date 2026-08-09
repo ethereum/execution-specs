@@ -11,28 +11,50 @@ Supported Opcodes:
 
 import pytest
 from execution_testing import (
+    BenchmarkCodeGenerator,
     BenchmarkTestFiller,
     Bytecode,
     ExtCallGenerator,
+    Fork,
     JumpLoopGenerator,
     Op,
 )
 
 
 @pytest.mark.repricing(mem_size=1)
+# MSIZE should be O(1), but sweep mem_size so a size-dependent
+# implementation shows up as a regression. ExtCallGenerator re-expands
+# memory in every call frame, so once the expansion outweighs a frame's
+# MSIZE work (~16 KiB), loop in a single frame instead, paying one POP
+# per MSIZE but expanding only once.
 @pytest.mark.parametrize("mem_size", [0, 1, 1_000, 100_000, 1_000_000])
 def test_msize(
     benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
     mem_size: int,
 ) -> None:
     """Benchmark MSIZE instruction."""
-    benchmark_test(
-        target_opcode=Op.MSIZE,
-        code_generator=ExtCallGenerator(
-            setup=Op.POP(Op.MLOAD(Op.SELFBALANCE)),
+    setup = Op.POP(Op.MLOAD(Op.SELFBALANCE))
+    expansion_gas = fork.memory_expansion_gas_calculator()(new_bytes=mem_size)
+    frame_msize_gas = fork.max_stack_height() * fork.gas_costs().BASE
+
+    code_generator: BenchmarkCodeGenerator
+    if expansion_gas <= frame_msize_gas:
+        code_generator = ExtCallGenerator(
+            setup=setup,
             attack_block=Op.MSIZE,
             contract_balance=mem_size,
-        ),
+        )
+    else:
+        code_generator = JumpLoopGenerator(
+            setup=setup,
+            attack_block=Op.POP(Op.MSIZE),
+            contract_balance=mem_size,
+        )
+
+    benchmark_test(
+        target_opcode=Op.MSIZE,
+        code_generator=code_generator,
     )
 
 

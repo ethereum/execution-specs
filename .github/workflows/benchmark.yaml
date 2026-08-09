@@ -3,22 +3,19 @@ name: Benchmarking
 on:
   push:
     branches:
-      - mainnet
-      - "forks/**"
-    paths:
-      - "tests/benchmark/**"
-      - "packages/testing/src/execution_testing/benchmark/**"
-      - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/**"
-      - ".github/workflows/benchmark.yaml"
-  pull_request:
-    paths-ignore:
+      - "benchmarks/**"
+    paths-ignore: &non_benchmark_paths
       - "**.md"
       - "LICENSE*"
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
-      - "docs/**"                                                                                                                     
+      - "docs/**"
       - "mkdocs.yml"
+  pull_request:
+    branches:
+      - "benchmarks/**"
+    paths-ignore: *non_benchmark_paths
   workflow_dispatch:
 
 concurrency:
@@ -26,31 +23,8 @@ concurrency:
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 jobs:
-  unit-tests:
-    name: Benchmark Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: true
-
-      - uses: ./.github/actions/setup-uv
-        with:
-          enable-cache: "false"
-
-      - uses: ./.github/actions/build-evm-base
-        id: evm-builder
-        with:
-          type: benchmark
-
-      - name: Run benchmark unit tests
-        run: just test-tests-bench
-        env:
-          EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
-
   sanity-checks:
     name: ${{ matrix.name }}
-    needs: [unit-tests]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -70,6 +44,11 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           enable-cache: "false"
+
+      - name: Install PyPy for bench-gas json_loader verify
+        if: matrix.recipe == 'bench-gas'
+        shell: bash
+        run: uv python install pypy3.11
 
       - uses: ./.github/actions/build-evm-base
         id: evm-builder

@@ -23,7 +23,6 @@ ref_spec_7002 = ReferenceSpec(
 
 
 # Constants
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-7002 specifications as defined at

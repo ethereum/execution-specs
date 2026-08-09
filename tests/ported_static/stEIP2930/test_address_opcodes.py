@@ -3,6 +3,18 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP2930/addressOpcodesFiller.yml
+
+@manually-enhanced: Do not overwrite. The contract measures, via
+`Op.GAS`, the regular gas of each account-touching opcode (`BALANCE`,
+`EXTCODESIZE`, `EXTCODEHASH`, `EXTCODECOPY`) on both a first (cold or
+pre-warmed) and a second (warm) access. EIP-8038 reprices these: cold
+`BALANCE`/`EXTCODEHASH` by +`COLD_ACCOUNT_ACCESS - 2600`, while
+`EXTCODESIZE`/`EXTCODECOPY` carry an extra flat surcharge on both their
+warm and cold forms. The single Cancun-era literals are therefore split
+per opcode and per access, each adjusted by that opcode's own warm or
+cold `(Amsterdam - Cancun)` cost delta taken from the fork gas model, so
+every value is exactly 0 before EIP-8038 and tracks future parameter
+changes; do not hardcode the Amsterdam numbers.
 """
 
 import pytest
@@ -18,10 +30,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op, Opcode
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -345,7 +358,6 @@ def test_address_opcodes(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=71794957647893862,
     )
 
     # Source: lll
@@ -546,65 +558,154 @@ def test_address_opcodes(
         address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
 
+    # Per-opcode warm and cold cost deltas versus Cancun, derived from
+    # the fork gas model so each is exactly 0 before EIP-8038. The
+    # EXTCODECOPY metadata mirrors the measured access (a 0x20-byte copy
+    # into already-expanded memory) so only the account-access component
+    # varies across forks. `BALANCE`/`EXTCODEHASH` warm forms are
+    # unchanged; `EXTCODESIZE`/`EXTCODECOPY` gain a flat warm surcharge.
+    extcodecopy_meta = dict(
+        data_size=0x20, new_memory_size=0x120, old_memory_size=0x120
+    )
+
+    def _account_delta(op: Opcode, warm: bool, base: int, **meta: int) -> int:
+        cost = op.with_metadata(address_warm=warm, **meta).gas_cost(fork)
+        return cost - base
+
+    balance_warm_d = _account_delta(Op.BALANCE, True, 100)
+    balance_cold_d = _account_delta(Op.BALANCE, False, 2600)
+    extcodesize_warm_d = _account_delta(Op.EXTCODESIZE, True, 100)
+    extcodesize_cold_d = _account_delta(Op.EXTCODESIZE, False, 2600)
+    extcodehash_warm_d = _account_delta(Op.EXTCODEHASH, True, 100)
+    extcodehash_cold_d = _account_delta(Op.EXTCODEHASH, False, 2600)
+    extcodecopy_warm_d = _account_delta(
+        Op.EXTCODECOPY, True, 103, **extcodecopy_meta
+    )
+    extcodecopy_cold_d = _account_delta(
+        Op.EXTCODECOPY, False, 2603, **extcodecopy_meta
+    )
+
+    # Slot 0 holds the first access (pre-warmed in the valid cases, cold
+    # in the invalid cases); slot 1 holds the always-warm second access.
     expect_entries_: list[dict] = [
+        # valid (pre-warmed first access): both slots measure a warm
+        # access; only EXTCODESIZE/EXTCODECOPY shift.
         {
             "indexes": {
-                "data": [
-                    0,
-                    1,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10,
-                    11,
-                    12,
-                    13,
-                    16,
-                    17,
-                    18,
-                    19,
-                    20,
-                    21,
-                    22,
-                    23,
-                    24,
-                    25,
-                    28,
-                    29,
-                    30,
-                    31,
-                    32,
-                    33,
-                    34,
-                    35,
-                    36,
-                    37,
-                    40,
-                    41,
-                    42,
-                    43,
-                    44,
-                    45,
-                    46,
-                    47,
-                ],
+                "data": [0, 1, 4, 5, 6, 7, 8, 9, 10, 11],
                 "gas": -1,
                 "value": -1,
             },
             "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 97, 1: 97})},
+            "result": {
+                contract_0: Account(
+                    storage={
+                        0: 97 + balance_warm_d,
+                        1: 97 + balance_warm_d,
+                    }
+                )
+            },
         },
         {
             "indexes": {
-                "data": [2, 3, 14, 15, 26, 27, 38, 39],
+                "data": [12, 13, 16, 17, 18, 19, 20, 21, 22, 23],
                 "gas": -1,
                 "value": -1,
             },
             "network": [">=Cancun"],
-            "result": {contract_0: Account(storage={0: 2597, 1: 97, 2: 0})},
+            "result": {
+                contract_0: Account(
+                    storage={
+                        0: 97 + extcodesize_warm_d,
+                        1: 97 + extcodesize_warm_d,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {
+                "data": [24, 25, 28, 29, 30, 31, 32, 33, 34, 35],
+                "gas": -1,
+                "value": -1,
+            },
+            "network": [">=Cancun"],
+            "result": {
+                contract_0: Account(
+                    storage={
+                        0: 97 + extcodehash_warm_d,
+                        1: 97 + extcodehash_warm_d,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {
+                "data": [36, 37, 40, 41, 42, 43, 44, 45, 46, 47],
+                "gas": -1,
+                "value": -1,
+            },
+            "network": [">=Cancun"],
+            "result": {
+                contract_0: Account(
+                    storage={
+                        0: 97 + extcodecopy_warm_d,
+                        1: 97 + extcodecopy_warm_d,
+                    }
+                )
+            },
+        },
+        # invalid (cold first access): slot 0 cold, slot 1 warm.
+        {
+            "indexes": {"data": [2, 3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract_0: Account(
+                    storage={
+                        0: 2597 + balance_cold_d,
+                        1: 97 + balance_warm_d,
+                        2: 0,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [14, 15], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract_0: Account(
+                    storage={
+                        0: 2597 + extcodesize_cold_d,
+                        1: 97 + extcodesize_warm_d,
+                        2: 0,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [26, 27], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract_0: Account(
+                    storage={
+                        0: 2597 + extcodehash_cold_d,
+                        1: 97 + extcodehash_warm_d,
+                        2: 0,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [38, 39], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract_0: Account(
+                    storage={
+                        0: 2597 + extcodecopy_cold_d,
+                        1: 97 + extcodecopy_warm_d,
+                        2: 0,
+                    }
+                )
+            },
         },
     ]
 

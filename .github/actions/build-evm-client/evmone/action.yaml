@@ -64,7 +64,7 @@ runs:
       run: |
         mkdir -p $GITHUB_WORKSPACE/bin
         cd $GITHUB_WORKSPACE/evmone
-        cmake -S . -B build -DEVMONE_TESTING=ON -DEVMONE_PRECOMPILES_SILKPRE=1
+        cmake -S . -B build
         cmake --build build --parallel --target ${{ inputs.targets }}
     - name: Add evmone bin to PATH
       shell: bash

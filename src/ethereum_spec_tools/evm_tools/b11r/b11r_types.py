@@ -27,7 +27,7 @@ class Body:
 
     transactions: rlp.Extended
     ommers: rlp.Extended
-    withdrawals: Optional[List[Tuple[U64, U64, Bytes20, Uint]]]
+    withdrawals: Optional[List[Tuple[U64, U64, Bytes20, U64]]]
 
     def __init__(self, options: Any, stdin: Any = None):
         # Parse transactions
@@ -83,7 +83,7 @@ class Body:
                     parse_hex_or_int(wd["index"], U64),
                     parse_hex_or_int(wd["validatorIndex"], U64),
                     Bytes20(hex_to_bytes(wd["address"])),
-                    parse_hex_or_int(wd["amount"], Uint),
+                    parse_hex_or_int(wd["amount"], U64),
                 )
             )
 

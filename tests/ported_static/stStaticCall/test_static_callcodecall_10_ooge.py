@@ -129,13 +129,11 @@ def test_static_callcodecall_10_ooge(
         Hash(addr_2, left_padding=True),
         Hash(addr_3, left_padding=True),
     ]
-    tx_gas = [172000]
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
     )
 
     post = {target: Account(storage={0: 1, 1: 1})}

@@ -5,7 +5,7 @@ from typing import ClassVar, Dict, List
 import pytest
 from pytest import FixtureRequest
 
-from execution_testing.base_types import Address, Alloc, Hash
+from execution_testing.base_types import Address, Hash
 from execution_testing.forks import Fork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
@@ -14,6 +14,8 @@ from execution_testing.rpc import (
     SendTransactionExceptionError,
 )
 from execution_testing.test_types import (
+    Alloc,
+    Environment,
     NetworkWrappedTransaction,
     TestPhase,
     Transaction,
@@ -39,14 +41,39 @@ class TransactionPost(BaseExecute):
         "are included"
     )
 
-    def get_required_sender_balances(
+    def prepare_transactions(
         self,
         *,
+        env: Environment,
         gas_price: int,
         max_fee_per_gas: int,
         max_priority_fee_per_gas: int,
         max_fee_per_blob_gas: int,
         fork: Fork,
+    ) -> None:
+        """Prepare transactions by setting their final gas properties."""
+        for block in self.blocks:
+            max_tx_gas_limit = Transaction.calculate_max_gas_limit(
+                txs=block,
+                env_gas_limit=int(env.gas_limit),
+                transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+                state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+            )
+            for tx in block:
+                tx.set_gas_limit(
+                    max_gas_limit=max_tx_gas_limit,
+                    transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+                    state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+                )
+                tx.set_gas_price(
+                    gas_price=gas_price,
+                    max_fee_per_gas=max_fee_per_gas,
+                    max_priority_fee_per_gas=max_priority_fee_per_gas,
+                    max_fee_per_blob_gas=max_fee_per_blob_gas,
+                )
+
+    def get_required_sender_balances(
+        self, *, fork: Fork
     ) -> Dict[Address, int]:
         """Get the required sender balances."""
         balances: Dict[Address, int] = {}
@@ -54,12 +81,6 @@ class TransactionPost(BaseExecute):
             for tx in block:
                 sender = tx.sender
                 assert sender is not None, "Sender is None"
-                tx.set_gas_price(
-                    gas_price=gas_price,
-                    max_fee_per_gas=max_fee_per_gas,
-                    max_priority_fee_per_gas=max_priority_fee_per_gas,
-                    max_fee_per_blob_gas=max_fee_per_blob_gas,
-                )
                 if sender not in balances:
                     balances[sender] = 0
                 balances[sender] += tx.signer_minimum_balance(fork=fork)

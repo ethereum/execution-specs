@@ -56,7 +56,7 @@ def block_hash(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_BLOCKHASH)
 
     # OPERATION
-    current_block_number = evm.message.block_env.number
+    current_block_number = evm.block_env.number
     max_block_number = block_number + BLOCKHASH_SERVE_WINDOW
     if (
         current_block_number <= block_number
@@ -77,7 +77,7 @@ def block_hash(evm: Evm) -> None:
         evm.accessed_storage_keys.add((HISTORY_STORAGE_ADDRESS, storage_key))
         charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
 
-    tx_state = evm.message.tx_env.state
+    tx_state = evm.tx_env.state
     hash_value = get_storage(
         tx_state,
         HISTORY_STORAGE_ADDRESS,
@@ -118,7 +118,7 @@ def coinbase(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_COINBASE)
 
     # OPERATION
-    push(evm.stack, U256.from_be_bytes(evm.message.block_env.coinbase))
+    push(evm.stack, U256.from_be_bytes(evm.block_env.coinbase))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -152,7 +152,7 @@ def timestamp(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_TIMESTAMP)
 
     # OPERATION
-    push(evm.stack, evm.message.block_env.time)
+    push(evm.stack, evm.block_env.time)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -185,7 +185,7 @@ def number(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_NUMBER)
 
     # OPERATION
-    push(evm.stack, U256(evm.message.block_env.number))
+    push(evm.stack, U256(evm.block_env.number))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -218,7 +218,7 @@ def prev_randao(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_PREVRANDAO)
 
     # OPERATION
-    push(evm.stack, U256.from_be_bytes(evm.message.block_env.prev_randao))
+    push(evm.stack, U256.from_be_bytes(evm.block_env.prev_randao))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -251,7 +251,7 @@ def gas_limit(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_GASLIMIT)
 
     # OPERATION
-    push(evm.stack, U256(evm.message.block_env.block_gas_limit))
+    push(evm.stack, U256(evm.block_env.block_gas_limit))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -281,7 +281,40 @@ def chain_id(evm: Evm) -> None:
     charge_gas(evm, GasCosts.OPCODE_CHAINID)
 
     # OPERATION
-    push(evm.stack, U256(evm.message.block_env.chain_id))
+    push(evm.stack, U256(evm.block_env.chain_id))
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def slot_number(evm: Evm) -> None:
+    """
+    Push the current slot number onto the stack.
+
+    The slot number is provided by the consensus layer and passed to the
+    execution layer through the engine API.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    :py:class:`~ethereum.forks.amsterdam.vm.exceptions.StackOverflowError`
+        If `len(stack)` is equal to `1024`.
+    :py:class:`~ethereum.forks.amsterdam.vm.exceptions.OutOfGasError`
+        If `evm.gas_left` is less than `2`.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_SLOTNUM)
+
+    # OPERATION
+    push(evm.stack, U256(evm.block_env.slot_number))
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

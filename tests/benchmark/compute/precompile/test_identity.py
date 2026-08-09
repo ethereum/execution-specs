@@ -16,7 +16,11 @@ from execution_testing import (
     WhileGas,
 )
 
-from ..helpers import Precompile, calculate_optimal_input_length
+from tests.benchmark.helper.precompile import (
+    Precompile,
+    calculate_optimal_input_length,
+)
+from tests.frontier.identity_precompile.spec import Spec as IdentitySpec
 
 
 def test_identity(
@@ -39,7 +43,12 @@ def test_identity(
 
     attack_block = Op.POP(
         Op.STATICCALL(
-            Op.GAS, 0x04, Op.PUSH0, optimal_input_length, Op.PUSH0, Op.PUSH0
+            Op.GAS,
+            IdentitySpec.IDENTITY,
+            Op.PUSH0,
+            optimal_input_length,
+            Op.PUSH0,
+            Op.PUSH0,
         )
     )
 
@@ -59,7 +68,9 @@ def test_identity_fixed_size(
 ) -> None:
     """Benchmark IDENTITY with fixed size input."""
     attack_block = Op.POP(
-        Op.STATICCALL(Op.GAS, 0x04, Op.PUSH0, size, Op.PUSH0, Op.PUSH0)
+        Op.STATICCALL(
+            Op.GAS, IdentitySpec.IDENTITY, Op.PUSH0, size, Op.PUSH0, Op.PUSH0
+        )
     )
 
     benchmark_test(
@@ -97,7 +108,7 @@ def test_identity_uncachable(
             Op.MLOAD(0),
             Op.STATICCALL(
                 gas=Op.GAS,
-                address=0x04,
+                address=IdentitySpec.IDENTITY,
                 args_size=size,
                 ret_size=size,
                 # gas accounting

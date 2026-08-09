@@ -5,7 +5,7 @@ transactions are the events that move between states.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, TypeGuard
+from typing import Tuple, TypeGuard, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -23,14 +23,29 @@ from ethereum.state import Address
 
 from .exceptions import (
     InitCodeTooLargeError,
+    PriorityFeeGreaterThanMaxFeeError,
     TransactionGasLimitExceededError,
     TransactionTypeError,
 )
 from .fork_types import Authorization, VersionedHash
 
+
+@final
+@dataclass
+class IntrinsicGasCost:
+    """Intrinsic gas costs for a transaction, split by gas type."""
+
+    regular: Uint
+    """Regular execution gas (calldata, base cost, access list, etc.)."""
+
+    calldata_floor: Uint
+    """Minimum gas cost based on calldata size per [EIP-7623]."""
+
+
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
 
 
+@final
 @slotted_freezable
 @dataclass
 class LegacyTransaction:
@@ -93,6 +108,7 @@ class LegacyTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Access:
@@ -112,6 +128,7 @@ class Access:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class AccessListTransaction:
@@ -184,6 +201,7 @@ class AccessListTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class FeeMarketTransaction:
@@ -261,6 +279,7 @@ class FeeMarketTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class BlobTransaction:
@@ -349,6 +368,7 @@ class BlobTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class SetCodeTransaction:
@@ -461,6 +481,19 @@ See [`has_access_list`][hal] and [`Access`][a] for more details.
 """
 
 
+FeeMarketCapableTransaction = (
+    FeeMarketTransaction | BlobTransaction | SetCodeTransaction
+)
+"""
+Transaction types that include the [EIP-1559]-style fee structure.
+
+See [`FeeMarketTransaction`][fmt] for more details.
+
+[EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+[fmt]: ref:ethereum.forks.bpo2.transactions.FeeMarketTransaction
+"""
+
+
 def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
     """
     Encode a transaction into its RLP or typed transaction format.
@@ -506,7 +539,7 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
         return tx
 
 
-def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
+def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
     """
     Verifies a transaction.
 
@@ -530,27 +563,34 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     the transaction does not provide enough gas to cover the intrinsic cost,
     and a `NonceOverflowError` exception if the nonce is greater than
     `2**64 - 2`. It also raises an `InitCodeTooLargeError` if the code size of
-    a contract creation transaction exceeds the maximum allowed size.
+    a contract creation transaction exceeds the maximum allowed size, and a
+    `PriorityFeeGreaterThanMaxFeeError` if the maximum priority fee per gas
+    of a fee market transaction exceeds its maximum fee per gas.
 
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
-    intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
-    if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
+    intrinsic = calculate_intrinsic_cost(tx)
+    if max(intrinsic.regular, intrinsic.calldata_floor) > tx.gas:
         raise InsufficientTransactionGasError("Insufficient gas")
-    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
-        raise NonceOverflowError("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
     if tx.gas > TX_MAX_GAS_LIMIT:
         raise TransactionGasLimitExceededError("Gas limit too high")
+    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
+        raise NonceOverflowError("Nonce too high")
+    if isinstance(tx, FeeMarketCapableTransaction):
+        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
+            raise PriorityFeeGreaterThanMaxFeeError(
+                "priority fee greater than max fee"
+            )
 
-    return intrinsic_gas, calldata_floor_gas_cost
+    return intrinsic
 
 
-def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
+def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:
     """
     Calculates the gas that is charged before execution is started.
 
@@ -607,19 +647,37 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             GasCosts.AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations)
         )
 
-    return (
-        Uint(
+    return IntrinsicGasCost(
+        regular=Uint(
             GasCosts.TX_BASE
             + data_cost
             + create_cost
             + access_list_cost
             + auth_cost
         ),
-        calldata_floor_gas_cost,
+        calldata_floor=calldata_floor_gas_cost,
     )
 
 
-def recover_sender(chain_id: U64, tx: Transaction) -> Address:
+def chain_id(tx: Transaction) -> None | U64:
+    """
+    Extract the chain identifier from a transaction. See [EIP-155].
+
+    [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
+    """
+    if isinstance(tx, LegacyTransaction):
+        if tx.v == 27 or tx.v == 28:
+            return None
+
+        if tx.v < U256(35):
+            raise InvalidSignatureError("bad v")
+
+        return U64((tx.v - U256(35)) >> U256(1))
+    else:
+        return tx.chain_id
+
+
+def recover_sender(tx: Transaction) -> Address:
     """
     Extracts the sender address from a transaction.
 
@@ -646,14 +704,14 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
                 r, s, v - U256(27), signing_hash_pre155(tx)
             )
         else:
-            chain_id_x2 = U256(chain_id) * U256(2)
-            if v != U256(35) + chain_id_x2 and v != U256(36) + chain_id_x2:
-                raise InvalidSignatureError("bad v")
+            assert v >= U256(35), "call chain_id before recover_sender"
+            tx_chain_id = U64((v - U256(35)) >> U256(1))
+            v = (v - U256(35)) & U256(1)
             public_key = secp256k1_recover(
                 r,
                 s,
-                v - U256(35) - chain_id_x2,
-                signing_hash_155(tx, chain_id),
+                v,
+                signing_hash_155(tx, tx_chain_id),
             )
     elif isinstance(tx, AccessListTransaction):
         if tx.y_parity not in (U256(0), U256(1)):

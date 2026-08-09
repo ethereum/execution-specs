@@ -40,7 +40,6 @@ def test_test_overflow(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     # Source: raw
@@ -159,7 +158,6 @@ def test_test_overflow(
         sender=sender,
         to=target,
         data=Bytes("c0406226"),
-        gas_limit=100000,
     )
 
     post = {target: Account(storage={0: 1})}

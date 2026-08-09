@@ -31,7 +31,7 @@ with the first new transaction type—optional access lists.
 [EIP-2929]: https://eips.ethereum.org/EIPS/eip-2929
 [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
 [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
-[Besu 21.1.2]: https://github.com/hyperledger/besu/releases/tag/21.1.2
+[Besu 21.1.2]: https://github.com/besu-eth/besu/releases/tag/21.1.2
 [js]: https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%405.2.0
 [Geth 1.10.1]: https://github.com/ethereum/go-ethereum/releases/tag/v1.10.1
 [n]: https://github.com/NethermindEth/nethermind/releases/tag/1.10.58

@@ -35,7 +35,7 @@ reserves a contract prefix for future use, and delays the difficulty bomb.
 [EIP-3529]: https://eips.ethereum.org/EIPS/eip-3529
 [EIP-3541]: https://eips.ethereum.org/EIPS/eip-3541
 [EIP-3554]: https://eips.ethereum.org/EIPS/eip-3554
-[Besu 21.7.2]: https://github.com/hyperledger/besu/releases/tag/21.7.2
+[Besu 21.7.2]: https://github.com/besu-eth/besu/releases/tag/21.7.2
 [e]: https://github.com/ledgerwatch/erigon/releases/tag/v2021.07.04
 [js]: https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%405.5.0
 [Geth 1.10.6]: https://github.com/ethereum/go-ethereum/releases/tag/v1.10.6

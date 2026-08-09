@@ -111,7 +111,6 @@ def test_callcallcodecallcode_011_oogm_before(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=172000,
     )
 
     post = {

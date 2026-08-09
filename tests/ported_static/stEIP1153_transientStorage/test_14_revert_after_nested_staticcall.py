@@ -3,6 +3,16 @@ Transient storage can't be manipulated from nested staticcall.
 
 Ported from:
 state_tests/Cancun/stEIP1153_transientStorage/14_revertAfterNestedStaticcallFiller.yml
+
+@manually-enhanced: Do not overwrite. The caller writes four fresh
+storage slots and asserts the resulting values (slot 1's pre-marker
+must be overwritten). EIP-8037/8038 spill each fresh SSTORE's
+state-gas charge back into regular gas (the reservoir is empty),
+pushing total consumption past the original 400 000 transaction
+budget; the final SSTORE then OOGs and reverts the whole call,
+leaving slot 1 at its marker. Bump the gas limit by the summed
+fork-derived SSTORE increases so the success path stays funded; the
+bump is exactly 0 before EIP-8037.
 """
 
 import pytest
@@ -15,6 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,8 +42,30 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_14_revert_after_nested_staticcall(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Transient storage can't be manipulated from nested staticcall."""
+
+    # EIP-8037/8038 spill each fresh SSTORE's state-gas charge back into
+    # regular gas. The caller writes three fresh slots (0, 2, 3: each a
+    # cold zero -> nonzero set) and clears slot 1's cold marker; sum the
+    # per-slot increases so the original budget stays sufficient. Each
+    # term is exactly 0 before EIP-8037.
+    def _sstore_delta(cancun_cost: int, **metadata: int) -> int:
+        op = Op.SSTORE.with_metadata(**metadata)
+        return op.gas_cost(fork) - cancun_cost
+
+    cold_set_delta = _sstore_delta(
+        22100, key_warm=False, original_value=0, current_value=0, new_value=10
+    )
+    cold_clear_delta = _sstore_delta(
+        5000,
+        key_warm=False,
+        original_value=65535,
+        current_value=65535,
+        new_value=0,
+    )
+    gas_limit_bump = 3 * cold_set_delta + cold_clear_delta
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = pre.fund_eoa(amount=0x3635C9ADC5DEA00000)
 
@@ -42,7 +75,6 @@ def test_14_revert_after_nested_staticcall(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=4503599627370496,
     )
 
     # Source: yul
@@ -137,7 +169,7 @@ def test_14_revert_after_nested_staticcall(
         sender=sender,
         to=target,
         data=Bytes("f5f40590"),
-        gas_limit=400000,
+        gas_limit=400000 + gas_limit_bump,
         max_fee_per_gas=2000,
         max_priority_fee_per_gas=0,
         access_list=[],

@@ -14,10 +14,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Environment,
+    SystemContractInteractionTransaction,
     Transaction,
 )
 
-from .helpers import WithdrawalRequest, WithdrawalRequestTransaction
+from .helpers import WithdrawalRequest
 from .spec import Spec, ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
@@ -29,18 +30,18 @@ BLOCKS_BEFORE_FORK = 2
 
 
 @pytest.mark.parametrize(
-    "blocks_withdrawal_requests",
+    "system_contract_interactions_per_block",
     [
         pytest.param(
             [
                 [],  # No withdrawal requests, but we deploy the contract
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
                                 amount=0,
-                                fee=Spec.get_fee(10),
+                                fee=WithdrawalRequest.get_fee(10),
                                 # Pre-fork withdrawal request
                                 valid=False,
                             )
@@ -48,12 +49,12 @@ BLOCKS_BEFORE_FORK = 2
                     ),
                 ],
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x02,
                                 amount=0,
-                                fee=Spec.get_fee(10),
+                                fee=WithdrawalRequest.get_fee(10),
                                 # First post-fork withdrawal request, will not
                                 # be included because the inhibitor is cleared
                                 # at the end of the block
@@ -63,12 +64,11 @@ BLOCKS_BEFORE_FORK = 2
                     ),
                 ],
                 [
-                    WithdrawalRequestTransaction(
+                    SystemContractInteractionTransaction(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x03,
                                 amount=0,
-                                fee=Spec.get_fee(0),
                                 # First withdrawal that is valid
                                 valid=True,
                             )

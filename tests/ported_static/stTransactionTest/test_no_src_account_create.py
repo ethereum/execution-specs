@@ -18,10 +18,11 @@ from execution_testing import (
     TransactionException,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -379,7 +380,10 @@ def test_no_src_account_create(
         Op.STOP,
         Op.STOP,
     ]
-    tx_gas = [21000, 210000, 0]
+    # EIP-8037 raises the creation intrinsic gas above 210000, which
+    # rejects the transaction for gas before the intended insufficient
+    # funds check. Leave the gas limit unset on Amsterdam.
+    tx_gas = [21000, None if fork.is_eip_enabled(8037) else 210000, 0]
     tx_value = [0, 1]
     tx_access_lists: dict[int, list] = {
         2: [],

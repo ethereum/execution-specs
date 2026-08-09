@@ -65,7 +65,6 @@ class H(FieldElement):
     pass
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-7951 specifications as defined at

@@ -20,6 +20,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=0,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 protected=False,
@@ -37,6 +38,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=0,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 protected=False,
@@ -55,6 +57,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=0,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 protected=True,
@@ -72,6 +75,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=1,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
             ),
@@ -88,6 +92,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=1,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 access_list=[],
@@ -105,6 +110,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=1,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 access_list=[
@@ -129,6 +135,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=1,
+                gas_limit=21000,
                 nonce=0,
                 gas_price=1000000000,
                 to=None,
@@ -151,6 +158,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=2,
+                gas_limit=21000,
                 nonce=0,
                 access_list=[
                     AccessList(address=0x123, storage_keys=[0x456, 0x789])
@@ -173,6 +181,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=2,
+                gas_limit=21000,
                 nonce=0,
                 to=None,
                 access_list=[
@@ -196,6 +205,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=3,
+                gas_limit=21000,
                 nonce=0,
                 access_list=[
                     AccessList(address=0x123, storage_keys=[0x456, 0x789])
@@ -220,6 +230,7 @@ from ..transaction_types import Transaction
         (
             Transaction(
                 ty=3,
+                gas_limit=21000,
                 nonce=0,
                 access_list=[
                     AccessList(address=0x123, storage_keys=[0x456, 0x789])
@@ -273,3 +284,18 @@ def test_transaction_signing(
     assert tx.sender is not None
     assert tx.sender.hex() == expected_sender
     assert (tx.rlp().hex()) == expected_serialized
+
+
+def test_gas_limit_none_is_unset() -> None:
+    """Test that `gas_limit=None` behaves exactly like omitting the field."""
+    tx = Transaction(gas_limit=None)
+    assert "gas_limit" not in tx.model_fields_set
+    assert tx.gas_limit == 21_000
+
+
+@pytest.mark.parametrize("alias", ["gas_limit", "gasLimit", "gas"])
+def test_gas_limit_none_alias_is_unset(alias: str) -> None:
+    """Test that a `None` gas limit via any alias counts as unset."""
+    tx = Transaction.model_validate({alias: None})
+    assert "gas_limit" not in tx.model_fields_set
+    assert tx.gas_limit == 21_000

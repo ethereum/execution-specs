@@ -84,14 +84,13 @@ def test_create_suicide_during_transaction_create(
 
     expected_create_address = compute_create_address(
         address=sender if transaction_create else contract_deploy,
-        nonce=1 if transaction_create else 0,
+        nonce=0 if transaction_create else 1,
         initcode=contract_initcode,
         opcode=create_opcode,
     )
 
     tx_value = 100
     tx = Transaction(
-        gas_limit=1_000_000,
         to=None if transaction_create else contract_deploy,
         data=contract_initcode,
         value=tx_value,
@@ -99,6 +98,10 @@ def test_create_suicide_during_transaction_create(
         protected=fork.supports_protected_txs(),
     )
 
+    # per EIP-8246
+    selfdestruct_to_self_preserves_balance = (
+        fork.is_eip_enabled(8246) and operation == Operation.SUICIDE_TO_ITSELF
+    )
     post = {
         contract_success: Account(storage={1: 1}),
         self_destruct_destination: Account(
@@ -108,6 +111,10 @@ def test_create_suicide_during_transaction_create(
         contract_after_suicide: Account(
             storage={1: 0}
         ),  # suicide eats all gas
-        expected_create_address: Account.NONEXISTENT,
+        expected_create_address: (
+            Account(balance=tx_value, nonce=0, code=b"", storage={})
+            if selfdestruct_to_self_preserves_balance
+            else Account.NONEXISTENT
+        ),
     }
     state_test(env=Environment(), pre=pre, post=post, tx=tx)

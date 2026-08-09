@@ -3,6 +3,17 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/gasCostFiller.yml
+
+@manually-enhanced: Do not overwrite. This crafts a one-opcode
+contract, CALLs it, and stores the opcode's measured gas via `Op.GAS`.
+EIP-8038 reprices state access, so four opcodes shift: `BALANCE` and
+`SELFDESTRUCT` (cold account, `COLD_ACCOUNT_ACCESS` 2600 -> 3000, +400),
+`EXTCODESIZE` (cold account plus the extra `WARM_ACCESS` charged for
+the opcode's second read of the code, +500), and `SSTORE` to a cold
+fresh slot (`COLD_STORAGE_ACCESS` 2100 -> 3000, +900). `BALANCE` and
+`EXTCODESIZE` share a Cancun baseline but need different deltas, so
+their expect-entries are split. Every delta is derived from the fork's
+own constants and is exactly 0 pre-EIP-8038; do not hardcode it.
 """
 
 import pytest
@@ -18,10 +29,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -714,6 +726,14 @@ def test_gas_cost(
     v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail."""
+    gas_costs = fork.gas_costs()
+    # EIP-8038 access repricing; each term is 0 on earlier forks.
+    cold_account_delta = gas_costs.COLD_ACCOUNT_ACCESS - 2600
+    cold_storage_delta = gas_costs.COLD_STORAGE_ACCESS - 2100
+    # EXTCODESIZE also gains an extra warm access for its code read.
+    code_read_delta = cold_account_delta + (
+        gas_costs.WARM_ACCESS if fork.is_eip_enabled(8037) else 0
+    )
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     sender = EOA(
         key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
@@ -1070,10 +1090,15 @@ def test_gas_cost(
             },
         },
         {
+            # SSTORE to a cold fresh slot: cold storage repricing.
             "indexes": {"data": [39], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr: Account(storage=_storage_with_any({0: 700}, [1]))
+                addr: Account(
+                    storage=_storage_with_any(
+                        {0: 700 + cold_storage_delta}, [1]
+                    )
+                )
             },
         },
         {
@@ -1084,17 +1109,38 @@ def test_gas_cost(
             },
         },
         {
+            # SELFDESTRUCT to a cold (zero) beneficiary: cold account.
             "indexes": {"data": [45], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr: Account(storage=_storage_with_any({0: 2000}, [1]))
+                addr: Account(
+                    storage=_storage_with_any(
+                        {0: 2000 + cold_account_delta}, [1]
+                    )
+                )
             },
         },
         {
-            "indexes": {"data": [31, 23], "gas": -1, "value": -1},
+            # BALANCE on a cold (zero) address: cold account.
+            "indexes": {"data": [23], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                addr: Account(storage=_storage_with_any({0: 1300}, [1]))
+                addr: Account(
+                    storage=_storage_with_any(
+                        {0: 1300 + cold_account_delta}, [1]
+                    )
+                )
+            },
+        },
+        {
+            # EXTCODESIZE on a cold (zero) address: cold account plus the
+            # extra warm access for the opcode's code read.
+            "indexes": {"data": [31], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                addr: Account(
+                    storage=_storage_with_any({0: 1300 + code_read_delta}, [1])
+                )
             },
         },
     ]

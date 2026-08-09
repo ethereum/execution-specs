@@ -12,7 +12,7 @@ A straightforward interpreter that executes EVM code.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Set, Tuple
+from typing import Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
@@ -31,15 +31,14 @@ from ethereum.trace import (
 )
 
 from ..blocks import Log
-from ..state import (
-    account_has_code_or_nonce,
-    account_has_storage,
-    begin_transaction,
-    commit_transaction,
+from ..state_tracker import (
+    account_deployable,
+    copy_tx_state,
+    destroy_storage,
     increment_nonce,
     mark_account_created,
     move_ether,
-    rollback_transaction,
+    restore_tx_state,
     set_code,
 )
 from ..vm import Message
@@ -63,6 +62,7 @@ MAX_CODE_SIZE = 0x6000
 MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
 
 
+@final
 @dataclass
 class MessageCallOutput:
     """
@@ -100,13 +100,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
         Output of the message call
 
     """
-    block_env = message.block_env
+    tx_state = message.tx_env.state
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
-        is_collision = account_has_code_or_nonce(
-            block_env.state, message.current_target
-        ) or account_has_storage(block_env.state, message.current_target)
-        if is_collision:
+        if account_deployable(tx_state, message.current_target):
+            evm = process_create_message(message)
+        else:
             return MessageCallOutput(
                 gas_left=Uint(0),
                 refund_counter=U256(0),
@@ -114,8 +113,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 accounts_to_delete=set(),
                 error=AddressCollision(),
             )
-        else:
-            evm = process_create_message(message)
     else:
         evm = process_message(message)
 
@@ -156,14 +153,25 @@ def process_create_message(message: Message) -> Evm:
         Items containing execution specific objects.
 
     """
-    state = message.block_env.state
+    tx_state = message.tx_env.state
     # take snapshot of state before processing the message
-    begin_transaction(state)
+    snapshot = copy_tx_state(tx_state)
 
-    # The list of created accounts is used by `get_storage_original`.
-    mark_account_created(state, message.current_target)
+    # If the address where the account is being created has storage, it is
+    # destroyed. This can only happen in the following highly unlikely
+    # circumstances:
+    # * The address created by a `CREATE` call collides with a subsequent
+    #   `CREATE` or `CREATE2` call.
+    # * The first `CREATE` happened before Spurious Dragon and left empty
+    #   code.
+    destroy_storage(tx_state, message.current_target)
 
-    increment_nonce(state, message.current_target)
+    # In the previously mentioned edge case the preexisting storage is ignored
+    # for gas refund purposes. In order to do this we must track created
+    # accounts.
+    mark_account_created(tx_state, message.current_target)
+
+    increment_nonce(tx_state, message.current_target)
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
@@ -178,15 +186,14 @@ def process_create_message(message: Message) -> Evm:
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
         except ExceptionalHalt as error:
-            rollback_transaction(state)
+            restore_tx_state(tx_state, snapshot)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
-            set_code(state, message.current_target, contract_code)
-            commit_transaction(state)
+            set_code(tx_state, message.current_target, contract_code)
     else:
-        rollback_transaction(state)
+        restore_tx_state(tx_state, snapshot)
     return evm
 
 
@@ -205,7 +212,7 @@ def process_message(message: Message) -> Evm:
         Items containing execution specific objects
 
     """
-    state = message.block_env.state
+    tx_state = message.tx_env.state
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
@@ -231,11 +238,14 @@ def process_message(message: Message) -> Evm:
     )
 
     # take snapshot of state before processing the message
-    begin_transaction(state)
+    snapshot = copy_tx_state(tx_state)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
-            state, message.caller, message.current_target, message.value
+            tx_state,
+            message.caller,
+            message.current_target,
+            message.value,
         )
 
     try:
@@ -266,9 +276,5 @@ def process_message(message: Message) -> Evm:
         evm.error = error
 
     if evm.error:
-        # revert state to the last saved checkpoint
-        # since the message call resulted in an error
-        rollback_transaction(state)
-    else:
-        commit_transaction(state)
+        restore_tx_state(tx_state, snapshot)
     return evm

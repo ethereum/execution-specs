@@ -16,6 +16,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -33,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_call_contract_to_create_contract_which_would_create_contract_if_called(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_static_call_contract_to_create_contract_which_would_create_con..."""  # noqa: E501
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -72,11 +74,16 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
         address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
     )
 
+    gas_limit = 300000
+    if fork.is_eip_enabled(8037):
+        gas_limit += fork.gas_costs().NEW_ACCOUNT + 3 * Op.SSTORE(
+            new_value=1
+        ).state_cost(fork)
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=300000,
+        gas_limit=gas_limit,
     )
 
     post = {

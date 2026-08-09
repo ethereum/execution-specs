@@ -18,6 +18,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -36,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.pre_alloc_mutable
 def test_callcode_to_precompile_from_called_contract(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
 ) -> None:
     """Contract C calls contract B."""
@@ -615,7 +617,6 @@ def test_callcode_to_precompile_from_called_contract(
         sender=sender,
         to=contract_0,
         data=Bytes(""),
-        gas_limit=4000000,
         value=100,
     )
 

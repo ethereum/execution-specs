@@ -15,6 +15,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_call_lose_gas_oog(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_static_call_lose_gas_oog."""
     coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
@@ -69,11 +71,14 @@ def test_static_call_lose_gas_oog(
         address=Address(0x7F04B68576FC8573ABDC49251B804F6CB44617CE),  # noqa: E501
     )
 
+    gas_limit = 200000
+    if fork.is_eip_enabled(8037):
+        gas_limit += 2 * Op.SSTORE(new_value=1).state_cost(fork)
     tx = Transaction(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=200000,
+        gas_limit=gas_limit,
         value=10,
     )
 

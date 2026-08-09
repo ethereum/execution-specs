@@ -68,6 +68,8 @@ def test_json_dict() -> None:
                 config=FixtureConfig(fork=Prague),
                 snapshot_block_number=0,
                 snapshot_block_hash=Hash(0),
+                start_block_number=0,
+                start_block_hash=Hash(0),
                 setup_payloads=[
                     FixtureEngineNewPayload.from_fixture_header(
                         fork=Prague,
@@ -96,6 +98,7 @@ def test_json_dict() -> None:
                         ),
                         transactions=[
                             Transaction(
+                                gas_limit=0x5208,
                                 max_fee_per_gas=7,
                             ).with_signature_and_sender(),
                         ],
@@ -131,6 +134,7 @@ def test_json_dict() -> None:
                         ),
                         transactions=[
                             Transaction(
+                                gas_limit=0x5208,
                                 max_fee_per_gas=7,
                             ).with_signature_and_sender(),
                         ],

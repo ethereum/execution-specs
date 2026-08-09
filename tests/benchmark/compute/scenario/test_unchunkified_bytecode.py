@@ -21,7 +21,10 @@ from execution_testing import (
     While,
 )
 
-from ..helpers import ContractDeploymentTransaction, CustomSizedContractFactory
+from tests.benchmark.helper.contract_factory import (
+    ContractDeploymentTransaction,
+    CustomSizedContractFactory,
+)
 
 
 @pytest.mark.parametrize(
@@ -148,6 +151,12 @@ def test_unchunkified_bytecode(
                 post[contract_creating_tx.deployed_contracts[-1]] = Account(
                     nonce=1
                 )
+
+    total_deployment_gas = sum(
+        tx.block_gas_cost for tx in contracts_deployment_txs
+    )
+    if total_deployment_gas > gas_benchmark_value:
+        pytest.skip("contract deployment gas exceeds the benchmark gas value")
 
     with TestPhaseManager.execution():
         attack_sender = pre.fund_eoa()

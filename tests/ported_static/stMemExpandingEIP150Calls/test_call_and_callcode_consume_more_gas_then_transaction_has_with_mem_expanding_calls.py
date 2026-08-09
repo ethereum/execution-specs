@@ -3,6 +3,14 @@ Test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_ex...
 
 Ported from:
 state_tests/stMemExpandingEIP150Calls/CallAndCallcodeConsumeMoreGasThenTransactionHasWithMemExpandingCallsFiller.json
+
+@manually-enhanced: Do not overwrite. The post-state asserts the
+remaining-gas snapshot stored by `Op.GAS` (slot 8 == 0x8D5B6), which
+fixes the post-intrinsic execution budget. So `gas_limit` is derived
+from the fork as `600_000 + (intrinsic - 21_000)`: it shifts the budget
+by the intrinsic delta from the pre-EIP-2780 Cancun `TX_BASE` baseline
+of 21_000, keeping the budget constant across the EIP-2780 intrinsic
+decomposition and EIP-8038 access repricing. Do not hardcode 600_000.
 """
 
 import pytest
@@ -12,6 +20,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     StateTestFiller,
     Transaction,
 )
@@ -31,6 +40,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expanding_calls(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_and_callcode_consume_more_gas_then_transaction_has_with_m..."""  # noqa: E501
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -82,11 +92,19 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
         nonce=0,
     )
 
+    # The original test was built against Cancun's ``TX_BASE`` of
+    # 21_000. EIP-2780 lowers the intrinsic for non-self non-value
+    # txs, so shift ``gas_limit`` by the intrinsic delta to preserve
+    # the post-intrinsic execution budget the Op.GAS storage
+    # assertion depends on.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    gas_limit = 600_000 + (intrinsic - 21_000)
+
     tx = Transaction(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=600000,
+        gas_limit=gas_limit,
     )
 
     post = {

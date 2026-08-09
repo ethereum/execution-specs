@@ -43,7 +43,6 @@ def test_calldatacopy_dejavu2(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=52949672960,
     )
 
     pre[sender] = Account(balance=0x271000000000)
@@ -65,7 +64,6 @@ def test_calldatacopy_dejavu2(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=100000,
         value=10,
     )
 

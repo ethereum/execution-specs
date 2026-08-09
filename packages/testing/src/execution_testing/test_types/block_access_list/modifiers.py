@@ -481,6 +481,41 @@ def append_storage(
     return transform
 
 
+def append_empty_slot(
+    address: Address, slot: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Append an empty BalStorageSlot (no changes) to an account's
+    storage_changes. Used by invalid-BAL tests to simulate a malformed
+    entry where a slot is recorded as changed but carries no actual change.
+    """
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        from . import BalStorageSlot
+
+        found_address = False
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == address:
+                found_address = True
+                new_account = account_change.model_copy(deep=True)
+                new_account.storage_changes.append(
+                    BalStorageSlot(slot=slot, slot_changes=[])
+                )
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+
+        if not found_address:
+            raise ValueError(
+                f"Address {address} not found in BAL to append empty slot"
+            )
+
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
 def duplicate_account(
     address: Address,
 ) -> Callable[[BlockAccessList], BlockAccessList]:
@@ -701,6 +736,68 @@ def insert_storage_read(
     return transform
 
 
+def remove_slot_change(
+    address: Address, slot: int, block_access_index: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Remove a single slot change entry at a given block access index, while
+    keeping any other slot_changes entries for that same slot intact.
+
+    Unlike `remove_storage`, which drops all storage_changes for an
+    account, this targets one entry within one slot's slot_changes list.
+    Useful for testing that a slot's earliest recorded change must match
+    the transaction that actually performed it.
+
+    Removing a slot's only change leaves an empty slot_changes list,
+    which is a different corruption (see `append_empty_slot`); use
+    `remove_storage` to drop a slot entirely.
+    """
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        found_address = False
+        found_slot = False
+        found_index = False
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == address:
+                found_address = True
+                new_account = account_change.model_copy(deep=True)
+                for storage_slot in new_account.storage_changes:
+                    if storage_slot.slot != slot:
+                        continue
+                    found_slot = True
+                    remaining = [
+                        change
+                        for change in storage_slot.slot_changes
+                        if change.block_access_index != block_access_index
+                    ]
+                    if len(remaining) != len(storage_slot.slot_changes):
+                        found_index = True
+                    storage_slot.slot_changes = remaining
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+
+        if not found_address:
+            raise ValueError(
+                f"Address {address} not found in BAL to remove slot change"
+            )
+        if not found_slot:
+            raise ValueError(
+                f"Storage slot {slot} not found in storage_changes of "
+                f"account {address}"
+            )
+        if not found_index:
+            raise ValueError(
+                f"Block access index {block_access_index} not found in "
+                f"storage slot {slot} of account {address}"
+            )
+
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
 def reverse_accounts() -> Callable[[BlockAccessList], BlockAccessList]:
     """Reverse the order of accounts in the BAL."""
 
@@ -779,6 +876,7 @@ __all__ = [
     "append_account",
     "append_change",
     "append_storage",
+    "append_empty_slot",
     "duplicate_account",
     "reverse_accounts",
     "keep_only",
@@ -795,6 +893,7 @@ __all__ = [
     "modify_code",
     # Block access index modifiers
     "swap_bal_indices",
+    "remove_slot_change",
     # Duplicate entry modifiers (uniqueness constraint testing)
     "duplicate_nonce_change",
     "duplicate_balance_change",

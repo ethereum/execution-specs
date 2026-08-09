@@ -40,7 +40,6 @@ def test_self_balance_equals_balance(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000000,
     )
 
     # Source: lll
@@ -59,7 +58,6 @@ def test_self_balance_equals_balance(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=100000,
     )
 
     post = {target: Account(storage={1: 1})}

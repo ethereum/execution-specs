@@ -25,7 +25,6 @@ class PointG2(BytesConcatenation):
         return FP(self.x[0]) + FP(self.x[1]) + FP(self.y[0]) + FP(self.y[1])
 
 
-@dataclass(frozen=True)
 class Spec:
     """
     Parameters from the EIP-197 specification

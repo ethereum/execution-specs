@@ -3,6 +3,16 @@ Callcode to a contract that is being created in the same transaction.
 
 Ported from:
 state_tests/stCallCodes/callcodeDynamicCodeFiller.json
+
+
+@manually-enhanced: Do not overwrite. Hardcoded inner-CALL gas values
+from the original filler (100k / 800k / 150k / 50k) were tuned to the
+pre-EIP-8037 gas budget. On Amsterdam each SSTORE in the inner
+callee adds the EIP-8037 per-storage state-gas (37 568 wei of
+regular gas), and the inner CALL OoGs before the test's SSTORE
+markers fire. Bumped uniformly with extra headroom; older forks are
+unaffected because only the requested gas changes, the actual
+consumption is identical.
 """
 
 import pytest
@@ -18,10 +28,11 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -70,6 +81,15 @@ def test_callcode_dynamic_code(
     v: int,
 ) -> None:
     """Callcode to a contract that is being created in the same transaction."""
+    # EIP-8037 inner-CALL gas bumps (original gas values restored for
+    # pre-EIP-8037 forks; bumped values cover the per-storage state-gas
+    # spill into regular gas on Amsterdam).
+    inner_call_gas = 0x186A0
+    outer_call_gas = 0xC3500
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 0x2DC6C0
+        outer_call_gas = 0x4C4B40
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x1100000000000000000000000000000000000000)
     contract_1 = Address(0x1000000000000000000000000000000000000000)
@@ -86,7 +106,7 @@ def test_callcode_dynamic_code(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000,
+        gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0x2386F26FC10000)
@@ -94,7 +114,7 @@ def test_callcode_dynamic_code(
     # { (CALL 800000 (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
-            gas=0xC3500,
+            gas=outer_call_gas,
             address=Op.CALLDATALOAD(offset=0x0),
             value=0x0,
             args_offset=0x0,
@@ -116,7 +136,7 @@ def test_callcode_dynamic_code(
         + Op.SSTORE(
             key=0xB,
             value=Op.CALLCODE(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=Op.SLOAD(key=0xA),
                 value=0x0,
                 args_offset=0x0,
@@ -153,7 +173,7 @@ def test_callcode_dynamic_code(
         + Op.SSTORE(
             key=0xB,
             value=Op.CALLCODE(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=Op.SLOAD(key=0xA),
                 value=0x0,
                 args_offset=0x0,
@@ -195,7 +215,7 @@ def test_callcode_dynamic_code(
         + Op.SSTORE(
             key=0xB,
             value=Op.CALLCODE(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=Op.SLOAD(key=0xA),
                 value=0x0,
                 args_offset=0x0,
@@ -238,7 +258,7 @@ def test_callcode_dynamic_code(
         + Op.SSTORE(
             key=0xB,
             value=Op.CALLCODE(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=Op.SLOAD(key=0xA),
                 value=0x0,
                 args_offset=0x0,
@@ -356,7 +376,13 @@ def test_callcode_dynamic_code(
         Hash(contract_3, left_padding=True),
         Hash(contract_4, left_padding=True),
     ]
-    tx_gas = [1000000]
+    # d2/d3 parametrizations do double-nested CREATE chains; EIP-8037
+    # NEW_ACCOUNT state-gas spill on Amsterdam exceeds the original
+    # 1 000 000 budget.
+    outer_tx_gas = 1_000_000
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 6_000_000
+    tx_gas = [outer_tx_gas]
 
     tx = Transaction(
         sender=sender,

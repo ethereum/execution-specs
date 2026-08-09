@@ -1,18 +1,25 @@
 """
-Tests that warm/cold access status is reverted when a sub-call reverts.
+Tests for warm/cold access status across reverting sub-frames.
+
+A reverting sub-call rolls back the warm status it introduced; warm status
+from an outer frame, such as the transaction access list, survives a failed
+child, including a reverted CREATE.
 """
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Alloc,
     CodeGasMeasure,
     Conditional,
     Environment,
     Fork,
+    Hash,
     Op,
     StateTestFiller,
     Transaction,
+    compute_create2_address,
 )
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2929.md"
@@ -49,7 +56,6 @@ def test_storage_warm_status_reverted_by_subcall(
         overhead_cost=sload_push_cost,
         extra_stack_items=1,
         sstore_key=1,
-        stop=False,
     )
 
     # Also verify storage[0] value (should still be 1).
@@ -135,5 +141,55 @@ def test_account_warm_status_reverted_by_subcall(
             sender=sender,
             to=outer,
             gas_limit=1_000_000,
+        ),
+    )
+
+
+@pytest.mark.valid_from("Berlin")
+def test_access_list_slot_warmth_survives_failed_create2(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    An access-list-warmed slot stays warm after a CREATE2 that reverts.
+
+    The tx access list warms `(created, slot 0)` in the root frame. The
+    same value-branching initcode is deployed twice at one CREATE2 address:
+    the first attempt (no value) reverts, the second (with value) records
+    the warmed slot's SLOAD cost. The recorded cost is the warm price,
+    proving the failed create did not drop the access-list warmth.
+    """
+    sload_push_cost = (Op.PUSH1(0) * len(Op.SLOAD.kwargs)).gas_cost(fork)
+    warm_sload_cost = Op.SLOAD(key_warm=True).gas_cost(fork)
+
+    initcode = Conditional(
+        condition=Op.ISZERO(Op.CALLVALUE),
+        if_true=Op.REVERT(offset=0, size=0),
+        if_false=CodeGasMeasure(
+            code=Op.SLOAD(Op.PUSH1(0)),
+            overhead_cost=sload_push_cost,
+            extra_stack_items=1,
+            sstore_key=1,
+        )
+        + Op.RETURN(0, 0),
+    )
+    holder = pre.deploy_contract(code=initcode)
+
+    creator = pre.deploy_contract(
+        code=Op.EXTCODECOPY(holder, 0, 0, len(initcode))
+        + Op.POP(Op.CREATE2(value=0, size=len(initcode)))
+        + Op.POP(Op.CREATE2(value=1, size=len(initcode))),
+        balance=1,
+    )
+    created = compute_create2_address(creator, 0, initcode)
+
+    state_test(
+        pre=pre,
+        post={created: Account(balance=1, storage={1: warm_sload_cost})},
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=creator,
+            access_list=[AccessList(address=created, storage_keys=[Hash(0)])],
         ),
     )

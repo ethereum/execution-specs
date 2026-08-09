@@ -1,6 +1,6 @@
 """
-abstract: Crafted tests for mainnet of [EIP-6110: Supply validator deposits on chain](https://eips.ethereum.org/EIPS/eip-6110).
-"""  # noqa: E501
+Crafted tests for mainnet of [EIP-6110: Supply validator deposits on chain](https://eips.ethereum.org/EIPS/eip-6110).
+"""
 
 from typing import List
 
@@ -9,9 +9,10 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    SystemContractInteractionTransaction,
 )
 
-from .helpers import DepositRequest, DepositTransaction
+from .helpers import DepositRequest
 from .spec import ref_spec_6110
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path
@@ -25,7 +26,7 @@ pytestmark = [pytest.mark.valid_at("Prague"), pytest.mark.mainnet]
     [
         pytest.param(
             [
-                DepositTransaction(
+                SystemContractInteractionTransaction(
                     # TODO: Use a real public key to allow recovery of
                     #  the funds.
                     requests=[

@@ -6,10 +6,14 @@
 #     the aggregator workflow in steel-website for deployment
 #
 # Site structure at steel.ethereum.foundation/docs/execution-specs/:
-#   /docs/execution-specs/                         - Default branch docs (mirrored)
-#   /docs/execution-specs/specs/reference/         - Default branch spec reference (mirrored)
-#   /docs/execution-specs/<branch>/                - Branch-specific docs
-#   /docs/execution-specs/<branch>/specs/reference - Branch-specific spec reference (docc output)
+#   /docs/execution-specs/                         - Default branch docs (deployed at root)
+#   /docs/execution-specs/specs/reference/         - Default branch spec reference
+#   /docs/execution-specs/<branch>/                - Non-default branch docs
+#   /docs/execution-specs/<branch>/specs/reference - Non-default branch spec reference (docc output)
+#
+# The "default branch" is named in .github/configs/docs-branches.yaml. Its
+# SITE_URL is built without a `<branch>/` segment so canonical/OG/sitemap
+# URLs match where steel-website actually publishes the artifact.
 
 name: Build Docs
 
@@ -32,6 +36,7 @@ on:
       - "mkdocs.yml"
       - "uv.lock"
       - "pyproject.toml"
+      - "Justfile"
       - ".github/workflows/docs-build.yaml"
       - ".github/configs/docs-branches.yaml"
 
@@ -71,24 +76,17 @@ jobs:
             docs/**/*.md
             *.md
 
-  changelog:
-    name: "Validate Changelog Entries"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: ./.github/actions/setup-uv
-      - name: Run changelog validation
-        run: just changelog
-
   check-should-publish:
     name: "Check Should Publish"
     runs-on: ubuntu-latest
-    needs: [lint-md, changelog]
+    needs: [lint-md]
     outputs:
       should_publish: ${{ steps.check.outputs.should_publish }}
       branch: ${{ steps.check.outputs.branch }}
       branch_artifact_name: ${{ steps.check.outputs.branch_artifact_name }}
       commit_sha: ${{ steps.check.outputs.commit_sha }}
+      default_branch: ${{ steps.check.outputs.default_branch }}
+      site_url: ${{ steps.check.outputs.site_url }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -117,6 +115,19 @@ jobs:
             exit 1
           fi
 
+          # The default branch is deployed at /docs/execution-specs/ (no branch
+          # segment) so its SITE_URL and the publish summary differ.
+          DEFAULT_BRANCH=$(yq '.default_branch' .github/configs/docs-branches.yaml 2>/dev/null || echo "")
+          if [ -z "$DEFAULT_BRANCH" ] || [ "$DEFAULT_BRANCH" = "null" ]; then
+            echo "ERROR: default_branch is missing from .github/configs/docs-branches.yaml"
+            exit 1
+          fi
+          if ! echo "$ALLOWLISTED_BRANCHES" | grep -qxF "$DEFAULT_BRANCH"; then
+            echo "ERROR: default_branch '$DEFAULT_BRANCH' is not present in branches[]"
+            exit 1
+          fi
+          echo "default_branch=$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"
+
           # Check if branch is in allowlist
           if echo "$ALLOWLISTED_BRANCHES" | grep -qxF "$BRANCH_INPUT"; then
             SHOULD_PUBLISH="true"
@@ -124,6 +135,20 @@ jobs:
             SHOULD_PUBLISH="false"
           fi
           echo "should_publish=$SHOULD_PUBLISH" >> "$GITHUB_OUTPUT"
+
+          # Resolve SITE_URL once so downstream consumers don't re-derive it.
+          # Default branch publishes at the root of /docs/execution-specs/ so
+          # canonical/OG/sitemap URLs omit the <branch>/ segment.
+          if [ "$SHOULD_PUBLISH" = "true" ]; then
+            if [ "$BRANCH_INPUT" = "$DEFAULT_BRANCH" ]; then
+              SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/"
+            else
+              SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/"
+            fi
+          else
+            SITE_URL="https://example.com/docs/${BRANCH_INPUT}/"
+          fi
+          echo "site_url=$SITE_URL" >> "$GITHUB_OUTPUT"
 
           # Resolve the concrete SHA we will build, so metadata.json and the
           # aggregator dispatch payload match what the build jobs check out.
@@ -168,7 +193,9 @@ jobs:
             if [ "$EVENT_NAME" = "pull_request" ]; then
               echo "-> **Build only** -- pull request; artifacts are not published."
             elif [ "$SHOULD_PUBLISH" = "true" ]; then
-              echo "-> **Will publish** at <https://steel.ethereum.foundation/docs/execution-specs/${BRANCH_INPUT}/>"
+              SUFFIX=""
+              [ "$BRANCH_INPUT" = "$DEFAULT_BRANCH" ] && SUFFIX=" (default branch; deployed at root)"
+              echo "-> **Will publish** at <$SITE_URL>$SUFFIX"
               echo ""
               echo "_Note: the URL only resolves if \`${BRANCH_INPUT}\` is also configured in steel-website's \`BRANCH_CONFIG\` (\`deploy.yml\`). If not, the aggregator will receive the dispatch but drop the artifact._"
             else
@@ -193,21 +220,15 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.commit_sha || '' }}
           fetch-depth: 0
-          submodules: recursive
 
       - uses: ./.github/actions/setup-uv
 
       - name: Build MkDocs documentation
         env:
-          BRANCH: ${{ needs.check-should-publish.outputs.branch }}
-          SHOULD_PUBLISH: ${{ needs.check-should-publish.outputs.should_publish }}
+          SITE_URL: ${{ needs.check-should-publish.outputs.site_url }}
+          # Social cards are publish-only; PR builds skip them for speed.
+          DOCS_SOCIAL_CARDS: ${{ github.event_name != 'pull_request' }}
         run: |
-          if [ "$SHOULD_PUBLISH" = "true" ]; then
-            export SITE_URL="https://steel.ethereum.foundation/docs/execution-specs/${BRANCH}/"
-          else
-            export SITE_URL="https://example.com/docs/${BRANCH}/"
-          fi
-
           echo "Building MkDocs with SITE_URL=$SITE_URL"
           just docs
 
@@ -231,11 +252,15 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && needs.check-should-publish.outputs.commit_sha || '' }}
           fetch-depth: 0
-          submodules: recursive
 
       - uses: ./.github/actions/setup-uv
 
+      - name: Build spec documentation (parallel shards)
+        if: github.event_name == 'pull_request'
+        run: just docs-spec-parallel
+
       - name: Build spec documentation
+        if: github.event_name != 'pull_request'
         run: just docs-spec
         env:
           DOCC_SKIP_DIFFS: ${{ case(github.event_name == 'push' && github.ref_name == github.event.repository.default_branch, '', '1') }}

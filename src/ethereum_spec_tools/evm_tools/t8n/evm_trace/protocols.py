@@ -32,17 +32,58 @@ class Message(Protocol):
 @runtime_checkable
 class Evm(Protocol):
     """
-    The class describes the EVM interface for pre-byzantium forks trace.
+    The class describes the EVM interface common to every fork's trace.
+
+    The message-scoped fields (`depth`, `tx_env`, `parent_evm`) are
+    described by [`Message`][msg]. Older forks carry them on
+    `evm.message`; forks that merge the message into the frame expose
+    them on `evm` itself, so `evm` satisfies both protocols. Tracers
+    resolve the carrier with `getattr(evm, "message", evm)`.
+
+    [msg]: ref:ethereum_spec_tools.evm_tools.t8n.evm_trace.protocols.Message
     """
+
+    # TODO: Rethink the tracer interface so it does not probe
+    # fork-specific frame layouts.
 
     pc: Uint
     stack: list[U256]
     memory: bytearray
     code: Bytes
+    running: bool
+
+
+@runtime_checkable
+class GasMeter(Protocol):
+    """
+    The class describes the gas meter of forks that bundle gas
+    accounting into a dedicated object (EIP-8037).
+    """
+
+    gas_left: Uint
+    state_gas_left: Uint
+    refund_counter: int
+
+
+@runtime_checkable
+class EvmWithFlatGas(Evm, Protocol):
+    """
+    The class describes the EVM interface for forks that track gas in
+    flat fields on the EVM itself.
+    """
+
     gas_left: Uint
     refund_counter: int
-    running: bool
-    message: Message
+
+
+@runtime_checkable
+class EvmWithGasMeter(Evm, Protocol):
+    """
+    The class describes the EVM interface for forks that track gas in a
+    dedicated gas meter (EIP-8037).
+    """
+
+    gas_meter: GasMeter
 
 
 @runtime_checkable
@@ -52,3 +93,32 @@ class EvmWithReturnData(Evm, Protocol):
     """
 
     return_data: Bytes
+
+
+def evm_gas_left(evm: Evm) -> Uint:
+    """
+    Read the regular gas remaining, whichever gas layout the fork uses.
+    """
+    if isinstance(evm, EvmWithGasMeter):
+        return evm.gas_meter.gas_left
+    assert isinstance(evm, EvmWithFlatGas)
+    return evm.gas_left
+
+
+def evm_refund_counter(evm: Evm) -> int:
+    """
+    Read the refund counter, whichever gas layout the fork uses.
+    """
+    if isinstance(evm, EvmWithGasMeter):
+        return evm.gas_meter.refund_counter
+    assert isinstance(evm, EvmWithFlatGas)
+    return evm.refund_counter
+
+
+def evm_state_gas_left(evm: Evm) -> Uint | None:
+    """
+    Read the state gas remaining, or `None` for forks without state gas.
+    """
+    if isinstance(evm, EvmWithGasMeter):
+        return evm.gas_meter.state_gas_left
+    return None

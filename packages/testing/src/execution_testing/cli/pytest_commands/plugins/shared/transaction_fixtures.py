@@ -25,7 +25,6 @@ def type_0_default_transaction(sender: EOA) -> Transaction:
         ty=0,
         sender=sender,
         gas_price=10**9,
-        gas_limit=100_000,
         data=b"\x00" * 100,
         protected=True,
     )
@@ -38,7 +37,6 @@ def type_1_default_transaction(sender: EOA) -> Transaction:
         ty=1,
         sender=sender,
         gas_price=10**9,
-        gas_limit=100_000,
         data=b"\x00" * 100,
         access_list=[
             AccessList(address=0x1234, storage_keys=[0, 1, 2]),
@@ -56,7 +54,6 @@ def type_2_default_transaction(sender: EOA) -> Transaction:
         sender=sender,
         max_fee_per_gas=10**10,
         max_priority_fee_per_gas=10**9,
-        gas_limit=100_000,
         data=b"\x00" * 200,
         access_list=[
             AccessList(address=0x2468, storage_keys=[10, 20, 30]),
@@ -74,7 +71,6 @@ def type_3_default_transaction(sender: EOA) -> Transaction:
         max_fee_per_gas=10**10,
         max_priority_fee_per_gas=10**9,
         max_fee_per_blob_gas=10**9,
-        gas_limit=100_000,
         data=b"\x00" * 150,
         access_list=[
             AccessList(address=0x3690, storage_keys=[100, 200]),
@@ -106,7 +102,6 @@ def type_4_default_transaction(sender: EOA, pre: Alloc) -> Transaction:
         sender=sender,
         max_fee_per_gas=10**10,
         max_priority_fee_per_gas=10**9,
-        gas_limit=150_000,
         data=b"\x00" * 200,
         access_list=[
             AccessList(address=0x4567, storage_keys=[1000, 2000, 3000]),

@@ -278,7 +278,7 @@ class BesuTransitionTool(TransitionTool):
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "output/alloc.json": output.alloc.raw,
+                    "output/alloc.json": output.alloc,
                     "output/result.json": output.result.model_dump(
                         mode="json", **model_dump_config
                     ),
@@ -325,6 +325,9 @@ class BesuExceptionMapper(ExceptionMapper):
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "transaction invalid max priority fee per gas cannot be greater "
             "than max fee per gas"
+        ),
+        TransactionException.INVALID_CHAINID: (
+            "transaction invalid transaction was meant for chain id"
         ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "Invalid versionedHash"
@@ -448,6 +451,11 @@ class BesuExceptionMapper(ExceptionMapper):
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"transaction invalid Transaction gas limit "
             r"must be at most \d+"
+        ),
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            r"Failed to decode transactions from block parameter|"
+            r"transaction invalid Signature s value should be less "
+            r"than \d+, but got \d+"
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"Blob transaction 0x[0-9a-f]+ exceeds "

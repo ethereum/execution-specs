@@ -22,11 +22,29 @@ def test_case(state_test):
     "test_function,pytest_args,outcomes",
     [
         pytest.param(
+            """
+import pytest
+@pytest.mark.valid_from("Paris")
+@pytest.mark.valid_from("Berlin")
+@pytest.mark.state_test_only
+def test_case(state_test):
+    pass
+""",
+            [],
+            {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},
+            id="two_valid_from",
+        ),
+        pytest.param(
             generate_test(
                 valid_until='"Cancun"',
             ),
             [],
-            {"passed": 10, "failed": 0, "skipped": 0, "errors": 0},
+            # All deployed forks from Frontier through Cancun, except
+            # Constantinople (filled as ConstantinopleFix): Frontier,
+            # Homestead, TangerineWhistle, SpuriousDragon, Byzantium,
+            # ConstantinopleFix, Istanbul, Berlin, London, Paris, Shanghai,
+            # Cancun = 12 forks.
+            {"passed": 12, "failed": 0, "skipped": 0, "errors": 0},
             id="valid_until",
         ),
         pytest.param(

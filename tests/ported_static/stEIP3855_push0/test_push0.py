@@ -3,6 +3,9 @@ Test_push0.
 
 Ported from:
 state_tests/Shanghai/stEIP3855_push0/push0Filler.yml
+@manually-enhanced: Do not overwrite. Inner-CALL gas bumped on
+Amsterdam to cover EIP-8037 state-gas spill; pre-EIP-8037 unchanged.
+
 """
 
 import pytest
@@ -16,10 +19,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -80,6 +84,12 @@ def test_push0(
     v: int,
 ) -> None:
     """Test_push0."""
+    # EIP-8037 inner-CALL gas: 100k OoGs the SSTORE-containing callees
+    # on Amsterdam (per-storage state-gas spill). Pre-EIP-8037 keeps
+    # the original 100k.
+    inner_call_gas = 100000
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 1000000
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     contract_1 = Address(0x0000000000000000000000000000000000001000)
@@ -113,7 +123,7 @@ def test_push0(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=Op.SHR(0x60, Op.CALLDATALOAD(offset=Op.DUP1)),
                 value=Op.DUP1,
                 args_offset=Op.DUP1,
@@ -191,7 +201,7 @@ def test_push0(
         code=Op.SSTORE(
             key=0x0,
             value=Op.STATICCALL(
-                gas=0x186A0,
+                gas=inner_call_gas,
                 address=0x600,
                 args_offset=Op.DUP1,
                 args_size=Op.DUP1,
@@ -266,13 +276,11 @@ def test_push0(
         contract_5,
         contract_7,
     ]
-    tx_gas = [700000]
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         error=_exc,
     )
 

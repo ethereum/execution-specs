@@ -16,7 +16,7 @@ The genesis configuration for a chain is specified with a
 import json
 import pkgutil
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, Type, TypeVar, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, FixedBytes
@@ -34,6 +34,7 @@ from ethereum.utils.hexadecimal import (
 )
 
 
+@final
 @slotted_freezable
 @dataclass
 class GenesisConfiguration:
@@ -133,6 +134,7 @@ HeaderT = TypeVar("HeaderT")
 BlockT = TypeVar("BlockT")
 
 
+@final
 @slotted_freezable
 @dataclass
 class GenesisFork(
@@ -264,6 +266,9 @@ def add_genesis_block(
 
     if has_field(hardfork.Header, "block_access_list_hash"):
         fields["block_access_list_hash"] = keccak256(rlp.encode([]))
+
+    if has_field(hardfork.Header, "slot_number"):
+        fields["slot_number"] = U64(0)
 
     genesis_header = hardfork.Header(**fields)
 

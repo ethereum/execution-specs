@@ -5,7 +5,7 @@ transactions are the events that move between states.
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
@@ -19,11 +19,12 @@ from ethereum.exceptions import (
     InvalidSignatureError,
     NonceOverflowError,
 )
+from ethereum.state import Address
 
 from .exceptions import TransactionTypeError
-from .fork_types import Address
 
 
+@final
 @slotted_freezable
 @dataclass
 class LegacyTransaction:
@@ -82,6 +83,7 @@ class LegacyTransaction:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Access:
@@ -101,6 +103,7 @@ class Access:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class AccessListTransaction:
@@ -289,7 +292,25 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     return GasCosts.TX_BASE + data_cost + create_cost + access_list_cost
 
 
-def recover_sender(chain_id: U64, tx: Transaction) -> Address:
+def chain_id(tx: Transaction) -> None | U64:
+    """
+    Extract the chain identifier from a transaction. See [EIP-155].
+
+    [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
+    """
+    if isinstance(tx, LegacyTransaction):
+        if tx.v == 27 or tx.v == 28:
+            return None
+
+        if tx.v < U256(35):
+            raise InvalidSignatureError("bad v")
+
+        return U64((tx.v - U256(35)) >> U256(1))
+    else:
+        return tx.chain_id
+
+
+def recover_sender(tx: Transaction) -> Address:
     """
     Extracts the sender address from a transaction.
 
@@ -316,14 +337,14 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
                 r, s, v - U256(27), signing_hash_pre155(tx)
             )
         else:
-            chain_id_x2 = U256(chain_id) * U256(2)
-            if v != U256(35) + chain_id_x2 and v != U256(36) + chain_id_x2:
-                raise InvalidSignatureError("bad v")
+            assert v >= U256(35), "call chain_id before recover_sender"
+            tx_chain_id = U64((v - U256(35)) >> U256(1))
+            v = (v - U256(35)) & U256(1)
             public_key = secp256k1_recover(
                 r,
                 s,
-                v - U256(35) - chain_id_x2,
-                signing_hash_155(tx, chain_id),
+                v,
+                signing_hash_155(tx, tx_chain_id),
             )
     elif isinstance(tx, AccessListTransaction):
         if tx.y_parity not in (U256(0), U256(1)):

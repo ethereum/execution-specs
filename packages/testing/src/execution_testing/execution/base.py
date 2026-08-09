@@ -9,6 +9,7 @@ from pytest import FixtureRequest
 from execution_testing.base_types import Address, CamelModel
 from execution_testing.forks import Fork
 from execution_testing.rpc import EngineRPC, EthRPC
+from execution_testing.test_types import Environment
 
 
 class ExecuteResult(CamelModel):
@@ -42,18 +43,32 @@ class BaseExecute(CamelModel):
             # Register the new execute format
             BaseExecute.formats[cls.format_name] = cls
 
-    def get_required_sender_balances(
+    def prepare_transactions(
         self,
         *,
+        env: Environment,
         gas_price: int,
         max_fee_per_gas: int,
         max_priority_fee_per_gas: int,
         max_fee_per_blob_gas: int,
         fork: Fork,
-    ) -> Dict[Address, int]:
-        """Get the required sender balances."""
+    ) -> None:
+        """Prepare transactions by setting their final gas properties."""
+        del env
         del gas_price, max_fee_per_gas, max_priority_fee_per_gas
         del max_fee_per_blob_gas, fork
+        raise Exception(
+            "Method `prepare_transactions` not implemented for "
+            f"{self.format_name}"
+        )
+
+    def get_required_sender_balances(
+        self,
+        *,
+        fork: Fork,
+    ) -> Dict[Address, int]:
+        """Get the required sender balances."""
+        del fork
         raise Exception(
             "Method `get_required_sender_balances` not implemented for "
             f"{self.format_name}"

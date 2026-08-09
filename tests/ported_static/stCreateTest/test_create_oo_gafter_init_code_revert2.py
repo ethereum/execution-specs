@@ -18,10 +18,11 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -73,21 +74,31 @@ def test_create_oo_gafter_init_code_revert2(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
+    # The two CALL budgets below straddle the callee's CREATE base
+    # charge: contract_1 sits ~1_000 gas above so its CREATE+REVERT
+    # completes; contract_2 sits ~1_000 gas below so it OOGs at
+    # CREATE and contract_2 reads zero from the un-written return
+    # buffer. Derived from `fork.gas_costs().OPCODE_CREATE_BASE`
+    # (32_000 pre-EIP-8037, 9_000 on Amsterdam+) so the cliff stays
+    # correct as the constant evolves.
+    create_base = fork.gas_costs().OPCODE_CREATE_BASE
+    contract_1_call_gas = create_base + 1000
+    contract_2_call_gas = create_base - 1000
+
     # Source: lll
     # { (CALL (GAS) (CALLDATALOAD 0) 0 0 0 0 0) }
     contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.CALL(
             gas=Op.GAS,
-            address=Op.CALLDATALOAD(offset=0x0),
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
+            address=Op.CALLDATALOAD(offset=0),
+            value=0,
+            args_offset=0,
+            args_size=0,
+            ret_offset=0,
+            ret_size=0,
         )
         + Op.STOP,
         balance=0xE8D4A51000,
@@ -97,9 +108,9 @@ def test_create_oo_gafter_init_code_revert2(
     # Source: lll
     # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE 0 18 14) (REVERT 0 32) }  # noqa: E501
     contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
-        + Op.POP(Op.CREATE(value=0x0, offset=0x12, size=0xE))
-        + Op.REVERT(offset=0x0, size=0x20)
+        code=Op.MSTORE(offset=0, value=0x6460016001556000526005601BF3)
+        + Op.POP(Op.CREATE(value=0, offset=18, size=14))
+        + Op.REVERT(offset=0, size=32)
         + Op.STOP,
         nonce=0,
         address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
@@ -109,16 +120,16 @@ def test_create_oo_gafter_init_code_revert2(
     contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
-                gas=0x80E8,
+                gas=contract_1_call_gas,
                 address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
+                value=0,
+                args_offset=0,
+                args_size=0,
+                ret_offset=0,
+                ret_size=32,
             )
         )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.SSTORE(key=1, value=Op.MLOAD(offset=0))
         + Op.STOP,
         storage={1: 255},
         nonce=0,
@@ -129,16 +140,16 @@ def test_create_oo_gafter_init_code_revert2(
     contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(
             Op.CALL(
-                gas=0x59D8,
+                gas=contract_2_call_gas,
                 address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x20,
+                value=0,
+                args_offset=0,
+                args_size=0,
+                ret_offset=0,
+                ret_size=32,
             )
         )
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.SSTORE(key=1, value=Op.MLOAD(offset=0))
         + Op.STOP,
         storage={1: 255},
         nonce=0,
@@ -176,13 +187,11 @@ def test_create_oo_gafter_init_code_revert2(
         Hash(contract_1, left_padding=True),
         Hash(contract_2, left_padding=True),
     ]
-    tx_gas = [175000]
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         error=_exc,
     )
 

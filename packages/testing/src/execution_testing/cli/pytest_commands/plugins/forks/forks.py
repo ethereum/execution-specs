@@ -12,9 +12,11 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    FrozenSet,
     Iterable,
     Iterator,
     List,
+    Self,
     Set,
     Tuple,
     Type,
@@ -22,7 +24,7 @@ from typing import (
 
 import pytest
 from _pytest.mark.structures import ParameterSet
-from pytest import Mark, Metafunc
+from pytest import Mark, Metafunc, StashKey
 
 from execution_testing.client_clis import TransitionTool
 from execution_testing.forks import (
@@ -43,6 +45,10 @@ from execution_testing.logging import (
 )
 
 logger = get_logger(__name__)
+
+# Session-scoped cache for the lazily-computed unsupported-fork set
+# (see `get_unsupported_forks`).
+unsupported_forks_key: StashKey[FrozenSet[Fork | TransitionFork]] = StashKey()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -118,7 +124,7 @@ class ForkParametrizer:
             marks = []
         self.fork_covariant_parameters = [
             ForkCovariantParameter(
-                names=["parametrized_fork"],
+                names=["fork"],
                 values=[
                     pytest.param(
                         fork,
@@ -453,6 +459,15 @@ fork_covariant_decorators: List[Type[CovariantDecorator]] = [
         fork_attribute_name="system_contracts",
         argnames=["system_contract"],
     ),
+    covariant_decorator(
+        marker_name="with_all_refund_types",
+        description=(
+            "marks a test to be parametrized for all refund types at "
+            "parameter named refund_type"
+        ),
+        fork_attribute_name="refund_types",
+        argnames=["refund_type"],
+    ),
 ]
 
 
@@ -612,18 +627,38 @@ def pytest_configure(config: pytest.Config) -> None:
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
 
-    config.unsupported_forks: Set[Fork | TransitionFork] = set()  # type: ignore
+
+def get_unsupported_forks(
+    config: pytest.Config,
+) -> FrozenSet[Fork | TransitionFork]:
+    """
+    Return the selected forks not supported by the configured t8n tool.
+
+    The result is computed once and cached in ``config.stash``. Computation is
+    deferred out of ``pytest_configure`` (where it previously lived) so that
+    the ``ethereum`` package, imported when the t8n tool is queried, is only
+    imported after pytest-cov has started the xdist worker's coverage session.
+    Importing it earlier left it "previously imported, but not measured".
+    """
+    cached = config.stash.get(unsupported_forks_key, None)
+    if cached is not None:
+        return cached
+
+    selected_fork_set: Set[Fork | TransitionFork] = config.selected_fork_set  # type: ignore[attr-defined]
     t8n: TransitionTool | None = getattr(config, "t8n", None)
-    if t8n:
-        config.unsupported_forks = frozenset(  # type: ignore
+    if t8n is None:
+        unsupported_forks: FrozenSet[Fork | TransitionFork] = frozenset()
+    else:
+        unsupported_forks = frozenset(
             fork
             for fork in selected_fork_set
             if not t8n.is_fork_supported(fork.transitions_from())
             or not t8n.is_fork_supported(fork.transitions_to())
         )
-        logger.debug(
-            f"List of unsupported forks: {list(config.unsupported_forks)}"  # type: ignore
-        )
+        logger.debug(f"List of unsupported forks: {list(unsupported_forks)}")
+
+    config.stash[unsupported_forks_key] = unsupported_forks
+    return unsupported_forks
 
 
 @pytest.hookimpl(trylast=True)
@@ -643,7 +678,7 @@ def pytest_report_header(config: pytest.Config, start_path: Any) -> List[str]:
             + reset
         ),
     ]
-    unsupported_forks: Set[Fork | TransitionFork] = config.unsupported_forks  # type: ignore[attr-defined]
+    unsupported_forks = get_unsupported_forks(config)
     if unsupported_forks:
         t8n_name = config.t8n.__class__.__name__  # type: ignore[attr-defined]
         excluded = ", ".join(f.name() for f in sorted(unsupported_forks))
@@ -671,7 +706,7 @@ def pytest_report_header(config: pytest.Config, start_path: Any) -> List[str]:
 
 
 @pytest.fixture(autouse=True)
-def parametrized_fork(request: pytest.FixtureRequest) -> None:
+def fork(request: pytest.FixtureRequest) -> None:
     """Parametrize test cases by fork."""
     pass
 
@@ -792,12 +827,14 @@ class ValidityMarker(ABC):
         for marker in markers:
             for marker_name in ALL_VALIDITY_MARKERS:
                 if marker.name == marker_name:
-                    if marker_name in markers_dict:
-                        raise Exception(
-                            f"Too many '{marker_name}' markers applied to test"
-                        )
                     cls = ALL_VALIDITY_MARKERS[marker.name]
-                    markers_dict[marker_name] = cls(mark=marker)
+                    new_marker = cls(mark=marker)
+                    try:
+                        existing_marker = markers_dict[marker_name]
+                    except KeyError:
+                        markers_dict[marker_name] = new_marker
+                    else:
+                        existing_marker.update(new_marker)
 
         for cls in ALL_VALIDITY_MARKERS.values():
             if cls.flag and cls.marker_name not in markers_dict:
@@ -906,6 +943,26 @@ class ValidityMarker(ABC):
         """
         pass
 
+    def update(self, other: Self) -> None:
+        """
+        Update `self` to be the more strict of `self` or `other`.
+
+        For example:
+
+        >>> first = ValidFrom("Frontier")
+        >>> second = ValidFrom("Osaka")
+        >>> first.update(second)
+        >>> print(first)
+        ValidFrom("Osaka")
+
+        If `self` cannot be updated (no merging is possible/implemented),
+        raises an exception.
+        """
+        del other
+        raise Exception(
+            f"Too many '{self.marker_name}' markers applied to test"
+        )
+
 
 class ValidFrom(ValidityMarker):
     """
@@ -940,6 +997,21 @@ class ValidFrom(ValidityMarker):
         for fork in forks:
             resulting_set |= {f for f in ALL_FORKS if f >= fork}
         return resulting_set
+
+    def update(self, other: Self) -> None:
+        """Replace `self` with `other` if `other` is more restrictive."""
+        if self.mark is None:
+            self.mark = other.mark
+            return
+
+        if other.mark is None:
+            return
+
+        ours = len(self._process_with_marker_args(*self.mark.args))
+        theirs = len(other._process_with_marker_args(*other.mark.args))
+
+        if theirs < ours:
+            self.mark = other.mark
 
 
 class ValidUntil(ValidityMarker):
@@ -1234,9 +1306,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     ],
                 )
             ]
-            metafunc.parametrize(
-                "parametrized_fork", pytest_params, scope="function"
-            )
+            metafunc.parametrize("fork", pytest_params, scope="function")
         return
 
     # Get the intersection between the test's validity marker and the current
@@ -1245,13 +1315,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         test_fork_set & metafunc.config.selected_fork_set  # type: ignore
     )
 
-    if "parametrized_fork" not in metafunc.fixturenames:
+    if "fork" not in metafunc.fixturenames:
         return
 
-    unsupported_forks: Set[Fork | TransitionFork] = (
-        metafunc.config.unsupported_forks  # type: ignore
-    )
-    intersection_set -= unsupported_forks
+    intersection_set -= get_unsupported_forks(metafunc.config)
 
     if not intersection_set:
         if metafunc.config.getoption("verbose") >= 2:
@@ -1268,9 +1335,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     ],
                 )
             ]
-            metafunc.parametrize(
-                "parametrized_fork", pytest_params, scope="function"
-            )
+            metafunc.parametrize("fork", pytest_params, scope="function")
     else:
         pytest_params = []
         for fork in sorted(intersection_set):
@@ -1519,7 +1584,16 @@ def _combination_filter_reason(
                 f"{predicate!r}",
                 returncode=pytest.ExitCode.USAGE_ERROR,
             )
-        if not predicate(**params):
+        try:
+            keep = predicate(**params)
+        except TypeError as e:
+            pytest.exit(
+                f"filter_combinations predicate for "
+                f"'{item.nodeid}' cannot be called with the "
+                f"item's params: {e}",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
+        if not keep:
             return marker.kwargs.get(
                 "reason", "rejected by filter_combinations"
             )
@@ -1574,7 +1648,7 @@ def pytest_collection_modifyitems(
                 continue
 
         # --- validity markers ---
-        fork = params.get("parametrized_fork")
+        fork = params.get("fork")
         if fork is None:
             continue
 

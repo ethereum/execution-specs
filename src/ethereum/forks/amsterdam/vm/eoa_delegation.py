@@ -2,33 +2,40 @@
 Set EOA account code.
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Set, Tuple
 
 from ethereum_rlp import rlp
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
-from ethereum.exceptions import InvalidBlock, InvalidSignatureError
+from ethereum.exceptions import InvalidSignatureError
 from ethereum.state import Address
 
-from ..fork_types import Authorization
+from ..fork_types import Authorization, ExecutionGas
 from ..state_tracker import (
+    TransactionState,
     account_exists,
     get_account,
     get_code,
+    get_pre_state_account,
     increment_nonce,
     set_code,
 )
 from ..utils.hexadecimal import hex_to_address
-from ..vm.gas import GasCosts
-from . import Evm, Message
+from ..vm.gas import (
+    GasCosts,
+    GasMeter,
+    StateGasCosts,
+    charge_gas_from_meter,
+    charge_state_gas_from_meter,
+)
+from . import BlockEnvironment, Evm, TransactionEnvironment
 
 SET_CODE_TX_MAGIC = b"\x05"
 EOA_DELEGATION_MARKER = b"\xef\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
-REFUND_AUTH_PER_EXISTING_ACCOUNT = 12500
 NULL_ADDRESS = hex_to_address("0x0000000000000000000000000000000000000000")
 
 
@@ -48,12 +55,10 @@ def is_valid_delegation(code: bytes) -> bool:
         False otherwise.
 
     """
-    if (
+    return (
         len(code) == EOA_DELEGATED_CODE_LENGTH
         and code[:EOA_DELEGATION_MARKER_LENGTH] == EOA_DELEGATION_MARKER
-    ):
-        return True
-    return False
+    )
 
 
 def get_delegated_code_address(code: bytes) -> Optional[Address]:
@@ -74,6 +79,34 @@ def get_delegated_code_address(code: bytes) -> Optional[Address]:
     if is_valid_delegation(code):
         return Address(code[EOA_DELEGATION_MARKER_LENGTH:])
     return None
+
+
+def resolve_delegated_code_address(
+    state: TransactionState,
+    gas_meter: GasMeter,
+    accessed_addresses: Set[Address],
+    target_address: Address,
+) -> Tuple[Address, bool]:
+    """
+    Resolve the address of the code a call target executes.
+
+    If `target_address` carries a delegation designation, charge the
+    warm or cold access for the delegated address, warm it, and return
+    it with precompiles disabled; otherwise return `target_address`
+    unchanged.
+    """
+    code = get_code(state, get_account(state, target_address).code_hash)
+    delegated_address = get_delegated_code_address(code)
+    if delegated_address is None:
+        return target_address, False
+
+    if delegated_address in accessed_addresses:
+        charge_gas_from_meter(gas_meter, GasCosts.WARM_ACCESS)
+    else:
+        charge_gas_from_meter(gas_meter, GasCosts.COLD_ACCOUNT_ACCESS)
+        accessed_addresses.add(delegated_address)
+
+    return delegated_address, True
 
 
 def recover_authority(authorization: Authorization) -> Address:
@@ -121,7 +154,7 @@ def recover_authority(authorization: Authorization) -> Address:
 
 def calculate_delegation_cost(
     evm: Evm, address: Address
-) -> Tuple[bool, Address, Uint]:
+) -> Tuple[bool, Address, ExecutionGas]:
     """
     Get the delegation address and the cost of access from the address.
 
@@ -134,16 +167,16 @@ def calculate_delegation_cost(
 
     Returns
     -------
-    delegation : `Tuple[bool, Address, Uint]`
+    delegation : `Tuple[bool, Address, ExecutionGas]`
         The delegation address and access gas cost.
 
     """
-    tx_state = evm.message.tx_env.state
+    tx_state = evm.tx_env.state
 
     code = get_code(tx_state, get_account(tx_state, address).code_hash)
 
     if not is_valid_delegation(code):
-        return False, address, Uint(0)
+        return False, address, GasCosts.ZERO
 
     delegated_address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
 
@@ -155,67 +188,134 @@ def calculate_delegation_cost(
     return True, delegated_address, delegation_gas_cost
 
 
-def set_delegation(message: Message) -> U256:
+def validate_authorization(
+    block_env: BlockEnvironment,
+    tx_env: TransactionEnvironment,
+    accessed_authorities: Set[Address],
+    auth: Authorization,
+) -> Optional[Address]:
     """
-    Set the delegation code for the authorities in the message.
+    Check if the given `Authorization` is valid against the current state.
+
+    Returns the `authority` address, or `None` if the validation was
+    unsuccessful.
+    """
+    tx_state = tx_env.state
+
+    if auth.chain_id not in (block_env.chain_id, U256(0)):
+        return None
+
+    if auth.nonce >= U64.MAX_VALUE:
+        return None
+
+    try:
+        authority = recover_authority(auth)
+    except InvalidSignatureError:
+        return None
+
+    accessed_authorities.add(authority)
+
+    authority_account = get_account(tx_state, authority)
+    authority_code = get_code(tx_state, authority_account.code_hash)
+
+    if authority_code and not is_valid_delegation(authority_code):
+        return None
+
+    authority_nonce = authority_account.nonce
+    if authority_nonce != auth.nonce:
+        return None
+
+    return authority
+
+
+def set_delegation(
+    block_env: BlockEnvironment,
+    tx_env: TransactionEnvironment,
+    gas_meter: GasMeter,
+) -> Set[Address]:
+    """
+    Apply the EIP-7702 authorizations and charge their state-dependent
+    costs at the top frame.
+
+    Each valid authorization is charged, on top of the
+    state-independent ``GasCosts.EXECUTION_PER_AUTH_BASE_COST`` already
+    paid in the intrinsic cost:
+
+    - ``StateGasCosts.NEW_ACCOUNT`` (state) when the authority's
+      account leaf does not yet exist.
+    - ``GasCosts.ACCOUNT_WRITE`` (execution) when applying the
+      authorization is the transaction's first write to the authority's
+      leaf. Writes the transaction already prices elsewhere are
+      exempt: the sender's, covered by ``TX_BASE``, and, for a
+      value-bearing transaction, the recipient's, covered by
+      ``TX_VALUE_COST``. Repeated authorizations on one authority pay
+      it once.
+    - ``StateGasCosts.AUTH_BASE`` (state) when a net-new delegation
+      indicator is written: the authority held no delegation before the
+      transaction, none was set for it earlier in the transaction, and
+      this authorization sets one. It is charged at most once per
+      authority and is never credited back -- a delegation set and then
+      cleared in the same transaction keeps its charge.
+
+    These costs depend on the authority's current state and so cannot
+    be charged in the intrinsic cost. Insufficient gas raises an
+    ``OutOfGasError``; the caller rolls back the authorizations applied
+    so far and halts the top frame.
 
     Parameters
     ----------
-    message :
-        Transaction specific items.
+    block_env :
+        Environment for the Ethereum Virtual Machine.
+    tx_env :
+        Environment for the transaction.
+    gas_meter :
+        Gas meter of the top-level frame.
 
     Returns
     -------
-    refund_counter: `U256`
-        Refund from authority which already exists in state.
+    accessed_authorities : `Set[Address]`
+        Authorities recovered from the authorizations, warmed for the
+        transaction.
 
     """
-    tx_state = message.tx_env.state
-    refund_counter = U256(0)
-    for auth in message.tx_env.authorizations:
-        if auth.chain_id not in (message.block_env.chain_id, U256(0)):
-            continue
+    assert not tx_env.is_create
+    tx_state = tx_env.state
+    # Authorities a delegation was set for earlier in this transaction.
+    accessed_authorities: Set[Address] = set()
+    delegation_set_for: Set[Address] = set()
+    for auth in tx_env.authorizations:
+        match validate_authorization(
+            block_env, tx_env, accessed_authorities, auth
+        ):
+            case None:
+                continue
+            case authority:
+                pass
 
-        if auth.nonce >= U64.MAX_VALUE:
-            continue
+        if not account_exists(tx_state, authority):
+            charge_state_gas_from_meter(gas_meter, StateGasCosts.NEW_ACCOUNT)
 
-        try:
-            authority = recover_authority(auth)
-        except InvalidSignatureError:
-            continue
+        if authority not in tx_env.accounts_with_paid_writes:
+            charge_gas_from_meter(gas_meter, GasCosts.ACCOUNT_WRITE)
+            tx_env.accounts_with_paid_writes.add(authority)
 
-        message.accessed_addresses.add(authority)
-
-        authority_account = get_account(tx_state, authority)
-        authority_code = get_code(tx_state, authority_account.code_hash)
-
-        if authority_code and not is_valid_delegation(authority_code):
-            continue
-
-        authority_nonce = authority_account.nonce
-        if authority_nonce != auth.nonce:
-            continue
-
-        if account_exists(tx_state, authority):
-            refund_counter += U256(
-                GasCosts.AUTH_PER_EMPTY_ACCOUNT
-                - REFUND_AUTH_PER_EXISTING_ACCOUNT
-            )
+        pre_state_authority_account = get_pre_state_account(
+            tx_state, authority
+        )
+        pre_state_authority_code = get_code(
+            tx_state, pre_state_authority_account.code_hash
+        )
+        delegated_before_tx = is_valid_delegation(pre_state_authority_code)
 
         if auth.address == NULL_ADDRESS:
             code_to_set = b""
         else:
+            if not delegated_before_tx and authority not in delegation_set_for:
+                charge_state_gas_from_meter(gas_meter, StateGasCosts.AUTH_BASE)
+            delegation_set_for.add(authority)
             code_to_set = EOA_DELEGATION_MARKER + auth.address
 
         set_code(tx_state, authority, code_to_set)
         increment_nonce(tx_state, authority)
 
-    if message.code_address is None:
-        raise InvalidBlock("Invalid type 4 transaction: no target")
-
-    message.code = get_code(
-        tx_state,
-        get_account(tx_state, message.code_address).code_hash,
-    )
-
-    return refund_counter
+    return accessed_authorities

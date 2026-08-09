@@ -3,6 +3,8 @@ Check opcode values in create2 init code. Create2 called with different...
 
 Ported from:
 state_tests/stCreate2/create2checkFieldsInInitcodeFiller.json
+@manually-enhanced: Do not overwrite. The env `gas_limit` is omitted so
+the framework default supplies ample gas for EIP-8037 state accounting.
 """
 
 import pytest
@@ -17,10 +19,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -115,7 +118,6 @@ def test_create2check_fields_in_initcode(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000,
     )
 
     pre[sender] = Account(balance=0x56BC75E2D63100000)
@@ -472,13 +474,11 @@ def test_create2check_fields_in_initcode(
         Hash(contract_6, left_padding=True),
         Hash(contract_8, left_padding=True),
     ]
-    tx_gas = [600000]
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
         data=tx_data[d],
-        gas_limit=tx_gas[g],
         error=_exc,
     )
 

@@ -6,6 +6,7 @@ import argparse
 import json
 import os.path
 import socketserver
+import sys
 import time
 from http.server import BaseHTTPRequestHandler
 from io import StringIO, TextIOWrapper
@@ -116,7 +117,17 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
             main(args=args, out_file=out_wrapper, in_file=input)
 
 
-class _UnixSocketHttpServer(socketserver.UnixStreamServer):
+if sys.platform == "win32":
+    # Windows has no Unix domain sockets, so ``socketserver.UnixStreamServer``
+    # is undefined there. The daemon cannot run on Windows, but this module
+    # must stay importable (``Daemon.run`` rejects the platform explicitly),
+    # so fall back to a base class that exists everywhere.
+    _UnixStreamServerBase = socketserver.TCPServer
+else:
+    _UnixStreamServerBase = socketserver.UnixStreamServer
+
+
+class _UnixSocketHttpServer(_UnixStreamServerBase):
     last_response: float
     shutdown_timeout: int
 
@@ -179,6 +190,11 @@ class Daemon:
         self.timeout = options.timeout
 
     def _run(self) -> int:
+        if sys.platform == "win32":
+            raise RuntimeError(
+                "The t8n daemon relies on Unix domain sockets, which are "
+                "not available on Windows."
+            )
         try:
             os.remove(self.uds)
         except IOError:

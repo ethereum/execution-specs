@@ -17,10 +17,11 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -30,6 +31,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stCodeSizeLimit/createCodeSizeLimitFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_before("EIP7954")
 @pytest.mark.parametrize(
     "d, g, v",
     [
@@ -120,9 +122,14 @@ def test_create_code_size_limit(
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
+    # Initcode: PUSH2 <size> PUSH1 0 RETURN. Sizes scale with
+    # fork.max_code_size() so pre-7954 forks get 0x6000 / 0x6001 and
+    # Amsterdam+ gets 0x8000 / 0x8001. CREATE address is
+    # nonce-derived and unaffected by the initcode bytes.
+    max_code_size = fork.max_code_size()
     tx_data = [
-        Bytes("6160006000f3"),
-        Bytes("6160016000f3"),
+        Bytes(b"\x61" + max_code_size.to_bytes(2) + b"\x60\x00\xf3"),
+        Bytes(b"\x61" + (max_code_size + 1).to_bytes(2) + b"\x60\x00\xf3"),
     ]
     tx_gas = [15000000]
 

@@ -232,6 +232,109 @@ def test_invalid_layout(
     )
 
 
+@pytest.mark.exception_test
+@pytest.mark.eels_base_coverage
+def test_invalid_layout_with_swapped_decodable_offsets(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Test a deposit log whose ABI offsets are noncanonical but still decodable.
+    """
+    changed_log = create_deposit_log_bytes_with_swapped_amount_and_signature()
+
+    bytecode = Om.MSTORE(changed_log) + Op.LOG1(
+        0,
+        len(changed_log),
+        Spec.DEPOSIT_EVENT_SIGNATURE_HASH,
+    )
+    bytecode += Op.STOP
+
+    pre[Spec.DEPOSIT_CONTRACT_ADDRESS] = Account(
+        code=bytecode,
+        nonce=1,
+        balance=0,
+    )
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        to=Spec.DEPOSIT_CONTRACT_ADDRESS,
+        sender=sender,
+        gas_limit=100_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=[
+                    BlockException.INVALID_DEPOSIT_EVENT_LAYOUT,
+                ],
+            ),
+        ],
+        post={},
+    )
+
+
+def create_deposit_log_bytes_with_swapped_amount_and_signature() -> bytes:
+    """
+    Create deposit log bytes with amount and signature dynamic slots swapped.
+    """
+    result = bytearray(576)
+
+    write_uint256(result, 0, 160)
+    write_uint256(result, 32, 256)
+    write_uint256(result, 64, 448)
+    write_uint256(result, 96, 320)
+    write_uint256(result, 128, 512)
+
+    write_bytes_field(
+        result,
+        160,
+        48,
+        DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT["pubkey_data"],
+    )
+    write_bytes_field(
+        result,
+        256,
+        32,
+        DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT["withdrawal_credentials_data"],
+    )
+    write_bytes_field(
+        result,
+        320,
+        96,
+        DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT["signature_data"],
+    )
+    write_bytes_field(
+        result,
+        448,
+        8,
+        DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT["amount_data"],
+    )
+    write_bytes_field(
+        result,
+        512,
+        8,
+        DEFAULT_DEPOSIT_REQUEST_LOG_DATA_DICT["index_data"],
+    )
+
+    return bytes(result)
+
+
+def write_uint256(data: bytearray, offset: int, value: int) -> None:
+    """Write an ABI uint256 word."""
+    data[offset : offset + 32] = value.to_bytes(32, byteorder="big")
+
+
+def write_bytes_field(
+    data: bytearray, offset: int, size: int, value: bytes
+) -> None:
+    """Write an ABI dynamic bytes field at its data offset."""
+    write_uint256(data, offset, size)
+    data[offset + 32 : offset + 32 + len(value)] = value
+
+
 @pytest.mark.parametrize("slice_bytes", [True, False])
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage

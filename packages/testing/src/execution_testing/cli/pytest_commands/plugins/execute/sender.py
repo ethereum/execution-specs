@@ -10,7 +10,9 @@ from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
 
 from execution_testing.base_types import Account, Address, Number, Wei
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
+from execution_testing.recipient_type import RecipientType
 from execution_testing.rpc import EthRPC
 from execution_testing.rpc.rpc_types import JSONRPCError
 from execution_testing.test_types import (
@@ -56,9 +58,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         dest="sender_fund_refund_gas_limit",
         type=Wei,
-        default=21_000,
+        default=None,
         help=(
-            "Gas limit set for the funding transactions of each worker's sender key."  # noqa: E501
+            "Gas limit set for the funding transactions of each worker's "
+            "sender key. Default=None (derived from the fork's cost of a "
+            "value transfer that creates the recipient account)."
         ),
     )
 
@@ -97,9 +101,27 @@ def sender_funding_transactions_gas_price(
 
 
 @pytest.fixture(scope="session")
-def sender_fund_refund_gas_limit(request: pytest.FixtureRequest) -> int:
-    """Get the gas limit of the funding transactions."""
-    gas_limit = request.config.option.sender_fund_refund_gas_limit
+def sender_fund_refund_gas_limit(
+    request: pytest.FixtureRequest,
+    session_fork: Fork | TransitionFork,
+) -> int:
+    """
+    Get the gas limit of the funding and refund transactions.
+
+    A funding transaction creates the recipient account, which is charged
+    account-creation state gas on top of the intrinsic cost, so the default
+    is derived from the fork instead of being a fixed value.
+    """
+    gas_limit: int | None = request.config.option.sender_fund_refund_gas_limit
+    if gas_limit is None:
+        fork = session_fork.transitions_to()
+        gas_limit = fork.transaction_intrinsic_cost_calculator()(
+            sends_value=True,
+            recipient_type=RecipientType.EMPTY_ACCOUNT,
+        ) + fork.transaction_top_frame_state_gas(
+            sends_value=True,
+            recipient_type=RecipientType.EMPTY_ACCOUNT,
+        )
     logger.info(f"Using gas limit for funding transactions: {gas_limit}")
     return gas_limit
 

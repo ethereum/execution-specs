@@ -8,19 +8,6 @@ invalid_merge_marker = "Marge"  # codespell:ignore marge
 
 invalid_validity_marker_test_cases = (
     (
-        "too_many_valid_from_markers",
-        (
-            """
-            import pytest
-            @pytest.mark.valid_from("Paris")
-            @pytest.mark.valid_from("Paris")
-            def test_case(state_test):
-                assert 0
-            """,
-            "Too many 'valid_from' markers applied to test",
-        ),
-    ),
-    (
         "too_many_valid_until_markers",
         (
             """
@@ -248,24 +235,6 @@ def test_invalid_validity_markers(
 
 
 param_level_marker_error_test_cases = (
-    (
-        "param_level_valid_from_with_function_level_valid_from",
-        (
-            """
-            import pytest
-            @pytest.mark.parametrize(
-                "value",
-                [
-                    pytest.param(True, marks=pytest.mark.valid_from("Paris")),
-                ],
-            )
-            @pytest.mark.valid_from("Berlin")
-            def test_case(state_test, value):
-                assert 1
-            """,
-            "Too many 'valid_from' markers applied to test",
-        ),
-    ),
     (
         "param_level_valid_until_with_function_level_valid_until",
         (

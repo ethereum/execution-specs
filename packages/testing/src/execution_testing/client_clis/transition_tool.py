@@ -169,7 +169,7 @@ class OutputCache:
             # Without this, every cached subcall would retain its own
             # `output/alloc.json` on disk for the test's lifetime - O(N) for
             # an N-block chained test.
-            alloc.get()
+            alloc.materialize()
             alloc._keepalive = None
         self._cache[subkey] = value
 
@@ -202,6 +202,7 @@ class TransitionTool(EthereumCLI):
     debug_dump_dir: Path | None = None
     call_counter: int = 0
     opcode_count: OpcodeCount | None = None
+    opcode_count_per_block: List[OpcodeCount] | None = None
 
     supports_opcode_count: ClassVar[bool] = False
     supports_xdist: ClassVar[bool] = True
@@ -314,6 +315,7 @@ class TransitionTool(EthereumCLI):
         Reset the opcode count to zero.
         """
         self.opcode_count = OpcodeCount({})
+        self.opcode_count_per_block = []
 
     @dataclass
     class TransitionToolData:
@@ -414,9 +416,12 @@ class TransitionTool(EthereumCLI):
         )
         fork_name = self.fork_name_map.get(fork_name, fork_name)
 
-        # Construct args for evmone-t8n binary
-        args = [
-            str(self.binary),
+        # Prepend the binary and its t8n subcommand if it uses one (e.g.
+        # evmone's `t8n`), as construct_args_stream does, then the t8n flags.
+        args = [str(self.binary)]
+        if self.subcommand:
+            args.append(self.subcommand)
+        args += [
             "--state.fork",
             fork_name,
             "--input.alloc",
@@ -666,7 +671,7 @@ class TransitionTool(EthereumCLI):
                 dump_files_to_directory(
                     debug_output_path,
                     {
-                        "output/alloc.json": output.alloc.raw,
+                        "output/alloc.json": output.alloc,
                         "output/result.json": output.result,
                         "output/txs.rlp": str(output.body),
                         "response_info.txt": response_info,
@@ -984,6 +989,8 @@ class TransitionTool(EthereumCLI):
             and self.opcode_count is not None
         ):
             self.opcode_count += result.result.opcode_count
+            if self.opcode_count_per_block is not None:
+                self.opcode_count_per_block.append(result.result.opcode_count)
         return result
 
     def evaluate(

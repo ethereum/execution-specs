@@ -6,11 +6,13 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    ChainConfig,
     Fork,
     ParameterSet,
     StateTestFiller,
     Transaction,
     TransactionException,
+    add_kzg_version,
 )
 from execution_testing import Opcodes as Op
 
@@ -70,3 +72,37 @@ def test_eip1559_tx_validity(
         post[sender] = pre[sender]  # type: ignore
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("SpuriousDragon")
+@pytest.mark.exception_test
+@pytest.mark.with_all_tx_types
+def test_invalid_chain_id(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    chain_config: ChainConfig,
+    tx_type: int,
+) -> None:
+    """
+    Test that a transaction with a different chain id is not valid.
+    """
+    to = pre.fund_eoa(0xDEADBEEE)
+
+    blob_versioned_hashes = add_kzg_version([0], 1) if tx_type == 3 else None
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        value=1,
+        chain_id=chain_config.chain_id + 1,
+        ty=tx_type,
+        to=to,
+        error=TransactionException.INVALID_CHAINID,
+        blob_versioned_hashes=blob_versioned_hashes,
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            to: Account(balance=0xDEADBEEE),
+        },
+    )

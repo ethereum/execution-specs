@@ -3,6 +3,8 @@ Create fails because init code has undefined opcode, trying to suicide...
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createInitFailUndefinedInstructionFiller.json
+
+@manually-enhanced: Do not overwrite. tx `gas_limit` has been removed.
 """
 
 import pytest
@@ -42,7 +44,6 @@ def test_create_init_fail_undefined_instruction(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=1000000000,
     )
 
     # Source: lll
@@ -98,13 +99,7 @@ def test_create_init_fail_undefined_instruction(
         nonce=0,
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=target,
-        data=Bytes(""),
-        gas_limit=900000,
-        value=0x186A0,
-    )
+    tx = Transaction(sender=sender, to=target, data=Bytes(""), value=0x186A0)
 
     post = {target: Account(storage={2: 1})}
 

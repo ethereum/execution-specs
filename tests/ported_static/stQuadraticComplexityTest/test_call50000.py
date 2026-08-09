@@ -3,6 +3,9 @@ Test_call50000.
 
 Ported from:
 state_tests/stQuadraticComplexityTest/Call50000Filler.json
+
+@manually-enhanced: Do not overwrite. Post-state expectations corrected
+manually (see PR #2784).
 """
 
 import pytest
@@ -16,10 +19,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -70,11 +74,11 @@ def test_call50000(
         gas_limit=860000000,
     )
 
-    addr = pre.fund_eoa(amount=7000)  # noqa: F841
+    addr = pre.fund_eoa(amount=7000)
     # Source: lll
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALL 1600 <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
-    target = pre.deploy_contract(  # noqa: F841
-        code=Op.JUMPDEST
+    target_code = (
+        Op.JUMPDEST
         + Op.JUMPI(
             pc=0x3F, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
         )
@@ -94,7 +98,10 @@ def test_call50000(
         + Op.JUMP(pc=0x0)
         + Op.JUMPDEST
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
-        + Op.STOP,
+        + Op.STOP
+    )
+    target = pre.deploy_contract(
+        code=target_code,
         balance=0xFFFFFFFFFFFFF,
         nonce=0,
     )
@@ -108,9 +115,7 @@ def test_call50000(
                 addr: Account(storage={}, code=b"", nonce=0),
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015603f576000600061c3506000600173d9b97c712ebce43f3c19179bbef44b550f9e8bc0610640f16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
+                    code=bytes(target_code),
                     nonce=0,
                 ),
             },
@@ -123,9 +128,7 @@ def test_call50000(
                 addr: Account(storage={}, code=b"", nonce=0),
                 target: Account(
                     storage={},
-                    code=bytes.fromhex(
-                        "5b61c3506080511015603f576000600061c3506000600173d9b97c712ebce43f3c19179bbef44b550f9e8bc0610640f16000556001608051016080526000565b60805160015500"  # noqa: E501
-                    ),
+                    code=bytes(target_code),
                     nonce=0,
                 ),
             },

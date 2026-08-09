@@ -40,7 +40,6 @@ def test_call10(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     addr = pre.fund_eoa(amount=7000)  # noqa: F841
@@ -76,7 +75,6 @@ def test_call10(
         sender=sender,
         to=target,
         data=Bytes(""),
-        gas_limit=200000,
         value=10,
     )
 

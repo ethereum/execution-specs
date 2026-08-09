@@ -60,8 +60,10 @@ def fixture_format_discriminator(v: Any) -> str | None:
 class FixtureFillingPhase(Enum):
     """Execution phase for fixture generation."""
 
-    PRE_ALLOC_GENERATION = auto()
     FILL = auto()
+    PRE_ALLOC_GENERATION = auto()
+    FILL_AFTER_PRE_ALLOC_GENERATION = auto()
+    FILL_STATEFUL = auto()
 
 
 class BaseFixture(CamelModel):
@@ -83,7 +85,10 @@ class BaseFixture(CamelModel):
     output_file_extension: ClassVar[str] = ".json"
     description: ClassVar[str] = "Unknown fixture format; it has not been set."
     format_phases: ClassVar[Set[FixtureFillingPhase]] = {
-        FixtureFillingPhase.FILL
+        # Normal fixture types can be filled whether the pre-alloc phase was
+        # executed or not.
+        FixtureFillingPhase.FILL,
+        FixtureFillingPhase.FILL_AFTER_PRE_ALLOC_GENERATION,
     }
     transition_tool_cache_key: ClassVar[str] = ""
 

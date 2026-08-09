@@ -191,8 +191,6 @@ def test_calldatacopy(
 
     tx = Transaction(
         data=tx_data,
-        gas_limit=100_000,
-        gas_price=0x0A,
         protected=fork.supports_protected_txs(),
         sender=pre.fund_eoa(),
         to=to,

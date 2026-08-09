@@ -36,6 +36,9 @@ class GasCosts:
     CALL_VALUE: int
     CALL_STIPEND: int
     NEW_ACCOUNT: int
+    ACCOUNT_WRITE: int = 0
+    CREATE_ACCESS: int = 0
+    TX_VALUE_COST: int = 0
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: int
@@ -43,6 +46,12 @@ class GasCosts:
 
     # Authorization
     AUTH_PER_EMPTY_ACCOUNT: int
+    # State gas for writing a net-new EIP-7702 delegation indicator;
+    # 0 before the state-creation repricing introduces it.
+    AUTH_BASE: int = 0
+    # State-independent execution gas charged per EIP-7702 authorization
+    # tuple; 0 before the state-access repricing introduces it.
+    EXECUTION_PER_AUTH_BASE_COST: int = 0
 
     # Utility
     MEMORY_PER_WORD: int
@@ -136,7 +145,7 @@ class GasCosts:
     OPCODE_LOG_DATA_PER_BYTE: int
     OPCODE_LOG_TOPIC: int
     OPCODE_KECCAK256_BASE: int
-    OPCODE_KECCACK256_PER_WORD: int
+    OPCODE_KECCAK256_PER_WORD: int
 
     # Defined post-Frontier
     OPCODE_SHL: int = 0
@@ -146,3 +155,5 @@ class GasCosts:
     OPCODE_BLOBHASH: int = 0
     OPCODE_MCOPY_BASE: int = 0
     OPCODE_CLZ: int = 0
+    OPCODE_TLOAD: int = 0
+    OPCODE_TSTORE: int = 0

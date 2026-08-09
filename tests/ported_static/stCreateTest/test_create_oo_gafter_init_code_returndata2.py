@@ -3,6 +3,10 @@ Call RETURNDATASIZE and RETURNDATACOPY after CREATE deploy a contract....
 
 Ported from:
 state_tests/stCreateTest/CreateOOGafterInitCodeReturndata2Filler.json
+@manually-enhanced: Do not overwrite. tx_gas[1] is tuned to barely
+finish CREATE + two post-deploy SSTOREs on Cancun; on Amsterdam the
+NEW_ACCOUNT and SSTORE-set state-gas spills, so lift the budget by
+Fork.oog_budget_lift.
 """
 
 import pytest
@@ -18,10 +22,11 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -70,7 +75,6 @@ def test_create_oo_gafter_init_code_returndata2(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=10000000,
     )
 
     pre[sender] = Account(balance=0xE8D4A51000)
@@ -117,7 +121,11 @@ def test_create_oo_gafter_init_code_returndata2(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [54000, 95000]
+    tx_gas = [
+        54000,
+        95000
+        + fork.oog_budget_lift(creates_before_oog=1, sstores_before_oog=2),
+    ]
 
     tx = Transaction(
         sender=sender,

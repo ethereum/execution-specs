@@ -143,7 +143,6 @@ def test_create_suicide_store(
     expect_post[slot_program_success] = 1
 
     tx = Transaction(
-        gas_limit=1_000_000,
         to=create_contract,
         data=suicide_initcode,
         sender=sender,

@@ -13,13 +13,15 @@ from execution_testing import (
     Bytes,
     Environment,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -137,26 +139,43 @@ def test_static_callcodecallcodecall_110_suicide_end2(
         address=Address(0xB7770360E0B87603E3D9C87C866451760C95ABCA),  # noqa: E501
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": -1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={0: 1, 1: 0x2CEBFF}, balance=0, nonce=0
-                )
+    if fork.is_eip_enabled(8037):
+        target_storage = Storage.model_validate({0: 1})
+        target_storage.set_expect_any(1)
+        expect_entries_: list[dict] = [
+            {
+                "indexes": {"data": -1, "gas": -1, "value": -1},
+                "network": [">=Cancun"],
+                "result": {
+                    target: Account(storage=target_storage, balance=0, nonce=0)
+                },
             },
-        },
-        {
-            "indexes": {"data": -1, "gas": -1, "value": 1},
-            "network": [">=Cancun"],
-            "result": {
-                target: Account(
-                    storage={0: 1, 1: 0x2CB7A7}, balance=0, nonce=0
-                )
+        ]
+    else:
+        expect_entries_ = [
+            {
+                "indexes": {"data": -1, "gas": -1, "value": 0},
+                "network": [">=Cancun"],
+                "result": {
+                    target: Account(
+                        storage={0: 1, 1: 0x2CEBFF},
+                        balance=0,
+                        nonce=0,
+                    )
+                },
             },
-        },
-    ]
+            {
+                "indexes": {"data": -1, "gas": -1, "value": 1},
+                "network": [">=Cancun"],
+                "result": {
+                    target: Account(
+                        storage={0: 1, 1: 0x2CB7A7},
+                        balance=0,
+                        nonce=0,
+                    )
+                },
+            },
+        ]
 
     post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 

@@ -200,10 +200,14 @@ def caller_address(pre: Alloc, caller_code: Bytecode) -> Address:
 @pytest.fixture
 def caller_tx(sender: EOA, caller_address: Address, fork: Fork) -> Transaction:
     """Transaction that performs the call to the caller contract."""
+    gas_limit = 500_000
+    if fork.is_eip_enabled(8037):
+        gas_limit = 1_000_000
+
     return Transaction(
         to=caller_address,
         value=1,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
         sender=sender,
         protected=fork.supports_protected_txs(),
     )
@@ -230,7 +234,7 @@ def expected_block_access_list(
     gas_shortage: int,
 ) -> None | BlockAccessListExpectation:
     """The expected block access list for >=Amsterdam cases."""
-    if fork.header_bal_hash_required():
+    if fork.is_eip_enabled(7928):
         if callee_opcode == Op.CALL:
             if gas_shortage:
                 # call runs OOG after state access due to `is_account_alive` in
@@ -326,8 +330,8 @@ def test_value_transfer_gas_calculation_byzantium(
     post: Dict[str, Account],
 ) -> None:
     """
-    Tests the nested CALL/CALLCODE/DELEGATECALL/STATICCALL opcode gas
-    consumption with a positive value transfer.
+    Test nested CALL/CALLCODE/DELEGATECALL/STATICCALL gas consumption with
+    value transfer from Byzantium onward.
     """
     state_test(env=Environment(), pre=pre, post=post, tx=caller_tx)
 

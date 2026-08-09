@@ -29,7 +29,7 @@ When done with changes, ask the user if they'd like to run `/lint` before commit
 - **There is no `main` branch.** Default branch = most active fork (currently `forks/amsterdam`). Run `git remote show origin | grep HEAD` to check.
 - `mainnet` = stable specs for forks live on mainnet
 - PRs target the default branch
-- PRs strictly follow the template in `.github/PULL_REQUEST_TEMPLATE.md`. In the Checklist section, include unchecked items that don't apply — only remove them if they are truly irrelevant to the PR type.
+- PRs strictly follow the template in `.github/PULL_REQUEST_TEMPLATE.md`.
 
 ## PR Reviews
 
@@ -42,6 +42,7 @@ When reviewing PRs that implement or test EIPs:
 ## When to Use Skills
 
 - Writing or modifying tests → run `/write-test` first
+- Cleaning up or future-proofing a `tests/ported_static/` test → run `/enhance-ported-test` first
 - Writing or modifying pytester-based plugin tests → run `/pytester` first
 - Filling test fixtures → run `/fill-tests` first
 - Implementing an EIP or modifying fork code in `src/` → run `/implement-eip` first
@@ -55,6 +56,7 @@ When reviewing PRs that implement or test EIPs:
 ## Available Skills
 
 - `/write-test` — test writing patterns, fixtures, markers, bytecode helpers
+- `/enhance-ported-test` — ordered methodology to clean up & future-proof `tests/ported_static/` tests
 - `/pytester` — pytester execution modes, isolation, output handling for plugin tests
 - `/fill-tests` — `fill` CLI reference, flags, debugging, benchmark tests
 - `/implement-eip` — fork structure, import rules, adding opcodes/precompiles/tx types

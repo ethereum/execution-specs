@@ -3,6 +3,11 @@ CreateMessageReverted for CREATE2.
 
 Ported from:
 state_tests/stCreate2/CreateMessageRevertedFiller.json
+@manually-enhanced: Do not overwrite. tx_gas[1] bumped on Amsterdam to
+cover EIP-8037 state-gas spill (CREATE2 new account + 2 fresh
+SSTOREs in init code); pre-EIP-8037 unchanged. g0 (OoG case) is
+intentionally left alone.
+
 """
 
 import pytest
@@ -17,10 +22,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -72,7 +78,10 @@ def test_create_message_reverted(
         gas_limit=1000000000000,
     )
 
-    pre[sender] = Account(balance=0x2DC6C0)
+    sender_balance = 3000000
+    if fork.is_eip_enabled(8037):
+        sender_balance = 10000000
+    pre[sender] = Account(balance=sender_balance)
     # Source: lll
     # {(MSTORE 0 0x600c600055600d600155) (CREATE2 0 22 10 0)}
     contract_0 = pre.deploy_contract(  # noqa: F841
@@ -112,6 +121,8 @@ def test_create_message_reverted(
         Bytes(""),
     ]
     tx_gas = [80000, 150000]
+    if fork.is_eip_enabled(8037):
+        tx_gas = [80000, 500_000]
     tx_value = [100]
 
     tx = Transaction(

@@ -20,6 +20,7 @@ on:
       - ".github/actions/load-docker-images/**"
       - ".github/configs/hive/**"
       - "packages/testing/src/execution_testing/cli/pytest_commands/consume.py"
+      - "packages/testing/src/execution_testing/cli/pytest_commands/build_block.py"
       - "packages/testing/src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/consume/**"
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/pytest_hive/**"
@@ -68,7 +69,14 @@ env:
 jobs:
   cache-docker-images:
     name: Cache Docker Images
-    runs-on: [self-hosted-ghr, size-l-x64]
+    # On PRs this job is normally a pure cache restore (~12s), so run it on a
+    # GitHub-hosted runner instead of paying the ~2.5 min self-hosted
+    # provisioning wait, which would gate every test-hive job. Push and
+    # dispatch runs stay on self-hosted so the weekly cache is populated from
+    # GHR egress IPs, avoiding Docker Hub's per-IP rate limits on the shared
+    # GitHub-hosted IPs. A PR that lands right after the weekly cache-key
+    # rollover pulls the 3 images unauthenticated; that rare miss is accepted.
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["self-hosted-ghr", "size-l-x64"]') }}
     steps:
       - name: Checkout execution-specs
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -106,15 +114,27 @@ jobs:
             mode: simulator
             simulator: ethereum/eels/consume-sync
             sim_limit: ".*test_block_at_rlp_limit_with_logs.*Osaka.*"
-          - name: Dev Mode
+          - name: Dev Mode Consume Engine
             mode: dev
-            consume_command: engine
+            cli_command: consume engine
             test_filter: "Osaka and test_block_at_rlp_limit_with_logs"
           # TODO: Enable once we have a release with the pre-alloc builder format cf #2140
-          # - name: dev-mode-enginex
+          # - name: Dev Mode Consume EngineX
           #   mode: dev
-          #   consume_command: enginex
+          #   cli_command: consume enginex
           #   test_filter: "(fork_shanghai or fork_cancun) and push0"
+          # NOTE: build-block uses testing_buildBlockV1 on the HTTP RPC port
+          # (8545), which has a smaller body cap than the Engine API port
+          # (8551); avoid filters that target near-block-size-limit tests.
+          - name: Dev Mode Build Block
+            mode: dev
+            cli_command: build-block
+            test_filter: "Osaka and test_clz_stack_underflow"
+          # TODO: Enable once eels/build-block simulator is added to Hive
+          # - name: Build Block
+          #   mode: simulator
+          #   simulator: ethereum/eels/build-block
+          #   sim_limit: ".*test_block_at_rlp_limit_with_logs.*Osaka.*"
     steps:
       - name: Checkout execution-specs
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -128,6 +148,14 @@ jobs:
           ref: master
           path: hive
 
+      # Redirect Go's caches to a per-job temp dir so the setup-go cache
+      # restore doesn't collide with a persistent $GOMODCACHE on
+      # self-hosted runners (see build-benchmark-genesis/action.yaml).
+      - name: Use ephemeral Go cache dirs
+        shell: bash
+        run: |
+          echo "GOMODCACHE=${{ runner.temp }}/go/mod" >> "$GITHUB_ENV"
+          echo "GOCACHE=${{ runner.temp }}/go/build" >> "$GITHUB_ENV"
       - name: Setup go env and cache
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
@@ -139,10 +167,6 @@ jobs:
         uses: ./execution-specs/.github/actions/setup-uv
         with:
           cache-dependency-glob: "execution-specs/uv.lock"
-
-      - name: Setup environment
-        if: matrix.mode == 'dev'
-        uses: ./execution-specs/.github/actions/setup-env
 
       - name: Load cached Docker images
         uses: ./execution-specs/.github/actions/load-docker-images
@@ -186,14 +210,14 @@ jobs:
           hive-path: hive
           timeout: "30"
 
-      - name: Run consume in dev mode
+      - name: Run dev mode command
         if: matrix.mode == 'dev'
         working-directory: execution-specs
         env:
           HIVE_SIMULATOR: ${{ steps.start-hive.outputs.hive-url }}
         run: |
           uv sync --all-extras
-          uv run consume ${{ matrix.consume_command }} --input ${{ env.FIXTURES_URL }} -k "${{ matrix.test_filter }}"
+          uv run ${{ matrix.cli_command }} --input ${{ env.FIXTURES_URL }} -k "${{ matrix.test_filter }}"
 
       - name: Upload Hive logs
         if: always()

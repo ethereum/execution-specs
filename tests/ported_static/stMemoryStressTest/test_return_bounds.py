@@ -16,10 +16,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -63,9 +64,7 @@ def test_return_bounds(
 ) -> None:
     """Test_return_bounds."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(
-        amount=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-    )
+    sender = pre.fund_eoa(amount=2**128 - 1)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -73,7 +72,6 @@ def test_return_bounds(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
     )
 
     # Source: lll
@@ -430,7 +428,7 @@ def test_return_bounds(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [150000, 500000, 15000000]
+    tx_gas = [150000, None if fork.is_eip_enabled(8037) else 500000, 15000000]
     tx_value = [1]
 
     tx = Transaction(

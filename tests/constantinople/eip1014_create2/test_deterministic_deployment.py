@@ -41,13 +41,11 @@ def test_deterministic_deployment(
         sender=sender,
         to=contract_address,
         data=Hash(0),
-        gas_limit=100_000,
     )
     set_tx = Transaction(
         sender=sender,
         to=contract_address,
         data=Hash(1),
-        gas_limit=100_000,
     )
 
     post = {

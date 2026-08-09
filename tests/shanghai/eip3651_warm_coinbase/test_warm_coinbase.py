@@ -93,7 +93,6 @@ def test_warm_coinbase_call_out_of_gas(
 
     tx = Transaction(
         to=caller_address,
-        gas_limit=100_000,
         sender=sender,
     )
 
@@ -187,7 +186,6 @@ def test_warm_coinbase_gas_usage(
 
     tx = Transaction(
         to=measure_address,
-        gas_limit=100_000,
         sender=sender,
     )
 

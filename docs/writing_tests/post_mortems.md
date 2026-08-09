@@ -44,6 +44,80 @@ None required - the existing framework supported writing these tests.
 
 ---
 
+## 2026-06 - Block Access List Storage Change Cardinality - Amsterdam
+
+### Description
+
+A stateless zkEVM client implementation was found to mishandle a single account that accumulates a large number of distinct storage changes in the block access list (EIP-7928). When preloading the transaction recipient's BAL storage keys, the client copied them into a fixed-size buffer sized for 16 slots with no bounds check. A transaction that wrote more than 16 distinct storage slots to one contract overflowed the buffer into adjacent state, corrupting the transaction's computed gas usage and therefore the block validity verdict.
+
+The bug was latent against the existing test suite: no fixture exercised more than eight distinct storage changes for a single account, and those eight were spread one-per-transaction (`test_bal_cross_tx_storage_chain`), so the per-account, per-transaction storage-change cardinality never approached the buffer boundary.
+
+### Root Cause Analysis
+
+- Existing BAL storage tests focused on the correctness of recording, ordering, and the uniqueness rules for small numbers of slots; the high-cardinality case (many distinct slots for one account in one transaction) was implicitly assumed covered or low-risk.
+- No fixture pushed a single account past a handful of storage changes, so fixed-size per-account buffers in client implementations were never stressed.
+- The block access list is a new structure in EIP-7928, so client-side handling of large per-account storage-change lists had little prior fuzzing or property-based coverage.
+
+### Steps Taken To Avoid Recurrence
+
+- Added a parametrized regression test that writes many distinct, previously-zero storage slots (17, 32, and 128) to one contract in a single transaction and asserts the BAL records every slot, in ascending order, at a single block access index.
+
+### Implemented Test Case
+
+- `tests/amsterdam/eip7928_block_level_access_lists/test_block_access_lists.py::test_bal_many_storage_writes_single_account`
+
+### Framework/Documentation Changes
+
+None required - the existing framework supported writing these tests.
+
+---
+
+## 2026-06 - CREATE2 Failed Deposit Storage State-Gas Refund - Amsterdam
+
+### Description
+
+A consensus divergence was found via goevmlab differential fuzzing in
+go-ethereum's Amsterdam (bal-devnet-7) EIP-8037 implementation: when a `CREATE2`
+whose init code writes new storage slots fails its code deposit — either because
+the deposited code is rejected by EIP-3541, or because the EIP-8037 code-deposit
+state gas cannot be paid — the create frame reverts, but only the new-account
+state-creation gas is refunded; the init's storage-slot state-creation gas
+(`STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE` per slot) is not. The
+transaction over-reports gas used (by `num_slots * 97920`), so the sender and
+coinbase balances — and the post-state root — diverge from the reference spec
+and from revm/nethermind/besu/erigon/ethrex.
+
+### Root Cause Analysis
+
+- State-creation gas charged inside a `CREATE`/`CREATE2` init frame must be fully
+  reverted when the create fails, for both the new account and any storage slots
+  the init wrote. The existing `eip8037` suite covered the create-init storage
+  charge on the success path and same-tx slot-reset refunds, but never isolated
+  the refund of storage-slot state gas on a create *failure*.
+- The new-account state-gas refund on failure was already correct, which masked
+  the missing storage-slot refund: a failing create with no init storage agrees
+  across clients, so only the combination "failing create + init storage"
+  exposes it.
+- Differential fuzzing (goevmlab) surfaced it where direct enumeration had not.
+
+### Steps Taken To Avoid Recurrence
+
+- Added a parametric regression test over the failure mechanism (EIP-3541 reject
+  and code-deposit OOG) and the number of init storage slots (`0`, `1`, `3`). The
+  `slots=0` case is a negative control (account-creation refund only) that must
+  not diverge; the `slots>=1` cases isolate the storage-slot state-gas refund on
+  create failure and scale the discrepancy with the slot count.
+
+### Implemented Test Case
+
+- `tests/amsterdam/eip8037_state_creation_gas_cost_increase/test_state_gas_create.py::test_create2_failed_deposit_refunds_storage_state_gas`
+
+### Framework/Documentation Changes
+
+None required - the existing framework supported writing this test.
+
+---
+
 ## TEMPLATE
 
 ## Date - Title - Fork

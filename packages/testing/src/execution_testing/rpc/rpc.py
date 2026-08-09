@@ -8,7 +8,16 @@ import time
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pprint import pprint
-from typing import Any, Callable, ClassVar, Dict, List, Literal, Sequence
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Self,
+    Sequence,
+)
 
 import requests
 from jwt import encode
@@ -28,7 +37,6 @@ from tenacity import (
 from execution_testing.base_types import (
     Account,
     Address,
-    Alloc,
     Bytes,
     Hash,
     to_json,
@@ -36,13 +44,16 @@ from execution_testing.base_types import (
 from execution_testing.logging import (
     get_logger,
 )
+from execution_testing.test_types import Alloc
 
 from .rpc_types import (
     EthConfigResponse,
     ForkchoiceState,
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
+    GetBlobsV4Response,
     GetPayloadResponse,
+    JSONRPCError,
     JSONRPCRequest,
     JSONRPCResponse,
     PayloadAttributes,
@@ -55,6 +66,13 @@ from .rpc_types import (
 
 logger = get_logger(__name__)
 BlockNumberType = int | Literal["latest", "earliest", "pending"]
+TimeoutType = float | tuple[float, float] | None
+
+# Default (connect, read) timeout for JSON-RPC requests. Without one, a
+# request whose packets are silently dropped (e.g. by docker network
+# churn in hive) blocks until the kernel abandons TCP retransmission,
+# which takes ~15 minutes on Linux.
+DEFAULT_REQUEST_TIMEOUT: TimeoutType = (10.0, 300.0)
 
 
 class SendTransactionExceptionError(Exception):
@@ -141,6 +159,29 @@ class ForkchoiceUpdateTimeoutError(Exception):
         super().__init__(msg)
 
 
+class NewPayloadTimeoutError(Exception):
+    """Raised when ``engine_newPayload`` stays SYNCING past the retry limit."""
+
+    def __init__(
+        self,
+        attempts: int,
+        elapsed: float,
+        interval: float,
+        final_status: PayloadStatusEnum,
+    ):
+        """Initialize with retry statistics and final status."""
+        self.attempts = attempts
+        self.elapsed = elapsed
+        self.interval = interval
+        self.final_status = final_status
+        msg = (
+            f"new_payload stayed SYNCING after {attempts} attempts over "
+            f"{elapsed:.1f}s (interval: {interval}s), final status: "
+            f"{final_status}"
+        )
+        super().__init__(msg)
+
+
 class PeerConnectionTimeoutError(Exception):
     """Raised when peer connection is not established within retry limits."""
 
@@ -172,20 +213,62 @@ class BaseRPC:
     simulators.
     """
 
+    OVERLOAD_THRESHOLD: int = 1000
+    DEFAULT_MAX_BATCH_SIZE: int = 750
+
     namespace: ClassVar[str]
     response_validation_context: Any | None
+    request_timeout: TimeoutType
+    max_batch_size: int
 
     def __init__(
         self,
         url: str,
         *,
         response_validation_context: Any | None = None,
+        request_timeout: TimeoutType = DEFAULT_REQUEST_TIMEOUT,
+        max_batch_size: int | None = None,
     ):
-        """Initialize BaseRPC class with the given url."""
+        """
+        Initialize BaseRPC class with the given url.
+
+        - `request_timeout` bounds every request made through this client;
+        `None` disables the bound.
+        - `max_batch_size` caps how many calls in a single batch request.
+        """
         self.url = url
         self.request_id_counter = count(1)
         self.response_validation_context = response_validation_context
+        self.request_timeout = request_timeout
+        if max_batch_size is not None and max_batch_size < 1:
+            raise ValueError(
+                f"max_batch_size must be >= 1, got {max_batch_size}"
+            )
+        self.max_batch_size = max_batch_size or self.DEFAULT_MAX_BATCH_SIZE
+        if self.max_batch_size > self.OVERLOAD_THRESHOLD:
+            logger.warning(
+                f"max_batch_size ({max_batch_size}) exceeds safe threshold "
+                f"({self.OVERLOAD_THRESHOLD}) and may cause RPC instability."
+            )
         self.session = requests.Session()
+
+    def close(self) -> None:
+        """
+        Close the underlying HTTP session, releasing its pooled sockets.
+
+        RPC instances are typically created per test; closing the session
+        on teardown prevents file descriptors from accumulating across a
+        client that serves many tests.
+        """
+        self.session.close()
+
+    def __enter__(self) -> Self:
+        """Enter the runtime context, returning this RPC instance."""
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Close the HTTP session on context-manager exit."""
+        self.close()
 
     def __init_subclass__(cls, namespace: str | None = None) -> None:
         """
@@ -200,7 +283,11 @@ class BaseRPC:
 
     @retry(
         retry=retry_if_exception_type(
-            (requests.ConnectionError, ConnectionRefusedError)
+            (
+                requests.ConnectionError,
+                requests.Timeout,
+                ConnectionRefusedError,
+            )
         ),
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=0.5, min=0.5, max=4.0),
@@ -212,19 +299,24 @@ class BaseRPC:
         url: str,
         json_payload: dict[str, Any] | list[dict[str, Any]],
         headers: dict[str, str],
-        timeout: int | None,
+        timeout: TimeoutType,
     ) -> requests.Response:
         """
-        Make HTTP POST request with retry logic for connection errors only.
+        Make HTTP POST request with retry logic for transport errors only.
 
-        This method only retries network-level connection failures
-        (ConnectionError, ConnectionRefusedError). HTTP status errors (4xx/5xx)
-        are handled by the caller using response.raise_for_status() WITHOUT
-        retries because:
+        This method only retries network-level failures: connection errors
+        (ConnectionError, ConnectionRefusedError) and timeouts. Re-sending
+        cannot corrupt state: the methods used here either read state or
+        re-broadcast the same signed payload. A re-sent transaction may
+        however be answered with a duplicate-transaction error rather than
+        its hash. HTTP status errors (4xx/5xx) are handled by the caller
+        using response.raise_for_status() WITHOUT retries because:
         - 4xx errors are client errors (permanent failures, no point retrying)
         - 5xx errors are server errors that typically indicate
           application-level issues rather than transient network problems
         """
+        if timeout is None:
+            timeout = self.request_timeout
         logger.debug(f"Making HTTP request to {url}, timeout={timeout}")
         return self.session.post(
             url, json=json_payload, headers=headers, timeout=timeout
@@ -261,11 +353,13 @@ class BaseRPC:
         *,
         request: RPCCall,
         extra_headers: Dict[str, str] | None = None,
-        timeout: int | None = None,
+        timeout: TimeoutType = None,
     ) -> JSONRPCResponse:
         """
         Send JSON-RPC POST request to the client RPC server at port defined in
         the url.
+
+        A `timeout` of `None` applies the client's `request_timeout`.
         """
         if extra_headers is None:
             extra_headers = {}
@@ -278,7 +372,7 @@ class BaseRPC:
 
         logger.debug(
             f"Sending RPC request to {self.url}, "
-            f"method={json_rpc_request.method}, timeout={timeout}..."
+            f"method={json_rpc_request.method}..."
         )
 
         response = self._make_request(
@@ -288,20 +382,13 @@ class BaseRPC:
 
         return JSONRPCResponse.model_validate(response.json())
 
-    def post_batch_request(
+    def _post_single_batch(
         self,
-        *,
         calls: Sequence[RPCCall],
-        extra_headers: Dict[str, str] | None = None,
-        timeout: int | None = None,
+        extra_headers: Dict[str, str],
+        timeout: TimeoutType,
     ) -> List[JSONRPCResponse]:
-        """
-        Send a JSON-RPC batch POST request to the client RPC server at port
-        defined in the url.
-        """
-        if extra_headers is None:
-            extra_headers = {}
-
+        """Send one batch POST and return responses in request order."""
         json_rpc_requests = [
             self._build_json_rpc_request(call) for call in calls
         ]
@@ -313,7 +400,7 @@ class BaseRPC:
 
         logger.debug(
             f"Sending batch RPC request to {self.url}, "
-            f"{len(json_rpc_requests)} calls, timeout={timeout}..."
+            f"{len(json_rpc_requests)} calls..."
         )
 
         response = self._make_request(self.url, payload, headers, timeout)
@@ -338,8 +425,35 @@ class BaseRPC:
             )
             results.append(response_map[json_rpc_request.id])
 
-        logger.info(f"Batch RPC: {len(results)} responses received")
         return results
+
+    def post_batch_request(
+        self,
+        *,
+        calls: Sequence[RPCCall],
+        extra_headers: Dict[str, str] | None = None,
+        timeout: TimeoutType = None,
+    ) -> List[JSONRPCResponse]:
+        """
+        Send JSON-RPC batch POST requests to the client RPC server at port
+        defined in the url.
+
+        Responses are returned in the same order as `calls`.
+        """
+        if not calls:
+            return []
+        if extra_headers is None:
+            extra_headers = {}
+
+        responses: List[JSONRPCResponse] = []
+        for start in range(0, len(calls), self.max_batch_size):
+            chunk = calls[start : start + self.max_batch_size]
+            responses.extend(
+                self._post_single_batch(chunk, extra_headers, timeout)
+            )
+
+        logger.info(f"Batch RPC: {len(responses)} responses received")
+        return responses
 
 
 class BaseJwtRPC(BaseRPC):
@@ -382,12 +496,8 @@ class EthRPC(BaseRPC):
     within EEST based hive simulators.
     """
 
-    OVERLOAD_THRESHOLD: int = 1000
-    DEFAULT_MAX_TRANSACTIONS_PER_BATCH: int = 750
-
     transaction_wait_timeout: int = 60
     poll_interval: float = 1.0  # how often to poll for tx inclusion
-    max_transactions_per_batch: int = DEFAULT_MAX_TRANSACTIONS_PER_BATCH
 
     gas_information_stale_seconds: int
 
@@ -402,7 +512,6 @@ class EthRPC(BaseRPC):
         transaction_wait_timeout: int = 60,
         poll_interval: float | None = None,
         gas_information_stale_seconds: int = 12,
-        max_transactions_per_batch: int | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize JWT-authenticated RPC class with the given JWT secret."""
@@ -436,19 +545,6 @@ class EthRPC(BaseRPC):
             "maxPriorityFeePerGas": 0.0,
             "blobBaseFee": 0.0,
         }
-
-        # Transaction batching configuration
-        if max_transactions_per_batch is None:
-            max_transactions_per_batch = (
-                self.DEFAULT_MAX_TRANSACTIONS_PER_BATCH
-            )
-        self.max_transactions_per_batch = max_transactions_per_batch
-        if max_transactions_per_batch > self.OVERLOAD_THRESHOLD:
-            logger.warning(
-                f"max_transactions_per_batch ({max_transactions_per_batch}) "
-                f"exceeds the safe threshold ({self.OVERLOAD_THRESHOLD}). "
-                "This may cause RPC service instability or failures."
-            )
 
     def config(self, timeout: int | None = None) -> EthConfigResponse | None:
         """
@@ -611,6 +707,22 @@ class EthRPC(BaseRPC):
         responses = self.post_batch_request(calls=calls)
         return [int(r.result_or_raise(), 16) for r in responses]
 
+    def estimate_gas(
+        self,
+        transaction: Dict[str, Any],
+        block_number: BlockNumberType = "latest",
+    ) -> int:
+        """`eth_estimateGas`: Return the gas required to execute a tx."""
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
+        response = self.post_request(
+            request=RPCCall(method="estimateGas", params=[transaction, block])
+        ).result_or_raise()
+        return int(response, 16)
+
     def get_code(
         self, address: Address, block_number: BlockNumberType = "latest"
     ) -> Bytes:
@@ -741,6 +853,27 @@ class EthRPC(BaseRPC):
             )
         ).result_or_raise()
 
+    def get_transaction_receipts(
+        self, transaction_hashes: Sequence[Hash]
+    ) -> List[dict[str, Any] | None]:
+        """
+        `eth_getTransactionReceipt` batch: receipts for many transactions.
+
+        Returns one entry per input hash, in the same order.
+        """
+        if not transaction_hashes:
+            return []
+        logger.info(f"Batch requesting {len(transaction_hashes)} tx receipts")
+        calls = [
+            RPCCall(
+                method="getTransactionReceipt",
+                params=[f"{tx_hash}"],
+            )
+            for tx_hash in transaction_hashes
+        ]
+        responses = self.post_batch_request(calls=calls)
+        return [r.result_or_raise() for r in responses]
+
     def get_storage_at(
         self,
         address: Address,
@@ -823,6 +956,29 @@ class EthRPC(BaseRPC):
                 str(e), tx_rlp=transaction_rlp
             ) from e
 
+    def _transaction_is_known(
+        self, transaction: TransactionProtocol, error: Exception
+    ) -> bool:
+        """
+        Check whether the client knows `transaction` despite a send error.
+
+        A retried `eth_sendRawTransaction` whose first delivery succeeded
+        is answered with a duplicate-transaction error; if the client can
+        return the transaction by hash, the send in fact succeeded. Lookup
+        failures count as unknown so that the original send error
+        propagates.
+        """
+        try:
+            known = self.get_transaction_by_hash(transaction.hash) is not None
+        except Exception:
+            return False
+        if known:
+            logger.warning(
+                f"Client answered eth_sendRawTransaction with '{error}' "
+                "but knows the transaction; treating the send as success."
+            )
+        return known
+
     def send_transaction(self, transaction: TransactionProtocol) -> Hash:
         """
         Convenience method to send a single transaction to the client via
@@ -842,6 +998,8 @@ class EthRPC(BaseRPC):
             assert result_hash is not None
             return transaction.hash
         except Exception as e:
+            if self._transaction_is_known(transaction, e):
+                return transaction.hash
             raise SendTransactionExceptionError(str(e), tx=transaction) from e
 
     def send_transactions(
@@ -872,6 +1030,9 @@ class EthRPC(BaseRPC):
                 assert result_hash is not None
                 results.append(tx.hash)
             except Exception as e:
+                if self._transaction_is_known(tx, e):
+                    results.append(tx.hash)
+                    continue
                 raise SendTransactionExceptionError(str(e), tx=tx) from e
         return results
 
@@ -1136,7 +1297,7 @@ class EthRPC(BaseRPC):
         block. Transactions are sent in batches to avoid RPC overload.
         """
         results: List[Any] = []
-        batch_size = self.max_transactions_per_batch
+        batch_size = self.max_batch_size
         total_txs = len(transactions)
 
         for i in range(0, total_txs, batch_size):
@@ -1160,12 +1321,91 @@ class DebugRPC(EthRPC):
     used within EEST based hive simulators.
     """
 
+    # JSON-RPC "method not found" error code.
+    _METHOD_NOT_FOUND = -32601
+
+    # JSON-RPC "internal error" code. Nethermind registers debug_setHead
+    # but throws NotImplementedException, surfaced as this code.
+    _METHOD_NOT_IMPLEMENTED = -32603
+
+    # Which head-rewind method the client supports; resolved on first use
+    # so the fallback probe runs only once per session.
+    _rewind_method: str | None = None
+
     def trace_call(self, tr: dict[str, str], block_number: str) -> Any | None:
         """`debug_traceCall`: Returns pre state required for transaction."""
         params = [tr, block_number, {"tracer": "prestateTracer"}]
         return self.post_request(
             request=RPCCall(method="traceCall", params=params)
         ).result_or_raise()
+
+    def trace_block_by_hash(
+        self, block_hash: str, tracer_config: dict[str, Any]
+    ) -> Any:
+        """`debug_traceBlockByHash`: Trace every transaction in a block."""
+        params = [block_hash, tracer_config]
+        return self.post_request(
+            request=RPCCall(method="traceBlockByHash", params=params)
+        ).result_or_raise()
+
+    def set_head(self, block_number: str) -> None:
+        """`debug_setHead`: Reset chain head to the given block number."""
+        self.post_request(
+            request=RPCCall(method="setHead", params=[block_number])
+        ).result_or_raise()
+
+    def reset_head(self, block_hash: str) -> None:
+        """`debug_resetHead`: Reset chain head to the given block hash."""
+        self.post_request(
+            request=RPCCall(method="resetHead", params=[block_hash])
+        ).result_or_raise()
+
+    def rewind_head(self, *, block_number: str, block_hash: str) -> None:
+        """
+        Rewind the chain head to a given block.
+
+        Prefer geth's ``debug_setHead`` (takes a block number); if the
+        client does not expose it (e.g. Nethermind, which returns a
+        "method not found"/"not implemented" error), fall back to
+        ``debug_resetHead`` (takes a block hash). If the client implements
+        neither, give up gracefully (``"none"``): each per-test block is
+        built on its explicit start_block parent, so the client reorgs onto
+        it without a debug rewind. The chosen method is cached after the
+        first call so the probe runs only once.
+
+        Note ``debug_setHead`` truncates the chain (geth), keeping the block
+        tree small, whereas ``debug_resetHead`` only repoints the head on
+        Nethermind — there per-test forks still accumulate as under
+        ``"none"``.
+        """
+        if self._rewind_method is None:
+            try:
+                self.set_head(block_number)
+                self._rewind_method = "setHead"
+                return
+            except JSONRPCError as e:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
+                    raise
+            try:
+                self.reset_head(block_hash)
+                self._rewind_method = "resetHead"
+                return
+            except JSONRPCError as e:
+                if e.code not in (
+                    self._METHOD_NOT_FOUND,
+                    self._METHOD_NOT_IMPLEMENTED,
+                ):
+                    raise
+                self._rewind_method = "none"
+                return
+        if self._rewind_method == "setHead":
+            self.set_head(block_number)
+        elif self._rewind_method == "resetHead":
+            self.reset_head(block_hash)
+        # "none": no debug rewind available; the explicit-parent build reorgs.
 
 
 class EngineRPC(BaseJwtRPC):
@@ -1189,12 +1429,60 @@ class EngineRPC(BaseJwtRPC):
             context=self.response_validation_context,
         )
 
+    def new_payload_with_retry(
+        self,
+        *params: Any,
+        version: int,
+        max_attempts: int = 10,
+        wait_fixed: float = 1.0,
+    ) -> PayloadStatus:
+        """
+        Send ``engine_newPayloadVX``, retrying while SYNCING.
+
+        Mirrors :meth:`forkchoice_updated_with_retry`: returns immediately on
+        any terminal status (VALID / INVALID / ACCEPTED / INVALID_BLOCK_HASH);
+        only loops while the client returns SYNCING. Raises
+        :class:`NewPayloadTimeoutError` if the budget runs out.
+        """
+        attempts = 0
+        start_time = time.time()
+        last_status: PayloadStatusEnum | None = None
+
+        def _on_retry(retry_state: RetryCallState) -> None:
+            logger.debug(
+                f"newPayload attempt {retry_state.attempt_number}: "
+                f"status={last_status}, retrying in {wait_fixed}s..."
+            )
+
+        @retry(
+            stop=stop_after_attempt(max_attempts),
+            wait=wait_fixed_tenacity(wait_fixed),
+            before_sleep=_on_retry,
+            reraise=True,
+        )
+        def _do() -> PayloadStatus:
+            nonlocal attempts, last_status
+            attempts += 1
+            response = self.new_payload(*params, version=version)
+            last_status = response.status
+            if response.status == PayloadStatusEnum.SYNCING:
+                raise NewPayloadTimeoutError(
+                    attempts=attempts,
+                    elapsed=time.time() - start_time,
+                    interval=wait_fixed,
+                    final_status=response.status,
+                )
+            return response
+
+        return _do()
+
     def forkchoice_updated(
         self,
         forkchoice_state: ForkchoiceState,
         payload_attributes: PayloadAttributes | None = None,
         *,
         version: int,
+        custody_columns: bytes | None = None,
     ) -> ForkchoiceUpdateResponse:
         """
         `engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the
@@ -1202,10 +1490,16 @@ class EngineRPC(BaseJwtRPC):
         """
         method = f"forkchoiceUpdatedV{version}"
 
+        params: List[Any]
         if payload_attributes is None:
             params = [to_json(forkchoice_state), None]
         else:
             params = [to_json(forkchoice_state), to_json(payload_attributes)]
+        if custody_columns is not None:
+            # Third parameter of `engine_forkchoiceUpdatedV4` (EIP-8070):
+            # a bitmap of the blob columns custodied by the node.
+            assert version >= 4, "custodyColumns requires forkchoiceUpdatedV4."
+            params.append(f"0x{custody_columns.hex()}")
 
         return ForkchoiceUpdateResponse.model_validate(
             self.post_request(
@@ -1238,21 +1532,33 @@ class EngineRPC(BaseJwtRPC):
         versioned_hashes: List[Hash],
         *,
         version: int,
-    ) -> GetBlobsResponse | None:
+        indices_bitarray: int | None = None,
+    ) -> GetBlobsResponse | GetBlobsV4Response | None:
         """
         `engine_getBlobsVX`: Retrieves blobs from an execution layers tx pool.
         """
         method = f"getBlobsV{version}"
-        params = [f"{h}" for h in versioned_hashes]
+        params: List[Any] = [[f"{h}" for h in versioned_hashes]]
+
+        if version >= 4:
+            assert indices_bitarray is not None, (
+                f"getBlobsV{version} requires an indices_bitarray cell mask."
+            )
+            # `indices_bitarray` is a little-endian 16-byte bitmap where bit
+            # `i` selects cell `i` (execution-apis `engine_getBlobsV4`).
+            params.append(f"0x{indices_bitarray.to_bytes(16, 'little').hex()}")
 
         response = self.post_request(
-            request=RPCCall(method=method, params=[params]),
+            request=RPCCall(method=method, params=params),
         ).result_or_raise()
         if response is None:  # for tests that request non-existing blobs
             logger.debug("get_blobs response received but it has value: None")
             return None
 
-        return GetBlobsResponse.model_validate(
+        response_model = (
+            GetBlobsV4Response if version >= 4 else GetBlobsResponse
+        )
+        return response_model.model_validate(
             response,
             context=self.response_validation_context,
         )
@@ -1414,11 +1720,13 @@ class TestingRPC(BaseRPC):
     testing-only methods like ``testing_buildBlockV1``.
     """
 
+    __test__ = False  # stop pytest from collecting this class as a test
+
     def build_block(
         self,
         parent_block_hash: Hash,
         payload_attributes: PayloadAttributes,
-        transactions: Sequence[TransactionProtocol] | None,
+        transactions: Sequence[TransactionProtocol | Bytes] | None,
         extra_data: Bytes | None = None,
         *,
         version: int = 1,
@@ -1428,6 +1736,9 @@ class TestingRPC(BaseRPC):
         provided *payload_attributes* and *transactions*.
 
         Calls ``testing_buildBlockVX``.
+
+        Transactions can be either ``TransactionProtocol`` objects (with
+        an ``rlp()`` method) or raw ``Bytes`` (already RLP-encoded).
         """
         method = f"buildBlockV{version}"
         params: List[Any] = [
@@ -1435,7 +1746,12 @@ class TestingRPC(BaseRPC):
             to_json(payload_attributes),
         ]
         if transactions is not None:
-            params.append([tx.rlp().hex() for tx in transactions])
+            params.append(
+                [
+                    tx.hex() if isinstance(tx, bytes) else tx.rlp().hex()
+                    for tx in transactions
+                ]
+            )
         else:
             params.append(None)
         if extra_data is not None:
@@ -1456,4 +1772,14 @@ class AdminRPC(BaseRPC):
         """`admin_addPeer`: Add a peer by enode URL."""
         return self.post_request(
             request=RPCCall(method="addPeer", params=[enode])
+        ).result_or_raise()
+
+
+class Web3RPC(BaseRPC, namespace="web3"):
+    """Represents the web3 namespace RPC class."""
+
+    def client_version(self) -> str:
+        """`web3_clientVersion`: Return the client's version identifier."""
+        return self.post_request(
+            request=RPCCall(method="clientVersion", params=[])
         ).result_or_raise()

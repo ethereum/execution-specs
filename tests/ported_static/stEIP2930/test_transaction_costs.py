@@ -3,6 +3,16 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP2930/transactionCostsFiller.yml
+
+@manually-enhanced: Do not overwrite. The post-state asserts the sender
+balance after a STOP-only call. For Amsterdam+ it is derived from
+`fork.transaction_intrinsic_cost_calculator()` (over calldata,
+access_list, and sends_value) as `pre_balance - tx.value -
+intrinsic_gas * gas_price`, instead of a hardcoded literal, so the
+access-list-heavy cases stay correct across the EIP-2780 intrinsic
+decomposition and EIP-7981/EIP-8038 access-list repricing. Pre-Amsterdam
+forks (Cancun/Prague) keep their original hardcoded balances. No
+21_000 baseline or SSTORE-clear constants are subtracted here.
 """
 
 import pytest
@@ -18,10 +28,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Amsterdam, Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -471,6 +482,7 @@ def test_transaction_costs(
             calldata=tx.data,
             contract_creation=tx.to is None,
             access_list=tx.access_list,
+            sends_value=bool(tx.value),
         )
         post[sender] = Account(
             balance=(

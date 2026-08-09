@@ -108,21 +108,24 @@ def pytest_collection_modifyitems(
 
 
 @pytest.fixture(scope="function")
-def eth_rpc(client: Client) -> EthRPC:
+def eth_rpc(client: Client) -> Generator[EthRPC, None, None]:
     """Initialize eth RPC client for the execution client under test."""
-    return EthRPC(f"http://{client.ip}:8545")
+    with EthRPC(f"http://{client.ip}:8545") as rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="function")
-def net_rpc(client: Client) -> NetRPC:
+def net_rpc(client: Client) -> Generator[NetRPC, None, None]:
     """Initialize net RPC client for the execution client under test."""
-    return NetRPC(f"http://{client.ip}:8545")
+    with NetRPC(f"http://{client.ip}:8545") as rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="function")
-def admin_rpc(client: Client) -> AdminRPC:
+def admin_rpc(client: Client) -> Generator[AdminRPC, None, None]:
     """Initialize admin RPC client for the execution client under test."""
-    return AdminRPC(f"http://{client.ip}:8545")
+    with AdminRPC(f"http://{client.ip}:8545") as rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="function")
@@ -271,34 +274,40 @@ def sync_client_exception_mapper(
 @pytest.fixture(scope="function")
 def sync_engine_rpc(
     sync_client: Client, sync_client_exception_mapper: ExceptionMapper | None
-) -> EngineRPC:
+) -> Generator[EngineRPC, None, None]:
     """Initialize engine RPC client for the sync client."""
     if sync_client_exception_mapper:
-        return EngineRPC(
+        rpc = EngineRPC(
             f"http://{sync_client.ip}:8551",
             response_validation_context={
                 "exception_mapper": sync_client_exception_mapper,
             },
         )
-    return EngineRPC(f"http://{sync_client.ip}:8551")
+    else:
+        rpc = EngineRPC(f"http://{sync_client.ip}:8551")
+    with rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="function")
-def sync_eth_rpc(sync_client: Client) -> EthRPC:
+def sync_eth_rpc(sync_client: Client) -> Generator[EthRPC, None, None]:
     """Initialize eth RPC client for the sync client."""
-    return EthRPC(f"http://{sync_client.ip}:8545")
+    with EthRPC(f"http://{sync_client.ip}:8545") as rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="function")
-def sync_net_rpc(sync_client: Client) -> NetRPC:
+def sync_net_rpc(sync_client: Client) -> Generator[NetRPC, None, None]:
     """Initialize net RPC client for the sync client."""
-    return NetRPC(f"http://{sync_client.ip}:8545")
+    with NetRPC(f"http://{sync_client.ip}:8545") as rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="function")
-def sync_admin_rpc(sync_client: Client) -> AdminRPC:
+def sync_admin_rpc(sync_client: Client) -> Generator[AdminRPC, None, None]:
     """Initialize admin RPC client for the sync client."""
-    return AdminRPC(f"http://{sync_client.ip}:8545")
+    with AdminRPC(f"http://{sync_client.ip}:8545") as rpc:
+        yield rpc
 
 
 @pytest.fixture(scope="module")

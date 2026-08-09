@@ -1655,7 +1655,6 @@ def test_two_ops(
         sender=sender,
         to=target,
         data=Bytes("00"),
-        gas_limit=16777216,
         value=1,
     )
 

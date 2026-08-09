@@ -28,6 +28,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
     Alloc,
+    BlockAccessList,
     ChainConfig,
     Environment,
     Requests,
@@ -118,12 +119,17 @@ def base_pre(
     )
 
 
-@pytest.fixture(scope="session")
-def base_pre_genesis(
+def build_genesis_header(
     session_fork: Fork | TransitionFork,
-    base_pre: Alloc,
+    base_pre: Alloc | None = None,
 ) -> Tuple[Alloc, FixtureHeader]:
-    """Create a genesis block from the blockchain test definition."""
+    """
+    Build a hive genesis ``(pre_alloc, FixtureHeader)`` for ``session_fork``.
+
+    ``base_pre`` is merged on top of the fork's required system contracts;
+    callers that fund accounts post-genesis (e.g. fill-stateful via CL
+    withdrawals) can pass ``None`` for an empty extra allocation.
+    """
     block_number = 0
     timestamp = 1
     genesis_fork = session_fork.fork_at(
@@ -138,14 +144,16 @@ def base_pre_genesis(
         or env.parent_beacon_block_root == Hash(0)
     ), "parent_beacon_block_root must be empty at genesis"
 
-    pre_alloc = Alloc.merge(
-        Alloc.model_validate(
-            session_fork.transitions_to().pre_allocation_blockchain()
-        ),
-        base_pre,
+    pre_alloc = Alloc.model_validate(
+        session_fork.transitions_to().pre_allocation_blockchain()
     )
+    if base_pre is not None:
+        pre_alloc = Alloc.merge(pre_alloc, base_pre)
     if empty_accounts := pre_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")
+    pre_alloc.migrate_state_commitment(
+        session_fork.transitions_from().state_commitment()
+    )
     state_root = pre_alloc.state_root()
     genesis = FixtureHeader(
         parent_hash=0,
@@ -175,12 +183,66 @@ def base_pre_genesis(
         requests_hash=Requests()
         if genesis_fork.header_requests_required()
         else None,
-        block_access_list_hash=Hash(EmptyTrieRoot)
+        block_access_list_hash=BlockAccessList().rlp_hash
         if genesis_fork.header_bal_hash_required()
         else None,
+        slot_number=0 if genesis_fork.header_slot_number_required() else None,
     )
 
     return (pre_alloc, genesis)
+
+
+def build_client_genesis_dict(
+    pre_alloc: Alloc,
+    genesis_header: FixtureHeader,
+) -> dict:
+    """
+    Convert ``(pre_alloc, FixtureHeader)`` into the JSON-compatible dict
+    that hive writes to ``/genesis.json``.
+    """
+    # NOTE: to_json() excludes None values.
+    genesis = to_json(genesis_header)
+    alloc = to_json(pre_alloc)
+    # NOTE: nethermind requires account keys without '0x' prefix.
+    genesis["alloc"] = {k.replace("0x", ""): v for k, v in alloc.items()}
+    return genesis
+
+
+def build_client_files(
+    client_genesis_dict: dict,
+) -> Mapping[str, io.BufferedReader]:
+    """Wrap ``client_genesis_dict`` in the BufferedReader hive expects."""
+    genesis_bytes = json.dumps(client_genesis_dict).encode("utf-8")
+    buffered: io.BufferedReader = io.BufferedReader(
+        cast(io.RawIOBase, io.BytesIO(genesis_bytes))
+    )
+    files: dict = {"/genesis.json": buffered}
+    return files
+
+
+def build_hive_environment(
+    session_fork: Fork | TransitionFork,
+    chain_id: int,
+) -> dict:
+    """Build the hive client environment from the fork's ruleset."""
+    assert session_fork in ruleset, (
+        f"fork '{session_fork}' missing in hive ruleset"
+    )
+    return {
+        "HIVE_CHAIN_ID": str(chain_id),
+        "HIVE_FORK_DAO_VOTE": "1",
+        "HIVE_NODETYPE": "full",
+        **{k: f"{v:d}" for k, v in ruleset[session_fork].items()},
+    }
+
+
+@pytest.fixture(scope="session")
+def base_pre_genesis(
+    session_fork: Fork | TransitionFork,
+    base_pre: Alloc,
+) -> Tuple[Alloc, FixtureHeader]:
+    """Create a genesis block from the blockchain test definition."""
+    return build_genesis_header(session_fork, base_pre)
 
 
 @pytest.fixture(scope="session")
@@ -189,38 +251,19 @@ def client_genesis(base_pre_genesis: Tuple[Alloc, FixtureHeader]) -> dict:
     Convert the fixture's genesis block header and pre-state to a client
     genesis state.
     """
-    genesis = to_json(
-        base_pre_genesis[1]
-    )  # NOTE: to_json() excludes None values
-    alloc = to_json(base_pre_genesis[0])
-    # NOTE: nethermind requires account keys without '0x' prefix
-    genesis["alloc"] = {k.replace("0x", ""): v for k, v in alloc.items()}
-    return genesis
-
-
-@pytest.fixture(scope="session")
-def buffered_genesis(client_genesis: dict) -> io.BufferedReader:
-    """
-    Create a buffered reader for the genesis block header of the current test
-    fixture.
-    """
-    genesis_json = json.dumps(client_genesis)
-    genesis_bytes = genesis_json.encode("utf-8")
-    return io.BufferedReader(cast(io.RawIOBase, io.BytesIO(genesis_bytes)))
+    return build_client_genesis_dict(*base_pre_genesis)
 
 
 @pytest.fixture(scope="session")
 def client_files(
-    buffered_genesis: io.BufferedReader,
+    client_genesis: dict,
 ) -> Mapping[str, io.BufferedReader]:
     """
     Define the files that hive will start the client with.
 
     For this type of test, only the genesis is passed
     """
-    files = {}
-    files["/genesis.json"] = buffered_genesis
-    return files
+    return build_client_files(client_genesis)
 
 
 @pytest.fixture(scope="session")
@@ -229,15 +272,7 @@ def environment(session_fork: Fork, chain_config: ChainConfig) -> dict:
     Define the environment that hive will start the client with using the fork
     rules specific for the simulator.
     """
-    assert session_fork in ruleset, (
-        f"fork '{session_fork}' missing in hive ruleset"
-    )
-    return {
-        "HIVE_CHAIN_ID": str(chain_config.chain_id),
-        "HIVE_FORK_DAO_VOTE": "1",
-        "HIVE_NODETYPE": "full",
-        **{k: f"{v:d}" for k, v in ruleset[session_fork].items()},
-    }
+    return build_hive_environment(session_fork, chain_config.chain_id)
 
 
 @pytest.fixture(scope="session")
@@ -252,9 +287,28 @@ def test_suite_description() -> str:
     return "Execute EEST tests using hive endpoint."
 
 
+@pytest.fixture(scope="function")
+def test_case_description(request: pytest.FixtureRequest) -> str:
+    """Return the test docstring as the hive test-case description."""
+    description = getattr(request.node.function, "__doc__", None)
+    return description or ""
+
+
+@pytest.fixture(autouse=True)
+def per_test_hive_test(client: Client, hive_test: HiveTest) -> None:
+    """
+    Report each pytest test as an individual hive test case.
+
+    The client runs under the session-scoped base hive test; register
+    it with each per-test entry so hive attaches the client and its
+    log segment to the individual test case and marks the base test
+    as the multi-test lifecycle owner.
+    """
+    hive_test.register_multi_test_client(client)
+
+
 @pytest.fixture(autouse=True, scope="session")
 def base_hive_test(
-    request: pytest.FixtureRequest,
     test_suite: HiveTestSuite,
     session_temp_folder: Path,
 ) -> Generator[HiveTest, None, None]:
@@ -294,11 +348,17 @@ def base_hive_test(
 
     yield test
 
-    test_pass = True
-    test_details = "All tests have completed"
-    if request.session.testsfailed > 0:
+    # Individual results are reported by the per-test hive test cases,
+    # and hive marks this test as the multi-test lifecycle owner, so it
+    # always passes unless the client failed to start (the client
+    # fixture leaves its error file behind on startup failure).
+    client_error_file = session_temp_folder / "hive_client.err"
+    if client_error_file.exists():
         test_pass = False
-        test_details = "One or more tests have failed"
+        test_details = "Failed to start the client."
+    else:
+        test_pass = True
+        test_details = "Multi-test client context completed."
 
     with FileLock(users_lock_file):
         with open(users_file, "r") as f:
@@ -378,6 +438,11 @@ def client(
         with open(users_file, "w") as f:
             json.dump(users, f)
 
+    # Set on every worker (the client object is shared across xdist
+    # workers via JSON serialization) so that per-test hive test cases
+    # can register with the client.
+    client.multi_test = True
+
     yield client
 
     with FileLock(users_lock_file):
@@ -405,8 +470,9 @@ def eth_rpc(
     engine_rpc: EngineRPC,
     session_fork: Fork | TransitionFork,
     session_temp_folder: Path,
-    max_transactions_per_batch: int | None,
+    max_batch_size: int | None,
     use_testing_build_block: bool,
+    base_pre_genesis: Tuple[Alloc, FixtureHeader],
 ) -> EthRPC:
     """Initialize ethereum RPC client for the execution client under test."""
     get_payload_wait_time = request.config.getoption("get_payload_wait_time")
@@ -421,6 +487,7 @@ def eth_rpc(
         session_temp_folder=session_temp_folder,
         get_payload_wait_time=get_payload_wait_time,
         transaction_wait_timeout=tx_wait_timeout,
-        max_transactions_per_batch=max_transactions_per_batch,
+        max_batch_size=max_batch_size,
         testing_rpc=testing_rpc,
+        expected_genesis_header=base_pre_genesis[1],
     )

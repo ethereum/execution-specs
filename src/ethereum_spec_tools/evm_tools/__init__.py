@@ -14,7 +14,8 @@ from ethereum import __version__
 from .b11r import B11R, b11r_arguments
 from .daemon import Daemon, daemon_arguments
 from .statetest import StateTest, state_test_arguments
-from .t8n import T8N, ForkCache, t8n_arguments
+from .t8n import ForkCache
+from .t8n.cli import run_t8n_cli, t8n_arguments
 from .utils import get_supported_forks
 
 DESCRIPTION = """
@@ -112,8 +113,7 @@ def main(
             exit_stack.push(fork_cache)
 
         if options.evm_tool == "t8n":
-            t8n_tool = T8N(options, out_file, in_file, fork_cache)
-            return t8n_tool.run()
+            return run_t8n_cli(options, out_file, in_file, fork_cache)
         elif options.evm_tool == "b11r":
             b11r_tool = B11R(options, out_file, in_file)
             return b11r_tool.run()

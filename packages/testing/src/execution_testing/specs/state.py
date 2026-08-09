@@ -46,7 +46,7 @@ from execution_testing.fixtures.state import (
     FixtureTransaction,
     FixtureTransactionReceipt,
 )
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork
 from execution_testing.logging import (
     get_logger,
 )
@@ -167,7 +167,7 @@ class StateTest(BaseTest):
                 f"Traces are not equivalent (gas_limit={current_gas_limit})"
             )
             return False
-        modified_tool_alloc = modified_tool_output.alloc.get()
+        modified_tool_alloc = modified_tool_output.alloc.materialize()
         try:
             self.post.verify_post_alloc(modified_tool_alloc)
         except Exception as e:
@@ -233,15 +233,12 @@ class StateTest(BaseTest):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
         Discard a fixture format from filling if the appropriate marker is
         used.
         """
-        del fork
-
         if "state_test_only" in [m.name for m in markers]:
             return fixture_format != StateFixture
         return False
@@ -283,7 +280,7 @@ class StateTest(BaseTest):
         if self.env.base_fee_per_gas:
             # Calculate genesis base fee per gas from state test's block#1 env
             kwargs["base_fee_per_gas"] = HexNumber(
-                int(int(str(self.env.base_fee_per_gas), 0) * 8 / 7)
+                int(str(self.env.base_fee_per_gas), 0) * 8 // 7
             )
 
         if self.env.excess_blob_gas:
@@ -318,6 +315,7 @@ class StateTest(BaseTest):
             "extra_data": self.env.extra_data,
             "withdrawals": self.env.withdrawals,
             "parent_beacon_block_root": self.env.parent_beacon_block_root,
+            "slot_number": self.env.slot_number,
             "txs": [self.tx],
             "ommers": [],
             "header_verify": self.blockchain_test_header_verify,
@@ -355,7 +353,11 @@ class StateTest(BaseTest):
         )
 
         env = self.env.set_fork_requirements(fork)
-        tx = self.tx.with_signature_and_sender(keep_secret_key=True)
+        tx = self.tx.with_gas_limit(
+            max_gas_limit=env.gas_limit,
+            transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
+            state_gas_reservoir_enabled=fork.state_gas_reservoir_enabled(),
+        ).with_signature_and_sender(keep_secret_key=True)
         pre_alloc = Alloc.merge(
             Alloc.model_validate(fork.pre_allocation()),
             self.pre,
@@ -376,7 +378,7 @@ class StateTest(BaseTest):
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
-        output_alloc = transition_tool_output.alloc.get()
+        output_alloc = transition_tool_output.alloc.materialize()
 
         try:
             self.post.verify_post_alloc(output_alloc)
@@ -406,7 +408,7 @@ class StateTest(BaseTest):
                 self.operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
             )
             base_tool_output = transition_tool_output
-            base_tool_alloc = base_tool_output.alloc.get()
+            base_tool_alloc = base_tool_output.alloc.materialize()
             base_tool_result = base_tool_output.result
 
             assert base_tool_result.traces is not None, "Traces not found."
@@ -414,18 +416,20 @@ class StateTest(BaseTest):
             # First try reducing the gas limit only by one, if the validation
             # fails, it means that the traces change even with the slightest
             # modification to the gas.
+            tx_gas_limit = int(tx.gas_limit)
+
             if self.verify_modified_gas_limit(
                 t8n=t8n,
                 base_tool_result=base_tool_result,
                 base_tool_alloc=base_tool_alloc,
                 fork=fork,
-                current_gas_limit=self.tx.gas_limit - 1,
+                current_gas_limit=tx_gas_limit - 1,
                 pre_alloc=pre_alloc,
                 env=env,
                 ignore_gas_differences=ignore_gas_differences,
             ):
                 minimum_gas_limit = 0
-                maximum_gas_limit = int(self.tx.gas_limit)
+                maximum_gas_limit = tx_gas_limit
                 while minimum_gas_limit < maximum_gas_limit:
                     current_gas_limit = (
                         maximum_gas_limit + minimum_gas_limit

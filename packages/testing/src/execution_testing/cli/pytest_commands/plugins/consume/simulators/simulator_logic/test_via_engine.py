@@ -15,7 +15,8 @@ responses.
 
 from typing import Union
 
-from execution_testing.exceptions import UndefinedException
+from hive.client import Client
+
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
     BlockchainEngineXFixture,
@@ -37,6 +38,10 @@ from ..helpers.exceptions import (
     GenesisBlockMismatchExceptionError,
     LoggedError,
 )
+from ..helpers.rejected_blocks import (
+    BlockRejectionTracker,
+    verify_block_rejection,
+)
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
@@ -46,6 +51,9 @@ def test_blockchain_via_engine(
     timing_data: TimingData,
     eth_rpc: EthRPC,
     engine_rpc: EngineRPC,
+    client: Client,
+    genesis_verified_clients: set[str],
+    block_rejection_tracker: BlockRejectionTracker,
     fixture: Union[BlockchainEngineFixture, BlockchainEngineXFixture],
     strict_exception_matching: bool,
     genesis_header: FixtureHeader,
@@ -53,69 +61,71 @@ def test_blockchain_via_engine(
     """
     Execute blockchain test fixtures against a client using the Engine API.
 
-    This function supports two modes:
+    This function supports both engine mode (`BlockchainEngineFixture`)
+    with per-test clients and enginex mode (`BlockchainEngineXFixture`)
+    with client reuse across tests sharing a pre-alloc group.
 
-    1. **Engine Mode** (`BlockchainEngineFixture`):
-       - Uses per-test clients (started fresh for each test).
-       - Always performs initial FCU to genesis.
-       - Always performs FCU after valid payloads.
-       - genesis_header comes from fixture.genesis (via fixture).
-       - needs_genesis_init is always True (via fixture).
+    Both modes follow the same test sequence for equivalence:
 
-    2. **EngineX Mode** (`BlockchainEngineXFixture`):
-       - Reuses clients across tests with same pre-alloc group.
-       - Skips initial FCU for reused clients.
-       - Skips FCU after valid payloads to keep client at genesis.
-       - genesis_header comes from separate pre_alloc_group fixture.
-       - needs_genesis_init is False for reused clients.
+    1. Send initial FCU to genesis to establish the chain head.
+    2. Verify the client genesis block hash matches genesis_header. Genesis
+       is immutable per client, so in shared-client (enginex) mode this is
+       done once per client and skipped for later tests in the group.
+    3. Execute test fixture blocks using engine_newPayloadVX.
+    4. For valid payloads, send FCU to advance the chain head.
 
-    Steps:
-    1. Check the client genesis block hash matches genesis_header.block_hash
-    2. Execute test fixture blocks using engine_newPayloadVX
-    3. For valid payloads, perform forkchoice update to finalize chain
-       (unless client is being reused, in which case skip FCU)
+    A client's bad-block cache persists across the tests of a pre-alloc
+    group in enginex mode: a block that an earlier test already got
+    rejected may be rejected again with a generic cache error (e.g. reth's
+    "links to previously rejected block") instead of being re-validated.
+    When the returned error does not match the expected exception, it is
+    therefore verified against the error from the client's first rejection
+    of the same block before failing the test.
     """
-    if isinstance(fixture, BlockchainEngineFixture):
-        with timing_data.time("Initial forkchoice update"):
-            logger.info(
-                "Sending initial forkchoice update to genesis block..."
+    with timing_data.time("Initial forkchoice update"):
+        logger.info("Sending initial forkchoice update to genesis block...")
+        try:
+            response = engine_rpc.forkchoice_updated_with_retry(
+                forkchoice_state=ForkchoiceState(
+                    head_block_hash=genesis_header.block_hash,
+                ),
+                forkchoice_version=fixture.payloads[
+                    0
+                ].forkchoice_updated_version,
+                max_attempts=30,
+                wait_fixed=1.0,
             )
-            try:
-                response = engine_rpc.forkchoice_updated_with_retry(
-                    forkchoice_state=ForkchoiceState(
-                        head_block_hash=fixture.genesis.block_hash,
-                    ),
-                    forkchoice_version=fixture.payloads[
-                        0
-                    ].forkchoice_updated_version,
-                    max_attempts=30,
-                    wait_fixed=1.0,
-                )
-                if response.payload_status.status != PayloadStatusEnum.VALID:
-                    raise LoggedError(
-                        f"Unexpected status on forkchoice updated to genesis: "
-                        f"{response.payload_status.status}"
-                    )
-            except ForkchoiceUpdateTimeoutError as e:
+            if response.payload_status.status != PayloadStatusEnum.VALID:
                 raise LoggedError(
-                    f"Timed out waiting for forkchoice update to genesis: {e}"
-                ) from None
+                    f"Unexpected status on forkchoice updated to genesis: "
+                    f"{response.payload_status.status}"
+                )
+        except ForkchoiceUpdateTimeoutError as e:
+            raise LoggedError(
+                f"Timed out waiting for forkchoice update to genesis: {e}"
+            ) from None
 
-    with timing_data.time("Get genesis block"):
-        logger.info("Calling getBlockByNumber to get genesis block...")
-        genesis_block = eth_rpc.get_block_by_number(0)
-        assert genesis_block is not None, "genesis_block is None"
-        if genesis_block["hash"] != str(genesis_header.block_hash):
-            expected = genesis_header.block_hash
-            got = genesis_block["hash"]
-            logger.fail(
-                f"Genesis block hash mismatch. "
-                f"Expected: {expected}, Got: {got}"
-            )
-            raise GenesisBlockMismatchExceptionError(
-                expected_header=genesis_header,
-                got_genesis_block=genesis_block,
-            )
+    if client.id not in genesis_verified_clients:
+        with timing_data.time("Get genesis block"):
+            logger.info("Calling getBlockByNumber to get genesis block...")
+            genesis_block = eth_rpc.get_block_by_number(0)
+            assert genesis_block is not None, "genesis_block is None"
+            if genesis_block["hash"] != str(genesis_header.block_hash):
+                expected = genesis_header.block_hash
+                got = genesis_block["hash"]
+                logger.fail(
+                    f"Genesis block hash mismatch. "
+                    f"Expected: {expected}, Got: {got}"
+                )
+                raise GenesisBlockMismatchExceptionError(
+                    expected_header=genesis_header,
+                    got_genesis_block=genesis_block,
+                )
+        # Genesis is immutable per client, so verify it once per client. In
+        # shared-client (enginex) mode the same client serves every test in a
+        # pre-alloc group, so later tests skip the redundant getBlockByNumber
+        # round-trip; per-test clients get a fresh id each test and re-verify.
+        genesis_verified_clients.add(client.id)
 
     with timing_data.time("Payloads execution") as total_payload_timing:
         logger.info(
@@ -164,40 +174,19 @@ def test_blockchain_via_engine(
                                     "Client returned INVALID but no "
                                     "validation error was provided."
                                 )
-                            if isinstance(
+                            block_hash = payload.params[0].block_hash
+                            first_rejection = block_rejection_tracker.track(
+                                client.id,
+                                block_hash,
                                 payload_response.validation_error,
-                                UndefinedException,
-                            ):
-                                message = (
-                                    "Undefined exception message: "
-                                    f"expected exception: "
-                                    f'"{payload.validation_error}", '
-                                    f"returned exception: "
-                                    f'"{payload_response.validation_error}" '
-                                    f"(mapper: "
-                                    f'"{payload_response.validation_error.mapper_name}")'  # noqa: E501
-                                )
-                                if strict_exception_matching:
-                                    raise LoggedError(message)
-                                else:
-                                    logger.warning(message)
-                            else:
-                                if (
-                                    payload.validation_error
-                                    not in payload_response.validation_error
-                                ):
-                                    message = (
-                                        "Client returned unexpected "
-                                        "validation error: "
-                                        f"got: "
-                                        f'"{payload_response.validation_error}" '  # noqa: E501
-                                        f"expected: "
-                                        f'"{payload.validation_error}"'
-                                    )
-                                    if strict_exception_matching:
-                                        raise LoggedError(message)
-                                    else:
-                                        logger.warning(message)
+                            )
+                            verify_block_rejection(
+                                payload.validation_error,
+                                payload_response.validation_error,
+                                first_rejection,
+                                block_hash,
+                                strict_exception_matching,
+                            )
 
                     except JSONRPCError as e:
                         logger.info(
@@ -214,9 +203,7 @@ def test_blockchain_via_engine(
                                 f"expected: {payload.error_code}"
                             ) from e
 
-                if payload.valid() and isinstance(
-                    fixture, BlockchainEngineFixture
-                ):
+                if payload.valid():
                     with payload_timing.time(
                         f"engine_forkchoiceUpdatedV{payload.forkchoice_updated_version}"
                     ):

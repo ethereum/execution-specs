@@ -36,37 +36,39 @@ class TestSimplifiedConsumeBehavior:
         """
         Test that release specs still make API calls and get release page.
         """
-        test_spec = "stable@latest"
+        test_spec = "tests@latest"
 
         with patch(
-            "execution_testing.cli.pytest_commands.plugins.consume.consume.get_release_url"
-        ) as mock_get_url:
-            mock_get_url.return_value = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_stable.tar.gz"
+            "execution_testing.cli.pytest_commands.plugins.consume.consume.resolve_release"
+        ) as mock_resolve:
+            mock_release = MagicMock()
+            mock_release.url = "https://github.com/ethereum/execution-specs/releases/tag/tests%40v20.0.0"
+            mock_release.get_asset.return_value.url = "https://github.com/ethereum/execution-specs/releases/download/tests%40v20.0.0/fixtures.tar.gz"
+            mock_resolve.return_value = mock_release
             with patch(
-                "execution_testing.cli.pytest_commands.plugins.consume.consume.get_release_page_url"
-            ) as mock_get_page:
-                mock_get_page.return_value = "https://github.com/ethereum/execution-spec-tests/releases/tag/v3.0.0"
-                with patch(
-                    "execution_testing.cli.pytest_commands.plugins.consume.consume.FixtureDownloader"
-                ) as mock_downloader:
-                    mock_instance = MagicMock()
-                    mock_instance.download_and_extract.return_value = (
-                        False,
-                        Path("/tmp/test"),
-                    )
-                    mock_downloader.return_value = mock_instance
+                "execution_testing.cli.pytest_commands.plugins.consume.consume.FixtureDownloader"
+            ) as mock_downloader:
+                mock_instance = MagicMock()
+                mock_instance.download_and_extract.return_value = (
+                    False,
+                    Path("/tmp/test"),
+                )
+                mock_downloader.return_value = mock_instance
 
-                    source = FixturesSource.from_release_spec(test_spec)
+                source = FixturesSource.from_release_spec(test_spec)
 
-                    # Verify API calls were made and release page is set
-                    mock_get_url.assert_called_once_with(test_spec)
-                    mock_get_page.assert_called_once_with(
-                        "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_stable.tar.gz"
-                    )
-                    assert (
-                        source.release_page
-                        == "https://github.com/ethereum/execution-spec-tests/releases/tag/v3.0.0"
-                    )
+                # The spec is resolved exactly once; the download URL and
+                # the release page both derive from the same release
+                # information.
+                mock_resolve.assert_called_once_with(test_spec)
+                assert (
+                    source.url
+                    == "https://github.com/ethereum/execution-specs/releases/download/tests%40v20.0.0/fixtures.tar.gz"
+                )
+                assert (
+                    source.release_page
+                    == "https://github.com/ethereum/execution-specs/releases/tag/tests%40v20.0.0"
+                )
 
     def test_fixtures_source_from_regular_url_no_release_page(self) -> None:
         """Test that regular URLs (non-GitHub) don't have release page."""
@@ -135,8 +137,8 @@ class TestSimplifiedConsumeBehavior:
         config.fixtures_source.was_cached = False
         config.fixtures_source.is_local = False
         config.fixtures_source.path = Path("/tmp/test")
-        config.fixtures_source.url = "https://github.com/ethereum/execution-spec-tests/releases/download/v3.0.0/fixtures_stable.tar.gz"
-        config.fixtures_source.release_page = "https://github.com/ethereum/execution-spec-tests/releases/tag/v3.0.0"
+        config.fixtures_source.url = "https://github.com/ethereum/execution-specs/releases/download/tests%40v20.0.0/fixtures.tar.gz"
+        config.fixtures_source.release_page = "https://github.com/ethereum/execution-specs/releases/tag/tests%40v20.0.0"
 
         # Simulate the output generation logic from pytest_configure
         reason = ""
@@ -151,7 +153,7 @@ class TestSimplifiedConsumeBehavior:
             reason += f"\nRelease page: {config.fixtures_source.release_page}"
 
         assert (
-            "Release page: https://github.com/ethereum/execution-spec-tests/releases/tag/v3.0.0"
+            "Release page: https://github.com/ethereum/execution-specs/releases/tag/tests%40v20.0.0"
             in reason
         )
 
@@ -176,7 +178,7 @@ class TestFixturesSourceFromInput:
 
     def test_from_input_handles_release_spec(self) -> None:
         """Test that from_input properly handles release specs."""
-        test_spec = "stable@latest"
+        test_spec = "tests@latest"
 
         with patch.object(
             FixturesSource, "from_release_spec"

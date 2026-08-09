@@ -16,10 +16,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -243,6 +244,8 @@ def test_static_callcodecallcallcode_101_oogm_after_3(
         Hash(addr_5, left_padding=True),
     ]
     tx_gas = [172000]
+    if fork.is_eip_enabled(8037):
+        tx_gas[0] += 7 * Op.SSTORE(new_value=1).state_cost(fork)
 
     tx = Transaction(
         sender=sender,

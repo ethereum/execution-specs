@@ -23,13 +23,14 @@ from execution_testing import (
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
+    RecipientType,
     TestPhaseManager,
     Transaction,
     While,
     compute_create_address,
 )
 
-from ..helpers import StorageAction, TransactionResult
+from tests.benchmark.helper.enums import StorageAction, TransactionResult
 
 
 @pytest.mark.repricing(fixed_key=True, fixed_value=True)
@@ -180,6 +181,8 @@ def create_benchmark_executor(
                 current_value=original,
                 new_value=2**256 - 1,
             )
+        case _:
+            raise ValueError
 
     # [index, num]
     loop_condition = (
@@ -286,6 +289,8 @@ def test_storage_access_cold(
             fork=fork,
             gas_limit=gas_benchmark_value,
             calldata=calldata_generator,
+            recipient_type=RecipientType.DELEGATION_7702,
+            outcome=tx_result,
         )
     )
 
@@ -321,6 +326,7 @@ def test_storage_access_cold(
                     to=authority,
                     start_iteration=1,
                     calldata=calldata_generator,
+                    recipient_type=RecipientType.DELEGATION_7702,
                 )
             )
 
@@ -345,6 +351,7 @@ def test_storage_access_cold(
     expected_gas_used = 0
 
     with TestPhaseManager.execution():
+        # One gas short so the out-of-gas variants cannot terminate cleanly.
         tx_gas_limit_delta = (
             -1 if tx_result == TransactionResult.OUT_OF_GAS else 0
         )
@@ -356,14 +363,13 @@ def test_storage_access_cold(
                 to=authority,
                 calldata=calldata_generator,
                 start_iteration=1,
+                recipient_type=RecipientType.DELEGATION_7702,
                 tx_gas_limit_delta=tx_gas_limit_delta,
+                outcome=tx_result,
             )
         )
         for exec_tx in exec_txs:
-            if tx_result == TransactionResult.OUT_OF_GAS:
-                expected_gas_used += exec_tx.gas_limit
-            else:
-                expected_gas_used += exec_tx.gas_cost
+            expected_gas_used += exec_tx.gas_cost
 
     blocks.append(Block(txs=exec_txs))
 
@@ -373,7 +379,6 @@ def test_storage_access_cold(
     )
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize(
     "storage_action",
     [
@@ -480,7 +485,6 @@ def test_storage_access_warm(
     benchmark_test(blocks=blocks)
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize(
     "storage_action",
     [

@@ -13,7 +13,6 @@ from execution_testing import (
     Alloc,
     Bytecode,
     CodeGasMeasure,
-    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -44,8 +43,6 @@ def test_transient_storage_unset_values(
     9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/
     stEIP1153-transientStorage/01_tloadBeginningTxnFiller.yml)",
     """
-    env = Environment()
-
     slots_under_test = [0, 1, 2, 2**128, 2**256 - 1]
     code = sum(Op.SSTORE(slot, Op.TLOAD(slot)) for slot in slots_under_test)
 
@@ -54,20 +51,11 @@ def test_transient_storage_unset_values(
         storage=dict.fromkeys(slots_under_test, 1),
     )
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     post = {code_address: Account(storage=dict.fromkeys(slots_under_test, 0))}
 
-    state_test(
-        env=env,
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_tload_after_tstore(state_test: StateTestFiller, pre: Alloc) -> None:
@@ -81,8 +69,6 @@ def test_tload_after_tstore(state_test: StateTestFiller, pre: Alloc) -> None:
     9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/
     stEIP1153-transientStorage/02_tloadAfterTstoreFiller.yml)",
     """
-    env = Environment()
-
     slots_under_test = [0, 1, 2, 2**128, 2**256 - 1]
     code = sum(
         Op.TSTORE(slot, slot) + Op.SSTORE(slot, Op.TLOAD(slot))
@@ -93,11 +79,7 @@ def test_tload_after_tstore(state_test: StateTestFiller, pre: Alloc) -> None:
         storage=dict.fromkeys(slots_under_test, 0xFF),
     )
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     post = {
         code_address: Account(
@@ -105,12 +87,7 @@ def test_tload_after_tstore(state_test: StateTestFiller, pre: Alloc) -> None:
         )
     }
 
-    state_test(
-        env=env,
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_tload_after_sstore(state_test: StateTestFiller, pre: Alloc) -> None:
@@ -125,8 +102,6 @@ def test_tload_after_sstore(state_test: StateTestFiller, pre: Alloc) -> None:
     EIPTestsFiller/StateTests/stEIP1153-transientStorage/
     18_tloadAfterStoreFiller.yml)",
     """
-    env = Environment()
-
     slots_under_test = [1, 3, 2**128, 2**256 - 1]
     code = sum(
         Op.SSTORE(slot - 1, 0xFF) + Op.SSTORE(slot, Op.TLOAD(slot - 1))
@@ -137,11 +112,7 @@ def test_tload_after_sstore(state_test: StateTestFiller, pre: Alloc) -> None:
         storage=dict.fromkeys(slots_under_test, 1),
     )
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     post = {
         code_address: Account(
@@ -151,12 +122,7 @@ def test_tload_after_sstore(state_test: StateTestFiller, pre: Alloc) -> None:
         )
     }
 
-    state_test(
-        env=env,
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_tload_after_tstore_is_zero(
@@ -171,8 +137,6 @@ def test_tload_after_tstore_is_zero(
     EIPTestsFiller/StateTests/
     stEIP1153-transientStorage/03_tloadAfterStoreIs0Filler.yml)",
     """
-    env = Environment()
-
     slots_to_write = [1, 4, 2**128, 2**256 - 2]
     slots_to_read = [slot - 1 for slot in slots_to_write] + [
         slot + 1 for slot in slots_to_write
@@ -188,11 +152,7 @@ def test_tload_after_tstore_is_zero(
         storage=dict.fromkeys(slots_to_write + slots_to_read, 0xFFFF),
     )
 
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
 
     post = {
         code_address: Account(
@@ -201,12 +161,7 @@ def test_tload_after_tstore_is_zero(
         )
     }
 
-    state_test(
-        env=env,
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @unique
@@ -260,82 +215,11 @@ def test_gas_usage(
         extra_stack_items=extra_stack_items,
     )
 
-    env = Environment()
     code_address = pre.deploy_contract(code=gas_measure_bytecode)
-    tx = Transaction(
-        sender=pre.fund_eoa(),
-        to=code_address,
-        gas_limit=1_000_000,
-    )
+    tx = Transaction(sender=pre.fund_eoa(), to=code_address)
     post = {
         code_address: Account(
             code=gas_measure_bytecode, storage={0: expected_gas}
         ),
-    }
-    state_test(env=env, pre=pre, tx=tx, post=post)
-
-
-@unique
-class LoopRunUntilOutOfGasCases(PytestParameterEnum):
-    """Test cases to run until out of gas."""
-
-    TSTORE = {
-        "description": "Run tstore in loop until out of gas",
-        "repeat_bytecode": Op.TSTORE(Op.GAS, Op.GAS),
-        "bytecode_repeat_times": 1000,
-    }
-    TSTORE_WIDE_ADDRESS_SPACE = {
-        "description": "Run tstore in loop until out of gas, using a "
-        "wide address space",
-        "repeat_bytecode": Op.TSTORE(Op.ADD(Op.SHL(Op.PC, 1), Op.GAS), Op.GAS),
-        "bytecode_repeat_times": 32,
-    }
-    TSTORE_TLOAD = {
-        "description": "Run tstore and tload in loop until out of gas",
-        "repeat_bytecode": Op.GAS
-        + Op.DUP1
-        + Op.DUP1
-        + Op.TSTORE
-        + Op.TLOAD
-        + Op.POP,
-        "bytecode_repeat_times": 1000,
-    }
-
-
-def max_tx_gas_limit(fork: Fork) -> list[int]:
-    """Return the maximum transaction gas limit for the given fork."""
-    tx_limit = fork.transaction_gas_limit_cap()
-    return [tx_limit if tx_limit is not None else Environment().gas_limit]
-
-
-@pytest.mark.ported_from(
-    [
-        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/15_tstoreCannotBeDosdFiller.yml",  # noqa: E501
-        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/21_tstoreCannotBeDosdOOOFiller.yml",  # noqa: E501
-    ],
-    pr=["https://github.com/ethereum/execution-specs/pull/2385"],
-)
-@LoopRunUntilOutOfGasCases.parametrize()
-@pytest.mark.slow()
-@pytest.mark.parametrize_by_fork("tx_gas_limit", max_tx_gas_limit)
-def test_run_until_out_of_gas(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    tx_gas_limit: int,
-    repeat_bytecode: Bytecode,
-    bytecode_repeat_times: int,
-) -> None:
-    """Use TSTORE over and over to different keys until we run out of gas."""
-    bytecode = (
-        Op.JUMPDEST
-        + repeat_bytecode * bytecode_repeat_times
-        + Op.JUMP(Op.PUSH0)
-    )
-    code_address = pre.deploy_contract(code=bytecode)
-    tx = Transaction(
-        sender=pre.fund_eoa(), to=code_address, gas_limit=tx_gas_limit
-    )
-    post = {
-        code_address: Account(code=bytecode, storage={}),
     }
     state_test(pre=pre, tx=tx, post=post)

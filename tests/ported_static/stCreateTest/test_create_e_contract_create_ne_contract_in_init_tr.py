@@ -3,6 +3,10 @@ Test_create_e_contract_create_ne_contract_in_init_tr.
 
 Ported from:
 state_tests/stCreateTest/CREATE_EContractCreateNEContractInInit_TrFiller.json
+@manually-enhanced: Do not overwrite. Inner-CALL gas and tx `gas_limit`
+bumped on Amsterdam to cover EIP-8037 state-gas spill; pre-EIP-8037
+unchanged.
+
 """
 
 import pytest
@@ -15,6 +19,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,8 +36,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create_e_contract_create_ne_contract_in_init_tr(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_create_e_contract_create_ne_contract_in_init_tr."""
+    # EIP-8037 state-gas spill OoGs the 60k inner CALL.
+    inner_call_gas = 60000
+    tx_gas_limit = 600000
+    if fork.is_eip_enabled(8037):
+        inner_call_gas = 200000
+        tx_gas_limit = 1_000_000
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
     sender = pre.fund_eoa(amount=0xE8D4A51000)
@@ -59,7 +72,7 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
         to=None,
         data=Op.POP(
             Op.CALL(
-                gas=0xEA60,
+                gas=inner_call_gas,
                 address=contract_0,
                 value=0x0,
                 args_offset=0x0,
@@ -70,7 +83,7 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
         )
         + Op.MSTORE(offset=0x0, value=0x64600C6000556000526005601BF3)
         + Op.CREATE(value=0x0, offset=0x12, size=0xE),
-        gas_limit=600000,
+        gas_limit=tx_gas_limit,
     )
 
     post = {

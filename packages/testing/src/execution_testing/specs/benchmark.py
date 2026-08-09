@@ -32,12 +32,13 @@ from execution_testing.execution import (
 )
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
+    BlockchainEngineStatefulFixture,
     BlockchainEngineXFixture,
     BlockchainFixture,
     FixtureFormat,
     LabeledFixtureFormat,
 )
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork
 from execution_testing.test_types import Alloc, Environment, Transaction
 from execution_testing.vm import Bytecode, Op
 
@@ -63,6 +64,30 @@ class OpcodeTarget:
         return self.name
 
 
+STATE_CHANGING_OPCODES = (
+    Op.SSTORE,
+    Op.TSTORE,
+    Op.CREATE,
+    Op.CREATE2,
+    Op.CALL,
+    Op.SELFDESTRUCT,
+    Op.LOG0,
+    Op.LOG1,
+    Op.LOG2,
+    Op.LOG3,
+    Op.LOG4,
+)
+"""
+Opcodes that fault inside a static context (EIP-214), so a target using
+one must be entered via CALL rather than STATICCALL. CALLCODE is
+excluded: EIP-214 exempts it even with a non-zero value. CALL is kept
+unconditionally; it only faults when it sends value, but the value is
+not always statically known, so treating every CALL as state-changing
+is the conservative choice, it can only widen a STATICCALL wrapper to
+CALL, never break a benchmark.
+"""
+
+
 @dataclass(kw_only=True)
 class BenchmarkCodeGenerator(ABC):
     """Abstract base class for generating benchmark bytecode."""
@@ -80,6 +105,18 @@ class BenchmarkCodeGenerator(ABC):
     def deploy_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
         """Deploy any contracts needed for the benchmark."""
         ...
+
+    def uses_state_changing_opcode(self) -> bool:
+        """
+        Return whether the setup or attack block contains an opcode that
+        is illegal in a static context, in which case the target contract
+        must be entered via CALL instead of STATICCALL (a STATICCALL'd
+        frame faults on the first such opcode and executes nothing).
+        """
+        target_code = bytes(self.setup) + bytes(self.attack_block)
+        return any(
+            bytes(opcode) in target_code for opcode in STATE_CHANGING_OPCODES
+        )
 
     def deploy_fix_count_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
         """Deploy the contract with a fixed opcode count."""
@@ -106,41 +143,33 @@ class BenchmarkCodeGenerator(ABC):
             Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE
         ) + Op.PUSH4(iterations)
 
-        is_state_changing_set = [
-            Op.SSTORE,
-            Op.TSTORE,
-            Op.CREATE,
-            Op.CREATE2,
-            Op.CALL,
-            Op.CALLCODE,
-            Op.SELFDESTRUCT,
-            Op.LOG0,
-            Op.LOG1,
-            Op.LOG2,
-            Op.LOG3,
-            Op.LOG4,
-        ]
-
-        # Select CALL for state-changing opcodes, STATICCALL otherwise
-        uses_state_changing_opcode = any(
-            bytes(opcode) in bytes(self.attack_block)
-            for opcode in is_state_changing_set
-        )
-        call_opcode = Op.CALL if uses_state_changing_opcode else Op.STATICCALL
+        # Select CALL for state-changing opcodes, STATICCALL otherwise.
+        # CALL takes a value argument STATICCALL lacks; push the zero value
+        # with PUSH0, one gas cheaper than the default PUSH1 0x00.
+        if self.uses_state_changing_opcode():
+            wrapper_call = Op.CALL(
+                gas=Op.GAS,
+                address=self._target_contract_address,
+                value=Op.PUSH0,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0,
+                ret_size=0,
+            )
+        else:
+            wrapper_call = Op.STATICCALL(
+                gas=Op.GAS,
+                address=self._target_contract_address,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0,
+                ret_size=0,
+            )
 
         opcode = (
             prefix
             + Op.JUMPDEST
-            + Op.POP(
-                call_opcode(
-                    gas=Op.GAS,
-                    address=self._target_contract_address,
-                    args_offset=0,
-                    args_size=Op.CALLDATASIZE,
-                    ret_offset=0,
-                    ret_size=0,
-                )
-            )
+            + Op.POP(wrapper_call)
             + Op.PUSH1(1)
             + Op.SWAP1
             + Op.SUB
@@ -318,6 +347,7 @@ class BenchmarkTest(BaseTest):
         BlockchainFixture,
         BlockchainEngineFixture,
         BlockchainEngineXFixture,
+        BlockchainEngineStatefulFixture,
     ]
 
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
@@ -419,15 +449,12 @@ class BenchmarkTest(BaseTest):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
         Discard a fixture format from filling if the
         appropriate marker is used.
         """
-        del fork
-
         if "blockchain_test_only" in [m.name for m in markers]:
             return fixture_format != BlockchainFixture
         if "blockchain_test_engine_only" in [m.name for m in markers]:

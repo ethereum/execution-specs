@@ -3,6 +3,19 @@ Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stPreCompiledContracts/precompsEIP2929CancunFiller.yml
+
+@manually-enhanced: Do not overwrite. 87 parametrizations of this
+test measure the regular gas consumed by a CALL with value to an
+inactive precompile address. EIP-8037 replaces the Cancun-era
+CALL_NEW_ACCOUNT cost of 25 000 with a per-new-account state-gas
+charge that, with an empty reservoir (the case here), spills back
+into regular gas; EIP-8038 also reprices the cold account access
+from 2 600 to 3 000. `Op.GAS` therefore reads
+`fork.create_state_gas() - 25 000 + COLD_ACCOUNT_ACCESS - 2 600`
+extra regular gas compared to Cancun. Derive that delta from the
+fork so it is 0 pre-EIP-8037 and tracks parameter changes; bake it
+into the two affected `[">=Cancun"]` expect-entries. The third
+entry is gated to `["Cancun"]` only and unchanged.
 """
 
 import pytest
@@ -17,10 +30,11 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -2825,7 +2839,6 @@ def test_precomps_eip2929_cancun(
         timestamp=1000,
         prev_randao=0x20000,
         base_fee_per_gas=10,
-        gas_limit=71794957647893862,
     )
 
     # Source: yul
@@ -3581,6 +3594,19 @@ def test_precomps_eip2929_cancun(
         nonce=1,
     )
 
+    # These measurements isolate repriced components applied per
+    # expect-entry below: EIP-8037 replaces the 25 000 CALL_NEW_ACCOUNT
+    # base cost with a state-gas charge that, with an empty reservoir,
+    # spills back into regular gas; EIP-8038 separately reprices a cold
+    # account access from 2 600 to 3 000. Derive both from the fork so
+    # they are 0 pre-EIP-8037 and track parameter changes. `new`
+    # entries shift by the account delta, `no` entries by the cold
+    # delta, and `all` entries by both.
+    new_account_delta = (
+        (fork.create_state_gas() - 25000) if fork.is_eip_enabled(8037) else 0
+    )
+    cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
+
     expect_entries_: list[dict] = [
         {
             "indexes": {
@@ -4043,7 +4069,9 @@ def test_precomps_eip2929_cancun(
                 "value": -1,
             },
             "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0, 1: 2500})},
+            "result": {
+                target: Account(storage={0: 0, 1: 2500 + cold_account_delta})
+            },
         },
         {
             "indexes": {
@@ -4219,7 +4247,9 @@ def test_precomps_eip2929_cancun(
                 "value": -1,
             },
             "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0, 1: 25000})},
+            "result": {
+                target: Account(storage={0: 0, 1: 25000 + new_account_delta})
+            },
         },
         {
             "indexes": {
@@ -4228,7 +4258,14 @@ def test_precomps_eip2929_cancun(
                 "value": -1,
             },
             "network": [">=Cancun"],
-            "result": {target: Account(storage={0: 0, 1: 27500})},
+            "result": {
+                target: Account(
+                    storage={
+                        0: 0,
+                        1: 27500 + new_account_delta + cold_account_delta,
+                    }
+                )
+            },
         },
         {
             "indexes": {

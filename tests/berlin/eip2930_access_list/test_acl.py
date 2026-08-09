@@ -85,25 +85,12 @@ def test_account_storage_warm_cold_state(
 
     sender = pre.fund_eoa()
 
-    contract_creation = False
     tx_data = b""
-
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-
-    tx_gas_limit = (
-        intrinsic_gas_calculator(
-            calldata=tx_data,
-            contract_creation=contract_creation,
-            access_list=access_lists,
-        )
-        + 100_000
-    )
 
     tx = Transaction(
         ty=1,
         data=tx_data,
         to=contract_address,
-        gas_limit=tx_gas_limit,
         access_list=access_lists,
         sender=sender,
     )
@@ -227,7 +214,7 @@ def test_transaction_intrinsic_gas_cost(
     access_lists: List[AccessList],
     enough_gas: bool,
 ) -> None:
-    """Test type 1 transaction."""
+    """Test type 1 transaction intrinsic gas cost with access lists."""
     env = Environment()
 
     contract_start_balance = 3
@@ -248,6 +235,7 @@ def test_transaction_intrinsic_gas_cost(
         calldata=tx_data,
         contract_creation=contract_creation,
         access_list=access_lists,
+        sends_value=True,
     )
     if not enough_gas:
         tx_gas_limit -= 1
@@ -301,7 +289,6 @@ def test_repeated_address_acl(
         overhead_cost=sload_push_cost,
         extra_stack_items=1,  # SLOAD pushes 1 item to the stack
         sstore_key=0,
-        stop=False,  # Because it's the first CodeGasMeasure
     )
 
     sload1_measure = CodeGasMeasure(
@@ -314,7 +301,6 @@ def test_repeated_address_acl(
     contract = pre.deploy_contract(sload0_measure + sload1_measure)
 
     tx = Transaction(
-        gas_limit=500_000,
         to=contract,
         value=0,
         sender=sender,

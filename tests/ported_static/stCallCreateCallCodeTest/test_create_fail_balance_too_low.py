@@ -3,6 +3,10 @@ Create fails because we try to send more wei to it that we have.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createFailBalanceTooLowFiller.json
+@manually-enhanced: Do not overwrite. Gas bumped fork-conditionally
+to cover EIP-8037 state-gas spill into regular gas; pre-EIP-8037
+behavior unchanged.
+
 """
 
 import pytest
@@ -18,10 +22,11 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.specs.static_state.expect_section import (
+from execution_testing.vm import Op
+
+from tests.ported_static.post_state_resolution import (
     resolve_expect_post,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -60,6 +65,11 @@ def test_create_fail_balance_too_low(
     v: int,
 ) -> None:
     """Create fails because we try to send more wei to it that we have."""
+    # EIP-8037 gas bumps: original values for pre-EIP-8037 forks.
+    outer_tx_gas = 253021
+    if fork.is_eip_enabled(8037):
+        outer_tx_gas = 1265105
+
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
     sender = EOA(
@@ -121,7 +131,7 @@ def test_create_fail_balance_too_low(
     tx_data = [
         Bytes(""),
     ]
-    tx_gas = [253021]
+    tx_gas = [outer_tx_gas]
     tx_value = [23, 24]
 
     tx = Transaction(

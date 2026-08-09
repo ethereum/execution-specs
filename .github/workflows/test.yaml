@@ -6,6 +6,7 @@ on:
       - master
       - mainnet
       - "forks/**"
+      - "benchmarks/**"
     paths-ignore:
       - "**.md"
       - "LICENSE*"
@@ -34,14 +35,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - name: Ensure SHA pinned actions
         uses: zgosalvez/github-actions-ensure-sha-pinned-actions@70c4af2ed5282c51ba40566d026d6647852ffa3e # v5.0.1
       - uses: ./.github/actions/setup-uv
-      - name: Install build dependencies
-        shell: bash
-        run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
       - name: Detect Python version
         id: python
         shell: bash
@@ -81,11 +77,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: pre-cancun
+          - label: pre-shanghai
             from_fork: Frontier
-            until_fork: Shanghai
-          - label: cancun
-            from_fork: Cancun
+            until_fork: Paris
+          - label: shanghai-cancun
+            from_fork: Shanghai
             until_fork: Cancun
           - label: prague
             from_fork: Prague
@@ -98,14 +94,13 @@ jobs:
             until_fork: Amsterdam
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
-      - uses: ./.github/actions/setup-env
       - name: Run fill (${{ matrix.label }})
-        run: just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+        run: >
+          just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+          -m "not slow and not derived_test"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov
@@ -115,17 +110,28 @@ jobs:
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  fill-benchmark:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - name: Run fill-benchmark
+        run: just fill-benchmark
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+
   fill-pypy:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-env-pypy
       - name: Run fill-pypy tests
         run: just fill-pypy
         env:
@@ -137,12 +143,30 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
-      - uses: ./.github/actions/setup-env
+        with:
+          python-version: "3.14"
       - name: Fill and run json-loader tests
         run: just json-loader
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        with:
+          files: .just/json-loader/coverage.xml
+          flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  spec-tools:
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - name: Run spec-tools tests
+        run: just spec-tools
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
@@ -151,30 +175,44 @@ jobs:
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
-      - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
+      # On benchmarks/** branches, build the pinned geth so the benchmark
+      # plugin tests fill against a real client (via EVM_BIN). On every other
+      # branch this step is skipped, EVM_BIN stays empty, and those fills fall
+      # through to fill's in-repo EELS t8n.
+      - uses: ./.github/actions/build-evm-base
+        id: evm-builder
+        if: ${{ startsWith(github.ref, 'refs/heads/benchmarks/') || startsWith(github.base_ref, 'benchmarks/') }}
+        with:
+          type: benchmark
       - name: Run test-tests
         run: just test-tests
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+          EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
   test-tests-pypy:
-    runs-on: [self-hosted-ghr, size-xl-x64]
+    runs-on: [self-hosted-ghr, size-l-x64]
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-env-pypy
       - uses: ./.github/actions/build-evmone
       - name: Run test-tests-pypy
         run: just test-tests-pypy
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
+
+  test-ci-scripts:
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+      - name: Run test-ci-scripts
+        run: just test-ci-scripts

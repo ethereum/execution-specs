@@ -23,6 +23,11 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    BalAccountExpectation,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
+    BlockAccessListExpectation,
     CodeGasMeasure,
     Environment,
     Fork,
@@ -100,10 +105,11 @@ def test_create_insufficient_balance(
         + Op.STOP
     )
 
+    sender = pre.fund_eoa()
     tx = Transaction(
         to=entry_address,
         gas_limit=1_000_000,
-        sender=pre.fund_eoa(),
+        sender=sender,
     )
 
     post = {
@@ -111,8 +117,63 @@ def test_create_insufficient_balance(
         creator_address: Account(storage={0: 0}),
         # BALANCE gas cost matches cold access
         checker_address: Account(storage={1: cold_balance.gas_cost(fork)}),
+        # Fail-proofing: confirm CREATE never deposited a contract.
+        contract_address: Account.NONEXISTENT,
     }
-    state_test(env=env, pre=pre, post=post, tx=tx)
+
+    # Under EIP-7928 (BAL): the failed CREATE itself does NOT add the
+    # would-be address to BAL (failure precedes `track_address`). The
+    # subsequent BALANCE call in `checker_address` is what brings it in,
+    # so it appears with empty changes. Creator/checker have real
+    # storage writes; entry is just a passthrough.
+    expected_bal = (
+        BlockAccessListExpectation(
+            account_expectations={
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                entry_address: BalAccountExpectation.empty(),
+                creator_address: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                checker_address: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=1,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1,
+                                    post_value=cold_balance.gas_cost(fork),
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                contract_address: BalAccountExpectation.empty(),
+            }
+        )
+        if fork.is_eip_enabled(7928)
+        else None
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        expected_block_access_list=expected_bal,
+    )
 
 
 @pytest.mark.valid_from("Berlin")

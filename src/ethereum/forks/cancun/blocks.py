@@ -10,7 +10,7 @@ chain.
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
@@ -30,6 +30,7 @@ from .transactions import (
 )
 
 
+@final
 @slotted_freezable
 @dataclass
 class Withdrawal:
@@ -57,12 +58,13 @@ class Withdrawal:
     The execution-layer address receiving the withdrawn ETH.
     """
 
-    amount: U256
+    amount: U64
     """
-    The amount of ETH being withdrawn.
+    The amount of ETH being withdrawn, in Gwei.
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Header:
@@ -106,13 +108,14 @@ class Header:
     Root hash ([`keccak256`]) of the state trie after executing all
     transactions in this block. It represents the state of the Ethereum Virtual
     Machine (EVM) after all transactions in this block have been processed. It
-    is computed using the [`state_root()`] function, which computes the root
-    of the Merkle-Patricia [Trie] representing the Ethereum world state.
+    is computed using [`compute_state_root()`][changes],
+    which computes the root of the Merkle-Patricia [Trie] representing the
+    Ethereum world state after applying the block's state changes.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`state_root()`]: ref:ethereum.forks.cancun.state.state_root
-    [Trie]: ref:ethereum.forks.cancun.trie.Trie
-    """
+    [changes]: ref:ethereum.state_mpt.State.compute_state_root
+    [Trie]: ref:ethereum.merkle_patricia_trie.Trie
+    """  # noqa: E501
 
     transactions_root: Root
     """
@@ -122,8 +125,8 @@ class Header:
     transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.cancun.trie.root
-    [Trie]: ref:ethereum.forks.cancun.trie.Trie
+    [`root()`]: ref:ethereum.merkle_patricia_trie.root
+    [Trie]: ref:ethereum.merkle_patricia_trie.Trie
     """
 
     receipt_root: Root
@@ -133,8 +136,8 @@ class Header:
     function over the Merkle-Patricia [trie] constructed from the receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.cancun.trie.root
-    [Trie]: ref:ethereum.forks.cancun.trie.Trie
+    [`root()`]: ref:ethereum.merkle_patricia_trie.root
+    [Trie]: ref:ethereum.merkle_patricia_trie.Trie
     """
 
     bloom: Bloom
@@ -233,6 +236,7 @@ class Header:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Block:
@@ -286,6 +290,7 @@ class Block:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Log:
@@ -318,6 +323,7 @@ class Log:
     """
 
 
+@final
 @slotted_freezable
 @dataclass
 class Receipt:

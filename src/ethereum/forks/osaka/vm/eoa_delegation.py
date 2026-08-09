@@ -14,7 +14,7 @@ from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 from ethereum.state import Address
 
 from ..fork_types import Authorization
-from ..state import (
+from ..state_tracker import (
     account_exists,
     get_account,
     get_code,
@@ -49,12 +49,10 @@ def is_valid_delegation(code: bytes) -> bool:
         False otherwise.
 
     """
-    if (
+    return (
         len(code) == EOA_DELEGATED_CODE_LENGTH
         and code[:EOA_DELEGATION_MARKER_LENGTH] == EOA_DELEGATION_MARKER
-    ):
-        return True
-    return False
+    )
 
 
 def get_delegated_code_address(code: bytes) -> Optional[Address]:
@@ -139,9 +137,9 @@ def access_delegation(
         The delegation address, code, and access gas cost.
 
     """
-    state = evm.message.block_env.state
+    tx_state = evm.message.tx_env.state
 
-    code = get_code(state, get_account(state, address).code_hash)
+    code = get_code(tx_state, get_account(tx_state, address).code_hash)
     if not is_valid_delegation(code):
         return False, address, code, Uint(0)
 
@@ -151,9 +149,46 @@ def access_delegation(
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
-    code = get_code(state, get_account(state, address).code_hash)
+    code = get_code(tx_state, get_account(tx_state, address).code_hash)
 
     return True, address, code, access_gas_cost
+
+
+def validate_authorization(
+    message: Message, auth: Authorization
+) -> None | Address:
+    """
+    Check if the given `Authorization` is valid against the current state.
+
+    Returns the `authority` address or `None` if the validation was
+    unsuccessful.
+    """
+    tx_state = message.tx_env.state
+
+    if auth.chain_id not in (message.block_env.chain_id, U256(0)):
+        return None
+
+    if auth.nonce >= U64.MAX_VALUE:
+        return None
+
+    try:
+        authority = recover_authority(auth)
+    except InvalidSignatureError:
+        return None
+
+    message.accessed_addresses.add(authority)
+
+    authority_account = get_account(tx_state, authority)
+    authority_code = get_code(tx_state, authority_account.code_hash)
+
+    if authority_code and not is_valid_delegation(authority_code):
+        return None
+
+    authority_nonce = authority_account.nonce
+    if authority_nonce != auth.nonce:
+        return None
+
+    return authority
 
 
 def set_delegation(message: Message) -> U256:
@@ -171,33 +206,16 @@ def set_delegation(message: Message) -> U256:
         Refund from authority which already exists in state.
 
     """
-    state = message.block_env.state
+    tx_state = message.tx_env.state
     refund_counter = U256(0)
     for auth in message.tx_env.authorizations:
-        if auth.chain_id not in (message.block_env.chain_id, U256(0)):
-            continue
+        match validate_authorization(message, auth):
+            case None:
+                continue
+            case authority:
+                pass
 
-        if auth.nonce >= U64.MAX_VALUE:
-            continue
-
-        try:
-            authority = recover_authority(auth)
-        except InvalidSignatureError:
-            continue
-
-        message.accessed_addresses.add(authority)
-
-        authority_account = get_account(state, authority)
-        authority_code = get_code(state, authority_account.code_hash)
-
-        if authority_code and not is_valid_delegation(authority_code):
-            continue
-
-        authority_nonce = authority_account.nonce
-        if authority_nonce != auth.nonce:
-            continue
-
-        if account_exists(state, authority):
+        if account_exists(tx_state, authority):
             refund_counter += U256(
                 GasCosts.AUTH_PER_EMPTY_ACCOUNT
                 - REFUND_AUTH_PER_EXISTING_ACCOUNT
@@ -207,15 +225,15 @@ def set_delegation(message: Message) -> U256:
             code_to_set = b""
         else:
             code_to_set = EOA_DELEGATION_MARKER + auth.address
-        set_code(state, authority, code_to_set)
+        set_code(tx_state, authority, code_to_set)
 
-        increment_nonce(state, authority)
+        increment_nonce(tx_state, authority)
 
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")
 
     message.code = get_code(
-        state, get_account(state, message.code_address).code_hash
+        tx_state, get_account(tx_state, message.code_address).code_hash
     )
 
     return refund_counter
