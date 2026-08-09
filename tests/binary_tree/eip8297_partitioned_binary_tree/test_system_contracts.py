@@ -16,9 +16,9 @@ this module inherits (unmodified, running under `BinaryTree` via
 request at `WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET + 3 *
 queue_index`, so ~21 requests in one block already exceed slot 64 --
 neither upstream suite reaches those counts, which is a property of
-their inputs, not a bound on either buffer. A high genesis block
-number (EIP-2935) or 21+ queued withdrawal requests (EIP-7002) would
-drive these into overflow storage groups; not covered here yet.
+their inputs, not a bound on either buffer. The 2935 ring buffer is
+driven into both homes below; EIP-7002's queue (21+ requests in one
+block) is not covered yet.
 """
 
 import pytest
@@ -35,7 +35,10 @@ from execution_testing import (
 
 from ...cancun.eip4788_beacon_root.spec import Spec as Spec4788
 from ...cancun.eip4788_beacon_root.spec import SpecHelpers
-from .spec import ref_spec_8297
+from ...prague.eip2935_historical_block_hashes_from_state.spec import (
+    Spec as Spec2935,
+)
+from .spec import Spec, ref_spec_8297
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8297.version
@@ -173,3 +176,62 @@ def test_system_contract_and_user_contract_writes_coexist(
             user_contract: Account(storage={slot: value}),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "first_query",
+    [
+        pytest.param(0, id="ring_slots_in_header_home"),
+        pytest.param(64, id="ring_slots_in_overflow_home"),
+    ],
+)
+def test_history_contract_ring_buffer_across_blocks(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    first_query: int,
+) -> None:
+    """
+    Verify the EIP-2935 get path agrees with BLOCKHASH for ring slots
+    in both storage homes; the overflow variant chains past block 64
+    first. A zero answer writes a probe slot the post state rejects.
+    """
+    blocks_to_check = 3
+    queried = [first_query + i for i in range(blocks_to_check)]
+    ring_slots = [n % Spec2935.HISTORY_SERVE_WINDOW for n in queried]
+    if first_query == 0:
+        assert all(s < Spec.HEADER_STORAGE_SLOTS for s in ring_slots)
+    else:
+        assert all(s >= Spec.HEADER_STORAGE_SLOTS for s in ring_slots)
+
+    checker = pre.deploy_contract(
+        code=Op.MSTORE(0, Op.CALLDATALOAD(0))
+        + Op.POP(
+            Op.CALL(
+                Op.GAS,
+                Spec2935.HISTORY_STORAGE_ADDRESS,
+                0,
+                0,
+                32,
+                32,
+                32,
+            )
+        )
+        + Op.SSTORE(
+            Op.CALLDATALOAD(0),
+            Op.EQ(Op.MLOAD(32), Op.BLOCKHASH(Op.CALLDATALOAD(0))),
+        )
+        + Op.SSTORE(
+            Op.ADD(0x10000, Op.CALLDATALOAD(0)),
+            Op.ISZERO(Op.MLOAD(32)),
+        )
+        + Op.STOP
+    )
+    sender = pre.fund_eoa()
+
+    blocks = [Block(txs=[]) for _ in range(first_query)] + [
+        Block(txs=[Transaction(sender=sender, to=checker, data=Hash(n))])
+        for n in queried
+    ]
+
+    post = {checker: Account(storage=dict.fromkeys(queried, 1))}
+    blockchain_test(pre=pre, blocks=blocks, post=post)

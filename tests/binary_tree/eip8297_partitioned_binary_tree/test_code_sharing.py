@@ -134,6 +134,63 @@ def test_shared_code_survives_sibling_same_tx_selfdestruct(
     )
 
 
+def test_unshared_code_chunks_after_same_tx_selfdestruct(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Pin the committed root after a contract with unique deployed code
+    is created, called and self-destructed in one transaction -- the
+    only deletion EIP-6780 performs; only the root sees the chunks.
+    """
+    # The twin's branchy shape plus a marker no other test deploys.
+    branchy = (
+        Op.JUMPI(13, Op.CALLDATALOAD(0))
+        + Op.SSTORE(1, Op.CALLDATALOAD(32))
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SELFDESTRUCT(Op.CALLER)
+    )
+    unique_code = branchy + Op.PUSH32(0x8297_0666)
+    unique_code += Op.INVALID * (100 - len(unique_code))
+    assert bytes(unique_code)[13] == 0x5B
+    assert len(unique_code) == 100  # four chunks, held by nobody else
+
+    driver = pre.deploy_contract(
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(0, Op.CREATE(0, 0, Op.CALLDATASIZE))
+        + Op.MSTORE(0, 1)
+        + Op.SSTORE(
+            1,
+            Op.CALL(address=Op.SLOAD(0), args_offset=0, args_size=32),
+        )
+        + Op.STOP
+    )
+    twin = compute_create_address(address=driver, nonce=1)
+    bystander = pre.deploy_contract(code=Op.SSTORE(2, 0xB0) + Op.STOP)
+    sender = pre.fund_eoa()
+
+    create_and_destroy = Transaction(
+        sender=sender,
+        to=driver,
+        data=bytes(Initcode(deploy_code=unique_code)),
+    )
+    unrelated_write = Transaction(sender=sender, to=bystander)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(txs=[create_and_destroy]),
+            Block(txs=[unrelated_write]),
+        ],
+        post={
+            driver: Account(nonce=2, storage={0: twin, 1: 1}),
+            twin: Account.NONEXISTENT,
+            bystander: Account(storage={2: 0xB0}),
+        },
+    )
+
+
 def test_shared_designator_survives_peer_redelegation(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
