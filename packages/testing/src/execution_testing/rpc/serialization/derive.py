@@ -136,6 +136,7 @@ def derive_rpc_calls(fixture: "BlockchainFixture") -> List[FixtureRPCCall]:
         fixture.blocks,
         post_state=fixture.post_state,
         genesis=genesis_block(fixture),
+        chain_id=int(fixture.config.chain_id),
     )
 
 
@@ -466,6 +467,7 @@ def derive_rpc_calls_for_blocks(
     genesis: FixtureBlock | None = None,
     forkchoice_tags: Mapping[str, Hash] | None = None,
     declared: Sequence[Any] = (),
+    chain_id: int | None = None,
 ) -> List[FixtureRPCCall]:
     """
     Return the RPC expectations implied by a canonical chain.
@@ -477,6 +479,10 @@ def derive_rpc_calls_for_blocks(
 
     Invalid blocks are skipped: they never enter the canonical chain, so a
     client is right to report nothing for them.
+
+    `chain_id` is the chain the fixture asks a consumer to configure, and
+    is the one expectation here that no block carries: it is a property of
+    the network rather than of the chain, so it has to be handed in.
 
     `forkchoice_tags` maps `safe` and `finalized` onto blocks of this
     chain, and is supplied only where a consumer can actually declare them.
@@ -620,6 +626,16 @@ def derive_rpc_calls_for_blocks(
             method="eth_blockNumber", params=[], result=hex(highest_block)
         )
     )
+    if chain_id is not None:
+        # A network property rather than a chain one, and the cheapest
+        # assertion in the suite: the fixture already tells a consumer which
+        # chain to configure, so this only checks the client reports back
+        # the one it was given.
+        calls.append(
+            FixtureRPCCall(
+                method="eth_chainId", params=[], result=hex(chain_id)
+            )
+        )
     calls.extend(_tag_calls(head if head is not None else genesis, genesis))
     calls.extend(_forkchoice_tag_calls(blocks, forkchoice_tags))
     calls.extend(_declared_calls(declared, all_logs))

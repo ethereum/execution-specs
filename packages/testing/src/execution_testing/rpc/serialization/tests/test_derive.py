@@ -4,7 +4,13 @@ from typing import Any, Dict, List
 
 import pytest
 
-from execution_testing.base_types import Address, Bytes, Hash, HexNumber
+from execution_testing.base_types import (
+    Address,
+    Bytes,
+    Hash,
+    HexNumber,
+    ZeroPaddedHexNumber,
+)
 from execution_testing.exceptions import BlockException
 from execution_testing.fixtures.blockchain import (
     BlockchainFixture,
@@ -245,6 +251,7 @@ def test_blocks_can_be_supplied_directly(
         single_block_fixture.blocks,
         post_state=single_block_fixture.post_state,
         genesis=derive_module.genesis_block(single_block_fixture),
+        chain_id=int(single_block_fixture.config.chain_id),
     )
 
     assert [c.method for c in from_blocks] == [c.method for c in from_fixture]
@@ -937,3 +944,34 @@ class _BadAccountAccess:
             "storageChanges": [],
             "storageReads": [],
         }
+
+
+def test_chain_id_is_reported_from_the_fixture_config(
+    single_block_fixture: BlockchainFixture,
+) -> None:
+    """The chain a fixture asks for is the chain a client must report."""
+    single_block_fixture.config.chain_id = ZeroPaddedHexNumber(4660)
+
+    call = next(
+        c
+        for c in derive_rpc_calls(single_block_fixture)
+        if c.method == "eth_chainId"
+    )
+
+    assert call.params == []
+    assert call.result == "0x1234"
+
+
+def test_chain_id_is_absent_without_one_to_report() -> None:
+    """
+    No chain id means no expectation, rather than a guessed default.
+
+    The value is a property of the network the consumer configures, not of
+    the chain, so there is nothing to read off the blocks if it is not
+    handed in.
+    """
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        [make_block([make_transaction()], [make_receipt(21_000)])]
+    )
+
+    assert "eth_chainId" not in methods(calls)
