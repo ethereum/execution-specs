@@ -208,6 +208,65 @@ class RPCReceipt(RPCResponseModel):
     """Absent for non-blob transactions."""
 
 
+class RPCValueChange(RPCResponseModel):
+    """
+    A balance or nonce an account held after one block access index.
+
+    The schema describes balance and nonce changes as two titles with the
+    same two fields, differing only in how wide the value may be — 256 bits
+    against 64. Both are minimal hex, so one model serializes either, and
+    the width is left to the schema to enforce rather than restated here.
+    """
+
+    index: HexNumber
+    value: HexNumber
+
+
+class RPCCodeChange(RPCResponseModel):
+    """The code an account held after one block access index."""
+
+    index: HexNumber
+    code: Bytes
+
+
+class RPCStorageChange(RPCResponseModel):
+    """
+    The value a storage slot held after one block access index.
+
+    Unlike a balance or a nonce, the value is a full 32-byte word rather
+    than a quantity, so it is padded rather than minimal.
+    """
+
+    index: HexNumber
+    value: Hash
+
+
+class RPCSlotChanges(RPCResponseModel):
+    """Every change one storage slot underwent during a block."""
+
+    key: Hash
+    changes: List[RPCStorageChange]
+
+
+class RPCAccountAccess(RPCResponseModel):
+    """
+    Everything one account did during a block, as the access list records it.
+
+    The schema requires only `address` and forbids unknown properties, so
+    the five change lists are always written even when empty. That matches
+    the consensus encoding, where an account entry carries all five lists,
+    and it keeps the absence of a change explicit rather than inferred from
+    a missing key.
+    """
+
+    address: Address
+    balance_changes: List[RPCValueChange]
+    code_changes: List[RPCCodeChange]
+    nonce_changes: List[RPCValueChange]
+    storage_changes: List[RPCSlotChanges]
+    storage_reads: List[Hash]
+
+
 class RPCBlock(RPCResponseModel):
     """A block as returned by `eth_getBlockByNumber`/`eth_getBlockByHash`."""
 

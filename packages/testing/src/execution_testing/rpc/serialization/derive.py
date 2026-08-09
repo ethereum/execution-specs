@@ -35,6 +35,7 @@ from execution_testing.fixtures.common import FixtureRPCCall
 
 from .filters import compute_result
 from .projection import (
+    block_access_list_response,
     block_response,
     contract_address,
     receipt_responses,
@@ -423,6 +424,42 @@ def _declared_calls(
     return calls
 
 
+def _access_list_calls(
+    block: FixtureBlock, *references: str
+) -> List[FixtureRPCCall]:
+    """
+    Return the access-list query for each way of naming a block.
+
+    Emitted only where the fork produces an access list, which is what makes
+    this fork-specific without any fork knowledge here: a block that has one
+    carries it, and a block that does not says nothing. Genesis therefore
+    contributes nothing either, since a fixture stores it as a header rather
+    than as a built block.
+
+    This is the method the recorded execution-apis corpus cannot cover at
+    all — no client had implemented it when that corpus was generated, so
+    there is nothing to record. The expectation here comes from the
+    transition tool instead.
+
+    The forkchoice tags are left out deliberately. What a round trip
+    establishes is which block a tag names, and the two queries already
+    emitted for each tag establish that; a third would only repeat a
+    kilobyte of the same answer.
+    """
+    projected = block_access_list_response(block)
+    if projected is None:
+        return []
+    result = [account.to_rpc() for account in projected]
+    return [
+        FixtureRPCCall(
+            method="eth_getBlockAccessList",
+            params=[reference],
+            result=result,
+        )
+        for reference in references
+    ]
+
+
 def derive_rpc_calls_for_blocks(
     blocks: Sequence[Any],
     post_state: Any = None,
@@ -516,6 +553,8 @@ def derive_rpc_calls_for_blocks(
                 result=hex(count),
             )
         )
+
+        calls.extend(_access_list_calls(block, number, str(header.block_hash)))
 
         receipts = receipt_responses(block)
         calls.append(
@@ -636,6 +675,7 @@ def _tag_calls(
                 ],
             )
         )
+        calls.extend(_access_list_calls(block, tag))
     return calls
 
 

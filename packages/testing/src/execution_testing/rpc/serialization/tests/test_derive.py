@@ -25,6 +25,7 @@ from execution_testing.rpc.serialization.derive import ProjectionError
 
 from .test_projection import (
     RECIPIENT,
+    make_access_list,
     make_block,
     make_header,
     make_receipt,
@@ -844,3 +845,95 @@ def test_uncomputable_method_is_refused() -> None:
     """Only methods with a stated rule can have a result computed."""
     with pytest.raises(UncomputableCallError, match="eth_getBalance"):
         compute_result("eth_getBalance", [], [])
+
+
+def access_list_calls(block: Any) -> List[Any]:
+    """Return the access-list expectations derived from one block."""
+    return [
+        call
+        for call in derive_module.derive_rpc_calls_for_blocks([block])
+        if call.method == "eth_getBlockAccessList"
+    ]
+
+
+def test_access_list_is_queried_by_number_hash_and_tag() -> None:
+    """
+    Every way of naming the head block reaches the same access list.
+
+    Three references rather than two: the head is also `latest`, and that
+    tag is the one a client resolves through a different path.
+    """
+    block = make_block(
+        [make_transaction()],
+        [make_receipt(21_000)],
+        block_access_list=make_access_list(),
+    )
+
+    calls = access_list_calls(block)
+
+    assert [call.params[0] for call in calls] == [
+        "0x1",
+        str(block.header.block_hash),
+        "latest",
+    ]
+    assert len({str(call.result) for call in calls}) == 1
+
+
+def test_access_list_is_absent_where_the_fork_produces_none() -> None:
+    """
+    A fork without access lists derives no query at all.
+
+    This is what keeps the method fork-specific without any fork knowledge
+    in the derivation: a block that has an access list carries it, and a
+    block that does not says nothing about one.
+    """
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+
+    assert access_list_calls(block) == []
+
+
+def test_broken_access_list_projection_fails_at_derivation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    An access list of the wrong shape never reaches a fixture.
+
+    The negative control for a method no client implements yet: with
+    nothing to replay against, the fill-time guard is the only thing
+    standing between a projection bug and a release.
+    """
+    block = make_block(
+        [make_transaction()],
+        [make_receipt(21_000)],
+        block_access_list=make_access_list(),
+    )
+    monkeypatch.setattr(
+        derive_module,
+        "block_access_list_response",
+        lambda _block: [_BadAccountAccess()],
+    )
+
+    with pytest.raises(ProjectionError, match="projection bug"):
+        derive_module.derive_rpc_calls_for_blocks([block])
+
+
+class _BadAccountAccess:
+    """
+    Stand-in account access whose block access index is zero-padded.
+
+    The same defect `_BadProjection` models for blocks, in the place it is
+    likeliest to recur: the consensus access list stores every index as a
+    `ZeroPaddedHexNumber`, so forwarding one unconverted is a single
+    missing call away.
+    """
+
+    def to_rpc(self) -> Dict[str, Any]:
+        """Return the defective account access object."""
+        return {
+            "address": str(RECIPIENT),
+            "balanceChanges": [{"index": "0x01", "value": "0x1"}],
+            "codeChanges": [],
+            "nonceChanges": [],
+            "storageChanges": [],
+            "storageReads": [],
+        }

@@ -17,6 +17,7 @@ from .filters import (
     filter_logs,
 )
 from .projection import (
+    block_access_list_response,
     block_response,
     contract_address,
     effective_gas_price,
@@ -32,12 +33,17 @@ from .schema import (
 )
 from .types import (
     RPCAccessListEntry,
+    RPCAccountAccess,
     RPCAuthorization,
     RPCBlock,
+    RPCCodeChange,
     RPCLog,
     RPCReceipt,
     RPCResponseModel,
+    RPCSlotChanges,
+    RPCStorageChange,
     RPCTransaction,
+    RPCValueChange,
     RPCWithdrawal,
 )
 
@@ -45,14 +51,20 @@ __all__ = [
     "COMPUTABLE_METHODS",
     "UncomputableCallError",
     "RPCAccessListEntry",
+    "RPCAccountAccess",
     "RPCAuthorization",
     "RPCBlock",
+    "RPCCodeChange",
     "RPCLog",
     "RPCReceipt",
     "RPCResponseModel",
+    "RPCSlotChanges",
+    "RPCStorageChange",
     "RPCTransaction",
+    "RPCValueChange",
     "RPCWithdrawal",
     "SchemaViolationError",
+    "block_access_list_response",
     "block_response",
     "contract_address",
     "compute_result",

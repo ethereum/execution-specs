@@ -30,6 +30,7 @@ from execution_testing.base_types import (
     Address,
     Bloom,
     Bytes,
+    Hash,
     HexNumber,
 )
 from execution_testing.fixtures.blockchain import (
@@ -41,11 +42,16 @@ from execution_testing.test_types.utils import int_to_bytes
 
 from .types import (
     RPCAccessListEntry,
+    RPCAccountAccess,
     RPCAuthorization,
     RPCBlock,
+    RPCCodeChange,
     RPCLog,
     RPCReceipt,
+    RPCSlotChanges,
+    RPCStorageChange,
     RPCTransaction,
+    RPCValueChange,
     RPCWithdrawal,
 )
 
@@ -286,6 +292,68 @@ def withdrawal_responses(
     ]
 
 
+def block_access_list_response(
+    block: FixtureBlock,
+) -> List[RPCAccountAccess] | None:
+    """
+    Project a block's access list, or None where the fork produces none.
+
+    This is the one projection that reformats and nothing more: the access
+    list is a consensus object the transition tool already returned, and the
+    fixture carries it whole. The RPC view differs only in spelling — the
+    consensus field names are positional (`post_balance`, `new_code`), the
+    response names them `value` and `code`, and quantities become minimal
+    hex while storage keys and values stay padded to 32 bytes.
+
+    A fork that does not produce an access list has nothing to say here, and
+    neither does the genesis block, which a fixture stores as a header
+    rather than as a built block.
+    """
+    if block.block_access_list is None:
+        return None
+    return [
+        RPCAccountAccess(
+            address=account.address,
+            balance_changes=[
+                RPCValueChange(
+                    index=HexNumber(change.block_access_index),
+                    value=HexNumber(change.post_balance),
+                )
+                for change in account.balance_changes
+            ],
+            code_changes=[
+                RPCCodeChange(
+                    index=HexNumber(change.block_access_index),
+                    code=change.new_code,
+                )
+                for change in account.code_changes
+            ],
+            nonce_changes=[
+                RPCValueChange(
+                    index=HexNumber(change.block_access_index),
+                    value=HexNumber(change.post_nonce),
+                )
+                for change in account.nonce_changes
+            ],
+            storage_changes=[
+                RPCSlotChanges(
+                    key=Hash(slot.slot),
+                    changes=[
+                        RPCStorageChange(
+                            index=HexNumber(change.block_access_index),
+                            value=Hash(change.post_value),
+                        )
+                        for change in slot.slot_changes
+                    ],
+                )
+                for slot in account.storage_changes
+            ],
+            storage_reads=[Hash(slot) for slot in account.storage_reads],
+        )
+        for account in block.block_access_list.root
+    ]
+
+
 def block_response(
     block: FixtureBlock, *, full_transactions: bool = False
 ) -> RPCBlock:
@@ -362,6 +430,7 @@ def _optional_number(value: int | None) -> HexNumber | None:
 
 
 __all__ = [
+    "block_access_list_response",
     "block_response",
     "contract_address",
     "effective_gas_price",

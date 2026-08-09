@@ -23,11 +23,21 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.rpc.serialization import (
+    block_access_list_response,
     block_response,
     contract_address,
     effective_gas_price,
     receipt_responses,
     transaction_responses,
+)
+from execution_testing.test_types.block_access_list import (
+    BalAccountChange,
+    BalBalanceChange,
+    BalCodeChange,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
+    BlockAccessList,
 )
 
 SENDER = Address(0xA1)
@@ -101,6 +111,7 @@ def make_log(topic: int) -> FixtureTransactionLog:
 def make_block(
     transactions: List[FixtureTransaction],
     receipts: List[FixtureTransactionReceipt],
+    block_access_list: BlockAccessList | None = None,
     **header_overrides: Any,
 ) -> FixtureBlock:
     """Return a block pairing the given transactions and receipts."""
@@ -109,7 +120,44 @@ def make_block(
         txs=transactions,
         ommers=[],
         receipts=receipts,
+        block_access_list=block_access_list,
         rlp=Bytes(b"\xc0" * 42),
+    )
+
+
+def make_access_list() -> BlockAccessList:
+    """Return an access list exercising all five kinds of change."""
+    return BlockAccessList(
+        [
+            BalAccountChange(
+                address=SENDER,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=2)
+                ],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=10**18)
+                ],
+            ),
+            BalAccountChange(
+                address=RECIPIENT,
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=1, new_code=Bytes(b"\x60\x00")
+                    )
+                ],
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=255
+                            )
+                        ],
+                    )
+                ],
+                storage_reads=[2],
+            ),
+        ]
     )
 
 
@@ -441,3 +489,86 @@ def test_full_block_form_embeds_transaction_objects() -> None:
     assert hashes == [str(Hash(0xDEAD))]
     assert isinstance(objects[0], dict)
     assert objects[0]["hash"] == str(Hash(0xDEAD))
+
+
+def test_access_list_is_absent_where_the_fork_produces_none() -> None:
+    """A block from a fork without access lists projects to None."""
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+
+    assert block_access_list_response(block) is None
+
+
+def test_access_list_quantities_use_minimal_hex() -> None:
+    """
+    Block access indices and account quantities are minimal hex.
+
+    The consensus model stores these zero-padded, which the schema's `uint`
+    pattern rejects, so the projection has to convert every one of them.
+    """
+    block = make_block(
+        [make_transaction()],
+        [make_receipt(21_000)],
+        block_access_list=make_access_list(),
+    )
+
+    sender, recipient = (
+        account.to_rpc() for account in block_access_list_response(block) or []
+    )
+
+    assert sender["nonceChanges"] == [{"index": "0x1", "value": "0x2"}]
+    assert sender["balanceChanges"] == [
+        {"index": "0x1", "value": "0xde0b6b3a7640000"}
+    ]
+    assert recipient["codeChanges"] == [{"index": "0x1", "code": "0x6000"}]
+
+
+def test_access_list_storage_stays_padded_to_a_full_word() -> None:
+    """
+    Storage keys and values are 32-byte words rather than quantities.
+
+    They are the one part of the response the schema pins to a fixed width,
+    so minimal hex would be wrong here in exactly the way it is right
+    everywhere else.
+    """
+    block = make_block(
+        [make_transaction()],
+        [make_receipt(21_000)],
+        block_access_list=make_access_list(),
+    )
+
+    recipient = (block_access_list_response(block) or [])[1].to_rpc()
+
+    assert recipient["storageChanges"] == [
+        {
+            "key": str(Hash(1)),
+            "changes": [{"index": "0x1", "value": str(Hash(255))}],
+        }
+    ]
+    assert recipient["storageReads"] == [str(Hash(2))]
+
+
+def test_access_list_writes_every_change_list_even_when_empty() -> None:
+    """
+    An account reports all five lists, empty ones included.
+
+    The schema requires only `address` and forbids unknown properties, so
+    omission would be legal — but the consensus encoding always carries the
+    five lists, and writing them keeps "no change" explicit rather than
+    something a reader has to infer from a missing key.
+    """
+    block = make_block(
+        [make_transaction()],
+        [make_receipt(21_000)],
+        block_access_list=BlockAccessList([BalAccountChange(address=SENDER)]),
+    )
+
+    account = (block_access_list_response(block) or [])[0].to_rpc()
+
+    assert account == {
+        "address": str(SENDER),
+        "balanceChanges": [],
+        "codeChanges": [],
+        "nonceChanges": [],
+        "storageChanges": [],
+        "storageReads": [],
+    }
