@@ -18,7 +18,14 @@ from execution_testing.fixtures.blockchain import (
     FixtureWithdrawal,
     InvalidFixtureBlock,
 )
-from execution_testing.forks import Amsterdam
+from execution_testing.fixtures.common import FixtureRPCCall
+from execution_testing.forks import (
+    Amsterdam,
+    Cancun,
+    CancunToPragueAtTime15k,
+    Prague,
+    Shanghai,
+)
 from execution_testing.rpc.serialization import (
     UncomputableCallError,
     compute_result,
@@ -975,3 +982,66 @@ def test_chain_id_is_absent_without_one_to_report() -> None:
     )
 
     assert "eth_chainId" not in methods(calls)
+
+
+def blob_base_fee(fork: Any, **header_overrides: Any) -> List[FixtureRPCCall]:
+    """Return the blob base fee expectations for a one-block chain."""
+    block = make_block(
+        [make_transaction()], [make_receipt(21_000)], **header_overrides
+    )
+    return [
+        call
+        for call in derive_module.derive_rpc_calls_for_blocks(
+            [block], fork=fork
+        )
+        if call.method == "eth_blobBaseFee"
+    ]
+
+
+def test_blob_base_fee_runs_the_forks_own_arithmetic() -> None:
+    """
+    The expectation is whatever the fork's calculator returns.
+
+    Asserted against the calculator rather than against a literal, because
+    a literal here would be a second implementation of `fake_exponential`
+    and would agree with a broken projection that made the same mistake.
+    """
+    excess = 15_335_424
+    (call,) = blob_base_fee(Prague, excess_blob_gas=excess, blob_gas_used=0)
+
+    expected = Prague.blob_gas_price_calculator()(excess_blob_gas=excess)
+    assert call.result == hex(expected)
+    assert expected > 1, "a chain this loaded must price blobs above the floor"
+
+
+def test_blob_base_fee_follows_the_head_blocks_fork() -> None:
+    """
+    A transition chain is priced by the fork it ends on.
+
+    The blob schedule is exactly what a transition changes, so taking the
+    fixture's starting fork would misprice every block after the boundary.
+    """
+    excess = 15_335_424
+    (call,) = blob_base_fee(
+        CancunToPragueAtTime15k,
+        excess_blob_gas=excess,
+        blob_gas_used=0,
+        timestamp=16_000,
+    )
+
+    assert call.result == hex(
+        Prague.blob_gas_price_calculator()(excess_blob_gas=excess)
+    )
+    assert call.result != hex(
+        Cancun.blob_gas_price_calculator()(excess_blob_gas=excess)
+    )
+
+
+def test_blob_base_fee_is_absent_before_blobs() -> None:
+    """A fork without blobs has no blob base fee to report."""
+    assert blob_base_fee(Shanghai) == []
+
+
+def test_blob_base_fee_is_absent_without_a_fork() -> None:
+    """No fork means no arithmetic to run, so no expectation."""
+    assert blob_base_fee(None, excess_blob_gas=0, blob_gas_used=0) == []

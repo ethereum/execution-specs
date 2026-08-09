@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple
 from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.fixtures.blockchain import FixtureBlock
 from execution_testing.fixtures.common import FixtureRPCCall
+from execution_testing.forks import Fork, TransitionFork
 
 from .filters import compute_result
 from .projection import (
@@ -137,6 +138,7 @@ def derive_rpc_calls(fixture: "BlockchainFixture") -> List[FixtureRPCCall]:
         post_state=fixture.post_state,
         genesis=genesis_block(fixture),
         chain_id=int(fixture.config.chain_id),
+        fork=fixture.config.fork,
     )
 
 
@@ -461,6 +463,41 @@ def _access_list_calls(
     ]
 
 
+def _blob_base_fee_call(
+    head: FixtureBlock | None, fork: Fork | TransitionFork | None
+) -> List[FixtureRPCCall]:
+    """
+    Return the blob base fee at the head of the chain, where there is one.
+
+    The price is the fork's own function of the head block's excess blob
+    gas, called rather than reimplemented: the update fraction and the
+    minimum both move between forks, and a second copy of
+    `fake_exponential` here would be one more thing to keep in step.
+
+    Which fork's function is decided by the head block rather than by the
+    fixture, because a transition chain ends on a different fork from the
+    one it started on and the blob schedule is exactly what such a
+    transition changes.
+
+    A fork without blobs has no answer to give, and neither does a header
+    that carries no excess blob gas, so neither derives a call.
+    """
+    if head is None or fork is None:
+        return []
+    header = head.header
+    head_fork = fork.fork_at(
+        block_number=int(header.number), timestamp=int(header.timestamp)
+    )
+    if not head_fork.supports_blobs() or header.excess_blob_gas is None:
+        return []
+    price = head_fork.blob_gas_price_calculator()(
+        excess_blob_gas=int(header.excess_blob_gas)
+    )
+    return [
+        FixtureRPCCall(method="eth_blobBaseFee", params=[], result=hex(price))
+    ]
+
+
 def derive_rpc_calls_for_blocks(
     blocks: Sequence[Any],
     post_state: Any = None,
@@ -468,6 +505,7 @@ def derive_rpc_calls_for_blocks(
     forkchoice_tags: Mapping[str, Hash] | None = None,
     declared: Sequence[Any] = (),
     chain_id: int | None = None,
+    fork: Fork | TransitionFork | None = None,
 ) -> List[FixtureRPCCall]:
     """
     Return the RPC expectations implied by a canonical chain.
@@ -483,6 +521,10 @@ def derive_rpc_calls_for_blocks(
     `chain_id` is the chain the fixture asks a consumer to configure, and
     is the one expectation here that no block carries: it is a property of
     the network rather than of the chain, so it has to be handed in.
+
+    `fork` is needed only where a header field has to be run through a
+    fork's own arithmetic rather than reported as it stands; see
+    `_blob_base_fee_call`.
 
     `forkchoice_tags` maps `safe` and `finalized` onto blocks of this
     chain, and is supplied only where a consumer can actually declare them.
@@ -636,6 +678,7 @@ def derive_rpc_calls_for_blocks(
                 method="eth_chainId", params=[], result=hex(chain_id)
             )
         )
+    calls.extend(_blob_base_fee_call(head, fork))
     calls.extend(_tag_calls(head if head is not None else genesis, genesis))
     calls.extend(_forkchoice_tag_calls(blocks, forkchoice_tags))
     calls.extend(_declared_calls(declared, all_logs))

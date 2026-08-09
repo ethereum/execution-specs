@@ -1383,6 +1383,7 @@ class BlockchainTest(BaseTest):
                 genesis=genesis,
                 declared=self.rpc_checks,
                 chain_id=int(self.chain_id),
+                fork=self.fork,
             )
         return FillResult(
             fixture=fixture,
@@ -1574,6 +1575,7 @@ class BlockchainTest(BaseTest):
                 forkchoice_tags=forkchoice_tags,
                 declared=self.rpc_checks,
                 chain_id=int(self.chain_id),
+                fork=self.fork,
             )
             if forkchoice_tags:
                 fixture.rpc_forkchoice = FixtureForkchoiceState(
