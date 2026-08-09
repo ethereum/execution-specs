@@ -508,7 +508,7 @@ def process_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
-) -> None:
+) -> vm.TransactionResult:
     """
     Execute a transaction against the provided environment.
 
@@ -531,6 +531,11 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+
+    Returns
+    -------
+    tx_result : `vm.TransactionResult`
+        The return data, gas used and error of the transaction.
 
     """
     tx_state = TransactionState(parent=block_env.state)
@@ -628,6 +633,13 @@ def process_transaction(
     block_output.block_logs += tx_output.logs
 
     incorporate_tx_into_block(tx_state)
+
+    return vm.TransactionResult(
+        return_data=tx_output.return_data,
+        gas_used=tx_gas_used_after_refund,
+        gas_used_before_refund=tx_gas_used_before_refund,
+        error=tx_output.error,
+    )
 
 
 def process_withdrawals(
