@@ -33,6 +33,7 @@ from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.fixtures.blockchain import FixtureBlock
 from execution_testing.fixtures.common import FixtureRPCCall
 
+from .filters import compute_result
 from .projection import (
     block_response,
     contract_address,
@@ -395,11 +396,39 @@ def _malformed_key_calls(
     ]
 
 
+def _declared_calls(
+    declared: Sequence[Any], logs: Sequence[Any]
+) -> List[FixtureRPCCall]:
+    """
+    Turn author-declared checks into fixture calls.
+
+    A check supplies the question; the answer is an error code, a null,
+    or a value computed from the chain. It is never written by hand,
+    which `RPCExpectation` enforces at construction and this reasserts by
+    having nowhere to put one.
+    """
+    calls: List[FixtureRPCCall] = []
+    for check in declared:
+        result = None
+        if getattr(check, "derive_result", False):
+            result = compute_result(check.method, check.params, logs)
+        calls.append(
+            FixtureRPCCall(
+                method=check.method,
+                params=check.params,
+                error_code=check.error_code,
+                result=result,
+            )
+        )
+    return calls
+
+
 def derive_rpc_calls_for_blocks(
     blocks: Sequence[Any],
     post_state: Any = None,
     genesis: FixtureBlock | None = None,
     forkchoice_tags: Mapping[str, Hash] | None = None,
+    declared: Sequence[Any] = (),
 ) -> List[FixtureRPCCall]:
     """
     Return the RPC expectations implied by a canonical chain.
@@ -416,6 +445,11 @@ def derive_rpc_calls_for_blocks(
     chain, and is supplied only where a consumer can actually declare them.
     It is the one input here that is not read off the chain; see
     `_forkchoice_tag_calls`.
+
+    `declared` carries the checks a test wrote by hand. Their parameters
+    are the author's, because enumeration cannot invent a filter, but any
+    result is still computed here from the chain's own logs — see
+    `_declared_calls`.
 
     Every derived expectation is validated before being returned; see
     `_reject_unsatisfiable`.
@@ -549,6 +583,7 @@ def derive_rpc_calls_for_blocks(
     )
     calls.extend(_tag_calls(head if head is not None else genesis, genesis))
     calls.extend(_forkchoice_tag_calls(blocks, forkchoice_tags))
+    calls.extend(_declared_calls(declared, all_logs))
     calls.extend(
         _state_calls(
             blocks,

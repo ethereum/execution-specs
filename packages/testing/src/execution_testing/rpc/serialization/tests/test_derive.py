@@ -13,11 +13,14 @@ from execution_testing.fixtures.blockchain import (
     InvalidFixtureBlock,
 )
 from execution_testing.forks import Amsterdam
-from execution_testing.rpc.serialization import derive as derive_module
 from execution_testing.rpc.serialization import (
+    UncomputableCallError,
+    compute_result,
     derive_rpc_calls,
+    filter_logs,
     validate_result,
 )
+from execution_testing.rpc.serialization import derive as derive_module
 from execution_testing.rpc.serialization.derive import ProjectionError
 
 from .test_projection import (
@@ -734,13 +737,110 @@ def test_explicit_check_requires_an_expectation() -> None:
     """
     from execution_testing.specs.blockchain import RPCExpectation
 
-    with pytest.raises(ValueError, match="error code or a null"):
+    with pytest.raises(ValueError, match="written\nby hand|by hand"):
         RPCExpectation(method="eth_getBlockByNumber", params=["0x1"])
 
-    with pytest.raises(ValueError, match="both an error and a result"):
+    with pytest.raises(ValueError, match="more than one kind"):
         RPCExpectation(
             method="eth_getBlockByNumber",
             params=["0x1"],
             error_code=-32602,
             expect_null=True,
         )
+
+    with pytest.raises(ValueError, match="no rule exists"):
+        RPCExpectation(
+            method="eth_getBlockByNumber",
+            params=["0x1"],
+            derive_result=True,
+        )
+
+    RPCExpectation(method="eth_getLogs", params=[{}], derive_result=True)
+
+
+def make_log_entry(address: str, topic: str, block: str) -> Dict[str, Any]:
+    """Return a projected log, as the chain's own projection emits it."""
+    return {
+        "address": address,
+        "topics": [topic],
+        "data": "0x",
+        "blockNumber": block,
+    }
+
+
+LOG_A = make_log_entry("0x" + "a1" * 20, "0x" + "aa" * 32, "0x1")
+LOG_B = make_log_entry("0x" + "b2" * 20, "0x" + "bb" * 32, "0x2")
+
+
+@pytest.mark.parametrize(
+    "filter_,expected",
+    [
+        pytest.param({}, [LOG_A, LOG_B], id="unfiltered"),
+        pytest.param(
+            {"address": "0x" + "a1" * 20}, [LOG_A], id="single_address"
+        ),
+        pytest.param(
+            {"address": ["0x" + "a1" * 20, "0x" + "b2" * 20]},
+            [LOG_A, LOG_B],
+            id="address_list",
+        ),
+        pytest.param(
+            {"topics": ["0x" + "bb" * 32]}, [LOG_B], id="single_topic"
+        ),
+        pytest.param(
+            {"topics": [["0x" + "aa" * 32, "0x" + "bb" * 32]]},
+            [LOG_A, LOG_B],
+            id="topic_alternatives",
+        ),
+        pytest.param({"topics": [None]}, [LOG_A, LOG_B], id="topic_wildcard"),
+        pytest.param(
+            {"fromBlock": "0x2", "toBlock": "0x2"}, [LOG_B], id="range"
+        ),
+        pytest.param(
+            {"topics": ["0x" + "aa" * 32, "0x" + "bb" * 32]},
+            [],
+            id="filter_longer_than_topics",
+        ),
+        pytest.param(
+            {"address": "0x" + "a1" * 20, "topics": ["0x" + "bb" * 32]},
+            [],
+            id="address_and_topic_must_both_match",
+        ),
+    ],
+)
+def test_log_filters(filter_: Dict[str, Any], expected: List[Any]) -> None:
+    """A declared filter selects the logs the schema says it should."""
+    assert filter_logs([LOG_A, LOG_B], [filter_]) == expected
+
+
+def test_address_matching_ignores_hex_case() -> None:
+    """A checksummed address in a filter still matches."""
+    upper = ("0x" + "a1" * 20).upper().replace("0X", "0x")
+
+    assert filter_logs([LOG_A, LOG_B], [{"address": upper}]) == [LOG_A]
+
+
+@pytest.mark.parametrize(
+    "filter_,reason",
+    [
+        pytest.param({"blockHash": "0x" + "11" * 32}, "blockHash", id="hash"),
+        pytest.param({"fromBlock": "latest"}, "tag", id="tag"),
+    ],
+)
+def test_uncomputable_filters_are_refused(
+    filter_: Dict[str, Any], reason: str
+) -> None:
+    """
+    A filter whose result the chain cannot supply is refused, not guessed.
+
+    A block hash is unknown until after filling and a tag resolves against
+    client state, so either would have to be invented.
+    """
+    with pytest.raises(UncomputableCallError, match=reason):
+        filter_logs([LOG_A], [filter_])
+
+
+def test_uncomputable_method_is_refused() -> None:
+    """Only methods with a stated rule can have a result computed."""
+    with pytest.raises(UncomputableCallError, match="eth_getBalance"):
+        compute_result("eth_getBalance", [], [])

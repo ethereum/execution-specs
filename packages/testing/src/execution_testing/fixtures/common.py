@@ -31,6 +31,21 @@ from execution_testing.test_types.transaction_types import (
 )
 
 
+def _hexlify(value: Any) -> Any:
+    """Return `value` with every byte-like leaf rendered as a hex string."""
+    if isinstance(value, bytes):
+        # `bytes(...)` forces the builtin, which emits no prefix. The
+        # project's own byte types override `hex()` to include `0x`, so
+        # calling it directly would double the prefix and a client would
+        # reject the parameter as malformed.
+        return "0x" + bytes(value).hex()
+    if isinstance(value, dict):
+        return {key: _hexlify(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_hexlify(item) for item in value]
+    return value
+
+
 class FixtureRPCCall(CamelModel):
     """
     A JSON-RPC request paired with the response the spec requires.
@@ -45,6 +60,26 @@ class FixtureRPCCall(CamelModel):
     method: str
     params: List[Any] = Field(default_factory=list)
     result: Any = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def stringify_binary_params(cls, data: Any) -> Any:
+        """
+        Render byte-like parameters as hex before they are stored.
+
+        `params` is untyped, because a JSON-RPC parameter can be a string,
+        a number, a boolean or a filter object. That leaves pydantic with
+        no serializer for `Address` and `Hash`, which are `bytes`
+        subclasses, so a test passing one directly fails at fill time with
+        a utf-8 decode error rather than anything informative. Converting
+        here keeps the call sites natural: a test names an address with
+        the object it already holds.
+        """
+        if isinstance(data, dict) and "params" in data:
+            data = dict(data)
+            data["params"] = _hexlify(data["params"])
+        return data
+
     result_keccak: Hash | None = None
     """
     Digest of the expected result, used instead of the result itself.

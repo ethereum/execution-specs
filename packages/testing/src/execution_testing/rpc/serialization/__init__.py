@@ -10,6 +10,12 @@ and vectors can exist before any client implements a feature.
 """
 
 from .derive import derive_rpc_calls, derive_rpc_calls_for_blocks
+from .filters import (
+    COMPUTABLE_METHODS,
+    UncomputableCallError,
+    compute_result,
+    filter_logs,
+)
 from .projection import (
     block_response,
     contract_address,
@@ -36,6 +42,8 @@ from .types import (
 )
 
 __all__ = [
+    "COMPUTABLE_METHODS",
+    "UncomputableCallError",
     "RPCAccessListEntry",
     "RPCAuthorization",
     "RPCBlock",
@@ -47,9 +55,11 @@ __all__ = [
     "SchemaViolationError",
     "block_response",
     "contract_address",
+    "compute_result",
     "derive_rpc_calls",
     "derive_rpc_calls_for_blocks",
     "effective_gas_price",
+    "filter_logs",
     "openrpc_spec",
     "receipt_responses",
     "result_validator",

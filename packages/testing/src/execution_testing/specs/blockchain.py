@@ -82,12 +82,14 @@ from execution_testing.fixtures.blockchain import (
 from execution_testing.fixtures.common import (
     FixtureBlobSchedule,
     FixtureForkchoiceState,
-    FixtureRPCCall,
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork
-from execution_testing.rpc.serialization import derive_rpc_calls_for_blocks
+from execution_testing.rpc.serialization import (
+    COMPUTABLE_METHODS,
+    derive_rpc_calls_for_blocks,
+)
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -208,19 +210,40 @@ class RPCExpectation(CamelModel):
     """The JSON-RPC error code expected. Messages are never compared."""
     expect_null: bool = False
     """Expect a successful response whose result is null."""
+    derive_result: bool = False
+    """
+    Compute the expected result from the chain at fill time.
+
+    For calls whose answer is a selection over data the chain already
+    produced — an `eth_getLogs` filter, say — where derivation cannot
+    guess the question but the specification still supplies the answer.
+    The result is never written by hand; see
+    `rpc.serialization.filters.compute_result`.
+    """
 
     def model_post_init(self, __context: Any) -> None:
         """Reject a check that asserts nothing, or two things at once."""
         super().model_post_init(__context)
-        if self.error_code is None and not self.expect_null:
+        declared = [
+            self.error_code is not None,
+            self.expect_null,
+            self.derive_result,
+        ]
+        if not any(declared):
             raise ValueError(
-                f"{self.method}: an explicit check must expect either an "
-                "error code or a null result; anything else has a "
-                "spec-derived value and should be left to derivation"
+                f"{self.method}: an explicit check must expect an error "
+                "code, a null result, or a derived one; a result written "
+                "by hand is never accepted"
             )
-        if self.error_code is not None and self.expect_null:
+        if sum(declared) > 1:
             raise ValueError(
-                f"{self.method}: cannot expect both an error and a result"
+                f"{self.method}: expects more than one kind of outcome"
+            )
+        if self.derive_result and self.method not in COMPUTABLE_METHODS:
+            raise ValueError(
+                f"{self.method}: no rule exists for computing a declared "
+                f"result; computable methods are "
+                f"{sorted(COMPUTABLE_METHODS)}"
             )
 
 
@@ -1354,11 +1377,11 @@ class BlockchainTest(BaseTest):
             ),
         )
         if self.emit_rpc_expectations:
-            fixture.rpc = (
-                derive_rpc_calls_for_blocks(
-                    fixture_blocks, post_state=alloc, genesis=genesis
-                )
-                + self.explicit_rpc_calls()
+            fixture.rpc = derive_rpc_calls_for_blocks(
+                fixture_blocks,
+                post_state=alloc,
+                genesis=genesis,
+                declared=self.rpc_checks,
             )
         return FillResult(
             fixture=fixture,
@@ -1386,18 +1409,6 @@ class BlockchainTest(BaseTest):
                 "not marked `rpc`, so nothing would ever read the "
                 "declaration; add `pytest.mark.rpc` or drop the tags"
             )
-
-    def explicit_rpc_calls(self) -> List[FixtureRPCCall]:
-        """Return the author-declared checks as fixture calls."""
-        return [
-            FixtureRPCCall(
-                method=check.method,
-                params=check.params,
-                error_code=check.error_code,
-                result=None,
-            )
-            for check in self.rpc_checks
-        ]
 
     def make_hive_fixture(
         self,
@@ -1555,14 +1566,12 @@ class BlockchainTest(BaseTest):
             fixture = BlockchainEngineFixture(**fixture_data)
 
         if self.emit_rpc_expectations:
-            fixture.rpc = (
-                derive_rpc_calls_for_blocks(
-                    rpc_blocks,
-                    post_state=alloc,
-                    genesis=genesis,
-                    forkchoice_tags=forkchoice_tags,
-                )
-                + self.explicit_rpc_calls()
+            fixture.rpc = derive_rpc_calls_for_blocks(
+                rpc_blocks,
+                post_state=alloc,
+                genesis=genesis,
+                forkchoice_tags=forkchoice_tags,
+                declared=self.rpc_checks,
             )
             if forkchoice_tags:
                 fixture.rpc_forkchoice = FixtureForkchoiceState(
