@@ -1,6 +1,6 @@
 """Common types used to define multiple fixture types."""
 
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Literal
 
 from pydantic import (
     AliasChoices,
@@ -44,6 +44,23 @@ def _hexlify(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_hexlify(item) for item in value]
     return value
+
+
+RPCAssertion = Literal["exact", "partial", "schema"]
+"""
+How much of a response an expectation actually pins.
+
+Three rungs of a ladder, weakest last. `exact` is the default and the only
+one that needs no excuse: the stored result is the whole answer and the
+client must reproduce it. `partial` stores the fields the spec can compute
+and stays silent about the rest. `schema` stores no value at all and
+asserts only that the response conforms to the method's OpenRPC result
+schema.
+
+The distinction is a property of the call rather than of the method,
+because the same method can be pinned exactly on one chain and only
+partially on another.
+"""
 
 
 class FixtureRPCCall(CamelModel):
@@ -116,6 +133,54 @@ class FixtureRPCCall(CamelModel):
     cannot supply the declaration must skip these; see
     `FixtureForkchoiceState`.
     """
+    assertion: RPCAssertion = "exact"
+    """
+    How much of the response this call pins; see `RPCAssertion`.
+
+    Recorded in the artifact for the same reason `round_trip` is. A client
+    team reading a fixture is entitled to know how strong each assertion
+    is, and "the shape is right" is a far weaker claim than "the value is
+    right" — weaker, in fact, than a round trip, which at least pins a
+    value. Leaving the tier in the code that emitted the call would let a
+    fixture look more demanding than it is.
+
+    `schema` carries no result, so a failure can only ever be a shape
+    violation, and the report says so. `partial` carries the subset of
+    fields the spec can compute; the comparison already walks the
+    expectation rather than the response, so unmentioned fields are ignored
+    at replay just as they are for an `exact` call. What differs is fill
+    time: a partial expectation is checked against a copy of the result
+    schema with its `required` clauses relaxed, because an incomplete
+    expectation is the point rather than a defect.
+    """
+
+    @model_validator(mode="after")
+    def check_assertion_carries_its_evidence(self) -> "FixtureRPCCall":
+        """
+        Reject a tier that disagrees with what the call actually stores.
+
+        A schema-only call carrying a result would be the worst of both:
+        the fixture reads as though it pins a value and the consumer never
+        checks one.
+        """
+        if self.assertion == "schema" and (
+            self.result is not None or self.result_keccak is not None
+        ):
+            raise ValueError(
+                f"{self.method}: a schema-only expectation asserts nothing "
+                "about the value, so it must not carry one"
+            )
+        if self.assertion != "exact" and self.error_code is not None:
+            raise ValueError(
+                f"{self.method}: an expected error carries no result, so "
+                f"there is nothing for {self.assertion!r} to weaken"
+            )
+        if self.assertion == "partial" and not isinstance(self.result, dict):
+            raise ValueError(
+                f"{self.method}: a partial expectation names the fields it "
+                "asserts, so its result must be an object"
+            )
+        return self
 
 
 class FixtureForkchoiceState(CamelModel):

@@ -28,7 +28,9 @@ from .projection import (
 from .schema import (
     SchemaViolationError,
     openrpc_spec,
+    partial_result_validator,
     result_validator,
+    validate_partial_result,
     validate_result,
 )
 from .types import (
@@ -73,9 +75,11 @@ __all__ = [
     "effective_gas_price",
     "filter_logs",
     "openrpc_spec",
+    "partial_result_validator",
     "receipt_responses",
     "result_validator",
     "transaction_responses",
+    "validate_partial_result",
     "validate_result",
     "withdrawal_responses",
 ]

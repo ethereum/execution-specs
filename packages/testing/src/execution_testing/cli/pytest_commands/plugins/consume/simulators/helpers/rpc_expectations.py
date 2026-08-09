@@ -29,10 +29,19 @@ A handful of expectations are flagged `round_trip`, meaning their value
 came from what this harness declared rather than from the spec. They are
 replayed only by a consumer that made the declaration, and a failure of
 one says so; see `_replayable`.
+
+Each call also records how much of the response it pins. Most pin all of
+it. A `partial` one pins the fields the spec can compute and is silent
+about the rest, and a `schema` one pins no value at all — the response is
+held to its OpenRPC result schema and nothing further, which is what is
+left for a method whose answer is a client heuristic. Both are reported as
+such in the failure and counted separately in the log, so a run's apparent
+coverage cannot quietly outrun what it actually checked.
 """
 
 import logging
 import re
+from collections import Counter
 from typing import Any, Iterator, List
 
 from execution_testing.base_types import Bytes
@@ -59,10 +68,32 @@ fact that block 2 is the answer because the simulator said so in
 `engine_forkchoiceUpdated`, not because the spec computed it.
 """
 
+ASSERTION_NOTES = {
+    "partial": (
+        " [partial value: only the fields shown are asserted; the rest of "
+        "the response has no spec-derived value]"
+    ),
+    "schema": (
+        " [schema only: no spec-derived value exists for this method, so "
+        "only conformance to its OpenRPC result schema is asserted]"
+    ),
+}
+"""
+Appended to a failure so the report says how strong the assertion was.
+
+The same duty `ROUND_TRIP_NOTE` discharges, one rung further down. Someone
+reading a schema-only failure needs to know they are being told their
+response is malformed and nothing at all about whether its value is right,
+and someone reading a partial one needs to know the fields not named in
+the diff were never checked. `exact` has no note, being the default the
+rest of the suite is written in.
+"""
+
 
 def _describe(call: FixtureRPCCall) -> str:
     """Return a short identifier for a call, for use in failures."""
     described = f"{call.method}({', '.join(repr(p) for p in call.params)})"
+    described += ASSERTION_NOTES.get(call.assertion, "")
     return described + (ROUND_TRIP_NOTE if call.round_trip else "")
 
 
@@ -179,6 +210,13 @@ def _compare(call: FixtureRPCCall, response: Any) -> str | None:
     except SchemaViolationError as violation:
         return f"{_describe(call)}: {violation}"
 
+    if call.assertion == "schema":
+        # The whole assertion. The schema check above has already run
+        # against the full result schema — a schema-only call weakens what
+        # is asserted, never how strictly the shape is judged — and there
+        # is no stored value to compare against.
+        return None
+
     if call.result_keccak is not None:
         if not isinstance(response.result, str):
             return (
@@ -264,10 +302,12 @@ def verify_rpc_expectations(
     if not calls:
         return
 
+    tiers = Counter(call.assertion for call in calls)
     round_trips = sum(call.round_trip for call in calls)
     logger.info(
-        f"Replaying {len(calls) - round_trips} derived RPC expectations "
-        f"and {round_trips} round-trip ones..."
+        f"Replaying {len(calls)} RPC expectations: {tiers['exact']} exact, "
+        f"{tiers['partial']} partial-value, {tiers['schema']} schema-only; "
+        f"{round_trips} of them round trips rather than derivations..."
     )
     responses = eth_rpc.post_batch_request(
         calls=[

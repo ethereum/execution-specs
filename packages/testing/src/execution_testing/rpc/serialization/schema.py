@@ -50,6 +50,66 @@ def result_validator(method: str) -> Draft7Validator:
     raise KeyError(f"method {method!r} is not present in the OpenRPC schema")
 
 
+_SUBSCHEMA = ("items", "additionalProperties", "not", "contains")
+"""Keywords whose value is a single subschema, or a list of them."""
+
+_SUBSCHEMA_LIST = ("allOf", "anyOf", "oneOf")
+"""Keywords whose value is a list of subschemas."""
+
+_SUBSCHEMA_MAP = ("properties", "patternProperties", "definitions")
+"""Keywords whose value maps names onto subschemas."""
+
+
+def _relaxed(node: Any) -> Any:
+    """
+    Return a schema that accepts any subset of what the original accepts.
+
+    Two edits, applied at every depth. `required` is dropped, because an
+    expectation that names five of six fields is incomplete on purpose.
+    `oneOf` becomes an `anyOf` under `allOf`, because relaxing the branches
+    of an exclusive choice tends to make more than one of them match, and
+    "exactly one" would then reject a subset that is perfectly compatible
+    with the schema. Everything else survives: types, patterns, enums and
+    `additionalProperties: false` all still apply, so a partial expectation
+    naming a field that does not exist, or giving one the wrong type, is
+    still refused.
+    """
+    if isinstance(node, list):
+        return [_relaxed(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+
+    relaxed = {
+        key: value
+        for key, value in node.items()
+        if key not in ("required", "oneOf")
+    }
+    for key in _SUBSCHEMA:
+        if key in relaxed:
+            relaxed[key] = _relaxed(relaxed[key])
+    for key in _SUBSCHEMA_LIST:
+        if key in relaxed:
+            relaxed[key] = [_relaxed(item) for item in relaxed[key]]
+    for key in _SUBSCHEMA_MAP:
+        if key in relaxed:
+            relaxed[key] = {
+                name: _relaxed(subschema)
+                for name, subschema in relaxed[key].items()
+            }
+    if "oneOf" in node:
+        relaxed.setdefault("allOf", [])
+        relaxed["allOf"] = list(relaxed["allOf"]) + [
+            {"anyOf": [_relaxed(branch) for branch in node["oneOf"]]}
+        ]
+    return relaxed
+
+
+@lru_cache(maxsize=None)
+def partial_result_validator(method: str) -> Draft7Validator:
+    """Return a validator for a subset of the named method's result."""
+    return Draft7Validator(_relaxed(result_validator(method).schema))
+
+
 def _most_specific(error: ValidationError) -> ValidationError:
     """
     Return the sub-error that best explains a failure.
@@ -81,18 +141,17 @@ def _most_specific(error: ValidationError) -> ValidationError:
     return error
 
 
-def validate_result(method: str, result: Any) -> None:
+def _report(
+    method: str, validator: Draft7Validator, result: Any, subject: str
+) -> None:
     """
-    Check a result against its method's schema, raising on violation.
+    Raise a single message naming every clause `result` breaches.
 
     Every violation is reported at once, because a response that is wrong
     in one field is usually wrong in several and fixing them one per run is
     needlessly slow.
     """
-    errors = [
-        _most_specific(error)
-        for error in result_validator(method).iter_errors(result)
-    ]
+    errors = [_most_specific(error) for error in validator.iter_errors(result)]
     if not errors:
         return
 
@@ -103,5 +162,27 @@ def validate_result(method: str, result: Any) -> None:
         for error in errors
     )
     raise SchemaViolationError(
-        f"{method} response does not conform to its result schema:\n{details}"
+        f"{method} {subject} does not conform to its result schema:\n{details}"
+    )
+
+
+def validate_result(method: str, result: Any) -> None:
+    """Check a result against its method's schema, raising on violation."""
+    _report(method, result_validator(method), result, "response")
+
+
+def validate_partial_result(method: str, result: Any) -> None:
+    """
+    Check a subset of a result against a relaxed copy of the schema.
+
+    Only completeness is waived; see `_relaxed`. A partial expectation is
+    still refused if it names a field the schema does not define or gives
+    one a value the schema forbids, which is what keeps the guard on
+    derived expectations meaningful rather than decorative.
+    """
+    _report(
+        method,
+        partial_result_validator(method),
+        result,
+        "partial expectation",
     )

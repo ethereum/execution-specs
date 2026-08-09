@@ -9,6 +9,7 @@ from execution_testing.rpc.serialization import (
     block_response,
     openrpc_spec,
     receipt_responses,
+    validate_partial_result,
     validate_result,
 )
 
@@ -117,3 +118,74 @@ def test_violation_message_names_the_offending_field(
 
     with pytest.raises(SchemaViolationError, match="logsBloom"):
         validate_result("eth_getTransactionReceipt", receipt_result)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["size", "transactions", "logsBloom", "number"],
+)
+def test_partial_validation_waives_completeness(
+    block_result: Dict[str, Any], field: str
+) -> None:
+    """
+    An expectation naming only some fields is accepted.
+
+    This is the whole difference between the two validators, and the
+    reason `eth_config` can assert the five fields the spec reproduces
+    without inventing the sixth.
+    """
+    del block_result[field]
+
+    with pytest.raises(SchemaViolationError):
+        validate_result("eth_getBlockByNumber", block_result)
+    validate_partial_result("eth_getBlockByNumber", block_result)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        pytest.param("number", "0x01", id="zero_padded_quantity"),
+        pytest.param("gasUsed", 21_000, id="quantity_as_integer"),
+        pytest.param("hash", "0xdeadbeef", id="undersized_hash"),
+        pytest.param("miner", "0x1234", id="malformed_address"),
+    ],
+)
+def test_partial_validation_still_rejects_bad_values(
+    field: str, value: Any
+) -> None:
+    """
+    Only completeness is waived; every other clause still binds.
+
+    Otherwise the partial tier would be a hole in the guard rather than a
+    narrowing of it, and a projection bug in an asserted field would reach
+    a released fixture.
+    """
+    partial = {field: value}
+
+    with pytest.raises(SchemaViolationError):
+        validate_partial_result("eth_getBlockByNumber", partial)
+
+
+def test_partial_validation_rejects_an_unmodelled_field() -> None:
+    """
+    A field the schema does not define is still a projection bug.
+
+    Receipts set `additionalProperties: false`, so asserting a field no
+    conforming client returns could never be satisfied.
+    """
+    with pytest.raises(SchemaViolationError, match="invented"):
+        validate_partial_result(
+            "eth_getTransactionReceipt", {"invented": "0x1"}
+        )
+
+
+def test_partial_validation_accepts_a_single_field_of_a_one_of() -> None:
+    """
+    Relaxing an exclusive choice does not make a valid subset ambiguous.
+
+    `eth_config` nests two `oneOf`s of a fork configuration and null, and
+    a subset of the configuration matches the relaxed form of both
+    branches. Under `oneOf` that is a failure; the relaxation turns it
+    into `anyOf` precisely so it is not.
+    """
+    validate_partial_result("eth_config", {"current": {"chainId": "0x1"}})

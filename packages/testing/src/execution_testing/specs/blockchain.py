@@ -199,9 +199,11 @@ class RPCExpectation(CamelModel):
     produces those. Those are declared here instead.
 
     A result is never written by hand — that would reintroduce the
-    hand-maintained expectation this design exists to avoid. Only the two
-    outcomes with no spec-derived value are expressible: an error code, or
-    an explicit null for a lookup that should find nothing.
+    hand-maintained expectation this design exists to avoid. Only outcomes
+    with no hand-written value are expressible: an error code, an explicit
+    null for a lookup that should find nothing, a result computed from the
+    chain, or conformance to the method's schema where no value exists to
+    compute.
     """
 
     method: str
@@ -220,6 +222,16 @@ class RPCExpectation(CamelModel):
     The result is never written by hand; see
     `rpc.serialization.filters.compute_result`.
     """
+    schema_only: bool = False
+    """
+    Assert conformance to the method's result schema and nothing else.
+
+    The weakest outcome available, for a call whose parameters a test has
+    to choose but whose answer no specification fixes. It says only that
+    the client replied and replied in a well-formed way, so prefer any of
+    the outcomes above it wherever one applies; see
+    `fixtures.common.RPCAssertion`.
+    """
 
     def model_post_init(self, __context: Any) -> None:
         """Reject a check that asserts nothing, or two things at once."""
@@ -228,12 +240,13 @@ class RPCExpectation(CamelModel):
             self.error_code is not None,
             self.expect_null,
             self.derive_result,
+            self.schema_only,
         ]
         if not any(declared):
             raise ValueError(
                 f"{self.method}: an explicit check must expect an error "
-                "code, a null result, or a derived one; a result written "
-                "by hand is never accepted"
+                "code, a null result, a derived one, or conformance to the "
+                "method's schema; a result written by hand is never accepted"
             )
         if sum(declared) > 1:
             raise ValueError(

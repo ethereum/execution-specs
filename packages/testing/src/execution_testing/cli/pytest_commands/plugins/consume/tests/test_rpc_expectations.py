@@ -64,6 +64,21 @@ def results_of(fixture: BlockchainFixture) -> List[Any]:
     ]
 
 
+SHAPE_ONLY_ANSWERS = {
+    "eth_gasPrice": "0x3b9aca00",
+    "eth_maxPriorityFeePerGas": "0x0",
+    "eth_syncing": False,
+}
+"""
+A schema-conformant answer for each method asserted on shape alone.
+
+Those calls store no result — that is what makes them schema-only — so a
+plausible client answer has to be supplied here instead. The values are
+arbitrary on purpose: any of them satisfies the assertion, which is the
+honest measure of how much it asserts.
+"""
+
+
 def conforming_results(fixture: BlockchainFixture) -> List[Any]:
     """
     Return what a correct client would answer for each stored call.
@@ -73,10 +88,15 @@ def conforming_results(fixture: BlockchainFixture) -> List[Any]:
     account that does not exist, which is empty.
     """
     assert fixture.rpc is not None
-    return [
-        "0x" if call.result_keccak is not None else call.result
-        for call in fixture.rpc
-    ]
+    answers = []
+    for call in fixture.rpc:
+        if call.assertion == "schema":
+            answers.append(SHAPE_ONLY_ANSWERS[call.method])
+        elif call.result_keccak is not None:
+            answers.append("0x")
+        else:
+            answers.append(call.result)
+    return answers
 
 
 def first_of(fixture: BlockchainFixture, method: str) -> int:
@@ -662,3 +682,80 @@ def test_a_wrong_tag_answer_says_where_the_value_came_from() -> None:
         verify_rpc_expectations(rpc_returning(["0x1"]), built)
 
     assert "declared by the harness" in str(failure.value)
+
+
+def shape_only_call(method: str = "eth_gasPrice") -> FixtureRPCCall:
+    """Return an expectation that pins only the response's shape."""
+    return FixtureRPCCall(method=method, params=[], assertion="schema")
+
+
+def test_any_conformant_value_satisfies_a_schema_only_call() -> None:
+    """
+    The value is genuinely unasserted, not asserted against a default.
+
+    Two clients answering different gas prices must both pass, because
+    neither is wrong: the oracle is a heuristic and the spec has no
+    opinion. If this ever started failing, the tier would be quietly
+    asserting a value nobody derived.
+    """
+    built = engine_fixture([shape_only_call()], None)
+
+    for answer in ("0x1", "0x3b9aca00", "0x0"):
+        verify_rpc_expectations(rpc_returning([answer]), built)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param("0x01", id="zero_padded_quantity"),
+        pytest.param(1_000_000_000, id="quantity_as_integer"),
+        pytest.param("1000000000", id="missing_prefix"),
+        pytest.param(None, id="null"),
+    ],
+)
+def test_a_malformed_shape_still_fails(answer: Any) -> None:
+    """
+    The negative control for the weakest tier in the suite.
+
+    A check that cannot fail is worse than no check, because it inflates
+    the apparent coverage of a run. `eth_gasPrice` buys about as little as
+    a schema-only assertion can — the result schema is one quantity
+    pattern — so these four are the entire set of defects it can catch,
+    and they are worth knowing it does catch.
+    """
+    built = engine_fixture([shape_only_call()], None)
+
+    with pytest.raises(AssertionError, match="schema only") as failure:
+        verify_rpc_expectations(rpc_returning([answer]), built)
+
+    assert "eth_gasPrice" in str(failure.value)
+
+
+def test_a_schema_only_failure_says_what_was_not_checked() -> None:
+    """
+    The label reaches the failure, not only the fixture.
+
+    A client team told "your response is wrong" is owed the fact that only
+    its shape was ever examined, so they do not go hunting for a value
+    disagreement that was never asserted.
+    """
+    built = engine_fixture([shape_only_call()], None)
+
+    with pytest.raises(AssertionError) as failure:
+        verify_rpc_expectations(rpc_returning(["0x01"]), built)
+
+    assert "no spec-derived value exists" in str(failure.value)
+
+
+def test_a_missing_method_fails_a_schema_only_call() -> None:
+    """
+    An unimplemented method is a failure, not a vacuous pass.
+
+    This is the other half of the negative control: the tier asserts the
+    client answers *and* answers well-formed, so a `-32601` has to be
+    caught even though no value is being compared.
+    """
+    built = engine_fixture([shape_only_call()], None)
+
+    with pytest.raises(AssertionError, match="expected a result, got error"):
+        verify_rpc_expectations(erroring_rpc(-32601, "no such method"), built)

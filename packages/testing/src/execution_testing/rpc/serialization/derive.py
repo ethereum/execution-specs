@@ -42,7 +42,12 @@ from .projection import (
     receipt_responses,
     transaction_responses,
 )
-from .schema import SchemaViolationError, validate_result
+from .schema import (
+    SchemaViolationError,
+    result_validator,
+    validate_partial_result,
+    validate_result,
+)
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import BlockchainFixture
@@ -74,6 +79,16 @@ def _reject_unsatisfiable(calls: List[FixtureRPCCall]) -> None:
 
     Unknown method names are rejected by the same call, since the schema
     has no result definition to validate against.
+
+    What is checked depends on how much the call claims to pin, because
+    the guard was conflating two questions: whether the expectation is a
+    complete valid response, and whether it is a subset we can legitimately
+    assert. Only an `exact` call has to be both. A `partial` one is checked
+    against a relaxed copy of the schema, which still rejects an unknown
+    field or a malformed value and only waives completeness. A `schema`
+    one has no value to check, so all that remains is that the method
+    exists — the response itself is validated at replay, which is the whole
+    of what it asserts.
     """
     for call in calls:
         if call.error_code is not None:
@@ -81,7 +96,12 @@ def _reject_unsatisfiable(calls: List[FixtureRPCCall]) -> None:
         if call.result_keccak is not None:
             continue  # A digest has no result to validate the shape of.
         try:
-            validate_result(call.method, call.result)
+            if call.assertion == "schema":
+                result_validator(call.method)
+            elif call.assertion == "partial":
+                validate_partial_result(call.method, call.result)
+            else:
+                validate_result(call.method, call.result)
         except SchemaViolationError as violation:
             raise ProjectionError(
                 f"derived expectation for {call.method} is not "
@@ -422,6 +442,11 @@ def _declared_calls(
                 params=check.params,
                 error_code=check.error_code,
                 result=result,
+                assertion=(
+                    "schema"
+                    if getattr(check, "schema_only", False)
+                    else "exact"
+                ),
             )
         )
     return calls
@@ -495,6 +520,39 @@ def _blob_base_fee_call(
     )
     return [
         FixtureRPCCall(method="eth_blobBaseFee", params=[], result=hex(price))
+    ]
+
+
+GAS_PRICE_ORACLES = ("eth_gasPrice",)
+"""
+Methods whose answer is a client's own suggestion rather than a fact.
+
+A gas-price oracle reports what the client would advise paying next. No
+specification fixes the heuristic — geth samples recent blocks, others
+differ, and every answer is correct — so there is nothing here for the
+Python spec to derive and nothing a recorded corpus could pin either:
+`rpc-compat` has no test for any of them.
+
+The shape is specified even where the value is not, so the response is
+held to the method's OpenRPC result schema and to nothing else. That is
+the same compromise `rpc-compat` makes with its `speconly` tests, and it
+is worth stating plainly how little it buys for this particular family:
+the result schema is a bare quantity pattern, so all it establishes is
+that the client answers at all and answers with an unpadded hex number.
+"""
+
+
+def _shape_only_calls() -> List[FixtureRPCCall]:
+    """
+    Return the calls whose value no specification determines.
+
+    Enumerated unconditionally rather than authored, on the same grounds as
+    the block tags: they take no parameters, so there is nothing for a test
+    to choose, and one short string each is the entire cost.
+    """
+    return [
+        FixtureRPCCall(method=method, params=[], assertion="schema")
+        for method in GAS_PRICE_ORACLES
     ]
 
 
@@ -691,6 +749,7 @@ def derive_rpc_calls_for_blocks(
         )
     )
     calls.extend(_absent_entity_calls())
+    calls.extend(_shape_only_calls())
 
     _reject_unsatisfiable(calls)
     return calls

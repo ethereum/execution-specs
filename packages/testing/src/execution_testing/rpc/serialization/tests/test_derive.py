@@ -130,6 +130,8 @@ def test_derived_results_conform_to_the_schema(
     for call in derive_rpc_calls(single_block_fixture):
         if call.error_code is not None or call.result_keccak is not None:
             continue  # Neither carries a result to validate.
+        if call.assertion != "exact":
+            continue  # A weaker tier stores no complete response.
         validate_result(call.method, call.result)
 
 
@@ -1045,3 +1047,74 @@ def test_blob_base_fee_is_absent_before_blobs() -> None:
 def test_blob_base_fee_is_absent_without_a_fork() -> None:
     """No fork means no arithmetic to run, so no expectation."""
     assert blob_base_fee(None, excess_blob_gas=0, blob_gas_used=0) == []
+
+
+def test_gas_price_is_derived_as_shape_only() -> None:
+    """
+    An oracle suggestion is enumerated, but pins no value.
+
+    `eth_gasPrice` reports what a client would advise paying next. The
+    heuristic is unspecified, so there is nothing to derive and nothing to
+    store — the call exists to hold the answer to its result schema.
+    """
+    calls = derive_rpc_calls(make_fixture([make_block([], [])]))
+
+    oracles = [c for c in calls if c.method == "eth_gasPrice"]
+    assert len(oracles) == 1
+    assert oracles[0].assertion == "schema"
+    assert oracles[0].result is None
+    assert oracles[0].params == []
+
+
+def test_a_schema_only_call_may_not_carry_a_value() -> None:
+    """
+    The tier and what the call stores cannot disagree.
+
+    A stored result on a schema-only call would never be compared, so the
+    fixture would read as though it pins a value that nothing checks.
+    """
+    with pytest.raises(ValueError, match="must not carry one"):
+        FixtureRPCCall(method="eth_gasPrice", assertion="schema", result="0x1")
+
+
+def test_an_unknown_method_is_rejected_even_without_a_value() -> None:
+    """
+    Waiving the value does not waive the method existing.
+
+    A schema-only call is *only* a schema assertion, so a method the
+    vendored schema does not define leaves it asserting nothing at all.
+    """
+    with pytest.raises(ProjectionError, match="does not define"):
+        derive_module._reject_unsatisfiable(
+            [FixtureRPCCall(method="eth_notAMethod", assertion="schema")]
+        )
+
+
+def test_a_partial_expectation_survives_the_guard() -> None:
+    """
+    An incomplete expectation is emittable when it says it is partial.
+
+    The guard was conflating "this must be a complete valid response" with
+    "this is the subset we assert". Only the first is waived: the fields
+    named are still checked against the schema.
+    """
+    partial = FixtureRPCCall(
+        method="eth_config",
+        params=[],
+        result={"current": {"chainId": "0x1"}},
+        assertion="partial",
+    )
+
+    derive_module._reject_unsatisfiable([partial])
+
+    with pytest.raises(ProjectionError, match="not \nschema|schema-conf"):
+        derive_module._reject_unsatisfiable(
+            [
+                FixtureRPCCall(
+                    method="eth_config",
+                    params=[],
+                    result={"current": {"chainId": "0x01"}},
+                    assertion="partial",
+                )
+            ]
+        )
