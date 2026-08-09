@@ -28,16 +28,20 @@ signature, the nonce, and the sender being an externally owned account.
 The message emitted here is shaped so that relaxing them changes nothing,
 rather than relying on the spec to relax them in the same way:
 
-- The **signature** is supplied. The message names an account whose key
-  the test holds, so the synthesized transaction is genuinely signed and
-  `recover_sender` yields the address the message named. See
-  `SENDER_MUST_BE_SIGNABLE` for what that costs.
+- The **signature** is absent, and the sender is asserted instead.
+  `process_transaction` forwards an `asserted_sender` to
+  `check_transaction`, which then skips both recovery and the
+  externally-owned-account requirement, exactly as a client does. A
+  message may therefore name any address: a contract, or the zero
+  address, which is the commonest `from` in real usage and the one no
+  test could ever hold a key for.
 - The **nonce** is read from the state the call names, so the value the
   spec checks is the value it finds.
 - The **fee** is the named block's own base fee, carried as an explicit
   `gasPrice`. A client given an explicit price runs the same balance
   arithmetic the spec does, so the two agree on whether the message is
-  affordable instead of one waiving a check the other enforces.
+  affordable instead of one waiving a check the other enforces. This is
+  the one relaxation not taken; see `SENDER_MUST_BE_SOLVENT`.
 """
 
 import logging
@@ -55,19 +59,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-SENDER_MUST_BE_SIGNABLE = """\
-A derived `eth_call` runs its message through the fork's own
-`process_transaction`, which recovers the sender from a signature, so the
-message can only name a sender the test can sign for.
+SENDER_MUST_BE_SOLVENT = """\
+A derived message states its price — the named block's base fee — so the
+sender must hold `gas * gasPrice + value` at that block, and the spec's
+own balance check is what enforces it.
 
-This is a limitation of the tool rather than of the specification. A
-sender can be asserted instead of recovered — `check_transaction` takes
-`asserted_sender` for exactly that — but `process_transaction` does not
-forward the keyword, and going around it would mean reimplementing the
-transition function once per fork, since the steps between admission and
-the top-level frame are named differently in each. Forwarding that one
-keyword would lift the restriction and let a call name any address,
-including a contract and the zero address."""
+This is the one admission check the derivation does not relax, and it is
+deliberate rather than a leftover. A client waives it by pricing the
+message at zero; matching that would have the two sides executing
+different messages, and would silently change what a contract reading a
+balance sees. An address the test holds no key for is fine — the sender
+is asserted, not recovered — but an address holding nothing is not.
+Fund it in the pre-alloc with `pre.fund_address`, which takes a bare
+address."""
 
 
 CALL_GAS_LIMIT = 30_000_000
@@ -175,20 +179,16 @@ class CallReplay:
     """
     A message to run as a call, and the state to run it against.
 
-    Assembled during generation, where the signed transactions and the
+    Assembled during generation, where the executed transactions and the
     per-block states are both still in hand. A finished fixture has
-    neither: its transactions carry no key and it stores only the state
-    the chain ended on.
+    neither: it stores only the state the chain ended on.
     """
 
     site: CallSite
     """The block the call names."""
 
     sender: Address
-    """The account the message is sent from."""
-
-    signing_key: Hash
-    """The key that signs for `sender`; see `SENDER_MUST_BE_SIGNABLE`."""
+    """The account the message is sent from, asserted rather than signed."""
 
     to: Address | None
     """The recipient, or None for a creation."""
@@ -278,7 +278,6 @@ def run_call(
     site: CallSite,
     *,
     sender: Address,
-    signing_key: Hash,
     to: Address | None,
     data: Bytes,
     value: int,
@@ -286,6 +285,10 @@ def run_call(
 ) -> CallOutcome:
     """
     Run one message at `site` and report what the specification answers.
+
+    `sender` is any address at all. The message is unsigned and the
+    address is asserted through `process_transaction`, so a contract and
+    the zero address are as valid here as a key-bearing account.
 
     The nonce is read from the state the call names rather than carried
     over from any original transaction, so this holds for a message the
@@ -308,11 +311,16 @@ def run_call(
         raise UnrunnableCallError(
             f"{sender} cannot afford a call of {gas} gas at {gas_price} "
             f"wei carrying {value} wei: it holds {balance} wei at the end "
-            f"of block {site.number}"
+            f"of block {site.number}. {SENDER_MUST_BE_SOLVENT}"
         )
 
     fees: Dict[str, Any] = (
-        {"gas_price": gas_price}
+        # A legacy transaction encodes its chain id in `v`, and an
+        # unsigned message has no signature to encode one in. 27 is the
+        # pre-EIP-155 form, which names no chain, so the spec skips the
+        # chain-id check rather than reading a nonsense id out of a
+        # zeroed `v` — which it rejects outright as a bad `v`.
+        {"gas_price": gas_price, "v": 27}
         if site.environment.base_fee_per_gas is None
         else {
             "ty": 2,
@@ -327,9 +335,8 @@ def run_call(
         to=to,
         value=value,
         data=data,
-        secret_key=signing_key,
         **fees,
-    ).with_signature_and_sender()
+    )
 
     # Lazy, and the only place the testing package reaches the spec's own
     # machinery for this method. See the module docstring.
@@ -342,6 +349,7 @@ def run_call(
             alloc=site.state,
             env=site.environment,
             tx=transaction,
+            sender=str(sender),
             chain_id=site.chain_id,
         ).run()
     except EthereumException as rejected:
@@ -446,11 +454,12 @@ def compute_declared_call(
     both sides are known, and it keeps the authoring burden to the part a
     test actually means.
 
-    The sender must be named as an `EOA` rather than a bare address, so
-    that the key travels with it; see `SENDER_MUST_BE_SIGNABLE`. It
-    reaches the fixture as a plain hex string either way, because
-    `FixtureRPCCall` renders byte-like parameters as hex before storing
-    them.
+    **The sender may be any address.** An `EOA`, a contract, or the zero
+    address: the message is unsigned and its sender asserted, so nothing
+    here needs a key. It reaches the fixture as a plain hex string in
+    every case, because `FixtureRPCCall` renders byte-like parameters as
+    hex before storing them. What the sender does still need is a balance;
+    see `SENDER_MUST_BE_SOLVENT`.
     """
     if len(params) < 2 or not isinstance(params[0], Mapping):
         raise UnrunnableCallError(
@@ -460,11 +469,10 @@ def compute_declared_call(
     site = _resolve_site(reference, sites)
 
     sender = message.get("from")
-    signing_key = getattr(sender, "key", None)
-    if sender is None or signing_key is None:
+    if sender is None:
         raise UnrunnableCallError(
-            f"eth_call names {sender!r} as its sender, which carries no "
-            f"key. {SENDER_MUST_BE_SIGNABLE}"
+            "eth_call names no sender; a message must state `from`, which "
+            "a client would otherwise default to the zero address"
         )
 
     declared_to = message.get("to")
@@ -475,7 +483,6 @@ def compute_declared_call(
     outcome = run_call(
         site,
         sender=Address(sender),
-        signing_key=Hash(signing_key),
         to=to,
         data=data,
         value=value,
@@ -501,7 +508,7 @@ __all__ = [
     "BLOCK_TAGS_NO_CHAIN_DETERMINES",
     "CALL_GAS_LIMIT",
     "REVERT_ERROR_CODE",
-    "SENDER_MUST_BE_SIGNABLE",
+    "SENDER_MUST_BE_SOLVENT",
     "CallOutcome",
     "CallReplay",
     "CallSite",

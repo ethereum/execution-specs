@@ -24,6 +24,14 @@ runs through the fork's own `process_transaction`, so the answer comes
 from the specification rather than from a second copy of it, and the
 return data is read from the `vm.TransactionResult` that function now
 returns.
+
+The message carries no signature. Its sender is *asserted*:
+`process_transaction` forwards `asserted_sender` to `check_transaction`,
+which then skips signature recovery and, with it, the requirement that
+the sender be an externally owned account -- both being properties of a
+sender derived from a signature. A call may therefore name any address,
+including a contract and the zero address, which is what a client allows
+and what the tool could not express while it had to sign.
 """
 
 from dataclasses import dataclass
@@ -84,6 +92,7 @@ class EthCall(Load):
     alloc: Final[Any]
     env: Final["TestingEnvironment"]
     tx: Final["TestingTransaction"]
+    sender: Final[str]
     chain_id: Final[U64]
 
     def __init__(
@@ -93,10 +102,15 @@ class EthCall(Load):
         alloc: Any,
         env: "TestingEnvironment",
         tx: "TestingTransaction",
+        sender: str,
         chain_id: int,
     ) -> None:
         """
         Prepare a call of `tx` against `alloc` in the context of `env`.
+
+        `sender` is stated rather than read off `tx`, because `tx` carries
+        no signature to read it from. Any address will do, including one
+        no key exists for; see the module docstring.
 
         `env` describes the block the call *names*, not the block that
         contained any original transaction: a client resolves
@@ -113,6 +127,7 @@ class EthCall(Load):
         self.alloc = alloc
         self.env = env
         self.tx = tx
+        self.sender = sender
         self.chain_id = U64(chain_id)
 
     def run(self) -> CallResult:
@@ -144,7 +159,11 @@ class EthCall(Load):
         previous_tracer = trace.set_evm_trace(trace.discard_evm_trace)
         try:
             result = self.fork.process_transaction(
-                block_env, block_output, fork_tx, Uint(0)
+                block_env,
+                block_output,
+                fork_tx,
+                Uint(0),
+                asserted_sender=self.fork.hex_to_address(self.sender),
             )
         finally:
             trace.set_evm_trace(previous_tracer)

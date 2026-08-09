@@ -462,7 +462,6 @@ def _replayed_call_calls(
             outcome = run_call(
                 replay.site,
                 sender=replay.sender,
-                signing_key=replay.signing_key,
                 to=replay.to,
                 data=replay.data,
                 value=replay.value,

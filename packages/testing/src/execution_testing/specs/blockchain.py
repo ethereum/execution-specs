@@ -1498,28 +1498,22 @@ class BlockchainTest(BaseTest):
         exactly the state the transaction itself saw. See
         `_replayed_call_calls` for why only the first.
 
-        Returns None where there is nothing to replay or no key to sign
-        with. The key comes from the *authored* transaction, because
-        signing discards it, while every executed value comes from the
-        built one, because the filler may have chosen the gas limit.
+        Returns None where there is nothing to replay, or where the built
+        transaction names no sender to replay it from. No key is needed:
+        the replayed message is unsigned and its sender asserted. Every
+        executed value comes from the built transaction rather than the
+        authored one, because the filler may have chosen the gas limit.
         """
         if not built_block.txs or not authored.txs:
             return None
         executed = built_block.txs[0]
-        origin = authored.txs[0]
 
-        signing_key = getattr(origin.sender, "key", None)
-        if signing_key is None:
-            signing_key = origin.secret_key
-        if signing_key is None or executed.sender is None:
-            # See `SENDER_MUST_BE_SIGNABLE`: without a key the message
-            # cannot be executed, because the spec recovers its sender.
+        if executed.sender is None:
             return None
 
         return CallReplay(
             site=self.call_site_at(parent, parent_alloc, block_hashes),
             sender=Address(executed.sender),
-            signing_key=Hash(signing_key),
             to=executed.to,
             data=executed.data,
             value=int(executed.value),

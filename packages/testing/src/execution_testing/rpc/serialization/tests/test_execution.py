@@ -65,7 +65,6 @@ def call(site: CallSite, to: Address | None, **overrides: Any) -> Any:
     """Run a message from the funded sender at `site`."""
     arguments: Dict[str, Any] = {
         "sender": Address(SENDER),
-        "signing_key": SENDER_KEY,
         "to": to,
         "data": Bytes(b""),
         "value": 0,
@@ -128,6 +127,62 @@ def test_the_call_sees_the_state_it_is_given() -> None:
         code=bytes(Op.MSTORE(0, Op.BALANCE(SENDER)) + Op.RETURN(0, 32)),
     )
     outcome = call(site, probe)
+    assert int(outcome.return_data, 16) == 10**18 - CALL_GAS_LIMIT * 7
+
+
+def test_a_call_may_come_from_a_contract() -> None:
+    """
+    A contract is a valid sender, which a signed message could not be.
+
+    The two things a signature implies — that the sender is recoverable,
+    and that it is an externally owned account — are waived together
+    when the sender is asserted instead. `RETURNS_A_WORD` holds code, so
+    a spec still enforcing the second would reject this with "not EOA"
+    rather than answer it, and a tool still signing could not name it at
+    all.
+
+    The probe returns `CALLER`, so the assertion is that the address the
+    caller *named* is the one the EVM saw, not merely that something ran.
+    """
+    site = make_site()
+    site.state.root[RETURNS_A_WORD] = Account(
+        balance=10**18,
+        code=bytes(Op.MSTORE(0, 0x1234) + Op.RETURN(0, 32)),
+    )
+    reports_caller = Address(0xCA11)
+    site.state.root[reports_caller] = Account(
+        balance=0,
+        code=bytes(Op.MSTORE(0, Op.CALLER) + Op.RETURN(0, 32)),
+    )
+    outcome = call(site, reports_caller, sender=RETURNS_A_WORD)
+    assert not outcome.reverted
+    assert int(outcome.return_data, 16) == int.from_bytes(
+        bytes(RETURNS_A_WORD), "big"
+    )
+
+
+def test_a_call_may_come_from_the_zero_address() -> None:
+    """
+    The zero address is a valid sender, and no key exists for it.
+
+    It is the commonest `from` in real usage and the one case a tool that
+    signs can never reach, since no private key recovers to it.
+
+    The probe returns its caller's *balance* rather than its address, so
+    the answer distinguishes the zero address having genuinely sent the
+    message from an empty word being returned by accident: the value is
+    the funded balance minus the gas the message bought, which no other
+    account here holds.
+    """
+    site = make_site()
+    zero = Address(0)
+    site.state.root[zero] = Account(balance=10**18)
+    probe = Address(0xBA2)
+    site.state.root[probe] = Account(
+        balance=0,
+        code=bytes(Op.MSTORE(0, Op.BALANCE(Op.CALLER)) + Op.RETURN(0, 32)),
+    )
+    outcome = call(site, probe, sender=zero)
     assert int(outcome.return_data, 16) == 10**18 - CALL_GAS_LIMIT * 7
 
 
@@ -302,18 +357,49 @@ def test_a_declared_call_refuses_a_block_it_cannot_resolve(
         declared(reference)
 
 
-def test_a_declared_call_needs_a_sender_it_can_sign_for() -> None:
+def test_a_declared_call_needs_no_key_for_its_sender() -> None:
     """
-    A bare address carries no key, so the message cannot be signed.
+    A bare address is enough; an author no longer has to pass an `EOA`.
 
-    The failure names the restriction rather than the symptom, because
-    the fix is to pass the `EOA` the test already holds.
+    This is the whole point of asserting the sender rather than
+    recovering it. `0x1` is an address the test holds no key for, and
+    the call is answered anyway.
     """
-    sites = [make_site()]
-    with pytest.raises(UnrunnableCallError, match="carries no key"):
+    keyless = Address(0x1)
+    site = make_site()
+    site.state.root[keyless] = Account(balance=10**18)
+    result = compute_declared_call(
+        [{"from": keyless, "to": RETURNS_A_WORD}, "0x0"], [site]
+    )
+    assert result.outcome.return_data.endswith("1234")
+    assert result.params[0]["from"] == str(keyless)
+
+
+def test_a_keyless_sender_still_needs_a_balance() -> None:
+    """
+    Solvency is the one admission check the derivation does not waive.
+
+    Recorded as a test rather than left implicit, because it is the
+    restriction that survives asserting the sender, and an author whose
+    zero-address call derives nothing needs to be told which of the two
+    they hit.
+    """
+    with pytest.raises(UnrunnableCallError, match="cannot afford"):
         compute_declared_call(
-            [{"from": Address(0x1), "to": RETURNS_A_WORD}, "0x0"], sites
+            [{"from": Address(0), "to": RETURNS_A_WORD}, "0x0"], [make_site()]
         )
+
+
+def test_a_declared_call_states_its_sender() -> None:
+    """
+    A message with no `from` derives nothing rather than guessing one.
+
+    A client defaults the field to the zero address, which is a real
+    sender with a real balance, so guessing it here would answer a
+    question the author did not ask.
+    """
+    with pytest.raises(UnrunnableCallError, match="names no sender"):
+        compute_declared_call([{"to": RETURNS_A_WORD}, "0x0"], [make_site()])
 
 
 def test_a_declared_call_completes_the_message_it_stores() -> None:

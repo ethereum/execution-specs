@@ -24,6 +24,7 @@ replay cannot express.
 
 import pytest
 from execution_testing import (
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -169,6 +170,67 @@ def test_declared_call_at_historical_states(
                 params=[message, "latest"],
                 derive_result=True,
             ),
+        ],
+    )
+
+
+def test_declared_call_from_a_contract(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    A call whose `from` is a contract, which no key can sign for.
+
+    A sender recovered from a signature is necessarily an externally
+    owned account, so this message cannot exist as a transaction at all;
+    a client answers it anyway. The probe returns `CALLER`, so the
+    expectation pins which address the EVM saw rather than merely that
+    something ran.
+    """
+    probe = pre.deploy_contract(Op.MSTORE(0, Op.CALLER) + Op.RETURN(0, 32))
+    # Funded because the message is priced at the block's base fee, the
+    # one admission check a derived call does not relax.
+    contract = pre.deploy_contract(Op.STOP, balance=10**18)
+    sender = pre.fund_eoa()
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[Transaction(sender=sender, to=probe)])],
+        post={},
+        rpc_checks=[
+            RPCExpectation(
+                method="eth_call",
+                params=[{"from": contract, "to": probe}, "0x0"],
+                derive_result=True,
+            )
+        ],
+    )
+
+
+def test_declared_call_from_the_zero_address(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    A call whose `from` is the zero address.
+
+    The commonest `from` in real usage, and the one address no key will
+    ever recover to. The probe returns its caller's balance rather than
+    its address, so an empty word cannot pass for an answer: the value
+    is the funded balance less the gas the message bought.
+    """
+    probe = pre.deploy_contract(
+        Op.MSTORE(0, Op.BALANCE(Op.CALLER)) + Op.RETURN(0, 32)
+    )
+    pre.fund_address(Address(0), 10**18)
+    sender = pre.fund_eoa()
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[Transaction(sender=sender, to=probe)])],
+        post={},
+        rpc_checks=[
+            RPCExpectation(
+                method="eth_call",
+                params=[{"from": Address(0), "to": probe}, "0x0"],
+                derive_result=True,
+            )
         ],
     )
 
