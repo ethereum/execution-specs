@@ -904,3 +904,77 @@ def test_a_partial_call_fails_when_its_field_is_absent() -> None:
 
     with pytest.raises(AssertionError, match="required|missing"):
         verify_rpc_expectations(rpc_returning([answered]), built)
+
+
+ONE = "0x" + "11" * 20
+TWO = "0x" + "22" * 20
+KEY_A = "0x" + "0" * 63 + "1"
+KEY_B = "0x" + "0" * 63 + "2"
+
+
+def access_list_call(entries: List[Any]) -> FixtureRPCCall:
+    """Return an `eth_createAccessList` expectation naming `entries`."""
+    return FixtureRPCCall(
+        method="eth_createAccessList",
+        params=[{"from": ONE, "to": TWO}, "0x0"],
+        result={"accessList": entries, "gasUsed": "0x5208"},
+    )
+
+
+def access_list_answer(entries: List[Any]) -> Dict[str, Any]:
+    """Return the response body a client would send for `entries`."""
+    return {"accessList": entries, "gasUsed": "0x5208"}
+
+
+def test_an_access_list_is_compared_as_a_set() -> None:
+    """
+    A client may serialize the entries in whatever order it likes.
+
+    An access list is a set of entries, and a set of keys within each
+    entry, and no specification fixes an order for either. Comparing them
+    positionally would fail a client whose answer is correct.
+    """
+    built = engine_fixture(
+        [
+            access_list_call(
+                [
+                    {"address": ONE, "storageKeys": [KEY_A, KEY_B]},
+                    {"address": TWO, "storageKeys": []},
+                ]
+            )
+        ],
+        None,
+    )
+    shuffled = access_list_answer(
+        [
+            {"address": TWO, "storageKeys": []},
+            {"address": ONE, "storageKeys": [KEY_B, KEY_A]},
+        ]
+    )
+
+    verify_rpc_expectations(rpc_returning([shuffled]), built)
+
+
+def test_a_reordered_access_list_still_fails_on_its_contents() -> None:
+    """
+    Order is waived; membership is not.
+
+    The relaxation is exactly one thing, and the entry a client invented
+    is caught however it arranges the rest.
+    """
+    built = engine_fixture(
+        [access_list_call([{"address": ONE, "storageKeys": [KEY_A]}])], None
+    )
+    wrong = access_list_answer([{"address": ONE, "storageKeys": [KEY_B]}])
+
+    with pytest.raises(AssertionError, match="storageKeys/0"):
+        verify_rpc_expectations(rpc_returning([wrong]), built)
+
+
+def test_an_access_list_still_fails_on_its_gas() -> None:
+    """The gas is a scalar, and nothing about it is relaxed."""
+    built = engine_fixture([access_list_call([])], None)
+    wrong = {"accessList": [], "gasUsed": "0x5209"}
+
+    with pytest.raises(AssertionError, match="gasUsed"):
+        verify_rpc_expectations(rpc_returning([wrong]), built)

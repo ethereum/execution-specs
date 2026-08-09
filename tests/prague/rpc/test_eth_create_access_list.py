@@ -203,7 +203,9 @@ def test_declared_access_list_at_historical_states(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[Transaction(sender=sender, to=recipient, value=5)])],
+        blocks=[
+            Block(txs=[Transaction(sender=sender, to=recipient, value=5)])
+        ],
         post={},
         rpc_checks=[
             RPCExpectation(

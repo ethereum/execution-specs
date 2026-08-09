@@ -14,12 +14,15 @@ against the stored expectation. The schema layer alone cannot catch a
 wrong value of the right shape, which is the whole reason the expectation
 is stored.
 
-Two deliberate relaxations, both required for correctness rather than
+Three deliberate relaxations, all required for correctness rather than
 convenience:
 
 - **Hex case is normalized.** The schema's address pattern is
   `^0x[0-9a-fA-F]{40}$`, so a client returning EIP-55 checksummed
   addresses is conforming. Byte-wise comparison would fail it.
+- **Set-valued fields are put in a fixed order on both sides.** An access
+  list is a set of entries rather than a sequence, and no specification
+  says which order a client serializes one in; see `canonical_result`.
 - **Fields the expectation does not mention are ignored.** The projection
   is incomplete by design — it currently omits `withdrawals`, for
   instance — and a client returning a field we have not modelled yet is
@@ -179,6 +182,49 @@ def _differences(expected: Any, actual: Any, path: str = "") -> Iterator[str]:
         yield f"{where}: expected {expected!r}, got {actual!r}"
 
 
+def canonical_result(method: str, result: Any) -> Any:
+    """
+    Return a result with its set-valued fields put in a fixed order.
+
+    Almost every result in this suite is a sequence whose order carries
+    meaning — a block's transactions, a receipt's logs — and comparing
+    those positionally is right. An access list is not one of them: it is
+    a *set* of entries, and a set of keys within each entry, and no
+    specification says which order a client should serialize either in.
+    Comparing them positionally would fail a client whose answer is
+    correct and merely differently arranged.
+
+    Both sides are canonicalized rather than only the expectation, so the
+    rule is a genuine relaxation of the comparison rather than a
+    requirement that clients sort. Applied to the response of a method
+    with nothing set-valued, this returns it unchanged.
+    """
+    if method != "eth_createAccessList" or not isinstance(result, dict):
+        return result
+    entries = result.get("accessList")
+    if not isinstance(entries, list):
+        return result
+    ordered = [
+        {
+            **entry,
+            "storageKeys": sorted(entry["storageKeys"]),
+        }
+        if isinstance(entry, dict)
+        and isinstance(entry.get("storageKeys"), list)
+        else entry
+        for entry in entries
+    ]
+    return {
+        **result,
+        "accessList": sorted(
+            ordered,
+            key=lambda entry: str(entry.get("address", ""))
+            if isinstance(entry, dict)
+            else "",
+        ),
+    }
+
+
 def _compare(call: FixtureRPCCall, response: Any) -> str | None:
     """
     Return a failure message for one response, or None if it is acceptable.
@@ -233,7 +279,10 @@ def _compare(call: FixtureRPCCall, response: Any) -> str | None:
         return None
 
     differences = list(
-        _differences(_normalized(call.result), _normalized(response.result))
+        _differences(
+            canonical_result(call.method, _normalized(call.result)),
+            canonical_result(call.method, _normalized(response.result)),
+        )
     )
     if not differences:
         return None

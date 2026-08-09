@@ -203,3 +203,8 @@ RemoveDocstringCommand
 _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
 genesis_header  # genesis header fixture
+
+# src/ethereum_spec_tools/evm_tools/call - read by the testing package
+from ethereum_spec_tools.evm_tools.call import AccessListEntry
+
+AccessListEntry.storage_keys
