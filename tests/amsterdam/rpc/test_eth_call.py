@@ -15,9 +15,11 @@ rather than an error for a call to an account that does not exist. A
 suite covering only the third of these would not notice a client that
 reported the fourth as a failure.
 
-Derivation replays the first transaction of each block, so each test
-needs only to produce a block whose first transaction has the shape
-wanted; no call is written here.
+Derivation replays the first transaction of each block, so the first
+four tests need only produce a block whose opening transaction has the
+shape wanted, and write no call at all. The fifth declares its message,
+because asking the *same* message of several states is the one thing
+replay cannot express.
 """
 
 import pytest
@@ -28,6 +30,7 @@ from execution_testing import (
     Op,
     Transaction,
 )
+from execution_testing.specs.blockchain import RPCExpectation
 
 pytestmark = [pytest.mark.valid_from("Amsterdam"), pytest.mark.rpc]
 
@@ -116,4 +119,55 @@ def test_call_missing_account(
             )
         ],
         post={},
+    )
+
+
+def test_declared_call_at_historical_states(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    One declared message, asked of three different states.
+
+    Derivation reads its parameters off the chain, so it can only replay
+    a message the chain contained. A message the chain never contained —
+    and, more to the point, the *same* message asked of several states —
+    has to be declared.
+
+    That is what makes this the case for historical state. The three
+    answers differ only because the states do, so a client resolving
+    every block to its head passes the first assertion and fails the
+    other two. A single call at `latest` could not tell the two apart.
+
+    The probe reads a balance rather than storage because the value has
+    to change from block to block without the chain writing any: what is
+    being asserted is which state the client picked, not what a contract
+    computed from it.
+    """
+    recipient = pre.fund_eoa(amount=0)
+    probe = pre.deploy_contract(
+        Op.MSTORE(0, Op.BALANCE(recipient)) + Op.RETURN(0, 32)
+    )
+    sender = pre.fund_eoa()
+    message = {"from": sender, "to": probe}
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(txs=[Transaction(sender=sender, to=recipient, value=5)]),
+            Block(txs=[Transaction(sender=sender, to=recipient, value=7)]),
+        ],
+        post={},
+        rpc_checks=[
+            RPCExpectation(
+                method="eth_call", params=[message, "0x0"], derive_result=True
+            ),
+            RPCExpectation(
+                method="eth_call", params=[message, "0x1"], derive_result=True
+            ),
+            RPCExpectation(
+                method="eth_call",
+                params=[message, "latest"],
+                derive_result=True,
+            ),
+        ],
     )

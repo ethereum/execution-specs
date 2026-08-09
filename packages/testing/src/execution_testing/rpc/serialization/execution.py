@@ -42,7 +42,7 @@ rather than relying on the spec to relax them in the same way:
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Mapping
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence
 
 from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.forks import Fork
@@ -362,15 +362,153 @@ def run_call(
     )
 
 
+def _resolve_site(reference: Any, sites: Sequence[CallSite]) -> CallSite:
+    """
+    Return the site a declared call's block parameter names.
+
+    Numbers and the two tags a chain determines are resolved; `safe` and
+    `finalized` are not, because no chain determines them — a consumer is
+    told what they are, and a value derived here would be guessing at the
+    harness rather than reading the chain.
+    """
+    if not sites:
+        raise UnrunnableCallError(
+            "eth_call has no state to run against: the chain produced no "
+            "block whose end state could be named"
+        )
+    by_number = {site.number: site for site in sites}
+    named = str(reference).lower()
+    if named == "latest":
+        return max(sites, key=lambda site: site.number)
+    if named == "earliest":
+        return min(sites, key=lambda site: site.number)
+    if named in BLOCK_TAGS_NO_CHAIN_DETERMINES:
+        raise UnrunnableCallError(
+            f"eth_call at {named!r} names a block no chain determines, so "
+            "there is no state to derive an answer from; name a number"
+        )
+    try:
+        number = int(named, 16)
+    except ValueError as malformed:
+        raise UnrunnableCallError(
+            f"eth_call block parameter {reference!r} is neither a "
+            f"quantity nor a tag this chain can resolve"
+        ) from malformed
+    if number not in by_number:
+        raise UnrunnableCallError(
+            f"eth_call names block {number}, which this chain does not "
+            f"have; it runs from {min(by_number)} to {max(by_number)}"
+        )
+    return by_number[number]
+
+
+BLOCK_TAGS_NO_CHAIN_DETERMINES = frozenset({"safe", "finalized", "pending"})
+"""
+Tags whose block a chain does not fix, so no state here can be named.
+
+`safe` and `finalized` are declared by a consensus layer and `pending` is
+a client's own view of what it might build next.
+"""
+
+
+@dataclass(frozen=True)
+class DeclaredCall:
+    """
+    A declared call's completed parameters, and the answer to them.
+
+    The parameters are returned alongside the answer because they are
+    not the ones the author wrote; see `compute_declared_call`.
+    """
+
+    params: List[Any]
+    """The parameters as they must be stored, not as they were written."""
+
+    outcome: CallOutcome
+    """What the specification answers for them."""
+
+
+def compute_declared_call(
+    params: Sequence[Any], sites: Sequence[CallSite]
+) -> DeclaredCall:
+    """
+    Return the specification's answer to a call a test declared.
+
+    The author supplies the question — enumeration cannot invent a
+    message — and the answer is still computed here, which is the rule
+    every declared check in this package follows.
+
+    **The stored message is not the written one.** An author writes the
+    part that carries meaning — sender, recipient, calldata, value — and
+    the fields that only have to *agree* are filled in here: `gas` and
+    `gasPrice`, which a client would otherwise default to its own gas cap
+    and to zero, executing a different message from the one whose answer
+    was derived. Completing them at derivation is the only point where
+    both sides are known, and it keeps the authoring burden to the part a
+    test actually means.
+
+    The sender must be named as an `EOA` rather than a bare address, so
+    that the key travels with it; see `SENDER_MUST_BE_SIGNABLE`. It
+    reaches the fixture as a plain hex string either way, because
+    `FixtureRPCCall` renders byte-like parameters as hex before storing
+    them.
+    """
+    if len(params) < 2 or not isinstance(params[0], Mapping):
+        raise UnrunnableCallError(
+            "eth_call needs a message object and a block to compute a result"
+        )
+    message, reference = params[0], params[1]
+    site = _resolve_site(reference, sites)
+
+    sender = message.get("from")
+    signing_key = getattr(sender, "key", None)
+    if sender is None or signing_key is None:
+        raise UnrunnableCallError(
+            f"eth_call names {sender!r} as its sender, which carries no "
+            f"key. {SENDER_MUST_BE_SIGNABLE}"
+        )
+
+    declared_to = message.get("to")
+    to = None if declared_to is None else Address(declared_to)
+    data = Bytes(message.get("input", message.get("data", b"")))
+    value = int(message.get("value", 0))
+    gas = int(message.get("gas", CALL_GAS_LIMIT))
+    outcome = run_call(
+        site,
+        sender=Address(sender),
+        signing_key=Hash(signing_key),
+        to=to,
+        data=data,
+        value=value,
+        gas=gas,
+    )
+    return DeclaredCall(
+        params=[
+            call_message(
+                sender=Address(sender),
+                to=to,
+                data=data,
+                value=value,
+                gas=gas,
+                gas_price=site.gas_price,
+            ),
+            reference,
+        ],
+        outcome=outcome,
+    )
+
+
 __all__ = [
+    "BLOCK_TAGS_NO_CHAIN_DETERMINES",
     "CALL_GAS_LIMIT",
     "REVERT_ERROR_CODE",
     "SENDER_MUST_BE_SIGNABLE",
     "CallOutcome",
     "CallReplay",
     "CallSite",
+    "DeclaredCall",
     "UnrunnableCallError",
     "call_message",
+    "compute_declared_call",
     "environment_at",
     "run_call",
 ]

@@ -1320,10 +1320,15 @@ class BlockchainTest(BaseTest):
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
         call_replays: List[CallReplay] = []
+        call_sites: List[CallSite] = []
         parent = genesis.header
         block_hashes: Dict[int, Hash] = {
             int(genesis.header.number): genesis.header.block_hash
         }
+        if self.emit_rpc_expectations and self.declares_a_call:
+            call_sites.append(
+                self.call_site_at(genesis.header, pre, block_hashes)
+            )
         for block in self.blocks:
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
@@ -1377,6 +1382,12 @@ class BlockchainTest(BaseTest):
                 head = built_block.header.block_hash
                 parent = built_block.header
                 block_hashes[block_number] = built_block.header.block_hash
+                if self.emit_rpc_expectations and self.declares_a_call:
+                    call_sites.append(
+                        self.call_site_at(
+                            built_block.header, alloc, block_hashes
+                        )
+                    )
             else:
                 invalid_blocks += 1
 
@@ -1421,6 +1432,7 @@ class BlockchainTest(BaseTest):
                 chain_id=int(self.chain_id),
                 fork=self.fork,
                 call_replays=call_replays,
+                call_sites=call_sites,
             )
         return FillResult(
             fixture=fixture,
@@ -1429,6 +1441,44 @@ class BlockchainTest(BaseTest):
             benchmark_block_gas_used=benchmark_block_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
             post_verifications=PostVerifications.from_alloc(self.post),
+        )
+
+    @property
+    def declares_a_call(self) -> bool:
+        """
+        Return whether a test declared a call needing a per-block state.
+
+        Collecting a state per block costs a materialization per block,
+        which a test that declares nothing should not pay. A replayed
+        call needs only the state before the block it replays from, and
+        collects that itself.
+        """
+        return any(
+            check.method == "eth_call" and check.derive_result
+            for check in self.rpc_checks
+        )
+
+    def call_site_at(
+        self,
+        header: FixtureHeader,
+        alloc: Alloc | LazyAlloc,
+        block_hashes: Dict[int, Hash],
+    ) -> CallSite:
+        """Return the state and context a call naming `header` sees."""
+        number = int(header.number)
+        return CallSite(
+            number=number,
+            # A `MaterializedAlloc` is already in memory, so this is a
+            # no-op on the in-process path; it is here for the backends
+            # where the post-state is fetched rather than returned.
+            state=alloc.materialize()
+            if isinstance(alloc, LazyAlloc)
+            else alloc,
+            environment=environment_at(header, block_hashes),
+            fork=self.fork.fork_at(
+                block_number=number, timestamp=int(header.timestamp)
+            ),
+            chain_id=int(self.chain_id),
         )
 
     def call_replay_for_block(
@@ -1466,23 +1516,8 @@ class BlockchainTest(BaseTest):
             # cannot be executed, because the spec recovers its sender.
             return None
 
-        parent_number = int(parent.number)
-        site = CallSite(
-            number=parent_number,
-            # A `MaterializedAlloc` is already in memory, so this is a
-            # no-op on the in-process path; it is here for the backends
-            # where the post-state is fetched rather than returned.
-            state=parent_alloc.materialize()
-            if isinstance(parent_alloc, LazyAlloc)
-            else parent_alloc,
-            environment=environment_at(parent, block_hashes),
-            fork=self.fork.fork_at(
-                block_number=parent_number, timestamp=int(parent.timestamp)
-            ),
-            chain_id=int(self.chain_id),
-        )
         return CallReplay(
-            site=site,
+            site=self.call_site_at(parent, parent_alloc, block_hashes),
             sender=Address(executed.sender),
             signing_key=Hash(signing_key),
             to=executed.to,
@@ -1537,10 +1572,15 @@ class BlockchainTest(BaseTest):
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
         call_replays: List[CallReplay] = []
+        call_sites: List[CallSite] = []
         parent = genesis.header
         block_hashes: Dict[int, Hash] = {
             int(genesis.header.number): genesis.header.block_hash
         }
+        if self.emit_rpc_expectations and self.declares_a_call:
+            call_sites.append(
+                self.call_site_at(genesis.header, pre, block_hashes)
+            )
         for block in self.blocks:
             built_block = self.generate_block_data(
                 t8n=t8n,
@@ -1587,6 +1627,12 @@ class BlockchainTest(BaseTest):
                 head_hash = built_block.header.block_hash
                 parent = built_block.header
                 block_hashes[block_number] = built_block.header.block_hash
+                if self.emit_rpc_expectations and self.declares_a_call:
+                    call_sites.append(
+                        self.call_site_at(
+                            built_block.header, alloc, block_hashes
+                        )
+                    )
             else:
                 invalid_blocks += 1
 
@@ -1691,6 +1737,7 @@ class BlockchainTest(BaseTest):
                 chain_id=int(self.chain_id),
                 fork=self.fork,
                 call_replays=call_replays,
+                call_sites=call_sites,
             )
             if forkchoice_tags:
                 fixture.rpc_forkchoice = FixtureForkchoiceState(

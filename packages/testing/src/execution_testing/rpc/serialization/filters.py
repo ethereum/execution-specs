@@ -13,11 +13,23 @@ is the distinction that matters: a declared call supplies the question,
 never the answer.
 """
 
-from typing import Any, Dict, List, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence
+
+from .execution import UnrunnableCallError, compute_declared_call
+
+if TYPE_CHECKING:
+    from .execution import CallSite
 
 
-class UncomputableCallError(ValueError):
-    """Raised when a declared call has no rule for computing its result."""
+class UncomputableCallError(UnrunnableCallError):
+    """
+    Raised when a declared call has no rule for computing its result.
+
+    A subclass of `UnrunnableCallError` so that the two reasons a
+    declared result may not exist — no rule for the method, and a
+    message that could not be run — are catchable as one. They are
+    reported identically and neither reaches an artifact.
+    """
 
 
 def _matches_address(entry: Mapping[str, Any], criterion: Any) -> bool:
@@ -116,24 +128,33 @@ def filter_logs(
 
 
 def compute_result(
-    method: str, params: Sequence[Any], logs: Sequence[Mapping[str, Any]]
+    method: str,
+    params: Sequence[Any],
+    logs: Sequence[Mapping[str, Any]],
+    call_sites: Sequence["CallSite"] = (),
 ) -> Any:
     """
     Return the spec's answer to a declared call.
 
-    Only methods whose answer is a selection over data the chain already
-    produced are computable. Anything else has to be enumerated, expected
-    to error, or expected to be null.
+    Two rules exist, and they answer in different currencies. A filter is
+    a *selection* over data the chain already produced, so its answer is
+    the result itself. A call is an *execution*, which can end in a
+    revert, and a revert is reported as an error rather than a result —
+    so `eth_call` answers with a `CallOutcome` and the caller decides
+    which of the two the expectation becomes. Anything else has to be
+    enumerated, expected to error, or expected to be null.
     """
     if method == "eth_getLogs":
         return filter_logs(logs, params)
+    if method == "eth_call":
+        return compute_declared_call(params, call_sites)
     raise UncomputableCallError(
         f"{method} has no rule for computing a declared result; it must "
         "expect an error or a null instead"
     )
 
 
-COMPUTABLE_METHODS = frozenset({"eth_getLogs"})
+COMPUTABLE_METHODS = frozenset({"eth_getLogs", "eth_call"})
 """
 Methods a declared call may ask to have computed.
 

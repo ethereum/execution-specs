@@ -10,6 +10,19 @@ and vectors can exist before any client implements a feature.
 """
 
 from .derive import derive_rpc_calls, derive_rpc_calls_for_blocks
+from .execution import (
+    CALL_GAS_LIMIT,
+    REVERT_ERROR_CODE,
+    CallOutcome,
+    CallReplay,
+    CallSite,
+    DeclaredCall,
+    UnrunnableCallError,
+    call_message,
+    compute_declared_call,
+    environment_at,
+    run_call,
+)
 from .filters import (
     COMPUTABLE_METHODS,
     UncomputableCallError,
@@ -50,8 +63,15 @@ from .types import (
 )
 
 __all__ = [
+    "CALL_GAS_LIMIT",
     "COMPUTABLE_METHODS",
+    "REVERT_ERROR_CODE",
+    "CallOutcome",
+    "CallReplay",
+    "CallSite",
+    "DeclaredCall",
     "UncomputableCallError",
+    "UnrunnableCallError",
     "RPCAccessListEntry",
     "RPCAccountAccess",
     "RPCAuthorization",
@@ -69,15 +89,19 @@ __all__ = [
     "block_access_list_response",
     "block_response",
     "contract_address",
+    "call_message",
+    "compute_declared_call",
     "compute_result",
     "derive_rpc_calls",
     "derive_rpc_calls_for_blocks",
     "effective_gas_price",
+    "environment_at",
     "filter_logs",
     "openrpc_spec",
     "partial_result_validator",
     "receipt_responses",
     "result_validator",
+    "run_call",
     "transaction_responses",
     "validate_partial_result",
     "validate_result",

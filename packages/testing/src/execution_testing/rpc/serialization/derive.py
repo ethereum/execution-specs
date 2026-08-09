@@ -38,6 +38,8 @@ from execution_testing.rpc.rpc_types import calculate_fork_id
 from .execution import (
     REVERT_ERROR_CODE,
     CallReplay,
+    CallSite,
+    DeclaredCall,
     UnrunnableCallError,
     call_message,
     run_call,
@@ -492,7 +494,9 @@ def _replayed_call_calls(
 
 
 def _declared_calls(
-    declared: Sequence[Any], logs: Sequence[Any]
+    declared: Sequence[Any],
+    logs: Sequence[Any],
+    call_sites: Sequence[CallSite] = (),
 ) -> List[FixtureRPCCall]:
     """
     Turn author-declared checks into fixture calls.
@@ -501,17 +505,35 @@ def _declared_calls(
     or a value computed from the chain. It is never written by hand,
     which `RPCExpectation` enforces at construction and this reasserts by
     having nowhere to put one.
+
+    A computed answer is usually the result. `eth_call` is the exception,
+    because it is executed rather than selected and an execution can
+    revert, which a client reports as an error rather than a result. Its
+    outcome therefore decides which of the two the expectation becomes,
+    instead of the author having to know in advance which way the message
+    will go.
     """
     calls: List[FixtureRPCCall] = []
     for check in declared:
         result = None
+        params = check.params
+        error_code = check.error_code
         if getattr(check, "derive_result", False):
-            result = compute_result(check.method, check.params, logs)
+            result = compute_result(
+                check.method, check.params, logs, call_sites
+            )
+            if isinstance(result, DeclaredCall):
+                # A call's parameters are completed by derivation, not
+                # stored as written; see `compute_declared_call`.
+                params = result.params
+                reverted = result.outcome.reverted
+                error_code = REVERT_ERROR_CODE if reverted else None
+                result = None if reverted else result.outcome.return_data
         calls.append(
             FixtureRPCCall(
                 method=check.method,
-                params=check.params,
-                error_code=check.error_code,
+                params=params,
+                error_code=error_code,
                 result=result,
                 assertion=(
                     "schema"
@@ -799,6 +821,7 @@ def derive_rpc_calls_for_blocks(
     chain_id: int | None = None,
     fork: Fork | TransitionFork | None = None,
     call_replays: Sequence[CallReplay] = (),
+    call_sites: Sequence[CallSite] = (),
 ) -> List[FixtureRPCCall]:
     """
     Return the RPC expectations implied by a canonical chain.
@@ -834,6 +857,12 @@ def derive_rpc_calls_for_blocks(
     generation rather than read off the blocks here, because a finished
     fixture keeps neither the signing keys nor the intermediate states a
     call needs; see `_replayed_call_calls`.
+
+    `call_sites` carries one state per block, and is supplied only where
+    a test declared a call of its own — a declared message names whatever
+    block it likes, so any of them may be needed, and collecting them all
+    costs a state materialization per block that an undeclaring test
+    should not pay.
 
     Every derived expectation is validated before being returned; see
     `_reject_unsatisfiable`.
@@ -981,7 +1010,7 @@ def derive_rpc_calls_for_blocks(
     calls.extend(_tag_calls(head if head is not None else genesis, genesis))
     calls.extend(_forkchoice_tag_calls(blocks, forkchoice_tags))
     calls.extend(_replayed_call_calls(call_replays))
-    calls.extend(_declared_calls(declared, all_logs))
+    calls.extend(_declared_calls(declared, all_logs, call_sites))
     calls.extend(
         _state_calls(
             blocks,
