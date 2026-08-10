@@ -1016,8 +1016,8 @@ def derive_rpc_calls_for_blocks(
     result is still computed here from the chain's own logs — see
     `_declared_calls`.
 
-    `call_replays` carries the messages to execute for `eth_call` and
-    `eth_createAccessList`, each paired with the state it runs against.
+    `call_replays` carries the messages to execute for the three methods
+    that need one, each paired with the state it runs against.
     They are assembled during generation rather than read off the blocks
     here, because a finished fixture keeps neither the signing keys nor
     the intermediate states a call needs; see `_replayed_call_calls`.
