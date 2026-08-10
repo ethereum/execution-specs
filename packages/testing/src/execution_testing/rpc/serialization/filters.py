@@ -19,6 +19,7 @@ from .execution import (
     UnrunnableCallError,
     compute_declared_access_list,
     compute_declared_call,
+    compute_declared_estimate,
 )
 
 if TYPE_CHECKING:
@@ -140,15 +141,18 @@ def compute_result(
     """
     Return the spec's answer to a declared call.
 
-    Three rules exist, and they answer in different currencies. A filter
+    Four rules exist, and they answer in different currencies. A filter
     is a *selection* over data the chain already produced, so its answer
-    is the result itself. The other two are *executions*, which can end in
-    a revert, and the two methods report one differently: `eth_call`
-    reports it as a JSON-RPC error, while `eth_createAccessList` reports
-    it as a string beside an otherwise complete result. Each therefore
-    answers with its own outcome object and the caller decides what the
-    expectation becomes. Anything else has to be enumerated, expected to
-    error, or expected to be null.
+    is the result itself. The other three are *executions*, which can end
+    in a revert, and each reports one differently: `eth_call` as a
+    JSON-RPC error, `eth_createAccessList` as a string beside an
+    otherwise complete result, and `eth_estimateGas` as an error again,
+    there being no gas limit that completes a message which reverts.
+    Their answers also differ in kind — the last is a range rather than a
+    value where nothing determines it. Each therefore answers with its
+    own outcome object and the caller decides what the expectation
+    becomes. Anything else has to be enumerated, expected to error, or
+    expected to be null.
     """
     if method == "eth_getLogs":
         return filter_logs(logs, params)
@@ -156,6 +160,8 @@ def compute_result(
         return compute_declared_call(params, call_sites)
     if method == "eth_createAccessList":
         return compute_declared_access_list(params, call_sites)
+    if method == "eth_estimateGas":
+        return compute_declared_estimate(params, call_sites)
     raise UncomputableCallError(
         f"{method} has no rule for computing a declared result; it must "
         "expect an error or a null instead"
@@ -163,7 +169,7 @@ def compute_result(
 
 
 COMPUTABLE_METHODS = frozenset(
-    {"eth_getLogs", "eth_call", "eth_createAccessList"}
+    {"eth_getLogs", "eth_call", "eth_createAccessList", "eth_estimateGas"}
 )
 """
 Methods a declared call may ask to have computed.

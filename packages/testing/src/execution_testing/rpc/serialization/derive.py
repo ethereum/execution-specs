@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Sequence, Tuple
 
 from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.fixtures.blockchain import FixtureBlock
-from execution_testing.fixtures.common import FixtureRPCCall
+from execution_testing.fixtures.common import FixtureRPCBounds, FixtureRPCCall
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc.rpc_types import calculate_fork_id
 
@@ -41,9 +41,12 @@ from .execution import (
     CallSite,
     DeclaredAccessList,
     DeclaredCall,
+    DeclaredEstimate,
+    EstimateOutcome,
     UnrunnableCallError,
     call_message,
     create_access_list,
+    estimate_gas,
     run_call,
 )
 from .filters import compute_result
@@ -110,6 +113,14 @@ def _reject_unsatisfiable(calls: List[FixtureRPCCall]) -> None:
         try:
             if call.assertion == "schema":
                 result_validator(call.method)
+            elif call.bounds is not None:
+                # Both edges are checked as though they were the answer,
+                # because that is what they claim to be: the range is
+                # asserted to contain the value, so a client returning
+                # either of them must pass, and an edge the schema
+                # rejects is one the range could not have contained.
+                validate_result(call.method, hex(call.bounds.minimum))
+                validate_result(call.method, hex(call.bounds.maximum))
             elif call.assertion == "partial":
                 validate_partial_result(call.method, call.result)
             else:
@@ -551,6 +562,88 @@ def _replayed_access_list_calls(
     return calls
 
 
+def _estimate_expectation(
+    params: List[Any], outcome: EstimateOutcome
+) -> FixtureRPCCall:
+    """
+    Return the expectation one gas estimate can honestly be stored as.
+
+    Three shapes, and which one this is was decided by executing the
+    message rather than by reading it; see `estimate_gas`. A reverting
+    message becomes an error, a message whose answer is its intrinsic
+    cost becomes a value, and everything else becomes a range.
+    """
+    bounds = outcome.bounds
+    return FixtureRPCCall(
+        method="eth_estimateGas",
+        params=params,
+        error_code=REVERT_ERROR_CODE if outcome.reverted else None,
+        result=outcome.result,
+        bounds=None
+        if bounds is None
+        else FixtureRPCBounds(minimum=bounds[0], maximum=bounds[1]),
+        assertion=outcome.assertion,
+    )
+
+
+def _replayed_estimate_calls(
+    replays: Sequence[CallReplay],
+) -> List[FixtureRPCCall]:
+    """
+    Return an `eth_estimateGas` for each message the chain replayed.
+
+    The same messages the other two executed methods use, asked the one
+    question of the three that no specification fully answers: how much
+    gas a client should offer to make the message succeed. Clients find
+    that by search, and go-ethereum's own documentation warns that its
+    answer "may be significantly more than the amount of gas actually
+    used", so most of these expectations are ranges rather than values.
+
+    They are not therefore weak. The bottom of the range is the least
+    limit at which the message completes, established by bisecting with
+    the specification as the oracle, so it is the tightest lower bound
+    that exists — and the failure it catches is the one that matters,
+    a client whose estimate would leave the transaction short. The top is
+    the message's own gas, which a client searching within its limit
+    cannot exceed.
+
+    Where the message needs nothing beyond its intrinsic cost the answer
+    *is* determined, and is pinned exactly. See `estimate_gas` for how
+    that is told from the rest.
+    """
+    calls: List[FixtureRPCCall] = []
+    for replay in replays:
+        try:
+            outcome = estimate_gas(
+                replay.site,
+                sender=replay.sender,
+                to=replay.to,
+                data=replay.data,
+                value=replay.value,
+                gas=replay.gas,
+            )
+        except UnrunnableCallError as unrunnable:
+            logger.info(f"no eth_estimateGas derived: {unrunnable}")
+            continue
+        calls.append(
+            _estimate_expectation(
+                [
+                    call_message(
+                        sender=replay.sender,
+                        to=replay.to,
+                        data=replay.data,
+                        value=replay.value,
+                        gas=replay.gas,
+                        gas_price=replay.site.gas_price,
+                    ),
+                    hex(replay.site.number),
+                ],
+                outcome,
+            )
+        )
+    return calls
+
+
 def _declared_calls(
     declared: Sequence[Any],
     logs: Sequence[Any],
@@ -564,13 +657,14 @@ def _declared_calls(
     which `RPCExpectation` enforces at construction and this reasserts by
     having nowhere to put one.
 
-    A computed answer is usually the result. The two executed methods are
-    the exceptions, because an execution can revert and neither of them
-    reports a revert as a result. `eth_call` reports it as a JSON-RPC
-    error, and `eth_createAccessList` as free text beside a list it still
-    computed, which is only honest at the `partial` tier. Either way the
-    outcome decides what the expectation becomes, instead of the author
-    having to know in advance which way the message will go.
+    A computed answer is usually the result. The executed methods are the
+    exceptions, because an execution can revert and none of them reports
+    a revert as a result. `eth_call` reports it as a JSON-RPC error,
+    `eth_createAccessList` as free text beside a list it still computed —
+    only honest at the `partial` tier — and `eth_estimateGas` as an
+    error again, no gas limit completing a message that reverts. Either
+    way the outcome decides what the expectation becomes, instead of the
+    author having to know in advance which way the message will go.
     """
     calls: List[FixtureRPCCall] = []
     for check in declared:
@@ -595,6 +689,14 @@ def _declared_calls(
                 params = result.params
                 assertion = result.outcome.assertion
                 result = result.outcome.result
+            elif isinstance(result, DeclaredEstimate):
+                # An estimate is the one declared answer that may be a
+                # range rather than a value, so it cannot be poured into
+                # the same expectation the others are.
+                calls.append(
+                    _estimate_expectation(result.params, result.outcome)
+                )
+                continue
         calls.append(
             FixtureRPCCall(
                 method=check.method,
@@ -1073,6 +1175,7 @@ def derive_rpc_calls_for_blocks(
     calls.extend(_forkchoice_tag_calls(blocks, forkchoice_tags))
     calls.extend(_replayed_call_calls(call_replays))
     calls.extend(_replayed_access_list_calls(call_replays))
+    calls.extend(_replayed_estimate_calls(call_replays))
     calls.extend(_declared_calls(declared, all_logs, call_sites))
     calls.extend(
         _state_calls(

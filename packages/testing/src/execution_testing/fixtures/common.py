@@ -16,6 +16,7 @@ from execution_testing.base_types import (
     CamelModel,
     EthereumTestRootModel,
     Hash,
+    HexNumber,
     RLPSerializable,
     SignableRLPSerializable,
     ZeroPaddedHexNumber,
@@ -46,21 +47,62 @@ def _hexlify(value: Any) -> Any:
     return value
 
 
-RPCAssertion = Literal["exact", "partial", "schema"]
+RPCAssertion = Literal["exact", "partial", "bounds", "schema"]
 """
 How much of a response an expectation actually pins.
 
-Three rungs of a ladder, weakest last. `exact` is the default and the only
+Four rungs of a ladder, weakest last. `exact` is the default and the only
 one that needs no excuse: the stored result is the whole answer and the
 client must reproduce it. `partial` stores the fields the spec can compute
-and stays silent about the rest. `schema` stores no value at all and
-asserts only that the response conforms to the method's OpenRPC result
-schema.
+and stays silent about the rest. `bounds` stores no value at all but a
+range the answer must lie in, for a quantity the specification constrains
+without determining — `eth_estimateGas` is the case it exists for, and
+`FixtureRPCBounds` explains why a range is worth storing there. `schema`
+stores no value at all and asserts only that the response conforms to the
+method's OpenRPC result schema.
 
 The distinction is a property of the call rather than of the method,
 because the same method can be pinned exactly on one chain and only
 partially on another.
 """
+
+
+class FixtureRPCBounds(CamelModel):
+    """
+    A range a response's value must lie in, where no value is determined.
+
+    Weaker than a stored result and stronger than a stored shape, and
+    recorded in the artifact as its own thing so that neither can be
+    mistaken for it. A client team reading `bounds` is being told that the
+    specification does not fix this answer and that what is checked is
+    only that the answer is *usable*.
+
+    `eth_estimateGas` is the method this exists for. No specification
+    defines the search a client performs, so an exact expectation would
+    pin one client's algorithm — but the failure that actually matters is
+    an *under*-estimate, whose answer would make the transaction it
+    describes run out of gas, and a shape-only assertion cannot catch one.
+    A range catches it, and catches it as tightly as the specification
+    permits: `minimum` is the least gas limit at which the message
+    completes, so an answer below it is one no search could have reached
+    honestly.
+    """
+
+    minimum: HexNumber
+    """The least value the specification admits, inclusive."""
+
+    maximum: HexNumber
+    """The greatest, inclusive."""
+
+    @model_validator(mode="after")
+    def check_the_range_is_inhabited(self) -> "FixtureRPCBounds":
+        """Reject a range no value satisfies."""
+        if self.minimum > self.maximum:
+            raise ValueError(
+                f"a bound of [{self.minimum}, {self.maximum}] admits no "
+                "value at all, so no client could satisfy it"
+            )
+        return self
 
 
 class FixtureRPCCall(CamelModel):
@@ -113,6 +155,13 @@ class FixtureRPCCall(CamelModel):
 
     Error *messages* are client-specific wording and are never compared;
     only the code and the shape of the error are.
+    """
+    bounds: FixtureRPCBounds | None = None
+    """
+    The range the response's value must lie in, instead of a value.
+
+    Carried by exactly the calls whose tier is `bounds`, and by no other;
+    see `FixtureRPCBounds`.
     """
     round_trip: bool = False
     """
@@ -169,6 +218,18 @@ class FixtureRPCCall(CamelModel):
             raise ValueError(
                 f"{self.method}: a schema-only expectation asserts nothing "
                 "about the value, so it must not carry one"
+            )
+        if (self.assertion == "bounds") != (self.bounds is not None):
+            raise ValueError(
+                f"{self.method}: a bounded expectation is the range it "
+                "carries, so the two must be declared together"
+            )
+        if self.bounds is not None and (
+            self.result is not None or self.result_keccak is not None
+        ):
+            raise ValueError(
+                f"{self.method}: a bounded expectation asserts a range "
+                "rather than a value, so it must not carry one"
             )
         if self.assertion != "exact" and self.error_code is not None:
             raise ValueError(

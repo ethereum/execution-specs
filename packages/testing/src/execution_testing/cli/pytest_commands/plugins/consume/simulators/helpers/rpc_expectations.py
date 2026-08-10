@@ -35,11 +35,13 @@ one says so; see `_replayable`.
 
 Each call also records how much of the response it pins. Most pin all of
 it. A `partial` one pins the fields the spec can compute and is silent
-about the rest, and a `schema` one pins no value at all — the response is
-held to its OpenRPC result schema and nothing further, which is what is
-left for a method whose answer is a client heuristic. Both are reported as
-such in the failure and counted separately in the log, so a run's apparent
-coverage cannot quietly outrun what it actually checked.
+about the rest; a `bounds` one pins a range the answer must lie in, for a
+quantity the spec constrains without determining; and a `schema` one pins
+no value at all — the response is held to its OpenRPC result schema and
+nothing further, which is what is left for a method whose answer is a
+client heuristic. All three are reported as such in the failure and
+counted separately in the log, so a run's apparent coverage cannot quietly
+outrun what it actually checked.
 """
 
 import logging
@@ -75,6 +77,11 @@ ASSERTION_NOTES = {
     "partial": (
         " [partial value: only the fields shown are asserted; the rest of "
         "the response has no spec-derived value]"
+    ),
+    "bounds": (
+        " [bounds only: no exact value is derivable for this method, so "
+        "the response is asserted to lie in a range rather than to equal "
+        "anything — a weaker check than a value]"
     ),
     "schema": (
         " [schema only: no spec-derived value exists for this method, so "
@@ -225,6 +232,40 @@ def canonical_result(method: str, result: Any) -> Any:
     }
 
 
+def _outside_bounds(call: FixtureRPCCall, result: Any) -> str | None:
+    """
+    Return a failure for a bounded response, or None if it lies in range.
+
+    The two edges fail for different reasons and the report says which,
+    because they are not equally interesting. Below the minimum is the
+    failure the tier exists to catch: the client has named a gas limit at
+    which the message it was asked about cannot complete, so anyone
+    following its advice sends a transaction that runs out of gas. Above
+    the maximum is a client ignoring the limit it was given, which is a
+    smaller sin but still not an answer to the question asked.
+    """
+    assert call.bounds is not None
+    if not isinstance(result, str):
+        return (
+            f"{_describe(call)}: expected a quantity, got "
+            f"{type(result).__name__}"
+        )
+    value = int(result, 16)
+    if value < call.bounds.minimum:
+        return (
+            f"{_describe(call)}: {value} is below {call.bounds.minimum}, "
+            f"the least gas at which this message completes, so a "
+            f"transaction sent with it would run out of gas"
+        )
+    if value > call.bounds.maximum:
+        return (
+            f"{_describe(call)}: {value} is above {call.bounds.maximum}, "
+            f"the gas the message itself names, which no search within "
+            f"that limit could have returned"
+        )
+    return None
+
+
 def _compare(call: FixtureRPCCall, response: Any) -> str | None:
     """
     Return a failure message for one response, or None if it is acceptable.
@@ -262,6 +303,9 @@ def _compare(call: FixtureRPCCall, response: Any) -> str | None:
         # is asserted, never how strictly the shape is judged — and there
         # is no stored value to compare against.
         return None
+
+    if call.bounds is not None:
+        return _outside_bounds(call, response.result)
 
     if call.result_keccak is not None:
         if not isinstance(response.result, str):
@@ -355,7 +399,8 @@ def verify_rpc_expectations(
     round_trips = sum(call.round_trip for call in calls)
     logger.info(
         f"Replaying {len(calls)} RPC expectations: {tiers['exact']} exact, "
-        f"{tiers['partial']} partial-value, {tiers['schema']} schema-only; "
+        f"{tiers['partial']} partial-value, {tiers['bounds']} bounded, "
+        f"{tiers['schema']} schema-only; "
         f"{round_trips} of them round trips rather than derivations..."
     )
     responses = eth_rpc.post_batch_request(
