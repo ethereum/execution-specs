@@ -13,16 +13,14 @@ The peer is created once per client and re-pointed at each test's chain,
 which keeps the RLPx handshake out of the per-test cost.
 """
 
-import io
 import json
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, Dict, Generator, cast
+from typing import TYPE_CHECKING, Dict, Generator
 
 import pytest
-from hive.client import Client, ClientType
-from hive.testing import HiveTest
+from hive.client import Client
 
 from execution_testing.devp2p.chain import (
     Chain,
@@ -36,16 +34,10 @@ from execution_testing.fixtures.blockchain import (
     FixtureEngineNewPayload,
     FixtureHeader,
 )
-from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
 
-from ..helpers.test_tracker import (
-    PreAllocGroupTestTracker,
-    enginex_group_counts_key,
-    make_group_identifier,
-)
+from ..helpers.test_tracker import count_tests_per_group
 
 if TYPE_CHECKING:
-    from ..multi_test_client import MultiTestClientManager
     from ..timing_data import TimingData
 
 logger = logging.getLogger(__name__)
@@ -221,20 +213,7 @@ def pytest_collection_modifyitems(
     if BlockchainEngineXFixture not in supported_formats:
         return
 
-    group_counts: dict[str, int] = {}
-    for item in items:
-        for marker in item.iter_markers("xdist_group"):
-            if "name" in marker.kwargs:
-                group_counts[marker.kwargs["name"]] = (
-                    group_counts.get(marker.kwargs["name"], 0) + 1
-                )
-                break
-
-    session.stash[enginex_group_counts_key] = group_counts
-    logger.info(
-        f"Counted {len(group_counts)} pre-alloc groups with "
-        f"{sum(group_counts.values())} total tests"
-    )
+    group_counts = count_tests_per_group(session, items)
 
     chain_properties: Dict[str, tuple[bool, int]] = {}
     if config.getoption("wirex_sort_by_chain_length", True):
@@ -275,15 +254,6 @@ def pytest_collection_modifyitems(
     items.sort(key=sort_key)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _configure_client_manager(
-    multi_test_client_manager: "MultiTestClientManager",
-    pre_alloc_group_test_tracker: PreAllocGroupTestTracker,
-) -> None:
-    """Wire the test tracker to the client manager at session start."""
-    multi_test_client_manager.set_test_tracker(pre_alloc_group_test_tracker)
-
-
 @pytest.fixture(scope="module")
 def test_suite_name() -> str:
     """The name of the hive test suite used in this simulator."""
@@ -297,63 +267,6 @@ def test_suite_description() -> str:
         "Execute blockchain tests against clients by making them full sync "
         "the fixture blocks from a mock devp2p peer."
     )
-
-
-@pytest.fixture(scope="function", autouse=True)
-def _per_test_reporting(client: Client, hive_test: HiveTest) -> None:
-    """Register a test for execution against a multi-test client."""
-    hive_test.register_multi_test_client(client)
-
-
-@pytest.fixture(scope="function")
-def client(
-    multi_test_hive_test: HiveTest,
-    multi_test_client_manager: "MultiTestClientManager",
-    fixture: BlockchainEngineXFixture,
-    client_type: ClientType,
-    environment: dict,
-    client_genesis: dict,
-    total_timing_data: "TimingData",
-    request: pytest.FixtureRequest,
-) -> Generator[Client, None, None]:
-    """Get or create the client serving this pre-allocation group."""
-    group_identifier = make_group_identifier(
-        fixture.pre_hash, client_type.name
-    )
-
-    resolved_client = multi_test_client_manager.get_client(group_identifier)
-    if resolved_client is not None:
-        logger.info(f"♻️  Reusing client for group {group_identifier}")
-    else:
-        genesis_bytes = json.dumps(client_genesis).encode("utf-8")
-        buffered_genesis = io.BufferedReader(
-            cast(io.RawIOBase, io.BytesIO(genesis_bytes))
-        )
-        logger.info(
-            f"🚀 Starting client ({client_type.name}) "
-            f"for group {group_identifier}"
-        )
-        with total_timing_data.time("Start client"):
-            resolved_client = multi_test_hive_test.start_client(
-                client_type=client_type,
-                environment=environment,
-                files={"/genesis.json": buffered_genesis},
-            )
-        assert resolved_client is not None, (
-            f"Unable to connect to client ({client_type.name}) via Hive. "
-            "Check the client or Hive server logs for more information."
-        )
-        multi_test_client_manager.register_client(
-            group_identifier, resolved_client
-        )
-        resolved_client.multi_test = True
-
-    try:
-        yield resolved_client
-    finally:
-        multi_test_client_manager.mark_test_completed(
-            group_identifier, request.node.nodeid
-        )
 
 
 @pytest.fixture(scope="session")
@@ -387,12 +300,6 @@ def wirex_announce_interval(request: pytest.FixtureRequest) -> float:
 def wirex_poll_interval(request: pytest.FixtureRequest) -> float:
     """Return the interval between forkchoice updates while syncing."""
     return float(request.config.getoption("wirex_poll_interval"))
-
-
-@pytest.fixture(scope="function")
-def genesis_header(pre_alloc_group: PreAllocGroup) -> FixtureHeader:
-    """Provide the genesis header from the pre-allocation group."""
-    return pre_alloc_group.genesis
 
 
 def sync_chain_payloads(

@@ -1,22 +1,32 @@
 """Pytest fixtures for multi-test client architecture."""
 
+import io
+import json
 import logging
 import time
-from typing import Generator
+from typing import TYPE_CHECKING, Generator, cast
 
 import pytest
-from hive.client import Client
+from hive.client import Client, ClientType
+from hive.testing import HiveTest
 
 from execution_testing.base_types import to_json
 from execution_testing.fixtures import (
     BlockchainEngineXFixture,
     PreAllocGroup,
 )
+from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.test_types import AllocGroupHash
 
 from ..consume import FixturesSource
 from .helpers.ruleset import ruleset
-from .helpers.test_tracker import PreAllocGroupTestTracker
+from .helpers.test_tracker import (
+    PreAllocGroupTestTracker,
+    make_group_identifier,
+)
+
+if TYPE_CHECKING:
+    from .timing_data import TimingData
 
 logger = logging.getLogger(__name__)
 
@@ -279,3 +289,118 @@ def environment(
 
     environment_cache[pre_hash] = env
     return env
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _configure_client_manager(
+    multi_test_client_manager: MultiTestClientManager,
+    pre_alloc_group_test_tracker: PreAllocGroupTestTracker,
+) -> None:
+    """Wire the test tracker to the client manager at session start."""
+    multi_test_client_manager.set_test_tracker(pre_alloc_group_test_tracker)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def _per_test_reporting(
+    client: Client,
+    hive_test: HiveTest,
+) -> None:
+    """
+    Register a test for execution against a multi-test client.
+
+    Activate log segment capturing in the Hive backend for correct
+    client log reporting in the multi-test client case.
+
+    Parameter order matters: `client` listed before `hive_test`
+    ensures pytest sets up `client` first and tears it down last.
+    This guarantees `hive_test` teardown (`test.end()`) runs while
+    the hive node still exists, before `client` teardown calls
+    `mark_test_completed` / `client.stop()`.
+    """
+    hive_test.register_multi_test_client(client)
+
+
+@pytest.fixture(scope="function")
+def client(
+    multi_test_hive_test: HiveTest,
+    multi_test_client_manager: MultiTestClientManager,
+    fixture: BlockchainEngineXFixture,
+    client_type: ClientType,
+    environment: dict,
+    client_genesis: dict,
+    total_timing_data: "TimingData",
+    request: pytest.FixtureRequest,
+) -> Generator[Client, None, None]:
+    """
+    Get or create a multi-test client for this pre-allocation group.
+
+    Called for each test, but reuses clients across tests that
+    share the same pre-allocation group.
+    """
+    group_identifier = make_group_identifier(
+        fixture.pre_hash, client_type.name
+    )
+    test_id = request.node.nodeid
+
+    resolved_client = multi_test_client_manager.get_client(group_identifier)
+    if resolved_client is not None:
+        logger.info(f"♻️  Reusing client for group {group_identifier}")
+    else:
+        # Start new client; calculate genesis
+        serialize_start = time.perf_counter()
+        genesis_bytes = json.dumps(client_genesis).encode("utf-8")
+        buffered_genesis = io.BufferedReader(
+            cast(io.RawIOBase, io.BytesIO(genesis_bytes))
+        )
+        logger.info(
+            f"⏱ phase=genesis_serialize group={group_identifier} "
+            f"ms={(time.perf_counter() - serialize_start) * 1000:.1f}"
+        )
+
+        logger.info(
+            f"🚀 Starting client ({client_type.name}) "
+            f"for group {group_identifier}"
+        )
+
+        start_requested = time.perf_counter()
+        with total_timing_data.time("Start client"):
+            resolved_client = multi_test_hive_test.start_client(
+                client_type=client_type,
+                environment=environment,
+                files={"/genesis.json": buffered_genesis},
+            )
+
+        assert resolved_client is not None, (
+            f"Unable to connect to client ({client_type.name}) via "
+            "Hive. Check the client or Hive server logs for more "
+            "information."
+        )
+
+        # The hive start-client API only returns once the client answers
+        # its liveness check, so this duration spans container creation,
+        # client boot and the check-live wait.
+        logger.info(
+            f"⏱ phase=client_start group={group_identifier} "
+            f"ms={(time.perf_counter() - start_requested) * 1000:.1f}"
+        )
+        logger.info(
+            f"Client ({client_type.name}) ready for group {group_identifier}"
+        )
+
+        multi_test_client_manager.register_client(
+            group_identifier, resolved_client
+        )
+        resolved_client.multi_test = True
+
+    try:
+        yield resolved_client
+    finally:
+        multi_test_client_manager.mark_test_completed(
+            group_identifier, test_id
+        )
+
+
+@pytest.fixture(scope="function")
+def genesis_header(pre_alloc_group: PreAllocGroup) -> FixtureHeader:
+    """Provide the genesis header from the pre-allocation group."""
+    return pre_alloc_group.genesis
