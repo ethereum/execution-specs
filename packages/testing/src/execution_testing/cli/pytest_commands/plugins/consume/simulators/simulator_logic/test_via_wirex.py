@@ -54,6 +54,7 @@ from execution_testing.rpc import (
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     JSONRPCError,
+    PayloadStatus,
     PayloadStatusEnum,
 )
 
@@ -140,6 +141,10 @@ def test_blockchain_via_wirex(
        peer.
     3. Wait for the client to download and execute the ancestors from the
        mock peer, polling the same forkchoice update until it is VALID.
+       Each announcement's `newPayload` answer is read as the client's
+       verdict: an INVALID means the client has executed the ancestry
+       and refused the chain, so the test fails immediately with the
+       client's reason instead of waiting out the sync timeout.
     4. Check the client's head really is the expected block.
 
     There is deliberately no rewind between tests. Every test's chain
@@ -194,9 +199,14 @@ def test_blockchain_via_wirex(
     # for rejection targets below and read by `announce`.
     below_client_head = False
 
-    def announce() -> None:
+    def announce() -> PayloadStatus:
         """
         Tell the client which block to sync to.
+
+        The `newPayload` response is returned because it carries the
+        client's verdict on the head: SYNCING while the ancestry is
+        still traveling, VALID once imported, and INVALID as soon as
+        the client has executed the ancestry and refused the chain.
 
         No forkchoice update is sent for a head that sits below the
         client's own head. Naming such a head only starts a sync the
@@ -205,7 +215,7 @@ def test_blockchain_via_wirex(
         stops the ancestry from taking effect (see the rejection
         block, which hands that ancestry over separately).
         """
-        engine_rpc.new_payload(
+        payload_status = engine_rpc.new_payload(
             *head_payload.params, version=head_payload.new_payload_version
         )
         if not below_client_head:
@@ -214,6 +224,7 @@ def test_blockchain_via_wirex(
                 payload_attributes=None,
                 version=head_payload.forkchoice_updated_version,
             )
+        return payload_status
 
     def deliver_ancestry() -> None:
         """
@@ -306,13 +317,14 @@ def test_blockchain_via_wirex(
                 )
                 deliver_ancestry()
 
+    announce_status: PayloadStatus | None = None
     with timing_data.time("Announce sync target"):
         logger.info(
             f"Announcing head block {chain.head.number} to trigger a sync "
             f"of {len(chain.blocks) - 1} ancestor block(s) over devp2p"
         )
         try:
-            announce()
+            announce_status = announce()
         except JSONRPCError as error:
             if expected_rpc_refusal(error):
                 return
@@ -416,6 +428,28 @@ def test_blockchain_via_wirex(
         )
         return
 
+    def raise_if_rejected(payload_status: PayloadStatus | None) -> None:
+        """
+        Fail immediately when the client has refused the chain.
+
+        An INVALID verdict for the head means the client has already
+        downloaded and executed the ancestry and decided against it -
+        waiting out the sync timeout cannot import the chain, and the
+        verdict carries the client's reason while a timeout carries
+        nothing. Reading the verdict from the announcement that was
+        sent anyway costs no extra requests.
+        """
+        if payload_status is not None and payload_status.status in (
+            PayloadStatusEnum.INVALID,
+            PayloadStatusEnum.INVALID_BLOCK_HASH,
+        ):
+            raise LoggedError(
+                f"Client rejected the chain at head {expected_head}: "
+                f"{payload_status.status} (validationError: "
+                f"{payload_status.validation_error}). Peer transcript: "
+                f"{mock_peer.statistics.transcript}"
+            )
+
     with timing_data.time("Sync from peer"):
         # Wait by watching for the block rather than by repeating the
         # forkchoice update. A repeated update restarts the client's sync
@@ -424,6 +458,7 @@ def test_blockchain_via_wirex(
         # slower cadence, as a consensus client would each slot, because a
         # client whose sync state was still settling may have ignored the
         # first one.
+        raise_if_rejected(announce_status)
         deadline = time.monotonic() + wirex_sync_timeout
         next_announcement = time.monotonic() + wirex_announce_interval
         synced = False
@@ -439,7 +474,7 @@ def test_blockchain_via_wirex(
                     logger.warning("Peer dropped mid-sync; redialing")
                     mock_peer.reconnect(chain)
                 logger.info("Re-announcing the sync target")
-                announce()
+                raise_if_rejected(announce())
                 next_announcement = time.monotonic() + wirex_announce_interval
             time.sleep(wirex_poll_interval)
         if not synced:
