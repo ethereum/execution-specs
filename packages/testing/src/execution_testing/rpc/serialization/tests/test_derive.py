@@ -1132,6 +1132,10 @@ def test_shape_only_methods_are_all_derived() -> None:
     a deliberate act with a visible diff. A schema-only call inflates the
     apparent size of a run's coverage without adding to its strength, and
     that trade should never be made silently.
+
+    `eth_getProof` appears once on a chain with no post-state to read: the
+    two subjects that exist are read off it, and only the absent account
+    needs nothing but the head block hash.
     """
     calls = derive_rpc_calls(make_fixture([make_block([], [])]))
 
@@ -1140,6 +1144,7 @@ def test_shape_only_methods_are_all_derived() -> None:
         "eth_gasPrice",
         "eth_maxPriorityFeePerGas",
         "eth_syncing",
+        "eth_getProof",
     ]
     assert all(c.result is None for c in calls if c.assertion == "schema")
 
@@ -1163,6 +1168,118 @@ def test_storage_values_names_an_account_the_chain_holds() -> None:
     stored = next(c for c in calls if c.method == "eth_getStorageValues")
     assert stored.assertion == "schema"
     assert list(stored.params[0]) == [str(RECIPIENT)]
+
+
+def proofs(fixture: BlockchainFixture) -> List[FixtureRPCCall]:
+    """Return the account proofs a fixture derives, in order."""
+    return [c for c in derive_rpc_calls(fixture) if c.method == "eth_getProof"]
+
+
+def make_proof_fixture(storage: Dict[int, int] | None = None) -> Any:
+    """
+    Return a fixture whose post-state holds two accounts of both shapes.
+
+    The recipient carries whatever storage is asked for and the sender
+    carries none, so a derivation over it produces one subject of each
+    shape and the absent account besides.
+    """
+    from execution_testing.test_types.account_types import Account
+
+    transaction = make_transaction()
+    block = make_block([transaction], [make_receipt(21_000)])
+    fixture = make_fixture([block])
+    fixture.post_state = {  # type: ignore
+        RECIPIENT: Account(balance=1, storage=storage or {}),
+        Address(transaction.sender): Account(balance=2),  # type: ignore
+    }
+    return fixture
+
+
+def test_proof_covers_an_account_holding_storage_and_one_without() -> None:
+    """
+    The two shapes an existing account can have are both asked about.
+
+    They exercise different halves of the response: only an account with
+    storage puts anything in `storageProof`, and only one without pins the
+    empty-array case. A derivation that happened to pick two of the same
+    shape would leave half the schema unexercised while looking complete.
+    """
+    derived = proofs(make_proof_fixture({0x01: 0x02}))
+
+    subjects = {call.params[0]: call.params[1] for call in derived}
+    assert subjects[str(RECIPIENT)] == [str(Hash(1))]
+    sender = next(
+        address
+        for address in subjects
+        if address not in (str(RECIPIENT),) and subjects[address] == []
+    )
+    assert subjects[sender] == []
+    assert all(call.assertion == "schema" for call in derived)
+    assert all(call.result is None for call in derived)
+
+
+def test_proof_asks_the_absent_account_for_a_slot_it_cannot_hold() -> None:
+    """
+    Absence is a case the schema defines, not an edge it leaves open.
+
+    The result has no null branch, so a client must answer an unallocated
+    address with the empty account's fields and a storage proof showing
+    the slot is not there. Refusing the request, or answering null, fails.
+    """
+    fixture = make_proof_fixture()
+    absent = derive_module._absent_account(fixture.blocks[0].header.block_hash)
+
+    derived = proofs(fixture)
+
+    absent_proof = next(c for c in derived if c.params[0] == str(absent))
+    assert absent_proof.params[1] == [str(Hash(0))]
+
+
+def test_proof_caps_the_slots_it_asks_about() -> None:
+    """
+    One storage-heavy account cannot decide the cost of a run.
+
+    The same bound the state reads observe, for the same reason, and it
+    matters more here: a proof is the most expensive response in the suite
+    for a client to assemble.
+    """
+    slots = {slot: slot for slot in range(1, 50)}
+
+    derived = proofs(make_proof_fixture(slots))
+
+    asked = next(c for c in derived if c.params[0] == str(RECIPIENT))
+    assert len(asked.params[1]) == derive_module.MAX_STORAGE_SLOTS_PER_ACCOUNT
+    assert asked.params[1][0] == str(Hash(1))
+
+
+def test_proof_always_names_a_block() -> None:
+    """
+    The schema marks this method's block parameter required.
+
+    Every other state read is emitted twice, with the block named and with
+    it omitted, because omitting it defaults to latest and that is a
+    distinct code path worth asserting. There is no such default here, so
+    the untagged twin would be a request no client has to accept.
+    """
+    derived = proofs(make_proof_fixture({0x01: 0x02}))
+
+    assert derived
+    assert all(len(call.params) == 3 for call in derived)
+    assert all(call.params[2] == "0x1" for call in derived)
+
+
+def test_proof_is_derived_without_a_post_state() -> None:
+    """
+    A chain that stores no post-state still proves the absent account.
+
+    Its address comes from the head block hash rather than from any
+    account, so the one subject needing nothing read off the state is the
+    one that survives.
+    """
+    derived = proofs(make_fixture([make_block([], [])]))
+
+    assert len(derived) == 1
+    assert derived[0].params[1] == [str(Hash(0))]
 
 
 def test_capabilities_pins_the_head_and_nothing_else() -> None:
@@ -1275,21 +1392,32 @@ def test_the_weaker_tiers_are_a_closed_inventory() -> None:
     that the client replied. Adding a method to either tier must therefore
     be a visible diff with a reviewer attached, and the fields a partial
     call names must be written down where they can be argued with.
+
+    How many calls each method contributes is counted too, since
+    `eth_getProof` is the first here to contribute more than one and a
+    census that collapsed them would undercount the very thing it exists
+    to bound.
     """
     calls = derive_rpc_calls(make_fixture([make_block([], [], number=1)]))
 
-    weaker = {
-        call.method: (call.assertion, sorted(call.result or ()))
-        for call in calls
-        if call.assertion != "exact"
-    }
+    weaker: Dict[str, Any] = {}
+    for call in calls:
+        if call.assertion == "exact":
+            continue
+        counted, _, _ = weaker.get(call.method, (0, None, None))
+        weaker[call.method] = (
+            counted + 1,
+            call.assertion,
+            sorted(call.result or ()),
+        )
     assert weaker == {
-        "eth_gasPrice": ("schema", []),
-        "eth_maxPriorityFeePerGas": ("schema", []),
-        "eth_syncing": ("schema", []),
-        "eth_capabilities": ("partial", ["head"]),
-        "eth_feeHistory": ("partial", ["oldestBlock"]),
-        "eth_config": ("partial", ["current"]),
+        "eth_gasPrice": (1, "schema", []),
+        "eth_maxPriorityFeePerGas": (1, "schema", []),
+        "eth_syncing": (1, "schema", []),
+        "eth_getProof": (1, "schema", []),
+        "eth_capabilities": (1, "partial", ["head"]),
+        "eth_feeHistory": (1, "partial", ["oldestBlock"]),
+        "eth_config": (1, "partial", ["current"]),
     }
 
 
