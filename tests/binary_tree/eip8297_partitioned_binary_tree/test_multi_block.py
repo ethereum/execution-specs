@@ -27,7 +27,7 @@ from execution_testing import (
 )
 
 from .helpers import FACTORY_CANARY_SLOT, create_contract_via_factory
-from .spec import ref_spec_8297
+from .spec import Spec, ref_spec_8297
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8297.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8297.version
@@ -314,3 +314,69 @@ def test_wrong_state_root_expectation_is_recorded_for_consumers(
     )
 
     blockchain_test(pre=pre, post={}, blocks=[block])
+
+
+def test_consecutive_deploys_share_the_code_zone(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Deploy three contracts across the group boundary, one per block,
+    then call all three.
+
+    Code chunks are content-addressed, so every contract on the chain
+    shares one zone and each deploy after the first inserts beside stems
+    that are already there. A single-deploy test only ever reaches an
+    empty zone; what these blocks add is every deploy after it.
+
+    The sizes sit on the only boundary the zone has: the last chunk of a
+    group, an exactly-full group, and the first chunk of the next one.
+    The last contract is the only one holding two stems, which is what
+    makes a later deploy disturbing an earlier one visible. Each writes
+    its own marker on the final block, which fails if any deploy
+    corrupted the code of one deployed before it.
+    """
+    sender = pre.fund_eoa()
+    marker_slot = 0
+    sizes = tuple(
+        Spec.CODE_CHUNK_SIZE * chunks
+        for chunks in (
+            Spec.STEM_SUBTREE_WIDTH - 1,
+            Spec.STEM_SUBTREE_WIDTH,
+            Spec.STEM_SUBTREE_WIDTH + 1,
+        )
+    )
+
+    runtimes: list[Bytecode] = []
+    deploys: list[Transaction] = []
+    for index, size in enumerate(sizes):
+        marker = index + 1
+        runtime = Op.SSTORE(marker_slot, marker) + Op.STOP
+        runtime += Op.INVALID * (size - len(runtime))
+        assert len(runtime) == size
+        runtimes.append(runtime)
+        deploys.append(
+            Transaction(
+                sender=sender,
+                to=None,
+                data=Initcode(deploy_code=runtime),
+                gas_limit=15_000_000,
+            )
+        )
+
+    deployed = [tx.created_contract for tx in deploys]
+    calls = [
+        Transaction(sender=sender, to=address, gas_limit=200_000)
+        for address in deployed
+    ]
+
+    blocks = [Block(txs=[tx]) for tx in deploys]
+    blocks.append(Block(txs=calls))
+
+    post = {
+        address: Account(code=runtime, storage={marker_slot: index + 1})
+        for index, (address, runtime) in enumerate(
+            zip(deployed, runtimes, strict=True)
+        )
+    }
+    blockchain_test(pre=pre, blocks=blocks, post=post)
