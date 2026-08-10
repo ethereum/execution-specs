@@ -160,6 +160,7 @@ class MockPeer:
         self._chains = ServedChains()
         self._lock = threading.Lock()
         self._stop = threading.Event()
+        self._dead = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self.statistics = PeerStatistics()
         self.body_hashes_ever_served: Set[bytes] = set()
@@ -179,6 +180,11 @@ class MockPeer:
         """
         self.remote_name = ""
         self.disconnect_reason: Optional[int] = None
+
+    @property
+    def alive(self) -> bool:
+        """Whether the connection's message loop is still running."""
+        return self._thread is not None and not self._dead.is_set()
 
     def connect(self, chain: Chain, timeout: float = 30.0) -> None:
         """
@@ -287,34 +293,65 @@ class MockPeer:
                 ),
             )
 
+    def reconnect(self, chain: Chain, timeout: float = 30.0) -> None:
+        """
+        Dial the client again after it dropped the previous session.
+
+        A client is free to hang up on a peer at any time (nethermind
+        does, with `Disconnect(0x00)`); a real peer would simply redial,
+        so this one does too. Chains installed on the previous session
+        stay installed: the client's downloader may still ask for them.
+        """
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=5.0)
+        if self._session is not None:
+            self._session.close()
+        self._stop.clear()
+        self._dead.clear()
+        self.disconnect_reason = None
+        self.connect(chain, timeout=timeout)
+        self.start()
+
     def _run(self) -> None:
         """Read and answer messages until stopped or disconnected."""
         session = self._session
         assert session is not None
-        while not self._stop.is_set():
-            try:
-                code, payload = session.read_message()
-            except (TimeoutError, OSError):
-                continue
-            except RLPxError as error:
-                logger.info("Peer connection ended: %s", error)
-                return
+        try:
+            while not self._stop.is_set():
+                try:
+                    code, payload = session.read_message()
+                except TimeoutError:
+                    continue
+                except (OSError, RLPxError) as error:
+                    logger.info("Peer connection ended: %s", error)
+                    return
 
-            try:
-                self._handle(session, code, payload)
-            except OSError as error:
-                # The client closed the socket while the answer was
-                # being written. End the loop cleanly rather than
-                # leaving a traceback in a thread nobody joins.
-                logger.info(
-                    "Peer connection ended while answering message %d: %s",
-                    code,
-                    error,
-                )
-                return
-            except (ProtocolError, RLPxError) as error:
-                logger.warning("Failed to answer message %d: %s", code, error)
-                return
+                try:
+                    self._handle(session, code, payload)
+                except OSError as error:
+                    # The client closed the socket while the answer was
+                    # being written. Ending the loop lets the owner
+                    # notice via `alive` and redial, rather than leaving
+                    # a traceback in a thread nobody joins.
+                    logger.info(
+                        "Peer connection ended while answering message %d: %s",
+                        code,
+                        error,
+                    )
+                    return
+                except (ProtocolError, RLPxError) as error:
+                    logger.warning(
+                        "Failed to answer message %d: %s", code, error
+                    )
+                    return
+                if self.disconnect_reason is not None:
+                    # The client said goodbye; the socket is as good as
+                    # closed. Ending the loop lets the owner notice via
+                    # `alive` and redial.
+                    return
+        finally:
+            self._dead.set()
 
     def _handle(self, session: RLPxSession, code: int, payload: bytes) -> None:
         """Answer one message from the client."""
