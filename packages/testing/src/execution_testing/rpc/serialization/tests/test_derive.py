@@ -18,7 +18,10 @@ from execution_testing.fixtures.blockchain import (
     FixtureWithdrawal,
     InvalidFixtureBlock,
 )
-from execution_testing.fixtures.common import FixtureRPCCall
+from execution_testing.fixtures.common import (
+    FixtureRPCBounds,
+    FixtureRPCCall,
+)
 from execution_testing.forks import (
     Amsterdam,
     Cancun,
@@ -1288,3 +1291,68 @@ def test_the_weaker_tiers_are_a_closed_inventory() -> None:
         "eth_feeHistory": ("partial", ["oldestBlock"]),
         "eth_config": ("partial", ["current"]),
     }
+
+
+def bounded(minimum: int, maximum: int) -> FixtureRPCCall:
+    """Return a bounded expectation for a gas estimate."""
+    return FixtureRPCCall(
+        method="eth_estimateGas",
+        params=[{}, "0x1"],
+        assertion="bounds",
+        bounds=FixtureRPCBounds(minimum=minimum, maximum=maximum),
+    )
+
+
+def test_a_bounded_expectation_survives_the_guard() -> None:
+    """
+    Both edges are checked as though either were the answer.
+
+    A range asserts that it *contains* the value, so a client returning
+    an edge must pass — which makes an edge the schema rejects a range
+    no client could satisfy from below or above.
+    """
+    derive_module._reject_unsatisfiable([bounded(21_000, 60_000)])
+
+
+def test_a_bound_that_is_not_a_quantity_is_refused() -> None:
+    """
+    An edge the result schema rejects is caught at derivation.
+
+    Zero is a legal quantity and negatives are not, so a bound below zero
+    is the one an off-by-one in the search would produce.
+    """
+    with pytest.raises(ProjectionError, match="schema-conformant"):
+        derive_module._reject_unsatisfiable([bounded(-1, 60_000)])
+
+
+def test_a_range_and_its_tier_are_declared_together() -> None:
+    """
+    Neither half of a bounded expectation means anything alone.
+
+    A range without the tier is never compared, and the tier without a
+    range asserts nothing while looking as though it asserts something.
+    """
+    with pytest.raises(ValueError, match="declared together"):
+        FixtureRPCCall(method="eth_estimateGas", assertion="bounds")
+    with pytest.raises(ValueError, match="declared together"):
+        FixtureRPCCall(
+            method="eth_estimateGas",
+            bounds=FixtureRPCBounds(minimum=1, maximum=2),
+        )
+
+
+def test_a_bounded_expectation_may_not_also_carry_a_value() -> None:
+    """A range and a value are different claims, and only one is meant."""
+    with pytest.raises(ValueError, match="must not carry one"):
+        FixtureRPCCall(
+            method="eth_estimateGas",
+            assertion="bounds",
+            bounds=FixtureRPCBounds(minimum=1, maximum=2),
+            result="0x1",
+        )
+
+
+def test_an_empty_range_is_refused() -> None:
+    """A range no value satisfies is a check no client can pass."""
+    with pytest.raises(ValueError, match="admits no value"):
+        FixtureRPCBounds(minimum=2, maximum=1)

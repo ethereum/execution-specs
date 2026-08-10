@@ -16,6 +16,7 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.fixtures.common import (
     FixtureForkchoiceState,
+    FixtureRPCBounds,
     FixtureRPCCall,
 )
 from execution_testing.forks import Amsterdam
@@ -978,3 +979,95 @@ def test_an_access_list_still_fails_on_its_gas() -> None:
 
     with pytest.raises(AssertionError, match="gasUsed"):
         verify_rpc_expectations(rpc_returning([wrong]), built)
+
+
+def bounded_call(
+    minimum: int = 21_000, maximum: int = 60_000
+) -> FixtureRPCCall:
+    """Return an expectation naming a range rather than a value."""
+    return FixtureRPCCall(
+        method="eth_estimateGas",
+        params=[{}, "0x1"],
+        assertion="bounds",
+        bounds=FixtureRPCBounds(minimum=minimum, maximum=maximum),
+    )
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param("0x5208", id="the_floor_itself"),
+        pytest.param("0x5209", id="one_above_the_floor"),
+        pytest.param("0xea60", id="the_ceiling_itself"),
+    ],
+)
+def test_any_answer_inside_the_range_passes(answer: str) -> None:
+    """
+    The tier asserts usability, not agreement.
+
+    Every value here is a limit at which the message completes, so a
+    client that pads its estimate and one that reports the least workable
+    figure both pass. Pinning either would be asserting a search no
+    specification describes.
+    """
+    verify_rpc_expectations(
+        rpc_returning([answer]), engine_fixture([bounded_call()], None)
+    )
+
+
+def test_an_under_estimate_fails() -> None:
+    """
+    The negative control the tier exists for.
+
+    A client answering below the least workable limit has proposed a gas
+    limit that runs out, and the failure says so — this is the defect a
+    schema-only assertion cannot catch, and the reason a fourth tier was
+    worth building.
+    """
+    built = engine_fixture([bounded_call()], None)
+
+    with pytest.raises(AssertionError, match="would run out of gas"):
+        verify_rpc_expectations(rpc_returning(["0x5207"]), built)
+
+
+def test_an_answer_above_the_message_s_own_gas_fails() -> None:
+    """
+    The other edge: a client cannot exceed the limit it was given.
+
+    A search bounded by the message's `gas` has no way to return more
+    than it, so an answer above the ceiling is not an over-cautious
+    estimate but an answer to a different question.
+    """
+    built = engine_fixture([bounded_call()], None)
+
+    with pytest.raises(AssertionError, match="is above 60000"):
+        verify_rpc_expectations(rpc_returning(["0xea61"]), built)
+
+
+def test_a_bounded_failure_says_the_check_was_a_range() -> None:
+    """
+    A range is weaker than a value, and the report admits it.
+
+    The same duty the round-trip and schema-only notes discharge: a
+    client team reading a failure is owed the strength of the assertion
+    that produced it.
+    """
+    built = engine_fixture([bounded_call()], None)
+
+    with pytest.raises(AssertionError) as failure:
+        verify_rpc_expectations(rpc_returning(["0x1"]), built)
+
+    assert "bounds only" in str(failure.value)
+
+
+def test_a_bounded_call_is_still_held_to_its_schema() -> None:
+    """
+    Waiving the value does not waive the shape.
+
+    A quantity with a leading zero is malformed however wide the range
+    it would otherwise have satisfied.
+    """
+    built = engine_fixture([bounded_call()], None)
+
+    with pytest.raises(AssertionError, match="schema|pattern"):
+        verify_rpc_expectations(rpc_returning(["0x05208"]), built)

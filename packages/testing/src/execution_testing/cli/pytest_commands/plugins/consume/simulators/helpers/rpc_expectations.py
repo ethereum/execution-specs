@@ -251,17 +251,20 @@ def _outside_bounds(call: FixtureRPCCall, result: Any) -> str | None:
             f"{type(result).__name__}"
         )
     value = int(result, 16)
-    if value < call.bounds.minimum:
+    # Both sides in decimal. The bounds are quantities and render as hex,
+    # which would leave a failure comparing a number against a string.
+    minimum, maximum = int(call.bounds.minimum), int(call.bounds.maximum)
+    if value < minimum:
         return (
-            f"{_describe(call)}: {value} is below {call.bounds.minimum}, "
-            f"the least gas at which this message completes, so a "
-            f"transaction sent with it would run out of gas"
+            f"{_describe(call)}: {value} is below {minimum}, the least "
+            f"gas at which this message completes, so a transaction sent "
+            f"with it would run out of gas"
         )
-    if value > call.bounds.maximum:
+    if value > maximum:
         return (
-            f"{_describe(call)}: {value} is above {call.bounds.maximum}, "
-            f"the gas the message itself names, which no search within "
-            f"that limit could have returned"
+            f"{_describe(call)}: {value} is above {maximum}, the gas the "
+            f"message itself names, which no search within that limit "
+            f"could have returned"
         )
     return None
 
