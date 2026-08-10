@@ -841,6 +841,121 @@ def _shape_only_calls(
     return calls
 
 
+ProofSubject = Tuple[Address, List[str]]
+"""An account to ask a proof about, with the storage keys to ask for."""
+
+
+def _proof_subjects(
+    accounts: Any, blocks: Sequence[Any]
+) -> List[ProofSubject]:
+    """
+    Return one account of each storage shape, with the keys to prove.
+
+    Two shapes, because they exercise different halves of the response: an
+    account holding storage is the only subject whose `storageProof` has
+    anything in it, and an account holding none is the only one that pins
+    the empty-array case. A third — the address the chain never allocated —
+    is not read off the post-state and is added by the caller.
+
+    One account per shape rather than every account the chain touched. The
+    parameters cost a few short strings in the fixture, so the bound is not
+    about size: a proof is the most expensive response in this suite for a
+    client to assemble, and a second account of a shape already covered
+    asserts nothing the first did not. Slots are capped by the same
+    `MAX_STORAGE_SLOTS_PER_ACCOUNT` the state reads use, and for the same
+    reason — one storage-heavy account should not decide the cost of a run.
+    """
+    with_storage: ProofSubject | None = None
+    without_storage: ProofSubject | None = None
+    for address in touched_accounts(blocks):
+        account = accounts.get(address)
+        if account is None:
+            continue
+        # `items()` rather than `keys()`: the latter returns a set, and the
+        # order slots are asked in should be the order the chain wrote them
+        # rather than one that moves between runs.
+        storage = account.storage if account.storage is not None else {}
+        slots = [slot for slot, _ in storage.items()]
+        if not slots:
+            if without_storage is None:
+                without_storage = (address, [])
+            continue
+        if with_storage is not None:
+            continue
+        if len(slots) > MAX_STORAGE_SLOTS_PER_ACCOUNT:
+            logger.info(
+                f"{address}: proving "
+                f"{MAX_STORAGE_SLOTS_PER_ACCOUNT} of {len(slots)} "
+                f"storage slots"
+            )
+            slots = slots[:MAX_STORAGE_SLOTS_PER_ACCOUNT]
+        with_storage = (address, [str(Hash(slot)) for slot in slots])
+    return [
+        subject
+        for subject in (with_storage, without_storage)
+        if subject is not None
+    ]
+
+
+def _proof_calls(
+    accounts: Any,
+    blocks: Sequence[Any],
+    block_tag: str,
+    head_block_hash: Hash | None,
+) -> List[FixtureRPCCall]:
+    """
+    Return an account proof for each shape an account can have.
+
+    `eth_getProof` is the odd member of the schema-only tier, and the odd
+    one out in the whole suite. Every other call stored at this tier is
+    there because there is no answer to derive — a fee oracle's suggestion
+    is a heuristic, a client's view of its own sync progress is a fact
+    about a process. This answer is fully determined: the proof is the path
+    through the state trie whose root the header already commits to, and
+    the post-state holds everything it is built from. It is stored at the
+    weakest tier because *we* do not compute it, not because nothing could,
+    and that deserves recording rather than blending in with the oracles.
+
+    What the shape buys here is nevertheless far more than what it buys
+    for those. The result schema closes the object, requires all seven of
+    its fields and pins the spelling of each: `balance` and `nonce` as
+    unpadded quantities, `codeHash` and `storageHash` as thirty-two
+    lowercase bytes, and every storage proof as a closed key/value/proof
+    triple. That is precisely what `eth_getStorageValues` had to decline to
+    assert — there a slot value has no fixed width, so its spelling is a
+    client's choice — and here execution-apis has already made the choice,
+    so shape alone catches a padded balance or a missing `storageHash`.
+
+    Three subjects. Two are shapes of an account that exists, chosen by
+    `_proof_subjects`; the third is an address the chain never allocated,
+    asked about a slot it therefore cannot hold. Absence is a real case
+    rather than an edge: the schema has no null branch, so a client must
+    answer it with the empty account's fields and a storage proof whose
+    value is zero, and the proof it returns is the one showing the address
+    is not in the trie. A client that refused the request, or answered
+    null, would fail here.
+
+    The block is always named. Unlike the state reads, which are emitted
+    both with and without one, the schema marks this method's block
+    parameter required, so there is no default form to assert.
+    """
+    if accounts is None:
+        return []
+    subjects = _proof_subjects(accounts, blocks)
+    if head_block_hash is not None:
+        absent = _absent_account(head_block_hash)
+        if accounts.get(absent) is None:
+            subjects.append((absent, [str(Hash(0))]))
+    return [
+        FixtureRPCCall(
+            method="eth_getProof",
+            params=[str(address), keys, block_tag],
+            assertion="schema",
+        )
+        for address, keys in subjects
+    ]
+
+
 def _config_call(
     head: FixtureBlock | None,
     genesis: FixtureBlock | None,
@@ -1186,13 +1301,16 @@ def derive_rpc_calls_for_blocks(
         )
     )
     calls.extend(_absent_entity_calls())
+    accounts = (
+        None if post_state is None else getattr(post_state, "root", post_state)
+    )
+    calls.extend(_shape_only_calls(accounts, blocks, hex(highest_block)))
     calls.extend(
-        _shape_only_calls(
-            None
-            if post_state is None
-            else getattr(post_state, "root", post_state),
+        _proof_calls(
+            accounts,
             blocks,
             hex(highest_block),
+            head.header.block_hash if head is not None else None,
         )
     )
     calls.extend(_partial_value_calls(head, highest_block))

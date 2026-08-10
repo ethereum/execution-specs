@@ -65,11 +65,33 @@ def results_of(fixture: BlockchainFixture) -> List[Any]:
     ]
 
 
+EMPTY_ACCOUNT_PROOF = {
+    "address": "0x" + "00" * 20,
+    "accountProof": ["0x80"],
+    "balance": "0x0",
+    "codeHash": str(Bytes(b"").keccak256()),
+    "nonce": "0x0",
+    "storageHash": str(Hash(0)),
+    "storageProof": [
+        {"key": str(Hash(0)), "value": "0x0", "proof": []},
+    ],
+}
+"""
+What a client answers for an address the chain never allocated.
+
+The shape of an absence proof rather than of a present account, because
+that is the subject every derivation emits and the only one a chain with
+no post-state has. All seven fields are here because the result schema
+requires all seven — a schema-only expectation weakens what is asserted,
+never what a conforming client must return.
+"""
+
 SHAPE_ONLY_ANSWERS = {
     "eth_gasPrice": "0x3b9aca00",
     "eth_maxPriorityFeePerGas": "0x0",
     "eth_syncing": False,
     "eth_getStorageValues": {},
+    "eth_getProof": EMPTY_ACCOUNT_PROOF,
 }
 """
 A schema-conformant answer for each method asserted on shape alone.
@@ -816,6 +838,63 @@ def test_a_schema_only_failure_says_what_was_not_checked() -> None:
         verify_rpc_expectations(rpc_returning(["0x01"]), built)
 
     assert "no spec-derived value exists" in str(failure.value)
+
+
+def proof_call() -> FixtureRPCCall:
+    """Return the shape-only expectation for one account proof."""
+    return FixtureRPCCall(
+        method="eth_getProof",
+        params=["0x" + "00" * 20, [str(Hash(0))], "0x1"],
+        assertion="schema",
+    )
+
+
+def test_any_proof_of_the_right_shape_satisfies_the_call() -> None:
+    """
+    Nothing about the proof itself is asserted, only that it is well-formed.
+
+    Worth demonstrating rather than assuming, because the value here *is*
+    determined by the spec and is merely not derived: a reader could
+    reasonably expect the trie nodes to be checked, and they are not. Two
+    clients returning different account proofs both pass.
+    """
+    built = engine_fixture([proof_call()], None)
+
+    for nodes in (["0x80"], ["0xf8", "0x9182"], []):
+        answer = dict(EMPTY_ACCOUNT_PROOF, accountProof=nodes)
+        verify_rpc_expectations(rpc_returning([answer]), built)
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        pytest.param({"balance": "0x00"}, id="zero_padded_balance"),
+        pytest.param({"nonce": 0}, id="nonce_as_integer"),
+        pytest.param({"storageHash": "0x" + "AB" * 32}, id="uppercase_hash"),
+        pytest.param({"codeHash": "0x" + "ab" * 31}, id="short_code_hash"),
+        pytest.param({"storageProof": [{"key": "0x0"}]}, id="proofless_slot"),
+        pytest.param({"stateRoot": "0x" + "00" * 32}, id="unknown_field"),
+        pytest.param(None, id="null"),
+    ],
+)
+def test_a_malformed_proof_fails(broken: Dict[str, Any] | None) -> None:
+    """
+    The negative control, and the reason this tier is worth more here.
+
+    `eth_gasPrice` is held to one quantity pattern, so shape alone catches
+    almost nothing. The proof schema closes the object and requires all
+    seven of its fields with a spelling each, so it catches a padded
+    balance, a quantity sent as a number, an uppercase hash, a truncated
+    one, a storage proof missing its own proof, an invented field and a
+    null. None of those needs a derived value to be caught.
+    """
+    built = engine_fixture([proof_call()], None)
+    answer = None if broken is None else dict(EMPTY_ACCOUNT_PROOF, **broken)
+
+    with pytest.raises(AssertionError, match="schema only") as failure:
+        verify_rpc_expectations(rpc_returning([answer]), built)
+
+    assert "eth_getProof" in str(failure.value)
 
 
 def test_a_missing_method_fails_a_schema_only_call() -> None:
