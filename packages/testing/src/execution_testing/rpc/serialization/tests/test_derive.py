@@ -473,6 +473,60 @@ def test_a_zeroed_storage_slot_is_still_asserted() -> None:
     assert slots[0].result == str(Hash(0))
 
 
+def asserted_slots(count: int) -> List[int]:
+    """Return the slots a state read names, for an account holding `count`."""
+    from execution_testing.test_types.account_types import Account
+
+    block = make_block([make_transaction()], [make_receipt(21_000)])
+    # Descending, so that the order the chain wrote the slots in is not
+    # also the order they sort in and truncation has a side to take.
+    storage = {count - position: position + 1 for position in range(count)}
+    calls = derive_module.derive_rpc_calls_for_blocks(
+        [block], post_state={RECIPIENT: Account(storage=storage)}
+    )
+    return [
+        int(call.params[1], 16)
+        for call in calls
+        if call.method == "eth_getStorageAt"
+        and call.params[0] == str(RECIPIENT)
+        and call.error_code is None
+        and len(call.params) == 3
+    ]
+
+
+def test_state_reads_cap_the_slots_they_name() -> None:
+    """
+    The bound the account proofs observe is observed here too.
+
+    Both edges rather than only the far one, because between them they say
+    where the bound sits. A count past the cap establishes only that
+    something was dropped; a count at it establishes that nothing was, and
+    so that the cap is the last count asserted in full rather than the
+    first one truncated.
+    """
+    cap = derive_module.MAX_STORAGE_SLOTS_PER_ACCOUNT
+
+    assert len(asserted_slots(cap)) == cap
+    assert len(asserted_slots(cap + 1)) == cap
+
+
+def test_truncation_keeps_the_slots_the_chain_wrote_first() -> None:
+    """
+    Which slots survive the cap is decided by the chain, not by the run.
+
+    Reading the keys out of a set would satisfy the bound and still write
+    a different fixture on each fill, so the surviving set is pinned
+    against a storage whose write order is the reverse of its sort order:
+    a reordering keeps the count and changes the answer.
+    """
+    count = derive_module.MAX_STORAGE_SLOTS_PER_ACCOUNT + 1
+
+    kept = asserted_slots(count)
+
+    assert kept == list(range(count, 1, -1))
+    assert 1 not in kept, "the cap dropped a slot other than the last written"
+
+
 def test_genesis_is_reached_through_the_earliest_tag(
     single_block_fixture: BlockchainFixture,
 ) -> None:
