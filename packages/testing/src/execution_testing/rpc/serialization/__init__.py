@@ -9,7 +9,11 @@ and vectors can exist before any client implements a feature.
 `projection` maps consensus data onto them.
 """
 
-from .derive import derive_rpc_calls, derive_rpc_calls_for_blocks
+from .derive import (
+    MAX_STORAGE_SLOTS_PER_ACCOUNT,
+    derive_rpc_calls,
+    derive_rpc_calls_for_blocks,
+)
 from .execution import (
     ACCESS_LIST_ROUNDS,
     CALL_GAS_LIMIT,
@@ -81,6 +85,7 @@ __all__ = [
     "COMPUTABLE_METHODS",
     "ESTIMATE_SEARCH_ROUNDS",
     "EXECUTED_METHODS",
+    "MAX_STORAGE_SLOTS_PER_ACCOUNT",
     "REVERT_ERROR_CODE",
     "AccessListOutcome",
     "CallOutcome",
