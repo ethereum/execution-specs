@@ -30,6 +30,7 @@ from execution_testing.devp2p.chain import (
     chain_from_payloads,
 )
 from execution_testing.devp2p.peer import MockPeer
+from execution_testing.devp2p.protocol import ETH_PROTOCOLS
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import (
     FixtureEngineNewPayload,
@@ -97,6 +98,22 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "sync a chain shorter than one the same client already "
             "synced, and to back off after syncing a chain with a bad "
             "block in a way that starves the next sync."
+        ),
+    )
+    group.addoption(
+        "--wirex-eth-version",
+        action="store",
+        dest="wirex_eth_version",
+        choices=["auto"] + [str(v) for v in sorted(ETH_PROTOCOLS)],
+        default="auto",
+        help=(
+            "eth protocol version the mock peer advertises. 'auto' "
+            "(default) advertises every implemented version and lets "
+            "RLPx negotiation pick the highest the client shares; an "
+            "explicit version advertises exactly that one, so the "
+            "client either speaks it or the handshake fails loudly. "
+            "The negotiated version is recorded in every test's peer "
+            "transcript."
         ),
     )
     group.addoption(
@@ -341,6 +358,15 @@ def wirex_min_blocks(request: pytest.FixtureRequest) -> int:
 
 
 @pytest.fixture(scope="session")
+def wirex_eth_versions(request: pytest.FixtureRequest) -> tuple[int, ...]:
+    """Return the eth capability versions the mock peer advertises."""
+    option = str(request.config.getoption("wirex_eth_version"))
+    if option == "auto":
+        return tuple(sorted(ETH_PROTOCOLS))
+    return (int(option),)
+
+
+@pytest.fixture(scope="session")
 def wirex_sync_timeout(request: pytest.FixtureRequest) -> float:
     """Return how long to wait for a client to reach the fixture head."""
     return float(request.config.getoption("wirex_sync_timeout"))
@@ -437,6 +463,7 @@ def mock_peer(
     client: Client,
     chain: Chain,
     mock_peers: Dict[str, MockPeer],
+    wirex_eth_versions: tuple[int, ...],
     total_timing_data: "TimingData",
 ) -> MockPeer:
     """
@@ -456,6 +483,7 @@ def mock_peer(
             remote_public_key=bytes.fromhex(enode.id),
             private_key=os.urandom(32),
             network_id=DEFAULT_NETWORK_ID,
+            eth_versions=wirex_eth_versions,
         )
         with total_timing_data.time("Connect mock peer"):
             # The readiness gate behind `client` waits on the Engine
