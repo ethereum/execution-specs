@@ -29,7 +29,7 @@ def tx_value() -> int:
 @pytest.fixture
 def tx_gas(fork: Fork) -> int:
     """Gas allocated to transactions sent during test."""
-    return fork.transaction_intrinsic_cost_calculator()()
+    return fork.transaction_intrinsic_cost_calculator()(sends_value=True)
 
 
 @pytest.fixture
