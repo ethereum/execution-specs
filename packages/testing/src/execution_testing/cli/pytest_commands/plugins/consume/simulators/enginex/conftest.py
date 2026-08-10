@@ -7,30 +7,20 @@ architecture to reuse clients across tests with the same
 pre-alloc group.
 """
 
-import io
-import json
 import logging
 import time
-from typing import TYPE_CHECKING, Generator, cast
+from typing import TYPE_CHECKING, Generator
 
 import pytest
 from hive.client import Client, ClientType
-from hive.testing import HiveTest
 
 from execution_testing.fixtures import BlockchainEngineXFixture
-from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.consume import TestCaseIndexFile
-from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
 
-from ..helpers.test_tracker import (
-    PreAllocGroupTestTracker,
-    enginex_group_counts_key,
-    make_group_identifier,
-)
+from ..helpers.test_tracker import count_tests_per_group
 
 if TYPE_CHECKING:
     from ..multi_test_client import MultiTestClientManager
-    from ..timing_data import TimingData
 
 logger = logging.getLogger(__name__)
 
@@ -130,24 +120,7 @@ def pytest_collection_modifyitems(
     if BlockchainEngineXFixture not in supported_formats:
         return
 
-    group_counts: dict[str, int] = {}
-
-    for item in items:
-        for marker in item.iter_markers("xdist_group"):
-            if "name" in marker.kwargs:
-                group_identifier = marker.kwargs["name"]
-                break
-        else:
-            continue
-        group_counts[group_identifier] = (
-            group_counts.get(group_identifier, 0) + 1
-        )
-
-    session.stash[enginex_group_counts_key] = group_counts
-    logger.info(
-        f"Counted {len(group_counts)} pre-alloc groups with "
-        f"{sum(group_counts.values())} total tests"
-    )
+    group_counts = count_tests_per_group(session, items)
 
     def sort_key(item: pytest.Item) -> tuple[int, str, str]:
         """
@@ -216,15 +189,6 @@ def pytest_runtest_protocol(
     _GroupDispatchTracker.last_protocol_end = time.perf_counter()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _configure_client_manager(
-    multi_test_client_manager: "MultiTestClientManager",
-    pre_alloc_group_test_tracker: PreAllocGroupTestTracker,
-) -> None:
-    """Wire the test tracker to the client manager at session start."""
-    multi_test_client_manager.set_test_tracker(pre_alloc_group_test_tracker)
-
-
 @pytest.fixture(scope="module")
 def test_suite_name() -> str:
     """The name of the hive test suite used in this simulator."""
@@ -241,114 +205,30 @@ def test_suite_description() -> str:
 
 
 @pytest.fixture(scope="function", autouse=True)
-def _per_test_reporting(
+def _replace_client_after_a_deep_chain(
     client: Client,
-    hive_test: HiveTest,
-) -> None:
-    """
-    Register a test for execution against a multi-test client.
-
-    Activate log segment capturing in the Hive backend for correct
-    client log reporting in the multi-test client case.
-
-    Parameter order matters: `client` listed before `hive_test`
-    ensures pytest sets up `client` first and tears it down last.
-    This guarantees `hive_test` teardown (`test.end()`) runs while
-    the hive node still exists, before `client` teardown calls
-    `mark_test_completed` / `client.stop()`.
-    """
-    hive_test.register_multi_test_client(client)
-
-
-@pytest.fixture(scope="function")
-def client(
-    multi_test_hive_test: HiveTest,
     multi_test_client_manager: "MultiTestClientManager",
     fixture: BlockchainEngineXFixture,
     client_type: ClientType,
-    environment: dict,
-    client_genesis: dict,
-    total_timing_data: "TimingData",
-    request: pytest.FixtureRequest,
-) -> Generator[Client, None, None]:
+) -> Generator[None, None, None]:
     """
-    Get or create a multi-test client for this pre-allocation group.
+    Discard the group's client after a test that leaves too deep a head.
 
-    Called for each test, but reuses clients across tests that
-    share the same pre-allocation group.
+    Torn down before `client`, so the discard happens before the test is
+    counted toward its group, as in the `client` fixture this replaces.
+    See `MAX_REUSED_HEAD_NUMBER`.
     """
-    group_identifier = make_group_identifier(
-        fixture.pre_hash, client_type.name
-    )
-    test_id = request.node.nodeid
-
-    resolved_client = multi_test_client_manager.get_client(group_identifier)
-    if resolved_client is not None:
-        logger.info(f"♻️  Reusing client for group {group_identifier}")
-    else:
-        # Start new client; calculate genesis
-        serialize_start = time.perf_counter()
-        genesis_bytes = json.dumps(client_genesis).encode("utf-8")
-        buffered_genesis = io.BufferedReader(
-            cast(io.RawIOBase, io.BytesIO(genesis_bytes))
-        )
-        logger.info(
-            f"⏱ phase=genesis_serialize group={group_identifier} "
-            f"ms={(time.perf_counter() - serialize_start) * 1000:.1f}"
-        )
-
-        logger.info(
-            f"🚀 Starting client ({client_type.name}) "
-            f"for group {group_identifier}"
-        )
-
-        start_requested = time.perf_counter()
-        with total_timing_data.time("Start client"):
-            resolved_client = multi_test_hive_test.start_client(
-                client_type=client_type,
-                environment=environment,
-                files={"/genesis.json": buffered_genesis},
-            )
-
-        assert resolved_client is not None, (
-            f"Unable to connect to client ({client_type.name}) via "
-            "Hive. Check the client or Hive server logs for more "
-            "information."
-        )
-
-        # The hive start-client API only returns once the client answers
-        # its liveness check, so this duration spans container creation,
-        # client boot and the check-live wait.
-        logger.info(
-            f"⏱ phase=client_start group={group_identifier} "
-            f"ms={(time.perf_counter() - start_requested) * 1000:.1f}"
-        )
-        logger.info(
-            f"Client ({client_type.name}) ready for group {group_identifier}"
-        )
-
-        multi_test_client_manager.register_client(
-            group_identifier, resolved_client
-        )
-        resolved_client.multi_test = True
-
-    try:
-        yield resolved_client
-    finally:
-        max_head = max_reused_head_number(client_type.name)
-        head = deepest_head_number(fixture)
-        if max_head is not None and head > max_head:
+    yield
+    max_head = max_reused_head_number(client_type.name)
+    head = deepest_head_number(fixture)
+    if max_head is None or head <= max_head:
+        return
+    for group_identifier, group_client in list(
+        multi_test_client_manager.clients.items()
+    ):
+        if group_client is client:
             logger.info(
                 f"Replacing the client of group {group_identifier}: this "
                 f"test left its head at block {head}, above {max_head}"
             )
             multi_test_client_manager.discard_client(group_identifier)
-        multi_test_client_manager.mark_test_completed(
-            group_identifier, test_id
-        )
-
-
-@pytest.fixture(scope="function")
-def genesis_header(pre_alloc_group: PreAllocGroup) -> FixtureHeader:
-    """Provide the genesis header from the pre-allocation group."""
-    return pre_alloc_group.genesis
