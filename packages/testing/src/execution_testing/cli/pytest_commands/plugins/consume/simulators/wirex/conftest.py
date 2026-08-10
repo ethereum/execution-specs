@@ -80,6 +80,19 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--wirex-sort-by-chain-length",
+        action="store_true",
+        dest="wirex_sort_by_chain_length",
+        default=False,
+        help=(
+            "Order the tests inside each pre-allocation group by "
+            "ascending chain length, so a reused client's head number "
+            "never decreases over the client's lifetime. Geth's beacon "
+            "sync has been observed to stall when asked to sync a "
+            "chain shorter than one the same client already synced."
+        ),
+    )
+    group.addoption(
         "--wirex-sync-timeout",
         action="store",
         dest="wirex_sync_timeout",
@@ -117,6 +130,47 @@ def pytest_configure(config: pytest.Config) -> None:
     config.supported_fixture_formats = [BlockchainEngineXFixture]  # type: ignore[attr-defined]
 
 
+def _payload_counts(
+    config: pytest.Config, items: list[pytest.Item]
+) -> Dict[str, int]:
+    """
+    Count each collected test case's blocks, i.e. its chain length.
+
+    An appended sync payload counts: it is a real block of the served
+    chain, and the ordering must agree with the skip accounting, which
+    counts it too. The fixture index does not record chain lengths, so
+    the fixture files are read directly; each file is parsed once and
+    holds every fixture of its test module.
+    """
+    counts: Dict[str, int] = {}
+    file_cache: Dict[str, dict] = {}
+    source_path = getattr(config, "fixtures_source", None)
+    for item in items:
+        callspec = getattr(item, "callspec", None)
+        if callspec is None:
+            continue
+        test_case = callspec.params.get("test_case")
+        fixture = getattr(test_case, "fixture", None)
+        if fixture is not None:  # stdin: the fixture is already loaded
+            counts[item.nodeid] = len(sync_chain_payloads(fixture))
+            continue
+        json_path = getattr(test_case, "json_path", None)
+        if json_path is None or source_path is None:
+            continue
+        path = str(source_path.path / json_path)
+        raw = file_cache.get(path)
+        if raw is None:
+            with open(path) as file:
+                raw = json.load(file)
+            file_cache[path] = raw
+        raw_fixture = raw.get(test_case.id)
+        if raw_fixture is not None:
+            counts[item.nodeid] = len(
+                raw_fixture.get("engineNewPayloads", [])
+            ) + (1 if raw_fixture.get("syncPayload") else 0)
+    return counts
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: list[pytest.Item]
@@ -141,13 +195,30 @@ def pytest_collection_modifyitems(
         f"{sum(group_counts.values())} total tests"
     )
 
-    def sort_key(item: pytest.Item) -> tuple[int, str]:
-        """Return sort key: largest group first, then by group id."""
+    chain_lengths: Dict[str, int] = {}
+    if config.getoption("wirex_sort_by_chain_length", False):
+        chain_lengths = _payload_counts(config, items)
+        logger.info(
+            "Ordering tests inside each pre-allocation group by "
+            "ascending chain length"
+        )
+
+    def sort_key(item: pytest.Item) -> tuple[int, str, int, str]:
+        """
+        Return sort key: largest group first, then by group id, then
+        (when enabled) by ascending chain length inside the group.
+        """
+        chain_length = chain_lengths.get(item.nodeid, 0)
         for marker in item.iter_markers("xdist_group"):
             if "name" in marker.kwargs:
                 group = marker.kwargs["name"]
-                return (-group_counts[group], group)
-        return (0, "")
+                return (
+                    -group_counts[group],
+                    group,
+                    chain_length,
+                    item.nodeid,
+                )
+        return (0, "", chain_length, item.nodeid)
 
     items.sort(key=sort_key)
 
