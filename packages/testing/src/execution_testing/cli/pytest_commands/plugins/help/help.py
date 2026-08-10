@@ -219,6 +219,8 @@ def show_specific_help(
                 }
                 if isinstance(action, argparse._StoreTrueAction):
                     kwargs["action"] = "store_true"
+                elif isinstance(action, argparse._StoreFalseAction):
+                    kwargs["action"] = "store_false"
                 else:
                     kwargs["type"] = action.type
                 if action.nargs:
