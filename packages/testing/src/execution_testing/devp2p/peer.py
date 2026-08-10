@@ -14,7 +14,7 @@ makes a stalled sync diagnosable after the fact.
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Sequence, Set
 
 from .chain import Chain, ServedChains
 from .protocol import (
@@ -22,6 +22,8 @@ from .protocol import (
     BLOCK_HEADERS,
     BLOCK_RANGE_UPDATE,
     DISCONNECT,
+    ETH_PROTOCOLS,
+    GET_BLOCK_ACCESS_LISTS,
     GET_BLOCK_BODIES,
     GET_BLOCK_HEADERS,
     GET_RECEIPTS,
@@ -32,15 +34,18 @@ from .protocol import (
     PONG,
     STATUS,
     BlockHeadersRequest,
+    EthProtocol,
     ProtocolError,
     Status,
     decode_disconnect,
+    decode_get_block_access_lists,
     decode_get_block_bodies,
     decode_get_block_headers,
     decode_hello,
     encode_block_range_update,
     encode_hello,
     encode_response,
+    highest_common_eth_version,
 )
 from .rlpx import RLPxError, RLPxSession, connect
 from .secp256k1 import public_key_bytes
@@ -89,9 +94,19 @@ class PeerStatistics:
     non-derivable body must have been downloaded from this peer, not
     just some block.
     """
-    receipt_requests: int = 0
     unknown_requests: int = 0
+    unanswered_requests: Dict[str, int] = field(default_factory=dict)
+    """
+    Requests the peer deliberately left unanswered, counted by message
+    name. A nonzero count is a finding, never noise: it means the
+    client asked for data it should derive by executing blocks.
+    """
     transcript: List[str] = field(default_factory=list)
+
+    @property
+    def receipt_requests(self) -> int:
+        """Return how many GetReceipts requests went unanswered."""
+        return self.unanswered_requests.get("GetReceipts", 0)
 
     def record(self, line: str) -> None:
         """Append `line` to the request transcript."""
@@ -114,13 +129,32 @@ class MockPeer:
         remote_public_key: bytes,
         private_key: bytes,
         network_id: int,
+        eth_versions: Sequence[int] | None = None,
     ) -> None:
-        """Record where to dial and under which network identity."""
+        """
+        Record where to dial and under which network identity.
+
+        `eth_versions` is the set of eth capability versions to
+        advertise; the default advertises every implemented version.
+        Passing exactly one version forces the client to speak it or
+        fail the handshake loudly, which is what probing a client's
+        version matrix wants.
+        """
         self.host = host
         self.port = port
         self.remote_public_key = remote_public_key
         self.private_key = private_key
         self.network_id = network_id
+        if eth_versions is None:
+            eth_versions = tuple(ETH_PROTOCOLS)
+        unknown = set(eth_versions).difference(ETH_PROTOCOLS)
+        if unknown:
+            raise ValueError(
+                f"unimplemented eth version(s) {sorted(unknown)}; "
+                f"implemented: {sorted(ETH_PROTOCOLS)}"
+            )
+        self.eth_versions = tuple(sorted(eth_versions))
+        self.protocol: Optional[EthProtocol] = None
 
         self._session: Optional[RLPxSession] = None
         self._chains = ServedChains()
@@ -166,7 +200,9 @@ class MockPeer:
         session.write_message(
             HELLO,
             encode_hello(
-                CLIENT_IDENTIFIER, public_key_bytes(self.private_key)
+                CLIENT_IDENTIFIER,
+                public_key_bytes(self.private_key),
+                self.eth_versions,
             ),
         )
         code, payload = session.read_message()
@@ -184,12 +220,27 @@ class MockPeer:
             remote_version,
             capabilities,
         )
+        negotiated = highest_common_eth_version(
+            self.eth_versions, capabilities
+        )
+        if negotiated is None:
+            raise RLPxError(
+                f"no common eth version: this peer advertises "
+                f"{list(self.eth_versions)}, {self.remote_name or 'client'} "
+                f"advertises {capabilities}"
+            )
+        self.protocol = ETH_PROTOCOLS[negotiated]
+        logger.info("Negotiated eth/%d", negotiated)
+        with self._lock:
+            self.statistics.record(f"eth/{negotiated} negotiated")
         if min(remote_version, P2P_VERSION) >= 5:
             # Every message after Hello is Snappy compressed once both
             # sides have advertised base protocol version 5 or higher.
             session.enable_snappy()
 
-        session.write_message(STATUS, self._status(chain).encode())
+        session.write_message(
+            STATUS, self.protocol.encode_status(self._status(chain))
+        )
         session.set_timeout(1.0)
 
     def _status(self, chain: Chain) -> Status:
@@ -221,6 +272,12 @@ class MockPeer:
         with self._lock:
             self._chains.install(chain)
             self.statistics = PeerStatistics()
+            if self.protocol is not None:
+                # Every test's transcript documents which wire dialect
+                # it exercised.
+                self.statistics.record(
+                    f"eth/{self.protocol.version} negotiated"
+                )
             session = self._session
         if session is not None:
             session.write_message(
@@ -261,20 +318,34 @@ class MockPeer:
 
     def _handle(self, session: RLPxSession, code: int, payload: bytes) -> None:
         """Answer one message from the client."""
+        protocol = self.protocol
+        assert protocol is not None, "message received before negotiation"
         if code == PING:
             session.write_message(PONG, EMPTY_LIST_PAYLOAD)
         elif code == GET_BLOCK_HEADERS:
             self._serve_headers(session, decode_get_block_headers(payload))
         elif code == GET_BLOCK_BODIES:
             self._serve_bodies(session, *decode_get_block_bodies(payload))
-        elif code == GET_RECEIPTS:
-            # A full syncing client derives receipts by executing the
-            # block, so a request here means the client chose a path this
-            # peer cannot serve. Leave it unanswered and make it visible.
+        elif code in protocol.unanswered_requests:
+            # A full syncing client derives receipts - and, from
+            # Amsterdam, block access lists - by executing the block,
+            # so a request here means the client chose a path this peer
+            # cannot honestly serve. Leave it unanswered and make the
+            # silence visible.
+            name = protocol.unanswered_requests[code]
+            if code == GET_RECEIPTS:
+                description = protocol.decode_get_receipts(payload).describe()
+            elif code == GET_BLOCK_ACCESS_LISTS:
+                _, hashes = decode_get_block_access_lists(payload)
+                description = f"access lists for {len(hashes)} hashes"
+            else:
+                description = name
             with self._lock:
-                self.statistics.receipt_requests += 1
-                self.statistics.record("GetReceipts (unanswered)")
-            logger.warning("Client requested receipts; not served")
+                self.statistics.unanswered_requests[name] = (
+                    self.statistics.unanswered_requests.get(name, 0) + 1
+                )
+                self.statistics.record(f"{description} (unanswered)")
+            logger.warning("Client requested %s; not served", name)
         elif code == DISCONNECT:
             self.disconnect_reason = decode_disconnect(payload)
             logger.info(
