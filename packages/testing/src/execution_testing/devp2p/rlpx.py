@@ -28,6 +28,7 @@ from spec256k1 import PrivateKey
 from .ecies import OVERHEAD, decrypt, encrypt
 from .keccak import Keccak256, keccak256
 from .secp256k1 import agree, public_key_bytes
+from .snappy import SnappyError, compress, decompress, decompressed_length
 
 logger = logging.getLogger(__name__)
 
@@ -139,8 +140,13 @@ class RLPxSession:
         ).decryptor()
         self._egress_mac = _Mac(mac_secret, egress_seed)
         self._ingress_mac = _Mac(mac_secret, ingress_seed)
+        self._snappy = False
         self._write_lock = threading.Lock()
         self._read_poll_timeout: float = FRAME_READ_TIMEOUT
+
+    def enable_snappy(self) -> None:
+        """Compress every later payload (see `P2P_VERSION`)."""
+        self._snappy = True
 
     def _read_exactly(self, length: int) -> bytes:
         """
@@ -164,6 +170,8 @@ class RLPxSession:
         over `MAX_FRAME_SIZE` is refused here, near the caller that built
         it, rather than overflowing the length field.
         """
+        if self._snappy:
+            payload = compress(payload)
         frame = eth_rlp.encode(Uint(code)) + payload
         if len(frame) >= MAX_FRAME_SIZE:
             raise RLPxError(
@@ -217,9 +225,26 @@ class RLPxSession:
         frame = self._ingress_aes.update(frame_ciphertext)[:frame_size]
 
         # The message code is a single RLP encoded integer: either a
-        # literal byte below 0x80, or 0x80 for a code of zero.
+        # literal byte below 0x80, or 0x80 for a code of zero. Every
+        # devp2p message code fits that; a longer integer would be
+        # misread as a code followed by payload.
+        if frame[0] > 0x80:
+            raise RLPxError(f"message code prefix {frame[0]:#x} unsupported")
         code = 0 if frame[0] == 0x80 else frame[0]
-        return code, frame[1:]
+        payload = frame[1:]
+        if self._snappy:
+            try:
+                if decompressed_length(payload) > MAX_FRAME_SIZE:
+                    raise RLPxError(
+                        "compressed message claims a decompressed size "
+                        "over the frame limit"
+                    )
+                payload = decompress(payload)
+            except SnappyError as error:
+                raise RLPxError(
+                    f"invalid snappy payload in message {code}: {error}"
+                ) from None
+        return code, payload
 
     def set_timeout(self, timeout: float) -> None:
         """Set how long `read_message` waits for a frame to begin."""
