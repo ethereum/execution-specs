@@ -12,6 +12,7 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.utils.numeric import ceil32
 
+from ...fork_types import ExecutionGas
 from ...transactions.frame_transaction import (
     APPROVE_SCOPE_MASK,
     FrameFlag,
@@ -176,7 +177,7 @@ def framedatacopy(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(length)) // Uint(32)
-    copy_gas_cost = GasCosts.OPCODE_COPY_PER_WORD * words
+    copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_offset, length)]
     )
@@ -282,7 +283,7 @@ def sigparam(evm: Evm) -> None:
 
         # GAS
         words = ceil32(Uint(length)) // Uint(32)
-        copy_gas_cost = GasCosts.OPCODE_COPY_PER_WORD * words
+        copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
         extend_memory = calculate_gas_extend_memory(
             evm.memory, [(memory_offset, length)]
         )

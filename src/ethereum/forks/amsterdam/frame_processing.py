@@ -27,6 +27,7 @@ from .blocks import (
     Receipt,
     encode_receipt,
 )
+from .fork_types import ExecutionGas, StateGas
 from .state_tracker import (
     TransactionState,
     clear_account_preserving_balance,
@@ -155,8 +156,8 @@ def check_frame_transaction(
         origin=tx.sender,
         gas_limit=validation.max_gas,
         effective_gas_price=effective_gas_price,
-        execution_gas_grant=execution_gas_grant,
-        state_gas_reservoir=Uint(0),
+        execution_gas_grant=ExecutionGas(execution_gas_grant),
+        state_gas_reservoir=StateGas(Uint(0)),
         calldata_floor=validation.intrinsic.calldata_floor,
         access_list_addresses=set(),
         access_list_storage_keys=set(),
@@ -278,7 +279,7 @@ def process_frame_transaction(
     settlement = settle_transaction_gas(
         tx_env.gas_limit,
         tx_env.calldata_floor,
-        tx_output.gas_left + floor_headroom,
+        ExecutionGas(tx_output.gas_left + floor_headroom),
         tx_output.state_gas_left,
         tx_output.refund_counter,
         tx_output.state_gas_used,

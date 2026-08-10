@@ -21,6 +21,7 @@ from ethereum.state import EMPTY_CODE_HASH, Address
 
 from ..blocks import FrameReceipt, Log
 from ..exceptions import FrameTransactionExecutionError
+from ..fork_types import ExecutionGas, StateGas
 from ..state_tracker import (
     TransactionState,
     copy_tx_state,
@@ -438,9 +439,9 @@ def execute_frame(
             )
 
     gas_meter = GasMeter(
-        gas_left=Uint(frame.gas),
-        state_gas_left=Uint(0),
-        state_gas_baseline=Uint(0),
+        gas_left=ExecutionGas(Uint(frame.gas)),
+        state_gas_left=StateGas(Uint(0)),
+        state_gas_baseline=StateGas(Uint(0)),
     )
 
     try:
@@ -489,7 +490,7 @@ def execute_frame(
         receipt=receipt,
         gas_left=gas_meter.gas_left,
         refund_counter=gas_meter.refund_counter,
-        state_gas_used=tx_state_gas_used(gas_meter, Uint(0)),
+        state_gas_used=tx_state_gas_used(gas_meter, StateGas(Uint(0))),
         accounts_to_delete=accounts_to_delete,
     )
 
@@ -610,12 +611,12 @@ def process_frames(
         logs += receipt.logs
 
     return TransactionOutput(
-        gas_left=journal.unused_gas,
+        gas_left=ExecutionGas(journal.unused_gas),
         refund_counter=U256(journal.refund_counter),
         logs=logs,
         accounts_to_delete=journal.accounts_to_delete,
         error=None,
         return_data=Bytes(b""),
-        state_gas_left=Uint(0),
+        state_gas_left=StateGas(Uint(0)),
         state_gas_used=journal.state_gas_used,
     )
