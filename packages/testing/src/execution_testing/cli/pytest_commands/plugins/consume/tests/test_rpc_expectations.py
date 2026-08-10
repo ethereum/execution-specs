@@ -865,6 +865,28 @@ def test_any_proof_of_the_right_shape_satisfies_the_call() -> None:
         verify_rpc_expectations(rpc_returning([answer]), built)
 
 
+def test_both_spellings_of_an_absent_account_are_accepted() -> None:
+    """
+    The measured disagreement the value tier would have had to arbitrate.
+
+    Asked about an address it has never allocated, go-ethereum answers
+    `codeHash` and `storageHash` as all-zero, while for an account that
+    exists and holds neither it answers the hash of empty code and the
+    root of an empty trie. Both readings are defensible, the schema admits
+    both, and execution-apis has not settled which is right — so both pass
+    here, and an exact expectation would have had to pick one.
+    """
+    built = engine_fixture([proof_call()], None)
+    zeroed = dict(
+        EMPTY_ACCOUNT_PROOF,
+        codeHash=str(Hash(0)),
+        storageHash=str(Hash(0)),
+    )
+
+    verify_rpc_expectations(rpc_returning([EMPTY_ACCOUNT_PROOF]), built)
+    verify_rpc_expectations(rpc_returning([zeroed]), built)
+
+
 @pytest.mark.parametrize(
     "broken",
     [

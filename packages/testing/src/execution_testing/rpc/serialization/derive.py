@@ -935,6 +935,15 @@ def _proof_calls(
     is not in the trie. A client that refused the request, or answered
     null, would fail here.
 
+    The absent account is also the second reason not to pin a value.
+    Measured against go-ethereum, an unallocated address comes back with
+    `codeHash` and `storageHash` both all-zero rather than the hash of
+    empty code and the root of an empty trie, which is what the same
+    client returns for an account that exists and holds neither. Both
+    readings are defensible and the schema admits both, so an exact
+    expectation here would have to take a side on a question execution-apis
+    has not settled — the same trap `eth_getStorageValues` sidesteps.
+
     The block is always named. Unlike the state reads, which are emitted
     both with and without one, the schema marks this method's block
     parameter required, so there is no default form to assert.
