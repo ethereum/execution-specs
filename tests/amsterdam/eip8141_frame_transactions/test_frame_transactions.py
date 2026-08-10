@@ -24,7 +24,6 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import approve_bytecode
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -97,7 +96,7 @@ def test_contract_sender_approves(
     `SENDER` frame calling another contract.
     """
     sender = pre.deploy_contract(
-        code=approve_bytecode(Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
         balance=10**18,
     )
     target = pre.deploy_contract(code=Op.SSTORE(SLOT_EXECUTED, 1) + Op.STOP)

@@ -1,19 +1,17 @@
 """Helpers for EIP-8141 frame transaction tests."""
 
-from execution_testing import Bytecode, Op
+from execution_testing import Frame
 
 from .spec import Spec
 
 
-def approve_bytecode(
-    scope: int = Spec.APPROVE_EXECUTION_AND_PAYMENT,
-) -> Bytecode:
+def verify_frame() -> Frame:
     """
-    Return bytecode that calls `APPROVE` with the given scope and no
-    return data.
-
-    `APPROVE` succeeds only when the executing account is the frame's
-    resolved target, so this code is meant to be deployed at the account
-    a `VERIFY` frame targets.
+    Return the `VERIFY` frame that approves execution and payment
+    against the sender's default code.
     """
-    return Op.APPROVE(0, 0, scope)
+    return Frame(
+        mode=Spec.MODE_VERIFY,
+        flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
+        gas_limit=100_000,
+    )

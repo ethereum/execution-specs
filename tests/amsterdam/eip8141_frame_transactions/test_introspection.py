@@ -24,6 +24,7 @@ from execution_testing import (
     Transaction,
 )
 
+from .helpers import verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -46,18 +47,6 @@ MAX_PRIORITY_FEE = 7
 MAX_FEE = 1_000_000_000
 
 ARBITRARY_WITNESS = Bytes(b"\xab" * 5)
-
-
-def verify_frame() -> Frame:
-    """
-    Return the `VERIFY` frame that approves execution and payment
-    against the sender's default code.
-    """
-    return Frame(
-        mode=Spec.MODE_VERIFY,
-        flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-        gas_limit=100_000,
-    )
 
 
 def probe_transaction(
