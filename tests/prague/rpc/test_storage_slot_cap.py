@@ -11,10 +11,11 @@ tool produced. A truncation nothing real reaches is a truncation nobody
 has checked.
 
 Two accounts, one on either side of the bound, because a single account
-past it would exercise the branch without pinning where it starts. The
+past it would exercise the branch without saying where it starts. The
 account at the cap has every slot asked about and the account one past it
-has exactly one dropped, so an off-by-one in the comparison moves one of
-the two and is visible in the diff.
+has exactly one dropped, which together place the bound: the first says
+the cap is the last count asserted in full, the second that the next
+count is not.
 
 Which slot is dropped is the second thing pinned here, and the reason the
 writes run downwards. Truncation keeps whichever slots come first, so the
@@ -50,9 +51,7 @@ pytestmark = [pytest.mark.valid_from("Prague"), pytest.mark.rpc]
     "slots",
     [
         pytest.param(MAX_STORAGE_SLOTS_PER_ACCOUNT, id="at_the_cap"),
-        pytest.param(
-            MAX_STORAGE_SLOTS_PER_ACCOUNT + 1, id="one_past_the_cap"
-        ),
+        pytest.param(MAX_STORAGE_SLOTS_PER_ACCOUNT + 1, id="one_past_the_cap"),
     ],
 )
 def test_storage_heavy_account(
