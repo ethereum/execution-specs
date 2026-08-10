@@ -36,7 +36,6 @@ survive - are skipped here, where the limitation actually lives.
 
 import time
 
-import pytest
 from hive.client import Client
 
 from execution_testing.devp2p.chain import Block, Chain
@@ -52,7 +51,11 @@ from execution_testing.rpc import (
     EthRPC,
     ForkchoiceUpdateTimeoutError,
 )
-from execution_testing.rpc.rpc_types import ForkchoiceState, PayloadStatusEnum
+from execution_testing.rpc.rpc_types import (
+    ForkchoiceState,
+    JSONRPCError,
+    PayloadStatusEnum,
+)
 
 from ..helpers.exceptions import (
     GenesisBlockMismatchExceptionError,
@@ -61,6 +64,18 @@ from ..helpers.exceptions import (
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
+
+ACCEPTANCE_HOLD_TIME = 0.5
+"""
+Seconds a VALID verdict on an invalid head must hold to be believed.
+
+A client answers `engine_newPayload` from the database state of that
+instant, so while a chain is still arriving its answer can be a
+transient artifact rather than a judgement: geth has been observed
+answering VALID for a block its own backfill rejected fifteen
+milliseconds later. Only a verdict that outlives its sync fails the
+test, which costs this wait once per genuinely accepted chain.
+"""
 
 
 def announced_payload(
@@ -135,14 +150,23 @@ def test_blockchain_via_wirex(
     tip, which lands it in a crash-recovery edge case where it fetches
     receipts instead of executing blocks (`BlockDownloader.
     ReceiptEdgeCase`); geth ignores the rewind entirely.
-    """
-    if any(not payload.valid() for payload in fixture.payloads):
-        pytest.skip(
-            "fixtures with invalid payloads cannot be served as a canonical "
-            "chain: a full syncing client rejects the whole chain rather "
-            "than reporting a per-block verdict"
-        )
 
+    Fixtures containing an intentionally invalid block are rejection
+    tests: the peer serves the chain as-is and the client passes by
+    refusing it - `engine_newPayload` for the head must answer INVALID
+    once the ancestry is available over devp2p, and a VALID that holds
+    fails the test. Only the fact of rejection is asserted: a devp2p
+    peer observes acceptance or rejection, not error causes, so
+    matching the fixture's specific exception over the wire is
+    deliberately left for later. Fixtures whose invalid block cannot
+    even be represented on the wire (declared hash inconsistent with
+    the header) are skipped by the `chain` fixture. When the rejection
+    target sits below the reused client's head, the valid ancestry is
+    delivered over the Engine API instead of the wire, before the head
+    is announced and again at every re-announcement - the client's
+    refusal to walk its head backwards would otherwise starve the
+    verdict (see the comment at the ancestry block).
+    """
     head_payload = announced_payload(fixture)
     head_hash = head_payload.params[0].block_hash
 
@@ -166,23 +190,231 @@ def test_blockchain_via_wirex(
         finalized_block_hash=genesis_header.block_hash,
     )
 
+    # Whether the head sits below the reused client's own head, decided
+    # for rejection targets below and read by `announce`.
+    below_client_head = False
+
     def announce() -> None:
-        """Tell the client which block to sync to."""
+        """
+        Tell the client which block to sync to.
+
+        No forkchoice update is sent for a head that sits below the
+        client's own head. Naming such a head only starts a sync the
+        client cannot finish, because its sync machinery refuses to
+        walk its head backwards, and that unfinishable sync is what
+        stops the ancestry from taking effect (see the rejection
+        block, which hands that ancestry over separately).
+        """
         engine_rpc.new_payload(
             *head_payload.params, version=head_payload.new_payload_version
         )
-        engine_rpc.forkchoice_updated(
-            forkchoice_state=head_state,
-            payload_attributes=None,
-            version=head_payload.forkchoice_updated_version,
+        if not below_client_head:
+            engine_rpc.forkchoice_updated(
+                forkchoice_state=head_state,
+                payload_attributes=None,
+                version=head_payload.forkchoice_updated_version,
+            )
+
+    def deliver_ancestry() -> None:
+        """
+        Hand a rejection target's valid ancestors to the client over
+        the Engine API.
+
+        Only the head of a rejection chain is expected to be refused,
+        so every ancestor must come back VALID. A client that is busy
+        syncing answers for the payload without executing it, leaving
+        the head unjudgeable; the delivery is idempotent, so anything
+        but VALID is logged and retried by the caller once the client
+        has had time to settle.
+        """
+        for ancestor_payload in fixture.payloads[:-1]:
+            ancestor_status = engine_rpc.new_payload(
+                *ancestor_payload.params,
+                version=ancestor_payload.new_payload_version,
+            )
+            if ancestor_status.status != PayloadStatusEnum.VALID:
+                logger.warning(
+                    f"Client answered {ancestor_status.status} for the "
+                    f"valid ancestor "
+                    f"{ancestor_payload.params[0].block_hash} instead of "
+                    "executing it; the delivery will be repeated"
+                )
+
+    def expected_rpc_refusal(error: JSONRPCError) -> bool:
+        """
+        Return whether `error` is the rejection the fixture declares.
+
+        A head payload that violates the Engine API's rules for the
+        fork (e.g. a pre-fork block carrying blob fields) is refused
+        at the RPC layer before any chain context matters. When the
+        fixture declares that error code, the refusal is the expected
+        rejection - but only with the declared code, so a client
+        failing for an unrelated reason still fails the test.
+        """
+        if head_payload.error_code is None:
+            return False
+        if error.code != head_payload.error_code:
+            raise LoggedError(
+                f"Client refused the head with the wrong error code: "
+                f"got {error.code}, expected {head_payload.error_code}"
+            )
+        logger.info(
+            f"Client refused the invalid head at the RPC layer with "
+            f"the expected error code {head_payload.error_code} "
+            f"({error})"
         )
+        return True
+
+    # A declared Engine API error code is itself a rejection: the
+    # client must refuse the head, whether over the RPC layer or with
+    # an INVALID verdict, even when every payload is semantically
+    # valid.
+    expect_rejection = (
+        any(not payload.valid() for payload in fixture.payloads)
+        or head_payload.error_code is not None
+    )
+
+    if expect_rejection:
+        with timing_data.time("Prepare rejection"):
+            # A rejection target below the reused client's head cannot
+            # reach it over devp2p: the sync machinery of geth-like
+            # clients refuses to walk its head backwards, so the
+            # ancestry never arrives and the head stays unjudgeable.
+            # Equal-height targets sync fine (the reused-client common
+            # case) and stay on the wire; only a strictly-below target
+            # has its valid ancestry handed over the Engine API.
+            #
+            # That hand-over happens here, before the head is
+            # announced, because an idle client executes each ancestor
+            # against its parent's state, while a client already
+            # syncing towards the head answers for the ancestor
+            # without executing it and leaves the head unjudgeable for
+            # good.
+            client_head_block = eth_rpc.get_block_by_number("latest")
+            client_head_number = (
+                int(client_head_block["number"], 16)
+                if client_head_block
+                else 0
+            )
+            below_client_head = chain.head.number < client_head_number
+            if below_client_head:
+                logger.info(
+                    f"Rejection target {chain.head.number} is below the "
+                    f"client head {client_head_number}; delivering the "
+                    f"{len(fixture.payloads) - 1} valid ancestor(s) over "
+                    "the Engine API instead of the wire"
+                )
+                deliver_ancestry()
 
     with timing_data.time("Announce sync target"):
         logger.info(
             f"Announcing head block {chain.head.number} to trigger a sync "
             f"of {len(chain.blocks) - 1} ancestor block(s) over devp2p"
         )
-        announce()
+        try:
+            announce()
+        except JSONRPCError as error:
+            if expected_rpc_refusal(error):
+                return
+            raise
+
+    if expect_rejection:
+        with timing_data.time("Reject invalid chain"):
+            deadline = time.monotonic() + wirex_sync_timeout
+            next_announcement = time.monotonic() + wirex_announce_interval
+            status: PayloadStatusEnum | None = None
+            validation_error: object = None
+            accepted_since: float | None = None
+            while time.monotonic() < deadline:
+                # Once the ancestry has arrived over devp2p the client
+                # can judge the head; until then it answers SYNCING (or
+                # ACCEPTED if it merely stored the payload).
+                try:
+                    payload_status = engine_rpc.new_payload(
+                        *head_payload.params,
+                        version=head_payload.new_payload_version,
+                    )
+                except JSONRPCError as error:
+                    if expected_rpc_refusal(error):
+                        return
+                    raise
+                status = payload_status.status
+                validation_error = payload_status.validation_error
+                if status in (
+                    PayloadStatusEnum.INVALID,
+                    PayloadStatusEnum.INVALID_BLOCK_HASH,
+                ):
+                    break
+                if status != PayloadStatusEnum.VALID:
+                    accepted_since = None
+                elif accepted_since is None:
+                    # A client whose sync is still in flight answers
+                    # about the database state of that instant, and a
+                    # lone VALID is not proof that it accepted the
+                    # chain: geth has been observed answering a
+                    # well-formed VALID for a block its own backfill
+                    # rejected milliseconds later, then INVALID on
+                    # every ask thereafter. A real acceptance holds, so
+                    # the verdict is read only once it has.
+                    accepted_since = time.monotonic()
+                    logger.warning(
+                        f"Client answered VALID for the invalid head "
+                        f"{expected_head} (latestValidHash "
+                        f"{payload_status.latest_valid_hash}) while the "
+                        "chain may still be arriving; confirming before "
+                        "failing the test"
+                    )
+                elif time.monotonic() - accepted_since >= ACCEPTANCE_HOLD_TIME:
+                    raise LoggedError(
+                        f"Client accepted the invalid chain: head "
+                        f"{expected_head} returned VALID for "
+                        f"{ACCEPTANCE_HOLD_TIME}s (latestValidHash "
+                        f"{payload_status.latest_valid_hash}) but the "
+                        "fixture expects the block to be rejected"
+                    )
+                if time.monotonic() >= next_announcement:
+                    if not mock_peer.alive:
+                        # A client may drop a peer that served it a bad
+                        # chain; a real peer would simply redial.
+                        logger.warning("Peer dropped mid-rejection; redialing")
+                        mock_peer.reconnect(chain)
+                    if below_client_head:
+                        # A whole announcement interval has passed, so a
+                        # delivery the client answered without executing
+                        # takes effect on this attempt. It goes first so
+                        # that the re-announcement's own answer already
+                        # reflects it.
+                        deliver_ancestry()
+                    logger.info("Re-announcing the invalid sync target")
+                    try:
+                        announce()
+                    except JSONRPCError as error:
+                        if expected_rpc_refusal(error):
+                            return
+                        raise
+                    next_announcement = (
+                        time.monotonic() + wirex_announce_interval
+                    )
+                time.sleep(wirex_poll_interval)
+            if status not in (
+                PayloadStatusEnum.INVALID,
+                PayloadStatusEnum.INVALID_BLOCK_HASH,
+            ):
+                raise LoggedError(
+                    f"Client never rejected the invalid head "
+                    f"{expected_head} within {wirex_sync_timeout}s (last "
+                    f"status: {status}). Peer transcript: "
+                    f"{mock_peer.statistics.transcript}"
+                )
+        statistics = mock_peer.statistics
+        logger.info(
+            f"Client rejected the invalid head at block "
+            f"{chain.head.number} with {status} "
+            f"(validationError: {validation_error}) after the peer "
+            f"served {statistics.headers_served} header(s) and "
+            f"{statistics.bodies_served} body/bodies"
+        )
+        return
 
     with timing_data.time("Sync from peer"):
         # Wait by watching for the block rather than by repeating the
@@ -200,6 +432,12 @@ def test_blockchain_via_wirex(
                 synced = True
                 break
             if time.monotonic() >= next_announcement:
+                if not mock_peer.alive:
+                    # A mid-sync drop would otherwise strand the test
+                    # peerless until its timeout; redial like a real
+                    # peer would.
+                    logger.warning("Peer dropped mid-sync; redialing")
+                    mock_peer.reconnect(chain)
                 logger.info("Re-announcing the sync target")
                 announce()
                 next_announcement = time.monotonic() + wirex_announce_interval

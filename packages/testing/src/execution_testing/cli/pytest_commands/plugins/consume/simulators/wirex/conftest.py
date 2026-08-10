@@ -24,7 +24,11 @@ import pytest
 from hive.client import Client, ClientType
 from hive.testing import HiveTest
 
-from execution_testing.devp2p.chain import Chain, chain_from_payloads
+from execution_testing.devp2p.chain import (
+    Chain,
+    ChainReconstructionError,
+    chain_from_payloads,
+)
 from execution_testing.devp2p.peer import MockPeer
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import (
@@ -85,11 +89,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="wirex_sort_by_chain_length",
         default=False,
         help=(
-            "Order the tests inside each pre-allocation group by "
-            "ascending chain length, so a reused client's head number "
-            "never decreases over the client's lifetime. Geth's beacon "
-            "sync has been observed to stall when asked to sync a "
-            "chain shorter than one the same client already synced."
+            "Order the tests inside each pre-allocation group: valid "
+            "chains before invalid ones, each by ascending chain "
+            "length, so a reused client's head number never decreases "
+            "and no valid sync follows a served bad block. Geth's "
+            "beacon sync has been observed to stall when asked to "
+            "sync a chain shorter than one the same client already "
+            "synced, and to back off after syncing a chain with a bad "
+            "block in a way that starves the next sync."
         ),
     )
     group.addoption(
@@ -130,20 +137,23 @@ def pytest_configure(config: pytest.Config) -> None:
     config.supported_fixture_formats = [BlockchainEngineXFixture]  # type: ignore[attr-defined]
 
 
-def _payload_counts(
+def _chain_properties(
     config: pytest.Config, items: list[pytest.Item]
-) -> Dict[str, int]:
+) -> Dict[str, tuple[bool, int]]:
     """
-    Count each collected test case's blocks, i.e. its chain length.
+    Read each collected test case's chain properties for ordering: does
+    the chain contain an invalid payload, and how long is it.
 
-    An appended sync payload counts: it is a real block of the served
-    chain, and the ordering must agree with the skip accounting, which
-    counts it too. The fixture index does not record chain lengths, so
-    the fixture files are read directly; each file is parsed once and
-    holds every fixture of its test module.
+    An appended sync payload counts toward the length: it is a real
+    block of the served chain, and the ordering must agree with the
+    skip accounting, which counts it too. The fixture index records
+    neither property, so the fixture files are read directly, one at a
+    time: each file is parsed once, mined for all of its collected
+    test cases, and dropped before the next is opened, so the peak
+    footprint is one parsed file rather than the whole corpus.
     """
-    counts: Dict[str, int] = {}
-    file_cache: Dict[str, dict] = {}
+    properties: Dict[str, tuple[bool, int]] = {}
+    cases_by_path: Dict[str, list[tuple[str, str]]] = {}
     source_path = getattr(config, "fixtures_source", None)
     for item in items:
         callspec = getattr(item, "callspec", None)
@@ -152,23 +162,32 @@ def _payload_counts(
         test_case = callspec.params.get("test_case")
         fixture = getattr(test_case, "fixture", None)
         if fixture is not None:  # stdin: the fixture is already loaded
-            counts[item.nodeid] = len(sync_chain_payloads(fixture))
+            properties[item.nodeid] = (
+                any(not payload.valid() for payload in fixture.payloads),
+                len(sync_chain_payloads(fixture)),
+            )
             continue
         json_path = getattr(test_case, "json_path", None)
         if json_path is None or source_path is None:
             continue
         path = str(source_path.path / json_path)
-        raw = file_cache.get(path)
-        if raw is None:
-            with open(path) as file:
-                raw = json.load(file)
-            file_cache[path] = raw
-        raw_fixture = raw.get(test_case.id)
-        if raw_fixture is not None:
-            counts[item.nodeid] = len(
-                raw_fixture.get("engineNewPayloads", [])
-            ) + (1 if raw_fixture.get("syncPayload") else 0)
-    return counts
+        cases_by_path.setdefault(path, []).append((item.nodeid, test_case.id))
+    for path, cases in cases_by_path.items():
+        with open(path) as file:
+            raw = json.load(file)
+        for nodeid, case_id in cases:
+            raw_fixture = raw.get(case_id)
+            if raw_fixture is None:
+                continue
+            payloads = raw_fixture.get("engineNewPayloads", [])
+            properties[nodeid] = (
+                any(
+                    payload.get("validationError") is not None
+                    for payload in payloads
+                ),
+                len(payloads) + (1 if raw_fixture.get("syncPayload") else 0),
+            )
+    return properties
 
 
 @pytest.hookimpl(trylast=True)
@@ -195,30 +214,41 @@ def pytest_collection_modifyitems(
         f"{sum(group_counts.values())} total tests"
     )
 
-    chain_lengths: Dict[str, int] = {}
+    chain_properties: Dict[str, tuple[bool, int]] = {}
     if config.getoption("wirex_sort_by_chain_length", False):
-        chain_lengths = _payload_counts(config, items)
+        chain_properties = _chain_properties(config, items)
         logger.info(
-            "Ordering tests inside each pre-allocation group by "
-            "ascending chain length"
+            "Ordering tests inside each pre-allocation group: valid "
+            "chains before invalid ones, each by ascending chain length"
         )
 
-    def sort_key(item: pytest.Item) -> tuple[int, str, int, str]:
+    def sort_key(item: pytest.Item) -> tuple[int, str, bool, int, str]:
         """
         Return sort key: largest group first, then by group id, then
-        (when enabled) by ascending chain length inside the group.
+        (when enabled) valid chains before invalid ones, each by
+        ascending chain length inside the group.
+
+        Invalid chains run last because serving a chain with a bad
+        block leaves a client's sync machinery in a failure state that
+        a following valid sync on the same client collides with
+        (observed on geth as a backfill backoff whose delayed header
+        retries race the peer's chain switches); once the group's
+        valid tests are done, that state poisons nothing.
         """
-        chain_length = chain_lengths.get(item.nodeid, 0)
+        has_invalid, chain_length = chain_properties.get(
+            item.nodeid, (False, 0)
+        )
         for marker in item.iter_markers("xdist_group"):
             if "name" in marker.kwargs:
                 group = marker.kwargs["name"]
                 return (
                     -group_counts[group],
                     group,
+                    has_invalid,
                     chain_length,
                     item.nodeid,
                 )
-        return (0, "", chain_length, item.nodeid)
+        return (0, "", has_invalid, chain_length, item.nodeid)
 
     items.sort(key=sort_key)
 
@@ -366,6 +396,15 @@ def chain(
     test is a two-block chain here. Chains too short to put any block
     on the wire skip here, before any reconstruction or peer setup is
     spent on them.
+
+    Fixtures whose payloads are flagged invalid still reconstruct and
+    are served as rejection tests (see ``test_blockchain_via_wirex``):
+    their blocks are semantically invalid but hash-consistent, so they
+    travel the wire like any other block. The exception is a payload
+    whose declared block hash does not match its own header (a header
+    corrupted at fill via ``rlp_modifier``): devp2p has no way to
+    present a block whose hash differs from its header's keccak, so
+    such fixtures are skipped rather than reported as setup errors.
     """
     payloads = sync_chain_payloads(fixture)
     if len(payloads) < wirex_min_blocks:
@@ -374,7 +413,14 @@ def chain(
             f"{wirex_min_blocks} are needed for any block to be "
             "transferred over devp2p rather than the Engine API"
         )
-    return chain_from_payloads(genesis_header, payloads)
+    try:
+        return chain_from_payloads(genesis_header, payloads)
+    except ChainReconstructionError as error:
+        if any(not payload.valid() for payload in fixture.payloads):
+            pytest.skip(
+                f"invalid fixture cannot be represented over devp2p: {error}"
+            )
+        raise
 
 
 @pytest.fixture(scope="session")
