@@ -22,14 +22,18 @@ writes run downwards. Truncation keeps whichever slots come first, so the
 fixture is reproducible only if that order is a property of the chain
 rather than of the run — and the alternative spelling, reading the keys
 out of a set, would satisfy the cap while producing a different fixture
-each time. Descending writes separate the two: the chain's order is
-33, 32, ... and a set of small integers hands back 1, 2, ..., so any
-reordering shows up as a different set of slots surviving rather than as
-the same set in a different sequence.
+each time. Descending writes separate the two: the chain hands back the
+highest slot first and a set of small integers hands back the lowest, so
+a reordering shows up as a different set of slots surviving rather than
+as the same set in a different sequence.
 
 Each slot stores the position at which it was written, which puts that
-order in the fixture where a reader can see it. The slots the cap keeps
-are the ones holding 1 through 32.
+order in the fixture where a reader can see it: the slots the cap keeps
+are exactly the ones whose value is no greater than the cap.
+
+Nothing here is fork-specific — a storage slot has read back the same way
+since Frontier — so the suite starts where its neighbours do, at the most
+recent fork whose blocks go-ethereum has long been able to consume.
 """
 
 import pytest
