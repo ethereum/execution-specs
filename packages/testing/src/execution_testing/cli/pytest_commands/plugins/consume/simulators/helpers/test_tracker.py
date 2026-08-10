@@ -13,6 +13,32 @@ logger = logging.getLogger(__name__)
 enginex_group_counts_key: StashKey[dict[str, int]] = StashKey()
 
 
+def count_tests_per_group(
+    session: pytest.Session, items: list[pytest.Item]
+) -> dict[str, int]:
+    """
+    Count the collected tests per xdist group and stash the counts.
+
+    The collection hooks sort by them, and the test tracker reads them
+    to stop each group's client on time.
+    """
+    group_counts: dict[str, int] = {}
+    for item in items:
+        for marker in item.iter_markers("xdist_group"):
+            if "name" in marker.kwargs:
+                group_counts[marker.kwargs["name"]] = (
+                    group_counts.get(marker.kwargs["name"], 0) + 1
+                )
+                break
+
+    session.stash[enginex_group_counts_key] = group_counts
+    logger.info(
+        f"Counted {len(group_counts)} pre-alloc groups with "
+        f"{sum(group_counts.values())} total tests"
+    )
+    return group_counts
+
+
 def make_group_identifier(pre_hash: AllocGroupHash, client_name: str) -> str:
     """Build xdist group key from pre-alloc hash and client name."""
     return f"{pre_hash}-{client_name}"
