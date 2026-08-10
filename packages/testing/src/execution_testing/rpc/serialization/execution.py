@@ -706,14 +706,15 @@ class EstimateOutcome:
     @property
     def result(self) -> str | None:
         """Return the value to pin, where one is determined."""
-        return hex(self.minimum) if self.determinate else None
+        if self.minimum is None or not self.determinate:
+            return None
+        return hex(self.minimum)
 
     @property
     def bounds(self) -> Tuple[int, int] | None:
         """Return the range a conforming answer lies in, or None."""
-        if self.reverted or self.determinate:
+        if self.minimum is None or self.determinate:
             return None
-        assert self.minimum is not None
         return (self.minimum, self.ceiling)
 
 
@@ -824,38 +825,46 @@ def estimate_gas(
         return EstimateOutcome(ceiling=gas, minimum=None, determinate=False)
 
     spent = at_ceiling.gas_used
-    low, high = 0, gas
-    if not at_limit(spent - 1).completed:
-        low = spent - 1
-    optimistic = spent + spent // 63 + CALL_STIPEND
-    if optimistic < high and at_limit(optimistic).completed:
-        high = optimistic
-    for _ in range(ESTIMATE_SEARCH_ROUNDS):
-        if high - low <= 1:
-            break
-        middle = (low + high) // 2
-        if at_limit(middle).completed:
-            high = middle
-        else:
-            low = middle
+    if at_limit(spent).completed:
+        # The message fits in exactly what it spends, which most do, and
+        # nothing below it can fit at all: a lower limit could only
+        # complete by costing less, which is the case refused below.
+        # Bisecting would find this same number an order of magnitude
+        # more slowly.
+        minimum = spent
     else:
-        raise UnrunnableCallError(
-            f"the gas a call from {sender} at block {site.number} needs "
-            f"did not settle in {ESTIMATE_SEARCH_ROUNDS} rounds"
-        )
+        low, high = spent, gas
+        optimistic = spent + spent // 63 + CALL_STIPEND
+        if optimistic < high and at_limit(optimistic).completed:
+            high = optimistic
+        for _ in range(ESTIMATE_SEARCH_ROUNDS):
+            if high - low <= 1:
+                break
+            middle = (low + high) // 2
+            if at_limit(middle).completed:
+                high = middle
+            else:
+                low = middle
+        else:
+            raise UnrunnableCallError(
+                f"the gas a call from {sender} at block {site.number} "
+                f"needs did not settle in {ESTIMATE_SEARCH_ROUNDS} rounds"
+            )
+        minimum = high
 
-    if at_limit(high).gas_used != spent:
+    below = at_limit(minimum - 1)
+    if below.completed or at_limit(minimum).gas_used != spent:
         raise UnrunnableCallError(
             f"a call from {sender} at block {site.number} spends {spent} "
-            f"gas when offered {gas} and {at_limit(high).gas_used} when "
-            f"offered {high}, so what it costs depends on what it is "
-            f"offered and no bound derived from one limit holds at another"
+            f"gas when offered {gas} and completes on less when offered "
+            f"less, so what it costs depends on what it is offered and no "
+            f"bound derived at one limit holds at another"
         )
     unsearched = to is not None and not data and not _has_code(site.state, to)
     return EstimateOutcome(
         ceiling=gas,
-        minimum=high,
-        determinate=unsearched and not at_limit(high - 1).admitted,
+        minimum=minimum,
+        determinate=unsearched and not below.admitted,
     )
 
 
