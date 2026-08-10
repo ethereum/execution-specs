@@ -155,6 +155,7 @@ class MockPeer:
         self._chains = ServedChains()
         self._lock = threading.Lock()
         self._stop = threading.Event()
+        self._dead = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self.statistics = PeerStatistics()
         self.body_hashes_ever_served: Set[bytes] = set()
@@ -175,6 +176,11 @@ class MockPeer:
         self.remote_name = ""
         self.disconnect_reason: Optional[int] = None
 
+    @property
+    def alive(self) -> bool:
+        """Whether the connection's message loop is still running."""
+        return self._thread is not None and not self._dead.is_set()
+
     def connect(self, chain: Chain, timeout: float = 30.0) -> None:
         """
         Dial the client and complete both handshakes.
@@ -191,7 +197,18 @@ class MockPeer:
             timeout=timeout,
         )
         self._session = session
+        try:
+            self._complete_protocol_handshakes(session, chain)
+        except Exception:
+            # A session that fails its devp2p handshakes is closed at
+            # once rather than left open until the next redial.
+            session.close()
+            raise
 
+    def _complete_protocol_handshakes(
+        self, session: RLPxSession, chain: Chain
+    ) -> None:
+        """Complete the base protocol Hello and the eth Status exchange."""
         session.write_message(
             HELLO,
             encode_hello(
@@ -248,29 +265,28 @@ class MockPeer:
         )
 
     def start(self) -> None:
-        """Start the background message loop."""
+        """
+        Start the background message loop.
+
+        Every loop gets its own stop and dead events: a loop that
+        outlived its session's close (stuck in a long write, say) must
+        never mark the next session dead, nor see its stop cleared.
+        """
+        self._stop = threading.Event()
+        self._dead = threading.Event()
         self._thread = threading.Thread(
-            target=self._run, name="wirex-peer", daemon=True
+            target=self._run,
+            args=(self._session, self._stop, self._dead),
+            name="wirex-peer",
+            daemon=True,
         )
         self._thread.start()
 
     def set_chain(self, chain: Chain) -> None:
-        """
-        Serve `chain` from now on and announce its range.
-
-        Installing a new chain is how one client is reused across the
-        tests of a pre-allocation group: each test is an independent
-        chain from the same genesis.
-        """
+        """Serve `chain` from now on and announce its range."""
         with self._lock:
             self._chains.install(chain)
-            self.statistics = PeerStatistics()
-            if self.protocol is not None:
-                # Every test's transcript documents which wire dialect
-                # it exercised.
-                self.statistics.record(
-                    f"eth/{self.protocol.version} negotiated"
-                )
+            self.statistics = self._fresh_statistics()
             session = self._session
         if session is not None:
             session.write_message(
@@ -280,34 +296,84 @@ class MockPeer:
                 ),
             )
 
-    def _run(self) -> None:
-        """Read and answer messages until stopped or disconnected."""
-        session = self._session
-        assert session is not None
-        while not self._stop.is_set():
-            try:
-                code, payload = session.read_message()
-            except (TimeoutError, OSError):
-                continue
-            except RLPxError as error:
-                logger.info("Peer connection ended: %s", error)
-                return
+    def reset_statistics(self) -> None:
+        """
+        Start fresh statistics for the next test.
 
-            try:
-                self._handle(session, code, payload)
-            except OSError as error:
-                # The client closed the socket while the answer was
-                # being written. End the loop cleanly rather than
-                # leaving a traceback in a thread nobody joins.
-                logger.info(
-                    "Peer connection ended while answering message %d: %s",
-                    code,
-                    error,
-                )
-                return
-            except (ProtocolError, RLPxError) as error:
-                logger.warning("Failed to answer message %d: %s", code, error)
-                return
+        `set_chain` does this itself; `reconnect` does not, so a redial
+        mid-test keeps the test's transcript.
+        """
+        with self._lock:
+            self.statistics = self._fresh_statistics()
+
+    def _fresh_statistics(self) -> PeerStatistics:
+        """Return empty statistics naming the negotiated eth version."""
+        statistics = PeerStatistics()
+        if self.protocol is not None:
+            statistics.record(f"eth/{self.protocol.version} negotiated")
+        return statistics
+
+    def reconnect(self, chain: Chain, timeout: float = 30.0) -> None:
+        """
+        Dial the client again after it dropped the previous session.
+
+        A client is free to hang up on a peer at any time (nethermind
+        does, with `Disconnect(0x00)`). Served chains stay installed
+        (see `ServedChains`). A failed redial raises and leaves the peer
+        reading as dead, so the caller may simply try again.
+        """
+        self.close()
+        self._thread = None
+        self.disconnect_reason = None
+        self.connect(chain, timeout=timeout)
+        self.start()
+
+    def _run(
+        self,
+        session: Optional[RLPxSession],
+        stop: threading.Event,
+        dead: threading.Event,
+    ) -> None:
+        """Read and answer messages until stopped or disconnected."""
+        assert session is not None
+        # Every exit ends the loop rather than raising: the owner sees a
+        # dead session through `alive` and redials, no traceback is left
+        # in a thread nobody joins, and no socket is left open.
+        try:
+            while not stop.is_set():
+                try:
+                    code, payload = session.read_message()
+                except TimeoutError:
+                    continue
+                except (OSError, RLPxError, ValueError) as error:
+                    # `ValueError` is a socket closed under the loop.
+                    logger.info("Peer connection ended: %s", error)
+                    return
+
+                try:
+                    self._handle(session, code, payload)
+                except OSError as error:
+                    # The client closed the socket mid-answer.
+                    logger.info(
+                        "Peer connection ended while answering message %d: %s",
+                        code,
+                        error,
+                    )
+                    return
+                except (ProtocolError, RLPxError) as error:
+                    logger.warning(
+                        "Failed to answer message %d: %s", code, error
+                    )
+                    return
+                except Exception:
+                    # A request the decoders could not make sense of.
+                    logger.exception("Failed to answer message %d", code)
+                    return
+                if self.disconnect_reason is not None:
+                    return
+        finally:
+            session.close()
+            dead.set()
 
     def _handle(self, session: RLPxSession, code: int, payload: bytes) -> None:
         """Answer one message from the client."""
@@ -466,7 +532,9 @@ class MockPeer:
     def close(self) -> None:
         """Stop the message loop and close the connection."""
         self._stop.set()
-        if self._thread is not None:
-            self._thread.join(timeout=5.0)
+        # Closing first wakes a loop blocked on the socket at once;
+        # joining first would wait out its read timeout.
         if self._session is not None:
             self._session.close()
+        if self._thread is not None:
+            self._thread.join(timeout=5.0)

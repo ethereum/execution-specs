@@ -431,6 +431,21 @@ def mock_peer(
             peer.start()
         mock_peers[client.id] = peer
         logger.info(f"Mock peer connected to {peer.remote_name}")
-    else:
-        peer.set_chain(chain)
+        return peer
+
+    if peer.alive:
+        try:
+            peer.set_chain(chain)  # also starts the test's statistics
+            return peer
+        except OSError:
+            pass
+    # A client may hang up mid-group (nethermind drops peers it deems
+    # idle); a dead connection would otherwise fail every remaining test
+    # in the group, so redial exactly as a real peer would, and start
+    # the test's own statistics so its transcript holds only its own
+    # traffic.
+    logger.warning("Peer connection lost; redialing the client")
+    with total_timing_data.time("Reconnect mock peer"):
+        peer.reconnect(chain)
+    peer.reset_statistics()
     return peer
