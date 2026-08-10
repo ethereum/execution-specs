@@ -538,7 +538,7 @@ def call(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     charge_gas(evm, extra_gas + extend_memory.cost)
 
@@ -664,7 +664,7 @@ def callcode(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     # CHILD GRANT
     # Charge the call's cost and withhold the child's execution gas
@@ -845,7 +845,7 @@ def delegatecall(evm: Evm) -> None:
 
     tx_state = evm.tx_env.state
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     # CHILD GRANT
     # Charge the call's cost and withhold the child's execution gas
@@ -948,7 +948,7 @@ def staticcall(evm: Evm) -> None:
 
     tx_state = evm.tx_env.state
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     # CHILD GRANT
     # Charge the call's cost and withhold the child's execution gas

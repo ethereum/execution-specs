@@ -15,6 +15,7 @@ from execution_testing.base_types import (
     to_json,
 )
 from execution_testing.base_types.pydantic import CopyValidateModel
+from execution_testing.forks import Amsterdam
 
 from ..account_types import EOA, Alloc
 from ..block_types import (
@@ -501,6 +502,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "currentNumber": "0x01",
                 "currentTimestamp": "0x03e8",
                 "blockHashes": {},
+                "blockHeaders": {},
                 "ommers": [],
                 "parentUncleHash": (
                     "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
@@ -566,6 +568,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     "0x01": "0x0000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
                     "0x03": "0x0000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
                 },
+                "blockHeaders": {},
                 "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
                 "ommers": [],
             },
@@ -949,6 +952,13 @@ def test_model_copy(model: CopyValidateModel) -> None:
     """Test that the copy method returns a correct copy of the model."""
     assert to_json(model.copy()) == to_json(model)
     assert model.copy().model_fields_set == model.model_fields_set
+
+
+def test_environment_fork_requirements_preserve_extra_data() -> None:
+    """Preserve extra data while applying fork requirements."""
+    env = Environment(extra_data=b"current block")
+
+    assert env.set_fork_requirements(Amsterdam).extra_data == env.extra_data
 
 
 @pytest.mark.parametrize(
