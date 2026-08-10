@@ -27,6 +27,7 @@ from .protocol import (
     GET_RECEIPTS,
     HELLO,
     MESSAGE_NAMES,
+    P2P_VERSION,
     PING,
     PONG,
     STATUS,
@@ -176,10 +177,17 @@ class MockPeer:
             )
         if code != HELLO:
             raise RLPxError(f"expected Hello, got message {code}")
-        self.remote_name, capabilities = decode_hello(payload)
+        remote_version, self.remote_name, capabilities = decode_hello(payload)
         logger.info(
-            "Connected to %s advertising %s", self.remote_name, capabilities
+            "Connected to %s (p2p version %d) advertising %s",
+            self.remote_name,
+            remote_version,
+            capabilities,
         )
+        if min(remote_version, P2P_VERSION) >= 5:
+            # Every message after Hello is Snappy compressed once both
+            # sides have advertised base protocol version 5 or higher.
+            session.enable_snappy()
 
         session.write_message(STATUS, self._status(chain).encode())
         session.set_timeout(1.0)

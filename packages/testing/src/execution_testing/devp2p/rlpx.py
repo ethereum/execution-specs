@@ -27,6 +27,7 @@ from spec256k1 import PrivateKey
 from .ecies import decrypt, encrypt
 from .keccak import Keccak256, keccak256
 from .secp256k1 import agree, public_key_bytes
+from .snappy import SnappyError, compress, decompress, decompressed_length
 
 logger = logging.getLogger(__name__)
 
@@ -145,8 +146,20 @@ class RLPxSession:
         ).decryptor()
         self._egress_mac = _Mac(mac_secret, egress_seed)
         self._ingress_mac = _Mac(mac_secret, ingress_seed)
+        self._snappy = False
         self._write_lock = threading.Lock()
         self._read_poll_timeout: float = FRAME_READ_TIMEOUT
+
+    def enable_snappy(self) -> None:
+        """
+        Compress every message payload from now on.
+
+        Called after the Hello exchange when both sides advertised base
+        protocol version 5 or higher. Hello itself is always exchanged
+        uncompressed, so enabling is a one-way switch made between the
+        handshake and the first capability message.
+        """
+        self._snappy = True
 
     def _read_exactly(self, length: int) -> bytes:
         """
@@ -177,6 +190,8 @@ class RLPxSession:
         inside a serving thread, far from the caller that assembled an
         oversized response.
         """
+        if self._snappy:
+            payload = compress(payload)
         frame = eth_rlp.encode(Uint(code)) + payload
         if len(frame) >= MAX_FRAME_SIZE:
             raise RLPxError(
@@ -232,7 +247,20 @@ class RLPxSession:
         # The message code is a single RLP encoded integer: either a
         # literal byte below 0x80, or 0x80 for a code of zero.
         code = 0 if frame[0] == 0x80 else frame[0]
-        return code, frame[1:]
+        payload = frame[1:]
+        if self._snappy:
+            try:
+                if decompressed_length(payload) > MAX_FRAME_SIZE:
+                    raise RLPxError(
+                        "compressed message claims a decompressed size "
+                        "over the frame limit"
+                    )
+                payload = decompress(payload)
+            except SnappyError as error:
+                raise RLPxError(
+                    f"invalid snappy payload in message {code}: {error}"
+                ) from None
+        return code, payload
 
     def set_timeout(self, timeout: float) -> None:
         """
