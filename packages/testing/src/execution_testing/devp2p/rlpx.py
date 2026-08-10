@@ -7,6 +7,7 @@ subsequent message. There is no support for acting as the recipient of
 a dial.
 """
 
+import contextlib
 import logging
 import os
 import select
@@ -251,11 +252,16 @@ class RLPxSession:
         self._read_poll_timeout = timeout
 
     def close(self) -> None:
-        """Close the underlying socket."""
-        try:
+        """
+        Shut down and close the underlying socket.
+
+        Shutting down first wakes a thread blocked on this session at
+        once; a bare close leaves it waiting out its timeout.
+        """
+        with contextlib.suppress(OSError):
+            self._connection.shutdown(socket.SHUT_RDWR)
+        with contextlib.suppress(OSError):
             self._connection.close()
-        except OSError:
-            pass
 
 
 def _build_auth(
@@ -301,6 +307,32 @@ def _parse_ack(private_key: bytes, message: bytes) -> Tuple[bytes, bytes]:
     return ephemeral_public_key, remote_nonce
 
 
+def _derive_secrets(
+    ephemeral_key: bytes,
+    nonce: bytes,
+    remote_nonce: bytes,
+    auth: bytes,
+    ack: bytes,
+) -> Tuple[bytes, bytes, bytes, bytes]:
+    """
+    Return the initiator's session secrets and MAC seeds.
+
+    `ephemeral_key` is the agreement of both ephemeral keys, and `auth`
+    and `ack` are the handshake messages as sent, size prefix included.
+    The result is the AES secret, the MAC secret, the egress MAC seed
+    and the ingress MAC seed.
+    """
+    shared_secret = keccak256(ephemeral_key + keccak256(remote_nonce + nonce))
+    aes_secret = keccak256(ephemeral_key + shared_secret)
+    mac_secret = keccak256(ephemeral_key + aes_secret)
+    return (
+        aes_secret,
+        mac_secret,
+        _xor(mac_secret, remote_nonce) + auth,
+        _xor(mac_secret, nonce) + ack,
+    )
+
+
 def connect(
     host: str,
     port: int,
@@ -318,23 +350,37 @@ def connect(
     nonce = os.urandom(32)
 
     connection = socket.create_connection((host, port), timeout=timeout)
-    connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    try:
+        connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
-    auth = _build_auth(
-        private_key, ephemeral_private_key, nonce, remote_public_key
+        auth = _build_auth(
+            private_key, ephemeral_private_key, nonce, remote_public_key
+        )
+        connection.sendall(auth)
+
+        size_prefix = _recv_exactly(connection, 2)
+        ack = size_prefix + _recv_exactly(
+            connection, int.from_bytes(size_prefix, "big")
+        )
+        remote_ephemeral_public_key, remote_nonce = _parse_ack(
+            private_key, ack
+        )
+        ephemeral_key = agree(
+            ephemeral_private_key, remote_ephemeral_public_key
+        )
+    except (OSError, RLPxError):
+        connection.close()
+        raise
+    except Exception as error:
+        # An ack that fails decryption, decodes to the wrong shape or
+        # carries a key off the curve is a malformed handshake, which
+        # callers handle as such rather than as an unrelated crash.
+        connection.close()
+        raise RLPxError(f"malformed handshake: {error!r}") from error
+
+    aes_secret, mac_secret, egress_seed, ingress_seed = _derive_secrets(
+        ephemeral_key, nonce, remote_nonce, auth, ack
     )
-    connection.sendall(auth)
-
-    size_prefix = _recv_exactly(connection, 2)
-    ack = size_prefix + _recv_exactly(
-        connection, int.from_bytes(size_prefix, "big")
-    )
-    remote_ephemeral_public_key, remote_nonce = _parse_ack(private_key, ack)
-
-    ephemeral_key = agree(ephemeral_private_key, remote_ephemeral_public_key)
-    shared_secret = keccak256(ephemeral_key + keccak256(remote_nonce + nonce))
-    aes_secret = keccak256(ephemeral_key + shared_secret)
-    mac_secret = keccak256(ephemeral_key + aes_secret)
 
     logger.debug("RLPx handshake complete with %s:%d", host, port)
     connection.settimeout(FRAME_READ_TIMEOUT)
@@ -342,6 +388,6 @@ def connect(
         connection,
         aes_secret,
         mac_secret,
-        egress_seed=_xor(mac_secret, remote_nonce) + auth,
-        ingress_seed=_xor(mac_secret, nonce) + ack,
+        egress_seed=egress_seed,
+        ingress_seed=ingress_seed,
     )

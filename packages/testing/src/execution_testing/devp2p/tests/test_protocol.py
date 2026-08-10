@@ -24,6 +24,7 @@ from ..protocol import (
     encode_hello,
     highest_common_eth_version,
 )
+from .handshake_vectors import HELLO_WITH_EXTRA_ELEMENTS
 
 GETH_LIKE_CAPABILITIES = [
     ("eth", 69),
@@ -78,17 +79,37 @@ class TestNegotiation:
 class TestHello:
     """The advertised capability set is data."""
 
-    def test_hello_advertises_one_pair_per_version(self) -> None:
-        """Each version becomes its own ("eth", version) pair."""
-        payload = encode_hello("peer/v0", b"\x01" * 64, (71, 69, 70))
+    @pytest.mark.parametrize(
+        "versions, advertised",
+        [((71, 69, 70), [69, 70, 71]), ((70,), [70])],
+        ids=["every-version-sorted", "single-version"],
+    )
+    def test_hello_advertises_one_pair_per_version(
+        self, versions: tuple[int, ...], advertised: list[int]
+    ) -> None:
+        """Each version becomes its own ("eth", version) pair, ascending."""
+        payload = encode_hello("peer/v0", b"\x01" * 64, versions)
         _, _, capabilities = decode_hello(payload)
-        assert capabilities == [("eth", 69), ("eth", 70), ("eth", 71)]
+        assert capabilities == [("eth", version) for version in advertised]
 
-    def test_hello_single_version(self) -> None:
-        """Pinning a version advertises exactly that one."""
-        payload = encode_hello("peer/v0", b"\x01" * 64, (70,))
-        _, _, capabilities = decode_hello(payload)
-        assert capabilities == [("eth", 70)]
+    def test_hello_declares_p2p_version_5_and_identity(self) -> None:
+        """Hello carries base protocol 5 (snappy), the port and the key."""
+        payload = encode_hello(
+            "peer/v0", b"\x01" * 64, (69,), listen_port=30303
+        )
+        fields = eth_rlp.decode(payload)
+        assert isinstance(fields, list) and len(fields) == 5
+        assert int.from_bytes(bytes(fields[0]), "big") == 5
+        assert int.from_bytes(bytes(fields[3]), "big") == 30303
+        assert bytes(fields[4]) == b"\x01" * 64
+
+    def test_a_hello_with_extra_elements_decodes(self) -> None:
+        """The EIP-8 Hello decodes, its additional elements ignored."""
+        assert decode_hello(HELLO_WITH_EXTRA_ELEMENTS) == (
+            55,
+            "kneth/v0.91/plan9",
+            [("eth", 61), ("mork", 22)],
+        )
 
 
 class TestStatus:
