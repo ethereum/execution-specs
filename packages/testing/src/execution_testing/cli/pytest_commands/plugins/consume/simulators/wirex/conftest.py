@@ -85,19 +85,22 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
-        "--wirex-sort-by-chain-length",
-        action="store_true",
+        "--wirex-no-sort-by-chain-length",
+        action="store_false",
         dest="wirex_sort_by_chain_length",
-        default=False,
+        default=True,
         help=(
-            "Order the tests inside each pre-allocation group: valid "
-            "chains before invalid ones, each by ascending chain "
-            "length, so a reused client's head number never decreases "
-            "and no valid sync follows a served bad block. Geth's "
+            "Do not order the tests inside each pre-allocation group "
+            "(valid chains before invalid ones, each by ascending "
+            "chain length). The ordering is on by default because a "
+            "reused client's head number must never decrease and no "
+            "valid sync should follow a served bad block: geth's "
             "beacon sync has been observed to stall when asked to "
             "sync a chain shorter than one the same client already "
             "synced, and to back off after syncing a chain with a bad "
-            "block in a way that starves the next sync."
+            "block in a way that starves the next sync. Disabling is "
+            "for reproducing those stalls and for comparing against "
+            "unordered runs."
         ),
     )
     group.addoption(
@@ -232,7 +235,7 @@ def pytest_collection_modifyitems(
     )
 
     chain_properties: Dict[str, tuple[bool, int]] = {}
-    if config.getoption("wirex_sort_by_chain_length", False):
+    if config.getoption("wirex_sort_by_chain_length", True):
         chain_properties = _chain_properties(config, items)
         logger.info(
             "Ordering tests inside each pre-allocation group: valid "
