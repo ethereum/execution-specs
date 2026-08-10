@@ -143,11 +143,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         dest="wirex_poll_interval",
         type=float,
-        default=0.05,
+        default=0.005,
         help=(
-            "Seconds between forkchoice updates while waiting for a sync "
-            "to finish. Short chains sync in tens of milliseconds, so a "
-            "long interval measures the poller rather than the client."
+            "Seconds between result polls while waiting for a verdict: "
+            "eth_getBlockByHash during a valid sync, the head's "
+            "newPayload for a rejection. Short chains sync in tens of "
+            "milliseconds, so a long interval measures the poller "
+            "rather than the client."
         ),
     )
 
