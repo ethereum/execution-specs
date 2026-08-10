@@ -15,13 +15,14 @@ from typing import List, Sequence, Tuple
 import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
 
-P2P_VERSION = 4
+P2P_VERSION = 5
 """
 Base protocol version advertised to the remote node.
 
-Version 5 enables Snappy compression of every frame. Advertising 4 keeps
-the connection uncompressed, which current clients honour because they
-select compression from the version their peer announces.
+Version 5 enables Snappy compression of every message payload after the
+Hello exchange. Compression is negotiated: it is only used when both
+sides advertise version 5 or higher, so a version 4 remote still gets
+an uncompressed connection.
 """
 
 ETH_VERSION = 69
@@ -135,11 +136,17 @@ def encode_hello(
     )
 
 
-def decode_hello(payload: bytes) -> Tuple[str, List[Tuple[str, int]]]:
-    """Return the remote client identifier and its capabilities."""
+def decode_hello(
+    payload: bytes,
+) -> Tuple[int, str, List[Tuple[str, int]]]:
+    """
+    Return the remote base protocol version, client identifier and
+    capabilities.
+    """
     fields = eth_rlp.decode(payload)
     if not isinstance(fields, list) or len(fields) < 3:
         raise ProtocolError("malformed Hello message")
+    version = int.from_bytes(bytes(fields[0]), "big")
     name = bytes(fields[1]).decode(errors="replace")
     capabilities = []
     for capability in fields[2]:
@@ -149,7 +156,7 @@ def decode_hello(payload: bytes) -> Tuple[str, List[Tuple[str, int]]]:
                 int.from_bytes(bytes(capability[1]), "big"),
             )
         )
-    return name, capabilities
+    return version, name, capabilities
 
 
 def decode_disconnect(payload: bytes) -> int:
