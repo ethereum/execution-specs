@@ -44,6 +44,11 @@ specification already publishes the settled top-level frame to a tracer
 when it emits `TransactionEnd`. The tracer installed by `run` keeps that
 frame instead of discarding it, which is why this needs no change to any
 fork.
+
+The same tracer answers the one question the warm sets cannot: which of
+their members the message *created*, those being warm for free and so
+not worth declaring. A frame running init code has no `code_address`,
+which is how it is recognized as it goes past.
 """
 
 from dataclasses import dataclass
@@ -342,7 +347,7 @@ class EthCall(Load):
         settled: List[Any] = []
         created: Set[Any] = set()
 
-        def keep_the_top_level_frame(
+        def keep_what_the_access_list_needs(
             evm: object, event: trace.TraceEvent
         ) -> None:
             if _frame_attribute(evm, "code_address") is None:
@@ -350,7 +355,7 @@ class EthCall(Load):
             if isinstance(event, trace.TransactionEnd):
                 settled.append(evm)
 
-        previous_tracer = trace.set_evm_trace(keep_the_top_level_frame)
+        previous_tracer = trace.set_evm_trace(keep_what_the_access_list_needs)
         try:
             result = self.fork.process_transaction(
                 block_env,
