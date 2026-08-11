@@ -13,6 +13,10 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
+from ...block_access_lists import (
+    BAL_BYTES_PER_STORAGE_KEY,
+    BAL_BYTES_PER_STORAGE_VALUE,
+)
 from ...fork_types import ExecutionGas, StateGas
 from ...state_tracker import (
     get_storage,
@@ -30,6 +34,8 @@ from ..gas import (
     charge_state_gas,
     check_gas,
     credit_state_gas_refund,
+    meter_bal_data,
+    refund_bal_data,
 )
 from ..stack import pop, push
 
@@ -54,6 +60,8 @@ def sload(evm: Evm) -> None:
     else:
         evm.accessed_storage_keys.add((evm.current_target, key))
         charge_gas(evm, GasCosts.COLD_STORAGE_ACCESS)
+        # The slot enters the block access list on this first access.
+        meter_bal_data(evm.tx_env, BAL_BYTES_PER_STORAGE_KEY)
 
     # OPERATION
     tx_state = evm.tx_env.state
@@ -111,6 +119,8 @@ def sstore(evm: Evm) -> None:
     # transaction's refunds.
     if is_cold_access:
         evm.accessed_storage_keys.add((evm.current_target, key))
+        # The slot enters the block access list on this first access.
+        meter_bal_data(evm.tx_env, BAL_BYTES_PER_STORAGE_KEY)
 
     tx_state = evm.tx_env.state
     original_value = get_storage_original(tx_state, evm.current_target, key)
@@ -148,6 +158,21 @@ def sstore(evm: Evm) -> None:
         if original_value == 0:
             # Slot set then cleared: refund the state gas charge.
             credit_state_gas_refund(evm.gas_meter, StateGasCosts.STORAGE_SET)
+
+    # BLOCK ACCESS LIST DATA
+    # The block access list holds one post value per changed slot, so
+    # the value bytes are counted while the slot differs from its
+    # pre-transaction value, and given back when a write restores it.
+    # Tracking which slots are counted keeps the count right when a
+    # frame that restored a slot reverts.
+    slot = (evm.current_target, key)
+    value_counted = slot in evm.tx_env.metered_storage_values
+    if new_value != original_value and not value_counted:
+        meter_bal_data(evm.tx_env, BAL_BYTES_PER_STORAGE_VALUE)
+        evm.tx_env.metered_storage_values.add(slot)
+    elif new_value == original_value and value_counted:
+        refund_bal_data(evm.tx_env, BAL_BYTES_PER_STORAGE_VALUE)
+        evm.tx_env.metered_storage_values.remove(slot)
 
     # Charge execution gas before state gas so that an execution-gas
     # OOG does not consume state gas that would inflate the parent's
