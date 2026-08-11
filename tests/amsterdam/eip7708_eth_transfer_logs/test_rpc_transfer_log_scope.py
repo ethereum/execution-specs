@@ -28,15 +28,13 @@ stored at all: the method's OpenRPC result schema is a `oneOf` that an
 empty array satisfies twice over.
 """
 
-from typing import Any, Dict, List
-
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
+    Environment,
     Op,
     Transaction,
     TransactionReceipt,
@@ -299,5 +297,227 @@ def test_rpc_omits_a_zero_value_transfer(
             )
         ],
         post={recipient: Account(balance=amount)},
+        rpc_checks=[transfer_log_query(1)],
+    )
+
+
+def test_rpc_omits_transfers_to_the_same_account(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    A transaction to its own sender and a `SELFDESTRUCT` to self.
+
+    "To a different account" qualifies three of the four bullets, which
+    makes this the one exclusion carried by the specification proper
+    rather than by the rationale, and the one a summary of the EIP is
+    likeliest to drop.
+
+    The `SELFDESTRUCT` is the interesting half. Before EIP-8246 a sweep to
+    self burned the balance, and a client might reasonably have logged
+    that as a movement; EIP-8246 is in this fork, so the balance simply
+    stays where it is. Nothing moves and nothing is destroyed, so there is
+    no movement to log under any reading — which is why the EIP says it
+    leaves the former burn edge case unspecified rather than ruling on it.
+    """
+    sender = pre.fund_eoa()
+    retained = 10**9
+    self_destructing = pre.deploy_contract(
+        Op.SELFDESTRUCT(Op.ADDRESS), balance=retained
+    )
+    recipient = pre.fund_eoa(amount=0)
+    amount = 10**9
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        to=sender,
+                        value=amount,
+                        expected_receipt=TransactionReceipt(logs=[]),
+                    ),
+                    Transaction(
+                        sender=sender,
+                        to=self_destructing,
+                        value=0,
+                        expected_receipt=TransactionReceipt(logs=[]),
+                    ),
+                    Transaction(
+                        sender=sender,
+                        to=recipient,
+                        value=amount,
+                        expected_receipt=TransactionReceipt(
+                            logs=[transfer_log(sender, recipient, amount)]
+                        ),
+                    ),
+                ]
+            )
+        ],
+        post={
+            recipient: Account(balance=amount),
+            # EIP-8246: the sweep to self destroys nothing.
+            self_destructing: Account(balance=retained),
+        },
+        rpc_checks=[transfer_log_query(1)],
+    )
+
+
+def test_rpc_omits_the_priority_fee_paid_to_the_coinbase(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    A priority fee to the coinbase, beside a logged `CALL` to the coinbase.
+
+    The two movements share a recipient and a block, and differ only in
+    how the ETH got there: one is a `CALL` the EVM executed, the other a
+    protocol-level credit made outside it. Only the first is on the EIP's
+    list, and the rationale gives the reason — fee logs would multiply the
+    log volume for an amount already derivable from the header and the
+    receipt.
+
+    Naming the coinbase as the `CALL` recipient is what makes the case
+    sharp. A client hooking every balance increase still produces one log
+    per movement, so it cannot pass by coincidence of address; it reports
+    two entries where the specification computes one.
+    """
+    coinbase = pre.fund_eoa(amount=0)
+    called_value = 10**9
+    caller = pre.deploy_contract(
+        Op.CALL(address=coinbase, value=called_value), balance=called_value
+    )
+    sender = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                fee_recipient=coinbase,
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        to=caller,
+                        value=0,
+                        # A priority fee has to be asked for: the default
+                        # transaction bids none, which would leave the
+                        # coinbase credit this test is about at zero.
+                        max_fee_per_gas=1000,
+                        max_priority_fee_per_gas=1000,
+                        expected_receipt=TransactionReceipt(
+                            logs=[
+                                transfer_log(caller, coinbase, called_value)
+                            ]
+                        ),
+                    )
+                ],
+            )
+        ],
+        post={},
+        rpc_checks=[transfer_log_query(1)],
+    )
+
+
+def test_rpc_omits_the_base_fee_burn(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    The base fee burn, beside a logged transfer in the same block.
+
+    Every block under EIP-1559 destroys ETH, and the burn has no
+    recipient at all, so a client inclined to log it has to invent one —
+    the zero address being the usual choice. Filtering only on the event
+    signature rather than on any participant means the expectation catches
+    that invention whatever address it names.
+
+    The genesis base fee is raised so that the block's own base fee, and
+    with it the burn, is far above the handful of wei the default leaves.
+    At that default a client that omitted the burn and one that logged a
+    negligible amount would be hard to tell apart.
+    """
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=0)
+    amount = 10**9
+
+    blockchain_test(
+        pre=pre,
+        genesis_environment=Environment(base_fee_per_gas=10**9),
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        to=recipient,
+                        value=amount,
+                        max_fee_per_gas=2 * 10**9,
+                        expected_receipt=TransactionReceipt(
+                            logs=[transfer_log(sender, recipient, amount)]
+                        ),
+                    )
+                ]
+            )
+        ],
+        post={recipient: Account(balance=amount)},
+        rpc_checks=[transfer_log_query(1)],
+    )
+
+
+def test_rpc_omits_a_withdrawal(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    A withdrawal, beside a logged transfer in the same block.
+
+    The rationale excludes withdrawals for a structural reason rather than
+    a volume one: a withdrawal belongs to no transaction, so there is no
+    receipt for its log to sit in and no natural point to emit it. That
+    makes it the exclusion a client is likeliest to get wrong in the
+    opposite direction, by attaching the log to whichever transaction
+    happens to be at hand.
+
+    The withdrawn ETH lands in an account nothing else touches, so the
+    derived balance for that account records that the movement really
+    happened. Absence of a log is then a statement about logging rather
+    than about the transfer having been skipped.
+    """
+    withdrawal_recipient = pre.fund_eoa(amount=0)
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=0)
+    amount = 10**9
+    # Withdrawal amounts are denominated in gwei, so this credits 1 ETH.
+    withdrawn_gwei = 10**9
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(
+                        sender=sender,
+                        to=recipient,
+                        value=amount,
+                        expected_receipt=TransactionReceipt(
+                            logs=[transfer_log(sender, recipient, amount)]
+                        ),
+                    )
+                ],
+                withdrawals=[
+                    Withdrawal(
+                        index=0,
+                        validator_index=0,
+                        address=withdrawal_recipient,
+                        amount=withdrawn_gwei,
+                    )
+                ],
+            )
+        ],
+        post={
+            recipient: Account(balance=amount),
+            withdrawal_recipient: Account(balance=withdrawn_gwei * 10**9),
+        },
         rpc_checks=[transfer_log_query(1)],
     )
