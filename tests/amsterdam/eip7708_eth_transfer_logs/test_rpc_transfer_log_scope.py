@@ -171,9 +171,7 @@ def test_rpc_logs_a_selfdestruct_transfer(
     """
     beneficiary = pre.fund_eoa(amount=0)
     swept = 10**9
-    contract = pre.deploy_contract(
-        Op.SELFDESTRUCT(beneficiary), balance=swept
-    )
+    contract = pre.deploy_contract(Op.SELFDESTRUCT(beneficiary), balance=swept)
     sender = pre.fund_eoa()
 
     blockchain_test(
@@ -186,9 +184,7 @@ def test_rpc_logs_a_selfdestruct_transfer(
                         to=contract,
                         value=0,
                         expected_receipt=TransactionReceipt(
-                            logs=[
-                                transfer_log(contract, beneficiary, swept)
-                            ]
+                            logs=[transfer_log(contract, beneficiary, swept)]
                         ),
                     )
                 ]
@@ -244,9 +240,7 @@ def test_rpc_logs_a_create_endowment(
                         to=factory,
                         value=0,
                         expected_receipt=TransactionReceipt(
-                            logs=[
-                                transfer_log(factory, created, endowment)
-                            ]
+                            logs=[transfer_log(factory, created, endowment)]
                         ),
                     )
                 ]
@@ -407,9 +401,7 @@ def test_rpc_omits_the_priority_fee_paid_to_the_coinbase(
                         max_fee_per_gas=1000,
                         max_priority_fee_per_gas=1000,
                         expected_receipt=TransactionReceipt(
-                            logs=[
-                                transfer_log(caller, coinbase, called_value)
-                            ]
+                            logs=[transfer_log(caller, coinbase, called_value)]
                         ),
                     )
                 ],
