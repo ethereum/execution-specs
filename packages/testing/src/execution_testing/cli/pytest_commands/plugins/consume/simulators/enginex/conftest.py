@@ -10,6 +10,7 @@ pre-alloc group.
 import io
 import json
 import logging
+import time
 from typing import TYPE_CHECKING, Generator, cast
 
 import pytest
@@ -98,6 +99,53 @@ def pytest_collection_modifyitems(
     logger.info("Sorted tests by pre-alloc group (largest first)")
 
 
+class _GroupDispatchTracker:
+    """
+    Per-worker (per-process) tracker of the idle time between test protocols.
+
+    The gap between the end of one test's run protocol and the start of the
+    next test's protocol is time the xdist worker spends waiting for the
+    controller (dispatch latency) at group boundaries. Small gaps may
+    instead be ordinary inter-protocol overhead (e.g. report submission):
+    the gap only equals dispatch latency when the worker's local item
+    queue is empty.
+    """
+
+    last_group: str | None = None
+    last_protocol_end: float | None = None
+
+
+def _xdist_group_name(item: pytest.Item) -> str | None:
+    """Return the xdist_group marker name of an item, if any."""
+    for marker in item.iter_markers("xdist_group"):
+        if "name" in marker.kwargs:
+            return marker.kwargs["name"]
+    return None
+
+
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_runtest_protocol(
+    item: pytest.Item, nextitem: pytest.Item | None
+) -> Generator[None, None, None]:
+    """Log a group-start marker with dispatch idle time at group boundaries."""
+    del nextitem
+
+    group = _xdist_group_name(item)
+    if group is not None and group != _GroupDispatchTracker.last_group:
+        if _GroupDispatchTracker.last_protocol_end is not None:
+            idle_ms = (
+                time.perf_counter() - _GroupDispatchTracker.last_protocol_end
+            ) * 1000
+            logger.info(
+                f"⏱ phase=group_start group={group} idle_ms={idle_ms:.1f}"
+            )
+        else:
+            logger.info(f"⏱ phase=group_start group={group}")
+        _GroupDispatchTracker.last_group = group
+    yield
+    _GroupDispatchTracker.last_protocol_end = time.perf_counter()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _configure_client_manager(
     multi_test_client_manager: "MultiTestClientManager",
@@ -169,9 +217,14 @@ def client(
         logger.info(f"♻️  Reusing client for group {group_identifier}")
     else:
         # Start new client; calculate genesis
+        serialize_start = time.perf_counter()
         genesis_bytes = json.dumps(client_genesis).encode("utf-8")
         buffered_genesis = io.BufferedReader(
             cast(io.RawIOBase, io.BytesIO(genesis_bytes))
+        )
+        logger.info(
+            f"⏱ phase=genesis_serialize group={group_identifier} "
+            f"ms={(time.perf_counter() - serialize_start) * 1000:.1f}"
         )
 
         logger.info(
@@ -179,6 +232,7 @@ def client(
             f"for group {group_identifier}"
         )
 
+        start_requested = time.perf_counter()
         with total_timing_data.time("Start client"):
             resolved_client = multi_test_hive_test.start_client(
                 client_type=client_type,
@@ -192,6 +246,13 @@ def client(
             "information."
         )
 
+        # The hive start-client API only returns once the client answers
+        # its liveness check, so this duration spans container creation,
+        # client boot and the check-live wait.
+        logger.info(
+            f"⏱ phase=client_start group={group_identifier} "
+            f"ms={(time.perf_counter() - start_requested) * 1000:.1f}"
+        )
         logger.info(
             f"Client ({client_type.name}) ready for group {group_identifier}"
         )
