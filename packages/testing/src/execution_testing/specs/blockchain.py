@@ -1464,11 +1464,21 @@ class BlockchainTest(BaseTest):
         header: FixtureHeader,
         alloc: Alloc | LazyAlloc,
         block_hashes: Dict[int, Hash],
+        forkchoice_tag: str | None = None,
     ) -> CallSite:
-        """Return the state and context a call naming `header` sees."""
+        """
+        Return the state and context a call naming `header` sees.
+
+        `forkchoice_tag` is passed only where the fixture asks a consumer
+        to declare it, since a call resolving `safe` or `finalized`
+        against a chain that never declared them would be resolving
+        against nothing.
+        """
         number = int(header.number)
         return CallSite(
             number=number,
+            block_hash=header.block_hash,
+            forkchoice_tag=forkchoice_tag,
             # A `MaterializedAlloc` is already in memory, so this is a
             # no-op on the in-process path; it is here for the backends
             # where the post-state is fetched rather than returned.
@@ -1625,7 +1635,10 @@ class BlockchainTest(BaseTest):
                 if self.emit_rpc_expectations and self.declares_a_call:
                     call_sites.append(
                         self.call_site_at(
-                            built_block.header, alloc, block_hashes
+                            built_block.header,
+                            alloc,
+                            block_hashes,
+                            forkchoice_tag=block.forkchoice_tag,
                         )
                     )
             else:

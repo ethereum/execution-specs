@@ -36,6 +36,8 @@ from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc.rpc_types import calculate_fork_id
 
 from .execution import (
+    EXECUTED_METHODS,
+    FORKCHOICE_TAGS,
     REVERT_ERROR_CODE,
     CallReplay,
     CallSite,
@@ -563,7 +565,10 @@ def _replayed_access_list_calls(
 
 
 def _estimate_expectation(
-    params: List[Any], outcome: EstimateOutcome
+    params: List[Any],
+    outcome: EstimateOutcome,
+    *,
+    round_trip: bool = False,
 ) -> FixtureRPCCall:
     """
     Return the expectation one gas estimate can honestly be stored as.
@@ -583,6 +588,7 @@ def _estimate_expectation(
         if bounds is None
         else FixtureRPCBounds(minimum=bounds[0], maximum=bounds[1]),
         assertion=outcome.assertion,
+        round_trip=round_trip,
     )
 
 
@@ -671,6 +677,7 @@ def _declared_calls(
         result = None
         params = check.params
         error_code = check.error_code
+        round_trip = _names_a_forkchoice_tag(check.method, check.params)
         assertion = (
             "schema" if getattr(check, "schema_only", False) else "exact"
         )
@@ -694,7 +701,9 @@ def _declared_calls(
                 # range rather than a value, so it cannot be poured into
                 # the same expectation the others are.
                 calls.append(
-                    _estimate_expectation(result.params, result.outcome)
+                    _estimate_expectation(
+                        result.params, result.outcome, round_trip=round_trip
+                    )
                 )
                 continue
         calls.append(
@@ -704,9 +713,29 @@ def _declared_calls(
                 error_code=error_code,
                 result=result,
                 assertion=assertion,
+                round_trip=round_trip,
             )
         )
     return calls
+
+
+def _names_a_forkchoice_tag(method: str, params: Sequence[Any]) -> bool:
+    """
+    Return whether a declared call resolves its block through forkchoice.
+
+    An answer at `safe` or `finalized` is only true because a consumer
+    told the client which block those names, so it is a round trip
+    rather than a derivation and a consumer that cannot make the
+    declaration must not be asked to assert it. The block reference is
+    the second parameter of every executed method, which is the same
+    assumption `_declared_message` makes.
+    """
+    if method not in EXECUTED_METHODS or len(params) < 2:
+        return False
+    reference = params[1]
+    if isinstance(reference, Mapping):
+        return False
+    return str(reference).lower() in FORKCHOICE_TAGS
 
 
 def _access_list_calls(
@@ -1369,15 +1398,6 @@ def _tag_calls(
         )
         calls.extend(_access_list_calls(block, tag))
     return calls
-
-
-FORKCHOICE_TAGS = ("safe", "finalized")
-"""
-The two block tags no chain can answer on its own.
-
-Ordered head-wards first, matching the order `latest`, `safe`, `finalized`
-walks back through the chain.
-"""
 
 
 def _forkchoice_tag_calls(
