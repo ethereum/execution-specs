@@ -214,6 +214,21 @@ def set_storage(
         del state._storage_tries[address]
 
 
+def destroy_storage(state: State, address: Address) -> None:
+    """
+    Discard every storage slot belonging to an account.
+
+    This is the wholesale counterpart to [`set_storage`], which can only
+    reach one slot at a time. Clearing an account that holds no storage
+    changes nothing, and the account itself survives: only the storage
+    trie hanging off it is dropped, so a subsequent read returns
+    `U256(0)` and the account's storage root reverts to the empty trie.
+
+    [`set_storage`]: ref:ethereum.state_mpt.set_storage
+    """
+    state._storage_tries.pop(address, None)
+
+
 def state_root(state: State) -> Root:
     """
     Compute the state root of the current state.

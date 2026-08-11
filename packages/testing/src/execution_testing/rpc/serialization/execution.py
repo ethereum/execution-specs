@@ -210,6 +210,24 @@ class CallSite:
     chain_id: int
     """The chain the fixture asks a consumer to configure."""
 
+    block_hash: Hash | None = None
+    """
+    The hash of the block, for a call that names one instead of a number.
+
+    Optional because a site assembled without one can still answer every
+    reference that is a number or a tag; a hash reference simply finds
+    nothing to match.
+    """
+
+    forkchoice_tag: str | None = None
+    """
+    The forkchoice tag this block was declared under, if any.
+
+    `safe` and `finalized` are not properties of a block — a consensus
+    layer says which block they name — so this is carried only where the
+    fixture actually asks a consumer to declare them.
+    """
+
     @property
     def gas_price(self) -> int:
         """
@@ -937,27 +955,126 @@ def _resolve_site(
     """
     Return the site a declared call's block parameter names.
 
-    Numbers and the two tags a chain determines are resolved; `safe` and
-    `finalized` are not, because no chain determines them — a consumer is
-    told what they are, and a value derived here would be guessing at the
-    harness rather than reading the chain.
+    The parameter is titled "Block number, tag, or block hash", and all
+    three forms are answered, plus [EIP-1898]'s object form of the last
+    two.
+
+    A **quantity** and the tags **`latest`** and **`earliest`** are read
+    off the chain directly. **`safe`** and **`finalized`** are not
+    properties of a block — a consensus layer says which block they name
+    — so they resolve only where the chain declared them, through
+    `Block.forkchoice_tag`; a chain that declared none has nothing to
+    resolve them to and says so. **`pending`** is refused outright: a
+    filled chain has no next block, and inventing one would be answering
+    a question about the client's mempool.
+
+    A **block hash** names the same block a number does when the chain is
+    a single canonical line, which a filled chain always is. EIP-1898's
+    `requireCanonical` therefore changes the error rather than the
+    answer: it asks for a failure where the hash names a block off the
+    canonical chain, and the only hashes not on this one are hashes this
+    chain has never heard of.
+
+    [EIP-1898]: https://eips.ethereum.org/EIPS/eip-1898
     """
     if not sites:
         raise UnrunnableCallError(
             f"{method} has no state to run against: the chain produced no "
             "block whose end state could be named"
         )
-    by_number = {site.number: site for site in sites}
+    if isinstance(reference, Mapping):
+        return _resolve_eip_1898(method, reference, sites)
+
     named = str(reference).lower()
     if named == "latest":
         return max(sites, key=lambda site: site.number)
     if named == "earliest":
         return min(sites, key=lambda site: site.number)
-    if named in BLOCK_TAGS_NO_CHAIN_DETERMINES:
+    if named == "pending":
         raise UnrunnableCallError(
-            f"{method} at {named!r} names a block no chain determines, so "
-            "there is no state to derive an answer from; name a number"
+            f"{method} at 'pending' names a block that does not exist: a "
+            "filled chain has a head and no next block, and what a client "
+            "would build is a property of its mempool rather than of the "
+            "chain"
         )
+    if named in FORKCHOICE_TAGS:
+        return _resolve_forkchoice_tag(method, named, sites)
+    if _looks_like_a_hash(named):
+        return _resolve_hash(method, named, sites, require_canonical=False)
+    return _resolve_number(method, reference, named, sites)
+
+
+FORKCHOICE_TAGS = ("safe", "finalized")
+"""
+The two block tags no chain can answer on its own.
+
+A consensus layer declares them, so they are resolvable here only where
+the fixture asks a consumer to declare them too, which is what
+`Block.forkchoice_tag` records.
+
+Ordered head-wards first, matching the order `latest`, `safe`,
+`finalized` walks back through the chain.
+"""
+
+BLOCK_TAGS_NO_CHAIN_DETERMINES = frozenset({"safe", "finalized", "pending"})
+"""
+Tags whose block the chain itself does not fix.
+
+Kept as the set the log filters refuse, which is a stricter rule than
+this module's: a filter names a *range* of blocks and there is nothing
+to interpolate a declared endpoint against.
+"""
+
+HASH_HEX_LENGTH = 66
+"""Characters in a `0x`-prefixed 32-byte hash."""
+
+
+def _looks_like_a_hash(named: str) -> bool:
+    """Return whether a string is a 32-byte hex value."""
+    return len(named) == HASH_HEX_LENGTH and named.startswith("0x")
+
+
+def _resolve_forkchoice_tag(
+    method: str, named: str, sites: Sequence[CallSite]
+) -> CallSite:
+    """Return the block a forkchoice tag was declared on."""
+    for site in sites:
+        if site.forkchoice_tag == named:
+            return site
+    raise UnrunnableCallError(
+        f"{method} at {named!r} names a block no consensus layer told "
+        f"this chain about; tag a block with forkchoice_tag={named!r} to "
+        f"say which one it is"
+    )
+
+
+def _resolve_hash(
+    method: str,
+    named: str,
+    sites: Sequence[CallSite],
+    *,
+    require_canonical: bool,
+) -> CallSite:
+    """Return the block a hash names, if this chain produced it."""
+    for site in sites:
+        if site.block_hash is not None and str(site.block_hash) == named:
+            return site
+    if require_canonical:
+        raise UnrunnableCallError(
+            f"{method} names block hash {named} and requires it to be "
+            f"canonical, but this chain does not have that block at all, "
+            f"so the requirement can only fail"
+        )
+    raise UnrunnableCallError(
+        f"{method} names block hash {named}, which this chain did not produce"
+    )
+
+
+def _resolve_number(
+    method: str, reference: Any, named: str, sites: Sequence[CallSite]
+) -> CallSite:
+    """Return the block a quantity names."""
+    by_number = {site.number: site for site in sites}
     try:
         number = int(named, 16)
     except ValueError as malformed:
@@ -973,13 +1090,31 @@ def _resolve_site(
     return by_number[number]
 
 
-BLOCK_TAGS_NO_CHAIN_DETERMINES = frozenset({"safe", "finalized", "pending"})
-"""
-Tags whose block a chain does not fix, so no state here can be named.
+def _resolve_eip_1898(
+    method: str, reference: Mapping[str, Any], sites: Sequence[CallSite]
+) -> CallSite:
+    """
+    Return the site an EIP-1898 block object names.
 
-`safe` and `finalized` are declared by a consensus layer and `pending` is
-a client's own view of what it might build next.
-"""
+    The object carries exactly one of `blockHash` and `blockNumber`, and
+    `requireCanonical` only accompanies the first.
+    """
+    block_hash = reference.get("blockHash")
+    block_number = reference.get("blockNumber")
+    if (block_hash is None) == (block_number is None):
+        raise UnrunnableCallError(
+            f"{method} block parameter {dict(reference)!r} must name "
+            "exactly one of blockHash and blockNumber"
+        )
+    if block_number is not None:
+        named = str(block_number).lower()
+        return _resolve_number(method, block_number, named, sites)
+    return _resolve_hash(
+        method,
+        str(block_hash).lower(),
+        sites,
+        require_canonical=bool(reference.get("requireCanonical", False)),
+    )
 
 
 @dataclass(frozen=True)
@@ -1172,6 +1307,7 @@ __all__ = [
     "CALL_STIPEND",
     "ESTIMATE_SEARCH_ROUNDS",
     "EXECUTED_METHODS",
+    "FORKCHOICE_TAGS",
     "BLOCK_TAGS_NO_CHAIN_DETERMINES",
     "CALL_GAS_LIMIT",
     "REVERT_ERROR_CODE",

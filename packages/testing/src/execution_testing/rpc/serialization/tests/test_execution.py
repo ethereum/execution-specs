@@ -1,6 +1,6 @@
 """Test the execution behind `eth_call` expectations."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pytest
 
@@ -29,7 +29,11 @@ MISSING = Address(0xABBA)
 HALTS = Address(0xBAD0)
 
 
-def make_site(number: int = 0, base_fee: int = 7) -> CallSite:
+def make_site(
+    number: int = 0,
+    base_fee: int = 7,
+    forkchoice_tag: str | None = None,
+) -> CallSite:
     """Return a site holding one funded sender and two contracts."""
     state = Alloc(
         {
@@ -58,6 +62,8 @@ def make_site(number: int = 0, base_fee: int = 7) -> CallSite:
         ),
         fork=Amsterdam,
         chain_id=1,
+        block_hash=Hash(0xB10C_0000 + number),
+        forkchoice_tag=forkchoice_tag,
     )
 
 
@@ -336,9 +342,9 @@ def test_a_declared_call_resolves_the_block_it_names(
 @pytest.mark.parametrize(
     "reference,message",
     [
-        pytest.param("safe", "no chain determines", id="safe"),
-        pytest.param("finalized", "no chain determines", id="finalized"),
-        pytest.param("pending", "no chain determines", id="pending"),
+        pytest.param("safe", "no consensus layer told", id="safe"),
+        pytest.param("finalized", "no consensus layer told", id="finalized"),
+        pytest.param("pending", "does not exist", id="pending"),
         pytest.param("0x9", "does not have", id="beyond_the_chain"),
         pytest.param("nonsense", "neither a quantity", id="malformed"),
     ],
@@ -350,11 +356,103 @@ def test_a_declared_call_refuses_a_block_it_cannot_resolve(
     A block with no state here derives nothing rather than guessing.
 
     `safe` and `finalized` are declared by a consensus layer rather than
-    fixed by a chain, so an answer computed for them would describe the
-    harness rather than the specification.
+    fixed by a chain, so a chain that tagged none of its blocks has
+    nothing to resolve them against. `pending` is refused outright: a
+    filled chain has no next block at all.
     """
     with pytest.raises(UnrunnableCallError, match=message):
         declared(reference)
+
+
+def _timestamp_reading_sites(
+    tags: Dict[int, str] | None = None,
+) -> tuple[List[CallSite], Address]:
+    """Return three sites whose only contract reports the timestamp."""
+    tags = tags or {}
+    sites = [
+        make_site(number, forkchoice_tag=tags.get(number))
+        for number in (0, 1, 2)
+    ]
+    reads_timestamp = Address(0x71E)
+    for site in sites:
+        site.state.root[reads_timestamp] = Account(
+            balance=0,
+            code=bytes(Op.MSTORE(0, Op.TIMESTAMP) + Op.RETURN(0, 32)),
+        )
+    return sites, reads_timestamp
+
+
+def _block_named(reference: Any, sites: List[CallSite], to: Address) -> int:
+    """Return the block number a declared call actually ran against."""
+    result = compute_declared_call(
+        [{"from": SENDER, "to": to}, reference], sites
+    )
+    return int(result.outcome.return_data, 16) - 1_000
+
+
+def test_a_declared_call_resolves_a_bare_block_hash() -> None:
+    """
+    A hash names the same block its number does.
+
+    The parameter is titled "Block number, tag, or block hash", and a
+    filled chain is a single canonical line, so the two forms cannot
+    disagree.
+    """
+    sites, reads_timestamp = _timestamp_reading_sites()
+    assert _block_named(str(sites[1].block_hash), sites, reads_timestamp) == 1
+
+
+def test_a_declared_call_resolves_an_eip_1898_hash() -> None:
+    """The object form of a hash resolves the same block the bare one does."""
+    sites, reads_timestamp = _timestamp_reading_sites()
+    reference = {"blockHash": str(sites[1].block_hash)}
+    assert _block_named(reference, sites, reads_timestamp) == 1
+
+
+def test_a_declared_call_resolves_an_eip_1898_number() -> None:
+    """The object form of a number resolves too."""
+    sites, reads_timestamp = _timestamp_reading_sites()
+    assert _block_named({"blockNumber": "0x2"}, sites, reads_timestamp) == 2
+
+
+def test_require_canonical_changes_the_error_not_the_answer() -> None:
+    """
+    The flag asks for a failure on a hash off the canonical chain.
+
+    Every block this chain produced is canonical, so a hash it does not
+    have is exactly the case the flag is about, and the refusal says so
+    rather than reporting a plain unknown block.
+    """
+    sites, _ = _timestamp_reading_sites()
+    stranger = str(Hash(0xDEAD))
+    with pytest.raises(UnrunnableCallError, match="requires it to be"):
+        declared({"blockHash": stranger, "requireCanonical": True})
+    with pytest.raises(UnrunnableCallError, match="did not produce"):
+        declared({"blockHash": stranger})
+    del sites
+
+
+def test_an_eip_1898_object_names_exactly_one_thing() -> None:
+    """Neither both forms at once nor neither of them is a reference."""
+    with pytest.raises(UnrunnableCallError, match="exactly one"):
+        declared({"blockNumber": "0x1", "blockHash": str(Hash(1))})
+    with pytest.raises(UnrunnableCallError, match="exactly one"):
+        declared({"requireCanonical": True})
+
+
+def test_a_forkchoice_tag_resolves_to_the_block_it_was_declared_on() -> None:
+    """
+    `safe` and `finalized` resolve where the chain declared them.
+
+    Not from the chain — nothing in a chain says which of its blocks are
+    safe — but from the tag a test put on a block, which is the same
+    declaration the consumer makes to the client.
+    """
+    sites, reads_timestamp = _timestamp_reading_sites(
+        {1: "finalized", 2: "safe"}
+    )
+    assert _block_named("finalized", sites, reads_timestamp) == 1
+    assert _block_named("safe", sites, reads_timestamp) == 2
 
 
 def test_a_declared_call_needs_no_key_for_its_sender() -> None:
