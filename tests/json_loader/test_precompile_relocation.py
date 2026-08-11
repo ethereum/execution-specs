@@ -1,6 +1,7 @@
 """Test relocating a precompile through the block environment."""
 
-from dataclasses import replace
+import importlib
+from dataclasses import MISSING, fields, replace
 from typing import Callable, Dict, Mapping, Optional
 
 import pytest
@@ -41,8 +42,28 @@ from ethereum.forks.frontier.vm.interpreter import (
 from ethereum.forks.frontier.vm.precompiled_contracts.mapping import (
     PRE_COMPILED_CONTRACTS as FRONTIER_PRE_COMPILED_CONTRACTS,
 )
+from ethereum.forks.osaka import vm as osaka_vm
+from ethereum.forks.osaka.state_tracker import (
+    BlockState as OsakaBlockState,
+)
+from ethereum.forks.osaka.state_tracker import (
+    TransactionState as OsakaTransactionState,
+)
+from ethereum.forks.osaka.transactions import (
+    LegacyTransaction as OsakaTransaction,
+)
+from ethereum.forks.osaka.utils.message import (
+    prepare_message as osaka_prepare_message,
+)
+from ethereum.forks.osaka.vm.interpreter import (
+    process_message_call as osaka_process_message_call,
+)
+from ethereum.forks.osaka.vm.precompiled_contracts.mapping import (
+    PRE_COMPILED_CONTRACTS as OSAKA_PRE_COMPILED_CONTRACTS,
+)
 from ethereum.state import EMPTY_CODE_HASH, Account, Address
 from ethereum.state_mpt import State, set_account
+from ethereum_spec_tools.forks import Hardfork
 
 # Somewhere no precompile has ever answered, and no account here lives.
 RELOCATED_ADDRESS = Address(bytes.fromhex("00" * 19 + "42"))
@@ -132,6 +153,68 @@ def call_frontier(
     return output.return_data
 
 
+def osaka_message(
+    target: Address,
+    precompiles: Optional[Mapping[Address, Callable]],
+) -> osaka_vm.Message:
+    """Prepare the top-level message a call to `target` runs as."""
+    block_state = OsakaBlockState(pre_state=funded_pre_state())
+    block_env = osaka_vm.BlockEnvironment(
+        chain_id=U64(1),
+        state=block_state,
+        block_gas_limit=Uint(30_000_000),
+        block_hashes=[],
+        coinbase=COINBASE,
+        number=Uint(1),
+        base_fee_per_gas=Uint(0),
+        time=U256(0),
+        prev_randao=Bytes32(b"\x00" * 32),
+        excess_blob_gas=U64(0),
+        parent_beacon_block_root=Hash32(b"\x00" * 32),
+    )
+    if precompiles is not None:
+        block_env = replace(block_env, precompiles=precompiles)
+    tx_env = osaka_vm.TransactionEnvironment(
+        origin=SENDER,
+        gas_price=Uint(0),
+        gas=GAS,
+        access_list_addresses=set(),
+        access_list_storage_keys=set(),
+        state=OsakaTransactionState(parent=block_state),
+        blob_versioned_hashes=(),
+        authorizations=(),
+        index_in_block=None,
+        tx_hash=None,
+    )
+    tx = OsakaTransaction(
+        nonce=U256(0),
+        gas_price=Uint(0),
+        gas=GAS,
+        to=target,
+        value=U256(0),
+        data=PAYLOAD,
+        v=U256(27),
+        r=U256(1),
+        s=U256(2),
+    )
+    return osaka_prepare_message(block_env, tx_env, tx)
+
+
+def call_osaka(
+    target: Address,
+    precompiles: Optional[Mapping[Address, Callable]],
+) -> Bytes:
+    """
+    Call `target` with `PAYLOAD` at Osaka and report what came back.
+
+    Pass `None` for `precompiles` to run the call exactly as consensus
+    execution runs it, taking the fork's own arrangement.
+    """
+    output = osaka_process_message_call(osaka_message(target, precompiles))
+    assert output.error is None
+    return output.return_data
+
+
 def call_amsterdam(
     target: Address,
     precompiles: Optional[Mapping[Address, Callable]],
@@ -185,13 +268,16 @@ def call_amsterdam(
     return output.return_data
 
 
-# Frontier reaches the mapping through `evm.message.block_env` and
-# Amsterdam, which has no `Message`, through `evm.block_env`; the two
-# shapes are the reason both are exercised here.
+# Three shapes of dispatch, one fork each: Frontier reaches the mapping
+# through `evm.message.block_env` and warms nothing; Osaka does the same
+# but warms the precompiles at the start of a transaction and can
+# disable them for a delegation; Amsterdam has no `Message` at all and
+# reaches the environment through `evm.block_env`.
 FORKS = [
     pytest.param(
         call_frontier, FRONTIER_PRE_COMPILED_CONTRACTS, id="frontier"
     ),
+    pytest.param(call_osaka, OSAKA_PRE_COMPILED_CONTRACTS, id="osaka"),
     pytest.param(
         call_amsterdam, AMSTERDAM_PRE_COMPILED_CONTRACTS, id="amsterdam"
     ),
@@ -258,3 +344,72 @@ def test_canonical_mapping_refuses_to_be_edited(
         canonical[RELOCATED_ADDRESS] = canonical[  # type: ignore[index]
             IDENTITY_ADDRESS
         ]
+
+
+def test_warming_follows_the_relocation() -> None:
+    """
+    A relocated precompile is warm where it answers, not where it left.
+
+    From Berlin on, a transaction starts with the precompile addresses
+    warm. That set is drawn from the same arrangement dispatch reads, so
+    the two cannot disagree about where a precompile is.
+    """
+    relocated = move_identity_to(
+        RELOCATED_ADDRESS, OSAKA_PRE_COMPILED_CONTRACTS
+    )
+    warm = osaka_message(SENDER, relocated).accessed_addresses
+
+    assert RELOCATED_ADDRESS in warm
+    assert IDENTITY_ADDRESS not in warm
+
+    canonical_warm = osaka_message(SENDER, None).accessed_addresses
+    assert IDENTITY_ADDRESS in canonical_warm
+    assert RELOCATED_ADDRESS not in canonical_warm
+
+
+ALL_FORKS = [
+    pytest.param(fork.short_name, id=fork.short_name)
+    for fork in Hardfork.discover()
+]
+
+
+@pytest.mark.parametrize("short_name", ALL_FORKS)
+def test_every_fork_carries_its_precompiles_on_the_environment(
+    short_name: str,
+) -> None:
+    """
+    Every fork hangs its precompiles off the block environment.
+
+    Each fork is a complete copy of its predecessor, so this is checked
+    by looking at all of them rather than by reading a few and trusting
+    the rest. The set of precompiles differs from fork to fork; the way
+    the environment reaches them does not.
+    """
+    fork = Hardfork.by_short_name(short_name)
+    vm = importlib.import_module(f"{fork.name}.vm")
+    mapping = importlib.import_module(
+        f"{fork.name}.vm.precompiled_contracts.mapping"
+    )
+    interpreter = importlib.import_module(f"{fork.name}.vm.interpreter")
+
+    defaults = {
+        field.name: field
+        for field in fields(vm.BlockEnvironment)
+        if field.name == "precompiles"
+    }
+    assert defaults, "BlockEnvironment has no precompiles field"
+    factory = defaults["precompiles"].default_factory
+    assert factory is not MISSING, "the precompiles field has no default"
+    assert factory() is mapping.PRE_COMPILED_CONTRACTS
+
+    with pytest.raises(TypeError):
+        mapping.PRE_COMPILED_CONTRACTS[RELOCATED_ADDRESS] = None
+
+    # Nothing dispatches off the module global any more, so there is one
+    # arrangement in play and the environment names it.
+    assert not hasattr(interpreter, "PRE_COMPILED_CONTRACTS")
+    try:
+        message = importlib.import_module(f"{fork.name}.utils.message")
+    except ModuleNotFoundError:
+        return
+    assert not hasattr(message, "PRE_COMPILED_CONTRACTS")

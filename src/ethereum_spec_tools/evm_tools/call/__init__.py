@@ -320,10 +320,11 @@ class EthCall(Load):
 
         # A message rejected before its frame was built emits no
         # `TransactionEnd`, having no frame to report; it touched nothing.
+        # The precompiles come off the environment the message ran in
+        # rather than off the fork, so a message that rearranged them
+        # is measured against the arrangement it actually saw.
         access_list = (
-            declarable_access_list(
-                settled[-1], set(self.fork.PRE_COMPILED_CONTRACTS)
-            )
+            declarable_access_list(settled[-1], set(block_env.precompiles))
             if settled
             else ()
         )

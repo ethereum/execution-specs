@@ -11,7 +11,8 @@ Introduction
 Mapping of precompiled contracts to their implementations.
 """
 
-from typing import Callable, Dict
+from types import MappingProxyType
+from typing import Callable, Mapping
 
 from ethereum.state import Address
 
@@ -56,23 +57,35 @@ from .point_evaluation import point_evaluation
 from .ripemd160 import ripemd160
 from .sha256 import sha256
 
-PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
-    ECRECOVER_ADDRESS: ecrecover,
-    SHA256_ADDRESS: sha256,
-    RIPEMD160_ADDRESS: ripemd160,
-    IDENTITY_ADDRESS: identity,
-    MODEXP_ADDRESS: modexp,
-    ALT_BN128_ADD_ADDRESS: alt_bn128_add,
-    ALT_BN128_MUL_ADDRESS: alt_bn128_mul,
-    ALT_BN128_PAIRING_CHECK_ADDRESS: alt_bn128_pairing_check,
-    BLAKE2F_ADDRESS: blake2f,
-    POINT_EVALUATION_ADDRESS: point_evaluation,
-    BLS12_G1_ADD_ADDRESS: bls12_g1_add,
-    BLS12_G1_MSM_ADDRESS: bls12_g1_msm,
-    BLS12_G2_ADD_ADDRESS: bls12_g2_add,
-    BLS12_G2_MSM_ADDRESS: bls12_g2_msm,
-    BLS12_PAIRING_ADDRESS: bls12_pairing,
-    BLS12_MAP_FP_TO_G1_ADDRESS: bls12_map_fp_to_g1,
-    BLS12_MAP_FP2_TO_G2_ADDRESS: bls12_map_fp2_to_g2,
-    P256VERIFY_ADDRESS: p256verify,
-}
+PRE_COMPILED_CONTRACTS: Mapping[Address, Callable] = MappingProxyType(
+    {
+        ECRECOVER_ADDRESS: ecrecover,
+        SHA256_ADDRESS: sha256,
+        RIPEMD160_ADDRESS: ripemd160,
+        IDENTITY_ADDRESS: identity,
+        MODEXP_ADDRESS: modexp,
+        ALT_BN128_ADD_ADDRESS: alt_bn128_add,
+        ALT_BN128_MUL_ADDRESS: alt_bn128_mul,
+        ALT_BN128_PAIRING_CHECK_ADDRESS: alt_bn128_pairing_check,
+        BLAKE2F_ADDRESS: blake2f,
+        POINT_EVALUATION_ADDRESS: point_evaluation,
+        BLS12_G1_ADD_ADDRESS: bls12_g1_add,
+        BLS12_G1_MSM_ADDRESS: bls12_g1_msm,
+        BLS12_G2_ADD_ADDRESS: bls12_g2_add,
+        BLS12_G2_MSM_ADDRESS: bls12_g2_msm,
+        BLS12_PAIRING_ADDRESS: bls12_pairing,
+        BLS12_MAP_FP_TO_G1_ADDRESS: bls12_map_fp_to_g1,
+        BLS12_MAP_FP2_TO_G2_ADDRESS: bls12_map_fp2_to_g2,
+        P256VERIFY_ADDRESS: p256verify,
+    }
+)
+"""
+The precompiled contracts of this fork, keyed by the address each one
+answers at.
+
+The mapping is read-only. An execution that wants a different
+arrangement -- a precompile moved elsewhere, or withheld entirely --
+hands its own mapping to the block environment rather than editing this
+one, so the rearrangement cannot outlive the execution that asked for
+it.
+"""
