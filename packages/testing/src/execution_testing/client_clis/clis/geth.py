@@ -138,6 +138,9 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             r"invalid gasUsed: have \d+, gasLimit \d+"
         ),
+        BlockException.INVALID_GAS_USED: (
+            r"invalid gas used \(remote: \d+ local: \d+\)"
+        ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             r"invalid requests hash|failed to parse deposit logs"
         ),
