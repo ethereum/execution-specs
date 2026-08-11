@@ -43,7 +43,6 @@ from ..state_tracker import (
 )
 from ..vm import Message
 from ..vm.gas import GasCosts, charge_gas
-from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm
 from .exceptions import (
     AddressCollision,
@@ -254,9 +253,11 @@ def process_message(message: Message) -> Evm:
         )
 
     try:
-        if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            evm_trace(evm, PrecompileStart(evm.message.code_address))
-            PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+        precompiles = evm.message.block_env.precompiles
+        code_address = evm.message.code_address
+        if code_address is not None and code_address in precompiles:
+            evm_trace(evm, PrecompileStart(code_address))
+            precompiles[code_address](evm)
             evm_trace(evm, PrecompileEnd())
         else:
             while evm.running and evm.pc < ulen(evm.code):
