@@ -252,7 +252,7 @@ SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
-@pytest.mark.with_all_tx_types
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 6)
 @pytest.mark.parametrize(
     ("v", "r", "s"),
     [

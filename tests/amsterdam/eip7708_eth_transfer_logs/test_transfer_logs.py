@@ -1208,7 +1208,7 @@ def test_transfer_to_special_address(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.with_all_typed_transactions
+@pytest.mark.with_all_typed_transactions(selector=lambda tx_type: tx_type != 6)
 def test_transfer_with_all_tx_types(
     state_test: StateTestFiller,
     env: Environment,

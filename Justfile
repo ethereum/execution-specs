@@ -21,9 +21,6 @@ evm_bin := env("EVM_BIN", "evm")
 # Bogota`. Fold ``Bogota`` into the range once it is a real fork.
 latest_fork := "Amsterdam"
 
-# Test paths filled by `just fill`, overridable so CI can narrow the run.
-fill_paths := env("FILL_PATHS", "tests")
-
 # Last fork filled by the integration test recipes, overridable so CI can
 # stop short of the fork under development.
 fill_until := env("FILL_UNTIL", latest_fork)
@@ -151,7 +148,7 @@ fill *args: (_tmp-logs "fill")
         --until "{{ latest_fork }}" \
         --durations=50 \
         "$@" \
-        {{ fill_paths }}
+        tests
 
 # Callers append the feature params, fork range and output; last flag wins.
 # Fill fixtures with the flags shared by all fixture releases
