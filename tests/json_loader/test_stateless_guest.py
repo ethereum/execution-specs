@@ -7,8 +7,6 @@ import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, Bytes48, Bytes96
 from ethereum_types.numeric import U16, U64, U256, Uint
-from remerkleable.complex import List as SszList
-from remerkleable.progressive import ProgressiveList
 
 from ethereum.crypto.hash import Hash32
 from ethereum.forks.amsterdam.block_access_lists import BlockAccessList
@@ -50,13 +48,10 @@ from ethereum.forks.amsterdam.stateless_ssz import (
     MAX_BYTES_PER_HEADER,
     MAX_BYTES_PER_WITNESS_NODE,
     MAX_WITNESS_HEADERS,
-    PUBLIC_KEY_BYTES,
     STATELESS_INPUT_SCHEMA_FORK_INDEX,
     STATELESS_INPUT_SCHEMA_ID,
     STATELESS_INPUT_SCHEMA_ID_BYTES,
     STATELESS_INPUT_SCHEMA_REVISION,
-    SszExecutionWitness,
-    SszStatelessInput,
     stateless_input_to_ssz,
 )
 from ethereum.forks.amsterdam.transactions import LegacyTransaction
