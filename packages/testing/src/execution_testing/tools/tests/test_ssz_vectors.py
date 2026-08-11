@@ -16,8 +16,8 @@ import yaml
 
 from execution_testing.base_types import Address, Bytes, Hash
 from execution_testing.base_types.ssz import (
-    SszForkSchema,
-    SszModel,
+    SSZForkSchema,
+    SSZModel,
     Uint64,
     Uint256,
     byte_list,
@@ -44,7 +44,7 @@ MAX_BYTES_PER_TX = 2**30
 MAX_WITHDRAWALS = 16
 
 
-class Withdrawal(SszModel):
+class Withdrawal(SSZModel):
     """A withdrawal container."""
 
     index: Uint64
@@ -53,7 +53,7 @@ class Withdrawal(SszModel):
     amount: Uint64
 
 
-class Payload(SszModel):
+class Payload(SSZModel):
     """A container with a byte-list, a capped list, and a nested list."""
 
     parent_hash: Hash
@@ -66,7 +66,7 @@ class Payload(SszModel):
     withdrawals: Annotated[List[Withdrawal], ssz_list(MAX_WITHDRAWALS)]
 
 
-class ForkedPayload(SszModel):
+class ForkedPayload(SSZModel):
     """A fork-scoped model, for the generator's fork axis."""
 
     parent_hash: Hash
@@ -75,14 +75,14 @@ class ForkedPayload(SszModel):
         Annotated[List[Withdrawal], ssz_list(MAX_WITHDRAWALS)] | None
     ) = None
 
-    __ssz_schema__ = SszForkSchema(
+    __ssz_schema__ = SSZForkSchema(
         base_fork="Paris",
         base=("parent_hash", "block_number"),
         appended={"Shanghai": ("withdrawals",)},
     )
 
 
-def assert_roundtrip(model: SszModel) -> None:
+def assert_roundtrip(model: SSZModel) -> None:
     """Reusable harness: encode -> decode reconstructs the SSZ value."""
     restored = decode(type(model), encode(model))
     assert encode(restored) == encode(model)
@@ -221,7 +221,7 @@ def test_chaos_redraws_modes() -> None:
 
 @pytest.mark.parametrize("name", list(Payload.model_fields))
 def test_random_value_covers_field_spec(name: str) -> None:
-    """random_value handles every SszType the test containers use."""
+    """random_value handles every SSZType the test containers use."""
     rng = random.Random(1)
     value = random_value(
         rng, spec_of(Payload, name), RandomizationMode.mode_random
@@ -287,7 +287,7 @@ def test_duplicate_vector_targets_rejected(tmp_path: Path) -> None:
     """Two distinct same-named models cannot share an output directory."""
 
     def make_dup() -> type:
-        class Withdrawal(SszModel):  # same __name__, different class
+        class Withdrawal(SSZModel):  # same __name__, different class
             a: Uint64
 
         return Withdrawal
