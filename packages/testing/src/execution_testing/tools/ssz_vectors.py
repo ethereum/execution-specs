@@ -31,20 +31,20 @@ from typing import (
 import yaml
 
 from execution_testing.base_types.ssz import (
-    SszBitlist,
-    SszBitvector,
-    SszBool,
-    SszByteList,
-    SszByteVector,
-    SszContainer,
-    SszList,
-    SszModel,
-    SszProgressiveBitlist,
-    SszProgressiveContainer,
-    SszProgressiveList,
-    SszType,
-    SszUint,
-    SszVector,
+    SSZBitlist,
+    SSZBitvector,
+    SSZBool,
+    SSZByteList,
+    SSZByteVector,
+    SSZContainer,
+    SSZList,
+    SSZModel,
+    SSZProgressiveBitlist,
+    SSZProgressiveContainer,
+    SSZProgressiveList,
+    SSZType,
+    SSZUint,
+    SSZVector,
     encode,
     hash_tree_root,
     spec_of,
@@ -56,7 +56,7 @@ MAX_BYTES_LENGTH = 1000
 
 RANDOM_CASE_COUNT = 30
 
-_M = TypeVar("_M", bound=SszModel)
+_M = TypeVar("_M", bound=SSZModel)
 
 _MODE_NAMES = (
     "random",
@@ -147,7 +147,7 @@ def _bitlist_length(
 
 def random_value(
     rng: random.Random,
-    spec: SszType,
+    spec: SSZType,
     mode: RandomizationMode,
     *,
     max_bytes_length: int = MAX_BYTES_LENGTH,
@@ -158,12 +158,12 @@ def random_value(
     Build a pydantic value of spec filled with random data per mode.
 
     A port of the consensus-specs get_random_ssz_object, branching on the
-    engine's SszType descriptors. With chaos, the mode is re-drawn at every
+    engine's SSZType descriptors. With chaos, the mode is re-drawn at every
     level of the value tree.
     """
     if chaos:
         mode = rng.choice(list(RandomizationMode))
-    if isinstance(spec, SszByteList):
+    if isinstance(spec, SSZByteList):
         if mode == RandomizationMode.mode_nil_count:
             return b""
         if mode == RandomizationMode.mode_max_count:
@@ -177,41 +177,41 @@ def random_value(
         return _random_bytes(
             rng, rng.randint(0, min(max_bytes_length, spec.limit))
         )
-    if isinstance(spec, SszByteVector):
+    if isinstance(spec, SSZByteVector):
         # Byte vectors are fixed length; no max-bytes cap applies.
         if mode == RandomizationMode.mode_zero:
             return b"\x00" * spec.length
         if mode == RandomizationMode.mode_max:
             return b"\xff" * spec.length
         return _random_bytes(rng, spec.length)
-    if isinstance(spec, SszUint):
+    if isinstance(spec, SSZUint):
         if mode == RandomizationMode.mode_zero:
             return 0
         if mode == RandomizationMode.mode_max:
             return (1 << spec.bits) - 1
         return rng.randint(0, (1 << spec.bits) - 1)
-    if isinstance(spec, SszBool):
+    if isinstance(spec, SSZBool):
         if mode == RandomizationMode.mode_zero:
             return False
         if mode == RandomizationMode.mode_max:
             return True
         return bool(rng.getrandbits(1))
-    if isinstance(spec, SszBitvector):
+    if isinstance(spec, SSZBitvector):
         # Bit vectors are fixed length; no cap applies.
         return _bits(rng, spec.length, mode)
-    if isinstance(spec, SszBitlist):
+    if isinstance(spec, SSZBitlist):
         # Consensus caps bit lists by the LIST cap, not the byte cap.
         cap = min(max_list_length, spec.limit)
         length = _bitlist_length(rng, cap, mode)
         return _bits(rng, length, mode)
-    if isinstance(spec, SszProgressiveBitlist):
+    if isinstance(spec, SSZProgressiveBitlist):
         # Progressive bit lists are uncapped; the list cap bounds them.
         length = _bitlist_length(rng, max_list_length, mode)
         return _bits(rng, length, mode)
-    if isinstance(spec, (SszList, SszProgressiveList)):
+    if isinstance(spec, (SSZList, SSZProgressiveList)):
         # Progressive lists are uncapped; the list cap bounds them.
         limit = max_list_length
-        if isinstance(spec, SszList) and spec.limit < limit:
+        if isinstance(spec, SSZList) and spec.limit < limit:
             limit = spec.limit
         length = rng.randint(0, limit)
         if mode == RandomizationMode.mode_one_count:
@@ -233,7 +233,7 @@ def random_value(
             )
             for _ in range(length)
         ]
-    if isinstance(spec, SszVector):
+    if isinstance(spec, SSZVector):
         return [
             random_value(
                 rng,
@@ -245,7 +245,7 @@ def random_value(
             )
             for _ in range(spec.length)
         ]
-    if isinstance(spec, (SszContainer, SszProgressiveContainer)):
+    if isinstance(spec, (SSZContainer, SSZProgressiveContainer)):
         return random_model(
             rng,
             spec.model,
@@ -288,7 +288,7 @@ def random_model(
     )
 
 
-def make_case(model: SszModel, fork: Optional[str] = None) -> VectorCase:
+def make_case(model: SSZModel, fork: Optional[str] = None) -> VectorCase:
     """Turn a model instance into its ssz_static case triple."""
     return VectorCase(
         value=model.model_dump(mode="json", exclude_none=True),
@@ -331,17 +331,17 @@ def suite_plan(
     return plan
 
 
-ModelSpec = Union[Type[SszModel], Tuple[Type[SszModel], str]]
+ModelSpec = Union[Type[SSZModel], Tuple[Type[SSZModel], str]]
 
 
 def _normalize_models(
     models: Sequence[ModelSpec],
-) -> List[Tuple[Type[SszModel], Optional[str]]]:
+) -> List[Tuple[Type[SSZModel], Optional[str]]]:
     """Normalize entries to (model, fork) and reject output collisions."""
-    entries: List[Tuple[Type[SszModel], Optional[str]]] = [
+    entries: List[Tuple[Type[SSZModel], Optional[str]]] = [
         m if isinstance(m, tuple) else (m, None) for m in models
     ]
-    seen: Dict[Tuple[str, Optional[str]], Type[SszModel]] = {}
+    seen: Dict[Tuple[str, Optional[str]], Type[SSZModel]] = {}
     for model_cls, fork in entries:
         key = (model_cls.__name__, fork)
         other = seen.setdefault(key, model_cls)
