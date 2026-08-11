@@ -292,7 +292,6 @@ def test_transactions_without_access_list(
     )
 
 
-@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
