@@ -54,9 +54,65 @@ so a failure is attributable.
 
 ## Ordered steps
 
-Do them roughly in this order. Earlier steps unblock later ones (notably: max
-out gas *before* strengthening post-state, so added opcodes don't hit a gas
-ceiling).
+Do them roughly in this order. Earlier steps unblock later ones (notably: audit
+the bytecode *before* touching gas, since restoring elided opcodes moves the
+budget; and max out gas *before* strengthening post-state, so added opcodes
+don't hit a gas ceiling).
+
+### 0. Audit the bytecode against its `# Source: yul` comment
+The `# Source: yul` blocks are the *filler's* source; the bytecode beside them is
+what **solc emitted**, and the optimizer is free to delete operations the test
+depends on. A port that faithfully reproduces the compiled bytecode therefore
+faithfully reproduces the *hole* the optimizer left. Do this **first** —
+restoring elided operations changes gas, so it must precede any budget work
+(steps 2 / 10).
+
+**The canonical fold: a self-cancelling `SSTORE` pair.** Refund tests set a slot
+then clear it (`sstore(k, 1); sstore(k, 0)`) to earn a refund. In a fresh
+`CREATE` frame slot `k` is already zero, so solc folds the pair down to
+`sstore(k, 0)` — a no-op that generates **no refund at all**, leaving the test
+vacuous while still passing. Validated on `test_create_oog_from_call_refunds`,
+where 2 of 24 init codes had lost their `sstore(1, 1)`: the OoG arms assert the
+sender's balance reaches exactly zero, which *is* the "refund earned inside a
+reverted frame must be discarded" check — and it was asserting nothing.
+
+**How to check.** Disassemble every bytecode blob and diff it against the comment
+above it. Comparing opcode *counts* per mnemonic (`sstore(` in the Yul vs.
+`SSTORE` in the asm) catches the whole class in one pass. A throwaway script that
+`ast`-parses the test, `eval`s each `Op...` assignment against a namespace of the
+test's constants, and walks `bytes(...)` through a `PUSH*`-aware opcode table is
+enough — there is no disassembler in `execution_testing`.
+
+**Tells in the ported source.** Dense `DUP`/`SWAP` juggling
+(`Op.SSTORE(key=Op.DUP2, value=Op.DUP2)`, a bare `Op.PUSH1[0x1] + Op.PUSH1[0x0]`
+prologue, a trailing argument-less `Op.RETURN`) is solc's stack reuse — the shape
+most likely to hide a fold, and unreadable regardless. Rewrite those from the Yul
+into explicit `Op.SSTORE(key=..., value=...)` / `Op.RETURN(offset=..., size=...)`
+form: it restores the intent and makes the next audit trivial.
+
+**Benign deviations — do not "fix" them.** solc drops a `POP` before a terminator
+(`pop(call(...)); return(0, 1)` compiles without the `POP`, as `RETURN` ignores
+leftover stack) and encodes repeated literal zeros as `DUP1` chains
+(`Op.CALL(..., args_offset=Op.DUP1, ...)`). Both are semantically identical to
+the Yul. Only a **missing or added state-changing operation** is a real
+deviation.
+
+**Expect to re-budget afterwards.** Restoring an elided op adds its cost — a
+zero->non-zero `SSTORE` is ~22.1k pre-EIP-8037 and ~97.9k of *state* gas on
+Amsterdam — so a test with a hardcoded `gas_limit` may now OOG. That is usually
+not a regression you introduced: it reveals that the sibling cases which never
+lost their op were *already* failing on the future fork for the same reason.
+Establish this before re-budgeting by copying the pre-change file aside under a
+different test name, filling both, and diffing the failure sets — in the
+validated case that separated 12 pre-existing Amsterdam failures from the 3 the
+fix added.
+
+**Verify the restoration is observable, not merely green.** Fill before and
+after and reconcile the gas delta. Above, consumption moved 77731 -> 97857 (the
+added cold `SSTORE`, minus the reset dropping to a warm 100) and the 19900 refund
+was capped by EIP-3529 at `97857 // 5 = 19571`, giving the reported 78286 exactly.
+A delta you cannot account for means the rewrite changed the program (see
+"Re-pinning" below).
 
 ### 1. Remove `env`
 Delete the `Environment(...)` block, the `env=env` arg to `state_test`, and any
@@ -265,7 +321,9 @@ verifies anything. Improve coupling and observability:
   note the restoration in the `@manually-enhanced` line. Validated on
   `test_deleagate_call_after_value_transfer` (DELEGATECALL preserves the
   enclosing frame's value). Read the test's *name and source comment* against
-  what it actually checks; the gap is the enhancement.
+  what it actually checks; the gap is the enhancement. The compiler-optimized
+  init code of step 0 is the same family, one level down: there the *bytecode*
+  stopped matching the scenario its own Yul comment describes.
 
 ### 9. Introduce variables that encode relationships
 Whenever a literal carries intent or two literals are logically linked, lift them
@@ -293,6 +351,23 @@ ties a `CREATE`'s `size` operand to the memory/gas math that depends on it.
   call_value`, `callee: INITIAL + call_value`). Only reach for the "derive the
   fee formula" machinery above when the fee itself is the observable. Validated
   on `test_make_money`.
+- **A budget bounded on *both* sides needs a guard, not just a comment.** When a
+  test's OOG mechanism is itself gas-priced — the classic being an oversized code
+  deposit, `return(0, 5000)` — raising `gas_limit` to fit the *successful* cases
+  can quietly fund the *failing* ones, flipping them to success. That direction
+  fails silently, because a passing test is the failure mode. Name the quantity
+  (`oversized_code_size = 5000`), feed it to both the `Op.RETURN` operands and a
+  guard: `assert tx_gas[g] < oversized_code_size *
+  fork.gas_costs().CODE_DEPOSIT_PER_BYTE`. That constant is the last-resort form
+  (see step 10's `code_deposit_size` note); it is legitimate *here* only because
+  it understates the deposit on 8037 forks, keeping an "is this unaffordable?"
+  guard conservative. Prefer `Op.RETURN`'s metadata whenever the comparison can
+  be expressed against the init code's own `gas_cost(fork)`. Couple the sender's
+  balance to the budget in
+  the same breath — `balance=tx_gas[g] * tx_gas_price` — whenever the post asserts
+  it reaches exactly zero; a hardcoded `0x3D0900` silently desyncs the moment the
+  budget moves, and "burned the whole allowance" stops meaning anything. Validated
+  on `test_create_oog_from_call_refunds`.
 
 ### 10. (Gas-subject / gas-snapshot tests) Replace hardcoded gas with dynamic calculation
 Covers both tests that *assert* a gas amount and the dominant broken-port
@@ -379,6 +454,17 @@ to intrinsic) and assert `code.gas_cost(fork)`. A legacy `[[0]](GAS) …
 operation (e.g. a `CREATE`); collapse it to a single `CodeGasMeasure` around that
 op and drop both raw slots. Validated on the `CREATE_EmptyContract*` family.
 
+**Look for opcode metadata before hand-rolling a gas formula.** Opcodes carry
+kwargs that fold fork-dependent charges into `gas_cost(fork)` — `Op.RETURN`'s
+`code_deposit_size`, `Op.CREATE`'s `init_code_size`/`new_memory_size`,
+`Op.CALL`'s `address_warm`/`value_transfer`/`account_new`, `Op.SSTORE`'s
+`key_warm`/`original_value`/`new_value`. A formula assembled out of
+`fork.gas_costs()` constants has to be re-audited at every repricing; the
+metadata tracks it for you. Check the opcode's `Metadata` docstring block in
+`packages/testing/src/execution_testing/vm/opcodes.py` before reaching for
+constants — a `fork.gas_costs()` reference in a derivation is a smell that the
+metadata was missed.
+
 **Decompose the constant empirically** when no single helper applies (throwaway
 script against the fork): pin each term to the known-good number, then assemble.
 Map terms to fork-derived helpers: opcode base+pushes → `bytecode.gas_cost(fork)`;
@@ -440,11 +526,69 @@ persists with the sentinel) plus the callee-side observable already
 separate the outcomes. Validated on
 `test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided`.
 
-**Refund-cap derivations need the EIP-7623 kwarg.** The EIP-3529 cap's
-base is the gas deducted before execution, which excludes the calldata
-floor: pass `return_cost_deducted_prior_execution=True` to the intrinsic
-calculator whenever the tx has calldata, or the derived `executed` (and
-the cap) overstate. Validated on `test_refund_suicide50procent_cap`.
+**Any *exact* budget off the intrinsic calculator needs the EIP-7623
+kwarg.** `transaction_intrinsic_cost_calculator()` returns `max(intrinsic,
+calldata_floor)`, but the floor is only compared against *after* execution —
+it is never deducted up front. So whenever the derived number stands for
+"gas taken before the first opcode" — a one-gas OOG boundary, an exact
+success budget, an EIP-3529 refund cap — pass
+`return_cost_deducted_prior_execution=True` if the transaction carries
+calldata. **The bug hides until an EIP-7981 fork:** the delta is 0 from
+Berlin through Osaka and 238 on Amsterdam for a 5-byte creation payload, so
+a boundary tuned without the kwarg passes on every fork that exists today
+and silently goes slack on the future one — and the symptom is an *OOG arm
+that stops OOG-ing*, i.e. a test that fails only once someone runs
+`--fork Amsterdam`.
+**Keep the default (no kwarg) when the number is a validity floor** rather
+than an execution budget: a tx whose `gas_limit` falls below
+`max(intrinsic, floor)` is rejected outright, which is a different outcome
+from running out of gas.
+Validated on `test_refund_suicide50procent_cap` and
+`test_transaction_collision_to_empty2`, whose OOG arm had been loosened to
+"half the store's cost" to work around this, with a comment misattributing
+it to a pre-Shanghai init-code word cost.
+
+**Read the trace when a derived budget does not line up.** `fill --traces
+--evm-dump-dir <dir>` writes, per transaction, `input/txs.json`,
+`output/result.json` and a `trace-*.jsonl`. Subtracting the first trace
+entry's `gas` from the tx `gas` gives the intrinsic the EVM *actually*
+charged, which is what settles a disagreement with any calculator; on
+EIP-8037 forks the per-step `gasCost`/`stateGasCost` split shows where a
+composite's cost really lands. Far faster than bisecting `gas_limit` by
+re-filling, and it produced the 238 above in one run.
+
+**Gates are not costs, and `gas_cost()` only knows costs.** Several EVM
+rules are *preconditions on `gas_left`* rather than charges, so a budget
+derived from `gas_cost(fork)` is exactly right and still too small. The
+canonical one is EIP-2200 (Istanbul+): **any** `SSTORE` halts when it runs
+with `CALL_STIPEND` (2300) gas or less still available — including a
+100-gas dirty-warm rewrite. No amount of fixing `_calculate_sstore*` can
+express that, because it is not part of the price.
+
+*Tell it apart in a trace:* a gated halt shows `gasCost: 0x0` next to an
+`error`, while a genuine can't-afford shows the real cost. `SSTORE
+gas_left=2300 cost=0 OutOfGasError` is the signature.
+
+*Derive the headroom instead of padding.* The **last** gated op is the one
+running closest to empty, so it sets the requirement:
+```
+last_charge = Op.SSTORE(key_warm=True, original_value=…, current_value=…,
+                        new_value=…).gas_cost(fork)   # bare `55`, no PUSHes
+headroom    = fork.gas_costs().CALL_STIPEND - last_charge + 1
+gas_limit   = overhead + code.gas_cost(fork) + headroom
+```
+A bare opcode carrying only metadata prices the charge alone (same trick as
+`Op.RETURN(code_deposit_size=n)`). This is what turns "add 5,000 and hope"
+into a real one-gas boundary — and because it targets only the *last* gated
+op, it is invariant in how many precede it. Validated on
+`test_out_of_gas_contract_creation`, whose arms now straddle
+`gas_left = 2301` / `2300` exactly.
+
+*Same family, when an "impossible" budget is really a gate:* an
+`SSTORE` in a `STATICCALL` subtree, `RETURNDATACOPY` reading past the
+return buffer, stack under/overflow, an EIP-684 address collision. Each
+aborts the frame outright rather than charging for it, so the fix is
+always to model the gate, never to inflate the budget until it passes.
 
 **A CREATE address collision burns the child's gas allowance** (the
 EIP-684 path): the withheld child grant is consumed, nothing is created,
@@ -465,15 +609,27 @@ a derived budget that must survive pre-Istanbul forks needs an explicit
 headroom constant for it (named, commented). Observed on
 `test_revert_depth_create_address_collision`'s ConstantinopleFix sweep.
 
-**EIP-8037 repriced the code deposit's regular part — boundaries beware.**
-On 8037 forks the deposit charges only the keccak word cost
-(`OPCODE_KECCAK256_PER_WORD * ceil32(len)/32`, ~6 gas) as regular gas plus
-`len * 1530` state; `fork.gas_costs().CODE_DEPOSIT_PER_BYTE` (200) is the
-*pre-8037* constant. Using 200/byte in a *sufficiency* budget merely
-overshoots (safe); using it in a one-gas-short *boundary* silently funds
-the deposit on Amsterdam. Branch on `fork.is_eip_enabled(8037)` for exact
-deposit boundaries. Validated on
-`test_create_oo_gafter_init_code_returndata_size`.
+**Code-deposit cost comes from `Op.RETURN`'s metadata — never a per-byte
+formula.** Annotate the init code's terminator,
+`Op.RETURN(offset=o, size=n, code_deposit_size=n)`, and `gas_cost(fork)`
+includes the deposit charge, correct on both sides of the EIP-8037 boundary
+(10 bytes costs 2,000 before it; 15,306 after, once the per-byte price became
+state gas). The annotated and unannotated forms assemble to **identical
+bytes**, so building both yields an exact two-sided boundary out of the fork's
+own model, with no EIP branch:
+```
+child              = stage + Op.RETURN(offset=o, size=n)
+child_with_deposit = stage + Op.RETURN(offset=o, size=n, code_deposit_size=n)
+assert child.gas_cost(fork) <= granted < child_with_deposit.gas_cost(fork)
+```
+`fork.gas_costs().CODE_DEPOSIT_PER_BYTE` (200) is a **last resort**: it is the
+*pre-8037* constant and understates the real charge ~7.5x on 8037 forks. Use
+it only where understating is the safe direction — a *sufficiency* budget
+overshoots, an "is this unaffordable?" guard stays conservative — and never in
+a one-gas-short *boundary*, which it silently funds on Amsterdam. Branching on
+`fork.is_eip_enabled(8037)` to patch it up is the wrong fix; the metadata
+removes the branch entirely. Validated on
+`test_create_oog_after_init_code_returndata_size`.
 
 **Match the intrinsic calculator's kwargs to the transaction's shape.**
 `fork.transaction_intrinsic_cost_calculator()()` defaults to
