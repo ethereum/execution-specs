@@ -44,10 +44,25 @@ specification already publishes the settled top-level frame to a tracer
 when it emits `TransactionEnd`. The tracer installed by `run` keeps that
 frame instead of discarding it, which is why this needs no change to any
 fork.
+
+The same tracer answers the one question the warm sets cannot: which of
+their members the message *created*, those being warm for free and so
+not worth declaring. A frame running init code has no `code_address`,
+which is how it is recognized as it goes past.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Final, List, Optional, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    AbstractSet,
+    Any,
+    Dict,
+    Final,
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, Uint
@@ -116,6 +131,23 @@ class CallResult:
     `declarable_access_list`.
     """
 
+    undeclared_created: Tuple[Bytes, ...] = ()
+    """
+    Addresses created by the message and left out of `access_list`.
+
+    Reported because clients do not agree about them and a caller may
+    want to say less about an answer that turns on one; see
+    `declarable_access_list` for why they are left out, and
+    `create_access_list` for what the derivation does with this.
+
+    Empty for the great majority of messages, and empty in two cases
+    that look as though they should populate it. A creation whose init
+    code writes storage is declared for its slots, so nothing was left
+    out. A message with no recipient at all has its created address left
+    out, but that address is the recipient, which every client excludes
+    by name and none of them argues about.
+    """
+
     @property
     def succeeded(self) -> bool:
         """Return whether the message ran to completion."""
@@ -137,7 +169,9 @@ def _frame_attribute(evm: Any, name: str) -> Any:
 
 
 def declarable_access_list(
-    evm: Any, precompiles: Set[Any]
+    evm: Any,
+    precompiles: AbstractSet[Any],
+    created: AbstractSet[Any] = frozenset(),
 ) -> Tuple[AccessListEntry, ...]:
     """
     Return the entries an access list for `evm`'s message would declare.
@@ -151,13 +185,15 @@ def declarable_access_list(
     - **the precompiles**, warmed at the start of every transaction;
     - **the sender**, likewise;
     - **the recipient** — for a creation, the address being created;
+    - **an address created during the message**, warmed by the `CREATE`
+      that made it;
     - **the fee recipient**, on the forks that warm it.
 
-    The first three are excluded on the strength of the specification
+    The first four are excluded on the strength of the specification
     rather than on any client's convention. Storage slots have no such
-    rule — the recipient's own slots start cold — so all of them are
-    declared, which is why an excluded address can still appear here
-    carrying slots.
+    rule — the recipient's own slots start cold, and so does every slot
+    of a freshly created account — so all of them are declared, which is
+    why an excluded address can still appear here carrying slots.
 
     The fee recipient is excluded unconditionally, including on the forks
     that do not warm it. The two cases differ only for a message whose
@@ -166,7 +202,17 @@ def declarable_access_list(
     belong in either way, so one exotic shape is mis-answered rather than
     two rules maintained.
 
-    Three further cases the specification and go-ethereum answer
+    A created address is excluded on the same footing as the recipient
+    and for a sharper reason than symmetry. `CREATE` adds the address it
+    computes to `accessed_addresses` in the *calling* frame, before the
+    child is dispatched and without rolling it back, so there is no
+    execution in which declaring it saves a cold access — while declaring
+    it costs the caller `TX_ACCESS_LIST_ADDRESS`, and on the forks that
+    charge for access-list bytes rather more than that. An entry that can
+    only ever raise the price of the message it advises on does not
+    belong in the answer, whatever else the answer is taken to mean.
+
+    Two further cases the specification and go-ethereum answer
     differently, documented rather than reconciled:
 
     - **A delegation target.** Resolving a delegation reads the target's
@@ -175,11 +221,6 @@ def declarable_access_list(
       opcode names a delegation target, and so it omits one. This is the
       case where the specification is right, and the derivation refuses
       such a message rather than asserting an answer no client gives.
-    - **An address created during the message.** The specification warms
-      it, so it is warm here and excluded from nothing; go-ethereum's
-      tracer watches opcodes and never sees a created address, so it omits
-      it. Declaring it would be pointless — a created account is warm for
-      free — so go-ethereum is right and this is not.
     - **A frame that reverted.** The specification discards a failed
       child's warm sets, as the pricing rules require; go-ethereum's
       tracer keeps them. Declaring what a reverted frame touched *would*
@@ -198,7 +239,7 @@ def declarable_access_list(
         return ()
     warm_slots = evm.accessed_storage_keys
 
-    rule_warmed = set(precompiles)
+    rule_warmed = set(precompiles) | set(created)
     rule_warmed.add(_frame_attribute(evm, "tx_env").origin)
     rule_warmed.add(_frame_attribute(evm, "current_target"))
     rule_warmed.add(_frame_attribute(evm, "block_env").coinbase)
@@ -295,18 +336,29 @@ class EthCall(Load):
         # opcode counter installed for the benchmark path. A call is not
         # part of any block, so letting it reach that counter would
         # attribute opcodes to a block that never executed them. The
-        # tracer installed instead discards every event but one: the
-        # frame handed to `TransactionEnd` is the settled top-level frame,
-        # and its warm sets are what an access list is derived from.
+        # tracer installed instead keeps two things and discards the rest.
+        #
+        # The frame handed to `TransactionEnd` is the settled top-level
+        # frame, and its warm sets are what an access list is derived
+        # from. Every frame the tracer sees is also inspected for whether
+        # it is a *creation* frame — a frame executing init code rather
+        # than an account's code has no `code_address` — because a
+        # created address is warm for free and must not be declared; see
+        # `declarable_access_list`. Reading it here rather than from the
+        # state keeps this working on the forks that predate a
+        # created-account set, and needs no change to any fork.
         settled: List[Any] = []
+        created: Set[Any] = set()
 
-        def keep_the_top_level_frame(
+        def keep_what_the_access_list_needs(
             evm: object, event: trace.TraceEvent
         ) -> None:
+            if _frame_attribute(evm, "code_address") is None:
+                created.add(_frame_attribute(evm, "current_target"))
             if isinstance(event, trace.TransactionEnd):
                 settled.append(evm)
 
-        previous_tracer = trace.set_evm_trace(keep_the_top_level_frame)
+        previous_tracer = trace.set_evm_trace(keep_what_the_access_list_needs)
         try:
             result = self.fork.process_transaction(
                 block_env,
@@ -324,15 +376,35 @@ class EthCall(Load):
         # rather than off the fork, so a message that rearranged them
         # is measured against the arrangement it actually saw.
         access_list = (
-            declarable_access_list(settled[-1], set(block_env.precompiles))
+            declarable_access_list(
+                settled[-1], set(block_env.precompiles), created
+            )
             if settled
             else ()
         )
+        # A creation the *message itself* performed is left out by
+        # everyone: the address is the message's own recipient, warmed
+        # at the start of the transaction like any other, and named as
+        # such by every client that excludes anything. Only a creation
+        # performed by an opcode is contested, so only that one is
+        # reported.
+        uncontested = {entry.address for entry in access_list}
+        if settled:
+            uncontested.add(
+                Bytes(_frame_attribute(settled[-1], "current_target"))
+            )
         return CallResult(
             return_data=Bytes(result.return_data),
             error=result.error,
             gas_used=result.gas_used,
             access_list=access_list,
+            undeclared_created=tuple(
+                sorted(
+                    Bytes(address)
+                    for address in created
+                    if Bytes(address) not in uncontested
+                )
+            ),
         )
 
 

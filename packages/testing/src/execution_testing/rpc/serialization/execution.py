@@ -258,9 +258,25 @@ class AccessListOutcome:
     decides the tier the expectation is stored at rather than its shape.
     """
 
+    left_a_created_address_out: bool = False
+    """
+    Whether an address the message created was left out of the list.
+
+    Not a defect in the list — the omission is deliberate and is the
+    cheaper answer — but a judgement clients make both ways, which is
+    what costs this outcome its value; see `assertion`.
+    """
+
     @property
-    def result(self) -> Dict[str, Any]:
-        """Return the response body a client is expected to produce."""
+    def result(self) -> Dict[str, Any] | None:
+        """
+        Return the response body a client is expected to produce.
+
+        None where the tier asserts no value, since a schema-only
+        expectation carrying one would read as though it pinned it.
+        """
+        if self.assertion == "schema":
+            return None
         return {
             "accessList": self.access_list,
             "gasUsed": hex(self.gas_used),
@@ -268,7 +284,21 @@ class AccessListOutcome:
 
     @property
     def assertion(self) -> str:
-        """Return the tier this outcome can honestly be stored at."""
+        """
+        Return the tier this outcome can honestly be stored at.
+
+        An answer that left out a created address is stored as a shape
+        and nothing more. Both fields turn on the omission — the entry
+        itself, and the gas, which is the gas *with* the list — and
+        clients are split on it: go-ethereum and reth omit the address,
+        Nethermind and Erigon declare it, and no specification says which
+        is meant. That is exactly the case the weakest tier exists for.
+
+        The omission is still the right one to make; see
+        `declarable_access_list`. What cannot be done is to assert it.
+        """
+        if self.left_a_created_address_out:
+            return "schema"
         return "partial" if self.reverted else "exact"
 
 
@@ -405,6 +435,15 @@ class MessageResult:
     answers in. Sorted, and sorted within each entry.
     """
 
+    left_a_created_address_out: bool = False
+    """
+    Whether the list omits an address the message created.
+
+    The one judgement in the list that clients make both ways, so a
+    caller pinning the list needs to know it was made; see
+    `create_access_list`.
+    """
+
 
 def _run_message(
     site: CallSite,
@@ -524,6 +563,7 @@ def _run_message(
             }
             for entry in result.access_list
         ],
+        left_a_created_address_out=bool(result.undeclared_created),
     )
 
 
@@ -607,6 +647,28 @@ def create_access_list(
     side that is right, and asserting it would fail every client rather
     than catch one. It is refused rather than weakened: a list missing an
     entry is not a partial answer, it is a wrong one.
+
+    **A message whose opcodes create a bare contract derives a shape
+    and no value.** EIP-2929 warms a created address for free, so
+    declaring it can only cost the caller gas, and the list here leaves
+    it out. Clients split on that: go-ethereum and reth leave it out
+    too, their lists being built by watching opcodes and no opcode
+    naming a created address, while Nethermind reads the EVM's own warm
+    set and declares it — verified against all three by running them.
+    Erigon declares it by default as well, and is alone in offering to
+    drop it. Neither answer is refutable: execution-apis gives the
+    method one line of prose, "Generates an access list for a
+    transaction", and marks three of its own four tests `speconly`. So
+    such an answer is stored at the `schema` tier; see
+    `AccessListOutcome.assertion`. It is weakened rather than refused,
+    because the shape of a response is still worth checking and a
+    creating message is far too ordinary a thing to stop deriving for.
+
+    Only the *bare* address is contested, and the weakening is scoped to
+    it. A created contract whose init code writes storage is declared
+    for its slots by all three clients, to the gas, and the address a
+    top-level creation deploys to is excluded by all three; both keep
+    their exact expectations.
     """
     if _is_delegated(site.state, to):
         raise UnrunnableCallError(
@@ -630,6 +692,7 @@ def create_access_list(
                 access_list=declared,
                 gas_used=result.gas_used,
                 reverted=result.reverted,
+                left_a_created_address_out=(result.left_a_created_address_out),
             )
         declared = result.access_list
     raise UnrunnableCallError(
