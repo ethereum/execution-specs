@@ -44,20 +44,6 @@ from .stateless import (
 
 MAX_EXTRA_DATA_BYTES = 32
 
-# Stateless witness resource bounds.  These are local limits chosen for this
-# schema, not consensus-spec SSZ constants.
-
-# BAL permits block_gas_limit // 2_000 items. At 500M gas, that is
-# 250_000 account accesses; budgeting 16 witness nodes per account gives
-# 4_000_000 nodes, rounded up to 2**22. This targets an account-heavy
-# witness, since deep storage tries are harder to construct. Depth of
-# 16 is around double the depth of mainnet account trie.
-MAX_WITNESS_NODES = 2**22
-
-# Enough room for one pre-state bytecode read per BAL item at 500M gas:
-# 500_000_000 // 2_000 = 250_000, rounded up to 2**18.
-MAX_WITNESS_CODES = 2**18
-
 # Execution only exposes the previous 256 block hashes.
 MAX_WITNESS_HEADERS = 256
 # As defined in EIP-7954.
@@ -68,10 +54,6 @@ MAX_BYTES_PER_HEADER = 2**10
 # 2**10 is the next power of two, with almost twice the needed capacity.
 MAX_BYTES_PER_WITNESS_NODE = 2**10
 
-# One public key is supplied per transaction. Every valid transaction consumes
-# at least 21_000 gas, so a 500M gas block can contain at most
-# 500_000_000 // 21_000 = 23_809 transactions, rounded up to next power of 2.
-MAX_PUBLIC_KEYS = 2**15
 PUBLIC_KEY_BYTES = 65
 
 # Stateless guest input bytes are schema-prefixed:
@@ -194,8 +176,8 @@ class SszNewPayloadRequest(Container):
 class SszExecutionWitness(Container):
     """SSZ container mirroring ``ExecutionWitness``."""
 
-    state: SszList[ByteList[MAX_BYTES_PER_WITNESS_NODE], MAX_WITNESS_NODES]
-    codes: SszList[ByteList[MAX_BYTES_PER_CODE], MAX_WITNESS_CODES]
+    state: ProgressiveList[ByteList[MAX_BYTES_PER_WITNESS_NODE]]
+    codes: ProgressiveList[ByteList[MAX_BYTES_PER_CODE]]
     headers: SszList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS]
 
 
@@ -205,7 +187,7 @@ class SszStatelessInput(Container):
     new_payload_request: SszNewPayloadRequest
     witness: SszExecutionWitness
     chain_id: uint64
-    public_keys: SszList[ByteVector[PUBLIC_KEY_BYTES], MAX_PUBLIC_KEYS]
+    public_keys: ProgressiveList[ByteVector[PUBLIC_KEY_BYTES]]
 
 
 class SszStatelessValidationResult(Container):
@@ -485,10 +467,10 @@ def _witness_to_ssz(
 ) -> SszExecutionWitness:
     """Convert an ExecutionWitness to its SSZ form."""
     return SszExecutionWitness(
-        state=SszList[ByteList[MAX_BYTES_PER_WITNESS_NODE], MAX_WITNESS_NODES](
+        state=ProgressiveList[ByteList[MAX_BYTES_PER_WITNESS_NODE]](
             ByteList[MAX_BYTES_PER_WITNESS_NODE](bytes(s)) for s in w.state
         ),
-        codes=SszList[ByteList[MAX_BYTES_PER_CODE], MAX_WITNESS_CODES](
+        codes=ProgressiveList[ByteList[MAX_BYTES_PER_CODE]](
             ByteList[MAX_BYTES_PER_CODE](bytes(c)) for c in w.codes
         ),
         headers=SszList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS](
@@ -524,7 +506,7 @@ def stateless_input_to_ssz(
         ),
         witness=_witness_to_ssz(si.witness),
         chain_id=uint64(int(si.chain_id)),
-        public_keys=SszList[ByteVector[PUBLIC_KEY_BYTES], MAX_PUBLIC_KEYS](
+        public_keys=ProgressiveList[ByteVector[PUBLIC_KEY_BYTES]](
             ByteVector[PUBLIC_KEY_BYTES](bytes(pk)) for pk in si.public_keys
         ),
     )
