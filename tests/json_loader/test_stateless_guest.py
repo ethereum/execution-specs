@@ -44,6 +44,10 @@ from ethereum.forks.amsterdam.stateless_host import (
     serialize_stateless_input,
 )
 from ethereum.forks.amsterdam.stateless_ssz import (
+    MAX_BYTES_PER_CODE,
+    MAX_BYTES_PER_HEADER,
+    MAX_BYTES_PER_WITNESS_NODE,
+    MAX_WITNESS_HEADERS,
     STATELESS_INPUT_SCHEMA_FORK_INDEX,
     STATELESS_INPUT_SCHEMA_ID,
     STATELESS_INPUT_SCHEMA_ID_BYTES,
@@ -365,6 +369,68 @@ class TestSerializeStatelessInput:
         )
 
         with pytest.raises(ValueError):
+            serialize_stateless_input(invalid)
+
+    @pytest.mark.parametrize(
+        "witness",
+        [
+            pytest.param(
+                ExecutionWitness(
+                    state=(Bytes(b"\0" * (MAX_BYTES_PER_WITNESS_NODE + 1)),),
+                    codes=(),
+                    headers=(),
+                ),
+                id="state-node",
+            ),
+            pytest.param(
+                ExecutionWitness(
+                    state=(),
+                    codes=(Bytes(b"\0" * (MAX_BYTES_PER_CODE + 1)),),
+                    headers=(),
+                ),
+                id="code",
+            ),
+            pytest.param(
+                ExecutionWitness(
+                    state=(),
+                    codes=(),
+                    headers=(Bytes(b"\0" * (MAX_BYTES_PER_HEADER + 1)),),
+                ),
+                id="header",
+            ),
+        ],
+    )
+    def test_rejects_oversized_witness_item(
+        self,
+        witness: ExecutionWitness,
+    ) -> None:
+        """Retain the structural byte limit for each witness item."""
+        original = _make_stateless_input()
+        invalid = StatelessInput(
+            new_payload_request=original.new_payload_request,
+            witness=witness,
+            chain_id=original.chain_id,
+            public_keys=original.public_keys,
+        )
+
+        with pytest.raises(Exception, match="cannot be more than limit"):
+            serialize_stateless_input(invalid)
+
+    def test_rejects_more_than_256_headers(self) -> None:
+        """Retain the protocol-backed witness header count limit."""
+        original = _make_stateless_input()
+        invalid = StatelessInput(
+            new_payload_request=original.new_payload_request,
+            witness=ExecutionWitness(
+                state=(),
+                codes=(),
+                headers=tuple(Bytes() for _ in range(MAX_WITNESS_HEADERS + 1)),
+            ),
+            chain_id=original.chain_id,
+            public_keys=original.public_keys,
+        )
+
+        with pytest.raises(Exception, match="too many list inputs: 257"):
             serialize_stateless_input(invalid)
 
 
