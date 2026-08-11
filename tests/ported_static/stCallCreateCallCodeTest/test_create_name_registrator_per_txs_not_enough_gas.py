@@ -5,6 +5,7 @@ registrar's runtime code.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createNameRegistratorPerTxsNotEnoughGasFiller.json
+Legacy Test from Christoph. J.
 
 @manually-enhanced: Do not overwrite. The budget is an exact off-by-one
 boundary derived from the fork: the sufficient arm gets intrinsic +

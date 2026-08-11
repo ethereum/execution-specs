@@ -5,6 +5,7 @@ materializes, while the creating frame completes regardless.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createNameRegistratorPreStore1NotEnoughGasFiller.json
+Legacy Test from Christoph. J.
 
 @manually-enhanced: Do not overwrite. The registrar init code is composed
 (not a hex blob), with the runtime a separate bytecode appended to it so

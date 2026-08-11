@@ -5,6 +5,7 @@ much, the frame running it completes; given one gas less, it does not.
 Ported from:
 state_tests/stBadOpcode/measureGasFiller.yml
 state_tests/stBadOpcode/opcodeDiffGasFiller.yml
+Written by Ori Pomerantz (qbzzt1@gmail.com).
 
 @manually-enhanced: Do not overwrite. The filler bisected the gas operand
 of a CALL inside EVM bytecode to find the gas it consumed in runtime.
