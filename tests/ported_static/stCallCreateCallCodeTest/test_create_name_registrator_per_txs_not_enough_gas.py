@@ -6,10 +6,16 @@ registrar's runtime code.
 Ported from:
 state_tests/stCallCreateCallCodeTest/createNameRegistratorPerTxsNotEnoughGasFiller.json
 
-@manually-enhanced: Do not overwrite. Both budgets are derived from the
-fork (intrinsic + top-frame state gas + init code execution + code deposit
-regular and state costs); the success arm also pins the deposited code and
-transferred balance, which the ported post never checked.
+@manually-enhanced: Do not overwrite. The budget is an exact off-by-one
+boundary derived from the fork: the sufficient arm gets intrinsic +
+top-frame state gas + init code execution, the insufficient arm one gas
+less. The deposit cost rides on RETURN's `code_deposit_size` metadata
+rather than a hand-rolled per-byte constant, so it stays correct once
+EIP-8037 moves most of it to state gas. The runtime code is a separate
+bytecode appended to the init code instead of a slice of it, so the
+executed cost no longer counts the payload. The success arm also pins
+the deposited code and transferred balance, which the ported post never
+checked.
 """
 
 import pytest
@@ -26,9 +32,7 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
-TX_VALUE = 100_000
-COPY_OFFSET = 0xC
-DEPOSITED_SIZE = 0x10
+COPY_OFFSET = 18
 
 
 @pytest.mark.ported_from(
@@ -40,8 +44,15 @@ DEPOSITED_SIZE = 0x10
 @pytest.mark.parametrize(
     "enough_gas",
     [
-        pytest.param(False, id="g0"),
-        pytest.param(True, id="g1"),
+        pytest.param(False, id="insufficient_gas"),
+        pytest.param(True, id="sufficient_gas"),
+    ],
+)
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(0, id="zero_value"),
+        pytest.param(1, id="non_zero_value"),
     ],
 )
 def test_create_name_registrator_per_txs_not_enough_gas(
@@ -49,27 +60,16 @@ def test_create_name_registrator_per_txs_not_enough_gas(
     pre: Alloc,
     fork: Fork,
     enough_gas: bool,
+    value: int,
 ) -> None:
     """An under-budgeted registrar creation leaves no account behind."""
-    # The ported init code: write slot 1, then deposit 16 bytes of
-    # registrar runtime copied from the init code's own bytes.
+    # The ported init code: write slot 1, then copy the registrar runtime
+    # appended after it and return it for deposit.
     store = Op.SSTORE(
         key=0x1, value=0x1, key_warm=False, original_value=0, new_value=1
     )
-    initcode = (
-        store
-        + Op.PUSH1[DEPOSITED_SIZE]
-        + Op.CODECOPY(
-            dest_offset=0x0,
-            offset=COPY_OFFSET,
-            size=Op.DUP1,
-            data_size=DEPOSITED_SIZE,
-            new_memory_size=0x20,
-        )
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP
-        + Op.JUMPI(
+    deposited = (
+        Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
         )
@@ -80,31 +80,44 @@ def test_create_name_registrator_per_txs_not_enough_gas(
             value=Op.CALLDATALOAD(offset=0x20),
         )
     )
-    deposited = bytes(initcode)[COPY_OFFSET : COPY_OFFSET + DEPOSITED_SIZE]
+    deposited_size = len(deposited)
+    initcode = (
+        store
+        + Op.CODECOPY(
+            dest_offset=0x0,
+            offset=COPY_OFFSET,
+            size=deposited_size,
+            data_size=deposited_size,
+            new_memory_size=deposited_size,
+        )
+        + Op.RETURN(0, deposited_size, code_deposit_size=deposited_size)
+        + Op.STOP
+    )
+    assert len(initcode) == COPY_OFFSET
+    calldata = initcode + deposited
 
-    # Fork-derived budgets: the sufficient one covers the init code, the
-    # code deposit (regular and EIP-8037 state), and the created account's
-    # top-frame state gas; the insufficient one dies mid-init-code.
+    # Fork-derived budget: exactly what the creation needs, so one gas
+    # less must fail. The deposit is already inside the init code's cost,
+    # via RETURN's `code_deposit_size`.
     overhead = fork.transaction_intrinsic_cost_calculator()(
-        calldata=initcode,
+        calldata=calldata,
         contract_creation=True,
-    ) + fork.transaction_top_frame_state_gas(contract_creation=True)
-    execution_cost = (
-        initcode.gas_cost(fork)
-        + DEPOSITED_SIZE * fork.gas_costs().CODE_DEPOSIT_PER_BYTE
-        + fork.code_deposit_state_gas(code_size=DEPOSITED_SIZE)
+        return_cost_deducted_prior_execution=True,
+    ) + fork.transaction_top_frame_state_gas(
+        contract_creation=True, sends_value=value > 0
     )
-    gas_limit = overhead + (
-        execution_cost + 5_000 if enough_gas else execution_cost // 2
-    )
+    execution_cost = initcode.gas_cost(fork)
+    gas_limit = overhead + execution_cost
+    if not enough_gas:
+        gas_limit -= 1
 
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=None,
-        data=initcode,
+        data=calldata,
         gas_limit=gas_limit,
-        value=TX_VALUE,
+        value=value,
     )
 
     created = compute_create_address(address=sender, nonce=0)
@@ -112,7 +125,7 @@ def test_create_name_registrator_per_txs_not_enough_gas(
         created_account: Account | None = Account(
             nonce=1,
             code=deposited,
-            balance=TX_VALUE,
+            balance=value,
             storage={1: 1},
         )
     else:

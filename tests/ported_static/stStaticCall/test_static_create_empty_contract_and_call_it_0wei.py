@@ -88,28 +88,24 @@ def test_static_create_empty_contract_and_call_it_0wei(
             account_new=False,
         )
         initcode_bytes = bytes(initcode)
-        assert len(initcode_bytes) <= 0x40, "init code must fit two words"
+        assert len(initcode) <= 0x40, "init code must fit two words"
 
         # Memory is populated (and expanded to 0x40) before the measured
         # window, so the CREATE itself expands nothing.
         setup = Op.MSTORE(
             offset=0x0,
-            value=int.from_bytes(
-                initcode_bytes[:0x20].ljust(0x20, b"\x00"), "big"
-            ),
+            value=initcode_bytes[:0x20],
         ) + Op.MSTORE(
             offset=0x20,
-            value=int.from_bytes(
-                initcode_bytes[0x20:].ljust(0x20, b"\x00"), "big"
-            ),
+            value=initcode_bytes[0x20:].ljust(0x20, b"\x00"),
         )
         create_code = Op.CREATE(
             value=0x0,
             offset=0x0,
-            size=len(initcode_bytes),
+            size=len(initcode),
             new_memory_size=0x40,
             old_memory_size=0x40,
-            init_code_size=len(initcode_bytes),
+            init_code_size=len(initcode),
         )
         # The measured CREATE includes the child's work: the init code's
         # own consumption plus the writer's store it calls.

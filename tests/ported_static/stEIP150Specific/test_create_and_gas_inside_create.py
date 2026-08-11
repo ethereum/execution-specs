@@ -5,11 +5,15 @@ cost is measured alongside it.
 
 Ported from:
 state_tests/stEIP150Specific/CreateAndGasInsideCreateFiller.json
+state_tests/stMemExpandingEIP150Calls/CreateAndGasInsideCreateWithMemExpandingCallsFiller.json
 
 @manually-enhanced: Do not overwrite. An outer call pins the creating
 frame's budget so the child's stored GAS observation is fork-derived
 (`63/64` of the derived base); the parent measures the CREATE with
-CodeGasMeasure instead of raw snapshots.
+CodeGasMeasure instead of raw snapshots, which subsumes the raw entry and
+post-CREATE snapshots the second filler stored. Neither filler varied the
+one thing its directory is named for -- whether the CREATE's own window
+grows memory -- so that is the parametrized axis here.
 """
 
 import pytest
@@ -34,15 +38,29 @@ CHILD_GAS_SLOT = 0xFD
 # The creating frame's pinned budget (the ported transaction's).
 CALLER_GAS = 600_000
 
+# How far the CREATE's window runs past the word the setup already paid
+# for, in the expanding case. A CREATE always reads its init code from
+# memory, so the axis cannot be "touches memory or not" -- it is whether
+# the CREATE is itself charged the growth, which happens before the 63/64
+# withhold and so lands in what the child observes.
+MEM_EXPANSION_BYTES = 0x20
+
 
 @pytest.mark.ported_from(
-    ["state_tests/stEIP150Specific/CreateAndGasInsideCreateFiller.json"],
+    [
+        "state_tests/stEIP150Specific/CreateAndGasInsideCreateFiller.json",
+        "state_tests/stMemExpandingEIP150Calls/CreateAndGasInsideCreateWithMemExpandingCallsFiller.json",  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Berlin")
+@pytest.mark.parametrize(
+    "memory_expansion", [False, True], ids=["flat", "mem_expansion"]
+)
 def test_create_and_gas_inside_create(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    memory_expansion: bool,
 ) -> None:
     """A CREATE's init code observes 63/64 of the creating frame's gas."""
     # Child init code: stores the gas it observes into its own storage
@@ -54,21 +72,24 @@ def test_create_and_gas_inside_create(
         original_value=0,
         new_value=1,
     )
-    child_bytes = bytes(child_code)
 
     # The child bytes sit right-aligned in the first memory word.
     setup = Op.MSTORE(
         offset=0x0,
-        value=int.from_bytes(child_bytes, "big"),
+        value=int.from_bytes(child_code, "big"),
         new_memory_size=0x20,
     )
+    # Padding the window with bytes the setup never wrote leaves the child
+    # unchanged -- they read as zero, so they are STOPs after its store --
+    # while forcing the CREATE to pay for the growth.
+    padding = MEM_EXPANSION_BYTES if memory_expansion else 0
     create_code = Op.CREATE(
         value=0x0,
-        offset=0x20 - len(child_bytes),
-        size=len(child_bytes),
-        new_memory_size=0x20,
+        offset=0x20 - len(child_code),
+        size=len(child_code) + padding,
+        new_memory_size=0x20 + padding,
         old_memory_size=0x20,
-        init_code_size=len(child_bytes),
+        init_code_size=len(child_code) + padding,
     )
     create_store = Op.SSTORE(
         key=ADDRESS_SLOT,

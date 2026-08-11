@@ -7,11 +7,11 @@ or the child succeeds (one wei moves into it).
 Ported from:
 state_tests/stInitCodeTest/OutOfGasPrefundedContractCreationFiller.json
 
-@manually-enhanced: Do not overwrite. All three budgets are derived from
-the fork (intrinsic + top-frame state gas + the composed init/child code
-costs), and the child account is asserted, disambiguating the ported
-"balance 1" outcomes (outer-failure vs child-success) that were previously
-indistinguishable.
+@manually-enhanced: Do not overwrite. The three budgets are fork-derived
+and one gas apart at each boundary: the inner CREATE's own price, and the
+63/64 grant the child's init code needs. Asserting the child account is
+what tells the ported "balance 1" outcomes -- outer failure and child
+success -- apart.
 """
 
 import pytest
@@ -19,6 +19,7 @@ from execution_testing import (
     Account,
     Alloc,
     Fork,
+    Hash,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -34,6 +35,23 @@ CHILD_VALUE = 1
 CHILD_STORED = 0x112233
 
 
+def minimum_frame_gas(needed: int) -> int:
+    """
+    Return the smallest frame budget whose 63/64 grant covers `needed`.
+
+    The EVM withholds `available // 64`, which is not the same as granting
+    `available * 63 // 64`: the two differ by one whenever `available` is
+    not a multiple of 64, so the inverse is found by adjusting an estimate
+    rather than computed directly.
+    """
+    available = -(-needed * 64 // 63)
+    while available - available // 64 < needed:
+        available += 1
+    while (available - 1) - (available - 1) // 64 >= needed:
+        available -= 1
+    return available
+
+
 @pytest.mark.ported_from(
     [
         "state_tests/stInitCodeTest/OutOfGasPrefundedContractCreationFiller.json"  # noqa: E501
@@ -41,12 +59,7 @@ CHILD_STORED = 0x112233
 )
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize(
-    "outcome",
-    [
-        pytest.param("child_succeeds", id="g0"),
-        pytest.param("outer_oog", id="g1"),
-        pytest.param("child_oog", id="g2"),
-    ],
+    "outcome", ["child_succeeds", "outer_oog", "child_oog"]
 )
 def test_out_of_gas_prefunded_contract_creation(
     state_test: StateTestFiller,
@@ -56,74 +69,58 @@ def test_out_of_gas_prefunded_contract_creation(
 ) -> None:
     """Budget decides how deep a prefunded creation's child CREATE gets."""
     # Child init code: one cold store, deposits nothing.
-    child_code = (
-        Op.SSTORE(
-            key=0x0,
-            value=CHILD_STORED,
-            key_warm=False,
-            original_value=0,
-            new_value=CHILD_STORED,
-        )
-        + Op.STOP * 2
+    child_code = Op.SSTORE(
+        key=0x0,
+        value=CHILD_STORED,
+        key_warm=False,
+        original_value=0,
+        new_value=CHILD_STORED,
     )
-    child_bytes = bytes(child_code)
 
-    # Outer init code: copy the child init code from its own tail, then
-    # CREATE a value-bearing child from it; deposits nothing. The copy
-    # window and memory usage stay within one word.
+    # Outer init code: stage the child init code -- it fits in one word --
+    # then CREATE a value-bearing child from it; deposits nothing.
     inner_create = Op.CREATE(
         value=CHILD_VALUE,
         offset=0x0,
-        size=len(child_bytes),
+        size=len(child_code),
+        # Memory is already a word wide: `stage_child` paid that expansion.
         new_memory_size=0x20,
         old_memory_size=0x20,
-        init_code_size=len(child_bytes),
+        init_code_size=len(child_code),
     )
-    prefix = Op.CODECOPY(
-        dest_offset=0x0,
-        offset=0x1A,  # placeholder; recomputed below
-        size=len(child_bytes),
-        data_size=len(child_bytes),
+    stage_child = Op.MSTORE(
+        offset=0x0,
+        value=Hash(child_code, right_padding=True),
         new_memory_size=0x20,
     )
-    body = prefix + Op.POP(inner_create) + Op.STOP
-    # The child code sits immediately after the executable body.
-    initcode_prefix_len = len(bytes(body))
-    prefix = Op.CODECOPY(
-        dest_offset=0x0,
-        offset=initcode_prefix_len,
-        size=len(child_bytes),
-        data_size=len(child_bytes),
-        new_memory_size=0x20,
-    )
-    body = prefix + Op.POP(inner_create) + Op.STOP
-    assert len(bytes(body)) == initcode_prefix_len, "stable code layout"
-    initcode = body + child_code
+    initcode = stage_child + Op.POP(inner_create) + Op.STOP
 
-    # Fork-derived budgets. The prefunded target is not EMPTY_ACCOUNT in
-    # the pre-state, so EIP-8037 charges no top-frame new-account state
-    # gas for this creation — an Amsterdam behavior this test pins. The
-    # inner CREATE's composite cost covers its peak charge (its
-    # new-account state gas is refunded if the child fails, but must be
-    # affordable when charged).
+    # No top-frame new-account state gas: the prefunded target is not
+    # EMPTY_ACCOUNT in the pre-state, which is the EIP-8037 behaviour these
+    # exact budgets pin. The inner CREATE's composite cost is its peak
+    # charge -- refunded if the child fails, but payable when charged.
     overhead = (
         fork.transaction_intrinsic_cost_calculator()(
             calldata=initcode,
             contract_creation=True,
+            sends_value=TX_VALUE > 0,
+            return_cost_deducted_prior_execution=True,
         )
-        + prefix.gas_cost(fork)
+        + stage_child.gas_cost(fork)
         + inner_create.gas_cost(fork)
     )
-    child_needed = child_code.gas_cost(fork)
+    # Exactly enough for the child, so one gas either side of it decides
+    # whether the 63/64 grant covers the child's init code.
+    child_frame_gas = minimum_frame_gas(child_code.gas_cost(fork))
     if outcome == "outer_oog":
-        # Dies charging the inner CREATE.
-        gas_limit = overhead - inner_create.gas_cost(fork) // 2
+        # One gas short of paying for the inner CREATE itself.
+        gas_limit = overhead - 1
     elif outcome == "child_oog":
-        # Outer completes; the child's 63/64 grant undercuts its cost.
-        gas_limit = overhead + child_needed // 2
+        # Outer completes; the child's grant undercuts its cost by one.
+        gas_limit = overhead + child_frame_gas - 1
     else:
         # Child completes too and keeps the transferred wei.
-        gas_limit = overhead + -(-child_needed * 64 // 63) + 2_000
+        gas_limit = overhead + child_frame_gas
 
     sender = pre.fund_eoa()
     created = compute_create_address(address=sender, nonce=0)

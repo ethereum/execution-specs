@@ -51,20 +51,16 @@ def test_transaction_collision_to_empty2(
         new_value=1,
     )
 
-    # The prefunded target is not EMPTY_ACCOUNT in the pre-state, so
-    # EIP-8037 charges no top-frame new-account state gas: the exact
-    # success budget below would OOG if it were charged.
     success_gas = fork.transaction_intrinsic_cost_calculator()(
         calldata=initcode,
         contract_creation=True,
         sends_value=tx_value > 0,
+        return_cost_deducted_prior_execution=True,
     ) + initcode.gas_cost(fork)
-    # The OOG arm misses half the store's cost rather than one gas: the
-    # intrinsic calculator over-estimates by the initcode word cost on
-    # pre-Shanghai forks, so a one-gas boundary is not portable.
     gas_limit = success_gas
     if oog:
-        gas_limit -= initcode.gas_cost(fork) // 2
+        # Exactly one gas short, so the store is what cannot be paid for.
+        gas_limit -= 1
 
     sender = pre.fund_eoa()
     created = compute_create_address(address=sender, nonce=0)
