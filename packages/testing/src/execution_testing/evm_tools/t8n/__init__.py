@@ -134,6 +134,7 @@ class T8N(Load):
     alloc: Any
     env: "TestingEnvironment"
     txs: List["TestingTransaction"]
+    included_txs: List[Any]
     ommers: List[Ommer]
     rejected_transactions: List[Any]
     body: Bytes
@@ -229,8 +230,9 @@ class T8N(Load):
         self.alloc.migrate_state_commitment(t8n_data.fork.state_commitment())
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
+        self.included_txs = []
         self.ommers = list(ommers)
-        self.body = Bytes(rlp.encode([tx.rlp() for tx in self.txs]))
+        self.body = Bytes()
         self.rejected_transactions = []
 
     def _tracer(self, type_: Type[T]) -> T:
@@ -331,6 +333,7 @@ class T8N(Load):
                 self.fork.process_transaction(
                     block_env, block_output, fork_tx, Uint(tx_index)
                 )
+                self.included_txs.append(fork_tx)
             except (EthereumException, UnsupportedTxError) as e:
                 # `UnsupportedTxError` covers ``convert_transaction``
                 # failures when a typed tx is structurally malformed for
@@ -356,6 +359,7 @@ class T8N(Load):
                     tx=fork_tx,
                     index=Uint(0),
                 )
+                self.included_txs.append(fork_tx)
             except (EthereumException, UnsupportedTxError) as e:
                 record_rejected_tx(self, 0, e)
                 self.logger.warning(f"Transaction 0 failed: {e!r}")
@@ -471,6 +475,12 @@ class T8N(Load):
             self.run_state_test()
         else:
             self.run_blockchain_test()
+
+        self.body = Bytes(
+            rlp.encode(
+                [self.fork.encode_transaction(tx) for tx in self.included_txs]
+            )
+        )
 
         # Apply the block diff in place so ``self.alloc`` is the
         # post-state when the caller reads it. Safe to do
