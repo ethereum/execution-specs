@@ -264,6 +264,30 @@ def test_access_list_of_a_creation_that_stores(
     )
 
 
+def test_access_list_of_a_top_level_creation(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    A message with no recipient, which deploys and stores nothing.
+
+    The address this creates is left out of the list, and unlike the
+    nested case that omission is not contested by anybody: it is the
+    message's own recipient, warmed at the start of the transaction by
+    the same EIP-2929 rule that warms an ordinary callee, and every
+    client excludes it by name. go-ethereum computes it as
+    `crypto.CreateAddress(args.from(), *args.Nonce)` for exactly this
+    purpose. So this expectation is a value rather than a shape.
+    """
+    sender = pre.fund_eoa()
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(txs=[Transaction(sender=sender, to=None, data=Op.STOP)])
+        ],
+        post={},
+    )
+
+
 def test_declared_access_list_at_historical_states(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:

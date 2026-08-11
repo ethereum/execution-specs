@@ -648,18 +648,27 @@ def create_access_list(
     than catch one. It is refused rather than weakened: a list missing an
     entry is not a partial answer, it is a wrong one.
 
-    **A message that creates a contract derives a shape and no value.**
-    EIP-2929 warms a created address for free, so declaring it can only
-    cost the caller gas, and the list here leaves it out. Clients split
-    on that: go-ethereum and reth leave it out too, having never seen
-    it, while Nethermind and Erigon read their list off the EVM's own
-    warm set and declare it. Neither is refutable — execution-apis gives
-    the method one line of prose, "Generates an access list for a
-    transaction", and marks three of its own four tests `speconly` — so
+    **A message whose opcodes create a bare contract derives a shape
+    and no value.** EIP-2929 warms a created address for free, so
+    declaring it can only cost the caller gas, and the list here leaves
+    it out. Clients split on that: go-ethereum and reth leave it out
+    too, their lists being built by watching opcodes and no opcode
+    naming a created address, while Nethermind reads the EVM's own warm
+    set and declares it — verified against all three by running them.
+    Erigon declares it by default as well, and is alone in offering to
+    drop it. Neither answer is refutable: execution-apis gives the
+    method one line of prose, "Generates an access list for a
+    transaction", and marks three of its own four tests `speconly`. So
     such an answer is stored at the `schema` tier; see
     `AccessListOutcome.assertion`. It is weakened rather than refused,
     because the shape of a response is still worth checking and a
     creating message is far too ordinary a thing to stop deriving for.
+
+    Only the *bare* address is contested, and the weakening is scoped to
+    it. A created contract whose init code writes storage is declared
+    for its slots by all three clients, to the gas, and the address a
+    top-level creation deploys to is excluded by all three; both keep
+    their exact expectations.
     """
     if _is_delegated(site.state, to):
         raise UnrunnableCallError(

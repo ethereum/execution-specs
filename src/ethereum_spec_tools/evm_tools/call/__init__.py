@@ -140,9 +140,12 @@ class CallResult:
     `declarable_access_list` for why they are left out, and
     `create_access_list` for what the derivation does with this.
 
-    Empty for the great majority of messages, and empty even for a
-    message that creates a contract whose constructor writes storage:
-    such an address is declared for its slots and so is not left out.
+    Empty for the great majority of messages, and empty in two cases
+    that look as though they should populate it. A creation whose init
+    code writes storage is declared for its slots, so nothing was left
+    out. A message with no recipient at all has its created address left
+    out, but that address is the recipient, which every client excludes
+    by name and none of them argues about.
     """
 
     @property
@@ -379,7 +382,17 @@ class EthCall(Load):
             if settled
             else ()
         )
-        declared = {entry.address for entry in access_list}
+        # A creation the *message itself* performed is left out by
+        # everyone: the address is the message's own recipient, warmed
+        # at the start of the transaction like any other, and named as
+        # such by every client that excludes anything. Only a creation
+        # performed by an opcode is contested, so only that one is
+        # reported.
+        uncontested = {entry.address for entry in access_list}
+        if settled:
+            uncontested.add(
+                Bytes(_frame_attribute(settled[-1], "current_target"))
+            )
         return CallResult(
             return_data=Bytes(result.return_data),
             error=result.error,
@@ -389,7 +402,7 @@ class EthCall(Load):
                 sorted(
                     Bytes(address)
                     for address in created
-                    if Bytes(address) not in declared
+                    if Bytes(address) not in uncontested
                 )
             ),
         )
