@@ -269,6 +269,38 @@ FOREIGN_TARGET = Address(0x1234)
             id="frame_gas_sum_overflows",
             marks=pytest.mark.exception_test,
         ),
+        # Decode-time rejections: field values outside their type's
+        # domain never construct, so the transaction never decodes.
+        pytest.param(
+            [verify_frame(), default_frame(mode=3)],
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            id="undefined_frame_mode",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [verify_frame(), default_frame(mode=255)],
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            id="undefined_frame_mode_high",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [verify_frame(), default_frame(flags=0x08)],
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            id="reserved_frame_flag",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [verify_frame(), default_frame(flags=0xFF)],
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            id="reserved_frame_flag_high",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [verify_frame(), default_frame(gas_limit=2**64)],
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            id="frame_gas_above_64_bits",
+            marks=pytest.mark.exception_test,
+        ),
     ],
 )
 def test_frame_constraints(
@@ -682,6 +714,21 @@ def test_expiry_verifier_constraints(
             id="p256_signature_over_different_digest",
             marks=pytest.mark.exception_test,
         ),
+        # Decode-time rejections: a signature scheme outside the
+        # defined set never constructs, so the transaction never
+        # decodes.
+        pytest.param(
+            [FrameSignature(scheme=3)],
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            id="undefined_signature_scheme",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            [FrameSignature(scheme=255)],
+            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+            id="undefined_signature_scheme_high",
+            marks=pytest.mark.exception_test,
+        ),
     ],
 )
 def test_signature_constraints(
@@ -721,4 +768,139 @@ def test_signature_constraints(
         # The sender's nonce only increments if the transaction is
         # valid and executes.
         post={sender: Account(nonce=0 if error else 1)},
+    )
+
+
+# The gas boundary tests use a contract sender: contract senders carry
+# no signature entries, so the transaction's intrinsic cost reduces to
+# the base and per-frame constants plus its data tokens, keeping the
+# boundary arithmetic exact and content-independent.
+
+
+@pytest.mark.parametrize(
+    "cap_excess,error",
+    [
+        pytest.param(0, None, id="at_cap"),
+        pytest.param(
+            1,
+            TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+            id="above_cap",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_gas_limit_cap_from_frame_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    cap_excess: int,
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Size a frame's gas limit so the transaction's derived gas limit —
+    intrinsic cost plus the frame gas — lands exactly on the
+    per-transaction gas cap, or one above it.
+    """
+    sender = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=10**18,
+    )
+    intrinsic = Spec.FRAME_TX_INTRINSIC_COST + Spec.FRAME_TX_PER_FRAME_COST
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[verify_frame(gas_limit=cap - intrinsic + cap_excess)],
+        error=error,
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=1 if error else 2)},
+    )
+
+
+@pytest.mark.parametrize(
+    "cap_excess,error",
+    [
+        pytest.param(0, None, id="below_cap"),
+        pytest.param(
+            1,
+            TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM,
+            id="above_cap",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_gas_limit_cap_from_calldata_floor(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    cap_excess: int,
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Drive the calldata floor across the per-transaction gas cap with
+    zero-byte frame data while the standard gas limit stays far below
+    it, pinning that the cap applies to the larger of the two anchors.
+
+    The cap is not a multiple of the per-byte floor cost, so the
+    boundary pair is the largest data length whose floor fits under
+    the cap and the first one whose floor exceeds it.
+    """
+    sender = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=10**18,
+    )
+    gas_costs = fork.gas_costs()
+    floor_per_byte = (
+        gas_costs.TX_DATA_TOKEN_STANDARD * gas_costs.TX_DATA_TOKEN_FLOOR
+    )
+    base = Spec.FRAME_TX_INTRINSIC_COST + 2 * Spec.FRAME_TX_PER_FRAME_COST
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    data_length = (cap - base) // floor_per_byte + cap_excess
+
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[
+            verify_frame(),
+            default_frame(gas_limit=0, data=Bytes(b"\x00" * data_length)),
+        ],
+        error=error,
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=1 if error else 2)},
+    )
+
+
+# Funding an EOA with a custom nonce mutates the shared pre-alloc.
+@pytest.mark.pre_alloc_mutable
+def test_nonce_at_maximum(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Accept a frame transaction whose nonce is one below the overflow
+    bound: the highest nonce a frame transaction may carry, leaving
+    room for the post-execution increment.
+    """
+    sender = pre.fund_eoa(nonce=2**64 - 2)
+    tx = Transaction(
+        sender=sender,
+        nonce=2**64 - 2,
+        frames=[verify_frame()],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=2**64 - 1)},
     )

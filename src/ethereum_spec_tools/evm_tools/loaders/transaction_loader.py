@@ -140,8 +140,8 @@ class TransactionLoad:
                 to: Any = Bytes0(b"")
             else:
                 to = self.fork.hex_to_address(target_raw)
-            frames.append(
-                self.fork.Frame(
+            try:
+                frame = self.fork.Frame(
                     mode=self.fork.FrameMode(
                         parse_hex_or_int(frame_data.get("mode", 0), Uint)
                     ),
@@ -153,7 +153,15 @@ class TransactionLoad:
                     value=parse_hex_or_int(frame_data.get("value", 0), U256),
                     data=hex_to_bytes(frame_data.get("data", "0x")),
                 )
-            )
+            except (ValueError, OverflowError) as e:
+                # A field value the transaction types reject as they
+                # are constructed — an undefined mode, a reserved flag
+                # bit, an overflowing gas limit. Such a transaction
+                # never decodes, so reject it instead of crashing.
+                raise UnsupportedTxError(
+                    None, f"invalid frame field: {e}"
+                ) from e
+            frames.append(frame)
         return tuple(frames)
 
     def json_to_signatures(self) -> Any:
@@ -168,8 +176,8 @@ class TransactionLoad:
                 message = Bytes32(msg)
             else:
                 message = msg
-            signatures.append(
-                self.fork.FrameSignature(
+            try:
+                signature = self.fork.FrameSignature(
                     scheme=self.fork.FrameSignatureScheme(
                         parse_hex_or_int(sig_data.get("scheme", 0), Uint)
                     ),
@@ -177,7 +185,15 @@ class TransactionLoad:
                     message=message,
                     signature=hex_to_bytes(sig_data.get("signature", "0x")),
                 )
-            )
+            except (ValueError, OverflowError) as e:
+                # A field value the transaction types reject as they
+                # are constructed — notably an undefined signature
+                # scheme. Such a transaction never decodes, so reject
+                # it instead of crashing.
+                raise UnsupportedTxError(
+                    None, f"invalid frame signature field: {e}"
+                ) from e
+            signatures.append(signature)
         return tuple(signatures)
 
     def json_to_v(self) -> U256:

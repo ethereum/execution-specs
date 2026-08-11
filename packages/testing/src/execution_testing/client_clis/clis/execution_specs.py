@@ -297,7 +297,12 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         # Frame-count and blob-fee violations are static frame
         # transaction format errors, but ExecutionSpecs raises them as
         # dedicated exception classes rather than InvalidFrameError.
+        # The "invalid frame ... field" messages come from the t8n
+        # transaction loader for field values the transaction types
+        # reject as they are constructed (undefined modes, flags, or
+        # schemes), which on a real client fail to decode.
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
             r"FrameCountError|InvalidMaxFeePerBlobGas"
+            r"|invalid frame (signature )?field"
         ),
     }
