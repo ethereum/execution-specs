@@ -7,6 +7,7 @@ from typing import Callable, Dict, Mapping, Optional
 import pytest
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
+from execution_testing import Op
 
 from ethereum.crypto.hash import Hash32
 from ethereum.forks.amsterdam import vm as amsterdam_vm
@@ -62,17 +63,40 @@ from ethereum.forks.osaka.vm.precompiled_contracts.mapping import (
     PRE_COMPILED_CONTRACTS as OSAKA_PRE_COMPILED_CONTRACTS,
 )
 from ethereum.state import EMPTY_CODE_HASH, Account, Address
-from ethereum.state_mpt import State, set_account
+from ethereum.state_mpt import State, set_account, store_code
 from ethereum_spec_tools.forks import Hardfork
 
 # Somewhere no precompile has ever answered, and no account here lives.
 RELOCATED_ADDRESS = Address(bytes.fromhex("00" * 19 + "42"))
 SENDER = Address(b"\xaa" * 20)
+CALLER_CONTRACT = Address(b"\xcc" * 20)
 COINBASE = Address(b"\x00" * 20)
 GAS = Uint(1_000_000)
 PAYLOAD = Bytes(b"the identity precompile echoes whatever it is handed")
 
 Call = Callable[[Address, Optional[Mapping[Address, Callable]]], Bytes]
+
+
+def forwarding_code(target: Address) -> Bytes:
+    """
+    Return code that calls `target` with its own input and returns the
+    answer.
+
+    This is the shape the capability exists for: a contract calling a
+    precompile, rather than a transaction addressed straight at one.
+    """
+    return Bytes(
+        bytes(
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.POP(
+                Op.CALL(
+                    Op.GAS, int.from_bytes(target), 0, 0, Op.CALLDATASIZE, 0, 0
+                )
+            )
+            + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
+            + Op.RETURN(0, Op.RETURNDATASIZE)
+        )
+    )
 
 
 def move_identity_to(
@@ -90,8 +114,11 @@ def move_identity_to(
     return relocated
 
 
-def funded_pre_state() -> State:
-    """Return a pre-state in which only the sender exists."""
+def funded_pre_state(forwards_to: Optional[Address] = None) -> State:
+    """
+    Return a pre-state holding the sender and, when asked, a contract
+    that forwards its input to `forwards_to`.
+    """
     pre_state = State()
     set_account(
         pre_state,
@@ -100,6 +127,13 @@ def funded_pre_state() -> State:
             nonce=Uint(0), balance=U256(10**18), code_hash=EMPTY_CODE_HASH
         ),
     )
+    if forwards_to is not None:
+        code_hash = store_code(pre_state, forwarding_code(forwards_to))
+        set_account(
+            pre_state,
+            CALLER_CONTRACT,
+            Account(nonce=Uint(1), balance=U256(0), code_hash=code_hash),
+        )
     return pre_state
 
 
@@ -215,17 +249,19 @@ def call_osaka(
     return output.return_data
 
 
-def call_amsterdam(
-    target: Address,
+def run_amsterdam(
+    recipient: Address,
     precompiles: Optional[Mapping[Address, Callable]],
+    pre_state: State,
 ) -> Bytes:
     """
-    Call `target` with `PAYLOAD` at Amsterdam and report what came back.
+    Send `PAYLOAD` to `recipient` at Amsterdam and report what came
+    back.
 
     Pass `None` for `precompiles` to run the call exactly as consensus
     execution runs it, taking the fork's own arrangement.
     """
-    block_state = AmsterdamBlockState(pre_state=funded_pre_state())
+    block_state = AmsterdamBlockState(pre_state=pre_state)
     block_env = amsterdam_vm.BlockEnvironment(
         chain_id=U64(1),
         state=block_state,
@@ -245,7 +281,7 @@ def call_amsterdam(
         block_env = replace(block_env, precompiles=precompiles)
     tx_env = amsterdam_vm.TransactionEnvironment(
         origin=SENDER,
-        recipient=target,
+        recipient=recipient,
         is_create=False,
         data=PAYLOAD,
         value=U256(0),
@@ -268,11 +304,31 @@ def call_amsterdam(
     return output.return_data
 
 
+def call_amsterdam(
+    target: Address,
+    precompiles: Optional[Mapping[Address, Callable]],
+) -> Bytes:
+    """Address the transaction straight at `target` at Amsterdam."""
+    return run_amsterdam(target, precompiles, funded_pre_state())
+
+
+def call_amsterdam_from_a_contract(
+    target: Address,
+    precompiles: Optional[Mapping[Address, Callable]],
+) -> Bytes:
+    """Reach `target` at Amsterdam through a contract that calls it."""
+    return run_amsterdam(
+        CALLER_CONTRACT, precompiles, funded_pre_state(forwards_to=target)
+    )
+
+
 # Three shapes of dispatch, one fork each: Frontier reaches the mapping
 # through `evm.message.block_env` and warms nothing; Osaka does the same
 # but warms the precompiles at the start of a transaction and can
 # disable them for a delegation; Amsterdam has no `Message` at all and
-# reaches the environment through `evm.block_env`.
+# reaches the environment through `evm.block_env`. The last case runs
+# the same fork one frame deeper, from a contract rather than from the
+# transaction, since that is how a precompile is usually reached.
 FORKS = [
     pytest.param(
         call_frontier, FRONTIER_PRE_COMPILED_CONTRACTS, id="frontier"
@@ -280,6 +336,11 @@ FORKS = [
     pytest.param(call_osaka, OSAKA_PRE_COMPILED_CONTRACTS, id="osaka"),
     pytest.param(
         call_amsterdam, AMSTERDAM_PRE_COMPILED_CONTRACTS, id="amsterdam"
+    ),
+    pytest.param(
+        call_amsterdam_from_a_contract,
+        AMSTERDAM_PRE_COMPILED_CONTRACTS,
+        id="amsterdam-nested",
     ),
 ]
 
