@@ -16,6 +16,7 @@ from typing import Final, List, Tuple, final
 
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
+from ethereum.forks.bpo1.blocks import Header as PreviousHeader
 from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
@@ -392,7 +393,9 @@ def init_code_cost(init_code_length: Uint) -> Uint:
     return GasCosts.CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
 
 
-def calculate_excess_blob_gas(parent_header: Header) -> U64:
+def calculate_excess_blob_gas(
+    parent_header: Header | PreviousHeader,
+) -> U64:
     """
     Calculates the excess blob gas for the current block based
     on the gas used in the parent block.
@@ -408,13 +411,14 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
         The excess blob gas for the current block.
 
     """
-    # At the fork block, these are defined as zero.
+    # Defaults for a parent without blob gas fields.
     excess_blob_gas = U64(0)
     blob_gas_used = U64(0)
     base_fee_per_gas = Uint(0)
 
-    if isinstance(parent_header, Header):
-        # After the fork block, read them from the parent header.
+    if isinstance(parent_header, (Header, PreviousHeader)):
+        # Read them from any parent that carries the fields, so
+        # accumulated excess blob gas survives a fork transition.
         excess_blob_gas = parent_header.excess_blob_gas
         blob_gas_used = parent_header.blob_gas_used
         base_fee_per_gas = parent_header.base_fee_per_gas
