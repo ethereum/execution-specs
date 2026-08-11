@@ -390,23 +390,6 @@ def test_supplied_mapping_does_not_leak(
     assert call(RELOCATED_ADDRESS, None) == Bytes(b"")
 
 
-@pytest.mark.parametrize("call, canonical", FORKS)
-def test_canonical_mapping_refuses_to_be_edited(
-    call: Call, canonical: Mapping[Address, Callable]
-) -> None:
-    """
-    The fork's own mapping cannot be rearranged in place.
-
-    This is the structural half of the guarantee above: there is no
-    global left to move a precompile in, so a relocation has nowhere to
-    escape to.
-    """
-    with pytest.raises(TypeError):
-        canonical[RELOCATED_ADDRESS] = canonical[  # type: ignore[index]
-            IDENTITY_ADDRESS
-        ]
-
-
 def test_warming_follows_the_relocation() -> None:
     """
     A relocated precompile is warm where it answers, not where it left.
@@ -453,16 +436,18 @@ def test_every_fork_carries_its_precompiles_on_the_environment(
     )
     interpreter = importlib.import_module(f"{fork.name}.vm.interpreter")
 
-    defaults = {
-        field.name: field
+    # The default is a field default, so no construction site can
+    # forget it, and it is the fork's own mapping rather than a copy.
+    (precompiles,) = [
+        field
         for field in fields(vm.BlockEnvironment)
         if field.name == "precompiles"
-    }
-    assert defaults, "BlockEnvironment has no precompiles field"
-    factory = defaults["precompiles"].default_factory
-    assert factory is not MISSING, "the precompiles field has no default"
-    assert factory() is mapping.PRE_COMPILED_CONTRACTS
+    ]
+    assert precompiles.default_factory is not MISSING
+    assert precompiles.default_factory() is mapping.PRE_COMPILED_CONTRACTS
 
+    # And that mapping is read-only, so there is no global left to move
+    # a precompile in and a relocation has nowhere to escape to.
     with pytest.raises(TypeError):
         mapping.PRE_COMPILED_CONTRACTS[RELOCATED_ADDRESS] = None
 
