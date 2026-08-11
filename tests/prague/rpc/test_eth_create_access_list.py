@@ -16,11 +16,17 @@ what `declarable_access_list` derives from the EVM's own warm sets. The
 not what the plain call costs — attaching a list charges for it up front
 — and so comes from a re-run carrying it.
 
-Every shape here is chosen to stay clear of the two places the
-specification and go-ethereum answer differently: an address created
-during the message, and a frame that reverted below the top level. Both
-are documented at `declarable_access_list`. What is left is the ordinary
-case, and the ordinary case is where clients actually disagree.
+Every shape here is chosen to stay clear of the one place the
+specification and go-ethereum answer differently: a frame that reverted
+below the top level, documented at `declarable_access_list`. What is
+left is the ordinary case, and the ordinary case is where clients
+actually disagree.
+
+The two creation tests are the exception, and they assert different
+amounts on purpose. Clients split over whether a created address belongs
+in the list at all, so the case where it carries nothing is stored as a
+shape; the case where it carries a slot is stored as a value, because
+every client puts it there.
 
 Derivation replays the first transaction of each block, so most of these
 tests need only produce a block whose opening transaction has the shape
@@ -40,6 +46,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Op,
     Transaction,
 )
@@ -176,6 +183,83 @@ def test_access_list_of_a_reverting_call(
     blockchain_test(
         pre=pre,
         blocks=[Block(txs=[Transaction(sender=sender, to=probe)])],
+        post={},
+    )
+
+
+def _factory_deploying(initcode: Bytecode) -> Bytecode:
+    """
+    Return code that writes `initcode` to memory and creates from it.
+
+    Right-aligned in the first word, which is what makes a short
+    init code expressible as a single `PUSH32` and keeps the factory
+    itself from touching anything the list would have to declare.
+    """
+    length = len(initcode)
+    return (
+        Op.MSTORE(0, Op.PUSH32(bytes(initcode).rjust(32, b"\x00")))
+        + Op.CREATE(0, 32 - length, length)
+        + Op.STOP
+    )
+
+
+def test_access_list_of_a_creation_that_stores_nothing(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    A factory deploying a contract that touches no storage.
+
+    The created address is warm the moment it is created — EIP-2929 adds
+    it to `accessed_addresses` "immediately (ie. before checks are done
+    to determine whether or not the address is unclaimed)" — so
+    declaring it would buy a caller nothing and cost them
+    `ACCESS_LIST_ADDRESS_COST`. The list here leaves it out for that
+    reason.
+
+    Nothing asserts that, though, and the expectation this test files is
+    a shape and no value. go-ethereum and reth agree with the omission
+    but only by accident, their lists being built by watching opcodes
+    that never name a created address; Nethermind and Erigon read the
+    EVM's warm set directly and declare it. Nothing in EIP-2930 or in
+    execution-apis decides between them — EIP-2930 raises "the tx
+    sender/recipient/newly created contract" only to decline to police
+    duplicates — so what is pinned here is that the suite declines to
+    decide too.
+    """
+    factory = pre.deploy_contract(_factory_deploying(Op.STOP))
+    sender = pre.fund_eoa()
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[Transaction(sender=sender, to=factory)])],
+        post={},
+    )
+
+
+def test_access_list_of_a_creation_that_stores(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    A factory whose init code writes one slot before returning.
+
+    The created address is back in the list, and this one *is* asserted.
+    A created account's address is warm but its storage is not, and a
+    slot cannot be declared without naming the account that holds it, so
+    the entry is worth its price and every client produces it — the two
+    that watch opcodes see the `SSTORE` and attribute it to the frame
+    that ran it, and the two that read the warm set find the slot there.
+
+    The contrast with the preceding test is the point. "Leave a created
+    address out" is not the rule; the rule is that a *bare* created
+    address is not worth declaring, which is the same rule the recipient
+    is subject to.
+    """
+    factory = pre.deploy_contract(
+        _factory_deploying(Op.SSTORE(7, 0x11) + Op.STOP)
+    )
+    sender = pre.fund_eoa()
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[Transaction(sender=sender, to=factory)])],
         post={},
     )
 
