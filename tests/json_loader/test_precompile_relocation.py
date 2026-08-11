@@ -1,5 +1,6 @@
 """Test relocating a precompile through the block environment."""
 
+from dataclasses import replace
 from typing import Callable, Dict, Mapping, Optional
 
 import pytest
@@ -27,15 +28,30 @@ from ethereum.forks.amsterdam.vm.precompiled_contracts import (
 from ethereum.forks.amsterdam.vm.precompiled_contracts.mapping import (
     PRE_COMPILED_CONTRACTS as AMSTERDAM_PRE_COMPILED_CONTRACTS,
 )
+from ethereum.forks.frontier import vm as frontier_vm
+from ethereum.forks.frontier.state_tracker import (
+    BlockState as FrontierBlockState,
+)
+from ethereum.forks.frontier.state_tracker import (
+    TransactionState as FrontierTransactionState,
+)
+from ethereum.forks.frontier.vm.interpreter import (
+    process_message_call as frontier_process_message_call,
+)
+from ethereum.forks.frontier.vm.precompiled_contracts.mapping import (
+    PRE_COMPILED_CONTRACTS as FRONTIER_PRE_COMPILED_CONTRACTS,
+)
 from ethereum.state import EMPTY_CODE_HASH, Account, Address
 from ethereum.state_mpt import State, set_account
 
-# Somewhere no precompile has ever lived, and no test account occupies.
+# Somewhere no precompile has ever answered, and no account here lives.
 RELOCATED_ADDRESS = Address(bytes.fromhex("00" * 19 + "42"))
 SENDER = Address(b"\xaa" * 20)
+COINBASE = Address(b"\x00" * 20)
+GAS = Uint(1_000_000)
 PAYLOAD = Bytes(b"the identity precompile echoes whatever it is handed")
 
-Relocate = Callable[[Address, Optional[Mapping[Address, Callable]]], Bytes]
+Call = Callable[[Address, Optional[Mapping[Address, Callable]]], Bytes]
 
 
 def move_identity_to(
@@ -45,12 +61,75 @@ def move_identity_to(
     """
     Return `original` with the identity precompile moved to `address`.
 
-    The precompile answers at its new address and nowhere else, which is
-    what makes the relocation observable from both ends.
+    Identity answers at its new address and nowhere else, which is what
+    makes the relocation observable from both ends.
     """
     relocated = dict(original)
     relocated[address] = relocated.pop(IDENTITY_ADDRESS)
     return relocated
+
+
+def funded_pre_state() -> State:
+    """Return a pre-state in which only the sender exists."""
+    pre_state = State()
+    set_account(
+        pre_state,
+        SENDER,
+        Account(
+            nonce=Uint(0), balance=U256(10**18), code_hash=EMPTY_CODE_HASH
+        ),
+    )
+    return pre_state
+
+
+def call_frontier(
+    target: Address,
+    precompiles: Optional[Mapping[Address, Callable]],
+) -> Bytes:
+    """
+    Call `target` with `PAYLOAD` at Frontier and report what came back.
+
+    Pass `None` for `precompiles` to run the call exactly as consensus
+    execution runs it, taking the fork's own arrangement.
+    """
+    block_state = FrontierBlockState(pre_state=funded_pre_state())
+    block_env = frontier_vm.BlockEnvironment(
+        chain_id=U64(1),
+        state=block_state,
+        block_gas_limit=Uint(30_000_000),
+        block_hashes=[],
+        coinbase=COINBASE,
+        number=Uint(1),
+        time=U256(0),
+        difficulty=Uint(0),
+    )
+    if precompiles is not None:
+        block_env = replace(block_env, precompiles=precompiles)
+    tx_env = frontier_vm.TransactionEnvironment(
+        origin=SENDER,
+        gas_price=Uint(0),
+        gas=GAS,
+        state=FrontierTransactionState(parent=block_state),
+        index_in_block=Uint(0),
+        tx_hash=None,
+    )
+    message = frontier_vm.Message(
+        block_env=block_env,
+        tx_env=tx_env,
+        caller=SENDER,
+        target=target,
+        current_target=target,
+        gas=GAS,
+        value=U256(0),
+        data=PAYLOAD,
+        code_address=target,
+        code=Bytes(b""),
+        depth=Uint(0),
+        parent_evm=None,
+    )
+    output = frontier_process_message_call(message)
+    assert output.error is None
+    return output.return_data
 
 
 def call_amsterdam(
@@ -60,61 +139,37 @@ def call_amsterdam(
     """
     Call `target` with `PAYLOAD` at Amsterdam and report what came back.
 
-    Pass `None` for `precompiles` to run the block exactly as consensus
+    Pass `None` for `precompiles` to run the call exactly as consensus
     execution runs it, taking the fork's own arrangement.
     """
-    pre_state = State()
-    set_account(
-        pre_state,
-        SENDER,
-        Account(
-            nonce=Uint(0), balance=U256(10**18), code_hash=EMPTY_CODE_HASH
-        ),
+    block_state = AmsterdamBlockState(pre_state=funded_pre_state())
+    block_env = amsterdam_vm.BlockEnvironment(
+        chain_id=U64(1),
+        state=block_state,
+        block_gas_limit=Uint(30_000_000),
+        block_hashes=[],
+        coinbase=COINBASE,
+        number=Uint(1),
+        base_fee_per_gas=Uint(0),
+        time=U256(0),
+        prev_randao=Bytes32(b"\x00" * 32),
+        excess_blob_gas=U64(0),
+        parent_beacon_block_root=Hash32(b"\x00" * 32),
+        block_access_list_builder=BlockAccessListBuilder(),
+        slot_number=U64(0),
     )
-    block_state = AmsterdamBlockState(pre_state=pre_state)
-    if precompiles is None:
-        block_env = amsterdam_vm.BlockEnvironment(
-            chain_id=U64(1),
-            state=block_state,
-            block_gas_limit=Uint(30_000_000),
-            block_hashes=[],
-            coinbase=Address(b"\x00" * 20),
-            number=Uint(1),
-            base_fee_per_gas=Uint(0),
-            time=U256(0),
-            prev_randao=Bytes32(b"\x00" * 32),
-            excess_blob_gas=U64(0),
-            parent_beacon_block_root=Hash32(b"\x00" * 32),
-            block_access_list_builder=BlockAccessListBuilder(),
-            slot_number=U64(0),
-        )
-    else:
-        block_env = amsterdam_vm.BlockEnvironment(
-            chain_id=U64(1),
-            state=block_state,
-            block_gas_limit=Uint(30_000_000),
-            block_hashes=[],
-            coinbase=Address(b"\x00" * 20),
-            number=Uint(1),
-            base_fee_per_gas=Uint(0),
-            time=U256(0),
-            prev_randao=Bytes32(b"\x00" * 32),
-            excess_blob_gas=U64(0),
-            parent_beacon_block_root=Hash32(b"\x00" * 32),
-            block_access_list_builder=BlockAccessListBuilder(),
-            slot_number=U64(0),
-            precompiles=precompiles,
-        )
+    if precompiles is not None:
+        block_env = replace(block_env, precompiles=precompiles)
     tx_env = amsterdam_vm.TransactionEnvironment(
         origin=SENDER,
         recipient=target,
         is_create=False,
         data=PAYLOAD,
         value=U256(0),
-        gas_limit=Uint(1_000_000),
+        gas_limit=GAS,
         effective_gas_price=Uint(0),
-        execution_gas_grant=ExecutionGas(Uint(1_000_000)),
-        state_gas_reservoir=StateGas(Uint(1_000_000)),
+        execution_gas_grant=ExecutionGas(GAS),
+        state_gas_reservoir=StateGas(GAS),
         calldata_floor=Uint(0),
         access_list_addresses=set(),
         access_list_storage_keys=set(),
@@ -130,18 +185,22 @@ def call_amsterdam(
     return output.return_data
 
 
+# Frontier reaches the mapping through `evm.message.block_env` and
+# Amsterdam, which has no `Message`, through `evm.block_env`; the two
+# shapes are the reason both are exercised here.
 FORKS = [
     pytest.param(
-        call_amsterdam,
-        AMSTERDAM_PRE_COMPILED_CONTRACTS,
-        id="amsterdam",
+        call_frontier, FRONTIER_PRE_COMPILED_CONTRACTS, id="frontier"
+    ),
+    pytest.param(
+        call_amsterdam, AMSTERDAM_PRE_COMPILED_CONTRACTS, id="amsterdam"
     ),
 ]
 
 
 @pytest.mark.parametrize("call, canonical", FORKS)
 def test_precompile_answers_at_its_canonical_address(
-    call: Relocate, canonical: Mapping[Address, Callable]
+    call: Call, canonical: Mapping[Address, Callable]
 ) -> None:
     """Left alone, the identity precompile answers where it always has."""
     assert call(IDENTITY_ADDRESS, None) == PAYLOAD
@@ -150,13 +209,13 @@ def test_precompile_answers_at_its_canonical_address(
 
 @pytest.mark.parametrize("call, canonical", FORKS)
 def test_supplied_mapping_moves_a_precompile(
-    call: Relocate, canonical: Mapping[Address, Callable]
+    call: Call, canonical: Mapping[Address, Callable]
 ) -> None:
     """
     A mapping supplied to the environment relocates a precompile.
 
-    The new address answers and the old one falls silent: an account
-    with no code, returning nothing.
+    The new address answers and the old one falls silent, behaving like
+    the account with no code that it now is.
     """
     relocated = move_identity_to(RELOCATED_ADDRESS, canonical)
 
@@ -166,15 +225,16 @@ def test_supplied_mapping_moves_a_precompile(
 
 @pytest.mark.parametrize("call, canonical", FORKS)
 def test_supplied_mapping_does_not_leak(
-    call: Relocate, canonical: Mapping[Address, Callable]
+    call: Call, canonical: Mapping[Address, Callable]
 ) -> None:
     """
     A relocation reaches no further than the execution that asked for it.
 
-    An earlier spike moved precompiles by editing the fork's own
-    mapping, which left every later execution in the process looking at
-    the moved arrangement. Run the relocated execution first, then one
-    that supplies nothing, and the second must see the fork untouched.
+    An earlier attempt at this moved precompiles by editing the fork's
+    own mapping, which left every later execution in the process looking
+    at the moved arrangement. Run the relocated execution first, then
+    one that supplies nothing, and the second must find the fork
+    untouched.
     """
     relocated = move_identity_to(RELOCATED_ADDRESS, canonical)
     assert call(RELOCATED_ADDRESS, relocated) == PAYLOAD
@@ -185,13 +245,13 @@ def test_supplied_mapping_does_not_leak(
 
 @pytest.mark.parametrize("call, canonical", FORKS)
 def test_canonical_mapping_refuses_to_be_edited(
-    call: Relocate, canonical: Mapping[Address, Callable]
+    call: Call, canonical: Mapping[Address, Callable]
 ) -> None:
     """
     The fork's own mapping cannot be rearranged in place.
 
     This is the structural half of the guarantee above: there is no
-    global to move a precompile in, so a relocation has nowhere to
+    global left to move a precompile in, so a relocation has nowhere to
     escape to.
     """
     with pytest.raises(TypeError):
