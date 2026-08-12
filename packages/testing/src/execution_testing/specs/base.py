@@ -107,6 +107,7 @@ def labeled_format_parameter_set(
     | LabeledFixtureFormat
     | ExecuteFormat
     | FixtureFormat,
+    primary_format: bool = False,
 ) -> ParameterSet:
     """
     Return a parameter set from a fixture/execute format and parse a label if
@@ -127,7 +128,8 @@ def labeled_format_parameter_set(
             pytest.mark.fixture_format_id(
                 format_with_or_without_label.format_id()
             )
-        ],
+        ]
+        + ([pytest.mark.primary_format] if primary_format else []),
     )
 
 
@@ -216,10 +218,9 @@ class BaseTest(BaseModel):
             ):
                 continue
             parameter = labeled_format_parameter_set(
-                format_with_or_without_label
+                format_with_or_without_label,
+                primary_format=not parameters,
             )
-            if not parameters:
-                parameter.marks.append(pytest.mark.primary_format)  # type: ignore
             parameters.append((format_with_or_without_label, parameter))
         return parameters
 
