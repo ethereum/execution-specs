@@ -20,6 +20,7 @@ import base64
 import hashlib
 import hmac
 import json
+import queue
 import threading
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -294,6 +295,24 @@ class EngineBackend:
                 block=self.genesis_block, parent_hash=None, diff=None
             )
         }
+        # Reorgs back towards genesis need a fresh copy of the genesis
+        # state; keep one prepared in the background so the copy is off
+        # the request path (`_genesis_state` is never mutated, so the
+        # copier thread needs no lock).
+        self._genesis_copies: "queue.Queue[State]" = queue.Queue(maxsize=1)
+        threading.Thread(target=self._prepare_copies, daemon=True).start()
+
+    def _prepare_copies(self) -> None:
+        """Keep one spare copy of the genesis state ready."""
+        while True:
+            self._genesis_copies.put(copy_state(self._genesis_state))
+
+    def _fresh_genesis_state(self) -> State:
+        """Take the prepared genesis state copy, or copy synchronously."""
+        try:
+            return self._genesis_copies.get_nowait()
+        except queue.Empty:
+            return copy_state(self._genesis_state)
 
     def head_hash(self) -> Hash32:
         """Return the hash of the current chain head."""
@@ -303,7 +322,7 @@ class EngineBackend:
         """
         Make `target` the chain head by rebuilding its branch.
 
-        Collect the ancestry of `target` in the block tree, copy the
+        Collect the ancestry of `target` in the block tree, take a fresh
         genesis state, and reapply each block's diff along the branch.
         """
         branch = []
@@ -314,7 +333,7 @@ class EngineBackend:
             cursor = record.parent_hash
         branch.reverse()
 
-        state = copy_state(self._genesis_state)
+        state = self._fresh_genesis_state()
         for record in branch[1:]:
             assert record.diff is not None
             apply_changes_to_state(state, record.diff)
