@@ -97,7 +97,7 @@ class GasCosts:
     BLOB_BASE_COST: Final[Uint] = Uint(2**13)
     BLOB_SCHEDULE_MAX: Final[U64] = U64(21)
     BLOB_MIN_GASPRICE: Final[Uint] = Uint(1)
-    BLOB_BASE_FEE_UPDATE_FRACTION: Final[Uint] = Uint(11684671)
+    BLOB_BASE_FEE_UPDATE_FRACTION: Final[Uint] = Uint(13739630)
 
     # Transactions
     TX_BASE: Final[Uint] = Uint(21000)
