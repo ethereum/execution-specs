@@ -253,6 +253,64 @@ def test_bal_frame_revert_write_dropped(
     )
 
 
+def test_bal_unaffordable_designation_absent(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Keep a frame's designated address out of the BAL when the frame's
+    gas cannot cover the designation's access: resolution halts before
+    reading the designated account, while the target it did access is
+    filed as a bare access.
+
+    The receipts alone cannot tell this apart from a failure inside the
+    resolved code, since either forfeits the whole frame gas limit — the
+    BAL is what distinguishes them.
+    """
+    entry_gas = fork.frame_entry_gas_calculator()
+    sender = pre.fund_eoa()
+    delegate = pre.deploy_contract(code=Op.SSTORE(SLOT, WRITTEN_VALUE))
+    authority = pre.fund_eoa(delegation=delegate)
+
+    # The most gas that still cannot afford the designation's access.
+    frame_gas = entry_gas(delegated=True) - 1
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            sender_frame(target=authority, gas_limit=frame_gas),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(status=Spec.STATUS_FAILURE, gas_used=frame_gas),
+            ],
+        ),
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                authority: BalAccountExpectation.empty(),
+                delegate: None,
+            },
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            sender: Account(nonce=1),
+            delegate: Account(storage={SLOT: 0}),
+        },
+    )
+
+
 def test_bal_sponsored_payer_and_sender(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
