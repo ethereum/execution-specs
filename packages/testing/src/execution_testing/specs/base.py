@@ -150,6 +150,7 @@ class BaseTest(BaseModel):
     expected_receipt_status: int | None = None
     is_tx_gas_heavy_test: bool = False
     is_exception_test: bool = False
+    is_inclusion_test: bool = False
 
     # Class variables, to be set by subclasses
     spec_types: ClassVar[Dict[str, Type["BaseTest"]]] = {}

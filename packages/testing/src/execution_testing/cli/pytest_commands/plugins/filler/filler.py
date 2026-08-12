@@ -1582,6 +1582,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         fixed_opcode_count: int | None,
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
+        is_inclusion_test: bool,
     ) -> Any:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -1616,6 +1617,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["operation_mode"] = op_mode
                 kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
                 kwargs["is_exception_test"] = is_exception_test
+                kwargs["is_inclusion_test"] = is_inclusion_test
                 if (
                     op_mode == OpMode.OPTIMIZE_GAS
                     or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING

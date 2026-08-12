@@ -199,8 +199,8 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "inclusion_test: Mark a test that verifies whether a transaction can "
-        "be included in a block. The transaction under test is the last one "
-        "of the last block.",
+        "be included in a block. The transaction under test must be the last "
+        "one of the last block.",
     )
     config.addinivalue_line(
         "markers",
@@ -399,3 +399,12 @@ def is_exception_test(request: pytest.FixtureRequest) -> bool:
     test (invalid block, invalid transaction).
     """
     return request.node.get_closest_marker("exception_test") is not None
+
+
+@pytest.fixture(scope="function")
+def is_inclusion_test(request: pytest.FixtureRequest) -> bool:
+    """
+    Check, given the test node properties, whether the test is an inclusion
+    test.
+    """
+    return request.node.get_closest_marker("inclusion_test") is not None
