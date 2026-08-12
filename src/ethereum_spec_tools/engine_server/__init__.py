@@ -1,14 +1,12 @@
 """
 Run the execution specification as an Engine API client.
 
-Loads a hive genesis file into an Amsterdam [`BlockChain`] and serves
-the Engine API and `eth` JSON-RPC methods needed by a consensus-layer
-driver, allowing tools like the hive `consume engine` simulator to feed
-blocks directly to the specification.
-
-Only the Amsterdam fork is supported.
-
-[`BlockChain`]: ref:ethereum.forks.amsterdam.fork.BlockChain
+Loads a hive genesis file into the genesis fork's `BlockChain` and
+serves the Engine API and `eth` JSON-RPC methods needed by a
+consensus-layer driver, allowing tools like the hive `consume engine`
+and `consume enginex` simulators to feed blocks directly to the
+specification. All post-merge forks are supported; the fork schedule
+is read from the hive `HIVE_<FORK>_TIMESTAMP` environment variables.
 """
 
 import argparse
@@ -18,6 +16,7 @@ from pathlib import Path
 
 from ethereum_types.numeric import U64
 
+from .forks import schedule_from_env
 from .genesis import load_genesis_chain
 from .server import DEFAULT_JWT_SECRET, EngineBackend, serve
 
@@ -33,11 +32,6 @@ def parse_arguments() -> argparse.Namespace:
         type=Path,
         required=True,
         help="Path to the hive genesis JSON file.",
-    )
-    parser.add_argument(
-        "--fork",
-        default="Amsterdam",
-        help="Fork to run (only Amsterdam is supported).",
     )
     parser.add_argument(
         "--chain-id",
@@ -75,13 +69,11 @@ def main() -> None:
     """Start the engine server and serve until interrupted."""
     options = parse_arguments()
 
-    if options.fork != "Amsterdam":
-        raise SystemExit(
-            f"unsupported fork: {options.fork} (only Amsterdam is supported)"
-        )
-
-    chain = load_genesis_chain(options.genesis, U64(options.chain_id))
-    backend = EngineBackend(chain)
+    schedule = schedule_from_env(os.environ)
+    chain, genesis_fork = load_genesis_chain(
+        options.genesis, U64(options.chain_id), schedule
+    )
+    backend = EngineBackend(chain, genesis_fork, schedule)
     serve(
         backend,
         options.address,

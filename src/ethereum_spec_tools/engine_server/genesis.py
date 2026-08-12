@@ -1,26 +1,21 @@
 """
-Load a hive client genesis file into an Amsterdam blockchain.
+Load a hive client genesis file into a blockchain.
 
 Hive simulators hand clients a genesis file containing the fixture's
 genesis block header fields together with an `alloc` object describing
-the pre-state. This module parses that file into a [`BlockChain`] ready
-to accept payloads through the execution engine interface.
-
-[`BlockChain`]: ref:ethereum.forks.amsterdam.fork.BlockChain
+the pre-state. This module parses that file into the genesis fork's
+`BlockChain`, ready to accept payloads through the engine server.
 """
 
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.forks.amsterdam.blocks import Block, Header
-from ethereum.forks.amsterdam.fork import BlockChain
-from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.state import Account, Address, Root
 from ethereum.state_mpt import (
     State,
@@ -29,6 +24,8 @@ from ethereum.state_mpt import (
     state_root,
     store_code,
 )
+
+from .forks import ForkSpec, Schedule, fork_at
 
 
 def _bytes(value: Any) -> bytes:
@@ -47,40 +44,50 @@ def _int(value: Any) -> int:
     raise ValueError(f"expected integer or hex string, got {value!r}")
 
 
-def genesis_header_from_json(genesis: Mapping[str, Any]) -> Header:
+def genesis_header_from_json(
+    spec: ForkSpec, genesis: Mapping[str, Any]
+) -> Any:
     """
-    Build the genesis block header from a hive genesis file.
+    Build the genesis block header for `spec` from a hive genesis file.
 
     The field names follow the blockchain test fixture header encoding,
-    which is what the consume simulators write for the client.
+    which is what the consume simulators write for the client. Fields
+    outside the fork's header shape are ignored.
     """
-    return Header(
-        parent_hash=Hash32(_bytes(genesis["parentHash"])),
-        ommers_hash=Hash32(_bytes(genesis["uncleHash"])),
-        coinbase=Address(_bytes(genesis["coinbase"])),
-        state_root=Root(_bytes(genesis["stateRoot"])),
-        transactions_root=Root(_bytes(genesis["transactionsTrie"])),
-        receipt_root=Root(_bytes(genesis["receiptTrie"])),
-        bloom=Bloom(_bytes(genesis["bloom"])),
-        difficulty=Uint(_int(genesis["difficulty"])),
-        number=Uint(_int(genesis["number"])),
-        gas_limit=Uint(_int(genesis["gasLimit"])),
-        gas_used=Uint(_int(genesis["gasUsed"])),
-        timestamp=U256(_int(genesis["timestamp"])),
-        extra_data=Bytes(_bytes(genesis["extraData"])),
-        prev_randao=Bytes32(_bytes(genesis["mixHash"])),
-        nonce=Bytes8(_bytes(genesis["nonce"])),
-        base_fee_per_gas=Uint(_int(genesis["baseFeePerGas"])),
-        withdrawals_root=Root(_bytes(genesis["withdrawalsRoot"])),
-        blob_gas_used=U64(_int(genesis["blobGasUsed"])),
-        excess_blob_gas=U64(_int(genesis["excessBlobGas"])),
-        parent_beacon_block_root=Root(
+    fields = {
+        "parent_hash": Hash32(_bytes(genesis["parentHash"])),
+        "ommers_hash": Hash32(_bytes(genesis["uncleHash"])),
+        "coinbase": Address(_bytes(genesis["coinbase"])),
+        "state_root": Root(_bytes(genesis["stateRoot"])),
+        "transactions_root": Root(_bytes(genesis["transactionsTrie"])),
+        "receipt_root": Root(_bytes(genesis["receiptTrie"])),
+        "bloom": _bytes(genesis["bloom"]),
+        "difficulty": Uint(_int(genesis["difficulty"])),
+        "number": Uint(_int(genesis["number"])),
+        "gas_limit": Uint(_int(genesis["gasLimit"])),
+        "gas_used": Uint(_int(genesis["gasUsed"])),
+        "timestamp": U256(_int(genesis["timestamp"])),
+        "extra_data": Bytes(_bytes(genesis["extraData"])),
+        "prev_randao": Bytes32(_bytes(genesis["mixHash"])),
+        "nonce": Bytes8(_bytes(genesis["nonce"])),
+        "base_fee_per_gas": Uint(_int(genesis["baseFeePerGas"])),
+    }
+    if spec.has_withdrawals:
+        fields["withdrawals_root"] = Root(_bytes(genesis["withdrawalsRoot"]))
+    if spec.has_blobs:
+        fields["blob_gas_used"] = U64(_int(genesis["blobGasUsed"]))
+        fields["excess_blob_gas"] = U64(_int(genesis["excessBlobGas"]))
+        fields["parent_beacon_block_root"] = Root(
             _bytes(genesis["parentBeaconBlockRoot"])
-        ),
-        requests_hash=Hash32(_bytes(genesis["requestsHash"])),
-        block_access_list_hash=Hash32(_bytes(genesis["blockAccessListHash"])),
-        slot_number=U64(_int(genesis["slotNumber"])),
-    )
+        )
+    if spec.has_requests:
+        fields["requests_hash"] = Hash32(_bytes(genesis["requestsHash"]))
+    if spec.has_bal:
+        fields["block_access_list_hash"] = Hash32(
+            _bytes(genesis["blockAccessListHash"])
+        )
+        fields["slot_number"] = U64(_int(genesis["slotNumber"]))
+    return spec.blocks.Header(**fields)
 
 
 def state_from_alloc(alloc: Mapping[str, Any]) -> State:
@@ -112,17 +119,21 @@ def state_from_alloc(alloc: Mapping[str, Any]) -> State:
     return state
 
 
-def load_genesis_chain(genesis_path: Path, chain_id: U64) -> BlockChain:
+def load_genesis_chain(
+    genesis_path: Path, chain_id: U64, schedule: Schedule
+) -> Tuple[Any, ForkSpec]:
     """
     Load a hive genesis file into a single-block chain.
 
-    The state built from `alloc` must produce the header's `state_root`,
-    and when the file carries the expected genesis `hash`, the header
-    must reproduce it.
+    The genesis fork is resolved from the schedule at the genesis
+    timestamp. The state built from `alloc` must produce the header's
+    `state_root`, and when the file carries the expected genesis
+    `hash`, the header must reproduce it.
     """
     genesis = json.loads(genesis_path.read_text())
 
-    header = genesis_header_from_json(genesis)
+    spec = fork_at(schedule, _int(genesis["timestamp"]))
+    header = genesis_header_from_json(spec, genesis)
     state = state_from_alloc(genesis.get("alloc", {}))
 
     computed_state_root = state_root(state)
@@ -139,10 +150,16 @@ def load_genesis_chain(genesis_path: Path, chain_id: U64) -> BlockChain:
             f"declared genesis hash {genesis['hash']}"
         )
 
-    return BlockChain(
-        blocks=[
-            Block(header=header, transactions=(), ommers=(), withdrawals=())
-        ],
+    block_fields = {
+        "header": header,
+        "transactions": (),
+        "ommers": (),
+    }
+    if spec.has_withdrawals:
+        block_fields["withdrawals"] = ()
+    chain = spec.fork.BlockChain(
+        blocks=[spec.blocks.Block(**block_fields)],
         state=state,
         chain_id=chain_id,
     )
+    return chain, spec
