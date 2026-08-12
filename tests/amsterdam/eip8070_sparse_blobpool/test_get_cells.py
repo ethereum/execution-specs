@@ -22,6 +22,7 @@ from execution_testing import (
     Hash,
     NetworkWrappedTransaction,
     Transaction,
+    add_kzg_version,
 )
 
 from .spec import Spec, ref_spec_8070
@@ -109,6 +110,14 @@ def generate_blob_layouts(fork: Fork) -> List:
     ]
 
 
+def generate_nonexisting_blob_hashes(count: int) -> List[Hash]:
+    """Return well-formed versioned hashes that match no pooled blob."""
+    return add_kzg_version(
+        [sha256(str(i).encode()).digest() for i in range(count)],
+        Spec.BLOB_COMMITMENT_VERSION_KZG,
+    )
+
+
 def generate_single_blob_layout(fork: Fork) -> List:
     """Return a single-blob transaction layout."""
     return [
@@ -187,9 +196,7 @@ def test_get_cells_partial_and_missing(
     Test that `getBlobsV4` returns a partial response: existing blobs yield a
     cell matrix while non-existing versioned hashes yield `null` entries.
     """
-    nonexisting_blob_hashes = [
-        Hash(sha256(str(i).encode()).digest()) for i in range(5)
-    ]
+    nonexisting_blob_hashes = generate_nonexisting_blob_hashes(5)
     blobs_test(
         pre=pre,
         txs=txs,
@@ -214,9 +221,7 @@ def test_get_cells_only_nonexisting(
     Test that `getBlobsV4` returns an array of `null` entries (one per
     requested hash) when all requested blobs are non-existing.
     """
-    nonexisting_blob_hashes = [
-        Hash(sha256(str(i).encode()).digest()) for i in range(5)
-    ]
+    nonexisting_blob_hashes = generate_nonexisting_blob_hashes(5)
     blobs_test(
         pre=pre,
         txs=[],
@@ -245,10 +250,9 @@ def test_get_cells_min_request_size(
     The response must hold one entry per requested hash: a cell matrix for
     the existing blob and `null` for each non-existing hash.
     """
-    nonexisting_blob_hashes = [
-        Hash(sha256(str(i).encode()).digest())
-        for i in range(Spec.MIN_SUPPORTED_REQUEST_SIZE - 1)
-    ]
+    nonexisting_blob_hashes = generate_nonexisting_blob_hashes(
+        Spec.MIN_SUPPORTED_REQUEST_SIZE - 1
+    )
     blobs_test(
         pre=pre,
         txs=txs,
@@ -278,9 +282,7 @@ def test_get_cells_interleaved_missing(
     non-existing hashes are interleaved with existing ones (leading,
     middle, and trailing positions of the request).
     """
-    nonexisting_blob_hashes = [
-        Hash(sha256(str(i).encode()).digest()) for i in range(5)
-    ]
+    nonexisting_blob_hashes = generate_nonexisting_blob_hashes(5)
     blobs_test(
         pre=pre,
         txs=txs,
