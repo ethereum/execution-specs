@@ -222,3 +222,8 @@ BlobsBundle.proofs
 BlobsBundle.blobs
 GetPayloadResponse.block_value
 GetPayloadResponse.blobs_bundle
+
+# src/ethereum_spec_tools/engine_server - http.server override hook
+from ethereum_spec_tools.engine_server.server import _RpcHandler
+
+_RpcHandler.log_message

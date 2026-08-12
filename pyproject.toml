@@ -273,6 +273,7 @@ ethereum-spec-sync = "ethereum_spec_tools.sync:main"
 ethereum-spec-new-fork = "ethereum_spec_tools.new_fork.cli:main"
 ethereum-spec-patch = "ethereum_spec_tools.patch_tool:main"
 ethereum-spec-evm = "ethereum_spec_tools.evm_tools:main"
+ethereum-spec-engine = "ethereum_spec_tools.engine_server:main"
 whitelist = "ethereum_spec_tools.whitelist:main"
 
 [project.entry-points."docc.plugins"]
