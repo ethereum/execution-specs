@@ -157,6 +157,8 @@ def test_extcodecopy_warm(
     "opcode",
     [
         Op.BALANCE,
+        Op.EXTCODESIZE,
+        Op.EXTCODEHASH,
     ],
 )
 @pytest.mark.parametrize(

@@ -17,6 +17,7 @@ from execution_testing import (
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    Conditional,
     ExtCallGenerator,
     Fork,
     Hash,
@@ -27,6 +28,7 @@ from execution_testing import (
     TestPhaseManager,
     Transaction,
     While,
+    WhileGas,
     compute_create_address,
 )
 
@@ -520,4 +522,84 @@ def test_storage_access_warm_benchmark(
         if storage_action == StorageAction.READ
         else Op.SSTORE,
         code_generator=ExtCallGenerator(attack_block=attack_block),
+    )
+
+
+@pytest.mark.parametrize("revert", [True, False])
+@pytest.mark.parametrize("depth", [1, pytest.param(None, id="max")])
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.SLOAD,
+        Op.SSTORE,
+        Op.TLOAD,
+        Op.TSTORE,
+    ],
+)
+def test_nested_frame_state_access(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_gas_limit: int,
+    gas_benchmark_value: int,
+    depth: int | None,
+    opcode: Op,
+    revert: bool,
+) -> None:
+    """Benchmark warm state access from the bottom of a deep frame stack."""
+    match opcode:
+        case Op.SLOAD:
+            body = Op.POP(Op.SLOAD(Op.PUSH0))
+        case Op.SSTORE:
+            body = Op.SSTORE(Op.GAS, Op.GAS)
+        case Op.TLOAD:
+            body = Op.POP(Op.TLOAD(Op.GAS))
+        case Op.TSTORE:
+            body = Op.TSTORE(Op.GAS, Op.GAS)
+        case _:
+            raise ValueError(f"Unsupported opcode: {opcode}")
+
+    epilogue = Op.REVERT(0, 0) if revert else Bytecode()
+    leaf_code = (
+        WhileGas(body=body, fork=fork, extra_gas=epilogue.gas_cost(fork))
+        + epilogue
+    )
+    leaf_address = pre.deploy_contract(code=leaf_code)
+
+    descend = Op.MSTORE(0, Op.SUB(Op.CALLDATALOAD(0), 1)) + Op.POP(
+        Op.CALL(
+            gas=Op.GAS,
+            address=Op.ADDRESS,
+            args_offset=0,
+            args_size=32,
+            address_warm=True,
+        )
+    )
+
+    frame_code = Conditional(
+        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
+        if_true=Op.POP(
+            Op.CALL(gas=Op.GAS, address=leaf_address, address_warm=True)
+        ),
+        if_false=descend,
+    )
+    entry_address = pre.deploy_contract(code=frame_code)
+
+    if depth is None:
+        frame_cost = frame_code.gas_cost(fork)
+        gas = min(tx_gas_limit, gas_benchmark_value)
+        depth = 0
+        while gas > frame_cost + leaf_code.gas_cost(fork):
+            gas -= frame_cost
+            gas -= gas // 64
+            depth += 1
+
+    benchmark_test(
+        target_opcode=opcode,
+        skip_gas_used_validation=True,
+        tx=Transaction(
+            to=entry_address,
+            data=Hash(depth),
+            sender=pre.fund_eoa(),
+        ),
     )

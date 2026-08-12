@@ -24,6 +24,7 @@ from execution_testing import (
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    Conditional,
     Create2PreimageLayout,
     ExtCallGenerator,
     Fork,
@@ -32,10 +33,13 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
     TestPhaseManager,
+    Transaction,
     While,
+    WhileGas,
     compute_create2_address,
     compute_create_address,
 )
+from execution_testing import Macros as Om
 
 from tests.frontier.identity_precompile.spec import Spec as IdentitySpec
 
@@ -164,6 +168,34 @@ def test_contract_calling_many_addresses(
     )
 
 
+@pytest.mark.parametrize("opcode", [Op.DELEGATECALL, Op.STATICCALL])
+@pytest.mark.parametrize(
+    "warm_access",
+    [True, False],
+)
+def test_delegatecall_staticcall(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    warm_access: bool,
+) -> None:
+    """Benchmark a contract that STATICCALL/DELEGATECALL accounts."""
+    target = pre.deploy_contract(code=Op.STOP)
+    address = target if warm_access else Op.GAS
+
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            attack_block=Op.POP(
+                opcode(
+                    gas=Op.GAS,
+                    address=address,
+                )
+            ),
+        ),
+    )
+
+
 @pytest.mark.parametrize(
     "opcode,value",
     [
@@ -204,6 +236,105 @@ def test_call_opcodes_to_precompile(
             contract_balance=10**9 if value else 0,
         ),
     )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL],
+)
+def test_nested_calls(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    opcode: Op,
+) -> None:
+    """Benchmark chains of nested call frames."""
+    chain_address = pre.deploy_contract(
+        code=Op.POP(opcode(gas=Op.GAS, address=Op.ADDRESS))
+    )
+
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            attack_block=Op.POP(Op.CALL(gas=Op.GAS, address=chain_address))
+        ),
+    )
+
+
+def test_nested_call_chain(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_gas_limit: int,
+    gas_benchmark_value: int,
+) -> None:
+    """Benchmark nested call frames that each enter a different contract."""
+    gas = min(tx_gas_limit, gas_benchmark_value)
+
+    address = pre.deploy_contract(code=Op.STOP)
+    link = Op.POP(Op.CALL(gas=Op.GAS, address=address, address_warm=True))
+    while gas > link.gas_cost(fork):
+        gas -= link.gas_cost(fork)
+        gas -= gas // 64
+        address = pre.deploy_contract(code=link)
+        link = Op.POP(Op.CALL(gas=Op.GAS, address=address, address_warm=True))
+
+    benchmark_test(
+        target_opcode=Op.CALL,
+        code_generator=JumpLoopGenerator(attack_block=link),
+    )
+
+
+@pytest.mark.parametrize("out_of_gas", [True, False])
+def test_nested_creates(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    out_of_gas: bool,
+) -> None:
+    """
+    Benchmark chains of nested CREATE frames.
+
+    The initcode copies itself into memory and hands that copy to CREATE,
+    so every frame it opens runs the same code and creates in turn, down
+    to the depth the 63/64 rule can still fund a CREATE at. Nothing is
+    returned, so the accounts are left empty and no code deposit is paid.
+
+    Under `out_of_gas` the descent runs until a frame cannot pay for its
+    CREATE, and the driver until the transaction is spent, so every
+    account the chain made is thrown away. Otherwise both stop one level
+    short of that and all of them are committed instead.
+    """
+    copy_self = Op.CODECOPY(dest_offset=0, offset=0, size=Op.CODESIZE)
+    create_self = Op.POP(Op.CREATE(value=0, offset=0, size=Op.CODESIZE))
+
+    initcode = copy_self + create_self
+    if not out_of_gas:
+        # Twice a level's cost leaves each frame enough to reach its own
+        # STOP after the CREATE it decides not to make.
+        initcode = copy_self + Conditional(
+            condition=Op.GT(Op.GAS, 2 * initcode.gas_cost(fork)),
+            if_true=create_self,
+        )
+
+    setup = Om.MSTORE(bytes(initcode), 0)
+    launch = Op.POP(Op.CREATE(value=0, offset=0, size=len(initcode)))
+
+    if out_of_gas:
+        benchmark_test(
+            target_opcode=Op.CREATE,
+            code_generator=JumpLoopGenerator(setup=setup, attack_block=launch),
+        )
+    else:
+        benchmark_test(
+            target_opcode=Op.CREATE,
+            skip_gas_used_validation=True,
+            tx=Transaction(
+                to=pre.deploy_contract(
+                    code=setup + WhileGas(body=launch, fork=fork)
+                ),
+                sender=pre.fund_eoa(),
+            ),
+        )
 
 
 @pytest.mark.repricing(max_code_size_ratio=0)

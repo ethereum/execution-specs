@@ -11,13 +11,18 @@ Supported Opcodes:
 
 import pytest
 from execution_testing import (
+    Alloc,
     BenchmarkCodeGenerator,
     BenchmarkTestFiller,
     Bytecode,
+    Conditional,
     ExtCallGenerator,
     Fork,
+    Hash,
     JumpLoopGenerator,
     Op,
+    Transaction,
+    WhileGas,
 )
 
 
@@ -126,4 +131,75 @@ def test_mcopy(
         code_generator=JumpLoopGenerator(
             attack_block=attack_block, cleanup=mem_touch
         ),
+    )
+
+
+@pytest.mark.parametrize("mem_size", [0, 8 * 1024, 64 * 1024])
+def test_sibling_frame_memory(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    mem_size: int,
+) -> None:
+    """Benchmark sibling call frames that each expand their own memory."""
+    frame_code = Op.STOP if mem_size == 0 else Op.MSTORE8(mem_size - 1, 0)
+    frame_address = pre.deploy_contract(code=frame_code)
+
+    benchmark_test(
+        target_opcode=Op.CALL,
+        code_generator=JumpLoopGenerator(
+            attack_block=Op.POP(
+                Op.CALL(
+                    gas=Op.GAS,
+                    address=frame_address,
+                )
+            )
+        ),
+    )
+
+
+@pytest.mark.parametrize("depth", [1, 64, 256])
+@pytest.mark.parametrize("mem_size", [0, 8 * 1024, 64 * 1024])
+def test_nested_frame_memory(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    depth: int,
+    mem_size: int,
+) -> None:
+    """Benchmark a deep frame stack where every frame holds live memory."""
+    leaf_address = pre.deploy_contract(
+        code=WhileGas(body=Op.POP(Op.MLOAD(Op.PUSH0)), fork=fork)
+    )
+
+    # The frame's own memory is claimed before the descent, and must not
+    # overlap memory[0:32], which carries the depth to the next frame.
+    frame_memory = (
+        Op.MSTORE8(mem_size - 1, 0xFF) if mem_size > 0 else Bytecode()
+    )
+
+    descend = Op.MSTORE(0, Op.SUB(Op.CALLDATALOAD(0), 1)) + Op.POP(
+        Op.CALL(
+            gas=Op.GAS,
+            address=Op.ADDRESS,
+            args_offset=0,
+            args_size=32,
+        )
+    )
+
+    entry_address = pre.deploy_contract(
+        code=frame_memory
+        + Conditional(
+            condition=Op.ISZERO(Op.CALLDATALOAD(0)),
+            if_true=Op.POP(Op.CALL(gas=Op.GAS, address=leaf_address)),
+            if_false=descend,
+        )
+    )
+
+    benchmark_test(
+        tx=Transaction(
+            to=entry_address,
+            data=Hash(depth),
+            sender=pre.fund_eoa(),
+        ),
+        skip_gas_used_validation=True,
     )
