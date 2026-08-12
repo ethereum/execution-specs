@@ -21,6 +21,7 @@ import hashlib
 import hmac
 import json
 import threading
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -46,10 +47,16 @@ from ethereum.forks.amsterdam.execution_engine.requests import (
 from ethereum.forks.amsterdam.execution_engine.validation_helpers import (
     _payload_block,
 )
-from ethereum.forks.amsterdam.fork import BlockChain, state_transition
+from ethereum.forks.amsterdam.fork import (
+    BlockChain,
+    ChainContext,
+    execute_block,
+    get_last_256_block_hashes,
+)
 from ethereum.forks.amsterdam.fork_types import Bloom, VersionedHash
 from ethereum.forks.amsterdam.transactions import LegacyTransaction
-from ethereum.state import Address, Root
+from ethereum.state import Address, BlockDiff, Root
+from ethereum.state_mpt import State, apply_changes_to_state, copy_state
 
 # JSON-RPC and Engine API error codes.
 PARSE_ERROR = -32700
@@ -251,30 +258,72 @@ def _block_to_json(block: Block) -> Dict[str, Any]:
     }
 
 
+@dataclass
+class _BlockRecord:
+    """A validated block, its parent link, and the diff it produced."""
+
+    block: Block
+    parent_hash: Optional[Hash32]
+    diff: Optional[BlockDiff]
+
+
 class EngineBackend:
     """
     Chain state and JSON-RPC method handlers.
 
-    Holds the [`BlockChain`] that payloads are applied to, guarded by a
-    lock so that concurrent HTTP requests observe a consistent chain.
+    Holds the [`BlockChain`] of the active branch, guarded by a lock so
+    that concurrent HTTP requests observe a consistent chain. Every
+    validated block is remembered in a block tree together with the
+    [`BlockDiff`] it produced, so a payload building on any known block
+    (or a forkchoice update selecting one) reorgs by rebuilding the
+    branch state from the genesis snapshot.
 
     [`BlockChain`]: ref:ethereum.forks.amsterdam.fork.BlockChain
+    [`BlockDiff`]: ref:ethereum.state.BlockDiff
     """
 
     def __init__(self, chain: BlockChain) -> None:
         self.chain = chain
         self.lock = threading.Lock()
         self.genesis_block = chain.blocks[0]
-        # All block hashes ever applied, mapping to their block number.
-        # Survives the chain's 255-block trim so forkchoice updates can
-        # recognize any previously validated head.
-        self.known_blocks: Dict[Hash32, Uint] = {
-            _block_hash(self.genesis_block): self.genesis_block.header.number
+        self._genesis_state: State = copy_state(chain.state)
+        # Block tree of every block ever validated; survives the active
+        # branch's 255-block trim.
+        self.records: Dict[Hash32, _BlockRecord] = {
+            _block_hash(self.genesis_block): _BlockRecord(
+                block=self.genesis_block, parent_hash=None, diff=None
+            )
         }
 
     def head_hash(self) -> Hash32:
         """Return the hash of the current chain head."""
         return _block_hash(self.chain.blocks[-1])
+
+    def _rebuild_to(self, target: Hash32) -> None:
+        """
+        Make `target` the chain head by rebuilding its branch.
+
+        Collect the ancestry of `target` in the block tree, copy the
+        genesis state, and reapply each block's diff along the branch.
+        """
+        branch = []
+        cursor: Optional[Hash32] = target
+        while cursor is not None:
+            record = self.records[cursor]
+            branch.append(record)
+            cursor = record.parent_hash
+        branch.reverse()
+
+        state = copy_state(self._genesis_state)
+        for record in branch[1:]:
+            assert record.diff is not None
+            apply_changes_to_state(state, record.diff)
+
+        self.chain = BlockChain(
+            blocks=[record.block for record in branch][-255:],
+            state=state,
+            chain_id=self.chain.chain_id,
+        )
 
     def handle(self, method: str, params: List[Any]) -> Any:
         """Dispatch a JSON-RPC method call."""
@@ -343,9 +392,9 @@ class EngineBackend:
             raise RpcError(INVALID_PARAMS, "expected 2 params")
         block_hash = Hash32(_decode_hex(params[0], "blockHash", 32))
         with self.lock:
-            for block in self.chain.blocks:
-                if _block_hash(block) == block_hash:
-                    return _block_to_json(block)
+            record = self.records.get(block_hash)
+            if record is not None:
+                return _block_to_json(record.block)
         return None
 
     def new_payload_v5(self, params: List[Any]) -> Dict[str, Any]:
@@ -424,7 +473,12 @@ class EngineBackend:
                 "INVALID", None, "invalid blob versioned hashes"
             )
 
-        parent_is_head = payload.parent_hash == self.head_hash()
+        parent_hash = Hash32(payload.parent_hash)
+        parent_known = parent_hash in self.records
+        if parent_known and parent_hash != self.head_hash():
+            # The payload builds on a known non-head block: reorg the
+            # active branch onto its parent before executing.
+            self._rebuild_to(parent_hash)
 
         try:
             block = _payload_block(
@@ -432,17 +486,30 @@ class EngineBackend:
                 request.parent_beacon_block_root,
                 request.execution_requests,
             )
-            state_transition(self.chain, block)
+            chain_context = ChainContext(
+                chain_id=self.chain.chain_id,
+                block_hashes=get_last_256_block_hashes(self.chain),
+                parent_header=self.chain.blocks[-1].header,
+            )
+            diff = execute_block(block, self.chain.state, chain_context)
         except EthereumException as e:
             latest_valid: Optional[Hash32] = (
-                Hash32(payload.parent_hash) if parent_is_head else None
+                parent_hash if parent_known else None
             )
             return _payload_status(
                 "INVALID", latest_valid, f"{type(e).__name__}: {e}"
             )
 
-        self.known_blocks[Hash32(payload.block_hash)] = payload.block_number
-        return _payload_status("VALID", Hash32(payload.block_hash), None)
+        apply_changes_to_state(self.chain.state, diff)
+        self.chain.blocks.append(block)
+        if len(self.chain.blocks) > 255:
+            self.chain.blocks = self.chain.blocks[-255:]
+
+        block_hash = Hash32(payload.block_hash)
+        self.records[block_hash] = _BlockRecord(
+            block=block, parent_hash=parent_hash, diff=diff
+        )
+        return _payload_status("VALID", block_hash, None)
 
     def forkchoice_updated_v4(self, params: List[Any]) -> Dict[str, Any]:
         """
@@ -472,12 +539,14 @@ class EngineBackend:
             )
 
         with self.lock:
-            known = head in self.known_blocks
-        if not known:
-            return {
-                "payloadStatus": _payload_status("SYNCING", None, None),
-                "payloadId": None,
-            }
+            if head not in self.records:
+                return {
+                    "payloadStatus": _payload_status("SYNCING", None, None),
+                    "payloadId": None,
+                }
+            if head != self.head_hash():
+                # Selecting a known non-head block as head is a reorg.
+                self._rebuild_to(head)
         return {
             "payloadStatus": _payload_status("VALID", head, None),
             "payloadId": None,
