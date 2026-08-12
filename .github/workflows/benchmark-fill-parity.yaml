@@ -13,7 +13,7 @@ on:
         description: "Geth branch to build"
         required: false
         type: string
-        default: "jsign-glamsterdam-devnet-7-t8n-zkevm"
+        default: "glamsterdam-devnet-8-t8n-zkevm"
       benchmark_file:
         description: "Benchmark test file to fill"
         required: false
@@ -36,7 +36,7 @@ concurrency:
 
 env:
   GETH_REPO: ${{ inputs.geth_repo || 'jsign/go-ethereum' }}
-  GETH_BRANCH: ${{ inputs.geth_branch || 'jsign-glamsterdam-devnet-7-t8n-zkevm' }}
+  GETH_BRANCH: ${{ inputs.geth_branch || 'glamsterdam-devnet-8-t8n-zkevm' }}
   BENCHMARK_FILE: ${{ inputs.benchmark_file || 'tests/benchmark/compute/instruction/test_memory.py' }}
   FILL_FORK: ${{ inputs.fill_fork || 'Amsterdam' }}
   XDIST_WORKERS: ${{ inputs.xdist_workers || 'auto' }}
