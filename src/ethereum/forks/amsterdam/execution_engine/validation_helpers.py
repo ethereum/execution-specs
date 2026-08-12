@@ -2,7 +2,7 @@
 Shared execution-engine conversion helpers.
 """
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8
@@ -16,14 +16,13 @@ from ..blocks import Block, Header
 from ..fork import EMPTY_OMMER_HASH
 from ..requests import compute_requests_hash
 from ..transactions import LegacyTransaction, decode_transaction
-from .requests import ExecutionRequests, encode_execution_requests
 from .types import ExecutionPayload
 
 
 def _payload_header(
     execution_payload: ExecutionPayload,
     parent_beacon_block_root: Root,
-    execution_requests: ExecutionRequests,
+    execution_requests: Tuple[Bytes, ...],
 ) -> Header:
     """
     Build the execution header implied by a payload request.
@@ -50,11 +49,9 @@ def _payload_header(
         )
     withdrawals_root = root(withdrawals_trie)
 
-    requests_hash = Hash32(
-        compute_requests_hash(
-            list(encode_execution_requests(execution_requests))
-        )
-    )
+    # The wire-form requests are hashed as opaque items; their
+    # contents play no part in the block hash.
+    requests_hash = Hash32(compute_requests_hash(list(execution_requests)))
 
     return Header(
         parent_hash=execution_payload.parent_hash,
@@ -100,7 +97,7 @@ def _payload_transaction_to_block_transaction(
 def _payload_block(
     execution_payload: ExecutionPayload,
     parent_beacon_block_root: Root,
-    execution_requests: ExecutionRequests,
+    execution_requests: Tuple[Bytes, ...],
 ) -> Block:
     """
     Convert an execution payload request into an execution-layer block.

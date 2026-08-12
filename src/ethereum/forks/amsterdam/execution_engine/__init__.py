@@ -23,11 +23,11 @@ from .new_payload import (
     notify_new_payload,
     verify_and_notify_new_payload,
 )
+from .requests import ExecutionRequests
 from .types import (
     BlobsBundle,
     ExecutionEngine,
     ExecutionPayload,
-    ExecutionRequests,
     GetPayloadResponse,
     NewPayloadRequest,
     PayloadAttributes,

@@ -42,9 +42,6 @@ from ethereum.forks.amsterdam.execution_engine import (
     is_valid_block_hash,
     is_valid_versioned_hashes,
 )
-from ethereum.forks.amsterdam.execution_engine.requests import (
-    decode_execution_requests,
-)
 from ethereum.forks.amsterdam.execution_engine.validation_helpers import (
     _payload_block,
 )
@@ -449,17 +446,32 @@ class EngineBackend:
         )
         if not isinstance(requests_json, list):
             raise RpcError(INVALID_PARAMS, "executionRequests: expected array")
-        try:
-            execution_requests = decode_execution_requests(
-                tuple(
-                    Bytes(_decode_hex(r, "executionRequest"))
-                    for r in requests_json
+        execution_requests = tuple(
+            Bytes(_decode_hex(r, "executionRequest")) for r in requests_json
+        )
+        # Per the Engine API, only structural violations of the requests
+        # list are parameter errors: empty items, items with no request
+        # data after the type byte, and type bytes out of strictly
+        # ascending order. Any other malformed content is hashed as
+        # opaque bytes and surfaces as an INVALID payload.
+        last_type = -1
+        for item in execution_requests:
+            if len(item) == 0:
+                raise RpcError(
+                    INVALID_PARAMS, "executionRequests: empty request item"
                 )
-            )
-        except EthereumException as e:
-            # Ordering, size, and unknown-type violations are invalid
-            # params per the Engine API.
-            raise RpcError(INVALID_PARAMS, str(e)) from e
+            if len(item) == 1:
+                raise RpcError(
+                    INVALID_PARAMS,
+                    "executionRequests: request item without data",
+                )
+            if item[0] <= last_type:
+                raise RpcError(
+                    INVALID_PARAMS,
+                    "executionRequests: request types not in strictly "
+                    "ascending order",
+                )
+            last_type = item[0]
 
         request = NewPayloadRequest(
             execution_payload=payload,

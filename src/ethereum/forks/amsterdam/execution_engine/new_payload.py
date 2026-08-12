@@ -2,7 +2,10 @@
 Payload verification and execution.
 """
 
+from typing import Tuple
+
 from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException
@@ -11,7 +14,6 @@ from ethereum.state import Root
 from ..fork import state_transition
 from ..fork_types import VersionedHash
 from ..transactions import BlobTransaction, decode_transaction
-from .requests import ExecutionRequests
 from .types import ExecutionEngine, ExecutionPayload, NewPayloadRequest
 from .validation_helpers import _payload_block, _payload_header
 
@@ -19,7 +21,7 @@ from .validation_helpers import _payload_block, _payload_header
 def is_valid_block_hash(
     execution_payload: ExecutionPayload,
     parent_beacon_block_root: Root,
-    execution_requests: ExecutionRequests,
+    execution_requests: Tuple[Bytes, ...],
 ) -> bool:
     """
     Return `True` if and only if `execution_payload.block_hash` is

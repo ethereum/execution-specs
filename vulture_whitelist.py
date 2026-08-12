@@ -208,6 +208,7 @@ genesis_header  # genesis header fixture
 # surface; consumed by external engine callers rather than the spec itself
 from ethereum.forks.amsterdam.execution_engine.requests import (
     decode_execution_requests,
+    encode_execution_requests,
 )
 from ethereum.forks.amsterdam.execution_engine.types import (
     BlobsBundle,
@@ -216,6 +217,7 @@ from ethereum.forks.amsterdam.execution_engine.types import (
 )
 
 decode_execution_requests
+encode_execution_requests
 PayloadAttributes.suggested_fee_recipient
 BlobsBundle.commitments
 BlobsBundle.proofs

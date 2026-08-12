@@ -15,7 +15,6 @@ from ethereum.state import Address, Root
 from ..blocks import Withdrawal
 from ..fork import BlockChain
 from ..fork_types import Bloom, VersionedHash
-from .requests import ExecutionRequests
 
 ExecutionEngine = BlockChain
 """
@@ -84,7 +83,12 @@ class NewPayloadRequest:
 
     Corresponds to the consensus-layer [`NewPayloadRequest`] container
     and carries the parameters of the Engine API `engine_newPayloadV5`
-    method.
+    method. The execution requests are carried in their opaque wire
+    form; [`decode_execution_requests`] parses them when typed access
+    is needed.
+
+    [`decode_execution_requests`]:
+        ref:ethereum.forks.amsterdam.execution_engine.requests.decode_execution_requests
 
     [`verify_and_notify_new_payload`]:
         ref:ethereum.forks.amsterdam.execution_engine.new_payload.verify_and_notify_new_payload
@@ -94,7 +98,7 @@ class NewPayloadRequest:
     execution_payload: ExecutionPayload
     versioned_hashes: Tuple[VersionedHash, ...]
     parent_beacon_block_root: Root
-    execution_requests: ExecutionRequests
+    execution_requests: Tuple[Bytes, ...]
 
 
 @final
@@ -140,4 +144,4 @@ class GetPayloadResponse:
     execution_payload: ExecutionPayload
     block_value: U256
     blobs_bundle: BlobsBundle
-    execution_requests: ExecutionRequests
+    execution_requests: Tuple[Bytes, ...]
