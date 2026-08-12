@@ -162,7 +162,6 @@ def test_max_code_size_via_create_fork_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 def test_max_initcode_size_fork_transition(
     blockchain_test: BlockchainTestFiller,
@@ -301,7 +300,6 @@ def test_max_initcode_size_via_create_fork_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 def test_max_code_size_with_max_initcode_fork_transition(
     blockchain_test: BlockchainTestFiller,

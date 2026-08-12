@@ -412,7 +412,6 @@ def test_sstore_write_cost_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 @pytest.mark.exception_test
