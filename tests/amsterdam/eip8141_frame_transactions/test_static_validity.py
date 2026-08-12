@@ -805,7 +805,12 @@ def test_gas_limit_cap_from_frame_gas(
         code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
         balance=10**18,
     )
-    intrinsic = Spec.FRAME_TX_INTRINSIC_COST + Spec.FRAME_TX_PER_FRAME_COST
+    # A contract sender carries no signature entries and the frame no
+    # data, so a frame count prices the intrinsic cost exactly.
+    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=1,
+        return_cost_deducted_prior_execution=True,
+    )
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None
 
@@ -859,7 +864,9 @@ def test_gas_limit_cap_from_calldata_floor(
     floor_per_byte = (
         gas_costs.TX_DATA_TOKEN_STANDARD * gas_costs.TX_DATA_TOKEN_FLOOR
     )
-    base = Spec.FRAME_TX_INTRINSIC_COST + 2 * Spec.FRAME_TX_PER_FRAME_COST
+    # With no charged bytes the floor anchor is the always-paid base
+    # costs alone; the data length is solved against it below.
+    base = fork.frame_transaction_data_floor_cost_calculator()(frames=2)
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None
     data_length = (cap - base) // floor_per_byte + cap_excess

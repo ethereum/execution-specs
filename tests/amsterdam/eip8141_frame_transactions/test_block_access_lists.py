@@ -23,6 +23,7 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytes,
+    Fork,
     FrameReceipt,
     FrameSignature,
     Op,
@@ -48,21 +49,6 @@ WRITTEN_VALUE = 0x42
 # transaction holds no state gas reservoir, so a writing frame needs
 # more than the default frame gas.
 WRITE_FRAME_GAS = 200_000
-
-GAS_PRICE = 7
-"""
-Fee per gas of the sponsored transaction, pinned to the genesis base
-fee so the payer's charge is the base fee alone with no priority tip.
-"""
-
-SPONSORED_GAS_USED = 137_735
-"""Gas charged to the payer of the sponsored transaction."""
-
-PAYER_START_BALANCE = 10**18
-"""Sponsoring payer's balance before settling the transaction fee."""
-
-PAYER_POST_BALANCE = PAYER_START_BALANCE - SPONSORED_GAS_USED * GAS_PRICE
-"""Sponsoring payer's balance after settling the transaction fee."""
 
 
 @pytest.mark.parametrize(
@@ -270,19 +256,36 @@ def test_bal_frame_revert_write_dropped(
 def test_bal_sponsored_payer_and_sender(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Attribute a sponsored frame transaction in the BAL: a non-sender
     payer's fee balance change and the sender's nonce bump land on
     distinct accounts (EIP-8141 APPROVE_PAYMENT, no sender-equality).
     """
-    sender = pre.fund_eoa(amount=PAYER_START_BALANCE)
-    payer = pre.fund_eoa(amount=PAYER_START_BALANCE)
-    target = pre.deploy_contract(code=Op.SSTORE(SLOT, WRITTEN_VALUE) + Op.STOP)
+    # The fee per gas equals the genesis base fee, so the payer's
+    # charge carries no priority tip.
+    fee_per_gas = 7
+    start_balance = 10**18
+
+    sender = pre.fund_eoa(amount=start_balance)
+    payer = pre.fund_eoa(amount=start_balance)
+    target_code = (
+        Op.SSTORE(
+            SLOT,
+            WRITTEN_VALUE,
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=WRITTEN_VALUE,
+        )
+        + Op.STOP
+    )
+    target = pre.deploy_contract(code=target_code)
 
     tx = Transaction(
         sender=sender,
-        max_fee_per_gas=GAS_PRICE,
+        max_fee_per_gas=fee_per_gas,
         frames=[
             verify_frame(flags=Spec.APPROVE_EXECUTION),
             verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
@@ -299,17 +302,35 @@ def test_bal_sponsored_payer_and_sender(
                 secret_key=payer.key,
             ),
         ],
-        expected_receipt=TransactionReceipt(
-            payer=payer,
-            # Pinned so a gas change fails here rather than as an
-            # opaque payer balance mismatch.
-            cumulative_gas_used=SPONSORED_GAS_USED,
-            frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
-            ],
-        ),
+    )
+    # Materialize the signature bytes the intrinsic cost charges for.
+    tx.sign()
+    assert tx.frames is not None and tx.signatures is not None
+
+    # The two VERIFY frames run the protocol default code, which
+    # consumes no gas; the SENDER frame charges its cold target's
+    # access at entry and then runs the storage write.
+    sponsored_gas_used = (
+        fork.frame_transaction_intrinsic_cost_calculator()(
+            frames=tx.frames,
+            signatures=tx.signatures,
+            return_cost_deducted_prior_execution=True,
+        )
+        + fork.frame_entry_gas_calculator()()
+        + target_code.gas_cost(fork)
+    )
+    payer_post_balance = start_balance - sponsored_gas_used * fee_per_gas
+
+    tx.expected_receipt = TransactionReceipt(
+        payer=payer,
+        # Pinned so a gas change fails here rather than as an
+        # opaque payer balance mismatch.
+        cumulative_gas_used=sponsored_gas_used,
+        frame_receipts=[
+            FrameReceipt(status=Spec.STATUS_SUCCESS),
+            FrameReceipt(status=Spec.STATUS_SUCCESS),
+            FrameReceipt(status=Spec.STATUS_SUCCESS),
+        ],
     )
 
     block = Block(
@@ -329,7 +350,7 @@ def test_bal_sponsored_payer_and_sender(
                     balance_changes=[
                         BalBalanceChange(
                             block_access_index=1,
-                            post_balance=PAYER_POST_BALANCE,
+                            post_balance=payer_post_balance,
                         )
                     ],
                 ),
@@ -354,8 +375,8 @@ def test_bal_sponsored_payer_and_sender(
         pre=pre,
         blocks=[block],
         post={
-            sender: Account(nonce=1, balance=PAYER_START_BALANCE),
-            payer: Account(nonce=0, balance=PAYER_POST_BALANCE),
+            sender: Account(nonce=1, balance=start_balance),
+            payer: Account(nonce=0, balance=payer_post_balance),
             target: Account(storage={SLOT: WRITTEN_VALUE}),
         },
     )
