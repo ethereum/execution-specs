@@ -203,3 +203,22 @@ RemoveDocstringCommand
 _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
 genesis_header  # genesis header fixture
+
+# src/ethereum/forks/amsterdam/execution_engine - consensus-layer interface
+# surface; consumed by external engine callers rather than the spec itself
+from ethereum.forks.amsterdam.execution_engine.requests import (
+    decode_execution_requests,
+)
+from ethereum.forks.amsterdam.execution_engine.types import (
+    BlobsBundle,
+    GetPayloadResponse,
+    PayloadAttributes,
+)
+
+decode_execution_requests
+PayloadAttributes.suggested_fee_recipient
+BlobsBundle.commitments
+BlobsBundle.proofs
+BlobsBundle.blobs
+GetPayloadResponse.block_value
+GetPayloadResponse.blobs_bundle
