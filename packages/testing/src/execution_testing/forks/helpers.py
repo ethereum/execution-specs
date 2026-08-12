@@ -23,7 +23,7 @@ from pydantic import (
     model_validator,
 )
 
-from execution_testing.base_types.ssz import SszForkSchema
+from execution_testing.base_types.ssz import SSZForkSchema
 
 from .base_fork import BaseFork
 from .forks import eips, forks, transition
@@ -390,7 +390,7 @@ def get_fork_by_name(fork_name: str) -> Type[BaseFork] | None:
     return None
 
 
-def ssz_schema_fork_key(schema: SszForkSchema, fork: Type[BaseFork]) -> str:
+def ssz_schema_fork_key(schema: SSZForkSchema, fork: Type[BaseFork]) -> str:
     """
     Return the newest schema fork key at or before ``fork``.
 

@@ -51,8 +51,8 @@ from execution_testing.base_types import (
     unwrap_annotation,
 )
 from execution_testing.base_types.ssz import (
-    SszForkSchema,
-    SszModel,
+    SSZForkSchema,
+    SSZModel,
     Uint64,
     Uint256,
     byte_list,
@@ -417,7 +417,7 @@ MAX_BLOCK_ACCESS_LIST_BYTES = 2**23
 """Placeholder cap for the RLP-encoded block access list byte list."""
 
 
-class ForkScopedSszModel(SszModel):
+class ForkScopedSSZModel(SSZModel):
     """SSZ model whose methods resolve ``Fork`` classes to schema keys."""
 
     @classmethod
@@ -444,7 +444,7 @@ class ForkScopedSszModel(SszModel):
         return ssz.decode(cls, data, cls.ssz_fork_key(fork))
 
 
-class FixtureExecutionPayload(ForkScopedSszModel):
+class FixtureExecutionPayload(ForkScopedSSZModel):
     """
     Representation of an Ethereum execution payload within a test Fixture.
     """
@@ -487,7 +487,7 @@ class FixtureExecutionPayload(ForkScopedSszModel):
     ) = Field(None, description="RLP-serialized EIP-7928 Block Access List")
     slot_number: Uint64 | None = Field(None)
 
-    __ssz_schema__ = SszForkSchema(
+    __ssz_schema__ = SSZForkSchema(
         base_fork="Paris",
         base=(
             "parent_hash",

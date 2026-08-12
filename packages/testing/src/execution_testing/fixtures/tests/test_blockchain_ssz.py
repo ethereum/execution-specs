@@ -21,7 +21,7 @@ from execution_testing.base_types import (
     to_json,
 )
 from execution_testing.base_types.ssz import (
-    SszForkSchema,
+    SSZForkSchema,
     Uint64,
     Uint256,
 )
@@ -51,7 +51,7 @@ from ..blockchain import (
     FixtureExecutionPayload,
     FixtureExecutionPayloadModifier,
     FixtureHeader,
-    ForkScopedSszModel,
+    ForkScopedSSZModel,
 )
 
 BASE_FIELDS = (
@@ -273,7 +273,7 @@ def _ref_payload(payload: FixtureExecutionPayload, fork_key: str) -> Container:
 
 
 def assert_matches_reference(
-    model: ssz.SszModel, ref: Container, fork_key: Optional[str] = None
+    model: ssz.SSZModel, ref: Container, fork_key: Optional[str] = None
 ) -> None:
     """
     Compare the engine against a hand-written remerkleable twin.
@@ -561,7 +561,7 @@ def test_modifier_removed_fields_encode_at_earlier_fork() -> None:
 def test_mixin_without_schema_raises() -> None:
     """A mixin subclass without a schema cannot resolve fork keys."""
 
-    class NoSchema(ForkScopedSszModel):
+    class NoSchema(ForkScopedSSZModel):
         """A fork-scoped mixin subclass missing its schema."""
 
     with pytest.raises(TypeError, match="does not declare"):
@@ -570,7 +570,7 @@ def test_mixin_without_schema_raises() -> None:
 
 def test_unknown_schema_fork_key_raises() -> None:
     """A schema key that is not a fork name is rejected."""
-    schema = SszForkSchema(base_fork="NotAFork", base=(), appended={})
+    schema = SSZForkSchema(base_fork="NotAFork", base=(), appended={})
     with pytest.raises(ValueError, match="not a known fork"):
         ssz_schema_fork_key(schema, Paris)
 
