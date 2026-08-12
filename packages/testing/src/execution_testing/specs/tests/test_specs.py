@@ -9,9 +9,12 @@ from execution_testing.fixtures import (
     BlockchainFixture,
     FixtureFormat,
     LabeledFixtureFormat,
+    StateFixture,
 )
 
 from ..base import BaseTest
+from ..blockchain import BlockchainTest
+from ..state import StateTest
 
 
 def test_spec_types() -> None:
@@ -141,3 +144,36 @@ def test_spec_types_fixture_formats(spec: str) -> None:
     that break the format-class+transition_tool_cache_key rule.
     """
     spec_supported_fixture_formats_verifier(BaseTest.spec_types[spec])
+
+
+def test_state_test_labels_every_blockchain_test_format() -> None:
+    """
+    Verify `StateTest` derives one label per format `BlockchainTest` fills,
+    minus the sync formats, each keeping its format class and cache key.
+
+    Deriving the label from `format_name` rather than `format_id()` would
+    collapse two labels of one format onto the same derived label, and the
+    duplicate would be dropped silently by `registered_labels`.
+    """
+    derived = {
+        fixture_format.format_id(): fixture_format
+        for fixture_format in StateTest.supported_fixture_formats
+        if fixture_format.format_class() is not StateFixture
+    }
+    expected = [
+        fixture_format
+        for fixture_format in BlockchainTest.supported_fixture_formats
+        if "Sync" not in fixture_format.format_class().__name__
+    ]
+
+    assert len(derived) == len(expected), (
+        f"Expected one label per blockchain test format: {sorted(derived)}"
+    )
+    for fixture_format in expected:
+        label = f"{fixture_format.format_id()}_from_state_test"
+        assert label in derived, f"Missing label {label}: {sorted(derived)}"
+        assert derived[label].format_class() is fixture_format.format_class()
+        assert (
+            derived[label].transition_tool_cache_key
+            == fixture_format.transition_tool_cache_key
+        )
