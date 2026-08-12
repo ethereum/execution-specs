@@ -265,6 +265,7 @@ class LabeledFixtureFormat:
     format: Type[BaseFixture]
     label: str
     description: str
+    _transition_tool_cache_key: str | None
 
     registered_labels: ClassVar[Dict[str, "LabeledFixtureFormat"]] = {}
 
@@ -273,6 +274,7 @@ class LabeledFixtureFormat:
         fixture_format: "Type[BaseFixture] | LabeledFixtureFormat",
         label: str,
         description: str,
+        *,
         transition_tool_cache_key: str | None = None,
     ):
         """
