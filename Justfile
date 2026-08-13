@@ -243,7 +243,6 @@ test-tests *args: (_tmp "test-tests")
     cd packages/testing && uv run pytest \
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/test-tests/tmp" \
-        --ignore=src/execution_testing/evm_tools/tests/test_count_opcodes.py \
         "$@" \
         src
 
@@ -254,7 +253,6 @@ test-tests-pypy *args: (_tmp "test-tests-pypy")
         -n auto --maxprocesses 6 \
         --basetemp="{{ output_dir }}/test-tests-pypy/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
-        --ignore=src/execution_testing/evm_tools/tests/test_count_opcodes.py \
         "$@" \
         src
 
