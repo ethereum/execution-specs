@@ -873,6 +873,7 @@ class Frontier(BaseFork):
         ) -> int:
             del return_cost_deducted_prior_execution
             del sends_value, recipient_type
+            del contract_creation
 
             assert access_list is None, (
                 f"Access list is not supported in {cls.name()}"
@@ -882,12 +883,6 @@ class Frontier(BaseFork):
             )
 
             intrinsic_cost: int = gas_costs.TX_BASE
-
-            if contract_creation:
-                intrinsic_cost += (
-                    gas_costs.CODE_INIT_PER_WORD
-                    * ceiling_division(len(Bytes(calldata)), 32)
-                )
 
             return intrinsic_cost + calldata_gas_calculator(data=calldata)
 

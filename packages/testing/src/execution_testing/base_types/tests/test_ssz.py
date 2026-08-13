@@ -22,9 +22,9 @@ from remerkleable.progressive import ProgressiveList as RmkProgressiveList
 from execution_testing.base_types import Address, Bloom, Bytes, Hash
 from execution_testing.base_types.ssz import (
     ProgressiveModel,
-    SszForkSchema,
-    SszModel,
-    SszUint,
+    SSZForkSchema,
+    SSZModel,
+    SSZUint,
     Uint8,
     Uint16,
     Uint32,
@@ -57,7 +57,7 @@ CELLS = 128
 BITS = [i % 3 == 0 for i in range(CELLS)]
 
 
-class Withdrawal(SszModel):
+class Withdrawal(SSZModel):
     """A pydantic model declared to check the SSZ machinery."""
 
     index: Uint64
@@ -66,7 +66,7 @@ class Withdrawal(SszModel):
     amount: Uint64
 
 
-class ExecutionPayload(SszModel):
+class ExecutionPayload(SSZModel):
     """An Amsterdam-shaped payload exercising every field kind."""
 
     parent_hash: Hash
@@ -83,21 +83,21 @@ class ExecutionPayload(SszModel):
     withdrawals: Annotated[List[Withdrawal], ssz_list(MAX_WITHDRAWALS)]
 
 
-class Status(SszModel):
+class Status(SSZModel):
     """A boolean and a fixed bit vector."""
 
     ok: bool
     columns: Annotated[List[bool], bitvector(CELLS)]
 
 
-class Committee(SszModel):
+class Committee(SSZModel):
     """A fixed Vector[uint64, N] and a variable Bitlist[N]."""
 
     seats: Annotated[List[Uint64], ssz_vector(3)]
     flags: Annotated[List[bool], bitlist(8)]
 
 
-class Ballot(SszModel):
+class Ballot(SSZModel):
     """An uncapped progressive bit list."""
 
     votes: Annotated[List[bool], progressive_bitlist()]
@@ -128,7 +128,7 @@ class MixedProg(ProgressiveModel):
     c: Uint64
 
 
-class ForkedPayload(SszModel):
+class ForkedPayload(SSZModel):
     """One model for every fork."""
 
     parent_hash: Hash
@@ -142,7 +142,7 @@ class ForkedPayload(SszModel):
         Annotated[List[Withdrawal], ssz_list(MAX_WITHDRAWALS)] | None
     ) = None
 
-    __ssz_schema__ = SszForkSchema(
+    __ssz_schema__ = SSZForkSchema(
         base_fork="Paris",
         base=("parent_hash", "block_number", "transactions"),
         appended={
@@ -152,7 +152,7 @@ class ForkedPayload(SszModel):
     )
 
 
-class Mixed(SszModel):
+class Mixed(SSZModel):
     """An SSZ container carrying a JSON-only (excluded) field."""
 
     a: Uint64
@@ -311,7 +311,7 @@ def _shanghai_payload() -> ForkedPayload:
 
 
 def assert_matches_reference(
-    model: SszModel, ref: Container, fork: Optional[str] = None
+    model: SSZModel, ref: Container, fork: Optional[str] = None
 ) -> None:
     """
     Compare the engine against a hand-written remerkleable twin.
@@ -337,7 +337,7 @@ def assert_matches_reference(
 TWIN_CASES: List[
     Tuple[
         str,
-        Callable[[], SszModel],
+        Callable[[], SSZModel],
         Callable[[], Container],
         Optional[str],
     ]
@@ -418,7 +418,7 @@ TWIN_CASES: List[
     [pytest.param(m, r, f, id=name) for name, m, r, f in TWIN_CASES],
 )
 def test_matches_remerkleable_reference(
-    make_model: Callable[[], SszModel],
+    make_model: Callable[[], SSZModel],
     make_ref: Callable[[], Container],
     fork: Optional[str],
 ) -> None:
@@ -471,10 +471,10 @@ def test_describe_schema_renders_every_field_kind() -> None:
 def test_default_vector_of_container_has_independent_slots() -> None:
     """A defaulted Vector-of-container has independent (non-aliased) slots."""
 
-    class Inner(SszModel):
+    class Inner(SSZModel):
         x: Uint64
 
-    class Outer(SszModel):
+    class Outer(SSZModel):
         items: Annotated[List[Inner], ssz_vector(3)]
 
     zero = ssz_default(Outer)
@@ -514,7 +514,7 @@ def test_fork_scoped_nested_in_complete_model_raises() -> None:
     test_fork_propagates_to_nested_containers.)
     """
 
-    class Wrapper(SszModel):
+    class Wrapper(SSZModel):
         payload: ForkedPayload
 
     wrapper = Wrapper(payload=_shanghai_payload())
@@ -531,11 +531,11 @@ def test_fork_propagates_to_nested_containers() -> None:
     the same chain fork. The outer fork= selects every nested projection.
     """
 
-    class Envelope(SszModel):
+    class Envelope(SSZModel):
         payload: ForkedPayload
         blob_count: Uint64 | None = None  # Shanghai-era envelope field
 
-        __ssz_schema__ = SszForkSchema(
+        __ssz_schema__ = SSZForkSchema(
             base_fork="Paris",
             base=("payload",),
             appended={"Shanghai": ("blob_count",)},
@@ -577,57 +577,57 @@ def test_forked_model_describe_schema_per_fork() -> None:
 
 
 def _bad_vector_marker_on_scalar() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         seats: Annotated[Uint64, ssz_vector(3)]  # not a list
 
 
 def _bad_byte_list_on_int() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         data: Annotated[Uint64, byte_list(8)]  # not Bytes
 
 
 def _bad_bit_marker_on_ints() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         flags: Annotated[List[Uint64], bitlist(8)]  # not list[bool]
 
 
 def _bad_raw_ssz_type_marker() -> None:
-    class Bad(SszModel):
-        x: Annotated[Uint64, SszUint(32)]  # raw SszType, not a helper
+    class Bad(SSZModel):
+        x: Annotated[Uint64, SSZUint(32)]  # raw SSZType, not a helper
 
 
 def _bad_unmapped_str() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         s: str  # no SSZ mapping and not excluded
 
 
 def _bad_bare_bytes() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         data: Bytes  # variable bytes need a byte_list cap
 
 
 def _bad_bare_list() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         items: List[Uint64]  # lists need a cap/length marker
 
 
 def _bad_multi_arm_union() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         x: Uint64 | Uint8 | None = None  # only T | None supported
 
 
 def _bad_optional_without_schema() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         a: Uint64
         b: Uint64 | None = None  # optional but no schema
 
 
 def _bad_schema_field_typo() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         a: Uint64
         b: Uint64 | None = None
 
-        __ssz_schema__ = SszForkSchema(
+        __ssz_schema__ = SSZForkSchema(
             base_fork="Paris",
             base=("a",),
             appended={"Shanghai": ("typo",)},
@@ -635,11 +635,11 @@ def _bad_schema_field_typo() -> None:
 
 
 def _bad_required_appended() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         a: Uint64
         b: Uint64  # appended but not optional
 
-        __ssz_schema__ = SszForkSchema(
+        __ssz_schema__ = SSZForkSchema(
             base_fork="Paris",
             base=("a",),
             appended={"Shanghai": ("b",)},
@@ -647,11 +647,11 @@ def _bad_required_appended() -> None:
 
 
 def _bad_optional_base() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         a: Uint64
         b: Uint64 | None = None  # optional but declared in base
 
-        __ssz_schema__ = SszForkSchema(
+        __ssz_schema__ = SSZForkSchema(
             base_fork="Paris",
             base=("a", "b"),
             appended={},
@@ -659,11 +659,11 @@ def _bad_optional_base() -> None:
 
 
 def _bad_appended_no_default() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         a: Uint64
         b: Uint64 | None  # optional type but NO None default
 
-        __ssz_schema__ = SszForkSchema(
+        __ssz_schema__ = SSZForkSchema(
             base_fork="Paris",
             base=("a",),
             appended={"Shanghai": ("b",)},
@@ -671,11 +671,11 @@ def _bad_appended_no_default() -> None:
 
 
 def _bad_duplicate_schema_names() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         a: Uint64
         b: Uint64 | None = None
 
-        __ssz_schema__ = SszForkSchema(
+        __ssz_schema__ = SSZForkSchema(
             base_fork="Paris",
             base=("a", "a"),
             appended={"Shanghai": ("b",)},
@@ -683,7 +683,7 @@ def _bad_duplicate_schema_names() -> None:
 
 
 def _bad_required_excluded() -> None:
-    class Bad(SszModel):
+    class Bad(SSZModel):
         a: Uint64
         note: Annotated[str, ssz_exclude()]  # excluded but required
 
@@ -692,7 +692,7 @@ def _bad_progressive_with_schema() -> None:
     class Bad(ProgressiveModel):
         a: Uint64
 
-        __ssz_schema__ = SszForkSchema(
+        __ssz_schema__ = SSZForkSchema(
             base_fork="Paris", base=("a",), appended={}
         )
 
@@ -837,7 +837,7 @@ def test_build_ssz_type_cache_identity() -> None:
     )
 
     def make_dup() -> type:
-        class Dup(SszModel):
+        class Dup(SSZModel):
             a: Uint64
 
         return Dup
@@ -895,12 +895,12 @@ def test_excluded_field_is_json_only() -> None:
 def test_excluded_field_on_fork_scoped_model() -> None:
     """Exclusion composes with __ssz_schema__ (schema skips the field)."""
 
-    class ForkedMixed(SszModel):
+    class ForkedMixed(SSZModel):
         a: Uint64
         b: Uint64 | None = None
         note: Annotated[str, ssz_exclude()] = "aux"
 
-        __ssz_schema__ = SszForkSchema(
+        __ssz_schema__ = SSZForkSchema(
             base_fork="One",
             base=("a",),
             appended={"Two": ("b",)},
@@ -948,10 +948,10 @@ def test_spec_of_rejects_excluded_field() -> None:
 def test_single_fork_schema_works_end_to_end() -> None:
     """A schema with no appended forks is valid and encodable."""
 
-    class OnlyFork(SszModel):
+    class OnlyFork(SSZModel):
         a: Uint64
 
-        __ssz_schema__ = SszForkSchema(
+        __ssz_schema__ = SSZForkSchema(
             base_fork="Only", base=("a",), appended={}
         )
 

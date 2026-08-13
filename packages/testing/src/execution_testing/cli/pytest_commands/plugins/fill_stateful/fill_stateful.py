@@ -484,7 +484,7 @@ def max_gas_limit_per_test(
     return fork_at_genesis.transaction_gas_limit_cap()
 
 
-# Other live-client fixtures (``max_transactions_per_batch``,
+# Other live-client fixtures (``max_batch_size``,
 # ``default_*``, fee fields, ``dry_run``, ...) come from
 # ``shared.live_client_flags``. ``skip_cleanup`` from ``execute.pre_alloc``;
 # we force it on in ``pytest_configure``.

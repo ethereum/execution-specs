@@ -1,31 +1,41 @@
 """
-Callcode inside create/create2 contract init to existing contract.
+Verify a CALLCODE made from inside init code to an existing contract.
+
+The existing contract's code runs in the created account's context: its
+storage write lands there, while the existing contract keeps its own
+storage and receives no value. Parametrized over the endowment and the
+CALLCODE value, including an endowment too small for the transfer, so
+the CALLCODE fails.
 
 Ported from:
 state_tests/stCallCodes/callcodeInInitcodeToExistingContractFiller.json
+
+@manually-enhanced: Do not overwrite. The calldata-dispatch entry
+contract is collapsed into a direct transaction to the create-runner,
+sub-calls forward all gas (EIP-8037-proof), the post pins both the
+created and the existing account, and the value cases are parametrized.
+Widened down to TangerineWhistle, the EIP-150 floor for forwarding all
+gas; CREATE2 rejoins at Constantinople.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
-    Address,
     Alloc,
-    Environment,
-    Hash,
+    Fork,
+    Macros,
+    Op,
+    Opcodes,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Fork
-from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+SUCCESS_FLAG_SLOT = 1
+DELEGATE_SLOT = 2
 
 
 @pytest.mark.ported_from(
@@ -33,167 +43,79 @@ REFERENCE_SPEC_VERSION = "N/A"
         "state_tests/stCallCodes/callcodeInInitcodeToExistingContractFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("TangerineWhistle")
 @pytest.mark.parametrize(
-    "d, g, v",
+    "create_endowment,callcode_value",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="d0",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1",
-        ),
+        pytest.param(1, 1, id="1_wei_value"),
+        pytest.param(0, 0, id="zero_value"),
+        pytest.param(0, 1, id="1_wei_callcode_value_with_zero_balance"),
     ],
 )
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.with_all_create_opcodes
 def test_callcode_in_initcode_to_existing_contract(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    create_opcode: Opcodes,
+    create_endowment: int,
+    callcode_value: int,
 ) -> None:
-    """Callcode inside create/create2 contract init to existing contract."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x1100000000000000000000000000000000000000)
-    contract_1 = Address(0x1000000000000000000000000000000000000000)
-    contract_2 = Address(0x2000000000000000000000000000000000000000)
-    contract_3 = Address(0x1000000000000000000000000000000000000001)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    """Verify a CALLCODE in init code runs in the created account."""
+    existing = pre.deploy_contract(
+        code=Op.SSTORE(key=DELEGATE_SLOT, value=1) + Op.STOP,
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
-    )
-
-    pre[sender] = Account(balance=0x2386F26FC10000)
-    # Source: lll
-    # { (CALL 300000 (CALLDATALOAD 0) 0 0 0 0 0) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=0x493E0,
-            address=Op.CALLDATALOAD(offset=0x0),
-            value=0x0,
-            args_offset=0x0,
-            args_size=0x0,
-            ret_offset=0x0,
-            ret_size=0x0,
+    initcode = (
+        Op.SSTORE(
+            key=SUCCESS_FLAG_SLOT,
+            value=Op.CALLCODE(address=existing, value=callcode_value),
         )
-        + Op.STOP,
-        nonce=0,
-        address=Address(0x1100000000000000000000000000000000000000),  # noqa: E501
-    )
-    # Source: lll
-    # { (SSTORE 2 1) }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x2, value=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000001),  # noqa: E501
-    )
-    # Source: lll
-    # {(seq (CREATE2 1 0 (lll (seq  [[1]] (CALLCODE 50000 0x1000000000000000000000000000000000000001 1 0 0 0 0)) 0)   0)           )}  # noqa: E501
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x0]
-        + Op.PUSH1[0x27]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x11, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.PUSH1[0x1]
-        + Op.CREATE2
         + Op.STOP
-        + Op.INVALID
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.CALLCODE(
-                gas=0xC350,
-                address=0x1000000000000000000000000000000000000001,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        balance=10000,
-        nonce=0,
-        address=Address(0x2000000000000000000000000000000000000000),  # noqa: E501
     )
-    # Source: lll
-    # {(seq (CREATE 1 0 (lll (seq  [[1]] (CALLCODE 50000 0x1000000000000000000000000000000000000001 1 0 0 0 0)) 0)   )           )}  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x27]
-        + Op.CODECOPY(dest_offset=0x0, offset=0xF, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.PUSH1[0x1]
-        + Op.CREATE
-        + Op.STOP
-        + Op.INVALID
-        + Op.SSTORE(
-            key=0x1,
-            value=Op.CALLCODE(
-                gas=0xC350,
-                address=0x1000000000000000000000000000000000000001,
-                value=0x1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            ),
-        )
-        + Op.STOP,
-        balance=10000,
-        nonce=0,
-        address=Address(0x1000000000000000000000000000000000000000),  # noqa: E501
+    initcode_bytes = bytes(initcode)
+
+    create_call = create_opcode(
+        value=create_endowment,
+        offset=0,
+        size=len(initcode_bytes),
+    )
+    runner_balance = max(create_endowment, callcode_value) + 1
+    runner = pre.deploy_contract(
+        code=Macros.MSTORE(initcode_bytes) + create_call + Op.STOP,
+        balance=runner_balance,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                compute_create_address(address=contract_1, nonce=0): Account(
-                    storage={1: 1, 2: 1}, balance=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x11B62573BE8F72B4085BAFE5B675B3E7F08ED522): Account(
-                    storage={1: 1, 2: 1}, balance=1
-                ),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Hash(contract_1, left_padding=True),
-        Hash(contract_2, left_padding=True),
-    ]
-    tx_gas = [1000000]
+    created = compute_create_address(
+        address=runner,
+        nonce=1,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
 
     tx = Transaction(
-        sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=runner,
+        protected=fork.supports_protected_txs(),
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    created_nonce = 1 if fork.is_eip_enabled(161) else 0
+    callcode_success = create_endowment >= callcode_value
+    post = {
+        created: Account(
+            code=b"",
+            nonce=created_nonce,
+            balance=create_endowment,
+            storage={SUCCESS_FLAG_SLOT: 1, DELEGATE_SLOT: 1}
+            if callcode_success
+            else {SUCCESS_FLAG_SLOT: 0, DELEGATE_SLOT: 0},
+        ),
+        runner: Account(
+            nonce=2,
+            balance=runner_balance - create_endowment,
+            storage={},
+        ),
+        existing: Account(balance=0, storage={}),
+    }
+
+    state_test(pre=pre, post=post, tx=tx)

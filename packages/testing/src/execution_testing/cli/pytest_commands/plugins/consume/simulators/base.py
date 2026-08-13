@@ -1,5 +1,7 @@
 """Common pytest fixtures for the Hive simulators."""
 
+import logging
+import time
 from pathlib import Path
 from typing import Dict, Generator, Literal
 
@@ -18,6 +20,8 @@ from execution_testing.rpc import EthRPC
 
 from ..consume import FixturesSource
 from .helpers.rejected_blocks import BlockRejectionTracker
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="function")
@@ -87,7 +91,12 @@ class FixturesDict(Dict[Path, Fixtures]):
         """
         assert key.is_file(), f"Expected a file path, got '{key}'"
         if key not in self._fixtures:
+            start = time.perf_counter()
             self._fixtures[key] = Fixtures.model_validate_json(key.read_text())
+            logger.info(
+                f"⏱ phase=fixture_load file={key.name} "
+                f"ms={(time.perf_counter() - start) * 1000:.1f}"
+            )
         return self._fixtures[key]
 
 

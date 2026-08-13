@@ -307,7 +307,7 @@ def chain_builder_eth_rpc(
         session_temp_folder=session_temp_folder,
         get_payload_wait_time=1,
         transaction_wait_timeout=20,
-        max_transactions_per_batch=10,
+        max_batch_size=10,
         testing_rpc=TestingRPC(rpc_endpoint),
     )
 

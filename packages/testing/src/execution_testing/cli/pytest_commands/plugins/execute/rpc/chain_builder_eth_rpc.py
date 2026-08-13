@@ -129,7 +129,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         get_payload_wait_time: float,
         initial_forkchoice_update_retries: int = 5,
         transaction_wait_timeout: int = 60,
-        max_transactions_per_batch: int | None = None,
+        max_batch_size: int | None = None,
         request_timeout: TimeoutType = DEFAULT_REQUEST_TIMEOUT,
         testing_rpc: TestingRPC | None = None,
         expected_genesis_header: FixtureHeader | None = None,
@@ -138,7 +138,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         super().__init__(
             rpc_endpoint,
             transaction_wait_timeout=transaction_wait_timeout,
-            max_transactions_per_batch=max_transactions_per_batch,
+            max_batch_size=max_batch_size,
             request_timeout=request_timeout,
         )
         self.fork = fork

@@ -1,29 +1,39 @@
 """
-Legacy Test from Christoph. J.
+Verify a name-registrator contract creation succeeds or fails with the
+transaction budget: the init code writes a storage slot and deposits the
+registrar's runtime code.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createNameRegistratorPerTxsNotEnoughGasFiller.json
+Legacy Test from Christoph. J.
+
+@manually-enhanced: Do not overwrite. The budget is an exact off-by-one
+boundary derived from the fork: the sufficient arm gets intrinsic +
+top-frame state gas + init code execution, the insufficient arm one gas
+less. The deposit cost rides on RETURN's `code_deposit_size` metadata
+rather than a hand-rolled per-byte constant, so it stays correct once
+EIP-8037 moves most of it to state gas. The runtime code is a separate
+bytecode appended to the init code instead of a slice of it, so the
+executed cost no longer counts the payload. The success arm also pins
+the deposited code and transferred balance, which the ported post never
+checked.
 """
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Environment,
+    Fork,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Fork
 from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+COPY_OFFSET = 18
 
 
 @pytest.mark.ported_from(
@@ -31,97 +41,99 @@ REFERENCE_SPEC_VERSION = "N/A"
         "state_tests/stCallCreateCallCodeTest/createNameRegistratorPerTxsNotEnoughGasFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize(
-    "d, g, v",
+    "enough_gas",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="-g0",
-        ),
-        pytest.param(
-            0,
-            1,
-            0,
-            id="-g1",
-        ),
+        pytest.param(False, id="insufficient_gas"),
+        pytest.param(True, id="sufficient_gas"),
+    ],
+)
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(0, id="zero_value"),
+        pytest.param(1, id="non_zero_value"),
     ],
 )
 def test_create_name_registrator_per_txs_not_enough_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    enough_gas: bool,
+    value: int,
 ) -> None:
-    """Legacy Test from Christoph."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    sender = pre.fund_eoa(amount=0xDE0B6B3A7640000)
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000000,
+    """An under-budgeted registrar creation leaves no account behind."""
+    # The ported init code: write slot 1, then copy the registrar runtime
+    # appended after it and return it for deposit.
+    store = Op.SSTORE(
+        key=0x1, value=0x1, key_warm=False, original_value=0, new_value=1
     )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    storage={1: 1}
-                ),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Op.SSTORE(key=0x1, value=0x1)
-        + Op.PUSH1[0x10]
-        + Op.CODECOPY(dest_offset=0x0, offset=0xC, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP
-        + Op.JUMPI(
+    deposited = (
+        Op.JUMPI(
             pc=0x9,
             condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
         )
         + Op.STOP
         + Op.JUMPDEST
         + Op.SSTORE(
-            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
-        ),
-    ]
-    tx_gas = [56157, 86157]
-    tx_value = [100000]
+            key=Op.CALLDATALOAD(offset=0x0),
+            value=Op.CALLDATALOAD(offset=0x20),
+        )
+    )
+    deposited_size = len(deposited)
+    initcode = (
+        store
+        + Op.CODECOPY(
+            dest_offset=0x0,
+            offset=COPY_OFFSET,
+            size=deposited_size,
+            data_size=deposited_size,
+            new_memory_size=deposited_size,
+        )
+        + Op.RETURN(0, deposited_size, code_deposit_size=deposited_size)
+        + Op.STOP
+    )
+    assert len(initcode) == COPY_OFFSET
+    calldata = initcode + deposited
 
+    # Fork-derived budget: exactly what the creation needs, so one gas
+    # less must fail. The deposit is already inside the init code's cost,
+    # via RETURN's `code_deposit_size`.
+    overhead = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    ) + fork.transaction_top_frame_state_gas(
+        contract_creation=True, sends_value=value > 0
+    )
+    execution_cost = initcode.gas_cost(fork)
+    gas_limit = overhead + execution_cost
+    if not enough_gas:
+        gas_limit -= 1
+
+    sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=None,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        data=calldata,
+        gas_limit=gas_limit,
+        value=value,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    created = compute_create_address(address=sender, nonce=0)
+    if enough_gas:
+        created_account: Account | None = Account(
+            nonce=1,
+            code=deposited,
+            balance=value,
+            storage={1: 1},
+        )
+    else:
+        created_account = Account.NONEXISTENT
+    post = {
+        sender: Account(nonce=1),
+        created: created_account,
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
