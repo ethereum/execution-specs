@@ -189,7 +189,7 @@ def test_intrinsic_gas_floor_boundary_with_authorizations(
 
 @pytest.mark.inclusion_test
 @pytest.mark.exception_test
-@pytest.mark.with_all_tx_types
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 6)
 def test_intrinsic_gas_floor_boundary_all_tx_types(
     fork: Fork,
     pre: Alloc,

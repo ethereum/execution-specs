@@ -27,6 +27,7 @@ def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
     # which imports ``t8n`` to run it in-process. A top-level import here
     # would run while ``client_clis`` is still mid-initialization.
     from execution_testing.test_types.receipt_types import (
+        FrameReceipt,
         TransactionLog,
         TransactionReceipt,
     )
@@ -44,6 +45,51 @@ def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
             decoded_receipt = t8n.fork.decode_receipt(receipt)
         else:
             decoded_receipt = receipt
+
+        if hasattr(decoded_receipt, "frame_receipts"):
+            # EIP-8141 frame transaction receipt: no transaction-level
+            # status and no consensus bloom — the logs are reported per
+            # frame, and the bloom is derived from their concatenation
+            # in frame order.
+            all_logs = [
+                log
+                for frame_receipt in decoded_receipt.frame_receipts
+                for log in frame_receipt.logs
+            ]
+            receipts.append(
+                TransactionReceipt(
+                    transaction_hash=tx_hash,
+                    cumulative_gas_used=int(
+                        decoded_receipt.cumulative_gas_used
+                    ),
+                    bloom=t8n.fork.logs_bloom(tuple(all_logs)),
+                    logs=[
+                        TransactionLog(
+                            address=log.address,
+                            topics=list(log.topics),
+                            data=log.data,
+                        )
+                        for log in all_logs
+                    ],
+                    payer=decoded_receipt.payer,
+                    frame_receipts=[
+                        FrameReceipt(
+                            status=int(frame_receipt.status),
+                            gas_used=int(frame_receipt.gas_used),
+                            logs=[
+                                TransactionLog(
+                                    address=log.address,
+                                    topics=list(log.topics),
+                                    data=log.data,
+                                )
+                                for log in frame_receipt.logs
+                            ],
+                        )
+                        for frame_receipt in decoded_receipt.frame_receipts
+                    ],
+                )
+            )
+            continue
 
         receipt_kwargs: Dict[str, Any] = {
             "transaction_hash": tx_hash,
