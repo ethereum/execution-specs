@@ -1218,7 +1218,6 @@ def check_inclusion_list_transactions(
 
     """
     tx_hashes = {get_transaction_hash(raw_tx) for raw_tx in transactions}
-    tx_state = TransactionState(parent=block_env.state)
 
     for raw_tx in inclusion_list_transactions:
         if get_transaction_hash(raw_tx) in tx_hashes:
@@ -1240,8 +1239,7 @@ def check_inclusion_list_transactions(
                 block_env=block_env,
                 block_output=block_output,
                 tx=tx,
-                sender=sender,
-                tx_state=tx_state,
+                index=ulen(transactions),
             )
         except EthereumException:
             continue
