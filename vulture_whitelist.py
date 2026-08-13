@@ -10,6 +10,9 @@ from ethereum.cancun.blocks import Withdrawal
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
+from ethereum.forks.amsterdam.transactions.frame_transaction import (
+    FrameMode,
+)
 from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
@@ -39,6 +42,10 @@ Withdrawal.validator_index
 
 # src/ethereum/fork_criteria.py
 Unscheduled
+
+# src/ethereum/forks/amsterdam/transactions/frame_transaction.py -
+# constructed while decoding transactions, never compared explicitly
+FrameMode.DEFAULT
 
 # src/ethereum/ethash.py
 ethash.generate_dataset
@@ -98,6 +105,9 @@ TransactionLoad.json_to_max_fee_per_gas
 TransactionLoad.json_to_max_priority_fee_per_gas
 TransactionLoad.json_to_max_fee_per_blob_gas
 TransactionLoad.json_to_blob_versioned_hashes
+TransactionLoad.json_to_sender
+TransactionLoad.json_to_frames
+TransactionLoad.json_to_signatures
 TransactionLoad.json_to_v
 TransactionLoad.json_to_y_parity
 TransactionLoad.json_to_r

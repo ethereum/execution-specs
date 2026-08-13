@@ -12,10 +12,11 @@ The abstract computer which runs the code stored in an
 `.fork_types.Account`.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import List, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes32
+from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -25,21 +26,36 @@ from ethereum.state import Address
 from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
-from ..blocks import Log, Receipt, Withdrawal
+from ..blocks import FrameReceipt, Log, Receipt, Withdrawal
 from ..fork_types import (
     Authorization,
     ExecutionGas,
     StateGas,
     VersionedHash,
 )
-from ..state_tracker import BlockState, TransactionState
+from ..state_tracker import (
+    BlockState,
+    TransactionState,
+    get_account,
+    increment_nonce,
+    set_account_balance,
+)
 from ..transactions import LegacyTransaction
+from ..transactions.frame_transaction import (
+    APPROVE_SCOPE_MASK,
+    FrameFlag,
+    FrameTransaction,
+    resolve_frame_target,
+)
 from .gas import GasMeter, repay_state_gas_spill
 
 __all__ = ("Environment", "Evm")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
 SYSTEM_ADDRESS = Address(
     bytes.fromhex("fffffffffffffffffffffffffffffffffffffffe")
+)
+FRAME_ENTRY_POINT = Address(
+    bytes.fromhex("00000000000000000000000000000000000000aa")
 )
 CALL_SUCCESS = U256(1)
 
@@ -120,18 +136,115 @@ class BlockOutput:
 
 
 @final
+@slotted_freezable
+@dataclass
+class TopLevelContext:
+    """
+    The single top-level call or creation a non-frame transaction
+    describes.
+
+    Unlike `FrameContext`, this is a frozen one-shot descriptor:
+    consumed once when the transaction's top-level frame is built;
+    instructions never read it.
+    """
+
+    recipient: Address
+    """
+    The address the transaction calls; for a creation, the address the
+    contract deploys to.
+    """
+
+    is_create: bool
+    """
+    Whether the transaction is a contract creation.
+    """
+
+    data: Bytes
+    """
+    The transaction's data payload: call data for a call, init code
+    for a creation.
+    """
+
+    value: U256
+    """
+    The amount of ether (in wei) sent with the transaction.
+    """
+
+
+@final
+@dataclass
+class FrameContext:
+    """
+    Frame-transaction state, alive for the whole transaction and
+    visible at every call depth through the transaction environment.
+    """
+
+    tx: FrameTransaction
+    """
+    The frame transaction being executed.
+    """
+
+    signature_hash: Hash32
+    """
+    The transaction's canonical signature hash.
+    """
+
+    resolved_signers: Tuple[Optional[Address], ...]
+    """
+    The signer each signature entry resolved to; `None` for
+    `ARBITRARY` entries, to which the protocol assigns no signer.
+    """
+
+    standard_gas_limit: Uint
+    """
+    Settlement anchor: the transaction's intrinsic cost plus the sum
+    of the frames' gas limits. The environment's `gas_limit` carries
+    the inclusion-facing `max_gas` instead.
+    """
+
+    max_cost: Uint
+    """
+    The maximum cost of the transaction: `max_gas` priced at the fee
+    cap, plus the blob fee. Collected from the payer when a frame
+    approves payment.
+    """
+
+    current_frame_index: Uint
+    """
+    Index of the frame currently executing, advanced by the frame
+    loop.
+    """
+
+    frame_receipts: List[FrameReceipt]
+    """
+    Receipts of the completed frames, growing as frames complete.
+    """
+
+    payer: Optional[Address]
+    """
+    The account that approved paying for the transaction's gas, once
+    one has.
+    """
+
+    sender_approved: bool
+    """
+    Whether the sender has approved future frames executing on its
+    behalf.
+    """
+
+
+@final
 @dataclass
 class TransactionEnvironment:
     """
     Items that are used while processing a transaction.
+
+    Fields shared by every transaction type, plus exactly one of the
+    two type-specific contexts: `top_level_context` for a regular or
+    system transaction, `frame_context` for a frame transaction.
     """
 
     origin: Address
-    # For a creation, the address the contract deploys to.
-    recipient: Address
-    is_create: bool
-    data: Bytes
-    value: U256
     gas_limit: Uint
     effective_gas_price: Uint
     execution_gas_grant: ExecutionGas
@@ -145,6 +258,125 @@ class TransactionEnvironment:
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
+
+    top_level_context: Optional[TopLevelContext]
+    """
+    Present iff the transaction describes a single top-level call or
+    creation. Exactly one of this and `frame_context` is set; both
+    flow entries assert it.
+    """
+
+    frame_context: Optional[FrameContext]
+    """
+    Present iff this is a frame transaction. The frame-only opcodes
+    exceptionally halt when this is `None`.
+    """
+
+
+def copy_frame_context(
+    tx_env: TransactionEnvironment,
+) -> Optional[FrameContext]:
+    """
+    Copy a frame transaction's context, to be restored on failure.
+
+    Paired with every transaction-state snapshot taken while a frame
+    executes: `APPROVE`'s state-side effects (the sender's nonce
+    increment and the payment escrow) are transaction-state writes
+    that roll back with the state, so the context fields recording the
+    approval must roll back in the same motion. Return `None` for
+    other transaction types, whose environments carry no frame
+    context.
+    """
+    frame_context = tx_env.frame_context
+    if frame_context is None:
+        return None
+    return replace(
+        frame_context, frame_receipts=list(frame_context.frame_receipts)
+    )
+
+
+def restore_frame_context(
+    tx_env: TransactionEnvironment,
+    snapshot: Optional[FrameContext],
+) -> None:
+    """
+    Restore the mutable fields of a frame transaction's context from a
+    copy taken by `copy_frame_context`; a no-op for other transaction
+    types.
+    """
+    if snapshot is None:
+        return
+    frame_context = tx_env.frame_context
+    assert frame_context is not None
+    frame_context.current_frame_index = snapshot.current_frame_index
+    frame_context.frame_receipts = snapshot.frame_receipts
+    frame_context.payer = snapshot.payer
+    frame_context.sender_approved = snapshot.sender_approved
+
+
+def attempt_approval(tx_env: TransactionEnvironment, scope: FrameFlag) -> bool:
+    """
+    Attempt an `APPROVE` of `scope` on behalf of the executing frame's
+    resolved target, applying its effects on success.
+
+    The scope must be non-empty and within the frame's allowed
+    approval flags. Approving execution requires that execution is not
+    already approved and that the frame's resolved target is the
+    transaction's sender. Approving payment requires that no payer is
+    set, that execution is approved (by this same scope or earlier),
+    and that the resolved target can cover the transaction's maximum
+    cost; it increments the sender's nonce and collects the maximum
+    cost from the resolved target, which becomes the payer.
+
+    Return whether the approval was granted; a refusal reverts the
+    requesting frame.
+    """
+    frame_context = tx_env.frame_context
+    assert frame_context is not None
+    tx = frame_context.tx
+    frame = tx.frames[int(frame_context.current_frame_index)]
+    resolved_target = resolve_frame_target(tx, frame)
+
+    allowed_scope = frame.flags & APPROVE_SCOPE_MASK
+    # An empty scope, or one beyond the frame's allowed flags.
+    if not scope or scope & ~allowed_scope:
+        return False
+
+    approves_execution = FrameFlag.APPROVE_EXECUTION in scope
+    approves_payment = FrameFlag.APPROVE_PAYMENT in scope
+
+    if approves_execution:
+        # Execution is already approved.
+        if frame_context.sender_approved:
+            return False
+        # Only the sender may approve execution on its own behalf.
+        if resolved_target != tx.sender:
+            return False
+
+    if approves_payment:
+        # Payment is already approved.
+        if frame_context.payer is not None:
+            return False
+        # Payment approval requires execution approval first.
+        if not (frame_context.sender_approved or approves_execution):
+            return False
+        payer_balance = get_account(tx_env.state, resolved_target).balance
+        # The payer cannot cover the transaction's maximum cost.
+        if Uint(payer_balance) < frame_context.max_cost:
+            return False
+
+    if approves_execution:
+        frame_context.sender_approved = True
+    if approves_payment:
+        increment_nonce(tx_env.state, tx.sender)
+        set_account_balance(
+            tx_env.state,
+            resolved_target,
+            U256(Uint(payer_balance) - frame_context.max_cost),
+        )
+        frame_context.payer = resolved_target
+
+    return True
 
 
 @final

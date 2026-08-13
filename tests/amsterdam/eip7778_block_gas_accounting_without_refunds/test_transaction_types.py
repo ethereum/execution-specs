@@ -67,7 +67,7 @@ def authorization_list(
 
 @EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 @TransactionFailure.with_all_tx_failures()
-@pytest.mark.with_all_tx_types()
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 6)
 @pytest.mark.with_all_refund_types()
 def test_block_gas_accounting_all_transaction_types(
     blockchain_test: BlockchainTestFiller,
@@ -111,7 +111,7 @@ def test_block_gas_accounting_all_transaction_types(
         pytest.param(TypedTxPosition.TRAILING, id="typed_trailing_tx"),
     ],
 )
-@pytest.mark.with_all_tx_types()
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 6)
 @pytest.mark.with_all_refund_types()
 @pytest.mark.filter_combinations(
     lambda tx_type, typed_tx_position, **_: not (
