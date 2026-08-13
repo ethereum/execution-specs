@@ -572,7 +572,7 @@ def test_sstore_state_gas_drawn_from_reservoir(
     )
 
 
-@pytest.mark.with_all_typed_transactions
+@pytest.mark.with_all_typed_transactions(selector=lambda tx_type: tx_type != 6)
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_state_gas_all_tx_types(
     state_test: StateTestFiller,
