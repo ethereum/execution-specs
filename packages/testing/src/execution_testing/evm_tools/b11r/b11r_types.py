@@ -5,14 +5,12 @@ Define the types used by the b11r tool.
 import json
 from typing import Any, List, Optional, Tuple
 
-from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes8, Bytes20, Bytes32, Bytes256
-from ethereum_types.numeric import U64, U256, Uint
-
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_bytes8
-
-from ..utils import parse_hex_or_int
+from ethereum_rlp import rlp
+from ethereum_spec_tools.utils import parse_hex_or_int
+from ethereum_types.bytes import Bytes, Bytes8, Bytes20, Bytes32, Bytes256
+from ethereum_types.numeric import U64, U256, Uint
 
 DEFAULT_TRIE_ROOT = (
     "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"

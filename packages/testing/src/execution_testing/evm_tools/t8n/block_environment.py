@@ -6,16 +6,15 @@ Build the spec's per-fork ``BlockEnvironment`` from a testing-package
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, List, Optional
 
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes8, Bytes20, Bytes32, Bytes256
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.crypto.hash import Hash32, keccak256
-
 if TYPE_CHECKING:
-    from execution_testing.test_types import Environment as TestingEnvironment
+    from ethereum_spec_tools.loaders.fork_loader import ForkLoad
 
-    from ..loaders.fork_loader import ForkLoad
+    from execution_testing.test_types import Environment as TestingEnvironment
 
 
 @dataclass

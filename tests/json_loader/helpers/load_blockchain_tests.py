@@ -14,7 +14,7 @@ from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, StateWithEmptyAccount
 from ethereum.state_mpt import close_state
 from ethereum.utils.hexadecimal import hex_to_bytes
-from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
+from ethereum_spec_tools.loaders.fixture_loader import Load
 
 from .. import FORKS
 from ..stash_keys import desired_forks_key

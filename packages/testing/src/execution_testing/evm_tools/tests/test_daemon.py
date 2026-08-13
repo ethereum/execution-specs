@@ -4,8 +4,8 @@ import argparse
 
 import pytest
 
-from ethereum_spec_tools.evm_tools import daemon
-from ethereum_spec_tools.evm_tools.daemon import Daemon
+from execution_testing.evm_tools import daemon
+from execution_testing.evm_tools.daemon import Daemon
 
 
 def test_daemon_run_rejects_windows(

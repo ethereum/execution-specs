@@ -22,13 +22,12 @@ import os
 from typing import Any, Dict, List, Optional, TextIO, Tuple
 
 from ethereum_rlp import rlp
+from ethereum_spec_tools.forks import Hardfork
+from ethereum_spec_tools.loaders.fork_loader import ForkLoad
+from ethereum_spec_tools.utils import FatalError, find_fork, parse_hex_or_int
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64
 
-from ethereum_spec_tools.forks import Hardfork
-
-from ..loaders.fork_loader import ForkLoad
-from ..utils import FatalError, find_fork, parse_hex_or_int
 from . import T8N, ForkCache
 from .block_environment import Ommer
 from .evm_trace.count import CountTracer
@@ -210,7 +209,7 @@ def _parse_blob_params_from_options(
     Returns ``None`` when the flag is unset. Reads from ``stdin``
     (``"blobParams"`` key) or a file path depending on the flag value.
     """
-    # Function-scoped: see import-cycle note in ``build_t8n_from_cli_options``.
+    # Function-scoped: see import-cycle note in ``result.py``.
     from execution_testing.base_types.composite_types import (
         ForkBlobSchedule,
     )
@@ -262,7 +261,7 @@ _TESTING_FORK_NAME_OVERRIDES = {
 
 def _testing_fork_from_spec_hardfork(hardfork: Hardfork) -> Any:
     """Map a spec ``Hardfork`` to the matching testing ``Fork`` class."""
-    # Function-scoped: see import-cycle note in ``build_t8n_from_cli_options``.
+    # Function-scoped: see import-cycle note in ``result.py``.
     from execution_testing.forks import get_fork_by_name
 
     name = hardfork.title_case_name.replace(" ", "")
@@ -307,10 +306,6 @@ def build_t8n_from_cli_options(
     testing pydantic types, bundles them into a ``TransitionToolData``,
     builds the tracer group, and hands them to ``T8N``.
     """
-    # Function-scoped imports: ``execution_testing/__init__`` eagerly
-    # imports ``.specs`` which transitively imports ``client_clis``,
-    # which imports ``ExecutionSpecsTransitionTool`` — top-level imports
-    # from ``execution_testing`` would cycle back into spec-tools.
     from execution_testing.base_types.composite_types import BlobSchedule
     from execution_testing.client_clis.transition_tool import TransitionTool
     from execution_testing.test_types import (

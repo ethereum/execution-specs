@@ -6,12 +6,11 @@ import argparse
 import json
 from typing import Optional, TextIO
 
+from ethereum.crypto.hash import keccak256
 from ethereum_rlp import rlp
+from ethereum_spec_tools.utils import get_stream_logger
 from ethereum_types.bytes import Bytes32
 
-from ethereum.crypto.hash import keccak256
-
-from ..utils import get_stream_logger
 from .b11r_types import Body, Header
 
 

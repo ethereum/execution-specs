@@ -10,13 +10,13 @@ from functools import cache
 from typing import Optional, Sequence, Text, TextIO
 
 from ethereum import __version__
+from ethereum_spec_tools.utils import get_supported_forks
 
 from .b11r import B11R, b11r_arguments
 from .daemon import Daemon, daemon_arguments
 from .statetest import StateTest, state_test_arguments
 from .t8n import ForkCache
 from .t8n.cli import run_t8n_cli, t8n_arguments
-from .utils import get_supported_forks
 
 DESCRIPTION = """
 This is the EVM tool for execution specs. The EVM tool

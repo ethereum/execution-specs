@@ -4,9 +4,8 @@ EVM trace implementation that fans out to many concrete trace implementations.
 
 from typing import Final
 
-from typing_extensions import override
-
 from ethereum.trace import EvmTracer, TraceEvent
+from typing_extensions import override
 
 
 class GroupTracer(EvmTracer):
