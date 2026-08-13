@@ -55,6 +55,7 @@ class TransactionType(IntEnum):
     BASE_FEE = 2
     BLOB_TRANSACTION = 3
     SET_CODE = 4
+    FRAME = 6
 
 
 @dataclass
@@ -191,6 +192,78 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
             except Exception:
                 # Signer remains `None` in this case
                 pass
+
+
+class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
+    """
+    Frame within an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
+    frame transaction.
+    """
+
+    mode: NumberBoundTypeVar = Field(0)  # type: ignore
+    flags: NumberBoundTypeVar = Field(0)  # type: ignore
+    target: Address | None = None
+    gas_limit: NumberBoundTypeVar = Field(0)  # type: ignore
+    value: NumberBoundTypeVar = Field(0)  # type: ignore
+    data: Bytes = Field(Bytes(b""))
+
+    rlp_fields: ClassVar[List[str]] = [
+        "mode",
+        "flags",
+        "target",
+        "gas_limit",
+        "value",
+        "data",
+    ]
+
+
+class Frame(FrameGeneric[HexNumber]):
+    """Frame within an EIP-8141 frame transaction (test authoring)."""
+
+    pass
+
+
+class FrameSignatureGeneric(
+    CamelModel, Generic[NumberBoundTypeVar], RLPSerializable
+):
+    """
+    Signature entry within an
+    [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
+    """
+
+    scheme: NumberBoundTypeVar = Field(0)  # type: ignore
+    signer: Bytes = Field(Bytes(b""))
+    msg: Bytes = Field(Bytes(b""))
+    signature: Bytes = Field(Bytes(b""))
+
+    rlp_fields: ClassVar[List[str]] = [
+        "scheme",
+        "signer",
+        "msg",
+        "signature",
+    ]
+
+
+class FrameSignature(FrameSignatureGeneric[HexNumber]):
+    """
+    Signature entry within an EIP-8141 frame transaction (test authoring).
+
+    When `secret_key` is set (or the entry's `signer` matches the
+    transaction sender), the raw `signature` bytes are filled in
+    automatically when the transaction is signed: entries with an
+    explicit 32-byte `msg` sign that digest, while entries with an empty
+    `msg` sign the canonical transaction signature hash.
+    """
+
+    secret_key: Hash | None = Field(None, exclude=True)
+
+    def signed_over(self, digest: bytes, key: Hash) -> None:
+        """Fill the raw signature bytes by signing `digest` with `key`."""
+        signature_bytes = PrivateKey(key).sign_recoverable(digest)
+        # EIP-8141 secp256k1 encoding: v (1 byte) || r || s, v in {0, 1}.
+        self.signature = Bytes(
+            bytes([signature_bytes[64]]) + signature_bytes[0:64]
+        )
 
 
 class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
@@ -339,6 +412,9 @@ class Transaction(
 
     initcodes: List[Bytes] | None = None
 
+    frames: List[Frame] | None = None
+    signatures: List[FrameSignature] | None = None
+
     secret_key: Hash | None = None
     error: List[TransactionException] | TransactionException | None = Field(
         None, exclude=True
@@ -425,7 +501,9 @@ class Transaction(
 
         if "ty" not in self.model_fields_set:
             # Try to deduce transaction type from included fields
-            if self.initcodes is not None:
+            if self.frames is not None:
+                self.ty = HexNumber(6)
+            elif self.initcodes is not None:
                 self.ty = HexNumber(6)
             elif self.authorization_list is not None:
                 self.ty = HexNumber(4)
@@ -444,10 +522,21 @@ class Transaction(
             else:
                 self.ty = HexNumber(0)
 
+        if self.ty == 6 and self.frames is None and self.initcodes is None:
+            # Type 6 is the EIP-8141 frame transaction; an explicit
+            # `initcodes` list selects the EIP-7873 shape instead.
+            self.frames = []
+
         if "v" in self.model_fields_set and self.secret_key is not None:
             raise Transaction.InvalidSignaturePrivateKeyError()
 
-        if "v" not in self.model_fields_set and self.secret_key is None:
+        if self.frames is not None:
+            # EIP-8141: Frame transactions carry an explicit sender and
+            # a signature list instead of a single v/r/s signature.
+            assert self.sender is not None, (
+                "frame transactions require an explicit sender"
+            )
+        elif "v" not in self.model_fields_set and self.secret_key is None:
             if self.sender is not None:
                 self.secret_key = self.sender.key
             else:
@@ -488,7 +577,13 @@ class Transaction(
         if self.ty == 3 and self.max_fee_per_blob_gas is None:
             self.max_fee_per_blob_gas = HexNumber(1)
             self.model_fields_set.remove("max_fee_per_blob_gas")
-        if self.ty != 3:
+        if self.frames is not None:
+            # EIP-8141: Frame transactions always carry blob fields.
+            if self.blob_versioned_hashes is None:
+                self.blob_versioned_hashes = []
+            if self.max_fee_per_blob_gas is None:
+                self.max_fee_per_blob_gas = HexNumber(0)
+        elif self.ty != 3:
             assert self.blob_versioned_hashes is None, (
                 "blob_versioned_hashes must be None"
             )
@@ -503,10 +598,10 @@ class Transaction(
                 "authorization_list must be None"
             )
 
-        if self.ty == 6 and self.initcodes is None:
-            self.initcodes = []
         if self.ty != 6:
             assert self.initcodes is None, "initcodes must be None"
+            assert self.frames is None, "frames must be None"
+            assert self.signatures is None, "signatures must be None"
 
         if "nonce" not in self.model_fields_set and self.sender is not None:
             self.nonce = HexNumber(self.sender.get_nonce())
@@ -538,8 +633,87 @@ class Transaction(
             + bytes([v])
         )
 
+    @property
+    def signing_signatures(self) -> List[FrameSignature]:
+        """
+        Return the signature entries as included in the canonical frame
+        transaction signature hash: entries with an empty `msg` have
+        their raw `signature` bytes elided.
+        """
+        assert self.signatures is not None
+        return [
+            sig.model_copy(update={"signature": Bytes(b"")})
+            if len(sig.msg) == 0
+            else sig
+            for sig in self.signatures
+        ]
+
+    def _sign_frame_signatures(self) -> None:
+        """
+        Fill in the raw signature bytes of the frame transaction's
+        signature entries.
+
+        A missing signature list defaults to a single secp256k1 entry
+        from the sender over the canonical signature hash. Entries with
+        an explicit 32-byte `msg` are signed first since their raw bytes
+        are committed to by the canonical hash.
+        """
+        assert self.frames is not None
+        if self.signatures is None:
+            assert self.sender is not None
+            if getattr(self.sender, "key", None) is not None:
+                # EOA sender: default to a single secp256k1 entry over
+                # the canonical signature hash, as consumed by the
+                # default code.
+                self.signatures = [
+                    FrameSignature(
+                        scheme=HexNumber(1),
+                        signer=Bytes(self.sender),
+                        msg=Bytes(b""),
+                    )
+                ]
+            else:
+                # Contract senders authorize via their code; no
+                # protocol-validated signature is required.
+                self.signatures = []
+
+        def resolve_key(sig: FrameSignature) -> Hash | None:
+            if sig.secret_key is not None:
+                return sig.secret_key
+            if (
+                self.sender is not None
+                and Bytes(self.sender) == sig.signer
+                and self.sender.key is not None
+            ):
+                return self.sender.key
+            return None
+
+        # Explicit-digest entries first: their raw bytes are part of the
+        # canonical signature hash signed by empty-msg entries.
+        for sig in self.signatures:
+            if sig.scheme != 1 or len(sig.signature) > 0:
+                continue
+            if len(sig.msg) != 32:
+                continue
+            key = resolve_key(sig)
+            if key is not None:
+                sig.signed_over(bytes(sig.msg), key)
+
+        sig_hash = self.rlp_signing_bytes().keccak256()
+        for sig in self.signatures:
+            if sig.scheme != 1 or len(sig.signature) > 0:
+                continue
+            if len(sig.msg) != 0:
+                continue
+            key = resolve_key(sig)
+            if key is not None:
+                sig.signed_over(sig_hash, key)
+
     def sign(self: "Transaction") -> None:
         """Signs the authorization tuple with a private key."""
+        if self.frames is not None:
+            self._sign_frame_signatures()
+            return
         signature_bytes: bytes | None = None
         rlp_signing_bytes = self.rlp_signing_bytes()
         if (
@@ -700,6 +874,12 @@ class Transaction(
         """Return signed version of the transaction using the private key."""
         updated_values: Dict[str, Any] = {}
 
+        if self.frames is not None:
+            # EIP-8141: The sender is explicit; fill in the signature
+            # entries instead of v/r/s.
+            self._sign_frame_signatures()
+            return self
+
         if (
             "v" in self.model_fields_set
             or "r" in self.model_fields_set
@@ -775,7 +955,20 @@ class Transaction(
         depending on the transaction type.
         """
         field_list: List[str]
-        if self.ty == 6:
+        if self.ty == 6 and self.frames is not None:
+            # EIP-8141: https://eips.ethereum.org/EIPS/eip-8141
+            field_list = [
+                "chain_id",
+                "nonce",
+                "sender",
+                "frames",
+                "signing_signatures",
+                "max_priority_fee_per_gas",
+                "max_fee_per_gas",
+                "max_fee_per_blob_gas",
+                "blob_versioned_hashes",
+            ]
+        elif self.ty == 6:
             # EIP-7873: https://eips.ethereum.org/EIPS/eip-7873
             field_list = [
                 "chain_id",
@@ -873,6 +1066,13 @@ class Transaction(
         depending on the transaction type.
         """
         fields = self.get_rlp_signing_fields()
+        if self.ty == 6 and self.frames is not None:
+            # EIP-8141: The transaction is not wrapped in a signature;
+            # the full encoding carries the raw signature entries.
+            return [
+                "signatures" if field == "signing_signatures" else field
+                for field in fields
+            ]
         if self.ty == 0 and self.protected:
             fields = fields[:-3]
         return fields + ["v", "r", "s"]

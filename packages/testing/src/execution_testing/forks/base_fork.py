@@ -167,6 +167,171 @@ class TransactionIntrinsicCostCalculator(Protocol):
         pass
 
 
+class FrameGasInfo(Protocol):
+    """
+    Structural view of an EIP-8141 frame's contribution to the
+    transaction's gas anchors. The test ``Frame`` satisfies it via its
+    ``data`` and ``gas_limit`` fields.
+    """
+
+    @property
+    def data(self) -> BytesConvertible:
+        """Return the frame's data, priced as calldata."""
+        ...
+
+    @property
+    def gas_limit(self) -> int:
+        """Return the frame's gas limit, part of the derived limit."""
+        ...
+
+
+class FrameSignatureGasInfo(Protocol):
+    """
+    Structural view of an EIP-8141 signature entry's contribution to
+    the transaction's intrinsic gas. The test ``FrameSignature``
+    satisfies it via its ``scheme``, ``signer``, ``msg``, and
+    ``signature`` fields.
+    """
+
+    @property
+    def scheme(self) -> int:
+        """Return the signature scheme, charged per its verification."""
+        ...
+
+    @property
+    def signer(self) -> BytesConvertible:
+        """Return the signer bytes, priced as calldata."""
+        ...
+
+    @property
+    def msg(self) -> BytesConvertible:
+        """Return the message bytes, priced as calldata."""
+        ...
+
+    @property
+    def signature(self) -> BytesConvertible:
+        """Return the raw signature bytes, priced as calldata."""
+        ...
+
+
+class FrameTransactionIntrinsicCostCalculator(Protocol):
+    """
+    A protocol to calculate the intrinsic gas cost of an EIP-8141 frame
+    transaction at a given fork, mirroring
+    ``TransactionIntrinsicCostCalculator`` for the frame shape.
+    """
+
+    def __call__(
+        self,
+        *,
+        frames: Sequence[FrameGasInfo] | int,
+        signatures: Sequence[FrameSignatureGasInfo] = (),
+        return_cost_deducted_prior_execution: bool = False,
+    ) -> int:
+        """
+        Return the intrinsic gas cost of a frame transaction given its
+        frames and signature entries.
+
+        Args:
+          frames: The transaction's frames; their `data` is priced as
+                  calldata and their `gas_limit` is part of the derived
+                  transaction gas limit. An integer stands for that
+                  many frames carrying no data and, for the derived
+                  gas limit, no frame gas.
+          signatures: The transaction's signature entries as included
+                      on the wire. For an exact cost the raw
+                      `signature` bytes must already be filled in, so
+                      sign the transaction first.
+          return_cost_deducted_prior_execution: If set to False, the
+                                                returned value is equal
+                                                to the transaction's
+                                                derived gas limit — the
+                                                larger of the intrinsic
+                                                cost plus the frame gas
+                                                limits and the calldata
+                                                floor — which the payer
+                                                must cover at
+                                                inclusion. If set to
+                                                True, the returned
+                                                value is equal to the
+                                                cost that is deducted
+                                                before the first frame
+                                                starts execution.
+
+        Returns: Gas cost of a frame transaction
+
+        """
+        pass
+
+
+class FrameTransactionDataFloorCostCalculator(Protocol):
+    """
+    A protocol to calculate the calldata floor anchor of an EIP-8141
+    frame transaction at a given fork, mirroring
+    ``TransactionDataFloorCostCalculator`` for the frame shape.
+    """
+
+    def __call__(
+        self,
+        *,
+        frames: Sequence[FrameGasInfo] | int,
+        signatures: Sequence[FrameSignatureGasInfo] = (),
+    ) -> int:
+        """
+        Return the calldata floor anchor of a frame transaction given
+        its frames and signature entries: every charged byte — frame
+        `data` and signature entry bytes — is counted uniformly at the
+        floor price on top of the costs the transaction always pays
+        regardless of execution. An integer stands for that many frames
+        carrying no data.
+        """
+        pass
+
+
+class FrameEntryGasCalculator(Protocol):
+    """
+    A protocol to calculate the gas an EIP-8141 frame charges at entry,
+    after the intrinsic cost is deducted but before the target's code
+    starts execution — the frame-level analogue of
+    ``TopFrameGasCalculator``.
+
+    A ``VERIFY`` frame whose resolved target has no code runs the
+    protocol default code instead, which consumes no gas at all; this
+    calculator applies only to frames that execute their target's code.
+    """
+
+    def __call__(
+        self,
+        *,
+        target_warm: bool = False,
+        sends_value_to_dead_account: bool = False,
+        delegated: bool = False,
+        delegation_warm: bool = False,
+    ) -> int:
+        """
+        Return the gas charged at a frame's entry, within the frame's
+        own gas limit.
+
+        Args:
+          target_warm: Whether the frame's resolved target was left
+                       warm by an earlier frame of the transaction.
+          sends_value_to_dead_account: Whether the frame's value
+                                       transfer revives an account that
+                                       is not alive, charging its
+                                       creation. The state-gas charge
+                                       spills into the frame's
+                                       execution gas, as a frame holds
+                                       no state gas reservoir.
+          delegated: Whether the target carries an EIP-7702 delegation
+                     designation, charging the delegate's access.
+          delegation_warm: Whether the delegate is warm.
+
+        Returns: Gas charged at the frame's entry
+
+        """
+        pass
+
+
 class AuthorizationGasInfo(Protocol):
     """
     Structural view of an EIP-7702 authorization's effect on the
@@ -810,6 +975,49 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         for the fork.
         """
         pass
+
+    @classmethod
+    def frame_transaction_intrinsic_cost_calculator(
+        cls,
+    ) -> FrameTransactionIntrinsicCostCalculator:
+        """
+        Return callable that calculates the intrinsic gas cost of an
+        EIP-8141 frame transaction for the fork.
+
+        Raises `NotImplementedError` on forks that do not support frame
+        transactions.
+        """
+        raise NotImplementedError(
+            f"frame transactions are not supported in {cls.name()}"
+        )
+
+    @classmethod
+    def frame_transaction_data_floor_cost_calculator(
+        cls,
+    ) -> FrameTransactionDataFloorCostCalculator:
+        """
+        Return callable that calculates the calldata floor anchor of an
+        EIP-8141 frame transaction for the fork.
+
+        Raises `NotImplementedError` on forks that do not support frame
+        transactions.
+        """
+        raise NotImplementedError(
+            f"frame transactions are not supported in {cls.name()}"
+        )
+
+    @classmethod
+    def frame_entry_gas_calculator(cls) -> FrameEntryGasCalculator:
+        """
+        Return callable that calculates the gas an EIP-8141 frame
+        charges at entry, before the target's code starts execution.
+
+        Raises `NotImplementedError` on forks that do not support frame
+        transactions.
+        """
+        raise NotImplementedError(
+            f"frame transactions are not supported in {cls.name()}"
+        )
 
     @classmethod
     def transaction_top_frame_gas_calculator(

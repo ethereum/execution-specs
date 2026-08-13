@@ -23,7 +23,7 @@ from ethereum.exceptions import (
 )
 from ethereum.state import Address
 
-from .exceptions import (
+from ..exceptions import (
     BlobCountExceededError,
     EmptyAuthorizationListError,
     InitCodeTooLargeError,
@@ -34,7 +34,8 @@ from .exceptions import (
     TransactionTypeContractCreationError,
     TransactionTypeError,
 )
-from .fork_types import Authorization, ExecutionGas, VersionedHash
+from ..fork_types import Authorization, ExecutionGas, VersionedHash
+from .frame_transaction import FrameTransaction
 
 
 @final
@@ -495,6 +496,7 @@ Transaction = (
     | FeeMarketTransaction
     | BlobTransaction
     | SetCodeTransaction
+    | FrameTransaction
 )
 """
 Union type representing any valid transaction type.
@@ -519,7 +521,10 @@ See [`has_access_list`][hal] and [`Access`][a] for more details.
 
 
 FeeMarketCapableTransaction = (
-    FeeMarketTransaction | BlobTransaction | SetCodeTransaction
+    FeeMarketTransaction
+    | BlobTransaction
+    | SetCodeTransaction
+    | FrameTransaction
 )
 """
 Transaction types that include the [EIP-1559]-style fee structure.
@@ -528,6 +533,17 @@ See [`FeeMarketTransaction`][fmt] for more details.
 
 [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
 [fmt]: ref:ethereum.forks.amsterdam.transactions.FeeMarketTransaction
+"""
+
+
+BlobCapableTransaction = BlobTransaction | FrameTransaction
+"""
+Transaction types that include the [EIP-4844]-style blobs.
+
+See [`BlobTransaction`][fmt] for more details.
+
+[EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+[fmt]: ref:ethereum.forks.amsterdam.transactions.BlobTransaction
 """
 
 
@@ -549,6 +565,8 @@ def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
         return b"\x03" + rlp.encode(tx)
     elif isinstance(tx, SetCodeTransaction):
         return b"\x04" + rlp.encode(tx)
+    elif isinstance(tx, FrameTransaction):
+        return b"\x06" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -574,6 +592,8 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
             return rlp.decode_to(BlobTransaction, tx[1:])
         elif tx[0] == 4:
             return rlp.decode_to(SetCodeTransaction, tx[1:])
+        elif tx[0] == 6:
+            return rlp.decode_to(FrameTransaction, tx[1:])
         elif tx[0] >= 0xC0:
             assert tx[0] <= 0xFE
             return rlp.decode_to(LegacyTransaction, tx)
@@ -615,7 +635,9 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     """
-    from .vm.interpreter import MAX_INIT_CODE_SIZE
+    from ..vm.interpreter import MAX_INIT_CODE_SIZE
+
+    assert not isinstance(tx, FrameTransaction)
 
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
@@ -657,6 +679,7 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
     if intrinsic.calldata_floor > tx.gas:
         raise InsufficientTransactionGasError("Insufficient calldata floor")
+
     if intrinsic.execution > TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
             "Intrinsic execution gas exceeds TX_MAX_GAS_LIMIT"
@@ -708,7 +731,11 @@ def calculate_intrinsic_cost(
     execution-gas portion of items 1 to 3 above rather than `TX_BASE`
     alone, so it never undercuts the transaction's own intrinsic base.
     """
-    from .vm.gas import GasCosts, init_code_cost
+    from ..vm.gas import GasCosts, init_code_cost
+
+    # Frame transactions never reach this function; their intrinsic cost
+    # is calculated by `calculate_frame_transaction_intrinsic_cost`.
+    assert not isinstance(tx, FrameTransaction)
 
     tokens_in_calldata = count_tokens_in_data(tx.data)
 
@@ -869,6 +896,8 @@ def recover_sender(tx: Transaction) -> Address:
     the address of the sender of the transaction. It raises an
     `InvalidSignatureError` if the signature values (r, s, v) are invalid.
     """
+    assert not isinstance(tx, FrameTransaction)
+
     r, s = tx.r, tx.s
     if U256(0) >= r or r >= SECP256K1N:
         raise InvalidSignatureError("bad r")
