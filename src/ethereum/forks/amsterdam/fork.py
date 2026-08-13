@@ -28,8 +28,19 @@ from ethereum.exceptions import (
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff
-from ethereum.state_mpt import State, apply_changes_to_state
+from ethereum.state import (
+    EMPTY_ACCOUNT,
+    EMPTY_CODE_HASH,
+    Account,
+    Address,
+    BlockDiff,
+)
+from ethereum.state_mpt import (
+    State,
+    apply_changes_to_state,
+    set_account,
+    store_code,
+)
 
 from . import vm
 from .block_access_lists import (
@@ -47,6 +58,7 @@ from .fork_types import (
     ExecutionGas,
     StateGas,
 )
+from .frame_processing import process_frame_transaction
 from .requests import (
     BUILDER_DEPOSIT_REQUEST_TYPE,
     BUILDER_EXIT_REQUEST_TYPE,
@@ -83,6 +95,11 @@ from .transactions import (
     has_access_list,
     recover_sender,
     validate_transaction,
+)
+from .transactions.frame_transaction import (
+    EXPIRY_VERIFIER,
+    EXPIRY_VERIFIER_CODE,
+    FrameTransaction,
 )
 from .utils.address import compute_contract_address
 from .utils.hexadecimal import hex_to_address
@@ -171,24 +188,35 @@ class BlockChain:
 
 def apply_fork(old: BlockChain) -> BlockChain:
     """
-    Transforms the state from the previous hard fork (`old`) into the block
-    chain object for this hard fork and returns it.
+    Transform the state from the previous hard fork (`old`) into the
+    block chain object for this hard fork and return it.
 
-    When forks need to implement an irregular state transition, this function
-    is used to handle the irregularity. See the :ref:`DAO Fork <dao-fork>` for
-    an example.
+    As required by [EIP-8141], the runtime code of the expiry verifier
+    contract ([`EXPIRY_VERIFIER_CODE`][evc]) is installed at
+    [`EXPIRY_VERIFIER`][ev] when this fork activates. Only the code is
+    installed: the account's other fields are left untouched, so a
+    previously nonexistent account keeps a zero nonce and any balance
+    the account held before the fork is preserved.
 
-    Parameters
-    ----------
-    old :
-        Previous block chain object.
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    [ev]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.EXPIRY_VERIFIER
+    [evc]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.EXPIRY_VERIFIER_CODE
+    """  # noqa: E501
+    state = old.state
+    existing_account = state.get_account_optional(EXPIRY_VERIFIER)
+    if existing_account is None:
+        existing_account = EMPTY_ACCOUNT
 
-    Returns
-    -------
-    new : `BlockChain`
-        Upgraded block chain object for this hard fork.
-
-    """
+    code_hash = store_code(state, EXPIRY_VERIFIER_CODE)
+    set_account(
+        state,
+        EXPIRY_VERIFIER,
+        Account(
+            nonce=existing_account.nonce,
+            balance=existing_account.balance,
+            code_hash=code_hash,
+        ),
+    )
     return old
 
 
@@ -540,6 +568,8 @@ def check_transaction(
         limit.
 
     """
+    assert not isinstance(tx, FrameTransaction)
+
     sender = recover_sender(tx)
     intrinsic = validate_transaction(tx, sender)
     tx_state = TransactionState(parent=block_env.state)
@@ -610,10 +640,6 @@ def check_transaction(
 
     return vm.TransactionEnvironment(
         origin=sender,
-        recipient=recipient,
-        is_create=is_create,
-        data=tx.data,
-        value=tx.value,
         gas_limit=tx.gas,
         effective_gas_price=effective_gas_price,
         execution_gas_grant=allocation.execution_gas,
@@ -627,6 +653,13 @@ def check_transaction(
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
+        top_level_context=vm.TopLevelContext(
+            recipient=recipient,
+            is_create=is_create,
+            data=tx.data,
+            value=tx.value,
+        ),
+        frame_context=None,
     )
 
 
@@ -754,10 +787,6 @@ def process_unchecked_system_transaction(
 
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
-        recipient=target_address,
-        is_create=False,
-        data=data,
-        value=U256(0),
         gas_limit=SYSTEM_TRANSACTION_GAS,
         effective_gas_price=block_env.base_fee_per_gas,
         execution_gas_grant=SYSTEM_TRANSACTION_GAS,
@@ -774,6 +803,13 @@ def process_unchecked_system_transaction(
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
+        top_level_context=vm.TopLevelContext(
+            recipient=target_address,
+            is_create=False,
+            data=data,
+            value=U256(0),
+        ),
+        frame_context=None,
     )
 
     system_tx_output = process_top_level(block_env, tx_env)
@@ -1052,6 +1088,9 @@ def process_transaction(
             expected=block_env.chain_id,
             actual=tx_chain_id,
         )
+
+    if isinstance(tx, FrameTransaction):
+        return process_frame_transaction(block_env, block_output, tx, index)
 
     tx_env = check_transaction(block_env, block_output, tx, index)
 
