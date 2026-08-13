@@ -90,6 +90,8 @@ from .base import BaseFixture, FixtureFillingPhase
 from .common import (
     FixtureAuthorizationTuple,
     FixtureBlobSchedule,
+    FixtureFrame,
+    FixtureFrameSignature,
     FixtureTransactionReceipt,
 )
 
@@ -792,6 +794,8 @@ class FixtureTransaction(
 
     authorization_list: List[FixtureAuthorizationTuple] | None = None
     initcodes: List[Bytes] | None = None
+    frames: List[FixtureFrame] | None = None
+    signatures: List[FixtureFrameSignature] | None = None
 
     @classmethod
     def from_transaction(cls, tx: Transaction) -> Self:
