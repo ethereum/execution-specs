@@ -125,6 +125,9 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
             r"block access list item cost exceeds gas limit"
         ),
+        BlockException.SYSTEM_CONTRACT_EMPTY: (
+            r"system contract .* has no code"
+        ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"block access list hash mismatch|"
             r"BAL rejection: FinalHashMismatch"
