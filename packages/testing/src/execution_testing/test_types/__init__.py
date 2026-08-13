@@ -41,7 +41,7 @@ from .helpers import (
     eoa_from_hash,
 )
 from .phase_manager import TestPhase, TestPhaseManager
-from .receipt_types import TransactionLog, TransactionReceipt
+from .receipt_types import FrameReceipt, TransactionLog, TransactionReceipt
 from .system_contract_interactions import (
     SystemContractInteractionBase,
     SystemContractInteractionContract,
@@ -52,6 +52,8 @@ from .system_contract_interactions import (
 )
 from .transaction_types import (
     AuthorizationTuple,
+    Frame,
+    FrameSignature,
     NetworkWrappedTransaction,
     Transaction,
     TransactionDefaults,
@@ -87,6 +89,9 @@ __all__ = (
     "EmptyPostStateContext",
     "EOA",
     "fee_increment_blocks",
+    "Frame",
+    "FrameReceipt",
+    "FrameSignature",
     "GasFee",
     "NetworkWrappedTransaction",
     "PostStateContext",

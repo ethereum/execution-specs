@@ -246,7 +246,7 @@ def test_beacon_root_equal_to_timestamp(
 
 @pytest.mark.parametrize("auto_access_list", [False, True])
 @pytest.mark.parametrize("call_beacon_root_contract", [True])
-@pytest.mark.with_all_tx_types
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 6)
 @pytest.mark.valid_from("Cancun")
 def test_tx_to_beacon_root_contract(
     blockchain_test: BlockchainTestFiller,
