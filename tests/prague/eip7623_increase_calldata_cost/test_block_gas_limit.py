@@ -131,7 +131,7 @@ def probe_after_preceding_txs(
         pytest.param("floor_after_execution", id="floor_after_execution"),
     ],
 )
-@pytest.mark.with_all_typed_transactions
+@pytest.mark.with_all_typed_transactions(selector=lambda tx_type: tx_type != 6)
 @with_probe_gas_delta
 @pytest.mark.valid_from("Prague")
 def test_tx_gas_limit_after_floor_priced_txs(

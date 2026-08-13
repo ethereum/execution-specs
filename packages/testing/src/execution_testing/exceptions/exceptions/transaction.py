@@ -194,5 +194,22 @@ class TransactionException(ExceptionBase):
     """
     TYPE_4_TX_PRE_FORK = auto()
     """Transaction type 4 included before activation fork."""
+    TYPE_6_INVALID_FRAME_FORMAT = auto()
+    """
+    Transaction is type 6, but violates a static frame transaction
+    constraint (frame count, mode, flags, value, signature entry
+    structure, expiry verifier frame shape, blob fields, etc.).
+    """
+    TYPE_6_INVALID_SIGNATURE = auto()
+    """
+    Transaction is type 6, but a signature entry failed protocol
+    validation.
+    """
+    TYPE_6_INVALID_FRAME_EXECUTION = auto()
+    """
+    Transaction is type 6, but frame execution invalidated it (a SENDER
+    frame ran before execution approval, a VERIFY frame reverted, or no
+    frame approved gas payment).
+    """
     LOG_MISMATCH = auto()
     """Transaction receipt logs do not match expected logs."""
