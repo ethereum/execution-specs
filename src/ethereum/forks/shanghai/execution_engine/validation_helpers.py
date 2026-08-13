@@ -1,5 +1,5 @@
 """
-Shared execution-engine conversion helpers.
+Conversion helpers between Engine API structures and blocks.
 """
 
 from typing import Optional
@@ -8,19 +8,21 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8
 from ethereum_types.numeric import Uint
 
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.merkle_patricia_trie import Trie, root, trie_set
+from ethereum.state_mpt import copy_state
 
 from ..blocks import Block, Header
-from ..fork import EMPTY_OMMER_HASH
+from ..fork import EMPTY_OMMER_HASH, BlockChain
 from ..transactions import LegacyTransaction
-from .types import ExecutionPayload
+from .types import ExecutionEngine, ExecutionPayloadV2
 
 
 def _payload_header(
-    execution_payload: ExecutionPayload,
+    execution_payload: ExecutionPayloadV2,
 ) -> Header:
     """
-    Build the execution header implied by a payload request.
+    Build the execution header implied by a payload.
     """
     transactions_trie: Trie[Bytes, Optional[Bytes]] = Trie(
         secured=False, default=None
@@ -76,10 +78,10 @@ def _payload_transaction_to_block_transaction(
 
 
 def _payload_block(
-    execution_payload: ExecutionPayload,
+    execution_payload: ExecutionPayloadV2,
 ) -> Block:
     """
-    Convert an execution payload request into an execution-layer block.
+    Convert an execution payload into an execution-layer block.
     """
     header = _payload_header(
         execution_payload,
@@ -93,4 +95,28 @@ def _payload_block(
         ),
         ommers=(),
         withdrawals=execution_payload.withdrawals,
+    )
+
+
+def chain_of(engine: ExecutionEngine, block_hash: Hash32) -> BlockChain:
+    """
+    Build the chain whose head is the validated block `block_hash`.
+
+    The chain is the block's ancestry paired with a copy of the state
+    the block produced; nothing is re-executed.
+    """
+    branch = []
+    cursor = block_hash
+    genesis_hash = keccak256(rlp.encode(engine.genesis_block.header))
+    while cursor != genesis_hash:
+        block = engine.validated_blocks[cursor]
+        branch.append(block)
+        cursor = block.header.parent_hash
+    branch.append(engine.genesis_block)
+    branch.reverse()
+
+    return BlockChain(
+        blocks=branch[-255:],
+        state=copy_state(engine.states[block_hash]),
+        chain_id=engine.chain.chain_id,
     )

@@ -1,9 +1,16 @@
 """
-Execution engine data structures and aliases.
-"""
+Structures of the [Engine API], as of the BPO5 fork.
 
+Each structure version is additive over its predecessor, mirroring the
+execution-apis documents: a client serving BPO5 understands every
+structure listed here.
+
+[Engine API]: https://github.com/ethereum/execution-apis/blob/main/src/engine/osaka.md
+"""  # noqa: E501
+
+import enum
 from dataclasses import dataclass
-from typing import Dict, Tuple, final
+from typing import Dict, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
@@ -16,7 +23,69 @@ from ethereum.state_mpt import State, copy_state
 
 from ..blocks import Block, Withdrawal
 from ..fork import BlockChain
-from ..fork_types import Bloom, VersionedHash
+from ..fork_types import Bloom
+
+PayloadId = Bytes8
+"""
+Identifier of a payload build process; returned by the
+`engine_forkchoiceUpdated` family when payload attributes are given.
+"""
+
+
+class PayloadStatus(enum.Enum):
+    """
+    Validation outcome of a payload, per the Engine API.
+
+    `ACCEPTED` is reserved for payloads taken on side chains without
+    validation; this specification validates every payload and never
+    returns it.
+    """
+
+    VALID = "VALID"
+    INVALID = "INVALID"
+    SYNCING = "SYNCING"
+    ACCEPTED = "ACCEPTED"
+
+
+@final
+@slotted_freezable
+@dataclass
+class PayloadStatusV1:
+    """
+    Status object returned by the `engine_newPayload` and
+    `engine_forkchoiceUpdated` families.
+    """
+
+    status: PayloadStatus
+    latest_valid_hash: Optional[Hash32]
+    validation_error: Optional[str]
+
+
+@final
+@slotted_freezable
+@dataclass
+class ForkchoiceStateV1:
+    """
+    Fork-choice state communicated by the consensus layer: the head to
+    adopt and the safe and finalized ancestors.
+    """
+
+    head_block_hash: Hash32
+    safe_block_hash: Hash32
+    finalized_block_hash: Hash32
+
+
+@final
+@slotted_freezable
+@dataclass
+class ForkchoiceUpdatedResponse:
+    """
+    Response of the `engine_forkchoiceUpdated` family: the status of
+    the head selection and, when a build was started, its identifier.
+    """
+
+    payload_status: PayloadStatusV1
+    payload_id: Optional[PayloadId]
 
 
 @final
@@ -26,16 +95,12 @@ class ExecutionEngine:
     Execution-layer state that the engine methods operate on.
 
     Beyond the canonical [`BlockChain`], the engine remembers every
-    block that passed [`verify_and_notify_new_payload`] together with
-    the genesis anchor, so that [`notify_forkchoice_updated`] can move
-    the head to any validated block by re-executing its ancestry.
+    block that passed payload validation together with the state it
+    produced, so payloads can extend any validated branch and a
+    forkchoice update can adopt any validated block as head.
 
     [`BlockChain`]: ref:ethereum.forks.bpo5.fork.BlockChain
-    [`verify_and_notify_new_payload`]:
-        ref:ethereum.forks.bpo5.execution_engine.new_payload.verify_and_notify_new_payload
-    [`notify_forkchoice_updated`]:
-        ref:ethereum.forks.bpo5.execution_engine.forkchoice_update.notify_forkchoice_updated
-    """  # noqa: E501
+    """
 
     chain: BlockChain
     """Canonical chain: the ancestry of the current head."""
@@ -43,11 +108,11 @@ class ExecutionEngine:
     validated_blocks: Dict[Hash32, Block]
     """Every block that passed payload validation, by block hash."""
 
+    states: Dict[Hash32, State]
+    """The state after each validated block, by block hash."""
+
     genesis_block: Block
     """Anchor block that every canonical chain starts from."""
-
-    genesis_state: State
-    """State at genesis, the starting point for head rebuilds."""
 
 
 def create_execution_engine(chain: BlockChain) -> ExecutionEngine:
@@ -58,41 +123,82 @@ def create_execution_engine(chain: BlockChain) -> ExecutionEngine:
         ref:ethereum.forks.bpo5.execution_engine.types.ExecutionEngine
     """
     genesis_block = chain.blocks[0]
+    genesis_hash = keccak256(rlp.encode(genesis_block.header))
     return ExecutionEngine(
         chain=chain,
-        validated_blocks={
-            keccak256(rlp.encode(genesis_block.header)): genesis_block
-        },
+        validated_blocks={genesis_hash: genesis_block},
+        states={genesis_hash: copy_state(chain.state)},
         genesis_block=genesis_block,
-        genesis_state=copy_state(chain.state),
     )
-
-
-PayloadId = Bytes8
-"""
-Identifier of a payload build process, returned by
-[`notify_forkchoice_updated`] and consumed by [`get_payload`].
-
-[`notify_forkchoice_updated`]:
-    ref:ethereum.forks.bpo5.execution_engine.forkchoice_update.notify_forkchoice_updated
-[`get_payload`]:
-    ref:ethereum.forks.bpo5.execution_engine.get_payload.get_payload
-"""  # noqa: E501
 
 
 @final
 @slotted_freezable
 @dataclass
-class ExecutionPayload:
+class ExecutionPayloadV1:
     """
-    Represent a new block to be processed by the execution layer.
+    Payload of the `engine_newPayload` family of methods.
+    """
 
-    The consensus layer constructs this from a beacon block body and
-    passes it to the execution engine for validation. Mirrors the
-    [`ExecutionPayloadV4`] structure of the Engine API.
+    parent_hash: Hash32
+    fee_recipient: Address
+    state_root: Root
+    receipts_root: Root
+    logs_bloom: Bloom
+    prev_randao: Bytes32
+    block_number: Uint
+    gas_limit: Uint
+    gas_used: Uint
+    timestamp: U256
+    extra_data: Bytes
+    base_fee_per_gas: Uint
+    block_hash: Hash32
+    transactions: Tuple[Bytes, ...]
 
-    [`ExecutionPayloadV4`]: https://github.com/ethereum/execution-apis/blob/main/src/engine/osaka.md
-    """  # noqa: E501
+
+@final
+@slotted_freezable
+@dataclass
+class ExecutionPayloadV2:
+    """
+    Payload of the `engine_newPayload` family of methods.
+
+    Adds `withdrawals` to [`ExecutionPayloadV1`].
+
+    [`ExecutionPayloadV1`]:
+        ref:ethereum.forks.bpo5.execution_engine.types.ExecutionPayloadV1
+    """
+
+    parent_hash: Hash32
+    fee_recipient: Address
+    state_root: Root
+    receipts_root: Root
+    logs_bloom: Bloom
+    prev_randao: Bytes32
+    block_number: Uint
+    gas_limit: Uint
+    gas_used: Uint
+    timestamp: U256
+    extra_data: Bytes
+    base_fee_per_gas: Uint
+    block_hash: Hash32
+    transactions: Tuple[Bytes, ...]
+    withdrawals: Tuple[Withdrawal, ...]
+
+
+@final
+@slotted_freezable
+@dataclass
+class ExecutionPayloadV3:
+    """
+    Payload of the `engine_newPayload` family of methods.
+
+    Adds `blob_gas_used` and `excess_blob_gas` to
+    [`ExecutionPayloadV2`].
+
+    [`ExecutionPayloadV2`]:
+        ref:ethereum.forks.bpo5.execution_engine.types.ExecutionPayloadV2
+    """
 
     parent_hash: Hash32
     fee_recipient: Address
@@ -116,30 +222,39 @@ class ExecutionPayload:
 @final
 @slotted_freezable
 @dataclass
-class NewPayloadRequest:
+class PayloadAttributesV1:
     """
-    Contain the parameters of the Engine API `engine_newPayloadV4`
-    method for the [`verify_and_notify_new_payload`] entry point. The
-    execution requests are carried in their opaque wire form and
-    committed to via the header's requests hash.
+    Build parameters carried by `engine_forkchoiceUpdatedV1`
+    when the consensus layer requests a new block.
+    """
 
-    [`verify_and_notify_new_payload`]:
-        ref:ethereum.forks.bpo5.execution_engine.new_payload.verify_and_notify_new_payload
-    """  # noqa: E501
-
-    execution_payload: ExecutionPayload
-    versioned_hashes: Tuple[VersionedHash, ...]
-    parent_beacon_block_root: Root
-    execution_requests: Tuple[Bytes, ...]
+    timestamp: U256
+    prev_randao: Bytes32
+    suggested_fee_recipient: Address
 
 
 @final
 @slotted_freezable
 @dataclass
-class PayloadAttributes:
+class PayloadAttributesV2:
     """
-    Carry the parameters that the consensus layer supplies when it
-    requests the execution layer to build a new block.
+    Build parameters carried by `engine_forkchoiceUpdatedV2`
+    when the consensus layer requests a new block.
+    """
+
+    timestamp: U256
+    prev_randao: Bytes32
+    suggested_fee_recipient: Address
+    withdrawals: Tuple[Withdrawal, ...]
+
+
+@final
+@slotted_freezable
+@dataclass
+class PayloadAttributesV3:
+    """
+    Build parameters carried by `engine_forkchoiceUpdatedV3`
+    when the consensus layer requests a new block.
     """
 
     timestamp: U256
@@ -152,9 +267,9 @@ class PayloadAttributes:
 @final
 @slotted_freezable
 @dataclass
-class BlobsBundle:
+class BlobsBundleV1:
     """
-    Bundle of blobs data associated with a built payload.
+    Blob data of a built payload; `proofs` carries blob proofs.
     """
 
     commitments: Tuple[Bytes, ...]
@@ -165,16 +280,68 @@ class BlobsBundle:
 @final
 @slotted_freezable
 @dataclass
-class GetPayloadResponse:
+class BlobsBundleV2:
     """
-    Response returned by [`get_payload`] for a prepared payload build.
-
-    [`get_payload`]:
-        ref:ethereum.forks.bpo5.execution_engine.get_payload.get_payload
+    Blob data of a built payload; `proofs` carries cell proofs for
+    the extended blobs (EIP-7594).
     """
 
-    execution_payload: ExecutionPayload
+    commitments: Tuple[Bytes, ...]
+    proofs: Tuple[Bytes, ...]
+    blobs: Tuple[Bytes, ...]
+
+
+@final
+@slotted_freezable
+@dataclass
+class GetPayloadResponseV2:
+    """
+    Response of `engine_getPayloadV2`.
+    """
+
+    execution_payload: ExecutionPayloadV2
     block_value: U256
-    blobs_bundle: BlobsBundle
-    execution_requests: Tuple[Bytes, ...]
+
+
+@final
+@slotted_freezable
+@dataclass
+class GetPayloadResponseV3:
+    """
+    Response of `engine_getPayloadV3`.
+    """
+
+    execution_payload: ExecutionPayloadV3
+    block_value: U256
+    blobs_bundle: BlobsBundleV1
     should_override_builder: bool
+
+
+@final
+@slotted_freezable
+@dataclass
+class GetPayloadResponseV4:
+    """
+    Response of `engine_getPayloadV4`.
+    """
+
+    execution_payload: ExecutionPayloadV3
+    block_value: U256
+    blobs_bundle: BlobsBundleV1
+    should_override_builder: bool
+    execution_requests: Tuple[Bytes, ...]
+
+
+@final
+@slotted_freezable
+@dataclass
+class GetPayloadResponseV5:
+    """
+    Response of `engine_getPayloadV5`.
+    """
+
+    execution_payload: ExecutionPayloadV3
+    block_value: U256
+    blobs_bundle: BlobsBundleV2
+    should_override_builder: bool
+    execution_requests: Tuple[Bytes, ...]

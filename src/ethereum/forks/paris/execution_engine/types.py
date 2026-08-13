@@ -1,9 +1,16 @@
 """
-Execution engine data structures and aliases.
-"""
+Structures of the [Engine API], as of the Paris fork.
 
+Each structure version is additive over its predecessor, mirroring the
+execution-apis documents: a client serving Paris understands every
+structure listed here.
+
+[Engine API]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md
+"""  # noqa: E501
+
+import enum
 from dataclasses import dataclass
-from typing import Dict, Tuple, final
+from typing import Dict, Optional, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
@@ -18,6 +25,68 @@ from ..blocks import Block
 from ..fork import BlockChain
 from ..fork_types import Bloom
 
+PayloadId = Bytes8
+"""
+Identifier of a payload build process; returned by the
+`engine_forkchoiceUpdated` family when payload attributes are given.
+"""
+
+
+class PayloadStatus(enum.Enum):
+    """
+    Validation outcome of a payload, per the Engine API.
+
+    `ACCEPTED` is reserved for payloads taken on side chains without
+    validation; this specification validates every payload and never
+    returns it.
+    """
+
+    VALID = "VALID"
+    INVALID = "INVALID"
+    SYNCING = "SYNCING"
+    ACCEPTED = "ACCEPTED"
+
+
+@final
+@slotted_freezable
+@dataclass
+class PayloadStatusV1:
+    """
+    Status object returned by the `engine_newPayload` and
+    `engine_forkchoiceUpdated` families.
+    """
+
+    status: PayloadStatus
+    latest_valid_hash: Optional[Hash32]
+    validation_error: Optional[str]
+
+
+@final
+@slotted_freezable
+@dataclass
+class ForkchoiceStateV1:
+    """
+    Fork-choice state communicated by the consensus layer: the head to
+    adopt and the safe and finalized ancestors.
+    """
+
+    head_block_hash: Hash32
+    safe_block_hash: Hash32
+    finalized_block_hash: Hash32
+
+
+@final
+@slotted_freezable
+@dataclass
+class ForkchoiceUpdatedResponse:
+    """
+    Response of the `engine_forkchoiceUpdated` family: the status of
+    the head selection and, when a build was started, its identifier.
+    """
+
+    payload_status: PayloadStatusV1
+    payload_id: Optional[PayloadId]
+
 
 @final
 @dataclass
@@ -26,16 +95,12 @@ class ExecutionEngine:
     Execution-layer state that the engine methods operate on.
 
     Beyond the canonical [`BlockChain`], the engine remembers every
-    block that passed [`verify_and_notify_new_payload`] together with
-    the genesis anchor, so that [`notify_forkchoice_updated`] can move
-    the head to any validated block by re-executing its ancestry.
+    block that passed payload validation together with the state it
+    produced, so payloads can extend any validated branch and a
+    forkchoice update can adopt any validated block as head.
 
     [`BlockChain`]: ref:ethereum.forks.paris.fork.BlockChain
-    [`verify_and_notify_new_payload`]:
-        ref:ethereum.forks.paris.execution_engine.new_payload.verify_and_notify_new_payload
-    [`notify_forkchoice_updated`]:
-        ref:ethereum.forks.paris.execution_engine.forkchoice_update.notify_forkchoice_updated
-    """  # noqa: E501
+    """
 
     chain: BlockChain
     """Canonical chain: the ancestry of the current head."""
@@ -43,11 +108,11 @@ class ExecutionEngine:
     validated_blocks: Dict[Hash32, Block]
     """Every block that passed payload validation, by block hash."""
 
+    states: Dict[Hash32, State]
+    """The state after each validated block, by block hash."""
+
     genesis_block: Block
     """Anchor block that every canonical chain starts from."""
-
-    genesis_state: State
-    """State at genesis, the starting point for head rebuilds."""
 
 
 def create_execution_engine(chain: BlockChain) -> ExecutionEngine:
@@ -58,41 +123,22 @@ def create_execution_engine(chain: BlockChain) -> ExecutionEngine:
         ref:ethereum.forks.paris.execution_engine.types.ExecutionEngine
     """
     genesis_block = chain.blocks[0]
+    genesis_hash = keccak256(rlp.encode(genesis_block.header))
     return ExecutionEngine(
         chain=chain,
-        validated_blocks={
-            keccak256(rlp.encode(genesis_block.header)): genesis_block
-        },
+        validated_blocks={genesis_hash: genesis_block},
+        states={genesis_hash: copy_state(chain.state)},
         genesis_block=genesis_block,
-        genesis_state=copy_state(chain.state),
     )
-
-
-PayloadId = Bytes8
-"""
-Identifier of a payload build process, returned by
-[`notify_forkchoice_updated`] and consumed by [`get_payload`].
-
-[`notify_forkchoice_updated`]:
-    ref:ethereum.forks.paris.execution_engine.forkchoice_update.notify_forkchoice_updated
-[`get_payload`]:
-    ref:ethereum.forks.paris.execution_engine.get_payload.get_payload
-"""  # noqa: E501
 
 
 @final
 @slotted_freezable
 @dataclass
-class ExecutionPayload:
+class ExecutionPayloadV1:
     """
-    Represent a new block to be processed by the execution layer.
-
-    The consensus layer constructs this from a beacon block body and
-    passes it to the execution engine for validation. Mirrors the
-    [`ExecutionPayloadV1`] structure of the Engine API.
-
-    [`ExecutionPayloadV1`]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md
-    """  # noqa: E501
+    Payload of the `engine_newPayload` family of methods.
+    """
 
     parent_hash: Hash32
     fee_recipient: Address
@@ -113,41 +159,12 @@ class ExecutionPayload:
 @final
 @slotted_freezable
 @dataclass
-class NewPayloadRequest:
+class PayloadAttributesV1:
     """
-    Contain the parameters of the Engine API `engine_newPayloadV1`
-    method for the [`verify_and_notify_new_payload`] entry point.
-
-    [`verify_and_notify_new_payload`]:
-        ref:ethereum.forks.paris.execution_engine.new_payload.verify_and_notify_new_payload
-    """  # noqa: E501
-
-    execution_payload: ExecutionPayload
-
-
-@final
-@slotted_freezable
-@dataclass
-class PayloadAttributes:
-    """
-    Carry the parameters that the consensus layer supplies when it
-    requests the execution layer to build a new block.
+    Build parameters carried by `engine_forkchoiceUpdatedV1`
+    when the consensus layer requests a new block.
     """
 
     timestamp: U256
     prev_randao: Bytes32
     suggested_fee_recipient: Address
-
-
-@final
-@slotted_freezable
-@dataclass
-class GetPayloadResponse:
-    """
-    Response returned by [`get_payload`] for a prepared payload build.
-
-    [`get_payload`]:
-        ref:ethereum.forks.paris.execution_engine.get_payload.get_payload
-    """
-
-    execution_payload: ExecutionPayload

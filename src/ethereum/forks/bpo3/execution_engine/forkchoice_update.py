@@ -1,5 +1,9 @@
 """
-Forkchoice update and payload build signal.
+The `engine_forkchoiceUpdated` family of methods.
+
+The consensus layer selects the canonical head among the validated
+blocks; the safe and finalized hashes carry no execution semantics in
+this model and clients use them for pruning and reorg limits.
 """
 
 from typing import Optional
@@ -7,60 +11,106 @@ from typing import Optional
 from ethereum_rlp import rlp
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.state_mpt import copy_state
 
-from ..fork import BlockChain, state_transition
 from .types import (
     ExecutionEngine,
-    PayloadAttributes,
-    PayloadId,
+    ForkchoiceStateV1,
+    ForkchoiceUpdatedResponse,
+    PayloadAttributesV1,
+    PayloadAttributesV2,
+    PayloadAttributesV3,
+    PayloadStatus,
+    PayloadStatusV1,
 )
+from .validation_helpers import chain_of
 
 
 def notify_forkchoice_updated(
-    engine: ExecutionEngine,
-    head_block_hash: Hash32,
-    _safe_block_hash: Hash32,
-    _finalized_block_hash: Hash32,
-    payload_attributes: Optional[PayloadAttributes],
-) -> Optional[PayloadId]:
+    engine: ExecutionEngine, head_block_hash: Hash32
+) -> PayloadStatusV1:
     """
     Make the validated block `head_block_hash` the canonical head.
 
-    The canonical chain is the ancestry of the chosen head: selecting a
-    head outside the current chain rebuilds the chain by re-executing
-    the head's ancestry from genesis. The consensus layer only selects
-    blocks that already passed [`verify_and_notify_new_payload`].
+    The canonical chain becomes the ancestry of the chosen head,
+    re-executed from genesis. A head that never passed payload
+    validation cannot be adopted and reports `SYNCING`.
+    """
+    if head_block_hash not in engine.validated_blocks:
+        return PayloadStatusV1(
+            status=PayloadStatus.SYNCING,
+            latest_valid_hash=None,
+            validation_error=None,
+        )
 
-    The safe and finalized hashes carry no execution semantics in this
-    model; clients use them for pruning and reorg limits. Payload
-    building (a non-`None` `payload_attributes`) is not implemented, so
-    no [`PayloadId`] is ever returned.
+    current_head = keccak256(rlp.encode(engine.chain.blocks[-1].header))
+    if head_block_hash != current_head:
+        engine.chain = chain_of(engine, head_block_hash)
 
-    [`verify_and_notify_new_payload`]:
-        ref:ethereum.forks.bpo3.execution_engine.new_payload.verify_and_notify_new_payload
-    [`PayloadId`]: ref:ethereum.forks.bpo3.execution_engine.types.PayloadId
-    """  # noqa: E501
+    return PayloadStatusV1(
+        status=PayloadStatus.VALID,
+        latest_valid_hash=head_block_hash,
+        validation_error=None,
+    )
+
+
+def forkchoice_updated_v1(
+    engine: ExecutionEngine,
+    forkchoice_state: ForkchoiceStateV1,
+    payload_attributes: Optional[PayloadAttributesV1],
+) -> ForkchoiceUpdatedResponse:
+    """
+    `engine_forkchoiceUpdatedV1`: adopt the given head.
+
+    Payload building (non-`None` attributes) is not implemented.
+    """
     if payload_attributes is not None:
         raise NotImplementedError
 
-    current_head = keccak256(rlp.encode(engine.chain.blocks[-1].header))
-    if head_block_hash == current_head:
-        return None
-
-    branch = []
-    cursor = head_block_hash
-    genesis_hash = keccak256(rlp.encode(engine.genesis_block.header))
-    while cursor != genesis_hash:
-        block = engine.validated_blocks[cursor]
-        branch.append(block)
-        cursor = block.header.parent_hash
-
-    engine.chain = BlockChain(
-        blocks=[engine.genesis_block],
-        state=copy_state(engine.genesis_state),
-        chain_id=engine.chain.chain_id,
+    return ForkchoiceUpdatedResponse(
+        payload_status=notify_forkchoice_updated(
+            engine, forkchoice_state.head_block_hash
+        ),
+        payload_id=None,
     )
-    for block in reversed(branch):
-        state_transition(engine.chain, block)
-    return None
+
+
+def forkchoice_updated_v2(
+    engine: ExecutionEngine,
+    forkchoice_state: ForkchoiceStateV1,
+    payload_attributes: Optional[PayloadAttributesV2],
+) -> ForkchoiceUpdatedResponse:
+    """
+    `engine_forkchoiceUpdatedV2`: adopt the given head.
+
+    Payload building (non-`None` attributes) is not implemented.
+    """
+    if payload_attributes is not None:
+        raise NotImplementedError
+
+    return ForkchoiceUpdatedResponse(
+        payload_status=notify_forkchoice_updated(
+            engine, forkchoice_state.head_block_hash
+        ),
+        payload_id=None,
+    )
+
+
+def forkchoice_updated_v3(
+    engine: ExecutionEngine,
+    forkchoice_state: ForkchoiceStateV1,
+    payload_attributes: Optional[PayloadAttributesV3],
+) -> ForkchoiceUpdatedResponse:
+    """
+    `engine_forkchoiceUpdatedV3`: adopt the given head.
+
+    Payload building (non-`None` attributes) is not implemented.
+    """
+    if payload_attributes is not None:
+        raise NotImplementedError
+
+    return ForkchoiceUpdatedResponse(
+        payload_status=notify_forkchoice_updated(
+            engine, forkchoice_state.head_block_hash
+        ),
+        payload_id=None,
+    )

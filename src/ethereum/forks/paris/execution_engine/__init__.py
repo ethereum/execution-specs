@@ -1,48 +1,54 @@
 """
-Interface between the consensus layer and the execution layer.
+The [Engine API] under the Paris fork.
 
-The consensus layer drives the execution layer through a small set of
-methods defined as the `ExecutionEngine` abstraction in the
-consensus-specs, carried between clients by the [Engine API]. Each new
-beacon block carries an [`ExecutionPayload`] that the execution layer
-validates and applies to its state with
-[`verify_and_notify_new_payload`].
+The consensus layer drives the execution layer through versioned
+methods — `engine_newPayloadV1`…`V1`, `engine_forkchoiceUpdatedV1`…`V1`, `engine_getPayloadV1`…`V1` — each a thin
+wrapper over the shared validation and forkchoice cores. Versions are
+additive: every version up to the newest exists here, and versions
+superseded by Paris answer with an unsupported-fork error, so this
+module is the complete engine surface a Paris client presents.
 
 [Engine API]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md
-[`ExecutionPayload`]:
-    ref:ethereum.forks.paris.execution_engine.types.ExecutionPayload
-[`verify_and_notify_new_payload`]:
-    ref:ethereum.forks.paris.execution_engine.new_payload.verify_and_notify_new_payload
 """  # noqa: E501
 
-from .forkchoice_update import notify_forkchoice_updated
-from .get_payload import get_payload
+from .forkchoice_update import (
+    forkchoice_updated_v1,
+    notify_forkchoice_updated,
+)
+from .get_payload import (
+    get_payload_v1,
+)
 from .new_payload import (
     is_valid_block_hash,
-    notify_new_payload,
+    new_payload_v1,
     verify_and_notify_new_payload,
 )
 from .types import (
     ExecutionEngine,
-    ExecutionPayload,
-    GetPayloadResponse,
-    NewPayloadRequest,
-    PayloadAttributes,
+    ExecutionPayloadV1,
+    ForkchoiceStateV1,
+    ForkchoiceUpdatedResponse,
+    PayloadAttributesV1,
     PayloadId,
+    PayloadStatus,
+    PayloadStatusV1,
     create_execution_engine,
 )
 
 __all__ = [
     "ExecutionEngine",
-    "ExecutionPayload",
-    "GetPayloadResponse",
-    "NewPayloadRequest",
-    "PayloadAttributes",
+    "ExecutionPayloadV1",
+    "ForkchoiceStateV1",
+    "ForkchoiceUpdatedResponse",
+    "PayloadAttributesV1",
     "PayloadId",
+    "PayloadStatus",
+    "PayloadStatusV1",
     "create_execution_engine",
-    "get_payload",
+    "forkchoice_updated_v1",
+    "get_payload_v1",
     "is_valid_block_hash",
+    "new_payload_v1",
     "notify_forkchoice_updated",
-    "notify_new_payload",
     "verify_and_notify_new_payload",
 ]
