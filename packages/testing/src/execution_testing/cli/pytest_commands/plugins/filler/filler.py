@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, List, Self, Set, Type
 import pytest
 import xdist
 from _pytest.compat import NotSetType
-from _pytest.mark.structures import ParameterSet
 from _pytest.terminal import TerminalReporter
 from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
@@ -97,7 +96,6 @@ from ..shared.fixture_output import (
 from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
-    labeled_format_parameter_set,
     option_was_explicitly_set,
 )
 from ..spec_version_checker.spec_version_checker import (
@@ -1584,6 +1582,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         fixed_opcode_count: int | None,
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
+        is_inclusion_test: bool,
     ) -> Any:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -1601,7 +1600,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             fixture_format = request.node.fixture_format
         else:
             fixture_format = request.param
-        assert issubclass(fixture_format, BaseFixture)
+        assert isinstance(fixture_format, LabeledFixtureFormat) or issubclass(
+            fixture_format, BaseFixture
+        )
 
         class BaseTestWrapper(cls):  # type: ignore
             __is_base_test_wrapper__ = True
@@ -1616,6 +1617,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["operation_mode"] = op_mode
                 kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
                 kwargs["is_exception_test"] = is_exception_test
+                kwargs["is_inclusion_test"] = is_inclusion_test
                 if (
                     op_mode == OpMode.OPTIMIZE_GAS
                     or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
@@ -1833,38 +1835,15 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     markers = list(metafunc.definition.iter_markers())
     for test_type in BaseTest.spec_types.values():
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
-            parameters: List[ParameterSet] = []
-            for (
-                format_with_or_without_label
-            ) in test_type.supported_fixture_formats:
-                if not session.should_generate_format(
-                    format_with_or_without_label
-                ):
-                    continue
-                fixture_format = (
-                    format_with_or_without_label.format
-                    if isinstance(
-                        format_with_or_without_label, LabeledFixtureFormat
-                    )
-                    else format_with_or_without_label
-                )
-                if test_type.discard_fixture_format_by_marks(
-                    fixture_format, markers
-                ):
-                    continue
-                parameter = labeled_format_parameter_set(
-                    format_with_or_without_label
-                )
-                # The first surviving format is the test's primary; the
-                # rest are derived from it (e.g. a BlockchainTest derived
-                # from a StateTest) and can be deselected with
-                # `-m "not derived_test"`.
-                if parameters:
-                    parameter.marks.append(pytest.mark.derived_test)  # type: ignore
-                parameters.append(parameter)
             metafunc.parametrize(
                 [test_type.pytest_parameter_name()],
-                parameters,
+                [
+                    parameter
+                    for fixture_format, parameter in (
+                        test_type.fixture_format_parameters(markers=markers)
+                    )
+                    if session.should_generate_format(fixture_format)
+                ],
                 scope="function",
                 indirect=True,
             )
@@ -1912,7 +1891,8 @@ def pytest_collection_modifyitems(
             )
             specs_without_fixture_formats[spec_name].add(test_file)
             continue
-        assert issubclass(fixture_format, BaseFixture)
+        # The format keeps its label throughout, so a label can veto itself
+        # without affecting the other labels of the same format.
         if not fixture_format.supports_fork(fork):
             items_for_removal.append(i)
             continue

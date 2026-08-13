@@ -769,7 +769,7 @@ class BlockchainTest(BaseTest):
     @classmethod
     def discard_fixture_format_by_marks(
         cls,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
         markers: List[pytest.Mark],
     ) -> bool:
         """
@@ -789,6 +789,27 @@ class BlockchainTest(BaseTest):
         ):
             return True
         return False
+
+    def model_post_init(self, __context: Any, /) -> None:
+        """
+        Model post-init to assert static (pre-fill/execute) checks.
+        """
+        super().model_post_init(__context)
+        if self.is_inclusion_test:
+            # Verify that the blockchain contains at most one invalid
+            # transaction which must be located at the end of the last block.
+            for i, block in enumerate(self.blocks):
+                if i != (len(self.blocks) - 1):
+                    valid_tx_range = block.txs[:]
+                else:
+                    valid_tx_range = block.txs[:-1]
+                if any(tx.error is not None for tx in valid_tx_range):
+                    raise Exception(
+                        "test correctness: in an inclusion test the only "
+                        "transaction allowed to produce an exception is the "
+                        "last transaction of the last block, but block "
+                        f"{i} contains an invalid transaction elsewhere"
+                    )
 
     def get_genesis_environment(self) -> Environment:
         """Get the genesis environment for pre-allocation groups."""
@@ -1236,7 +1257,8 @@ class BlockchainTest(BaseTest):
     def make_hive_fixture(
         self,
         t8n: FillerBackend,
-        fixture_format: FixtureFormat = BlockchainEngineFixture,
+        fixture_format: FixtureFormat
+        | LabeledFixtureFormat = BlockchainEngineFixture,
     ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
@@ -1614,7 +1636,7 @@ class BlockchainTest(BaseTest):
     def generate(
         self,
         t8n: FillerBackend,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
     ) -> FillResult:
         """Generate the BlockchainTest fixture."""
         if fixture_format == BlockchainEngineStatefulFixture:
@@ -1633,7 +1655,7 @@ class BlockchainTest(BaseTest):
     def execute(
         self,
         *,
-        execute_format: ExecuteFormat,
+        execute_format: ExecuteFormat | LabeledExecuteFormat,
     ) -> BaseExecute:
         """Generate the list of test fixtures."""
         if execute_format == TransactionPost:

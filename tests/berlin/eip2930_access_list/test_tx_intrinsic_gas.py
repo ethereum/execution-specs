@@ -143,6 +143,7 @@ tx_intrinsic_gas_access_list_vectors = [
 ]
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.ported_from(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stEIP1559/intrinsicGen.js",

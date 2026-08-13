@@ -569,6 +569,7 @@ def generate_invalid_tx_max_fee_per_blob_gas_tests(fork: Fork) -> List:
     return tests
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork(
     "parent_excess_blobs,parent_blobs,tx_max_fee_per_blob_gas,tx_error",
     generate_invalid_tx_max_fee_per_blob_gas_tests,
@@ -604,6 +605,7 @@ def test_invalid_tx_max_fee_per_blob_gas(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork(
     "parent_excess_blobs,parent_blobs,tx_max_fee_per_blob_gas,tx_error",
     generate_invalid_tx_max_fee_per_blob_gas_tests,
@@ -631,6 +633,7 @@ def test_invalid_tx_max_fee_per_blob_gas_state(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "tx_max_fee_per_gas,tx_error",
     [
@@ -669,6 +672,7 @@ def test_invalid_normal_gas(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     SpecHelpers.invalid_blob_combinations,
@@ -708,6 +712,7 @@ def test_invalid_block_blob_count(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "tx_access_list",
     [[], [AccessList(address=100, storage_keys=[100, 200])]],
@@ -969,6 +974,7 @@ def test_blob_gas_subtraction_tx(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     SpecHelpers.all_valid_blob_combinations,
@@ -1026,6 +1032,7 @@ def generate_invalid_tx_blob_count_tests(
     ]
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx,tx_error",
     generate_invalid_tx_blob_count_tests,
@@ -1058,6 +1065,7 @@ def test_invalid_tx_blob_count(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "blob_hashes_per_tx",
     [
@@ -1112,6 +1120,7 @@ def test_invalid_blob_hash_versioning_single_tx(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "blob_hashes_per_tx",
     [
@@ -1172,6 +1181,7 @@ def test_invalid_blob_hash_versioning_multiple_txs(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "tx_gas", [500_000], ids=[""]
 )  # Increase gas to account for contract creation
@@ -1521,6 +1531,7 @@ def test_blob_tx_attribute_gasprice_opcode(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     [
         "blobs_per_tx",

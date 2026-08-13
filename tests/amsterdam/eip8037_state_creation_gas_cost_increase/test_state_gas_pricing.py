@@ -302,6 +302,7 @@ def _access_list_over_execution_cap(
     ]
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
 def test_intrinsic_execution_gas_exceeds_cap(
@@ -349,6 +350,7 @@ def test_intrinsic_execution_gas_exceeds_cap(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.valid_from("EIP8037")
 def test_intrinsic_execution_gas_exceeds_cap_with_floor_below_cap(
@@ -446,6 +448,7 @@ def test_intrinsic_within_cap_gas_limit_above_cap(
     state_test(pre=pre, post={contract: Account(storage=storage)}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "above_floor",
     [

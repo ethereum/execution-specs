@@ -3006,6 +3006,7 @@ def test_bal_cross_tx_balance_dependency(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "eunice_outcome",
     [

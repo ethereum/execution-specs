@@ -173,6 +173,7 @@ def test_auth_execution_intrinsic_magnitude(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize("n", [1, 3])

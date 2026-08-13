@@ -43,6 +43,7 @@ TX_INITCODE_SIZE_PARAMS = [
 ]
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize("initcode_size", TX_INITCODE_SIZE_PARAMS)
 def test_max_initcode_size(
     state_test: StateTestFiller,
@@ -141,6 +142,7 @@ def test_max_initcode_size_via_create(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "gas_shortfall",
     [

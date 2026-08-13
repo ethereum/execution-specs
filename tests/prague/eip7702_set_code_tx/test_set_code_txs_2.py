@@ -2010,6 +2010,7 @@ def test_pointer_resets_an_empty_code_account_with_storage(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "tx_value",
     [0, 1],

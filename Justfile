@@ -168,7 +168,7 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         -ra \
         --show-capture=no \
         --disable-warnings \
-        -m "eels_base_coverage and not derived_test" \
+        -m "eels_base_coverage and primary_format" \
         -n auto --maxprocesses 7 \
         --dist=loadgroup \
         --basetemp="{{ output_dir }}/fill-pypy/tmp" \
@@ -183,7 +183,7 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
 [group('integration tests')]
 json-loader *args: (_tmp "json-loader")
     uv run fill \
-        -m "eels_base_coverage and not derived_test" \
+        -m "eels_base_coverage and primary_format" \
         --until "{{ latest_fork }}" \
         -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
@@ -256,7 +256,7 @@ fill-benchmark *args: (_tmp-logs "fill-benchmark")
     uv run fill \
         --gas-benchmark-values 1 \
         --fork "{{ latest_fork }}" \
-        -m "not slow and not derived_test" \
+        -m "not slow and primary_format" \
         -k "not test_return_revert" \
         -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
@@ -290,7 +290,7 @@ bench-gas *args: (_tmp-logs "bench-gas")
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
         --fork Amsterdam \
-        -m "blockchain_test and (not derived_test) and (not slow)" \
+        -m "blockchain_test and primary_format and (not slow)" \
         -n auto --maxprocesses 10 --dist=loadgroup \
         --durations=20 \
         --output="{{ output_dir }}/bench-gas/fixtures" \

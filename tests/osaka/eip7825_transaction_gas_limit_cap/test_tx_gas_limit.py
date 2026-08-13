@@ -87,6 +87,7 @@ def tx_gas_limit_cap_tests(fork: Fork) -> List[ParameterSet]:
     ]
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork("tx_gas_limit,error", tx_gas_limit_cap_tests)
 @pytest.mark.with_all_tx_types
 @pytest.mark.valid_from("Prague")
@@ -206,6 +207,7 @@ def test_tx_gas_limit_cap_subcall_context(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "exceed_block_gas_limit",
     [
@@ -334,6 +336,7 @@ def total_cost_floor_per_token(fork: Fork) -> int:
     return gas_costs.TX_DATA_TOKEN_FLOOR
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize(
@@ -408,6 +411,7 @@ def test_tx_gas_limit_cap_full_calldata(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "exceed_tx_gas_limit",
     [
@@ -472,6 +476,7 @@ def test_tx_gas_limit_cap_contract_creation(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "exceed_tx_gas_limit,correct_intrinsic_cost_in_transaction_gas_limit",
     [
@@ -559,6 +564,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "exceed_tx_gas_limit,correct_intrinsic_cost_in_transaction_gas_limit",
     [
@@ -640,6 +646,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "exceed_tx_gas_limit,correct_intrinsic_cost_in_transaction_gas_limit",
     [

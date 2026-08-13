@@ -542,6 +542,7 @@ def test_create2_address_collision(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "gas_delta",
     [
@@ -586,6 +587,7 @@ def test_create_tx_intrinsic_gas_boundary(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "initcode",
@@ -2349,6 +2351,7 @@ def test_create_onto_alive_refunds_to_gas_left(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "initcode_size_delta",
     [

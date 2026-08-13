@@ -100,7 +100,7 @@ jobs:
       - name: Run fill (${{ matrix.label }})
         run: >
           just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
-          -m "not slow and not derived_test"
+          -m "not slow and primary_format"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov

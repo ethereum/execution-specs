@@ -506,8 +506,8 @@ class EIPChecklistCollector:
         """Collect checklist markers during test collection."""
         for item in items:
             eip = self.get_eip_from_item(item)
-            if item.get_closest_marker(
-                "derived_test"
+            if not item.get_closest_marker(
+                "primary_format"
             ) or item.get_closest_marker("skip"):
                 continue
             self.collect_from_item(item, eip)

@@ -11,7 +11,7 @@ from pytest_metadata.plugin import metadata_key
 
 from execution_testing.base_types import Account
 from execution_testing.base_types.base_types import HexNumber
-from execution_testing.execution import BaseExecute
+from execution_testing.execution import BaseExecute, LabeledExecuteFormat
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
@@ -26,7 +26,6 @@ from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
 from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
-    labeled_format_parameter_set,
     option_was_explicitly_set,
 )
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
@@ -318,6 +317,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         env_gas_limit: HexNumber,
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
+        is_inclusion_test: bool,
     ) -> Type[BaseTest]:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -333,7 +333,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         del fixed_opcode_count
         execute_format = request.param
         assert execute_format in BaseExecute.formats.values()
-        assert issubclass(execute_format, BaseExecute)
+        assert isinstance(execute_format, LabeledExecuteFormat) or issubclass(
+            execute_format, BaseExecute
+        )
 
         if execute_format.requires_engine_rpc:
             assert engine_rpc is not None, (
@@ -356,6 +358,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["operation_mode"] = request.config.op_mode
                 kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
                 kwargs["is_exception_test"] = is_exception_test
+                kwargs["is_inclusion_test"] = is_inclusion_test
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters
@@ -483,13 +486,11 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         if test_type.pytest_parameter_name() in metafunc.fixturenames:
             parameter_set = []
             for (
-                format_with_or_without_label
-            ) in test_type.supported_execute_formats:
-                param = labeled_format_parameter_set(
-                    format_with_or_without_label
-                )
+                execute_format,
+                param,
+            ) in test_type.execute_format_parameters():
                 if (
-                    format_with_or_without_label.requires_engine_rpc
+                    execute_format.requires_engine_rpc
                     and not engine_rpc_supported
                 ):
                     param.marks.append(  # type: ignore
@@ -526,7 +527,6 @@ def pytest_collection_modifyitems(
             continue
         fork: Fork | TransitionFork = params["fork"]
         spec_type, execute_format = get_spec_format_for_item(params)
-        assert issubclass(execute_format, BaseExecute)
         markers = list(item.iter_markers())
         if spec_type.discard_execute_format_by_marks(
             execute_format, fork, markers

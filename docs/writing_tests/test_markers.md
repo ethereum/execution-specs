@@ -371,6 +371,62 @@ Examples of this include:
 - Contracts having zero-nonce
 - Deploying a contract to a hard-coded address
 
+### `@pytest.mark.inclusion_test`
+
+This marker is used to mark tests that verify whether a transaction can be included in a block. The transaction under test must be the last transaction of the last block.
+
+Such a test can assert in either direction, and is most valuable when it covers both:
+
+- **negative** — the transaction is invalid, so it cannot be included. The block containing it is invalid too, so the test also requires `@pytest.mark.exception_test`.
+- **positive** — the transaction is valid, so it must be included.
+
+A test that parametrizes a boundary usually covers both directions by crossing it.
+
+```python
+import pytest
+
+from execution_testing import (
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Fork,
+    Transaction,
+    TransactionException,
+)
+
+@pytest.mark.inclusion_test
+@pytest.mark.exception_test
+def test_something(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+):
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(txs=[Transaction(sender=pre.fund_eoa())]),
+            Block(
+                txs=[
+                    # The transaction under test is the last one of the
+                    # last block.
+                    Transaction(
+                        sender=pre.fund_eoa(),
+                        gas_limit=intrinsic_gas - 1,
+                        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+                    ),
+                ],
+                exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
+            ),
+        ],
+    )
+```
+
+Filling fails with a `test correctness` error if any other transaction in the chain is invalid, whether it sits in an earlier block or before the last transaction of the last block, since either would leave the subject of the test ambiguous.
+
+For that reason a fork transition test that rejects a transaction before the fork and accepts it after cannot use this marker: its rejected transaction is not in the last block.
+
 ### `@pytest.mark.skip()`
 
 This marker can be used to skip a test.

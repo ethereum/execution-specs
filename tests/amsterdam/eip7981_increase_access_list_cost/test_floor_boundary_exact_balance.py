@@ -25,6 +25,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7981.version
 pytestmark = pytest.mark.valid_at("EIP7981")
 
 
+@pytest.mark.inclusion_test
 @EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
