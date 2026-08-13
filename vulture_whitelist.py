@@ -203,3 +203,26 @@ RemoveDocstringCommand
 _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
 genesis_header  # genesis header fixture
+
+# src/ethereum/forks/*/execution_engine - Engine API interface surface;
+# consumed by external engine drivers rather than the spec itself
+suggested_fee_recipient  # PayloadAttributes field
+commitments  # BlobsBundle field
+proofs  # BlobsBundle field
+blobs  # BlobsBundle field
+block_value  # GetPayloadResponse field
+blobs_bundle  # GetPayloadResponse field
+should_override_builder  # GetPayloadResponse field
+ACCEPTED  # PayloadStatus variant reserved by the Engine API
+finalized_block_hash  # ForkchoiceStateV1 field
+safe_block_hash  # ForkchoiceStateV1 field
+payload_status  # ForkchoiceUpdatedResponse field
+payload_id  # ForkchoiceUpdatedResponse field
+validation_error  # PayloadStatusV1 field
+target_gas_limit  # PayloadAttributesV4 field
+
+# src/ethereum_spec_tools/engine_server - http.server override hook
+from ethereum_spec_tools.engine_server.server import _RpcHandler
+
+_RpcHandler.log_message
+_RpcHandler.protocol_version  # read by BaseHTTPRequestHandler

@@ -73,3 +73,17 @@ class NonceOverflowError(InvalidTransaction):
     """
     Thrown when a transaction's nonce is greater than `2**64 - 2`.
     """
+
+
+class UnsupportedForkError(EthereumException):
+    """
+    Thrown when an Engine API method version does not serve the fork
+    that the request belongs to.
+    """
+
+
+class InvalidEngineParamsError(EthereumException):
+    """
+    Thrown when an Engine API request carries structurally invalid
+    parameters, such as malformed execution requests.
+    """

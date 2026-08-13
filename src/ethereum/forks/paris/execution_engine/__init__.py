@@ -1,0 +1,54 @@
+"""
+The [Engine API] under the Paris fork.
+
+The consensus layer drives the execution layer through versioned
+methods — `engine_newPayloadV1`…`V1`, `engine_forkchoiceUpdatedV1`…`V1`, `engine_getPayloadV1`…`V1` — each a thin
+wrapper over the shared validation and forkchoice cores. Versions are
+additive: every version up to the newest exists here, and versions
+superseded by Paris answer with an unsupported-fork error, so this
+module is the complete engine surface a Paris client presents.
+
+[Engine API]: https://github.com/ethereum/execution-apis/blob/main/src/engine/paris.md
+"""  # noqa: E501
+
+from .forkchoice_update import (
+    forkchoice_updated_v1,
+    notify_forkchoice_updated,
+)
+from .get_payload import (
+    get_payload_v1,
+)
+from .new_payload import (
+    is_valid_block_hash,
+    new_payload_v1,
+    verify_and_notify_new_payload,
+)
+from .types import (
+    ExecutionEngine,
+    ExecutionPayloadV1,
+    ForkchoiceStateV1,
+    ForkchoiceUpdatedResponse,
+    PayloadAttributesV1,
+    PayloadId,
+    PayloadStatus,
+    PayloadStatusV1,
+    create_execution_engine,
+)
+
+__all__ = [
+    "ExecutionEngine",
+    "ExecutionPayloadV1",
+    "ForkchoiceStateV1",
+    "ForkchoiceUpdatedResponse",
+    "PayloadAttributesV1",
+    "PayloadId",
+    "PayloadStatus",
+    "PayloadStatusV1",
+    "create_execution_engine",
+    "forkchoice_updated_v1",
+    "get_payload_v1",
+    "is_valid_block_hash",
+    "new_payload_v1",
+    "notify_forkchoice_updated",
+    "verify_and_notify_new_payload",
+]

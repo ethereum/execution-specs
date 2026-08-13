@@ -138,6 +138,25 @@ def close_state(state: State) -> None:
     del state._code_store
 
 
+def copy_state(state: State) -> State:
+    """
+    Return an independent copy of `state`.
+
+    Mutating the copy, including through [`apply_changes_to_state`],
+    leaves the original untouched.
+
+    [`apply_changes_to_state`]: ref:ethereum.state_mpt.apply_changes_to_state
+    """
+    return State(
+        _main_trie=copy_trie(state._main_trie),
+        _storage_tries={
+            address: copy_trie(storage_trie)
+            for address, storage_trie in state._storage_tries.items()
+        },
+        _code_store=dict(state._code_store),
+    )
+
+
 def apply_changes_to_state(state: State, diff: BlockDiff) -> None:
     """
     Apply block-level diff to the ``State`` for the next block.
