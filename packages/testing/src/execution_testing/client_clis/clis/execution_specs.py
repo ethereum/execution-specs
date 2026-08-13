@@ -237,6 +237,15 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "PriorityFeeGreaterThanMaxFeeError"
         ),
+        TransactionException.GASPRICE_OVERFLOW: (
+            "FeeOverflowError('Max fee per gas too high')"
+        ),
+        TransactionException.PRIORITY_OVERFLOW: (
+            "FeeOverflowError('Max priority fee per gas too high')"
+        ),
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
+            "MaxCostOverflowError"
+        ),
         TransactionException.NONCE_MISMATCH_TOO_HIGH: (
             "NonceMismatchError('nonce too high')"
         ),
@@ -262,6 +271,15 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
             "Block access list exceeds gas limit"
         ),
         TransactionException.LOG_MISMATCH: "LogMismatchError",
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
+            "InvalidFrameError"
+        ),
+        TransactionException.TYPE_6_INVALID_SIGNATURE: (
+            "InvalidSignatureError"
+        ),
+        TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
+            "FrameTransactionExecutionError"
+        ),
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
         # Temporary solution for issue #1981.
@@ -284,5 +302,16 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_TX_PRE_FORK: (
             r"'.*transactions' has no attribute 'SetCodeTransaction'|"
             r"transaction type 4 is not supported in .*"
+        ),
+        # Frame-count and blob-fee violations are static frame
+        # transaction format errors, but ExecutionSpecs raises them as
+        # dedicated exception classes rather than InvalidFrameError.
+        # The "invalid frame ... field" messages come from the t8n
+        # transaction loader for field values the transaction types
+        # reject as they are constructed (undefined modes, flags, or
+        # schemes), which on a real client fail to decode.
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
+            r"FrameCountError|InvalidMaxFeePerBlobGas"
+            r"|invalid frame (signature )?field"
         ),
     }

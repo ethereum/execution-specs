@@ -89,9 +89,12 @@ jobs:
           - label: osaka
             from_fork: Osaka
             until_fork: Osaka
-          - label: amsterdam
-            from_fork: Amsterdam
-            until_fork: Amsterdam
+          # ``Bogota`` (Amsterdam spec + EIP-8141) replaces the
+          # ``amsterdam`` entry: it selects every Amsterdam test plus
+          # the frame transaction tests, on the same spec module.
+          - label: bogota
+            from_fork: Bogota
+            until_fork: Bogota
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
@@ -132,9 +135,14 @@ jobs:
         with:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env-pypy
+      # TODO: Drop FILL_UNTIL once Bogota is a real fork.
+      # Stop short of Amsterdam: this branch's amsterdam spec module
+      # carries the EIP-8141 prototype, and Amsterdam-labeled fixtures
+      # should not be produced by it.
       - name: Run fill-pypy tests
         run: just fill-pypy
         env:
+          FILL_UNTIL: Osaka
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
 
@@ -146,9 +154,14 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
+      # TODO: Drop FILL_UNTIL once Bogota is a real fork.
+      # Stop short of Amsterdam: this branch's amsterdam spec module
+      # carries the EIP-8141 prototype, and Amsterdam-labeled fixtures
+      # should not be produced by it.
       - name: Fill and run json-loader tests
         run: just json-loader
         env:
+          FILL_UNTIL: Osaka
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
