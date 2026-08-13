@@ -32,6 +32,7 @@ from .types import (
     NewPayloadRequest,
     PayloadAttributes,
     PayloadId,
+    create_execution_engine,
 )
 
 __all__ = [
@@ -43,6 +44,7 @@ __all__ = [
     "NewPayloadRequest",
     "PayloadAttributes",
     "PayloadId",
+    "create_execution_engine",
     "get_payload",
     "is_valid_block_hash",
     "is_valid_versioned_hashes",

@@ -31,7 +31,7 @@ def is_valid_block_hash(
 
 
 def notify_new_payload(
-    chain: ExecutionEngine,
+    engine: ExecutionEngine,
     new_payload_request: NewPayloadRequest,
 ) -> bool:
     """
@@ -40,6 +40,8 @@ def notify_new_payload(
 
     The payload is converted into a [`Block`] and applied with
     [`state_transition`], which appends it to the chain on success.
+    Valid blocks are remembered so a later forkchoice update can select
+    them as head.
 
     [`Block`]: ref:ethereum.forks.paris.blocks.Block
     [`state_transition`]: ref:ethereum.forks.paris.fork.state_transition
@@ -49,15 +51,16 @@ def notify_new_payload(
     )
 
     try:
-        state_transition(chain, block)
+        state_transition(engine.chain, block)
     except EthereumException:
         return False
 
+    engine.validated_blocks[keccak256(rlp.encode(block.header))] = block
     return True
 
 
 def verify_and_notify_new_payload(
-    chain: ExecutionEngine,
+    engine: ExecutionEngine,
     new_payload_request: NewPayloadRequest,
 ) -> bool:
     """
@@ -81,4 +84,4 @@ def verify_and_notify_new_payload(
     ):
         return False
 
-    return notify_new_payload(chain, new_payload_request)
+    return notify_new_payload(engine, new_payload_request)

@@ -3,22 +3,70 @@ Execution engine data structures and aliases.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, final
+from typing import Dict, Tuple, final
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
 
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import Address, Root
+from ethereum.state_mpt import State, copy_state
 
+from ..blocks import Block
 from ..fork import BlockChain
 from ..fork_types import Bloom
 
-ExecutionEngine = BlockChain
-"""
-Chain and state container that the execution engine methods operate on.
-"""
+
+@final
+@dataclass
+class ExecutionEngine:
+    """
+    Execution-layer state that the engine methods operate on.
+
+    Beyond the canonical [`BlockChain`], the engine remembers every
+    block that passed [`verify_and_notify_new_payload`] together with
+    the genesis anchor, so that [`notify_forkchoice_updated`] can move
+    the head to any validated block by re-executing its ancestry.
+
+    [`BlockChain`]: ref:ethereum.forks.paris.fork.BlockChain
+    [`verify_and_notify_new_payload`]:
+        ref:ethereum.forks.paris.execution_engine.new_payload.verify_and_notify_new_payload
+    [`notify_forkchoice_updated`]:
+        ref:ethereum.forks.paris.execution_engine.forkchoice_update.notify_forkchoice_updated
+    """  # noqa: E501
+
+    chain: BlockChain
+    """Canonical chain: the ancestry of the current head."""
+
+    validated_blocks: Dict[Hash32, Block]
+    """Every block that passed payload validation, by block hash."""
+
+    genesis_block: Block
+    """Anchor block that every canonical chain starts from."""
+
+    genesis_state: State
+    """State at genesis, the starting point for head rebuilds."""
+
+
+def create_execution_engine(chain: BlockChain) -> ExecutionEngine:
+    """
+    Wrap a single-block genesis `chain` into an [`ExecutionEngine`].
+
+    [`ExecutionEngine`]:
+        ref:ethereum.forks.paris.execution_engine.types.ExecutionEngine
+    """
+    genesis_block = chain.blocks[0]
+    return ExecutionEngine(
+        chain=chain,
+        validated_blocks={
+            keccak256(rlp.encode(genesis_block.header)): genesis_block
+        },
+        genesis_block=genesis_block,
+        genesis_state=copy_state(chain.state),
+    )
+
 
 PayloadId = Bytes8
 """

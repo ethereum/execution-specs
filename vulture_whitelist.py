@@ -224,6 +224,7 @@ BlobsBundle.proofs
 BlobsBundle.blobs
 GetPayloadResponse.block_value
 GetPayloadResponse.blobs_bundle
+should_override_builder  # GetPayloadResponse field across engine modules
 
 # src/ethereum_spec_tools/engine_server - http.server override hook
 from ethereum_spec_tools.engine_server.server import _RpcHandler

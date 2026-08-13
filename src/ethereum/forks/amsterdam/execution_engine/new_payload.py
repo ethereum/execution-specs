@@ -66,7 +66,7 @@ def is_valid_versioned_hashes(
 
 
 def notify_new_payload(
-    chain: ExecutionEngine,
+    engine: ExecutionEngine,
     new_payload_request: NewPayloadRequest,
 ) -> bool:
     """
@@ -86,15 +86,16 @@ def notify_new_payload(
     )
 
     try:
-        state_transition(chain, block)
+        state_transition(engine.chain, block)
     except EthereumException:
         return False
 
+    engine.validated_blocks[keccak256(rlp.encode(block.header))] = block
     return True
 
 
 def verify_and_notify_new_payload(
-    chain: ExecutionEngine,
+    engine: ExecutionEngine,
     new_payload_request: NewPayloadRequest,
 ) -> bool:
     """
@@ -123,4 +124,4 @@ def verify_and_notify_new_payload(
     if not is_valid_versioned_hashes(new_payload_request):
         return False
 
-    return notify_new_payload(chain, new_payload_request)
+    return notify_new_payload(engine, new_payload_request)
