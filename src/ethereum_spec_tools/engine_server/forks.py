@@ -24,9 +24,6 @@ class ForkSpec:
     package: str
     """Package name under `ethereum.forks`."""
 
-    new_payload_version: int
-    """`engine_newPayloadVX` version serving this fork."""
-
     has_withdrawals: bool
     has_blobs: bool
     has_requests: bool
@@ -36,6 +33,11 @@ class ForkSpec:
     def fork(self) -> ModuleType:
         """The fork's `fork` module."""
         return _module(self.package, "fork")
+
+    @property
+    def engine(self) -> ModuleType:
+        """The fork's `execution_engine` module."""
+        return _module(self.package, "execution_engine")
 
     @property
     def blocks(self) -> ModuleType:
@@ -54,17 +56,17 @@ def _module(package: str, name: str) -> ModuleType:
 
 
 FORKS: List[ForkSpec] = [
-    ForkSpec("Paris", "paris", 1, False, False, False, False),
-    ForkSpec("Shanghai", "shanghai", 2, True, False, False, False),
-    ForkSpec("Cancun", "cancun", 3, True, True, False, False),
-    ForkSpec("Prague", "prague", 4, True, True, True, False),
-    ForkSpec("Osaka", "osaka", 4, True, True, True, False),
-    ForkSpec("BPO1", "bpo1", 4, True, True, True, False),
-    ForkSpec("BPO2", "bpo2", 4, True, True, True, False),
-    ForkSpec("BPO3", "bpo3", 4, True, True, True, False),
-    ForkSpec("BPO4", "bpo4", 4, True, True, True, False),
-    ForkSpec("BPO5", "bpo5", 4, True, True, True, False),
-    ForkSpec("Amsterdam", "amsterdam", 5, True, True, True, True),
+    ForkSpec("Paris", "paris", False, False, False, False),
+    ForkSpec("Shanghai", "shanghai", True, False, False, False),
+    ForkSpec("Cancun", "cancun", True, True, False, False),
+    ForkSpec("Prague", "prague", True, True, True, False),
+    ForkSpec("Osaka", "osaka", True, True, True, False),
+    ForkSpec("BPO1", "bpo1", True, True, True, False),
+    ForkSpec("BPO2", "bpo2", True, True, True, False),
+    ForkSpec("BPO3", "bpo3", True, True, True, False),
+    ForkSpec("BPO4", "bpo4", True, True, True, False),
+    ForkSpec("BPO5", "bpo5", True, True, True, False),
+    ForkSpec("Amsterdam", "amsterdam", True, True, True, True),
 ]
 """All supported forks, oldest first."""
 

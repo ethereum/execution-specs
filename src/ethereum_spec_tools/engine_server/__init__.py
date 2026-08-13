@@ -73,7 +73,8 @@ def main() -> None:
     chain, genesis_fork = load_genesis_chain(
         options.genesis, U64(options.chain_id), schedule
     )
-    backend = EngineBackend(chain, genesis_fork, schedule)
+    engine = genesis_fork.engine.create_execution_engine(chain)
+    backend = EngineBackend(engine, genesis_fork, schedule)
     serve(
         backend,
         options.address,

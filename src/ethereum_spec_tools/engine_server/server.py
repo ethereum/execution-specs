@@ -1,51 +1,41 @@
 """
-JSON-RPC server exposing the execution engine interface.
+JSON-RPC transport for the execution engine specification.
 
-Serves the subset of the [Engine API] and `eth` namespace that a
+Serves the [Engine API] and the `eth` namespace queries that a
 consensus-layer driver — such as the hive `consume engine` and
-`consume enginex` simulators — needs to feed blocks to the execution
-layer specification, for every post-merge fork:
-
-- `engine_newPayloadV1` … `V5` validate and execute payloads, choosing
-  the fork by payload timestamp against the configured schedule.
-- `engine_forkchoiceUpdatedV1` … `V4` acknowledge (and switch) the
-  chain head.
-- `eth_getBlockByNumber` and friends answer basic chain queries.
-
-The Amsterdam behaviour mirrors the consensus-layer interface
-specified in [`ethereum.forks.amsterdam.execution_engine`]; earlier
-forks follow the same sequence with their smaller payload shapes.
+`consume enginex` simulators — needs, for every post-merge fork. The
+server is transport only: it decodes JSON into each fork's versioned
+engine structures, routes calls to the fork's `execution_engine`
+module by payload timestamp, and maps the spec's exceptions onto the
+Engine API error codes. All semantics live in
+`ethereum.forks.<fork>.execution_engine`.
 
 The engine namespace is authenticated with a JWT bearer token as
 described in the Engine API's authentication specification.
 
 [Engine API]: https://github.com/ethereum/execution-apis/tree/main/src/engine
-[`ethereum.forks.amsterdam.execution_engine`]:
-    ref:ethereum.forks.amsterdam.execution_engine
 """  # noqa: E501
 
 import base64
 import hashlib
 import hmac
-import importlib
 import json
-import queue
 import threading
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ethereum_rlp import rlp
-from ethereum_rlp.exceptions import DecodingError
-from ethereum_types.bytes import Bytes, Bytes8, Bytes32
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 from typing_extensions import override
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.exceptions import EthereumException
-from ethereum.merkle_patricia_trie import Trie, root, trie_set
-from ethereum.state import Address, BlockDiff, Root
-from ethereum.state_mpt import State, apply_changes_to_state, copy_state
+from ethereum.exceptions import (
+    InvalidEngineParamsError,
+    UnsupportedForkError,
+)
+from ethereum.state import Address, Root
 
 from .forks import ForkSpec, Schedule, fork_at
 
@@ -64,7 +54,8 @@ DEFAULT_JWT_SECRET = b"secretsecretsecretsecretsecretse"
 CLIENT_VERSION = "eels/execution-specs"
 """Version string reported by `web3_clientVersion`."""
 
-EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
+PAYLOAD_VERSION = {1: 1, 2: 2, 3: 3, 4: 3, 5: 4}
+"""Payload structure version carried by each `engine_newPayloadVX`."""
 
 
 class RpcError(Exception):
@@ -121,7 +112,7 @@ def _field(obj: Dict[str, Any], name: str) -> Any:
 
 @dataclass(frozen=True)
 class PayloadShape:
-    """Field set of one `ExecutionPayloadVX` structure."""
+    """JSON field set of one `ExecutionPayloadVX` structure."""
 
     withdrawals: bool
     blobs: bool
@@ -146,7 +137,7 @@ PAYLOAD_SHAPES: Dict[int, PayloadShape] = {
     ),
     5: PayloadShape(withdrawals=True, blobs=True, bal=True),
 }
-"""Payload field set per `engine_newPayloadVX` version."""
+"""JSON field set per `engine_newPayloadVX` version."""
 
 _BASE_PAYLOAD_KEYS = {
     "parentHash",
@@ -178,30 +169,8 @@ def _payload_keys(shape: PayloadShape) -> Set[str]:
     return keys
 
 
-@dataclass(frozen=True)
-class Payload:
-    """A decoded execution payload, independent of fork dataclasses."""
-
-    fields: Dict[str, Any]
-    transactions: Tuple[Bytes, ...]
-    withdrawals_json: Tuple[Dict[str, Any], ...]
-    block_hash: Hash32
-    parent_hash: Hash32
-    timestamp: int
-    block_access_list: Optional[Bytes]
-
-
-def _payload_from_json(obj: Any, shape: PayloadShape) -> Payload:
-    """
-    Decode an `ExecutionPayloadVX` structure for the given shape.
-
-    Raise an invalid-params error for any missing, unexpected, or
-    malformed field, per the Engine API requirement that structural
-    failures are reported at the RPC layer rather than as an `INVALID`
-    status.
-    """
-    if not isinstance(obj, dict):
-        raise RpcError(INVALID_PARAMS, "executionPayload: expected object")
+def _check_payload_keys(obj: Dict[str, Any], shape: PayloadShape) -> None:
+    """Reject JSON fields outside the version's payload structure."""
     allowed = _payload_keys(shape)
     for key in obj:
         if key in allowed:
@@ -214,31 +183,36 @@ def _payload_from_json(obj: Any, shape: PayloadShape) -> Payload:
             continue
         raise RpcError(INVALID_PARAMS, f"unexpected field: {key}")
 
+
+def _typed_payload(spec: ForkSpec, version: int, obj: Dict[str, Any]) -> Any:
+    """Decode a payload object into the fork's `ExecutionPayloadVX`."""
+    if not isinstance(obj, dict):
+        raise RpcError(INVALID_PARAMS, "executionPayload: expected object")
+    _check_payload_keys(obj, PAYLOAD_SHAPES[version])
+    payload_version = PAYLOAD_VERSION[version]
+
     transactions_json = _field(obj, "transactions")
     if not isinstance(transactions_json, list):
         raise RpcError(INVALID_PARAMS, "transactions: expected array")
-    transactions = tuple(
-        Bytes(_decode_hex(tx, "transaction")) for tx in transactions_json
-    )
 
-    fields: Dict[str, Any] = {
+    kwargs: Dict[str, Any] = {
         "parent_hash": Hash32(
             _decode_hex(_field(obj, "parentHash"), "parentHash", 32)
         ),
-        "coinbase": Address(
+        "fee_recipient": Address(
             _decode_hex(_field(obj, "feeRecipient"), "feeRecipient", 20)
         ),
         "state_root": Root(
             _decode_hex(_field(obj, "stateRoot"), "stateRoot", 32)
         ),
-        "receipt_root": Root(
+        "receipts_root": Root(
             _decode_hex(_field(obj, "receiptsRoot"), "receiptsRoot", 32)
         ),
-        "bloom": _decode_hex(_field(obj, "logsBloom"), "logsBloom", 256),
+        "logs_bloom": _decode_hex(_field(obj, "logsBloom"), "logsBloom", 256),
         "prev_randao": Bytes32(
             _decode_hex(_field(obj, "prevRandao"), "prevRandao", 32)
         ),
-        "number": Uint(
+        "block_number": Uint(
             _decode_quantity(_field(obj, "blockNumber"), "blockNumber")
         ),
         "gas_limit": Uint(
@@ -254,160 +228,65 @@ def _payload_from_json(obj: Any, shape: PayloadShape) -> Payload:
         "base_fee_per_gas": Uint(
             _decode_quantity(_field(obj, "baseFeePerGas"), "baseFeePerGas")
         ),
-        "difficulty": Uint(0),
-        "ommers_hash": EMPTY_OMMER_HASH,
-        "nonce": Bytes8(b"\x00" * 8),
-    }
-
-    withdrawals_json: Tuple[Dict[str, Any], ...] = ()
-    if shape.withdrawals:
-        withdrawals_field = _field(obj, "withdrawals")
-        if not isinstance(withdrawals_field, list):
-            raise RpcError(INVALID_PARAMS, "withdrawals: expected array")
-        withdrawals_json = tuple(withdrawals_field)
-    if shape.blobs:
-        fields["blob_gas_used"] = U64(
-            _decode_quantity(_field(obj, "blobGasUsed"), "blobGasUsed")
-        )
-        fields["excess_blob_gas"] = U64(
-            _decode_quantity(_field(obj, "excessBlobGas"), "excessBlobGas")
-        )
-    block_access_list: Optional[Bytes] = None
-    if shape.bal:
-        block_access_list = Bytes(
-            _decode_hex(_field(obj, "blockAccessList"), "blockAccessList")
-        )
-        fields["block_access_list_hash"] = Hash32(keccak256(block_access_list))
-        fields["slot_number"] = U64(
-            _decode_quantity(_field(obj, "slotNumber"), "slotNumber")
-        )
-
-    return Payload(
-        fields=fields,
-        transactions=transactions,
-        withdrawals_json=withdrawals_json,
-        block_hash=Hash32(
+        "block_hash": Hash32(
             _decode_hex(_field(obj, "blockHash"), "blockHash", 32)
         ),
-        parent_hash=Hash32(fields["parent_hash"]),
-        timestamp=int(fields["timestamp"]),
-        block_access_list=block_access_list,
-    )
-
-
-def _decode_transaction(spec: ForkSpec, encoded: Bytes) -> Any:
-    """
-    Decode a wire-form transaction into the fork's transaction type.
-
-    Raw legacy transactions (RLP lists) are decoded directly; typed
-    transactions go through the fork's `decode_transaction`, which on
-    older forks does not accept raw legacy bytes.
-    """
-    if encoded and encoded[0] >= 0xC0:
-        return rlp.decode_to(spec.transactions.LegacyTransaction, encoded)
-    return spec.transactions.decode_transaction(encoded)
-
-
-def _withdrawal(spec: ForkSpec, obj: Dict[str, Any]) -> Any:
-    """Decode a withdrawal object into the fork's `Withdrawal`."""
-    return spec.blocks.Withdrawal(
-        index=U64(_decode_quantity(_field(obj, "index"), "index")),
-        validator_index=U64(
-            _decode_quantity(_field(obj, "validatorIndex"), "validatorIndex")
-        ),
-        address=Address(_decode_hex(_field(obj, "address"), "address", 20)),
-        amount=U64(_decode_quantity(_field(obj, "amount"), "amount")),
-    )
-
-
-def _ordered_trie_root(items: List[Bytes]) -> Root:
-    """Compute the root of an index-keyed trie over encoded items."""
-    trie: "Trie[Bytes, Optional[Bytes]]" = Trie(secured=False, default=None)
-    for index, item in enumerate(items):
-        trie_set(trie, rlp.encode(Uint(index)), item)
-    return root(trie)
-
-
-def _payload_block(
-    spec: ForkSpec,
-    payload: Payload,
-    parent_beacon_block_root: Optional[Root],
-    execution_requests: Optional[Tuple[Bytes, ...]],
-) -> Any:
-    """
-    Convert a decoded payload into the fork's `Block`.
-
-    The header's trie roots are computed from the payload contents; the
-    wire-form execution requests are hashed as opaque items.
-    """
-    fields = dict(payload.fields)
-    fields["transactions_root"] = _ordered_trie_root(
-        list(payload.transactions)
-    )
-
-    withdrawals: Tuple[Any, ...] = ()
-    if spec.has_withdrawals:
-        withdrawals = tuple(
-            _withdrawal(spec, w) for w in payload.withdrawals_json
-        )
-        fields["withdrawals_root"] = _ordered_trie_root(
-            [rlp.encode(w) for w in withdrawals]
-        )
-    if spec.has_blobs:
-        assert parent_beacon_block_root is not None
-        fields["parent_beacon_block_root"] = parent_beacon_block_root
-    if spec.has_requests:
-        assert execution_requests is not None
-        requests_module = importlib.import_module(
-            f"ethereum.forks.{spec.package}.requests"
-        )
-        # The wire-form requests are hashed as opaque items; their
-        # contents play no part in the block hash.
-        fields["requests_hash"] = Hash32(
-            requests_module.compute_requests_hash(list(execution_requests))
-        )
-
-    header = spec.blocks.Header(**fields)
-
-    def to_block_transaction(encoded: Bytes) -> Any:
-        if not encoded or encoded[0] < 0xC0:
-            return encoded
-        return _decode_transaction(spec, encoded)
-
-    block_fields: Dict[str, Any] = {
-        "header": header,
         "transactions": tuple(
-            to_block_transaction(tx) for tx in payload.transactions
+            Bytes(_decode_hex(tx, "transaction")) for tx in transactions_json
         ),
-        "ommers": (),
     }
-    if spec.has_withdrawals:
-        block_fields["withdrawals"] = withdrawals
-    return spec.blocks.Block(**block_fields)
+    if payload_version >= 2:
+        withdrawals_json = _field(obj, "withdrawals")
+        if not isinstance(withdrawals_json, list):
+            raise RpcError(INVALID_PARAMS, "withdrawals: expected array")
+        kwargs["withdrawals"] = tuple(
+            spec.blocks.Withdrawal(
+                index=U64(_decode_quantity(_field(w, "index"), "index")),
+                validator_index=U64(
+                    _decode_quantity(
+                        _field(w, "validatorIndex"), "validatorIndex"
+                    )
+                ),
+                address=Address(
+                    _decode_hex(_field(w, "address"), "address", 20)
+                ),
+                amount=U64(_decode_quantity(_field(w, "amount"), "amount")),
+            )
+            for w in withdrawals_json
+        )
+    if payload_version >= 3:
+        kwargs["blob_gas_used"] = U64(
+            _decode_quantity(_field(obj, "blobGasUsed"), "blobGasUsed")
+        )
+        kwargs["excess_blob_gas"] = U64(
+            _decode_quantity(_field(obj, "excessBlobGas"), "excessBlobGas")
+        )
+    if payload_version >= 4:
+        kwargs["block_access_list"] = Bytes(
+            _decode_hex(_field(obj, "blockAccessList"), "blockAccessList")
+        )
+        kwargs["slot_number"] = U64(
+            _decode_quantity(_field(obj, "slotNumber"), "slotNumber")
+        )
+    payload_type = getattr(
+        spec.engine, f"ExecutionPayloadV{payload_version}", None
+    )
+    if payload_type is None:
+        raise RpcError(UNSUPPORTED_FORK, "Unsupported fork")
+    return payload_type(**kwargs)
 
 
-def _computed_versioned_hashes(
-    spec: ForkSpec, payload: Payload
-) -> Optional[Tuple[Hash32, ...]]:
-    """
-    Compute blob versioned hashes from the payload's transactions.
-
-    Return `None` when any transaction fails to decode.
-    """
-    hashes: List[Hash32] = []
-    blob_transaction = getattr(spec.transactions, "BlobTransaction", None)
-    try:
-        for encoded in payload.transactions:
-            transaction = _decode_transaction(spec, encoded)
-            if blob_transaction is not None and isinstance(
-                transaction, blob_transaction
-            ):
-                hashes.extend(transaction.blob_versioned_hashes)
-    except Exception:
-        # Any decoding failure means versioned hashes cannot be
-        # verified.
-        return None
-    return tuple(hashes)
+def _status_to_json(status: Any) -> Dict[str, Any]:
+    """Serialize a `PayloadStatusV1` object."""
+    return {
+        "status": status.status.value,
+        "latestValidHash": (
+            _hex(status.latest_valid_hash)
+            if status.latest_valid_hash is not None
+            else None
+        ),
+        "validationError": status.validation_error,
+    }
 
 
 def _block_hash_of(block: Any) -> Hash32:
@@ -415,20 +294,20 @@ def _block_hash_of(block: Any) -> Hash32:
     return keccak256(rlp.encode(block.header))
 
 
-def _transaction_hash(spec: ForkSpec, tx: Any) -> Hash32:
-    """Compute the hash of a block transaction."""
-    if isinstance(tx, spec.transactions.LegacyTransaction):
-        return keccak256(rlp.encode(tx))
-    return keccak256(tx)
-
-
-def _block_to_json(spec: ForkSpec, block: Any) -> Dict[str, Any]:
+def _block_to_json(block: Any) -> Dict[str, Any]:
     """
     Encode a block in the `eth_getBlockByNumber` response format.
 
-    Transactions are always returned as hashes.
+    Transactions are always returned as hashes; optional fields follow
+    the block's own header shape.
     """
     header = block.header
+
+    def tx_hash(tx: Any) -> str:
+        if isinstance(tx, (bytes, Bytes)):
+            return _hex(keccak256(tx))
+        return _hex(keccak256(rlp.encode(tx)))
+
     result = {
         "number": _hex_int(int(header.number)),
         "hash": _hex(_block_hash_of(block)),
@@ -448,144 +327,49 @@ def _block_to_json(spec: ForkSpec, block: Any) -> Dict[str, Any]:
         "timestamp": _hex_int(int(header.timestamp)),
         "mixHash": _hex(header.prev_randao),
         "baseFeePerGas": _hex_int(int(header.base_fee_per_gas)),
-        "transactions": [
-            _hex(_transaction_hash(spec, tx)) for tx in block.transactions
-        ],
+        "transactions": [tx_hash(tx) for tx in block.transactions],
         "uncles": [],
     }
-    if spec.has_withdrawals:
-        result["withdrawalsRoot"] = _hex(header.withdrawals_root)
+    quantities = {"blob_gas_used", "excess_blob_gas", "slot_number"}
+    optional = {
+        "withdrawals_root": "withdrawalsRoot",
+        "blob_gas_used": "blobGasUsed",
+        "excess_blob_gas": "excessBlobGas",
+        "parent_beacon_block_root": "parentBeaconBlockRoot",
+        "requests_hash": "requestsHash",
+        "block_access_list_hash": "blockAccessListHash",
+        "slot_number": "slotNumber",
+    }
+    for attr, key in optional.items():
+        if hasattr(header, attr):
+            value = getattr(header, attr)
+            result[key] = (
+                _hex_int(int(value)) if attr in quantities else _hex(value)
+            )
+    if hasattr(block, "withdrawals"):
         result["withdrawals"] = []
-    if spec.has_blobs:
-        result["blobGasUsed"] = _hex_int(int(header.blob_gas_used))
-        result["excessBlobGas"] = _hex_int(int(header.excess_blob_gas))
-        result["parentBeaconBlockRoot"] = _hex(header.parent_beacon_block_root)
-    if spec.has_requests:
-        result["requestsHash"] = _hex(header.requests_hash)
-    if spec.has_bal:
-        result["blockAccessListHash"] = _hex(header.block_access_list_hash)
-        result["slotNumber"] = _hex_int(int(header.slot_number))
     return result
-
-
-@dataclass
-class _BlockRecord:
-    """A validated block, its fork, parent link, and produced diff."""
-
-    block: Any
-    parent_hash: Optional[Hash32]
-    fork: ForkSpec
-    diff: Optional[BlockDiff]
 
 
 class EngineBackend:
     """
-    Chain state and JSON-RPC method handlers.
+    Transport-side holder of the spec `ExecutionEngine` object.
 
-    Holds the `BlockChain` of the active branch, guarded by a lock so
-    that concurrent HTTP requests observe a consistent chain. Every
-    validated block is remembered in a block tree together with its
-    fork and, on forks exposing `execute_block`, the [`BlockDiff`] it
-    produced; a payload building on any known block (or a forkchoice
-    update selecting one) reorgs by rebuilding the branch from the
-    genesis snapshot — replaying diffs where available and re-executing
-    blocks otherwise.
-
-    [`BlockDiff`]: ref:ethereum.state.BlockDiff
+    Requests are decoded into the fork's versioned structures, routed
+    to the fork's engine module by payload timestamp, and answered from
+    the module's `PayloadStatusV1` results; a lock serializes access.
     """
 
     def __init__(
-        self, chain: Any, genesis_fork: ForkSpec, schedule: Schedule
+        self, engine: Any, genesis_spec: ForkSpec, schedule: Schedule
     ) -> None:
-        self.chain = chain
+        self.engine = engine
+        self.genesis_spec = genesis_spec
         self.schedule = schedule
-        self.genesis_fork = genesis_fork
-        self.head_fork = genesis_fork
         self.lock = threading.Lock()
-        self.genesis_block = chain.blocks[0]
-        self._genesis_state: State = copy_state(chain.state)
-        # Block tree of every block ever validated; survives the active
-        # branch's 255-block trim.
-        self.records: Dict[Hash32, _BlockRecord] = {
-            _block_hash_of(self.genesis_block): _BlockRecord(
-                block=self.genesis_block,
-                parent_hash=None,
-                fork=genesis_fork,
-                diff=None,
-            )
-        }
-        # Reorgs back towards genesis need a fresh copy of the genesis
-        # state; keep one prepared in the background so the copy is off
-        # the request path (`_genesis_state` is never mutated, so the
-        # copier thread needs no lock). The copier starts lazily on the
-        # first reorg: chains that never reorg never pay for the
-        # thread.
-        self._genesis_copies: "queue.Queue[State]" = queue.Queue(maxsize=1)
-        self._copier_started = False
 
-    def _prepare_copies(self) -> None:
-        """Keep one spare copy of the genesis state ready."""
-        while True:
-            self._genesis_copies.put(copy_state(self._genesis_state))
-
-    def _fresh_genesis_state(self) -> State:
-        """Take the prepared genesis state copy, or copy synchronously."""
-        if not self._copier_started:
-            self._copier_started = True
-            threading.Thread(target=self._prepare_copies, daemon=True).start()
-        try:
-            return self._genesis_copies.get_nowait()
-        except queue.Empty:
-            return copy_state(self._genesis_state)
-
-    def head_hash(self) -> Hash32:
-        """Return the hash of the current chain head."""
-        return _block_hash_of(self.chain.blocks[-1])
-
-    def _switch_fork(self, spec: ForkSpec) -> None:
-        """Rewrap the active chain into `spec`'s `BlockChain`."""
-        if spec is self.head_fork:
-            return
-        # Post-merge forks have no irregular state transitions, so the
-        # upgrade is a rewrap of the same blocks and state.
-        self.chain = spec.fork.BlockChain(
-            blocks=list(self.chain.blocks),
-            state=self.chain.state,
-            chain_id=self.chain.chain_id,
-        )
-        self.head_fork = spec
-
-    def _rebuild_to(self, target: Hash32) -> None:
-        """
-        Make `target` the chain head by rebuilding its branch.
-
-        Collect the ancestry of `target` in the block tree, take a
-        fresh genesis state, then reapply each block along the branch:
-        by diff where one was recorded, by re-execution otherwise.
-        """
-        branch = []
-        cursor: Optional[Hash32] = target
-        while cursor is not None:
-            record = self.records[cursor]
-            branch.append(record)
-            cursor = record.parent_hash
-        branch.reverse()
-
-        self.chain = self.genesis_fork.fork.BlockChain(
-            blocks=[self.genesis_block],
-            state=self._fresh_genesis_state(),
-            chain_id=self.chain.chain_id,
-        )
-        self.head_fork = self.genesis_fork
-        for record in branch[1:]:
-            self._switch_fork(record.fork)
-            if record.diff is not None:
-                apply_changes_to_state(self.chain.state, record.diff)
-                self.chain.blocks.append(record.block)
-                if len(self.chain.blocks) > 255:
-                    self.chain.blocks = self.chain.blocks[-255:]
-            else:
-                record.fork.fork.state_transition(self.chain, record.block)
+    def _spec_of_block(self, block: Any) -> ForkSpec:
+        return fork_at(self.schedule, int(block.header.timestamp))
 
     def handle(self, method: str, params: List[Any]) -> Any:
         """Dispatch a JSON-RPC method call."""
@@ -616,7 +400,7 @@ class EngineBackend:
 
     def chain_id(self, _params: List[Any]) -> str:
         """`eth_chainId`: return the chain id of the loaded chain."""
-        return _hex_int(int(self.chain.chain_id))
+        return _hex_int(int(self.engine.chain.chain_id))
 
     def exchange_capabilities(self, _params: List[Any]) -> List[str]:
         """`engine_exchangeCapabilities`: list supported engine methods."""
@@ -626,27 +410,30 @@ class EngineBackend:
             *[f"engine_forkchoiceUpdatedV{v}" for v in (1, 2, 3, 4)],
         ]
 
-    def _find_block(self, tag: Any) -> Optional[_BlockRecord]:
-        """Resolve a block-number tag to a block record, if present."""
+    def _find_block(self, tag: Any) -> Optional[Any]:
+        """Resolve a block-number tag to a block, if present."""
         with self.lock:
+            chain = self.engine.chain
             if tag in ("latest", "safe", "finalized", "pending"):
-                return self.records[self.head_hash()]
+                return chain.blocks[-1]
             if tag == "earliest":
-                return self.records[_block_hash_of(self.genesis_block)]
+                return self.engine.genesis_block
             number = Uint(_decode_quantity(tag, "blockNumber"))
-            for block in reversed(self.chain.blocks):
+            if number == self.engine.genesis_block.header.number:
+                return self.engine.genesis_block
+            for block in reversed(chain.blocks):
                 if block.header.number == number:
-                    return self.records[_block_hash_of(block)]
+                    return block
         return None
 
     def get_block_by_number(self, params: List[Any]) -> Any:
         """`eth_getBlockByNumber`: return a block by number or tag."""
         if len(params) != 2:
             raise RpcError(INVALID_PARAMS, "expected 2 params")
-        record = self._find_block(params[0])
-        if record is None:
+        block = self._find_block(params[0])
+        if block is None:
             return None
-        return _block_to_json(record.fork, record.block)
+        return _block_to_json(block)
 
     def get_block_by_hash(self, params: List[Any]) -> Any:
         """`eth_getBlockByHash`: return a block by hash."""
@@ -654,21 +441,19 @@ class EngineBackend:
             raise RpcError(INVALID_PARAMS, "expected 2 params")
         block_hash = Hash32(_decode_hex(params[0], "blockHash", 32))
         with self.lock:
-            record = self.records.get(block_hash)
-            if record is not None:
-                return _block_to_json(record.fork, record.block)
+            block = self.engine.validated_blocks.get(block_hash)
+            if block is not None:
+                return _block_to_json(block)
         return None
 
     def new_payload(self, version: int, params: List[Any]) -> Dict[str, Any]:
         """
-        `engine_newPayloadVX`: validate and execute a payload.
+        `engine_newPayloadVX`: decode, route, and delegate.
 
-        Follows the consensus-layer `verify_and_notify_new_payload`
-        sequence, surfacing each failure as an `INVALID` payload status
-        with a validation error message. Malformed parameters and the
-        structural execution-request violations are JSON-RPC errors; a
-        payload whose timestamp does not belong to this method
-        version's fork is an unsupported-fork error.
+        The payload's fork is chosen by timestamp; the fork module's
+        `new_payload_vX` carries the version rules and returns the
+        payload status. Spec exceptions map onto the Engine API error
+        codes.
         """
         expected_params = 1 if version < 3 else (3 if version == 3 else 4)
         if len(params) != expected_params:
@@ -676,12 +461,18 @@ class EngineBackend:
                 INVALID_PARAMS, f"expected {expected_params} params"
             )
 
-        payload = _payload_from_json(params[0], PAYLOAD_SHAPES[version])
+        payload_json = params[0]
+        if not isinstance(payload_json, dict):
+            raise RpcError(INVALID_PARAMS, "executionPayload: expected object")
+        timestamp = _decode_quantity(
+            _field(payload_json, "timestamp"), "timestamp"
+        )
+        spec = fork_at(self.schedule, timestamp)
+        method = getattr(spec.engine, f"new_payload_v{version}", None)
+        if method is None:
+            raise RpcError(UNSUPPORTED_FORK, "Unsupported fork")
 
-        versioned_hashes: Optional[Tuple[Hash32, ...]] = None
-        parent_beacon_block_root: Optional[Root] = None
-        execution_requests: Optional[Tuple[Bytes, ...]] = None
-
+        args: List[Any] = [_typed_payload(spec, version, payload_json)]
         if version >= 3:
             hashes_json = params[1]
             if not isinstance(hashes_json, list):
@@ -689,12 +480,14 @@ class EngineBackend:
                     INVALID_PARAMS,
                     "expectedBlobVersionedHashes: expected array",
                 )
-            versioned_hashes = tuple(
-                Hash32(_decode_hex(h, "versionedHash", 32))
-                for h in hashes_json
+            args.append(
+                tuple(
+                    Hash32(_decode_hex(h, "versionedHash", 32))
+                    for h in hashes_json
+                )
             )
-            parent_beacon_block_root = Root(
-                _decode_hex(params[2], "parentBeaconBlockRoot", 32)
+            args.append(
+                Root(_decode_hex(params[2], "parentBeaconBlockRoot", 32))
             )
         if version >= 4:
             requests_json = params[3]
@@ -702,162 +495,37 @@ class EngineBackend:
                 raise RpcError(
                     INVALID_PARAMS, "executionRequests: expected array"
                 )
-            execution_requests = tuple(
-                Bytes(_decode_hex(r, "executionRequest"))
-                for r in requests_json
-            )
-            # Per the Engine API, only structural violations of the
-            # requests list are parameter errors: empty items, items
-            # with no request data after the type byte, and type bytes
-            # out of strictly ascending order. Any other malformed
-            # content is hashed as opaque bytes and surfaces as an
-            # INVALID payload.
-            last_type = -1
-            for item in execution_requests:
-                if len(item) == 0:
-                    raise RpcError(
-                        INVALID_PARAMS,
-                        "executionRequests: empty request item",
-                    )
-                if len(item) == 1:
-                    raise RpcError(
-                        INVALID_PARAMS,
-                        "executionRequests: request item without data",
-                    )
-                if item[0] <= last_type:
-                    raise RpcError(
-                        INVALID_PARAMS,
-                        "executionRequests: request types not in strictly "
-                        "ascending order",
-                    )
-                last_type = item[0]
-        if version >= 5:
-            assert payload.block_access_list is not None
-            bal_module = importlib.import_module(
-                "ethereum.forks.amsterdam.block_access_lists"
-            )
-            try:
-                rlp.decode_to(
-                    bal_module.BlockAccessList, payload.block_access_list
+            args.append(
+                tuple(
+                    Bytes(_decode_hex(r, "executionRequest"))
+                    for r in requests_json
                 )
-            except DecodingError as e:
-                # A structurally undecodable block access list is an
-                # invalid parameter, not an invalid block.
-                raise RpcError(INVALID_PARAMS, f"blockAccessList: {e}") from e
-
-        spec = fork_at(self.schedule, payload.timestamp)
-        if spec.new_payload_version != version:
-            raise RpcError(UNSUPPORTED_FORK, "Unsupported fork")
+            )
 
         with self.lock:
-            return self._execute_payload(
-                spec,
-                payload,
-                versioned_hashes,
-                parent_beacon_block_root,
-                execution_requests,
-            )
-
-    def _execute_payload(
-        self,
-        spec: ForkSpec,
-        payload: Payload,
-        versioned_hashes: Optional[Tuple[Hash32, ...]],
-        parent_beacon_block_root: Optional[Root],
-        execution_requests: Optional[Tuple[Bytes, ...]],
-    ) -> Dict[str, Any]:
-        """Run the new-payload validation sequence for one payload."""
-        if b"" in payload.transactions:
-            return _payload_status(
-                "INVALID", None, "empty transaction in payload"
-            )
-
-        # The payload must reproduce its own declared block hash.
-        try:
-            block = _payload_block(
-                spec, payload, parent_beacon_block_root, execution_requests
-            )
-        except Exception as e:
-            return _payload_status(
-                "INVALID", None, f"payload conversion failed: {e}"
-            )
-        if _block_hash_of(block) != payload.block_hash:
-            return _payload_status("INVALID", None, "invalid block hash")
-
-        if spec.has_blobs:
-            assert versioned_hashes is not None
-            computed = _computed_versioned_hashes(spec, payload)
-            if computed is None or computed != versioned_hashes:
-                return _payload_status(
-                    "INVALID", None, "invalid blob versioned hashes"
-                )
-
-        parent_known = payload.parent_hash in self.records
-        if parent_known and payload.parent_hash != self.head_hash():
-            # The payload builds on a known non-head block: reorg the
-            # active branch onto its parent before executing.
-            self._rebuild_to(payload.parent_hash)
-
-        try:
-            self._switch_fork(spec)
-            if spec.has_bal:
-                chain_context = spec.fork.ChainContext(
-                    chain_id=self.chain.chain_id,
-                    block_hashes=spec.fork.get_last_256_block_hashes(
-                        self.chain
-                    ),
-                    parent_header=self.chain.blocks[-1].header,
-                )
-                diff: Optional[BlockDiff] = spec.fork.execute_block(
-                    block, self.chain.state, chain_context
-                )
-                assert diff is not None
-                apply_changes_to_state(self.chain.state, diff)
-                self.chain.blocks.append(block)
-                if len(self.chain.blocks) > 255:
-                    self.chain.blocks = self.chain.blocks[-255:]
-            else:
-                diff = None
-                spec.fork.state_transition(self.chain, block)
-        except EthereumException as e:
-            latest_valid: Optional[Hash32] = (
-                payload.parent_hash if parent_known else None
-            )
-            return _payload_status(
-                "INVALID", latest_valid, f"{type(e).__name__}: {e}"
-            )
-
-        self.records[payload.block_hash] = _BlockRecord(
-            block=block,
-            parent_hash=payload.parent_hash,
-            fork=spec,
-            diff=diff,
-        )
-        return _payload_status("VALID", payload.block_hash, None)
+            try:
+                status = method(self.engine, *args)
+            except UnsupportedForkError as e:
+                raise RpcError(UNSUPPORTED_FORK, str(e)) from e
+            except InvalidEngineParamsError as e:
+                raise RpcError(INVALID_PARAMS, str(e)) from e
+        return _status_to_json(status)
 
     def forkchoice_updated(
         self, version: int, params: List[Any]
     ) -> Dict[str, Any]:
         """
-        `engine_forkchoiceUpdatedVX`: acknowledge a forkchoice state.
+        `engine_forkchoiceUpdatedVX`: decode, route, and delegate.
 
-        Payload building is not supported, so non-null payload
-        attributes are rejected. The optional third parameter of `V4`
-        (the EIP-8070 custody-column bitmap) is accepted and ignored.
+        The call is routed to the module of the adopted head's fork;
+        payload building is not supported, so non-null payload
+        attributes are rejected.
         """
         allowed = (2, 3) if version == 4 else (2,)
         if len(params) not in allowed:
             raise RpcError(INVALID_PARAMS, "unexpected param count")
-        forkchoice_state = params[0]
+        forkchoice_json = params[0]
         payload_attributes = params[1]
-
-        head = Hash32(
-            _decode_hex(
-                _field(forkchoice_state, "headBlockHash"),
-                "headBlockHash",
-                32,
-            )
-        )
 
         if payload_attributes is not None:
             raise RpcError(
@@ -865,32 +533,51 @@ class EngineBackend:
                 "payload building is not supported",
             )
 
+        head = Hash32(
+            _decode_hex(
+                _field(forkchoice_json, "headBlockHash"), "headBlockHash", 32
+            )
+        )
+
         with self.lock:
-            if head not in self.records:
-                return {
-                    "payloadStatus": _payload_status("SYNCING", None, None),
-                    "payloadId": None,
-                }
-            if head != self.head_hash():
-                # Selecting a known non-head block as head is a reorg.
-                self._rebuild_to(head)
+            block = self.engine.validated_blocks.get(head)
+            spec = (
+                self._spec_of_block(block)
+                if block is not None
+                else self.genesis_spec
+            )
+            module = spec.engine
+            call_version = version
+            while not hasattr(module, f"forkchoice_updated_v{call_version}"):
+                call_version -= 1
+            state = module.ForkchoiceStateV1(
+                head_block_hash=head,
+                safe_block_hash=Hash32(
+                    _decode_hex(
+                        _field(forkchoice_json, "safeBlockHash"),
+                        "safeBlockHash",
+                        32,
+                    )
+                ),
+                finalized_block_hash=Hash32(
+                    _decode_hex(
+                        _field(forkchoice_json, "finalizedBlockHash"),
+                        "finalizedBlockHash",
+                        32,
+                    )
+                ),
+            )
+            args: List[Any] = [self.engine, state, None]
+            if call_version == 4:
+                args.append(None)
+            response = getattr(module, f"forkchoice_updated_v{call_version}")(
+                *args
+            )
+
         return {
-            "payloadStatus": _payload_status("VALID", head, None),
+            "payloadStatus": _status_to_json(response.payload_status),
             "payloadId": None,
         }
-
-
-def _payload_status(
-    status: str, latest_valid_hash: Optional[Hash32], error: Optional[str]
-) -> Dict[str, Any]:
-    """Encode a `PayloadStatusV1` object."""
-    return {
-        "status": status,
-        "latestValidHash": (
-            _hex(latest_valid_hash) if latest_valid_hash is not None else None
-        ),
-        "validationError": error,
-    }
 
 
 def _b64url_decode(data: str) -> bytes:
