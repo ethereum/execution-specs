@@ -75,6 +75,15 @@ STRUCT_LOG_TRACER_CONFIG = {
     "disableStorage": True,
 }
 
+# ``debug_trace*`` bounds each transaction's trace and abandons it when the
+# bound expires. The default is 5s on geth, which a benchmark block routinely
+# exceeds: a 300M-gas block of cheap opcodes executes >100M steps, and driving
+# a JS tracer through them costs tens of seconds. The abandoned transaction
+# then contributes nothing, so the block's tally is silently short -- or, with
+# a single transaction, missing outright. Ask for a bound no legitimate trace
+# can reach, while still capping one that has genuinely hung.
+OPCODE_COUNT_TRACE_TIMEOUT = "1h"
+
 
 def _normalize_opcode_name(name: str) -> str | None:
     """
@@ -332,6 +341,9 @@ class ClientBackend:
         fails (logged, never fatal). Prefers the JS tracer; a client
         that rejects it falls back to struct logs for the session,
         while transient errors only skip the block.
+
+        Both paths carry ``OPCODE_COUNT_TRACE_TIMEOUT``; without it the
+        client's own default cuts long traces short.
         """
         if not self.extract_opcode_count or self.debug_rpc is None:
             return None
@@ -358,7 +370,8 @@ class ClientBackend:
         """Raw ``debug_traceBlockByHash`` call; exceptions propagate."""
         assert self.debug_rpc is not None
         return self.debug_rpc.trace_block_by_hash(
-            str(block_hash), tracer_config
+            str(block_hash),
+            {"timeout": OPCODE_COUNT_TRACE_TIMEOUT, **tracer_config},
         )
 
     def _payload_attributes(
