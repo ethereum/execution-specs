@@ -412,9 +412,16 @@ class T8N(Load):
                     self.fork.check_inclusion_list_transactions(
                         block_env,
                         block_output,
-                        tuple(self.convert_transaction(tx) for tx in self.txs),
                         tuple(
-                            self.convert_transaction(tx)
+                            self.fork.encode_transaction(
+                                self.convert_transaction(tx)
+                            )
+                            for tx in self.txs
+                        ),
+                        tuple(
+                            self.fork.encode_transaction(
+                                self.convert_transaction(tx)
+                            )
                             for tx in self.inclusion_list_txs
                         ),
                     )
