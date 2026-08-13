@@ -16,7 +16,7 @@ from hive.client import Client
 from execution_testing.exceptions import ExceptionMapper
 from execution_testing.fixtures import BlockchainEngineFixture
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.rpc import EngineSszRPC
+from execution_testing.rpc import EngineSSZRPC
 
 pytest_plugins = (
     "execution_testing.cli.pytest_commands.plugins.pytest_hive.pytest_hive",
@@ -92,13 +92,13 @@ def genesis_header(fixture: BlockchainEngineFixture) -> "FixtureHeader":
 @pytest.fixture(scope="function")
 def engine_ssz_rpc(
     client: Client, client_exception_mapper: ExceptionMapper | None
-) -> EngineSszRPC:
+) -> EngineSSZRPC:
     """Provide the REST client used by the `--ssz` witness transport."""
     if client_exception_mapper:
-        return EngineSszRPC(
+        return EngineSSZRPC(
             f"http://{client.ip}:8551",
             response_validation_context={
                 "exception_mapper": client_exception_mapper,
             },
         )
-    return EngineSszRPC(f"http://{client.ip}:8551")
+    return EngineSSZRPC(f"http://{client.ip}:8551")
