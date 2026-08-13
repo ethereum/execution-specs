@@ -23,9 +23,9 @@ benchmark_fast:
   feature_only: true
 
 # Shared entry for all `<feat>-devnet` releases; matched by `-devnet` suffix.
-# devnets/frames/0: fill only the frames tests, labeled with the Bogota
-# pseudo-fork. `--fork` (not `--until`) because the build-matrix splitter
-# has no Bogota in its FORK_ORDER.
+# devnets/frames/0: fill the full suite at the Bogota pseudo-fork.
+# `--fork` (not `--until`) because the build-matrix splitter has no Bogota
+# in its FORK_ORDER.
 devnet:
   evm-type: eels
-  fill-params: --fork=Bogota --generate-all-formats ./tests/amsterdam/eip8141_frame_transactions
+  fill-params: --fork=Bogota --generate-all-formats
