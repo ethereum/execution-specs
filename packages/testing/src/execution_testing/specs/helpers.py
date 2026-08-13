@@ -414,6 +414,100 @@ def verify_transaction_receipt(
     # TODO: Add more fields as needed
 
 
+def verify_frame_transaction_receipt(
+    transaction_index: int,
+    expected_receipt: TransactionReceipt | None,
+    actual_receipt: TransactionReceipt | None,
+) -> None:
+    """
+    Verify the frame-transaction-specific fields of the actual receipt
+    against the expected one: the `payer` and the per-frame receipt
+    entries defined by [EIP-8141].
+
+    Only called for frame transactions, on top of the generic
+    [`verify_transaction_receipt`][vtr] checks. If the expected receipt
+    is None, validation is skipped. Only non-None values in the
+    expected receipt are verified; within an expected frame receipt
+    entry, only its non-None fields are verified.
+
+    [vtr]: ref:execution_testing.specs.helpers.verify_transaction_receipt
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    """
+    if expected_receipt is None:
+        return
+    assert actual_receipt is not None
+    if (
+        expected_receipt.payer is not None
+        and actual_receipt.payer != expected_receipt.payer
+    ):
+        raise TransactionReceiptMismatchError(
+            index=transaction_index,
+            field_name="payer",
+            expected_value=expected_receipt.payer,
+            actual_value=actual_receipt.payer,
+        )
+
+    if expected_receipt.frame_receipts is None:
+        return
+    actual_frame_receipts = actual_receipt.frame_receipts
+    if actual_frame_receipts is None:
+        raise TransactionReceiptMismatchError(
+            index=transaction_index,
+            field_name="frame_receipts",
+            expected_value=expected_receipt.frame_receipts,
+            actual_value=None,
+        )
+    if len(expected_receipt.frame_receipts) != len(actual_frame_receipts):
+        raise TransactionReceiptMismatchError(
+            index=transaction_index,
+            field_name="frame_receipt_count",
+            expected_value=len(expected_receipt.frame_receipts),
+            actual_value=len(actual_frame_receipts),
+        )
+    for frame_idx, (expected_frame, actual_frame) in enumerate(
+        zip(
+            expected_receipt.frame_receipts,
+            actual_frame_receipts,
+            strict=True,
+        )
+    ):
+        if (
+            expected_frame.status is not None
+            and actual_frame.status != expected_frame.status
+        ):
+            raise TransactionReceiptMismatchError(
+                index=transaction_index,
+                field_name=f"frame_receipts[{frame_idx}].status",
+                expected_value=expected_frame.status,
+                actual_value=actual_frame.status,
+            )
+        if (
+            expected_frame.gas_used is not None
+            and actual_frame.gas_used != expected_frame.gas_used
+        ):
+            raise TransactionReceiptMismatchError(
+                index=transaction_index,
+                field_name=f"frame_receipts[{frame_idx}].gas_used",
+                expected_value=expected_frame.gas_used,
+                actual_value=actual_frame.gas_used,
+            )
+        if expected_frame.logs is not None:
+            actual_frame_logs = actual_frame.logs or []
+            if len(expected_frame.logs) != len(actual_frame_logs):
+                raise TransactionReceiptMismatchError(
+                    index=transaction_index,
+                    field_name=f"frame_receipts[{frame_idx}].log_count",
+                    expected_value=len(expected_frame.logs),
+                    actual_value=len(actual_frame_logs),
+                )
+            for log_idx, (expected_log, actual_log) in enumerate(
+                zip(expected_frame.logs, actual_frame_logs, strict=True)
+            ):
+                verify_log(
+                    transaction_index, log_idx, expected_log, actual_log
+                )
+
+
 def verify_transactions(
     *,
     txs: List[Transaction],
@@ -448,6 +542,10 @@ def verify_transactions(
                 expected_receipt=tx.expected_receipt,
                 actual_receipt=actual_receipt,
             )
+            if tx.frames is not None:
+                verify_frame_transaction_receipt(
+                    i, tx.expected_receipt, actual_receipt
+                )
             previous_cumulative_gas_used = actual_receipt.cumulative_gas_used
             receipt_index += 1
 
