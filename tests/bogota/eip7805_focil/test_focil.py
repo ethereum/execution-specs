@@ -23,9 +23,9 @@ from execution_testing.test_types.transaction_types import (
 from ethereum.forks.amsterdam.fork import VERSIONED_HASH_VERSION_KZG
 
 from .helpers import (
-    bal_gas_headroom,
     IncludedBlockTx,
     PendingInclusionListTx,
+    bal_gas_headroom,
     build_block,
 )
 from .spec import Spec, ref_spec_7805
@@ -139,7 +139,9 @@ def test_block_with_reverting_included_il_tx_is_valid(
         gas_limit=100_000,
     )
     blockchain_test(
-        genesis_environment=Environment(gas_limit=200_000 + bal_gas_headroom(fork)),
+        genesis_environment=Environment(
+            gas_limit=200_000 + bal_gas_headroom(fork)
+        ),
         pre=pre,
         post={},
         blocks=[
@@ -385,7 +387,9 @@ def test_block_with_pending_blob_il_tx_is_valid(
     )
 
     blockchain_test(
-        genesis_environment=Environment(gas_limit=simple_transfer_gas * 4 + bal_gas_headroom(fork)),
+        genesis_environment=Environment(
+            gas_limit=simple_transfer_gas * 4 + bal_gas_headroom(fork)
+        ),
         pre=pre,
         post={},
         blocks=[
@@ -421,7 +425,9 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
     )
 
     blockchain_test(
-        genesis_environment=Environment(gas_limit=21_000 * 4 + bal_gas_headroom(fork)),
+        genesis_environment=Environment(
+            gas_limit=21_000 * 4 + bal_gas_headroom(fork)
+        ),
         pre=pre,
         post={},
         blocks=[
@@ -455,7 +461,9 @@ def test_block_with_intrinsic_gas_too_low_pending_il_tx_is_valid(
     )
 
     blockchain_test(
-        genesis_environment=Environment(gas_limit=simple_transfer_gas * 4 + bal_gas_headroom(fork)),
+        genesis_environment=Environment(
+            gas_limit=simple_transfer_gas * 4 + bal_gas_headroom(fork)
+        ),
         pre=pre,
         post={},
         blocks=[
@@ -484,7 +492,8 @@ def test_unsatisfied_when_block_tx_funds_pending_il_sender(
     simple_transfer_gas = calc()
     # A transfer that carries value costs more intrinsic gas than an empty one
     # on this fork, so alice's funding tx must be sized (and paid for) with
-    # `sends_value=True`. Bob's IL tx carries no value and keeps the plain cost.
+    # `sends_value=True`. Bob's IL tx carries no value and keeps the plain
+    # cost.
     value_transfer_gas = calc(sends_value=True)
     gas_price = TransactionDefaults.gas_price
 

@@ -52,9 +52,11 @@ class PendingInclusionListTx(NamedTuple):
 # limit and spends exactly the same amount on a ballast transaction, leaving
 # `remaining_gas` — and therefore every "fits" / "does not fit" boundary —
 # byte-for-byte what it was.
-# Gas to add. Realised as a whole number of empty transfers so the amount is
-# always representable on the fork's calldata-cost lattice (a flat target like
-# 64_000 is not, once EIP-7623's floor makes marginal calldata cost non-linear).
+#
+# The headroom is realised as a whole number of empty transfers so the amount
+# is always representable on the fork's calldata-cost lattice (a flat target
+# like 64_000 is not, once EIP-7623's floor makes marginal calldata cost
+# non-linear).
 
 
 def bal_gas_headroom(fork: Fork) -> int:
