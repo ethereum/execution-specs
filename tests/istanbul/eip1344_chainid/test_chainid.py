@@ -17,6 +17,7 @@ REFERENCE_SPEC_VERSION = "02e46aebc80e6e5006ab4d2daa41876139f9a9e2"
 
 
 @pytest.mark.with_all_typed_transactions(
+    selector=lambda tx_type: tx_type != 6,
     marks=lambda tx_type: (
         pytest.mark.execute(
             pytest.mark.skip(
@@ -25,7 +26,7 @@ REFERENCE_SPEC_VERSION = "02e46aebc80e6e5006ab4d2daa41876139f9a9e2"
         )
         if tx_type == 3
         else None
-    )
+    ),
 )
 @pytest.mark.ported_from(
     [

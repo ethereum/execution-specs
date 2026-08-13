@@ -27,6 +27,8 @@ from execution_testing.test_types.receipt_types import (
 )
 from execution_testing.test_types.transaction_types import (
     AuthorizationTupleGeneric,
+    FrameGeneric,
+    FrameSignatureGeneric,
     Transaction,
 )
 
@@ -104,6 +106,22 @@ class FixtureAuthorizationTuple(
         return
 
 
+class FixtureFrame(FrameGeneric[ZeroPaddedHexNumber]):
+    """Fixture variant of the EIP-8141 Frame type."""
+
+    # Allow extra fields: FixtureFrame is constructed from Frame via
+    # model_dump(), which may include extra fields.
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
+
+class FixtureFrameSignature(FrameSignatureGeneric[ZeroPaddedHexNumber]):
+    """Fixture variant of the EIP-8141 signature entry type."""
+
+    # Allow extra fields: FixtureFrameSignature is constructed from
+    # FrameSignature via model_dump(), which may include extra fields.
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
+
 class FixtureTransactionLog(CamelModel, RLPSerializable):
     """Fixture variant of the TransactionLog type."""
 
@@ -126,6 +144,22 @@ class FixtureReceiptDelegation(ReceiptDelegation):
     nonce: ZeroPaddedHexNumber
 
 
+class FixtureFrameReceipt(CamelModel, RLPSerializable):
+    """Fixture variant of the EIP-8141 FrameReceipt type."""
+
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
+    status: ZeroPaddedHexNumber
+    gas_used: ZeroPaddedHexNumber
+    logs: List[FixtureTransactionLog]
+
+    rlp_fields: ClassVar[List[str]] = [
+        "status",
+        "gas_used",
+        "logs",
+    ]
+
+
 class FixtureTransactionReceipt(CamelModel, RLPSerializable):
     """Fixture variant of the TransactionReceipt type."""
 
@@ -137,6 +171,9 @@ class FixtureTransactionReceipt(CamelModel, RLPSerializable):
     post_state: Hash | None = None
     status: bool | None = None
 
+    payer: Address | None = None
+    frame_receipts: List[FixtureFrameReceipt] | None = None
+
     rlp_fields: ClassVar[List[str]] = [
         "post_state",
         "status",
@@ -145,6 +182,15 @@ class FixtureTransactionReceipt(CamelModel, RLPSerializable):
         "logs",
     ]
     rlp_exclude_none: ClassVar[bool] = True
+
+    def get_rlp_fields(self) -> List[str]:
+        """
+        Return the RLP field list, using the EIP-8141 frame receipt
+        payload for frame transactions.
+        """
+        if self.payer is not None:
+            return ["cumulative_gas_used", "payer", "frame_receipts"]
+        return self.rlp_fields
 
     @model_validator(mode="before")
     @classmethod
