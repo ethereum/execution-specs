@@ -325,7 +325,7 @@ def test_blobhash_opcode_contexts(
     )
 
 
-@pytest.mark.with_all_tx_types(selector=lambda x: x != 3)
+@pytest.mark.with_all_tx_types(selector=lambda x: x not in (3, 6))
 def test_blobhash_opcode_contexts_tx_types(
     pre: Alloc,
     tx_type: int,
