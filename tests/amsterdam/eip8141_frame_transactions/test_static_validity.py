@@ -25,6 +25,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionTestFiller,
     keccak256,
 )
 
@@ -62,80 +63,85 @@ def blob_hash(version: int, index: int = 0) -> Hash:
     return Hash(bytes([version]) + index.to_bytes(31, "big"))
 
 
-@pytest.mark.parametrize(
-    "tx_overrides,error",
-    [
-        pytest.param(
-            # The nonce must leave room for the post-execution
-            # increment, so 2**64 - 1 is already invalid.
-            dict(nonce=2**64 - 1),
-            TransactionException.NONCE_IS_MAX,
-            id="nonce_overflow",
-            marks=pytest.mark.exception_test,
+TX_FIELD_CASES = [
+    pytest.param(
+        # The nonce must leave room for the post-execution
+        # increment, so 2**64 - 1 is already invalid.
+        dict(nonce=2**64 - 1),
+        TransactionException.NONCE_IS_MAX,
+        id="nonce_overflow",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        dict(max_fee_per_gas=10, max_priority_fee_per_gas=11),
+        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS,
+        id="priority_fee_above_max_fee",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        dict(max_fee_per_gas=10, max_priority_fee_per_gas=10),
+        None,
+        id="priority_fee_equals_max_fee",
+    ),
+    pytest.param(
+        dict(frames=[]),
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="no_frames",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        dict(
+            frames=[verify_frame()]
+            + [default_frame() for _ in range(Spec.MAX_FRAMES)]
         ),
-        pytest.param(
-            dict(max_fee_per_gas=10, max_priority_fee_per_gas=11),
-            TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS,
-            id="priority_fee_above_max_fee",
-            marks=pytest.mark.exception_test,
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="frame_count_above_max",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        dict(
+            frames=[verify_frame()]
+            + [default_frame() for _ in range(Spec.MAX_FRAMES - 1)]
         ),
-        pytest.param(
-            dict(max_fee_per_gas=10, max_priority_fee_per_gas=10),
-            None,
-            id="priority_fee_equals_max_fee",
+        None,
+        id="frame_count_at_max",
+    ),
+    pytest.param(
+        dict(max_fee_per_blob_gas=1, blob_versioned_hashes=[]),
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="blob_fee_without_blobs",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        dict(
+            max_fee_per_blob_gas=1,
+            blob_versioned_hashes=[blob_hash(version=2)],
         ),
-        pytest.param(
-            dict(frames=[]),
-            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-            id="no_frames",
-            marks=pytest.mark.exception_test,
+        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH,
+        id="invalid_blob_hash_version",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        dict(
+            max_fee_per_blob_gas=1,
+            blob_versioned_hashes=lambda fork: [
+                blob_hash(version=1, index=i)
+                for i in range(fork.max_blobs_per_tx() + 1)
+            ],
         ),
-        pytest.param(
-            dict(
-                frames=[verify_frame()]
-                + [default_frame() for _ in range(Spec.MAX_FRAMES)]
-            ),
-            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-            id="frame_count_above_max",
-            marks=pytest.mark.exception_test,
-        ),
-        pytest.param(
-            dict(
-                frames=[verify_frame()]
-                + [default_frame() for _ in range(Spec.MAX_FRAMES - 1)]
-            ),
-            None,
-            id="frame_count_at_max",
-        ),
-        pytest.param(
-            dict(max_fee_per_blob_gas=1, blob_versioned_hashes=[]),
-            TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
-            id="blob_fee_without_blobs",
-            marks=pytest.mark.exception_test,
-        ),
-        pytest.param(
-            dict(
-                max_fee_per_blob_gas=1,
-                blob_versioned_hashes=[blob_hash(version=2)],
-            ),
-            TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH,
-            id="invalid_blob_hash_version",
-            marks=pytest.mark.exception_test,
-        ),
-        pytest.param(
-            dict(
-                max_fee_per_blob_gas=1,
-                blob_versioned_hashes=lambda fork: [
-                    blob_hash(version=1, index=i)
-                    for i in range(fork.max_blobs_per_tx() + 1)
-                ],
-            ),
-            TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED,
-            id="blob_count_above_max",
-            marks=pytest.mark.exception_test,
-        ),
-    ],
-)
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED,
+        id="blob_count_above_max",
+        marks=pytest.mark.exception_test,
+    ),
+]
+"""
+Field-level variations of a minimal frame transaction, each with the
+exception it must be rejected with, or `None` where the variation
+sits exactly on the boundary of the rule and stays valid.
+"""
+
+
+@pytest.mark.parametrize("tx_overrides,error", TX_FIELD_CASES)
 def test_invalid_tx_fields(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -173,6 +179,45 @@ def test_invalid_tx_fields(
         # valid and executes.
         post={sender: Account(nonce=0 if error else 1)},
     )
+
+
+@pytest.mark.parametrize("tx_overrides,error", TX_FIELD_CASES)
+def test_invalid_tx_fields_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_overrides: Dict[str, Any],
+    error: Optional[TransactionException],
+) -> None:
+    """
+    Assert the same field-level rules as `test_invalid_tx_fields` on the
+    transaction itself rather than on a block containing it.
+
+    A block whose transaction is wrongly accepted is invalid for a
+    second reason — its header commits to the transaction having been
+    rejected — so the blockchain fixtures derived from the state test
+    are discarded either way and cannot tell an implementation that
+    enforces these rules from one that does not. Asserting the verdict
+    on the transaction closes that blind spot.
+
+    The cases are shared with the state test deliberately: filling a
+    transaction fixture runs no reference implementation, so the
+    exception a case names is only ever verified by the state test,
+    which also pins the absence of side effects.
+    """
+    tx_kwargs: Dict[str, Any] = dict(
+        sender=pre.fund_eoa(),
+        frames=[verify_frame()],
+        error=error,
+    )
+    tx_kwargs.update(
+        {
+            key: value(fork) if callable(value) else value
+            for key, value in tx_overrides.items()
+        }
+    )
+
+    transaction_test(pre=pre, tx=Transaction(**tx_kwargs))
 
 
 FOREIGN_TARGET = Address(0x1234)
