@@ -43,11 +43,13 @@ from .helpers import (
 from .p256 import P256Signature, p256_sign
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import (
+    FrameReceipt,
     LogMismatchError,
     TransactionLog,
     TransactionReceipt,
     TransactionReceiptIncompleteError,
     TransactionReceiptMismatchError,
+    verify_frame_transaction_receipt,
     verify_log,
     verify_transaction_receipt,
 )
@@ -61,6 +63,8 @@ from .system_contract_interactions import (
 )
 from .transaction_types import (
     AuthorizationTuple,
+    Frame,
+    FrameSignature,
     NetworkWrappedTransaction,
     Transaction,
     TransactionDefaults,
@@ -97,6 +101,9 @@ __all__ = (
     "EOA",
     "fee_increment_blocks",
     "GasFee",
+    "Frame",
+    "FrameReceipt",
+    "FrameSignature",
     "LogMismatchError",
     "NetworkWrappedTransaction",
     "P256Signature",
@@ -129,6 +136,7 @@ __all__ = (
     "keccak256",
     "p256_sign",
     "relay_contract_code",
+    "verify_frame_transaction_receipt",
     "verify_log",
     "verify_transaction_receipt",
 )
