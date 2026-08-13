@@ -16,7 +16,14 @@ xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 # `-n auto` mode, does not warn on non-numeric values such as "auto".
 export PYTEST_XDIST_AUTO_NUM_WORKERS := ""
 evm_bin := env("EVM_BIN", "evm")
+# Tests for the ``Bogota`` pseudo-fork (e.g. EIP-8141) are outside the
+# default fill range; fill them with `just fill --from Bogota --until
+# Bogota`. Fold ``Bogota`` into the range once it is a real fork.
 latest_fork := "Amsterdam"
+
+# Last fork filled by the integration test recipes, overridable so CI can
+# stop short of the fork under development.
+fill_until := env("FILL_UNTIL", latest_fork)
 
 # Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
 export COVERAGE_CORE := "sysmon"
@@ -191,7 +198,7 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         --basetemp="{{ output_dir }}/fill-pypy/tmp" \
         --log-to "{{ output_dir }}/fill-pypy/logs" \
         --clean \
-        --until "{{ latest_fork }}" \
+        --until "{{ fill_until }}" \
         --ignore=tests/ported_static \
         "$@" \
         tests
@@ -201,7 +208,7 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
 json-loader *args: (_tmp "json-loader")
     uv run fill \
         -m "eels_base_coverage and primary_format" \
-        --until "{{ latest_fork }}" \
+        --until "{{ fill_until }}" \
         -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
         --clean \

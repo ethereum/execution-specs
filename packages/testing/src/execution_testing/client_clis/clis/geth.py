@@ -97,6 +97,15 @@ class GethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "transaction type not supported"
         ),
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
+            "invalid frame tx format"
+        ),
+        TransactionException.TYPE_6_INVALID_SIGNATURE: (
+            "invalid frame tx signature"
+        ),
+        TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
+            "invalid frame execution"
+        ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
             "max initcode size exceeded"
         ),
