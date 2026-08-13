@@ -42,11 +42,13 @@ from .helpers import (
 )
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import (
+    FrameReceipt,
     LogMismatchError,
     TransactionLog,
     TransactionReceipt,
     TransactionReceiptIncompleteError,
     TransactionReceiptMismatchError,
+    verify_frame_transaction_receipt,
     verify_log,
     verify_transaction_receipt,
 )
@@ -60,6 +62,8 @@ from .system_contract_interactions import (
 )
 from .transaction_types import (
     AuthorizationTuple,
+    Frame,
+    FrameSignature,
     NetworkWrappedTransaction,
     Transaction,
     TransactionDefaults,
@@ -96,6 +100,9 @@ __all__ = (
     "EOA",
     "fee_increment_blocks",
     "GasFee",
+    "Frame",
+    "FrameReceipt",
+    "FrameSignature",
     "LogMismatchError",
     "NetworkWrappedTransaction",
     "PostStateContext",
@@ -126,6 +133,7 @@ __all__ = (
     "eoa_from_hash",
     "keccak256",
     "relay_contract_code",
+    "verify_frame_transaction_receipt",
     "verify_log",
     "verify_transaction_receipt",
 )
