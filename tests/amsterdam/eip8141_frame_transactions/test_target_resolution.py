@@ -8,6 +8,8 @@ address and follows an EIP-7702 designation. Each case pins the
 resolution through the frame receipt's `gas_used`.
 """
 
+from typing import Dict, Optional
+
 import pytest
 from execution_testing import (
     Account,
@@ -225,6 +227,74 @@ def test_delegated_target_entry_charge(
     )
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+TRANSFERRED_VALUE = 10**15
+"""Value the `SENDER` frame moves to a target that is not alive."""
+
+
+@pytest.mark.parametrize(
+    "affordable",
+    [
+        pytest.param(True, id="affordable"),
+        pytest.param(False, id="unaffordable"),
+    ],
+)
+def test_dead_target_entry_charge(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    affordable: bool,
+) -> None:
+    """
+    Charge the state gas of reviving a target that is not alive at
+    frame entry, on top of the target's own access.
+
+    The target has no code, so the frame runs empty code and its
+    `gas_used` is the entry charge alone. Given one gas less than the
+    charge, the frame never runs: it forfeits its whole gas limit, the
+    target stays dead, and no transfer log is emitted.
+    """
+    sender = pre.fund_eoa()
+    dead = pre.nonexistent_account()
+
+    entry_gas = fork.frame_entry_gas_calculator()(
+        sends_value_to_dead_account=True
+    )
+    frame_gas = entry_gas + AMPLE_FRAME_GAS if affordable else entry_gas - 1
+
+    post: Dict[Address, Optional[Account]]
+    if affordable:
+        expected_frame = FrameReceipt(
+            status=Spec.STATUS_SUCCESS, gas_used=entry_gas
+        )
+        post = {dead: Account(balance=TRANSFERRED_VALUE)}
+    else:
+        expected_frame = FrameReceipt(
+            status=Spec.STATUS_FAILURE, gas_used=frame_gas
+        )
+        post = {dead: Account.NONEXISTENT}
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            sender_frame(
+                target=dead,
+                gas_limit=frame_gas,
+                value=TRANSFERRED_VALUE,
+            ),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                expected_frame,
+            ],
+        ),
+    )
+
+    state_test(pre=pre, tx=tx, post=post)
 
 
 def test_delegated_to_precompile_target(
