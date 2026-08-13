@@ -55,13 +55,16 @@ class PendingInclusionListTx(NamedTuple):
 # Gas to add. Realised as a whole number of empty transfers so the amount is
 # always representable on the fork's calldata-cost lattice (a flat target like
 # 64_000 is not, once EIP-7623's floor makes marginal calldata cost non-linear).
-BAL_GAS_HEADROOM_TARGET = 64_000
 
 
 def bal_gas_headroom(fork: Fork) -> int:
     """Gas added to a block's limit to leave room for its own access list."""
     empty_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
-    count = -(-BAL_GAS_HEADROOM_TARGET // empty_transfer_gas)
+    bal_gas_headroom_target = (
+        fork.empty_block_bal_item_count()
+        * fork.gas_costs().BLOCK_ACCESS_LIST_ITEM
+    )
+    count = -(-bal_gas_headroom_target // empty_transfer_gas)
     return count * empty_transfer_gas
 
 
