@@ -205,7 +205,7 @@ def test_self_transfer_with_delegated_sender(
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@pytest.mark.with_all_tx_types
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type != 6)
 def test_intrinsic_decomposition_across_tx_types(
     fork: Fork,
     pre: Alloc,

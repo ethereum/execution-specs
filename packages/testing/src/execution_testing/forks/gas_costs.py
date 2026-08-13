@@ -74,6 +74,16 @@ class GasCosts:
     TX_ACCESS_LIST_ADDRESS: int
     TX_ACCESS_LIST_STORAGE_KEY: int
 
+    # Frame Transactions
+    # Intrinsic costs of the EIP-8141 frame transaction type and the
+    # verification cost of a signature entry by scheme; 0 before frame
+    # transactions are introduced.
+    TX_FRAME_INTRINSIC: int = 0
+    TX_PER_FRAME: int = 0
+    FRAME_SIGNATURE_SCHEME_ARBITRARY: int = 0
+    FRAME_SIGNATURE_SCHEME_SECP256K1: int = 0
+    FRAME_SIGNATURE_SCHEME_P256: int = 0
+
     # Refunds
     REFUND_STORAGE_CLEAR: int
     REFUND_SELF_DESTRUCT: int

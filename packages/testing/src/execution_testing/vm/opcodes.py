@@ -5971,6 +5971,205 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#FF](https://www.evm.codes/#FF)
     """
 
+    # EIP-8141 Frame Transaction Opcodes
+
+    APPROVE = Opcode(
+        0xAA,
+        popped_stack_items=3,
+        pushed_stack_items=0,
+        kwargs=["offset", "size", "scope"],
+        terminating=True,
+    )
+    """
+    APPROVE(offset, size, scope)
+    ----
+
+    Description
+    ----
+    Exit the current call frame successfully like RETURN while updating
+    the transaction-scoped approval context of an EIP-8141 frame
+    transaction according to `scope` (bitmask: 1=payment, 2=execution,
+    3=both).
+
+    Inputs
+    ----
+    - offset: byte offset in memory of the return data
+    - size: byte size of the return data
+    - scope: requested approval scope
+
+    Outputs
+    ----
+    None (terminates the current context)
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas: 0 (plus memory expansion)
+    """
+
+    TXPARAM = Opcode(
+        0xB0,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["param"],
+    )
+    """
+    TXPARAM(param)
+    ----
+
+    Description
+    ----
+    Push transaction-scoped information of the executing EIP-8141 frame
+    transaction (type, nonce, sender, fees, max cost, signature hash,
+    frame count, current frame index, signature count).
+
+    Inputs
+    ----
+    - param: parameter selector (0x00-0x0B)
+
+    Outputs
+    ----
+    - value: the requested transaction parameter
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas: 2
+    """
+
+    FRAMEDATALOAD = Opcode(
+        0xB1,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        kwargs=["offset", "frame_index"],
+    )
+    """
+    FRAMEDATALOAD(offset, frame_index)
+    ----
+
+    Description
+    ----
+    Load one 32-byte word from the chosen frame's data with
+    CALLDATALOAD semantics (EIP-8141).
+
+    Inputs
+    ----
+    - offset: byte offset in the frame data
+    - frame_index: index of the frame
+
+    Outputs
+    ----
+    - value: 32-byte word from the frame data
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas: 3
+    """
+
+    FRAMEDATACOPY = Opcode(
+        0xB2,
+        popped_stack_items=4,
+        pushed_stack_items=0,
+        kwargs=["dest_offset", "offset", "size", "frame_index"],
+    )
+    """
+    FRAMEDATACOPY(dest_offset, offset, size, frame_index)
+    ----
+
+    Description
+    ----
+    Copy the chosen frame's data into memory with CALLDATACOPY
+    semantics (EIP-8141).
+
+    Inputs
+    ----
+    - dest_offset: byte offset in memory to copy to
+    - offset: byte offset in the frame data to copy from
+    - size: number of bytes to copy
+    - frame_index: index of the frame
+
+    Outputs
+    ----
+    None
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas: 3 + 3 * ceil(size / 32) (plus memory expansion)
+    """
+
+    FRAMEPARAM = Opcode(
+        0xB3,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        kwargs=["frame_index", "param"],
+    )
+    """
+    FRAMEPARAM(frame_index, param)
+    ----
+
+    Description
+    ----
+    Push frame-scoped information of the chosen frame of the executing
+    EIP-8141 frame transaction (resolved target, gas limit, mode,
+    flags, data length, status, allowed approval scope, atomic batch
+    bit, value).
+
+    Inputs
+    ----
+    - frame_index: index of the frame
+    - param: parameter selector (0x00-0x08)
+
+    Outputs
+    ----
+    - value: the requested frame parameter
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas: 2
+    """
+
+    SIGPARAM = Opcode(
+        0xB4,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        kwargs=["signature_index", "param"],
+    )
+    """
+    SIGPARAM(signature_index, param)
+    ----
+
+    Description
+    ----
+    Push signature-scoped metadata of the chosen signature entry of the
+    executing EIP-8141 frame transaction (effective signer, scheme,
+    msg, signature length). With `param=0x04` (arity handled manually
+    by the caller), copies an ARBITRARY entry's raw signature bytes to
+    memory with CALLDATACOPY semantics.
+
+    Inputs
+    ----
+    - signature_index: index of the signature entry
+    - param: parameter selector (0x00-0x04)
+
+    Outputs
+    ----
+    - value: the requested signature parameter
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas: 2 (params 0x00-0x03)
+    """
+
 
 _push_opcodes_byte_list: List[Opcode] = [
     Opcodes.PUSH1,
