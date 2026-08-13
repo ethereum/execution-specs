@@ -20,7 +20,7 @@ from execution_testing.test_types.transaction_types import (
     TransactionDefaults,
 )
 
-from ethereum.forks.amsterdam.fork import VERSIONED_HASH_VERSION_KZG
+from ethereum.forks.amsterdam.transactions import VERSIONED_HASH_VERSION_KZG
 
 from .helpers import (
     IncludedBlockTx,
