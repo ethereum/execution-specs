@@ -36,6 +36,40 @@ class PendingInclusionListTx(NamedTuple):
     sender_balance: int = 10**18
 
 
+# EIP-7928 caps a block's access list at `block_gas_limit //
+# GAS_BLOCK_ACCESS_LIST_ITEM` items (2000 gas per item on Amsterdam). These
+# scenarios size the block gas limit to the transactions alone, which on the
+# current Amsterdam leaves no budget for the block's own access list: the
+# system-contract predeploys touched every block (beacon roots, history, the
+# EIP-7002/7251 request contracts and the EIP-8282 builder deposit/exit pair)
+# plus the senders, recipients and coinbase come to ~30 items against a limit
+# of ~22, and every fixture fails to fill with
+# `BlockAccessListGasLimitExceededError`.
+#
+# Raising the limit alone would change what the scenarios assert, because the
+# gas a pending IL transaction is allowed is derived from
+# `block_gas_limit - gas_used_by_included_txs`. So `build_block` raises the
+# limit and spends exactly the same amount on a ballast transaction, leaving
+# `remaining_gas` — and therefore every "fits" / "does not fit" boundary —
+# byte-for-byte what it was.
+#
+# The headroom is realised as a whole number of empty transfers so the amount
+# is always representable on the fork's calldata-cost lattice (a flat target
+# like 64_000 is not, once EIP-7623's floor makes marginal calldata cost
+# non-linear).
+
+
+def bal_gas_headroom(fork: Fork) -> int:
+    """Gas added to a block's limit to leave room for its own access list."""
+    empty_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
+    bal_gas_headroom_target = (
+        fork.empty_block_bal_item_count()
+        * fork.gas_costs().BLOCK_ACCESS_LIST_ITEM
+    )
+    count = -(-bal_gas_headroom_target // empty_transfer_gas)
+    return count * empty_transfer_gas
+
+
 class BuiltBlock(NamedTuple):
     """
     Concrete block data plus the derived gas headroom.
@@ -56,6 +90,10 @@ class BuiltBlock(NamedTuple):
     1. Sender `nonce` is correct
     2. Sender `balance` could have afforded the tx
 
+    `effective_gas_limit` is the gas limit the block must actually declare:
+    the caller's `block_gas_limit` plus `BAL_GAS_HEADROOM`. Pass it to
+    `Environment(gas_limit=...)` instead of the raw value.
+
     These helpers only describe the block body, the flattened IL view, and
     the gas headroom for a scenario. The actual satisfaction check is done by
     the Amsterdam fork logic after block execution, when it re-validates any
@@ -66,6 +104,7 @@ class BuiltBlock(NamedTuple):
     block_txs: list[Transaction]
     inclusion_list_txs: list[Transaction]
     remaining_gas: int
+    effective_gas_limit: int
 
 
 def _resolve_sender(
@@ -220,10 +259,30 @@ def build_block(
     gas_used_by_included_txs = sum(
         tx_spec.actual_gas_used for tx_spec in included_block_tx_specs
     )
+
+    # Ballast: burns exactly the extra gas the raised limit adds, so
+    # `remaining_gas` below is identical to what it was before the limit was
+    # raised for the EIP-7928 access-list budget. It is a plain transfer from a
+    # fresh sender and appears in no inclusion list, so it cannot affect which
+    # IL transactions are appendable.
+    empty_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
+    headroom = bal_gas_headroom(fork)
+    ballast_txs = [
+        generate_custom_tx(
+            pre,
+            fork=fork,
+            actual_gas_used=empty_transfer_gas,
+            is_inclusion_list_tx=False,
+        ).tx
+        for _ in range(headroom // empty_transfer_gas)
+    ]
+
     return BuiltBlock(
-        block_txs=[tx_with_origin.tx for tx_with_origin in included_block_txs],
+        block_txs=ballast_txs
+        + [tx_with_origin.tx for tx_with_origin in included_block_txs],
         inclusion_list_txs=flatten_inclusion_list_txs(
             included_block_txs + pending_inclusion_list_txs
         ),
         remaining_gas=block_gas_limit - gas_used_by_included_txs,
+        effective_gas_limit=block_gas_limit + headroom,
     )
