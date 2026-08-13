@@ -1127,6 +1127,9 @@ class TransactionGasSettlement:
     gas_used: Uint
     """Total gas charged to the sender, after refund and floor."""
 
+    gas_used_before_refund: Uint
+    """Total gas the transaction consumed, before refund and floor."""
+
     gas_left: Uint
     """Gas returned to the sender, priced at the effective gas price."""
 
@@ -1199,6 +1202,7 @@ def settle_transaction_gas(
     )
     return TransactionGasSettlement(
         gas_used=gas_used,
+        gas_used_before_refund=gas_used_before_refund,
         gas_left=tx_gas - gas_used,
         execution_gas_used=execution_gas_used,
         state_gas_used=settled_state_gas_used,

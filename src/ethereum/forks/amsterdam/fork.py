@@ -491,13 +491,17 @@ def check_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
+    *,
+    asserted_sender: Optional[Address] = None,
 ) -> vm.TransactionEnvironment:
     """
     Admit a raw transaction and build its execution environment.
 
-    Recover the sender, statically validate the transaction, and check
+    Establish the sender, statically validate the transaction, and check
     that it is includable in the block, in that order, so that a
-    transaction invalid in several ways reports the earliest failure.
+    transaction invalid in several ways reports the earliest failure. The
+    sender is recovered from the transaction's signature unless the
+    caller asserts one.
 
     Parameters
     ----------
@@ -509,6 +513,14 @@ def check_transaction(
         The transaction.
     index :
         The index of the current transaction.
+    asserted_sender :
+        The sender named by the caller, for a transaction that carries no
+        signature to recover one from. Asserting the sender replaces
+        signature recovery and, with it, the requirement that the sender
+        be an externally owned account: both of those are properties of a
+        sender derived from a signature, so neither survives on its own.
+        Consensus block execution leaves this as ``None``, which recovers
+        the sender and enforces the requirement as before.
 
     Returns
     -------
@@ -541,7 +553,10 @@ def check_transaction(
         limit.
 
     """
-    sender = recover_sender(tx)
+    if asserted_sender is None:
+        sender = recover_sender(tx)
+    else:
+        sender = asserted_sender
     intrinsic = validate_transaction(tx, sender)
     tx_state = TransactionState(parent=block_env.state)
 
@@ -574,11 +589,12 @@ def check_transaction(
 
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    sender_code = get_code(tx_state, sender_account.code_hash)
-    if sender_account.code_hash != EMPTY_CODE_HASH and not is_valid_delegation(
-        sender_code
-    ):
-        raise InvalidSenderError("not EOA")
+    if asserted_sender is None:
+        sender_code = get_code(tx_state, sender_account.code_hash)
+        if sender_account.code_hash != EMPTY_CODE_HASH and (
+            not is_valid_delegation(sender_code)
+        ):
+            raise InvalidSenderError("not EOA")
 
     # Split the EVM gas into an execution-gas grant (capped by the
     # remaining execution-gas budget) and a state gas reservoir.
@@ -1012,7 +1028,9 @@ def process_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
-) -> None:
+    *,
+    asserted_sender: Optional[Address] = None,
+) -> vm.TransactionResult:
     """
     Execute a transaction against the provided environment.
 
@@ -1035,6 +1053,17 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+    asserted_sender :
+        The sender named by the caller, for a transaction that carries no
+        signature to recover one from. Forwarded unchanged to
+        `check_transaction`, which is where asserting a sender takes
+        effect and where what it waives is described. Consensus block
+        execution leaves this as ``None``.
+
+    Returns
+    -------
+    tx_result : `vm.TransactionResult`
+        The return data, gas used and error of the transaction.
 
     """
     block_env.block_access_list_builder.block_access_index = BlockAccessIndex(
@@ -1054,7 +1083,13 @@ def process_transaction(
             actual=tx_chain_id,
         )
 
-    tx_env = check_transaction(block_env, block_output, tx, index)
+    tx_env = check_transaction(
+        block_env,
+        block_output,
+        tx,
+        index,
+        asserted_sender=asserted_sender,
+    )
 
     update_sender_state(block_env, tx_env, tx)
 
@@ -1096,6 +1131,13 @@ def process_transaction(
 
     incorporate_tx_into_block(
         tx_env.state, block_env.block_access_list_builder
+    )
+
+    return vm.TransactionResult(
+        return_data=tx_output.return_data,
+        gas_used=settlement.gas_used,
+        gas_used_before_refund=settlement.gas_used_before_refund,
+        error=tx_output.error,
     )
 
 

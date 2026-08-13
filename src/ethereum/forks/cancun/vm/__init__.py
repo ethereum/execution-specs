@@ -13,7 +13,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple, final
+from typing import Callable, List, Mapping, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
@@ -29,6 +29,20 @@ from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
 
 __all__ = ("Environment", "Evm", "Message")
+
+
+def canonical_precompiles() -> Mapping[Address, Callable]:
+    """
+    Return the fork's precompiles at the addresses they answer at on
+    chain.
+
+    The import is deferred because every precompile implementation
+    imports `Evm` from this module, so the mapping only becomes
+    importable once this module has finished defining it.
+    """
+    from .precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
+
+    return PRE_COMPILED_CONTRACTS
 
 
 @final
@@ -49,6 +63,18 @@ class BlockEnvironment:
     prev_randao: Bytes32
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
+    precompiles: Mapping[Address, Callable] = field(
+        default_factory=canonical_precompiles
+    )
+    """
+    The precompiles execution dispatches to, keyed by address.
+
+    Defaults to the fork's own arrangement, so a block on chain never
+    has to name them. A caller that wants a precompile somewhere else,
+    or gone, supplies its own mapping here; because it reaches no
+    further than this environment, the rearrangement dies with the
+    execution it was built for.
+    """
 
 
 @final
@@ -107,6 +133,30 @@ class TransactionEnvironment:
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
+
+
+@final
+@dataclass
+class TransactionResult:
+    """
+    Outcome of executing a transaction.
+
+    Carry what the block accumulators and the receipt do not preserve:
+    the return data of the transaction's top-level frame, the gas it
+    consumed before refunds, and the error it halted with.
+    """
+
+    return_data: Bytes
+    """The output of the transaction's top-level frame."""
+
+    gas_used: Uint
+    """Gas charged to the sender, after refunds."""
+
+    gas_used_before_refund: Uint
+    """Gas the transaction consumed before refunds were applied."""
+
+    error: Optional[EthereumException]
+    """The error the transaction halted with, if any."""
 
 
 @final

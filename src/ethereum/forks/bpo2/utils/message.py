@@ -20,7 +20,6 @@ from ethereum.state import Address
 from ..state_tracker import get_account, get_code
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
-from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
 
 
@@ -49,7 +48,7 @@ def prepare_message(
     """
     accessed_addresses = set()
     accessed_addresses.add(tx_env.origin)
-    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
+    accessed_addresses.update(block_env.precompiles.keys())
     accessed_addresses.update(tx_env.access_list_addresses)
 
     if isinstance(tx.to, Bytes0):

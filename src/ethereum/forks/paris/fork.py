@@ -339,6 +339,8 @@ def check_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     tx_state: TransactionState,
+    *,
+    asserted_sender: Optional[Address] = None,
 ) -> Tuple[Address, Uint]:
     """
     Check if the transaction is includable in the block.
@@ -353,6 +355,14 @@ def check_transaction(
         The transaction.
     tx_state :
         The transaction state tracker.
+    asserted_sender :
+        The sender named by the caller, for a transaction that carries no
+        signature to recover one from. Asserting the sender replaces
+        signature recovery and, with it, the requirement that the sender
+        be an externally owned account: both of those are properties of a
+        sender derived from a signature, so neither survives on its own.
+        Consensus block execution leaves this as ``None``, which recovers
+        the sender and enforces the requirement as before.
 
     Returns
     -------
@@ -387,7 +397,10 @@ def check_transaction(
             actual=tx_chain_id,
         )
 
-    sender_address = recover_sender(tx)
+    if asserted_sender is None:
+        sender_address = recover_sender(tx)
+    else:
+        sender_address = asserted_sender
     sender_account = get_account(tx_state, sender_address)
 
     if isinstance(tx, FeeMarketTransaction):
@@ -414,8 +427,9 @@ def check_transaction(
         raise NonceMismatchError("nonce too high")
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    if sender_account.code_hash != EMPTY_CODE_HASH:
-        raise InvalidSenderError("not EOA")
+    if asserted_sender is None:
+        if sender_account.code_hash != EMPTY_CODE_HASH:
+            raise InvalidSenderError("not EOA")
 
     return sender_address, effective_gas_price
 
@@ -497,7 +511,9 @@ def process_transaction(
     block_output: vm.BlockOutput,
     tx: Transaction,
     index: Uint,
-) -> None:
+    *,
+    asserted_sender: Optional[Address] = None,
+) -> vm.TransactionResult:
     """
     Execute a transaction against the provided environment.
 
@@ -520,6 +536,17 @@ def process_transaction(
         Transaction to execute.
     index:
         Index of the transaction in the block.
+    asserted_sender :
+        The sender named by the caller, for a transaction that carries no
+        signature to recover one from. Forwarded unchanged to
+        `check_transaction`, which is where asserting a sender takes
+        effect and where what it waives is described. Consensus block
+        execution leaves this as ``None``.
+
+    Returns
+    -------
+    tx_result : `vm.TransactionResult`
+        The return data, gas used and error of the transaction.
 
     """
     tx_state = TransactionState(parent=block_env.state)
@@ -540,6 +567,7 @@ def process_transaction(
         block_output=block_output,
         tx=tx,
         tx_state=tx_state,
+        asserted_sender=asserted_sender,
     )
 
     sender_account = get_account(tx_state, sender)
@@ -616,6 +644,13 @@ def process_transaction(
     block_output.block_logs += tx_output.logs
 
     incorporate_tx_into_block(tx_state)
+
+    return vm.TransactionResult(
+        return_data=tx_output.return_data,
+        gas_used=tx_gas_used_after_refund,
+        gas_used_before_refund=tx_gas_used_before_refund,
+        error=tx_output.error,
+    )
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:

@@ -216,6 +216,12 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "rpc: Marks a test to additionally emit derived JSON-RPC "
+        "expectations, checking that clients report the resulting chain "
+        "correctly over the `eth_` namespace.",
+    )
+    config.addinivalue_line(
+        "markers",
         "pre_alloc_group: Control shared pre-allocation grouping (use "
         '"separate" for isolated group or custom string for named groups)',
     )

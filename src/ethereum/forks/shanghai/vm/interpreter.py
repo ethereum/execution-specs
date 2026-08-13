@@ -14,7 +14,7 @@ A straightforward interpreter that executes EVM code.
 from dataclasses import dataclass
 from typing import Optional, Set, Tuple, final
 
-from ethereum_types.bytes import Bytes0
+from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.exceptions import EthereumException
@@ -43,7 +43,6 @@ from ..state_tracker import (
 )
 from ..vm import Message
 from ..vm.gas import GasCosts, charge_gas
-from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm
 from .exceptions import (
     AddressCollision,
@@ -75,6 +74,7 @@ class MessageCallOutput:
           3. `logs`: list of `Log` generated during execution.
           4. `accounts_to_delete`: Contracts which have self-destructed.
           5. `error`: The error from the execution if any.
+          6. `return_data`: The output of the execution.
     """
 
     gas_left: Uint
@@ -82,6 +82,7 @@ class MessageCallOutput:
     logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
     error: Optional[EthereumException]
+    return_data: Bytes
 
 
 def process_message_call(message: Message) -> MessageCallOutput:
@@ -112,6 +113,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 logs=tuple(),
                 accounts_to_delete=set(),
                 error=AddressCollision(),
+                return_data=Bytes(b""),
             )
     else:
         evm = process_message(message)
@@ -135,6 +137,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         logs=logs,
         accounts_to_delete=accounts_to_delete,
         error=evm.error,
+        return_data=evm.output,
     )
 
 
@@ -249,9 +252,11 @@ def process_message(message: Message) -> Evm:
         )
 
     try:
-        if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            evm_trace(evm, PrecompileStart(evm.message.code_address))
-            PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+        precompiles = evm.message.block_env.precompiles
+        code_address = evm.message.code_address
+        if code_address is not None and code_address in precompiles:
+            evm_trace(evm, PrecompileStart(code_address))
+            precompiles[code_address](evm)
             evm_trace(evm, PrecompileEnd())
         else:
             while evm.running and evm.pc < ulen(evm.code):

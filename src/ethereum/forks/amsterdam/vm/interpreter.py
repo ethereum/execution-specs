@@ -61,7 +61,6 @@ from ..vm.gas import (
     restore_state_gas_to_entry,
     tx_state_gas_used,
 )
-from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import (
     BlockEnvironment,
     Evm,
@@ -169,7 +168,7 @@ def create_evm(
 
     ## Warm up the access sets
     accessed_addresses.add(block_env.coinbase)
-    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
+    accessed_addresses.update(block_env.precompiles.keys())
     accessed_addresses.add(tx_env.origin)
     accessed_addresses.update(tx_env.access_list_addresses)
     accessed_addresses.add(current_target)
@@ -434,10 +433,12 @@ def process_call(evm: Evm) -> Evm:
                     evm.current_target,
                     evm.value,
                 )
-        if evm.code_address in PRE_COMPILED_CONTRACTS:
+        precompiles = evm.block_env.precompiles
+        code_address = evm.code_address
+        if code_address is not None and code_address in precompiles:
             if not evm.disable_precompiles:
-                evm_trace(evm, PrecompileStart(evm.code_address))
-                PRE_COMPILED_CONTRACTS[evm.code_address](evm)
+                evm_trace(evm, PrecompileStart(code_address))
+                precompiles[code_address](evm)
                 evm_trace(evm, PrecompileEnd())
         else:
             while evm.running and evm.pc < ulen(evm.code):

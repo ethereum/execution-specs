@@ -1705,6 +1705,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     )
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre
+                if request.node.get_closest_marker("rpc") is not None:
+                    # Must be known before generating: the engine formats
+                    # carry payloads rather than blocks, so the data the
+                    # projection needs only exists during generation.
+                    self.emit_rpc_expectations = True
                 fill_result: FillResult | None = None
                 try:
                     fill_result = self.generate(

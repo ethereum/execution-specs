@@ -1,6 +1,5 @@
 """Types used to test `eth_config`."""
 
-from binascii import crc32
 from collections import defaultdict
 from functools import cached_property
 from pathlib import Path
@@ -26,6 +25,7 @@ from execution_testing.rpc import (
     EthConfigResponse,
     ForkConfig,
     ForkConfigBlobSchedule,
+    calculate_fork_id,
 )
 from execution_testing.test_types import Alloc, Environment
 
@@ -84,21 +84,6 @@ class ForkConfigBuilder(BaseModel):
             precompiles=self.precompiles,
             system_contracts=self.system_contracts,
         )
-
-
-def calculate_fork_id(
-    genesis_hash: Hash, activation_times: Set[int]
-) -> ForkHash:
-    """
-    Calculate the fork Id given the genesis hash and each fork activation
-    times.
-    """
-    buffer = bytes(genesis_hash)
-    for activation_time in sorted(activation_times):
-        if activation_time == 0:
-            continue
-        buffer += activation_time.to_bytes(length=8, byteorder="big")
-    return ForkHash(crc32(buffer))
 
 
 class ForkActivationTimes(EthereumTestRootModel[Dict[Fork, int]]):

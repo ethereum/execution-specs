@@ -234,3 +234,46 @@ class TransactionLoad:
             raise UnsupportedTxError(
                 tx_byte_prefix + rlp.encode(parameters), str(e)
             ) from e
+
+
+def load_testing_transaction(tx: Any, fork: Any) -> Any:
+    """
+    Convert a testing ``Transaction`` into the fork's transaction object.
+
+    Shared by every tool that executes a transaction the testing package
+    handed it, so the bridging below is stated once. ``tx`` is a testing
+    ``Transaction`` and ``fork`` a ``ForkLoad``; neither is imported here,
+    because this module must stay usable without the testing package.
+
+    TODO: Replace with ``fork.decode_transaction(tx.rlp())`` once two
+    pieces land in a follow-up PR:
+
+    1. Pre-Berlin forks gain a ``decode_transaction``. Pre-Berlin forks
+       predate typed txs and currently expose no decode entry point —
+       block decoding produces the legacy class directly.
+    2. The testing exception_mapper learns to surface ``DecodingError``
+       (raised when a contract-creating typed tx like ``BlobTransaction``
+       (``to=None``) reaches ``decode_transaction``) as the canonical
+       ``TransactionTypeContractCreationError``. Today ``TransactionLoad``
+       constructs the tx object even when its shape is illegal for the
+       fork, so ``check_transaction`` inside ``process_transaction``
+       raises the canonical error.
+    """
+    raw: dict[str, Any] = tx.model_dump(
+        mode="json", by_alias=True, exclude_none=True
+    )
+    # Bridge testing-side aliases (geth-compatible) to the names
+    # ``TransactionLoad`` expects.
+    if "input" in raw:
+        raw.setdefault("data", raw["input"])
+    if "gas" in raw:
+        raw.setdefault("gasLimit", raw["gas"])
+    # ``to == None`` is dumped as JSON ``null``; ``TransactionLoad``
+    # treats the empty string as the contract-creation sentinel.
+    if raw.get("to") in (None, "0x"):
+        raw["to"] = ""
+    # Ensure the ``type`` field is set so ``TransactionLoad`` dispatches to
+    # the right tx class (testing's dump uses ``ty`` which serializes to
+    # ``type`` only on some fork variants).
+    raw.setdefault("type", "0x" + format(int(tx.ty), "02x"))
+    return TransactionLoad(raw, fork).read()

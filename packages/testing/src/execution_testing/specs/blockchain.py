@@ -8,6 +8,7 @@ from typing import (
     Dict,
     Generator,
     List,
+    Literal,
     Sequence,
     Tuple,
     Type,
@@ -80,10 +81,22 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.fixtures.common import (
     FixtureBlobSchedule,
+    FixtureForkchoiceState,
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork
+from execution_testing.rpc.serialization import (
+    COMPUTABLE_METHODS,
+    EXECUTED_METHODS,
+    derive_rpc_calls_for_blocks,
+)
+from execution_testing.rpc.serialization.execution import (
+    CALL_GAS_LIMIT,
+    CallReplay,
+    CallSite,
+    environment_at,
+)
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -181,6 +194,77 @@ def payload_metadata_to_fixture(
         forkchoice_updated_version=meta.forkchoice_updated_version,
         phase=phase,
     )
+
+
+class RPCExpectation(CamelModel):
+    """
+    An explicitly authored JSON-RPC check, declared alongside the blocks.
+
+    Derivation reads its parameters off the chain, so it can only ever ask
+    questions the chain answers. It cannot express a reversed block range,
+    a hash that belongs to nothing, or a block tag, because no chain
+    produces those. Those are declared here instead.
+
+    A result is never written by hand — that would reintroduce the
+    hand-maintained expectation this design exists to avoid. Only outcomes
+    with no hand-written value are expressible: an error code, an explicit
+    null for a lookup that should find nothing, a result computed from the
+    chain, or conformance to the method's schema where no value exists to
+    compute.
+    """
+
+    method: str
+    params: List[Any] = Field(default_factory=list)
+    error_code: int | None = None
+    """The JSON-RPC error code expected. Messages are never compared."""
+    expect_null: bool = False
+    """Expect a successful response whose result is null."""
+    derive_result: bool = False
+    """
+    Compute the expected result from the chain at fill time.
+
+    For calls whose answer is a selection over data the chain already
+    produced — an `eth_getLogs` filter, say — where derivation cannot
+    guess the question but the specification still supplies the answer.
+    The result is never written by hand; see
+    `rpc.serialization.filters.compute_result`.
+    """
+    schema_only: bool = False
+    """
+    Assert conformance to the method's result schema and nothing else.
+
+    The weakest outcome available, for a call whose parameters a test has
+    to choose but whose answer no specification fixes. It says only that
+    the client replied and replied in a well-formed way, so prefer any of
+    the outcomes above it wherever one applies; see
+    `fixtures.common.RPCAssertion`.
+    """
+
+    def model_post_init(self, __context: Any) -> None:
+        """Reject a check that asserts nothing, or two things at once."""
+        super().model_post_init(__context)
+        declared = [
+            self.error_code is not None,
+            self.expect_null,
+            self.derive_result,
+            self.schema_only,
+        ]
+        if not any(declared):
+            raise ValueError(
+                f"{self.method}: an explicit check must expect an error "
+                "code, a null result, a derived one, or conformance to the "
+                "method's schema; a result written by hand is never accepted"
+            )
+        if sum(declared) > 1:
+            raise ValueError(
+                f"{self.method}: expects more than one kind of outcome"
+            )
+        if self.derive_result and self.method not in COMPUTABLE_METHODS:
+            raise ValueError(
+                f"{self.method}: no rule exists for computing a declared "
+                f"result; computable methods are "
+                f"{sorted(COMPUTABLE_METHODS)}"
+            )
 
 
 class Header(CamelModel):
@@ -353,6 +437,25 @@ class Block(Header):
     """EIP-7843: override only the engine payload slotNumber field."""
     expected_gas_used: int | None = None
     """Expected gas used for the block."""
+    forkchoice_tag: Literal["safe", "finalized"] | None = None
+    """
+    Declare this block as the chain's safe or finalized block.
+
+    Neither is a property of the chain: the consensus layer names them
+    through `engine_forkchoiceUpdated` and the client just remembers. The
+    declaration therefore has to come from somewhere, and it sits on the
+    block rather than on the test so that it survives inserting a block
+    ahead of it — an index into `blocks` would silently start naming a
+    different block.
+
+    One tag per block, so `safe` and `finalized` can never be the same
+    block. That is deliberate rather than a limitation: when the two
+    coincide, a client that answers every tag with the head passes, which
+    is exactly the weakness of the recorded corpus this exists to fix.
+
+    Only the engine fixture formats carry the declaration, and only tests
+    marked `rpc` may make one.
+    """
 
     @property
     def phase(self) -> TestPhase | None:
@@ -715,6 +818,7 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
                             "exception": None,
                             "skip_exception_verification": False,
                             "engine_api_error_code": None,
+                            "forkchoice_tag": None,
                         }
                     )
                 )
@@ -741,6 +845,21 @@ class BlockchainTest(BaseTest):
     """
     Include transaction receipts in the fixture output.
     """
+    rpc_checks: List[RPCExpectation] = Field(default_factory=list)
+    """
+    Explicit JSON-RPC checks for cases derivation cannot reach.
+
+    Emitted only alongside the derived section, so a test declaring these
+    must also carry the `rpc` marker.
+    """
+    emit_rpc_expectations: bool = False
+    """
+    Derive JSON-RPC expectations for the resulting chain.
+
+    Set from the `rpc` marker before filling. The engine formats do not
+    otherwise assemble fixture blocks, so this must be known during
+    generation rather than applied to the finished fixture.
+    """
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -765,6 +884,58 @@ class BlockchainTest(BaseTest):
         ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
     }
+
+    def model_post_init(self, __context: Any, /) -> None:
+        """Reject a forkchoice declaration no consumer could honour."""
+        super().model_post_init(__context)
+        tagged = [
+            (index, block)
+            for index, block in enumerate(self.blocks)
+            if block.forkchoice_tag is not None
+        ]
+        if not tagged:
+            return
+        positions: Dict[str, int] = {}
+        for index, block in tagged:
+            tag = str(block.forkchoice_tag)
+            if block.exception is not None:
+                raise ValueError(
+                    f"block {index} is tagged {tag!r} but is expected to be "
+                    "rejected; a block outside the canonical chain can be "
+                    "neither safe nor finalized"
+                )
+            if tag in positions:
+                raise ValueError(
+                    f"blocks {positions[tag]} and {index} are both tagged "
+                    f"{tag!r}; the chain has one of each"
+                )
+            positions[tag] = index
+        if set(positions) != {"safe", "finalized"}:
+            missing = ({"safe", "finalized"} - set(positions)).pop()
+            raise ValueError(
+                f"no block is tagged {missing!r}; declare both tags or "
+                "neither, because a client handed only one of them has to "
+                "fall back on client-specific behaviour for the other"
+            )
+        if positions["finalized"] > positions["safe"]:
+            raise ValueError(
+                "the finalized block comes after the safe block; the chain "
+                "finalizes behind the safe head, never ahead of it"
+            )
+        head = max(
+            (
+                index
+                for index, block in enumerate(self.blocks)
+                if block.exception is None
+            ),
+            default=-1,
+        )
+        if positions["safe"] >= head:
+            raise ValueError(
+                "the head block is tagged 'safe', so two of the three tags "
+                "name the same block and a client that answers every tag "
+                "with the head would pass; leave a block above the safe one"
+            )
 
     @classmethod
     def discard_fixture_format_by_marks(
@@ -1136,6 +1307,7 @@ class BlockchainTest(BaseTest):
         t8n: FillerBackend,
     ) -> FillResult:
         """Create a fixture from the blockchain test definition."""
+        self.check_forkchoice_declaration()
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
 
         pre, genesis = self.make_genesis(apply_pre_allocation_blockchain=True)
@@ -1148,6 +1320,16 @@ class BlockchainTest(BaseTest):
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
+        call_replays: List[CallReplay] = []
+        call_sites: List[CallSite] = []
+        parent = genesis.header
+        block_hashes: Dict[int, Hash] = {
+            int(genesis.header.number): genesis.header.block_hash
+        }
+        if self.emit_rpc_expectations and self.declares_a_call:
+            call_sites.append(
+                self.call_site_at(genesis.header, pre, block_hashes)
+            )
         for block in self.blocks:
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
@@ -1159,6 +1341,16 @@ class BlockchainTest(BaseTest):
                 previous_alloc=alloc,
             )
             block_number = int(built_block.header.number)
+            if self.emit_rpc_expectations and block.exception is None:
+                replay = self.call_replay_for_block(
+                    authored=block,
+                    built_block=built_block,
+                    parent=parent,
+                    parent_alloc=alloc,
+                    block_hashes=block_hashes,
+                )
+                if replay is not None:
+                    call_replays.append(replay)
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = built_block.cumulative_gas_used()
@@ -1189,6 +1381,14 @@ class BlockchainTest(BaseTest):
                 state_root = built_block.state_root
                 env = apply_new_parent(built_block.env, built_block.header)
                 head = built_block.header.block_hash
+                parent = built_block.header
+                block_hashes[block_number] = built_block.header.block_hash
+                if self.emit_rpc_expectations and self.declares_a_call:
+                    call_sites.append(
+                        self.call_site_at(
+                            built_block.header, alloc, block_hashes
+                        )
+                    )
             else:
                 invalid_blocks += 1
 
@@ -1224,6 +1424,17 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
             ),
         )
+        if self.emit_rpc_expectations:
+            fixture.rpc = derive_rpc_calls_for_blocks(
+                fixture_blocks,
+                post_state=alloc,
+                genesis=genesis,
+                declared=self.rpc_checks,
+                chain_id=int(self.chain_id),
+                fork=self.fork,
+                call_replays=call_replays,
+                call_sites=call_sites,
+            )
         return FillResult(
             fixture=fixture,
             gas_optimization=None,
@@ -1233,13 +1444,125 @@ class BlockchainTest(BaseTest):
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 
+    @property
+    def declares_a_call(self) -> bool:
+        """
+        Return whether a test declared a call needing a per-block state.
+
+        Collecting a state per block costs a materialization per block,
+        which a test that declares nothing should not pay. A replayed
+        call needs only the state before the block it replays from, and
+        collects that itself.
+        """
+        return any(
+            check.method in EXECUTED_METHODS and check.derive_result
+            for check in self.rpc_checks
+        )
+
+    def call_site_at(
+        self,
+        header: FixtureHeader,
+        alloc: Alloc | LazyAlloc,
+        block_hashes: Dict[int, Hash],
+        forkchoice_tag: str | None = None,
+    ) -> CallSite:
+        """
+        Return the state and context a call naming `header` sees.
+
+        `forkchoice_tag` is passed only where the fixture asks a consumer
+        to declare it, since a call resolving `safe` or `finalized`
+        against a chain that never declared them would be resolving
+        against nothing.
+        """
+        number = int(header.number)
+        return CallSite(
+            number=number,
+            block_hash=header.block_hash,
+            forkchoice_tag=forkchoice_tag,
+            # A `MaterializedAlloc` is already in memory, so this is a
+            # no-op on the in-process path; it is here for the backends
+            # where the post-state is fetched rather than returned.
+            state=alloc.materialize()
+            if isinstance(alloc, LazyAlloc)
+            else alloc,
+            environment=environment_at(header, block_hashes),
+            fork=self.fork.fork_at(
+                block_number=number, timestamp=int(header.timestamp)
+            ),
+            chain_id=int(self.chain_id),
+        )
+
+    def call_replay_for_block(
+        self,
+        *,
+        authored: Block,
+        built_block: BuiltBlock,
+        parent: FixtureHeader,
+        parent_alloc: Alloc | LazyAlloc,
+        block_hashes: Dict[int, Hash],
+    ) -> CallReplay | None:
+        """
+        Return the message to replay as an `eth_call` for one block.
+
+        The first transaction of the block, run against the state at the
+        end of the block before it — the one position where a call sees
+        exactly the state the transaction itself saw. See
+        `_replayed_call_calls` for why only the first.
+
+        Returns None where there is nothing to replay, or where the built
+        transaction names no sender to replay it from. No key is needed:
+        the replayed message is unsigned and its sender asserted. Every
+        executed value comes from the built transaction rather than the
+        authored one, because the filler may have chosen the gas limit.
+        """
+        if not built_block.txs or not authored.txs:
+            return None
+        executed = built_block.txs[0]
+
+        if executed.sender is None:
+            return None
+
+        return CallReplay(
+            site=self.call_site_at(parent, parent_alloc, block_hashes),
+            sender=Address(executed.sender),
+            to=executed.to,
+            data=executed.data,
+            value=int(executed.value),
+            gas=min(int(executed.gas_limit), CALL_GAS_LIMIT),
+        )
+
+    def check_forkchoice_declaration(self) -> None:
+        """
+        Refuse a forkchoice declaration nothing will ever read.
+
+        The tags only reach a client through the `rpc` section, which is
+        emitted only for a marked test, so an unmarked test that tags its
+        blocks silently asserts nothing. Checked before any block is built
+        so the mistake costs no transition-tool work.
+        """
+        if self.emit_rpc_expectations:
+            return
+        if any(block.forkchoice_tag is not None for block in self.blocks):
+            raise ValueError(
+                "blocks are tagged 'safe' or 'finalized' but the test is "
+                "not marked `rpc`, so nothing would ever read the "
+                "declaration; add `pytest.mark.rpc` or drop the tags"
+            )
+
     def make_hive_fixture(
         self,
         t8n: FillerBackend,
         fixture_format: FixtureFormat = BlockchainEngineFixture,
     ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
+        self.check_forkchoice_declaration()
         fixture_payloads: List[FixtureEngineNewPayload] = []
+        # The engine formats carry payloads, not blocks, and a payload has
+        # no receipts and no decoded senders. Assemble the blocks the
+        # projection needs here, where the transition tool output is still
+        # in hand, and only when they will actually be used.
+        rpc_blocks: List[FixtureBlock] = []
+        forkchoice_tags: Dict[str, Hash] = {}
 
         pre, genesis = self.make_genesis(
             apply_pre_allocation_blockchain=fixture_format
@@ -1253,6 +1576,16 @@ class BlockchainTest(BaseTest):
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
+        call_replays: List[CallReplay] = []
+        call_sites: List[CallSite] = []
+        parent = genesis.header
+        block_hashes: Dict[int, Hash] = {
+            int(genesis.header.number): genesis.header.block_hash
+        }
+        if self.emit_rpc_expectations and self.declares_a_call:
+            call_sites.append(
+                self.call_site_at(genesis.header, pre, block_hashes)
+            )
         for block in self.blocks:
             built_block = self.generate_block_data(
                 t8n=t8n,
@@ -1261,6 +1594,16 @@ class BlockchainTest(BaseTest):
                 previous_alloc=alloc,
             )
             block_number = int(built_block.header.number)
+            if self.emit_rpc_expectations and block.exception is None:
+                replay = self.call_replay_for_block(
+                    authored=block,
+                    built_block=built_block,
+                    parent=parent,
+                    parent_alloc=alloc,
+                    block_hashes=block_hashes,
+                )
+                if replay is not None:
+                    call_replays.append(replay)
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = built_block.cumulative_gas_used()
@@ -1274,11 +1617,30 @@ class BlockchainTest(BaseTest):
             fixture_payloads.append(
                 built_block.get_fixture_engine_new_payload()
             )
+            if self.emit_rpc_expectations and block.exception is None:
+                fixture_block = built_block.get_fixture_block()
+                if isinstance(fixture_block, FixtureBlock):
+                    rpc_blocks.append(fixture_block)
+            if block.forkchoice_tag is not None:
+                forkchoice_tags[block.forkchoice_tag] = (
+                    built_block.header.block_hash
+                )
             if block.exception is None:
                 alloc = built_block.alloc
                 state_root = built_block.state_root
                 env = apply_new_parent(built_block.env, built_block.header)
                 head_hash = built_block.header.block_hash
+                parent = built_block.header
+                block_hashes[block_number] = built_block.header.block_hash
+                if self.emit_rpc_expectations and self.declares_a_call:
+                    call_sites.append(
+                        self.call_site_at(
+                            built_block.header,
+                            alloc,
+                            block_hashes,
+                            forkchoice_tag=block.forkchoice_tag,
+                        )
+                    )
             else:
                 invalid_blocks += 1
 
@@ -1372,6 +1734,25 @@ class BlockchainTest(BaseTest):
                 }
             )
             fixture = BlockchainEngineFixture(**fixture_data)
+
+        if self.emit_rpc_expectations:
+            fixture.rpc = derive_rpc_calls_for_blocks(
+                rpc_blocks,
+                post_state=alloc,
+                genesis=genesis,
+                forkchoice_tags=forkchoice_tags,
+                declared=self.rpc_checks,
+                chain_id=int(self.chain_id),
+                fork=self.fork,
+                call_replays=call_replays,
+                call_sites=call_sites,
+            )
+            if forkchoice_tags:
+                fixture.rpc_forkchoice = FixtureForkchoiceState(
+                    head_block_hash=head_hash,
+                    safe_block_hash=forkchoice_tags["safe"],
+                    finalized_block_hash=forkchoice_tags["finalized"],
+                )
 
         return FillResult(
             fixture=fixture,

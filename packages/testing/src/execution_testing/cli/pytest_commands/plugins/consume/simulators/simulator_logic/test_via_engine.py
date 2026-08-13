@@ -17,6 +17,7 @@ from typing import Union
 
 from hive.client import Client
 
+from execution_testing.base_types import Hash
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
     BlockchainEngineXFixture,
@@ -42,9 +43,44 @@ from ..helpers.rejected_blocks import (
     BlockRejectionTracker,
     verify_block_rejection,
 )
+from ..helpers.rpc_expectations import verify_rpc_expectations
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
+
+
+def forkchoice_state(
+    fixture: Union[BlockchainEngineFixture, BlockchainEngineXFixture],
+    head_block_hash: Hash,
+    final: bool,
+) -> ForkchoiceState:
+    """
+    Return the forkchoice state to send after importing one payload.
+
+    Every update names the head. The final one also names the safe and
+    finalized blocks when the fixture declares them, because those two are
+    not derivable from the chain — the consensus layer tells the client
+    what they are, and here the fixture speaks for the consensus layer.
+    Without the declaration both stay zero, which is what every other test
+    wants: a test that reorgs must not have pinned a finalized block.
+
+    The declared head is checked against the payload's rather than trusted,
+    since a mismatch would mean the fixture's tags describe a different
+    chain from the one just imported.
+    """
+    declared = fixture.rpc_forkchoice
+    if declared is None or not final:
+        return ForkchoiceState(head_block_hash=head_block_hash)
+    if declared.head_block_hash != head_block_hash:
+        raise LoggedError(
+            f"fixture declares head {declared.head_block_hash} but the "
+            f"last valid payload is {head_block_hash}"
+        )
+    return ForkchoiceState(
+        head_block_hash=head_block_hash,
+        safe_block_hash=declared.safe_block_hash,
+        finalized_block_hash=declared.finalized_block_hash,
+    )
 
 
 def test_blockchain_via_engine(
@@ -73,6 +109,13 @@ def test_blockchain_via_engine(
        done once per client and skipped for later tests in the group.
     3. Execute test fixture blocks using engine_newPayloadVX.
     4. For valid payloads, send FCU to advance the chain head.
+
+    The last of those forkchoice updates also carries the safe and
+    finalized hashes when the fixture declares them, which is what makes
+    the `safe` and `finalized` block tags answerable afterwards. Only the
+    last one does: the blocks a tag names have to already be in the
+    client, and an earlier update would be overwritten by the next
+    head-only one anyway.
 
     A client's bad-block cache persists across the tests of a pre-alloc
     group in enginex mode: a block that an earlier test already got
@@ -127,6 +170,14 @@ def test_blockchain_via_engine(
         # round-trip; per-test clients get a fresh id each test and re-verify.
         genesis_verified_clients.add(client.id)
 
+    last_valid_payload = max(
+        (
+            index
+            for index, payload in enumerate(fixture.payloads)
+            if payload.valid()
+        ),
+        default=-1,
+    )
     with timing_data.time("Payloads execution") as total_payload_timing:
         logger.info(
             f"Starting execution of {len(fixture.payloads)} payloads..."
@@ -213,8 +264,10 @@ def test_blockchain_via_engine(
                             f"Sending engine_forkchoiceUpdatedV{version}..."
                         )
                         forkchoice_response = engine_rpc.forkchoice_updated(
-                            forkchoice_state=ForkchoiceState(
-                                head_block_hash=payload.params[0].block_hash,
+                            forkchoice_state=forkchoice_state(
+                                fixture,
+                                payload.params[0].block_hash,
+                                final=i == last_valid_payload,
                             ),
                             payload_attributes=None,
                             version=payload.forkchoice_updated_version,
@@ -231,3 +284,5 @@ def test_blockchain_via_engine(
                                 f"{PayloadStatusEnum.VALID}, got {status}"
                             )
         logger.info("All payloads processed successfully.")
+    with timing_data.time("Verify RPC expectations"):
+        verify_rpc_expectations(eth_rpc, fixture)

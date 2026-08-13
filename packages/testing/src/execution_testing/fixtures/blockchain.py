@@ -73,6 +73,8 @@ from .base import BaseFixture, FixtureFillingPhase
 from .common import (
     FixtureAuthorizationTuple,
     FixtureBlobSchedule,
+    FixtureForkchoiceState,
+    FixtureRPCCall,
     FixtureTransactionReceipt,
 )
 
@@ -854,6 +856,16 @@ class BlockchainFixture(BlockchainFixtureCommon):
     seal_engine: Literal["NoProof"] = Field("NoProof")
     transition_tool_cache_key: ClassVar[str] = "blockchain_test"
 
+    rpc: List[FixtureRPCCall] | None = None
+    """
+    JSON-RPC expectations derived from this chain.
+
+    Populated only for tests marked `rpc`, because the derivation branches
+    on the shape of the blocks rather than on what the test exercises, so
+    emitting it corpus-wide would grow the release artifact without adding
+    coverage.
+    """
+
 
 @post_state_validator()
 class BlockchainEngineFixtureCommon(BaseFixture):
@@ -869,6 +881,28 @@ class BlockchainEngineFixtureCommon(BaseFixture):
     # FIXME: lastBlockHash
     last_block_hash: Hash = Field(..., alias="lastblockhash")
     config: FixtureConfig
+
+    rpc: List[FixtureRPCCall] | None = None
+    """
+    JSON-RPC expectations derived from this chain.
+
+    Populated only for tests marked `rpc`. The engine path exercises a
+    different client code path from bulk RLP import, and receipt storage
+    and log indexing can plausibly differ between them, so the same
+    expectations are worth asserting on both.
+    """
+
+    rpc_forkchoice: FixtureForkchoiceState | None = None
+    """
+    The forkchoice triple the consumer must declare before replaying.
+
+    Present only when a test tagged some of its blocks `safe` or
+    `finalized`. The engine simulator's final `engine_forkchoiceUpdated`
+    carries these three hashes instead of the head alone, which is what
+    makes the round-trip expectations in `rpc` satisfiable; without it a
+    client answers `safe block not found`. This is the only fixture field
+    that instructs a consumer rather than describing the chain.
+    """
 
     def get_fork(self) -> Fork | TransitionFork | None:
         """Return fixture's `Fork`."""

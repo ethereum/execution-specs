@@ -197,6 +197,16 @@ class ForkLoad:
         return self._module("transactions").get_transaction_hash
 
     @property
+    def encode_transaction(self) -> Any:
+        """encode_transaction function of the fork."""
+        return self._module("transactions").encode_transaction
+
+    @property
+    def calculate_intrinsic_cost(self) -> Any:
+        """calculate_intrinsic_cost function of the fork."""
+        return self._module("transactions").calculate_intrinsic_cost
+
+    @property
     def process_transaction(self) -> Any:
         """process_transaction function of the fork."""
         return self._module("fork").process_transaction
@@ -205,6 +215,16 @@ class ForkLoad:
     def Block(self) -> Any:
         """Block class of the fork."""
         return self._module("blocks").Block
+
+    @property
+    def Log(self) -> Any:
+        """Log class of the fork."""
+        return self._module("blocks").Log
+
+    @property
+    def Revert(self) -> Any:
+        """Revert exception of the fork."""
+        return self._module("vm.exceptions").Revert
 
     @property
     def decode_receipt(self) -> Any:
@@ -349,6 +369,13 @@ class ForkLoad:
     def hex_to_root(self) -> Any:
         """hex_to_root function of the fork."""
         return self._module("utils.hexadecimal").hex_to_root
+
+    @property
+    def PRE_COMPILED_CONTRACTS(self) -> Any:
+        """Precompiled contracts of the fork, keyed by address."""
+        return self._module(
+            "vm.precompiled_contracts.mapping"
+        ).PRE_COMPILED_CONTRACTS
 
     @property
     def BlockEnvironment(self) -> Any:

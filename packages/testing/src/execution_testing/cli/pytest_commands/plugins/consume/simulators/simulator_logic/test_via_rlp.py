@@ -21,6 +21,7 @@ from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import EthRPC
 
 from ..helpers.exceptions import GenesisBlockMismatchExceptionError
+from ..helpers.rpc_expectations import verify_rpc_expectations
 from ..helpers.timing import TimingData
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ def test_via_rlp(
     1. Check the client genesis block hash matches
        `fixture.genesis.block_hash`.
     2. Check the client last block hash matches `fixture.last_block_hash`.
+    3. Replay any derived JSON-RPC expectations the fixture carries.
     """
     with timing_data.time("Get genesis block"):
         logger.info("Calling getBlockByNumber to get genesis block...")
@@ -102,3 +104,5 @@ def test_via_rlp(
                     f"got `{block['hash']}`, "
                     f"expected `{fixture.last_block_hash}`"
                 ) from None
+    with timing_data.time("Verify RPC expectations"):
+        verify_rpc_expectations(eth_rpc, fixture)

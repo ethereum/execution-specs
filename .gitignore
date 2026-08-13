@@ -8,6 +8,8 @@
 
 # AI
 .claude/settings.local.json
+# Agent worktrees; transient checkouts, never part of the repo
+.claude/worktrees/
 CLAUDE.local.md
 .mb/
 mb/
@@ -100,3 +102,6 @@ site/
 
 # Temporary data; used for generated checklists
 tmp/
+
+# Local design docs; not part of the published mkdocs site
+docs/plans/

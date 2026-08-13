@@ -30,6 +30,7 @@ from .rpc_types import (
     JSONRPCResponse,
     RPCCall,
     TransactionProtocol,
+    calculate_fork_id,
 )
 
 __all__ = [
@@ -57,5 +58,6 @@ __all__ = [
     "TestingRPC",
     "TimeoutType",
     "TransactionProtocol",
+    "calculate_fork_id",
     "Web3RPC",
 ]

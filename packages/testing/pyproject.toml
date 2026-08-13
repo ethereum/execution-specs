@@ -47,6 +47,8 @@ dependencies = [
     "typing-extensions>=4.12.2,<5",
     "questionary>=2.1.0,<3",
     "ethereum-rlp>=0.1.6,<0.2",
+    "jsonschema>=4.23.0,<5",
+    "types-jsonschema>=4.23.0,<5",
     "pytest-regex>=0.2.0,<0.3",
     "eth-abi>=5.2.0",
     "joblib>=1.4.2",
@@ -112,6 +114,7 @@ exclude = ["*tests*"]
 "execution_testing.cli.eest.make" = ["templates/*.j2"]
 "execution_testing.cli.pytest_commands" = ["pytest_ini_files/*.ini"]
 "execution_testing.test_types" = ["kzg_trusted_setup.txt"]
+"execution_testing.rpc" = ["schemas/*.json"]
 
 [tool.ruff]
 extend = "../../pyproject.toml"

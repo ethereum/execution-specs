@@ -4,7 +4,7 @@ import json
 from binascii import crc32
 from enum import Enum
 from hashlib import sha256
-from typing import Annotated, Any, Dict, List, Protocol, Self
+from typing import Annotated, Any, Dict, List, Protocol, Self, Set
 
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
@@ -410,6 +410,28 @@ class ForkConfig(CamelModel):
                 json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()
             )
         )
+
+
+def calculate_fork_id(
+    genesis_hash: Hash, activation_times: Set[int]
+) -> ForkHash:
+    """
+    Return the EIP-6122 fork id for a chain with the given activations.
+
+    Forks that activate at genesis are excluded, which is why a chain
+    whose every fork is already active reduces to `crc32(genesis_hash)`.
+
+    Lives beside `ForkConfig` rather than with the `eth_config` execute
+    plugin because two callers now need it: that plugin, which checks a
+    live network's answer, and the fixture derivation, which computes the
+    answer a consumer's own chain implies.
+    """
+    buffer = bytes(genesis_hash)
+    for activation_time in sorted(activation_times):
+        if activation_time == 0:
+            continue
+        buffer += activation_time.to_bytes(length=8, byteorder="big")
+    return ForkHash(crc32(buffer))
 
 
 class EthConfigResponse(CamelModel):
