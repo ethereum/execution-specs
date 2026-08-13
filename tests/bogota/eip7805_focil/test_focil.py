@@ -23,6 +23,7 @@ from execution_testing.test_types.transaction_types import (
 from ethereum.forks.amsterdam.fork import VERSIONED_HASH_VERSION_KZG
 
 from .helpers import (
+    bal_gas_headroom,
     IncludedBlockTx,
     PendingInclusionListTx,
     build_block,
@@ -103,7 +104,9 @@ def test_block_with_same_sender_included_il_txs_is_valid(
     )
     assert built_block.remaining_gas == SAME_SENDER_BLOCK_HEADROOM
     blockchain_test(
-        genesis_environment=Environment(gas_limit=block_gas_limit),
+        genesis_environment=Environment(
+            gas_limit=built_block.effective_gas_limit
+        ),
         pre=pre,
         post={},
         blocks=[
@@ -136,7 +139,7 @@ def test_block_with_reverting_included_il_tx_is_valid(
         gas_limit=100_000,
     )
     blockchain_test(
-        genesis_environment=Environment(gas_limit=200_000),
+        genesis_environment=Environment(gas_limit=200_000 + bal_gas_headroom(fork)),
         pre=pre,
         post={},
         blocks=[
@@ -338,7 +341,7 @@ def test_block_status_depends_on_pending_inclusion_list(
     )
     blockchain_test(
         genesis_environment=Environment(
-            gas_limit=block_gas_limit,
+            gas_limit=built_block.effective_gas_limit,
         ),
         pre=pre,
         post={},
@@ -382,7 +385,7 @@ def test_block_with_pending_blob_il_tx_is_valid(
     )
 
     blockchain_test(
-        genesis_environment=Environment(gas_limit=simple_transfer_gas * 4),
+        genesis_environment=Environment(gas_limit=simple_transfer_gas * 4 + bal_gas_headroom(fork)),
         pre=pre,
         post={},
         blocks=[
@@ -406,8 +409,6 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
     If the signature is invalid, the tx is not appendable and omission is
     allowed.
     """
-    del fork
-
     sender = pre.fund_eoa(amount=10**18)
     recipient = pre.fund_eoa()
     invalid_signature_tx = Transaction(
@@ -420,7 +421,7 @@ def test_block_with_invalid_signature_pending_il_tx_is_valid(
     )
 
     blockchain_test(
-        genesis_environment=Environment(gas_limit=21_000 * 4),
+        genesis_environment=Environment(gas_limit=21_000 * 4 + bal_gas_headroom(fork)),
         pre=pre,
         post={},
         blocks=[
@@ -454,7 +455,7 @@ def test_block_with_intrinsic_gas_too_low_pending_il_tx_is_valid(
     )
 
     blockchain_test(
-        genesis_environment=Environment(gas_limit=simple_transfer_gas * 4),
+        genesis_environment=Environment(gas_limit=simple_transfer_gas * 4 + bal_gas_headroom(fork)),
         pre=pre,
         post={},
         blocks=[
@@ -481,11 +482,15 @@ def test_unsatisfied_when_block_tx_funds_pending_il_sender(
     """
     calc = fork.transaction_intrinsic_cost_calculator()
     simple_transfer_gas = calc()
+    # A transfer that carries value costs more intrinsic gas than an empty one
+    # on this fork, so alice's funding tx must be sized (and paid for) with
+    # `sends_value=True`. Bob's IL tx carries no value and keeps the plain cost.
+    value_transfer_gas = calc(sends_value=True)
     gas_price = TransactionDefaults.gas_price
 
     value_to_fund_bob = simple_transfer_gas * gas_price
     alice = pre.fund_eoa(
-        amount=simple_transfer_gas * gas_price + value_to_fund_bob,
+        amount=value_transfer_gas * gas_price + value_to_fund_bob,
     )
     bob = pre.fund_eoa(amount=0)
     recipient = pre.fund_eoa()
@@ -493,7 +498,7 @@ def test_unsatisfied_when_block_tx_funds_pending_il_sender(
     alice_tx = Transaction(
         sender=alice,
         to=bob,
-        gas_limit=simple_transfer_gas,
+        gas_limit=value_transfer_gas,
         value=value_to_fund_bob,
     )
     bob_il_tx = Transaction(
@@ -502,7 +507,7 @@ def test_unsatisfied_when_block_tx_funds_pending_il_sender(
         gas_limit=simple_transfer_gas,
     )
 
-    block_gas_limit = simple_transfer_gas * 5
+    block_gas_limit = simple_transfer_gas * 5 + bal_gas_headroom(fork)
     blockchain_test(
         genesis_environment=Environment(
             gas_limit=block_gas_limit,
@@ -586,7 +591,9 @@ def test_pending_il_depends_on_7702_authorization_nonce_effect(
     # Leave headroom after the set-code tx so the pending IL tx always
     # fits the block. The satisfied/unsatisfied outcome then depends only
     # on Bob's post-execution nonce, not on remaining gas.
-    block_gas_limit = set_code_gas + simple_transfer_gas * 2
+    block_gas_limit = (
+        set_code_gas + simple_transfer_gas * 2 + bal_gas_headroom(fork)
+    )
     blockchain_test(
         genesis_environment=Environment(gas_limit=block_gas_limit),
         pre=pre,
@@ -622,7 +629,7 @@ def test_unsatisfied_with_contract_creating_pending_il_tx(
         gas_limit=create_gas,
     )
 
-    block_gas_limit = create_gas * 2
+    block_gas_limit = create_gas * 2 + bal_gas_headroom(fork)
     blockchain_test(
         genesis_environment=Environment(gas_limit=block_gas_limit),
         pre=pre,
@@ -696,7 +703,7 @@ def test_unsatisfied_with_typed_pending_il_tx(
             gas_price=TransactionDefaults.gas_price,
         )
 
-    block_gas_limit = gas_limit * 2
+    block_gas_limit = gas_limit * 2 + bal_gas_headroom(fork)
     blockchain_test(
         genesis_environment=Environment(gas_limit=block_gas_limit),
         pre=pre,
