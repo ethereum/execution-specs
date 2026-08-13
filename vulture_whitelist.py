@@ -167,39 +167,25 @@ _configure_client_manager  # autouse fixture
 test_suite_name  # hive test suite name fixture
 genesis_header  # genesis header fixture
 
-# Symbols whose only consumers live in the testing package
-# (`execution_testing.evm_tools`), which Vulture does not scan.
+# packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/
+# eip3155.py - EIP-3155 trace output field names, serialized to JSON
+gasCost
+gasUsed
+memSize
+opName
+refund
+returnData
+stateGas
+stateGasCost
 
-# src/ethereum/forks/*/blocks.py - read by the t8n receipt handling
-Receipt.succeeded
+# packages/testing/src/execution_testing/evm_tools/daemon.py -
+# overrides `BaseHTTPRequestHandler.log_request`
+log_request
 
-# src/ethereum/forks/*/vm/__init__.py - set by the t8n tracers
-TransactionEnvironment.index_in_block
-TransactionEnvironment.tx_hash
+# packages/testing/src/execution_testing/evm_tools/t8n/cli.py - field
+# on the testing `Transaction` model, read by `Transaction.sign`
+protected
 
-# src/ethereum/trace.py - used by the t8n EIP-3155 tracer
-StateGasAndRefund.state_gas_cost
-set_evm_trace
-
-# src/ethereum_spec_tools/forks.py - used by the t8n fork cache
-Hardfork.matches_template
-Hardfork.clone
-
-# src/ethereum_spec_tools/loaders/fixture_loader.py - used by the t8n
-Load
-
-# src/ethereum_spec_tools/loaders/fork_loader.py - used by the t8n
-ForkLoad.has_beacon_roots_address
-ForkLoad.calculate_block_difficulty_arity
-ForkLoad.has_calculate_base_fee_per_gas
-ForkLoad.has_hash_block_access_list
-ForkLoad.has_compute_requests_hash
-ForkLoad.has_withdrawal
-ForkLoad.has_slot_number
-
-# src/ethereum_spec_tools/utils.py - used by the evm_tools CLI
-FatalError
-find_fork
-resolve_fork
-get_supported_forks
-get_stream_logger
+# packages/testing/src/execution_testing/evm_tools/tests/ - pytest
+# marker magic variable
+pytestmark

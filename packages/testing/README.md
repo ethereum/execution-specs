@@ -1,6 +1,6 @@
 # The `ethereum-execution-testing` Package
 
-Test generation and execution framework for the [Ethereum Execution Layer Specifications (EELS)](https://github.com/ethereum/execution-specs), derived from [ethereum/execution-spec-tests](https://github.com/ethereum/execution-spec-tests).
+Test generation and execution framework for the [Ethereum Execution Layer Specifications (EELS)](https://github.com/ethereum/execution-specs).
 
 The package provides:
 

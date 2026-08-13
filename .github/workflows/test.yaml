@@ -76,58 +76,8 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
-      # Build every workspace member, so a dependency on a sibling package
-      # resolves against the wheel built here rather than against an index.
-      - name: Build the workspace wheels
-        run: uv build --wheel --all-packages --out-dir dist
-      # Install into a bare venv, deliberately outside the uv workspace.
-      # Both wheels are passed by explicit path: resolving either through an
-      # index could silently substitute a published PyPI version for the
-      # branch's own build.
-      - name: Install the wheels into a clean environment
-        run: |
-          uv venv "$RUNNER_TEMP/wheel-venv"
-          uv pip install --python "$RUNNER_TEMP/wheel-venv/bin/python" \
-            dist/ethereum_execution_testing-*.whl \
-            dist/ethereum_execution-*.whl
-      # Run a real transition rather than `--help`, which returns inside
-      # argparse without ever reaching the imports that t8n needs. The output
-      # basedir is emptied before the run, so keep it out of the source tree.
-      - name: Smoke-test ethereum-spec-evm t8n
-        run: |
-          mkdir -p "$RUNNER_TEMP/t8n-out"
-          "$RUNNER_TEMP/wheel-venv/bin/ethereum-spec-evm" t8n \
-            --state.fork=Frontier \
-            --input.alloc=tests/evm_tools/t8n_build/alloc.json \
-            --input.env=tests/evm_tools/t8n_build/env.json \
-            --input.txs=tests/evm_tools/t8n_build/txs.json \
-            --output.basedir="$RUNNER_TEMP/t8n-out"
-          test -s "$RUNNER_TEMP/t8n-out/result.json"
-      # Install the spec wheel on its own: the spec package must never
-      # import the testing package, or standalone spec installs break
-      # again (#3236). Every module is imported, rather than a fixed
-      # list, so additions are covered automatically. The exceptions:
-      # `docc` plugins only load once the `doc` group installs docc,
-      # and importing a `__main__` would run it.
-      - name: Import-check the spec wheel alone
-        run: |
-          uv venv "$RUNNER_TEMP/spec-venv"
-          uv pip install --python "$RUNNER_TEMP/spec-venv/bin/python" \
-            dist/ethereum_execution-*.whl
-          "$RUNNER_TEMP/spec-venv/bin/python" - <<'EOF'
-          import importlib
-          import pkgutil
-
-          import ethereum
-          import ethereum_spec_tools
-
-          SKIP = {"ethereum_spec_tools.docc"}
-          for pkg in (ethereum, ethereum_spec_tools):
-              for mod in pkgutil.walk_packages(pkg.__path__, f"{pkg.__name__}."):
-                  if mod.name in SKIP or mod.name.endswith(".__main__"):
-                      continue
-                  importlib.import_module(mod.name)
-          EOF
+      - name: Test packaging
+        run: just test-packaging
 
   fill:
     name: fill (${{ matrix.label }})

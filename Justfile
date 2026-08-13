@@ -45,6 +45,20 @@ fix:
 [group('static analysis'), parallel]
 static: typecheck lint-spec spellcheck deadcode lint-actions lock-check format-check lint
 
+# Ensure the spec package never imports the testing package
+[group('static analysis')]
+check-testing-imports:
+    #!/usr/bin/env bash
+    # A module-level import walk cannot catch function-scoped imports,
+    # so reject any reference, wherever it appears. `-I` skips binary
+    # files, such as stale bytecode caches.
+    if grep -rn -I --exclude-dir=__pycache__ "execution_testing" src/; then
+        echo ""
+        echo "src/ must not reference the execution_testing package."
+        echo "The spec wheel must install and run without it."
+        exit 1
+    fi
+
 # Check spelling
 [group('static analysis')]
 spellcheck:
@@ -64,7 +78,7 @@ spellcheck:
 # Add a word to the spellcheck whitelist
 [group('static analysis')]
 whitelist *words:
-    uv run whitelist "$@"
+    uv run python -m ethereum_spec_tools.whitelist "$@"
 
 # Lint with ruff
 [group('static analysis')]
@@ -74,7 +88,10 @@ lint *args:
 # Check for dead code with vulture
 [group('static analysis')]
 deadcode:
-    uv run vulture src/ vulture_whitelist.py
+    uv run vulture \
+        src/ \
+        packages/testing/src/execution_testing/evm_tools/ \
+        vulture_whitelist.py
 
 # Check formatting with ruff
 [group('static analysis')]
@@ -216,7 +233,7 @@ spec-tools *args: (_tmp "spec-tools")
         -n {{ xdist_workers }} \
         --basetemp="{{ output_dir }}/spec-tools/tmp" \
         "$@" \
-        tests/evm_tools
+        tests/spec_tools
 
 # --- Unit Tests ---
 
@@ -245,6 +262,63 @@ test-tests-pypy *args: (_tmp "test-tests-pypy")
 [group('unit tests')]
 test-ci-scripts *args:
     uv run pytest "$@" .github/scripts/tests/
+
+# --- Packaging ---
+
+# Build every workspace wheel into .just/dist
+[group('packaging')]
+build-wheels:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Build every workspace member, so a dependency on a sibling
+    # package resolves against the wheel built here rather than
+    # against an index. Start from an empty directory: stale wheels
+    # from an earlier version would also match the install globs.
+    rm -rf "{{ output_dir }}/dist"
+    uv build --wheel --all-packages --out-dir "{{ output_dir }}/dist"
+
+# Smoke-test the built wheels: clean-venv install, real t8n run, spec-wheel-alone import check
+[group('packaging')]
+test-packaging: check-testing-imports build-wheels
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dist="{{ output_dir }}/dist"
+    work="{{ output_dir }}/test-packaging"
+    fixtures="packages/testing/src/execution_testing/evm_tools/tests/fixtures/t8n_build"
+    rm -rf "$work"
+
+    # Install into a bare venv, deliberately outside the uv workspace.
+    # Both wheels are passed by explicit path: resolving either
+    # through an index could silently substitute a published PyPI
+    # version for the branch's own build.
+    echo "--> Installing the wheels into a clean environment"
+    uv venv "$work/wheel-venv"
+    uv pip install --python "$work/wheel-venv/bin/python" \
+        "$dist"/ethereum_execution_testing-*.whl \
+        "$dist"/ethereum_execution-*.whl
+
+    # Run a real transition rather than `--help`, which returns inside
+    # argparse without ever reaching the imports that t8n needs. The
+    # output basedir is emptied before the run, so keep it out of the
+    # source tree.
+    echo "--> Smoke-testing ethereum-spec-evm t8n"
+    mkdir -p "$work/t8n-out"
+    "$work/wheel-venv/bin/ethereum-spec-evm" t8n \
+        --state.fork=Frontier \
+        --input.alloc="$fixtures/alloc.json" \
+        --input.env="$fixtures/env.json" \
+        --input.txs="$fixtures/txs.json" \
+        --output.basedir="$work/t8n-out"
+    test -s "$work/t8n-out/result.json"
+
+    # Install the spec wheel on its own and import every shipped
+    # module: catches undeclared dependencies and modules missing
+    # from the packages list, which only fail outside the workspace.
+    echo "--> Import-checking the spec wheel alone"
+    uv venv "$work/spec-venv"
+    uv pip install --python "$work/spec-venv/bin/python" \
+        "$dist"/ethereum_execution-*.whl
+    "$work/spec-venv/bin/python" .github/scripts/import_check.py
 
 # --- Benchmarks ---
 

@@ -209,7 +209,7 @@ def _parse_blob_params_from_options(
     Returns ``None`` when the flag is unset. Reads from ``stdin``
     (``"blobParams"`` key) or a file path depending on the flag value.
     """
-    # Function-scoped: see import-cycle note in ``build_t8n_from_cli_options``.
+    # Function-scoped: see import-cycle note in ``result.py``.
     from execution_testing.base_types.composite_types import (
         ForkBlobSchedule,
     )
@@ -261,7 +261,7 @@ _TESTING_FORK_NAME_OVERRIDES = {
 
 def _testing_fork_from_spec_hardfork(hardfork: Hardfork) -> Any:
     """Map a spec ``Hardfork`` to the matching testing ``Fork`` class."""
-    # Function-scoped: see import-cycle note in ``build_t8n_from_cli_options``.
+    # Function-scoped: see import-cycle note in ``result.py``.
     from execution_testing.forks import get_fork_by_name
 
     name = hardfork.title_case_name.replace(" ", "")

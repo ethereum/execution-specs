@@ -267,7 +267,6 @@ ethereum-spec-lint = "ethereum_spec_tools.lint:main"
 ethereum-spec-sync = "ethereum_spec_tools.sync:main"
 ethereum-spec-new-fork = "ethereum_spec_tools.new_fork.cli:main"
 ethereum-spec-patch = "ethereum_spec_tools.patch_tool:main"
-whitelist = "ethereum_spec_tools.whitelist:main"
 
 [project.entry-points."docc.plugins"]
 "ethereum_spec_tools.docc.listing" = "ethereum_spec_tools.docc:EthereumListingDiscover"
@@ -524,6 +523,7 @@ exclude = [
     "^logs/",
     "^site/",
     "^tests/json_loader/fixtures/",
+    "^packages/testing/build/",
 ]
 plugins = ["pydantic.mypy"]
 
