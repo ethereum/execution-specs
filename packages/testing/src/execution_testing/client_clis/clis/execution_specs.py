@@ -237,6 +237,15 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "PriorityFeeGreaterThanMaxFeeError"
         ),
+        TransactionException.GASPRICE_OVERFLOW: (
+            "FeeOverflowError('Max fee per gas too high')"
+        ),
+        TransactionException.PRIORITY_OVERFLOW: (
+            "FeeOverflowError('Max priority fee per gas too high')"
+        ),
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
+            "MaxCostOverflowError"
+        ),
         TransactionException.NONCE_MISMATCH_TOO_HIGH: (
             "NonceMismatchError('nonce too high')"
         ),

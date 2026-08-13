@@ -34,6 +34,7 @@ from ethereum.state import Address
 
 from ..exceptions import (
     BlobCountExceededError,
+    FeeOverflowError,
     FrameCountError,
     InvalidBlobVersionedHashError,
     InvalidFrameError,
@@ -570,9 +571,10 @@ def validate_frame_transaction(
     transaction and derive its gas anchors.
 
     Constraints on individual fields — frame modes and flags, signature
-    schemes, and field lengths — are enforced by their types while the
-    transaction is decoded, so only the constraints that span several
-    fields are checked here.
+    schemes, and field lengths — are mostly enforced by their types
+    while the transaction is decoded. Checked here instead are the
+    nonce and fee-cap upper bounds, which are tighter than the decoded
+    types enforce, and the constraints that span several fields.
 
     A frame transaction has no gas limit field; its two gas anchors are
     derived instead, and the inclusion-facing `max_gas` must not exceed
@@ -586,8 +588,13 @@ def validate_frame_transaction(
         VERSIONED_HASH_VERSION_KZG,
     )
 
-    if U256(tx.nonce) >= U256(U64.MAX_VALUE):
+    if tx.nonce >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
+
+    if tx.max_fee_per_gas > Uint(U256.MAX_VALUE):
+        raise FeeOverflowError("Max fee per gas too high")
+    if tx.max_priority_fee_per_gas > Uint(U256.MAX_VALUE):
+        raise FeeOverflowError("Max priority fee per gas too high")
 
     if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
         raise PriorityFeeGreaterThanMaxFeeError(

@@ -130,6 +130,20 @@ class PriorityFeeGreaterThanMaxFeeError(InvalidTransaction):
     """
 
 
+class FeeOverflowError(InvalidTransaction):
+    """
+    A fee field of the transaction exceeds the largest representable
+    256-bit value.
+    """
+
+
+class MaxCostOverflowError(InvalidTransaction):
+    """
+    The maximum wei cost the transaction can incur exceeds the largest
+    representable 256-bit value.
+    """
+
+
 class EmptyAuthorizationListError(InvalidTransaction):
     """
     The authorization list in the transaction is empty.

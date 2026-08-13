@@ -135,10 +135,10 @@ jobs:
         with:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env-pypy
+      # TODO: Drop FILL_UNTIL once Bogota is a real fork.
       # Stop short of Amsterdam: this branch's amsterdam spec module
       # carries the EIP-8141 prototype, and Amsterdam-labeled fixtures
-      # should not be produced by it. Drop FILL_UNTIL once Bogota is a
-      # real fork.
+      # should not be produced by it.
       - name: Run fill-pypy tests
         run: just fill-pypy
         env:
@@ -154,10 +154,10 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "3.14"
+      # TODO: Drop FILL_UNTIL once Bogota is a real fork.
       # Stop short of Amsterdam: this branch's amsterdam spec module
       # carries the EIP-8141 prototype, and Amsterdam-labeled fixtures
-      # should not be produced by it. Drop FILL_UNTIL once Bogota is a
-      # real fork.
+      # should not be produced by it.
       - name: Fill and run json-loader tests
         run: just json-loader
         env:

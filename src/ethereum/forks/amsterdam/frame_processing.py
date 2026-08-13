@@ -27,6 +27,7 @@ from .blocks import (
     Receipt,
     encode_receipt,
 )
+from .exceptions import MaxCostOverflowError
 from .fork_types import ExecutionGas, StateGas
 from .state_tracker import (
     TransactionState,
@@ -114,6 +115,9 @@ def check_frame_transaction(
     BlobGasLimitExceededError :
         If the blob gas used by the transaction exceeds the block's blob gas
         limit.
+    MaxCostOverflowError :
+        If the maximum wei cost the transaction can incur is not
+        representable in 256 bits.
 
     """
     validation = validate_frame_transaction(tx)
@@ -151,6 +155,8 @@ def check_frame_transaction(
     max_cost = validation.max_gas * tx.max_fee_per_gas + Uint(
         calculate_total_blob_gas(tx)
     ) * calculate_blob_gas_price(block_env.excess_blob_gas)
+    if max_cost > Uint(U256.MAX_VALUE):
+        raise MaxCostOverflowError("Max cost too high")
 
     return vm.TransactionEnvironment(
         origin=tx.sender,
