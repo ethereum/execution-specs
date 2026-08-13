@@ -517,9 +517,11 @@ class EngineBackend:
         # Reorgs back towards genesis need a fresh copy of the genesis
         # state; keep one prepared in the background so the copy is off
         # the request path (`_genesis_state` is never mutated, so the
-        # copier thread needs no lock).
+        # copier thread needs no lock). The copier starts lazily on the
+        # first reorg: chains that never reorg never pay for the
+        # thread.
         self._genesis_copies: "queue.Queue[State]" = queue.Queue(maxsize=1)
-        threading.Thread(target=self._prepare_copies, daemon=True).start()
+        self._copier_started = False
 
     def _prepare_copies(self) -> None:
         """Keep one spare copy of the genesis state ready."""
@@ -528,6 +530,9 @@ class EngineBackend:
 
     def _fresh_genesis_state(self) -> State:
         """Take the prepared genesis state copy, or copy synchronously."""
+        if not self._copier_started:
+            self._copier_started = True
+            threading.Thread(target=self._prepare_copies, daemon=True).start()
         try:
             return self._genesis_copies.get_nowait()
         except queue.Empty:
@@ -917,6 +922,10 @@ def verify_jwt(token: str, secret: bytes) -> bool:
 
 class _RpcHandler(BaseHTTPRequestHandler):
     """HTTP handler translating JSON-RPC requests to backend calls."""
+
+    # Keep-alive avoids a fresh TCP connection per request; responses
+    # always carry Content-Length, which HTTP/1.1 persistence requires.
+    protocol_version = "HTTP/1.1"
 
     backend: "EngineBackend"
     jwt_secret: Optional[bytes] = None

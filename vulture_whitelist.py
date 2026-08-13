@@ -229,3 +229,4 @@ GetPayloadResponse.blobs_bundle
 from ethereum_spec_tools.engine_server.server import _RpcHandler
 
 _RpcHandler.log_message
+_RpcHandler.protocol_version  # read by BaseHTTPRequestHandler
