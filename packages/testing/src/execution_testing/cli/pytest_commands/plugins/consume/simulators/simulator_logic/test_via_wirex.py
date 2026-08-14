@@ -39,6 +39,10 @@ from hive.client import Client
 
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer
+from execution_testing.exceptions import (
+    BlockException,
+    TransactionException,
+)
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import (
     FixtureEngineNewPayload,
@@ -131,6 +135,171 @@ def required_wire_bodies(chain: Chain) -> list[Block]:
     ]
 
 
+def required_wire_headers(chain: Chain) -> list[Block]:
+    """
+    Return the blocks whose headers must have traveled the wire.
+
+    Every block below the announced head, none exempted: a header can
+    never be derived from anything else, so a client that judged the
+    chain must have downloaded each one from the peer. The head is
+    exempt for the same reason as in `required_wire_bodies`: its
+    payload arrives through the Engine API.
+    """
+    return chain.blocks[:-1]
+
+
+HEADER_JUDGEABLE_INVALIDITIES: frozenset[
+    BlockException | TransactionException
+] = frozenset({BlockException.INCORRECT_EXCESS_BLOB_GAS})
+"""
+Declared invalidities a client can judge from headers alone.
+
+A chain whose declared invalidity sits in a statically checkable
+header field can be rejected during header validation, and geth does
+exactly that: it fetches the ancestor headers, fails the invalid one
+against its parent, and never asks for a single body (measured on
+`test_invalid_static_excess_blob_gas`, which it refuses with `links
+to previously rejected block` after being served two headers and no
+bodies). Requiring bodies for such a chain would fail a client for a
+legitimate shortcut, so the body requirement is dropped per declared
+exception class - never per client - and only for the classes listed
+here, with data. Everything else stays strict: an invalidity that
+lives in the transactions or takes execution to surface cannot be
+judged without the bodies, so their absence there is a finding.
+"""
+
+
+def declared_invalidities(
+    fixture: BlockchainEngineXFixture,
+) -> set[BlockException | TransactionException]:
+    """Return every exception the fixture's payloads declare."""
+    invalidities: set[BlockException | TransactionException] = set()
+    for payload in fixture.payloads:
+        error = payload.validation_error
+        if error is None:
+            continue
+        if isinstance(error, list):
+            invalidities.update(error)
+        else:
+            invalidities.add(error)
+    return invalidities
+
+
+EVIDENCE_GRACE_TIME = 0.25
+"""
+Seconds to let the peer's serving evidence catch up before a missing
+block fails the coverage check.
+
+The peer records a response as served only after its socket write
+succeeds, so a failed send never reads as service - but that ordering
+means the evidence lands moments after the client already has the
+data. A fast client can import the chain, answer the head poll and
+reach the check inside that window, so a miss is re-read once after
+this grace before it is believed. Blocks that arrived some other way
+stay caught: evidence that was never going to appear does not appear
+a quarter second later either.
+"""
+
+
+def assert_wire_coverage(
+    chain: Chain,
+    mock_peer: MockPeer,
+    outcome: str,
+    require_bodies: bool = True,
+) -> None:
+    """
+    Assert per block hash that the test's blocks traveled the wire.
+
+    Every block below the announced head must have had its header
+    served by this peer, and every such block whose body a client
+    cannot derive from the header alone its body too, block by block:
+    an aggregate count would let one downloaded block vouch for a
+    chain whose other blocks arrived some other way (a stale client
+    left running with the same genesis really does serve them, and
+    this check is what catches it). `outcome` names what the client
+    got right, so a failure reads as the exact gap it is: a correct
+    result reached off the wire.
+
+    `require_bodies` is False for chains whose declared invalidity a
+    client may judge from headers alone (see
+    `HEADER_JUDGEABLE_INVALIDITIES`); the headers stay required, since
+    even the shortcut cannot be taken over blocks the client never saw.
+
+    The evidence is cumulative per client, not per test: the test's
+    own blocks carry no per-test salt (the salt lives in the appended
+    trailer), so two tests of one group may declare byte-identical
+    chains, and the reused client re-syncs nothing for the second -
+    its blocks already traveled the wire during the first.
+    """
+
+    def missing_blocks(
+        required: list[Block], ever_served: set[bytes]
+    ) -> list[int]:
+        """Return the numbers of `required` blocks never served."""
+        return [
+            block.number
+            for block in required
+            if block.block_hash not in ever_served
+        ]
+
+    required_headers = required_wire_headers(chain)
+    required_bodies = required_wire_bodies(chain) if require_bodies else []
+    missing_headers = missing_blocks(
+        required_headers, mock_peer.header_hashes_ever_served
+    )
+    missing_bodies = missing_blocks(
+        required_bodies, mock_peer.body_hashes_ever_served
+    )
+    if missing_headers or missing_bodies:
+        time.sleep(EVIDENCE_GRACE_TIME)
+        missing_headers = missing_blocks(
+            required_headers, mock_peer.header_hashes_ever_served
+        )
+        missing_bodies = missing_blocks(
+            required_bodies, mock_peer.body_hashes_ever_served
+        )
+
+    statistics = mock_peer.statistics
+    prior_served = sum(
+        1
+        for block in required_bodies
+        if block.block_hash not in statistics.body_hashes_served
+        and block.block_hash in mock_peer.body_hashes_ever_served
+    )
+    if prior_served:
+        logger.info(
+            f"{prior_served} of {len(required_bodies)} required "
+            "body/bodies already traveled the wire during an earlier "
+            "test of this client (byte-identical chain content); the "
+            "wire-coverage evidence is cumulative per client"
+        )
+
+    complaints = []
+    if missing_headers:
+        complaints.append(
+            "the header(s) of block(s) "
+            f"{', '.join(str(n) for n in missing_headers)}"
+        )
+    if missing_bodies:
+        complaints.append(
+            "the non-empty body/bodies of block(s) "
+            f"{', '.join(str(n) for n in missing_bodies)}"
+        )
+    if complaints:
+        raise LoggedError(
+            f"The client {outcome}, but {' and '.join(complaints)} "
+            "never traveled this client's wire connection, so those "
+            "blocks were not verified over devp2p. Peer transcript: "
+            f"{statistics.transcript}"
+        )
+    if statistics.receipt_requests:
+        logger.warning(
+            f"Client made {statistics.receipt_requests} receipt "
+            "request(s), which this peer does not serve; the client "
+            "may not be executing the blocks it downloads."
+        )
+
+
 def test_blockchain_via_wirex(
     timing_data: TimingData,
     eth_rpc: EthRPC,
@@ -178,10 +347,13 @@ def test_blockchain_via_wirex(
     tests: the peer serves the chain as-is and the client passes by
     refusing it - `engine_newPayload` for the head must answer INVALID
     once the ancestry is available over devp2p, and a VALID that holds
-    fails the test. Only the fact of rejection is asserted: a devp2p
-    peer observes acceptance or rejection, not error causes, so
-    matching the fixture's specific exception over the wire is
-    deliberately left for later. Fixtures whose invalid block cannot
+    fails the test. Only the fact of rejection is asserted, never its
+    cause - a devp2p peer observes acceptance or rejection, not error
+    causes, so matching the fixture's specific exception over the wire
+    is deliberately left for later - and the verdict must have been
+    reached on the wire: the same per-hash coverage check the valid
+    path runs is applied to everything below the announced head, the
+    invalid block included. Fixtures whose invalid block cannot
     even be represented on the wire (declared hash inconsistent with
     the header) are skipped by the `chain` fixture. A rejection target
     below the reused client's head never reaches this function on that
@@ -362,6 +534,28 @@ def test_blockchain_via_wirex(
             f"served {statistics.headers_served} header(s) and "
             f"{statistics.bodies_served} body/bodies"
         )
+        # The verdict alone is not the test: it must have been reached
+        # on the sync path, over blocks this peer served. The invalid
+        # block sits below the announced trailer, so its transport is
+        # guaranteed by chain structure and asserted like any other
+        # ancestor's. Bodies are exempt only when the client may have
+        # judged the declared invalidity from headers alone; `any`
+        # rather than `all`, because a chain that might fail either
+        # way lets the client take the header shortcut.
+        header_judgeable = bool(
+            declared_invalidities(fixture) & HEADER_JUDGEABLE_INVALIDITIES
+        )
+        if header_judgeable:
+            logger.info(
+                "Not requiring bodies on the wire: the declared "
+                "invalidity is judgeable from the headers alone"
+            )
+        assert_wire_coverage(
+            chain,
+            mock_peer,
+            "rejected the invalid chain",
+            require_bodies=not header_judgeable,
+        )
         return
 
     def raise_if_rejected(payload_status: PayloadStatus | None) -> None:
@@ -458,45 +652,4 @@ def test_blockchain_via_wirex(
         f"{statistics.bodies_served} body/bodies in "
         f"{statistics.body_requests} request(s)"
     )
-    # Every non-derivable body below the announced head must have
-    # traveled the wire, block by block: an aggregate count would let
-    # one downloaded body vouch for a chain whose other bodies arrived
-    # some other way. The evidence is cumulative per client, not per
-    # test: valid chains carry no per-test salt, so two tests of one
-    # group may declare byte-identical chains, and the reused client
-    # re-syncs nothing for the second - its blocks already traveled
-    # the wire during the first.
-    required = required_wire_bodies(chain)
-    ever_served = mock_peer.body_hashes_ever_served
-    missing_bodies = [
-        block.number
-        for block in required
-        if block.block_hash not in ever_served
-    ]
-    prior_served = sum(
-        1
-        for block in required
-        if block.block_hash not in statistics.body_hashes_served
-        and block.block_hash in ever_served
-    )
-    if prior_served:
-        logger.info(
-            f"{prior_served} of {len(required)} required body/bodies "
-            "already traveled the wire during an earlier test of this "
-            "client (byte-identical chain content); the wire-coverage "
-            "evidence is cumulative per client"
-        )
-    if missing_bodies:
-        raise LoggedError(
-            "The client reached the expected head, but the non-empty "
-            "body/bodies of block(s) "
-            f"{', '.join(str(n) for n in missing_bodies)} never "
-            "traveled this client's wire connection, so those blocks "
-            "were not verified over devp2p."
-        )
-    if statistics.receipt_requests:
-        logger.warning(
-            f"Client made {statistics.receipt_requests} receipt request(s), "
-            "which this peer does not serve; the client may not be "
-            "executing the blocks it downloads."
-        )
+    assert_wire_coverage(chain, mock_peer, "reached the expected head")
