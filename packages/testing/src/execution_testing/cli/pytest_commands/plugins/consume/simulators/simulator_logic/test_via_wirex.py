@@ -97,6 +97,22 @@ def announced_payload(
     return fixture.sync_payload or fixture.payloads[-1]
 
 
+def expects_rejection(fixture: BlockchainEngineXFixture) -> bool:
+    """
+    Return whether the fixture passes by the client refusing it.
+
+    A chain containing an intentionally invalid payload must be judged
+    INVALID once its ancestry has arrived, and a declared Engine API
+    error code is itself a rejection: the client must refuse the head,
+    whether at the RPC layer or with an INVALID verdict, even when
+    every payload is semantically valid.
+    """
+    return (
+        any(not payload.valid() for payload in fixture.payloads)
+        or announced_payload(fixture).error_code is not None
+    )
+
+
 def required_wire_bodies(chain: Chain) -> list[Block]:
     """
     Return the blocks whose bodies must have traveled the wire.
@@ -137,7 +153,7 @@ def test_blockchain_via_wirex(
     1. Verify the client's genesis matches the group's, once per client.
     2. Deliver the announced head over the Engine API so the client
        knows which chain to sync to, and name it in a forkchoice
-       update. For an appended-class fixture that head is the sync
+       update. For a fixture carrying a sync payload that head is the
        trailer riding above the test's own chain, so every block the
        test author wrote is an ancestor the client must fetch from the
        peer.
@@ -167,12 +183,13 @@ def test_blockchain_via_wirex(
     matching the fixture's specific exception over the wire is
     deliberately left for later. Fixtures whose invalid block cannot
     even be represented on the wire (declared hash inconsistent with
-    the header) are skipped by the `chain` fixture. When the rejection
-    target sits below the reused client's head, the valid ancestry is
-    delivered over the Engine API instead of the wire, before the head
-    is announced and again at every re-announcement - the client's
-    refusal to walk its head backwards would otherwise starve the
-    verdict (see the comment at the ancestry block).
+    the header) are skipped by the `chain` fixture. A rejection target
+    below the reused client's head never reaches this function on that
+    client: the wirex `client` fixture hands such a test a fresh
+    client, because a client whose sync machinery refuses to walk its
+    head backwards would starve the verdict, and delivering the
+    ancestry over the Engine API instead would take the verdict off
+    the sync path this simulator exists to exercise.
     """
     head_payload = announced_payload(fixture)
     head_hash = head_payload.params[0].block_hash
@@ -197,10 +214,6 @@ def test_blockchain_via_wirex(
         finalized_block_hash=genesis_header.block_hash,
     )
 
-    # Whether the head sits below the reused client's own head, decided
-    # for rejection targets below and read by `announce`.
-    below_client_head = False
-
     def announce() -> PayloadStatus:
         """
         Tell the client which block to sync to.
@@ -209,49 +222,16 @@ def test_blockchain_via_wirex(
         client's verdict on the head: SYNCING while the ancestry is
         still traveling, VALID once imported, and INVALID as soon as
         the client has executed the ancestry and refused the chain.
-
-        No forkchoice update is sent for a head that sits below the
-        client's own head. Naming such a head only starts a sync the
-        client cannot finish, because its sync machinery refuses to
-        walk its head backwards, and that unfinishable sync is what
-        stops the ancestry from taking effect (see the rejection
-        block, which hands that ancestry over separately).
         """
         payload_status = engine_rpc.new_payload(
             *head_payload.params, version=head_payload.new_payload_version
         )
-        if not below_client_head:
-            engine_rpc.forkchoice_updated(
-                forkchoice_state=head_state,
-                payload_attributes=None,
-                version=head_payload.forkchoice_updated_version,
-            )
+        engine_rpc.forkchoice_updated(
+            forkchoice_state=head_state,
+            payload_attributes=None,
+            version=head_payload.forkchoice_updated_version,
+        )
         return payload_status
-
-    def deliver_ancestry() -> None:
-        """
-        Hand a rejection target's valid ancestors to the client over
-        the Engine API.
-
-        Only the head of a rejection chain is expected to be refused,
-        so every ancestor must come back VALID. A client that is busy
-        syncing answers for the payload without executing it, leaving
-        the head unjudgeable; the delivery is idempotent, so anything
-        but VALID is logged and retried by the caller once the client
-        has had time to settle.
-        """
-        for ancestor_payload in fixture.payloads[:-1]:
-            ancestor_status = engine_rpc.new_payload(
-                *ancestor_payload.params,
-                version=ancestor_payload.new_payload_version,
-            )
-            if ancestor_status.status != PayloadStatusEnum.VALID:
-                logger.warning(
-                    f"Client answered {ancestor_status.status} for the "
-                    f"valid ancestor "
-                    f"{ancestor_payload.params[0].block_hash} instead of "
-                    "executing it; the delivery will be repeated"
-                )
 
     def expected_rpc_refusal(error: JSONRPCError) -> bool:
         """
@@ -278,46 +258,7 @@ def test_blockchain_via_wirex(
         )
         return True
 
-    # A declared Engine API error code is itself a rejection: the
-    # client must refuse the head, whether over the RPC layer or with
-    # an INVALID verdict, even when every payload is semantically
-    # valid.
-    expect_rejection = (
-        any(not payload.valid() for payload in fixture.payloads)
-        or head_payload.error_code is not None
-    )
-
-    if expect_rejection:
-        with timing_data.time("Prepare rejection"):
-            # A rejection target below the reused client's head cannot
-            # reach it over devp2p: the sync machinery of geth-like
-            # clients refuses to walk its head backwards, so the
-            # ancestry never arrives and the head stays unjudgeable.
-            # Equal-height targets sync fine (the reused-client common
-            # case) and stay on the wire; only a strictly-below target
-            # has its valid ancestry handed over the Engine API.
-            #
-            # That hand-over happens here, before the head is
-            # announced, because an idle client executes each ancestor
-            # against its parent's state, while a client already
-            # syncing towards the head answers for the ancestor
-            # without executing it and leaves the head unjudgeable for
-            # good.
-            client_head_block = eth_rpc.get_block_by_number("latest")
-            client_head_number = (
-                int(client_head_block["number"], 16)
-                if client_head_block
-                else 0
-            )
-            below_client_head = chain.head.number < client_head_number
-            if below_client_head:
-                logger.info(
-                    f"Rejection target {chain.head.number} is below the "
-                    f"client head {client_head_number}; delivering the "
-                    f"{len(fixture.payloads) - 1} valid ancestor(s) over "
-                    "the Engine API instead of the wire"
-                )
-                deliver_ancestry()
+    expect_rejection = expects_rejection(fixture)
 
     announce_status: PayloadStatus | None = None
     with timing_data.time("Announce sync target"):
@@ -392,13 +333,6 @@ def test_blockchain_via_wirex(
                         # chain; a real peer would simply redial.
                         logger.warning("Peer dropped mid-rejection; redialing")
                         mock_peer.reconnect(chain)
-                    if below_client_head:
-                        # A whole announcement interval has passed, so a
-                        # delivery the client answered without executing
-                        # takes effect on this attempt. It goes first so
-                        # that the re-announcement's own answer already
-                        # reflects it.
-                        deliver_ancestry()
                     logger.info("Re-announcing the invalid sync target")
                     try:
                         announce()
