@@ -407,27 +407,30 @@ class T8N(Load):
             self.pay_block_rewards(U256(self.state_reward), block_env)
 
         if self.fork.has_inclusion_list_satisfied:
-            block_output.inclusion_list_satisfied = (
-                (
-                    self.fork.check_inclusion_list_transactions(
-                        block_env,
-                        block_output,
-                        tuple(
-                            self.fork.encode_transaction(
-                                self.convert_transaction(tx)
-                            )
-                            for tx in self.txs
-                        ),
-                        tuple(
-                            self.fork.encode_transaction(
-                                self.convert_transaction(tx)
-                            )
-                            for tx in self.inclusion_list_txs
-                        ),
-                    )
+            if self.inclusion_list_txs is None:
+                raise Exception(
+                    f"the `{self.fork.hardfork.short_name}` fork spec tracks "
+                    "`inclusion_list_satisfied`, so inclusion list "
+                    "transactions are required; a block without an inclusion "
+                    "list must pass an empty one"
                 )
-                if self.inclusion_list_txs is not None
-                else True
+            block_output.inclusion_list_satisfied = (
+                self.fork.check_inclusion_list_transactions(
+                    block_env,
+                    block_output,
+                    tuple(
+                        self.fork.encode_transaction(
+                            self.convert_transaction(tx)
+                        )
+                        for tx in self.txs
+                    ),
+                    tuple(
+                        self.fork.encode_transaction(
+                            self.convert_transaction(tx)
+                        )
+                        for tx in self.inclusion_list_txs
+                    ),
+                )
             )
 
         if self.fork.has_withdrawal:

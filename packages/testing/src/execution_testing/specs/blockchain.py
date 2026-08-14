@@ -891,11 +891,15 @@ class BlockchainTest(BaseTest):
         )
         env = env.set_fork_requirements(fork)
         txs = block.txs[:]
-        inclusion_list_txs = (
-            block.inclusion_list_txs[:]
-            if block.inclusion_list_txs is not None
-            else None
-        )
+        inclusion_list_txs: List[Transaction] | None = None
+        if block.inclusion_list_txs is not None:
+            inclusion_list_txs = block.inclusion_list_txs[:]
+        elif fork.engine_new_payload_inclusion_list_transactions():
+            # These forks always carry an inclusion list, so a block that
+            # does not declare one has an empty inclusion list rather than a
+            # missing one. Tests unrelated to FOCIL therefore do not have to
+            # spell out `inclusion_list_txs=[]` on every block.
+            inclusion_list_txs = []
         # Deduplicate by identity: a tx reused in both the block body and
         # the inclusion list is executed only once, so the gas-limit budget
         # below must count it once. Otherwise `calculate_max_gas_limit`
