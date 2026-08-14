@@ -598,16 +598,14 @@ class EthRPC(BaseRPC):
         ).result_or_raise()
 
     def get_block_receipts(
-        self, block: BlockNumberType | Hash = "latest"
+        self, block_hash: Hash
     ) -> List[dict[str, Any]] | None:
-        """
-        `eth_getBlockReceipts`: every receipt in a block, in one call.
-        Returns receipts in transaction order, or None if the block is unknown.
-        """
-        identifier = hex(block) if isinstance(block, int) else str(block)
-        logger.info(f"Requesting all receipts for block {identifier}..")
+        """`eth_getBlockReceipts`: Returns every receipt in a block."""
+        logger.info(f"Requesting all receipts for block {block_hash}..")
         return self.post_request(
-            request=RPCCall(method="getBlockReceipts", params=[identifier])
+            request=RPCCall(
+                method="getBlockReceipts", params=[f"{block_hash}"]
+            )
         ).result_or_raise()
 
     def get_block_by_hash(

@@ -438,44 +438,48 @@ class ClientBackend:
     def _fetch_receipts(
         self,
         txs: List[Transaction],
-        block_hash: Optional[Hash] = None,
+        block_hash: Hash,
     ) -> List[TransactionReceipt]:
         """
-        Fetch a receipt for every transaction, in transaction order.
+        Fetch all transaction receipts in order.
 
-        Given a `block_hash`, one `eth_getBlockReceipts` fetches the whole
-        block's receipts at once. Returned receipts are matched to
-        transactions by hash rather than byposition, so the block-level
-        response may arrive in any order. Any receipt it did not include is
-        fetched individually with a batched`eth_getTransactionReceipt`;
-        an error is raised only if a receipt is still missing after
-        that fallback.
+        Use `eth_getBlockReceipts` for the block, then fetch any receipt it
+        did not return with a batched `eth_getTransactionReceipt` fallback.
+        Raise an error if any receipt remains missing.
         """
         if not txs:
             return []
-        receipt_data_by_hash: Dict[Hash, Any] = {}
-        if block_hash is not None:
-            block_receipts = self.eth_rpc.get_block_receipts(block_hash)
-            for receipt_data in block_receipts or []:
-                tx_hash = receipt_data.get("transactionHash")
-                if tx_hash is not None:
-                    receipt_data_by_hash[Hash(tx_hash)] = receipt_data
+        block_receipts: List[dict[str, Any]] = []
+        try:
+            block_receipts = self.eth_rpc.get_block_receipts(block_hash) or []
+        except JSONRPCError as error:
+            logger.warning(
+                f"eth_getBlockReceipts failed for block {block_hash}: {error}"
+            )
+
+        receipt_data_by_hash: Dict[Hash, dict[str, Any]] = {}
+        for receipt_data in block_receipts:
+            tx_hash = receipt_data.get("transactionHash")
+            if tx_hash is not None:
+                receipt_data_by_hash[Hash(tx_hash)] = receipt_data
+
         missing = [
             tx.hash for tx in txs if tx.hash not in receipt_data_by_hash
         ]
         if missing:
+            logger.warning(
+                f"Block receipts covered {len(txs) - len(missing)} of "
+                f"{len(txs)} transactions; fetching the remaining "
+                f"{len(missing)} in a batched fallback"
+            )
             fetched = self.eth_rpc.get_transaction_receipts(missing)
             for tx_hash, fetched_data in zip(missing, fetched, strict=True):
-                if fetched_data is not None:
-                    receipt_data_by_hash[tx_hash] = fetched_data
-        still_missing = [
-            tx.hash for tx in txs if tx.hash not in receipt_data_by_hash
-        ]
-        if still_missing:
-            raise RuntimeError(
-                f"No receipt found for {len(still_missing)} of {len(txs)} "
-                f"transactions, first missing: {still_missing[0]}"
-            )
+                if fetched_data is None:
+                    raise RuntimeError(
+                        f"No receipt found for transaction {tx_hash}"
+                    )
+                receipt_data_by_hash[tx_hash] = fetched_data
+
         return [
             TransactionReceipt.model_validate(receipt_data_by_hash[tx.hash])
             for tx in txs
