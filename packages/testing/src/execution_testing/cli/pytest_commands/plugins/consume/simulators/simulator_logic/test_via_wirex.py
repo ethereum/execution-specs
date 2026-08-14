@@ -393,7 +393,7 @@ def _run_sync_target(
             genesis_block = eth_rpc.get_block_by_number(0)
             if genesis_block is None:
                 raise LoggedError(f"{prefix}Client returned no genesis block")
-            if genesis_block["hash"] != str(genesis_header.block_hash):
+            if genesis_block.hash != genesis_header.block_hash:
                 raise GenesisBlockMismatchExceptionError(
                     expected_header=genesis_header,
                     got_genesis_block=genesis_block,
@@ -752,9 +752,9 @@ def _run_sync_target(
         head_block = eth_rpc.get_block_by_number("latest")
         if head_block is None:
             raise LoggedError(f"{prefix}Client returned no head block")
-        if head_block["hash"] != str(expected_head):
+        if head_block.hash != expected_head:
             raise LoggedError(
-                f"{prefix}Client head is {head_block['hash']}, expected "
+                f"{prefix}Client head is {head_block.hash}, expected "
                 f"{expected_head}"
             )
 

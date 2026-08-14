@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 import pytest
 
 from execution_testing.base_types import Address, Hash
+from execution_testing.rpc import LiveBlock
 from execution_testing.test_types import (
     EOA,
     GasFee,
@@ -42,11 +43,19 @@ class FakeEthRPC:
 
     def get_block_by_hash(
         self, block_hash: Hash, full_txs: bool = True
-    ) -> Dict[str, Any]:
+    ) -> LiveBlock:
         """Return the block header fields used by the context."""
         del full_txs
         self.block_requests.append(block_hash)
-        return {"baseFeePerGas": hex(7), "miner": str(MINER)}
+        return LiveBlock(
+            number=1,
+            hash=block_hash,
+            timestamp=0,
+            state_root=Hash(0),
+            gas_limit=30_000_000,
+            fee_recipient=MINER,
+            base_fee_per_gas=7,
+        )
 
 
 def signed_txs(count: int) -> List[Transaction]:
