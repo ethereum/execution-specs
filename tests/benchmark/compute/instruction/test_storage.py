@@ -559,47 +559,103 @@ def test_nested_frame_state_access(
         case _:
             raise ValueError(f"Unsupported opcode: {opcode}")
 
-    epilogue = Op.REVERT(0, 0) if revert else Bytecode()
+    # A leaf that runs out of gas returns no data, unlike one that reverts.
+    epilogue = (
+        Op.REVERT(
+            0,
+            32,
+            # gas accounting
+            old_memory_size=0,
+            new_memory_size=32,
+        )
+        if revert
+        else Op.RETURN(
+            0,
+            32,
+            # gas accounting
+            old_memory_size=0,
+            new_memory_size=32,
+        )
+    )
     leaf_code = (
         WhileGas(body=body, fork=fork, extra_gas=epilogue.gas_cost(fork))
         + epilogue
     )
     leaf_address = pre.deploy_contract(code=leaf_code)
 
-    descend = Op.MSTORE(0, Op.SUB(Op.CALLDATALOAD(0), 1)) + Op.POP(
-        Op.CALL(
+    descend = Op.MSTORE(0, Op.SUB(Op.CALLDATALOAD(0), 1)) + Conditional(
+        condition=Op.CALL(
             gas=Op.GAS,
             address=Op.ADDRESS,
             args_offset=0,
             args_size=32,
             address_warm=True,
-        )
+        ),
+        if_false=Op.REVERT(0, 0),
+    )
+    invoke_leaf = Op.CALL(
+        gas=Op.GAS, address=leaf_address, address_warm=True
+    ) + Conditional(
+        condition=Op.RETURNDATASIZE, if_false=Op.REVERT(Op.PUSH0, Op.PUSH0)
     )
 
     frame_code = Conditional(
-        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
-        if_true=Op.POP(
-            Op.CALL(gas=Op.GAS, address=leaf_address, address_warm=True)
-        ),
-        if_false=descend,
+        condition=Op.CALLDATALOAD(0),
+        if_true=descend,
+        if_false=invoke_leaf,
     )
     entry_address = pre.deploy_contract(code=frame_code)
 
-    if depth is None:
-        frame_cost = frame_code.gas_cost(fork)
-        gas = min(tx_gas_limit, gas_benchmark_value)
-        depth = 0
-        while gas > frame_cost + leaf_code.gas_cost(fork):
-            gas -= frame_cost
-            gas -= gas // 64
-            depth += 1
+    frame_gas = frame_code.execution_cost(fork)
+    leaf_gas = leaf_code.gas_cost(fork)
+    leaf_state_gas = leaf_code.state_cost(fork)
+
+    def deepest_frame(execution_gas: int, reservoir_gas: int) -> int:
+        """Return the deepest frame that can still afford the leaf call."""
+        leaf_call_gas = frame_gas + math.ceil(
+            (leaf_gas - reservoir_gas) * 64 / 63
+        )
+        frames = 0
+        while True:
+            forwarded_gas = execution_gas - frame_gas
+            forwarded_gas -= forwarded_gas // 64
+            if forwarded_gas < leaf_call_gas:
+                return frames
+            execution_gas = forwarded_gas
+            frames += 1
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"\xff" * 32,
+        return_cost_deducted_prior_execution=True,
+    )
+
+    txs = []
+    remaining_gas = gas_benchmark_value
+    while remaining_gas > 0:
+        execution_gas = min(tx_gas_limit, remaining_gas)
+        remaining_gas -= execution_gas
+        reservoir_gas = (
+            leaf_state_gas
+            if fork.state_gas_reservoir_enabled()
+            and execution_gas == tx_gas_limit
+            else 0
+        )
+        txs.append(
+            Transaction(
+                to=entry_address,
+                gas_limit=execution_gas + reservoir_gas,
+                data=Hash(
+                    deepest_frame(execution_gas - intrinsic_gas, reservoir_gas)
+                    if depth is None
+                    else depth
+                ),
+                sender=pre.fund_eoa(),
+            )
+        )
 
     benchmark_test(
         target_opcode=opcode,
         skip_gas_used_validation=True,
-        tx=Transaction(
-            to=entry_address,
-            data=Hash(depth),
-            sender=pre.fund_eoa(),
-        ),
+        expected_receipt_status=1,
+        blocks=[Block(txs=txs)],
     )

@@ -13,6 +13,7 @@ Supported Opcodes:
 - SELFDESTRUCT
 """
 
+import math
 from typing import Any
 
 import pytest
@@ -268,19 +269,39 @@ def test_nested_call_chain(
     gas_benchmark_value: int,
 ) -> None:
     """Benchmark nested call frames that each enter a different contract."""
-    gas = min(tx_gas_limit, gas_benchmark_value)
+    # Overwriting the slot keeps the tail cheaper than filling a fresh one.
+    tail = Op.SSTORE(0, 2, original_value=1, current_value=1, new_value=2)
+    tail_address = pre.deploy_contract(code=tail, storage={0: 1})
 
-    address = pre.deploy_contract(code=Op.STOP)
-    link = Op.POP(Op.CALL(gas=Op.GAS, address=address, address_warm=True))
-    while gas > link.gas_cost(fork):
-        gas -= link.gas_cost(fork)
-        gas -= gas // 64
+    # Every level is a distinct account, so the first traversal pays cold
+    # access all the way down.
+    address = tail_address
+    link = Op.POP(Op.CALL(gas=Op.GAS, address=address, address_warm=False))
+    tail_call_gas = link.gas_cost(fork) + math.ceil(
+        tail.gas_cost(fork) * 64 / 63
+    )
+
+    gas = min(tx_gas_limit, gas_benchmark_value)
+    gas -= fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True
+    )
+    while True:
+        forwarded_gas = gas - link.gas_cost(fork)
+        forwarded_gas -= forwarded_gas // 64
+        if forwarded_gas < tail_call_gas:
+            break
+        gas = forwarded_gas
         address = pre.deploy_contract(code=link)
-        link = Op.POP(Op.CALL(gas=Op.GAS, address=address, address_warm=True))
+        link = Op.POP(Op.CALL(gas=Op.GAS, address=address, address_warm=False))
 
     benchmark_test(
         target_opcode=Op.CALL,
-        code_generator=JumpLoopGenerator(attack_block=link),
+        skip_gas_used_validation=True,
+        post={tail_address: Account(storage={0: 2})},
+        tx=Transaction(
+            to=pre.deploy_contract(code=WhileGas(body=link, fork=fork)),
+            sender=pre.fund_eoa(),
+        ),
     )
 
 
@@ -289,35 +310,57 @@ def test_nested_creates(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
+    tx_gas_limit: int,
+    gas_benchmark_value: int,
     out_of_gas: bool,
 ) -> None:
-    """
-    Benchmark chains of nested CREATE frames.
+    """Benchmark chains of nested CREATE frames."""
+    initcode_size = 32
 
-    The initcode copies itself into memory and hands that copy to CREATE,
-    so every frame it opens runs the same code and creates in turn, down
-    to the depth the 63/64 rule can still fund a CREATE at. Nothing is
-    returned, so the accounts are left empty and no code deposit is paid.
+    copy_self = Op.CODECOPY(
+        dest_offset=0,
+        offset=0,
+        size=Op.CODESIZE,
+        # gas accounting
+        data_size=initcode_size,
+        old_memory_size=0,
+        new_memory_size=initcode_size,
+    )
 
-    Under `out_of_gas` the descent runs until a frame cannot pay for its
-    CREATE, and the driver until the transaction is spent, so every
-    account the chain made is thrown away. Otherwise both stop one level
-    short of that and all of them are committed instead.
-    """
-    copy_self = Op.CODECOPY(dest_offset=0, offset=0, size=Op.CODESIZE)
-    create_self = Op.POP(Op.CREATE(value=0, offset=0, size=Op.CODESIZE))
+    create_self = Op.POP(
+        Op.CREATE(
+            value=0,
+            offset=0,
+            size=Op.CODESIZE,
+            # gas accounting
+            init_code_size=initcode_size,
+            old_memory_size=initcode_size,
+            new_memory_size=initcode_size,
+        )
+    )
 
     initcode = copy_self + create_self
     if not out_of_gas:
-        # Twice a level's cost leaves each frame enough to reach its own
-        # STOP after the CREATE it decides not to make.
         initcode = copy_self + Conditional(
             condition=Op.GT(Op.GAS, 2 * initcode.gas_cost(fork)),
             if_true=create_self,
         )
 
+    assert len(initcode) <= initcode_size, "initcode outgrew its padding"
+    initcode += Op.STOP * (initcode_size - len(initcode))
+
     setup = Om.MSTORE(bytes(initcode), 0)
-    launch = Op.POP(Op.CREATE(value=0, offset=0, size=len(initcode)))
+    launch = Op.POP(
+        Op.CREATE(
+            value=0,
+            offset=0,
+            size=initcode_size,
+            # gas accounting
+            init_code_size=initcode_size,
+            old_memory_size=initcode_size,
+            new_memory_size=initcode_size,
+        )
+    )
 
     if out_of_gas:
         benchmark_test(
@@ -325,15 +368,36 @@ def test_nested_creates(
             code_generator=JumpLoopGenerator(setup=setup, attack_block=launch),
         )
     else:
+        driver_address = pre.deploy_contract(
+            code=setup + WhileGas(body=launch, fork=fork)
+        )
+        # Every level spends fifteen times more state gas than execution
+        # gas, so a single transaction asking for the whole budget goes
+        # deeper than several could: the state gas the chain spends counts
+        # against the budget whether a reservoir or execution gas paid it.
+        gas_limit = min(tx_gas_limit, gas_benchmark_value)
+        if fork.state_gas_reservoir_enabled():
+            gas_limit = gas_benchmark_value
+
         benchmark_test(
             target_opcode=Op.CREATE,
             skip_gas_used_validation=True,
-            tx=Transaction(
-                to=pre.deploy_contract(
-                    code=setup + WhileGas(body=launch, fork=fork)
-                ),
-                sender=pre.fund_eoa(),
-            ),
+            post={
+                compute_create_address(
+                    address=driver_address, nonce=1
+                ): Account(nonce=2, code=b""),
+            },
+            blocks=[
+                Block(
+                    txs=[
+                        Transaction(
+                            to=driver_address,
+                            gas_limit=gas_limit,
+                            sender=pre.fund_eoa(),
+                        )
+                    ]
+                )
+            ],
         )
 
 
