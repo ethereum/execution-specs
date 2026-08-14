@@ -20,18 +20,17 @@ The control plane and the data plane are deliberately separate:
 Because only the blocks before the announced head are guaranteed to
 travel over devp2p - whether a client also re-fetches the head's body
 from a peer is an implementation choice, and measured clients go both
-ways - the filler gives every eligible engine_x chain one extra empty
-block, placed by the chain's own structure. A fully valid chain gets
-it *appended*, out-of-chain in the fixture's `syncPayload` field: this
-simulator announces that trailer instead of the test's own head, which
-makes every one of the test's blocks an ancestor whose header and body
-a full-syncing client must fetch from the peer, on every client, by
-chain structure rather than client courtesy. A single expected-invalid
-block gets the extra block *prepended* in-chain instead (tagged with
-the `sync` phase), giving the sync a reason to start below the block
-the client is expected to refuse. Chains still too short to put any
-block on the wire - single-block fixtures the extra block cannot
-survive - are skipped here, where the limitation actually lives.
+ways - the filler appends one extra empty block to every eligible
+engine_x chain, valid and invalid heads alike, out-of-chain in the
+fixture's `syncPayload` field. This simulator announces that trailer
+instead of the test's own head, which makes every one of the test's
+blocks an ancestor whose header and body a full-syncing client must
+fetch from the peer, on every client, by chain structure rather than
+client courtesy. The fixtures without a trailer - chains asserting an
+Engine API error code, chains marked ineligible at fill time, and
+corpora filled with `--no-sync-block` - announce their own head
+instead. Chains still too short to put any block on the wire are
+skipped here, where the limitation actually lives.
 """
 
 import time
@@ -88,9 +87,12 @@ def announced_payload(
     The appended sync payload when the fixture carries one - the
     trailer exists precisely to be announced, so that every payload of
     the test's own chain is an ancestor the client must fetch from the
-    peer - and the chain's own head otherwise (prepend-class fixtures
-    must announce the test's block: their assertion is the client's
-    judgement of it).
+    peer - and the chain's own head otherwise. The fixtures without a
+    trailer announce their own head by design: a chain asserting an
+    Engine API error code is refused at the announcement itself, so
+    announcing anything above it would unmake the test, and marked or
+    `--no-sync-block` chains carry nothing above the author's head to
+    announce.
     """
     return fixture.sync_payload or fixture.payloads[-1]
 
