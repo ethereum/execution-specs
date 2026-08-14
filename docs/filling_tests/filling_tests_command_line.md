@@ -107,6 +107,36 @@ This flag automatically performs a two-phase execution:
     uv run fill --generate-all-formats --output=fixtures.tar.gz tests/shanghai/
     ```
 
+## The Sync Block
+
+By default the filler appends one framework-built empty block above every blockchain test's chain **in `blockchain_test_engine_x` fixtures only**, stored out-of-chain in the fixture's `syncPayload` field. `--no-sync-block` disables it:
+
+```console
+uv run fill --no-sync-block --generate-all-formats tests/cancun/
+```
+
+A consumer that makes a client download and execute a test's own blocks over devp2p needs the client to actually sync, and two facts about the protocol decide what such a consumer can guarantee: a client only starts a sync when the announced head's parent is unknown to it, and only blocks *below* the announced head must travel devp2p - the head's payload is always delivered through `engine_newPayload`, and whether a client also re-fetches it from a peer is an implementation choice. Appending the extra block satisfies both at once, for any chain the test declares:
+
+```text
+G → T₁ … Tₙ → S*
+```
+
+(`*` marks the block a sync-based consumer announces.) Every block the author wrote becomes an ancestor of that head, so a syncing client must fetch and execute all of them through its sync pipeline - by chain structure rather than by client courtesy.
+
+This holds for chains whose head is intentionally invalid too. Nothing valid can be built on such a block, and the appended block does not try to be: it names the rejected block as its parent and is only a sync target. The client answers the announcement with `SYNCING`, fetches the rejected block from a peer, rejects it in its sync path, and then answers `INVALID` for the announced head with `latestValidHash` naming the last valid ancestor. Without the extra block the invalid block would be the announced head and would only ever arrive through the Engine API.
+
+Because the appended block lives out-of-chain - the same representation [`consume sync`](../running_tests/running.md#sync)'s fixture format has always used - the fixture's `engineNewPayloads`, `lastblockhash` and post state keep describing exactly the chain the test author wrote: no shifted block numbers, no adjusted timestamps, no fee compensation, and byte-identical payloads to the same test's other fixture formats. Consumers that replay payloads through the Engine API can ignore the field entirely.
+
+The block is real, built through the same machinery as every other block, and carries a per-test digest in its `extra_data` so that every announced head is a block the client has never seen - even across the byte-identical chains of two tests sharing a pre-allocation group.
+
+Three kinds of chain get no appended block, and all of them fill as exactly the author's chain instead of being skipped, so no test ever leaves the fixture release (sync-based consumers skip chains that cannot sync at consume time):
+
+- a chain asserting an `engine_api_error_code`, whose whole point is the client's answer to the announcement of one of its *own* payloads. A block announced above it would take that announcement away.
+- a chain marked as unable to carry one. See [`no_sync_block_state_context`](../writing_tests/test_markers.md#pytestmarkno_sync_block_state_context) and [`no_sync_block_timestamp_headroom`](../writing_tests/test_markers.md#pytestmarkno_sync_block_timestamp_headroom).
+- a chain whose head pins blob fields no child block can derive a fee context from. Only an intentionally invalid head can: every other header's blob fields are derived by the fork itself. Such a head either overflows the sum of excess blob gas and blob gas used, or (from Osaka on, where [EIP-7918](https://eips.ethereum.org/EIPS/eip-7918) makes a child's excess blob gas depend on its parent's blob gas price) names an excess blob gas whose price series would never terminate. No client can derive a child from such a header either - it rejects the head on the same arithmetic - and the bound depends on the fork's own blob math, so the filler decides this itself instead of requiring a marker.
+
+Benchmark tests never carry the block - a framework block above the chain would distort their per-block measurements - so a combined fill needs no extra options.
+
 ## Debugging the `t8n` Command
 
 The `--evm-dump-dir` flag can be used to dump the inputs and outputs of every call made to the `t8n` command for debugging purposes, see [Debugging Transition Tools](./debugging_t8n_tools.md).

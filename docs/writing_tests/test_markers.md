@@ -371,6 +371,18 @@ Examples of this include:
 - Contracts having zero-nonce
 - Deploying a contract to a hard-coded address
 
+### `@pytest.mark.no_sync_block_state_context`
+
+This marker is used to mark tests whose chain leaves behind a state or header context the empty block the filler [appends above it](../filling_tests/filling_tests_command_line.md#the-sync-block) cannot be built on, for example a deliberately sabotaged system contract that every subsequent block calls, or a head whose pinned gas limit admits no valid child block.
+
+A test so marked fills as exactly the author's chain, with no `syncPayload` in its `blockchain_test_engine_x` fixture. Without the marker the fill refuses loudly and names it, rather than emitting a fixture whose sync block cannot be built.
+
+### `@pytest.mark.no_sync_block_timestamp_headroom`
+
+This marker is used to mark tests whose head pins a timestamp at or next to the uint64 ceiling (`2**64 - 1`), for example the EIP-4788 beacon-root tests that exercise exactly that boundary. The [appended sync block](../filling_tests/filling_tests_command_line.md#the-sync-block) takes its parent's timestamp plus the default increment, so above such a head its timestamp would not fit uint64 and no client could parse the fixture's `syncPayload`.
+
+A test so marked fills as exactly the author's chain, without the appended sync block; the fill refuses loudly (naming this marker) when an unmarked test hits the boundary. Timestamps are semantic - fork activation, `TIMESTAMP` expectations - and are never clamped or shifted.
+
 ### `@pytest.mark.inclusion_test`
 
 This marker is used to mark tests that verify whether a transaction can be included in a block. The transaction under test must be the last transaction of the last block.
