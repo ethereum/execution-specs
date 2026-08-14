@@ -83,10 +83,12 @@ def test_split_preserves_every_tx_in_order() -> None:
 
 def test_tx_at_the_limit_gets_its_own_block() -> None:
     """A tx past the budget but within the limit is isolated, not dropped."""
-    small, huge = _tx(21_000), _tx(BLOCK_GAS_LIMIT)
-    out = _split(Block(txs=[small, huge, small]))
+    first, huge, last = _tx(21_000), _tx(BLOCK_GAS_LIMIT), _tx(21_000)
+    out = _split(Block(txs=[first, huge, last]))
     assert [len(block.txs) for block in out] == [1, 1, 1]
+    assert out[0].txs[0] is first
     assert out[1].txs[0] is huge
+    assert out[2].txs[0] is last
 
 
 def test_tx_past_the_limit_raises() -> None:
