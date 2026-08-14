@@ -75,6 +75,8 @@ STRUCT_LOG_TRACER_CONFIG = {
     "disableStorage": True,
 }
 
+DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT = "1h"
+
 
 def _normalize_opcode_name(name: str) -> str | None:
     """
@@ -190,6 +192,7 @@ class ClientBackend:
         fork: Fork | TransitionFork,
         debug_rpc: DebugRPC | None = None,
         extract_opcode_count: bool = False,
+        opcode_count_trace_timeout: str = DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT,
     ) -> None:
         """Initialize with the RPC clients and the session fork."""
         self.testing_rpc = testing_rpc
@@ -198,6 +201,7 @@ class ClientBackend:
         self.fork = fork
         self.debug_rpc = debug_rpc
         self.extract_opcode_count = extract_opcode_count
+        self.opcode_count_trace_timeout = opcode_count_trace_timeout
         # Sticky fallback to struct logs (besu has no JS tracer).
         self._js_tracer_unsupported = False
         self.exception_mapper = ClientBackendExceptionMapper()
@@ -358,7 +362,8 @@ class ClientBackend:
         """Raw ``debug_traceBlockByHash`` call; exceptions propagate."""
         assert self.debug_rpc is not None
         return self.debug_rpc.trace_block_by_hash(
-            str(block_hash), tracer_config
+            str(block_hash),
+            {"timeout": self.opcode_count_trace_timeout, **tracer_config},
         )
 
     def _payload_attributes(
