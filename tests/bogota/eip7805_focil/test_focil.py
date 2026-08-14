@@ -1,34 +1,19 @@
-"""Tests EIP-7805 FOCIL execution-layer inclusion-list handling."""
-
-from typing import Literal, TypedDict
+"""Tests EIP-7805 FOCIL handling of IL txs included in the block body."""
 
 import pytest
 from execution_testing import (
-    AccessList,
+    Account,
     Alloc,
     AuthorizationTuple,
     Block,
     BlockchainTestFiller,
-    Environment,
     Fork,
-    Hash,
     Op,
+    RecipientType,
     Transaction,
-    add_kzg_version,
-)
-from execution_testing.test_types.transaction_types import (
-    TransactionDefaults,
 )
 
-from ethereum.forks.amsterdam.transactions import VERSIONED_HASH_VERSION_KZG
-
-from .helpers import (
-    IncludedBlockTx,
-    PendingInclusionListTx,
-    bal_gas_headroom,
-    build_block,
-)
-from .spec import Spec, ref_spec_7805
+from .spec import ref_spec_7805
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7805.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7805.version
@@ -38,689 +23,195 @@ pytestmark = [
     pytest.mark.blockchain_test_engine_only,
 ]
 
-# Number of zero-byte calldata bytes used to differentiate the
-# second tx's gas cost from a simple transfer.
-SECOND_TX_ZERO_BYTES = 50
-# Remaining block gas headroom in the same-sender test.
-SAME_SENDER_BLOCK_HEADROOM = 7_500
 
-PendingSpecValueKey = Literal[
-    "simple_transfer_gas",
-    "one_nonzero_byte_gas",
-    "remaining_gas",
-    "remaining_gas_plus_zero_byte_gas",
-    "simple_transfer_gas_times_gas_price",
-    "simple_transfer_gas_times_gas_price_minus_one",
-]
-
-
-class PendingSpecDataRequired(TypedDict):
-    """Required fields for a pending IL tx parametrization entry."""
-
-    actual_gas_used: int | PendingSpecValueKey
-
-
-class PendingSpecData(PendingSpecDataRequired, total=False):
-    """Optional fields for a pending IL tx parametrization entry."""
-
-    nonce: int
-    sender_label: str
-    sender_balance: int | PendingSpecValueKey
-
-
+@pytest.mark.parametrize("order", ["equal", "inverse"])
 def test_block_with_same_sender_included_il_txs_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    order: str,
 ) -> None:
     """Including two IL txs from one sender keeps the payload valid."""
-    calc = fork.transaction_intrinsic_cost_calculator()
-    simple_transfer_gas = calc()
-    second_tx_gas = calc(
-        calldata=b"\x00" * SECOND_TX_ZERO_BYTES,
-    )
-    block_gas_limit = (
-        simple_transfer_gas + second_tx_gas + SAME_SENDER_BLOCK_HEADROOM
-    )
-    built_block = build_block(
-        pre,
-        fork=fork,
-        block_gas_limit=block_gas_limit,
-        included_block_tx_specs=(
-            IncludedBlockTx(
-                actual_gas_used=simple_transfer_gas,
-                nonce=0,
-                is_inclusion_list_tx=True,
-                sender_label="alice",
-            ),
-            IncludedBlockTx(
-                actual_gas_used=second_tx_gas,
-                nonce=1,
-                is_inclusion_list_tx=True,
-                sender_label="alice",
-            ),
-        ),
-        pending_inclusion_list_tx_specs=(),
-    )
-    assert built_block.remaining_gas == SAME_SENDER_BLOCK_HEADROOM
+    alice = pre.fund_eoa()
+    bob = pre.nonexistent_account()
+
+    included_il_tx_0 = Transaction(sender=alice, to=bob, value=1)
+    included_il_tx_1 = Transaction(sender=alice, to=bob, value=2)
+
+    block_txs = [included_il_tx_0, included_il_tx_1]
+    inclusion_list_txs = [included_il_tx_0, included_il_tx_1]
+    if order == "inverse":
+        inclusion_list_txs.reverse()
+
     blockchain_test(
-        genesis_environment=Environment(
-            gas_limit=built_block.effective_gas_limit
-        ),
         pre=pre,
-        post={},
+        post={bob: Account(balance=3)},
         blocks=[
             Block(
-                txs=built_block.block_txs,
-                inclusion_list_txs=(built_block.inclusion_list_txs),
+                txs=block_txs,
+                inclusion_list_txs=inclusion_list_txs,
+                expected_inclusion_list_satisfied=True,
             )
         ],
     )
 
 
-def test_block_with_reverting_included_il_tx_is_valid(
+@pytest.mark.parametrize("excluded_position", ["start", "middle", "end"])
+def test_block_with_same_sender_missing_il_txs_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    excluded_position: str,
 ) -> None:
-    """
-    Include an IL tx that calls a reverting contract.
+    """Including two IL txs from one sender keeps the payload valid."""
+    alice = pre.fund_eoa()
+    bob = pre.nonexistent_account()
 
-    The tx reverts during execution but is present in the block body,
-    so the inclusion list check is satisfied.
-    """
-    reverting_contract = pre.deploy_contract(
-        code=Op.REVERT(0, 0),
-    )
-    sender = pre.fund_eoa(amount=10**18)
-    revert_tx = Transaction(
-        sender=sender,
-        to=reverting_contract,
-        gas_limit=100_000,
-    )
+    included_il_tx_0 = Transaction(sender=alice, to=bob, value=1)
+    included_il_tx_1 = Transaction(sender=alice, to=bob, value=2)
+
+    block_txs = [included_il_tx_0, included_il_tx_1]
+    inclusion_list_txs = [included_il_tx_0, included_il_tx_1]
+
+    excluded_il_tx_0 = Transaction(sender=alice, to=bob, value=3)
+    match excluded_position:
+        case "start":
+            inclusion_list_txs.insert(0, excluded_il_tx_0)
+        case "middle":
+            inclusion_list_txs.insert(1, excluded_il_tx_0)
+        case "end":
+            inclusion_list_txs.insert(2, excluded_il_tx_0)
+        case _:
+            raise ValueError(f"unknown position: {excluded_position}")
+
     blockchain_test(
-        genesis_environment=Environment(
-            gas_limit=200_000 + bal_gas_headroom(fork)
-        ),
         pre=pre,
-        post={},
+        post={bob: Account(balance=3)},
         blocks=[
             Block(
-                txs=[revert_tx],
-                inclusion_list_txs=[revert_tx],
+                txs=block_txs,
+                inclusion_list_txs=inclusion_list_txs,
+                expected_inclusion_list_satisfied=False,
             )
         ],
     )
 
 
+@pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize(
-    ("pending_specs_data", "expected_status"),
+    "scenario",
     [
-        pytest.param(
-            (),
-            None,
-            id="valid_with_empty_pending_il",
-        ),
-        pytest.param(
-            ({"actual_gas_used": "remaining_gas_plus_zero_byte_gas"},),
-            None,
-            id="valid_with_pending_il_txs_that_do_not_fit",
-        ),
-        pytest.param(
-            (
-                {
-                    "actual_gas_used": "simple_transfer_gas",
-                    "nonce": 1,
-                    "sender_label": "bob",
-                },
-            ),
-            None,
-            id="valid_with_pending_il_txs_that_are_invalid",
-        ),
-        pytest.param(
-            (
-                {
-                    "actual_gas_used": "simple_transfer_gas",
-                    "sender_label": "poor",
-                    "sender_balance": 0,
-                },
-            ),
-            None,
-            id="valid_with_pending_il_txs_that_fit_but_sender_cannot_afford",
-        ),
-        pytest.param(
-            (
-                {
-                    "actual_gas_used": "one_nonzero_byte_gas",
-                    "sender_balance": "simple_transfer_gas_times_gas_price",
-                },
-            ),
-            None,
-            id="valid_with_pending_il_tx_unaffordable_due_to_calldata",
-        ),
-        pytest.param(
-            ({"actual_gas_used": "simple_transfer_gas"},),
-            Spec.INCLUSION_LIST_UNSATISFIED_STATUS,
-            id="unsatisfied_with_appendable_pending_il_tx",
-        ),
-        pytest.param(
-            (
-                {
-                    "actual_gas_used": "simple_transfer_gas",
-                    "nonce": 1,
-                    "sender_label": "invalid",
-                },
-                {
-                    "actual_gas_used": "simple_transfer_gas",
-                    "sender_label": "valid",
-                },
-            ),
-            Spec.INCLUSION_LIST_UNSATISFIED_STATUS,
-            id="unsatisfied_with_mixed_valid_and_invalid_pending_il_txs",
-        ),
-        pytest.param(
-            ({"actual_gas_used": "remaining_gas"},),
-            Spec.INCLUSION_LIST_UNSATISFIED_STATUS,
-            id="unsatisfied_with_pending_il_tx_that_exactly_fits_gas",
-        ),
-        pytest.param(
-            (
-                {
-                    "actual_gas_used": "simple_transfer_gas",
-                    "sender_label": "exact",
-                    "sender_balance": "simple_transfer_gas_times_gas_price",
-                },
-            ),
-            Spec.INCLUSION_LIST_UNSATISFIED_STATUS,
-            id="unsatisfied_with_pending_il_tx_sender_exactly_affordable",
-        ),
-        pytest.param(
-            (
-                {
-                    "actual_gas_used": "simple_transfer_gas",
-                    "sender_label": "almost",
-                    "sender_balance": (
-                        "simple_transfer_gas_times_gas_price_minus_one"
-                    ),
-                },
-            ),
-            None,
-            id="valid_with_pending_il_tx_sender_one_wei_short",
-        ),
+        "call_reverts",
+        "call_invalid",
+        "creation_init_reverts",
+        "value_to_new_account_oog",
+        "delegate_to_new_account_oog",
+        "creation_address_collision",
     ],
 )
-def test_block_status_depends_on_pending_inclusion_list(
+def test_block_with_failing_included_il_tx_is_valid(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
-    pending_specs_data: tuple[PendingSpecData, ...],
-    expected_status: str | None,
+    scenario: str,
 ) -> None:
     """
-    A block is valid unless a pending IL tx is still appendable.
+    An IL tx that fails during execution is still counted as included.
 
-    All scenarios share the same block body (one non-IL tx and one
-    IL tx, both simple transfers). The pending IL set varies: empty,
-    too large, invalid nonce, unaffordable, calldata-unaffordable,
-    appendable, or a mix of invalid and appendable transactions.
-    Only scenarios with an appendable pending IL tx should produce
-    INCLUSION_LIST_UNSATISFIED.
-
-    The actual IL satisfaction check happens in the Amsterdam fork after
-    executing the block body: missing IL txs are re-validated against the
-    post-state and the remaining gas headroom.
+    Each scenario places one transaction in both the block body and the
+    inclusion list. The transaction is a valid, includable tx that
+    nonetheless fails while executing: it reverts, hits an invalid opcode,
+    fails or collides on contract creation, or runs out of gas on the
+    top-frame surcharge charged after the intrinsic cost. Because the tx is
+    present in the block body, the inclusion list check is satisfied and the
+    block stays valid regardless of the execution failure.
     """
-    calc = fork.transaction_intrinsic_cost_calculator()
-    simple_transfer_gas = calc()
-    one_nonzero_byte_gas = calc(calldata=b"\x01")
-    zero_byte_gas = calc(calldata=b"\x00") - simple_transfer_gas
-    gas_price = TransactionDefaults.gas_price
+    sender = pre.fund_eoa()
+    post: dict = {sender: Account(nonce=1)}
 
-    # Block fits 2 included simple transfers plus room for a
-    # calldata-bearing pending tx and a small buffer.
-    remaining_headroom = zero_byte_gas
-    block_gas_limit = (
-        2 * simple_transfer_gas + one_nonzero_byte_gas + remaining_headroom
-    )
-    remaining_gas = one_nonzero_byte_gas + remaining_headroom
-
-    included_block_tx_specs = (
-        IncludedBlockTx(
-            actual_gas_used=simple_transfer_gas,
-            is_inclusion_list_tx=False,
-        ),
-        IncludedBlockTx(
-            actual_gas_used=simple_transfer_gas,
-            is_inclusion_list_tx=True,
-        ),
-    )
-
-    resolved_values: dict[PendingSpecValueKey, int] = {
-        "simple_transfer_gas": simple_transfer_gas,
-        "one_nonzero_byte_gas": one_nonzero_byte_gas,
-        "remaining_gas": remaining_gas,
-        "remaining_gas_plus_zero_byte_gas": remaining_gas + zero_byte_gas,
-        "simple_transfer_gas_times_gas_price": (
-            simple_transfer_gas * gas_price
-        ),
-        "simple_transfer_gas_times_gas_price_minus_one": (
-            simple_transfer_gas * gas_price - 1
-        ),
-    }
-    pending_specs_list: list[PendingInclusionListTx] = []
-    for pending_spec_data in pending_specs_data:
-        actual_gas_used = pending_spec_data["actual_gas_used"]
-        sender_balance = pending_spec_data.get("sender_balance", 10**18)
-        pending_specs_list.append(
-            PendingInclusionListTx(
-                actual_gas_used=(
-                    resolved_values[actual_gas_used]
-                    if isinstance(actual_gas_used, str)
-                    else actual_gas_used
-                ),
-                nonce=pending_spec_data.get("nonce", 0),
-                sender_label=pending_spec_data.get("sender_label"),
-                sender_balance=(
-                    resolved_values[sender_balance]
-                    if isinstance(sender_balance, str)
-                    else sender_balance
+    match scenario:
+        case "call_reverts":
+            contract = pre.deploy_contract(code=Op.REVERT(0, 0))
+            failing_il_tx = Transaction(sender=sender, to=contract)
+        case "call_invalid":
+            contract = pre.deploy_contract(code=Op.INVALID)
+            failing_il_tx = Transaction(sender=sender, to=contract)
+        case "creation_init_reverts":
+            failing_il_tx = Transaction(
+                sender=sender, to=None, data=Op.REVERT(0, 0)
+            )
+            # Init code reverted, so no contract is deployed.
+            post[failing_il_tx.created_contract] = Account.NONEXISTENT
+        case "value_to_new_account_oog":
+            # Gas covers the intrinsic cost (so the tx is includable) but
+            # not the top-frame ``NEW_ACCOUNT`` surcharge for creating the
+            # empty recipient, so execution runs out of gas.
+            recipient = pre.nonexistent_account()
+            intrinsic = fork.transaction_intrinsic_cost_calculator()()
+            top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+                sends_value=True,
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+            )
+            top_frame_state = fork.transaction_top_frame_state_gas(
+                sends_value=True,
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+            )
+            failing_il_tx = Transaction(
+                sender=sender,
+                to=recipient,
+                value=1,
+                gas_limit=(
+                    intrinsic + top_frame_regular + top_frame_state - 1
                 ),
             )
-        )
-    pending_specs = tuple(pending_specs_list)
-
-    built_block = build_block(
-        pre,
-        fork=fork,
-        block_gas_limit=block_gas_limit,
-        included_block_tx_specs=included_block_tx_specs,
-        pending_inclusion_list_tx_specs=pending_specs,
-    )
-    assert built_block.remaining_gas == remaining_gas
-    assert expected_status in (
-        None,
-        Spec.INCLUSION_LIST_UNSATISFIED_STATUS,
-    )
-    blockchain_test(
-        genesis_environment=Environment(
-            gas_limit=built_block.effective_gas_limit,
-        ),
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=built_block.block_txs,
-                inclusion_list_txs=(built_block.inclusion_list_txs),
+            # Out of gas rolls back the value transfer to the new account.
+            post[recipient] = Account.NONEXISTENT
+        case "delegate_to_new_account_oog":
+            # A type-4 tx whose authority is an empty account: the
+            # top-frame ``AUTH_PER_EMPTY_ACCOUNT`` charge is left one gas
+            # short, so the authorization phase runs out of gas.
+            authority = pre.fund_eoa(amount=0)
+            delegate_target = pre.deploy_contract(code=Op.STOP)
+            authorization = AuthorizationTuple(
+                address=delegate_target, signer=authority
             )
-        ],
-    )
-
-
-def test_block_with_pending_blob_il_tx_is_valid(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Blob transactions in the IL may be omitted from the block body.
-
-    FOCIL only re-checks appendability for transactions that the execution
-    layer can validate from the block's post-state and gas headroom. Blob txs
-    are therefore ignored by the EL-side IL satisfaction pass.
-    """
-    calc = fork.transaction_intrinsic_cost_calculator()
-    simple_transfer_gas = calc()
-
-    sender = pre.fund_eoa(amount=10**18)
-    recipient = pre.fund_eoa()
-    blob_tx = Transaction(
-        sender=sender,
-        to=recipient,
-        gas_limit=simple_transfer_gas,
-        max_priority_fee_per_gas=1,
-        max_fee_per_gas=TransactionDefaults.gas_price,
-        max_fee_per_blob_gas=fork.min_base_fee_per_blob_gas(),
-        blob_versioned_hashes=add_kzg_version(
-            [Hash(1)],
-            VERSIONED_HASH_VERSION_KZG[0],
-        ),
-    )
+            intrinsic = fork.transaction_intrinsic_cost_calculator()(
+                authorization_list_or_count=1
+            )
+            top_frame_regular = fork.transaction_top_frame_gas_calculator()(
+                authorizations=[authorization],
+            )
+            top_frame_state = fork.transaction_top_frame_state_gas(
+                authorizations=[authorization],
+            )
+            failing_il_tx = Transaction(
+                sender=sender,
+                to=sender,
+                authorization_list=[authorization],
+                gas_limit=(
+                    intrinsic + top_frame_regular + top_frame_state - 1
+                ),
+            )
+            # Out of gas rolls back the authorization, leaving the empty
+            # authority undelegated.
+            post[authority] = Account.NONEXISTENT
+        case "creation_address_collision":
+            # The creation target already has non-empty storage, so the
+            # contract creation exceptionally aborts (EIP-7610) and the
+            # pre-existing account is left untouched.
+            failing_il_tx = Transaction(sender=sender, to=None, data=Op.STOP)
+            collision_address = failing_il_tx.created_contract
+            pre[collision_address] = Account(storage={0x01: 0x01})
+            post[collision_address] = Account(storage={0x01: 0x01})
+        case _:
+            raise ValueError(f"unknown scenario: {scenario}")
 
     blockchain_test(
-        genesis_environment=Environment(
-            gas_limit=simple_transfer_gas * 4 + bal_gas_headroom(fork)
-        ),
         pre=pre,
-        post={},
+        post=post,
         blocks=[
             Block(
-                txs=[],
-                inclusion_list_txs=[blob_tx],
-            )
-        ],
-    )
-
-
-def test_block_with_invalid_signature_pending_il_tx_is_valid(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    A pending IL tx with an invalid signature may be omitted.
-
-    FOCIL reuses normal transaction validation for missing IL transactions.
-    If the signature is invalid, the tx is not appendable and omission is
-    allowed.
-    """
-    sender = pre.fund_eoa(amount=10**18)
-    recipient = pre.fund_eoa()
-    invalid_signature_tx = Transaction(
-        sender=sender,
-        to=recipient,
-        gas_limit=21_000,
-        v=0,
-        r=0,
-        s=0,
-    )
-
-    blockchain_test(
-        genesis_environment=Environment(
-            gas_limit=21_000 * 4 + bal_gas_headroom(fork)
-        ),
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=[],
-                inclusion_list_txs=[invalid_signature_tx],
-            )
-        ],
-    )
-
-
-def test_block_with_intrinsic_gas_too_low_pending_il_tx_is_valid(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    A pending IL tx with gas limit below intrinsic gas may be omitted.
-
-    Even with enough remaining block gas, a transaction whose declared gas
-    limit is below its intrinsic cost is invalid and therefore does not make
-    the payload IL-unsatisfied.
-    """
-    simple_transfer_gas = fork.transaction_intrinsic_cost_calculator()()
-    sender = pre.fund_eoa(amount=10**18)
-    recipient = pre.fund_eoa()
-    intrinsic_gas_too_low_tx = Transaction(
-        sender=sender,
-        to=recipient,
-        gas_limit=simple_transfer_gas - 1,
-    )
-
-    blockchain_test(
-        genesis_environment=Environment(
-            gas_limit=simple_transfer_gas * 4 + bal_gas_headroom(fork)
-        ),
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=[],
-                inclusion_list_txs=[intrinsic_gas_too_low_tx],
-            )
-        ],
-    )
-
-
-def test_unsatisfied_when_block_tx_funds_pending_il_sender(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    A preceding block tx funds the pending IL tx's sender.
-
-    Verify that FOCIL validates pending IL txs against the
-    post-execution state. A value transfer in the block gives the
-    pending IL tx's sender enough balance to afford its tx, so the
-    block is unsatisfied.
-    """
-    calc = fork.transaction_intrinsic_cost_calculator()
-    simple_transfer_gas = calc()
-    # A transfer that carries value costs more intrinsic gas than an empty one
-    # on this fork, so alice's funding tx must be sized (and paid for) with
-    # `sends_value=True`. Bob's IL tx carries no value and keeps the plain
-    # cost.
-    value_transfer_gas = calc(sends_value=True)
-    gas_price = TransactionDefaults.gas_price
-
-    value_to_fund_bob = simple_transfer_gas * gas_price
-    alice = pre.fund_eoa(
-        amount=value_transfer_gas * gas_price + value_to_fund_bob,
-    )
-    bob = pre.fund_eoa(amount=0)
-    recipient = pre.fund_eoa()
-
-    alice_tx = Transaction(
-        sender=alice,
-        to=bob,
-        gas_limit=value_transfer_gas,
-        value=value_to_fund_bob,
-    )
-    bob_il_tx = Transaction(
-        sender=bob,
-        to=recipient,
-        gas_limit=simple_transfer_gas,
-    )
-
-    block_gas_limit = simple_transfer_gas * 5 + bal_gas_headroom(fork)
-    blockchain_test(
-        genesis_environment=Environment(
-            gas_limit=block_gas_limit,
-        ),
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=[alice_tx],
-                inclusion_list_txs=[bob_il_tx],
-            )
-        ],
-    )
-
-
-@pytest.mark.parametrize(
-    ("authorization_nonce", "pending_il_nonce"),
-    [
-        pytest.param(0, 0, id="valid_authorization_omits_nonce_zero_il"),
-        pytest.param(
-            0,
-            1,
-            id="valid_authorization_requires_nonce_one_il",
-        ),
-        pytest.param(
-            1,
-            0,
-            id="invalid_authorization_keeps_nonce_zero_il_appendable",
-        ),
-        pytest.param(
-            1,
-            1,
-            id="invalid_authorization_omits_nonce_one_il",
-        ),
-    ],
-)
-def test_pending_il_depends_on_7702_authorization_nonce_effect(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    authorization_nonce: int,
-    pending_il_nonce: int,
-) -> None:
-    """
-    EIP-7702 authorization handling changes whether a pending IL tx is valid.
-
-    A valid authorization from Bob increments Bob's nonce during block
-    execution, so Bob's pending nonce-0 tx becomes invalid while a nonce-1 tx
-    becomes appendable. If the authorization is invalid, Bob's nonce stays at
-    0 and the opposite IL outcome applies.
-    """
-    calc = fork.transaction_intrinsic_cost_calculator()
-    simple_transfer_gas = calc()
-    set_code_gas = calc(authorization_list_or_count=1)
-
-    alice = pre.fund_eoa(amount=10**18)
-    bob = pre.fund_eoa(amount=10**18)
-    delegated_contract = pre.deploy_contract(Op.STOP)
-    recipient = pre.fund_eoa()
-    bob_recipient = pre.fund_eoa()
-
-    set_code_tx = Transaction(
-        sender=alice,
-        to=recipient,
-        gas_limit=set_code_gas,
-        authorization_list=[
-            AuthorizationTuple(
-                signer=bob,
-                address=delegated_contract,
-                nonce=authorization_nonce,
-            )
-        ],
-    )
-    bob_il_tx = Transaction(
-        sender=bob,
-        nonce=pending_il_nonce,
-        to=bob_recipient,
-        gas_limit=simple_transfer_gas,
-    )
-
-    # Leave headroom after the set-code tx so the pending IL tx always
-    # fits the block. The satisfied/unsatisfied outcome then depends only
-    # on Bob's post-execution nonce, not on remaining gas.
-    block_gas_limit = (
-        set_code_gas + simple_transfer_gas * 2 + bal_gas_headroom(fork)
-    )
-    blockchain_test(
-        genesis_environment=Environment(gas_limit=block_gas_limit),
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=[set_code_tx],
-                inclusion_list_txs=[bob_il_tx],
-            )
-        ],
-    )
-
-
-def test_unsatisfied_with_contract_creating_pending_il_tx(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    A valid, appendable contract-creating pending IL tx is unsatisfied.
-
-    Contract creation has a different intrinsic gas cost than a plain
-    transfer, so this exercises the EL's appendability re-validation for a
-    `to=None` transaction.
-    """
-    calc = fork.transaction_intrinsic_cost_calculator()
-    create_gas = calc(contract_creation=True)
-
-    sender = pre.fund_eoa(amount=10**18)
-    create_tx = Transaction(
-        sender=sender,
-        to=None,
-        gas_limit=create_gas,
-    )
-
-    block_gas_limit = create_gas * 2 + bal_gas_headroom(fork)
-    blockchain_test(
-        genesis_environment=Environment(gas_limit=block_gas_limit),
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=[],
-                inclusion_list_txs=[create_tx],
-            )
-        ],
-    )
-
-
-@pytest.mark.parametrize(
-    "tx_type",
-    [
-        pytest.param(0, id="legacy"),
-        pytest.param(1, id="access_list_2930"),
-        pytest.param(2, id="eip1559"),
-    ],
-)
-def test_unsatisfied_with_typed_pending_il_tx(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    tx_type: int,
-) -> None:
-    """
-    An appendable pending IL tx of any non-blob type is unsatisfied.
-
-    The EL re-validates missing IL transactions using normal transaction
-    validation, so a valid, appendable transaction makes the block
-    INCLUSION_LIST_UNSATISFIED regardless of its type. Blob (type 3) and
-    set-code (type 4) transactions have their own dedicated tests.
-    """
-    calc = fork.transaction_intrinsic_cost_calculator()
-
-    sender = pre.fund_eoa(amount=10**18)
-    recipient = pre.fund_eoa()
-
-    if tx_type == 1:
-        access_list = [AccessList(address=recipient, storage_keys=[])]
-        gas_limit = calc(access_list=access_list)
-        il_tx = Transaction(
-            ty=1,
-            sender=sender,
-            to=recipient,
-            gas_limit=gas_limit,
-            access_list=access_list,
-            gas_price=TransactionDefaults.gas_price,
-        )
-    elif tx_type == 2:
-        gas_limit = calc()
-        il_tx = Transaction(
-            ty=2,
-            sender=sender,
-            to=recipient,
-            gas_limit=gas_limit,
-            max_fee_per_gas=TransactionDefaults.max_fee_per_gas,
-            max_priority_fee_per_gas=(
-                TransactionDefaults.max_priority_fee_per_gas
-            ),
-        )
-    else:
-        gas_limit = calc()
-        il_tx = Transaction(
-            ty=0,
-            sender=sender,
-            to=recipient,
-            gas_limit=gas_limit,
-            gas_price=TransactionDefaults.gas_price,
-        )
-
-    block_gas_limit = gas_limit * 2 + bal_gas_headroom(fork)
-    blockchain_test(
-        genesis_environment=Environment(gas_limit=block_gas_limit),
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=[],
-                inclusion_list_txs=[il_tx],
+                txs=[failing_il_tx],
+                inclusion_list_txs=[failing_il_tx],
+                expected_inclusion_list_satisfied=True,
             )
         ],
     )
