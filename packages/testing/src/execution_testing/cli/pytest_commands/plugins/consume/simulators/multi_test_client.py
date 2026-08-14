@@ -79,6 +79,27 @@ class MultiTestClientManager:
         self.clients[group_identifier] = client
         logger.info(f"Registered client for group {group_identifier}")
 
+    def discard_client(self, group_identifier: str) -> None:
+        """
+        Stop and forget a group's client so the next request for the
+        group starts a fresh one under the same identifier.
+
+        The test tracker is untouched: the group's completed tests
+        stay counted, and the replacement client registered after this
+        call is the one stopped when the group completes.
+        """
+        client = self.clients.pop(group_identifier, None)
+        if client is None:
+            return
+        logger.info(f"🛑 Discarding client for group {group_identifier}")
+        try:
+            client.stop()
+        except Exception as e:
+            logger.error(
+                f"Error stopping discarded client for group "
+                f"{group_identifier}: {e}"
+            )
+
     def mark_test_completed(self, group_identifier: str, test_id: str) -> None:
         """
         Mark a test as completed and trigger cleanup.
@@ -320,8 +341,7 @@ def _per_test_reporting(
     hive_test.register_multi_test_client(client)
 
 
-@pytest.fixture(scope="function")
-def client(
+def group_client(
     multi_test_hive_test: HiveTest,
     multi_test_client_manager: MultiTestClientManager,
     fixture: BlockchainEngineXFixture,
@@ -334,8 +354,10 @@ def client(
     """
     Get or create a multi-test client for this pre-allocation group.
 
-    Called for each test, but reuses clients across tests that
-    share the same pre-allocation group.
+    The body of the `client` fixture, callable so a simulator with its
+    own replacement policy (`consume wirex` discards a client whose
+    head sits above a rejection target) can wrap it in an overriding
+    fixture instead of duplicating the lifecycle logic.
     """
     group_identifier = make_group_identifier(
         fixture.pre_hash, client_type.name
@@ -398,6 +420,35 @@ def client(
         multi_test_client_manager.mark_test_completed(
             group_identifier, test_id
         )
+
+
+@pytest.fixture(scope="function")
+def client(
+    multi_test_hive_test: HiveTest,
+    multi_test_client_manager: MultiTestClientManager,
+    fixture: BlockchainEngineXFixture,
+    client_type: ClientType,
+    environment: dict,
+    client_genesis: dict,
+    total_timing_data: "TimingData",
+    request: pytest.FixtureRequest,
+) -> Generator[Client, None, None]:
+    """
+    Provide the multi-test client for this pre-allocation group.
+
+    Called for each test, but reuses clients across tests that
+    share the same pre-allocation group.
+    """
+    yield from group_client(
+        multi_test_hive_test,
+        multi_test_client_manager,
+        fixture,
+        client_type,
+        environment,
+        client_genesis,
+        total_timing_data,
+        request,
+    )
 
 
 @pytest.fixture(scope="function")
