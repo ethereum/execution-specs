@@ -269,29 +269,11 @@ class RefundTypes(Enum):
     AUTHORIZATION_EXISTING_AUTHORITY = auto()
 
 
-MEMOIZED_FORK_METHODS = ("gas_costs",)
-"""
-Names of fork ``classmethod``s that are memoized per fork.
-
-Every override of these names anywhere in the fork/EIP hierarchy is wrapped in
-a per-fork cache by `BaseForkMeta`, so the ``super()`` chain that assembles the
-return value runs once per fork instead of once per call. This matters because
-each EIP layer rebuilds the value with `dataclasses.replace`, and forks late in
-the chain stack a dozen such layers.
-
-A name may only be added here if the method:
-
-- is a ``classmethod`` taking no arguments other than ``cls``;
-- is a pure function of the fork, with no dependence on call-site state; and
-- returns an immutable value.
-
-The last condition is the load-bearing one: callers share a single object, so a
-mutable return value would let one caller corrupt every later one.
-"""
-
-
 class BaseForkMeta(ABCMeta):
     """Metaclass for BaseFork."""
+
+    MEMOIZED_FORK_METHODS = ("gas_costs",)
+    """fork ``classmethod``s that are memoized per fork."""
 
     def __new__(
         mcs,
@@ -303,27 +285,21 @@ class BaseForkMeta(ABCMeta):
         """
         Create the fork class, memoizing `MEMOIZED_FORK_METHODS`.
 
-        Wrapping happens here rather than at each definition site so that the
-        *most-derived* override is the one that caches: `Fork.gas_costs()`
-        resolves through the MRO to the last EIP that overrode it, and only a
-        cache on that override can return before the ``super()`` chain runs.
-
-        Each override keeps its own cache, keyed on the fork it was called
-        with. A cache is therefore never shared between two overrides, so a
-        half-assembled value from the middle of a ``super()`` chain cannot be
-        handed out as the final one.
+        Wrapping every override here, rather than at each definition site,
+        means the most-derived one caches, keyed on the fork it was called
+        with, so the ``super()`` chain runs once per fork.
         """
-        for method_name in MEMOIZED_FORK_METHODS:
+        for method_name in mcs.MEMOIZED_FORK_METHODS:
             method = namespace.get(method_name)
             if not isinstance(method, classmethod):
                 continue
             function = method.__func__
             if getattr(function, "__isabstractmethod__", False):
-                # The abstract declaration on `BaseFork` has no value to cache.
+                # Leave `BaseFork`'s declarations visible to `abc`.
                 continue
-            # `lru_cache` returns an `_lru_cache_wrapper`, which typeshed
-            # does not model as a plain function, so `classmethod` cannot
-            # infer the descriptor signature from it.
+            # typeshed models `lru_cache` as returning an
+            # `_lru_cache_wrapper`, not a plain function, so `classmethod`
+            # cannot infer the descriptor signature from it.
             cached = cast(
                 Callable[..., Any], lru_cache(maxsize=None)(function)
             )
