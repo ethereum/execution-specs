@@ -111,8 +111,18 @@ def test_beacon_root_contract_calls(
     [
         (0x0C, True),  # twelve
         (2**32, True),  # arbitrary
-        (2**64 - 2, True),  # near-max
-        (2**64 - 1, True),  # max
+        # The (near-)maximal heads leave no uint64 room for a block
+        # above them, so no sync block can be appended to their chains.
+        pytest.param(
+            2**64 - 2,  # near-max
+            True,
+            marks=pytest.mark.no_sync_block_timestamp_headroom,
+        ),
+        pytest.param(
+            2**64 - 1,  # max
+            True,
+            marks=pytest.mark.no_sync_block_timestamp_headroom,
+        ),
         # TODO: Update t8n to un marshal > 64-bit int
         # Exception: failed to evaluate: ERROR(10): failed un marshaling stdin
         # (2**64, False),  # overflow
@@ -209,8 +219,18 @@ def test_calldata_lengths(
     [
         (12, 12),  # twelve
         (2**32, 2**32),  # arbitrary
-        (2**64 - 2, 2**64 - 2),  # near-max
-        (2**64 - 1, 2**64 - 1),  # max
+        # The (near-)maximal heads leave no uint64 room for a block
+        # above them, so no sync block can be appended to their chains.
+        pytest.param(
+            2**64 - 2,  # near-max
+            2**64 - 2,
+            marks=pytest.mark.no_sync_block_timestamp_headroom,
+        ),
+        pytest.param(
+            2**64 - 1,  # max
+            2**64 - 1,
+            marks=pytest.mark.no_sync_block_timestamp_headroom,
+        ),
     ],
     indirect=["beacon_root"],
 )

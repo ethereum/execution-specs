@@ -42,13 +42,17 @@ class SystemContractTestType(StrEnum):
 
     def param(self) -> Any:
         """Return the parameter for the test."""
-        return pytest.param(
-            self,
-            id=self.value,
-            marks=pytest.mark.exception_test
-            if self != SystemContractTestType.GAS_LIMIT
-            else [],
-        )
+        marks = []
+        if self != SystemContractTestType.GAS_LIMIT:
+            # The error modes leave the system contract deliberately
+            # broken in the chain's canonical state, and every block
+            # after the fork calls it, so the sync block the filler
+            # would append above the chain cannot execute.
+            marks = [
+                pytest.mark.exception_test,
+                pytest.mark.no_sync_block_state_context,
+            ]
+        return pytest.param(self, id=self.value, marks=marks)
 
 
 class ContractAddressHasBalance(StrEnum):
@@ -201,7 +205,14 @@ def generate_system_contract_deploy_test(
                 pytest.param(DeploymentTestType.DEPLOY_ON_FORK_BLOCK),
                 pytest.param(
                     DeploymentTestType.DEPLOY_AFTER_FORK,
-                    marks=[pytest.mark.exception_test]
+                    # When empty code fails the block, the chain ends
+                    # at the fork with the system contract still
+                    # undeployed, and the sync block the filler would
+                    # append above it cannot execute either.
+                    marks=[
+                        pytest.mark.exception_test,
+                        pytest.mark.no_sync_block_state_context,
+                    ]
                     if fail_on_empty_code
                     else [],
                 ),

@@ -252,6 +252,22 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "no_sync_block_state_context: Marks a test whose chain leaves behind "
+        "a state or header context the appended sync block cannot be built "
+        "on (e.g. a deliberately sabotaged system contract every block "
+        "calls, or a head whose pinned gas limit admits no valid child); "
+        "the test fills without the appended block, as exactly the author's "
+        "chain.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "no_sync_block_timestamp_headroom: Marks a test whose head pins a "
+        "timestamp so close to the uint64 ceiling that no block fits above "
+        "it; the test fills without the appended sync block, as exactly the "
+        "author's chain.",
+    )
+    config.addinivalue_line(
+        "markers",
         "fixture_format_id: ID used to describe the fixture format.",
     )
     config.addinivalue_line(
