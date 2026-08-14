@@ -5,6 +5,10 @@ from typing import cast
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.devp2p.chain import Block, Chain
+from execution_testing.exceptions import (
+    BlockException,
+    TransactionException,
+)
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import (
     FixtureEngineNewPayload,
@@ -13,7 +17,9 @@ from execution_testing.fixtures.blockchain import (
 
 from ..simulators.simulator_logic.test_via_wirex import (
     announced_payload,
+    declared_invalidities,
     required_wire_bodies,
+    required_wire_headers,
 )
 from ..simulators.wirex.conftest import sync_chain_payloads
 
@@ -165,3 +171,58 @@ class TestRequiredWireBodies:
         """
         chain = _chain([_block(1, empty=False), _block(2, empty=True)])
         assert [b.number for b in required_wire_bodies(chain)] == [1]
+
+
+@dataclass
+class _StubErrorPayload:
+    """The one payload field the invalidity census reads."""
+
+    validation_error: object
+
+
+class TestDeclaredInvalidities:
+    """The census the per-class body downgrade is decided by."""
+
+    def test_single_and_listed_exceptions_are_collected(self) -> None:
+        """One declared exception or a pipe-list both count."""
+        header_level = BlockException.INCORRECT_EXCESS_BLOB_GAS
+        transaction_level = TransactionException.INTRINSIC_GAS_TOO_LOW
+        fixture = _fixture(
+            [
+                cast(FixtureEngineNewPayload, _StubErrorPayload(None)),
+                cast(FixtureEngineNewPayload, _StubErrorPayload(header_level)),
+                cast(
+                    FixtureEngineNewPayload,
+                    _StubErrorPayload([transaction_level]),
+                ),
+            ]
+        )
+        assert declared_invalidities(fixture) == {
+            header_level,
+            transaction_level,
+        }
+
+    def test_a_valid_chain_declares_nothing(self) -> None:
+        """No payload carries an error, so the census is empty."""
+        fixture = _fixture(
+            [cast(FixtureEngineNewPayload, _StubErrorPayload(None))]
+        )
+        assert declared_invalidities(fixture) == set()
+
+
+class TestRequiredWireHeaders:
+    """Which headers the wire-coverage check demands."""
+
+    def test_every_block_below_the_head_is_owed(self) -> None:
+        """Empty body or not, a header can never be derived."""
+        blocks = [
+            _block(1, empty=True),
+            _block(2, empty=False),
+            _block(3, empty=True),
+        ]
+        assert required_wire_headers(_chain(blocks)) == blocks[:-1]
+
+    def test_the_announced_head_is_exempt(self) -> None:
+        """The head's payload arrives through the Engine API."""
+        chain = _chain([_block(1, empty=False), _block(2, empty=False)])
+        assert [b.number for b in required_wire_headers(chain)] == [1]
