@@ -110,9 +110,9 @@ def test_blockchain_via_engine(
             logger.info("Calling getBlockByNumber to get genesis block...")
             genesis_block = eth_rpc.get_block_by_number(0)
             assert genesis_block is not None, "genesis_block is None"
-            if genesis_block["hash"] != str(genesis_header.block_hash):
+            if genesis_block.hash != genesis_header.block_hash:
                 expected = genesis_header.block_hash
-                got = genesis_block["hash"]
+                got = genesis_block.hash
                 logger.fail(
                     f"Genesis block hash mismatch. "
                     f"Expected: {expected}, Got: {got}"

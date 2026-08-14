@@ -31,6 +31,7 @@ from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     GetPayloadResponse,
     JSONRPCError,
+    LiveBlock,
     PayloadAttributes,
     PayloadStatusEnum,
 )
@@ -163,9 +164,9 @@ class ClientBackend:
     """
 
     exception_mapper: ExceptionMapper
-    snapshot_block: Dict[str, Any] | None
+    snapshot_block: LiveBlock | None
     """Raw datadir head, set by the fill-stateful plugin pre-session."""
-    start_block: Dict[str, Any] | None
+    start_block: LiveBlock | None
     """Client head after global pre-run setup; per-test chains off this."""
 
     # t8n-compatibility stubs — fill's filler reads these on the backend.

@@ -156,6 +156,32 @@ class TransactionByHashResponse(Transaction):
         assert self.transaction_hash == self.hash
 
 
+class LiveBlock(CamelModel):
+    """
+    Block returned by ``eth_getBlockByNumber``/``eth_getBlockByHash`` on a
+    live EL client, as captured by the fill-stateful / execute live-client
+    backends to anchor the session/test chain.
+    """
+
+    # Unlike other response models in this file, extra fields are kept
+    # rather than ignored: callers re-validate this model's dump as a
+    # ``FixtureHeader`` (which needs extraData, logsBloom, ... fields this
+    # model doesn't declare), so nothing may be dropped.
+    model_config = CamelModel.model_config | {"extra": "allow"}
+
+    number: HexNumber
+    hash: Hash
+    timestamp: HexNumber
+    state_root: Hash = Field(alias="stateRoot")
+    gas_limit: HexNumber = Field(alias="gasLimit")
+    fee_recipient: Address = Field(
+        alias="miner",
+        validation_alias=AliasChoices("miner", "coinbase"),
+    )
+    difficulty: HexNumber | None = None
+    slot_number: HexNumber | None = None
+
+
 class ForkchoiceState(CamelModel):
     """Represents the forkchoice state of the beacon chain."""
 
