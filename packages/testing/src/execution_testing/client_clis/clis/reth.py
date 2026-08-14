@@ -115,8 +115,15 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.GAS_USED_OVERFLOW: (
             r"transaction gas limit \w+ is more than blocks available gas \w+"
         ),
+        BlockException.SYSTEM_CONTRACT_EMPTY: (
+            r"failed to apply .* requests contract call: "
+            r"contract has no code"
+        ),
         # BAL Exceptions
         BlockException.INVALID_BAL_HASH: (r"block access list hash mismatch"),
+        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
+            r"block access list item cost exceeds gas limit"
+        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"block access list hash mismatch|"
             r"BAL rejection: FinalHashMismatch"
