@@ -16,12 +16,14 @@ from typing import Any, Dict, List, Tuple, cast
 
 import pytest
 
+from ..keccak import keccak256
 from ..peer import (
     BLOCK_BODIES,
     MAX_BODIES_PER_RESPONSE,
     SOFT_RESPONSE_LIMIT,
     MockPeer,
 )
+from ..protocol import BlockHeadersRequest
 from ..rlpx import MAX_FRAME_SIZE, RLPxError, RLPxSession
 
 LARGE_BODY_SIZE = 8 * 1024 * 1024
@@ -209,6 +211,96 @@ class TestBodyResponseSize:
         assert peer.statistics.body_hashes_served == set()
         assert peer.body_hashes_ever_served == set()
         assert not any("served" in line for line in peer.statistics.transcript)
+
+
+@dataclass
+class _StubHeaderChain:
+    """A chain that answers header requests by number."""
+
+    headers: Dict[int, bytes]
+
+    def header_rlp_by_number(self, number: int) -> bytes | None:
+        """Return the header RLP held under `number`, if any."""
+        return self.headers.get(number)
+
+
+def _headers_request(number: int) -> BlockHeadersRequest:
+    """Return a request for the single header at `number`."""
+    return BlockHeadersRequest(
+        request_id=7,
+        origin_hash=None,
+        origin_number=number,
+        amount=1,
+        skip=0,
+        reverse=False,
+    )
+
+
+def _peer_with_headers(headers: Dict[int, bytes]) -> MockPeer:
+    """Return a peer whose current chain serves exactly `headers`."""
+    peer = MockPeer(
+        host="127.0.0.1",
+        port=30303,
+        remote_public_key=b"\x00" * 64,
+        private_key=b"\x01" * 32,
+        network_id=1,
+    )
+    chains = _StubChains({})
+    chains.current = cast(Any, _StubHeaderChain(headers))
+    peer._chains = cast(Any, chains)
+    return peer
+
+
+class TestHeaderServiceEvidence:
+    """Served headers are recorded per block hash, like bodies."""
+
+    def test_served_headers_are_recorded_by_hash(self) -> None:
+        """The evidence is the keccak of the exact bytes served."""
+        header = b"\x02" * 100
+        peer = _peer_with_headers({1: header})
+        peer._serve_headers(
+            cast(RLPxSession, _RecordingSession()), _headers_request(1)
+        )
+        assert peer.statistics.headers_served == 1
+        assert peer.statistics.header_hashes_served == {keccak256(header)}
+        assert peer.header_hashes_ever_served == {keccak256(header)}
+
+    def test_lifetime_service_survives_a_chain_switch(self) -> None:
+        """
+        `header_hashes_ever_served` accumulates across `set_chain`,
+        exactly as the body evidence does and for the same reason: a
+        header is required to cross the wire once per client, not once
+        per test.
+        """
+        header = b"\x03" * 100
+        peer = _peer_with_headers({1: header})
+        peer._serve_headers(
+            cast(RLPxSession, _RecordingSession()), _headers_request(1)
+        )
+        assert peer.statistics.header_hashes_served == {keccak256(header)}
+
+        peer.set_chain(cast(Any, _StubChain()))
+        assert peer.statistics.header_hashes_served == set()
+        assert peer.header_hashes_ever_served == {keccak256(header)}
+
+    def test_failed_write_records_nothing_as_served(self) -> None:
+        """
+        A header response whose socket write raises is not service.
+
+        The evidence feeds the consumer's per-block wire-coverage
+        assertion, so a header that never left the peer must not
+        appear in it. The request itself is still counted: it arrived,
+        whatever became of the answer.
+        """
+        peer = _peer_with_headers({1: b"\x04" * 100})
+        with pytest.raises(OSError):
+            peer._serve_headers(
+                cast(RLPxSession, _FailingSession()), _headers_request(1)
+            )
+        assert peer.statistics.header_requests == 1
+        assert peer.statistics.headers_served == 0
+        assert peer.statistics.header_hashes_served == set()
+        assert peer.header_hashes_ever_served == set()
 
 
 class TestFrameSizeGuard:
