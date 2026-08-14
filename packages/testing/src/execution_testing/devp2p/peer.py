@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Set
 
 from .chain import Chain, ServedChains
+from .keccak import keccak256
 from .protocol import (
     BLOCK_BODIES,
     BLOCK_HEADERS,
@@ -83,6 +84,15 @@ class PeerStatistics:
 
     header_requests: int = 0
     headers_served: int = 0
+    header_hashes_served: Set[bytes] = field(default_factory=set)
+    """
+    The block hashes whose headers were served, not only their count.
+
+    A count cannot tell the consumer *which* headers traveled the
+    wire, and the rejection path's wire-coverage claim is per block:
+    every block below the announced head must have had its header
+    downloaded from this peer, derivable body or not.
+    """
     body_requests: int = 0
     bodies_served: int = 0
     body_hashes_served: Set[bytes] = field(default_factory=set)
@@ -177,6 +187,17 @@ class MockPeer:
         the evidence that they did: the consumer's wire-coverage check
         consults it, so a body is required to cross the wire once per
         client, not once per test.
+        """
+        self.header_hashes_ever_served: Set[bytes] = set()
+        """
+        Every block hash whose header this peer served the client,
+        across the peer's whole lifetime.
+
+        The lifetime counterpart of the per-test
+        `statistics.header_hashes_served`, kept for the same reason as
+        `body_hashes_ever_served`: the reused client keeps every block
+        it ever imported, so a header is required to cross the wire
+        once per client, not once per test.
         """
         self.remote_name = ""
         self.disconnect_reason: Optional[int] = None
@@ -441,8 +462,14 @@ class MockPeer:
             BLOCK_HEADERS, encode_response(request.request_id, headers)
         )
 
+        # A block's hash is the keccak of its header, so the recorded
+        # evidence is computed from the exact bytes that traveled.
+        served_hashes = [keccak256(header) for header in headers]
+
         with self._lock:
             statistics.headers_served += len(headers)
+            statistics.header_hashes_served.update(served_hashes)
+            self.header_hashes_ever_served.update(served_hashes)
             statistics.record(
                 f"{request.describe()} -> {len(headers)} headers"
             )
