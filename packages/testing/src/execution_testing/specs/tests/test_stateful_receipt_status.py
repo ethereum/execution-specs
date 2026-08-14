@@ -27,7 +27,7 @@ from execution_testing.test_types import (
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
 from ..base import FillResult
-from ..blockchain import Block, BlockchainTest, TestingBuildBlock
+from ..blockchain import Block, BlockchainTest, BuiltBlock
 
 FORK = Osaka
 START_BLOCK_NUMBER = 1
@@ -60,7 +60,7 @@ def _tx(phase: TestPhase) -> Transaction:
     return tx
 
 
-def _built_block(number: int, statuses: List[int]) -> TestingBuildBlock:
+def _built_block(number: int, statuses: List[int]) -> BuiltBlock:
     """
     Build a ``TestingBuildBlock`` whose receipts carry ``statuses``,
     mimicking what ``ClientBackend.evaluate`` assembles from a live
@@ -76,7 +76,7 @@ def _built_block(number: int, statuses: List[int]) -> TestingBuildBlock:
     forkchoice_updated_version = FORK.engine_forkchoice_updated_version()
     assert new_payload_version is not None
     assert forkchoice_updated_version is not None
-    return TestingBuildBlock(
+    return BuiltBlock(
         header=header,
         env=Environment(number=number, timestamp=number * 12),
         alloc=LazyAllocJson(raw={}, _state_root=Hash(0)),
@@ -146,7 +146,7 @@ def _fill_stateful(
 
     def fake_generate_block_data(
         _self: BlockchainTest, **_kwargs: Any
-    ) -> TestingBuildBlock:
+    ) -> BuiltBlock:
         return _built_block(next(block_numbers), next(calls))
 
     monkeypatch.setattr(

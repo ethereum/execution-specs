@@ -173,20 +173,21 @@ def run_bloated_eoa_benchmark(
     setter_address = pre.deploy_contract(code=Op.SSTORE(0, Op.CALLDATALOAD(0)))
     runtime_address = pre.deploy_contract(code=runtime_code)
 
-    init_tx = delegate_with_calldata(
-        pre,
-        fork,
-        authority,
-        setter_address,
-        slot_0_value,
-    )
-    runtime_tx = delegate_with_calldata(
-        pre,
-        fork,
-        authority,
-        runtime_address,
-        Hash(0),
-    )
+    with TestPhaseManager.setup():
+        init_tx = delegate_with_calldata(
+            pre,
+            fork,
+            authority,
+            setter_address,
+            slot_0_value,
+        )
+        runtime_tx = delegate_with_calldata(
+            pre,
+            fork,
+            authority,
+            runtime_address,
+            Hash(0),
+        )
 
     blocks: list[Block] = [Block(txs=[init_tx, runtime_tx])]
 
