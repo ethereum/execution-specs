@@ -71,14 +71,13 @@ class TestAnnouncedPayload:
         test_block, trailer = _payload(), _payload()
         assert announced_payload(_fixture([test_block], trailer)) is trailer
 
-    def test_prepended_class_announces_its_own_head(self) -> None:
-        """An in-chain prepend keeps the test's block as the target."""
-        prepended, invalid_head = _payload(), _payload()
-        fixture = _fixture([prepended, invalid_head])
-        assert announced_payload(fixture) is invalid_head
-
     def test_bare_chain_announces_its_own_head(self) -> None:
-        """A chain with no extra block announces the author's head."""
+        """
+        A chain with no trailer announces the author's head.
+
+        Error-code chains, marked chains, and ``--no-sync-block``
+        corpora carry no sync payload; their own head is the target.
+        """
         first, head = _payload(), _payload()
         assert announced_payload(_fixture([first, head])) is head
 
@@ -92,18 +91,12 @@ class TestSyncChainPayloads:
         payloads = sync_chain_payloads(_fixture([test_block], trailer))
         assert payloads == [test_block, trailer]
 
-    def test_prepended_singleton_is_already_two_blocks(self) -> None:
-        """An in-chain prepend needs no assembly."""
-        prepended, invalid_head = _payload(), _payload()
-        fixture = _fixture([prepended, invalid_head])
-        assert sync_chain_payloads(fixture) == [prepended, invalid_head]
-
     def test_bare_singleton_stays_one_block(self) -> None:
         """No extra block, nothing to add: skipped below the minimum."""
         assert len(sync_chain_payloads(_fixture([_payload()]))) == 1
 
     def test_bare_chain_keeps_its_own_length(self) -> None:
-        """An invalid multi-block chain is served exactly as written."""
+        """A chain without a trailer is served exactly as written."""
         payloads = [_payload(), _payload()]
         assert sync_chain_payloads(_fixture(payloads)) == payloads
 
@@ -161,12 +154,14 @@ class TestRequiredWireBodies:
         )
         assert [b.number for b in required_wire_bodies(chain)] == [2]
 
-    def test_prepend_class_check_is_vacuous(self) -> None:
+    def test_a_rejection_target_body_is_owed(self) -> None:
         """
-        Below an invalid head sits only the empty prepended block.
+        Below the trailer sits the block under judgement itself.
 
-        Its body is derivable, so nothing is owed over the wire - the
-        test's own block is judged through the Engine API instead.
+        An invalid chain's trailer is the announced head, so the
+        invalid block is an ancestor like any other: its non-derivable
+        body is owed over the wire, which is what makes the client's
+        verdict a judgement of blocks it fetched through its sync path.
         """
-        chain = _chain([_block(1, empty=True), _block(2, empty=False)])
-        assert required_wire_bodies(chain) == []
+        chain = _chain([_block(1, empty=False), _block(2, empty=True)])
+        assert [b.number for b in required_wire_bodies(chain)] == [1]

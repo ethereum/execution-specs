@@ -72,8 +72,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "sync target, so only the blocks before it travel over "
             "devp2p; at the default of 2 every executed test syncs at "
             "least one block from the peer. An appended sync payload "
-            "counts toward the length: a valid single-block test plus "
-            "its trailer is a two-block chain."
+            "counts toward the length: a single-block test plus its "
+            "trailer is a two-block chain, so at the default only "
+            "fixtures without a trailer can be short enough to skip."
         ),
     )
     group.addoption(
@@ -311,8 +312,9 @@ def sync_chain_payloads(
     The author's chain, plus the appended sync payload when the fixture
     carries one: the trailer is a real block above the test's head, and
     it is the block this simulator announces, so the peer must hold it
-    like any other. Prepend-class fixtures need no assembly - their
-    extra block is already ``payloads[0]``.
+    like any other. Fixtures without a sync payload - error-code
+    chains, marked chains, and ``--no-sync-block`` corpora - need no
+    assembly: the served chain is exactly the author's.
     """
     payloads = list(fixture.payloads)
     if fixture.sync_payload is not None:
@@ -330,10 +332,10 @@ def chain(
     Rebuild the chain of blocks this test expects a client to hold.
 
     The chain is the author's payloads plus the appended sync payload
-    when the fixture carries one, so an appended-class single-block
-    test is a two-block chain here. Chains too short to put any block
-    on the wire skip here, before any reconstruction or peer setup is
-    spent on them.
+    when the fixture carries one, so a single-block test with a
+    trailer is a two-block chain here. Chains too short to put any
+    block on the wire skip here, before any reconstruction or peer
+    setup is spent on them.
 
     Fixtures whose payloads are flagged invalid still reconstruct and
     are served as rejection tests (see ``test_blockchain_via_wirex``):
