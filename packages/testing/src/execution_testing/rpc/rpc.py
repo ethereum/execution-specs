@@ -1167,7 +1167,7 @@ class EthRPC(BaseRPC):
         )
 
         all_calls: List[RPCCall] = []
-        # (address, per-account call_info list)
+        # (address, per-account call_info list, call count)
         address_info: List[tuple[Address, List[tuple[str, Any]]]] = []
 
         for address, account in alloc.root.items():
@@ -1177,12 +1177,7 @@ class EthRPC(BaseRPC):
             all_calls.extend(calls)
             address_info.append((address, call_info))
 
-        responses: List[JSONRPCResponse] = []
-        batch_size = self.max_transactions_per_batch
-        for i in range(0, len(all_calls), batch_size):
-            responses.extend(
-                self.post_batch_request(calls=all_calls[i : i + batch_size])
-            )
+        responses = self.post_batch_request(calls=all_calls)
 
         result_alloc: Dict[Address, Account | None] = {}
         offset = 0
