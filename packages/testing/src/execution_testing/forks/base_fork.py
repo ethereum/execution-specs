@@ -3,8 +3,10 @@
 import re
 from abc import ABCMeta, abstractmethod
 from enum import Enum, auto
+from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
     ClassVar,
     Dict,
@@ -15,7 +17,9 @@ from typing import (
     Sequence,
     Set,
     Sized,
+    Tuple,
     Type,
+    cast,
 )
 
 if TYPE_CHECKING:
@@ -267,6 +271,40 @@ class RefundTypes(Enum):
 
 class BaseForkMeta(ABCMeta):
     """Metaclass for BaseFork."""
+
+    MEMOIZED_FORK_METHODS = ("gas_costs",)
+    """fork ``classmethod``s that are memoized per fork."""
+
+    def __new__(
+        mcs,
+        name: str,
+        bases: Tuple[type, ...],
+        namespace: Dict[str, Any],
+        **kwargs: Any,
+    ) -> "BaseForkMeta":
+        """
+        Create the fork class, memoizing `MEMOIZED_FORK_METHODS`.
+
+        Wrapping every override here, rather than at each definition site,
+        means the most-derived one caches, keyed on the fork it was called
+        with, so the ``super()`` chain runs once per fork.
+        """
+        for method_name in mcs.MEMOIZED_FORK_METHODS:
+            method = namespace.get(method_name)
+            if not isinstance(method, classmethod):
+                continue
+            function = method.__func__
+            if getattr(function, "__isabstractmethod__", False):
+                # Leave `BaseFork`'s declarations visible to `abc`.
+                continue
+            # typeshed models `lru_cache` as returning an
+            # `_lru_cache_wrapper`, not a plain function, so `classmethod`
+            # cannot infer the descriptor signature from it.
+            cached = cast(
+                Callable[..., Any], lru_cache(maxsize=None)(function)
+            )
+            namespace[method_name] = classmethod(cached)
+        return super().__new__(mcs, name, bases, namespace, **kwargs)
 
     @abstractmethod
     def name(cls) -> str:

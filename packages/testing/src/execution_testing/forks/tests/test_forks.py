@@ -1,6 +1,7 @@
 """Test fork utilities."""
 
-from typing import Dict
+import dataclasses
+from typing import Any, Dict, Iterator, List, Tuple, Type
 
 import pytest
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from pydantic import BaseModel
 from execution_testing.base_types import BlobSchedule
 from execution_testing.vm import Opcodes
 
+from ..base_fork import BaseFork, BaseForkMeta
 from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
     BPO1,
@@ -828,3 +830,98 @@ def test_oog_budget_lift() -> None:
         )
         == 3 * sstore + 2 * create + code_64
     )
+
+
+@pytest.fixture(scope="module")
+def all_fork_classes() -> List[Type[BaseFork]]:
+    """Return every concrete fork class, transition forks excluded."""
+    return sorted(get_forks(), key=str)
+
+
+def _memoized_caches(
+    fork_classes: List[Type[BaseFork]],
+) -> Iterator[Tuple[Type[Any], str, Any]]:
+    """Yield ``(owner, method_name, cache)`` for every memoized override."""
+    owners: set = set()
+    for fork in fork_classes:
+        owners.update(fork.__mro__)
+    for owner in owners:
+        for method_name in BaseForkMeta.MEMOIZED_FORK_METHODS:
+            member = owner.__dict__.get(method_name)
+            if not isinstance(member, classmethod):
+                continue
+            function = member.__func__
+            if hasattr(function, "cache_clear"):
+                yield owner, method_name, function
+
+
+def test_memoized_fork_methods_are_installed(
+    all_fork_classes: List[Type[BaseFork]],
+) -> None:
+    """Every fork must resolve each memoized name to a cached override."""
+    for fork in all_fork_classes:
+        for method_name in BaseForkMeta.MEMOIZED_FORK_METHODS:
+            resolved = getattr(fork, method_name)
+            assert hasattr(resolved.__func__, "cache_info"), (
+                f"{fork}.{method_name} resolves to an uncached override"
+            )
+
+
+def test_memoized_fork_methods_are_computed_once_per_fork(
+    all_fork_classes: List[Type[BaseFork]],
+) -> None:
+    """The first call per fork computes, and every later one is a hit."""
+    for method_name in BaseForkMeta.MEMOIZED_FORK_METHODS:
+        for _, _, function in _memoized_caches(all_fork_classes):
+            function.cache_clear()
+        for fork in all_fork_classes:
+            cache = getattr(fork, method_name).__func__
+            before = cache.cache_info()
+            getattr(fork, method_name)()
+            getattr(fork, method_name)()
+            after = cache.cache_info()
+            assert after.misses == before.misses + 1, (
+                f"{fork}.{method_name} recomputed on a repeat call"
+            )
+            assert after.hits == before.hits + 1, (
+                f"{fork}.{method_name} was not served from its cache"
+            )
+
+
+def test_memoized_fork_methods_are_not_shared_between_forks(
+    all_fork_classes: List[Type[BaseFork]],
+) -> None:
+    """A cache is keyed on the fork, so no fork may serve another's value."""
+    for method_name in BaseForkMeta.MEMOIZED_FORK_METHODS:
+        warm = {
+            str(fork): getattr(fork, method_name)()
+            for fork in all_fork_classes
+        }
+        for _, _, function in _memoized_caches(all_fork_classes):
+            function.cache_clear()
+        for fork in reversed(all_fork_classes):
+            assert getattr(fork, method_name)() == warm[str(fork)], (
+                f"{fork}.{method_name} changed when recomputed in a "
+                "different order"
+            )
+
+        assert Amsterdam.gas_costs() is not Cancun.gas_costs()
+        assert Amsterdam.gas_costs() != Cancun.gas_costs()
+
+
+def test_memoized_fork_methods_return_immutable_values() -> None:
+    """Callers share one object, so a mutable value could be corrupted."""
+    for method_name in BaseForkMeta.MEMOIZED_FORK_METHODS:
+        value = getattr(Amsterdam, method_name)()
+        assert dataclasses.is_dataclass(value)
+        field_name = next(iter(dataclasses.fields(value))).name
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            setattr(value, field_name, 0)
+
+
+def test_abstract_memoized_declarations_are_left_alone() -> None:
+    """`abc` must still see `BaseFork`'s declarations as unimplemented."""
+    for method_name in BaseForkMeta.MEMOIZED_FORK_METHODS:
+        declaration = BaseFork.__dict__[method_name]
+        assert getattr(declaration, "__isabstractmethod__", False)
+        assert not hasattr(declaration.__func__, "cache_info")
