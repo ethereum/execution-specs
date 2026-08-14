@@ -75,14 +75,7 @@ STRUCT_LOG_TRACER_CONFIG = {
     "disableStorage": True,
 }
 
-# ``debug_trace*`` bounds each transaction's trace and abandons it when the
-# bound expires. The default is 5s on geth, which a benchmark block routinely
-# exceeds: a 300M-gas block of cheap opcodes executes >100M steps, and driving
-# a JS tracer through them costs tens of seconds. The abandoned transaction
-# then contributes nothing, so the block's tally is silently short -- or, with
-# a single transaction, missing outright. Ask for a bound no legitimate trace
-# can reach, while still capping one that has genuinely hung.
-OPCODE_COUNT_TRACE_TIMEOUT = "1h"
+DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT = "1h"
 
 
 def _normalize_opcode_name(name: str) -> str | None:
@@ -199,6 +192,7 @@ class ClientBackend:
         fork: Fork | TransitionFork,
         debug_rpc: DebugRPC | None = None,
         extract_opcode_count: bool = False,
+        opcode_count_trace_timeout: str = DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT,
     ) -> None:
         """Initialize with the RPC clients and the session fork."""
         self.testing_rpc = testing_rpc
@@ -207,6 +201,7 @@ class ClientBackend:
         self.fork = fork
         self.debug_rpc = debug_rpc
         self.extract_opcode_count = extract_opcode_count
+        self.opcode_count_trace_timeout = opcode_count_trace_timeout
         # Sticky fallback to struct logs (besu has no JS tracer).
         self._js_tracer_unsupported = False
         self.exception_mapper = ClientBackendExceptionMapper()
@@ -341,9 +336,6 @@ class ClientBackend:
         fails (logged, never fatal). Prefers the JS tracer; a client
         that rejects it falls back to struct logs for the session,
         while transient errors only skip the block.
-
-        Both paths carry ``OPCODE_COUNT_TRACE_TIMEOUT``; without it the
-        client's own default cuts long traces short.
         """
         if not self.extract_opcode_count or self.debug_rpc is None:
             return None
@@ -371,7 +363,7 @@ class ClientBackend:
         assert self.debug_rpc is not None
         return self.debug_rpc.trace_block_by_hash(
             str(block_hash),
-            {"timeout": OPCODE_COUNT_TRACE_TIMEOUT, **tracer_config},
+            {"timeout": self.opcode_count_trace_timeout, **tracer_config},
         )
 
     def _payload_attributes(
