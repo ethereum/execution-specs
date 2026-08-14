@@ -12,15 +12,15 @@ from execution_testing.rpc.rpc_types import (
     VALIDATION_ERROR_MAX,
     NewPayloadWithWitnessResponse,
     PayloadStatusEnum,
-    _SszExecutionWitness,
-    _SszNewPayloadWithWitnessResponse,
+    _SSZExecutionWitness,
+    _SSZNewPayloadWithWitnessResponse,
 )
 
 
 def _build_inner_witness(
     state: list[bytes], codes: list[bytes], headers: list[bytes]
 ) -> bytes:
-    inner = _SszExecutionWitness(
+    inner = _SSZExecutionWitness(
         state=[ByteList[MAX_WITNESS_ITEM_BYTES](b) for b in state],
         codes=[ByteList[MAX_WITNESS_ITEM_BYTES](b) for b in codes],
         headers=[ByteList[MAX_WITNESS_ITEM_BYTES](b) for b in headers],
@@ -34,7 +34,7 @@ def _build_response(
     validation_error: str | None,
     witness_bytes: bytes,
 ) -> bytes:
-    fields = _SszNewPayloadWithWitnessResponse.fields()
+    fields = _SSZNewPayloadWithWitnessResponse.fields()
     lvh_type = fields["latest_valid_hash"]
     ve_type = fields["validation_error"]
 
@@ -53,7 +53,7 @@ def _build_response(
             ),
         )
 
-    resp = _SszNewPayloadWithWitnessResponse(
+    resp = _SSZNewPayloadWithWitnessResponse(
         status=uint8(status),
         latest_valid_hash=lvh,
         validation_error=ve,

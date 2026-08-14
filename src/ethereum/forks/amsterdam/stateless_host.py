@@ -23,7 +23,7 @@ from .stateless import (
 )
 from .stateless_ssz import (
     STATELESS_INPUT_SCHEMA_ID_BYTES,
-    SszStatelessValidationResult,
+    SSZStatelessValidationResult,
     ssz_to_validation_result,
     stateless_input_to_ssz,
 )
@@ -48,7 +48,7 @@ def serialize_stateless_input(
 
 def deserialize_stateless_output(data: Bytes) -> StatelessValidationResult:
     """Deserialize a StatelessValidationResult from SSZ bytes."""
-    ssz_obj = SszStatelessValidationResult.decode_bytes(data)
+    ssz_obj = SSZStatelessValidationResult.decode_bytes(data)
     return ssz_to_validation_result(ssz_obj)
 
 

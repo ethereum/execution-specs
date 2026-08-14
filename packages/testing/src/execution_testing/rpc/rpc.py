@@ -1638,7 +1638,7 @@ class EngineRPC(BaseJwtRPC):
         return _do_forkchoice_update()
 
 
-class EngineSszRPC(BaseJwtRPC):
+class EngineSSZRPC(BaseJwtRPC):
     """
     REST client for `POST /new-payload-with-witness`.
 

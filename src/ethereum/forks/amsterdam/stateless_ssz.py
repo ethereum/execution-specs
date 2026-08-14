@@ -11,7 +11,7 @@ from ethereum_types.numeric import U16, U64, U256, Uint
 from remerkleable.basic import boolean, uint16, uint64, uint256
 from remerkleable.byte_arrays import ByteList, Bytes32, ByteVector
 from remerkleable.complex import Container
-from remerkleable.complex import List as SszList
+from remerkleable.complex import List as SSZList
 from remerkleable.progressive import (
     ProgressiveByteList,
     ProgressiveContainer,
@@ -59,7 +59,7 @@ PUBLIC_KEY_BYTES = 65
 # Stateless guest input bytes are schema-prefixed:
 #   schema_id || encoded_payload
 # schema_id is fork_index || schema_revision. Amsterdam is fork 0x15, and
-# revision 0x01 uses SSZ encode(SszStatelessInput) for the payload.
+# revision 0x01 uses SSZ encode(SSZStatelessInput) for the payload.
 STATELESS_INPUT_SCHEMA_FORK_INDEX = ProtocolFork.Amsterdam
 STATELESS_INPUT_SCHEMA_REVISION = 0x01
 STATELESS_INPUT_SCHEMA_ID = (
@@ -75,7 +75,7 @@ STATELESS_INPUT_SCHEMA_ID_BYTES = STATELESS_INPUT_SCHEMA_ID.to_bytes(
 # --- SSZ Container types ---
 
 
-class SszWithdrawal(Container):
+class SSZWithdrawal(Container):
     """SSZ container mirroring ``Withdrawal``."""
 
     index: uint64
@@ -84,7 +84,7 @@ class SszWithdrawal(Container):
     amount: uint64
 
 
-class SszExecutionPayload(
+class SSZExecutionPayload(
     ProgressiveContainer(active_fields=[1] * 19)  # type: ignore[misc]
 ):
     """SSZ container mirroring ``ExecutionPayload``."""
@@ -103,14 +103,14 @@ class SszExecutionPayload(
     base_fee_per_gas: uint256
     block_hash: Bytes32
     transactions: ProgressiveList[ProgressiveByteList]
-    withdrawals: ProgressiveList[SszWithdrawal]
+    withdrawals: ProgressiveList[SSZWithdrawal]
     blob_gas_used: uint64
     excess_blob_gas: uint64
     block_access_list: ProgressiveByteList
     slot_number: uint64
 
 
-class SszDepositRequest(Container):
+class SSZDepositRequest(Container):
     """SSZ container mirroring ``DepositRequest``."""
 
     pubkey: ByteVector[48]
@@ -120,7 +120,7 @@ class SszDepositRequest(Container):
     index: uint64
 
 
-class SszWithdrawalRequest(Container):
+class SSZWithdrawalRequest(Container):
     """SSZ container mirroring ``WithdrawalRequest``."""
 
     source_address: ByteVector[20]
@@ -128,7 +128,7 @@ class SszWithdrawalRequest(Container):
     amount: uint64
 
 
-class SszConsolidationRequest(Container):
+class SSZConsolidationRequest(Container):
     """SSZ container mirroring ``ConsolidationRequest``."""
 
     source_address: ByteVector[20]
@@ -136,7 +136,7 @@ class SszConsolidationRequest(Container):
     target_pubkey: ByteVector[48]
 
 
-class SszBuilderDepositRequest(Container):
+class SSZBuilderDepositRequest(Container):
     """SSZ container mirroring ``BuilderDepositRequest``."""
 
     pubkey: ByteVector[48]
@@ -145,52 +145,52 @@ class SszBuilderDepositRequest(Container):
     signature: ByteVector[96]
 
 
-class SszBuilderExitRequest(Container):
+class SSZBuilderExitRequest(Container):
     """SSZ container mirroring ``BuilderExitRequest``."""
 
     source_address: ByteVector[20]
     pubkey: ByteVector[48]
 
 
-class SszExecutionRequests(
+class SSZExecutionRequests(
     ProgressiveContainer(active_fields=[1] * 5)  # type: ignore[misc]
 ):
     """SSZ container mirroring ``ExecutionRequests``."""
 
-    deposits: ProgressiveList[SszDepositRequest]
-    withdrawals: ProgressiveList[SszWithdrawalRequest]
-    consolidations: ProgressiveList[SszConsolidationRequest]
-    builder_deposits: ProgressiveList[SszBuilderDepositRequest]
-    builder_exits: ProgressiveList[SszBuilderExitRequest]
+    deposits: ProgressiveList[SSZDepositRequest]
+    withdrawals: ProgressiveList[SSZWithdrawalRequest]
+    consolidations: ProgressiveList[SSZConsolidationRequest]
+    builder_deposits: ProgressiveList[SSZBuilderDepositRequest]
+    builder_exits: ProgressiveList[SSZBuilderExitRequest]
 
 
-class SszNewPayloadRequest(Container):
+class SSZNewPayloadRequest(Container):
     """SSZ container mirroring ``NewPayloadRequest``."""
 
-    execution_payload: SszExecutionPayload
+    execution_payload: SSZExecutionPayload
     versioned_hashes: ProgressiveList[Bytes32]
     parent_beacon_block_root: Bytes32
-    execution_requests: SszExecutionRequests
+    execution_requests: SSZExecutionRequests
 
 
-class SszExecutionWitness(Container):
+class SSZExecutionWitness(Container):
     """SSZ container mirroring ``ExecutionWitness``."""
 
     state: ProgressiveList[ByteList[MAX_BYTES_PER_WITNESS_NODE]]
     codes: ProgressiveList[ByteList[MAX_BYTES_PER_CODE]]
-    headers: SszList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS]
+    headers: SSZList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS]
 
 
-class SszStatelessInput(Container):
+class SSZStatelessInput(Container):
     """SSZ container mirroring ``StatelessInput``."""
 
-    new_payload_request: SszNewPayloadRequest
-    witness: SszExecutionWitness
+    new_payload_request: SSZNewPayloadRequest
+    witness: SSZExecutionWitness
     chain_id: uint64
     public_keys: ProgressiveList[ByteVector[PUBLIC_KEY_BYTES]]
 
 
-class SszStatelessValidationResult(Container):
+class SSZStatelessValidationResult(Container):
     """SSZ container mirroring ``StatelessValidationResult``."""
 
     new_payload_request_root: Bytes32
@@ -202,9 +202,9 @@ class SszStatelessValidationResult(Container):
 # --- Conversion helpers ---
 
 
-def _withdrawal_to_ssz(w: Withdrawal) -> SszWithdrawal:
+def _withdrawal_to_ssz(w: Withdrawal) -> SSZWithdrawal:
     """Convert a Withdrawal to its SSZ form."""
-    return SszWithdrawal(
+    return SSZWithdrawal(
         index=uint64(int(w.index)),
         validator_index=uint64(int(w.validator_index)),
         address=ByteVector[20](bytes(w.address)),
@@ -212,7 +212,7 @@ def _withdrawal_to_ssz(w: Withdrawal) -> SszWithdrawal:
     )
 
 
-def _ssz_to_withdrawal(sw: SszWithdrawal) -> Withdrawal:
+def _ssz_to_withdrawal(sw: SSZWithdrawal) -> Withdrawal:
     """Convert an SSZ withdrawal back to a Withdrawal."""
     return Withdrawal(
         index=U64(sw.index),
@@ -224,9 +224,9 @@ def _ssz_to_withdrawal(sw: SszWithdrawal) -> Withdrawal:
 
 def _payload_to_ssz(
     p: ExecutionPayload,
-) -> SszExecutionPayload:
+) -> SSZExecutionPayload:
     """Convert an ExecutionPayload to its SSZ form."""
-    return SszExecutionPayload(
+    return SSZExecutionPayload(
         parent_hash=Bytes32(bytes(p.parent_hash)),
         fee_recipient=ByteVector[20](bytes(p.fee_recipient)),
         state_root=Bytes32(bytes(p.state_root)),
@@ -243,7 +243,7 @@ def _payload_to_ssz(
         transactions=ProgressiveList[ProgressiveByteList](
             ProgressiveByteList(bytes(tx)) for tx in p.transactions
         ),
-        withdrawals=ProgressiveList[SszWithdrawal](
+        withdrawals=ProgressiveList[SSZWithdrawal](
             _withdrawal_to_ssz(w) for w in p.withdrawals
         ),
         blob_gas_used=uint64(int(p.blob_gas_used)),
@@ -254,7 +254,7 @@ def _payload_to_ssz(
 
 
 def _ssz_to_payload(
-    sp: SszExecutionPayload,
+    sp: SSZExecutionPayload,
 ) -> ExecutionPayload:
     """Convert an SSZ execution payload back to ExecutionPayload."""
     return ExecutionPayload(
@@ -280,9 +280,9 @@ def _ssz_to_payload(
     )
 
 
-def _deposit_request_to_ssz(d: DepositRequest) -> SszDepositRequest:
+def _deposit_request_to_ssz(d: DepositRequest) -> SSZDepositRequest:
     """Convert a DepositRequest to its SSZ form."""
-    return SszDepositRequest(
+    return SSZDepositRequest(
         pubkey=ByteVector[48](bytes(d.pubkey)),
         withdrawal_credentials=Bytes32(bytes(d.withdrawal_credentials)),
         amount=uint64(int(d.amount)),
@@ -291,7 +291,7 @@ def _deposit_request_to_ssz(d: DepositRequest) -> SszDepositRequest:
     )
 
 
-def _ssz_to_deposit_request(sd: SszDepositRequest) -> DepositRequest:
+def _ssz_to_deposit_request(sd: SSZDepositRequest) -> DepositRequest:
     """Convert an SSZ deposit request back."""
     return DepositRequest(
         pubkey=Bytes48(bytes(sd.pubkey)),
@@ -304,9 +304,9 @@ def _ssz_to_deposit_request(sd: SszDepositRequest) -> DepositRequest:
 
 def _withdrawal_request_to_ssz(
     w: WithdrawalRequest,
-) -> SszWithdrawalRequest:
+) -> SSZWithdrawalRequest:
     """Convert a WithdrawalRequest to its SSZ form."""
-    return SszWithdrawalRequest(
+    return SSZWithdrawalRequest(
         source_address=ByteVector[20](bytes(w.source_address)),
         validator_pubkey=ByteVector[48](bytes(w.validator_pubkey)),
         amount=uint64(int(w.amount)),
@@ -314,7 +314,7 @@ def _withdrawal_request_to_ssz(
 
 
 def _ssz_to_withdrawal_request(
-    sw: SszWithdrawalRequest,
+    sw: SSZWithdrawalRequest,
 ) -> WithdrawalRequest:
     """Convert an SSZ withdrawal request back."""
     return WithdrawalRequest(
@@ -326,9 +326,9 @@ def _ssz_to_withdrawal_request(
 
 def _consolidation_request_to_ssz(
     c: ConsolidationRequest,
-) -> SszConsolidationRequest:
+) -> SSZConsolidationRequest:
     """Convert a ConsolidationRequest to its SSZ form."""
-    return SszConsolidationRequest(
+    return SSZConsolidationRequest(
         source_address=ByteVector[20](bytes(c.source_address)),
         source_pubkey=ByteVector[48](bytes(c.source_pubkey)),
         target_pubkey=ByteVector[48](bytes(c.target_pubkey)),
@@ -336,7 +336,7 @@ def _consolidation_request_to_ssz(
 
 
 def _ssz_to_consolidation_request(
-    sc: SszConsolidationRequest,
+    sc: SSZConsolidationRequest,
 ) -> ConsolidationRequest:
     """Convert an SSZ consolidation request back."""
     return ConsolidationRequest(
@@ -348,9 +348,9 @@ def _ssz_to_consolidation_request(
 
 def _builder_deposit_request_to_ssz(
     b: BuilderDepositRequest,
-) -> SszBuilderDepositRequest:
+) -> SSZBuilderDepositRequest:
     """Convert a BuilderDepositRequest to its SSZ form."""
-    return SszBuilderDepositRequest(
+    return SSZBuilderDepositRequest(
         pubkey=ByteVector[48](bytes(b.pubkey)),
         withdrawal_credentials=Bytes32(bytes(b.withdrawal_credentials)),
         amount=uint64(int(b.amount)),
@@ -359,7 +359,7 @@ def _builder_deposit_request_to_ssz(
 
 
 def _ssz_to_builder_deposit_request(
-    sb: SszBuilderDepositRequest,
+    sb: SSZBuilderDepositRequest,
 ) -> BuilderDepositRequest:
     """Convert an SSZ builder deposit request back."""
     return BuilderDepositRequest(
@@ -372,16 +372,16 @@ def _ssz_to_builder_deposit_request(
 
 def _builder_exit_request_to_ssz(
     b: BuilderExitRequest,
-) -> SszBuilderExitRequest:
+) -> SSZBuilderExitRequest:
     """Convert a BuilderExitRequest to its SSZ form."""
-    return SszBuilderExitRequest(
+    return SSZBuilderExitRequest(
         source_address=ByteVector[20](bytes(b.source_address)),
         pubkey=ByteVector[48](bytes(b.pubkey)),
     )
 
 
 def _ssz_to_builder_exit_request(
-    sb: SszBuilderExitRequest,
+    sb: SSZBuilderExitRequest,
 ) -> BuilderExitRequest:
     """Convert an SSZ builder exit request back."""
     return BuilderExitRequest(
@@ -392,29 +392,29 @@ def _ssz_to_builder_exit_request(
 
 def _execution_requests_to_ssz(
     er: ExecutionRequests,
-) -> SszExecutionRequests:
+) -> SSZExecutionRequests:
     """Convert an ExecutionRequests to its SSZ form."""
-    return SszExecutionRequests(
-        deposits=ProgressiveList[SszDepositRequest](
+    return SSZExecutionRequests(
+        deposits=ProgressiveList[SSZDepositRequest](
             _deposit_request_to_ssz(d) for d in er.deposits
         ),
-        withdrawals=ProgressiveList[SszWithdrawalRequest](
+        withdrawals=ProgressiveList[SSZWithdrawalRequest](
             _withdrawal_request_to_ssz(w) for w in er.withdrawals
         ),
-        consolidations=ProgressiveList[SszConsolidationRequest](
+        consolidations=ProgressiveList[SSZConsolidationRequest](
             _consolidation_request_to_ssz(c) for c in er.consolidations
         ),
-        builder_deposits=ProgressiveList[SszBuilderDepositRequest](
+        builder_deposits=ProgressiveList[SSZBuilderDepositRequest](
             _builder_deposit_request_to_ssz(b) for b in er.builder_deposits
         ),
-        builder_exits=ProgressiveList[SszBuilderExitRequest](
+        builder_exits=ProgressiveList[SSZBuilderExitRequest](
             _builder_exit_request_to_ssz(b) for b in er.builder_exits
         ),
     )
 
 
 def _ssz_to_execution_requests(
-    ser: SszExecutionRequests,
+    ser: SSZExecutionRequests,
 ) -> ExecutionRequests:
     """Convert an SSZ execution requests back."""
     return ExecutionRequests(
@@ -436,9 +436,9 @@ def _ssz_to_execution_requests(
 
 def _new_payload_request_to_ssz(
     npr: NewPayloadRequest,
-) -> SszNewPayloadRequest:
+) -> SSZNewPayloadRequest:
     """Convert a NewPayloadRequest to its SSZ form."""
-    return SszNewPayloadRequest(
+    return SSZNewPayloadRequest(
         execution_payload=_payload_to_ssz(npr.execution_payload),
         versioned_hashes=ProgressiveList[Bytes32](
             Bytes32(bytes(vh)) for vh in npr.versioned_hashes
@@ -449,7 +449,7 @@ def _new_payload_request_to_ssz(
 
 
 def _ssz_to_new_payload_request(
-    snpr: SszNewPayloadRequest,
+    snpr: SSZNewPayloadRequest,
 ) -> NewPayloadRequest:
     """Convert an SSZ new payload request back."""
     return NewPayloadRequest(
@@ -464,23 +464,23 @@ def _ssz_to_new_payload_request(
 
 def _witness_to_ssz(
     w: ExecutionWitness,
-) -> SszExecutionWitness:
+) -> SSZExecutionWitness:
     """Convert an ExecutionWitness to its SSZ form."""
-    return SszExecutionWitness(
+    return SSZExecutionWitness(
         state=ProgressiveList[ByteList[MAX_BYTES_PER_WITNESS_NODE]](
             ByteList[MAX_BYTES_PER_WITNESS_NODE](bytes(s)) for s in w.state
         ),
         codes=ProgressiveList[ByteList[MAX_BYTES_PER_CODE]](
             ByteList[MAX_BYTES_PER_CODE](bytes(c)) for c in w.codes
         ),
-        headers=SszList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS](
+        headers=SSZList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS](
             ByteList[MAX_BYTES_PER_HEADER](bytes(h)) for h in w.headers
         ),
     )
 
 
 def _ssz_to_witness(
-    sw: SszExecutionWitness,
+    sw: SSZExecutionWitness,
 ) -> ExecutionWitness:
     """Convert an SSZ execution witness back."""
     return ExecutionWitness(
@@ -492,7 +492,7 @@ def _ssz_to_witness(
 
 def stateless_input_to_ssz(
     si: StatelessInput,
-) -> SszStatelessInput:
+) -> SSZStatelessInput:
     """Convert a StatelessInput to its SSZ form."""
     for public_key in si.public_keys:
         if len(public_key) != PUBLIC_KEY_BYTES:
@@ -500,7 +500,7 @@ def stateless_input_to_ssz(
                 f"Transaction public key must be {PUBLIC_KEY_BYTES} bytes"
             )
 
-    return SszStatelessInput(
+    return SSZStatelessInput(
         new_payload_request=_new_payload_request_to_ssz(
             si.new_payload_request
         ),
@@ -513,7 +513,7 @@ def stateless_input_to_ssz(
 
 
 def ssz_to_stateless_input(
-    ssz_si: SszStatelessInput,
+    ssz_si: SSZStatelessInput,
 ) -> StatelessInput:
     """Convert an SSZ stateless input back."""
     return StatelessInput(
@@ -528,9 +528,9 @@ def ssz_to_stateless_input(
 
 def validation_result_to_ssz(
     vr: StatelessValidationResult,
-) -> SszStatelessValidationResult:
+) -> SSZStatelessValidationResult:
     """Convert a StatelessValidationResult to its SSZ form."""
-    return SszStatelessValidationResult(
+    return SSZStatelessValidationResult(
         new_payload_request_root=Bytes32(bytes(vr.new_payload_request_root)),
         successful_validation=boolean(vr.successful_validation),
         chain_id=uint64(int(vr.chain_id)),
@@ -539,7 +539,7 @@ def validation_result_to_ssz(
 
 
 def ssz_to_validation_result(
-    ssz_vr: SszStatelessValidationResult,
+    ssz_vr: SSZStatelessValidationResult,
 ) -> StatelessValidationResult:
     """Convert an SSZ validation result back."""
     return StatelessValidationResult(

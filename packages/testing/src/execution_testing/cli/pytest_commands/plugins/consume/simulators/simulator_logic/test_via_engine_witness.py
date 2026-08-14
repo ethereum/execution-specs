@@ -10,7 +10,7 @@ from execution_testing.fixtures.blockchain import (
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
     EngineRPC,
-    EngineSszRPC,
+    EngineSSZRPC,
     EngineWitnessEndpointNotImplementedError,
     EthRPC,
     ForkchoiceUpdateTimeoutError,
@@ -52,7 +52,7 @@ def _send_payload_with_witness(
     *,
     use_ssz_transport: bool,
     engine_rpc: EngineRPC,
-    engine_ssz_rpc: EngineSszRPC,
+    engine_ssz_rpc: EngineSSZRPC,
     payload: FixtureEngineNewPayload,
 ) -> NewPayloadWithWitnessResponse | JSONRPCError:
     """
@@ -182,7 +182,7 @@ def test_blockchain_via_engine_witness(
     timing_data: TimingData,
     eth_rpc: EthRPC,
     engine_rpc: EngineRPC,
-    engine_ssz_rpc: EngineSszRPC,
+    engine_ssz_rpc: EngineSSZRPC,
     fixture: BlockchainEngineFixture,
     genesis_header: FixtureHeader,
     use_ssz_transport: bool,
