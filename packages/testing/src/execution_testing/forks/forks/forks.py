@@ -1648,12 +1648,17 @@ class Amsterdam(
 class BinaryTree(
     Amsterdam,
     deployed=False,
+    inherits_exact_fork_validity=True,
 ):
     """
     Experimental EIP-8297 fork: state is committed through the
     Partitioned Binary Tree instead of the Merkle Patricia Trie.
     For testing purposes only. The commitment scheme is selected by
     the spec fork's own imports; the transition tool reflects it.
+
+    The fork keeps Amsterdam's execution semantics, so it inherits
+    exact-fork validity: tests pinned to Amsterdam with `valid_at`
+    also run here.
     """
 
     @classmethod

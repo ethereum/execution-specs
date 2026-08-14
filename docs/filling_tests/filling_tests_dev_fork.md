@@ -42,7 +42,7 @@ just binary-trie-fork [paths]
 
 A bare invocation fills only the scoped `tests/binary_tree` suite; `just binary-trie-fork tests` instead reinterprets the entire `tests/` tree against `BinaryTree`.
 
-When porting existing tests: `valid_from(...)` markers select `BinaryTree` (it subclasses `Amsterdam`), but `valid_at(...)` silently does not, so a handful of `valid_at`-pinned tests are invisible to the port with no warning at collection time.
+When porting existing tests: `valid_from(...)` markers select `BinaryTree` (it subclasses `Amsterdam`), and `valid_at(...)` markers naming `Amsterdam` — or an EIP that resolves to it — select it too, because the fork is declared with `inherits_exact_fork_validity=True` (it keeps Amsterdam's execution semantics). Tests pinned to earlier forks (e.g. `valid_at("Prague")`) remain excluded, as do `valid_at_transition_to(...)` tests: no transition fork to `BinaryTree` exists.
 
 ## Further Help
 

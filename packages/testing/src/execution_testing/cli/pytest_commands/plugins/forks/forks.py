@@ -1092,6 +1092,34 @@ class ValidBefore(ValidityMarker, mutually_exclusive=[ValidUntil]):
         return resulting_set
 
 
+def expand_forks_with_inherited_validity(
+    forks: Set[Fork | TransitionFork],
+) -> Set[Fork | TransitionFork]:
+    """
+    Add every fork that declares `inherits_exact_fork_validity` and
+    whose parent is in `forks` (transitively, so a chain of such forks
+    is followed).
+
+    This lets a development fork that keeps its parent's semantics,
+    such as `BinaryTree` over `Amsterdam`, run tests pinned to the
+    parent with `valid_at`, without naming the development fork in
+    every marker.
+    """
+    expanded = set(forks)
+    changed = True
+    while changed:
+        changed = False
+        for fork in ALL_FORKS:
+            if fork in expanded:
+                continue
+            if not fork.inherits_exact_fork_validity():
+                continue
+            if fork.parent() in expanded:
+                expanded.add(fork)
+                changed = True
+    return expanded
+
+
 class ValidAt(ValidityMarker):
     """
     Marker to specify each fork individually for which the test is valid.
@@ -1111,13 +1139,20 @@ class ValidAt(ValidityMarker):
 
     In this example, the test will only be filled for the London and Cancun
     forks.
+
+    A development fork declared with `inherits_exact_fork_validity=True`
+    is additionally selected wherever its parent fork is: `BinaryTree`
+    keeps Amsterdam's execution semantics, so `valid_at("Amsterdam")`
+    (or an EIP name resolving to Amsterdam) also selects `BinaryTree`.
     """
 
     def _process_with_marker_args(
         self, *fork_args: str
     ) -> Set[Fork | TransitionFork]:
         """Process the fork arguments."""
-        return self.process_fork_arguments(*fork_args)
+        return expand_forks_with_inherited_validity(
+            self.process_fork_arguments(*fork_args)
+        )
 
 
 class ValidAtTransitionTo(
