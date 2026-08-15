@@ -16,6 +16,8 @@ from execution_testing.fixtures.blockchain import (
 )
 
 from ..simulators.simulator_logic.test_via_wirex import (
+    HEADER_JUDGEABLE_INVALIDITIES,
+    UNDECODABLE_BODY_INVALIDITIES,
     announced_payload,
     declared_invalidities,
     required_wire_bodies,
@@ -201,6 +203,19 @@ class TestDeclaredInvalidities:
             header_level,
             transaction_level,
         }
+
+    def test_the_undecodable_and_judgeable_sets_are_disjoint(self) -> None:
+        """
+        No invalidity is both header-judgeable and undecodable.
+
+        The two sets pull in opposite directions - one relaxes what a
+        client must fetch, the other says the block cannot travel at
+        all - so an exception in both would make the simulator's
+        treatment of it depend on evaluation order.
+        """
+        assert not (
+            HEADER_JUDGEABLE_INVALIDITIES & UNDECODABLE_BODY_INVALIDITIES
+        )
 
     def test_a_valid_chain_declares_nothing(self) -> None:
         """No payload carries an error, so the census is empty."""
