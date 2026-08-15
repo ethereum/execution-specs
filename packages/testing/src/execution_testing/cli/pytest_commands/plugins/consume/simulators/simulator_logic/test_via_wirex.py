@@ -377,10 +377,13 @@ def test_blockchain_via_wirex(
     fails the test. Only the fact of rejection is asserted, never its
     cause - a devp2p peer observes acceptance or rejection, not error
     causes, so matching the fixture's specific exception over the wire
-    is deliberately left for later - and the verdict must have been
-    reached on the wire: the same per-hash coverage check the valid
-    path runs is applied to everything below the announced head, the
-    invalid block included. Fixtures whose invalid block cannot
+    is deliberately left for later - and, for a chain carrying the
+    appended trailer, the verdict must have been reached on the wire:
+    the same per-hash coverage check the valid path runs is applied to
+    everything below the announced head, the invalid block included. A
+    chain without a trailer announces its own invalid head, which a
+    client may judge without fetching anything, so no wire claim is
+    made for those. Fixtures whose invalid block cannot
     even be represented on the wire (declared hash inconsistent with
     the header) are skipped by the `chain` fixture. A rejection target
     below the reused client's head never reaches this function on that
@@ -561,6 +564,22 @@ def test_blockchain_via_wirex(
             f"served {statistics.headers_served} header(s) and "
             f"{statistics.bodies_served} body/bodies"
         )
+        if fixture.sync_payload is None:
+            # The announced head is the test's own invalid block, so
+            # the client may answer from the announcement alone and owes
+            # the wire nothing: a header field it can validate on its
+            # own is enough, and a client that already
+            # refused an ancestor of this chain answers from that memory
+            # (nethermind: `Block 2 ... is known to be a part of an
+            # invalid chain`). Both are correct, so there is no wire
+            # claim to make here - which is exactly why the filler
+            # appends a trailer wherever it can.
+            logger.info(
+                "Not asserting wire coverage: this chain carries no "
+                "appended sync block, so its own head was announced and "
+                "the client may judge it without fetching an ancestor"
+            )
+            return
         # The verdict alone is not the test: it must have been reached
         # on the sync path, over blocks this peer served. The invalid
         # block sits below the announced trailer, so its transport is
