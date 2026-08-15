@@ -36,6 +36,10 @@ from execution_testing.fixtures.blockchain import (
 )
 
 from ..helpers.test_tracker import count_tests_per_group
+from ..simulator_logic.test_via_wirex import (
+    UNDECODABLE_BODY_INVALIDITIES,
+    declared_invalidities,
+)
 
 if TYPE_CHECKING:
     from ..timing_data import TimingData
@@ -344,12 +348,25 @@ def chain(
     Fixtures whose payloads are flagged invalid still reconstruct and
     are served as rejection tests (see ``test_blockchain_via_wirex``):
     their blocks are semantically invalid but hash-consistent, so they
-    travel the wire like any other block. The exception is a payload
-    whose declared block hash does not match its own header (a header
-    corrupted at fill via ``rlp_modifier``): devp2p has no way to
-    present a block whose hash differs from its header's keccak, so
-    such fixtures are skipped rather than reported as setup errors.
+    travel the wire like any other block. Two classes cannot be
+    presented over devp2p at all and skip with an explicit reason: a
+    payload whose declared block hash does not match its own header (a
+    header corrupted at fill via ``rlp_modifier``), because devp2p has
+    no way to present a block whose hash differs from its header's
+    keccak; and a payload whose declared invalidity is in the encoding
+    of a transaction itself (see ``UNDECODABLE_BODY_INVALIDITIES``),
+    because the client discards such a body instead of judging the
+    block it belongs to.
     """
+    undecodable = (
+        declared_invalidities(fixture) & UNDECODABLE_BODY_INVALIDITIES
+    )
+    if undecodable:
+        pytest.skip(
+            "invalid fixture cannot be represented over devp2p: no "
+            "conformant client decodes a body declaring "
+            f"{', '.join(sorted(str(e) for e in undecodable))}"
+        )
     payloads = sync_chain_payloads(fixture)
     if len(payloads) < wirex_min_blocks:
         pytest.skip(
