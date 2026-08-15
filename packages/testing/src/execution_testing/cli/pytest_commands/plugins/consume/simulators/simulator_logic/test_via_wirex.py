@@ -169,6 +169,33 @@ judged without the bodies, so their absence there is a finding.
 """
 
 
+UNDECODABLE_BODY_INVALIDITIES: frozenset[
+    BlockException | TransactionException
+] = frozenset(
+    {
+        BlockException.RLP_STRUCTURES_ENCODING,
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION,
+        TransactionException.TYPE_4_TX_CONTRACT_CREATION,
+    }
+)
+"""
+Declared invalidities that leave a block with no wire representation.
+
+A typed transaction that omits its mandatory `to` address, or a body
+whose RLP structure is malformed outright, cannot be decoded by any
+conformant client: the peer can put the bytes on the wire, but the
+client discards the response as a malformed body rather than
+accepting the block and judging it, and there is no verdict to read
+(geth answers every re-announcement with `Expired request does not
+exist` until the test times out). The Engine API can carry such a
+block, because a payload names its transactions as an explicit list
+and the client parses them individually, which is why these fixtures
+run under the Engine simulators and are skipped here - the same
+reason, and the same treatment, as a payload whose declared hash does
+not match its own header.
+"""
+
+
 def declared_invalidities(
     fixture: BlockchainEngineXFixture,
 ) -> set[BlockException | TransactionException]:
