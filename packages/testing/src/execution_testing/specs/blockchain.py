@@ -114,6 +114,18 @@ timestamp of its own (see ``Block.set_environment``).
 """
 
 
+MAX_SYNC_BLOCK_BLOB_PRICE_STEPS = 1024
+"""
+Steps of the blob price's Taylor series the appended sync block's fee
+context may need (see ``sync_block_context_unavailable``).
+
+Any value between a few hundred and a few million serves equally well:
+a uint256 cannot hold a price past about 177 steps, while the excess
+blob gas an expected-invalid header can pin needs on the order of a
+trillion.
+"""
+
+
 def sync_block_context_unavailable(
     head: "FixtureHeader", test_fork: Fork | TransitionFork
 ) -> str | None:
@@ -162,6 +174,18 @@ def sync_block_context_unavailable(
             "the head's gas limit is below the fork's minimum, and the "
             "appended block inherits it"
         )
+    if head.excess_blob_gas is None or head.blob_gas_used is None:
+        return None
+    excess_blob_gas = int(head.excess_blob_gas)
+    if excess_blob_gas + int(head.blob_gas_used) > 2**64 - 1:
+        return "the head's blob gas fields do not sum within uint64"
+    # From Osaka on (EIP-7918) a child's excess blob gas needs its
+    # parent's blob gas price, whose Taylor series takes one step per
+    # update fraction of that excess on an integer that grows at every
+    # step, so a head pinning an excess near 2**64 never finishes.
+    update_fraction = fork.blob_base_fee_update_fraction()
+    if excess_blob_gas > MAX_SYNC_BLOCK_BLOB_PRICE_STEPS * update_fraction:
+        return "the head's excess blob gas admits no evaluable blob price"
     return None
 
 
