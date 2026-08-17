@@ -1406,12 +1406,24 @@ class BlockchainTest(BaseTest):
             return None
         env = apply_new_parent(head.env, head.header)
         extra_data = Bytes(sha256(self.sync_block_salt.encode()).digest()[:16])
-        sync_block = self.generate_block_data(
-            t8n=t8n,
-            block=Block(extra_data=extra_data),
-            previous_env=env,
-            previous_alloc=alloc,
-        )
+        try:
+            sync_block = self.generate_block_data(
+                t8n=t8n,
+                block=Block(extra_data=extra_data),
+                previous_env=env,
+                previous_alloc=alloc,
+            )
+        except Exception as e:
+            raise Exception(
+                "the appended sync block could not be built above this "
+                "test's chain. If the context the chain leaves behind "
+                "is the cause (e.g. a sabotaged system contract every "
+                "block calls) and that context is the test's purpose, "
+                "opt the test out by passing `sync_block=False` (as "
+                "the system-contract test generators do) to fill it "
+                "without the appended block; see the chained error for "
+                "the underlying failure."
+            ) from e
         return sync_block.get_fixture_engine_new_payload()
 
     def make_hive_fixture(
