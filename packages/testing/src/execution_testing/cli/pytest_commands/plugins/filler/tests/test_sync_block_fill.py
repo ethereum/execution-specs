@@ -96,6 +96,8 @@ INVALID_MODULE = textwrap.dedent(
 
     from execution_testing import (
         Block,
+        BlockException,
+        Header,
         Transaction,
         TransactionException,
     )
@@ -107,6 +109,33 @@ INVALID_MODULE = textwrap.dedent(
             gas_limit=20_999,
             sender=pre.fund_eoa(),
             error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+        )
+
+
+    @pytest.mark.exception_test
+    def test_invalid_underivable_head(blockchain_test, pre) -> None:
+        # The pinned blob fields sum to 2**64, overflowing the next
+        # block's excess-blob-gas derivation, so no sync block can be
+        # built (or derived by a client) above this head.
+        tx = Transaction(
+            to=0, value=1, gas_limit=21_000, sender=pre.fund_eoa()
+        )
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[
+                Block(
+                    txs=[tx],
+                    rlp_modifier=Header(
+                        excess_blob_gas=2**64 - 1,
+                        blob_gas_used=1,
+                    ),
+                    exception=[
+                        BlockException.INCORRECT_EXCESS_BLOB_GAS,
+                        BlockException.INCORRECT_BLOB_GAS_USED,
+                    ],
+                )
+            ],
         )
 
 
@@ -398,6 +427,19 @@ def test_invalid_chains_carry_the_appended_block(
     assert multi_block["engineNewPayloads"][0].get("validationError") is None
     assert (
         multi_block["engineNewPayloads"][1].get("validationError") is not None
+    )
+
+    underivable = next(
+        fixture
+        for test_id, fixture in engine_x.items()
+        if "test_invalid_underivable_head" in test_id
+    )
+    assert (
+        underivable["engineNewPayloads"][0].get("validationError") is not None
+    )
+    assert "syncPayload" not in underivable, (
+        "no sync block can be derived above a head whose pinned blob "
+        "fields overflow the child's excess derivation"
     )
 
 

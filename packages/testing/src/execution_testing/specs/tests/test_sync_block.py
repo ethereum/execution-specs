@@ -188,6 +188,48 @@ def test_slot_ceiling(slot_number: int | None, available: bool) -> None:
 
 
 @pytest.mark.parametrize(
+    "excess_blob_gas,blob_gas_used,available",
+    [
+        pytest.param(0, 0, True, id="empty_head"),
+        pytest.param(
+            60 * Cancun.blob_base_fee_update_fraction(),
+            Cancun.blob_gas_per_blob(),
+            True,
+            id="expensive_but_representable_price",
+        ),
+        pytest.param(
+            2**64 - Cancun.blob_gas_per_blob(),
+            Cancun.blob_gas_per_blob(),
+            False,
+            id="blob_gas_fields_overflow_uint64",
+        ),
+        pytest.param(
+            2**64 - 2 * Cancun.blob_gas_per_blob(),
+            0,
+            False,
+            id="price_needs_unbounded_taylor_steps",
+        ),
+    ],
+)
+def test_blob_fields_the_fork_cannot_build_above(
+    excess_blob_gas: int, blob_gas_used: int, available: bool
+) -> None:
+    """
+    A head pinning blob fields whose child fee context cannot be
+    derived - the fields do not sum within uint64, or the price's
+    Taylor series would run for astronomically many steps - carries no
+    sync block, while a legitimately expensive fee market still does.
+    """
+    reason = sync_block_context_unavailable(
+        head_with(
+            excess_blob_gas=excess_blob_gas, blob_gas_used=blob_gas_used
+        ),
+        Cancun,
+    )
+    assert (reason is None) is available
+
+
+@pytest.mark.parametrize(
     "gas_limit,available",
     [
         pytest.param(Cancun.minimum_block_gas_limit(), True, id="minimum"),
