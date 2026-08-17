@@ -476,14 +476,11 @@ def add_code_change(
     ensure_account(builder, address)
 
     # Check if we already have a code change for this block_access_index
-    # This handles the case of in-transaction selfdestructs where code is
-    # first deployed and then cleared in the same transaction
+    # so that only the final code written by a transaction is recorded
     existing_changes = builder.accounts[address].code_changes
     for i, existing in enumerate(existing_changes):
         if existing.block_access_index == block_access_index:
             # Replace the existing code change with the new one
-            # For selfdestructs, this ensures we only record the final
-            # state (empty code)
             existing_changes[i] = CodeChange(
                 block_access_index=block_access_index, new_code=new_code
             )

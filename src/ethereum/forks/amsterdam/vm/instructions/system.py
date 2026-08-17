@@ -169,7 +169,6 @@ def generic_create(
         return_data=b"",
         # Accrued Effects
         logs=(),
-        accounts_to_delete=set(),
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         # Outcome
@@ -438,7 +437,6 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
         return_data=b"",
         # Accrued Effects
         logs=(),
-        accounts_to_delete=set(),
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         # Outcome
@@ -712,9 +710,10 @@ def callcode(evm: Evm) -> None:
     evm.pc += Uint(1)
 
 
-def selfdestruct(evm: Evm) -> None:
+def sendall(evm: Evm) -> None:
     """
-    Halt execution and register account for later deletion.
+    Halt execution and send the entire balance of the current account to
+    the beneficiary.
 
     Parameters
     ----------
@@ -731,7 +730,7 @@ def selfdestruct(evm: Evm) -> None:
     # GAS (STATE-INDEPENDENT)
     # Price what is computable without touching state, and check it is
     # affordable before any state access is performed.
-    gas_cost = GasCosts.OPCODE_SELFDESTRUCT_BASE
+    gas_cost = GasCosts.OPCODE_SENDALL_BASE
 
     is_cold_access = beneficiary not in evm.accessed_addresses
     if is_cold_access:
@@ -775,10 +774,6 @@ def selfdestruct(evm: Evm) -> None:
     # Emit transfer log
     if beneficiary != originator:
         emit_transfer_log(evm, originator, beneficiary, originator_balance)
-
-    # Register account for deletion iff created in same transaction
-    if originator in tx_state.created_accounts:
-        evm.accounts_to_delete.add(originator)
 
     # HALT the execution
     evm.running = False

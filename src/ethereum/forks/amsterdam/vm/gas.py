@@ -257,7 +257,7 @@ class GasCosts:
     OPCODE_LOG_BASE: Final[ExecutionGas] = ExecutionGas(Uint(375))
     OPCODE_LOG_DATA_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(8))
     OPCODE_LOG_TOPIC: Final[ExecutionGas] = ExecutionGas(Uint(375))
-    OPCODE_SELFDESTRUCT_BASE: Final[ExecutionGas] = ExecutionGas(Uint(5000))
+    OPCODE_SENDALL_BASE: Final[ExecutionGas] = ExecutionGas(Uint(5000))
 
 
 MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
