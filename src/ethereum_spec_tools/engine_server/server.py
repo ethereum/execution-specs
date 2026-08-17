@@ -364,6 +364,10 @@ class EngineBackend:
         self.genesis_spec = genesis_spec
         self.schedule = schedule
         self.lock = threading.Lock()
+        # A pre-Amsterdam genesis engine gains the sidecar store here,
+        # so delivery and payload pairing work across the transition.
+        if not hasattr(engine, "block_access_lists"):
+            engine.block_access_lists = {}
 
     def _spec_of_block(self, block: Any) -> ForkSpec:
         return fork_at(self.schedule, int(block.header.timestamp))
@@ -462,10 +466,6 @@ class EngineBackend:
             raise RpcError(UNSUPPORTED_FORK, "Unsupported fork")
 
         with self.lock:
-            # A pre-Amsterdam genesis engine gains the sidecar store
-            # on first delivery.
-            if not hasattr(self.engine, "block_access_lists"):
-                self.engine.block_access_lists = {}
             try:
                 method(self.engine, block_access_list, block_hash)
             except InvalidEngineParamsError as e:
