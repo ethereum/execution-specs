@@ -2,7 +2,7 @@
 The [Engine API] under the Amsterdam fork.
 
 The consensus layer drives the execution layer through versioned
-methods — `engine_newPayloadV1`…`V5`, `engine_forkchoiceUpdatedV1`…`V4`, `engine_getPayloadV1`…`V6` — each a thin
+methods — `engine_newPayloadV1`…`V5`, `engine_forkchoiceUpdatedV1`…`V4`, `engine_getPayloadV1`…`V6`, `engine_notifyBlockAccessListV1` — each a thin
 wrapper over the shared validation and forkchoice cores. Versions are
 additive: every version up to the newest exists here, and versions
 superseded by Amsterdam answer with an unsupported-fork error, so this
@@ -37,6 +37,7 @@ from .new_payload import (
     validate_execution_requests,
     verify_and_notify_new_payload,
 )
+from .notify_block_access_list import notify_block_access_list_v1
 from .types import (
     BlobsBundleV1,
     BlobsBundleV2,
@@ -102,6 +103,7 @@ __all__ = [
     "new_payload_v3",
     "new_payload_v4",
     "new_payload_v5",
+    "notify_block_access_list_v1",
     "notify_forkchoice_updated",
     "validate_execution_requests",
     "verify_and_notify_new_payload",

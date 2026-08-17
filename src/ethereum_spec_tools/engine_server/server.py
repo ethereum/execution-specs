@@ -165,7 +165,7 @@ def _payload_keys(shape: PayloadShape) -> Set[str]:
     if shape.blobs:
         keys.update({"blobGasUsed", "excessBlobGas"})
     if shape.bal:
-        keys.update({"blockAccessList", "slotNumber"})
+        keys.add("slotNumber")
     return keys
 
 
@@ -262,9 +262,6 @@ def _typed_payload(spec: ForkSpec, version: int, obj: Dict[str, Any]) -> Any:
             _decode_quantity(_field(obj, "excessBlobGas"), "excessBlobGas")
         )
     if payload_version >= 4:
-        kwargs["block_access_list"] = Bytes(
-            _decode_hex(_field(obj, "blockAccessList"), "blockAccessList")
-        )
         kwargs["slot_number"] = U64(
             _decode_quantity(_field(obj, "slotNumber"), "slotNumber")
         )
@@ -383,6 +380,8 @@ class EngineBackend:
             if version in ("1", "2", "3", "4"):
                 return self.forkchoice_updated(int(version), params)
             raise RpcError(UNSUPPORTED_FORK, "Unsupported fork")
+        if method == "engine_notifyBlockAccessListV1":
+            return self.notify_block_access_list(params)
         handlers = {
             "web3_clientVersion": self.client_version,
             "eth_chainId": self.chain_id,
@@ -408,6 +407,7 @@ class EngineBackend:
             "engine_exchangeCapabilities",
             *[f"engine_newPayloadV{v}" for v in (1, 2, 3, 4, 5)],
             *[f"engine_forkchoiceUpdatedV{v}" for v in (1, 2, 3, 4)],
+            "engine_notifyBlockAccessListV1",
         ]
 
     def _find_block(self, tag: Any) -> Optional[Any]:
@@ -444,6 +444,32 @@ class EngineBackend:
             block = self.engine.validated_blocks.get(block_hash)
             if block is not None:
                 return _block_to_json(block)
+        return None
+
+    def notify_block_access_list(self, params: List[Any]) -> None:
+        """
+        `engine_notifyBlockAccessListV1`: store a block access list
+        ahead of its payload, keyed by block hash.
+        """
+        if len(params) != 2:
+            raise RpcError(INVALID_PARAMS, "expected 2 params")
+        block_access_list = Bytes(_decode_hex(params[0], "blockAccessList"))
+        block_hash = Hash32(_decode_hex(params[1], "blockHash", 32))
+
+        spec = self.schedule[-1][0]
+        method = getattr(spec.engine, "notify_block_access_list_v1", None)
+        if method is None:
+            raise RpcError(UNSUPPORTED_FORK, "Unsupported fork")
+
+        with self.lock:
+            # A pre-Amsterdam genesis engine gains the sidecar store
+            # on first delivery.
+            if not hasattr(self.engine, "block_access_lists"):
+                self.engine.block_access_lists = {}
+            try:
+                method(self.engine, block_access_list, block_hash)
+            except InvalidEngineParamsError as e:
+                raise RpcError(INVALID_PARAMS, str(e)) from e
         return None
 
     def new_payload(self, version: int, params: List[Any]) -> Dict[str, Any]:

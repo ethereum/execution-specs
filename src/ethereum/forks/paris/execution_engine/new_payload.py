@@ -10,7 +10,6 @@ canonical head — only a forkchoice update does.
     ref:ethereum.forks.paris.execution_engine.new_payload.verify_and_notify_new_payload
 """  # noqa: E501
 
-
 from ethereum_rlp import rlp
 
 from ethereum.crypto.hash import keccak256

@@ -13,7 +13,6 @@ canonical head — only a forkchoice update does.
 from typing import Tuple
 
 from ethereum_rlp import rlp
-from ethereum_rlp.exceptions import DecodingError
 from ethereum_types.bytes import Bytes
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -24,7 +23,6 @@ from ethereum.exceptions import (
 )
 from ethereum.state import Root
 
-from ..block_access_lists import BlockAccessList
 from ..fork import state_transition
 from ..transactions import (
     BlobTransaction,
@@ -45,6 +43,7 @@ from .validation_helpers import _payload_block, _payload_header, chain_of
 
 def is_valid_block_hash(
     execution_payload: ExecutionPayloadV4,
+    block_access_list: Bytes,
     parent_beacon_block_root: Root,
     execution_requests: Tuple[Bytes, ...],
 ) -> bool:
@@ -55,6 +54,7 @@ def is_valid_block_hash(
     try:
         header = _payload_header(
             execution_payload,
+            block_access_list,
             parent_beacon_block_root,
             execution_requests,
         )
@@ -117,6 +117,7 @@ def validate_execution_requests(
 def verify_and_notify_new_payload(
     engine: ExecutionEngine,
     execution_payload: ExecutionPayloadV4,
+    block_access_list: Bytes,
     versioned_hashes: Tuple[Hash32, ...],
     parent_beacon_block_root: Root,
     execution_requests: Tuple[Bytes, ...],
@@ -143,6 +144,7 @@ def verify_and_notify_new_payload(
 
     if not is_valid_block_hash(
         execution_payload,
+        block_access_list,
         parent_beacon_block_root,
         execution_requests,
     ):
@@ -168,6 +170,7 @@ def verify_and_notify_new_payload(
 
     block = _payload_block(
         execution_payload,
+        block_access_list,
         parent_beacon_block_root,
         execution_requests,
     )
@@ -256,18 +259,32 @@ def new_payload_v5(
 ) -> PayloadStatusV1:
     """
     `engine_newPayloadV5`: validate and execute a Amsterdam payload.
+
+    The payload does not carry the block access list; it is paired
+    with one previously delivered by [`notify_block_access_list_v1`].
+
+    [`notify_block_access_list_v1`]:
+        ref:ethereum.forks.amsterdam.execution_engine.notify_block_access_list.notify_block_access_list_v1
     """
     validate_execution_requests(execution_requests)
-    try:
-        rlp.decode_to(BlockAccessList, execution_payload.block_access_list)
-    except DecodingError as e:
-        # A structurally undecodable block access list is an invalid
-        # parameter, not an invalid block.
-        raise InvalidEngineParamsError(f"blockAccessList: {e}") from e
+
+    # Without its block access list the payload cannot reproduce its
+    # header, so it reports SYNCING until the list is delivered; a
+    # client MAY instead queue the payload.
+    block_access_list = engine.block_access_lists.get(
+        execution_payload.block_hash
+    )
+    if block_access_list is None:
+        return PayloadStatusV1(
+            status=PayloadStatus.SYNCING,
+            latest_valid_hash=None,
+            validation_error=None,
+        )
 
     return verify_and_notify_new_payload(
         engine,
         execution_payload,
+        block_access_list,
         versioned_hashes,
         parent_beacon_block_root,
         execution_requests,

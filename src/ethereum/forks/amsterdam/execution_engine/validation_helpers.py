@@ -22,6 +22,7 @@ from .types import ExecutionEngine, ExecutionPayloadV4
 
 def _payload_header(
     execution_payload: ExecutionPayloadV4,
+    block_access_list: Bytes,
     parent_beacon_block_root: Root,
     execution_requests: Tuple[Bytes, ...],
 ) -> Header:
@@ -76,9 +77,7 @@ def _payload_header(
         excess_blob_gas=execution_payload.excess_blob_gas,
         parent_beacon_block_root=parent_beacon_block_root,
         requests_hash=requests_hash,
-        block_access_list_hash=Hash32(
-            keccak256(execution_payload.block_access_list)
-        ),
+        block_access_list_hash=Hash32(keccak256(block_access_list)),
         slot_number=execution_payload.slot_number,
     )
 
@@ -95,6 +94,7 @@ def _payload_transaction_to_block_transaction(
 
 def _payload_block(
     execution_payload: ExecutionPayloadV4,
+    block_access_list: Bytes,
     parent_beacon_block_root: Root,
     execution_requests: Tuple[Bytes, ...],
 ) -> Block:
@@ -103,6 +103,7 @@ def _payload_block(
     """
     header = _payload_header(
         execution_payload,
+        block_access_list,
         parent_beacon_block_root,
         execution_requests,
     )

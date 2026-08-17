@@ -114,6 +114,12 @@ class ExecutionEngine:
     genesis_block: Block
     """Anchor block that every canonical chain starts from."""
 
+    block_access_lists: Dict[Hash32, Bytes]
+    """
+    Block access lists delivered ahead of their payloads, keyed by
+    block hash.
+    """
+
 
 def create_execution_engine(chain: BlockChain) -> ExecutionEngine:
     """
@@ -129,6 +135,7 @@ def create_execution_engine(chain: BlockChain) -> ExecutionEngine:
         validated_blocks={genesis_hash: genesis_block},
         states={genesis_hash: copy_state(chain.state)},
         genesis_block=genesis_block,
+        block_access_lists={},
     )
 
 
@@ -226,11 +233,14 @@ class ExecutionPayloadV4:
     """
     Payload of the `engine_newPayload` family of methods.
 
-    Adds `block_access_list` and `slot_number` to
-    [`ExecutionPayloadV3`].
+    Adds `slot_number` to [`ExecutionPayloadV3`]. The block access
+    list is not part of the payload; it is delivered separately via
+    [`notify_block_access_list_v1`].
 
     [`ExecutionPayloadV3`]:
         ref:ethereum.forks.amsterdam.execution_engine.types.ExecutionPayloadV3
+    [`notify_block_access_list_v1`]:
+        ref:ethereum.forks.amsterdam.execution_engine.notify_block_access_list.notify_block_access_list_v1
     """
 
     parent_hash: Hash32
@@ -250,7 +260,6 @@ class ExecutionPayloadV4:
     withdrawals: Tuple[Withdrawal, ...]
     blob_gas_used: U64
     excess_blob_gas: U64
-    block_access_list: Bytes
     slot_number: U64
 
 
@@ -406,6 +415,9 @@ class GetPayloadResponseV5:
 class GetPayloadResponseV6:
     """
     Response of `engine_getPayloadV6`.
+
+    The block access list is returned beside the payload so the
+    builder can commit to it and distribute it separately.
     """
 
     execution_payload: ExecutionPayloadV4
@@ -413,3 +425,4 @@ class GetPayloadResponseV6:
     blobs_bundle: BlobsBundleV2
     should_override_builder: bool
     execution_requests: Tuple[Bytes, ...]
+    block_access_list: Bytes
