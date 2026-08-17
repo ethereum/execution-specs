@@ -27,6 +27,11 @@ from .spec import ref_spec_4758
 REFERENCE_SPEC_GIT_PATH = ref_spec_4758.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4758.version
 
+# TODO: Un-skip once a dedicated Bogota fork module exists in the spec.
+#  The pseudo-fork executes the Amsterdam spec module on both sides of
+#  the transition, so pre-fork deletion behavior cannot be exercised.
+pytestmark = pytest.mark.skip(reason="requires a dedicated Bogota fork module")
+
 VICTIM_BALANCE = 0x1234
 CANARY = 0xC0DE
 SALT = 0
