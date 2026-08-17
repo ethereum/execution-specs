@@ -85,6 +85,7 @@ from execution_testing.fixtures.common import (
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork
+from execution_testing.logging import get_logger
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -103,6 +104,41 @@ from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
 from .helpers import verify_block, verify_transactions
+
+logger = get_logger(__name__)
+
+DEFAULT_TIMESTAMP_INCREMENT = 12
+"""
+Seconds between a block and its parent when the block does not pin a
+timestamp of its own (see ``Block.set_environment``).
+"""
+
+
+def sync_block_context_unavailable(head: "FixtureHeader") -> str | None:
+    """
+    Return why no block can be built above ``head``, or ``None`` when
+    one can be.
+
+    These conditions are decided by the filler rather than declared by
+    the test, because each is a fact of arithmetic the fill can check
+    directly; asking authors to record them would mean re-deriving
+    spec constants inside test parametrizations, which goes stale
+    whenever a fork changes one. A client is no better off than the
+    filler in any of these cases: it cannot derive or parse a child of
+    such a header either.
+    """
+    # Type ceilings: a block's timestamp and slot number must fit
+    # uint64, and the appended block takes its parent's plus a fixed
+    # step. Nothing else on the fill side notices the overflow -
+    # Python integers do not wrap and `t8n` accepts the value - so an
+    # unguarded fill would emit a payload no client can parse. Both
+    # fields are semantic and never clamped or shifted; the fill
+    # declines the block instead.
+    if int(head.timestamp) + DEFAULT_TIMESTAMP_INCREMENT > 2**64 - 1:
+        return "the head's timestamp leaves no uint64 room for a child"
+    if head.slot_number is not None and int(head.slot_number) + 1 > 2**64 - 1:
+        return "the head's slot number has no successor in uint64"
+    return None
 
 
 def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
@@ -443,7 +479,7 @@ class Block(Header):
         else:
             assert env.parent_timestamp is not None
             new_env_values["timestamp"] = int(
-                Number(env.parent_timestamp) + 12
+                Number(env.parent_timestamp) + DEFAULT_TIMESTAMP_INCREMENT
             )
 
         return env.copy(**new_env_values)
@@ -1288,7 +1324,7 @@ class BlockchainTest(BaseTest):
         *,
         head: BuiltBlock,
         alloc: Alloc | LazyAlloc,
-    ) -> FixtureEngineNewPayload:
+    ) -> FixtureEngineNewPayload | None:
         """
         Build the empty block appended above the chain's ``head``.
 
@@ -1307,7 +1343,18 @@ class BlockchainTest(BaseTest):
         which is enough for the client to answer the announcement with
         SYNCING and fetch the ancestry it lacks. It rejects the test's
         block from that ancestry long before it would execute this one.
+
+        Return ``None`` when no block can be built above the head (see
+        ``sync_block_context_unavailable``): the chain then fills as
+        exactly the author's own.
         """
+        unavailable = sync_block_context_unavailable(head.header)
+        if unavailable is not None:
+            logger.info(
+                f"no sync block appended: {unavailable}; the chain "
+                "fills as exactly the author's own"
+            )
+            return None
         env = apply_new_parent(head.env, head.header)
         extra_data = Bytes(sha256(self.sync_block_salt.encode()).digest()[:16])
         sync_block = self.generate_block_data(
