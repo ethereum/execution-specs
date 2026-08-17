@@ -546,9 +546,6 @@ class BenchmarkTest(BaseTest):
             blocks=self.blocks,
             include_full_post_state_in_output=self.include_full_post_state_in_output,
             include_tx_receipts_in_output=self.include_tx_receipts_in_output,
-            # A framework-built sync block above the chain would distort
-            # the per-block gas and timing benchmarks measure.
-            sync_block=False,
         )
 
     @staticmethod

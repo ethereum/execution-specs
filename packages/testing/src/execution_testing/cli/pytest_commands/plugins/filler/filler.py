@@ -1617,8 +1617,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 # test's own opt-out (a caller-passed
                 # ``sync_block=False``) withholds it. Only fixture
                 # formats with a place for the block (engine_x) ever
-                # build one, and benchmark chains opt out in their
-                # conversion to a blockchain test.
+                # build one.
                 kwargs["sync_block"] = request.config.getoption(
                     "sync_block"
                 ) and kwargs.get("sync_block", True)
