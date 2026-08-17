@@ -183,7 +183,6 @@ class Evm:
     parent_evm: Optional["Evm"]
 
     output: Bytes
-    accounts_to_delete: Set[Address]
     return_data: Bytes
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
@@ -200,9 +199,9 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     gas rolled back to the baseline, its [spill] refilled, and its
     refunds discarded -- so absorbing the meter unconditionally
     reclaims exactly the gas the child gives back. Everything else the
-    child accumulated -- logs, scheduled self-destructs, refunds, and
-    warmed access sets -- survives only on success, dying with a
-    failed child's reverted state.
+    child accumulated -- logs, refunds, and warmed access sets --
+    survives only on success, dying with a failed child's reverted
+    state.
 
     Parameters
     ----------
@@ -211,7 +210,7 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     child_evm :
         The child evm to incorporate.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [spill]: ref:ethereum.forks.bogota.vm.gas.GasMeter.state_gas_spilled
 
     """
     child_meter = child_evm.gas_meter
@@ -236,7 +235,6 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     # Everything else survives only on success.
     if not child_evm.error:
         evm.logs += child_evm.logs
-        evm.accounts_to_delete.update(child_evm.accounts_to_delete)
         evm.accessed_addresses.update(child_evm.accessed_addresses)
         evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
 

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Final, List, Tuple, final
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.exceptions import GasUsedExceedsLimitError
-from ethereum.forks.bpo5.blocks import Header as PreviousHeader
+from ethereum.forks.amsterdam.blocks import Header as PreviousHeader
 from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
@@ -257,7 +257,7 @@ class GasCosts:
     OPCODE_LOG_BASE: Final[ExecutionGas] = ExecutionGas(Uint(375))
     OPCODE_LOG_DATA_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(8))
     OPCODE_LOG_TOPIC: Final[ExecutionGas] = ExecutionGas(Uint(375))
-    OPCODE_SELFDESTRUCT_BASE: Final[ExecutionGas] = ExecutionGas(Uint(5000))
+    OPCODE_SENDALL_BASE: Final[ExecutionGas] = ExecutionGas(Uint(5000))
 
 
 MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
@@ -275,7 +275,7 @@ class GasMeter:
     and its settlement work against one object instead of a scatter of
     fields on the [`Evm`].
 
-    [`Evm`]: ref:ethereum.forks.amsterdam.vm.Evm
+    [`Evm`]: ref:ethereum.forks.bogota.vm.Evm
     """
 
     gas_left: ExecutionGas
@@ -284,7 +284,7 @@ class GasMeter:
     execution-gas charges, and state charges as [spill] once the
     reservoir empties.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [spill]: ref:ethereum.forks.bogota.vm.gas.GasMeter.state_gas_spilled
     """
 
     state_gas_left: StateGas
@@ -299,7 +299,7 @@ class GasMeter:
     moved down by [`commit_state_gas`][commit] when charges become
     non-refillable.
 
-    [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
+    [commit]: ref:ethereum.forks.bogota.vm.gas.commit_state_gas
     """
 
     refund_counter: int = 0
@@ -324,10 +324,10 @@ class GasMeter:
     each commit lowers the baseline, so it is the frame's grant minus
     `state_gas_baseline`.
 
-    [Spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
-    [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
-    [restore]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas
-    [entry]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas_to_entry
+    [Spill]: ref:ethereum.forks.bogota.vm.gas.GasMeter.state_gas_spilled
+    [commit]: ref:ethereum.forks.bogota.vm.gas.commit_state_gas
+    [restore]: ref:ethereum.forks.bogota.vm.gas.restore_state_gas
+    [entry]: ref:ethereum.forks.bogota.vm.gas.restore_state_gas_to_entry
     """
 
 
@@ -429,7 +429,7 @@ def charge_state_gas_from_meter(gas_meter: GasMeter, amount: StateGas) -> None:
     amount :
         The amount of state gas the current operation requires.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [spill]: ref:ethereum.forks.bogota.vm.gas.GasMeter.state_gas_spilled
 
     """
     if gas_meter.state_gas_left >= amount:
@@ -455,7 +455,7 @@ def charge_state_gas(evm: "Evm", amount: StateGas) -> None:
     amount :
         The amount of state gas the current operation requires.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [spill]: ref:ethereum.forks.bogota.vm.gas.GasMeter.state_gas_spilled
 
     """
     evm_trace(evm, StateGasAndRefund(int(amount)))
@@ -484,9 +484,9 @@ def commit_state_gas(gas_meter: GasMeter) -> None:
     gas_meter :
         The frame's gas meter.
 
-    [sd]: ref:ethereum.forks.amsterdam.vm.eoa_delegation.set_delegation
-    [restore]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas
-    [entry]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas_to_entry
+    [sd]: ref:ethereum.forks.bogota.vm.eoa_delegation.set_delegation
+    [restore]: ref:ethereum.forks.bogota.vm.gas.restore_state_gas
+    [entry]: ref:ethereum.forks.bogota.vm.gas.restore_state_gas_to_entry
 
     """
     # Only charges precede a commit, so no refund has pushed the
@@ -512,8 +512,8 @@ def restore_state_gas(gas_meter: GasMeter) -> None:
     gas_meter :
         The frame's gas meter.
 
-    [baseline]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_baseline
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [baseline]: ref:ethereum.forks.bogota.vm.gas.GasMeter.state_gas_baseline
+    [spill]: ref:ethereum.forks.bogota.vm.gas.GasMeter.state_gas_spilled
 
     """  # noqa: E501
     gas_meter.gas_left = ExecutionGas(
@@ -542,8 +542,8 @@ def restore_state_gas_to_entry(
     state_gas_reservoir :
         The frame's immutable state gas grant.
 
-    [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
-    [grant]: ref:ethereum.forks.amsterdam.vm.TransactionEnvironment.state_gas_reservoir
+    [commit]: ref:ethereum.forks.bogota.vm.gas.commit_state_gas
+    [grant]: ref:ethereum.forks.bogota.vm.TransactionEnvironment.state_gas_reservoir
 
     """  # noqa: E501
     # The baseline starts at the grant and only ever moves down.
@@ -585,7 +585,7 @@ def tx_state_gas_used(
     state_gas_used : `int`
         The net state gas consumed.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [spill]: ref:ethereum.forks.bogota.vm.gas.GasMeter.state_gas_spilled
 
     """
     # The baseline starts at the grant and only ever moves down.
@@ -614,7 +614,7 @@ def credit_state_gas_refund(gas_meter: GasMeter, amount: StateGas) -> None:
     amount :
         The refund amount to credit.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [spill]: ref:ethereum.forks.bogota.vm.gas.GasMeter.state_gas_spilled
 
     """
     from_gas_left = min(amount, gas_meter.state_gas_spilled)
@@ -1044,7 +1044,7 @@ def check_block_gas_capacity(
     BlobGasLimitExceededError :
         If the transaction exceeds the block's remaining blob gas.
 
-    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.transactions.TX_MAX_GAS_LIMIT
+    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.bogota.transactions.TX_MAX_GAS_LIMIT
 
     """  # noqa: E501
     execution_gas_available = (

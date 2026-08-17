@@ -1,0 +1,51 @@
+"""
+Ethereum Virtual Machine (EVM) SHA256 PRECOMPILED CONTRACT.
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Implementation of the `SHA256` precompiled contract.
+"""
+
+import hashlib
+
+from ethereum_types.numeric import Uint, ulen
+
+from ethereum.utils.numeric import ceil32
+
+from ...fork_types import ExecutionGas
+from ...vm import Evm
+from ...vm.gas import (
+    GasCosts,
+    charge_gas,
+)
+
+
+def sha256(evm: Evm) -> None:
+    """
+    Writes the sha256 hash to output.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    data = evm.call_data
+
+    # GAS
+    word_count = ceil32(ulen(data)) // Uint(32)
+    charge_gas(
+        evm,
+        ExecutionGas(
+            GasCosts.PRECOMPILE_SHA256_BASE
+            + GasCosts.PRECOMPILE_SHA256_PER_WORD * word_count
+        ),
+    )
+
+    # OPERATION
+    evm.output = hashlib.sha256(data).digest()

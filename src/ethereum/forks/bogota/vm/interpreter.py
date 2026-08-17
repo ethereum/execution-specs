@@ -105,9 +105,6 @@ class TransactionOutput:
     logs: Tuple[Log, ...]
     """Logs emitted during execution; empty when it failed."""
 
-    accounts_to_delete: Set[Address]
-    """Accounts self-destructed during execution; empty when it failed."""
-
     error: Optional[EthereumException]
     """The error the execution halted with, if any."""
 
@@ -227,7 +224,6 @@ def create_evm(
         return_data=b"",
         # Accrued Effects
         logs=(),
-        accounts_to_delete=set(),
         accessed_addresses=accessed_addresses,
         accessed_storage_keys=accessed_storage_keys,
         # Outcome
@@ -283,7 +279,6 @@ def process_top_level(
             gas_left=gas_meter.gas_left,
             refund_counter=U256(gas_meter.refund_counter),
             logs=(),
-            accounts_to_delete=set(),
             error=halt,
             return_data=Bytes(b""),
             state_gas_left=gas_meter.state_gas_left,
@@ -297,13 +292,11 @@ def process_top_level(
     else:
         process_call(evm)
 
-    # A failed execution contributes no logs or self-destructs.
+    # A failed execution contributes no logs.
     if evm.error:
         logs: Tuple[Log, ...] = ()
-        accounts_to_delete: Set[Address] = set()
     else:
         logs = evm.logs
-        accounts_to_delete = evm.accounts_to_delete
 
     tx_end = TransactionEnd(
         int(tx_env.execution_gas_grant) - int(gas_meter.gas_left),
@@ -316,7 +309,6 @@ def process_top_level(
         gas_left=gas_meter.gas_left,
         refund_counter=U256(gas_meter.refund_counter),
         logs=logs,
-        accounts_to_delete=accounts_to_delete,
         error=evm.error,
         return_data=evm.output,
         state_gas_left=gas_meter.state_gas_left,
@@ -337,7 +329,7 @@ def process_create(evm: Evm) -> Evm:
 
     Returns
     -------
-    evm: :py:class:`~ethereum.forks.amsterdam.vm.Evm`
+    evm: :py:class:`~ethereum.forks.bogota.vm.Evm`
         Items containing execution specific objects.
 
     """
@@ -356,8 +348,7 @@ def process_create(evm: Evm) -> Evm:
 
     # In the previously mentioned edge case the preexisting storage is ignored
     # for gas refund purposes. In order to do this we must track created
-    # accounts. This tracking is also needed to respect the constraints
-    # added to SELFDESTRUCT by EIP-6780.
+    # accounts.
     mark_account_created(tx_state, evm.current_target)
 
     increment_nonce(tx_state, evm.current_target)
@@ -408,7 +399,7 @@ def process_call(evm: Evm) -> Evm:
 
     Returns
     -------
-    evm: :py:class:`~ethereum.forks.amsterdam.vm.Evm`
+    evm: :py:class:`~ethereum.forks.bogota.vm.Evm`
         Items containing execution specific objects
 
     """

@@ -9,7 +9,7 @@ state root computation, and applying state updates without executing bytecode.
 See [`BlockAccessList`][bal] for more detail.
 
 [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
-[bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+[bal]: ref:ethereum.forks.bogota.block_access_lists.BlockAccessList
 """
 
 from dataclasses import dataclass, field
@@ -36,7 +36,7 @@ class StorageChange:
     In a [`SlotChanges`][s], represents a single change in an [`Account`]'s
     storage slot.
 
-    [s]: ref:ethereum.forks.amsterdam.block_access_lists.SlotChanges
+    [s]: ref:ethereum.forks.bogota.block_access_lists.SlotChanges
     [`Account`]: ref:ethereum.state.Account
     """
 
@@ -44,7 +44,7 @@ class StorageChange:
     """
     Position within the set of all changes in a [`Block`].
 
-    [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+    [`Block`]: ref:ethereum.forks.bogota.blocks.Block
     """
 
     new_value: U256
@@ -63,7 +63,7 @@ class BalanceChange:
     In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
     balance.
 
-    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [bal]: ref:ethereum.forks.bogota.block_access_lists.BlockAccessList
     [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
@@ -71,7 +71,7 @@ class BalanceChange:
     """
     Position within the set of all changes in a [`Block`].
 
-    [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+    [`Block`]: ref:ethereum.forks.bogota.blocks.Block
     """
 
     post_balance: U256
@@ -90,7 +90,7 @@ class NonceChange:
     In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
     nonce.
 
-    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [bal]: ref:ethereum.forks.bogota.block_access_lists.BlockAccessList
     [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
@@ -98,7 +98,7 @@ class NonceChange:
     """
     Position within the set of all changes in a [`Block`].
 
-    [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+    [`Block`]: ref:ethereum.forks.bogota.blocks.Block
     """
 
     new_nonce: U64
@@ -117,7 +117,7 @@ class CodeChange:
     In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
     code.
 
-    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [bal]: ref:ethereum.forks.bogota.block_access_lists.BlockAccessList
     [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
@@ -125,7 +125,7 @@ class CodeChange:
     """
     Position within the set of all changes in a [`Block`].
 
-    [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+    [`Block`]: ref:ethereum.forks.bogota.blocks.Block
     """
 
     new_code: Bytes
@@ -144,7 +144,7 @@ class SlotChanges:
     In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
     storage.
 
-    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [bal]: ref:ethereum.forks.bogota.block_access_lists.BlockAccessList
     [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
@@ -228,14 +228,14 @@ A `BlockAccessList` includes, for example, the targets of:
 - the [create family][create] of instructions if the target is accessed;
 - etc.
 
-[`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
-[`Header`]: ref:ethereum.forks.amsterdam.blocks.Header
-[`BALANCE`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.balance
-[ecs]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodesize
-[ecc]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodecopy
-[ech]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodehash
-[call]: ref:ethereum.forks.amsterdam.vm.instructions.system.call
-[create]: ref:ethereum.forks.amsterdam.vm.instructions.system.create
+[`Block`]: ref:ethereum.forks.bogota.blocks.Block
+[`Header`]: ref:ethereum.forks.bogota.blocks.Header
+[`BALANCE`]: ref:ethereum.forks.bogota.vm.instructions.environment.balance
+[ecs]: ref:ethereum.forks.bogota.vm.instructions.environment.extcodesize
+[ecc]: ref:ethereum.forks.bogota.vm.instructions.environment.extcodecopy
+[ech]: ref:ethereum.forks.bogota.vm.instructions.environment.extcodehash
+[call]: ref:ethereum.forks.bogota.vm.instructions.system.call
+[create]: ref:ethereum.forks.bogota.vm.instructions.system.create
 """
 
 
@@ -299,7 +299,7 @@ class BlockAccessListBuilder:
     1. **Build Phase**: After block execution, the accumulated data is sorted
        and encoded into the final deterministic format.
 
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [`BlockAccessList`]: ref:ethereum.forks.bogota.block_access_lists.BlockAccessList
     """  # noqa: E501
 
     block_access_index: BlockAccessIndex = BlockAccessIndex(0)
@@ -308,7 +308,7 @@ class BlockAccessListBuilder:
     [`incorporate_tx_into_block`] call (0 for system txs, i+1 for the
     i-th user tx, N+1 for post-execution operations).
 
-    [`incorporate_tx_into_block`]: ref:ethereum.forks.amsterdam.state_tracker.incorporate_tx_into_block
+    [`incorporate_tx_into_block`]: ref:ethereum.forks.bogota.state_tracker.incorporate_tx_into_block
     """  # noqa: E501
 
     accounts: Dict[Address, AccountData] = field(default_factory=dict)
@@ -325,7 +325,7 @@ def ensure_account(builder: BlockAccessListBuilder, address: Address) -> None:
     doesn't already exist. This function is idempotent and safe to call
     multiple times for the same address.
 
-    [ad]: ref:ethereum.forks.amsterdam.block_access_lists.AccountData
+    [ad]: ref:ethereum.forks.bogota.block_access_lists.AccountData
     """
     if address not in builder.accounts:
         builder.accounts[address] = AccountData()
@@ -432,8 +432,8 @@ def add_nonce_change(
     a transaction or when a contract performs [`CREATE`] or [`CREATE2`]
     operations.
 
-    [`CREATE`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create
-    [`CREATE2`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create2
+    [`CREATE`]: ref:ethereum.forks.bogota.vm.instructions.system.create
+    [`CREATE2`]: ref:ethereum.forks.bogota.vm.instructions.system.create2
     """
     ensure_account(builder, address)
 
@@ -469,21 +469,18 @@ def add_code_change(
     during contract creation via [`CREATE`], [`CREATE2`], or
     [`SetCodeTransaction`][sct] operations.
 
-    [`CREATE`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create
-    [`CREATE2`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create2
-    [sct]: ref:ethereum.forks.amsterdam.transactions.SetCodeTransaction
+    [`CREATE`]: ref:ethereum.forks.bogota.vm.instructions.system.create
+    [`CREATE2`]: ref:ethereum.forks.bogota.vm.instructions.system.create2
+    [sct]: ref:ethereum.forks.bogota.transactions.SetCodeTransaction
     """
     ensure_account(builder, address)
 
     # Check if we already have a code change for this block_access_index
-    # This handles the case of in-transaction selfdestructs where code is
-    # first deployed and then cleared in the same transaction
+    # so that only the final code written by a transaction is recorded
     existing_changes = builder.accounts[address].code_changes
     for i, existing in enumerate(existing_changes):
         if existing.block_access_index == block_access_index:
             # Replace the existing code change with the new one
-            # For selfdestructs, this ensures we only record the final
-            # state (empty code)
             existing_changes[i] = CodeChange(
                 block_access_index=block_access_index, new_code=new_code
             )
@@ -507,10 +504,10 @@ def add_touched_account(
     [`EXTCODESIZE`], and [`EXTCODECOPY`] that read account data without
     modifying it.
 
-    [`EXTCODEHASH`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodehash
-    [`BALANCE`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.balance
-    [`EXTCODESIZE`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodesize
-    [`EXTCODECOPY`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodecopy
+    [`EXTCODEHASH`]: ref:ethereum.forks.bogota.vm.instructions.environment.extcodehash
+    [`BALANCE`]: ref:ethereum.forks.bogota.vm.instructions.environment.balance
+    [`EXTCODESIZE`]: ref:ethereum.forks.bogota.vm.instructions.environment.extcodesize
+    [`EXTCODECOPY`]: ref:ethereum.forks.bogota.vm.instructions.environment.extcodecopy
     """  # noqa: E501
     ensure_account(builder, address)
 
@@ -532,7 +529,7 @@ def _build_from_builder(
     Addresses, storage slots, and block access indices are unique.
     Storage reads that also appear in storage changes are excluded.
 
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [`BlockAccessList`]: ref:ethereum.forks.bogota.block_access_lists.BlockAccessList
     """  # noqa: E501
     block_access_list: BlockAccessList = []
 
@@ -682,7 +679,7 @@ def build_block_access_list(
     Feed accumulated reads from the block state into the builder, then produce
     the final sorted and encoded block access list.
 
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [`BlockAccessList`]: ref:ethereum.forks.bogota.block_access_lists.BlockAccessList
     """  # noqa: E501
     # Add storage reads (convert Bytes32 to U256 for BAL encoding)
     for address, slot in block_state.storage_reads:
