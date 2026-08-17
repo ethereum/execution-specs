@@ -107,6 +107,24 @@ This flag automatically performs a two-phase execution:
     uv run fill --generate-all-formats --output=fixtures.tar.gz tests/shanghai/
     ```
 
+## The Sync Block
+
+By default the filler appends one framework-built empty block above every blockchain test's chain **in `blockchain_test_engine_x` fixtures only**, stored out-of-chain in the fixture's `syncPayload` field. `--no-sync-block` disables it:
+
+```console
+uv run fill --no-sync-block --generate-all-formats tests/cancun/
+```
+
+The block lets a sync-based consumer announce a head *above* the test's own chain, so that every block the author wrote must travel devp2p:
+
+```text
+G → T₁ … Tₙ → S*
+```
+
+(`*` marks the block a sync-based consumer announces.) The block lives out-of-chain - the same representation [`consume sync`](../running_tests/running.md#sync)'s fixture format has always used - so the fixture's `engineNewPayloads`, `lastblockhash` and post state keep describing exactly the chain the test author wrote, byte for byte. Chains that cannot or must not carry the block fill without it instead of being skipped.
+
+[The Sync Block](./the_sync_block.md) explains the mechanism: why announcing the block makes a client sync, the contract the block must satisfy, and every case that fills bare.
+
 ## Debugging the `t8n` Command
 
 The `--evm-dump-dir` flag can be used to dump the inputs and outputs of every call made to the `t8n` command for debugging purposes, see [Debugging Transition Tools](./debugging_t8n_tools.md).
