@@ -9,6 +9,7 @@ from pydantic import BaseModel, RootModel
 
 from execution_testing.base_types import HexNumber
 from execution_testing.forks import Fork, TransitionFork
+from execution_testing.test_types import AllocGroupHash
 
 from .base import BaseFixture, FixtureFormat
 from .file import Fixtures
@@ -50,7 +51,7 @@ class TestCaseBase(BaseModel):
     fixture_hash: HexNumber | None = None
     fork: Fork | TransitionFork | None = None
     format: FixtureFormat
-    pre_hash: str | None = None
+    pre_hash: AllocGroupHash | None = None
     __test__ = False  # stop pytest from collecting this class as a test
 
 

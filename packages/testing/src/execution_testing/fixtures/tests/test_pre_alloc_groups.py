@@ -16,12 +16,12 @@ from execution_testing.fixtures.pre_alloc_groups import (
     read_test_group_index,
 )
 from execution_testing.forks import Fork, Osaka, Prague
-from execution_testing.test_types import Alloc, Environment
+from execution_testing.test_types import Alloc, AllocGroupHash, Environment
 
 
 def _write_group(
     folder: Path,
-    stem: str,
+    stem: AllocGroupHash | int,
     test_id: str,
     pre: Dict[int, Account],
     *,
@@ -35,19 +35,20 @@ def _write_group(
         environment=environment,
         fork=fork,
         group_salt=group_salt,
+        group_hash=stem,
         pre=Alloc(
             {Address(address): account for address, account in pre.items()}
         ),
     )
-    (folder / f"{stem}.json").write_text(
+    (folder / f"{builder.group_hash}.json").write_text(
         builder.model_dump_json(by_alias=True, exclude_none=True, indent=2)
     )
 
 
-def _packed(folder: Path) -> Dict[str, dict]:
+def _packed(folder: Path) -> Dict[AllocGroupHash, dict]:
     """Load the packed group files by stem."""
     return {
-        file.stem: json.loads(file.read_text())
+        AllocGroupHash(file.stem): json.loads(file.read_text())
         for file in folder.glob("*.json")
     }
 
@@ -57,14 +58,14 @@ def test_pack_merges_non_conflicting_groups(tmp_path: Path) -> None:
     env = Environment()
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: Account(balance=1)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x2000: Account(balance=2)},
         environment=env,
@@ -90,14 +91,14 @@ def test_pack_keeps_conflicting_groups_apart(tmp_path: Path) -> None:
     env = Environment()
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: Account(balance=1)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x1000: Account(balance=2)},
         environment=env,
@@ -125,14 +126,14 @@ def test_pack_merges_identical_account_at_shared_address(
     shared = Account(balance=1, nonce=1)
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: shared, 0x2000: Account(balance=5)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x1000: shared, 0x3000: Account(balance=6)},
         environment=env,
@@ -147,14 +148,14 @@ def test_pack_separates_distinct_environments(tmp_path: Path) -> None:
     """Groups with different genesis environments never merge."""
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: Account(balance=1)},
         environment=Environment(),
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x2000: Account(balance=2)},
         environment=Environment(gas_limit=0x1000000),
@@ -173,14 +174,14 @@ def test_pack_respects_group_salt(tmp_path: Path) -> None:
     env = Environment()
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: Account(balance=1)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x2000: Account(balance=2)},
         environment=env,
@@ -188,7 +189,7 @@ def test_pack_respects_group_salt(tmp_path: Path) -> None:
     )
     _write_group(
         tmp_path,
-        "0x03",
+        3,
         "tests/c.py::test_c",
         {0x3000: Account(balance=3)},
         environment=env,
@@ -214,7 +215,7 @@ def test_pack_merges_groups_with_matching_salt(tmp_path: Path) -> None:
     env = Environment()
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: Account(balance=1)},
         environment=env,
@@ -222,7 +223,7 @@ def test_pack_merges_groups_with_matching_salt(tmp_path: Path) -> None:
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x2000: Account(balance=2)},
         environment=env,
@@ -245,21 +246,21 @@ def test_pack_writes_test_group_index(tmp_path: Path) -> None:
     env = Environment()
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: Account(balance=1)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x2000: Account(balance=2)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x03",
+        3,
         "tests/c.py::test_c",
         {0x1000: Account(balance=3)},
         environment=env,
@@ -271,7 +272,7 @@ def test_pack_writes_test_group_index(tmp_path: Path) -> None:
     packed = _packed(tmp_path)
     assert TEST_GROUP_INDEX_FILE not in packed
     index = read_test_group_index(tmp_path)
-    assert sorted(index) == [
+    assert sorted(index.root) == [
         "tests/a.py::test_a",
         "tests/b.py::test_b",
         "tests/c.py::test_c",
@@ -279,9 +280,9 @@ def test_pack_writes_test_group_index(tmp_path: Path) -> None:
     for test_id, entry in index.items():
         assert test_id in packed[entry.group_hash]["testIds"]
     # Every entry records the test's fine-grained phase 1 hash.
-    assert index["tests/a.py::test_a"].phase1_hash == "0x01"
-    assert index["tests/b.py::test_b"].phase1_hash == "0x02"
-    assert index["tests/c.py::test_c"].phase1_hash == "0x03"
+    assert index["tests/a.py::test_a"].phase1_hash == AllocGroupHash(1)
+    assert index["tests/b.py::test_b"].phase1_hash == AllocGroupHash(2)
+    assert index["tests/c.py::test_c"].phase1_hash == AllocGroupHash(3)
 
 
 def test_read_test_group_index_falls_back_to_scanning(
@@ -291,23 +292,27 @@ def test_read_test_group_index_falls_back_to_scanning(
     env = Environment()
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: Account(balance=1)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x2000: Account(balance=2)},
         environment=env,
     )
 
     assert not (tmp_path / TEST_GROUP_INDEX_FILE).exists()
-    assert read_test_group_index(tmp_path) == {
-        "tests/a.py::test_a": GroupIndexEntry("0x01", None),
-        "tests/b.py::test_b": GroupIndexEntry("0x02", None),
+    assert read_test_group_index(tmp_path).root == {
+        "tests/a.py::test_a": GroupIndexEntry(
+            group_hash=AllocGroupHash(1), phase1_hash=None
+        ),
+        "tests/b.py::test_b": GroupIndexEntry(
+            group_hash=AllocGroupHash(2), phase1_hash=None
+        ),
     }
 
 
@@ -322,7 +327,7 @@ def test_packed_group_hash_lookup_validates_phase1_hash(
     env = Environment()
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: Account(balance=1)},
         environment=env,
@@ -331,17 +336,17 @@ def test_packed_group_hash_lookup_validates_phase1_hash(
     index = read_test_group_index(tmp_path)
 
     packed_hash = packed_group_hash_for_test(
-        index, "tests/a.py::test_a", phase1_hash="0x01"
+        index, "tests/a.py::test_a", phase1_hash=AllocGroupHash(1)
     )
     assert packed_hash == index["tests/a.py::test_a"].group_hash
 
     with pytest.raises(ValueError, match="stale"):
         packed_group_hash_for_test(
-            index, "tests/a.py::test_a", phase1_hash="0xff"
+            index, "tests/a.py::test_a", phase1_hash=AllocGroupHash(0xFF)
         )
     with pytest.raises(ValueError, match="not assigned"):
         packed_group_hash_for_test(
-            index, "tests/b.py::test_b", phase1_hash="0x02"
+            index, "tests/b.py::test_b", phase1_hash=AllocGroupHash(2)
         )
 
 
@@ -352,19 +357,16 @@ def test_packed_group_hash_lookup_without_fingerprint(
     env = Environment()
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x1000: Account(balance=1)},
         environment=env,
     )
 
     index = read_test_group_index(tmp_path)
-    assert (
-        packed_group_hash_for_test(
-            index, "tests/a.py::test_a", phase1_hash="0xff"
-        )
-        == "0x01"
-    )
+    assert packed_group_hash_for_test(
+        index, "tests/a.py::test_a", phase1_hash=AllocGroupHash(0xFF)
+    ) == AllocGroupHash(1)
 
 
 def test_pack_is_deterministic(tmp_path: Path) -> None:
@@ -376,7 +378,7 @@ def test_pack_is_deterministic(tmp_path: Path) -> None:
         for i in range(6):
             _write_group(
                 folder,
-                f"0x0{i}",
+                i,
                 f"tests/t{i}.py::test_{i}",
                 {0x1000 + i: Account(balance=i)},
                 environment=env,
@@ -399,14 +401,14 @@ def test_pack_isolates_funded_precompile(tmp_path: Path) -> None:
     env = Environment()
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x02: Account(balance=1), 0x9000: Account(balance=1)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x9001: Account(balance=2)},
         environment=env,
@@ -440,7 +442,7 @@ def test_pack_isolates_fork_precompile_above_blanket_range(
         folder.mkdir()
         _write_group(
             folder,
-            "0x01",
+            1,
             "tests/a.py::test_a",
             {0x100: Account(balance=1)},
             environment=env,
@@ -448,7 +450,7 @@ def test_pack_isolates_fork_precompile_above_blanket_range(
         )
         _write_group(
             folder,
-            "0x02",
+            2,
             "tests/b.py::test_b",
             {0x2000: Account(balance=2)},
             environment=env,
@@ -468,9 +470,9 @@ def test_pack_merges_when_shared_address_agrees(tmp_path: Path) -> None:
     env = Environment()
     shared = Account(balance=1, nonce=1)
     for stem, test_id, private in [
-        ("0x01", "tests/a.py::test_a", 0xA000),
-        ("0x02", "tests/b.py::test_b", 0xB000),
-        ("0x03", "tests/c.py::test_c", 0xC000),
+        (1, "tests/a.py::test_a", 0xA000),
+        (2, "tests/b.py::test_b", 0xB000),
+        (3, "tests/c.py::test_c", 0xC000),
     ]:
         _write_group(
             tmp_path,
@@ -494,21 +496,21 @@ def test_pack_isolates_disagreeing_shared_address(tmp_path: Path) -> None:
     shared = Account(balance=1, nonce=1)
     _write_group(
         tmp_path,
-        "0x01",
+        1,
         "tests/a.py::test_a",
         {0x9000: shared, 0xA000: Account(balance=2)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x02",
+        2,
         "tests/b.py::test_b",
         {0x9000: shared, 0xB000: Account(balance=2)},
         environment=env,
     )
     _write_group(
         tmp_path,
-        "0x03",
+        3,
         "tests/c.py::test_c",
         {0xC000: Account(balance=2)},
         environment=env,

@@ -1347,15 +1347,14 @@ class BlockchainTest(BaseTest):
         if fixture_format == BlockchainEngineXFixture:
             # For Engine X format, exclude pre (will be provided via shared
             # state) and prepare for state diff optimization
-            fixture_data.update(
-                {
-                    "post_state": alloc
-                    if self.include_full_post_state_in_output
-                    else None,
-                    "pre_hash": "",  # Will be set by BaseTestWrapper
-                }
-            )
-            fixture = BlockchainEngineXFixture(**fixture_data)
+            pre_alloc_group_hash = self.pre.get_alloc_grouping_hash()
+            if pre_alloc_group_hash is None:
+                raise ValueError(
+                    "Engine X fixtures require a pre-alloc group; was phase 1 "
+                    "run?"
+                )
+            fixture_data["pre_hash"] = pre_alloc_group_hash
+            fixture_data["post_state_diff"] = alloc.calculate_diff(self.pre)
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
             assert genesis.header.block_hash != head_hash, (
@@ -1382,7 +1381,6 @@ class BlockchainTest(BaseTest):
                     else None,
                 }
             )
-            fixture = BlockchainEngineSyncFixture(**fixture_data)
         else:
             # Standard engine fixture
             fixture_data.update(
@@ -1393,7 +1391,7 @@ class BlockchainTest(BaseTest):
                     else None,
                 }
             )
-            fixture = BlockchainEngineFixture(**fixture_data)
+        fixture = fixture_format.format_class()(**fixture_data)
 
         return FillResult(
             fixture=fixture,

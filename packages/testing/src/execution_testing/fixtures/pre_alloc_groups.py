@@ -1,6 +1,5 @@
 """Pre-allocation group models for test fixture generation."""
 
-import hashlib
 import json
 import os
 from collections import defaultdict
@@ -14,7 +13,6 @@ from typing import (
     KeysView,
     List,
     Literal,
-    NamedTuple,
     Optional,
     Self,
     Set,
@@ -29,7 +27,7 @@ from execution_testing.base_types import (
     Hash,
 )
 from execution_testing.forks import Fork, TransitionFork
-from execution_testing.test_types import Alloc, Environment
+from execution_testing.test_types import Alloc, AllocGroupHash, Environment
 from execution_testing.test_types.chain_config_types import DEFAULT_CHAIN_ID
 
 from .blockchain import FixtureHeader
@@ -51,6 +49,7 @@ class PreAllocGroupBuilder(CamelModel):
             "groups only pack with groups carrying the same salt."
         ),
     )
+    group_hash: AllocGroupHash
     pre: Alloc
 
     def model_post_init(self, __context: Any) -> None:
@@ -96,6 +95,7 @@ class PreAllocGroupBuilder(CamelModel):
             fork=self.fork,
             chain_id=self.chain_id,
             group_salt=self.group_salt,
+            group_hash=self.group_hash,
             pre=self.pre.model_dump(),
             pre_account_count=self.get_pre_account_count(),
             test_count=self.get_test_count(),
@@ -202,25 +202,9 @@ def merge_partial_group_files(folder: Path) -> None:
             )
 
 
-def _environment_group_key(environment: Environment) -> str:
-    """
-    Return a stable string identifying a genesis environment.
-
-    Two groups can only share a client if they share a genesis block, so the
-    environment is part of every packing bucket. The canonical JSON dump
-    matches the equality semantics of `Environment` (which compares the
-    alias-keyed, none-excluded dump).
-    """
-    return json.dumps(
-        environment.model_dump(mode="json", by_alias=True, exclude_none=True),
-        sort_keys=True,
-    )
-
-
-def _packed_group_hash(test_ids: List[str]) -> str:
+def _packed_group_hash(test_ids: List[str]) -> AllocGroupHash:
     """Return a deterministic ``0x``-prefixed id for a packed group."""
-    digest = hashlib.sha256("\n".join(test_ids).encode("utf-8")).digest()
-    return f"0x{int.from_bytes(digest[:8], byteorder='big'):016x}"
+    return AllocGroupHash.from_hash("\n".join(test_ids))
 
 
 # The test id -> group hash index written next to the group files by
@@ -229,7 +213,7 @@ def _packed_group_hash(test_ids: List[str]) -> str:
 TEST_GROUP_INDEX_FILE = "test_group_index"
 
 
-class GroupIndexEntry(NamedTuple):
+class GroupIndexEntry(CamelModel):
     """
     A test's entry in the test id -> pre-alloc group index.
 
@@ -241,11 +225,49 @@ class GroupIndexEntry(NamedTuple):
     reconstructed by scanning group files.
     """
 
-    group_hash: str
-    phase1_hash: str | None
+    group_hash: AllocGroupHash
+    phase1_hash: AllocGroupHash | None
 
 
-def read_test_group_index(folder: Path) -> Dict[str, GroupIndexEntry]:
+class GroupIndexEntries(EthereumTestRootModel):
+    """File containing a test-id to GroupIndexEntry mapping."""
+
+    root: Dict[str, GroupIndexEntry] = Field(default_factory=dict)
+
+    @classmethod
+    def from_file(cls, file_path: Path) -> Self:
+        """Read an index from file."""
+        return cls.model_validate_json(file_path.read_text())
+
+    def to_file(self, file_path: Path) -> None:
+        """Write the index entries to a file."""
+        file_path.write_text(self.model_dump_json(by_alias=True, indent=2))
+
+    def __getitem__(self, item: str) -> GroupIndexEntry:
+        """Get an index entry."""
+        return self.root[item]
+
+    def __setitem__(self, item: str, value: GroupIndexEntry) -> None:
+        """Set an index entry."""
+        self.root[item] = value
+
+    def __iter__(self) -> Iterator[str]:  # type: ignore [override]
+        """Iterate over root dict."""
+        return iter(self.root)
+
+    def items(
+        self,
+    ) -> Generator[Tuple[str, GroupIndexEntry], None, None]:
+        """Get items from root dict."""
+        for key, value in self.root.items():
+            yield key, value
+
+    def get(self, key: str) -> GroupIndexEntry | None:
+        """Get item from root dict."""
+        return self.root.get(key)
+
+
+def read_test_group_index(folder: Path) -> GroupIndexEntries:
     """
     Map every test id to the pre-alloc group that contains it.
 
@@ -256,23 +278,23 @@ def read_test_group_index(folder: Path) -> Dict[str, GroupIndexEntry]:
     """
     index_file = folder / TEST_GROUP_INDEX_FILE
     if index_file.exists():
-        return {
-            test_id: GroupIndexEntry(entry["group"], entry["phase1"])
-            for test_id, entry in json.loads(index_file.read_text()).items()
-        }
-    index: Dict[str, GroupIndexEntry] = {}
+        return GroupIndexEntries.from_file(index_file)
+    index = GroupIndexEntries()
     for file in folder.glob("*.json"):
         data = json.loads(file.read_text())
         for test_id in data.get("testIds", []):
-            index[test_id] = GroupIndexEntry(file.stem, None)
+            assert isinstance(test_id, str)
+            index.root[test_id] = GroupIndexEntry(
+                group_hash=AllocGroupHash(file.stem), phase1_hash=None
+            )
     return index
 
 
 def packed_group_hash_for_test(
-    index: Dict[str, GroupIndexEntry],
+    index: GroupIndexEntries,
     test_id: str,
-    phase1_hash: str,
-) -> str:
+    phase1_hash: AllocGroupHash,
+) -> AllocGroupHash:
     """
     Return the packed group hash owning ``test_id``, verifying freshness.
 
@@ -283,7 +305,7 @@ def packed_group_hash_for_test(
     built from a different version of the test, so phase 2 would fill it
     against the wrong genesis.
     """
-    entry = index.get(test_id)
+    entry = index.root.get(test_id)
     if entry is None:
         raise ValueError(
             f"Test {test_id!r} was not assigned to any pre-allocation "
@@ -400,32 +422,31 @@ def pack_pre_alloc_groups(folder: Path) -> None:
         return
 
     builders = []
-    phase1_hash_by_test: Dict[str, str] = {}
+    phase1_hash_by_test: Dict[str, AllocGroupHash] = {}
     for file in files:
         builder = PreAllocGroupBuilder.model_validate_json(file.read_text())
         for test_id in builder.test_ids:
-            phase1_hash_by_test[test_id] = file.stem
+            phase1_hash_by_test[test_id] = AllocGroupHash(file.stem)
         builders.append(builder)
 
     genesis_buckets: Dict[
-        Tuple[str, int, str, str], List[PreAllocGroupBuilder]
+        Tuple[Fork | TransitionFork, int, str, str], List[PreAllocGroupBuilder]
     ] = defaultdict(list)
     for builder in builders:
-        genesis_buckets[
-            (
-                builder.fork.name(),
-                builder.chain_id,
-                builder.group_salt or "",
-                _environment_group_key(builder.environment),
-            )
-        ].append(builder)
+        key = (
+            builder.fork,
+            builder.chain_id,
+            builder.group_salt or "",
+            builder.environment.canonical_json(),
+        )
+        genesis_buckets[key].append(builder)
 
     # Drop the fine-grained files up front; the packed files written below are
     # named by content hash and never clash with the (now stale) originals.
     for file in files:
         file.unlink()
 
-    test_group_index: Dict[str, GroupIndexEntry] = {}
+    test_group_index = GroupIndexEntries()
     for genesis_key in sorted(genesis_buckets):
         bucket = genesis_buckets[genesis_key]
         reserved = _reserved_addresses(bucket)
@@ -443,6 +464,7 @@ def pack_pre_alloc_groups(folder: Path) -> None:
         for merged in packed.values():
             merged.test_ids.sort()
             packed_hash = _packed_group_hash(merged.test_ids)
+            merged.group_hash = packed_hash
             (folder / f"{packed_hash}.json").write_text(
                 merged.model_dump_json(
                     by_alias=True, exclude_none=True, indent=2
@@ -450,22 +472,10 @@ def pack_pre_alloc_groups(folder: Path) -> None:
             )
             for test_id in merged.test_ids:
                 test_group_index[test_id] = GroupIndexEntry(
-                    packed_hash, phase1_hash_by_test[test_id]
+                    group_hash=packed_hash,
+                    phase1_hash=phase1_hash_by_test[test_id],
                 )
-
-    (folder / TEST_GROUP_INDEX_FILE).write_text(
-        json.dumps(
-            {
-                test_id: {
-                    "group": entry.group_hash,
-                    "phase1": entry.phase1_hash,
-                }
-                for test_id, entry in test_group_index.items()
-            },
-            sort_keys=True,
-            indent=2,
-        )
-    )
+    test_group_index.to_file(folder / TEST_GROUP_INDEX_FILE)
 
 
 class PreAllocGroupBuilders(EthereumTestRootModel):
@@ -478,7 +488,9 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
     Iterating will fail if lazy_load is True.
     """
 
-    root: Dict[str, PreAllocGroupBuilder]
+    root: Dict[AllocGroupHash, PreAllocGroupBuilder] = Field(
+        default_factory=dict
+    )
 
     def to_folder(self, folder: Path, worker_id: Optional[str] = None) -> None:
         """
@@ -494,7 +506,7 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
     def add_test_pre(
         self,
         *,
-        pre_alloc_hash: str,
+        pre_alloc_hash: AllocGroupHash,
         test_id: str,
         fork: Fork | TransitionFork,
         chain_id: int,
@@ -525,6 +537,7 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
                 chain_id=chain_id,
                 environment=environment,
                 group_salt=group_salt,
+                group_hash=pre_alloc_hash,
                 pre=Alloc.merge(
                     Alloc.model_validate(
                         fork.transitions_to().pre_allocation_blockchain()
@@ -564,6 +577,7 @@ class GroupPreAlloc(Alloc):
 
     _cached_state_root: Hash | None = PrivateAttr(None)
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
+    _pre_alloc_group_hash: AllocGroupHash | None = PrivateAttr(None)
 
     def state_root(self) -> Hash:
         """On pre-alloc groups, which are normally very big, always cache."""
@@ -617,6 +631,16 @@ class GroupPreAlloc(Alloc):
         )
         return data
 
+    def get_alloc_grouping_hash(self) -> AllocGroupHash | None:
+        """
+        Return the grouping hash if the allocation belongs to a particular
+        group, otherwise `None`.
+
+        Method can be overloaded by other implementations of the Alloc to
+        return the appropriate group.
+        """
+        return self._pre_alloc_group_hash
+
 
 class PreAllocGroup(PreAllocGroupBuilder):
     """
@@ -637,6 +661,7 @@ class PreAllocGroup(PreAllocGroupBuilder):
         """
         super().model_post_init(__context)
         self.pre._cached_state_root = self.genesis.state_root
+        self.pre._pre_alloc_group_hash = self.group_hash
 
     @classmethod
     def from_file(cls, file: Path) -> Self:
@@ -653,7 +678,13 @@ class PreAllocGroup(PreAllocGroupBuilder):
         builder = PreAllocGroupBuilder.model_validate_json(data)
         built = builder.build()
         # Use cls.model_validate to ensure proper Self return type
-        return cls.model_validate(built.model_dump())
+        v = cls.model_validate(built.model_dump())
+        if file.stem != str(v.group_hash):
+            raise Exception(
+                "invalid group hash found inside file: "
+                f"file={file}, group_hash={v.group_hash}"
+            )
+        return v
 
 
 class PreAllocGroups(EthereumTestRootModel):
@@ -666,11 +697,13 @@ class PreAllocGroups(EthereumTestRootModel):
     Iterating will fail if lazy_load is True.
     """
 
-    root: Dict[str, PreAllocGroup | None]
+    root: Dict[AllocGroupHash, PreAllocGroup | None] = Field(
+        default_factory=dict
+    )
 
     _folder_source: Path | None = PrivateAttr(None)
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: AllocGroupHash, value: Any) -> None:
         """Set item in root dict."""
         assert self._folder_source is None, (
             "Cannot set item in root dict after folder source is set"
@@ -685,18 +718,18 @@ class PreAllocGroups(EthereumTestRootModel):
             with open(fail_file) as f:
                 raise Alloc.CollisionError.from_json(json.loads(f.read()))
 
-        data: Dict[str, PreAllocGroup | None] = {}
+        data: Dict[AllocGroupHash, PreAllocGroup | None] = {}
         for file in folder.glob("*.json"):
             if lazy_load:
-                data[file.stem] = None
+                data[AllocGroupHash(file.stem)] = None
             else:
-                data[file.stem] = PreAllocGroup.from_file(file)
+                data[AllocGroupHash(file.stem)] = PreAllocGroup.from_file(file)
         instance = cls(root=data)
         if lazy_load:
             instance._folder_source = folder
         return instance
 
-    def __getitem__(self, item: str) -> PreAllocGroup:
+    def __getitem__(self, item: AllocGroupHash) -> PreAllocGroup:
         """Get item from root dict."""
         if self._folder_source is None:
             value = self.root[item]
@@ -711,11 +744,11 @@ class PreAllocGroups(EthereumTestRootModel):
             assert result is not None
             return result
 
-    def __iter__(self) -> Iterator[str]:  # type: ignore [override]
+    def __iter__(self) -> Iterator[AllocGroupHash]:  # type: ignore [override]
         """Iterate over root dict."""
         return iter(self.root)
 
-    def __contains__(self, item: str) -> bool:
+    def __contains__(self, item: AllocGroupHash) -> bool:
         """Check if item in root dict."""
         return item in self.root
 
@@ -723,7 +756,7 @@ class PreAllocGroups(EthereumTestRootModel):
         """Get length of root dict."""
         return len(self.root)
 
-    def keys(self) -> KeysView[str]:
+    def keys(self) -> KeysView[AllocGroupHash]:
         """Get keys from root dict."""
         return self.root.keys()
 
@@ -733,7 +766,9 @@ class PreAllocGroups(EthereumTestRootModel):
             assert value is not None, "Value is None"
             yield value
 
-    def items(self) -> Generator[Tuple[str, PreAllocGroup], None, None]:
+    def items(
+        self,
+    ) -> Generator[Tuple[AllocGroupHash, PreAllocGroup], None, None]:
         """Get items from root dict."""
         for key, value in self.root.items():
             assert value is not None, f"Value for key {key} is None"

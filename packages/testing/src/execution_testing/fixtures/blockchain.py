@@ -55,6 +55,7 @@ from execution_testing.exceptions import (
 )
 from execution_testing.forks import Fork, Paris, TransitionFork
 from execution_testing.test_types import (
+    AllocGroupHash,
     BlockAccessList,
     Environment,
     Removable,
@@ -923,10 +924,10 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     }
     transition_tool_cache_key: ClassVar[str] = ""
 
-    pre_hash: str
+    pre_hash: AllocGroupHash
     """Hash of the pre-allocation group this test belongs to."""
 
-    post_state_diff: Alloc | None = None
+    post_state_diff: Alloc
     """
     State difference from genesis after test execution (efficiency
     optimization).

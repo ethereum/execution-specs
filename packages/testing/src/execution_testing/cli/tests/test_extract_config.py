@@ -36,6 +36,7 @@ def test_genesis_state_from_pre_alloc_group_uses_stored_chain_id(
         fork=fork.name(),
         chain_id=12345,
         pre=Alloc().model_dump(mode="json"),
+        group_hash=1,
     )
     fixture_path = tmp_path / "pre_alloc.json"
     fixture_path.write_text(
@@ -61,6 +62,7 @@ def test_genesis_state_from_legacy_pre_alloc_group_defaults_chain_id(
         .model_dump(mode="json", exclude={"parent_hash"}),
         fork=fork.name(),
         pre=Alloc().model_dump(mode="json"),
+        group_hash=1,
     )
     fixture_path = tmp_path / "legacy_pre_alloc.json"
     fixture_path.write_text(builder.model_dump_json(exclude={"chain_id"}))
