@@ -84,7 +84,7 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.test_types import (
     Alloc,
@@ -114,7 +114,9 @@ timestamp of its own (see ``Block.set_environment``).
 """
 
 
-def sync_block_context_unavailable(head: "FixtureHeader") -> str | None:
+def sync_block_context_unavailable(
+    head: "FixtureHeader", test_fork: Fork | TransitionFork
+) -> str | None:
     """
     Return why no block can be built above ``head``, or ``None`` when
     one can be.
@@ -126,18 +128,40 @@ def sync_block_context_unavailable(head: "FixtureHeader") -> str | None:
     whenever a fork changes one. A client is no better off than the
     filler in any of these cases: it cannot derive or parse a child of
     such a header either.
+
+    The fork-arithmetic clauses judge the head under the fork the
+    appended block *itself* would be built under, resolved from
+    ``test_fork`` at that block's own number and timestamp. On a
+    transition chain this need not be the fork the head was built
+    under: the appended block sits one block later, and a timestamp
+    transition can fall between the two. Judging against the head's
+    fork, or against the chain's final fork, gets the wrong answer on
+    either side of that boundary.
     """
-    # Type ceilings: a block's timestamp and slot number must fit
-    # uint64, and the appended block takes its parent's plus a fixed
-    # step. Nothing else on the fill side notices the overflow -
-    # Python integers do not wrap and `t8n` accepts the value - so an
-    # unguarded fill would emit a payload no client can parse. Both
-    # fields are semantic and never clamped or shifted; the fill
-    # declines the block instead.
+    # Type ceilings first: they are fork-independent, and the fork of
+    # a block that cannot exist is not well-defined. A block's
+    # timestamp and slot number must fit uint64, and the appended
+    # block takes its parent's plus a fixed step. Nothing else on the
+    # fill side notices the overflow - Python integers do not wrap and
+    # `t8n` accepts the value - so an unguarded fill would emit a
+    # payload no client can parse. Both fields are semantic and never
+    # clamped or shifted; the fill declines the block instead.
     if int(head.timestamp) + DEFAULT_TIMESTAMP_INCREMENT > 2**64 - 1:
         return "the head's timestamp leaves no uint64 room for a child"
     if head.slot_number is not None and int(head.slot_number) + 1 > 2**64 - 1:
         return "the head's slot number has no successor in uint64"
+    fork = test_fork.fork_at(
+        block_number=int(head.number) + 1,
+        timestamp=int(head.timestamp) + DEFAULT_TIMESTAMP_INCREMENT,
+    )
+    # The appended block inherits its parent's gas limit, and the
+    # fork's floor is not a constant: from Amsterdam on it is the
+    # budget an empty block's own access list needs.
+    if int(head.gas_limit) < fork.minimum_block_gas_limit():
+        return (
+            "the head's gas limit is below the fork's minimum, and the "
+            "appended block inherits it"
+        )
     return None
 
 
@@ -1348,7 +1372,7 @@ class BlockchainTest(BaseTest):
         ``sync_block_context_unavailable``): the chain then fills as
         exactly the author's own.
         """
-        unavailable = sync_block_context_unavailable(head.header)
+        unavailable = sync_block_context_unavailable(head.header, self.fork)
         if unavailable is not None:
             logger.info(
                 f"no sync block appended: {unavailable}; the chain "
