@@ -18,17 +18,17 @@ from typing import Any, Dict
 
 import pytest
 
-from ..filler import _strip_any_xdist_group_suffix
+from ..pre_alloc import _strip_any_xdist_group_suffix
 
 
 class TestStripAnyXdistGroupSuffix:
     """
-    Test the salt's node-id normalization.
+    Test the node-id normalization.
 
-    The sync block's salt must be identical whether or not the fill ran
-    under ``--dist=loadgroup``, so every group suffix is stripped,
-    unlike ``_strip_xdist_group_suffix`` which preserves the deliberate
-    ones.
+    Everything derived from a node id - the sync block's salt, the
+    fixture's own id, the pre-alloc group keys and entropy - must be
+    identical whether or not the fill ran under ``--dist=loadgroup``,
+    so every group suffix is stripped.
     """
 
     @pytest.mark.parametrize(
