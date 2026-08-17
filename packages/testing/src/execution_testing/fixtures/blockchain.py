@@ -1031,6 +1031,24 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     )
     """Engine API payloads for blockchain execution."""
 
+    sync_payload: FixtureEngineNewPayload | None = None
+    """
+    Framework-built empty payload appended above the chain's head - the
+    same out-of-chain representation ``BlockchainEngineSyncFixture``
+    uses - so that a sync-based consumer can announce it and every
+    payload in ``payloads`` becomes an ancestor its client must fetch
+    and execute over devp2p.
+
+    ``payloads``, ``last_block_hash`` and the post state keep
+    describing exactly the chain the test author wrote; consumers that
+    replay payloads through the Engine API can ignore this field.
+    Above a chain whose head is expected to be rejected, the appended
+    block is a sync target only, never an executable continuation.
+    ``None`` for a chain that carries no appended block: one asserting
+    an Engine API error code, one that opted out
+    (``sync_block=False``), or a fill with ``--no-sync-block``.
+    """
+
 
 class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
     """

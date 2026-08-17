@@ -590,6 +590,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "group them in order to reduce the group count."
         ),
     )
+    test_group.addoption(
+        "--no-sync-block",
+        action="store_false",
+        dest="sync_block",
+        default=True,
+        help=(
+            "Do not append the framework-built empty block above the chains "
+            "of blockchain_test_engine_x fixtures; no fixture carries a "
+            "`syncPayload`. See 'The Sync Block' in the filling-tests docs."
+        ),
+    )
 
     optimize_gas_group = parser.getgroup(
         "optimize gas",
@@ -1458,6 +1469,25 @@ def _strip_xdist_group_suffix(s: str) -> str:
     return s
 
 
+def _strip_any_xdist_group_suffix(nodeid: str) -> str:
+    """
+    Return the node id without any xdist group suffix.
+
+    Unlike ``_strip_xdist_group_suffix``, which preserves deliberate
+    groups, this strips every ``@<group>`` suffix an xdist worker may
+    append under ``--dist=loadgroup``, so values derived from the
+    result (the sync block's salt) are identical whether or not the
+    fill ran in parallel. Every group name the fill sets is a bare
+    word, while a parametrized node id always ends in ``]``, so a
+    trailing ``@`` segment without one is a group name and never part
+    of the test's own id.
+    """
+    base, separator, suffix = nodeid.rpartition("@")
+    if separator and base and "]" not in suffix:
+        return base
+    return nodeid
+
+
 def node_to_test_info(node: pytest.Item) -> TestInfo:
     """Return test info of the current node item."""
     # Strip xdist group suffix (@groupname) that may be added during execution.
@@ -1583,6 +1613,21 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
                 kwargs["is_exception_test"] = is_exception_test
                 kwargs["is_inclusion_test"] = is_inclusion_test
+                # The appended sync block: on unless the option or the
+                # test's own opt-out (a caller-passed
+                # ``sync_block=False``) withholds it. Only fixture
+                # formats with a place for the block (engine_x) ever
+                # build one, and benchmark chains opt out in their
+                # conversion to a blockchain test.
+                kwargs["sync_block"] = request.config.getoption(
+                    "sync_block"
+                ) and kwargs.get("sync_block", True)
+                # Salt with the test's own id, so the appended block's
+                # hash is unique to its test and independent of how the
+                # fill was distributed.
+                kwargs["sync_block_salt"] = _strip_any_xdist_group_suffix(
+                    request.node.nodeid
+                )
                 if (
                     op_mode == OpMode.OPTIMIZE_GAS
                     or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING

@@ -1,5 +1,6 @@
 """Ethereum blockchain test spec definition and filler."""
 
+from hashlib import sha256
 from pprint import pprint
 from typing import (
     Any,
@@ -782,9 +783,12 @@ class BlockchainTest(BaseTest):
             and "blockchain_test_only" in marker_names
         ):
             return True
+        engine_formats: List[FixtureFormat] = [
+            BlockchainEngineFixture,
+            BlockchainEngineXFixture,
+        ]
         if (
-            fixture_format
-            not in [BlockchainEngineFixture, BlockchainEngineXFixture]
+            fixture_format not in engine_formats
             and "blockchain_test_engine_only" in marker_names
         ):
             return True
@@ -1255,6 +1259,66 @@ class BlockchainTest(BaseTest):
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 
+    def sync_payload_eligible(self) -> bool:
+        """
+        Return whether this test's chain takes the appended sync block.
+
+        Eligible unless the fill context withheld the block (the
+        ``--no-sync-block`` option or the test's own opt-out, folded
+        into ``sync_block``), the chain has no blocks to append to, or
+        a block asserts an Engine API error code: that assertion is
+        about the client's answer to the announcement of the test's
+        *own* payload, and a block appended above it would be announced
+        instead, so the refusal the test verifies would never happen.
+
+        Expected-invalid blocks are eligible, and are the reason the
+        block is appended rather than inserted below the chain: above
+        an invalid head the appended block is a sync target only, and
+        it puts the invalid block itself on the wire, where a client
+        must fetch and judge it through its sync path.
+        """
+        if not self.sync_block or not self.blocks:
+            return False
+        return all(
+            block.engine_api_error_code is None for block in self.blocks
+        )
+
+    def build_sync_payload(
+        self,
+        t8n: FillerBackend,
+        *,
+        head: BuiltBlock,
+        alloc: Alloc | LazyAlloc,
+    ) -> FixtureEngineNewPayload:
+        """
+        Build the empty block appended above the chain's ``head``.
+
+        ``head`` is the chain's last built block, valid or not, and
+        ``alloc`` is the state the chain leaves behind: a valid head's
+        post-state or, when the head is expected to be rejected and was
+        rolled back, the state of its own parent.
+
+        Above a rejected head the block is a sync target only, not a
+        valid continuation: its ``state_root`` follows from a state
+        transition no client would compute, since no client accepts its
+        parent. What it must get right is the part of its header a
+        client checks without the parent's state - it names the
+        rejected block as its parent, one block above it, with the fee
+        and gas context the fork derives from that block's header -
+        which is enough for the client to answer the announcement with
+        SYNCING and fetch the ancestry it lacks. It rejects the test's
+        block from that ancestry long before it would execute this one.
+        """
+        env = apply_new_parent(head.env, head.header)
+        extra_data = Bytes(sha256(self.sync_block_salt.encode()).digest()[:16])
+        sync_block = self.generate_block_data(
+            t8n=t8n,
+            block=Block(extra_data=extra_data),
+            previous_env=env,
+            previous_alloc=alloc,
+        )
+        return sync_block.get_fixture_engine_new_payload()
+
     def make_hive_fixture(
         self,
         t8n: FillerBackend,
@@ -1356,6 +1420,15 @@ class BlockchainTest(BaseTest):
                 )
             fixture_data["pre_hash"] = pre_alloc_group_hash
             fixture_data["post_state_diff"] = alloc.calculate_diff(self.pre)
+            if self.sync_payload_eligible():
+                # `built_block` is the chain's last built block, valid
+                # or not; the sync block sits above it so that every
+                # test-authored block is an ancestor of the announced
+                # head. Stored out-of-chain: `payloads`, the head and
+                # the post state stay exactly the author's chain.
+                fixture_data["sync_payload"] = self.build_sync_payload(
+                    t8n, head=built_block, alloc=alloc
+                )
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
             assert genesis.header.block_hash != head_hash, (
