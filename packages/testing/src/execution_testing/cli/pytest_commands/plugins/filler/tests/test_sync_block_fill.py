@@ -207,6 +207,32 @@ ERROR_CODE_MODULE = textwrap.dedent(
     """
 )
 
+OPT_OUT_MODULE = textwrap.dedent(
+    """\
+    from execution_testing import Block, Transaction
+
+
+    def single_block_test(blockchain_test, pre, value, **kwargs):
+        tx = Transaction(
+            to=0, value=value, gas_limit=21_000, sender=pre.fund_eoa()
+        )
+        blockchain_test(
+            pre=pre, post={}, blocks=[Block(txs=[tx])], **kwargs
+        )
+
+
+    def test_opted_out(blockchain_test, pre) -> None:
+        # Stands in for a chain whose end state the appended block
+        # cannot execute on (e.g. a sabotaged system contract): the
+        # test itself declares it cannot carry the block.
+        single_block_test(blockchain_test, pre, 1, sync_block=False)
+
+
+    def test_unopted(blockchain_test, pre) -> None:
+        single_block_test(blockchain_test, pre, 2)
+    """
+)
+
 CEILING_MODULE = textwrap.dedent(
     """\
     from execution_testing import Block, Transaction
@@ -461,6 +487,27 @@ def test_error_code_chain_keeps_its_announcement(
     ).values():
         assert fixture["engineNewPayloads"][0].get("errorCode") is not None
         assert "syncPayload" not in fixture
+
+
+def test_opted_out_tests_fill_without_the_block(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    A test that opts out (``sync_block=False``) fills as exactly the
+    author's chain rather than being skipped, and its neighbours keep
+    their appended block.
+    """
+    test_module = make_test_module(pytester, OPT_OUT_MODULE, "test_opt_out.py")
+    output = fill(pytester, test_module)
+
+    fixtures = fixtures_of_format(output, "blockchain_tests_engine_x")
+    assert len(fixtures) == 2, "opted-out tests must still be filled"
+    for test_id, fixture in fixtures.items():
+        assert len(fixture["engineNewPayloads"]) == 1
+        if "test_opted_out" in test_id:
+            assert "syncPayload" not in fixture
+        else:
+            assert_appended_above(fixture, blocks=1)
 
 
 def test_ceiling_head_fills_bare(pytester: pytest.Pytester) -> None:
