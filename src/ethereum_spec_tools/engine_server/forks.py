@@ -67,6 +67,9 @@ FORKS: List[ForkSpec] = [
     ForkSpec("BPO4", "bpo4", True, True, True, False),
     ForkSpec("BPO5", "bpo5", True, True, True, False),
     ForkSpec("Amsterdam", "amsterdam", True, True, True, True),
+    # Pseudo-fork: labels the sidecar wire family while the spec has no
+    # dedicated Bogota fork module; execution uses the amsterdam module.
+    ForkSpec("Bogota", "amsterdam", True, True, True, True),
 ]
 """All supported forks, oldest first."""
 

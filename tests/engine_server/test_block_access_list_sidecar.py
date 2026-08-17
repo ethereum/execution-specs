@@ -43,11 +43,15 @@ def _engine() -> ExecutionEngine:
 
 
 def _backend() -> EngineBackend:
-    """A backend whose schedule transitions from BPO2 to Amsterdam."""
+    """
+    A backend whose schedule transitions from BPO2 to the Bogota
+    pseudo-fork. BPO2 is the pre-fork side so the old wire family is
+    served by an unmodified fork module.
+    """
     return EngineBackend(
         engine=SimpleNamespace(),
         genesis_spec=_SPECS["BPO2"],
-        schedule=[(_SPECS["BPO2"], 0), (_SPECS["Amsterdam"], FORK_TIMESTAMP)],
+        schedule=[(_SPECS["BPO2"], 0), (_SPECS["Bogota"], FORK_TIMESTAMP)],
     )
 
 
