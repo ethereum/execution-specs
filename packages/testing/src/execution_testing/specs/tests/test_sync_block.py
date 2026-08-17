@@ -1,22 +1,30 @@
 """
-Tests for the appended sync block's eligibility.
+Tests for the appended sync block's eligibility and physical guards.
 
 The filler appends one framework-built empty block above every
 engine_x chain, stored out-of-chain in the fixture's ``syncPayload``,
 so a sync-based consumer can announce it and every test-authored block
 must travel devp2p as ancestry. These tests pin which chains take the
-block; the block itself is built against a real backend and is covered
-by the filler plugin's pytester tests.
+block and which heads the filler declines to build above; the block
+itself is built against a real backend and is covered by the filler
+plugin's pytester tests.
 """
 
-from typing import List
+from typing import Any, Dict, List
 
 import pytest
 
+from execution_testing.base_types import Address, Hash
 from execution_testing.exceptions import BlockException, EngineAPIError
+from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.forks import Cancun, Fork, TransitionFork
 from execution_testing.specs.benchmark import BenchmarkTest
-from execution_testing.specs.blockchain import Block, BlockchainTest
+from execution_testing.specs.blockchain import (
+    DEFAULT_TIMESTAMP_INCREMENT,
+    Block,
+    BlockchainTest,
+    sync_block_context_unavailable,
+)
 from execution_testing.test_types import Alloc, Environment
 
 SALT = "tests/cancun/test_x.py::test_y[fork_Cancun]"
@@ -105,6 +113,71 @@ def test_sync_block_disabled() -> None:
     """Without the option no chain takes the extra block."""
     test = make_test(blocks=[VALID], sync_block=False)
     assert not test.sync_payload_eligible()
+
+
+def head_with(**fields: Any) -> FixtureHeader:
+    """Build a Cancun-shaped header pinning the given fields."""
+    defaults: Dict[str, Any] = dict(
+        fork=Cancun,
+        fee_recipient=Address(0),
+        state_root=Hash(0),
+        number=1,
+        gas_limit=30_000_000,
+        gas_used=0,
+        timestamp=12,
+        extra_data=b"\x00",
+        base_fee_per_gas=7,
+        withdrawals_root=Hash(0),
+        blob_gas_used=0,
+        excess_blob_gas=0,
+        parent_beacon_block_root=Hash(0),
+    )
+    return FixtureHeader(**{**defaults, **fields})
+
+
+@pytest.mark.parametrize(
+    "head_timestamp,available",
+    [
+        pytest.param(2**64 - 1, False, id="max"),
+        pytest.param(
+            2**64 - DEFAULT_TIMESTAMP_INCREMENT,
+            False,
+            id="one_short_of_room",
+        ),
+        pytest.param(
+            2**64 - 1 - DEFAULT_TIMESTAMP_INCREMENT,
+            True,
+            id="exactly_enough_room",
+        ),
+    ],
+)
+def test_timestamp_ceiling(head_timestamp: int, available: bool) -> None:
+    """
+    A head pinned so close to the uint64 ceiling that no child
+    timestamp fits carries no sync block: nothing downstream notices
+    the overflow, and no client can parse the resulting payload.
+    """
+    reason = sync_block_context_unavailable(
+        head_with(timestamp=head_timestamp)
+    )
+    assert (reason is None) is available
+
+
+@pytest.mark.parametrize(
+    "slot_number,available",
+    [
+        pytest.param(2**64 - 1, False, id="max_slot"),
+        pytest.param(2**64 - 2, True, id="one_below_max"),
+        pytest.param(None, True, id="no_slot_field"),
+    ],
+)
+def test_slot_ceiling(slot_number: int | None, available: bool) -> None:
+    """
+    The appended block's slot number is its parent's plus one, so the
+    maximum uint64 slot number admits no child.
+    """
+    reason = sync_block_context_unavailable(head_with(slot_number=slot_number))
+    assert (reason is None) is available
 
 
 def test_benchmark_chains_never_take_the_sync_block() -> None:
