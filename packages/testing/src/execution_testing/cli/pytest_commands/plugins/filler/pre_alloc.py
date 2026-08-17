@@ -426,6 +426,25 @@ for spec in BaseTest.spec_types.values():
 ALL_FIXTURE_FORMAT_NAMES.sort(key=len, reverse=True)
 
 
+def _strip_any_xdist_group_suffix(nodeid: str) -> str:
+    """
+    Return the node id without any xdist group suffix.
+
+    Under ``--dist=loadgroup`` an xdist worker appends ``@<group>`` to
+    a node id, so any value derived from one - the sync block's salt,
+    a fixture's own id, the pre-alloc group keys and entropy - would
+    otherwise depend on whether and how the fill was distributed.
+    Every group name the fill or a test sets is a bare word, while a
+    parametrized node id always ends in ``]``, so a trailing ``@``
+    segment without one is a group name and never part of the test's
+    own id.
+    """
+    base, separator, suffix = nodeid.rpartition("@")
+    if separator and base and "]" not in suffix:
+        return base
+    return nodeid
+
+
 @pytest.fixture(scope="function")
 def node_id_for_entropy(
     request: pytest.FixtureRequest, fork: Fork | TransitionFork
@@ -441,11 +460,7 @@ def node_id_for_entropy(
     hashing results in the contracts and senders addresses being the same
     across fixture types and forks for the same test.
     """
-    node_id: str = request.node.nodeid
-    # Strip xdist group suffix (e.g., @t8n-cache-abc12345) so entropy is
-    # deterministic regardless of whether xdist is active.
-    if "@" in node_id:
-        node_id = node_id.rsplit("@", 1)[0]
+    node_id: str = _strip_any_xdist_group_suffix(request.node.nodeid)
     for fixture_format_name in ALL_FIXTURE_FORMAT_NAMES:
         if fixture_format_name in node_id:
             parts = node_id.split("::")
