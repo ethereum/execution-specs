@@ -25,7 +25,6 @@ from execution_testing.forks import (
 )
 from execution_testing.specs.benchmark import BenchmarkTest
 from execution_testing.specs.blockchain import (
-    DEFAULT_TIMESTAMP_INCREMENT,
     Block,
     BlockchainTest,
     sync_block_context_unavailable,
@@ -145,12 +144,12 @@ def head_with(**fields: Any) -> FixtureHeader:
     [
         pytest.param(2**64 - 1, False, id="max"),
         pytest.param(
-            2**64 - DEFAULT_TIMESTAMP_INCREMENT,
+            2**64 - Cancun.block_time(),
             False,
             id="one_short_of_room",
         ),
         pytest.param(
-            2**64 - 1 - DEFAULT_TIMESTAMP_INCREMENT,
+            2**64 - 1 - Cancun.block_time(),
             True,
             id="exactly_enough_room",
         ),
