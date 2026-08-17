@@ -281,12 +281,14 @@ def test_head_is_judged_under_the_appended_block_s_own_fork(
     assert (reason is None) is available
 
 
-def test_benchmark_chains_never_take_the_sync_block() -> None:
+def test_benchmark_chains_take_the_sync_block() -> None:
     """
-    A benchmark chain must not carry the appended block: it would
-    distort the per-block gas and timing benchmarks measure. The
-    conversion to a blockchain test opts out explicitly, overriding
-    whatever the fill context set on the benchmark spec.
+    A benchmark chain carries the appended block like any other: the
+    benchmark's gas and opcode values are recorded before the block is
+    built, and the block is what makes a mostly single-block benchmark
+    chain servable by a sync-based consumer at all. The conversion to
+    a blockchain test propagates the fill context unchanged, so
+    ``--no-sync-block`` remains the release-level opt-out.
     """
     benchmark_test = BenchmarkTest(
         fork=Cancun,
@@ -299,5 +301,5 @@ def test_benchmark_chains_never_take_the_sync_block() -> None:
         sync_block_salt=SALT,
     )
     blockchain_test = benchmark_test.generate_blockchain_test()
-    assert not blockchain_test.sync_block
-    assert not blockchain_test.sync_payload_eligible()
+    assert blockchain_test.sync_block
+    assert blockchain_test.sync_payload_eligible()
