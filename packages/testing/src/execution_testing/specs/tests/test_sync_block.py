@@ -17,7 +17,12 @@ import pytest
 from execution_testing.base_types import Address, Hash
 from execution_testing.exceptions import BlockException, EngineAPIError
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.forks import Cancun, Fork, TransitionFork
+from execution_testing.forks import (
+    BPO2ToAmsterdamAtTime15k,
+    Cancun,
+    Fork,
+    TransitionFork,
+)
 from execution_testing.specs.benchmark import BenchmarkTest
 from execution_testing.specs.blockchain import (
     DEFAULT_TIMESTAMP_INCREMENT,
@@ -158,7 +163,7 @@ def test_timestamp_ceiling(head_timestamp: int, available: bool) -> None:
     the overflow, and no client can parse the resulting payload.
     """
     reason = sync_block_context_unavailable(
-        head_with(timestamp=head_timestamp)
+        head_with(timestamp=head_timestamp), Cancun
     )
     assert (reason is None) is available
 
@@ -176,7 +181,61 @@ def test_slot_ceiling(slot_number: int | None, available: bool) -> None:
     The appended block's slot number is its parent's plus one, so the
     maximum uint64 slot number admits no child.
     """
-    reason = sync_block_context_unavailable(head_with(slot_number=slot_number))
+    reason = sync_block_context_unavailable(
+        head_with(slot_number=slot_number), Cancun
+    )
+    assert (reason is None) is available
+
+
+@pytest.mark.parametrize(
+    "gas_limit,available",
+    [
+        pytest.param(Cancun.minimum_block_gas_limit(), True, id="minimum"),
+        pytest.param(
+            Cancun.minimum_block_gas_limit() - 1, False, id="one_below"
+        ),
+        pytest.param(0, False, id="zero"),
+    ],
+)
+def test_gas_limit_the_fork_cannot_build_above(
+    gas_limit: int, available: bool
+) -> None:
+    """
+    The appended block inherits its parent's gas limit, so a head below
+    the fork's minimum carries no sync block. The floor is fork
+    arithmetic - from Amsterdam on it is the budget an empty block's
+    own access list needs - which is why the filler decides this rather
+    than the test author.
+    """
+    reason = sync_block_context_unavailable(
+        head_with(gas_limit=gas_limit), Cancun
+    )
+    assert (reason is None) is available
+
+
+@pytest.mark.parametrize(
+    "head_timestamp,available",
+    [
+        pytest.param(14_000, True, id="appended_block_lands_before_the_fork"),
+        pytest.param(15_000, False, id="appended_block_lands_after_the_fork"),
+    ],
+)
+def test_head_is_judged_under_the_appended_block_s_own_fork(
+    head_timestamp: int, available: bool
+) -> None:
+    """
+    A transition chain's head is judged against the fork the appended
+    block itself lands in, not the chain's final fork.
+
+    The gas limit here is legal before Amsterdam and below the floor
+    Amsterdam raises it to, so the two forks disagree about this head.
+    Judging by the chain's final fork would refuse the appended block
+    on a chain that never reaches that fork.
+    """
+    reason = sync_block_context_unavailable(
+        head_with(gas_limit=10_000, timestamp=head_timestamp),
+        BPO2ToAmsterdamAtTime15k,
+    )
     assert (reason is None) is available
 
 
