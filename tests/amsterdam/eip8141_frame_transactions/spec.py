@@ -14,7 +14,7 @@ class ReferenceSpec:
 
 
 ref_spec_8141 = ReferenceSpec(
-    "EIPS/eip-8141.md", "4a9ad32cf2c851d16ab889d643342074ea3fab95"
+    "EIPS/eip-8141.md", "9c915ee494c05069945f4e1018fa0854e2d3fb38"
 )
 
 
@@ -26,7 +26,7 @@ class Spec:
     """
 
     FRAME_TX_TYPE = 0x06
-    FRAME_TX_INTRINSIC_COST = 15_000
+    FRAME_TX_INTRINSIC_COST = 12_000
     FRAME_TX_PER_FRAME_COST = 475
     ENTRY_POINT = Address(0xAA)
     EXPIRY_VERIFIER = Address(0x8141)

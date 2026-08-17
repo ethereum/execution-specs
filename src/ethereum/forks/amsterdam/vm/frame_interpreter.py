@@ -419,7 +419,7 @@ def execute_frame(
     ):
         return FrameOutcome(
             receipt=execute_default_verify_code(tx_env, frame),
-            gas_left=Uint(frame.gas),
+            gas_left=Uint(frame.gas_limits.execution),
             refund_counter=0,
             state_gas_used=0,
             accounts_to_delete=set(),
@@ -432,14 +432,14 @@ def execute_frame(
                 receipt=FrameReceipt(
                     status=FrameStatus.FAILURE, gas_used=Uint(0), logs=()
                 ),
-                gas_left=Uint(frame.gas),
+                gas_left=Uint(frame.gas_limits.execution),
                 refund_counter=0,
                 state_gas_used=0,
                 accounts_to_delete=set(),
             )
 
     gas_meter = GasMeter(
-        gas_left=ExecutionGas(Uint(frame.gas)),
+        gas_left=ExecutionGas(Uint(frame.gas_limits.execution)),
         state_gas_left=StateGas(Uint(0)),
         state_gas_baseline=StateGas(Uint(0)),
     )
@@ -461,7 +461,7 @@ def execute_frame(
         return FrameOutcome(
             receipt=FrameReceipt(
                 status=FrameStatus.FAILURE,
-                gas_used=Uint(frame.gas),
+                gas_used=Uint(frame.gas_limits.execution),
                 logs=(),
             ),
             gas_left=Uint(0),
@@ -472,7 +472,7 @@ def execute_frame(
 
     process_call(evm)
 
-    gas_used = Uint(frame.gas) - gas_meter.gas_left
+    gas_used = Uint(frame.gas_limits.execution) - gas_meter.gas_left
     if evm.error is None:
         journal.warm_addresses.update(evm.accessed_addresses)
         journal.warm_storage_keys.update(evm.accessed_storage_keys)
@@ -551,13 +551,15 @@ def process_frames(
 
         if skip_batch:
             # A frame of a failed atomic batch never executes; its
-            # allotted gas counts as unused.
+            # allotted gas — in both dimensions — counts as unused.
             frame_context.frame_receipts.append(
                 FrameReceipt(
                     status=FrameStatus.SKIPPED, gas_used=Uint(0), logs=()
                 )
             )
-            journal.unused_gas += Uint(frame.gas)
+            journal.unused_gas += Uint(frame.gas_limits.execution) + Uint(
+                frame.gas_limits.state
+            )
             if not has_batch_flag:
                 open_batch = None
                 skip_batch = False

@@ -107,11 +107,11 @@ def txparam(evm: Evm) -> None:
     elif param == U256(0x02):
         value = U256.from_be_bytes(tx.sender)
     elif param == U256(0x03):
-        value = U256(tx.max_priority_fee_per_gas)
+        value = U256(tx.fees.max_priority_fee_per_gas)
     elif param == U256(0x04):
-        value = U256(tx.max_fee_per_gas)
+        value = U256(tx.fees.max_fee_per_gas)
     elif param == U256(0x05):
-        value = tx.max_fee_per_blob_gas
+        value = tx.fees.max_fee_per_blob_gas
     elif param == U256(0x06):
         value = U256(frame_context.max_cost)
     elif param == U256(0x07):
@@ -229,7 +229,7 @@ def frameparam(evm: Evm) -> None:
     if param == U256(0x00):
         value = U256.from_be_bytes(resolve_frame_target(tx, frame))
     elif param == U256(0x01):
-        value = U256(frame.gas)
+        value = U256(frame.gas_limits.execution)
     elif param == U256(0x02):
         value = U256(frame.mode)
     elif param == U256(0x03):

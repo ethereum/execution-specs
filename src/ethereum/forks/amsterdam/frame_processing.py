@@ -138,21 +138,21 @@ def check_frame_transaction(
 
     check_max_fee_per_blob_gas(
         tx.blob_versioned_hashes,
-        tx.max_fee_per_blob_gas,
+        tx.fees.max_fee_per_blob_gas,
         block_env.excess_blob_gas,
     )
 
     check_nonce(tx, sender_account.nonce)
 
-    # A state gas reservoir holds only gas above `TX_MAX_GAS_LIMIT`,
-    # and the derived `max_gas` never exceeds that cap: a frame
-    # transaction's reservoir is always empty, and state gas spills
-    # from execution gas instead.
-    execution_gas_grant = validation.standard_gas_limit - Uint(
-        validation.intrinsic.execution
-    )
+    # The frames' total execution gas budget. Frame transactions
+    # declare their state gas budgets explicitly per frame; the
+    # reservoir model of the regular flow does not apply, so the
+    # reservoir is empty.
+    execution_gas_grant = Uint(0)
+    for frame in tx.frames:
+        execution_gas_grant += Uint(frame.gas_limits.execution)
 
-    max_cost = validation.max_gas * tx.max_fee_per_gas + Uint(
+    max_cost = validation.max_gas * tx.fees.max_fee_per_gas + Uint(
         calculate_total_blob_gas(tx)
     ) * calculate_blob_gas_price(block_env.excess_blob_gas)
     if max_cost > Uint(U256.MAX_VALUE):

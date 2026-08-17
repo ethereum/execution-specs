@@ -292,6 +292,16 @@ class ForkLoad:
         return self._module("transactions.frame_transaction").Frame
 
     @property
+    def GasLimits(self) -> Any:
+        """Frame gas limits class of the fork."""
+        return self._module("transactions.frame_transaction").GasLimits
+
+    @property
+    def TransactionFees(self) -> Any:
+        """Frame transaction fees class of the fork."""
+        return self._module("transactions.frame_transaction").TransactionFees
+
+    @property
     def FrameMode(self) -> Any:
         """Frame mode enum of the fork."""
         return self._module("transactions.frame_transaction").FrameMode

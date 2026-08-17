@@ -204,6 +204,7 @@ class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
     flags: NumberBoundTypeVar = Field(0)  # type: ignore
     target: Address | None = None
     gas_limit: NumberBoundTypeVar = Field(0)  # type: ignore
+    state_gas_limit: NumberBoundTypeVar = Field(0)  # type: ignore
     value: NumberBoundTypeVar = Field(0)  # type: ignore
     data: Bytes = Field(Bytes(b""))
 
@@ -211,10 +212,17 @@ class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
         "mode",
         "flags",
         "target",
-        "gas_limit",
+        "gas_limits",
         "value",
         "data",
     ]
+
+    @property
+    def gas_limits(self) -> List[NumberBoundTypeVar]:
+        """
+        Return the frame's nested `limits = [execution, state]` RLP list.
+        """
+        return [self.gas_limit, self.state_gas_limit]
 
 
 class Frame(FrameGeneric[HexNumber]):
@@ -634,6 +642,21 @@ class Transaction(
         )
 
     @property
+    def fees(self) -> List[HexNumber]:
+        """
+        Return the frame transaction's nested `fees` RLP list:
+        `[max_priority_fee_per_gas, max_fee_per_gas, max_fee_per_blob_gas]`.
+        """
+        assert self.max_priority_fee_per_gas is not None
+        assert self.max_fee_per_gas is not None
+        assert self.max_fee_per_blob_gas is not None
+        return [
+            self.max_priority_fee_per_gas,
+            self.max_fee_per_gas,
+            self.max_fee_per_blob_gas,
+        ]
+
+    @property
     def signing_signatures(self) -> List[FrameSignature]:
         """
         Return the signature entries as included in the canonical frame
@@ -956,9 +979,7 @@ class Transaction(
                 "sender",
                 "frames",
                 "signing_signatures",
-                "max_priority_fee_per_gas",
-                "max_fee_per_gas",
-                "max_fee_per_blob_gas",
+                "fees",
                 "blob_versioned_hashes",
             ]
         elif self.ty == 6:

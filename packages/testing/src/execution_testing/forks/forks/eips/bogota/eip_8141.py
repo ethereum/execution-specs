@@ -11,6 +11,7 @@ from dataclasses import replace
 from typing import List, Mapping, Sequence
 
 from execution_testing.base_types import Bytes
+from execution_testing.base_types.conversions import BytesConvertible
 
 from ....base_fork import (
     BaseFork,
@@ -29,10 +30,13 @@ EXPIRY_VERIFIER_BYTECODE = bytes.fromhex(
 
 
 class _DatalessFrame:
-    """Stand-in for a frame carrying no data and no frame gas."""
+    """Stand-in for a frame carrying no data, no value, no frame gas."""
 
     data = b""
     gas_limit = 0
+    state_gas_limit = 0
+    value = 0
+    target = None
 
 
 _DATALESS_FRAME = _DatalessFrame()
@@ -51,7 +55,7 @@ class EIP8141(BaseFork):
         """Add the frame transaction intrinsic gas constants."""
         return replace(
             super(EIP8141, cls).gas_costs(),
-            TX_FRAME_INTRINSIC=15_000,
+            TX_FRAME_INTRINSIC=12_000,
             TX_PER_FRAME=475,
             FRAME_SIGNATURE_SCHEME_ARBITRARY=100,
             FRAME_SIGNATURE_SCHEME_SECP256K1=2_800,
@@ -95,11 +99,14 @@ class EIP8141(BaseFork):
         cls,
         frames: Sequence[FrameGasInfo],
         signatures: Sequence[FrameSignatureGasInfo],
+        sender: BytesConvertible | None,
     ) -> int:
         """
         Return the costs a frame transaction always pays regardless of
-        execution: the base cost, the per-frame cost, and the
-        verification cost of each signature entry.
+        execution: the base cost, the per-frame cost, the verification
+        cost of each signature entry, and the value transfer cost of
+        each value-bearing frame whose explicit target differs from the
+        sender.
         """
         gas_costs = cls.gas_costs()
         scheme_gas = {
@@ -107,10 +114,21 @@ class EIP8141(BaseFork):
             1: gas_costs.FRAME_SIGNATURE_SCHEME_SECP256K1,
             2: gas_costs.FRAME_SIGNATURE_SCHEME_P256,
         }
+        value_transfer_cost = 0
+        for frame in frames:
+            if int(frame.value) == 0 or frame.target is None:
+                continue
+            assert sender is not None, (
+                "sender is required to price a value-bearing frame "
+                "with an explicit target"
+            )
+            if Bytes(frame.target) != Bytes(sender):
+                value_transfer_cost += gas_costs.TX_VALUE_COST
         return (
             gas_costs.TX_FRAME_INTRINSIC
             + len(frames) * gas_costs.TX_PER_FRAME
             + sum(scheme_gas[int(sig.scheme)] for sig in signatures)
+            + value_transfer_cost
         )
 
     @classmethod
@@ -130,6 +148,7 @@ class EIP8141(BaseFork):
             *,
             frames: Sequence[FrameGasInfo] | int,
             signatures: Sequence[FrameSignatureGasInfo] = (),
+            sender: BytesConvertible | None = None,
         ) -> int:
             frame_list = cls._frame_list(frames)
             data_length = sum(
@@ -138,7 +157,9 @@ class EIP8141(BaseFork):
                     frame_list, signatures
                 )
             )
-            return cls._frame_transaction_base_cost(frame_list, signatures) + (
+            return cls._frame_transaction_base_cost(
+                frame_list, signatures, sender
+            ) + (
                 data_length
                 * gas_costs.TX_DATA_TOKEN_STANDARD
                 * gas_costs.TX_DATA_TOKEN_FLOOR
@@ -192,10 +213,12 @@ class EIP8141(BaseFork):
         Frame transaction intrinsic cost is introduced.
 
         The intrinsic cost is the base cost, the per-frame cost, the
-        verification cost of each signature entry, and the calldata
+        verification cost of each signature entry, the value transfer
+        cost of each qualifying value-bearing frame, and the calldata
         cost of the charged byte fields. The transaction's derived gas
         limit is the larger of the intrinsic cost plus the frame gas
-        limits and the calldata floor anchor.
+        limits in both dimensions and the calldata floor anchor plus
+        the frame state gas limits.
         """
         calldata_gas_calculator = cls.calldata_gas_calculator()
         floor_cost_calculator = (
@@ -206,11 +229,12 @@ class EIP8141(BaseFork):
             *,
             frames: Sequence[FrameGasInfo] | int,
             signatures: Sequence[FrameSignatureGasInfo] = (),
+            sender: BytesConvertible | None = None,
             return_cost_deducted_prior_execution: bool = False,
         ) -> int:
             frame_list = cls._frame_list(frames)
             intrinsic_cost = cls._frame_transaction_base_cost(
-                frame_list, signatures
+                frame_list, signatures, sender
             ) + sum(
                 calldata_gas_calculator(data=data)
                 for data in cls._frame_transaction_charged_bytes(
@@ -221,14 +245,20 @@ class EIP8141(BaseFork):
             if return_cost_deducted_prior_execution:
                 return intrinsic_cost
 
-            standard_gas_limit = intrinsic_cost + sum(
-                int(frame.gas_limit) for frame in frame_list
+            total_state_gas = sum(
+                int(frame.state_gas_limit) for frame in frame_list
+            )
+            standard_gas_limit = (
+                intrinsic_cost
+                + sum(int(frame.gas_limit) for frame in frame_list)
+                + total_state_gas
             )
             return max(
                 standard_gas_limit,
                 floor_cost_calculator(
-                    frames=frame_list, signatures=signatures
-                ),
+                    frames=frame_list, signatures=signatures, sender=sender
+                )
+                + total_state_gas,
             )
 
         return fn

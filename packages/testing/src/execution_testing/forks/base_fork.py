@@ -171,7 +171,8 @@ class FrameGasInfo(Protocol):
     """
     Structural view of an EIP-8141 frame's contribution to the
     transaction's gas anchors. The test ``Frame`` satisfies it via its
-    ``data`` and ``gas_limit`` fields.
+    ``data``, ``gas_limit``, ``state_gas_limit``, ``value``, and
+    ``target`` fields.
     """
 
     @property
@@ -181,7 +182,28 @@ class FrameGasInfo(Protocol):
 
     @property
     def gas_limit(self) -> int:
-        """Return the frame's gas limit, part of the derived limit."""
+        """
+        Return the frame's execution gas limit, part of the derived
+        limit.
+        """
+        ...
+
+    @property
+    def state_gas_limit(self) -> int:
+        """
+        Return the frame's state gas limit, part of the derived
+        limit.
+        """
+        ...
+
+    @property
+    def value(self) -> int:
+        """Return the frame's value, deciding the value transfer cost."""
+        ...
+
+    @property
+    def target(self) -> BytesConvertible | None:
+        """Return the frame's target, deciding the value transfer cost."""
         ...
 
 
@@ -226,6 +248,7 @@ class FrameTransactionIntrinsicCostCalculator(Protocol):
         *,
         frames: Sequence[FrameGasInfo] | int,
         signatures: Sequence[FrameSignatureGasInfo] = (),
+        sender: BytesConvertible | None = None,
         return_cost_deducted_prior_execution: bool = False,
     ) -> int:
         """
@@ -234,14 +257,21 @@ class FrameTransactionIntrinsicCostCalculator(Protocol):
 
         Args:
           frames: The transaction's frames; their `data` is priced as
-                  calldata and their `gas_limit` is part of the derived
-                  transaction gas limit. An integer stands for that
-                  many frames carrying no data and, for the derived
-                  gas limit, no frame gas.
+                  calldata, their `gas_limit` and `state_gas_limit` are
+                  part of the derived transaction gas limit, and their
+                  `value` and `target` decide the value transfer cost.
+                  An integer stands for that many frames carrying no
+                  data, no value and, for the derived gas limit, no
+                  frame gas.
           signatures: The transaction's signature entries as included
                       on the wire. For an exact cost the raw
                       `signature` bytes must already be filled in, so
                       sign the transaction first.
+          sender: The transaction's sender; a value-bearing frame is
+                  charged the value transfer cost only when its
+                  explicit target differs from the sender. May be
+                  omitted when no frame carries value to an explicit
+                  target.
           return_cost_deducted_prior_execution: If set to False, the
                                                 returned value is equal
                                                 to the transaction's
@@ -249,14 +279,16 @@ class FrameTransactionIntrinsicCostCalculator(Protocol):
                                                 larger of the intrinsic
                                                 cost plus the frame gas
                                                 limits and the calldata
-                                                floor — which the payer
-                                                must cover at
-                                                inclusion. If set to
-                                                True, the returned
-                                                value is equal to the
-                                                cost that is deducted
-                                                before the first frame
-                                                starts execution.
+                                                floor anchor plus the
+                                                frame state gas limits —
+                                                which the payer must
+                                                cover at inclusion. If
+                                                set to True, the
+                                                returned value is equal
+                                                to the cost that is
+                                                deducted before the
+                                                first frame starts
+                                                execution.
 
         Returns: Gas cost of a frame transaction
 
@@ -276,14 +308,17 @@ class FrameTransactionDataFloorCostCalculator(Protocol):
         *,
         frames: Sequence[FrameGasInfo] | int,
         signatures: Sequence[FrameSignatureGasInfo] = (),
+        sender: BytesConvertible | None = None,
     ) -> int:
         """
         Return the calldata floor anchor of a frame transaction given
         its frames and signature entries: every charged byte — frame
         `data` and signature entry bytes — is counted uniformly at the
         floor price on top of the costs the transaction always pays
-        regardless of execution. An integer stands for that many frames
-        carrying no data.
+        regardless of execution, including the value transfer cost of
+        each value-bearing frame whose explicit target differs from
+        `sender`. An integer stands for that many frames carrying no
+        data and no value.
         """
         pass
 

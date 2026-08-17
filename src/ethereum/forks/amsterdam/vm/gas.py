@@ -173,11 +173,16 @@ class GasCosts:
         + Uint(2) * WARM_ACCESS
     )
 
-    TX_FRAME_INTRINSIC: Final[Uint] = Uint(15000)
+    TX_FRAME_INTRINSIC: Final[Uint] = Uint(12000)
     """
-    Base gas cost for [`FrameTransaction`][ftx]s.
+    Base gas cost for [`FrameTransaction`][ftx]s, equal to [`TX_BASE`][tb].
+
+    Frame transactions price signature recovery per signature entry, so
+    the recovery component of the base cost instead covers payer
+    settlement, which regular transactions do not price separately.
 
     [ftx]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction
+    [tb]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_BASE
     """  # noqa: E501
 
     TX_PER_FRAME: Final[Uint] = Uint(475)
