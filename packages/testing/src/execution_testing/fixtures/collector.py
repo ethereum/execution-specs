@@ -25,7 +25,7 @@ from execution_testing.cli.pytest_commands.plugins.shared.fixture_output import 
 )
 
 from .base import BaseFixture
-from .consume import FixtureConsumer
+from .consume import FixtureConsumer, TestCaseIndexFile
 from .file import Fixtures
 
 
@@ -303,15 +303,14 @@ class FixtureCollector:
         if self.generate_index and self.output_dir.name != "stdout":
             relative_path = fixture_path.relative_to(self.output_dir)
             fixture_fork = fixture.get_fork()
-            index_entry = {
-                "id": info.get_id(),
-                "json_path": str(relative_path),
-                "fixture_hash": str(fixture.hash) if fixture.hash else None,
-                "fork": fixture_fork.name() if fixture_fork else None,
-                "format": fixture.format_name,
-            }
-            if (pre_hash := getattr(fixture, "pre_hash", None)) is not None:
-                index_entry["pre_hash"] = pre_hash
+            index_entry = TestCaseIndexFile(
+                id=info.get_id(),
+                json_path=relative_path,
+                fixture_hash=fixture.hash,
+                fork=fixture_fork,
+                format=fixture.format_class(),
+                pre_hash=getattr(fixture, "pre_hash", None),
+            )
             self._stream_index_entry_to_partial(index_entry)
 
         return fixture_path
@@ -355,10 +354,10 @@ class FixtureCollector:
 
         return self._partial_index_file
 
-    def _stream_index_entry_to_partial(self, entry: Dict) -> None:
+    def _stream_index_entry_to_partial(self, entry: TestCaseIndexFile) -> None:
         """Stream a single index entry to partial JSONL file."""
         f = self._get_partial_index_file()
-        f.write(json.dumps(entry) + "\n")
+        f.write(entry.model_dump_json(exclude_none=True) + "\n")
         f.flush()  # Ensure data is written immediately
 
     def close_streaming_files(self) -> None:

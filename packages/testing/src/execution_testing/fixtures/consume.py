@@ -7,7 +7,7 @@ from typing import Iterator, List, Optional, TextIO
 
 from pydantic import BaseModel, RootModel
 
-from execution_testing.base_types import HexNumber
+from execution_testing.base_types import Hash
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import AllocGroupHash
 
@@ -48,8 +48,8 @@ class TestCaseBase(BaseModel):
     """Base model for a test case used in EEST consume commands."""
 
     id: str
-    fixture_hash: HexNumber | None = None
-    fork: Fork | TransitionFork | None = None
+    fixture_hash: Hash
+    fork: Fork | TransitionFork | None
     format: FixtureFormat
     pre_hash: AllocGroupHash | None = None
     __test__ = False  # stop pytest from collecting this class as a test
@@ -85,7 +85,7 @@ class TestCaseIndexFile(TestCaseBase):
 class IndexFile(BaseModel):
     """The model definition used for fixture index files."""
 
-    root_hash: HexNumber | None
+    root_hash: Hash | None
     created_at: datetime.datetime
     test_count: int
     forks: Optional[List[Fork]] = []
@@ -114,7 +114,7 @@ class IndexFile(BaseModel):
         root_hash = HashableItem.from_index_entries(all_cases).hash()
 
         return cls(
-            root_hash=HexNumber(root_hash),
+            root_hash=root_hash,
             created_at=datetime.datetime.now(datetime.timezone.utc),
             test_count=len(all_cases),
             forks=sorted(all_forks, key=lambda f: f.name()),

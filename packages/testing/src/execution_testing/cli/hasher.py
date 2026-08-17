@@ -14,6 +14,8 @@ import click
 from rich.console import Console
 from rich.markup import escape as rich_escape
 
+from execution_testing.base_types import Hash
+
 if TYPE_CHECKING:
     from execution_testing.fixtures.consume import TestCaseIndexFile
 
@@ -35,10 +37,10 @@ class HashableItem:
 
     type: HashableItemType
     parents: List[str] = field(default_factory=list)
-    root: Optional[bytes] = None
+    root: Optional[Hash] = None
     items: Optional[Dict[str, "HashableItem"]] = None
 
-    def hash(self) -> bytes:
+    def hash(self) -> Hash:
         """Return the hash of the item."""
         if self.root is not None:
             return self.root
@@ -46,7 +48,7 @@ class HashableItem:
             raise ValueError("No items to hash")
         # Use list + join instead of += to avoid O(n²) byte concatenation
         hash_parts = [item.hash() for _, item in sorted(self.items.items())]
-        return hashlib.sha256(b"".join(hash_parts)).digest()
+        return Hash(hashlib.sha256(b"".join(hash_parts)).digest())
 
     def format_lines(
         self,
@@ -103,24 +105,18 @@ class HashableItem:
                 )
 
             # EEST uses 'hash'; ethereum/tests use 'generatedTestHash'
-            hash_value = item["_info"].get("hash") or item["_info"].get(
-                "generatedTestHash"
+            hash_value = Hash(
+                item["_info"].get("hash")
+                or item["_info"].get("generatedTestHash")
             )
             if hash_value is None:
                 raise KeyError(
                     f"Expected 'hash' or 'generatedTestHash' in {key}"
                 )
 
-            if not isinstance(hash_value, str):
-                raise TypeError(
-                    f"Expected hash to be a string in {key}, "
-                    f"got {type(hash_value)}"
-                )
-
-            item_hash_bytes = bytes.fromhex(hash_value[2:])
             items[key] = cls(
                 type=HashableItemType.TEST,
-                root=item_hash_bytes,
+                root=hash_value,
                 parents=parents + [file_path.name],
             )
         return cls(type=HashableItemType.FILE, items=items, parents=parents)

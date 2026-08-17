@@ -19,7 +19,6 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from execution_testing.base_types import HexNumber
 from execution_testing.fixtures.consume import (
     IndexFile,
     TestCaseIndexFile,
@@ -113,16 +112,14 @@ def generate_fixtures_index(
     try:
         root_hash = HashableItem.from_folder(folder_path=input_path).hash()
     except (KeyError, TypeError):
-        root_hash = b""  # just regenerate a new index file
+        root_hash = None
 
     if not force_flag and output_file.exists():
         index_data: IndexFile
         try:
             with open(output_file, "r") as f:
                 index_data = IndexFile(**json.load(f))
-            if index_data.root_hash and index_data.root_hash == HexNumber(
-                root_hash
-            ):
+            if index_data.root_hash and index_data.root_hash == root_hash:
                 if not quiet_mode:
                     rich.print(
                         f"Index file [bold cyan]{output_file}[/] "
