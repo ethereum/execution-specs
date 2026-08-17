@@ -18,6 +18,7 @@ There is a distinction between an account that does not exist and
 from dataclasses import dataclass, field
 from typing import (
     Dict,
+    Iterable,
     Optional,
     Protocol,
     Set,
@@ -141,5 +142,18 @@ class PreState(Protocol):
         root is computed.
 
         Return the new state root.
+        """
+        ...
+
+    def compute_storage_roots(
+        self, block_diff: "BlockDiff", addresses: Iterable[Address]
+    ) -> Dict[Address, Root]:
+        """
+        Compute the post-block storage trie root of each address in
+        `addresses` after applying `block_diff` to the pre-state,
+        which is not modified.
+
+        An address whose post-block storage trie is empty maps to the
+        canonical empty trie root.
         """
         ...

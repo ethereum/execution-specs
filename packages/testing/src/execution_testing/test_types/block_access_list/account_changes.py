@@ -123,6 +123,12 @@ class BalAccountChange(CamelModel, RLPSerializable):
         description="List of storage slots that were read",
     )
 
+    storage_root: Bytes | None = Field(
+        None,
+        description="Post-block storage trie root (EIP-8268); empty bytes "
+        "for an empty trie",
+    )
+
     rlp_fields: ClassVar[List[str]] = [
         "address",
         "storage_changes",
@@ -131,6 +137,13 @@ class BalAccountChange(CamelModel, RLPSerializable):
         "nonce_changes",
         "code_changes",
     ]
+
+    def get_rlp_fields(self) -> List[str]:
+        """`storage_root` trails entries that carry state changes."""
+        fields = list(self.rlp_fields)
+        if self.storage_root is not None:
+            fields.append("storage_root")
+        return fields
 
 
 BlockAccessListChangeLists = Union[

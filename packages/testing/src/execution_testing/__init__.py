@@ -92,6 +92,7 @@ from .test_types import (
     compute_create2_address,
     compute_create_address,
     compute_deterministic_create2_address,
+    compute_storage_trie_root,
     keccak256,
     relay_contract_code,
 )
@@ -140,6 +141,7 @@ __all__ = (
     "BalAccountAbsentValues",
     "BalAccountChange",
     "BalAccountExpectation",
+    "compute_storage_trie_root",
     "BalBalanceChange",
     "BalCodeChange",
     "BalNonceChange",

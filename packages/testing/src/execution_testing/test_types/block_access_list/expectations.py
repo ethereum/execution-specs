@@ -9,7 +9,12 @@ from typing import Any, Callable, ClassVar, Dict, List, Optional
 
 from pydantic import Field, PrivateAttr
 
-from execution_testing.base_types import Address, CamelModel, StorageKey
+from execution_testing.base_types import (
+    Address,
+    Bytes,
+    CamelModel,
+    StorageKey,
+)
 
 from .account_absent_values import BalAccountAbsentValues
 from .account_changes import (
@@ -51,6 +56,13 @@ class BalAccountExpectation(CamelModel):
         description=(
             "Explicit absent value expectations using BalAccountAbsentValues"
         ),
+    )
+
+    storage_root: Optional[Bytes] = Field(
+        default=None,
+        description="Expected post-block storage trie root (EIP-8268): "
+        "empty bytes for an empty trie; explicitly passing None asserts "
+        "the field is absent (accessed-but-unchanged entry)",
     )
 
     _EMPTY: ClassVar[Optional["BalAccountExpectation"]] = None
@@ -252,6 +264,16 @@ class BlockAccessListExpectation(CamelModel):
         if expected.absent_values is not None:
             expected.absent_values.validate_against(actual)
 
+        # Validate the post-block storage root when explicitly declared;
+        # an explicit None asserts the entry carries no storage root.
+        if "storage_root" in expected.model_fields_set:
+            if actual.storage_root != expected.storage_root:
+                raise BlockAccessListValidationError(
+                    f"Expected storage root {expected.storage_root!r} "
+                    f"for account {actual.address}, found "
+                    f"{actual.storage_root!r}"
+                )
+
         # Validate expected changes using subsequence validation
         field_pairs: List[tuple[str, Any, Any]] = [
             ("nonce_changes", expected.nonce_changes, actual.nonce_changes),
@@ -442,3 +464,21 @@ __all__ = [
     "BlockAccessListExpectation",
     "compose",
 ]
+
+
+def compute_storage_trie_root(storage: Dict[int, int]) -> Bytes:
+    """
+    Compute the storage trie root committing to `storage`.
+
+    Derives the expected `storage_root` (EIP-8268) of an account whose
+    post-block storage holds exactly the given slot values; zero values
+    are absent from the trie.
+    """
+    from ethereum.merkle_patricia_trie import Trie, root, trie_set
+    from ethereum_types.bytes import Bytes32
+    from ethereum_types.numeric import U256
+
+    trie: Trie[Bytes32, U256] = Trie(secured=True, default=U256(0))
+    for key, value in storage.items():
+        trie_set(trie, Bytes32(U256(key).to_be_bytes32()), U256(value))
+    return Bytes(root(trie))

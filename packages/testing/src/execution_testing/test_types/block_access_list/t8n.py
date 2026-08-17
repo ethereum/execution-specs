@@ -149,6 +149,11 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
                         "new_code",
                         value_fn=lambda v: Bytes(_bytes_from_rlp(v)),
                     ),
+                    storage_root=(
+                        Bytes(_bytes_from_rlp(fields[6]))
+                        if len(fields) > 6
+                        else None
+                    ),
                 )
             )
 

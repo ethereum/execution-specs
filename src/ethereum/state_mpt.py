@@ -12,7 +12,7 @@ commitment schemes, are separate implementations of [`PreState`].
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional, final
+from typing import Dict, Iterable, Optional, final
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256
@@ -126,6 +126,41 @@ class State:
         state_root_value = root(main_trie, get_storage_root=get_storage_root)
 
         return state_root_value
+
+    def compute_storage_roots(
+        self,
+        block_diff: BlockDiff,
+        addresses: Iterable[Address],
+    ) -> Dict[Address, Root]:
+        """
+        Compute the post-block storage trie root of each address in
+        `addresses` after applying `block_diff` to the pre-state,
+        which is not modified.
+
+        An address whose post-block storage trie is empty maps to
+        [`EMPTY_TRIE_ROOT`].
+
+        [`EMPTY_TRIE_ROOT`]: ref:ethereum.merkle_patricia_trie.EMPTY_TRIE_ROOT
+        """
+        roots: Dict[Address, Root] = {}
+        for address in addresses:
+            trie: Optional[Trie[Bytes32, U256]] = None
+            if address not in block_diff.storage_clears:
+                trie = self._storage_tries.get(address)
+            changes = block_diff.storage_changes.get(address)
+            if changes is not None:
+                trie = (
+                    Trie(secured=True, default=U256(0))
+                    if trie is None
+                    else copy_trie(trie)
+                )
+                for key, value in changes.items():
+                    trie_set(trie, key, value)
+            if trie is None or trie._data == {}:
+                roots[address] = EMPTY_TRIE_ROOT
+            else:
+                roots[address] = root(trie)
+        return roots
 
 
 def close_state(state: State) -> None:

@@ -21,11 +21,17 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.merkle_patricia_trie import EMPTY_TRIE_ROOT
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
 
 from .exceptions import BlockAccessListGasLimitExceededError
 from .fork_types import BlockAccessIndex
-from .state_tracker import BlockState, TransactionState, get_code
+from .state_tracker import (
+    BlockState,
+    TransactionState,
+    extract_block_diff,
+    get_code,
+)
 
 
 @final
@@ -211,6 +217,20 @@ class AccountChanges:
 
     [`Account`]: ref:ethereum.state.Account
     """
+
+    storage_root: Optional[Bytes]
+    """
+    Root of the associated [`Account`]'s storage trie in the
+    post-block state, or empty when that trie is empty — the canonical
+    empty-trie root is never spelled out.
+
+    `None` for accessed-but-unchanged entries, which keep the
+    six-field layout in the [encoding][enc]; entries whose change
+    lists are not all empty always carry the field.
+
+    [`Account`]: ref:ethereum.state.Account
+    [enc]: ref:ethereum.forks.amsterdam.block_access_lists.encode_block_access_list
+    """  # noqa: E501
 
 
 BlockAccessList: TypeAlias = List[AccountChanges]
@@ -517,6 +537,7 @@ def add_touched_account(
 
 def _build_from_builder(
     builder: BlockAccessListBuilder,
+    storage_roots: Dict[Address, Bytes],
 ) -> BlockAccessList:
     """
     Build the final [`BlockAccessList`] from a builder (internal helper).
@@ -571,6 +592,7 @@ def _build_from_builder(
             balance_changes=balance_changes,
             nonce_changes=nonce_changes,
             code_changes=code_changes,
+            storage_root=storage_roots.get(address),
         )
 
         block_access_list.append(account_change)
@@ -692,7 +714,72 @@ def build_block_access_list(
     for address in block_state.account_reads:
         add_touched_account(builder, address)
 
-    return _build_from_builder(builder)
+    # Post-block storage trie roots for every account with state
+    # changes; the canonical empty trie encodes as the empty byte
+    # string.
+    block_diff = extract_block_diff(block_state)
+    changed_addresses = [
+        address
+        for address, changes in builder.accounts.items()
+        if changes.storage_changes
+        or changes.balance_changes
+        or changes.nonce_changes
+        or changes.code_changes
+    ]
+    trie_roots = block_state.pre_state.compute_storage_roots(
+        block_diff, changed_addresses
+    )
+    storage_roots = {
+        address: (
+            Bytes(b"") if trie_root == EMPTY_TRIE_ROOT else Bytes(trie_root)
+        )
+        for address, trie_root in trie_roots.items()
+    }
+
+    return _build_from_builder(builder, storage_roots)
+
+
+def _has_state_changes(changes: AccountChanges) -> bool:
+    """
+    Return `True` when the entry records state changes and therefore
+    carries `storage_root` in the encoding.
+    """
+    return bool(
+        changes.storage_changes
+        or changes.balance_changes
+        or changes.nonce_changes
+        or changes.code_changes
+    )
+
+
+def _account_changes_encoding(changes: AccountChanges) -> List[rlp.Extended]:
+    """
+    Return the encoding form of one entry: six fields, plus the
+    trailing `storage_root` when the entry records state changes.
+    """
+    encoded: List[rlp.Extended] = [
+        changes.address,
+        changes.storage_changes,
+        changes.storage_reads,
+        changes.balance_changes,
+        changes.nonce_changes,
+        changes.code_changes,
+    ]
+    if _has_state_changes(changes):
+        assert changes.storage_root is not None
+        encoded.append(changes.storage_root)
+    else:
+        assert changes.storage_root is None
+    return encoded
+
+
+def encode_block_access_list(block_access_list: BlockAccessList) -> Bytes:
+    """
+    Encode a Block Access List canonically.
+    """
+    return rlp.encode(
+        [_account_changes_encoding(changes) for changes in block_access_list]
+    )
 
 
 def hash_block_access_list(
@@ -701,7 +788,7 @@ def hash_block_access_list(
     """
     Compute the hash of a Block Access List.
     """
-    return keccak256(rlp.encode(block_access_list))
+    return keccak256(encode_block_access_list(block_access_list))
 
 
 def validate_block_access_list_gas_limit(

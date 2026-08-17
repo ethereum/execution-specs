@@ -9,6 +9,7 @@ from typing import (
     Any,
     Dict,
     ItemsView,
+    Iterable,
     Iterator,
     List,
     Literal,
@@ -495,6 +496,20 @@ class Alloc(BaseAlloc):
         self._ensure_live()
         state = self._materialize_state()
         return state.compute_state_root(block_diff)
+
+    def compute_storage_roots(
+        self,
+        block_diff: spec_state.BlockDiff,
+        addresses: Iterable[spec_state.Address],
+    ) -> Dict[spec_state.Address, spec_state.Root]:
+        """
+        Compute post-block storage trie roots for `addresses`.
+
+        Conforms to `ethereum.state.PreState.compute_storage_roots`.
+        """
+        self._ensure_live()
+        state = self._materialize_state()
+        return state.compute_storage_roots(block_diff, addresses)
 
     # ------------------------------------------------------------------
     # Lifecycle: apply_diff and freeze

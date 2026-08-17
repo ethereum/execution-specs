@@ -146,6 +146,11 @@ class ForkLoad:
         return self._module("block_access_lists").hash_block_access_list
 
     @property
+    def encode_block_access_list(self) -> Any:
+        """encode_block_access_list function of the fork."""
+        return self._module("block_access_lists").encode_block_access_list
+
+    @property
     def has_hash_block_access_list(self) -> bool:
         """Check if the fork has a `hash_block_access_list` function."""
         try:

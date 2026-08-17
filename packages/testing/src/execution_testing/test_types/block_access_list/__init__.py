@@ -21,6 +21,7 @@ from .expectations import (
     BalAccountExpectation,
     BlockAccessListExpectation,
     compose,
+    compute_storage_trie_root,
 )
 from .t8n import BlockAccessList
 
@@ -29,6 +30,7 @@ __all__ = [
     "BlockAccessList",
     "BlockAccessListExpectation",
     "BalAccountExpectation",
+    "compute_storage_trie_root",
     "BalAccountAbsentValues",
     # Change types
     "BalAccountChange",

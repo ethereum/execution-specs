@@ -13,6 +13,7 @@ from .block_access_list import (
     BalStorageSlot,
     BlockAccessList,
     BlockAccessListExpectation,
+    compute_storage_trie_root,
 )
 from .block_types import (
     Environment,
@@ -69,6 +70,7 @@ __all__ = (
     "BalAccountAbsentValues",
     "BalAccountChange",
     "BalAccountExpectation",
+    "compute_storage_trie_root",
     "BalBalanceChange",
     "BalCodeChange",
     "BalNonceChange",

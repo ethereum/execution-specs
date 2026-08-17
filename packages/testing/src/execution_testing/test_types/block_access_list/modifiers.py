@@ -10,6 +10,7 @@ from typing import Any, Callable, List, Optional
 
 from execution_testing.base_types import (
     Address,
+    Bytes,
     ZeroPaddedHexNumber,
 )
 
@@ -137,6 +138,33 @@ def _modify_field_value(
                 f"{field_name} of account {address}"
             )
 
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
+def modify_storage_root(
+    address: Address, storage_root: Optional[Bytes]
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Set the storage root of a specific account; `None` removes it.
+    """
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        found = False
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == address:
+                found = True
+                new_account = account_change.model_copy(deep=True)
+                new_account.storage_root = storage_root
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+        if not found:
+            raise ValueError(
+                f"Address {address} not found in BAL to modify storage_root"
+            )
         return BlockAccessList(root=new_root)
 
     return transform
