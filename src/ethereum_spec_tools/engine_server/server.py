@@ -54,7 +54,7 @@ DEFAULT_JWT_SECRET = b"secretsecretsecretsecretsecretse"
 CLIENT_VERSION = "eels/execution-specs"
 """Version string reported by `web3_clientVersion`."""
 
-PAYLOAD_VERSION = {1: 1, 2: 2, 3: 3, 4: 3, 5: 4}
+PAYLOAD_VERSION = {1: 1, 2: 2, 3: 3, 4: 3, 5: 4, 6: 5}
 """Payload structure version carried by each `engine_newPayloadVX`."""
 
 
@@ -118,6 +118,7 @@ class PayloadShape:
     blobs: bool
     bal: bool
     empty_bal_ok: bool = False
+    slot_number: bool = False
     """
     Accept (and ignore) an empty `blockAccessList` value: an absent
     optional bytes field marshals as `0x`, so `V3`/`V4` handlers treat
@@ -136,6 +137,7 @@ PAYLOAD_SHAPES: Dict[int, PayloadShape] = {
         withdrawals=True, blobs=True, bal=False, empty_bal_ok=True
     ),
     5: PayloadShape(withdrawals=True, blobs=True, bal=True),
+    6: PayloadShape(withdrawals=True, blobs=True, bal=False, slot_number=True),
 }
 """JSON field set per `engine_newPayloadVX` version."""
 
@@ -165,6 +167,8 @@ def _payload_keys(shape: PayloadShape) -> Set[str]:
     if shape.blobs:
         keys.update({"blobGasUsed", "excessBlobGas"})
     if shape.bal:
+        keys.update({"blockAccessList", "slotNumber"})
+    if shape.slot_number:
         keys.add("slotNumber")
     return keys
 
@@ -264,6 +268,10 @@ def _typed_payload(spec: ForkSpec, version: int, obj: Dict[str, Any]) -> Any:
     if payload_version >= 4:
         kwargs["slot_number"] = U64(
             _decode_quantity(_field(obj, "slotNumber"), "slotNumber")
+        )
+    if payload_version == 4:
+        kwargs["block_access_list"] = Bytes(
+            _decode_hex(_field(obj, "blockAccessList"), "blockAccessList")
         )
     payload_type = getattr(
         spec.engine, f"ExecutionPayloadV{payload_version}", None
@@ -376,7 +384,7 @@ class EngineBackend:
         """Dispatch a JSON-RPC method call."""
         if method.startswith("engine_newPayloadV"):
             version = method.removeprefix("engine_newPayloadV")
-            if version in ("1", "2", "3", "4", "5"):
+            if version in ("1", "2", "3", "4", "5", "6"):
                 return self.new_payload(int(version), params)
             raise RpcError(UNSUPPORTED_FORK, "Unsupported fork")
         if method.startswith("engine_forkchoiceUpdatedV"):
@@ -409,7 +417,7 @@ class EngineBackend:
         """`engine_exchangeCapabilities`: list supported engine methods."""
         return [
             "engine_exchangeCapabilities",
-            *[f"engine_newPayloadV{v}" for v in (1, 2, 3, 4, 5)],
+            *[f"engine_newPayloadV{v}" for v in (1, 2, 3, 4, 5, 6)],
             *[f"engine_forkchoiceUpdatedV{v}" for v in (1, 2, 3, 4)],
             "engine_notifyBlockAccessListV1",
         ]

@@ -233,12 +233,46 @@ class ExecutionPayloadV4:
     """
     Payload of the `engine_newPayload` family of methods.
 
-    Adds `slot_number` to [`ExecutionPayloadV3`]. The block access
-    list is not part of the payload; it is delivered separately via
-    [`notify_block_access_list_v1`].
+    Adds `block_access_list` and `slot_number` to
+    [`ExecutionPayloadV3`].
 
     [`ExecutionPayloadV3`]:
         ref:ethereum.forks.amsterdam.execution_engine.types.ExecutionPayloadV3
+    """
+
+    parent_hash: Hash32
+    fee_recipient: Address
+    state_root: Root
+    receipts_root: Root
+    logs_bloom: Bloom
+    prev_randao: Bytes32
+    block_number: Uint
+    gas_limit: Uint
+    gas_used: Uint
+    timestamp: U256
+    extra_data: Bytes
+    base_fee_per_gas: Uint
+    block_hash: Hash32
+    transactions: Tuple[Bytes, ...]
+    withdrawals: Tuple[Withdrawal, ...]
+    blob_gas_used: U64
+    excess_blob_gas: U64
+    block_access_list: Bytes
+    slot_number: U64
+
+
+@final
+@slotted_freezable
+@dataclass
+class ExecutionPayloadV5:
+    """
+    Payload of `engine_newPayloadV6`.
+
+    Drops `block_access_list` from [`ExecutionPayloadV4`]: the list is
+    delivered separately via [`notify_block_access_list_v1`].
+
+    [`ExecutionPayloadV4`]:
+        ref:ethereum.forks.amsterdam.execution_engine.types.ExecutionPayloadV4
     [`notify_block_access_list_v1`]:
         ref:ethereum.forks.amsterdam.execution_engine.notify_block_access_list.notify_block_access_list_v1
     """
@@ -415,12 +449,27 @@ class GetPayloadResponseV5:
 class GetPayloadResponseV6:
     """
     Response of `engine_getPayloadV6`.
+    """
+
+    execution_payload: ExecutionPayloadV4
+    block_value: U256
+    blobs_bundle: BlobsBundleV2
+    should_override_builder: bool
+    execution_requests: Tuple[Bytes, ...]
+
+
+@final
+@slotted_freezable
+@dataclass
+class GetPayloadResponseV7:
+    """
+    Response of `engine_getPayloadV7`.
 
     The block access list is returned beside the payload so the
     builder can commit to it and distribute it separately.
     """
 
-    execution_payload: ExecutionPayloadV4
+    execution_payload: ExecutionPayloadV5
     block_value: U256
     blobs_bundle: BlobsBundleV2
     should_override_builder: bool

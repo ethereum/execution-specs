@@ -17,11 +17,11 @@ from ..blocks import Block, Header
 from ..fork import EMPTY_OMMER_HASH, BlockChain
 from ..requests import compute_requests_hash
 from ..transactions import LegacyTransaction
-from .types import ExecutionEngine, ExecutionPayloadV4
+from .types import ExecutionEngine, ExecutionPayloadV4, ExecutionPayloadV5
 
 
 def _payload_header(
-    execution_payload: ExecutionPayloadV4,
+    execution_payload: ExecutionPayloadV4 | ExecutionPayloadV5,
     block_access_list: Bytes,
     parent_beacon_block_root: Root,
     execution_requests: Tuple[Bytes, ...],
@@ -93,7 +93,7 @@ def _payload_transaction_to_block_transaction(
 
 
 def _payload_block(
-    execution_payload: ExecutionPayloadV4,
+    execution_payload: ExecutionPayloadV4 | ExecutionPayloadV5,
     block_access_list: Bytes,
     parent_beacon_block_root: Root,
     execution_requests: Tuple[Bytes, ...],

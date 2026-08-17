@@ -13,6 +13,7 @@ canonical head — only a forkchoice update does.
 from typing import Tuple
 
 from ethereum_rlp import rlp
+from ethereum_rlp.exceptions import DecodingError
 from ethereum_types.bytes import Bytes
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -23,6 +24,7 @@ from ethereum.exceptions import (
 )
 from ethereum.state import Root
 
+from ..block_access_lists import BlockAccessList
 from ..fork import state_transition
 from ..transactions import (
     BlobTransaction,
@@ -35,6 +37,7 @@ from .types import (
     ExecutionPayloadV2,
     ExecutionPayloadV3,
     ExecutionPayloadV4,
+    ExecutionPayloadV5,
     PayloadStatus,
     PayloadStatusV1,
 )
@@ -42,7 +45,7 @@ from .validation_helpers import _payload_block, _payload_header, chain_of
 
 
 def is_valid_block_hash(
-    execution_payload: ExecutionPayloadV4,
+    execution_payload: ExecutionPayloadV4 | ExecutionPayloadV5,
     block_access_list: Bytes,
     parent_beacon_block_root: Root,
     execution_requests: Tuple[Bytes, ...],
@@ -66,7 +69,7 @@ def is_valid_block_hash(
 
 
 def is_valid_versioned_hashes(
-    execution_payload: ExecutionPayloadV4,
+    execution_payload: ExecutionPayloadV4 | ExecutionPayloadV5,
     versioned_hashes: Tuple[Hash32, ...],
 ) -> bool:
     """
@@ -116,7 +119,7 @@ def validate_execution_requests(
 
 def verify_and_notify_new_payload(
     engine: ExecutionEngine,
-    execution_payload: ExecutionPayloadV4,
+    execution_payload: ExecutionPayloadV4 | ExecutionPayloadV5,
     block_access_list: Bytes,
     versioned_hashes: Tuple[Hash32, ...],
     parent_beacon_block_root: Root,
@@ -259,6 +262,36 @@ def new_payload_v5(
 ) -> PayloadStatusV1:
     """
     `engine_newPayloadV5`: validate and execute a Amsterdam payload.
+
+    The payload carries its block access list inline.
+    """
+    validate_execution_requests(execution_requests)
+    try:
+        rlp.decode_to(BlockAccessList, execution_payload.block_access_list)
+    except DecodingError as e:
+        # A structurally undecodable block access list is an invalid
+        # parameter, not an invalid block.
+        raise InvalidEngineParamsError(f"blockAccessList: {e}") from e
+
+    return verify_and_notify_new_payload(
+        engine,
+        execution_payload,
+        execution_payload.block_access_list,
+        versioned_hashes,
+        parent_beacon_block_root,
+        execution_requests,
+    )
+
+
+def new_payload_v6(
+    engine: ExecutionEngine,
+    execution_payload: ExecutionPayloadV5,
+    versioned_hashes: Tuple[Hash32, ...],
+    parent_beacon_block_root: Root,
+    execution_requests: Tuple[Bytes, ...],
+) -> PayloadStatusV1:
+    """
+    `engine_newPayloadV6`: validate and execute a Bogota payload.
 
     The payload does not carry the block access list; it is paired
     with one previously delivered by [`notify_block_access_list_v1`].

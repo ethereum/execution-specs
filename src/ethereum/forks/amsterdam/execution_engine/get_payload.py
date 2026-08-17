@@ -12,6 +12,7 @@ from .types import (
     GetPayloadResponseV4,
     GetPayloadResponseV5,
     GetPayloadResponseV6,
+    GetPayloadResponseV7,
     PayloadId,
 )
 
@@ -75,6 +76,18 @@ def get_payload_v6(_payload_id: PayloadId) -> GetPayloadResponseV6:
     """
     `engine_getPayloadV6`: return a payload built for a previously
     returned [`PayloadId`]. Payload building is not implemented.
+
+    [`PayloadId`]:
+        ref:ethereum.forks.amsterdam.execution_engine.types.PayloadId
+    """
+    raise NotImplementedError
+
+
+def get_payload_v7(_payload_id: PayloadId) -> GetPayloadResponseV7:
+    """
+    `engine_getPayloadV7`: return a payload built for a previously
+    returned [`PayloadId`], with its block access list beside it.
+    Payload building is not implemented.
 
     [`PayloadId`]:
         ref:ethereum.forks.amsterdam.execution_engine.types.PayloadId

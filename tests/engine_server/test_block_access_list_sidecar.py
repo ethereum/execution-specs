@@ -1,11 +1,11 @@
 """
 Tests for block access list sidecar delivery over the Engine API.
 
-The list travels separately from its payload: delivered lists are
-stored by block hash — including before the fork that requires them
-activates — `engine_newPayloadV5` reports SYNCING until its list
-arrives, and a wrong list fails the block-hash check once the two are
-paired. Payload versions before Amsterdam are not gated on delivery.
+Amsterdam's `engine_newPayloadV5` carries the block access list inline;
+Bogota's `engine_newPayloadV6` does not — the list travels separately,
+delivered lists are stored by block hash (including before the fork
+activates), a V6 payload reports SYNCING until its list arrives, and a
+wrong list fails the block-hash check once the two are paired.
 """
 
 from types import SimpleNamespace
@@ -20,9 +20,9 @@ from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import InvalidEngineParamsError
 from ethereum.forks.amsterdam.execution_engine import (
     ExecutionEngine,
-    ExecutionPayloadV4,
+    ExecutionPayloadV5,
     PayloadStatus,
-    new_payload_v5,
+    new_payload_v6,
     notify_block_access_list_v1,
 )
 from ethereum.forks.amsterdam.fork_types import Bloom
@@ -44,20 +44,23 @@ def _engine() -> ExecutionEngine:
 
 def _backend() -> EngineBackend:
     """
-    A backend whose schedule transitions from BPO2 to the Bogota
-    pseudo-fork. BPO2 is the pre-fork side so the old wire family is
-    served by an unmodified fork module.
+    A backend whose schedule transitions from Amsterdam to the Bogota
+    pseudo-fork: the inline-list V5 wire before the boundary, the
+    sidecar V6 wire after it.
     """
     return EngineBackend(
         engine=SimpleNamespace(),
-        genesis_spec=_SPECS["BPO2"],
-        schedule=[(_SPECS["BPO2"], 0), (_SPECS["Bogota"], FORK_TIMESTAMP)],
+        genesis_spec=_SPECS["Amsterdam"],
+        schedule=[
+            (_SPECS["Amsterdam"], 0),
+            (_SPECS["Bogota"], FORK_TIMESTAMP),
+        ],
     )
 
 
-def _payload(block_hash: Hash32) -> ExecutionPayloadV4:
+def _payload(block_hash: Hash32) -> ExecutionPayloadV5:
     """A structurally complete payload with placeholder values."""
-    return ExecutionPayloadV4(
+    return ExecutionPayloadV5(
         parent_hash=Hash32(b"\x00" * 32),
         fee_recipient=Address(b"\x00" * 20),
         state_root=Root(b"\x00" * 32),
@@ -132,7 +135,7 @@ def test_delivered_list_is_stored_by_block_hash() -> None:
 
 def test_payload_before_list_reports_syncing() -> None:
     """A payload whose list has not arrived cannot be validated."""
-    status = new_payload_v5(
+    status = new_payload_v6(
         _engine(), _payload(BLOCK_HASH), (), Root(b"\x00" * 32), ()
     )
     assert status.status == PayloadStatus.SYNCING
@@ -142,7 +145,7 @@ def test_wrong_list_fails_the_block_hash_check() -> None:
     """A delivered list that does not back the header is caught."""
     engine = _engine()
     notify_block_access_list_v1(engine, EMPTY_LIST, BLOCK_HASH)
-    status = new_payload_v5(
+    status = new_payload_v6(
         engine, _payload(BLOCK_HASH), (), Root(b"\x00" * 32), ()
     )
     assert status.status == PayloadStatus.INVALID
@@ -166,15 +169,19 @@ def test_notify_stores_before_the_fork_activates() -> None:
 
 def test_pre_fork_payload_is_not_gated_on_delivery() -> None:
     """
-    Before the transition, `engine_newPayloadV4` proceeds without any
-    list delivery — and still tolerates an empty `blockAccessList`
-    field — so it fails on its placeholder block hash, never SYNCING.
+    Before the transition, `engine_newPayloadV5` carries its list
+    inline and proceeds without any delivery — it fails on its
+    placeholder block hash, never SYNCING.
     """
     backend = _backend()
     response = backend.handle(
-        "engine_newPayloadV4",
+        "engine_newPayloadV5",
         _new_payload_params(
-            _payload_json(FORK_TIMESTAMP - 1, block_access_list="0x")
+            _payload_json(
+                FORK_TIMESTAMP - 1,
+                slot_number=True,
+                block_access_list="0x" + EMPTY_LIST.hex(),
+            )
         ),
     )
     assert response["status"] == "INVALID"
@@ -183,21 +190,21 @@ def test_pre_fork_payload_is_not_gated_on_delivery() -> None:
 
 def test_post_fork_payload_syncs_until_delivery() -> None:
     """
-    At the transition, the first Amsterdam payload reports SYNCING
+    At the transition, the first Bogota payload reports SYNCING
     until its list is delivered, then proceeds to normal validation.
     """
     backend = _backend()
     params = _new_payload_params(
         _payload_json(FORK_TIMESTAMP, slot_number=True)
     )
-    response = backend.handle("engine_newPayloadV5", params)
+    response = backend.handle("engine_newPayloadV6", params)
     assert response["status"] == "SYNCING"
 
     backend.handle(
         "engine_notifyBlockAccessListV1",
         ["0x" + EMPTY_LIST.hex(), "0x" + "11" * 32],
     )
-    response = backend.handle("engine_newPayloadV5", params)
+    response = backend.handle("engine_newPayloadV6", params)
     assert response["status"] == "INVALID"
     assert response["validationError"] == "invalid block hash"
 
@@ -207,7 +214,7 @@ def test_post_fork_payload_rejects_an_embedded_list() -> None:
     backend = _backend()
     with pytest.raises(RpcError):
         backend.handle(
-            "engine_newPayloadV5",
+            "engine_newPayloadV6",
             _new_payload_params(
                 _payload_json(
                     FORK_TIMESTAMP, slot_number=True, block_access_list="0x"
