@@ -83,12 +83,12 @@ runs:
         uv run -q .github/scripts/validate_zkevm_benchmark_fixtures.py \
           fixtures_${{ inputs.release_name }}.tar.gz
     - name: Generate Benchmark Genesis Files
-      if: inputs.split_label == '' && contains(inputs.release_name, 'benchmark')
+      if: inputs.split_label == '' && inputs.release_name != 'zkevm-benchmark' && contains(inputs.release_name, 'benchmark')
       uses: ./.github/actions/build-benchmark-genesis
       with:
         fixtures_path: fixtures_${{ inputs.release_name }}.tar.gz
     - name: Upload Benchmark Genesis Artifact
-      if: inputs.split_label == '' && contains(inputs.release_name, 'benchmark')
+      if: inputs.split_label == '' && inputs.release_name != 'zkevm-benchmark' && contains(inputs.release_name, 'benchmark')
       uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
       with:
         name: benchmark_genesis_${{ inputs.release_name }}

@@ -69,7 +69,7 @@ On success the workflow:
 | ---------------- | ------- | ------------- | -------- |
 | `feature=tests version=v24.0.0` | `tests@v24.0.0` | `tests@v24.0.0` | `fixtures.tar.gz` |
 | `feature=bal-devnet version=v7.0.0 branch=devnets/bal/7` | `tests-bal-devnet@v7.0.0` | `tests-bal-devnet@v7.0.0` | `fixtures_bal-devnet.tar.gz` |
-| `feature=zkevm-benchmark version=v0.9.0 branch=tests-zkevm@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `fixtures_zkevm-benchmark.tar.gz`, `benchmark_genesis.tar.gz` |
+| `feature=zkevm-benchmark version=v0.9.0 branch=tests-zkevm@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `tests-zkevm-benchmark@v0.9.0` | `fixtures_zkevm-benchmark.tar.gz` |
 
 The release is created as a draft; review and publish it from the GitHub releases page.
 
