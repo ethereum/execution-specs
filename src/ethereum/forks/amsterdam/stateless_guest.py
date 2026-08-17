@@ -15,7 +15,7 @@ from .stateless import (
 from .stateless_ssz import (
     STATELESS_INPUT_SCHEMA_ID,
     STATELESS_INPUT_SCHEMA_ID_SIZE,
-    SszStatelessInput,
+    SSZStatelessInput,
     ssz_to_stateless_input,
     validation_result_to_ssz,
 )
@@ -41,7 +41,7 @@ def deserialize_stateless_input(data: Bytes) -> StatelessInput:
         raise ValueError(
             f"Unsupported stateless input schema id: 0x{schema_id:04x}"
         )
-    ssz_obj = SszStatelessInput.decode_bytes(
+    ssz_obj = SSZStatelessInput.decode_bytes(
         data[STATELESS_INPUT_SCHEMA_ID_SIZE:]
     )
     return ssz_to_stateless_input(ssz_obj)

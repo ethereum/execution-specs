@@ -12,8 +12,8 @@ from pydantic import AliasChoices, BaseModel, Field, model_validator
 from remerkleable.basic import uint8
 from remerkleable.byte_arrays import ByteList, ByteVector
 from remerkleable.complex import Container
-from remerkleable.complex import List as SszList
-from remerkleable.union import Union as SszUnion
+from remerkleable.complex import List as SSZList
+from remerkleable.union import Union as SSZUnion
 
 from execution_testing.base_types import (
     Address,
@@ -436,16 +436,16 @@ MAX_WITNESS_ITEMS = 2**20
 MAX_WITNESS_ITEM_BYTES = 2**20
 
 
-class _SszExecutionWitness(Container):
-    state: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
-    codes: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
-    headers: SszList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
+class _SSZExecutionWitness(Container):
+    state: SSZList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
+    codes: SSZList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
+    headers: SSZList[ByteList[MAX_WITNESS_ITEM_BYTES], MAX_WITNESS_ITEMS]
 
 
-class _SszNewPayloadWithWitnessResponse(Container):
+class _SSZNewPayloadWithWitnessResponse(Container):
     status: uint8
-    latest_valid_hash: SszUnion[None, ByteVector[32]]
-    validation_error: SszUnion[None, ByteList[VALIDATION_ERROR_MAX]]
+    latest_valid_hash: SSZUnion[None, ByteVector[32]]
+    validation_error: SSZUnion[None, ByteList[VALIDATION_ERROR_MAX]]
     witness: ByteList[MAX_WITNESS_BYTES]
 
 
@@ -574,7 +574,7 @@ class NewPayloadWithWitnessResponse:
     @classmethod
     def from_ssz_bytes(cls, data: bytes) -> Self:
         """Decode an SSZ-encoded NewPayloadWithWitnessResponseV1 body."""
-        resp = _SszNewPayloadWithWitnessResponse.decode_bytes(data)
+        resp = _SSZNewPayloadWithWitnessResponse.decode_bytes(data)
 
         status_int = int(resp.status)
         try:
@@ -598,7 +598,7 @@ class NewPayloadWithWitnessResponse:
                 raise ValueError(
                     f"{status.value} SSZ response must not contain a witness"
                 )
-            inner = _SszExecutionWitness.decode_bytes(witness_bytes)
+            inner = _SSZExecutionWitness.decode_bytes(witness_bytes)
             witness = ExecutionWitness(
                 state=[Bytes(bytes(x)) for x in inner.state],
                 codes=[Bytes(bytes(x)) for x in inner.codes],
