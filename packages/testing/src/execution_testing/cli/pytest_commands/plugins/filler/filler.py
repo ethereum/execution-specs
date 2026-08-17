@@ -101,6 +101,7 @@ from ..shared.helpers import (
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
+from .pre_alloc import _strip_any_xdist_group_suffix
 
 if TYPE_CHECKING:
     from .pre_alloc import Alloc
@@ -1504,40 +1505,12 @@ def filler_path(request: pytest.FixtureRequest) -> Path:
     return request.config.getoption("filler_path")
 
 
-def _strip_xdist_group_suffix(s: str) -> str:
-    """Strip @t8n-cache-* suffix, preserving other xdist_group markers."""
-    if "@" in s:
-        base, suffix = s.rsplit("@", 1)
-        if suffix.startswith("t8n-cache-"):
-            return base
-    return s
-
-
-def _strip_any_xdist_group_suffix(nodeid: str) -> str:
-    """
-    Return the node id without any xdist group suffix.
-
-    Unlike ``_strip_xdist_group_suffix``, which preserves deliberate
-    groups, this strips every ``@<group>`` suffix an xdist worker may
-    append under ``--dist=loadgroup``, so values derived from the
-    result (the sync block's salt) are identical whether or not the
-    fill ran in parallel. Every group name the fill sets is a bare
-    word, while a parametrized node id always ends in ``]``, so a
-    trailing ``@`` segment without one is a group name and never part
-    of the test's own id.
-    """
-    base, separator, suffix = nodeid.rpartition("@")
-    if separator and base and "]" not in suffix:
-        return base
-    return nodeid
-
-
 def node_to_test_info(node: pytest.Item) -> TestInfo:
     """Return test info of the current node item."""
     # Strip xdist group suffix (@groupname) that may be added during execution.
     return TestInfo(
-        name=_strip_xdist_group_suffix(node.name),
-        id=_strip_xdist_group_suffix(node.nodeid),
+        name=_strip_any_xdist_group_suffix(node.name),
+        id=_strip_any_xdist_group_suffix(node.nodeid),
         original_name=node.originalname,  # type: ignore
         module_path=Path(node.path),
     )
@@ -1697,7 +1670,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         # "separate" (or a bare marker): salt with the
                         # test's node id so the test gets its own genesis
                         # instead of a group named literally "separate".
-                        group_salt = _strip_xdist_group_suffix(
+                        group_salt = _strip_any_xdist_group_suffix(
                             request.node.nodeid
                         )
 
@@ -1710,7 +1683,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     # Use the original update_pre_alloc_groups method which
                     # returns the groups
                     assert session.pre_alloc_group_builders is not None
-                    test_id = _strip_xdist_group_suffix(request.node.nodeid)
+                    test_id = _strip_any_xdist_group_suffix(
+                        request.node.nodeid
+                    )
                     genesis_environment = self.get_genesis_environment()
                     pre_alloc_hash = pre.compute_pre_alloc_group_hash(
                         fork=fork,
@@ -1738,7 +1713,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     # can no longer be recomputed from its own pre; look it up
                     # by test id instead, fingerprinted by the recomputed
                     # phase 1 hash so a stale group folder fails loudly.
-                    test_id = _strip_xdist_group_suffix(request.node.nodeid)
+                    test_id = _strip_any_xdist_group_suffix(
+                        request.node.nodeid
+                    )
                     pre_alloc_hash = session.group_hash_for_test(
                         test_id,
                         phase1_hash=pre.compute_pre_alloc_group_hash(
