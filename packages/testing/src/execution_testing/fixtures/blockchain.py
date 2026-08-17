@@ -1045,8 +1045,9 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     Above a chain whose head is expected to be rejected, the appended
     block is a sync target only, never an executable continuation.
     ``None`` for a chain that carries no appended block: one asserting
-    an Engine API error code, one that opted out
-    (``sync_block=False``), or a fill with ``--no-sync-block``.
+    an Engine API error code, one above whose head no block can be
+    built, one that opted out (``sync_block=False``), or a fill with
+    ``--no-sync-block``.
     """
 
 
