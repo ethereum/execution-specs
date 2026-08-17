@@ -2062,6 +2062,7 @@ def test_bal_invalid_omitted_slot_change_at_index(
 
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
+@pytest.mark.valid_before("EIP4758")
 def test_bal_invalid_phantom_read_on_selfdestruct(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

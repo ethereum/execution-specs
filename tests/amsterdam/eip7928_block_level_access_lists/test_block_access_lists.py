@@ -591,6 +591,7 @@ def test_bal_block_rewards(
 @pytest.mark.parametrize(
     "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
 )
+@pytest.mark.valid_before("EIP4758")
 def test_bal_selfdestruct_to_coinbase(
     pre: Alloc,
     state_test: StateTestFiller,

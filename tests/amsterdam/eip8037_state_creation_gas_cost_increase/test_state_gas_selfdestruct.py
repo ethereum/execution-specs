@@ -330,6 +330,7 @@ def test_create_selfdestruct_no_refund_account_and_storage(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+@pytest.mark.valid_before("EIP4758")
 def test_create_selfdestruct_no_refund_code_deposit_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -394,6 +395,7 @@ def test_create_selfdestruct_no_refund_code_deposit_state_gas(
 
 
 @pytest.mark.valid_from("EIP8037")
+@pytest.mark.valid_before("EIP4758")
 def test_create_selfdestruct_code_deposit_no_refund_header_check(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -576,6 +578,7 @@ def test_selfdestruct_pre_existing_account_no_refund(
     selector=lambda call_opcode: call_opcode in (Op.DELEGATECALL, Op.CALLCODE)
 )
 @pytest.mark.valid_from("EIP8037")
+@pytest.mark.valid_before("EIP4758")
 def test_selfdestruct_via_delegatecall_chain_no_refund(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

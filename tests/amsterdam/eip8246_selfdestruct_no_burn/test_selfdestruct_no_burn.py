@@ -63,6 +63,7 @@ pytestmark = pytest.mark.valid_from("EIP8246")
         pytest.param(Op.MSTORE(2**32, 0), False, id="oog"),
     ],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_selfdestructing_initcode_preserves_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -237,6 +238,7 @@ def test_selfdestructing_initcode_preserves_balance(
     "value",
     [pytest.param(1, id="kept"), pytest.param(0, id="removed")],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_create_transaction_initcode_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,

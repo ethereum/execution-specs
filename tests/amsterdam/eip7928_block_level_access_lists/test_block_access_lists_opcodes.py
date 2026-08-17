@@ -415,6 +415,7 @@ def test_bal_account_touch_system_address(
     )
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_bal_selfdestruct_to_system_address_zero_balance(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -2741,6 +2742,7 @@ def test_bal_call_revert_insufficient_funds(
     )
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_bal_create_selfdestruct_to_self_with_call(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -3717,6 +3719,7 @@ def test_bal_create_existing_target(
     ["read", "write"],
     ids=["sload_then_selfdestruct", "sstore_then_selfdestruct"],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_bal_create_storage_op_then_selfdestruct_same_tx(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -3811,6 +3814,7 @@ def test_bal_create_storage_op_then_selfdestruct_same_tx(
     [0, 100],
     ids=["no_balance", "with_balance"],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_bal_create2_selfdestruct_then_recreate_same_block(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -3937,6 +3941,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
     ],
 )
 @pytest.mark.with_all_create_opcodes
+@pytest.mark.valid_before("EIP4758")
 def test_bal_dirty_account_selfdestruct(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

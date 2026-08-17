@@ -641,6 +641,7 @@ def test_top_frame_execution_charge(
         pytest.param(1, id="non-zero_value"),
     ],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_initcode_selfdestruct_keeps_top_frame_state_charge(
     fork: Fork,
     pre: Alloc,
@@ -743,6 +744,7 @@ def test_initcode_selfdestruct_keeps_top_frame_state_charge(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.valid_before("EIP4758")
 def test_initcode_selfdestruct_state_gas_in_header(
     fork: Fork,
     pre: Alloc,

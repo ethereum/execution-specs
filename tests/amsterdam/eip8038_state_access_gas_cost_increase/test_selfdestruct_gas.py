@@ -473,6 +473,7 @@ def test_selfdestruct_oog_boundary(
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable()
+@pytest.mark.valid_before("EIP4758")
 def test_same_tx_created_selfdestruct_self_burn(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -554,6 +555,7 @@ def test_same_tx_created_selfdestruct_self_burn(
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable()
+@pytest.mark.valid_before("EIP4758")
 def test_same_tx_created_selfdestruct_to_fresh_beneficiary(
     state_test: StateTestFiller,
     pre: Alloc,
