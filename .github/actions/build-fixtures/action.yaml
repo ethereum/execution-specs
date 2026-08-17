@@ -76,6 +76,12 @@ runs:
         if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 5 ]; then
           exit "$EXIT_CODE"
         fi
+    - name: Validate zkEVM Benchmark Fixtures
+      if: inputs.split_label == '' && inputs.release_name == 'zkevm-benchmark'
+      shell: bash
+      run: |
+        uv run -q .github/scripts/validate_zkevm_benchmark_fixtures.py \
+          fixtures_${{ inputs.release_name }}.tar.gz
     - name: Generate Benchmark Genesis Files
       if: inputs.split_label == '' && contains(inputs.release_name, 'benchmark')
       uses: ./.github/actions/build-benchmark-genesis
