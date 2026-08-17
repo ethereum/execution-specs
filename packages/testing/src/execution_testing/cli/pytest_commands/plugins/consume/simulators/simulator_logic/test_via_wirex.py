@@ -27,10 +27,11 @@ instead of the test's own head, which makes every one of the test's
 blocks an ancestor whose header and body a full-syncing client must
 fetch from the peer, on every client, by chain structure rather than
 client courtesy. The fixtures without a trailer - chains asserting an
-Engine API error code, chains marked ineligible at fill time, and
-corpora filled with `--no-sync-block` - announce their own head
-instead. Chains still too short to put any block on the wire are
-skipped here, where the limitation actually lives.
+Engine API error code, chains above whose head the filler could build
+no block, chains that opted out at fill time, and corpora filled with
+`--no-sync-block` - announce their own head instead. Chains still too
+short to put any block on the wire are skipped here, where the
+limitation actually lives.
 """
 
 import time
