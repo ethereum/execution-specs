@@ -178,6 +178,26 @@ ERROR_CODE_MODULE = textwrap.dedent(
     """
 )
 
+CEILING_MODULE = textwrap.dedent(
+    """\
+    from execution_testing import Block, Transaction
+
+
+    def test_pinned_ceiling_timestamp(blockchain_test, pre) -> None:
+        # A valid head at the uint64 timestamp ceiling: no child
+        # timestamp fits above it, so the filler declines the sync
+        # block and the chain fills as exactly the author's own.
+        tx = Transaction(
+            to=0, value=1, gas_limit=21_000, sender=pre.fund_eoa()
+        )
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[Block(txs=[tx], timestamp=2**64 - 1)],
+        )
+    """
+)
+
 # Fixture directory to the format name that appears in a test id.
 FORMATS = {
     "blockchain_tests": "blockchain_test",
@@ -398,6 +418,22 @@ def test_error_code_chain_keeps_its_announcement(
         output, "blockchain_tests_engine_x"
     ).values():
         assert fixture["engineNewPayloads"][0].get("errorCode") is not None
+        assert "syncPayload" not in fixture
+
+
+def test_ceiling_head_fills_bare(pytester: pytest.Pytester) -> None:
+    """
+    A chain whose head leaves no uint64 room for a child block fills
+    as exactly the author's chain - no ``syncPayload``, no error, no
+    skip - because the filler declines the block itself.
+    """
+    test_module = make_test_module(pytester, CEILING_MODULE, "test_ceiling.py")
+    output = fill(pytester, test_module)
+
+    fixtures = fixtures_of_format(output, "blockchain_tests_engine_x")
+    assert len(fixtures) == 1, "the ceiling head must still be filled"
+    for fixture in fixtures.values():
+        assert len(fixture["engineNewPayloads"]) == 1
         assert "syncPayload" not in fixture
 
 
