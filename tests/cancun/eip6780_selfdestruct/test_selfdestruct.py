@@ -196,6 +196,7 @@ def selfdestruct_code(
     [0, 100_000],
 )
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_create_selfdestruct_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -414,6 +415,7 @@ def test_create_selfdestruct_same_tx(
     [0, 100_000],
 )
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_self_destructing_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -580,6 +582,7 @@ def test_self_destructing_initcode(
     [0, 100_000],
 )
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_self_destructing_initcode_create_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -665,6 +668,7 @@ def test_self_destructing_initcode_create_tx(
 @pytest.mark.parametrize("recreate_times", [1])
 @pytest.mark.parametrize("call_times", [1])
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_recreate_self_destructed_contract_different_txs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -1197,6 +1201,7 @@ def test_selfdestruct_created_same_block_different_tx(
 @pytest.mark.parametrize("call_opcode", [Op.DELEGATECALL, Op.CALLCODE])
 @pytest.mark.parametrize("create_opcode", [Op.CREATE])
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_calling_from_new_contract_to_pre_existing_contract(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1571,6 +1576,7 @@ def test_calling_from_pre_existing_contract_to_new_contract(
     indirect=["sendall_recipient_addresses"],
 )
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_create_selfdestruct_same_tx_increased_nonce(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1786,6 +1792,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
 @pytest.mark.parametrize("num_contracts", [2, 3])
 @pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_create_and_destroy_multiple_contracts_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1916,6 +1923,7 @@ def test_create_and_destroy_multiple_contracts_same_tx(
 
 @pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
     blockchain_test: BlockchainTestFiller,
     eip_enabled: bool,
@@ -2097,6 +2105,7 @@ def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
 @pytest.mark.parametrize("destroy_parent", [True, False])
 @pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_parent_creates_child_selfdestruct_one(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2238,6 +2247,7 @@ def test_parent_creates_child_selfdestruct_one(
 @pytest.mark.parametrize("selfdestruct_on_unwind", [True, False])
 @pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
 @pytest.mark.valid_from("Shanghai")
+@pytest.mark.valid_before("EIP4758")
 def test_recursive_contract_creation_and_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,

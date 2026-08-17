@@ -1962,6 +1962,7 @@ def test_set_code_to_account_deployed_in_same_tx(
 )
 @pytest.mark.parametrize("call_set_code_first", [False, True])
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
+@pytest.mark.valid_before("EIP4758")
 def test_set_code_to_self_destructing_account_deployed_in_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,

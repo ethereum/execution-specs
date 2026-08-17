@@ -711,8 +711,16 @@ def test_extcodehash_via_call(
     "create_opcode",
     [
         pytest.param(None, id="pre_existing"),
-        pytest.param(Op.CREATE, id="create"),
-        pytest.param(Op.CREATE2, id="create2"),
+        pytest.param(
+            Op.CREATE,
+            id="create",
+            marks=pytest.mark.valid_before("EIP4758"),
+        ),
+        pytest.param(
+            Op.CREATE2,
+            id="create2",
+            marks=pytest.mark.valid_before("EIP4758"),
+        ),
     ],
 )
 def test_extcodehash_after_selfdestruct(
@@ -1256,7 +1264,11 @@ def test_extcodehash_call_to_selfdestruct(
 @pytest.mark.parametrize(
     "trigger",
     [
-        pytest.param(Op.CALL, id="call"),
+        pytest.param(
+            Op.CALL,
+            id="call",
+            marks=pytest.mark.valid_before("EIP4758"),
+        ),
         pytest.param(Op.STATICCALL, id="staticcall"),
     ],
 )
@@ -1344,6 +1356,7 @@ def test_extcodehash_created_and_deleted(
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2428"],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_extcodehash_created_and_deleted_recheck_outer(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1456,7 +1469,11 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     "dynamic_a",
     [
         pytest.param(False, id="pre_existing"),
-        pytest.param(True, id="dynamic"),
+        pytest.param(
+            True,
+            id="dynamic",
+            marks=pytest.mark.valid_before("EIP4758"),
+        ),
     ],
 )
 def test_extcodehash_subcall_selfdestruct(

@@ -88,6 +88,7 @@ class SelfDestructCases(PytestParameterEnum):
     }
 
     TLOAD_AFTER_SELFDESTRUCT_NEW_CONTRACT = {
+        "pytest_marks": pytest.mark.valid_before("EIP4758"),
         "description": (
             "Use TSTORE to store a transient value and self-destruct in a "
             "contract that was deployed in the current transaction."
@@ -146,6 +147,7 @@ class SelfDestructCases(PytestParameterEnum):
     }
 
     TLOAD_AFTER_INNER_SELFDESTRUCT_NEW_CONTRACT = {
+        "pytest_marks": pytest.mark.valid_before("EIP4758"),
         "description": (
             "In a newly created contract, use TSTORE to store a transient "
             "value and then call for re-entry and self-destruct, and use "
@@ -212,6 +214,7 @@ class SelfDestructCases(PytestParameterEnum):
     }
 
     TSTORE_AFTER_SELFDESTRUCT_NEW_CONTRACT = {
+        "pytest_marks": pytest.mark.valid_before("EIP4758"),
         "description": (
             "Use self-destruct in a newly created contract and then use "
             "TSTORE upon a re-entry. Lastly use TLOAD on another re-entry",

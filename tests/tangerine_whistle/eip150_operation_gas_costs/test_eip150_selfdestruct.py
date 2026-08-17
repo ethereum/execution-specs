@@ -312,7 +312,12 @@ def build_post_state(
     ],
 )
 @pytest.mark.parametrize(
-    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
+    "same_tx",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
+    ],
+    ids=["pre_deploy", "same_tx"],
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -436,7 +441,12 @@ def test_selfdestruct_to_account(
     ],
 )
 @pytest.mark.parametrize(
-    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
+    "same_tx",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
+    ],
+    ids=["pre_deploy", "same_tx"],
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -562,7 +572,12 @@ def test_selfdestruct_state_access_boundary(
 )
 @pytest.mark.with_all_precompiles
 @pytest.mark.parametrize(
-    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
+    "same_tx",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
+    ],
+    ids=["pre_deploy", "same_tx"],
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -671,7 +686,12 @@ def test_selfdestruct_to_precompile(
 )
 @pytest.mark.with_all_precompiles
 @pytest.mark.parametrize(
-    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
+    "same_tx",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
+    ],
+    ids=["pre_deploy", "same_tx"],
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -781,7 +801,12 @@ def test_selfdestruct_to_precompile_state_access_boundary(
 )
 @pytest.mark.with_all_system_contracts
 @pytest.mark.parametrize(
-    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
+    "same_tx",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
+    ],
+    ids=["pre_deploy", "same_tx"],
 )
 @pytest.mark.parametrize(
     "originator_balance",
@@ -933,7 +958,12 @@ def test_selfdestruct_to_system_contract(
     ids=["no_balance", "has_balance"],
 )
 @pytest.mark.parametrize(
-    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
+    "same_tx",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.valid_before("EIP4758")),
+    ],
+    ids=["pre_deploy", "same_tx"],
 )
 @pytest.mark.valid_from("TangerineWhistle")
 def test_selfdestruct_to_self(
@@ -1139,6 +1169,7 @@ def test_selfdestruct_to_self(
     ids=["no_balance", "has_balance"],
 )
 @pytest.mark.valid_from("TangerineWhistle")
+@pytest.mark.valid_before("EIP4758")
 def test_initcode_selfdestruct_to_self(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

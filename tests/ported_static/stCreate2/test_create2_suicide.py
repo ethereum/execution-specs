@@ -49,6 +49,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             id="d1",
+            marks=pytest.mark.valid_before("EIP4758"),
         ),
         pytest.param(
             2,
@@ -61,6 +62,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             id="d3",
+            marks=pytest.mark.valid_before("EIP4758"),
         ),
         pytest.param(
             4,
@@ -73,6 +75,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             id="d5",
+            marks=pytest.mark.valid_before("EIP4758"),
         ),
         pytest.param(
             6,
@@ -85,6 +88,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             id="d7",
+            marks=pytest.mark.valid_before("EIP4758"),
         ),
         pytest.param(
             8,
