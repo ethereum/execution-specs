@@ -91,6 +91,17 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 
 Plain pytest. Tests are co-located with each module under `packages/testing/src/execution_testing/` in a sibling `tests/` directory. When adding a guardrail or validation, verify the tests fail without the change and pass with it.
 
+## devp2p Sync Coverage
+
+`blockchain_test_engine_x` fixtures normally append a sync payload so every test payload can be covered by devp2p full-sync testing.
+
+- Do not add `sync_block=False` merely to make a test fill.
+- If sync-payload construction fails, inspect the chained error first. When the framework lacks support for the test's context, extend the sync-payload framework and add regression coverage.
+- Use `sync_block=False` only when the test deliberately leaves a terminal context in which no child block can execute, such as a sabotaged mandatory system contract. Document that reason at the opt-out.
+- Known representational limits are handled by the framework and do not require a test-level opt-out.
+
+See `docs/filling_tests/sync_payloads.md` for the construction and omission rules.
+
 ## After Writing Tests
 
 After writing or modifying tests, ask the user: "Would you like me to load the `/fill-tests` skill to verify the new tests fill correctly? (This loads an additional skill into context.)" If they agree, run `/fill-tests`, fill the new tests, then inspect the generated fixture JSON to verify the fixture contents match what the test intends.
