@@ -1205,15 +1205,18 @@ def check_max_fee_per_blob_gas(
 def check_block_gas_capacity(
     block_env: "BlockEnvironment",
     block_output: "BlockOutput",
-    tx_gas: Uint,
+    execution_reservation: Uint,
+    state_reservation: Uint,
     tx_blob_gas: U64,
 ) -> None:
     """
     Check that the transaction fits the block's remaining gas capacity.
 
     Each dimension is checked against its own remaining budget:
-    execution gas, where a single transaction can consume at most
-    [`TX_MAX_GAS_LIMIT`]; state gas; and blob gas.
+    execution gas, state gas, and blob gas. The caller supplies the
+    gas the transaction reserves in each dimension: exact per-frame
+    budgets for a frame transaction, while the reservoir model of the
+    regular flow reserves the whole gas limit in both dimensions.
 
     Parameters
     ----------
@@ -1221,8 +1224,10 @@ def check_block_gas_capacity(
         The block scoped environment.
     block_output :
         The block output for the current block.
-    tx_gas :
-        The transaction's gas limit.
+    execution_reservation :
+        The execution gas the transaction reserves.
+    state_reservation :
+        The state gas the transaction reserves.
     tx_blob_gas :
         The blob gas used by the transaction.
 
@@ -1234,9 +1239,7 @@ def check_block_gas_capacity(
     BlobGasLimitExceededError :
         If the transaction exceeds the block's remaining blob gas.
 
-    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.transactions.TX_MAX_GAS_LIMIT
-
-    """  # noqa: E501
+    """
     execution_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )
@@ -1245,10 +1248,10 @@ def check_block_gas_capacity(
     )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if min(TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
+    if execution_reservation > execution_gas_available:
         raise GasUsedExceedsLimitError("execution gas used exceeds limit")
 
-    if tx_gas > state_gas_available:
+    if state_reservation > state_gas_available:
         raise GasUsedExceedsLimitError("state gas used exceeds limit")
 
     if tx_blob_gas > blob_gas_available:
@@ -1392,4 +1395,98 @@ def settle_transaction_gas(
         gas_left=tx_gas - gas_used,
         execution_gas_used=execution_gas_used,
         state_gas_used=settled_state_gas_used,
+    )
+
+
+@final
+@dataclass
+class FrameTransactionGasSettlement:
+    """
+    Settled per-dimension gas for a finished frame transaction.
+
+    Hold only the two block-accounted dimensions; their sum is the
+    transaction's `gas_used`, derived by the caller.
+    """
+
+    execution_gas_used: ExecutionGas
+    """Execution gas the transaction contributes to the block total."""
+
+    state_gas_used: StateGas
+    """State gas the transaction contributes to the block total."""
+
+
+def settle_frame_transaction_gas(
+    standard_gas_limit: Uint,
+    calldata_floor: Uint,
+    tx_unused_gas: Uint,
+    refund_counter: U256,
+    tx_state_gas: StateGas,
+) -> FrameTransactionGasSettlement:
+    """
+    Settle a frame transaction's gas after all frames have executed.
+
+    Compute, in order:
+
+    - the gas used before refunds, from the settlement anchor less the
+      gas not charged at settlement;
+    - the storage refund, capped at one fifth of the pre-refund usage
+      ([EIP-3529]) — state gas refills bypass the cap by design: a
+      refill reverses a charge for state that was never durably
+      created, and has already reduced the owning frame's receipt, and
+      with it the pre-refund usage; and
+    - the execution dimension, as the post-refund usage less the final
+      attributed state gas, held to the calldata floor ([EIP-7623]).
+      The floor binds the execution dimension alone, so — unlike the
+      regular flow — a floor-bound transaction pays the floor plus its
+      state gas in full.
+
+    The refund cap of a state-dominated transaction can exceed its
+    intrinsic cost plus execution usage, driving the subtraction
+    negative, so it is computed in plain integers before the floor
+    clamps it.
+
+    Parameters
+    ----------
+    standard_gas_limit :
+        The transaction's settlement anchor: intrinsic cost plus the
+        frames' budgets in both dimensions.
+    calldata_floor :
+        The transaction's calldata floor gas.
+    tx_unused_gas :
+        Gas not charged at settlement, over both dimensions: gas left
+        in the frames' pools at frame exit, skipped-frame budgets, and
+        state gas removed from a receipt by a later refill or
+        rollback.
+    refund_counter :
+        The storage refund accrued across all frames.
+    tx_state_gas :
+        The frames' final attributed state gas: the sum of their
+        receipts' state gas usage.
+
+    Returns
+    -------
+    settlement : `FrameTransactionGasSettlement`
+        The settled per-dimension gas.
+
+    [EIP-3529]: https://eips.ethereum.org/EIPS/eip-3529
+    [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+
+    """
+    gas_used_before_refund = standard_gas_limit - tx_unused_gas
+    applied_refund = min(
+        Uint(refund_counter), gas_used_before_refund // Uint(5)
+    )
+    gas_used_after_refund = gas_used_before_refund - applied_refund
+
+    execution_gas_used = ExecutionGas(
+        Uint(
+            max(
+                int(gas_used_after_refund) - int(tx_state_gas),
+                int(calldata_floor),
+            )
+        )
+    )
+    return FrameTransactionGasSettlement(
+        execution_gas_used=execution_gas_used,
+        state_gas_used=tx_state_gas,
     )

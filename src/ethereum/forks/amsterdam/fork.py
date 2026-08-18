@@ -81,6 +81,7 @@ from .state_tracker import (
     set_account_balance,
 )
 from .transactions import (
+    TX_MAX_GAS_LIMIT,
     BlobTransaction,
     LegacyTransaction,
     SetCodeTransaction,
@@ -575,8 +576,15 @@ def check_transaction(
     intrinsic = validate_transaction(tx, sender)
     tx_state = TransactionState(parent=block_env.state)
 
+    # Under the reservoir model any part of the gas limit can end up
+    # in either dimension, so the whole limit is reserved in both; a
+    # single transaction's execution gas is capped by EIP-7825.
     check_block_gas_capacity(
-        block_env, block_output, tx.gas, calculate_total_blob_gas(tx)
+        block_env,
+        block_output,
+        min(TX_MAX_GAS_LIMIT, tx.gas),
+        tx.gas,
+        calculate_total_blob_gas(tx),
     )
 
     sender_account = get_account(tx_state, sender)
