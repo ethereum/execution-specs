@@ -120,7 +120,8 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"block access list hash mismatch|"
             r"BAL rejection: FinalHashMismatch|"
-            r"Bal error: Account .* not found in BAL"
+            r"Bal error: Account .* not found in BAL|"
+            r"Bal error: Slot .* not found in BAL for account .*"
         ),
         BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
             r"block access list item cost exceeds gas limit"
