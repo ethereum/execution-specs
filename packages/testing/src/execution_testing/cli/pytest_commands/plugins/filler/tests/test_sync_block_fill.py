@@ -1,14 +1,14 @@
 """
-Test that the appended sync block reaches exactly the fixtures that
-should carry it, and changes nothing else.
+Test that appended sync payloads reach exactly the authored leaves that
+should carry them, and change nothing else.
 
-Only ``blockchain_test_engine_x`` fixtures carry the block, out of
-chain in their ``syncPayload`` field, so a default fill must leave
-every format's payload list byte-for-byte what the test defines. These
-tests fill whole test modules and read the fixtures back, so a sync
-block that leaks into a payload list, misses the invalid head it must
-sit above, steals an error-code assertion's announcement, or fails to
-salt per test fails here rather than in a consumer.
+Only ``blockchain_test_engine_x`` fixtures carry the blocks, out of
+chain in their ``syncPayloads`` list, so a default fill must leave every
+format's authored payload list byte-for-byte what the test defines.
+These tests fill whole test modules and read the fixtures back, so a
+sync payload that leaks into that list, misses a branch leaf, steals an
+error-code assertion's announcement, or fails to salt per test fails
+here rather than in a consumer.
 """
 
 import json
@@ -167,6 +167,24 @@ INVALID_MODULE = textwrap.dedent(
                     txs=[invalid_tx(pre)],
                     exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
                 ),
+            ],
+        )
+
+
+    @pytest.mark.exception_test
+    def test_invalid_then_valid_siblings(blockchain_test, pre) -> None:
+        valid_tx = Transaction(
+            to=0, value=1, gas_limit=21_000, sender=pre.fund_eoa()
+        )
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[
+                Block(
+                    txs=[invalid_tx(pre)],
+                    exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
+                ),
+                Block(txs=[valid_tx]),
             ],
         )
     """
@@ -329,28 +347,37 @@ def fixtures_of_format(
     return fixtures
 
 
-def assert_appended_above(fixture: Dict[str, Any], *, blocks: int) -> None:
+def assert_sync_payloads_above(
+    fixture: Dict[str, Any], *, blocks: int, leaf_indices: list[int]
+) -> None:
     """
-    Assert that ``fixture`` carries one salted empty payload appended
-    above a payload list of exactly ``blocks`` entries.
+    Assert that ``fixture`` carries one salted empty payload above every
+    authored leaf in ``leaf_indices``.
     """
     payloads = fixture["engineNewPayloads"]
     assert len(payloads) == blocks, (
-        "the appended sync block must not enter the payload list"
+        "appended sync payloads must not enter the authored payload list"
     )
-    head = payloads[-1]["params"][0]
-    appended = fixture["syncPayload"]["params"][0]
-    assert appended["transactions"] == [], (
-        "the appended sync block carries no transactions"
-    )
-    assert appended["parentHash"] == head["blockHash"], (
-        "the appended sync block must name the chain's last block as parent"
-    )
-    assert int(appended["blockNumber"], 16) == int(head["blockNumber"], 16) + 1
-    assert int(appended["timestamp"], 16) > int(head["timestamp"], 16)
-    assert appended["extraData"] != "0x", (
-        "the appended sync block is salted with a per-test value"
-    )
+    sync_payloads = fixture["syncPayloads"]
+    assert len(sync_payloads) == len(leaf_indices)
+    for sync_payload, leaf_index in zip(
+        sync_payloads, leaf_indices, strict=True
+    ):
+        head = payloads[leaf_index]["params"][0]
+        appended = sync_payload["params"][0]
+        assert appended["transactions"] == [], (
+            "an appended sync payload carries no transactions"
+        )
+        assert appended["parentHash"] == head["blockHash"], (
+            "each appended sync payload must name its authored leaf"
+        )
+        assert int(appended["blockNumber"], 16) == (
+            int(head["blockNumber"], 16) + 1
+        )
+        assert int(appended["timestamp"], 16) > int(head["timestamp"], 16)
+        assert appended["extraData"] != "0x", (
+            "each appended sync payload is salted per test"
+        )
 
 
 def positions(fixture: Dict[str, Any]) -> list[tuple[str, str, str]]:
@@ -369,9 +396,9 @@ def test_valid_chains_carry_the_appended_block(
     pytester: pytest.Pytester,
 ) -> None:
     """
-    A valid chain's sync block rides out-of-chain in ``syncPayload``,
-    built on the test's own head and salted per test; no other format
-    gains anything.
+    A valid chain gets one out-of-chain entry in ``syncPayloads``, built
+    on the test's own head and salted per test; no other format gains
+    anything.
     """
     test_module = make_test_module(
         pytester, VALID_MODULE, "test_single_block.py"
@@ -380,12 +407,12 @@ def test_valid_chains_carry_the_appended_block(
 
     for fixture in fixtures_of_format(output, "blockchain_tests").values():
         assert len(fixture["blocks"]) == 1
-        assert "syncPayload" not in fixture
+        assert "syncPayloads" not in fixture
     for fixture in fixtures_of_format(
         output, "blockchain_tests_engine"
     ).values():
         assert len(fixture["engineNewPayloads"]) == 1
-        assert "syncPayload" not in fixture
+        assert "syncPayloads" not in fixture
 
     engine_x = fixtures_of_format(output, "blockchain_tests_engine_x")
     assert any("test_from_state_test" in test_id for test_id in engine_x), (
@@ -394,13 +421,13 @@ def test_valid_chains_carry_the_appended_block(
         "fields on BaseTest"
     )
     for fixture in engine_x.values():
-        assert_appended_above(fixture, blocks=1)
+        assert_sync_payloads_above(fixture, blocks=1, leaf_indices=[0])
         assert (
             fixture["lastblockhash"]
             == fixture["engineNewPayloads"][0]["params"][0]["blockHash"]
         ), "the fixture's head stays the author's own block"
     salts = {
-        fixture["syncPayload"]["params"][0]["extraData"]
+        fixture["syncPayloads"][0]["params"][0]["extraData"]
         for fixture in engine_x.values()
     }
     assert len(salts) == 3, (
@@ -413,12 +440,10 @@ def test_invalid_chains_carry_the_appended_block(
     pytester: pytest.Pytester,
 ) -> None:
     """
-    An expected-invalid head takes the appended block too, keeping its
-    own position: the extra block names it as parent, so a sync-based
-    consumer announces the extra block and the invalid block itself
-    travels devp2p as ancestry. The engine_x payload list must hold the
-    same positions and expectations as the plain engine format's -
-    nothing is inserted into or shifted inside the chain.
+    Every expected-invalid leaf gets its own appended target. A final
+    valid sibling gets another target after it, so every branch can be
+    announced without inserting or shifting anything in the authored
+    payload list.
     """
     test_module = make_test_module(pytester, INVALID_MODULE, "test_invalid.py")
     output = fill(pytester, test_module, all_formats=True)
@@ -434,7 +459,7 @@ def test_invalid_chains_carry_the_appended_block(
         for test_id, fixture in engine_x.items()
         if "test_invalid_singleton" in test_id
     )
-    assert_appended_above(singleton, blocks=1)
+    assert_sync_payloads_above(singleton, blocks=1, leaf_indices=[0])
     invalid = singleton["engineNewPayloads"][0]
     assert invalid.get("validationError") is not None
     assert int(invalid["params"][0]["blockNumber"], 16) == 1, (
@@ -449,11 +474,27 @@ def test_invalid_chains_carry_the_appended_block(
         for test_id, fixture in engine_x.items()
         if "test_invalid_multi_block" in test_id
     )
-    assert_appended_above(multi_block, blocks=2)
+    assert_sync_payloads_above(multi_block, blocks=2, leaf_indices=[1])
     assert multi_block["engineNewPayloads"][0].get("validationError") is None
     assert (
         multi_block["engineNewPayloads"][1].get("validationError") is not None
     )
+
+    siblings = next(
+        fixture
+        for test_id, fixture in engine_x.items()
+        if "test_invalid_then_valid_siblings" in test_id
+    )
+    assert_sync_payloads_above(siblings, blocks=2, leaf_indices=[0, 1])
+    invalid, valid = siblings["engineNewPayloads"]
+    assert invalid.get("validationError") is not None
+    assert valid.get("validationError") is None
+    assert invalid["params"][0]["blockNumber"] == "0x1"
+    assert valid["params"][0]["blockNumber"] == "0x1"
+    assert (
+        invalid["params"][0]["parentHash"] == valid["params"][0]["parentHash"]
+    ), "the rejected and accepted authored payloads are siblings"
+    assert siblings["lastblockhash"] == valid["params"][0]["blockHash"]
 
     underivable = next(
         fixture
@@ -463,7 +504,7 @@ def test_invalid_chains_carry_the_appended_block(
     assert (
         underivable["engineNewPayloads"][0].get("validationError") is not None
     )
-    assert "syncPayload" not in underivable, (
+    assert "syncPayloads" not in underivable, (
         "no sync block can be derived above a head whose pinned blob "
         "fields overflow the child's excess derivation"
     )
@@ -486,7 +527,7 @@ def test_error_code_chain_keeps_its_announcement(
         output, "blockchain_tests_engine_x"
     ).values():
         assert fixture["engineNewPayloads"][0].get("errorCode") is not None
-        assert "syncPayload" not in fixture
+        assert "syncPayloads" not in fixture
 
 
 def test_opted_out_tests_fill_without_the_block(
@@ -505,15 +546,15 @@ def test_opted_out_tests_fill_without_the_block(
     for test_id, fixture in fixtures.items():
         assert len(fixture["engineNewPayloads"]) == 1
         if "test_opted_out" in test_id:
-            assert "syncPayload" not in fixture
+            assert "syncPayloads" not in fixture
         else:
-            assert_appended_above(fixture, blocks=1)
+            assert_sync_payloads_above(fixture, blocks=1, leaf_indices=[0])
 
 
 def test_ceiling_head_fills_bare(pytester: pytest.Pytester) -> None:
     """
     A chain whose head leaves no uint64 room for a child block fills
-    as exactly the author's chain - no ``syncPayload``, no error, no
+    as exactly the author's chain - no ``syncPayloads``, no error, no
     skip - because the filler declines the block itself.
     """
     test_module = make_test_module(pytester, CEILING_MODULE, "test_ceiling.py")
@@ -523,7 +564,7 @@ def test_ceiling_head_fills_bare(pytester: pytest.Pytester) -> None:
     assert len(fixtures) == 1, "the ceiling head must still be filled"
     for fixture in fixtures.values():
         assert len(fixture["engineNewPayloads"]) == 1
-        assert "syncPayload" not in fixture
+        assert "syncPayloads" not in fixture
 
 
 def test_no_sync_block_restores_the_plain_fill(
@@ -531,8 +572,9 @@ def test_no_sync_block_restores_the_plain_fill(
 ) -> None:
     """
     ``--no-sync-block`` removes the appended block and nothing else:
-    the fixtures are byte-identical to a default fill's except for the
-    ``syncPayload`` field itself.
+    the authored fields are byte-identical to a default fill's. The
+    ``syncPayloads`` field and fixture metadata derived from the complete
+    serialized fixture are expected to differ.
     """
     test_module = make_test_module(
         pytester, VALID_MODULE, "test_single_block.py"
@@ -549,10 +591,10 @@ def test_no_sync_block_restores_the_plain_fill(
     without_fixtures = fixtures_of_format(without, "blockchain_tests_engine_x")
     assert default_fixtures.keys() == without_fixtures.keys()
     for test_id, fixture in default_fixtures.items():
-        assert_appended_above(fixture, blocks=1)
-        stripped = {k: v for k, v in fixture.items() if k != "syncPayload"}
+        assert_sync_payloads_above(fixture, blocks=1, leaf_indices=[0])
+        stripped = {k: v for k, v in fixture.items() if k != "syncPayloads"}
         other = without_fixtures[test_id]
-        assert "syncPayload" not in other
+        assert "syncPayloads" not in other
         assert {k: v for k, v in other.items() if k != "_info"} == {
             k: v for k, v in stripped.items() if k != "_info"
         }, "the appended block must not change the author's own fixture"

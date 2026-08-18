@@ -1,13 +1,12 @@
 """
-Tests for the appended sync block's eligibility and physical guards.
+Tests for appended sync-payload eligibility, leaves and physical guards.
 
-The filler appends one framework-built empty block above every
-engine_x chain, stored out-of-chain in the fixture's ``syncPayload``,
-so a sync-based consumer can announce it and every test-authored block
-must travel devp2p as ancestry. These tests pin which chains take the
-block and which heads the filler declines to build above; the block
-itself is built against a real backend and is covered by the filler
-plugin's pytester tests.
+The filler appends one framework-built empty block above each authored
+leaf, stored out-of-chain in the fixture's ``syncPayloads`` list. These
+tests pin which tests can carry targets, how rejected attempts split the
+payload graph into leaves, and which heads the filler declines to build
+above. The payloads themselves are built against a real backend and are
+covered by the filler plugin's pytester tests.
 """
 
 from typing import Any, Dict, List
@@ -101,8 +100,8 @@ def make_test(
 )
 def test_sync_payload_eligibility(blocks: List[Block], eligible: bool) -> None:
     """
-    Every chain with blocks takes the appended sync block, except one
-    asserting an Engine API error code.
+    Every non-empty chain can carry sync payloads unless one of its
+    authored payloads asserts an Engine API error code.
 
     Expected-invalid blocks are eligible: the appended block is what
     puts them on the wire. A block whose ``engine_api_error_code``
@@ -111,6 +110,47 @@ def test_sync_payload_eligibility(blocks: List[Block], eligible: bool) -> None:
     test asserts would never happen.
     """
     assert make_test(blocks=blocks).sync_payload_eligible() is eligible
+
+
+@pytest.mark.parametrize(
+    "blocks,leaves",
+    [
+        pytest.param([VALID], [0], id="valid_singleton"),
+        pytest.param(
+            [VALID, Block(timestamp=2_000)],
+            [1],
+            id="valid_chain_has_one_leaf",
+        ),
+        pytest.param([INVALID], [0], id="invalid_singleton"),
+        pytest.param(
+            [VALID, Block(timestamp=2_000, exception=INVALID.exception)],
+            [1],
+            id="terminal_invalid_covers_valid_ancestor",
+        ),
+        pytest.param(
+            [INVALID, Block(timestamp=2_000)],
+            [0, 1],
+            id="invalid_then_valid_siblings",
+        ),
+        pytest.param(
+            [
+                INVALID,
+                Block(timestamp=2_000),
+                Block(timestamp=3_000, exception=INVALID.exception),
+                Block(timestamp=4_000),
+            ],
+            [0, 2, 3],
+            id="two_rejected_leaves_and_final_valid_leaf",
+        ),
+        pytest.param([REFUSED], [], id="engine_refused"),
+        pytest.param([], [], id="empty"),
+    ],
+)
+def test_sync_payload_leaf_indices(
+    blocks: List[Block], leaves: List[int]
+) -> None:
+    """Every authored payload is below at least one selected leaf."""
+    assert make_test(blocks=blocks).sync_payload_leaf_indices() == leaves
 
 
 def test_sync_block_disabled() -> None:
@@ -280,7 +320,7 @@ def test_head_is_judged_under_the_appended_block_s_own_fork(
     assert (reason is None) is available
 
 
-def test_benchmark_chains_take_the_sync_block() -> None:
+def test_benchmark_chains_take_sync_payloads() -> None:
     """
     A benchmark chain carries the appended block like any other: the
     benchmark's gas and opcode values are recorded before the block is
