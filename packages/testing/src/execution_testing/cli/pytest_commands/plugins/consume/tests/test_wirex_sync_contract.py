@@ -1,50 +1,25 @@
-"""Tests for the wirex simulator's per-class sync-block contract."""
+"""
+Tests for the wirex simulator's wire-coverage and client contracts.
+
+Path resolution and its classification live in
+`test_wirex_sync_targets`; this module covers what happens above a
+resolved chain: which headers and bodies the per-hash coverage check
+demands, and the identifiers isolating a multi-target fixture's
+clients.
+"""
 
 from dataclasses import dataclass
 from typing import cast
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.devp2p.chain import Block, Chain
-from execution_testing.exceptions import (
-    BlockException,
-    TransactionException,
-)
-from execution_testing.fixtures import BlockchainEngineXFixture
-from execution_testing.fixtures.blockchain import (
-    FixtureEngineNewPayload,
-    FixtureHeader,
-)
+from execution_testing.fixtures.blockchain import FixtureHeader
 
 from ..simulators.simulator_logic.test_via_wirex import (
-    HEADER_JUDGEABLE_INVALIDITIES,
-    UNDECODABLE_BODY_INVALIDITIES,
-    announced_payload,
-    declared_invalidities,
     required_wire_bodies,
     required_wire_headers,
 )
-from ..simulators.wirex.conftest import sync_chain_payloads
-
-
-def _payload() -> FixtureEngineNewPayload:
-    """Return a bare payload sentinel; the tests read identity only."""
-    return cast(FixtureEngineNewPayload, object())
-
-
-@dataclass
-class _StubFixture:
-    """The two fixture fields the contract helpers read."""
-
-    payloads: list[FixtureEngineNewPayload]
-    sync_payload: FixtureEngineNewPayload | None
-
-
-def _fixture(
-    payloads: list[FixtureEngineNewPayload],
-    sync_payload: FixtureEngineNewPayload | None = None,
-) -> BlockchainEngineXFixture:
-    """Return a fixture carrying exactly the fields the helpers read."""
-    return cast(BlockchainEngineXFixture, _StubFixture(payloads, sync_payload))
+from ..simulators.wirex.client_policy import isolated_identifier
 
 
 @dataclass
@@ -69,51 +44,6 @@ def _chain(blocks: list[Block]) -> Chain:
     """Return a chain of `blocks` under a stub genesis."""
     genesis = _StubHeader(number=0, block_hash=Hash(0))
     return Chain(genesis=cast(FixtureHeader, genesis), blocks=blocks)
-
-
-class TestAnnouncedPayload:
-    """Which block the simulator announces, per chain class."""
-
-    def test_appended_class_announces_the_trailer(self) -> None:
-        """A fixture with a sync payload announces it, not its head."""
-        test_block, trailer = _payload(), _payload()
-        assert announced_payload(_fixture([test_block], trailer)) is trailer
-
-    def test_bare_chain_announces_its_own_head(self) -> None:
-        """
-        A chain with no trailer announces the author's head.
-
-        Error-code chains, marked chains, and ``--no-sync-block``
-        corpora carry no sync payload; their own head is the target.
-        """
-        first, head = _payload(), _payload()
-        assert announced_payload(_fixture([first, head])) is head
-
-
-class TestSyncChainPayloads:
-    """The served sequence, and the chain length skips are judged by."""
-
-    def test_appended_singleton_becomes_two_blocks(self) -> None:
-        """The trailer joins the served chain, above the test's head."""
-        test_block, trailer = _payload(), _payload()
-        payloads = sync_chain_payloads(_fixture([test_block], trailer))
-        assert payloads == [test_block, trailer]
-
-    def test_bare_singleton_stays_one_block(self) -> None:
-        """No extra block, nothing to add: skipped below the minimum."""
-        assert len(sync_chain_payloads(_fixture([_payload()]))) == 1
-
-    def test_bare_chain_keeps_its_own_length(self) -> None:
-        """A chain without a trailer is served exactly as written."""
-        payloads = [_payload(), _payload()]
-        assert sync_chain_payloads(_fixture(payloads)) == payloads
-
-    def test_the_author_payload_list_is_not_mutated(self) -> None:
-        """Assembly returns a new list; the fixture stays the author's."""
-        test_block, trailer = _payload(), _payload()
-        fixture = _fixture([test_block], trailer)
-        sync_chain_payloads(fixture)
-        assert fixture.payloads == [test_block]
 
 
 class TestRequiredWireBodies:
@@ -164,65 +94,15 @@ class TestRequiredWireBodies:
 
     def test_a_rejection_target_body_is_owed(self) -> None:
         """
-        Below the trailer sits the block under judgement itself.
+        Below the target sits the block under judgement itself.
 
-        An invalid chain's trailer is the announced head, so the
+        An invalid path's target is the announced head, so the
         invalid block is an ancestor like any other: its non-derivable
         body is owed over the wire, which is what makes the client's
         verdict a judgement of blocks it fetched through its sync path.
         """
         chain = _chain([_block(1, empty=False), _block(2, empty=True)])
         assert [b.number for b in required_wire_bodies(chain)] == [1]
-
-
-@dataclass
-class _StubErrorPayload:
-    """The one payload field the invalidity census reads."""
-
-    validation_error: object
-
-
-class TestDeclaredInvalidities:
-    """The census the per-class body downgrade is decided by."""
-
-    def test_single_and_listed_exceptions_are_collected(self) -> None:
-        """One declared exception or a pipe-list both count."""
-        header_level = BlockException.INCORRECT_EXCESS_BLOB_GAS
-        transaction_level = TransactionException.INTRINSIC_GAS_TOO_LOW
-        fixture = _fixture(
-            [
-                cast(FixtureEngineNewPayload, _StubErrorPayload(None)),
-                cast(FixtureEngineNewPayload, _StubErrorPayload(header_level)),
-                cast(
-                    FixtureEngineNewPayload,
-                    _StubErrorPayload([transaction_level]),
-                ),
-            ]
-        )
-        assert declared_invalidities(fixture) == {
-            header_level,
-            transaction_level,
-        }
-
-    def test_the_undecodable_and_judgeable_sets_are_disjoint(self) -> None:
-        """
-        No invalidity is both header-judgeable and undecodable.
-
-        The two sets pull in opposite directions - one relaxes what a
-        client must fetch, the other says the block cannot travel at
-        all - so an exception in both would make the simulator's
-        treatment of it depend on evaluation order.
-        """
-        assert not (
-            HEADER_JUDGEABLE_INVALIDITIES & UNDECODABLE_BODY_INVALIDITIES
-        )
-
-    def test_a_valid_chain_declares_nothing(self) -> None:
-        """No payload carries an error, so the census is empty."""
-        fixture = _fixture(
-            [cast(FixtureEngineNewPayload, _StubErrorPayload(None))]
-        )
-        assert declared_invalidities(fixture) == set()
 
 
 class TestRequiredWireHeaders:
@@ -241,3 +121,19 @@ class TestRequiredWireHeaders:
         """The head's payload arrives through the Engine API."""
         chain = _chain([_block(1, empty=False), _block(2, empty=False)])
         assert [b.number for b in required_wire_headers(chain)] == [1]
+
+
+class TestIsolatedClientIdentifiers:
+    """The keys a multi-target fixture's clients are managed under."""
+
+    def test_the_suffix_is_the_targets_stable_position(self) -> None:
+        """
+        One identifier per target, derived from its announcement index.
+
+        The suffix survives dropped siblings: a fixture whose first
+        target is omitted still runs its second target as `-t1`, so
+        logs and Hive artifacts name the same branch on every run.
+        """
+        group = "0xdeadbeef-go-ethereum"
+        assert isolated_identifier(group, 0) == f"{group}-t0"
+        assert isolated_identifier(group, 2) == f"{group}-t2"
