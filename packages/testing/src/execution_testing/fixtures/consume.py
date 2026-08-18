@@ -49,7 +49,7 @@ class TestCaseBase(BaseModel):
 
     id: str
     fixture_hash: Hash
-    fork: Fork | TransitionFork | None
+    fork: Fork | TransitionFork | None = None
     format: FixtureFormat
     pre_hash: AllocGroupHash | None = None
     __test__ = False  # stop pytest from collecting this class as a test

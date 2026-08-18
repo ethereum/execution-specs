@@ -105,14 +105,14 @@ class HashableItem:
                 )
 
             # EEST uses 'hash'; ethereum/tests use 'generatedTestHash'
-            hash_value = Hash(
-                item["_info"].get("hash")
-                or item["_info"].get("generatedTestHash")
+            hash_str = item["_info"].get("hash") or item["_info"].get(
+                "generatedTestHash"
             )
-            if hash_value is None:
+            if hash_str is None:
                 raise KeyError(
                     f"Expected 'hash' or 'generatedTestHash' in {key}"
                 )
+            hash_value = Hash(hash_str)
 
             items[key] = cls(
                 type=HashableItemType.TEST,
@@ -161,9 +161,7 @@ class HashableItem:
             {
                 "id": e.id,
                 "json_path": str(e.json_path),
-                "fixture_hash": str(e.fixture_hash)
-                if e.fixture_hash
-                else None,
+                "fixture_hash": str(e.fixture_hash),
             }
             for e in entries
         ]
@@ -189,9 +187,7 @@ class HashableItem:
 
         # Single pass: insert all entries into trie
         for entry in entries:
-            fixture_hash = entry.get("fixture_hash")
-            if not fixture_hash:
-                continue
+            fixture_hash = entry["fixture_hash"]
 
             # Navigate/create path to file node
             path_parts = Path(entry["json_path"]).parts

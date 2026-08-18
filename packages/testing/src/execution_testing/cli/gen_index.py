@@ -272,8 +272,6 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
 
                 # Insert directly into trie for hash computation
                 fixture_hash = entry.get("fixture_hash")
-                if not fixture_hash:
-                    continue
 
                 path_parts = Path(entry["json_path"]).parts
                 current = root_trie
