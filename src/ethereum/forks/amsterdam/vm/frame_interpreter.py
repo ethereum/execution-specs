@@ -218,6 +218,13 @@ def unroll_atomic_batch(
     frame_context = tx_env.frame_context
     assert frame_context is not None
 
+    # Static validity bans approval scopes on batch frames, so the
+    # unroll can never move the approval context.
+    assert frame_context.payer == batch.context_snapshot.payer
+    assert (
+        frame_context.sender_approved == batch.context_snapshot.sender_approved
+    )
+
     executed_batch_receipts = frame_context.frame_receipts[
         int(batch.first_frame_index) :
     ]

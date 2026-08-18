@@ -124,6 +124,9 @@ def txparam(evm: Evm) -> None:
         value = U256(frame_context.current_frame_index)
     elif param == U256(0x0B):
         value = U256(len(tx.signatures))
+    elif param == U256(0x0C):
+        # State gas remaining in the executing frame's pool.
+        value = U256(frame_context.state_gas_left)
     else:
         raise InvalidParameter("undefined TXPARAM parameter")
 
@@ -208,9 +211,12 @@ def frameparam(evm: Evm) -> None:
     Push frame-scoped information of the chosen frame onto the stack,
     selected by the parameter operand.
 
-    The status of a frame exists only once the frame has completed:
-    requesting it for the current or a subsequent frame results in an
-    exceptional halt.
+    A frame's status and gas usage are read from its receipt, which
+    exists only once the frame has completed: requesting them for the
+    current or a subsequent frame results in an exceptional halt. The
+    receipt values are live, not final — a completed frame's state gas
+    usage decreases when a later frame refills a state charge
+    attributed to it, and is restored when that refill rolls back.
     """
     # STACK
     frame_index = pop(evm.stack)
@@ -252,6 +258,22 @@ def frameparam(evm: Evm) -> None:
             value = U256(0)
     elif param == U256(0x08):
         value = frame.value
+    elif param == U256(0x09):
+        value = U256(frame.gas_limits.state)
+    elif param == U256(0x0A):
+        if frame_index >= U256(frame_context.current_frame_index):
+            raise InvalidParameter(
+                "gas usage of the current or a subsequent frame"
+            )
+        receipt = frame_context.frame_receipts[int(frame_index)]
+        value = U256(receipt.gas_used.execution)
+    elif param == U256(0x0B):
+        if frame_index >= U256(frame_context.current_frame_index):
+            raise InvalidParameter(
+                "gas usage of the current or a subsequent frame"
+            )
+        receipt = frame_context.frame_receipts[int(frame_index)]
+        value = U256(receipt.gas_used.state)
     else:
         raise InvalidParameter("undefined FRAMEPARAM parameter")
 
