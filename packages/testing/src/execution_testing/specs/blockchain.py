@@ -1349,7 +1349,7 @@ class BlockchainTest(BaseTest):
 
     def sync_payload_eligible(self) -> bool:
         """
-        Return whether this test's chain takes the appended sync block.
+        Return whether this test can carry appended sync payloads.
 
         Eligible unless the fill context withheld the block (the
         ``--no-sync-block`` option or the test's own opt-out, folded
@@ -1359,17 +1359,44 @@ class BlockchainTest(BaseTest):
         *own* payload, and a block appended above it would be announced
         instead, so the refusal the test verifies would never happen.
 
-        Expected-invalid blocks are eligible, and are the reason the
-        block is appended rather than inserted below the chain: above
-        an invalid head the appended block is a sync target only, and
-        it puts the invalid block itself on the wire, where a client
-        must fetch and judge it through its sync path.
+        Expected-invalid blocks are eligible. Each one is a leaf because
+        rejected blocks never advance the builder's canonical parent; a
+        target above that leaf puts the rejected block itself on the
+        wire, where a client must fetch and judge it through its sync
+        path.
         """
         if not self.sync_block or not self.blocks:
             return False
         return all(
             block.engine_api_error_code is None for block in self.blocks
         )
+
+    def sync_payload_leaf_indices(self) -> List[int]:
+        """
+        Return authored block indices that need their own sync target.
+
+        An expected-invalid block never becomes the parent of the next
+        block, so every such block is a leaf of the authored payload
+        graph. When the final block is valid, it is the graph's remaining
+        canonical leaf. Earlier valid blocks need no separate target:
+        they are ancestors of a later leaf and will travel with it.
+
+        The order is operational. Rejected leaves come where the author
+        placed them and the final valid leaf comes last, allowing a
+        consumer to try rejected branches before making the valid branch
+        canonical when it chooses to reuse one client.
+        """
+        if not self.sync_payload_eligible():
+            return []
+        leaves = [
+            index
+            for index, block in enumerate(self.blocks)
+            if block.exception is not None
+        ]
+        final_index = len(self.blocks) - 1
+        if self.blocks[final_index].exception is None:
+            leaves.append(final_index)
+        return leaves
 
     def build_sync_payload(
         self,
@@ -1379,12 +1406,12 @@ class BlockchainTest(BaseTest):
         alloc: Alloc | LazyAlloc,
     ) -> FixtureEngineNewPayload | None:
         """
-        Build the empty block appended above the chain's ``head``.
+        Build the empty block appended above one authored leaf.
 
-        ``head`` is the chain's last built block, valid or not, and
-        ``alloc`` is the state the chain leaves behind: a valid head's
-        post-state or, when the head is expected to be rejected and was
-        rolled back, the state of its own parent.
+        ``head`` is the leaf's built block, valid or not, and ``alloc``
+        is the state available at that leaf: a valid head's post-state
+        or, when the head is expected to be rejected and was rolled back,
+        the state of its own parent.
 
         Above a rejected head the block is a sync target only, not a
         valid continuation: its ``state_root`` follows from a state
@@ -1404,8 +1431,8 @@ class BlockchainTest(BaseTest):
         unavailable = sync_block_context_unavailable(head.header, self.fork)
         if unavailable is not None:
             logger.info(
-                f"no sync block appended: {unavailable}; the chain "
-                "fills as exactly the author's own"
+                f"no sync payload appended above leaf "
+                f"{head.header.block_hash}: {unavailable}"
             )
             return None
         env = apply_new_parent(head.env, head.header)
@@ -1419,10 +1446,10 @@ class BlockchainTest(BaseTest):
             )
         except Exception as e:
             raise Exception(
-                "the appended sync block could not be built above this "
-                "test's chain. If the context the chain leaves behind "
-                "is the cause (e.g. a sabotaged system contract every "
-                "block calls) and that context is the test's purpose, "
+                "an appended sync payload could not be built above one "
+                "of this test's leaves. If the context the leaf leaves "
+                "behind is the cause (e.g. a sabotaged system contract "
+                "every block calls) and that context is the test's purpose, "
                 "opt the test out by passing `sync_block=False` (as "
                 "the system-contract test generators do) to fill it "
                 "without the appended block; see the chained error for "
@@ -1438,6 +1465,15 @@ class BlockchainTest(BaseTest):
     ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
+        sync_payload_candidates: List[
+            Tuple[BuiltBlock, Alloc | LazyAlloc]
+        ] = []
+        sync_payload_leaf_hashes: set[bytes] = set()
+        sync_payload_leaf_indices = (
+            set(self.sync_payload_leaf_indices())
+            if fixture_format == BlockchainEngineXFixture
+            else set()
+        )
 
         pre, genesis = self.make_genesis(
             apply_pre_allocation_blockchain=fixture_format
@@ -1451,7 +1487,7 @@ class BlockchainTest(BaseTest):
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
-        for block in self.blocks:
+        for block_index, block in enumerate(self.blocks):
             built_block = self.generate_block_data(
                 t8n=t8n,
                 block=block,
@@ -1479,6 +1515,15 @@ class BlockchainTest(BaseTest):
                 head_hash = built_block.header.block_hash
             else:
                 invalid_blocks += 1
+
+            if block_index in sync_payload_leaf_indices:
+                # A valid leaf uses its post-state. An invalid leaf did
+                # not advance ``alloc``, so it retains its valid parent's
+                # state - exactly the context build_sync_payload needs.
+                leaf_hash = bytes(built_block.header.block_hash)
+                if leaf_hash not in sync_payload_leaf_hashes:
+                    sync_payload_candidates.append((built_block, alloc))
+                    sync_payload_leaf_hashes.add(leaf_hash)
 
             if block.expected_post_state:
                 self.verify_post_state(
@@ -1531,15 +1576,17 @@ class BlockchainTest(BaseTest):
                     "pre_hash": "",  # Will be set by BaseTestWrapper
                 }
             )
-            if self.sync_payload_eligible():
-                # `built_block` is the chain's last built block, valid
-                # or not; the sync block sits above it so that every
-                # test-authored block is an ancestor of the announced
-                # head. Stored out-of-chain: `payloads`, the head and
-                # the post state stay exactly the author's chain.
-                fixture_data["sync_payload"] = self.build_sync_payload(
-                    t8n, head=built_block, alloc=alloc
+            sync_payloads: List[FixtureEngineNewPayload] = []
+            for head, leaf_alloc in sync_payload_candidates:
+                sync_payload = self.build_sync_payload(
+                    t8n, head=head, alloc=leaf_alloc
                 )
+                if sync_payload is not None:
+                    sync_payloads.append(sync_payload)
+            if sync_payloads:
+                # Stored out-of-chain: payloads, the canonical head and
+                # the post state stay exactly the author's directives.
+                fixture_data["sync_payloads"] = sync_payloads
             fixture = BlockchainEngineXFixture(**fixture_data)
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
