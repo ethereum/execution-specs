@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import (
@@ -87,7 +87,7 @@ class TransactionState:
     )
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     created_accounts: Set[Address] = field(default_factory=set)
-    transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
+    transient_storage: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
 
@@ -322,7 +322,38 @@ def get_transient_storage(
         Value at the key.
 
     """
-    return tx_state.transient_storage.get((address, key), U256(0))
+    if address not in tx_state.transient_storage:
+        return U256(0)
+    return tx_state.transient_storage[address].get(key, U256(0))
+
+
+def get_transient_storage_size(
+    tx_state: TransactionState, address: Address
+) -> Uint:
+    """
+    Count the transient storage slots of `address` that currently hold a
+    value.
+
+    Every account has a transient storage of its own, so slots held by
+    other accounts are not counted. Writing a zero clears a slot instead
+    of storing it, so a zeroed slot counts the same as one that was never
+    written.
+    """
+    if address not in tx_state.transient_storage:
+        return Uint(0)
+    return ulen(tx_state.transient_storage[address])
+
+
+def transient_storage_key_exists(
+    tx_state: TransactionState, address: Address, key: Bytes32
+) -> bool:
+    """
+    Check whether the transient storage slot at `key` on `address` already
+    holds a value.
+    """
+    if address not in tx_state.transient_storage:
+        return False
+    return key in tx_state.transient_storage[address]
 
 
 def account_exists(tx_state: TransactionState, address: Address) -> bool:
@@ -594,9 +625,12 @@ def set_transient_storage(
 
     """
     if value == U256(0):
-        tx_state.transient_storage.pop((address, key), None)
+        if address in tx_state.transient_storage:
+            tx_state.transient_storage[address].pop(key, None)
     else:
-        tx_state.transient_storage[(address, key)] = value
+        if address not in tx_state.transient_storage:
+            tx_state.transient_storage[address] = {}
+        tx_state.transient_storage[address][key] = value
 
 
 def modify_state(
@@ -770,7 +804,10 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
         },
         code_writes=dict(tx_state.code_writes),
         created_accounts=tx_state.created_accounts,
-        transient_storage=dict(tx_state.transient_storage),
+        transient_storage={
+            addr: dict(slots)
+            for addr, slots in tx_state.transient_storage.items()
+        },
         storage_reads=tx_state.storage_reads,
         account_reads=tx_state.account_reads,
     )

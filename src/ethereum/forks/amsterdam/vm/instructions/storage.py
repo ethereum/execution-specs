@@ -18,8 +18,10 @@ from ...state_tracker import (
     get_storage,
     get_storage_original,
     get_transient_storage,
+    get_transient_storage_size,
     set_storage,
     set_transient_storage,
+    transient_storage_key_exists,
 )
 from .. import Evm
 from ..exceptions import WriteInStaticContext
@@ -203,7 +205,15 @@ def tstore(evm: Evm) -> None:
     new_value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GasCosts.OPCODE_TSTORE)
+    cost = GasCosts.OPCODE_TSTORE_BASE
+    if not transient_storage_key_exists(
+        evm.tx_env.state, evm.current_target, key
+    ):
+        slots = get_transient_storage_size(
+            evm.tx_env.state, evm.current_target
+        )
+        cost += ExecutionGas(GasCosts.OPCODE_TSTORE_SLOPE * slots)
+    charge_gas(evm, cost)
     set_transient_storage(
         evm.tx_env.state,
         evm.current_target,

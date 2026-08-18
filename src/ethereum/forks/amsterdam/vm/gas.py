@@ -237,8 +237,7 @@ class GasCosts:
     OPCODE_DUPN: Final[ExecutionGas] = VERY_LOW
     OPCODE_SWAPN: Final[ExecutionGas] = VERY_LOW
     OPCODE_EXCHANGE: Final[ExecutionGas] = VERY_LOW
-    OPCODE_TLOAD: Final[ExecutionGas] = ExecutionGas(Uint(100))
-    OPCODE_TSTORE: Final[ExecutionGas] = ExecutionGas(Uint(100))
+    OPCODE_TLOAD: Final[ExecutionGas] = ExecutionGas(Uint(5))
 
     # Dynamic Opcode Components
     OPCODE_RETURNDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
@@ -258,6 +257,8 @@ class GasCosts:
     OPCODE_LOG_DATA_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(8))
     OPCODE_LOG_TOPIC: Final[ExecutionGas] = ExecutionGas(Uint(375))
     OPCODE_SELFDESTRUCT_BASE: Final[ExecutionGas] = ExecutionGas(Uint(5000))
+    OPCODE_TSTORE_BASE: Final[ExecutionGas] = ExecutionGas(Uint(8))
+    OPCODE_TSTORE_SLOPE: Final[ExecutionGas] = ExecutionGas(Uint(1))
 
 
 MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
