@@ -284,7 +284,7 @@ def read_test_group_index(folder: Path) -> GroupIndexEntries:
         data = json.loads(file.read_text())
         for test_id in data.get("testIds", []):
             assert isinstance(test_id, str)
-            index.root[test_id] = GroupIndexEntry(
+            index[test_id] = GroupIndexEntry(
                 group_hash=AllocGroupHash(file.stem), phase1_hash=None
             )
     return index
@@ -305,7 +305,7 @@ def packed_group_hash_for_test(
     built from a different version of the test, so phase 2 would fill it
     against the wrong genesis.
     """
-    entry = index.root.get(test_id)
+    entry = index.get(test_id)
     if entry is None:
         raise ValueError(
             f"Test {test_id!r} was not assigned to any pre-allocation "
