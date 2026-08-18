@@ -23,6 +23,8 @@ from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureEngineNewPayload
 
 from ..simulators.wirex.sync_targets import (
+    HEADER_JUDGEABLE_INVALIDITIES,
+    UNDECODABLE_BODY_INVALIDITIES,
     SyncTargetResolutionError,
     raw_target_path_lengths,
     resolve_sync_paths,
@@ -307,6 +309,33 @@ class TestNoTargetFallback:
         (path,) = resolve_sync_paths(GENESIS, _fixture(authored, None))
         assert path.expects_rejection
         assert path.invalidities == {INVALID}
+
+
+class TestDeclaredInvalidities:
+    """The census the per-class body downgrade is decided by."""
+
+    def test_single_and_listed_exceptions_are_collected(self) -> None:
+        """One declared exception or a pipe-list both count."""
+        authored = [
+            _payload(1, 0),
+            _payload(2, 1, error=OTHER_INVALID),
+            _payload(3, 2, error=[INVALID]),
+        ]
+        (path,) = resolve_sync_paths(GENESIS, _fixture(authored, None))
+        assert path.invalidities == {INVALID, OTHER_INVALID}
+
+    def test_the_undecodable_and_judgeable_sets_are_disjoint(self) -> None:
+        """
+        No invalidity is both header-judgeable and undecodable.
+
+        The two sets pull in opposite directions - one relaxes what a
+        client must fetch, the other says the block cannot travel at
+        all - so an exception in both would make the simulator's
+        treatment of it depend on evaluation order.
+        """
+        assert not (
+            HEADER_JUDGEABLE_INVALIDITIES & UNDECODABLE_BODY_INVALIDITIES
+        )
 
 
 class TestPathLengths:
