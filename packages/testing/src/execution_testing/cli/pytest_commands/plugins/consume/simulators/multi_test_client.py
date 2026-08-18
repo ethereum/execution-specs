@@ -341,6 +341,63 @@ def _per_test_reporting(
     hive_test.register_multi_test_client(client)
 
 
+def boot_managed_client(
+    multi_test_hive_test: HiveTest,
+    multi_test_client_manager: MultiTestClientManager,
+    identifier: str,
+    client_type: ClientType,
+    environment: dict,
+    client_genesis: dict,
+    total_timing_data: "TimingData",
+) -> Client:
+    """
+    Start a client and register it with the manager under `identifier`.
+
+    The identifier is usually a pre-allocation group's, but a simulator
+    may register a client under any unique key (`consume wirex` boots
+    one isolated client per sync target of a multi-target fixture); the
+    manager's session-end cleanup covers every registered client either
+    way.
+    """
+    serialize_start = time.perf_counter()
+    genesis_bytes = json.dumps(client_genesis).encode("utf-8")
+    buffered_genesis = io.BufferedReader(
+        cast(io.RawIOBase, io.BytesIO(genesis_bytes))
+    )
+    logger.info(
+        f"⏱ phase=genesis_serialize group={identifier} "
+        f"ms={(time.perf_counter() - serialize_start) * 1000:.1f}"
+    )
+
+    logger.info(f"🚀 Starting client ({client_type.name}) for {identifier}")
+
+    start_requested = time.perf_counter()
+    with total_timing_data.time("Start client"):
+        resolved_client = multi_test_hive_test.start_client(
+            client_type=client_type,
+            environment=environment,
+            files={"/genesis.json": buffered_genesis},
+        )
+
+    assert resolved_client is not None, (
+        f"Unable to connect to client ({client_type.name}) via "
+        "Hive. Check the client or Hive server logs for more "
+        "information."
+    )
+
+    # The hive start-client API only returns once the client answers its
+    # liveness check, so this spans container creation, boot and that wait.
+    logger.info(
+        f"⏱ phase=client_start group={identifier} "
+        f"ms={(time.perf_counter() - start_requested) * 1000:.1f}"
+    )
+    logger.info(f"Client ({client_type.name}) ready for {identifier}")
+
+    multi_test_client_manager.register_client(identifier, resolved_client)
+    resolved_client.multi_test = True
+    return resolved_client
+
+
 def group_client(
     multi_test_hive_test: HiveTest,
     multi_test_client_manager: MultiTestClientManager,
@@ -368,52 +425,15 @@ def group_client(
     if resolved_client is not None:
         logger.info(f"♻️  Reusing client for group {group_identifier}")
     else:
-        # Start new client; calculate genesis
-        serialize_start = time.perf_counter()
-        genesis_bytes = json.dumps(client_genesis).encode("utf-8")
-        buffered_genesis = io.BufferedReader(
-            cast(io.RawIOBase, io.BytesIO(genesis_bytes))
+        resolved_client = boot_managed_client(
+            multi_test_hive_test,
+            multi_test_client_manager,
+            group_identifier,
+            client_type,
+            environment,
+            client_genesis,
+            total_timing_data,
         )
-        logger.info(
-            f"⏱ phase=genesis_serialize group={group_identifier} "
-            f"ms={(time.perf_counter() - serialize_start) * 1000:.1f}"
-        )
-
-        logger.info(
-            f"🚀 Starting client ({client_type.name}) "
-            f"for group {group_identifier}"
-        )
-
-        start_requested = time.perf_counter()
-        with total_timing_data.time("Start client"):
-            resolved_client = multi_test_hive_test.start_client(
-                client_type=client_type,
-                environment=environment,
-                files={"/genesis.json": buffered_genesis},
-            )
-
-        assert resolved_client is not None, (
-            f"Unable to connect to client ({client_type.name}) via "
-            "Hive. Check the client or Hive server logs for more "
-            "information."
-        )
-
-        # The hive start-client API only returns once the client answers
-        # its liveness check, so this duration spans container creation,
-        # client boot and the check-live wait.
-        logger.info(
-            f"⏱ phase=client_start group={group_identifier} "
-            f"ms={(time.perf_counter() - start_requested) * 1000:.1f}"
-        )
-        logger.info(
-            f"Client ({client_type.name}) ready for group {group_identifier}"
-        )
-
-        multi_test_client_manager.register_client(
-            group_identifier, resolved_client
-        )
-        resolved_client.multi_test = True
-
     try:
         yield resolved_client
     finally:
