@@ -41,7 +41,7 @@
           * [Fill Command-Line Options](filling_tests/filling_tests_command_line_options.md)
           * [Filling Tests for Features Under Development](filling_tests/filling_tests_dev_fork.md)
           * [An Explanation of Test IDs](filling_tests/test_ids.md)
-          * [The Sync Block](filling_tests/the_sync_block.md)
+          * [Sync Payloads](filling_tests/sync_payloads.md)
           * [Transition Tool Support](filling_tests/transition_tool_support.md)
           * [Debugging Transition Tools](filling_tests/debugging_t8n_tools.md)
           * [Filling Stateful Benchmark Fixtures](filling_tests/fill_stateful.md)
