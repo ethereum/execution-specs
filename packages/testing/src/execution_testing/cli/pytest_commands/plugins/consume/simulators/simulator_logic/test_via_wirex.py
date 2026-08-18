@@ -20,35 +20,34 @@ The control plane and the data plane are deliberately separate:
 Because only the blocks before the announced head are guaranteed to
 travel over devp2p - whether a client also re-fetches the head's body
 from a peer is an implementation choice, and measured clients go both
-ways - the filler appends one extra empty block to every eligible
-engine_x chain, valid and invalid heads alike, out-of-chain in the
-fixture's `syncPayload` field. This simulator announces that trailer
-instead of the test's own head, which makes every one of the test's
-blocks an ancestor whose header and body a full-syncing client must
-fetch from the peer, on every client, by chain structure rather than
-client courtesy. The fixtures without a trailer - chains asserting an
-Engine API error code, chains above whose head the filler could build
-no block, chains that opted out at fill time, and corpora filled with
-`--no-sync-block` - announce their own head instead. Chains still too
-short to put any block on the wire are skipped here, where the
-limitation actually lives.
+ways - the filler builds one extra empty block above every leaf of the
+authored payload graph, out-of-chain in the fixture's ordered
+`syncPayloads` list. Each entry is one sync target: announcing it makes
+every authored payload on its root-to-leaf path an ancestor whose
+header and body a full-syncing client must fetch from the peer, on
+every client, by chain structure rather than client courtesy. A
+fixture usually has one target, but authored payload graphs can fan
+out - an expected-invalid payload does not advance the canonical
+parent, so a valid payload following it is its sibling - and then the
+fixture carries one target per leaf, each run here against its own
+served chain and judged on its own path (see
+``wirex.sync_targets``). The fixtures without any target - chains
+asserting an Engine API error code, chains above whose leaves the
+filler could build no block, chains that opted out at fill time, and
+corpora filled with `--no-sync-block` - announce their own head
+instead. Targets whose chains are too short to put any block on the
+wire are skipped where the limitation actually lives, in the
+`sync_target_cases` fixture.
 """
 
 import time
+from typing import TYPE_CHECKING, Callable, ContextManager
 
 from hive.client import Client
 
 from execution_testing.devp2p.chain import Block, Chain
 from execution_testing.devp2p.peer import MockPeer
-from execution_testing.exceptions import (
-    BlockException,
-    TransactionException,
-)
-from execution_testing.fixtures import BlockchainEngineXFixture
-from execution_testing.fixtures.blockchain import (
-    FixtureEngineNewPayload,
-    FixtureHeader,
-)
+from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
     EngineRPC,
@@ -67,6 +66,13 @@ from ..helpers.exceptions import (
     LoggedError,
 )
 from ..helpers.timing import TimingData
+from ..wirex.sync_targets import (
+    HEADER_JUDGEABLE_INVALIDITIES,
+    SyncTargetCase,
+)
+
+if TYPE_CHECKING:
+    from ..wirex.client_policy import TargetContext
 
 logger = get_logger(__name__)
 
@@ -81,41 +87,6 @@ answering VALID for a block its own backfill rejected fifteen
 milliseconds later. Only a verdict that outlives its sync fails the
 test, which costs this wait once per genuinely accepted chain.
 """
-
-
-def announced_payload(
-    fixture: BlockchainEngineXFixture,
-) -> FixtureEngineNewPayload:
-    """
-    Return the payload this simulator announces as the sync target.
-
-    The appended sync payload when the fixture carries one - the
-    trailer exists precisely to be announced, so that every payload of
-    the test's own chain is an ancestor the client must fetch from the
-    peer - and the chain's own head otherwise. The fixtures without a
-    trailer announce their own head by design: a chain asserting an
-    Engine API error code is refused at the announcement itself, so
-    announcing anything above it would unmake the test, and marked or
-    `--no-sync-block` chains carry nothing above the author's head to
-    announce.
-    """
-    return fixture.sync_payload or fixture.payloads[-1]
-
-
-def expects_rejection(fixture: BlockchainEngineXFixture) -> bool:
-    """
-    Return whether the fixture passes by the client refusing it.
-
-    A chain containing an intentionally invalid payload must be judged
-    INVALID once its ancestry has arrived, and a declared Engine API
-    error code is itself a rejection: the client must refuse the head,
-    whether at the RPC layer or with an INVALID verdict, even when
-    every payload is semantically valid.
-    """
-    return (
-        any(not payload.valid() for payload in fixture.payloads)
-        or announced_payload(fixture).error_code is not None
-    )
 
 
 def required_wire_bodies(chain: Chain) -> list[Block]:
@@ -147,70 +118,6 @@ def required_wire_headers(chain: Chain) -> list[Block]:
     payload arrives through the Engine API.
     """
     return chain.blocks[:-1]
-
-
-HEADER_JUDGEABLE_INVALIDITIES: frozenset[
-    BlockException | TransactionException
-] = frozenset({BlockException.INCORRECT_EXCESS_BLOB_GAS})
-"""
-Declared invalidities a client can judge from headers alone.
-
-A chain whose declared invalidity sits in a statically checkable
-header field can be rejected during header validation, and geth does
-exactly that: it fetches the ancestor headers, fails the invalid one
-against its parent, and never asks for a single body (measured on
-`test_invalid_static_excess_blob_gas`, which it refuses with `links
-to previously rejected block` after being served two headers and no
-bodies). Requiring bodies for such a chain would fail a client for a
-legitimate shortcut, so the body requirement is dropped per declared
-exception class - never per client - and only for the classes listed
-here, with data. Everything else stays strict: an invalidity that
-lives in the transactions or takes execution to surface cannot be
-judged without the bodies, so their absence there is a finding.
-"""
-
-
-UNDECODABLE_BODY_INVALIDITIES: frozenset[
-    BlockException | TransactionException
-] = frozenset(
-    {
-        BlockException.RLP_STRUCTURES_ENCODING,
-        TransactionException.TYPE_3_TX_CONTRACT_CREATION,
-        TransactionException.TYPE_4_TX_CONTRACT_CREATION,
-    }
-)
-"""
-Declared invalidities that leave a block with no wire representation.
-
-A typed transaction that omits its mandatory `to` address, or a body
-whose RLP structure is malformed outright, cannot be decoded by any
-conformant client: the peer can put the bytes on the wire, but the
-client discards the response as a malformed body rather than
-accepting the block and judging it, and there is no verdict to read
-(geth answers every re-announcement with `Expired request does not
-exist` until the test times out). The Engine API can carry such a
-block, because a payload names its transactions as an explicit list
-and the client parses them individually, which is why these fixtures
-run under the Engine simulators and are skipped here - the same
-reason, and the same treatment, as a payload whose declared hash does
-not match its own header.
-"""
-
-
-def declared_invalidities(
-    fixture: BlockchainEngineXFixture,
-) -> set[BlockException | TransactionException]:
-    """Return every exception the fixture's payloads declare."""
-    invalidities: set[BlockException | TransactionException] = set()
-    for payload in fixture.payloads:
-        error = payload.validation_error
-        if error is None:
-            continue
-        if isinstance(error, list):
-            invalidities.update(error)
-        else:
-            invalidities.add(error)
-    return invalidities
 
 
 EVIDENCE_GRACE_TIME = 0.25
@@ -328,80 +235,48 @@ def assert_wire_coverage(
         )
 
 
-def test_blockchain_via_wirex(
-    timing_data: TimingData,
+def _run_sync_target(
+    case: SyncTargetCase,
+    client: Client,
     eth_rpc: EthRPC,
     engine_rpc: EngineRPC,
-    client: Client,
-    genesis_verified_clients: set[str],
-    fixture: BlockchainEngineXFixture,
-    genesis_header: FixtureHeader,
-    chain: Chain,
     mock_peer: MockPeer,
-    wirex_sync_timeout: float,
-    wirex_poll_interval: float,
-    wirex_announce_interval: float,
+    timing_data: TimingData,
+    genesis_verified_clients: set[str],
+    genesis_header: FixtureHeader,
+    sync_timeout: float,
+    poll_interval: float,
+    announce_interval: float,
 ) -> None:
     """
-    Make a client full sync one test's chain from the mock peer.
+    Make one client sync or reject one target's served chain.
 
-    The sequence is:
-
-    1. Verify the client's genesis matches the group's, once per client.
-    2. Deliver the announced head over the Engine API so the client
-       knows which chain to sync to, and name it in a forkchoice
-       update. For a fixture carrying a sync payload that head is the
-       trailer riding above the test's own chain, so every block the
-       test author wrote is an ancestor the client must fetch from the
-       peer.
-    3. Wait for the client to download and execute the ancestors from the
-       mock peer, polling the same forkchoice update until it is VALID.
-       Each announcement's `newPayload` answer is read as the client's
-       verdict: an INVALID means the client has executed the ancestry
-       and refused the chain, so the test fails immediately with the
-       client's reason instead of waiting out the sync timeout.
-    4. Check the client's head really is the expected block.
-
-    There is deliberately no rewind between tests. Every test's chain
-    forks at genesis, so announcing the new head is all a consensus
-    client would do, and a backwards forkchoice update is actively
-    harmful to clients that act on it: nethermind moves its head back
-    to genesis while its persisted state stays at the previous chain's
-    tip, which lands it in a crash-recovery edge case where it fetches
-    receipts instead of executing blocks (`BlockDownloader.
-    ReceiptEdgeCase`); geth ignores the rewind entirely.
-
-    Fixtures containing an intentionally invalid block are rejection
-    tests: the peer serves the chain as-is and the client passes by
-    refusing it - `engine_newPayload` for the head must answer INVALID
-    once the ancestry is available over devp2p, and a VALID that holds
-    fails the test. Only the fact of rejection is asserted, never its
-    cause - a devp2p peer observes acceptance or rejection, not error
-    causes, so matching the fixture's specific exception over the wire
-    is deliberately left for later - and, for a chain carrying the
-    appended trailer, the verdict must have been reached on the wire:
-    the same per-hash coverage check the valid path runs is applied to
-    everything below the announced head, the invalid block included. A
-    chain without a trailer announces its own invalid head, which a
-    client may judge without fetching anything, so no wire claim is
-    made for those. Fixtures whose invalid block cannot
-    even be represented on the wire (declared hash inconsistent with
-    the header) are skipped by the `chain` fixture. A rejection target
-    below the reused client's head never reaches this function on that
-    client: the wirex `client` fixture hands such a test a fresh
-    client, because a client whose sync machinery refuses to walk its
-    head backwards would starve the verdict, and delivering the
-    ancestry over the Engine API instead would take the verdict off
-    the sync path this simulator exists to exercise.
+    All verdict and coverage decisions here are branch-local: the
+    rejection expectation, the declared-invalidity sets, and the
+    per-hash wire coverage all belong to the selected path, never to
+    sibling payloads absent from it. For a fixture with one target
+    this is exactly the whole-fixture judgement it always was.
     """
-    head_payload = announced_payload(fixture)
+    chain = case.chain
+    head_payload = case.target
     head_hash = head_payload.params[0].block_hash
+    expect_rejection = case.expects_rejection
+
+    # A single-target fixture keeps its established, unprefixed
+    # messages; a multi-target one names the branch in everything it
+    # logs or raises, so a failure identifies the target.
+    prefix = f"{case.name}: " if case.path.total > 1 else ""
+    if prefix:
+        logger.info(
+            f"Running {case.label}, expecting the branch to be "
+            + ("rejected" if expect_rejection else "synchronized")
+        )
 
     if client.id not in genesis_verified_clients:
-        with timing_data.time("Verify genesis"):
+        with timing_data.time(f"{prefix}Verify genesis"):
             genesis_block = eth_rpc.get_block_by_number(0)
             if genesis_block is None:
-                raise LoggedError("Client returned no genesis block")
+                raise LoggedError(f"{prefix}Client returned no genesis block")
             if genesis_block["hash"] != str(genesis_header.block_hash):
                 raise GenesisBlockMismatchExceptionError(
                     expected_header=genesis_header,
@@ -451,23 +326,23 @@ def test_blockchain_via_wirex(
             return False
         if error.code != head_payload.error_code:
             raise LoggedError(
-                f"Client refused the head with the wrong error code: "
-                f"got {error.code}, expected {head_payload.error_code}"
+                f"{prefix}Client refused the head with the wrong error "
+                f"code: got {error.code}, expected "
+                f"{head_payload.error_code}"
             )
         logger.info(
-            f"Client refused the invalid head at the RPC layer with "
-            f"the expected error code {head_payload.error_code} "
+            f"{prefix}Client refused the invalid head at the RPC layer "
+            f"with the expected error code {head_payload.error_code} "
             f"({error})"
         )
         return True
 
-    expect_rejection = expects_rejection(fixture)
-
     announce_status: PayloadStatus | None = None
-    with timing_data.time("Announce sync target"):
+    with timing_data.time(f"{prefix}Announce sync target"):
         logger.info(
-            f"Announcing head block {chain.head.number} to trigger a sync "
-            f"of {len(chain.blocks) - 1} ancestor block(s) over devp2p"
+            f"{prefix}Announcing head block {chain.head.number} to "
+            f"trigger a sync of {len(chain.blocks) - 1} ancestor "
+            "block(s) over devp2p"
         )
         try:
             announce_status = announce()
@@ -477,9 +352,9 @@ def test_blockchain_via_wirex(
             raise
 
     if expect_rejection:
-        with timing_data.time("Reject invalid chain"):
-            deadline = time.monotonic() + wirex_sync_timeout
-            next_announcement = time.monotonic() + wirex_announce_interval
+        with timing_data.time(f"{prefix}Reject invalid chain"):
+            deadline = time.monotonic() + sync_timeout
+            next_announcement = time.monotonic() + announce_interval
             status: PayloadStatusEnum | None = None
             validation_error: object = None
             accepted_since: float | None = None
@@ -516,16 +391,16 @@ def test_blockchain_via_wirex(
                     # the verdict is read only once it has.
                     accepted_since = time.monotonic()
                     logger.warning(
-                        f"Client answered VALID for the invalid head "
-                        f"{expected_head} (latestValidHash "
+                        f"{prefix}Client answered VALID for the invalid "
+                        f"head {expected_head} (latestValidHash "
                         f"{payload_status.latest_valid_hash}) while the "
                         "chain may still be arriving; confirming before "
                         "failing the test"
                     )
                 elif time.monotonic() - accepted_since >= ACCEPTANCE_HOLD_TIME:
                     raise LoggedError(
-                        f"Client accepted the invalid chain: head "
-                        f"{expected_head} returned VALID for "
+                        f"{prefix}Client accepted the invalid chain: "
+                        f"head {expected_head} returned VALID for "
                         f"{ACCEPTANCE_HOLD_TIME}s (latestValidHash "
                         f"{payload_status.latest_valid_hash}) but the "
                         "fixture expects the block to be rejected"
@@ -534,38 +409,40 @@ def test_blockchain_via_wirex(
                     if not mock_peer.alive:
                         # A client may drop a peer that served it a bad
                         # chain; a real peer would simply redial.
-                        logger.warning("Peer dropped mid-rejection; redialing")
+                        logger.warning(
+                            f"{prefix}Peer dropped mid-rejection; redialing"
+                        )
                         mock_peer.reconnect(chain)
-                    logger.info("Re-announcing the invalid sync target")
+                    logger.info(
+                        f"{prefix}Re-announcing the invalid sync target"
+                    )
                     try:
                         announce()
                     except JSONRPCError as error:
                         if expected_rpc_refusal(error):
                             return
                         raise
-                    next_announcement = (
-                        time.monotonic() + wirex_announce_interval
-                    )
-                time.sleep(wirex_poll_interval)
+                    next_announcement = time.monotonic() + announce_interval
+                time.sleep(poll_interval)
             if status not in (
                 PayloadStatusEnum.INVALID,
                 PayloadStatusEnum.INVALID_BLOCK_HASH,
             ):
                 raise LoggedError(
-                    f"Client never rejected the invalid head "
-                    f"{expected_head} within {wirex_sync_timeout}s (last "
+                    f"{prefix}Client never rejected the invalid head "
+                    f"{expected_head} within {sync_timeout}s (last "
                     f"status: {status}). Peer transcript: "
                     f"{mock_peer.statistics.transcript}"
                 )
         statistics = mock_peer.statistics
         logger.info(
-            f"Client rejected the invalid head at block "
+            f"{prefix}Client rejected the invalid head at block "
             f"{chain.head.number} with {status} "
             f"(validationError: {validation_error}) after the peer "
             f"served {statistics.headers_served} header(s) and "
             f"{statistics.bodies_served} body/bodies"
         )
-        if fixture.sync_payload is None:
+        if not case.announces_scaffolding:
             # The announced head is the test's own invalid block, so
             # the client may answer from the announcement alone and owes
             # the wire nothing: a header field it can validate on its
@@ -574,28 +451,30 @@ def test_blockchain_via_wirex(
             # (nethermind: `Block 2 ... is known to be a part of an
             # invalid chain`). Both are correct, so there is no wire
             # claim to make here - which is exactly why the filler
-            # appends a trailer wherever it can.
+            # builds a target wherever it can.
             logger.info(
-                "Not asserting wire coverage: this chain carries no "
-                "appended sync block, so its own head was announced and "
-                "the client may judge it without fetching an ancestor"
+                f"{prefix}Not asserting wire coverage: this chain "
+                "carries no framework sync target, so its own head was "
+                "announced and the client may judge it without fetching "
+                "an ancestor"
             )
             return
         # The verdict alone is not the test: it must have been reached
         # on the sync path, over blocks this peer served. The invalid
-        # block sits below the announced trailer, so its transport is
+        # block sits below the announced target, so its transport is
         # guaranteed by chain structure and asserted like any other
         # ancestor's. Bodies are exempt only when the client may have
         # judged the declared invalidity from headers alone; `any`
         # rather than `all`, because a chain that might fail either
-        # way lets the client take the header shortcut.
+        # way lets the client take the header shortcut. The invalidity
+        # census is this path's, never a sibling's.
         header_judgeable = bool(
-            declared_invalidities(fixture) & HEADER_JUDGEABLE_INVALIDITIES
+            case.invalidities & HEADER_JUDGEABLE_INVALIDITIES
         )
         if header_judgeable:
             logger.info(
-                "Not requiring bodies on the wire: the declared "
-                "invalidity is judgeable from the headers alone"
+                f"{prefix}Not requiring bodies on the wire: the "
+                "declared invalidity is judgeable from the headers alone"
             )
         assert_wire_coverage(
             chain,
@@ -621,13 +500,13 @@ def test_blockchain_via_wirex(
             PayloadStatusEnum.INVALID_BLOCK_HASH,
         ):
             raise LoggedError(
-                f"Client rejected the chain at head {expected_head}: "
-                f"{payload_status.status} (validationError: "
-                f"{payload_status.validation_error}). Peer transcript: "
-                f"{mock_peer.statistics.transcript}"
+                f"{prefix}Client rejected the chain at head "
+                f"{expected_head}: {payload_status.status} "
+                f"(validationError: {payload_status.validation_error}). "
+                f"Peer transcript: {mock_peer.statistics.transcript}"
             )
 
-    with timing_data.time("Sync from peer"):
+    with timing_data.time(f"{prefix}Sync from peer"):
         # Wait by watching for the block rather than by repeating the
         # forkchoice update. A repeated update restarts the client's sync
         # cycle, and repeating it faster than a cycle takes prevents the
@@ -636,8 +515,8 @@ def test_blockchain_via_wirex(
         # client whose sync state was still settling may have ignored the
         # first one.
         raise_if_rejected(announce_status)
-        deadline = time.monotonic() + wirex_sync_timeout
-        next_announcement = time.monotonic() + wirex_announce_interval
+        deadline = time.monotonic() + sync_timeout
+        next_announcement = time.monotonic() + announce_interval
         synced = False
         while time.monotonic() < deadline:
             if eth_rpc.get_block_by_hash(head_hash, full_txs=False):
@@ -648,20 +527,20 @@ def test_blockchain_via_wirex(
                     # A mid-sync drop would otherwise strand the test
                     # peerless until its timeout; redial like a real
                     # peer would.
-                    logger.warning("Peer dropped mid-sync; redialing")
+                    logger.warning(f"{prefix}Peer dropped mid-sync; redialing")
                     mock_peer.reconnect(chain)
-                logger.info("Re-announcing the sync target")
+                logger.info(f"{prefix}Re-announcing the sync target")
                 raise_if_rejected(announce())
-                next_announcement = time.monotonic() + wirex_announce_interval
-            time.sleep(wirex_poll_interval)
+                next_announcement = time.monotonic() + announce_interval
+            time.sleep(poll_interval)
         if not synced:
             raise LoggedError(
-                f"Client never imported the fixture head {expected_head} "
-                f"within {wirex_sync_timeout}s. Peer transcript: "
-                f"{mock_peer.statistics.transcript}"
+                f"{prefix}Client never imported the fixture head "
+                f"{expected_head} within {sync_timeout}s. Peer "
+                f"transcript: {mock_peer.statistics.transcript}"
             )
 
-    with timing_data.time("Confirm head"):
+    with timing_data.time(f"{prefix}Confirm head"):
         try:
             response = engine_rpc.forkchoice_updated_with_retry(
                 forkchoice_state=head_state,
@@ -671,32 +550,143 @@ def test_blockchain_via_wirex(
             )
         except ForkchoiceUpdateTimeoutError as error:
             raise LoggedError(
-                f"Client imported {expected_head} but never made it "
-                f"canonical: {error}"
+                f"{prefix}Client imported {expected_head} but never made "
+                f"it canonical: {error}"
             ) from None
         if response.payload_status.status != PayloadStatusEnum.VALID:
             raise LoggedError(
-                f"Client failed to sync to {expected_head}: "
+                f"{prefix}Client failed to sync to {expected_head}: "
                 f"{response.payload_status.status}. Peer transcript: "
                 f"{mock_peer.statistics.transcript}"
             )
 
-    with timing_data.time("Verify head"):
+    with timing_data.time(f"{prefix}Verify head"):
         head_block = eth_rpc.get_block_by_number("latest")
         if head_block is None:
-            raise LoggedError("Client returned no head block")
+            raise LoggedError(f"{prefix}Client returned no head block")
         if head_block["hash"] != expected_head:
             raise LoggedError(
-                f"Client head is {head_block['hash']}, expected "
+                f"{prefix}Client head is {head_block['hash']}, expected "
                 f"{expected_head}"
             )
 
     statistics = mock_peer.statistics
     logger.info(
-        f"Synced to block {chain.head.number}: peer served "
+        f"{prefix}Synced to block {chain.head.number}: peer served "
         f"{statistics.headers_served} header(s) in "
         f"{statistics.header_requests} request(s) and "
         f"{statistics.bodies_served} body/bodies in "
         f"{statistics.body_requests} request(s)"
     )
     assert_wire_coverage(chain, mock_peer, "reached the expected head")
+
+
+def test_blockchain_via_wirex(
+    timing_data: TimingData,
+    eth_rpc: EthRPC,
+    engine_rpc: EngineRPC,
+    client: Client,
+    genesis_verified_clients: set[str],
+    genesis_header: FixtureHeader,
+    sync_target_cases: list[SyncTargetCase],
+    mock_peer: MockPeer,
+    target_context_factory: Callable[
+        [SyncTargetCase], "ContextManager[TargetContext]"
+    ],
+    wirex_sync_timeout: float,
+    wirex_poll_interval: float,
+    wirex_announce_interval: float,
+) -> None:
+    """
+    Make a client full sync each of one test's chains from a mock peer.
+
+    A fixture announces one sync target per leaf of its authored
+    payload graph, and each target selects one root-to-leaf path (see
+    ``wirex.sync_targets``). The sequence per target is:
+
+    1. Verify the client's genesis matches the group's, once per client.
+    2. Deliver the announced target over the Engine API so the client
+       knows which chain to sync to, and name it in a forkchoice
+       update. The target rides above the path's leaf, so every
+       authored block on the path is an ancestor the client must
+       fetch from the peer.
+    3. Wait for the client to download and execute the ancestors from the
+       mock peer, polling the same forkchoice update until it is VALID.
+       Each announcement's `newPayload` answer is read as the client's
+       verdict: an INVALID means the client has executed the ancestry
+       and refused the chain, so the test fails immediately with the
+       client's reason instead of waiting out the sync timeout.
+    4. Check the client's head really is the expected block.
+
+    Most fixtures carry one target and run exactly as they always
+    have, on the pre-allocation group's reused client: every test's
+    chain forks at genesis, so announcing the new head is all a
+    consensus client would do, and there is deliberately no rewind
+    between tests - a backwards forkchoice update is actively harmful
+    to clients that act on it (nethermind moves its head back to
+    genesis while its persisted state stays at the previous chain's
+    tip, landing in a crash-recovery edge case where it fetches
+    receipts instead of executing blocks; geth ignores the rewind
+    entirely).
+
+    A fixture with several targets runs each on its own isolated
+    client, first target included (see ``wirex.client_policy``): its
+    rejected branches would otherwise leave the shared client's sync
+    machinery in a backoff state that starves whatever syncs next.
+    Each target gets its own client, peer connection, timing entries
+    and log lines, labeled by its position and leaf so a failure names
+    the branch.
+
+    A path containing an intentionally invalid block is a rejection
+    case: the peer serves the chain as-is and the client passes by
+    refusing it - `engine_newPayload` for the target must answer
+    INVALID once the ancestry is available over devp2p, and a VALID
+    that holds fails the test. Only the fact of rejection is asserted,
+    never its cause - a devp2p peer observes acceptance or rejection,
+    not error causes, so matching the fixture's specific exception
+    over the wire is deliberately left for later - and, for a chain
+    announcing a framework target, the verdict must have been reached
+    on the wire: the same per-hash coverage check the valid path runs
+    is applied to everything below the announced target, the invalid
+    block included. A chain without a target announces its own invalid
+    head, which a client may judge without fetching anything, so no
+    wire claim is made for those. Paths whose invalid block cannot
+    even be represented on the wire (declared hash inconsistent with
+    the header) are dropped by the `sync_target_cases` fixture. A
+    single-target rejection below the reused client's head never
+    reaches this function on that client: the wirex `client` fixture
+    hands such a test a fresh client, because a client whose sync
+    machinery refuses to walk its head backwards would starve the
+    verdict, and delivering the ancestry over the Engine API instead
+    would take the verdict off the sync path this simulator exists to
+    exercise.
+    """
+    first, *rest = sync_target_cases
+    _run_sync_target(
+        case=first,
+        client=client,
+        eth_rpc=eth_rpc,
+        engine_rpc=engine_rpc,
+        mock_peer=mock_peer,
+        timing_data=timing_data,
+        genesis_verified_clients=genesis_verified_clients,
+        genesis_header=genesis_header,
+        sync_timeout=wirex_sync_timeout,
+        poll_interval=wirex_poll_interval,
+        announce_interval=wirex_announce_interval,
+    )
+    for case in rest:
+        with target_context_factory(case) as context:
+            _run_sync_target(
+                case=case,
+                client=context.client,
+                eth_rpc=context.eth_rpc,
+                engine_rpc=context.engine_rpc,
+                mock_peer=context.mock_peer,
+                timing_data=timing_data,
+                genesis_verified_clients=genesis_verified_clients,
+                genesis_header=genesis_header,
+                sync_timeout=wirex_sync_timeout,
+                poll_interval=wirex_poll_interval,
+                announce_interval=wirex_announce_interval,
+            )

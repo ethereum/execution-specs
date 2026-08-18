@@ -26,12 +26,65 @@ taken over one path's payloads only.
 from dataclasses import dataclass
 
 from execution_testing.base_types import Hash
+from execution_testing.devp2p.chain import Chain
 from execution_testing.exceptions import (
     BlockException,
     TransactionException,
 )
 from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureEngineNewPayload
+
+HEADER_JUDGEABLE_INVALIDITIES: frozenset[
+    BlockException | TransactionException
+] = frozenset({BlockException.INCORRECT_EXCESS_BLOB_GAS})
+"""
+Declared invalidities a client can judge from headers alone.
+
+A chain whose declared invalidity sits in a statically checkable
+header field can be rejected during header validation, and geth does
+exactly that: it fetches the ancestor headers, fails the invalid one
+against its parent, and never asks for a single body (measured on
+`test_invalid_static_excess_blob_gas`, which it refuses with `links
+to previously rejected block` after being served two headers and no
+bodies). Requiring bodies for such a chain would fail a client for a
+legitimate shortcut, so the body requirement is dropped per declared
+exception class - never per client - and only for the classes listed
+here, with data. Everything else stays strict: an invalidity that
+lives in the transactions or takes execution to surface cannot be
+judged without the bodies, so their absence there is a finding.
+
+Applied to the invalidities of one selected path, never the whole
+fixture: a sibling's header-judgeable invalidity does not excuse the
+bodies of a path that fails some other way.
+"""
+
+
+UNDECODABLE_BODY_INVALIDITIES: frozenset[
+    BlockException | TransactionException
+] = frozenset(
+    {
+        BlockException.RLP_STRUCTURES_ENCODING,
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION,
+        TransactionException.TYPE_4_TX_CONTRACT_CREATION,
+    }
+)
+"""
+Declared invalidities that leave a block with no wire representation.
+
+A typed transaction that omits its mandatory `to` address, or a body
+whose RLP structure is malformed outright, cannot be decoded by any
+conformant client: the peer can put the bytes on the wire, but the
+client discards the response as a malformed body rather than
+accepting the block and judging it, and there is no verdict to read
+(geth answers every re-announcement with `Expired request does not
+exist` until the test times out). The Engine API can carry such a
+block, because a payload names its transactions as an explicit list
+and the client parses them individually, which is why these fixtures
+run under the Engine simulators and are dropped here - the same
+reason, and the same treatment, as a payload whose declared hash does
+not match its own header. Applied per selected path: a sibling's
+undecodable body does not take a decodable path off the wire.
+"""
 
 
 class SyncTargetResolutionError(Exception):
@@ -130,10 +183,59 @@ class SyncPath:
         return invalidities
 
     @property
+    def name(self) -> str:
+        """Return the short name failure messages prefix this path by."""
+        return f"target {self.index + 1}/{self.total}"
+
+    @property
     def label(self) -> str:
         """Return the name logs and failures identify this path by."""
         leaf = _block_hash(self.authored[-1])
-        return f"target {self.index + 1}/{self.total} above leaf {leaf}"
+        return f"{self.name} above leaf {leaf}"
+
+
+@dataclass(frozen=True)
+class SyncTargetCase:
+    """
+    One runnable sync target: its path and the reconstructed chain.
+
+    The `chain` is the path's `served_payloads` rebuilt into servable
+    blocks, so `chain.head` is the announced target and every block
+    below it is the wire-owed ancestry.
+    """
+
+    path: SyncPath
+    chain: Chain
+
+    @property
+    def target(self) -> FixtureEngineNewPayload:
+        """Return the payload announced as the sync target."""
+        return self.path.target
+
+    @property
+    def announces_scaffolding(self) -> bool:
+        """Return whether the announced head is a framework payload."""
+        return self.path.announces_scaffolding
+
+    @property
+    def expects_rejection(self) -> bool:
+        """Return whether this path passes by the client refusing it."""
+        return self.path.expects_rejection
+
+    @property
+    def invalidities(self) -> set[BlockException | TransactionException]:
+        """Return every exception this path's payloads declare."""
+        return self.path.invalidities
+
+    @property
+    def name(self) -> str:
+        """Return the short name failure messages prefix this case by."""
+        return self.path.name
+
+    @property
+    def label(self) -> str:
+        """Return the name logs and failures identify this case by."""
+        return self.path.label
 
 
 def resolve_sync_paths(
@@ -191,14 +293,14 @@ def resolve_sync_paths(
                     f"{name}'s authored ancestry cycles at {current}"
                 )
             visited.add(current)
-            payload = payloads_by_hash.get(current)
-            if payload is None:
+            ancestor = payloads_by_hash.get(current)
+            if ancestor is None:
                 raise SyncTargetResolutionError(
                     f"{name} descends from {current}, which is neither "
                     "genesis nor an authored payload"
                 )
-            authored.append(payload)
-            current = _parent_hash(payload)
+            authored.append(ancestor)
+            current = _parent_hash(ancestor)
         if not authored:
             raise SyncTargetResolutionError(
                 f"{name} sits directly above genesis and selects no "

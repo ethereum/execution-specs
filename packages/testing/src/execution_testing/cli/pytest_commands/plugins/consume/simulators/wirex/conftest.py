@@ -11,6 +11,12 @@ chain forks at the group's genesis, and the new head is announced.
 
 The peer is created once per client and re-pointed at each test's chain,
 which keeps the RLPx handshake out of the per-test cost.
+
+One exception to the topology: a fixture announcing several sync
+targets (see `sync_targets`) runs each target against its own isolated
+client, so the group client and its peer connection are never touched
+by multi-target fixtures - the isolation policy lives in
+`client_policy`.
 """
 
 import json
@@ -30,15 +36,15 @@ from execution_testing.devp2p.chain import (
 from execution_testing.devp2p.peer import MockPeer
 from execution_testing.devp2p.protocol import ETH_PROTOCOLS
 from execution_testing.fixtures import BlockchainEngineXFixture
-from execution_testing.fixtures.blockchain import (
-    FixtureEngineNewPayload,
-    FixtureHeader,
-)
+from execution_testing.fixtures.blockchain import FixtureHeader
 
 from ..helpers.test_tracker import count_tests_per_group
-from ..simulator_logic.test_via_wirex import (
+from .sync_targets import (
     UNDECODABLE_BODY_INVALIDITIES,
-    declared_invalidities,
+    SyncTargetCase,
+    raw_target_path_lengths,
+    resolve_sync_paths,
+    target_path_lengths,
 )
 
 if TYPE_CHECKING:
@@ -75,14 +81,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=int,
         default=2,
         help=(
-            "Skip fixtures whose chain is shorter than this. A fixture's "
-            "announced head is delivered over the Engine API to name the "
-            "sync target, so only the blocks before it travel over "
-            "devp2p; at the default of 2 every executed test syncs at "
-            "least one block from the peer. An appended sync payload "
-            "counts toward the length: a single-block test plus its "
-            "trailer is a two-block chain, so at the default only "
-            "fixtures without a trailer can be short enough to skip."
+            "Skip sync targets whose served chain is shorter than "
+            "this. A target is delivered over the Engine API to name "
+            "the sync, so only the blocks before it travel over "
+            "devp2p; at the default of 2 every executed target syncs "
+            "at least one block from the peer. The length is each "
+            "target's own root-to-leaf path plus the target itself, "
+            "not the fixture's directive count, so at the default "
+            "only fixtures without any target can be short enough to "
+            "skip. A fixture skips only when every one of its targets "
+            "does."
         ),
     )
     group.addoption(
@@ -165,15 +173,19 @@ def _chain_properties(
 ) -> Dict[str, tuple[bool, int]]:
     """
     Read each collected test case's chain properties for ordering: does
-    the chain contain an invalid payload, and how long is it.
+    the fixture declare an invalid payload, and how long is its
+    longest served chain.
 
-    An appended sync payload counts toward the length: it is a real
-    block of the served chain, and the ordering must agree with the
-    skip accounting, which counts it too. The fixture index records
-    neither property, so the fixture files are read directly, one at a
-    time: each file is parsed once, mined for all of its collected
-    test cases, and dropped before the next is opened, so the peak
-    footprint is one parsed file rather than the whole corpus.
+    The length is per sync target - each target's root-to-leaf path
+    plus the target itself, never the fixture's directive count - and
+    a fixture announcing several targets sorts by its longest one: the
+    tallest chain is what a reused client's head would sit at, which
+    is what the ascending order exists to keep monotonic. The fixture
+    index records neither property, so the fixture files are read
+    directly, one at a time: each file is parsed once, mined for all
+    of its collected test cases, and dropped before the next is
+    opened, so the peak footprint is one parsed file rather than the
+    whole corpus.
     """
     properties: Dict[str, tuple[bool, int]] = {}
     cases_by_path: Dict[str, list[tuple[str, str]]] = {}
@@ -187,7 +199,7 @@ def _chain_properties(
         if fixture is not None:  # stdin: the fixture is already loaded
             properties[item.nodeid] = (
                 any(not payload.valid() for payload in fixture.payloads),
-                len(sync_chain_payloads(fixture)),
+                max(target_path_lengths(fixture)),
             )
             continue
         json_path = getattr(test_case, "json_path", None)
@@ -208,7 +220,7 @@ def _chain_properties(
                     payload.get("validationError") is not None
                     for payload in payloads
                 ),
-                len(payloads) + (1 if raw_fixture.get("syncPayload") else 0),
+                max(raw_target_path_lengths(raw_fixture)),
             )
     return properties
 
@@ -311,45 +323,29 @@ def wirex_poll_interval(request: pytest.FixtureRequest) -> float:
     return float(request.config.getoption("wirex_poll_interval"))
 
 
-def sync_chain_payloads(
-    fixture: BlockchainEngineXFixture,
-) -> list[FixtureEngineNewPayload]:
-    """
-    Return the payload sequence a sync-based consumer serves.
-
-    The author's chain, plus the appended sync payload when the fixture
-    carries one: the trailer is a real block above the test's head, and
-    it is the block this simulator announces, so the peer must hold it
-    like any other. Fixtures without a sync payload - error-code
-    chains, marked chains, and ``--no-sync-block`` corpora - need no
-    assembly: the served chain is exactly the author's.
-    """
-    payloads = list(fixture.payloads)
-    if fixture.sync_payload is not None:
-        payloads.append(fixture.sync_payload)
-    return payloads
-
-
 @pytest.fixture(scope="function")
-def chain(
+def sync_target_cases(
     genesis_header: FixtureHeader,
     fixture: BlockchainEngineXFixture,
     wirex_min_blocks: int,
-) -> Chain:
+) -> list[SyncTargetCase]:
     """
-    Rebuild the chain of blocks this test expects a client to hold.
+    Rebuild the served chain behind each of this test's sync targets.
 
-    The chain is the author's payloads plus the appended sync payload
-    when the fixture carries one, so a single-block test with a
-    trailer is a two-block chain here. Chains too short to put any
-    block on the wire skip here, before any reconstruction or peer
-    setup is spent on them.
+    Every announced target selects one root-to-leaf path through the
+    authored payloads (see `sync_targets`), and each path is judged on
+    its own: a path skips when it is too short to put any block on the
+    wire, when its declared invalidity leaves a block with no wire
+    representation, or when an invalid path cannot be reconstructed at
+    all. The fixture skips only when every one of its paths does; a
+    fixture that loses some paths but keeps others runs the keepers
+    and logs each omission.
 
-    Fixtures whose payloads are flagged invalid still reconstruct and
+    Paths containing payloads flagged invalid still reconstruct and
     are served as rejection tests (see ``test_blockchain_via_wirex``):
     their blocks are semantically invalid but hash-consistent, so they
     travel the wire like any other block. Two classes cannot be
-    presented over devp2p at all and skip with an explicit reason: a
+    presented over devp2p at all and drop with an explicit reason: a
     payload whose declared block hash does not match its own header (a
     header corrupted at fill via ``rlp_modifier``), because devp2p has
     no way to present a block whose hash differs from its header's
@@ -358,30 +354,44 @@ def chain(
     because the client discards such a body instead of judging the
     block it belongs to.
     """
-    undecodable = (
-        declared_invalidities(fixture) & UNDECODABLE_BODY_INVALIDITIES
-    )
-    if undecodable:
-        pytest.skip(
-            "invalid fixture cannot be represented over devp2p: no "
-            "conformant client decodes a body declaring "
-            f"{', '.join(sorted(str(e) for e in undecodable))}"
-        )
-    payloads = sync_chain_payloads(fixture)
-    if len(payloads) < wirex_min_blocks:
-        pytest.skip(
-            f"chain has {len(payloads)} block(s); at least "
-            f"{wirex_min_blocks} are needed for any block to be "
-            "transferred over devp2p rather than the Engine API"
-        )
-    try:
-        return chain_from_payloads(genesis_header, payloads)
-    except ChainReconstructionError as error:
-        if any(not payload.valid() for payload in fixture.payloads):
-            pytest.skip(
-                f"invalid fixture cannot be represented over devp2p: {error}"
+    paths = resolve_sync_paths(genesis_header.block_hash, fixture)
+    cases: list[SyncTargetCase] = []
+    drops: list[str] = []
+    for path in paths:
+        undecodable = path.invalidities & UNDECODABLE_BODY_INVALIDITIES
+        if undecodable:
+            drops.append(
+                "invalid fixture cannot be represented over devp2p: no "
+                "conformant client decodes a body declaring "
+                f"{', '.join(sorted(str(e) for e in undecodable))}"
             )
-        raise
+            continue
+        if path.length < wirex_min_blocks:
+            drops.append(
+                f"chain has {path.length} block(s); at least "
+                f"{wirex_min_blocks} are needed for any block to be "
+                "transferred over devp2p rather than the Engine API"
+            )
+            continue
+        try:
+            chain = chain_from_payloads(genesis_header, path.served_payloads)
+        except ChainReconstructionError as error:
+            if any(not payload.valid() for payload in path.served_payloads):
+                drops.append(
+                    "invalid fixture cannot be represented over "
+                    f"devp2p: {error}"
+                )
+                continue
+            raise
+        cases.append(SyncTargetCase(path=path, chain=chain))
+    if not cases:
+        pytest.skip("; ".join(drops))
+    for reason in drops:
+        logger.info(
+            f"Omitting one of this fixture's {len(paths)} sync "
+            f"targets: {reason}"
+        )
+    return cases
 
 
 @pytest.fixture(scope="session")
@@ -393,10 +403,51 @@ def mock_peers() -> Generator[Dict[str, MockPeer], None, None]:
         peer.close()
 
 
+def dial_mock_peer(
+    client: Client,
+    chain: Chain,
+    eth_versions: tuple[int, ...],
+    total_timing_data: "TimingData",
+) -> MockPeer:
+    """
+    Dial a fresh peer connection to `client`, serving `chain`.
+
+    Shared by the per-group `mock_peer` fixture and the per-target
+    isolated clients of multi-target fixtures (see `client_policy`).
+    """
+    enode = client.enode()
+    logger.info(f"Connecting mock peer to {enode}")
+    peer = MockPeer(
+        host=str(client.ip),
+        port=enode.port,
+        remote_public_key=bytes.fromhex(enode.id),
+        private_key=os.urandom(32),
+        network_id=DEFAULT_NETWORK_ID,
+        eth_versions=eth_versions,
+    )
+    with total_timing_data.time("Connect mock peer"):
+        # The client readiness gate waits on the Engine API port only;
+        # a freshly started client may open its devp2p listener a
+        # moment later, so the first dial gets a deadline rather than
+        # a single attempt.
+        deadline = time.monotonic() + 10.0
+        while True:
+            try:
+                peer.connect(chain)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.25)
+        peer.start()
+    logger.info(f"Mock peer connected to {peer.remote_name}")
+    return peer
+
+
 @pytest.fixture(scope="function")
 def mock_peer(
     client: Client,
-    chain: Chain,
+    sync_target_cases: list[SyncTargetCase],
     mock_peers: Dict[str, MockPeer],
     wirex_eth_versions: tuple[int, ...],
     total_timing_data: "TimingData",
@@ -404,39 +455,20 @@ def mock_peer(
     """
     Return the peer connected to this test's client.
 
-    The connection is established once per client and then re-pointed at
-    each test's chain, so the RLPx handshake is paid once per group
-    rather than once per test.
+    The connection is established once per client and then re-pointed
+    at each test's chain, so the RLPx handshake is paid once per group
+    rather than once per test. The chain installed here is the first
+    sync target's; a multi-target fixture's later targets run on their
+    own isolated clients, each dialed by its own peer (see
+    `client_policy`).
     """
+    chain = sync_target_cases[0].chain
     peer = mock_peers.get(client.id)
     if peer is None:
-        enode = client.enode()
-        logger.info(f"Connecting mock peer to {enode}")
-        peer = MockPeer(
-            host=str(client.ip),
-            port=enode.port,
-            remote_public_key=bytes.fromhex(enode.id),
-            private_key=os.urandom(32),
-            network_id=DEFAULT_NETWORK_ID,
-            eth_versions=wirex_eth_versions,
+        peer = dial_mock_peer(
+            client, chain, wirex_eth_versions, total_timing_data
         )
-        with total_timing_data.time("Connect mock peer"):
-            # The readiness gate behind `client` waits on the Engine
-            # API port only; a freshly started client may open its
-            # devp2p listener a moment later, so the first dial gets
-            # a deadline rather than a single attempt.
-            deadline = time.monotonic() + 10.0
-            while True:
-                try:
-                    peer.connect(chain)
-                    break
-                except OSError:
-                    if time.monotonic() >= deadline:
-                        raise
-                    time.sleep(0.25)
-            peer.start()
         mock_peers[client.id] = peer
-        logger.info(f"Mock peer connected to {peer.remote_name}")
         return peer
 
     # A client may hang up mid-group (nethermind drops peers it deems

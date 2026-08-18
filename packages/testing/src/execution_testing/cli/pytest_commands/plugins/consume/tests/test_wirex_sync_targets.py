@@ -23,6 +23,8 @@ from execution_testing.fixtures import BlockchainEngineXFixture
 from execution_testing.fixtures.blockchain import FixtureEngineNewPayload
 
 from ..simulators.wirex.sync_targets import (
+    HEADER_JUDGEABLE_INVALIDITIES,
+    UNDECODABLE_BODY_INVALIDITIES,
     SyncTargetResolutionError,
     raw_target_path_lengths,
     resolve_sync_paths,
@@ -218,9 +220,7 @@ class TestMixedValidityLeaves:
         ]
         targets = [_payload(5, 1), _payload(6, 3), _payload(7, 4)]
         paths = resolve_sync_paths(GENESIS, _fixture(payloads, targets))
-        covered = {
-            id(payload) for path in paths for payload in path.authored
-        }
+        covered = {id(payload) for path in paths for payload in path.authored}
         assert covered == {id(payload) for payload in payloads}
 
 
@@ -257,9 +257,7 @@ class TestDiagnostics:
 
     def test_duplicate_authored_hash(self) -> None:
         """Two authored payloads with one hash cannot be told apart."""
-        fixture = _fixture(
-            [_payload(1, 0), _payload(1, 0)], [_payload(2, 1)]
-        )
+        fixture = _fixture([_payload(1, 0), _payload(1, 0)], [_payload(2, 1)])
         with pytest.raises(
             SyncTargetResolutionError, match="two authored payloads"
         ):
@@ -267,9 +265,7 @@ class TestDiagnostics:
 
     def test_cycle(self) -> None:
         """An ancestry that revisits a hash is a cycle, not a chain."""
-        fixture = _fixture(
-            [_payload(1, 2), _payload(2, 1)], [_payload(3, 1)]
-        )
+        fixture = _fixture([_payload(1, 2), _payload(2, 1)], [_payload(3, 1)])
         with pytest.raises(SyncTargetResolutionError, match="cycles at"):
             resolve_sync_paths(GENESIS, fixture)
 
@@ -313,6 +309,33 @@ class TestNoTargetFallback:
         (path,) = resolve_sync_paths(GENESIS, _fixture(authored, None))
         assert path.expects_rejection
         assert path.invalidities == {INVALID}
+
+
+class TestDeclaredInvalidities:
+    """The census the per-class body downgrade is decided by."""
+
+    def test_single_and_listed_exceptions_are_collected(self) -> None:
+        """One declared exception or a pipe-list both count."""
+        authored = [
+            _payload(1, 0),
+            _payload(2, 1, error=OTHER_INVALID),
+            _payload(3, 2, error=[INVALID]),
+        ]
+        (path,) = resolve_sync_paths(GENESIS, _fixture(authored, None))
+        assert path.invalidities == {INVALID, OTHER_INVALID}
+
+    def test_the_undecodable_and_judgeable_sets_are_disjoint(self) -> None:
+        """
+        No invalidity is both header-judgeable and undecodable.
+
+        The two sets pull in opposite directions - one relaxes what a
+        client must fetch, the other says the block cannot travel at
+        all - so an exception in both would make the simulator's
+        treatment of it depend on evaluation order.
+        """
+        assert not (
+            HEADER_JUDGEABLE_INVALIDITIES & UNDECODABLE_BODY_INVALIDITIES
+        )
 
 
 class TestPathLengths:
