@@ -48,6 +48,23 @@ SLOT_USED_AFTER = 0x03
 SLOT_POOL = 0x04
 """Slot recording the executing frame's remaining state gas pool."""
 
+SLOT_OWNER_USED = 0x06
+"""Probe slot recording the creating frame's attributed state gas."""
+
+SLOT_EDITOR_USED = 0x07
+"""
+Probe slot recording the refilling frame's attributed state gas, plus
+one so the expected zero readback is distinguishable from a slot never
+written.
+"""
+
+SLOT_STATUS = 0x08
+"""
+Probe slot recording a frame's receipt status, plus one so the
+expected `FAILURE` readback is distinguishable from a slot never
+written.
+"""
+
 WORKER_FRAME_GAS = 100_000
 """Execution gas budget of the frames running the worker contracts."""
 
@@ -380,3 +397,339 @@ def test_approve_sender_creation_unaffordable(
     )
 
     state_test(pre=pre, tx=tx, post={})
+
+
+def test_refill_after_intermediate_modification(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Return a slot to its transaction-start value after an intermediate
+    modification by another frame.
+
+    The second frame's write changes an already-dirty slot: it charges
+    no state gas and leaves the outstanding charge's owner untouched.
+    The third frame's return to the transaction-start value therefore
+    still refills the creating frame, although the third frame never
+    observed the value that frame wrote.
+    """
+    sender = pre.fund_eoa()
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+
+    modify = Op.SSTORE(
+        SLOT_CREATED,
+        2,
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=2,
+    )
+    clear = Op.SSTORE(
+        SLOT_CREATED,
+        0,
+        key_warm=True,
+        original_value=0,
+        current_value=2,
+        new_value=0,
+    )
+    observe_owner = Op.SSTORE(
+        SLOT_USED_AFTER,
+        Op.ADD(1, Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED)),
+    )
+    worker_code = Conditional(
+        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
+        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
+        if_false=Conditional(
+            condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+            if_true=modify + Op.STOP,
+            if_false=clear + observe_owner + Op.STOP,
+        ),
+    )
+    worker = pre.deploy_contract(code=worker_code)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            # Frame 0: approve execution and payment.
+            verify_frame(),
+            # Frame 1: create the slot (0 -> 1).
+            default_frame(target=worker, gas_limit=WORKER_FRAME_GAS),
+            # Frame 2: modify the dirty slot (1 -> 2).
+            default_frame(
+                target=worker,
+                gas_limit=WORKER_FRAME_GAS,
+                data=(1).to_bytes(32, "big"),
+            ),
+            # Frame 3: return the slot to its start value (2 -> 0)
+            # and record frame 1's attribution.
+            default_frame(
+                target=worker,
+                gas_limit=WORKER_FRAME_GAS,
+                data=(2).to_bytes(32, "big"),
+            ),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                ),
+                # The creation's attribution is gone: the third
+                # frame's refill returned it at settlement.
+                FrameReceipt(status=Spec.STATUS_SUCCESS, state_gas_used=0),
+                # A write to an already-dirty slot charges no state
+                # gas.
+                FrameReceipt(status=Spec.STATUS_SUCCESS, state_gas_used=0),
+                # Only the recording write; the refill credits the
+                # owner, not the refilling frame.
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    state_gas_used=fresh_write_state_cost,
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            worker: Account(storage={SLOT_CREATED: 0, SLOT_USED_AFTER: 1}),
+        },
+    )
+
+
+def test_batch_unroll_restores_refilled_receipt(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Unroll an atomic batch whose frame refilled a pre-batch receipt.
+
+    A batch frame returns a slot created before the batch to its
+    transaction-start value, lowering the creating frame's receipt.
+    The batch's terminating frame reverts, and the unroll restores the
+    receipt edit together with the state: a later frame reads the
+    creating frame's full attribution back, while the unrolled frame's
+    re-appended receipt keeps its status with its state gas zeroed.
+    """
+    sender = pre.fund_eoa()
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+
+    modify = Op.SSTORE(
+        SLOT_CREATED,
+        2,
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=2,
+    )
+    clear = Op.SSTORE(
+        SLOT_CREATED,
+        0,
+        key_warm=True,
+        original_value=0,
+        current_value=2,
+        new_value=0,
+    )
+    worker_code = Conditional(
+        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
+        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
+        if_false=Conditional(
+            condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+            if_true=modify + Op.STOP,
+            if_false=clear + Op.STOP,
+        ),
+    )
+    worker = pre.deploy_contract(code=worker_code)
+    reverter = pre.deploy_contract(code=Op.REVERT(0, 0))
+    probe = pre.deploy_contract(
+        code=Op.SSTORE(
+            SLOT_OWNER_USED,
+            Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
+        )
+        + Op.SSTORE(
+            SLOT_EDITOR_USED,
+            Op.ADD(1, Op.FRAMEPARAM(3, Spec.FRAMEPARAM_STATE_GAS_USED)),
+        )
+        + Op.SSTORE(
+            SLOT_STATUS,
+            Op.ADD(1, Op.FRAMEPARAM(4, Spec.FRAMEPARAM_STATUS)),
+        )
+        + Op.STOP
+    )
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            # Frame 0: approve execution and payment.
+            verify_frame(),
+            # Frame 1: create the slot (0 -> 1).
+            default_frame(target=worker, gas_limit=WORKER_FRAME_GAS),
+            # Frame 2: modify the dirty slot (1 -> 2).
+            default_frame(
+                target=worker,
+                gas_limit=WORKER_FRAME_GAS,
+                data=(1).to_bytes(32, "big"),
+            ),
+            # Frame 3: open the batch and return the slot to its
+            # start value (2 -> 0), refilling frame 1's receipt.
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=worker,
+                gas_limit=WORKER_FRAME_GAS,
+                data=(2).to_bytes(32, "big"),
+            ),
+            # Frame 4: terminate the batch with a revert, unrolling it.
+            default_frame(target=reverter, gas_limit=WORKER_FRAME_GAS),
+            # Frame 5: record frame 1's and frame 3's attributions and
+            # frame 4's status after the unroll.
+            default_frame(target=probe, gas_limit=WORKER_FRAME_GAS),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                ),
+                # The unroll restored the refill the batch frame
+                # applied to this receipt.
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    state_gas_used=fresh_write_state_cost,
+                ),
+                FrameReceipt(status=Spec.STATUS_SUCCESS, state_gas_used=0),
+                # The unrolled frame keeps its status; its state gas
+                # is zeroed with the re-appended receipt.
+                FrameReceipt(status=Spec.STATUS_SUCCESS, state_gas_used=0),
+                FrameReceipt(status=Spec.STATUS_FAILURE, state_gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    state_gas_used=3 * fresh_write_state_cost,
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            # The unroll undid the batch frame's clearing write, so
+            # the intermediate modification survives.
+            worker: Account(storage={SLOT_CREATED: 2}),
+            probe: Account(
+                storage={
+                    SLOT_OWNER_USED: fresh_write_state_cost,
+                    SLOT_EDITOR_USED: 1,
+                    SLOT_STATUS: 1,
+                }
+            ),
+        },
+    )
+
+
+def test_frame_revert_restores_refilled_receipt(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Revert a frame that refilled an earlier frame's receipt.
+
+    A reverting frame's rollback extends over the edits it made to
+    earlier receipts: the creating frame's attribution is restored,
+    and the reverting frame's own receipt reports zero state gas.
+    """
+    sender = pre.fund_eoa()
+    fresh_write_state_cost = Op.SSTORE(SLOT_CREATED, 1).state_cost(fork)
+
+    clear = Op.SSTORE(
+        SLOT_CREATED,
+        0,
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+    worker_code = Conditional(
+        condition=Op.ISZERO(Op.CALLDATALOAD(0)),
+        if_true=Op.SSTORE(SLOT_CREATED, 1) + Op.STOP,
+        if_false=clear + Op.REVERT(0, 0),
+    )
+    worker = pre.deploy_contract(code=worker_code)
+    probe = pre.deploy_contract(
+        code=Op.SSTORE(
+            SLOT_OWNER_USED,
+            Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
+        )
+        + Op.SSTORE(
+            SLOT_EDITOR_USED,
+            Op.ADD(1, Op.FRAMEPARAM(2, Spec.FRAMEPARAM_STATE_GAS_USED)),
+        )
+        + Op.SSTORE(
+            SLOT_STATUS,
+            Op.ADD(1, Op.FRAMEPARAM(2, Spec.FRAMEPARAM_STATUS)),
+        )
+        + Op.STOP
+    )
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            # Frame 0: approve execution and payment.
+            verify_frame(),
+            # Frame 1: create the slot (0 -> 1).
+            default_frame(target=worker, gas_limit=WORKER_FRAME_GAS),
+            # Frame 2: return the slot to its start value (1 -> 0),
+            # refilling frame 1's receipt, then revert.
+            default_frame(
+                target=worker,
+                gas_limit=WORKER_FRAME_GAS,
+                data=b"\x01",
+            ),
+            # Frame 3: record frame 1's and frame 2's attributions and
+            # frame 2's status after the revert.
+            default_frame(target=probe, gas_limit=WORKER_FRAME_GAS),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                ),
+                # The revert restored the refill the failing frame
+                # applied to this receipt.
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    state_gas_used=fresh_write_state_cost,
+                ),
+                FrameReceipt(status=Spec.STATUS_FAILURE, state_gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    state_gas_used=3 * fresh_write_state_cost,
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            # The revert undid the clearing write.
+            worker: Account(storage={SLOT_CREATED: 1}),
+            probe: Account(
+                storage={
+                    SLOT_OWNER_USED: fresh_write_state_cost,
+                    SLOT_EDITOR_USED: 1,
+                    SLOT_STATUS: 1,
+                }
+            ),
+        },
+    )
