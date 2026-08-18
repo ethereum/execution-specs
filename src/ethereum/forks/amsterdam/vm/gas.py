@@ -302,9 +302,6 @@ class GasMeter:
     [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
     """
 
-    refund_counter: int = 0
-    """Gas eligible for refund at the end of the transaction."""
-
     state_gas_spilled: StateGas = StateGas(Uint(0))
     """
     Execution gas spent covering state charges after the reservoir
@@ -521,7 +518,6 @@ def restore_state_gas(gas_meter: GasMeter) -> None:
     )
     gas_meter.state_gas_spilled = StateGas(Uint(0))
     gas_meter.state_gas_left = gas_meter.state_gas_baseline
-    gas_meter.refund_counter = 0
 
 
 def restore_state_gas_to_entry(
@@ -550,7 +546,6 @@ def restore_state_gas_to_entry(
     assert gas_meter.state_gas_baseline <= state_gas_reservoir
     # Only pre-dispatch failures roll back to entry, and no refund
     # accrues before dispatch.
-    assert gas_meter.refund_counter == 0
     gas_meter.gas_left = ExecutionGas(
         gas_meter.gas_left
         + Uint(gas_meter.state_gas_spilled)
@@ -1142,7 +1137,6 @@ def settle_transaction_gas(
     calldata_floor: Uint,
     gas_left: ExecutionGas,
     state_gas_left: StateGas,
-    refund_counter: U256,
     state_gas_used: int,
 ) -> TransactionGasSettlement:
     """
@@ -1185,15 +1179,12 @@ def settle_transaction_gas(
     [EIP-7778]: https://eips.ethereum.org/EIPS/eip-7778
 
     """
-    gas_used_before_refund = tx_gas - gas_left - state_gas_left
-    gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))
-    gas_used_after_refund = gas_used_before_refund - gas_refund
-    gas_used = max(gas_used_after_refund, calldata_floor)
+    gas_used = max(tx_gas - gas_left - state_gas_left, calldata_floor)
 
     settled_state_gas_used = StateGas(Uint(max(0, state_gas_used)))
     execution_gas_used = ExecutionGas(
         max(
-            gas_used_before_refund - settled_state_gas_used,
+            gas_used - settled_state_gas_used,
             calldata_floor,
         )
     )

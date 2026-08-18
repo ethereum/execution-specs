@@ -99,9 +99,6 @@ class TransactionOutput:
     gas_left: ExecutionGas
     """Execution gas remaining after execution."""
 
-    refund_counter: U256
-    """Gas eligible for refund at the end of the transaction."""
-
     logs: Tuple[Log, ...]
     """Logs emitted during execution; empty when it failed."""
 
@@ -281,7 +278,6 @@ def process_top_level(
         forfeit_remaining_gas(gas_meter)
         return TransactionOutput(
             gas_left=gas_meter.gas_left,
-            refund_counter=U256(gas_meter.refund_counter),
             logs=(),
             accounts_to_delete=set(),
             error=halt,
@@ -314,7 +310,6 @@ def process_top_level(
 
     return TransactionOutput(
         gas_left=gas_meter.gas_left,
-        refund_counter=U256(gas_meter.refund_counter),
         logs=logs,
         accounts_to_delete=accounts_to_delete,
         error=evm.error,

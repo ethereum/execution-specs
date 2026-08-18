@@ -222,7 +222,6 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
         # A failed child arrives settled: rolled back to its baseline,
         # spill refilled, refunds discarded.
         assert child_meter.state_gas_spilled == Uint(0)
-        assert child_meter.refund_counter == 0
         assert child_meter.state_gas_left == child_meter.state_gas_baseline
 
     # Gas returns to the parent regardless of the child's fate.
@@ -231,7 +230,6 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     gas_meter.gas_left += child_meter.gas_left
     gas_meter.state_gas_left += child_meter.state_gas_left
     gas_meter.state_gas_spilled += child_meter.state_gas_spilled
-    gas_meter.refund_counter += child_meter.refund_counter
 
     # Everything else survives only on success.
     if not child_evm.error:

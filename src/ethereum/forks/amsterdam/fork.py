@@ -1065,7 +1065,6 @@ def process_transaction(
         tx_env.calldata_floor,
         tx_output.gas_left,
         tx_output.state_gas_left,
-        tx_output.refund_counter,
         tx_output.state_gas_used,
     )
 
