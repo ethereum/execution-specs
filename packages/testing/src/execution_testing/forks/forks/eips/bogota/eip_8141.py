@@ -8,10 +8,11 @@ https://eips.ethereum.org/EIPS/eip-8141
 """
 
 from dataclasses import replace
-from typing import List, Mapping, Sequence
+from typing import Callable, Dict, List, Mapping, Sequence
 
 from execution_testing.base_types import Bytes
 from execution_testing.base_types.conversions import BytesConvertible
+from execution_testing.vm import OpcodeBase, Opcodes
 
 from ....base_fork import (
     BaseFork,
@@ -61,6 +62,27 @@ class EIP8141(BaseFork):
             FRAME_SIGNATURE_SCHEME_SECP256K1=2_800,
             FRAME_SIGNATURE_SCHEME_P256=6_700,
         )
+
+    @classmethod
+    def opcode_gas_map(
+        cls,
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Add the constant-cost introspection opcode gas costs.
+
+        The remaining frame instructions — `FRAMEDATACOPY`,
+        `SIGPARAM`, and `APPROVE` — carry copy, mode-dependent, or
+        memory expansion costs a single entry cannot express and stay
+        unmapped.
+        """
+        gas_costs = cls.gas_costs()
+        base_map = super(EIP8141, cls).opcode_gas_map()
+        return {
+            **base_map,
+            Opcodes.TXPARAM: gas_costs.BASE,
+            Opcodes.FRAMEDATALOAD: gas_costs.VERY_LOW,
+            Opcodes.FRAMEPARAM: gas_costs.BASE,
+        }
 
     @classmethod
     def _frame_transaction_charged_bytes(
