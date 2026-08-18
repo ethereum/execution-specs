@@ -107,23 +107,23 @@ This flag automatically performs a two-phase execution:
     uv run fill --generate-all-formats --output=fixtures.tar.gz tests/shanghai/
     ```
 
-## The Sync Block
+## Sync Payloads
 
-By default the filler appends one framework-built empty block above every blockchain test's chain **in `blockchain_test_engine_x` fixtures only**, stored out-of-chain in the fixture's `syncPayload` field. `--no-sync-block` disables it:
+By default the filler appends framework-built empty blocks above the leaves of each authored payload graph **in `blockchain_test_engine_x` fixtures only**. They are stored out of chain in the optional `syncPayloads` list. `--no-sync-block` disables all of them:
 
 ```console
 uv run fill --no-sync-block --generate-all-formats tests/cancun/
 ```
 
-The block lets a sync-based consumer announce a head *above* the test's own chain, so that every block the author wrote must travel devp2p:
+Each entry lets a sync-based consumer announce a head above one branch, so that every representable payload the author wrote belongs to at least one ancestry path that must travel devp2p. A linear chain has one target:
 
 ```text
 G → T₁ … Tₙ → S*
 ```
 
-(`*` marks the block a sync-based consumer announces.) The block lives out-of-chain - the same representation [`consume sync`](../running_tests/running.md#sync)'s fixture format has always used - so the fixture's `engineNewPayloads`, `lastblockhash` and post state keep describing exactly the chain the test author wrote, byte for byte. Chains that cannot or must not carry the block fill without it instead of being skipped.
+(`*` marks the block a sync-based consumer announces.) An expected-invalid payload followed by a valid sibling has two targets, one above each leaf. The targets live out of chain, so `engineNewPayloads`, `lastblockhash`, and the post state keep describing exactly the Engine API directives the test author wrote. Fixtures or individual leaves that cannot carry targets still fill instead of being skipped.
 
-[The Sync Block](./the_sync_block.md) explains the mechanism: why announcing the block makes a client sync, the contract the block must satisfy, and every case that fills bare.
+[Sync Payloads](./sync_payloads.md) explains the payload graph, how a consumer reconstructs each branch by hash, why announcements start sync, and every case that carries no target.
 
 ## Debugging the `t8n` Command
 
