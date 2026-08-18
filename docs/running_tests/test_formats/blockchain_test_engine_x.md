@@ -69,7 +69,7 @@ For each [`BlockchainTestEngineXFixture`](#blockchaintestenginexfixture) test ob
    - For each [`FixtureEngineNewPayload`](#fixtureenginenewpayload) in [`engineNewPayloads`](#-enginenewpayloads-listfixtureenginenewpayload):
      1. Deliver the payload using `engine_newPayloadVX`
      2. Validate the response according to the payload's expected status
-   - Ignore [`syncPayload`](#-syncpayload-optionalfixtureenginenewpayload) if present: it is not part of the test's chain. It exists for sync-based consumers, which announce it as the head instead so that every payload in [`engineNewPayloads`](#-enginenewpayloads-listfixtureenginenewpayload) must be fetched and executed through the client's devp2p sync path
+   - Ignore [`syncPayloads`](#-syncpayloads-optionallistfixtureenginenewpayload) if present: they are not Engine API directives from the test
 
 4. **Verify Final State**:
    - Compare the final chain head against [`lastblockhash`](#-lastblockhash-hash)
@@ -96,9 +96,11 @@ Hash identifier referencing a pre-allocation group in the `pre_alloc` folder. Th
 
 List of `engine_newPayloadVX` directives to be processed after the genesis block. These define the sequence of blocks to be executed via the Engine API.
 
-#### - `syncPayload`: [`Optional`](./common_types.md#optional)`[`[`FixtureEngineNewPayload`](#fixtureenginenewpayload)`]`
+#### - `syncPayloads`: [`Optional`](./common_types.md#optional)`[`[`List`](./common_types.md#list)`[`[`FixtureEngineNewPayload`](#fixtureenginenewpayload)`]]`
 
-Framework-built empty payload appended above the chain's head: it names the last payload of [`engineNewPayloads`](#-enginenewpayloads-listfixtureenginenewpayload) as its parent, one block number higher. Its `extra_data` carries a per-test digest, so two tests with byte-identical chains still get distinct sync payloads - a client reused across a pre-allocation group only starts a sync for a head it has never seen. Consumers that replay payloads through the Engine API must ignore it - it is not part of the test's chain, and above a head that is expected to be rejected it is a sync target only, never an executable continuation (its state root follows from a state transition no client would compute). A sync-based consumer announces it instead of the chain's own head, which makes every payload the test author wrote an ancestor the client must fetch and execute over devp2p. Absent for chains asserting an `engine_api_error_code`, chains above whose head no block can be built, chains that opted out at fill time, and fills with `--no-sync-block`; see [The Sync Block](../../filling_tests/the_sync_block.md).
+Ordered framework-built empty payloads, one above each representable leaf of the authored payload graph. The `parentHash` inside each entry names its leaf. A sync-based consumer follows authored `parentHash` links back to genesis, serves that linear path with the target appended, and announces the target. Expected-invalid leaf targets precede the final valid target.
+
+The list is scaffolding for sync-based consumers, not part of the authored Engine API sequence. A target above an expected-invalid leaf is never an executable continuation; it exists so the client must fetch and reject that leaf through its sync path. Each target's `extraData` carries a per-test digest so a client reused across a pre-allocation group sees a new announced head. Absent when the fixture carries no targets; see [Sync Payloads](../../filling_tests/sync_payloads.md) for the graph and omission rules.
 
 #### - `lastblockhash`: [`Hash`](./common_types.md#hash)
 
