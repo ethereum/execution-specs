@@ -1447,13 +1447,14 @@ class BlockchainTest(BaseTest):
         except Exception as e:
             raise Exception(
                 "an appended sync payload could not be built above one "
-                "of this test's leaves. If the context the leaf leaves "
-                "behind is the cause (e.g. a sabotaged system contract "
-                "every block calls) and that context is the test's purpose, "
-                "opt the test out by passing `sync_block=False` (as "
-                "the system-contract test generators do) to fill it "
-                "without the appended block; see the chained error for "
-                "the underlying failure."
+                "of this test's leaves. Inspect the chained error and, if "
+                "the framework lacks support for this context, extend the "
+                "sync-payload framework and add regression coverage rather "
+                "than disabling devp2p coverage with `sync_block=False`. "
+                "Use `sync_block=False` only when the test deliberately "
+                "leaves a terminal context in which no child block can "
+                "execute, such as a sabotaged system contract that every "
+                "block calls."
             ) from e
         return sync_block.get_fixture_engine_new_payload()
 
