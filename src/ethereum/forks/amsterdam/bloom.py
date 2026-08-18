@@ -61,9 +61,8 @@ def add_to_bloom(bloom: bytearray, bloom_entry: Bytes) -> None:
 
 def logs_bloom(logs: Tuple[Log, ...]) -> Bloom:
     """
-    Obtain the logs bloom from a list of log entries.
-
-    The address and each topic of a log are added to the bloom filter.
+    Obtain the zero-byte placeholder that replaces the logs bloom from previous
+    forks.
 
     Parameters
     ----------
@@ -73,15 +72,8 @@ def logs_bloom(logs: Tuple[Log, ...]) -> Bloom:
     Returns
     -------
     logs_bloom : `Bloom`
-        The logs bloom obtained which is 256 bytes with some bits set as per
-        the caller address and the log topics.
+        A zero-byte placeholder that replaces the logs bloom.
 
     """
-    bloom: bytearray = bytearray(b"\x00" * 256)
-
-    for log in logs:
-        add_to_bloom(bloom, log.address)
-        for topic in log.topics:
-            add_to_bloom(bloom, topic)
-
-    return Bloom(bloom)
+    del logs
+    return Bloom(b"")

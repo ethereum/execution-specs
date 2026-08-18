@@ -25,6 +25,7 @@ from execution_testing.base_types import (
     Bloom,
     Bytes,
     CamelModel,
+    EmptyBloom,
     EthereumTestRootModel,
     Hash,
     HexNumber,
@@ -386,7 +387,7 @@ class Result(CamelModel):
     transactions_trie: Hash = Field(..., alias="txRoot")
     receipts_root: Hash
     logs_hash: Hash
-    logs_bloom: Bloom
+    logs_bloom: Bloom | EmptyBloom
     receipts: List[TransactionReceipt]
     rejected_transactions: List[RejectedTransaction] = Field(
         default_factory=list, alias="rejected"

@@ -467,6 +467,12 @@ class StorageKey(FixedSizeBytes[32]):  # type: ignore
         return super().__new__(cls, input_bytes, **kwargs)
 
 
+class EmptyBloom(FixedSizeBytes[0]):  # type: ignore
+    """Class that helps represent blooms in tests."""
+
+    pass
+
+
 class Bloom(FixedSizeBytes[256]):  # type: ignore
     """Class that helps represent blooms in tests."""
 

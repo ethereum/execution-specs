@@ -14,6 +14,7 @@ from execution_testing.base_types import (
     Bloom,
     Bytes,
     CamelModel,
+    EmptyBloom,
     EthereumTestRootModel,
     Hash,
     RLPSerializable,
@@ -132,7 +133,7 @@ class FixtureTransactionReceipt(CamelModel, RLPSerializable):
     transaction_hash: Hash
     ty: ZeroPaddedHexNumber = Field(..., alias="type")
     cumulative_gas_used: ZeroPaddedHexNumber
-    bloom: Bloom
+    bloom: Bloom | EmptyBloom
     logs: List[FixtureTransactionLog]
     post_state: Hash | None = None
     status: bool | None = None

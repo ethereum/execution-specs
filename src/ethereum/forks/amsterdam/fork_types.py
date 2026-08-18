@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import NewType, final
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes256
+from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U8, U32, U64, U256, Uint
 
@@ -31,7 +31,7 @@ Position within the set of all changes in a [`Block`].
 
 VersionedHash = Hash32
 
-Bloom = Bytes256
+Bloom = Bytes0
 
 
 ExecutionGas = NewType("ExecutionGas", Uint)

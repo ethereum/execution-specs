@@ -9,6 +9,7 @@ from execution_testing.base_types import (
     Bloom,
     Bytes,
     CamelModel,
+    EmptyBloom,
     Hash,
     HexNumber,
 )
@@ -74,7 +75,7 @@ class TransactionReceipt(CamelModel):
         None, validation_alias=AliasChoices("status", "succeeded")
     )
     cumulative_gas_used: HexNumber | None = None
-    bloom: Bloom | None = Field(
+    bloom: Bloom | EmptyBloom | None = Field(
         None, validation_alias=AliasChoices("logs_bloom", "logsBloom", "bloom")
     )
     logs: List[TransactionLog] | None = None

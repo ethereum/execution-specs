@@ -42,6 +42,7 @@ def _header(number: int) -> FixtureHeader:
         number=number,
         gas_limit=30_000_000,
         gas_used=21_000,
+        bloom=0,
         timestamp=number * 12,
         extra_data=b"\x00",
         base_fee_per_gas=7,

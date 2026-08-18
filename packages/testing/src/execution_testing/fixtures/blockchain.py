@@ -40,6 +40,7 @@ from execution_testing.base_types import (
     Bloom,
     Bytes,
     CamelModel,
+    EmptyBloom,
     EmptyOmmersRoot,
     EmptyTrieRoot,
     Hash,
@@ -179,8 +180,7 @@ class FixtureHeader(CamelModel):
         alias="receiptTrie",
         validation_alias=AliasChoices("receiptTrie", "receiptsRoot"),
     )
-    logs_bloom: Bloom = Field(
-        Bloom(0),
+    logs_bloom: Bloom | EmptyBloom = Field(
         alias="bloom",
         validation_alias=AliasChoices("bloom", "logsBloom"),
     )
@@ -373,6 +373,7 @@ class FixtureHeader(CamelModel):
         extras: Dict[str, Any] = {
             "state_root": state_root,
             "fork": fork,
+            "bloom": 0,
         }
         if fork.header_requests_required():
             extras["requests_hash"] = Requests()
@@ -399,7 +400,7 @@ class FixtureExecutionPayload(CamelModel):
     state_root: Hash
 
     receipts_root: Hash
-    logs_bloom: Bloom
+    logs_bloom: Bloom | EmptyBloom
 
     number: HexNumber = Field(..., alias="blockNumber")
     gas_limit: HexNumber
