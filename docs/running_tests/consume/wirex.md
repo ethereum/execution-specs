@@ -10,7 +10,7 @@ The intent is to verify that clients can receive and propagate blocks over devp2
 uv run consume wirex [OPTIONS]
 ```
 
-WireX consumes the [Blockchain Engine X Test](../test_formats/blockchain_test_engine_x.md) fixture format and keeps the client topology that [`consume enginex`](../running.md#enginex) established: one client per pre-allocation group, reused across all of the group's tests. Only the way blocks arrive changes. Each test is an independent chain that forks at the group's shared genesis.
+WireX consumes the [Blockchain Engine X Test](../test_formats/blockchain_test_engine_x.md) fixture format and keeps the client topology that [`consume enginex`](../running.md#enginex) established: one client per pre-allocation group, reused across all of the group's tests. Only the way blocks arrive changes. Each test is an independent chain that forks at the group's shared genesis. The one exception is a fixture announcing several sync targets, which runs each target on its own isolated client (see [Test Ordering and Client Reuse](#test-ordering-and-client-reuse)).
 
 To see the WireX-specific options, run:
 
@@ -52,7 +52,7 @@ sequenceDiagram
 
     note over S,P: per sync target (chain forks at group genesis)
     S->>P: set_chain(chain), BlockRangeUpdate, old chains stay served
-    S->>E: newPayload(announced head: syncPayload, or the chain's own)
+    S->>E: newPayload(announced sync target, or the chain's own head)
     E-->>S: SYNCING (parent unknown, nothing executes)
     S->>E: fcU(head, safe=finalized=genesis)
     E-->>S: SYNCING
