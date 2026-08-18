@@ -52,6 +52,7 @@ from ..vm.gas import (
     GasCosts,
     GasMeter,
     StateGasCosts,
+    StateGasReservoir,
     charge_gas,
     charge_state_gas,
     charge_state_gas_from_meter,
@@ -274,10 +275,13 @@ def process_top_level(
     assert top_level_context is not None
     assert tx_env.frame_context is None
 
-    gas_meter = GasMeter(
-        gas_left=tx_env.execution_gas_grant,
+    reservoir = StateGasReservoir(
         state_gas_left=tx_env.state_gas_reservoir,
         state_gas_baseline=tx_env.state_gas_reservoir,
+    )
+    gas_meter = GasMeter(
+        gas_left=tx_env.execution_gas_grant,
+        reservoir=reservoir,
     )
 
     prep_snapshot = copy_tx_state(tx_env.state)
@@ -297,7 +301,7 @@ def process_top_level(
             accounts_to_delete=set(),
             error=halt,
             return_data=Bytes(b""),
-            state_gas_left=gas_meter.state_gas_left,
+            state_gas_left=reservoir.state_gas_left,
             state_gas_used=tx_state_gas_used(
                 gas_meter, tx_env.state_gas_reservoir
             ),
@@ -330,7 +334,7 @@ def process_top_level(
         accounts_to_delete=accounts_to_delete,
         error=evm.error,
         return_data=evm.output,
-        state_gas_left=gas_meter.state_gas_left,
+        state_gas_left=reservoir.state_gas_left,
         state_gas_used=tx_state_gas_used(
             gas_meter, tx_env.state_gas_reservoir
         ),

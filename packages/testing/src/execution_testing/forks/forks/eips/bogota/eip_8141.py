@@ -173,18 +173,18 @@ class EIP8141(BaseFork):
         Frame entry gas is introduced.
 
         A frame executing its target's code charges the target's warm
-        or cold access at entry, the state gas of a value transfer
-        reviving a dead account — spilled into execution gas, as a
-        frame holds no state gas reservoir — and the warm or cold
-        access of the delegate when the target carries an EIP-7702
-        delegation designation.
+        or cold access at entry, and the warm or cold access of the
+        delegate when the target carries an EIP-7702 delegation
+        designation. A value transfer reviving a dead account charges
+        the account creation — ``gas_costs().NEW_ACCOUNT`` — to the
+        frame's state gas budget, outside this calculator's execution
+        gas result.
         """
         gas_costs = cls.gas_costs()
 
         def fn(
             *,
             target_warm: bool = False,
-            sends_value_to_dead_account: bool = False,
             delegated: bool = False,
             delegation_warm: bool = False,
         ) -> int:
@@ -193,8 +193,6 @@ class EIP8141(BaseFork):
                 if target_warm
                 else gas_costs.COLD_ACCOUNT_ACCESS
             )
-            if sends_value_to_dead_account:
-                gas += gas_costs.NEW_ACCOUNT
             if delegated:
                 gas += (
                     gas_costs.WARM_ACCESS

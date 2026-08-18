@@ -194,6 +194,23 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                 pass
 
 
+DEFAULT_FRAME_GAS_LIMIT = 100_000
+"""
+Default execution gas budget of a frame, with ample headroom for the
+sender's default code, a value transfer, or a small call. Tests that
+are gas-sensitive should set `gas_limit` explicitly.
+"""
+
+DEFAULT_FRAME_STATE_GAS_LIMIT = 400_000
+"""
+Default state gas budget of a frame, with ample headroom for an
+account creation (183,600) plus a couple of storage slot creations
+(97,920 each); unused budget is refunded at settlement. Tests that
+are gas-sensitive — including any expiry verifier frame, which must
+declare a zero state budget — should set `state_gas_limit` explicitly.
+"""
+
+
 class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
     """
     Frame within an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
@@ -203,8 +220,10 @@ class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
     mode: NumberBoundTypeVar = Field(0)  # type: ignore
     flags: NumberBoundTypeVar = Field(0)  # type: ignore
     target: Address | None = None
-    gas_limit: NumberBoundTypeVar = Field(0)  # type: ignore
-    state_gas_limit: NumberBoundTypeVar = Field(0)  # type: ignore
+    gas_limit: NumberBoundTypeVar = Field(DEFAULT_FRAME_GAS_LIMIT)  # type: ignore
+    state_gas_limit: NumberBoundTypeVar = Field(  # type: ignore
+        DEFAULT_FRAME_STATE_GAS_LIMIT
+    )
     value: NumberBoundTypeVar = Field(0)  # type: ignore
     data: Bytes = Field(Bytes(b""))
 

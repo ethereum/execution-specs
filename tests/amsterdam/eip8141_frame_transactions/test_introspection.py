@@ -11,6 +11,7 @@ from typing import List
 
 import pytest
 from execution_testing import (
+    DEFAULT_FRAME_GAS_LIMIT,
     EOA,
     Account,
     Address,
@@ -38,10 +39,8 @@ SLOT_RESULT = 0x01
 PROBE_FRAME_DATA = Bytes(bytes(range(1, 41)))
 """Data of the probe frame: 40 bytes, so a word read is truncated."""
 
-# A fresh SSTORE costs STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE
-# of state gas under EIP-8037, and a frame transaction holds no state
-# gas reservoir, so a probe writing two slots needs room for both.
 PROBE_FRAME_GAS = 500_000
+"""Execution gas budget of the probe frames."""
 
 MAX_PRIORITY_FEE = 7
 MAX_FEE = 1_000_000_000
@@ -216,7 +215,12 @@ def test_txparam_sender_and_sig_hash(
             id="allowed_scope",
         ),
         pytest.param(0, Spec.FRAMEPARAM_DATA_LENGTH, 0, id="empty_data"),
-        pytest.param(0, Spec.FRAMEPARAM_GAS_LIMIT, 100_000, id="gas_limit"),
+        pytest.param(
+            0,
+            Spec.FRAMEPARAM_GAS_LIMIT,
+            DEFAULT_FRAME_GAS_LIMIT,
+            id="gas_limit",
+        ),
         pytest.param(0, Spec.FRAMEPARAM_ATOMIC_BATCH, 0, id="atomic_batch"),
         pytest.param(
             0,
@@ -318,7 +322,6 @@ def test_frameparam_atomic_batch_set(
             ),
             Frame(
                 mode=Spec.MODE_DEFAULT,
-                gas_limit=100_000,
             ),
         ],
     )

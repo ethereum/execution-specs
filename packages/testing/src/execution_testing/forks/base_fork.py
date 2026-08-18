@@ -339,29 +339,26 @@ class FrameEntryGasCalculator(Protocol):
         self,
         *,
         target_warm: bool = False,
-        sends_value_to_dead_account: bool = False,
         delegated: bool = False,
         delegation_warm: bool = False,
     ) -> int:
         """
-        Return the gas charged at a frame's entry, within the frame's
-        own gas limit.
+        Return the execution gas charged at a frame's entry, within
+        the frame's own execution gas budget.
+
+        A value transfer reviving an account that is not alive charges
+        the account creation to the frame's state gas budget instead;
+        that charge is ``gas_costs().NEW_ACCOUNT``, not part of this
+        calculator's result.
 
         Args:
           target_warm: Whether the frame's resolved target was left
                        warm by an earlier frame of the transaction.
-          sends_value_to_dead_account: Whether the frame's value
-                                       transfer revives an account that
-                                       is not alive, charging its
-                                       creation. The state-gas charge
-                                       spills into the frame's
-                                       execution gas, as a frame holds
-                                       no state gas reservoir.
           delegated: Whether the target carries an EIP-7702 delegation
                      designation, charging the delegate's access.
           delegation_warm: Whether the delegate is warm.
 
-        Returns: Gas charged at the frame's entry
+        Returns: Execution gas charged at the frame's entry
 
         """
         pass

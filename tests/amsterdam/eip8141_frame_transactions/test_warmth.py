@@ -50,11 +50,14 @@ pytestmark = pytest.mark.valid_from("Bogota")
 SLOT_MEASURED_GAS = 0x00
 """Storage slot the probe contract writes the measured gas into."""
 
-# A fresh SSTORE costs STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE
-# of state gas under EIP-8037, and a frame transaction holds no state
-# gas reservoir, so the probe frame needs room for its measurement
-# write.
 PROBE_FRAME_GAS = 500_000
+"""Execution gas budget of the probe frames."""
+
+PROBE_FRAME_STATE_GAS = 100_000
+"""
+State gas budget of the probe frames, covering the fresh storage slot
+the measurement write creates.
+"""
 
 TOUCH_FRAME_GAS = 200_000
 """Gas limit of the frames that warm the subject address."""
@@ -70,7 +73,10 @@ class AccessGasProbe:
     """Code measuring the gas of an account access."""
 
     frame_gas: int
-    """Gas a frame running the probe uses."""
+    """Execution gas a frame running the probe uses."""
+
+    frame_state_gas: int
+    """State gas a frame running the probe uses: its measurement write."""
 
     post_account: Account
     """Post account pinning the measured access cost."""
@@ -88,7 +94,9 @@ def balance_probe(
     also tags the measured `BALANCE`'s metadata, so `frame_gas`
     reflects the frame's actual execution: the cold access for the
     probe contract itself — always a fresh, untouched frame target —
-    charged at frame entry, plus the probe code.
+    charged at frame entry, plus the probe code's execution gas. The
+    measurement write's state gas lands in `frame_state_gas`,
+    mirroring the two dimensions of the frame's receipt.
     """
     access_gas = Op.BALANCE(address_warm=warm).gas_cost(fork)
     measured = Op.BALANCE(address=subject, address_warm=warm)
@@ -100,7 +108,9 @@ def balance_probe(
     )
     return AccessGasProbe(
         code=code,
-        frame_gas=fork.gas_costs().COLD_ACCOUNT_ACCESS + code.gas_cost(fork),
+        frame_gas=fork.gas_costs().COLD_ACCOUNT_ACCESS
+        + code.execution_cost(fork),
+        frame_state_gas=code.state_cost(fork),
         post_account=Account(storage={SLOT_MEASURED_GAS: access_gas}),
     )
 
@@ -113,6 +123,7 @@ def probe_frame(probe: Address) -> Frame:
         mode=Spec.MODE_DEFAULT,
         target=probe,
         gas_limit=PROBE_FRAME_GAS,
+        state_gas_limit=PROBE_FRAME_STATE_GAS,
     )
 
 
@@ -167,7 +178,9 @@ def test_sender_is_warm(
             frame_receipts=[
                 FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=probe.frame_gas
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
                 ),
             ],
         ),
@@ -210,7 +223,9 @@ def test_coinbase_is_warm(
             frame_receipts=[
                 FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=probe.frame_gas
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
                 ),
             ],
         ),
@@ -403,7 +418,9 @@ def test_warmth_carry_to_next_frame(
                 FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
                 FrameReceipt(status=warmer_status, gas_used=warmer_gas),
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=probe.frame_gas
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
                 ),
             ],
         ),
@@ -513,7 +530,9 @@ def test_warmth_from_inner_call(
                 FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
                 FrameReceipt(status=outer_status, gas_used=outer_gas),
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=probe.frame_gas
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
                 ),
             ],
         ),

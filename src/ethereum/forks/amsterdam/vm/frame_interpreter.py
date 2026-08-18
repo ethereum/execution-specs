@@ -19,7 +19,7 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.state import EMPTY_CODE_HASH, Address
 
-from ..blocks import FrameReceipt, Log
+from ..blocks import FrameReceipt, GasUsed, Log
 from ..exceptions import FrameTransactionExecutionError
 from ..fork_types import ExecutionGas, StateGas
 from ..state_tracker import (
@@ -27,6 +27,7 @@ from ..state_tracker import (
     copy_tx_state,
     get_account,
     get_code,
+    is_account_alive,
     restore_tx_state,
 )
 from ..transactions.frame_transaction import (
@@ -42,22 +43,23 @@ from . import (
     FRAME_ENTRY_POINT,
     BlockEnvironment,
     Evm,
+    FrameContext,
     TransactionEnvironment,
     attempt_approval,
+    copy_frame_context,
+    restore_frame_context,
 )
 from .eoa_delegation import resolve_delegated_code_address
 from .exceptions import ExceptionalHalt
 from .gas import (
     GasCosts,
     GasMeter,
+    StateGasCosts,
+    charge_frame_state_gas,
     charge_gas_from_meter,
-    forfeit_remaining_gas,
-    restore_state_gas,
-    tx_state_gas_used,
 )
 from .interpreter import (
     TransactionOutput,
-    charge_value_transfer_to_non_alive_account,
     process_call,
 )
 from .precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -71,11 +73,12 @@ class FrameJournal:
     Effects accrued across the frames of a frame transaction.
 
     Each finished frame's contributions are incorporated here: the
-    warm journal that successful frames feed, and the quantities that
-    settle the transaction once the last frame has run. When an
-    atomic batch opens, a copy of the journal joins the batch's
-    rollback point; unrolling the batch resumes from that copy —
-    except the unused gas, which never rolls back.
+    warm journal that successful frames feed, and the refunds and
+    scheduled deletions that settle the transaction once the last
+    frame has run. Everything gas-shaped settles from the frame
+    receipts instead. When an atomic batch opens, a copy of the
+    journal joins the batch's rollback point; unrolling the batch
+    resumes from that copy.
     """
 
     warm_addresses: Set[Address]
@@ -88,20 +91,9 @@ class FrameJournal:
     Storage keys left warm for later frames by successful frames.
     """
 
-    unused_gas: Uint
-    """
-    Gas the frames so far did not consume. Not available to later
-    frames; it accumulates for settlement.
-    """
-
     refund_counter: int
     """
     Refunds accrued by successful frames.
-    """
-
-    state_gas_used: int
-    """
-    Net state gas consumed by successful frames.
     """
 
     accounts_to_delete: Set[Address]
@@ -118,9 +110,7 @@ def copy_frame_journal(journal: FrameJournal) -> FrameJournal:
     return FrameJournal(
         warm_addresses=set(journal.warm_addresses),
         warm_storage_keys=set(journal.warm_storage_keys),
-        unused_gas=journal.unused_gas,
         refund_counter=journal.refund_counter,
-        state_gas_used=journal.state_gas_used,
         accounts_to_delete=set(journal.accounts_to_delete),
     )
 
@@ -134,7 +124,8 @@ class AtomicBatch:
     A frame carrying the atomic batch flag opens a batch that runs up
     to and including the next frame without the flag. When a batch
     frame fails, `unroll_atomic_batch` restores everything captured
-    here.
+    here: one snapshot per rollback domain — the transaction state,
+    the frame context, and the frame journal.
     """
 
     first_frame_index: Uint
@@ -147,14 +138,12 @@ class AtomicBatch:
     Copy of the transaction state taken before the batch began.
     """
 
-    payer: Optional[Address]
+    context_snapshot: FrameContext
     """
-    The context's payer before the batch began.
-    """
-
-    sender_approved: bool
-    """
-    The context's execution approval before the batch began.
+    Copy of the frame context taken before the batch began: the
+    approval fields, the receipts of the pre-batch frames — restoring
+    them undoes the refills the batch's frames applied to pre-batch
+    state charges — and the outstanding-charge ownership map.
     """
 
     journal: FrameJournal
@@ -171,7 +160,10 @@ class FrameOutcome:
 
     A finished frame's EVM is read once and immediately reduced to
     this record: the consensus receipt entry, plus the quantities the
-    frame contributes to the transaction's settlement.
+    frame contributes to the transaction's settlement that the
+    receipt does not carry. Everything gas-shaped is derived from the
+    receipt: the frame's unused gas, in either dimension, is its
+    budget less its receipt's usage.
     """
 
     receipt: FrameReceipt
@@ -179,20 +171,9 @@ class FrameOutcome:
     The frame's receipt entry.
     """
 
-    gas_left: Uint
-    """
-    Gas the frame did not consume. Not available to later frames; it
-    accumulates for settlement.
-    """
-
     refund_counter: int
     """
     Refunds the frame accrued; zero unless the frame succeeded.
-    """
-
-    state_gas_used: int
-    """
-    Net state gas the frame consumed; zero unless the frame succeeded.
     """
 
     accounts_to_delete: Set[Address]
@@ -213,41 +194,47 @@ def incorporate_frame_outcome(
     `execute_frame` commits them into the journal only when the frame
     succeeds.
     """
-    journal.unused_gas += outcome.gas_left
     journal.refund_counter += outcome.refund_counter
-    journal.state_gas_used += outcome.state_gas_used
     journal.accounts_to_delete |= outcome.accounts_to_delete
 
 
 def unroll_atomic_batch(
     tx_env: TransactionEnvironment,
     batch: AtomicBatch,
-    journal: FrameJournal,
 ) -> FrameJournal:
     """
     Unroll a failed atomic batch.
 
-    The transaction state and the approval fields are restored to the
-    condition immediately before the batch began, and the receipts of
-    the executed batch frames keep their status and gas with their
-    logs emptied. Return the batch's journal copy for the frame loop
-    to continue from — carrying over the live journal's unused gas,
-    because the gas the batch frames consumed remains charged.
+    The transaction state and the frame context are restored to the
+    condition immediately before the batch began — undoing, with the
+    batch's state changes, the refills its frames applied to pre-batch
+    receipts — and the receipts of the executed batch frames are
+    re-appended keeping their status and execution gas, with their
+    logs emptied and their state gas zeroed. Return the batch's
+    journal copy for the frame loop to continue from; the gas the
+    batch frames consumed remains charged, since their receipts keep
+    it.
     """
     frame_context = tx_env.frame_context
     assert frame_context is not None
 
+    executed_batch_receipts = frame_context.frame_receipts[
+        int(batch.first_frame_index) :
+    ]
+
     restore_tx_state(tx_env.state, batch.state_snapshot)
-    frame_context.payer = batch.payer
-    frame_context.sender_approved = batch.sender_approved
+    restore_frame_context(tx_env, batch.context_snapshot)
 
-    receipts = frame_context.frame_receipts
-    for index in range(int(batch.first_frame_index), len(receipts)):
-        receipts[index] = replace(receipts[index], logs=())
+    for receipt in executed_batch_receipts:
+        frame_context.frame_receipts.append(
+            replace(
+                receipt,
+                gas_used=replace(receipt.gas_used, state=Uint(0)),
+                logs=(),
+            )
+        )
 
-    restored = batch.journal
-    restored.unused_gas = journal.unused_gas
-    return restored
+    return batch.journal
 
 
 def create_evm_from_frame(
@@ -265,11 +252,16 @@ def create_evm_from_frame(
     The frame starts warm with the coinbase, the precompiles, and the
     journal shared across frames — not its caller, and not its target:
     the target's warm or cold access is charged here, within the
-    frame's own gas limit, as are the state gas for a value transfer
-    reviving a dead account and the access for resolving an EIP-7702
-    delegation. A charge exceeding the frame's gas raises instead of
-    building the EVM, failing the frame.
+    frame's own execution gas budget, as is the access for resolving
+    an EIP-7702 delegation. A value transfer reviving a dead account
+    is charged to the frame's state gas pool, after the caller's
+    balance check and before the frame's code executes. A charge
+    exceeding either budget raises instead of building the EVM,
+    failing the frame.
     """
+    frame_context = tx_env.frame_context
+    assert frame_context is not None
+
     ## Warm up the access sets
     accessed_addresses: Set[Address] = set(warm_addresses)
     accessed_addresses.add(block_env.coinbase)
@@ -283,9 +275,10 @@ def create_evm_from_frame(
         charge_gas_from_meter(gas_meter, GasCosts.COLD_ACCOUNT_ACCESS)
         accessed_addresses.add(resolved_target)
 
-    charge_value_transfer_to_non_alive_account(
-        tx_env.state, gas_meter, resolved_target, frame.value
-    )
+    if frame.value > U256(0) and not is_account_alive(
+        tx_env.state, resolved_target
+    ):
+        charge_frame_state_gas(frame_context, StateGasCosts.NEW_ACCOUNT)
 
     code_address, disable_precompiles = resolve_delegated_code_address(
         tx_env.state, gas_meter, accessed_addresses, resolved_target
@@ -335,10 +328,15 @@ def create_evm_from_frame(
 
 def execute_default_verify_code(
     tx_env: TransactionEnvironment, frame: Frame
-) -> FrameReceipt:
+) -> FrameStatus:
     """
     Execute the protocol default code of a `VERIFY` frame whose
-    resolved target has no code. It consumes no gas.
+    resolved target has no code, returning the frame's status.
+
+    The default code consumes no execution gas. It can consume state
+    gas through `APPROVE`, when incrementing the nonce creates the
+    sender account; a pool that cannot cover that charge raises,
+    halting the frame exceptionally.
 
     The default code approves the scope allowed by the frame's flags,
     provided the transaction carries an authorizing secp256k1
@@ -353,14 +351,10 @@ def execute_default_verify_code(
     tx = frame_context.tx
     resolved_target = resolve_frame_target(tx, frame)
 
-    failure = FrameReceipt(
-        status=FrameStatus.FAILURE, gas_used=Uint(0), logs=()
-    )
-
     allowed_scope = frame.flags & APPROVE_SCOPE_MASK
     # The frame is not allowed to approve anything.
     if not allowed_scope:
-        return failure
+        return FrameStatus.FAILURE
 
     if FrameFlag.APPROVE_EXECUTION in allowed_scope:
         signature_index = 0
@@ -369,23 +363,23 @@ def execute_default_verify_code(
 
     # There is no signature entry at the authorizing index.
     if len(tx.signatures) <= signature_index:
-        return failure
+        return FrameStatus.FAILURE
     signature = tx.signatures[signature_index]
 
     # Only a protocol-validated secp256k1 signature authorizes.
     if signature.scheme != FrameSignatureScheme.SECP256K1:
-        return failure
+        return FrameStatus.FAILURE
     # The signature must cover the canonical signature hash.
     if len(signature.message) != 0:
-        return failure
+        return FrameStatus.FAILURE
     # The signature must come from the frame's resolved target.
     if frame_context.resolved_signers[signature_index] != resolved_target:
-        return failure
+        return FrameStatus.FAILURE
 
     if not attempt_approval(tx_env, allowed_scope):
-        return failure
+        return FrameStatus.FAILURE
 
-    return FrameReceipt(status=FrameStatus.SUCCESS, gas_used=Uint(0), logs=())
+    return FrameStatus.SUCCESS
 
 
 def execute_frame(
@@ -402,6 +396,13 @@ def execute_frame(
     `CALL`, a caller that cannot cover the transferred value reverts
     the frame before it executes, consuming no gas.
 
+    The frame's receipt reports its usage of both gas dimensions at
+    frame exit: the execution gas its meter consumed — the whole
+    budget when the frame halted exceptionally — and its state budget
+    less the remaining pool. A failing frame's state gas, the
+    frame-entry charge included, rolls back to the checkpoint taken
+    here at frame entry, so its receipt reports zero state gas.
+
     On success the frame's accesses are committed back to the
     journal's warm sets; a failed frame's accesses are discarded with
     its EVM, so nothing it touched stays warm.
@@ -412,16 +413,46 @@ def execute_frame(
     tx_state = tx_env.state
     resolved_target = resolve_frame_target(tx, frame)
 
+    # Checkpoint at frame entry, before any charge: a failing frame's
+    # state gas restores to here, and any edits it made to earlier
+    # receipts are undone with it.
+    entry_snapshot = copy_frame_context(tx_env)
+    state_budget = Uint(frame.gas_limits.state)
+
     target_account = get_account(tx_state, resolved_target)
     if (
         frame.mode == FrameMode.VERIFY
         and target_account.code_hash == EMPTY_CODE_HASH
     ):
+        try:
+            status = execute_default_verify_code(tx_env, frame)
+        except ExceptionalHalt:
+            # `APPROVE` could not cover the sender-creation state
+            # charge: the frame halts exceptionally with no approval
+            # effects, consuming its execution budget.
+            restore_frame_context(tx_env, entry_snapshot)
+            return FrameOutcome(
+                receipt=FrameReceipt(
+                    status=FrameStatus.FAILURE,
+                    gas_used=GasUsed(
+                        execution=Uint(frame.gas_limits.execution),
+                        state=Uint(0),
+                    ),
+                    logs=(),
+                ),
+                refund_counter=0,
+                accounts_to_delete=set(),
+            )
         return FrameOutcome(
-            receipt=execute_default_verify_code(tx_env, frame),
-            gas_left=Uint(frame.gas_limits.execution),
+            receipt=FrameReceipt(
+                status=status,
+                gas_used=GasUsed(
+                    execution=Uint(0),
+                    state=state_budget - Uint(frame_context.state_gas_left),
+                ),
+                logs=(),
+            ),
             refund_counter=0,
-            state_gas_used=0,
             accounts_to_delete=set(),
         )
 
@@ -430,18 +461,17 @@ def execute_frame(
         if caller_balance < frame.value:
             return FrameOutcome(
                 receipt=FrameReceipt(
-                    status=FrameStatus.FAILURE, gas_used=Uint(0), logs=()
+                    status=FrameStatus.FAILURE,
+                    gas_used=GasUsed(execution=Uint(0), state=Uint(0)),
+                    logs=(),
                 ),
-                gas_left=Uint(frame.gas_limits.execution),
                 refund_counter=0,
-                state_gas_used=0,
                 accounts_to_delete=set(),
             )
 
     gas_meter = GasMeter(
         gas_left=ExecutionGas(Uint(frame.gas_limits.execution)),
-        state_gas_left=StateGas(Uint(0)),
-        state_gas_baseline=StateGas(Uint(0)),
+        reservoir=None,
     )
 
     try:
@@ -455,24 +485,34 @@ def execute_frame(
             journal.warm_storage_keys,
         )
     except ExceptionalHalt:
-        # The frame's entry charges exceeded its own gas limit.
-        restore_state_gas(gas_meter)
-        forfeit_remaining_gas(gas_meter)
+        # The frame's entry charges exceeded its own budgets: the
+        # frame halts exceptionally, consuming its execution budget.
+        restore_frame_context(tx_env, entry_snapshot)
         return FrameOutcome(
             receipt=FrameReceipt(
                 status=FrameStatus.FAILURE,
-                gas_used=Uint(frame.gas_limits.execution),
+                gas_used=GasUsed(
+                    execution=Uint(frame.gas_limits.execution),
+                    state=Uint(0),
+                ),
                 logs=(),
             ),
-            gas_left=Uint(0),
             refund_counter=0,
-            state_gas_used=0,
             accounts_to_delete=set(),
         )
 
     process_call(evm)
 
-    gas_used = Uint(frame.gas_limits.execution) - gas_meter.gas_left
+    if evm.error is not None:
+        # The frame failed: `process_call` rolled its state gas back
+        # to the call, and this restore extends the rollback over the
+        # frame-entry charge.
+        restore_frame_context(tx_env, entry_snapshot)
+
+    gas_used = GasUsed(
+        execution=Uint(frame.gas_limits.execution) - Uint(gas_meter.gas_left),
+        state=state_budget - Uint(frame_context.state_gas_left),
+    )
     if evm.error is None:
         journal.warm_addresses.update(evm.accessed_addresses)
         journal.warm_storage_keys.update(evm.accessed_storage_keys)
@@ -488,9 +528,7 @@ def execute_frame(
 
     return FrameOutcome(
         receipt=receipt,
-        gas_left=gas_meter.gas_left,
         refund_counter=gas_meter.refund_counter,
-        state_gas_used=tx_state_gas_used(gas_meter, StateGas(Uint(0))),
         accounts_to_delete=accounts_to_delete,
     )
 
@@ -502,15 +540,20 @@ def process_frames(
     """
     Execute the frames of a frame transaction in order.
 
-    Each frame runs with a fresh gas meter holding its own gas limit;
-    unused gas is not available to later frames and accumulates for
-    settlement. Between frames the transient storage is discarded and
-    the environment's origin is rebound to the caller of the frame
-    about to run.
+    Each frame runs against fresh gas pools holding its declared
+    budgets: a gas meter for the execution dimension and the frame
+    context's state gas pool for the state dimension. Unused gas is
+    not available to later frames. Between frames the transient
+    storage is discarded and the environment's origin is rebound to
+    the caller of the frame about to run.
 
     A failing frame of an atomic batch unrolls the batch, and the
-    remaining batch frames are skipped — their allotted gas counts as
-    unused.
+    remaining batch frames are skipped.
+
+    Both gas dimensions settle from the final receipts: each frame's
+    unused gas is its budget less its receipt's usage, so gas a
+    rollback or a later frame's refill removed from a receipt counts
+    as unused without further accounting.
 
     Unlike `process_top_level`, this flow can invalidate the whole
     transaction: a `VERIFY` frame reverting, a `SENDER` frame before
@@ -527,9 +570,7 @@ def process_frames(
     journal = FrameJournal(
         warm_addresses={tx.sender},
         warm_storage_keys=set(),
-        unused_gas=Uint(0),
         refund_counter=0,
-        state_gas_used=0,
         accounts_to_delete=set(),
     )
 
@@ -541,24 +582,25 @@ def process_frames(
         has_batch_flag = FrameFlag.ATOMIC_BATCH in frame.flags
 
         if has_batch_flag and open_batch is None:
+            context_snapshot = copy_frame_context(tx_env)
+            assert context_snapshot is not None
             open_batch = AtomicBatch(
                 first_frame_index=Uint(index),
                 state_snapshot=copy_tx_state(tx_state),
-                payer=frame_context.payer,
-                sender_approved=frame_context.sender_approved,
+                context_snapshot=context_snapshot,
                 journal=copy_frame_journal(journal),
             )
 
         if skip_batch:
             # A frame of a failed atomic batch never executes; its
-            # allotted gas — in both dimensions — counts as unused.
+            # zero-usage receipt makes its allotted gas — in both
+            # dimensions — count as unused.
             frame_context.frame_receipts.append(
                 FrameReceipt(
-                    status=FrameStatus.SKIPPED, gas_used=Uint(0), logs=()
+                    status=FrameStatus.SKIPPED,
+                    gas_used=GasUsed(execution=Uint(0), state=Uint(0)),
+                    logs=(),
                 )
-            )
-            journal.unused_gas += Uint(frame.gas_limits.execution) + Uint(
-                frame.gas_limits.state
             )
             if not has_batch_flag:
                 open_batch = None
@@ -583,6 +625,9 @@ def process_frames(
         else:
             tx_env.origin = FRAME_ENTRY_POINT
 
+        # Seed the frame's state gas pool from its declared budget.
+        frame_context.state_gas_left = StateGas(Uint(frame.gas_limits.state))
+
         outcome = execute_frame(block_env, tx_env, frame, journal)
         receipt = outcome.receipt
 
@@ -597,7 +642,7 @@ def process_frames(
 
         terminates_batch = open_batch is not None and not has_batch_flag
         if receipt.status == FrameStatus.FAILURE and open_batch is not None:
-            journal = unroll_atomic_batch(tx_env, open_batch, journal)
+            journal = unroll_atomic_batch(tx_env, open_batch)
             if terminates_batch:
                 open_batch = None
             else:
@@ -612,13 +657,29 @@ def process_frames(
     for receipt in frame_context.frame_receipts:
         logs += receipt.logs
 
+    # Settle both dimensions from the final receipts; every frame has
+    # exactly one.
+    unused_execution_gas = Uint(0)
+    unused_state_gas = Uint(0)
+    state_gas_used = Uint(0)
+    for frame, receipt in zip(
+        tx.frames, frame_context.frame_receipts, strict=True
+    ):
+        unused_execution_gas += (
+            Uint(frame.gas_limits.execution) - receipt.gas_used.execution
+        )
+        unused_state_gas += (
+            Uint(frame.gas_limits.state) - receipt.gas_used.state
+        )
+        state_gas_used += receipt.gas_used.state
+
     return TransactionOutput(
-        gas_left=ExecutionGas(journal.unused_gas),
+        gas_left=ExecutionGas(unused_execution_gas),
         refund_counter=U256(journal.refund_counter),
         logs=logs,
         accounts_to_delete=journal.accounts_to_delete,
         error=None,
         return_data=Bytes(b""),
-        state_gas_left=StateGas(Uint(0)),
-        state_gas_used=journal.state_gas_used,
+        state_gas_left=StateGas(unused_state_gas),
+        state_gas_used=int(state_gas_used),
     )

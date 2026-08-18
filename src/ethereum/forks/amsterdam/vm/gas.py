@@ -11,8 +11,8 @@ Introduction
 EVM gas constants and calculators.
 """
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final, List, Tuple, final
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Final, List, Optional, Tuple, final
 
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
@@ -41,7 +41,7 @@ from ..transactions import (
 from .exceptions import OutOfGasError
 
 if TYPE_CHECKING:
-    from . import BlockEnvironment, BlockOutput, Evm
+    from . import BlockEnvironment, BlockOutput, Evm, FrameContext
 
 
 # These may be patched at runtime by a future gas repricing utility to
@@ -322,30 +322,25 @@ MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
 
 @final
 @dataclass
-class GasMeter:
+class StateGasReservoir:
     """
-    Track a frame's gas consumption across both gas dimensions.
+    The state gas reservoir of [EIP-8037]'s single-gas-field model.
 
-    Bundle every mutable gas quantity a frame maintains, so the frame
-    and its settlement work against one object instead of a scatter of
-    fields on the [`Evm`].
+    Transaction types carrying one gas field cannot declare a state
+    gas budget of their own; the gas above the transaction gas cap
+    becomes a reservoir spendable only on state charges, which spill
+    into execution gas once it empties. Frame transactions declare
+    per-frame state budgets explicitly instead, and carry no
+    reservoir: their meters hold `None` in place of this component.
 
-    [`Evm`]: ref:ethereum.forks.amsterdam.vm.Evm
-    """
-
-    gas_left: ExecutionGas
-    """
-    Gas still available from the frame's execution-gas grant. Pays
-    execution-gas charges, and state charges as [spill] once the
-    reservoir empties.
-
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     """
 
     state_gas_left: StateGas
     """
     State gas still available in the frame's reservoir. Charges draw
-    from here first and spill into `gas_left` once it is empty.
+    from here first and spill into the meter's `gas_left` once it is
+    empty.
     """
 
     state_gas_baseline: StateGas
@@ -357,14 +352,11 @@ class GasMeter:
     [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
     """
 
-    refund_counter: int = 0
-    """Gas eligible for refund at the end of the transaction."""
-
     state_gas_spilled: StateGas = StateGas(Uint(0))
     """
     Execution gas spent covering state charges after the reservoir
-    emptied. Credited back to `gas_left` first, in LIFO order, on a
-    refund or failure. [EIP-8037] names this quantity
+    emptied. Credited back to the meter's `gas_left` first, in LIFO
+    order, on a refund or failure. [EIP-8037] names this quantity
     `state_gas_from_gas_left`.
 
     [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
@@ -379,11 +371,52 @@ class GasMeter:
     each commit lowers the baseline, so it is the frame's grant minus
     `state_gas_baseline`.
 
-    [Spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [Spill]: ref:ethereum.forks.amsterdam.vm.gas.StateGasReservoir.state_gas_spilled
     [commit]: ref:ethereum.forks.amsterdam.vm.gas.commit_state_gas
     [restore]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas
     [entry]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas_to_entry
+    """  # noqa: E501
+
+
+@final
+@dataclass
+class GasMeter:
     """
+    Track a frame's gas consumption across both gas dimensions.
+
+    Bundle every mutable gas quantity a frame maintains, so the frame
+    and its settlement work against one object instead of a scatter of
+    fields on the [`Evm`].
+
+    The execution dimension (`gas_left`, `refund_counter`) serves every
+    transaction type. The state dimension depends on the transaction's
+    model: single-gas-field transactions carry a
+    [`StateGasReservoir`][r], while frame transactions carry `None`
+    here and draw state gas from their frame's explicit budget on the
+    frame context instead.
+
+    [`Evm`]: ref:ethereum.forks.amsterdam.vm.Evm
+    [r]: ref:ethereum.forks.amsterdam.vm.gas.StateGasReservoir
+    """
+
+    gas_left: ExecutionGas
+    """
+    Gas still available from the frame's execution-gas grant. Pays
+    execution-gas charges, and state charges as [spill] once a carried
+    reservoir empties.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.StateGasReservoir.state_gas_spilled
+    """  # noqa: E501
+
+    reservoir: Optional[StateGasReservoir]
+    """
+    The state gas reservoir, for transaction types whose single gas
+    field funds both dimensions; `None` for frame transactions, whose
+    state budgets are explicit and frame-scoped.
+    """
+
+    refund_counter: int = 0
+    """Gas eligible for refund at the end of the transaction."""
 
 
 @final
@@ -477,6 +510,10 @@ def charge_state_gas_from_meter(gas_meter: GasMeter, amount: StateGas) -> None:
     Subtracts `amount` from the state gas reservoir, then from
     `gas_left` when the reservoir is empty, tracking any [spill].
 
+    Reservoir-model only: the meter must carry a reservoir. Frame
+    transactions charge state gas against their frame's explicit
+    budget through `charge_state_gas` instead.
+
     Parameters
     ----------
     gas_meter :
@@ -484,24 +521,102 @@ def charge_state_gas_from_meter(gas_meter: GasMeter, amount: StateGas) -> None:
     amount :
         The amount of state gas the current operation requires.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.StateGasReservoir.state_gas_spilled
 
-    """
-    if gas_meter.state_gas_left >= amount:
-        gas_meter.state_gas_left -= amount
-    elif Uint(gas_meter.state_gas_left) + Uint(gas_meter.gas_left) >= amount:
-        remainder = amount - gas_meter.state_gas_left
-        gas_meter.state_gas_left = StateGas(Uint(0))
+    """  # noqa: E501
+    reservoir = gas_meter.reservoir
+    assert reservoir is not None
+
+    if reservoir.state_gas_left >= amount:
+        reservoir.state_gas_left -= amount
+    elif Uint(reservoir.state_gas_left) + Uint(gas_meter.gas_left) >= amount:
+        remainder = amount - reservoir.state_gas_left
+        reservoir.state_gas_left = StateGas(Uint(0))
         gas_meter.gas_left = ExecutionGas(gas_meter.gas_left - Uint(remainder))
-        gas_meter.state_gas_spilled += remainder
+        reservoir.state_gas_spilled += remainder
     else:
         raise OutOfGasError
 
 
+def charge_frame_state_gas(
+    frame_context: "FrameContext", amount: StateGas
+) -> None:
+    """
+    Subtracts `amount` from the executing frame's state gas pool.
+
+    The pool is the only source of state gas within a frame
+    transaction: execution gas can never fund state charges, so a
+    charge exceeding the pool is an exceptional halt of the current
+    call frame, with ordinary out-of-gas semantics.
+
+    Parameters
+    ----------
+    frame_context :
+        The frame transaction's context.
+    amount :
+        The amount of state gas the current operation requires.
+
+    """
+    if frame_context.state_gas_left < amount:
+        raise OutOfGasError
+    frame_context.state_gas_left -= amount
+
+
+def credit_frame_state_gas_refund(
+    frame_context: "FrameContext", owner: Uint, amount: StateGas
+) -> None:
+    """
+    Credit a state gas refund to the frame that paid the charge, within
+    a frame transaction.
+
+    The refund lowers the owner's attributed state gas: back into the
+    executing frame's own pool when it is the owner — a frame's
+    refunds can never exceed its own charges, so the pool never
+    exceeds the frame's budget — or out of the owner's receipt
+    otherwise, returning the amount to the payer at settlement without
+    granting the executing frame budget it never declared.
+
+    The caller identifies the owner: the frame recorded in the
+    outstanding-charge ownership map for a storage slot refill, or the
+    executing frame itself when undoing a charge it just paid for an
+    account creation that failed or never happened.
+
+    Parameters
+    ----------
+    frame_context :
+        The frame transaction's context.
+    owner :
+        Index of the frame that paid the charge.
+    amount :
+        The amount of state gas the original charge paid.
+
+    """
+    if owner == frame_context.current_frame_index:
+        frame_context.state_gas_left += amount
+        # A refund only ever undoes a charge, so the pool never
+        # exceeds the frame's declared budget.
+        frame = frame_context.tx.frames[int(owner)]
+        assert frame_context.state_gas_left <= Uint(frame.gas_limits.state)
+    else:
+        receipt = frame_context.frame_receipts[int(owner)]
+        frame_context.frame_receipts[int(owner)] = replace(
+            receipt,
+            gas_used=replace(
+                receipt.gas_used,
+                state=receipt.gas_used.state - Uint(amount),
+            ),
+        )
+
+
 def charge_state_gas(evm: "Evm", amount: StateGas) -> None:
     """
-    Subtracts `amount` from the state gas reservoir, then from
-    `gas_left` when the reservoir is empty, tracking any [spill].
+    Charge `amount` of state gas to the transaction's state gas
+    source.
+
+    This is the junction between the two state gas models: a frame
+    transaction draws from the executing frame's declared pool, while
+    every other transaction type draws from its meter's reservoir,
+    spilling into `gas_left` once the reservoir is empty.
 
     Parameters
     ----------
@@ -510,12 +625,14 @@ def charge_state_gas(evm: "Evm", amount: StateGas) -> None:
     amount :
         The amount of state gas the current operation requires.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
-
     """
     evm_trace(evm, StateGasAndRefund(int(amount)))
 
-    charge_state_gas_from_meter(evm.gas_meter, amount)
+    frame_context = evm.tx_env.frame_context
+    if frame_context is None:
+        charge_state_gas_from_meter(evm.gas_meter, amount)
+    else:
+        charge_frame_state_gas(frame_context, amount)
 
 
 def commit_state_gas(gas_meter: GasMeter) -> None:
@@ -544,38 +661,47 @@ def commit_state_gas(gas_meter: GasMeter) -> None:
     [entry]: ref:ethereum.forks.amsterdam.vm.gas.restore_state_gas_to_entry
 
     """
+    reservoir = gas_meter.reservoir
+    assert reservoir is not None
+
     # Only charges precede a commit, so no refund has pushed the
     # reservoir above the baseline: a commit only ever lowers it.
-    assert gas_meter.state_gas_left <= gas_meter.state_gas_baseline
-    gas_meter.state_gas_committed_spill += gas_meter.state_gas_spilled
-    gas_meter.state_gas_baseline = gas_meter.state_gas_left
-    gas_meter.state_gas_spilled = StateGas(Uint(0))
+    assert reservoir.state_gas_left <= reservoir.state_gas_baseline
+    reservoir.state_gas_committed_spill += reservoir.state_gas_spilled
+    reservoir.state_gas_baseline = reservoir.state_gas_left
+    reservoir.state_gas_spilled = StateGas(Uint(0))
 
 
 def restore_state_gas(gas_meter: GasMeter) -> None:
     """
-    Roll the frame's state gas back to the baseline on revert or halt.
+    Roll a failing frame's state gas back on revert or halt.
 
-    The frame's state changes are undone, so the state gas consumed
-    since the [baseline] is credited back in LIFO order: the [spill]
-    returns to `gas_left` first, then the reservoir resets to the
-    baseline. The refunds accrued on the undone changes are discarded
-    with them. State gas committed as non-refillable stays charged.
+    The frame's state changes are undone, so the state gas consumed on
+    them is credited back. With a reservoir, in LIFO order: the
+    [spill] returns to `gas_left` first, then the reservoir resets to
+    the [baseline]; state gas committed as non-refillable stays
+    charged. A frame transaction's meter carries no reservoir — its
+    pool and attribution roll back with the transaction state, through
+    the frame-context snapshot taken alongside the state snapshot — so
+    there is nothing to restore on the meter. In both models the
+    refunds accrued on the undone changes are discarded with them.
 
     Parameters
     ----------
     gas_meter :
         The frame's gas meter.
 
-    [baseline]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_baseline
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [baseline]: ref:ethereum.forks.amsterdam.vm.gas.StateGasReservoir.state_gas_baseline
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.StateGasReservoir.state_gas_spilled
 
     """  # noqa: E501
-    gas_meter.gas_left = ExecutionGas(
-        gas_meter.gas_left + Uint(gas_meter.state_gas_spilled)
-    )
-    gas_meter.state_gas_spilled = StateGas(Uint(0))
-    gas_meter.state_gas_left = gas_meter.state_gas_baseline
+    reservoir = gas_meter.reservoir
+    if reservoir is not None:
+        gas_meter.gas_left = ExecutionGas(
+            gas_meter.gas_left + Uint(reservoir.state_gas_spilled)
+        )
+        reservoir.state_gas_spilled = StateGas(Uint(0))
+        reservoir.state_gas_left = reservoir.state_gas_baseline
     gas_meter.refund_counter = 0
 
 
@@ -601,20 +727,23 @@ def restore_state_gas_to_entry(
     [grant]: ref:ethereum.forks.amsterdam.vm.TransactionEnvironment.state_gas_reservoir
 
     """  # noqa: E501
+    reservoir = gas_meter.reservoir
+    assert reservoir is not None
+
     # The baseline starts at the grant and only ever moves down.
-    assert gas_meter.state_gas_baseline <= state_gas_reservoir
+    assert reservoir.state_gas_baseline <= state_gas_reservoir
     # Only pre-dispatch failures roll back to entry, and no refund
     # accrues before dispatch.
     assert gas_meter.refund_counter == 0
     gas_meter.gas_left = ExecutionGas(
         gas_meter.gas_left
-        + Uint(gas_meter.state_gas_spilled)
-        + Uint(gas_meter.state_gas_committed_spill)
+        + Uint(reservoir.state_gas_spilled)
+        + Uint(reservoir.state_gas_committed_spill)
     )
-    gas_meter.state_gas_spilled = StateGas(Uint(0))
-    gas_meter.state_gas_committed_spill = StateGas(Uint(0))
-    gas_meter.state_gas_left = state_gas_reservoir
-    gas_meter.state_gas_baseline = state_gas_reservoir
+    reservoir.state_gas_spilled = StateGas(Uint(0))
+    reservoir.state_gas_committed_spill = StateGas(Uint(0))
+    reservoir.state_gas_left = state_gas_reservoir
+    reservoir.state_gas_baseline = state_gas_reservoir
 
 
 def tx_state_gas_used(
@@ -640,16 +769,19 @@ def tx_state_gas_used(
     state_gas_used : `int`
         The net state gas consumed.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.StateGasReservoir.state_gas_spilled
 
-    """
+    """  # noqa: E501
+    reservoir = gas_meter.reservoir
+    assert reservoir is not None
+
     # The baseline starts at the grant and only ever moves down.
-    assert gas_meter.state_gas_baseline <= state_gas_reservoir
+    assert reservoir.state_gas_baseline <= state_gas_reservoir
     return (
         int(state_gas_reservoir)
-        - int(gas_meter.state_gas_left)
-        + int(gas_meter.state_gas_spilled)
-        + int(gas_meter.state_gas_committed_spill)
+        - int(reservoir.state_gas_left)
+        + int(reservoir.state_gas_spilled)
+        + int(reservoir.state_gas_committed_spill)
     )
 
 
@@ -669,13 +801,16 @@ def credit_state_gas_refund(gas_meter: GasMeter, amount: StateGas) -> None:
     amount :
         The refund amount to credit.
 
-    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.StateGasReservoir.state_gas_spilled
 
-    """
-    from_gas_left = min(amount, gas_meter.state_gas_spilled)
+    """  # noqa: E501
+    reservoir = gas_meter.reservoir
+    assert reservoir is not None
+
+    from_gas_left = min(amount, reservoir.state_gas_spilled)
     gas_meter.gas_left = ExecutionGas(gas_meter.gas_left + Uint(from_gas_left))
-    gas_meter.state_gas_spilled -= from_gas_left
-    gas_meter.state_gas_left += amount - from_gas_left
+    reservoir.state_gas_spilled -= from_gas_left
+    reservoir.state_gas_left += amount - from_gas_left
 
 
 def forfeit_remaining_gas(gas_meter: GasMeter) -> None:
@@ -688,9 +823,10 @@ def forfeit_remaining_gas(gas_meter: GasMeter) -> None:
         The halted frame's gas meter.
 
     """
-    # A rollback owes any outstanding spill back to `gas_left`; it
-    # must be restored before the remainder burns.
-    assert gas_meter.state_gas_spilled == Uint(0)
+    if gas_meter.reservoir is not None:
+        # A rollback owes any outstanding spill back to `gas_left`; it
+        # must be restored before the remainder burns.
+        assert gas_meter.reservoir.state_gas_spilled == Uint(0)
     gas_meter.gas_left = ExecutionGas(Uint(0))
 
 
@@ -736,20 +872,22 @@ def drain_state_gas_reservoir(gas_meter: GasMeter) -> StateGas:
         The state gas granted to the child frame.
 
     """
-    reservoir = gas_meter.state_gas_left
-    gas_meter.state_gas_left = StateGas(Uint(0))
-    return reservoir
+    reservoir = gas_meter.reservoir
+    assert reservoir is not None
+
+    drained = reservoir.state_gas_left
+    reservoir.state_gas_left = StateGas(Uint(0))
+    return drained
 
 
-def restore_child_gas(
-    gas_meter: GasMeter, gas: ExecutionGas, state_gas_reservoir: StateGas
-) -> None:
+def restore_child_gas(gas_meter: GasMeter, gas: ExecutionGas) -> None:
     """
-    Return a child frame's unused gas grant to the parent.
+    Return a child frame's unused execution gas grant to the parent.
 
     Used when the child frame is never entered (for example, a stack
-    depth or balance check fails): the withheld execution gas and
-    drained reservoir are returned untouched.
+    depth or balance check fails): the withheld execution gas is
+    returned untouched. The state dimension needs no restoring, since
+    it is handed down only after the preflight checks pass.
 
     Parameters
     ----------
@@ -757,12 +895,9 @@ def restore_child_gas(
         The parent frame's gas meter.
     gas :
         The execution gas grant to return.
-    state_gas_reservoir :
-        The state gas reservoir to return.
 
     """
     gas_meter.gas_left += gas
-    gas_meter.state_gas_left += state_gas_reservoir
 
 
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> ExecutionGas:

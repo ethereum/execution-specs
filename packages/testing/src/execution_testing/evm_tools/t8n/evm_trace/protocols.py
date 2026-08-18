@@ -53,14 +53,26 @@ class Evm(Protocol):
 
 
 @runtime_checkable
+class StateGasReservoir(Protocol):
+    """
+    The class describes the state gas reservoir carried by the gas
+    meters of single-gas-field transactions (EIP-8037).
+    """
+
+    state_gas_left: Uint
+
+
+@runtime_checkable
 class GasMeter(Protocol):
     """
     The class describes the gas meter of forks that bundle gas
-    accounting into a dedicated object (EIP-8037).
+    accounting into a dedicated object (EIP-8037). The reservoir is
+    `None` for frame transactions (EIP-8141), whose state gas budgets
+    are frame-scoped.
     """
 
     gas_left: Uint
-    state_gas_left: Uint
+    reservoir: StateGasReservoir | None
     refund_counter: int
 
 
@@ -117,7 +129,18 @@ def evm_refund_counter(evm: Evm) -> int:
 def evm_state_gas_left(evm: Evm) -> Uint | None:
     """
     Read the state gas remaining, or `None` for forks without state gas.
+
+    Reads the meter's reservoir; a meter without one belongs to a frame
+    transaction (EIP-8141), whose executing frame's state gas pool
+    lives on the frame context instead.
     """
     if isinstance(evm, EvmWithGasMeter):
-        return evm.gas_meter.state_gas_left
+        reservoir = evm.gas_meter.reservoir
+        if reservoir is not None:
+            return reservoir.state_gas_left
+        frame_context = getattr(
+            getattr(evm, "tx_env", None), "frame_context", None
+        )
+        if frame_context is not None:
+            return Uint(frame_context.state_gas_left)
     return None

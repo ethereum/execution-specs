@@ -184,6 +184,8 @@ def check_frame_transaction(
             frame_receipts=[],
             payer=None,
             sender_approved=False,
+            state_gas_left=StateGas(Uint(0)),
+            outstanding_charge_owners={},
         ),
     )
 
