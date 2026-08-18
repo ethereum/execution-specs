@@ -109,21 +109,21 @@ This flag automatically performs a two-phase execution:
 
 ## Sync Payloads
 
-By default the filler appends framework-built empty blocks above the leaves of each authored payload graph **in `blockchain_test_engine_x` fixtures only**. They are stored out of chain in the optional `syncPayloads` list. `--no-sync-block` disables all of them:
+By default, the filler tries to append an empty sync payload to every chain represented in a **`blockchain_test_engine_x` fixture**. These are added to trigger propagation of all test blocks (the sync payload's ancestors) via devp2p in the `wirex` simulator. The filler stores these payloads separately in the optional `syncPayloads` list. The `--no-sync-block` flag disables this behavior:
 
 ```console
 uv run fill --no-sync-block --generate-all-formats tests/cancun/
 ```
 
-Each entry lets a sync-based consumer announce a head above one branch, so that every representable payload the author wrote belongs to at least one ancestry path that must travel devp2p. A linear chain has one target:
+Most tests describe one linear chain and therefore get one sync payload:
 
 ```text
 G → T₁ … Tₙ → S*
 ```
 
-(`*` marks the block a sync-based consumer announces.) An expected-invalid payload followed by a valid sibling has two targets, one above each leaf. The targets live out of chain, so `engineNewPayloads`, `lastblockhash`, and the post state keep describing exactly the Engine API directives the test author wrote. Fixtures or individual leaves that cannot carry targets still fill instead of being skipped.
+`*` marks the sync payload that a sync-based consumer announces.
 
-[Sync Payloads](./sync_payloads.md) explains the payload graph, how a consumer reconstructs each branch by hash, why announcements start sync, and every case that carries no target.
+Announcing a sync payload starts syncing because its parent is unknown to the client, so the client fetches the test blocks below it over devp2p. A sync payload is omitted when the test must announce its own payload, when another block cannot be appended, or when the feature is disabled; the fixture still fills. A small number of tests describe sibling chains and therefore have more than one `syncPayloads` entry. Refer to [Sync Payloads](./sync_payloads.md) for more detailed explanations. [Blockchain Engine X Test consumption](../running_tests/test_formats/blockchain_test_engine_x.md#consumption) explains how a consumer reconstructs each chain by hash.
 
 ## Debugging the `t8n` Command
 

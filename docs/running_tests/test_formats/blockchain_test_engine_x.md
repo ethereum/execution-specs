@@ -53,7 +53,7 @@ Each file in the `pre_alloc` folder corresponds to a pre-allocation group identi
 
 ## Consumption
 
-For each [`BlockchainTestEngineXFixture`](#blockchaintestenginexfixture) test object in the JSON fixture file, perform the following steps:
+For each [`BlockchainTestEngineXFixture`](#blockchaintestenginexfixture) test object in the JSON fixture file, first perform this common setup:
 
 1. **Load Pre-Allocation Group**:
    - Read the appropriate file from the `pre_alloc` folder in the same directory
@@ -65,16 +65,30 @@ For each [`BlockchainTestEngineXFixture`](#blockchaintestenginexfixture) test ob
    - Use the pre-allocation group's `pre` allocation as the starting state
    - Use the pre-allocation group's `genesis` as the genesis block header
 
-3. **Execute Engine API Sequence**:
-   - For each [`FixtureEngineNewPayload`](#fixtureenginenewpayload) in [`engineNewPayloads`](#-enginenewpayloads-listfixtureenginenewpayload):
-     1. Deliver the payload using `engine_newPayloadVX`
-     2. Validate the response according to the payload's expected status
-   - Ignore [`syncPayloads`](#-syncpayloads-optionallistfixtureenginenewpayload) if present: they are not Engine API directives from the test
+After setup, consume the fixture through either the Engine API or devp2p full-sync path.
 
-4. **Verify Final State**:
-   - Compare the final chain head against [`lastblockhash`](#-lastblockhash-hash)
-   - Apply [`postStateDiff`](#-poststatediff-alloc) to the pre-allocation group
-   - Verify the resulting state matches the client's final state
+### Engine API
+
+1. For each [`FixtureEngineNewPayload`](#fixtureenginenewpayload) in [`engineNewPayloads`](#-enginenewpayloads-listfixtureenginenewpayload):
+   1. Deliver the payload using `engine_newPayloadVX`.
+   2. Validate the response according to the payload's expected status.
+2. Ignore [`syncPayloads`](#-syncpayloads-optionallistfixtureenginenewpayload) if present. They are not Engine API directives from the test.
+3. Compare the final chain head against [`lastblockhash`](#-lastblockhash-hash).
+4. Verify the final state: apply [`postStateDiff`](#-poststatediff-alloc) to the pre-allocation group and verify that the result matches the client's final state.
+
+### devp2p full sync
+
+The optional [`syncPayloads`](#-syncpayloads-optionallistfixtureenginenewpayload) list lets a system-test consumer deliver the test blocks over devp2p. Chain relationships come only from hashes. Timestamps select fork context; they do not identify ancestry. [`lastblockhash`](#-lastblockhash-hash) remains the final valid test block after all Engine API directives have been processed; it does not identify expected-invalid sibling chains.
+
+For each entry in `syncPayloads`:
+
+1. Read the sync payload's `parentHash`, which identifies its test-chain head.
+2. Look that hash up by `blockHash` in `engineNewPayloads`.
+3. Follow `parentHash` links backwards until genesis.
+4. Reverse that path and serve it over devp2p with the sync payload appended.
+5. Announce the sync payload with `engine_newPayload` and `forkchoiceUpdated`.
+
+The client is expected to reject a reconstructed chain if it contains a test payload with `validationError`; otherwise it is expected to sync successfully. Across all sync payloads, every representable test payload occurs in at least one chain. See [Sync Payloads](../../filling_tests/sync_payloads.md) for how the filler builds the list and when it can be absent.
 
 ## Structures
 
@@ -98,9 +112,9 @@ List of `engine_newPayloadVX` directives to be processed after the genesis block
 
 #### - `syncPayloads`: [`Optional`](./common_types.md#optional)`[`[`List`](./common_types.md#list)`[`[`FixtureEngineNewPayload`](#fixtureenginenewpayload)`]]`
 
-Ordered framework-built empty payloads, one above each representable leaf of the authored payload graph. The `parentHash` inside each entry names its leaf. A sync-based consumer follows authored `parentHash` links back to genesis, serves that linear path with the target appended, and announces the target. Expected-invalid leaf targets precede the final valid target.
+Ordered framework-built empty payloads, one above each test-chain head for which another block can be built. Each sync payload's `parentHash` identifies its chain head. A sync-based consumer follows the test payloads' `parentHash` links back to genesis, serves that chain with the sync payload appended, and announces the sync payload. Sync payloads above expected-invalid sibling chains precede the sync payload above the final valid chain.
 
-The list is scaffolding for sync-based consumers, not part of the authored Engine API sequence. A target above an expected-invalid leaf is never an executable continuation; it exists so the client must fetch and reject that leaf through its sync path. Each target's `extraData` carries a per-test digest so a client reused across a pre-allocation group sees a new announced head. Absent when the fixture carries no targets; see [Sync Payloads](../../filling_tests/sync_payloads.md) for the graph and omission rules.
+The list is separate from the test's Engine API sequence. A sync payload above an expected-invalid test payload only triggers syncing: the client must fetch and reject the expected-invalid parent before it could execute the sync payload. Each sync payload's `extraData` contains a value derived from the test ID, giving it a test-specific `blockHash`. The field is absent when the fixture has no sync payloads; see [Sync Payloads](../../filling_tests/sync_payloads.md) for the sibling-chain and omission rules.
 
 #### - `lastblockhash`: [`Hash`](./common_types.md#hash)
 
