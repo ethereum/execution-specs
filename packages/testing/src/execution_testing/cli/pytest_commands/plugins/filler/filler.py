@@ -599,9 +599,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="sync_block",
         default=True,
         help=(
-            "Do not append the framework-built empty block above the chains "
-            "of blockchain_test_engine_x fixtures; no fixture carries a "
-            "`syncPayload`. See 'The Sync Block' in the filling-tests docs."
+            "Do not append framework-built empty payloads above the leaves "
+            "of blockchain_test_engine_x fixtures; no fixture carries "
+            "`syncPayloads`. See 'Sync Payloads' in the filling-tests docs."
         ),
     )
 
@@ -1613,17 +1613,17 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["is_exception_test"] = is_exception_test
                 kwargs["is_inclusion_test"] = is_inclusion_test
                 kwargs["invalid_tx_not_last"] = invalid_tx_not_last
-                # The appended sync block: on unless the option or the
+                # Appended sync payloads: on unless the option or the
                 # test's own opt-out (a caller-passed
                 # ``sync_block=False``) withholds it. Only fixture
-                # formats with a place for the block (engine_x) ever
-                # build one.
+                # formats with a place for the targets (engine_x) ever
+                # build them.
                 kwargs["sync_block"] = request.config.getoption(
                     "sync_block"
                 ) and kwargs.get("sync_block", True)
-                # Salt with the test's own id, so the appended block's
-                # hash is unique to its test and independent of how the
-                # fill was distributed.
+                # Salt with the test's own id, so appended target hashes
+                # are unique to the test and independent of how the fill
+                # was distributed.
                 kwargs["sync_block_salt"] = _strip_any_xdist_group_suffix(
                     request.node.nodeid
                 )
