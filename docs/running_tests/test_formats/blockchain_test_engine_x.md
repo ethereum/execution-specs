@@ -100,9 +100,9 @@ List of `engine_newPayloadVX` directives to be processed after the genesis block
 
 #### - `syncPayloads`: [`Optional`](./common_types.md#optional)`[`[`List`](./common_types.md#list)`[`[`FixtureEngineNewPayload`](#fixtureenginenewpayload)`]]`
 
-Ordered framework-built empty payloads, one above each representable leaf of the authored payload graph. The `parentHash` inside each entry names its leaf. A sync-based consumer follows authored `parentHash` links back to genesis, serves that linear path with the target appended, and announces the target. Expected-invalid leaf targets precede the final valid target.
+Ordered framework-built empty payloads, one above each test-chain head for which another block can be built. Each sync payload's `parentHash` identifies its chain head. A sync-based consumer follows the test payloads' `parentHash` links back to genesis, serves that chain with the sync payload appended, and announces the sync payload. Sync payloads above expected-invalid sibling chains precede the sync payload above the final valid chain.
 
-The list is scaffolding for sync-based consumers, not part of the authored Engine API sequence. A target above an expected-invalid leaf is never an executable continuation; it exists so the client must fetch and reject that leaf through its sync path. Each target's `extraData` carries a per-test digest so a client reused across a pre-allocation group sees a new announced head. Absent when the fixture carries no targets; see [Sync Payloads](../../filling_tests/sync_payloads.md) for the graph and omission rules.
+The list is separate from the test's Engine API sequence. A sync payload above an expected-invalid test payload only triggers syncing: the client must fetch and reject the expected-invalid parent before it could execute the sync payload. Each sync payload's `extraData` contains a value derived from the test ID, giving it a test-specific `blockHash`. The field is absent when the fixture has no sync payloads; see [Sync Payloads](../../filling_tests/sync_payloads.md) for the sibling-chain and omission rules.
 
 #### - `lastblockhash`: [`Hash`](./common_types.md#hash)
 

@@ -109,21 +109,23 @@ This flag automatically performs a two-phase execution:
 
 ## Sync Payloads
 
-By default the filler appends framework-built empty blocks above the leaves of each authored payload graph **in `blockchain_test_engine_x` fixtures only**. They are stored out of chain in the optional `syncPayloads` list. `--no-sync-block` disables all of them:
+By default, the filler tries to append an empty sync payload to every chain represented in a **`blockchain_test_engine_x` fixture**. It stores these payloads separately in the optional `syncPayloads` list. `--no-sync-block` disables this behavior:
 
 ```console
 uv run fill --no-sync-block --generate-all-formats tests/cancun/
 ```
 
-Each entry lets a sync-based consumer announce a head above one branch, so that every representable payload the author wrote belongs to at least one ancestry path that must travel devp2p. A linear chain has one target:
+Most tests describe one linear chain and therefore get one sync payload:
 
 ```text
 G → T₁ … Tₙ → S*
 ```
 
-(`*` marks the block a sync-based consumer announces.) An expected-invalid payload followed by a valid sibling has two targets, one above each leaf. The targets live out of chain, so `engineNewPayloads`, `lastblockhash`, and the post state keep describing exactly the Engine API directives the test author wrote. Fixtures or individual leaves that cannot carry targets still fill instead of being skipped.
+`*` marks the sync payload that a sync-based consumer announces. Its parent is unknown to the client, so the client starts syncing and fetches the test blocks below it over devp2p.
 
-[Sync Payloads](./sync_payloads.md) explains the payload graph, how a consumer reconstructs each branch by hash, why announcements start sync, and every case that carries no target.
+Some tests describe sibling chains. In that case, the filler appends one sync payload to each sibling-chain head for which another block can be built. Sync payloads are stored separately from `engineNewPayloads`; the test blocks, `lastblockhash`, and post-state assertion are unchanged. If the framework cannot append a sync payload to one chain, it omits that sync payload and logs why. The fixture still fills, and other sibling chains can still get sync payloads.
+
+[Sync Payloads](./sync_payloads.md) explains sibling chains, how a consumer reconstructs each chain by hash, why announcing a sync payload starts syncing, and when `syncPayloads` is omitted.
 
 ## Debugging the `t8n` Command
 
