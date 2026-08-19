@@ -61,7 +61,14 @@ def test_block_with_same_sender_missing_il_txs_is_valid(
     pre: Alloc,
     excluded_position: str,
 ) -> None:
-    """Including two IL txs from one sender keeps the payload valid."""
+    """
+    Omitting a same-sender IL tx leaves the payload unsatisfied.
+
+    Two of Alice's IL txs are in the block body, a third appears only in
+    the inclusion list. After the body executes, Alice's nonce matches the
+    omitted tx, so it is appendable and the block is IL unsatisfied
+    regardless of the omitted tx's position in the list.
+    """
     alice = pre.fund_eoa()
     bob = pre.nonexistent_account()
 
@@ -95,7 +102,6 @@ def test_block_with_same_sender_missing_il_txs_is_valid(
     )
 
 
-@pytest.mark.pre_alloc_mutable
 @pytest.mark.parametrize(
     "scenario",
     [
@@ -104,7 +110,10 @@ def test_block_with_same_sender_missing_il_txs_is_valid(
         "creation_init_reverts",
         "value_to_new_account_oog",
         "delegate_to_new_account_oog",
-        "creation_address_collision",
+        pytest.param(
+            "creation_address_collision",
+            marks=pytest.mark.pre_alloc_mutable,
+        ),
     ],
 )
 def test_block_with_failing_included_il_tx_is_valid(

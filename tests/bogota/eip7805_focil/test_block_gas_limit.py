@@ -20,6 +20,8 @@ pytestmark = [
     pytest.mark.blockchain_test_engine_only,
 ]
 
+# Body transfer count. Keeps the tx-derived block gas limit above the
+# EIP-7928 BAL item budget (block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM)
 FILL_TX_COUNT = 20
 
 
