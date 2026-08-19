@@ -356,6 +356,8 @@ class Block(Header):
     """Expected gas used for the block."""
     inclusion_list_txs: List[Transaction] | None = None
     """Transactions supplied as the block's inclusion list."""
+    expected_inclusion_list_satisfied: bool | None = None
+    """Expected outcome of the inclusion list verification for this block."""
 
     @property
     def phase(self) -> TestPhase | None:
@@ -889,14 +891,20 @@ class BlockchainTest(BaseTest):
         )
         env = env.set_fork_requirements(fork)
         txs = block.txs[:]
-        inclusion_list_txs = (
-            block.inclusion_list_txs[:]
-            if block.inclusion_list_txs is not None
-            else None
-        )
+        inclusion_list_txs: List[Transaction] | None = None
+        if block.inclusion_list_txs is not None:
+            inclusion_list_txs = block.inclusion_list_txs[:]
+        elif fork.engine_new_payload_inclusion_list_transactions():
+            inclusion_list_txs = []
+        # Deduplicate by identity: a tx reused in both the block body and
+        # the inclusion list is executed only once, so the gas-limit budget
+        # below must count it once.
         all_txs = txs[:]
         if inclusion_list_txs is not None:
-            all_txs += inclusion_list_txs
+            seen = {id(tx) for tx in txs}
+            all_txs += [
+                il_tx for il_tx in inclusion_list_txs if id(il_tx) not in seen
+            ]
         if any("gas_limit" not in tx.model_fields_set for tx in all_txs):
             max_tx_gas_limit = Transaction.calculate_max_gas_limit(
                 txs=all_txs,
@@ -1014,6 +1022,23 @@ class BlockchainTest(BaseTest):
                 f"gas_used ({gas_used}) does not match expected_gas_used "
                 f"({block.expected_gas_used})"
                 f", difference: {gas_used - block.expected_gas_used}"
+            )
+
+        if block.expected_inclusion_list_satisfied is not None:
+            actual_inclusion_list_satisfied = (
+                transition_tool_output.result.inclusion_list_satisfied
+            )
+            assert actual_inclusion_list_satisfied is not None, (
+                "expected `inclusion_list_satisfied` from the transition tool "
+                "but received `None`"
+            )
+            assert (
+                actual_inclusion_list_satisfied
+                == block.expected_inclusion_list_satisfied
+            ), (
+                "expected inclusion_list_satisfied=="
+                f"{block.expected_inclusion_list_satisfied}, got "
+                f"{actual_inclusion_list_satisfied}"
             )
 
         requests_list: List[Bytes] | None = None

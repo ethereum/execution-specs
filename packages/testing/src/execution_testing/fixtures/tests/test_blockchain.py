@@ -1774,8 +1774,9 @@ class TestFixtureExecutionPayloadModifier:
 
     def test_from_fixture_header_removes_body_on_post_bal_fork(self) -> None:
         """REMOVE_FIELD bypasses the fork-required check and omits the body."""
+        fork = Amsterdam
         payload = FixtureEngineNewPayload.from_fixture_header(
-            fork=Amsterdam,
+            fork=fork,
             header=_amsterdam_payload_header(),
             transactions=[],
             withdrawals=[],
@@ -1786,30 +1787,41 @@ class TestFixtureExecutionPayloadModifier:
                     FixtureExecutionPayloadModifier.REMOVE_FIELD
                 ),
             ),
+            inclusion_list_transactions=[]
+            if fork.engine_new_payload_inclusion_list_transactions()
+            else None,
         )
         assert payload.params[0].block_access_list is None
         assert "blockAccessList" not in to_json(payload.params[0])
 
     def test_from_fixture_header_requires_bal_on_post_bal_fork(self) -> None:
         """Without a modifier override, Amsterdam still requires a BAL body."""
+        fork = Amsterdam
         with pytest.raises(ValueError, match="block_access_list"):
             FixtureEngineNewPayload.from_fixture_header(
-                fork=Amsterdam,
+                fork=fork,
                 header=_amsterdam_payload_header(),
                 transactions=[],
                 withdrawals=[],
                 requests=[],
                 block_access_list=None,
+                inclusion_list_transactions=[]
+                if fork.engine_new_payload_inclusion_list_transactions()
+                else None,
             )
 
     def test_from_fixture_header_passthrough_without_modifier(self) -> None:
         """No modifier leaves the payload's BAL body unchanged."""
+        fork = Amsterdam
         payload = FixtureEngineNewPayload.from_fixture_header(
-            fork=Amsterdam,
+            fork=fork,
             header=_amsterdam_payload_header(),
             transactions=[],
             withdrawals=[],
             requests=[],
             block_access_list=Bytes(b"\xaa\xbb"),
+            inclusion_list_transactions=[]
+            if fork.engine_new_payload_inclusion_list_transactions()
+            else None,
         )
         assert payload.params[0].block_access_list == Bytes(b"\xaa\xbb")
