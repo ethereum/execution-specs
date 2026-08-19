@@ -1063,22 +1063,27 @@ class BlockchainTest(BaseTest):
                 f", difference: {gas_used - block.expected_gas_used}"
             )
 
+        actual_inclusion_list_satisfied = (
+            transition_tool_output.result.inclusion_list_satisfied
+        )
         if block.expected_inclusion_list_satisfied is not None:
-            actual_inclusion_list_satisfied = (
-                transition_tool_output.result.inclusion_list_satisfied
-            )
             assert actual_inclusion_list_satisfied is not None, (
                 "expected `inclusion_list_satisfied` from the transition tool "
                 "but received `None`"
             )
-            assert (
-                actual_inclusion_list_satisfied
-                == block.expected_inclusion_list_satisfied
-            ), (
-                "expected inclusion_list_satisfied=="
-                f"{block.expected_inclusion_list_satisfied}, got "
-                f"{actual_inclusion_list_satisfied}"
-            )
+            if not block.skip_exception_verification:
+                assert (
+                    actual_inclusion_list_satisfied
+                    == block.expected_inclusion_list_satisfied
+                ), (
+                    "expected inclusion_list_satisfied=="
+                    f"{block.expected_inclusion_list_satisfied}, got "
+                    f"{actual_inclusion_list_satisfied}"
+                )
+            else:
+                actual_inclusion_list_satisfied = (
+                    block.expected_inclusion_list_satisfied
+                )
 
         requests_list: List[Bytes] | None = None
         if fork.header_requests_required():
@@ -1172,7 +1177,7 @@ class BlockchainTest(BaseTest):
             fork=fork,
             block_access_list=bal,
             inclusion_list_txs=inclusion_list_txs,
-            inclusion_list_satisfied=transition_tool_output.result.inclusion_list_satisfied,
+            inclusion_list_satisfied=actual_inclusion_list_satisfied,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
             ),
@@ -1389,6 +1394,12 @@ class BlockchainTest(BaseTest):
                     block.expected_inclusion_list_satisfied = True
                 else:
                     block.expected_inclusion_list_satisfied = False
+                if block.header_verify:
+                    block.header_verify = None
+                if block.expected_gas_used:
+                    block.expected_gas_used = None
+                if block.expected_block_access_list:
+                    block.expected_block_access_list = None
             built_block = self.generate_block_data(
                 t8n=t8n,
                 block=block,
