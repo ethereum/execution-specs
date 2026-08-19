@@ -61,6 +61,8 @@ def spec_supported_fixture_formats_verifier(spec: Type[SpecType]) -> None:
     """
     keys: Dict[Tuple[Type[BaseFixture], str], str] = dict()
     for fixture_format in spec.supported_fixture_formats:
+        if fixture_format.transition_tool_cache_key == "":
+            continue
         key = (
             fixture_format.format_class(),
             fixture_format.transition_tool_cache_key,
