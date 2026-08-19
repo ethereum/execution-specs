@@ -2,13 +2,15 @@
 Test that appended sync payloads reach exactly the authored leaves that
 should carry them, and change nothing else.
 
-Only ``blockchain_test_engine_x`` fixtures carry the blocks, out of
-chain in their ``syncPayloads`` list, so a default fill must leave every
-format's authored payload list byte-for-byte what the test defines.
-These tests fill whole test modules and read the fixtures back, so a
-sync payload that leaks into that list, misses a branch leaf, steals an
-error-code assertion's announcement, or fails to salt per test fails
-here rather than in a consumer.
+``blockchain_test_engine_x`` fixtures carry the blocks out of chain in
+their optional ``syncPayloads`` list, and ``blockchain_test_sync``
+fixtures carry one as their defining ``syncPayload`` field; one builder
+fills both. A default fill must leave every format's authored payload
+list byte-for-byte what the test defines. These tests fill whole test
+modules and read the fixtures back, so a sync payload that leaks into
+that list, misses a branch leaf, steals an error-code assertion's
+announcement, fails to salt per test, or vanishes from a sync fixture
+under the engine_x opt-outs fails here rather than in a consumer.
 """
 
 import json
@@ -306,11 +308,114 @@ CEILING_MODULE = textwrap.dedent(
     """
 )
 
+SYNC_MODULE = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import Block, Transaction
+
+
+    @pytest.mark.verify_sync
+    @pytest.mark.parametrize("value", [1, 2])
+    def test_synced(blockchain_test, pre, value) -> None:
+        tx = Transaction(
+            to=0, value=value, gas_limit=21_000, sender=pre.fund_eoa()
+        )
+        blockchain_test(pre=pre, post={}, blocks=[Block(txs=[tx])])
+    """
+)
+
+SYNC_CEILING_MODULE = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import Block, Transaction
+
+
+    @pytest.mark.verify_sync
+    def test_pinned_ceiling_timestamp(blockchain_test, pre) -> None:
+        # A valid head at the uint64 timestamp ceiling: the filler
+        # declines the sync payload, and the sync fixture format cannot
+        # fill without one, so this fill must fail loudly.
+        tx = Transaction(
+            to=0, value=1, gas_limit=21_000, sender=pre.fund_eoa()
+        )
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[Block(txs=[tx], timestamp=2**64 - 1)],
+        )
+    """
+)
+
+SYNC_INVALID_MODULE = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import Block, Transaction, TransactionException
+
+
+    @pytest.mark.exception_test
+    @pytest.mark.verify_sync
+    def test_invalid_behind_valid_head(blockchain_test, pre) -> None:
+        # The sync format's consumer requires the client under test to
+        # accept every payload, so a chain with any expected-invalid
+        # payload cannot fill it - even when the canonical head is
+        # valid.
+        valid_tx = Transaction(
+            to=0, value=1, gas_limit=21_000, sender=pre.fund_eoa()
+        )
+        invalid_tx = Transaction(
+            to=0,
+            gas_limit=20_999,
+            sender=pre.fund_eoa(),
+            error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+        )
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[
+                Block(txs=[valid_tx]),
+                Block(
+                    txs=[invalid_tx],
+                    exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
+                ),
+                Block(txs=[]),
+            ],
+        )
+    """
+)
+
+SYNC_ENGINE_API_ERROR_MODULE = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import Block, EngineAPIError
+
+
+    @pytest.mark.verify_sync
+    def test_engine_api_error_behind_valid_head(blockchain_test, pre) -> None:
+        # A payload the client is expected to refuse through an Engine API
+        # error cannot be part of the valid linear chain the sync fixture
+        # requires, even when a later payload gives the filler a valid head.
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[
+                Block(),
+                Block(engine_api_error_code=EngineAPIError.InvalidParams),
+                Block(),
+            ],
+        )
+    """
+)
+
 # Fixture directory to the format name that appears in a test id.
 FORMATS = {
     "blockchain_tests": "blockchain_test",
     "blockchain_tests_engine": "blockchain_test_engine",
     "blockchain_tests_engine_x": "blockchain_test_engine_x",
+    "blockchain_tests_sync": "blockchain_test_sync",
 }
 
 
@@ -361,6 +466,36 @@ def fill(
     result = pytester.runpytest("--use-pre-alloc-groups", *common)
     assert result.ret == 0, "fill phase 2 was expected to succeed"
     return output
+
+
+def fill_single_phase(
+    pytester: pytest.Pytester,
+    test_module: Path,
+    *args: str,
+    output_name: str = "fixtures",
+) -> tuple[Path, pytest.RunResult]:
+    """
+    Fill the module in one pytest session and return the output
+    directory alongside the run result.
+
+    A single session emits the static, engine and - for
+    ``verify_sync``-marked tests - sync formats; only engine_x needs
+    the two-phase flow of ``fill`` above. The result is returned
+    unjudged so a fill that must fail can be asserted on too.
+    """
+    output = pytester.path / output_name
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        "Cancun",
+        "--skip-index",
+        "--no-html",
+        f"--output={output}",
+        *args,
+        str(test_module.relative_to(pytester.path)),
+    )
+    return output, result
 
 
 def fixtures_of_format(
@@ -633,3 +768,128 @@ def test_no_sync_block_restores_the_plain_fill(
         assert {k: v for k, v in other.items() if k != "_info"} == {
             k: v for k, v in stripped.items() if k != "_info"
         }, "the appended block must not change the author's own fixture"
+
+
+def test_sync_format_payload_is_salted(pytester: pytest.Pytester) -> None:
+    """
+    A ``verify_sync`` test's sync fixture carries the same appended,
+    per-test-salted payload an engine_x leaf gets: one builder fills
+    both formats.
+    """
+    test_module = make_test_module(pytester, SYNC_MODULE, "test_synced.py")
+    output, result = fill_single_phase(pytester, test_module)
+    assert result.ret == 0, "the sync-format fill was expected to succeed"
+
+    fixtures = fixtures_of_format(output, "blockchain_tests_sync")
+    assert len(fixtures) == 2
+    salts = set()
+    for fixture in fixtures.values():
+        head = fixture["engineNewPayloads"][-1]["params"][0]
+        appended = fixture["syncPayload"]["params"][0]
+        assert appended["transactions"] == [], (
+            "the announced sync payload carries no transactions"
+        )
+        assert appended["parentHash"] == head["blockHash"], (
+            "the announced sync payload must name the chain's single "
+            "valid leaf as parent"
+        )
+        assert int(appended["blockNumber"], 16) == (
+            int(head["blockNumber"], 16) + 1
+        )
+        extra_data = appended["extraData"]
+        assert len(extra_data) == 2 + 2 * 16, (
+            "the salt is a 16-byte digest of the test's node id"
+        )
+        salts.add(extra_data)
+    assert len(salts) == 2, (
+        "each test's announced payload must be unique to it"
+    )
+
+
+def test_no_sync_block_leaves_the_sync_format_unchanged(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    ``--no-sync-block`` and the test's own opt-out govern the engine_x
+    format's optional list only: the sync format's ``syncPayload`` is
+    its defining field, so the option must change nothing about its
+    fixtures.
+    """
+    test_module = make_test_module(pytester, SYNC_MODULE, "test_synced.py")
+    default, result = fill_single_phase(
+        pytester, test_module, output_name="fixtures-default"
+    )
+    assert result.ret == 0, "the default fill was expected to succeed"
+    without, result = fill_single_phase(
+        pytester,
+        test_module,
+        "--no-sync-block",
+        output_name="fixtures-without",
+    )
+    assert result.ret == 0, "the --no-sync-block fill was expected to succeed"
+
+    default_fixtures = fixtures_of_format(default, "blockchain_tests_sync")
+    without_fixtures = fixtures_of_format(without, "blockchain_tests_sync")
+    assert default_fixtures.keys() == without_fixtures.keys()
+    for test_id, fixture in default_fixtures.items():
+        other = without_fixtures[test_id]
+        assert {k: v for k, v in other.items() if k != "_info"} == {
+            k: v for k, v in fixture.items() if k != "_info"
+        }, "the option must not touch the sync format's fixtures"
+
+
+def test_sync_format_fails_loudly_on_a_guard_declined_head(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    A head the filler declines to build above leaves an engine_x
+    fixture without that leaf's target, but the sync format cannot
+    fill without its payload: the fill must fail naming the conflict,
+    rather than emit a fixture its consumer cannot start.
+    """
+    test_module = make_test_module(
+        pytester, SYNC_CEILING_MODULE, "test_sync_ceiling.py"
+    )
+    _, result = fill_single_phase(pytester, test_module)
+    assert result.ret != 0, "the sync-format fill was expected to fail"
+    result.assert_outcomes(passed=2, failed=1)
+    result.stdout.fnmatch_lines(["*admits no sync payload*"])
+
+
+def test_sync_format_rejects_chains_with_invalid_payloads(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    The sync format supports only valid linear chains: its single
+    ``syncPayload`` can announce one leaf, and its consumer requires
+    the client under test to accept every payload. A chain with an
+    expected-invalid payload must fail the sync-format fill even when
+    its canonical head is valid; the other formats still fill.
+    """
+    test_module = make_test_module(
+        pytester, SYNC_INVALID_MODULE, "test_sync_invalid.py"
+    )
+    _, result = fill_single_phase(pytester, test_module)
+    assert result.ret != 0, "the sync-format fill was expected to fail"
+    result.assert_outcomes(passed=2, failed=1)
+    result.stdout.fnmatch_lines(["*not supported yet*"])
+
+
+def test_sync_format_rejects_chains_with_engine_api_errors(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    The sync format supports only valid linear chains. A payload carrying
+    an Engine API error-code assertion is expected to be refused even
+    though it can be consensus-valid to the filler, so it must fail the
+    sync-format fill even when a later payload advances the filler head.
+    """
+    test_module = make_test_module(
+        pytester,
+        SYNC_ENGINE_API_ERROR_MODULE,
+        "test_sync_engine_api_error.py",
+    )
+    _, result = fill_single_phase(pytester, test_module)
+    assert result.ret != 0, "the sync-format fill was expected to fail"
+    result.assert_outcomes(passed=2, failed=1)
+    result.stdout.fnmatch_lines(["*not supported yet*"])

@@ -160,6 +160,10 @@ class BaseTest(BaseModel):
     written. Enabled unless ``--no-sync-block`` withholds them or the
     test itself opts out by passing ``sync_block=False``; see "Sync
     Payloads" in the filling-tests docs.
+
+    The ``blockchain_test_sync`` format's single ``sync_payload`` comes
+    from the same builder but is that format's defining field: it is
+    built regardless of this flag.
     """
     sync_block_salt: str = ""
     """
