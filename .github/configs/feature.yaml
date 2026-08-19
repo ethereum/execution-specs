@@ -25,9 +25,4 @@ benchmark_fast:
 # Shared entry for all `<feat>-devnet` releases; matched by `-devnet` suffix.
 devnet:
   evm-type: eels
-  fill-params: --until=Amsterdam --generate-all-formats
-
-focil:
-  evm-type: eels
-  fill-params: ./tests/bogota/eip7805_focil --from=Bogota --until=Bogota
-  feature_only: true
+  fill-params: --fork=Bogota --generate-all-formats
