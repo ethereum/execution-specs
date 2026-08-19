@@ -14,6 +14,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, final
 
+from ethereum_rlp import exceptions as rlp_exceptions
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.frozen import slotted_freezable
@@ -1227,12 +1228,13 @@ def check_inclusion_list_transactions(
             tx = decode_transaction(raw_tx)
         except EthereumException:
             continue
-
-        # Ignore blob transactions.
-        if isinstance(tx, BlobTransaction):
+        except rlp_exceptions.DecodingError:
             continue
 
         try:
+            tx_chain_id = chain_id(tx)
+            if tx_chain_id is not None and tx_chain_id != block_env.chain_id:
+                continue
             sender = recover_sender(tx)
             validate_transaction(tx, sender)
             check_transaction(
