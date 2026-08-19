@@ -68,20 +68,26 @@ class EIP8141(BaseFork):
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
         """
-        Add the constant-cost introspection opcode gas costs.
+        Add the frame instruction gas costs.
 
-        The remaining frame instructions — `FRAMEDATACOPY`,
-        `SIGPARAM`, and `APPROVE` — carry copy, mode-dependent, or
-        memory expansion costs a single entry cannot express and stay
-        unmapped.
+        `SIGDATACOPY` follows the `CALLDATACOPY` shape: the opcode
+        instance must carry copy-size and memory-size metadata. The
+        remaining frame instructions — `FRAMEDATACOPY` and `APPROVE` —
+        stay unmapped.
         """
         gas_costs = cls.gas_costs()
+        memory_expansion_calculator = cls.memory_expansion_gas_calculator()
         base_map = super(EIP8141, cls).opcode_gas_map()
         return {
             **base_map,
             Opcodes.TXPARAM: gas_costs.BASE,
             Opcodes.FRAMEDATALOAD: gas_costs.VERY_LOW,
             Opcodes.FRAMEPARAM: gas_costs.BASE,
+            Opcodes.SIGPARAM: gas_costs.BASE,
+            Opcodes.SIGDATACOPY: cls._with_memory_expansion(
+                cls._with_data_copy(gas_costs.VERY_LOW, gas_costs),
+                memory_expansion_calculator,
+            ),
         }
 
     @classmethod

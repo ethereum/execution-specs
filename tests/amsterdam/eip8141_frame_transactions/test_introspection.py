@@ -2,9 +2,9 @@
 Tests for the introspection instructions of
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
-`TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRAMEPARAM` and `SIGPARAM`
-are exercised from a `DEFAULT` frame that stores what it reads, so the
-post state pins the value each selector returns.
+`TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRAMEPARAM`, `SIGPARAM`
+and `SIGDATACOPY` are exercised from a `DEFAULT` frame that stores what
+it reads, so the post state pins the value each selector returns.
 """
 
 from typing import List
@@ -523,12 +523,24 @@ def test_frameparam_halts(
             id="txparam_undefined_param",
         ),
         pytest.param(
+            Op.POP(Op.SIGPARAM(0, 0x04)),
+            id="sigparam_undefined_copy_param",
+        ),
+        pytest.param(
             Op.POP(Op.SIGPARAM(0, 0x05)),
             id="sigparam_undefined_param",
         ),
         pytest.param(
+            Op.POP(Op.SIGPARAM(0, Spec.SIGPARAM_SIGNATURE_LENGTH)),
+            id="sigparam_length_of_protocol_validated_entry",
+        ),
+        pytest.param(
             Op.POP(Op.SIGPARAM(1, Spec.SIGPARAM_SCHEME)),
             id="sigparam_signature_index_out_of_bounds",
+        ),
+        pytest.param(
+            Op.SIGDATACOPY(0, 0, 32, 1),
+            id="sigdatacopy_signature_index_out_of_bounds",
         ),
         pytest.param(
             Op.POP(Op.FRAMEDATALOAD(0, 2)),
@@ -546,16 +558,20 @@ def test_introspection_halts(
     halting_read: Bytecode,
 ) -> None:
     """
-    `TXPARAM`, `SIGPARAM`, `FRAMEDATALOAD` and `FRAMEDATACOPY` halt
-    exceptionally on undefined selectors and out of bounds indices.
-    The halt fails the frame without invalidating the transaction,
-    because the frame does not run in `VERIFY` mode.
+    `TXPARAM`, `SIGPARAM`, `SIGDATACOPY`, `FRAMEDATALOAD` and
+    `FRAMEDATACOPY` halt exceptionally on undefined selectors, out of
+    bounds indices, and the signature length of a protocol-validated
+    entry — the raw signature bytes the protocol validates are not
+    introspectable, their length included. `SIGPARAM`'s former copy
+    selector (`0x04`) is undefined. The halt fails the frame without
+    invalidating the transaction, because the frame does not run in
+    `VERIFY` mode.
 
-    The probe transaction carries two frames and one signature entry,
-    so frame index 2 and signature index 1 are the first indices out
-    of bounds. The probe writes a marker before the halting read, so
-    a read that returned a value instead of halting would leave the
-    marker behind.
+    The probe transaction carries two frames and one protocol-validated
+    signature entry, so frame index 2 and signature index 1 are the
+    first indices out of bounds. The probe writes a marker before the
+    halting read, so a read that returned a value instead of halting
+    would leave the marker behind.
     """
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
@@ -653,9 +669,6 @@ def test_framedatacopy(
             Spec.SIGPARAM_SCHEME,
             Spec.SCHEME_SECP256K1,
             id="secp256k1_scheme",
-        ),
-        pytest.param(
-            0, Spec.SIGPARAM_SIGNATURE_LENGTH, 65, id="secp256k1_length"
         ),
         pytest.param(0, Spec.SIGPARAM_MSG, 0, id="canonical_hash_msg"),
         pytest.param(
@@ -766,46 +779,24 @@ def test_sigparam_resolved_signer(
     )
 
 
-def sigparam_copy(
-    signature_index: int,
-    param: int,
-    mem_offset: int,
-    data_offset: int,
-    length: int,
-) -> Bytecode:
-    """
-    Return bytecode for `SIGPARAM`'s copy operation, whose five stack
-    operands the opcode helper does not model.
-    """
-    return (
-        Op.PUSH1(length)
-        + Op.PUSH1(data_offset)
-        + Op.PUSH1(mem_offset)
-        + Op.PUSH1(param)
-        + Op.PUSH1(signature_index)
-        + Op.SIGPARAM
-    )
-
-
-def test_sigparam_copy_arbitrary(
+def test_sigdatacopy(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """
-    Copy an `ARBITRARY` entry's raw signature bytes into memory, and
-    check that the same copy against a protocol validated entry halts
-    the frame instead.
+    Copy an `ARBITRARY` entry's raw signature bytes into memory
+    through `SIGDATACOPY`, including the zero fill past the end of the
+    signature, and check that the same copy against a protocol
+    validated entry halts the frame instead.
     """
     sender = pre.fund_eoa()
     copied = pre.deploy_contract(
-        code=sigparam_copy(1, Spec.SIGPARAM_COPY, 0, 0, 32)
+        code=Op.SIGDATACOPY(0, 0, 32, 1)
         + Op.SSTORE(SLOT_RESULT, Op.MLOAD(0))
         + Op.STOP
     )
     refused = pre.deploy_contract(
-        code=sigparam_copy(0, Spec.SIGPARAM_COPY, 0, 0, 32)
-        + Op.SSTORE(SLOT_RESULT, 1)
-        + Op.STOP
+        code=Op.SIGDATACOPY(0, 0, 32, 0) + Op.SSTORE(SLOT_RESULT, 1) + Op.STOP
     )
 
     signatures = [

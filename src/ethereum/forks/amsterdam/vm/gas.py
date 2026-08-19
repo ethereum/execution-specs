@@ -295,7 +295,7 @@ class GasCosts:
 
     # Dynamic Opcode Components
     OPCODE_FRAMEDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
-    OPCODE_SIGPARAM_COPY_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_SIGDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_RETURNDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
     OPCODE_RETURNDATACOPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))
     OPCODE_CALLDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW

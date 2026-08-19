@@ -14,7 +14,7 @@ class ReferenceSpec:
 
 
 ref_spec_8141 = ReferenceSpec(
-    "EIPS/eip-8141.md", "9c915ee494c05069945f4e1018fa0854e2d3fb38"
+    "EIPS/eip-8141.md", "0603514569547869ae2531a4e5b2b62875888db3"
 )
 
 
@@ -92,4 +92,3 @@ class Spec:
     SIGPARAM_SCHEME = 0x01
     SIGPARAM_MSG = 0x02
     SIGPARAM_SIGNATURE_LENGTH = 0x03
-    SIGPARAM_COPY = 0x04
