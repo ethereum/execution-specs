@@ -14,6 +14,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytes,
+    Conditional,
     Frame,
     FrameReceipt,
     FrameSignature,
@@ -363,4 +364,98 @@ def test_verify_frame_reverts(
         pre=pre,
         tx=tx,
         post={},
+    )
+
+
+@pytest.mark.parametrize(
+    "frame_reverts",
+    [
+        pytest.param(
+            True,
+            id="reverts",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(False, id="returns"),
+    ],
+)
+def test_frame_revert_discards_the_approval_it_granted(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    frame_reverts: bool,
+) -> None:
+    """
+    A frame that reverts discards the approval context it granted.
+
+    `APPROVE` exits its own call context, so a frame cannot approve and
+    then revert directly. A nested call back into the frame's target can:
+    the inner call approves and returns, and the outer frame decides
+    afterwards whether to revert.
+
+    The nonce increment and the `max_cost` collection that `APPROVE`
+    performed roll back with the frame's state, so `payer` and
+    `sender_approved` have to go with them. Keeping them does not merely
+    leak an approval, it produces a free transaction: the payer stays
+    bound, the transaction is valid, and fees settle against an account
+    whose escrow was rolled back.
+
+    The `returns` case is the control, and is what makes the `reverts`
+    case meaningful: the same nested `APPROVE`, with the outer invocation
+    returning instead. It must be accepted with the payer bound, which
+    pins that the approval really was granted from the nested call --
+    otherwise the `reverts` case would be rejected for having never
+    approved at all, and would pass against an implementation that keeps
+    the approval.
+    """
+    # The frame's target must be `tx.sender` for the approval scopes, so
+    # both invocations run the sender's code. Calldata distinguishes them:
+    # the frame supplies some, the self-call supplies none.
+    outer = Op.SSTORE(SLOT_EXECUTED, 1) + Op.CALL(
+        gas=Op.GAS, address=Op.ADDRESS
+    )
+    outer += Op.REVERT(0, 0) if frame_reverts else Op.STOP
+    sender_code = Conditional(
+        condition=Op.CALLDATASIZE,
+        if_true=outer,
+        # `APPROVE` exits this call context, returning control to `outer`.
+        if_false=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+    )
+    sender = pre.deploy_contract(code=sender_code, balance=10**18)
+
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
+                target=sender,
+                gas_limit=400_000,
+                data=Bytes(b"\x01"),
+            ),
+        ],
+        # Discarding the approval leaves the only frame's transaction with
+        # no payer, so it is rejected.
+        error=(
+            TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+            if frame_reverts
+            else None
+        ),
+        expected_receipt=(
+            None
+            if frame_reverts
+            else TransactionReceipt(
+                payer=sender,
+                frame_receipts=[FrameReceipt(status=Spec.STATUS_SUCCESS)],
+            )
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(
+                storage={SLOT_EXECUTED: 0 if frame_reverts else 1}
+            ),
+        },
     )
