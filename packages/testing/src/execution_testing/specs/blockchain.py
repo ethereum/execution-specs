@@ -1474,7 +1474,7 @@ class BlockchainTest(BaseTest):
         sync_payload_candidates: List[
             Tuple[BuiltBlock, Alloc | LazyAlloc]
         ] = []
-        sync_payload_leaf_hashes: set[bytes] = set()
+        sync_payload_leaf_hashes: set[Hash] = set()
         sync_payload_leaf_indices = (
             set(self.sync_payload_leaf_indices())
             if fixture_format == BlockchainEngineXFixture
@@ -1526,7 +1526,7 @@ class BlockchainTest(BaseTest):
                 # A valid leaf uses its post-state. An invalid leaf did
                 # not advance ``alloc``, so it retains its valid parent's
                 # state - exactly the context build_sync_payload needs.
-                leaf_hash = bytes(built_block.header.block_hash)
+                leaf_hash = built_block.header.block_hash
                 if leaf_hash not in sync_payload_leaf_hashes:
                     sync_payload_candidates.append((built_block, alloc))
                     sync_payload_leaf_hashes.add(leaf_hash)
