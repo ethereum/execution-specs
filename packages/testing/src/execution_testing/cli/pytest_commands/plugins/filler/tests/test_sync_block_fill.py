@@ -253,7 +253,9 @@ OPT_OUT_MODULE = textwrap.dedent(
 
 CEILING_MODULE = textwrap.dedent(
     """\
-    from execution_testing import Block, Transaction
+    import pytest
+
+    from execution_testing import Block, BlockException, Header, Transaction
 
 
     def test_pinned_ceiling_timestamp(blockchain_test, pre) -> None:
@@ -267,6 +269,39 @@ CEILING_MODULE = textwrap.dedent(
             pre=pre,
             post={},
             blocks=[Block(txs=[tx], timestamp=2**64 - 1)],
+        )
+
+
+    @pytest.mark.exception_test
+    def test_pinned_ceiling_block_number(blockchain_test, pre) -> None:
+        # The authored block number fits uint64, but its successor does
+        # not. The block is invalid because it is not its parent's number
+        # plus one; the framework still needs it as a sync-path leaf.
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[
+                Block(
+                    rlp_modifier=Header(number=2**64 - 1),
+                    exception=BlockException.INVALID_BLOCK_NUMBER,
+                )
+            ],
+        )
+
+
+    @pytest.mark.exception_test
+    def test_overflowing_gas_limit(blockchain_test, pre) -> None:
+        # The authored invalid block can carry an overflowing field, but
+        # an appended Engine payload cannot inherit that value.
+        blockchain_test(
+            pre=pre,
+            post={},
+            blocks=[
+                Block(
+                    rlp_modifier=Header(gas_limit=2**64),
+                    exception=BlockException.RLP_INVALID_FIELD_OVERFLOW_64,
+                )
+            ],
         )
     """
 )
@@ -561,7 +596,7 @@ def test_ceiling_head_fills_bare(pytester: pytest.Pytester) -> None:
     output = fill(pytester, test_module)
 
     fixtures = fixtures_of_format(output, "blockchain_tests_engine_x")
-    assert len(fixtures) == 1, "the ceiling head must still be filled"
+    assert len(fixtures) == 3, "every ceiling head must still be filled"
     for fixture in fixtures.values():
         assert len(fixture["engineNewPayloads"]) == 1
         assert "syncPayloads" not in fixture
