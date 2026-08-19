@@ -424,7 +424,7 @@ class ForkScopedSSZModel(SSZModel):
     """SSZ model whose methods resolve ``Fork`` classes to schema keys."""
 
     @classmethod
-    def ssz_fork_key(cls, fork: Fork) -> str:
+    def ssz_fork_key(cls, fork: Fork) -> Fork:
         """Return this model's SSZ schema key for ``fork``."""
         schema = cls.__ssz_schema__
         if schema is None:
@@ -491,7 +491,7 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
     slot_number: Uint64 | None = Field(None)
 
     __ssz_schema__ = SSZForkSchema(
-        base_fork=Paris.name(),
+        base_fork=Paris,
         base=(
             "parent_hash",
             "fee_recipient",
@@ -509,9 +509,9 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
             "transactions",
         ),
         appended={
-            Shanghai.name(): ("withdrawals",),
-            Cancun.name(): ("blob_gas_used", "excess_blob_gas"),
-            Amsterdam.name(): ("block_access_list", "slot_number"),
+            Shanghai: ("withdrawals",),
+            Cancun: ("blob_gas_used", "excess_blob_gas"),
+            Amsterdam: ("block_access_list", "slot_number"),
         },
     )
 

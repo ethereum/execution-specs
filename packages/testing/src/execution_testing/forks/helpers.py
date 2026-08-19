@@ -390,19 +390,21 @@ def get_fork_by_name(fork_name: str) -> Type[BaseFork] | None:
     return None
 
 
-def ssz_schema_fork_key(schema: SSZForkSchema, fork: Type[BaseFork]) -> str:
+def ssz_schema_fork_key(
+    schema: SSZForkSchema, fork: Type[BaseFork]
+) -> Type[BaseFork]:
     """
-    Return the newest schema fork key at or before ``fork``.
+    Return the newest schema fork at or before ``fork``.
 
-    Transition forks compare as their destination fork.
+    Schema keys are the fork classes themselves. Transition forks
+    compare as their destination fork.
     """
     for key in reversed(schema.forks()):
-        key_fork = get_fork_by_name(key)
-        if key_fork is None:
+        if not (isinstance(key, type) and issubclass(key, BaseFork)):
             raise ValueError(
-                f"SSZ schema fork key {key!r} is not a known fork"
+                f"SSZ schema fork key {key!r} is not a fork class"
             )
-        if fork >= key_fork:
+        if fork >= key:
             return key
     raise ValueError(
         f"{fork.name()} predates the SSZ schema base fork {schema.base_fork!r}"

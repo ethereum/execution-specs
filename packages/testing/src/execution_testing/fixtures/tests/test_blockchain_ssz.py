@@ -185,6 +185,13 @@ REF_PAYLOAD_CLASSES: Dict[str, Type[Container]] = {
     "Amsterdam": RefPayloadAmsterdam,
 }
 
+FORK_BY_KEY: Dict[str, Fork] = {
+    "Paris": Paris,
+    "Shanghai": Shanghai,
+    "Cancun": Cancun,
+    "Amsterdam": Amsterdam,
+}
+
 
 def _withdrawal(i: int) -> Withdrawal:
     """Build a distinctive withdrawal for index ``i``."""
@@ -281,19 +288,18 @@ def assert_matches_reference(
     The twin is the ground truth: wire bytes, merkle root, decode
     round-trip, and the zero value must all agree.
     """
+    fork = FORK_BY_KEY[fork_key] if fork_key is not None else None
     model_cls = type(model)
     ref_cls = type(ref)
-    raw = ssz.encode(model, fork_key)
+    raw = ssz.encode(model, fork)
     assert raw == ref.encode_bytes()
-    assert ssz.hash_tree_root(model, fork_key) == bytes(ref.hash_tree_root())
-    restored = ssz.decode(model_cls, raw, fork_key)
-    assert ssz.encode(restored, fork_key) == raw
+    assert ssz.hash_tree_root(model, fork) == bytes(ref.hash_tree_root())
+    restored = ssz.decode(model_cls, raw, fork)
+    assert ssz.encode(restored, fork) == raw
     assert restored == model
-    zero = ssz.ssz_default(model_cls, fork_key)
-    assert ssz.encode(zero, fork_key) == ref_cls().encode_bytes()
-    assert ssz.hash_tree_root(zero, fork_key) == bytes(
-        ref_cls().hash_tree_root()
-    )
+    zero = ssz.ssz_default(model_cls, fork)
+    assert ssz.encode(zero, fork) == ref_cls().encode_bytes()
+    assert ssz.hash_tree_root(zero, fork) == bytes(ref_cls().hash_tree_root())
 
 
 def test_withdrawal_matches_reference() -> None:
@@ -374,32 +380,35 @@ def test_payload_ssz_field_order(
     fork_key: str, expected: Tuple[str, ...]
 ) -> None:
     """The canonical wire order is pinned per fork."""
-    assert ssz.ssz_fields(FixtureExecutionPayload, fork_key) == expected
+    assert (
+        ssz.ssz_fields(FixtureExecutionPayload, FORK_BY_KEY[fork_key])
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
     "fork,expected_key",
     [
-        pytest.param(Paris, "Paris", id="Paris"),
-        pytest.param(Shanghai, "Shanghai", id="Shanghai"),
-        pytest.param(Cancun, "Cancun", id="Cancun"),
-        pytest.param(Prague, "Cancun", id="Prague"),
-        pytest.param(Osaka, "Cancun", id="Osaka"),
-        pytest.param(BPO1, "Cancun", id="BPO1"),
-        pytest.param(Amsterdam, "Amsterdam", id="Amsterdam"),
+        pytest.param(Paris, Paris, id="Paris"),
+        pytest.param(Shanghai, Shanghai, id="Shanghai"),
+        pytest.param(Cancun, Cancun, id="Cancun"),
+        pytest.param(Prague, Cancun, id="Prague"),
+        pytest.param(Osaka, Cancun, id="Osaka"),
+        pytest.param(BPO1, Cancun, id="BPO1"),
+        pytest.param(Amsterdam, Amsterdam, id="Amsterdam"),
         pytest.param(
             ShanghaiToCancunAtTime15k,
-            "Cancun",
+            Cancun,
             id="ShanghaiToCancunAtTime15k",
         ),
         pytest.param(
             BPO2ToAmsterdamAtTime15k,
-            "Amsterdam",
+            Amsterdam,
             id="BPO2ToAmsterdamAtTime15k",
         ),
     ],
 )
-def test_fork_key_resolution(fork: Fork, expected_key: str) -> None:
+def test_fork_key_resolution(fork: Fork, expected_key: Fork) -> None:
     """Payload-neutral forks resolve to the nearest earlier key."""
     assert FixtureExecutionPayload.ssz_fork_key(fork) == expected_key
 
@@ -414,13 +423,13 @@ def test_payload_ssz_methods_accept_fork_classes() -> None:
     """The mixin's SSZ methods take Fork classes, not key strings."""
     payload = _payload("Cancun")
     wire = payload.ssz_encode(Prague)
-    assert bytes(wire) == ssz.encode(payload, "Cancun")
+    assert bytes(wire) == ssz.encode(payload, Cancun)
     assert FixtureExecutionPayload.ssz_decode(bytes(wire), Prague) == payload
     amsterdam_payload = _payload("Amsterdam")
     root = amsterdam_payload.ssz_hash_tree_root(Amsterdam)
     assert isinstance(root, Hash)
     assert len(root) == 32
-    assert bytes(root) == ssz.hash_tree_root(amsterdam_payload, "Amsterdam")
+    assert bytes(root) == ssz.hash_tree_root(amsterdam_payload, Amsterdam)
 
 
 def test_payload_json_unchanged() -> None:
@@ -529,15 +538,15 @@ def test_from_fixture_header_round_trip() -> None:
 def test_encode_wrong_fork_refuses_to_drop_data() -> None:
     """Encoding at a fork that does not fit the populated fields fails."""
     with pytest.raises(TypeError, match="unexpected"):
-        ssz.encode(_payload("Amsterdam"), "Cancun")
+        ssz.encode(_payload("Amsterdam"), Cancun)
     with pytest.raises(TypeError, match="missing"):
-        ssz.encode(_payload("Cancun"), "Amsterdam")
+        ssz.encode(_payload("Cancun"), Amsterdam)
 
 
 def test_decode_older_fork_leaves_future_fields_none() -> None:
     """Decoding Paris wire bytes leaves post-Paris fields as None."""
-    wire = ssz.encode(_payload("Paris"), "Paris")
-    restored = ssz.decode(FixtureExecutionPayload, wire, "Paris")
+    wire = ssz.encode(_payload("Paris"), Paris)
+    restored = ssz.decode(FixtureExecutionPayload, wire, Paris)
     assert restored.withdrawals is None
     assert restored.blob_gas_used is None
     assert restored.excess_blob_gas is None
@@ -553,9 +562,9 @@ def test_modifier_removed_fields_encode_at_earlier_fork() -> None:
     )
     result = modifier.apply(_payload("Amsterdam"))
     cancun_payload = _payload("Cancun")
-    assert ssz.encode(result, "Cancun") == ssz.encode(cancun_payload, "Cancun")
+    assert ssz.encode(result, Cancun) == ssz.encode(cancun_payload, Cancun)
     with pytest.raises(TypeError, match="missing"):
-        ssz.encode(result, "Amsterdam")
+        ssz.encode(result, Amsterdam)
 
 
 def test_mixin_without_schema_raises() -> None:
@@ -571,13 +580,13 @@ def test_mixin_without_schema_raises() -> None:
 def test_unknown_schema_fork_key_raises() -> None:
     """A schema key that is not a fork name is rejected."""
     schema = SSZForkSchema(base_fork="NotAFork", base=(), appended={})
-    with pytest.raises(ValueError, match="not a known fork"):
+    with pytest.raises(ValueError, match="not a fork class"):
         ssz_schema_fork_key(schema, Paris)
 
 
 def test_describe_schema_amsterdam() -> None:
     """The Amsterdam schema description ends with the new fields."""
-    description = ssz.describe_schema(FixtureExecutionPayload, "Amsterdam")
+    description = ssz.describe_schema(FixtureExecutionPayload, Amsterdam)
     assert "Amsterdam" in description
     assert "block_access_list" in description
     assert "slot_number" in description

@@ -35,6 +35,7 @@ from types import UnionType
 from typing import (
     Any,
     ClassVar,
+    Hashable,
     List,
     Mapping,
     Optional,
@@ -71,6 +72,9 @@ from remerkleable.progressive import ProgressiveList as RmkProgressiveList
 
 from .base_types import Bytes, FixedSizeBytes, HexNumber
 from .pydantic import CamelModel
+
+ForkKey = Hashable
+"""An opaque fork-schema key; base_types knows nothing about forks."""
 
 _UINTS = {
     8: uint8,
@@ -181,18 +185,19 @@ class SSZForkSchema:
     base_fork; appended maps each later fork (in order) to the fields it
     adds, which must be declared Optional (T | None) on the model.
 
-    Fork keys are opaque strings: base_types knows nothing about forks;
+    Fork keys are opaque hashable values (e.g. fork classes): base_types
+    knows nothing about forks;
     """
 
-    base_fork: str
+    base_fork: ForkKey
     base: Tuple[str, ...]
-    appended: Mapping[str, Tuple[str, ...]]
+    appended: Mapping[ForkKey, Tuple[str, ...]]
 
-    def forks(self) -> Tuple[str, ...]:
+    def forks(self) -> Tuple[ForkKey, ...]:
         """Every known fork key, oldest first."""
         return (self.base_fork, *self.appended)
 
-    def fields_at(self, fork: str) -> Tuple[str, ...]:
+    def fields_at(self, fork: ForkKey) -> Tuple[str, ...]:
         """The SSZ field names of fork, in canonical order."""
         if fork == self.base_fork:
             return self.base
@@ -547,7 +552,7 @@ def spec_of(model_cls: Type["SSZModel"], name: str) -> SSZType:
     return _resolve(_marker_in(field.metadata), annotation)
 
 
-def _rmk_type(spec: SSZType, fork: Optional[str] = None) -> Type[View]:
+def _rmk_type(spec: SSZType, fork: Optional[ForkKey] = None) -> Type[View]:
     if isinstance(spec, SSZUint):
         return _UINTS[spec.bits]
     if isinstance(spec, SSZByteVector):
@@ -580,8 +585,8 @@ def _active_fields(model_cls: Type["SSZModel"]) -> Sequence[int]:
 
 
 def _nested_fork(
-    model_cls: Type["SSZModel"], fork: Optional[str]
-) -> Optional[str]:
+    model_cls: Type["SSZModel"], fork: Optional[ForkKey]
+) -> Optional[ForkKey]:
     """
     The fork a nested container is projected at.
 
@@ -594,7 +599,7 @@ def _nested_fork(
 
 
 def _schema_fields(
-    model_cls: Type["SSZModel"], fork: Optional[str]
+    model_cls: Type["SSZModel"], fork: Optional[ForkKey]
 ) -> Tuple[str, ...]:
     """
     The SSZ field names of model_cls, in canonical order.
@@ -619,7 +624,7 @@ def _schema_fields(
 
 
 def ssz_fields(
-    model_cls: Type["SSZModel"], fork: Optional[str] = None
+    model_cls: Type["SSZModel"], fork: Optional[ForkKey] = None
 ) -> Tuple[str, ...]:
     """
     The SSZ field names of model_cls, in canonical (wire) order.
@@ -632,7 +637,7 @@ def ssz_fields(
 
 
 def _check_populated(
-    model: "SSZModel", names: Tuple[str, ...], fork: str
+    model: "SSZModel", names: Tuple[str, ...], fork: ForkKey
 ) -> None:
     """Raise unless the populated fields exactly match the fork schema."""
     missing = [n for n in names if getattr(model, n) is None]
@@ -650,7 +655,7 @@ def _check_populated(
 
 
 def build_ssz_type(
-    model_cls: Type["SSZModel"], fork: Optional[str] = None
+    model_cls: Type["SSZModel"], fork: Optional[ForkKey] = None
 ) -> Type[Container]:
     """
     Build the remerkleable container type mirroring model_cls.
@@ -664,7 +669,7 @@ def build_ssz_type(
 
 @lru_cache(maxsize=None)
 def _build_ssz_type(
-    model_cls: Type["SSZModel"], fork: Optional[str]
+    model_cls: Type["SSZModel"], fork: Optional[ForkKey]
 ) -> Type[Container]:
     names = _schema_fields(model_cls, fork)
     anns = {name: _rmk_type(spec_of(model_cls, name), fork) for name in names}
@@ -674,11 +679,11 @@ def _build_ssz_type(
         )
     else:
         base = Container
-    cls_name = model_cls.__name__ + (fork if fork else "")
+    cls_name = model_cls.__name__ + (str(fork) if fork else "")
     return type(cls_name, (base,), {"__annotations__": anns})
 
 
-def _to_rmk(spec: SSZType, value: Any, fork: Optional[str] = None) -> Any:
+def _to_rmk(spec: SSZType, value: Any, fork: Optional[ForkKey] = None) -> Any:
     if isinstance(spec, (SSZContainer, SSZProgressiveContainer)):
         return _rmk_instance(value, _nested_fork(spec.model, fork))
     if isinstance(spec, (SSZList, SSZVector, SSZProgressiveList)):
@@ -688,7 +693,9 @@ def _to_rmk(spec: SSZType, value: Any, fork: Optional[str] = None) -> Any:
     return value  # scalar / byte-vector / byte-list: remerkleable coerces
 
 
-def _rmk_instance(model: "SSZModel", fork: Optional[str] = None) -> Container:
+def _rmk_instance(
+    model: "SSZModel", fork: Optional[ForkKey] = None
+) -> Container:
     model_cls: Type[SSZModel] = type(model)
     names = _schema_fields(model_cls, fork)
     if fork is not None:
@@ -701,7 +708,7 @@ def _rmk_instance(model: "SSZModel", fork: Optional[str] = None) -> Container:
     return container(**values)
 
 
-def _to_py(spec: SSZType, value: Any, fork: Optional[str] = None) -> Any:
+def _to_py(spec: SSZType, value: Any, fork: Optional[ForkKey] = None) -> Any:
     if isinstance(spec, (SSZContainer, SSZProgressiveContainer)):
         nested = _nested_fork(spec.model, fork)
         return _view_to_model(
@@ -724,7 +731,7 @@ def _view_to_model(
     model_cls: Type[_M],
     view: Container,
     names: Optional[Tuple[str, ...]] = None,
-    fork: Optional[str] = None,
+    fork: Optional[ForkKey] = None,
 ) -> _M:
     if names is None:
         names = _included_fields(model_cls)
@@ -737,7 +744,7 @@ def _view_to_model(
     )
 
 
-def default_value(spec: SSZType, fork: Optional[str] = None) -> Any:
+def default_value(spec: SSZType, fork: Optional[ForkKey] = None) -> Any:
     """Return the SSZ default (zero) value for spec as a pydantic value."""
     if isinstance(spec, SSZUint):
         return 0
@@ -763,7 +770,7 @@ def default_value(spec: SSZType, fork: Optional[str] = None) -> Any:
     raise TypeError(f"no default for SSZ type {spec!r}")
 
 
-def ssz_default(model_cls: Type[_M], fork: Optional[str] = None) -> _M:
+def ssz_default(model_cls: Type[_M], fork: Optional[ForkKey] = None) -> _M:
     """
     Build the SSZ default (all-zero) instance of model_cls.
 
@@ -807,7 +814,7 @@ def describe_type(spec: SSZType) -> str:
 
 
 def describe_schema(
-    model_cls: Type["SSZModel"], fork: Optional[str] = None
+    model_cls: Type["SSZModel"], fork: Optional[ForkKey] = None
 ) -> str:
     """
     Render the resolved SSZ layout, one 'field: type' line per field.
@@ -821,7 +828,7 @@ def describe_schema(
     return "\n".join(lines)
 
 
-def encode(model: "SSZModel", fork: Optional[str] = None) -> bytes:
+def encode(model: "SSZModel", fork: Optional[ForkKey] = None) -> bytes:
     """
     Return the SSZ wire bytes of model.
 
@@ -831,7 +838,7 @@ def encode(model: "SSZModel", fork: Optional[str] = None) -> bytes:
     return _rmk_instance(model, fork).encode_bytes()
 
 
-def hash_tree_root(model: "SSZModel", fork: Optional[str] = None) -> bytes:
+def hash_tree_root(model: "SSZModel", fork: Optional[ForkKey] = None) -> bytes:
     """
     Return the 32-byte SSZ hash_tree_root of model.
 
@@ -840,7 +847,9 @@ def hash_tree_root(model: "SSZModel", fork: Optional[str] = None) -> bytes:
     return bytes(_rmk_instance(model, fork).hash_tree_root())
 
 
-def decode(model_cls: Type[_M], data: bytes, fork: Optional[str] = None) -> _M:
+def decode(
+    model_cls: Type[_M], data: bytes, fork: Optional[ForkKey] = None
+) -> _M:
     """
     Decode SSZ data into an instance of model_cls.
 
