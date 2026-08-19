@@ -81,7 +81,7 @@ jobs:
 
   fill:
     name: fill (${{ matrix.label }})
-    runs-on: [self-hosted-ghr, size-xl-x64]
+    runs-on: [ self-hosted-ghr, size-xl-x64 ]
     needs: static
     strategy:
       fail-fast: false
@@ -99,9 +99,9 @@ jobs:
           - label: osaka
             from_fork: Osaka
             until_fork: Osaka
-          - label: amsterdam
-            from_fork: Amsterdam
-            until_fork: Amsterdam
+          - label: bogota
+            from_fork: Bogota
+            until_fork: Bogota
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
@@ -121,7 +121,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   fill-benchmark:
-    runs-on: [self-hosted-ghr, size-xl-x64]
+    runs-on: [ self-hosted-ghr, size-xl-x64 ]
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -134,7 +134,7 @@ jobs:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
   fill-pypy:
-    runs-on: [self-hosted-ghr, size-xl-x64]
+    runs-on: [ self-hosted-ghr, size-xl-x64 ]
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -149,7 +149,7 @@ jobs:
           PYPY_GC_MIN: "1G"
 
   json-loader:
-    runs-on: [self-hosted-ghr, size-xl-x64]
+    runs-on: [ self-hosted-ghr, size-xl-x64 ]
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -181,7 +181,7 @@ jobs:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
   test-tests:
-    runs-on: [self-hosted-ghr, size-xl-x64]
+    runs-on: [ self-hosted-ghr, size-xl-x64 ]
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -203,7 +203,7 @@ jobs:
           EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
   test-tests-pypy:
-    runs-on: [self-hosted-ghr, size-l-x64]
+    runs-on: [ self-hosted-ghr, size-l-x64 ]
     needs: static
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
