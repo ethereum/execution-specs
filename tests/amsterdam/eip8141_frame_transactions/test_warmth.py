@@ -24,11 +24,13 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Bytes,
     CodeGasMeasure,
     Environment,
     Fork,
     Frame,
     FrameReceipt,
+    FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
@@ -433,6 +435,119 @@ def test_warmth_carry_to_next_frame(
             sender: Account(nonce=1),
             probe_address: probe.post_account,
         },
+    )
+
+
+def test_payer_warm_after_default_code_payment_approval(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Measure a `BALANCE` of the payer in the frame after a sponsored
+    payment approval through the payer's protocol default code.
+
+    Collecting the maximum cost warms the payer like any
+    protocol-touched account — also on the default code path, which
+    runs without an EVM and warms in the journal directly.
+    """
+    sender = pre.fund_eoa()
+    payer = pre.fund_eoa()
+    probe = balance_probe(payer, fork, warm=True)
+    probe_address = pre.deploy_contract(code=probe.code)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+            probe_frame(probe_address),
+        ],
+        signatures=[
+            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            FrameSignature(
+                scheme=Spec.SCHEME_SECP256K1,
+                signer=Bytes(payer),
+                secret_key=payer.key,
+            ),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=payer,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            probe_address: probe.post_account,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "mode,origin_warm",
+    [
+        pytest.param(Spec.MODE_DEFAULT, False, id="default_frame_origin_cold"),
+        pytest.param(Spec.MODE_VERIFY, False, id="verify_frame_origin_cold"),
+        pytest.param(Spec.MODE_SENDER, True, id="sender_frame_origin_warm"),
+    ],
+)
+def test_origin_warmth_by_frame_mode(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    mode: int,
+    origin_warm: bool,
+) -> None:
+    """
+    Access the balance of `ORIGIN` in each frame mode, pinning its
+    warm or cold cost through the frame receipt's gas.
+
+    The frame entry point is not pre-warmed, so the access is cold in
+    `DEFAULT` and `VERIFY` frames, where `ORIGIN` is the entry point.
+    In a `SENDER` frame `ORIGIN` is the transaction sender, which
+    seeds the warm journal. The receipt pins the gas — rather than a
+    stored measurement — so the probe stays free of state writes and
+    runs unchanged in a `VERIFY` frame.
+    """
+    sender = pre.fund_eoa()
+    code = Op.POP(Op.BALANCE(Op.ORIGIN, address_warm=origin_warm)) + Op.STOP
+    prober = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            Frame(mode=mode, target=prober, gas_limit=TOUCH_FRAME_GAS),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=fork.gas_costs().COLD_ACCOUNT_ACCESS
+                    + code.gas_cost(fork),
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=1)},
     )
 
 

@@ -334,7 +334,9 @@ def create_evm_from_frame(
 
 
 def execute_default_verify_code(
-    tx_env: TransactionEnvironment, frame: Frame
+    tx_env: TransactionEnvironment,
+    frame: Frame,
+    warm_addresses: Set[Address],
 ) -> FrameStatus:
     """
     Execute the protocol default code of a `VERIFY` frame whose
@@ -383,7 +385,7 @@ def execute_default_verify_code(
     if frame_context.resolved_signers[signature_index] != resolved_target:
         return FrameStatus.FAILURE
 
-    if not attempt_approval(tx_env, allowed_scope):
+    if not attempt_approval(tx_env, allowed_scope, warm_addresses):
         return FrameStatus.FAILURE
 
     return FrameStatus.SUCCESS
@@ -412,7 +414,8 @@ def execute_frame(
 
     On success the frame's accesses are committed back to the
     journal's warm sets; a failed frame's accesses are discarded with
-    its EVM, so nothing it touched stays warm.
+    its EVM, so nothing it touched stays warm. The default code runs
+    without an EVM and warms in the journal's set directly.
     """
     frame_context = tx_env.frame_context
     assert frame_context is not None
@@ -432,7 +435,9 @@ def execute_frame(
         and target_account.code_hash == EMPTY_CODE_HASH
     ):
         try:
-            status = execute_default_verify_code(tx_env, frame)
+            status = execute_default_verify_code(
+                tx_env, frame, journal.warm_addresses
+            )
         except ExceptionalHalt:
             # `APPROVE` could not cover the sender-creation state
             # charge: the frame halts exceptionally with no approval

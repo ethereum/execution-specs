@@ -74,7 +74,9 @@ def approve(evm: Evm) -> None:
     # A scope with bits beyond the approval mask is never allowed.
     if scope & ~U256(APPROVE_SCOPE_MASK) != U256(0):
         raise Revert
-    if not attempt_approval(evm.tx_env, FrameFlag(Uint(scope))):
+    if not attempt_approval(
+        evm.tx_env, FrameFlag(Uint(scope)), evm.accessed_addresses
+    ):
         raise Revert
 
     evm.output = Bytes(memory_read_bytes(evm.memory, offset, length))

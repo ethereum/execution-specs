@@ -358,7 +358,11 @@ def restore_frame_context(
     )
 
 
-def attempt_approval(tx_env: TransactionEnvironment, scope: FrameFlag) -> bool:
+def attempt_approval(
+    tx_env: TransactionEnvironment,
+    scope: FrameFlag,
+    accessed_addresses: Set[Address],
+) -> bool:
     """
     Attempt an `APPROVE` of `scope` on behalf of the executing frame's
     resolved target, applying its effects on success.
@@ -370,7 +374,11 @@ def attempt_approval(tx_env: TransactionEnvironment, scope: FrameFlag) -> bool:
     set, that execution is approved (by this same scope or earlier),
     and that the resolved target can cover the transaction's maximum
     cost; it increments the sender's nonce and collects the maximum
-    cost from the resolved target, which becomes the payer.
+    cost from the resolved target, which becomes the payer. Collecting
+    the maximum cost warms the payer like any protocol-touched
+    account, in the caller's active warm set so the warmth shares the
+    approval's rollback fate; an execution-only approval touches no
+    payer balance and warms nothing.
 
     When incrementing the nonce creates the sender account, the
     account creation is charged from the executing frame's state gas
@@ -427,6 +435,7 @@ def attempt_approval(tx_env: TransactionEnvironment, scope: FrameFlag) -> bool:
             U256(Uint(payer_balance) - frame_context.max_cost),
         )
         frame_context.payer = resolved_target
+        accessed_addresses.add(resolved_target)
 
     return True
 
