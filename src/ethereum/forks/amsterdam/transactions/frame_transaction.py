@@ -652,6 +652,21 @@ def validate_frame_transaction(
                     "atomic batches cannot contain verify frames"
                 )
 
+        # Approval scope is disallowed on every frame of an atomic
+        # batch, including its terminating frame. A frame belongs to a
+        # batch when it or its predecessor carries the flag. Keeping the
+        # approval context constant across a batch means unrolling one
+        # can never withdraw an execution approval that later SENDER
+        # frames rely on, and whether the transaction sets a payer never
+        # depends on a batch outcome.
+        in_batch = FrameFlag.ATOMIC_BATCH in frame.flags or (
+            index > 0 and FrameFlag.ATOMIC_BATCH in tx.frames[index - 1].flags
+        )
+        if in_batch and frame.flags & APPROVE_SCOPE_MASK != FrameFlag(0):
+            raise InvalidFrameError(
+                "atomic batch frames cannot carry approval scope"
+            )
+
         if frame.mode == FrameMode.VERIFY and frame.to == EXPIRY_VERIFIER:
             if has_expiry_verifier_frame:
                 raise InvalidFrameError("multiple expiry verifier frames")
