@@ -180,6 +180,37 @@ def head_with(**fields: Any) -> FixtureHeader:
 
 
 @pytest.mark.parametrize(
+    "head_number,available",
+    [
+        pytest.param(2**64 - 2, True, id="child_fits_exactly"),
+        pytest.param(2**64 - 1, False, id="max"),
+        pytest.param(2**64, False, id="already_overflowing"),
+    ],
+)
+def test_block_number_ceiling(head_number: int, available: bool) -> None:
+    """The appended block's number must have a uint64 representation."""
+    reason = sync_block_context_unavailable(
+        head_with(number=head_number), Cancun
+    )
+    assert (reason is None) is available
+
+
+@pytest.mark.parametrize(
+    "gas_limit,available",
+    [
+        pytest.param(2**64 - 1, True, id="max"),
+        pytest.param(2**64, False, id="one_over_max"),
+    ],
+)
+def test_gas_limit_ceiling(gas_limit: int, available: bool) -> None:
+    """The appended block's inherited gas limit must fit uint64."""
+    reason = sync_block_context_unavailable(
+        head_with(gas_limit=gas_limit), Cancun
+    )
+    assert (reason is None) is available
+
+
+@pytest.mark.parametrize(
     "head_timestamp,available",
     [
         pytest.param(2**64 - 1, False, id="max"),
