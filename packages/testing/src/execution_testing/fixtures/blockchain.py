@@ -63,8 +63,11 @@ from execution_testing.exceptions import (
     ExceptionInstanceOrList,
 )
 from execution_testing.forks import (
+    Amsterdam,
+    Cancun,
     Fork,
     Paris,
+    Shanghai,
     TransitionFork,
     ssz_schema_fork_key,
 )
@@ -488,7 +491,7 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
     slot_number: Uint64 | None = Field(None)
 
     __ssz_schema__ = SSZForkSchema(
-        base_fork="Paris",
+        base_fork=Paris.name(),
         base=(
             "parent_hash",
             "fee_recipient",
@@ -506,9 +509,9 @@ class FixtureExecutionPayload(ForkScopedSSZModel):
             "transactions",
         ),
         appended={
-            "Shanghai": ("withdrawals",),
-            "Cancun": ("blob_gas_used", "excess_blob_gas"),
-            "Amsterdam": ("block_access_list", "slot_number"),
+            Shanghai.name(): ("withdrawals",),
+            Cancun.name(): ("blob_gas_used", "excess_blob_gas"),
+            Amsterdam.name(): ("block_access_list", "slot_number"),
         },
     )
 
