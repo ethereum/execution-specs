@@ -524,17 +524,7 @@ class FixtureEngineNewPayload(CamelModel):
     new_payload_version: Number
     forkchoice_updated_version: Number
     validation_error: ExceptionInstanceOrList | None = None
-    status: (
-        Literal[
-            "VALID",
-            "INVALID",
-            "SYNCING",
-            "ACCEPTED",
-            "INVALID_BLOCK_HASH",
-            "INCLUSION_LIST_UNSATISFIED",
-        ]
-        | None
-    ) = None
+    inclusion_list_satisfied: bool | None = None
     error_code: (
         Annotated[
             EngineAPIError,
@@ -559,13 +549,7 @@ class FixtureEngineNewPayload(CamelModel):
 
     def valid(self) -> bool:
         """Return whether the payload is valid."""
-        return self.expected_status() == "VALID"
-
-    def expected_status(self) -> str:
-        """Return the expected Engine API payload status."""
-        if self.status is not None:
-            return self.status
-        return "INVALID" if self.validation_error is not None else "VALID"
+        return self.validation_error is None
 
     def get_payload_attributes(self) -> "PayloadAttributes":
         """Return the ``PayloadAttributes`` corresponding to this payload."""
@@ -635,8 +619,8 @@ class FixtureEngineNewPayload(CamelModel):
         transactions: List[Transaction],
         withdrawals: List[Withdrawal] | None,
         requests: List[Bytes] | None,
-        inclusion_list_transactions: List[Transaction] | None = None,
         block_access_list: Bytes | None = None,
+        inclusion_list_transactions: List[Transaction] | None = None,
         execution_payload_modifier: (
             "FixtureExecutionPayloadModifier | None"
         ) = None,
@@ -704,6 +688,10 @@ class FixtureEngineNewPayload(CamelModel):
                     f"Inclusion list transactions are required for ${fork}."
                 )
             params.append([tx.rlp() for tx in inclusion_list_transactions])
+            if "inclusion_list_satisfied" not in kwargs:
+                raise ValueError(
+                    f"Inclusion list satisfied is required for ${fork}."
+                )
 
         payload_params: EngineNewPayloadParameters = cast(
             EngineNewPayloadParameters,

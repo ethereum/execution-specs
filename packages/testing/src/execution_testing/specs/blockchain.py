@@ -84,7 +84,6 @@ from execution_testing.fixtures.common import (
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork
-from execution_testing.rpc.rpc_types import PayloadStatusEnum
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -461,7 +460,6 @@ class BuiltBlock(CamelModel):
     alloc: LazyAlloc | Alloc
     state_root: Hash
     txs: List[Transaction]
-    inclusion_list_txs: List[Transaction] | None
     ommers: List[FixtureHeader]
     withdrawals: List[Withdrawal] | None
     requests: List[Bytes] | None
@@ -471,6 +469,8 @@ class BuiltBlock(CamelModel):
     rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
+    inclusion_list_txs: List[Transaction] | None
+    inclusion_list_satisfied: bool | None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
 
@@ -591,17 +591,13 @@ class BuiltBlock(CamelModel):
             transactions=self.txs,
             withdrawals=self.withdrawals,
             requests=self.requests,
-            inclusion_list_transactions=self.inclusion_list_txs,
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
+            inclusion_list_transactions=self.inclusion_list_txs,
+            inclusion_list_satisfied=self.inclusion_list_satisfied,
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
-            status=(
-                PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value
-                if self.result.inclusion_list_satisfied is False
-                else None
-            ),
             error_code=self.engine_api_error_code,
         )
 
@@ -1123,7 +1119,6 @@ class BlockchainTest(BaseTest):
             state_root=transition_tool_output.result.state_root,
             env=env,
             txs=txs,
-            inclusion_list_txs=inclusion_list_txs,
             ommers=[],
             withdrawals=env.withdrawals,
             requests=requests_list,
@@ -1133,6 +1128,8 @@ class BlockchainTest(BaseTest):
             rlp_modifier=block.rlp_modifier,
             fork=fork,
             block_access_list=bal,
+            inclusion_list_txs=inclusion_list_txs,
+            inclusion_list_satisfied=transition_tool_output.result.inclusion_list_satisfied,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
             ),

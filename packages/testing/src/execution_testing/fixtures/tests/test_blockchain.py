@@ -24,7 +24,6 @@ from execution_testing.exceptions import (
     TransactionException,
 )
 from execution_testing.forks import Amsterdam, Prague
-from execution_testing.rpc.rpc_types import PayloadStatusEnum
 from execution_testing.test_types import (
     EOA,
     AuthorizationTuple,
@@ -845,72 +844,6 @@ fixture_header_ones = FixtureHeader(
                 "errorCode": "-32600",
             },
             id="fixture_engine_new_payload_1",
-        ),
-        pytest.param(
-            True,
-            FixtureEngineNewPayload.from_fixture_header(
-                fork=Prague,
-                header=FixtureHeader(
-                    fork=Prague,
-                    parent_hash=Hash(0),
-                    ommers_hash=Hash(1),
-                    fee_recipient=Address(2),
-                    state_root=Hash(3),
-                    transactions_trie=Hash(4),
-                    receipts_root=Hash(5),
-                    logs_bloom=Bloom(6),
-                    difficulty=7,
-                    number=8,
-                    gas_limit=9,
-                    gas_used=10,
-                    timestamp=11,
-                    extra_data=Bytes([12]),
-                    prev_randao=Hash(13),
-                    nonce=HeaderNonce(14),
-                    base_fee_per_gas=15,
-                    withdrawals_root=Hash(16),
-                    blob_gas_used=17,
-                    excess_blob_gas=18,
-                    parent_beacon_block_root=19,
-                    requests_hash=20,
-                ),
-                transactions=[],
-                withdrawals=[],
-                requests=[],
-                status=PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value,
-            ),
-            {
-                "params": [
-                    {
-                        "parentHash": Hash(0).hex(),
-                        "feeRecipient": Address(2).hex(),
-                        "stateRoot": Hash(3).hex(),
-                        "receiptsRoot": Hash(5).hex(),
-                        "logsBloom": Bloom(6).hex(),
-                        "blockNumber": hex(8),
-                        "gasLimit": hex(9),
-                        "gasUsed": hex(10),
-                        "timestamp": hex(11),
-                        "extraData": Bytes([12]).hex(),
-                        "prevRandao": Hash(13).hex(),
-                        "baseFeePerGas": hex(15),
-                        "blobGasUsed": hex(17),
-                        "excessBlobGas": hex(18),
-                        "blockHash": (
-                            "0x93bd662d8a80a1f54bffc6d140b83d6cda233209998809f9540be51178b4d0b6"
-                        ),
-                        "transactions": [],
-                        "withdrawals": [],
-                    },
-                    [],
-                    str(Hash(19)),
-                    [],
-                ],
-                "forkchoiceUpdatedVersion": "3",
-                "newPayloadVersion": "4",
-                "status": PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value,
-            },
-            id="fixture_engine_new_payload_inclusion_list_unsatisfied",
         ),
         pytest.param(
             True,
@@ -1774,9 +1707,8 @@ class TestFixtureExecutionPayloadModifier:
 
     def test_from_fixture_header_removes_body_on_post_bal_fork(self) -> None:
         """REMOVE_FIELD bypasses the fork-required check and omits the body."""
-        fork = Amsterdam
         payload = FixtureEngineNewPayload.from_fixture_header(
-            fork=fork,
+            fork=Amsterdam,
             header=_amsterdam_payload_header(),
             transactions=[],
             withdrawals=[],
@@ -1787,41 +1719,30 @@ class TestFixtureExecutionPayloadModifier:
                     FixtureExecutionPayloadModifier.REMOVE_FIELD
                 ),
             ),
-            inclusion_list_transactions=[]
-            if fork.engine_new_payload_inclusion_list_transactions()
-            else None,
         )
         assert payload.params[0].block_access_list is None
         assert "blockAccessList" not in to_json(payload.params[0])
 
     def test_from_fixture_header_requires_bal_on_post_bal_fork(self) -> None:
         """Without a modifier override, Amsterdam still requires a BAL body."""
-        fork = Amsterdam
         with pytest.raises(ValueError, match="block_access_list"):
             FixtureEngineNewPayload.from_fixture_header(
-                fork=fork,
+                fork=Amsterdam,
                 header=_amsterdam_payload_header(),
                 transactions=[],
                 withdrawals=[],
                 requests=[],
                 block_access_list=None,
-                inclusion_list_transactions=[]
-                if fork.engine_new_payload_inclusion_list_transactions()
-                else None,
             )
 
     def test_from_fixture_header_passthrough_without_modifier(self) -> None:
         """No modifier leaves the payload's BAL body unchanged."""
-        fork = Amsterdam
         payload = FixtureEngineNewPayload.from_fixture_header(
-            fork=fork,
+            fork=Amsterdam,
             header=_amsterdam_payload_header(),
             transactions=[],
             withdrawals=[],
             requests=[],
             block_access_list=Bytes(b"\xaa\xbb"),
-            inclusion_list_transactions=[]
-            if fork.engine_new_payload_inclusion_list_transactions()
-            else None,
         )
         assert payload.params[0].block_access_list == Bytes(b"\xaa\xbb")
