@@ -315,6 +315,48 @@ FRAME_CASES = [
         id="atomic_batch_of_default_frames",
     ),
     pytest.param(
+        # Approval scope is disallowed on every frame of a batch. This is
+        # the flagged member; `atomic_batch_of_default_frames` above is the
+        # same shape without the scope, and is valid.
+        [
+            verify_frame(),
+            default_frame(flags=Spec.ATOMIC_BATCH_FLAG | Spec.APPROVE_PAYMENT),
+            default_frame(),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="approval_scope_on_flagged_batch_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The terminating frame carries no flag of its own but still
+        # belongs to the batch, so the same rule applies to it. Without
+        # this case an implementation that only checks flagged frames
+        # passes, and the approval context is no longer constant across
+        # the batch.
+        [
+            verify_frame(),
+            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            default_frame(flags=Spec.APPROVE_PAYMENT),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="approval_scope_on_batch_terminating_frame",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # A frame after the batch has ended is unaffected: the terminator
+        # closed the batch, so this frame is outside it. Pins the rule's
+        # upper boundary, so an implementation cannot satisfy the two cases
+        # above by rejecting approval scope on any frame following a batch.
+        [
+            verify_frame(),
+            default_frame(flags=Spec.ATOMIC_BATCH_FLAG),
+            default_frame(),
+            default_frame(flags=Spec.APPROVE_PAYMENT),
+        ],
+        None,
+        id="approval_scope_after_batch_terminator",
+    ),
+    pytest.param(
         # Each frame's gas limit fits into 64 bits, but the total
         # frame gas must as well.
         [
