@@ -111,5 +111,8 @@ def test_fixture_payload_covers_every_engine_payload_attribute(
             if fork.engine_execution_payload_block_access_list()
             else None
         ),
+        inclusion_list_transactions=[]
+        if fork.engine_new_payload_inclusion_list_transactions()
+        else None,
     )
     assert_attributes_cover_fork(payload.get_payload_attributes(), fork)
