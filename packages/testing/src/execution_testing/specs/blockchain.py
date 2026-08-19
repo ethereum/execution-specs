@@ -144,14 +144,19 @@ def sync_block_context_unavailable(
     either side of that boundary.
     """
     # Type ceilings first: the fork of a block that cannot exist is
-    # not well-defined. A block's timestamp and slot number must fit
-    # uint64, and the appended block takes its parent's timestamp plus
-    # the block time of the head's own fork - the child's fork cannot
-    # be resolved until its timestamp is known. Nothing else on the
-    # fill side notices the overflow - Python integers do not wrap and
-    # `t8n` accepts the value - so an unguarded fill would emit a
-    # payload no client can parse. Both fields are semantic and never
+    # not well-defined. Engine payload block numbers, timestamps, gas
+    # limits and slot numbers must fit uint64. The appended block takes
+    # its parent's block number plus one and its timestamp plus the block
+    # time of the head's own fork; it inherits the parent's gas limit and
+    # takes its slot number plus one. Python integers do not wrap and
+    # `t8n` accepts some of the values, so unguarded these heads would
+    # not fill bare: the typed payload model rejects the overflowing
+    # child and fails the whole fill. The fields are semantic and never
     # clamped or shifted; the fill declines the block instead.
+    if int(head.number) + 1 > 2**64 - 1:
+        return "the head's block number has no successor in uint64"
+    if int(head.gas_limit) > 2**64 - 1:
+        return "the head's gas limit does not fit uint64"
     block_time = test_fork.fork_at(
         block_number=int(head.number), timestamp=int(head.timestamp)
     ).block_time()
