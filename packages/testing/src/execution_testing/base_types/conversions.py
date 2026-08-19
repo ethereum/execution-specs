@@ -12,7 +12,7 @@ NumberConvertible: TypeAlias = str | bytes | SupportsBytes | int
 def to_bytes(input_bytes: BytesConvertible) -> bytes:
     """Convert multiple types into bytes."""
     if input_bytes is None:
-        raise Exception("Cannot convert `None` input to bytes")
+        raise ValueError("Cannot convert `None` input to bytes")
 
     if isinstance(input_bytes, str):
         # We can have a hex representation of bytes with spaces for readability
@@ -52,7 +52,7 @@ def to_fixed_size_bytes(
         )
     input_bytes = to_bytes(input_bytes)
     if len(input_bytes) > size:
-        raise Exception(
+        raise ValueError(
             f"input is too large for fixed size bytes: {input_bytes.hex()}, "
             f" {len(input_bytes)} > {size}"
         )
@@ -61,7 +61,7 @@ def to_fixed_size_bytes(
             return input_bytes.rjust(size, b"\x00")
         if right_padding:
             return input_bytes.ljust(size, b"\x00")
-        raise Exception(
+        raise ValueError(
             f"input is too small for fixed size bytes: "
             f"{len(input_bytes)} < {size}\n"
             "Use `left_padding=True` or `right_padding=True` to allow padding."
@@ -84,4 +84,4 @@ def to_number(input_number: NumberConvertible) -> int:
         input_number, SupportsBytes
     ):
         return int.from_bytes(input_number, byteorder="big")
-    raise Exception("invalid type for `number`")
+    raise ValueError("invalid type for `number`")
