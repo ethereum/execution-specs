@@ -160,23 +160,34 @@ def test_blockchain_via_engine(
                                 f"unexpected status: want {expected_validity},"
                                 f" got {payload_response.status}"
                             )
-                        if payload.inclusion_list_satisfied is not None:
-                            if (
-                                payload_response.inclusion_list_satisfied
-                                is None
-                            ):
+                        response_ils = (
+                            payload_response.inclusion_list_satisfied
+                        )
+                        if not payload.valid():
+                            # `PayloadStatusV2` requires a null
+                            # `inclusionListSatisfied` unless the payload
+                            # is deemed VALID, and no earlier payload
+                            # status carries the field at all.
+                            if response_ils is not None:
                                 raise LoggedError(
-                                    "expected `inclusion_list_satisfied` in "
+                                    "expected null "
+                                    "`inclusionListSatisfied` on a payload "
+                                    f"not deemed VALID, got {response_ils}"
+                                )
+                        elif payload.inclusion_list_satisfied is not None:
+                            if response_ils is None:
+                                raise LoggedError(
+                                    "expected `inclusionListSatisfied` in "
                                     "response."
                                 )
                             if (
                                 payload.inclusion_list_satisfied
-                                != payload_response.inclusion_list_satisfied
+                                != response_ils
                             ):
                                 raise LoggedError(
                                     f"unexpected inclusion list satisfied: "
                                     f"want {payload.inclusion_list_satisfied},"
-                                    f" got {payload_response.inclusion_list_satisfied}"  # noqa: E501
+                                    f" got {response_ils}"
                                 )
                         if payload.error_code is not None:
                             raise LoggedError(
