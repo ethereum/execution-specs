@@ -125,6 +125,8 @@ G → T₁ … Tₙ → S*
 
 Announcing a sync payload starts syncing because its parent is unknown to the client, so the client fetches the test blocks below it over devp2p. A sync payload is omitted when the test must announce its own payload, when another block cannot be appended, or when the feature is disabled; the fixture still fills. A small number of tests describe sibling chains and therefore have more than one `syncPayloads` entry. Refer to [Sync Payloads](./sync_payloads.md) for more detailed explanations. [Blockchain Engine X Test consumption](../running_tests/test_formats/blockchain_test_engine_x.md#consumption) explains how a consumer reconstructs each chain by hash.
 
+The `blockchain_test_sync` format's single `syncPayload` comes from the same builder but is that format's defining field: `--no-sync-block` does not remove it.
+
 ## Debugging the `t8n` Command
 
 The `--evm-dump-dir` flag can be used to dump the inputs and outputs of every call made to the `t8n` command for debugging purposes, see [Debugging Transition Tools](./debugging_t8n_tools.md).

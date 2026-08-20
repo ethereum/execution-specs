@@ -1413,6 +1413,12 @@ class BlockchainTest(BaseTest):
         """
         Build the empty block appended above one authored leaf.
 
+        This is the one builder behind every format's sync payloads:
+        the engine_x format stores one per authored leaf when the
+        chain is eligible, and the sync fixture format, whose consumer
+        cannot start without one, requires one above its single valid
+        leaf.
+
         ``head`` is the leaf's built block, valid or not, and ``alloc``
         is the state available at that leaf: a valid head's post-state
         or, when the head is expected to be rejected and was rolled back,
@@ -1430,8 +1436,9 @@ class BlockchainTest(BaseTest):
         block from that ancestry long before it would execute this one.
 
         Return ``None`` when no block can be built above the head (see
-        ``sync_block_context_unavailable``): the chain then fills as
-        exactly the author's own.
+        ``sync_block_context_unavailable``): an engine_x fixture then
+        omits that leaf's target, while the sync fixture format checks
+        the guard before calling and fails the fill instead.
         """
         unavailable = sync_block_context_unavailable(head.header, self.fork)
         if unavailable is not None:
@@ -1596,24 +1603,43 @@ class BlockchainTest(BaseTest):
             fixture = BlockchainEngineXFixture(**fixture_data)
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
-            assert genesis.header.block_hash != head_hash, (
-                "Invalid payload tests negative test via sync is not "
+            assert (
+                genesis.header.block_hash != head_hash
+                and invalid_blocks == 0
+                and all(
+                    block.engine_api_error_code is None
+                    for block in self.blocks
+                )
+            ), (
+                "Payload rejection tests via the sync fixture format are not "
                 "supported yet."
             )
-            # Most clients require the header to start the sync process, so we
-            # create an empty block on top of the last block of the test to
-            # send it as new payload and trigger the sync process.
-            sync_built_block = self.generate_block_data(
-                t8n=t8n,
-                block=Block(),
-                previous_env=env,
-                previous_alloc=alloc,
+            # A valid linear chain has exactly one leaf, its final
+            # block, and this format's single `sync_payload` announces
+            # it. The payload is the format's defining field: the
+            # consumer sends it to the sync client to trigger the sync,
+            # and fails without it. It is therefore built ungated -
+            # `--no-sync-block` and the test's own opt-out govern the
+            # engine_x format's *optional* list, not this field - and a
+            # head no payload can be built above fails the fill instead
+            # of filling bare.
+            unavailable = sync_block_context_unavailable(
+                built_block.header, self.fork
             )
+            if unavailable is not None:
+                raise Exception(
+                    f"this chain's head admits no sync payload "
+                    f"({unavailable}), and the sync fixture format "
+                    "requires one as the announced sync target; remove "
+                    "the `verify_sync` mark or change the head"
+                )
+            sync_payload = self.build_sync_payload(
+                t8n, head=built_block, alloc=alloc
+            )
+            assert sync_payload is not None
             fixture_data.update(
                 {
-                    "sync_payload": (
-                        sync_built_block.get_fixture_engine_new_payload()
-                    ),
+                    "sync_payload": sync_payload,
                     "pre": pre,
                     "post_state": alloc
                     if self.include_full_post_state_in_output

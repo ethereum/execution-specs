@@ -73,7 +73,7 @@ List of `engine_newPayloadVX` directives to be processed by the client under tes
 
 #### - `syncPayload`: [`FixtureEngineNewPayload`](#fixtureenginenewpayload)
 
-The final payload to be sent to the sync client to trigger synchronization. This is typically an empty block built on top of the last test block.
+The final payload to be sent to the sync client to trigger synchronization: an empty payload built above the last test payload by the same builder that fills the `blockchain_test_engine_x` format's `syncPayloads` entries (see [Sync Payloads](../../filling_tests/sync_payloads.md)). Its `extraData` carries a 16-byte digest of the test ID, giving the announced payload a test-specific `blockHash`. The field is this format's defining one: it is always present and is not affected by `fill`'s `--no-sync-block` option.
 
 #### - `engineFcuVersion`: [`Number`](./common_types.md#number)
 
@@ -227,10 +227,10 @@ Amount of the withdrawal
 
 While the Blockchain Sync Test format is similar to the Blockchain Engine Test format, there are key differences:
 
-1. **`syncPayload` field**: Contains the final block used to trigger synchronization on the sync client.
+1. **`syncPayload` field**: Contains the final block used to trigger synchronization on the sync client, built by the same builder as the `blockchain_test_engine_x` format's `syncPayloads` entries and salted per test in its `extraData`.
 2. **Multi-client testing**: Tests involve two clients (client under test and sync client) rather than a single client.
 3. **P2P networking**: Tests require P2P connection establishment between clients.
-4. **No invalid blocks**: Sync tests only work with valid chains as invalid blocks cannot be synced.
+4. **No payload rejections**: Sync tests only work with valid chains; expected-invalid payloads and Engine API error-code assertions are not supported.
 5. **`postStateHash` field**: Optional field for state verification when full post-state is not included.
 
 ## Fork Support

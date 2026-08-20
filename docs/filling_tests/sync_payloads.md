@@ -93,3 +93,13 @@ flowchart TD
 ```
 
 See [Blockchain Engine X Test consumption](../running_tests/test_formats/blockchain_test_engine_x.md#consumption) for the Engine API and devp2p full-sync consumption paths.
+
+## The `blockchain_test_sync` format also uses the sync-payload builder
+
+The [`blockchain_test_sync`](../running_tests/test_formats/blockchain_test_sync.md) format is filled only for tests marked `verify_sync` and is consumed by `consume sync`, which runs two clients. The client under test receives every test payload through `engine_newPayload`. A sync client must then obtain the whole chain from it over devp2p, and the fixture's single `syncPayload` field holds the payload announced to the sync client to trigger that synchronization.
+
+This payload comes from the same builder as the `syncPayloads` entries above, salt included. The rules differ because the field's role differs:
+
+1. The format supports only valid linear chains, so the payload graph has exactly one leaf, the final test payload, and the single `syncPayload` announces it. The fill rejects test cases containing expected-invalid payloads or Engine API error-code assertions.
+2. The payload is built regardless of `--no-sync-block` and of a test's `sync_block=False`. Those govern the engine X format's optional list; a sync fixture without its payload could not serve its consumer.
+3. A chain head that the framework cannot build a payload above fails the fill with an error naming the reason, instead of filling bare.
