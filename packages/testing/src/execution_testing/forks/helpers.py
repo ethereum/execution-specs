@@ -8,6 +8,7 @@ from typing import (
     FrozenSet,
     List,
     Optional,
+    Self,
     Set,
     Type,
 )
@@ -16,6 +17,7 @@ from pydantic import (
     BaseModel,
     BeforeValidator,
     ConfigDict,
+    ModelWrapValidatorHandler,
     PlainSerializer,
     PlainValidator,
     TypeAdapter,
@@ -521,3 +523,52 @@ TransitionFork = Annotated[
 ]
 TransitionForkAdapter: TypeAdapter = TypeAdapter(TransitionFork)
 TransitionForkOrNoneAdapter: TypeAdapter = TypeAdapter(TransitionFork | None)
+
+# Helper classes
+
+
+class FromForkValidatable(BaseModel):
+    """
+    Type that can be validated from a single `Fork | TransitionFork` input.
+    """
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def fork_validator(
+        cls, data: Any, handler: ModelWrapValidatorHandler[Self]
+    ) -> Self:
+        """
+        Validator wrapper that checks whether the input is a fork to dispatch
+        the `from_fork_or_transition` validator, which in turns calls
+        `from_fork` or `from_transition_fork` depending on the type.
+        Otherwise falls back to pydantic validation.
+        """
+        if isinstance(data, type) and issubclass(
+            data, (BaseFork, TransitionBaseClass)
+        ):
+            return cls.from_fork_or_transition(data)
+        return handler(data)
+
+    @classmethod
+    def from_fork_or_transition(cls, fork: Fork | TransitionFork) -> Self:
+        """
+        Dispatch caller for the appropriate implementation.
+
+        Can be directly overloaded by implementations too.
+        """
+        if issubclass(fork, BaseFork):
+            return cls.from_fork(fork)
+        else:
+            return cls.from_transition_fork(fork)
+
+    @classmethod
+    def from_fork(cls, fork: Fork) -> Self:
+        """To be implemented by inheriting classes."""
+        del fork
+        raise NotImplementedError()
+
+    @classmethod
+    def from_transition_fork(cls, transition_fork: TransitionFork) -> Self:
+        """To be implemented by inheriting classes."""
+        del transition_fork
+        raise NotImplementedError()

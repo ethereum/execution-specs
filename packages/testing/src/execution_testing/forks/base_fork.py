@@ -381,7 +381,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _fork_by_timestamp: ClassVar[bool] = False
     _blob_constants: ClassVar[Dict[str, int]] = {}
     _deployed: ClassVar[bool] = True
-    _enabled_eips: ClassVar[Set[int]] = set()
+    _enabled_eips: ClassVar[Set[Type["BaseFork"]]] = set()
     _enabling_forks: ClassVar[Set[Type["BaseFork"]]] = set()
 
     # Method version bumps
@@ -438,7 +438,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         ]
         cls._enabling_forks = set()
         for eip_base in eip_bases:
-            cls._enabled_eips.add(eip_base.eip())
+            cls._enabled_eips.add(eip_base)
             eip_base._enabling_forks.add(cls)
         # Bump the versions if any of the EIPs bump the version
         if engine_new_payload_version_bump is not None:
@@ -1388,7 +1388,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def is_eip_enabled(cls, *eip_numbers: int) -> bool:
         """Return whether this class has all specified EIPs enabled."""
         return all(
-            eip_number in cls._enabled_eips for eip_number in eip_numbers
+            eip_number in {eip.eip() for eip in cls._enabled_eips}
+            for eip_number in eip_numbers
         )
 
     @classmethod

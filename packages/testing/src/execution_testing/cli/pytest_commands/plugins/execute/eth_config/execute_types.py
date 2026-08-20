@@ -1,5 +1,6 @@
 """Types used to test `eth_config`."""
 
+import re
 from binascii import crc32
 from collections import defaultdict
 from functools import cached_property
@@ -7,7 +8,16 @@ from pathlib import Path
 from typing import Annotated, Any, ClassVar, Dict, List, Self, Set
 
 import yaml
-from pydantic import BaseModel, BeforeValidator, Field, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+    PlainSerializer,
+    PrivateAttr,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from execution_testing.base_types import (
     Address,
@@ -21,7 +31,15 @@ from execution_testing.base_types import (
     Number,
 )
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.forks import Fork, Frontier
+from execution_testing.forks import (
+    Fork,
+    FromForkValidatable,
+    Frontier,
+    London,
+    SpuriousDragon,
+    TangerineWhistle,
+    TransitionFork,
+)
 from execution_testing.rpc import (
     EthConfigResponse,
     ForkConfig,
@@ -101,10 +119,82 @@ def calculate_fork_id(
     return ForkHash(crc32(buffer))
 
 
-class ForkActivationTimes(EthereumTestRootModel[Dict[Fork, int]]):
+def _fork_ancestry(fork: Fork) -> List[Fork]:
+    """Return `fork` and every one of its ancestors, closest first."""
+    chain = [fork]
+    parent = fork.parent()
+    while parent is not None:
+        chain.append(parent)
+        parent = parent.parent()
+    return chain
+
+
+def _label_to_camel_case(label: str) -> str:
+    """Camel-case a SCREAMING_SNAKE_CASE system contract label."""
+    words = label.split("_")
+    return words[0].lower() + "".join(w.capitalize() for w in words[1:])
+
+
+def _fork_key(fork: Fork) -> str:
+    """CamelCase `fork.ruleset_name()`."""
+    return _label_to_camel_case(fork.ruleset_name() or fork.name())
+
+
+def _has_own_config_entry(fork: Fork) -> bool:
+    """Whether `fork` has a parent and a non-`None` `ruleset_name()`."""
+    return fork.parent() is not None and fork.ruleset_name() is not None
+
+
+class ForkActivationTimes(EthereumTestRootModel, FromForkValidatable):
     """Fork activation times."""
 
     root: Dict[Fork, int]
+
+    # Fork config key overrides.
+    _CONFIG_KEY_OVERRIDES: ClassVar[Dict[Fork, str | List[str]]] = {
+        TangerineWhistle: "eip150Block",
+        SpuriousDragon: ["eip155Block", "eip158Block"],
+    }
+
+    @model_serializer(mode="plain")
+    def _serialize(self) -> Dict[str, int]:
+        """
+        Convert fork names and override the ones in the `_CONFIG_KEY_OVERRIDES`
+        dict.
+        """
+        serialized = {}
+        for fork, activation_time in self.root.items():
+            if not _has_own_config_entry(fork):
+                continue
+            suffix = "Time" if fork._fork_by_timestamp else "Block"
+            keys = self._CONFIG_KEY_OVERRIDES.get(
+                fork, f"{_fork_key(fork)}{suffix}"
+            )
+            for key in [keys] if isinstance(keys, str) else keys:
+                serialized[key] = activation_time
+
+        return serialized
+
+    @classmethod
+    def from_fork(cls, fork: Fork) -> Self:
+        """
+        Build the fork-activation map for `fork`: every ancestor active from
+        genesis.
+        """
+        return cls(dict.fromkeys(_fork_ancestry(fork), 0))
+
+    @classmethod
+    def from_transition_fork(cls, transition_fork: TransitionFork) -> Self:
+        """
+        Build the fork-activation map for `fork`: every ancestor active from
+        genesis, plus the transition target at its configured block/time.
+        """
+        times = dict.fromkeys(
+            _fork_ancestry(transition_fork.transitions_from()), 0
+        )
+        transition = transition_fork.at_timestamp or transition_fork.at_block
+        times[transition_fork.transitions_to()] = transition
+        return cls(times)
 
     def forks_by_activation_time(self) -> Dict[int, Set[Fork]]:
         """Get the forks by activation time."""
@@ -158,14 +248,50 @@ class ForkActivationTimes(EthereumTestRootModel[Dict[Fork, int]]):
         return self.root[key]
 
 
+class GenesisConfigBlobSchedule(EthereumTestRootModel, FromForkValidatable):
+    """Blob schedule appearing in the genesis config."""
+
+    root: Dict[
+        Annotated[Fork, PlainSerializer(_fork_key)], ForkConfigBlobSchedule
+    ]
+
+    exclude_identical_schedules: ClassVar[bool] = False
+
+    @classmethod
+    def from_fork_or_transition(cls, fork: Fork | TransitionFork) -> Self:
+        """Get the blob schedule in the genesis config for a given fork."""
+        fork_activation_times = ForkActivationTimes.model_validate(fork)
+        blob_schedules = {}
+        last_blob_schedule: ForkConfigBlobSchedule | None = None
+        for f in sorted(fork_activation_times.root):
+            if f.supports_blobs():
+                current_blob_schedule = ForkConfigBlobSchedule(
+                    target_blobs_per_block=f.target_blobs_per_block(),
+                    max_blobs_per_block=f.max_blobs_per_block(),
+                    base_fee_update_fraction=f.blob_base_fee_update_fraction(),
+                )
+                if (
+                    last_blob_schedule is None
+                    or not cls.exclude_identical_schedules
+                    or last_blob_schedule != current_blob_schedule
+                ):
+                    blob_schedules[f] = current_blob_schedule
+                last_blob_schedule = current_blob_schedule
+        return cls(root=blob_schedules)
+
+    def get(self, key: Fork) -> ForkConfigBlobSchedule | None:
+        """Get a given fork's blob schedule if it exists, otherwise None."""
+        return self.root.get(key)
+
+
 class NetworkConfig(CamelModel):
     """Ethereum network config."""
 
     chain_id: HexNumber
     genesis_hash: Hash
     fork_activation_times: ForkActivationTimes
-    blob_schedule: Dict[Fork, ForkConfigBlobSchedule] = Field(
-        default_factory=dict
+    blob_schedule: GenesisConfigBlobSchedule = Field(
+        default_factory=lambda: GenesisConfigBlobSchedule(root={})
     )
     address_overrides: AddressOverrideDict = Field(
         default_factory=lambda: AddressOverrideDict({})
@@ -254,14 +380,19 @@ class NetworkConfigFile(EthereumTestRootModel):
 class GenesisConfig(CamelModel):
     """Config model contained in a Geth-type genesis file."""
 
+    ethash: Dict[str, str] = Field(default_factory=dict)
     chain_id: int
-    terminal_total_difficulty: int
-    terminal_total_difficulty_passed: bool
-    deposit_contract_address: Address = Address(
-        0x00000000219AB540356CBB839CBE05303D7705FA
+    terminal_total_difficulty: int | None = None
+    terminal_total_difficulty_passed: bool = Field(True, exclude=True)
+    # Per-label address overrides for the fork's system contracts.
+    system_contract_overrides: Dict[str, Address] = Field(
+        default_factory=dict, exclude=True
     )
-    fork_activation_times: ForkActivationTimes
-    blob_schedule: Dict[Fork, ForkConfigBlobSchedule]
+    fork_activation_times: ForkActivationTimes = Field(...)
+    blob_schedule: GenesisConfigBlobSchedule = Field(
+        ..., exclude_if=lambda v: not v
+    )
+    _fork: Fork | None = PrivateAttr(default=None)
 
     fork_synonyms: ClassVar[Dict[str, str | None]] = {
         # TODO: Ideally add fork synonyms, but not important for now.
@@ -272,31 +403,56 @@ class GenesisConfig(CamelModel):
         "mergeNetsplit": "paris",
     }
 
+    @classmethod
+    def from_fork_or_transition(
+        cls, fork: Fork | TransitionFork, chain_id: int, **kwargs: Any
+    ) -> Self:
+        """Get the genesis config for a given fork."""
+        instance = cls(
+            chain_id=chain_id,
+            terminal_total_difficulty=0 if fork > London else None,
+            terminal_total_difficulty_passed=fork > London,
+            fork_activation_times=fork,
+            blob_schedule=fork,
+            **kwargs,
+        )
+        instance._fork = fork.transitions_from()
+        return instance
+
+    @model_serializer(mode="wrap")
+    def _serialize(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> Dict[str, object]:
+        serialized = handler(self)
+        fork_activation_times = serialized.pop("forkActivationTimes")
+        for key, value in fork_activation_times.items():
+            serialized[key] = value
+        return serialized
+
     @property
     def address_overrides(self) -> AddressOverrideDict:
         """Get the address overrides."""
-        if self.deposit_contract_address == Address(
-            0x00000000219AB540356CBB839CBE05303D7705FA
-        ):
-            return AddressOverrideDict({})
-        return AddressOverrideDict(
-            {
-                Address(
-                    0x00000000219AB540356CBB839CBE05303D7705FA
-                ): self.deposit_contract_address
-            }
-        )
+        overrides: Dict[Address, Address] = {}
+        for contract in self.fork().system_contracts():
+            if contract.label is None:
+                continue
+            override = self.system_contract_overrides.get(contract.label)
+            if override is not None and override != contract:
+                overrides[contract] = override
+        return AddressOverrideDict(overrides)
 
     def fork(self) -> Fork:
         """Return the latest fork active at genesis."""
-        current_fork: Fork = Frontier
-        for (
-            fork,
-            activation_block_time,
-        ) in self.fork_activation_times.root.items():
-            if activation_block_time == 0 and fork > current_fork:
-                current_fork = fork
-        return current_fork
+        if self._fork is None:
+            current_fork: Fork = Frontier
+            for (
+                fork,
+                activation_block_time,
+            ) in self.fork_activation_times.root.items():
+                if activation_block_time == 0 and fork > current_fork:
+                    current_fork = fork
+            self._fork = current_fork
+        return self._fork
 
     @model_validator(mode="before")
     @classmethod
@@ -339,6 +495,27 @@ class GenesisConfig(CamelModel):
                     fork_activation_times[stripped_key] = data.pop(key)
             if fork_activation_times:
                 data["forkActivationTimes"] = fork_activation_times
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
+    def preprocess_system_contract_addresses(cls, data: Any) -> Any:
+        """
+        Move `<label>Address`-style root keys into
+        `systemContractOverrides`, keyed by the SCREAMING_SNAKE_CASE
+        label.
+        """
+        if isinstance(data, dict):
+            overrides = dict(data.get("systemContractOverrides", {}))
+            for key in list(data.keys()):
+                if key == "systemContractOverrides" or not key.endswith(
+                    "Address"
+                ):
+                    continue
+                label = re.sub(r"(?<!^)(?=[A-Z])", "_", key).upper()
+                overrides[label] = data.pop(key)
+            if overrides:
+                data["systemContractOverrides"] = overrides
         return data
 
 

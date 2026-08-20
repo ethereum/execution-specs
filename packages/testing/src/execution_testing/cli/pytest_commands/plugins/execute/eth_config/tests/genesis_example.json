@@ -58,7 +58,7 @@
           "baseFeeUpdateFraction": 5007716
         }
       },
-      "depositContractAddress": "0x00000000219ab540356cBB839Cbe05303d7705Fa",
+      "depositContractAddress": "0x00000000219ab540356cbb839cbe05303d7705fa",
       "pragueTime": 0,
       "osakaTime": 1753379304,
       "bpo1Time": 1753477608,

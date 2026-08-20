@@ -1,16 +1,15 @@
 # `extract_config` - Extract Client Configuration Files
 
-The `extract_config` command extracts configuration files from Ethereum clients by spawning them via Hive and retrieving the generated files from the Docker container.
+The `extract_config` command generates client-native configuration files for Ethereum clients directly from a filled EEST fixture.
 
 ## Purpose
 
-When Ethereum clients start up with a genesis configuration, they generate various configuration files such as:
+Ethereum clients each expect their own genesis/configuration file format, for example:
 
-- `/chainspec/test.json` - Chain specification file
-- `/configs/test.cfg` - Configuration file
-- `/genesis.json` - Genesis block configuration
+- Besu and go-ethereum: a single `genesis.json`
+- Nethermind: a `chainspec.json` plus a node `config.json`
 
-This tool automates the process of extracting these files from the client containers for analysis or debugging purposes.
+Each client's hive image derives its file(s) from the fixture's genesis block and pre-state via a fixed transform (hive's `mapper.jq`/`mkconfig.jq` scripts). `extract_config` reimplements those transforms directly in Python, so it produces the same files without spawning a client via Hive or Docker.
 
 ## Usage
 
@@ -21,47 +20,35 @@ uv run extract_config --fixture <FIXTURE_PATH> [OPTIONS]
 ### Options
 
 - `--fixture, -f` (required): Path to a fixture JSON file or directory containing fixture files
-- `--client, -c`: Specific client name to extract from (e.g., go-ethereum, besu, nethermind). If not specified, extracts from all available clients
-- `--output, -o`: Output directory for extracted files (default: ./extracted_configs)
-- `--hive-url`: Hive server URL (default: http://127.0.0.1:3000)
-- `--list-files, -l`: List files in the container root before extraction
+- `--client, -c`: Only generate files for client names containing this substring (e.g., go-ethereum, besu, nethermind). If not specified, generates files for all supported clients
+- `--output, -o`: Output directory for generated files (default: ./extracted_configs)
 - `--help`: Show help message
 
 ### Examples
 
-Extract configuration from all clients using a specific fixture:
+Generate configuration for all supported clients using a specific fixture:
 
 ```bash
 uv run extract_config --fixture fixtures/blockchain_tests/paris/security/test_selfdestruct_balance_bug.json
 ```
 
-Extract configuration from a specific client:
+Generate configuration for a specific client:
 
 ```bash
 uv run extract_config --fixture fixtures/blockchain_tests/paris/security/test_selfdestruct_balance_bug.json --client besu
 ```
 
-Extract configurations from all fixtures in a directory:
+Generate configurations from all fixtures in a directory:
 
 ```bash
 uv run extract_config --fixture fixtures/blockchain_tests/paris/security/
 ```
 
-Extract to a specific directory and list container files:
+Generate to a specific output directory:
 
 ```bash
-uv run extract_config --fixture my_fixture.json --output ./my_configs --list-files
+uv run extract_config --fixture my_fixture.json --output ./my_configs
 ```
-
-## Prerequisites
-
-1. Hive must be running in the background:
-
-   ```bash
-   ./hive --dev
-   ```
-
-2. Docker must be installed and accessible
 
 ## Output
 
@@ -71,9 +58,7 @@ The tool creates a hierarchical directory structure:
 <output_dir>/
   <fixture_name>/
     <client_name>/
-      chainspec.json
-      config.cfg
-      genesis.json
+      <client-native files>
 ```
 
 For example:
@@ -85,35 +70,16 @@ extracted_configs/
       genesis.json
     besu/
       genesis.json
-      chainspec.json
     nethermind/
       chainspec.json
-      config.cfg
+      config.json
 ```
-
-Only files that exist in the client container will be extracted.
 
 ## How It Works
 
-1. Loads the fixture file(s) to extract genesis configuration
-2. Starts a Hive simulation
-3. For each fixture and each client:
-   - Captures the list of Docker containers before starting the client
-   - Spawns the client with the genesis configuration
-   - Compares Docker containers to identify the newly created container
-   - Uses Docker exec commands to check for and extract configuration files
-   - Saves the extracted files to the organized output directory
-   - Stops the client container
-4. Ends the Hive simulation
-
-## Container ID Detection
-
-Since Hive doesn't directly expose container IDs, the tool uses a detection mechanism:
-
-1. Lists all Docker container IDs before starting the client
-2. Starts the client through Hive
-3. Lists all Docker container IDs after starting the client
-4. The difference should be exactly one container - the client's container
+1. Loads the fixture file(s) and extracts the genesis header, pre-state, chain ID, and fork
+2. For each fixture and each selected client, builds that client's native genesis model from the fixture data (see `exportable_genesis.py` and `clients/`)
+3. Writes the resulting file(s) to `<output_dir>/<fixture_name>/<client_name>/`
 
 ## Supported Fixture Formats
 
@@ -125,8 +91,5 @@ The tool supports:
 
 ## Troubleshooting
 
-- If no files are extracted, use the `--list-files` flag to see what files are available in the container root
-- Ensure Hive is running before executing the command
-- Check that Docker is installed and the current user has permissions to run Docker commands
-- If the tool fails to detect the container ID, ensure no other containers are being created simultaneously
-- Some clients may not generate all configuration file types - this is normal
+- If a fixture file isn't in a recognized format, the tool reports it and continues with the remaining fixtures/clients
+- Some client models omit fields real Docker-container output would carry over from full block execution (e.g. `stateRoot`) since they are computed directly from genesis, not a filled block header

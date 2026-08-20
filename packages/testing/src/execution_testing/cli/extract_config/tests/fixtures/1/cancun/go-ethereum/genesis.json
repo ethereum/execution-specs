@@ -1,0 +1,72 @@
+{
+    "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "uncleHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+    "coinbase": "0x0000000000000000000000000000000000000000",
+    "stateRoot": "0x52f222606f7bd0ffe98a11d7750961062b6189efd5b41a31a00ea92fbda14e06",
+    "transactionsTrie": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "receiptTrie": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "bloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "difficulty": "0x00",
+    "number": "0x00",
+    "gasLimit": "0x07270e00",
+    "gasUsed": "0x00",
+    "timestamp": "0x00",
+    "extraData": "0x00",
+    "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "nonce": "0x0000000000000000",
+    "baseFeePerGas": "0x07",
+    "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+    "blobGasUsed": "0x00",
+    "excessBlobGas": "0x00",
+    "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "hash": "0xa3e6df55fb90f8781df3f0c4273eca06cdb4aaa9ca7f4afe731b9c2a1288e454",
+    "alloc": {
+        "000f3df6d732807ef1319fb7b8bb8522d0beac02": {
+            "nonce": "0x01",
+            "balance": "0x00",
+            "code": "0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500",
+            "storage": {}
+        },
+        "9348ddf9327520e78622bb529cd5357b1327a90c": {
+            "nonce": "0x01",
+            "balance": "0x00",
+            "code": "0x5b601660015560015c6001556001600255",
+            "storage": {
+                "0x01": "0xff"
+            }
+        },
+        "f6c3a9edc1afa0ad5b720e4d42e1437c43d3b3ff": {
+            "nonce": "0x00",
+            "balance": "0x033b2e3c9fd0803ce8000000",
+            "code": "0x",
+            "storage": {}
+        }
+    },
+    "config": {
+        "ethash": {},
+        "chainId": 1,
+        "homesteadBlock": 0,
+        "daoForkSupport": true,
+        "eip150Block": 0,
+        "eip155Block": 0,
+        "eip158Block": 0,
+        "byzantiumBlock": 0,
+        "constantinopleBlock": 0,
+        "petersburgBlock": 0,
+        "istanbulBlock": 0,
+        "berlinBlock": 0,
+        "londonBlock": 0,
+        "terminalTotalDifficulty": 0,
+        "shanghaiTime": 0,
+        "cancunTime": 0,
+        "terminalTotalDifficultyPassed": true,
+        "blobSchedule": {
+            "cancun": {
+                "target": 3,
+                "max": 6,
+                "baseFeeUpdateFraction": 3338477
+            }
+        },
+        "depositContractAddress": "0x00000000219ab540356cbb839cbe05303d7705fa"
+    }
+}

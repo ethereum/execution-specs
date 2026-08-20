@@ -99,7 +99,7 @@ evm_bytes = "execution_testing.cli.evm_bytes:evm_bytes"
 hasher = "execution_testing.cli.hasher:main"
 eest = "execution_testing.cli.eest.cli:eest"
 groupstats = "execution_testing.cli.show_pre_alloc_group_stats:main"
-extract_config = "execution_testing.cli.extract_config:extract_config"
+extract_config = "execution_testing.cli.extract_config.extract_config:extract_config"
 compare_fixtures = "execution_testing.cli.compare_fixtures:main"
 benchmark_parser = "execution_testing.cli.benchmark_parser:main"
 
