@@ -94,10 +94,16 @@ MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
 @dataclass
 class TransactionOutput:
     """
-    Settled output of a transaction's top-level call.
+    Settled output of a transaction's execution.
 
-    Carry the figures fee settlement and the receipt need, so the
-    frame itself never leaves the interpreter.
+    Carry the figures fee settlement and the receipt need, so the EVM
+    frames themselves never leave the interpreter. Produced by
+    [`process_top_level`][ptl] for a transaction's single top-level
+    call, and by [`process_frames`][pf] for a frame transaction's
+    frame sequence.
+
+    [ptl]: ref:ethereum.forks.amsterdam.vm.interpreter.process_top_level
+    [pf]: ref:ethereum.forks.amsterdam.vm.frame_interpreter.process_frames
     """
 
     gas_left: ExecutionGas
@@ -119,7 +125,12 @@ class TransactionOutput:
     """The output of the execution."""
 
     state_gas_left: StateGas
-    """State gas remaining in the reservoir after execution."""
+    """
+    State gas not charged at settlement: the reservoir remainder for a
+    regular transaction, or the frames' unused state budgets — skipped
+    frames and refill-reduced receipts included — for a frame
+    transaction.
+    """
 
     state_gas_used: int
     """Net state gas consumed; negative when refunds exceed charges."""

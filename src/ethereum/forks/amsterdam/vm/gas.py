@@ -173,7 +173,7 @@ class GasCosts:
         + Uint(2) * WARM_ACCESS
     )
 
-    TX_FRAME_INTRINSIC: Final[Uint] = Uint(12000)
+    TX_FRAME_INTRINSIC: Final[ExecutionGas] = ExecutionGas(Uint(12000))
     """
     Base gas cost for [`FrameTransaction`][ftx]s, equal to [`TX_BASE`][tb].
 
@@ -185,7 +185,7 @@ class GasCosts:
     [tb]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_BASE
     """  # noqa: E501
 
-    TX_PER_FRAME: Final[Uint] = Uint(475)
+    TX_PER_FRAME: Final[ExecutionGas] = ExecutionGas(Uint(475))
     """
     Additional per-[`Frame`] gas cost for [`FrameTransaction`][ftx]s.
 
@@ -194,7 +194,9 @@ class GasCosts:
     """  # noqa: E501
 
     # Frames
-    FRAME_SIGNATURE_SCHEME_SECP256K1: Final[Uint] = Uint(2800)
+    FRAME_SIGNATURE_SCHEME_SECP256K1: Final[ExecutionGas] = ExecutionGas(
+        Uint(2800)
+    )
     """
     Cost for verifying a [`SECP256K1`][s] signature in a
     [`FrameTransaction`][ftx].
@@ -203,7 +205,7 @@ class GasCosts:
     [ftx]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction
     """  # noqa: E501
 
-    FRAME_SIGNATURE_SCHEME_P256: Final[Uint] = Uint(6700)
+    FRAME_SIGNATURE_SCHEME_P256: Final[ExecutionGas] = ExecutionGas(Uint(6700))
     """
     Cost for verifying a [`P256`][s] signature in a [`FrameTransaction`][ftx].
 
@@ -211,7 +213,9 @@ class GasCosts:
     [ftx]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction
     """  # noqa: E501
 
-    FRAME_SIGNATURE_SCHEME_ARBITRARY: Final[Uint] = Uint(100)
+    FRAME_SIGNATURE_SCHEME_ARBITRARY: Final[ExecutionGas] = ExecutionGas(
+        Uint(100)
+    )
     """
     Cost charged for an [`ARBITRARY`][s] signature entry in a
     [`FrameTransaction`][ftx]. The protocol does not cryptographically

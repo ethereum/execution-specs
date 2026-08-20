@@ -647,7 +647,7 @@ def process_frames(
             frame.mode == FrameMode.VERIFY
             and receipt.status == FrameStatus.FAILURE
         ):
-            raise FrameTransactionExecutionError("VERIFY frame reverted")
+            raise FrameTransactionExecutionError("VERIFY frame failed")
 
         incorporate_frame_outcome(journal, outcome)
         frame_context.frame_receipts.append(receipt)

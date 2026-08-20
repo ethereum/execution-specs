@@ -38,7 +38,7 @@ from ..exceptions import (
     FrameCountError,
     InvalidBlobVersionedHashError,
     InvalidFrameError,
-    InvalidMaxFeePerBlobGas,
+    InvalidMaxFeePerBlobGasError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionGasLimitExceededError,
 )
@@ -310,7 +310,11 @@ class FrameSignatureScheme(UintEnum, boundary=STRICT):
 @dataclass
 class FrameSignature:
     """
-    A signature provided to [`VERIFY`][v] frames.
+    A signature entry available to the transaction's frames.
+
+    Entries are validated before any frame executes and may be
+    referenced by [`VERIFY`][v] frames and by ordinary EVM execution,
+    through the signature introspection instructions.
 
     [v]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameMode.VERIFY
     """  # noqa: E501
@@ -652,7 +656,7 @@ def validate_frame_transaction(
 
     blob_count = len(tx.blob_versioned_hashes)
     if blob_count == 0 and tx.fees.max_fee_per_blob_gas != U256(0):
-        raise InvalidMaxFeePerBlobGas(
+        raise InvalidMaxFeePerBlobGasError(
             "max fee per blob gas must be zero without blobs"
         )
     if blob_count > BLOB_COUNT_LIMIT:
@@ -767,7 +771,7 @@ def validate_frame_transaction(
     )
 
 
-def signature_verification_gas(signature: FrameSignature) -> Uint:
+def signature_verification_gas(signature: FrameSignature) -> ExecutionGas:
     """
     Return the gas charged for validating a single signature entry.
     """
@@ -824,7 +828,7 @@ def calculate_frame_transaction_intrinsic_cost(
             and isinstance(frame.to, Address)
             and frame.to != tx.sender
         ):
-            value_transfer_gas += Uint(GasCosts.TX_VALUE_COST)
+            value_transfer_gas += GasCosts.TX_VALUE_COST
 
     signature_gas = Uint(0)
     for signature in tx.signatures:

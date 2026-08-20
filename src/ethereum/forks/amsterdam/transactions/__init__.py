@@ -542,13 +542,15 @@ See [`FeeMarketTransaction`][fmt] for more details.
 
 BlobCapableTransaction = BlobTransaction | FrameTransaction
 """
-Transaction types that include the [EIP-4844]-style blobs.
+Transaction types that can carry [EIP-4844] blobs.
 
-See [`BlobTransaction`][fmt] for more details.
+See [`BlobTransaction`][bt] and [`FrameTransaction`][ftx] for more
+details.
 
 [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-[fmt]: ref:ethereum.forks.amsterdam.transactions.BlobTransaction
-"""
+[bt]: ref:ethereum.forks.amsterdam.transactions.BlobTransaction
+[ftx]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction
+"""  # noqa: E501
 
 
 def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:

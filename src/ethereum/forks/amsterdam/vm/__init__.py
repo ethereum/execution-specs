@@ -36,9 +36,9 @@ from ..fork_types import (
 from ..state_tracker import (
     BlockState,
     TransactionState,
-    account_exists,
     get_account,
     increment_nonce,
+    is_account_alive,
     set_account_balance,
 )
 from ..transactions import LegacyTransaction
@@ -426,7 +426,7 @@ def attempt_approval(
     if approves_execution:
         frame_context.sender_approved = True
     if approves_payment:
-        if not account_exists(tx_env.state, tx.sender):
+        if not is_account_alive(tx_env.state, tx.sender):
             charge_frame_state_gas(frame_context, StateGasCosts.NEW_ACCOUNT)
         increment_nonce(tx_env.state, tx.sender)
         set_account_balance(
