@@ -61,6 +61,8 @@ from .system_contract_interactions import (
     relay_contract_code,
 )
 from .transaction_types import (
+    DEFAULT_FRAME_GAS_LIMIT,
+    DEFAULT_FRAME_STATE_GAS_LIMIT,
     AuthorizationTuple,
     Frame,
     FrameSignature,
@@ -94,6 +96,8 @@ __all__ = (
     "BlockAccessListExpectation",
     "ChainConfig",
     "ChainConfigDefaults",
+    "DEFAULT_FRAME_GAS_LIMIT",
+    "DEFAULT_FRAME_STATE_GAS_LIMIT",
     "Environment",
     "EnvironmentDefaults",
     "EmptyPostStateContext",
