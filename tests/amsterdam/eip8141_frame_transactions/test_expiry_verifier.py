@@ -15,7 +15,6 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
-    Frame,
     FrameReceipt,
     Op,
     StateTestFiller,
@@ -24,6 +23,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
+from .helpers import expiry_frame, sender_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -83,23 +83,11 @@ def test_expiry_verifier_frame(
     tx = Transaction(
         sender=sender,
         frames=[
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-                gas_limit=100_000,
+            verify_frame(),
+            expiry_frame(
+                data=Bytes(expiry.to_bytes(Spec.EXPIRY_DATA_LENGTH, "big"))
             ),
-            Frame(
-                mode=Spec.MODE_VERIFY,
-                flags=Spec.APPROVE_NONE,
-                target=Spec.EXPIRY_VERIFIER,
-                gas_limit=100_000,
-                data=Bytes(expiry.to_bytes(Spec.EXPIRY_DATA_LENGTH, "big")),
-            ),
-            Frame(
-                mode=Spec.MODE_SENDER,
-                target=target,
-                gas_limit=200_000,
-            ),
+            sender_frame(target=target),
         ],
         error=error,
         expected_receipt=expected_receipt,

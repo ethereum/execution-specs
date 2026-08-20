@@ -38,7 +38,7 @@ from ..exceptions import (
     FrameCountError,
     InvalidBlobVersionedHashError,
     InvalidFrameError,
-    InvalidMaxFeePerBlobGas,
+    InvalidMaxFeePerBlobGasError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionGasLimitExceededError,
 )
@@ -204,6 +204,33 @@ class FrameStatus(UintEnum):
 @final
 @slotted_freezable
 @dataclass
+class GasLimits:
+    """
+    The gas budgets of a [`Frame`], one per gas dimension.
+
+    The two budgets are independent: neither dimension can fund charges
+    of the other, and unused gas in one is not available to the other.
+
+    Corresponds to the `limits` list of the frame object in [EIP-8141].
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.Frame
+    """  # noqa: E501
+
+    execution: U64
+    """
+    Maximum execution gas that can be expended in pursuit of the frame.
+    """
+
+    state: U64
+    """
+    Maximum state gas that can be expended in pursuit of the frame.
+    """
+
+
+@final
+@slotted_freezable
+@dataclass
 class Frame:
     """
     Unit of execution defined in a [`FrameTransaction`][ft].
@@ -228,9 +255,9 @@ class Frame:
     Destination or target account for the frame.
     """
 
-    gas: U64
+    gas_limits: GasLimits
     """
-    Maximum amount of gas that can be used by this frame.
+    The frame's gas budgets, one per gas dimension.
     """
 
     value: U256
@@ -283,7 +310,11 @@ class FrameSignatureScheme(UintEnum, boundary=STRICT):
 @dataclass
 class FrameSignature:
     """
-    A signature provided to [`VERIFY`][v] frames.
+    A signature entry available to the transaction's frames.
+
+    Entries are validated before any frame executes and may be
+    referenced by [`VERIFY`][v] frames and by ordinary EVM execution,
+    through the signature introspection instructions.
 
     [v]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameMode.VERIFY
     """  # noqa: E501
@@ -315,6 +346,37 @@ class FrameSignature:
 
     [`scheme`]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameSignature.scheme
     """  # noqa: E501
+
+
+@final
+@slotted_freezable
+@dataclass
+class TransactionFees:
+    """
+    The fee parameters of a [`FrameTransaction`][ftx].
+
+    Corresponds to the `fees` list of the transaction payload in
+    [EIP-8141].
+
+    [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
+    [ftx]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction
+    """  # noqa: E501
+
+    max_priority_fee_per_gas: Uint
+    """
+    The maximum priority fee per gas that the sender is willing to pay.
+    """
+
+    max_fee_per_gas: Uint
+    """
+    The maximum fee per gas that the sender is willing to pay, including the
+    base fee and priority fee.
+    """
+
+    max_fee_per_blob_gas: U256
+    """
+    The maximum fee per blob gas that the sender is willing to pay.
+    """
 
 
 @final
@@ -364,20 +426,9 @@ class FrameTransaction:
     [`Frame`]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.Frame
     """  # noqa: E501
 
-    max_priority_fee_per_gas: Uint
+    fees: TransactionFees
     """
-    The maximum priority fee per gas that the sender is willing to pay.
-    """
-
-    max_fee_per_gas: Uint
-    """
-    The maximum fee per gas that the sender is willing to pay, including the
-    base fee and priority fee.
-    """
-
-    max_fee_per_blob_gas: U256
-    """
-    The maximum fee per blob gas that the sender is willing to pay.
+    The transaction's fee parameters.
     """
 
     blob_versioned_hashes: Tuple[VersionedHash, ...]
@@ -542,13 +593,13 @@ class FrameTransactionValidation:
     standard_gas_limit: Uint
     """
     Settlement anchor: the intrinsic execution gas cost plus the sum
-    of the frames' gas limits.
+    of the frames' gas budgets in both dimensions.
     """
 
     max_gas: Uint
     """
     Inclusion anchor: the larger of `standard_gas_limit` and the
-    calldata floor.
+    calldata floor plus the frames' total state gas budget.
     """
 
     signature_hash: Hash32
@@ -577,8 +628,10 @@ def validate_frame_transaction(
     types enforce, and the constraints that span several fields.
 
     A frame transaction has no gas limit field; its two gas anchors are
-    derived instead, and the inclusion-facing `max_gas` must not exceed
-    the per-transaction gas cap of [EIP-7825].
+    derived instead. The per-transaction gas cap of [EIP-7825] bounds
+    the transaction's execution dimension — the larger of its intrinsic
+    cost plus the frames' execution gas budgets and its calldata floor —
+    while state gas budgets are exempt from the cap.
 
     [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
     """
@@ -591,19 +644,19 @@ def validate_frame_transaction(
     if tx.nonce >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
 
-    if tx.max_fee_per_gas > Uint(U256.MAX_VALUE):
+    if tx.fees.max_fee_per_gas > Uint(U256.MAX_VALUE):
         raise FeeOverflowError("Max fee per gas too high")
-    if tx.max_priority_fee_per_gas > Uint(U256.MAX_VALUE):
+    if tx.fees.max_priority_fee_per_gas > Uint(U256.MAX_VALUE):
         raise FeeOverflowError("Max priority fee per gas too high")
 
-    if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
+    if tx.fees.max_fee_per_gas < tx.fees.max_priority_fee_per_gas:
         raise PriorityFeeGreaterThanMaxFeeError(
             "priority fee greater than max fee"
         )
 
     blob_count = len(tx.blob_versioned_hashes)
-    if blob_count == 0 and tx.max_fee_per_blob_gas != U256(0):
-        raise InvalidMaxFeePerBlobGas(
+    if blob_count == 0 and tx.fees.max_fee_per_blob_gas != U256(0):
+        raise InvalidMaxFeePerBlobGasError(
             "max fee per blob gas must be zero without blobs"
         )
     if blob_count > BLOB_COUNT_LIMIT:
@@ -626,8 +679,14 @@ def validate_frame_transaction(
 
     has_expiry_verifier_frame = False
     total_frame_gas = Uint(0)
+    total_frame_execution_gas = Uint(0)
+    total_frame_state_gas = Uint(0)
     for index, frame in enumerate(tx.frames):
-        total_frame_gas += Uint(frame.gas)
+        total_frame_execution_gas += Uint(frame.gas_limits.execution)
+        total_frame_state_gas += Uint(frame.gas_limits.state)
+        total_frame_gas += Uint(frame.gas_limits.execution) + Uint(
+            frame.gas_limits.state
+        )
         if total_frame_gas > Uint(U64.MAX_VALUE):
             raise InvalidFrameError("total frame gas overflows")
 
@@ -675,19 +734,32 @@ def validate_frame_transaction(
                 raise InvalidFrameError("expiry verifier frame with flags")
             if frame.value != U256(0):
                 raise InvalidFrameError("expiry verifier frame with value")
+            if frame.gas_limits.state != U64(0):
+                raise InvalidFrameError("expiry verifier frame with state gas")
             if len(frame.data) != EXPIRY_DATA_LENGTH:
                 raise InvalidFrameError(
                     "expiry verifier frame data must be an expiry timestamp"
                 )
 
     intrinsic = calculate_frame_transaction_intrinsic_cost(tx)
-    standard_gas_limit = calculate_frame_transaction_gas_limit(
-        tx, intrinsic.execution
+    standard_gas_limit = Uint(intrinsic.execution) + total_frame_gas
+    max_gas = max(
+        standard_gas_limit,
+        Uint(intrinsic.calldata_floor) + total_frame_state_gas,
     )
-    max_gas = max(standard_gas_limit, Uint(intrinsic.calldata_floor))
-    if max_gas > TX_MAX_GAS_LIMIT:
+
+    # The per-transaction gas cap of EIP-7825 bounds the execution
+    # dimension alone: the intrinsic cost plus the frames' execution
+    # budgets, with the calldata floor checked against the same cap.
+    # State gas is bounded only by the encoding limit and the block's
+    # state gas capacity.
+    execution_gas_cap_usage = max(
+        Uint(intrinsic.execution) + total_frame_execution_gas,
+        Uint(intrinsic.calldata_floor),
+    )
+    if execution_gas_cap_usage > TX_MAX_GAS_LIMIT:
         raise TransactionGasLimitExceededError(
-            "Derived gas limit exceeds TX_MAX_GAS_LIMIT"
+            "Derived execution gas limit exceeds TX_MAX_GAS_LIMIT"
         )
 
     return FrameTransactionValidation(
@@ -699,7 +771,7 @@ def validate_frame_transaction(
     )
 
 
-def signature_verification_gas(signature: FrameSignature) -> Uint:
+def signature_verification_gas(signature: FrameSignature) -> ExecutionGas:
     """
     Return the gas charged for validating a single signature entry.
     """
@@ -726,16 +798,18 @@ def calculate_frame_transaction_intrinsic_cost(
     The intrinsic cost is the base cost, the per-frame cost, the calldata
     cost of the byte fields priced as calldata — the `data` of each frame
     and the `signer`, `message`, and `signature` bytes of each signature
-    entry — and the signature verification cost. Unlike other transaction
-    types, there is no recipient or value component: target access and
-    value transfer are paid during frame execution from each frame's own
-    gas limit.
+    entry — the signature verification cost, and the value transfer cost
+    of each value-bearing frame with an explicit target other than the
+    sender, covering the recipient balance write and transfer log.
+    Unlike other transaction types, there is no recipient component:
+    target access is paid during frame execution from each frame's own
+    execution gas budget.
 
     The calldata floor of [EIP-7623] counts every charged byte uniformly
     per [EIP-7976] and is anchored on the costs the transaction always
-    pays regardless of execution — the base cost, the per-frame cost, and
-    the signature verification cost — so it never undercuts the
-    transaction's own intrinsic base.
+    pays regardless of execution — the base cost, the per-frame cost,
+    the signature verification cost, and the value transfer cost — so it
+    never undercuts the transaction's own intrinsic base.
 
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     [EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
@@ -745,9 +819,16 @@ def calculate_frame_transaction_intrinsic_cost(
 
     tokens = Uint(0)
     data_length = Uint(0)
+    value_transfer_gas = Uint(0)
     for frame in tx.frames:
         tokens += count_tokens_in_data(frame.data)
         data_length += ulen(frame.data)
+        if (
+            frame.value > U256(0)
+            and isinstance(frame.to, Address)
+            and frame.to != tx.sender
+        ):
+            value_transfer_gas += GasCosts.TX_VALUE_COST
 
     signature_gas = Uint(0)
     for signature in tx.signatures:
@@ -767,6 +848,7 @@ def calculate_frame_transaction_intrinsic_cost(
         GasCosts.TX_FRAME_INTRINSIC
         + ulen(tx.frames) * GasCosts.TX_PER_FRAME
         + signature_gas
+        + value_transfer_gas
     )
 
     return IntrinsicGasCost(
@@ -777,22 +859,3 @@ def calculate_frame_transaction_intrinsic_cost(
             base_execution_gas + floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR
         ),
     )
-
-
-def calculate_frame_transaction_gas_limit(
-    tx: FrameTransaction, intrinsic_execution_gas: ExecutionGas
-) -> Uint:
-    """
-    Calculate the total gas limit of a frame transaction.
-
-    Frame transactions have no gas limit field. Their gas limit is
-    derived instead: the sum of the transaction's intrinsic execution
-    gas cost, as returned by
-    `calculate_frame_transaction_intrinsic_cost`,
-    and the gas limits of all frames.
-    """
-    total_frame_gas = Uint(0)
-    for frame in tx.frames:
-        total_frame_gas += Uint(frame.gas)
-
-    return Uint(intrinsic_execution_gas) + total_frame_gas
