@@ -24,11 +24,13 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Bytes,
     CodeGasMeasure,
     Environment,
     Fork,
     Frame,
     FrameReceipt,
+    FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
@@ -50,11 +52,14 @@ pytestmark = pytest.mark.valid_from("Bogota")
 SLOT_MEASURED_GAS = 0x00
 """Storage slot the probe contract writes the measured gas into."""
 
-# A fresh SSTORE costs STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE
-# of state gas under EIP-8037, and a frame transaction holds no state
-# gas reservoir, so the probe frame needs room for its measurement
-# write.
 PROBE_FRAME_GAS = 500_000
+"""Execution gas budget of the probe frames."""
+
+PROBE_FRAME_STATE_GAS = 100_000
+"""
+State gas budget of the probe frames, covering the fresh storage slot
+the measurement write creates.
+"""
 
 TOUCH_FRAME_GAS = 200_000
 """Gas limit of the frames that warm the subject address."""
@@ -70,7 +75,10 @@ class AccessGasProbe:
     """Code measuring the gas of an account access."""
 
     frame_gas: int
-    """Gas a frame running the probe uses."""
+    """Execution gas a frame running the probe uses."""
+
+    frame_state_gas: int
+    """State gas a frame running the probe uses: its measurement write."""
 
     post_account: Account
     """Post account pinning the measured access cost."""
@@ -88,7 +96,9 @@ def balance_probe(
     also tags the measured `BALANCE`'s metadata, so `frame_gas`
     reflects the frame's actual execution: the cold access for the
     probe contract itself — always a fresh, untouched frame target —
-    charged at frame entry, plus the probe code.
+    charged at frame entry, plus the probe code's execution gas. The
+    measurement write's state gas lands in `frame_state_gas`,
+    mirroring the two dimensions of the frame's receipt.
     """
     access_gas = Op.BALANCE(address_warm=warm).gas_cost(fork)
     measured = Op.BALANCE(address=subject, address_warm=warm)
@@ -100,7 +110,9 @@ def balance_probe(
     )
     return AccessGasProbe(
         code=code,
-        frame_gas=fork.gas_costs().COLD_ACCOUNT_ACCESS + code.gas_cost(fork),
+        frame_gas=fork.gas_costs().COLD_ACCOUNT_ACCESS
+        + code.execution_cost(fork),
+        frame_state_gas=code.state_cost(fork),
         post_account=Account(storage={SLOT_MEASURED_GAS: access_gas}),
     )
 
@@ -113,6 +125,7 @@ def probe_frame(probe: Address) -> Frame:
         mode=Spec.MODE_DEFAULT,
         target=probe,
         gas_limit=PROBE_FRAME_GAS,
+        state_gas_limit=PROBE_FRAME_STATE_GAS,
     )
 
 
@@ -167,7 +180,9 @@ def test_sender_is_warm(
             frame_receipts=[
                 FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=probe.frame_gas
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
                 ),
             ],
         ),
@@ -210,7 +225,9 @@ def test_coinbase_is_warm(
             frame_receipts=[
                 FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=probe.frame_gas
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
                 ),
             ],
         ),
@@ -403,7 +420,9 @@ def test_warmth_carry_to_next_frame(
                 FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
                 FrameReceipt(status=warmer_status, gas_used=warmer_gas),
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=probe.frame_gas
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
                 ),
             ],
         ),
@@ -416,6 +435,119 @@ def test_warmth_carry_to_next_frame(
             sender: Account(nonce=1),
             probe_address: probe.post_account,
         },
+    )
+
+
+def test_payer_warm_after_default_code_payment_approval(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Measure a `BALANCE` of the payer in the frame after a sponsored
+    payment approval through the payer's protocol default code.
+
+    Collecting the maximum cost warms the payer like any
+    protocol-touched account — also on the default code path, which
+    runs without an EVM and warms in the journal directly.
+    """
+    sender = pre.fund_eoa()
+    payer = pre.fund_eoa()
+    probe = balance_probe(payer, fork, warm=True)
+    probe_address = pre.deploy_contract(code=probe.code)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+            probe_frame(probe_address),
+        ],
+        signatures=[
+            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            FrameSignature(
+                scheme=Spec.SCHEME_SECP256K1,
+                signer=Bytes(payer),
+                secret_key=payer.key,
+            ),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=payer,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            probe_address: probe.post_account,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "mode,origin_warm",
+    [
+        pytest.param(Spec.MODE_DEFAULT, False, id="default_frame_origin_cold"),
+        pytest.param(Spec.MODE_VERIFY, False, id="verify_frame_origin_cold"),
+        pytest.param(Spec.MODE_SENDER, True, id="sender_frame_origin_warm"),
+    ],
+)
+def test_origin_warmth_by_frame_mode(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    mode: int,
+    origin_warm: bool,
+) -> None:
+    """
+    Access the balance of `ORIGIN` in each frame mode, pinning its
+    warm or cold cost through the frame receipt's gas.
+
+    The frame entry point is not pre-warmed, so the access is cold in
+    `DEFAULT` and `VERIFY` frames, where `ORIGIN` is the entry point.
+    In a `SENDER` frame `ORIGIN` is the transaction sender, which
+    seeds the warm journal. The receipt pins the gas — rather than a
+    stored measurement — so the probe stays free of state writes and
+    runs unchanged in a `VERIFY` frame.
+    """
+    sender = pre.fund_eoa()
+    code = Op.POP(Op.BALANCE(Op.ORIGIN, address_warm=origin_warm)) + Op.STOP
+    prober = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            Frame(mode=mode, target=prober, gas_limit=TOUCH_FRAME_GAS),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=fork.gas_costs().COLD_ACCOUNT_ACCESS
+                    + code.gas_cost(fork),
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=1)},
     )
 
 
@@ -513,7 +645,9 @@ def test_warmth_from_inner_call(
                 FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
                 FrameReceipt(status=outer_status, gas_used=outer_gas),
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=probe.frame_gas
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=probe.frame_gas,
+                    state_gas_used=probe.frame_state_gas,
                 ),
             ],
         ),

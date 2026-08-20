@@ -59,12 +59,10 @@ def test_transfer_with_default_code(
             Frame(
                 mode=Spec.MODE_VERIFY,
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-                gas_limit=100_000,
             ),
             Frame(
                 mode=Spec.MODE_SENDER,
                 target=recipient,
-                gas_limit=100_000,
                 value=transfer_value,
             ),
         ],
@@ -109,12 +107,10 @@ def test_contract_sender_approves(
             Frame(
                 mode=Spec.MODE_VERIFY,
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-                gas_limit=100_000,
             ),
             Frame(
                 mode=Spec.MODE_SENDER,
                 target=target,
-                gas_limit=200_000,
             ),
         ],
         expected_receipt=TransactionReceipt(
@@ -156,18 +152,15 @@ def test_eoa_paymaster(
             Frame(
                 mode=Spec.MODE_VERIFY,
                 flags=Spec.APPROVE_EXECUTION,
-                gas_limit=100_000,
             ),
             Frame(
                 mode=Spec.MODE_VERIFY,
                 flags=Spec.APPROVE_PAYMENT,
                 target=payer,
-                gas_limit=100_000,
             ),
             Frame(
                 mode=Spec.MODE_SENDER,
                 target=target,
-                gas_limit=200_000,
             ),
         ],
         signatures=[
@@ -240,13 +233,11 @@ def test_atomic_batch_rollback(
         mode=Spec.MODE_SENDER,
         flags=store_frame_flags,
         target=target,
-        gas_limit=200_000,
     )
     revert_frame = Frame(
         mode=Spec.MODE_SENDER,
         flags=revert_frame_flags,
         target=reverter,
-        gas_limit=100_000,
     )
     if revert_position == "last":
         batch = [store_frame, revert_frame]
@@ -271,7 +262,6 @@ def test_atomic_batch_rollback(
             Frame(
                 mode=Spec.MODE_VERIFY,
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-                gas_limit=100_000,
             ),
             *batch,
         ],
@@ -314,7 +304,6 @@ def test_sender_frame_before_approval(
             Frame(
                 mode=Spec.MODE_VERIFY,
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-                gas_limit=100_000,
             ),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
@@ -348,13 +337,11 @@ def test_verify_frame_reverts(
             Frame(
                 mode=Spec.MODE_VERIFY,
                 flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-                gas_limit=100_000,
             ),
             Frame(
                 mode=Spec.MODE_VERIFY,
                 flags=Spec.APPROVE_NONE,
                 target=reverter,
-                gas_limit=100_000,
             ),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
