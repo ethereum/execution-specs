@@ -483,13 +483,7 @@ def test_block_with_pending_blob_il_tx_is_valid(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """
-    Blob transactions in the IL may be omitted from the block body.
-
-    FOCIL only re-checks appendability for transactions that the execution
-    layer can validate from the block's post-state and gas headroom. Blob txs
-    are therefore ignored by the EL-side IL satisfaction pass.
-    """
+    """Blob transactions in the IL."""
     sender = pre.fund_eoa()
     recipient = pre.nonexistent_account()
     blob_tx = Transaction(
@@ -509,7 +503,7 @@ def test_block_with_pending_blob_il_tx_is_valid(
             Block(
                 txs=[],
                 inclusion_list_txs=[blob_tx],
-                expected_inclusion_list_satisfied=True,
+                expected_inclusion_list_satisfied=False,
             )
         ],
     )
