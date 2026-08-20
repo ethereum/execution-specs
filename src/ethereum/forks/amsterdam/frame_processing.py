@@ -48,12 +48,11 @@ from .transactions.frame_transaction import (
 )
 from .vm.frame_interpreter import process_frames
 from .vm.gas import (
-    TransactionGasSettlement,
     calculate_blob_gas_price,
     calculate_total_blob_gas,
     check_block_gas_capacity,
     check_max_fee_per_blob_gas,
-    settle_transaction_gas,
+    settle_frame_transaction_gas,
 )
 
 
@@ -123,10 +122,30 @@ def check_frame_transaction(
     validation = validate_frame_transaction(tx)
     tx_state = TransactionState(parent=block_env.state)
 
+    # The frames' total gas budget in each dimension. The execution
+    # total becomes the grant the frames draw from; frame transactions
+    # declare their state gas budgets explicitly per frame, so the
+    # reservoir model of the regular flow does not apply and the
+    # reservoir is empty.
+    execution_gas_grant = Uint(0)
+    state_reservation = Uint(0)
+    for frame in tx.frames:
+        execution_gas_grant += Uint(frame.gas_limits.execution)
+        state_reservation += Uint(frame.gas_limits.state)
+
+    # Explicit budgets make the block reservations exact per
+    # dimension; the execution reservation carries the calldata floor,
+    # which binds the execution dimension.
+    execution_reservation = max(
+        Uint(validation.intrinsic.execution) + execution_gas_grant,
+        Uint(validation.intrinsic.calldata_floor),
+    )
+
     check_block_gas_capacity(
         block_env,
         block_output,
-        validation.max_gas,
+        execution_reservation,
+        state_reservation,
         calculate_total_blob_gas(tx),
     )
 
@@ -138,21 +157,13 @@ def check_frame_transaction(
 
     check_max_fee_per_blob_gas(
         tx.blob_versioned_hashes,
-        tx.max_fee_per_blob_gas,
+        tx.fees.max_fee_per_blob_gas,
         block_env.excess_blob_gas,
     )
 
     check_nonce(tx, sender_account.nonce)
 
-    # A state gas reservoir holds only gas above `TX_MAX_GAS_LIMIT`,
-    # and the derived `max_gas` never exceeds that cap: a frame
-    # transaction's reservoir is always empty, and state gas spills
-    # from execution gas instead.
-    execution_gas_grant = validation.standard_gas_limit - Uint(
-        validation.intrinsic.execution
-    )
-
-    max_cost = validation.max_gas * tx.max_fee_per_gas + Uint(
+    max_cost = validation.max_gas * tx.fees.max_fee_per_gas + Uint(
         calculate_total_blob_gas(tx)
     ) * calculate_blob_gas_price(block_env.excess_blob_gas)
     if max_cost > Uint(U256.MAX_VALUE):
@@ -184,6 +195,8 @@ def check_frame_transaction(
             frame_receipts=[],
             payer=None,
             sender_approved=False,
+            state_gas_left=StateGas(Uint(0)),
+            outstanding_charge_owners={},
         ),
     )
 
@@ -191,7 +204,7 @@ def check_frame_transaction(
 def disburse_frame_gas_fees(
     block_env: vm.BlockEnvironment,
     tx_env: vm.TransactionEnvironment,
-    settlement: TransactionGasSettlement,
+    gas_used: Uint,
 ) -> None:
     """
     Refund the payer's unspent escrow and pay the priority fee.
@@ -217,15 +230,13 @@ def disburse_frame_gas_fees(
     blob_gas_fee = Uint(
         calculate_total_blob_gas(frame_context.tx)
     ) * calculate_blob_gas_price(block_env.excess_blob_gas)
-    charged_fee = (
-        settlement.gas_used * tx_env.effective_gas_price + blob_gas_fee
-    )
+    charged_fee = gas_used * tx_env.effective_gas_price + blob_gas_fee
     payer_refund = frame_context.max_cost - charged_fee
 
     priority_fee_per_gas = (
         tx_env.effective_gas_price - block_env.base_fee_per_gas
     )
-    transaction_fee = settlement.gas_used * priority_fee_per_gas
+    transaction_fee = gas_used * priority_fee_per_gas
 
     create_ether(tx_env.state, payer, U256(payer_refund))
     create_ether(tx_env.state, block_env.coinbase, U256(transaction_fee))
@@ -276,28 +287,26 @@ def process_frame_transaction(
     payer = frame_context.payer
     assert payer is not None
 
-    # Settlement anchors on the standard gas limit; the floor headroom
-    # above it — nonzero only when the calldata floor exceeds the
-    # standard gas limit — is never executable and counts as unused
-    # gas, so the floor can bind without an underflow in the gas
-    # accounting.
-    floor_headroom = tx_env.gas_limit - frame_context.standard_gas_limit
-    settlement = settle_transaction_gas(
-        tx_env.gas_limit,
+    settlement = settle_frame_transaction_gas(
+        frame_context.standard_gas_limit,
         tx_env.calldata_floor,
-        ExecutionGas(tx_output.gas_left + floor_headroom),
-        tx_output.state_gas_left,
+        Uint(tx_output.gas_left) + Uint(tx_output.state_gas_left),
         tx_output.refund_counter,
-        tx_output.state_gas_used,
+        StateGas(Uint(tx_output.state_gas_used)),
+    )
+    # The payer pays for exactly the capacity the transaction occupies
+    # across both dimensions.
+    gas_used = Uint(settlement.execution_gas_used) + Uint(
+        settlement.state_gas_used
     )
 
-    disburse_frame_gas_fees(block_env, tx_env, settlement)
+    disburse_frame_gas_fees(block_env, tx_env, gas_used)
 
     block_output.block_gas_used += settlement.execution_gas_used
     block_output.block_state_gas_used += settlement.state_gas_used
     block_output.blob_gas_used += calculate_total_blob_gas(tx)
 
-    block_output.cumulative_gas_used += settlement.gas_used
+    block_output.cumulative_gas_used += gas_used
     receipt = make_frame_receipt(
         tx,
         payer,
