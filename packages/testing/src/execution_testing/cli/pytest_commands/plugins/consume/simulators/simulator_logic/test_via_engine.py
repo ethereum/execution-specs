@@ -13,10 +13,12 @@ Each `engine_newPayloadVX` is verified against the appropriate VALID/INVALID
 responses.
 """
 
-from typing import Union
+from typing import List, Union, cast
 
+from ethereum_rlp import rlp
 from hive.client import Client
 
+from execution_testing.base_types import Bytes
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
     BlockchainEngineXFixture,
@@ -27,6 +29,7 @@ from execution_testing.rpc import (
     EngineRPC,
     EthRPC,
     ForkchoiceUpdateTimeoutError,
+    SendTransactionExceptionError,
 )
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
@@ -45,6 +48,12 @@ from ..helpers.rejected_blocks import (
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
+
+MAX_BYTES_PER_INCLUSION_LIST = 8192
+"""
+Maximum RLP-encoded byte length of an inclusion list, from the
+`engine_getInclusionListV1` specification.
+"""
 
 
 def test_blockchain_via_engine(
@@ -150,14 +159,45 @@ def test_blockchain_via_engine(
                         )
                         status = payload_response.status
                         logger.info(f"Payload response status: {status}")
-                        expected_status = PayloadStatusEnum(
-                            payload.expected_status()
+                        expected_validity = (
+                            PayloadStatusEnum.VALID
+                            if payload.valid()
+                            else PayloadStatusEnum.INVALID
                         )
-                        if payload_response.status != expected_status:
+                        if payload_response.status != expected_validity:
                             raise LoggedError(
-                                f"unexpected status: want {expected_status},"
+                                f"unexpected status: want {expected_validity},"
                                 f" got {payload_response.status}"
                             )
+                        response_ils = (
+                            payload_response.inclusion_list_satisfied
+                        )
+                        if not payload.valid():
+                            # `PayloadStatusV2` requires a null
+                            # `inclusionListSatisfied` unless the payload
+                            # is deemed VALID, and no earlier payload
+                            # status carries the field at all.
+                            if response_ils is not None:
+                                raise LoggedError(
+                                    "expected null "
+                                    "`inclusionListSatisfied` on a payload "
+                                    f"not deemed VALID, got {response_ils}"
+                                )
+                        elif payload.inclusion_list_satisfied is not None:
+                            if response_ils is None:
+                                raise LoggedError(
+                                    "expected `inclusionListSatisfied` in "
+                                    "response."
+                                )
+                            if (
+                                payload.inclusion_list_satisfied
+                                != response_ils
+                            ):
+                                raise LoggedError(
+                                    f"unexpected inclusion list satisfied: "
+                                    f"want {payload.inclusion_list_satisfied},"
+                                    f" got {response_ils}"
+                                )
                         if payload.error_code is not None:
                             raise LoggedError(
                                 "Client failed to raise expected Engine API "
@@ -228,4 +268,74 @@ def test_blockchain_via_engine(
                                 f"unexpected status: want "
                                 f"{PayloadStatusEnum.VALID}, got {status}"
                             )
+                        if payload.inclusion_list_satisfied is not None:
+                            fcu_ils = (
+                                forkchoice_response.payload_status.inclusion_list_satisfied  # noqa: E501
+                            )
+                            # The client must evaluate the retained
+                            # inclusion lists when the forkchoice head is
+                            # deemed VALID.
+                            if fcu_ils is None:
+                                raise LoggedError(
+                                    "expected `inclusionListSatisfied` in "
+                                    "forkchoice response."
+                                )
+                            if payload.inclusion_list_satisfied != fcu_ils:
+                                raise LoggedError(
+                                    f"unexpected inclusion list satisfied "
+                                    f"in forkchoice response: want "
+                                    f"{payload.inclusion_list_satisfied}, "
+                                    f"got {fcu_ils}"
+                                )
         logger.info("All payloads processed successfully.")
+
+    if any(
+        payload.inclusion_list_satisfied is not None
+        for payload in fixture.payloads
+    ):
+        with timing_data.time("engine_getInclusionListV1"):
+            head_payload = next(
+                (p for p in reversed(fixture.payloads) if p.valid()), None
+            )
+            seeded: List[Bytes] = []
+            if (
+                head_payload is not None
+                and head_payload.inclusion_list_satisfied is False
+            ):
+                # An unsatisfied payload's inclusion list holds at least
+                # one transaction that is still appendable on the head
+                # state; seed the mempool with every entry the client
+                # accepts. A payload with a pinned satisfaction was built
+                # with the inclusion list as its last parameter.
+                inclusion_list_param = cast(
+                    List[Bytes], head_payload.params[-1]
+                )
+                for raw_tx in inclusion_list_param:
+                    try:
+                        eth_rpc.send_raw_transaction(raw_tx)
+                        seeded.append(raw_tx)
+                    except SendTransactionExceptionError:
+                        # Entries may be deliberately invalid; only the
+                        # accepted ones must come back.
+                        continue
+            logger.info("Sending engine_getInclusionListV1...")
+            inclusion_list = engine_rpc.get_inclusion_list()
+            encoded_size = len(rlp.encode(inclusion_list))
+            if encoded_size > MAX_BYTES_PER_INCLUSION_LIST:
+                raise LoggedError(
+                    f"inclusion list RLP size {encoded_size} exceeds "
+                    f"{MAX_BYTES_PER_INCLUSION_LIST} bytes"
+                )
+            for entry in inclusion_list:
+                if len(entry) == 0:
+                    raise LoggedError("empty inclusion list entry")
+                if entry[0] == 3:
+                    raise LoggedError(
+                        f"blob transaction in inclusion list: {entry.hex()}"
+                    )
+            for raw_tx in seeded:
+                if raw_tx not in inclusion_list:
+                    raise LoggedError(
+                        "pending transaction missing from inclusion "
+                        f"list: {raw_tx.hex()}"
+                    )

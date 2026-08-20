@@ -83,8 +83,7 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import Fork
-from execution_testing.rpc.rpc_types import PayloadStatusEnum
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -461,7 +460,6 @@ class BuiltBlock(CamelModel):
     alloc: LazyAlloc | Alloc
     state_root: Hash
     txs: List[Transaction]
-    inclusion_list_txs: List[Transaction] | None
     ommers: List[FixtureHeader]
     withdrawals: List[Withdrawal] | None
     requests: List[Bytes] | None
@@ -471,6 +469,8 @@ class BuiltBlock(CamelModel):
     rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
+    inclusion_list_txs: List[Transaction] | None
+    inclusion_list_satisfied: bool | None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
 
@@ -591,17 +591,13 @@ class BuiltBlock(CamelModel):
             transactions=self.txs,
             withdrawals=self.withdrawals,
             requests=self.requests,
-            inclusion_list_transactions=self.inclusion_list_txs,
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
+            inclusion_list_transactions=self.inclusion_list_txs,
+            inclusion_list_satisfied=self.inclusion_list_satisfied,
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
-            status=(
-                PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value
-                if self.result.inclusion_list_satisfied is False
-                else None
-            ),
             error_code=self.engine_api_error_code,
         )
 
@@ -733,6 +729,51 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
     return out
 
 
+class InclusionListVariantFixtureFormat(LabeledFixtureFormat):
+    """Inclusion list variant of the normal blockchain formats."""
+
+    def supports_fork(self, fork: Fork | TransitionFork) -> bool:
+        """Variant is only supported in forks that have inclusion lists."""
+        tf = fork.transitions_from()
+        if not tf.engine_new_payload_inclusion_list_transactions():
+            return False
+        return super().supports_fork(fork)
+
+    def discard_fixture_format_by_marks(
+        self,
+        fork: Fork | TransitionFork,
+        markers: List[pytest.Mark],
+    ) -> bool:
+        """
+        Discard this label if the test does not contain `inclusion_test`
+        marker.
+        """
+        if "inclusion_test" not in [m.name for m in markers]:
+            return True
+        return super().discard_fixture_format_by_marks(fork, markers)
+
+
+BLOCKCHAIN_ENGINE_FIXTURE_FORMATS: List[
+    FixtureFormat | LabeledFixtureFormat
+] = [
+    BlockchainEngineFixture,
+    BlockchainEngineSyncFixture,
+    BlockchainEngineXFixture,
+    BlockchainEngineStatefulFixture,
+]
+BLOCKCHAIN_ENGINE_IL_FIXTURE_FORMATS: List[
+    FixtureFormat | LabeledFixtureFormat
+] = [
+    InclusionListVariantFixtureFormat.with_label_suffix(
+        fixture_format=f,
+        suffix="inclusion_list",
+        variant="inclusion_list",
+        transition_tool_cache_key_suffix="inclusion_list",
+    )
+    for f in BLOCKCHAIN_ENGINE_FIXTURE_FORMATS
+]
+
+
 class BlockchainTest(BaseTest):
     """Filler type that tests multiple blocks (valid or invalid) in a chain."""
 
@@ -756,13 +797,11 @@ class BlockchainTest(BaseTest):
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
-    ] = [
-        BlockchainFixture,
-        BlockchainEngineFixture,
-        BlockchainEngineSyncFixture,
-        BlockchainEngineXFixture,
-        BlockchainEngineStatefulFixture,
-    ]
+    ] = (
+        [BlockchainFixture]
+        + BLOCKCHAIN_ENGINE_FIXTURE_FORMATS
+        + BLOCKCHAIN_ENGINE_IL_FIXTURE_FORMATS
+    )
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
             TransactionPost,
@@ -1024,22 +1063,27 @@ class BlockchainTest(BaseTest):
                 f", difference: {gas_used - block.expected_gas_used}"
             )
 
+        actual_inclusion_list_satisfied = (
+            transition_tool_output.result.inclusion_list_satisfied
+        )
         if block.expected_inclusion_list_satisfied is not None:
-            actual_inclusion_list_satisfied = (
-                transition_tool_output.result.inclusion_list_satisfied
-            )
             assert actual_inclusion_list_satisfied is not None, (
                 "expected `inclusion_list_satisfied` from the transition tool "
                 "but received `None`"
             )
-            assert (
-                actual_inclusion_list_satisfied
-                == block.expected_inclusion_list_satisfied
-            ), (
-                "expected inclusion_list_satisfied=="
-                f"{block.expected_inclusion_list_satisfied}, got "
-                f"{actual_inclusion_list_satisfied}"
-            )
+            if not block.skip_exception_verification:
+                assert (
+                    actual_inclusion_list_satisfied
+                    == block.expected_inclusion_list_satisfied
+                ), (
+                    "expected inclusion_list_satisfied=="
+                    f"{block.expected_inclusion_list_satisfied}, got "
+                    f"{actual_inclusion_list_satisfied}"
+                )
+            else:
+                actual_inclusion_list_satisfied = (
+                    block.expected_inclusion_list_satisfied
+                )
 
         requests_list: List[Bytes] | None = None
         if fork.header_requests_required():
@@ -1123,7 +1167,6 @@ class BlockchainTest(BaseTest):
             state_root=transition_tool_output.result.state_root,
             env=env,
             txs=txs,
-            inclusion_list_txs=inclusion_list_txs,
             ommers=[],
             withdrawals=env.withdrawals,
             requests=requests_list,
@@ -1133,6 +1176,8 @@ class BlockchainTest(BaseTest):
             rlp_modifier=block.rlp_modifier,
             fork=fork,
             block_access_list=bal,
+            inclusion_list_txs=inclusion_list_txs,
+            inclusion_list_satisfied=actual_inclusion_list_satisfied,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
             ),
@@ -1337,7 +1382,24 @@ class BlockchainTest(BaseTest):
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
+        is_inclusion_list_variant = fixture_format.is_variant("inclusion_list")
         for block in self.blocks:
+            is_last_block = block is self.blocks[-1]
+            if is_last_block and is_inclusion_list_variant:
+                if block.inclusion_list_txs is None:
+                    block.inclusion_list_txs = []
+                block.inclusion_list_txs.append(block.txs.pop())
+                if block.exception:
+                    block.exception = None
+                    block.expected_inclusion_list_satisfied = True
+                else:
+                    block.expected_inclusion_list_satisfied = False
+                if block.header_verify:
+                    block.header_verify = None
+                if block.expected_gas_used:
+                    block.expected_gas_used = None
+                if block.expected_block_access_list:
+                    block.expected_block_access_list = None
             built_block = self.generate_block_data(
                 t8n=t8n,
                 block=block,
@@ -1345,7 +1407,6 @@ class BlockchainTest(BaseTest):
                 previous_alloc=alloc,
             )
             block_number = int(built_block.header.number)
-            is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = built_block.cumulative_gas_used()
                 benchmark_block_gas_used = built_block.block_gas_used()
@@ -1374,7 +1435,8 @@ class BlockchainTest(BaseTest):
                     else alloc,
                     expected_state=block.expected_post_state,
                 )
-        self.check_exception_test(exception=invalid_blocks > 0)
+        if not is_inclusion_list_variant:
+            self.check_exception_test(exception=invalid_blocks > 0)
         fcu_version = (
             self.fork.transitions_from().engine_forkchoice_updated_version()
         )
@@ -1384,7 +1446,8 @@ class BlockchainTest(BaseTest):
         )
 
         alloc = alloc.materialize() if isinstance(alloc, LazyAlloc) else alloc
-        self.verify_post_state(t8n, t8n_state=alloc)
+        if not is_inclusion_list_variant:
+            self.verify_post_state(t8n, t8n_state=alloc)
 
         # Create base fixture data, common to all fixture formats
         fixture_data: Dict[str, Any] = {

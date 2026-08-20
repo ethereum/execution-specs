@@ -82,7 +82,6 @@ def _built_block(number: int, statuses: List[int]) -> TestingBuildBlock:
         alloc=LazyAllocJson(raw={}, _state_root=Hash(0)),
         state_root=Hash(0),
         txs=[],
-        inclusion_list_txs=None,
         ommers=[],
         withdrawals=None,
         requests=None,
@@ -97,6 +96,8 @@ def _built_block(number: int, statuses: List[int]) -> TestingBuildBlock:
         ),
         fork=FORK,
         block_access_list=None,
+        inclusion_list_txs=None,
+        inclusion_list_satisfied=None,
         engine_payload=EnginePayloadMetadata(
             payload_response=GetPayloadResponse(execution_payload=payload),
             new_payload_version=new_payload_version,
