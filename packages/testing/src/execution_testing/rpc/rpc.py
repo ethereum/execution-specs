@@ -1429,6 +1429,17 @@ class EngineRPC(BaseJwtRPC):
             context=self.response_validation_context,
         )
 
+    def get_inclusion_list(self, *, version: int = 1) -> List[Bytes]:
+        """
+        `engine_getInclusionListVX`: Retrieve the inclusion list the
+        client builds from its local view of the mempool.
+        """
+        method = f"getInclusionListV{version}"
+        response = self.post_request(
+            request=RPCCall(method=method, params=[])
+        ).result_or_raise()
+        return [Bytes(bytes.fromhex(tx.removeprefix("0x"))) for tx in response]
+
     def new_payload_with_retry(
         self,
         *params: Any,
