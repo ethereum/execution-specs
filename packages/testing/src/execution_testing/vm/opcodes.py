@@ -6136,14 +6136,12 @@ class Opcodes(Opcode, Enum):
     ----
     Push signature-scoped metadata of the chosen signature entry of the
     executing EIP-8141 frame transaction (effective signer, scheme,
-    msg, signature length). With `param=0x04` (arity handled manually
-    by the caller), copies an ARBITRARY entry's raw signature bytes to
-    memory with CALLDATACOPY semantics.
+    msg, signature length — the last for ARBITRARY entries only).
 
     Inputs
     ----
     - signature_index: index of the signature entry
-    - param: parameter selector (0x00-0x04)
+    - param: parameter selector (0x00-0x03)
 
     Outputs
     ----
@@ -6153,7 +6151,41 @@ class Opcodes(Opcode, Enum):
     ----
     Amsterdam
 
-    Gas: 2 (params 0x00-0x03)
+    Gas: 2
+    """
+
+    SIGDATACOPY = Opcode(
+        0xB5,
+        popped_stack_items=4,
+        pushed_stack_items=0,
+        kwargs=["dest_offset", "offset", "size", "signature_index"],
+    )
+    """
+    SIGDATACOPY(dest_offset, offset, size, signature_index)
+    ----
+
+    Description
+    ----
+    Copy an ARBITRARY signature entry's raw signature bytes into memory
+    with CALLDATACOPY semantics (EIP-8141). Exceptionally halts for a
+    protocol-validated entry or an out-of-bounds index.
+
+    Inputs
+    ----
+    - dest_offset: byte offset in memory to copy to
+    - offset: byte offset in the signature bytes to copy from
+    - size: number of bytes to copy
+    - signature_index: index of the signature entry
+
+    Outputs
+    ----
+    None
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas: 3 + 3 * ceil(size / 32) (plus memory expansion)
     """
 
 
