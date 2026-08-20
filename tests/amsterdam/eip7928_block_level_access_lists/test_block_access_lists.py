@@ -2490,6 +2490,77 @@ def test_bal_cross_tx_storage_write(
     )
 
 
+def test_bal_cross_tx_reverted_storage_reads(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Reverted `SSTORE`s from two transactions accumulate in one account's
+    `storage_reads`.
+
+    Each transaction succeeds while the frame holding its `SSTORE` reverts,
+    so both demoted writes must survive their transaction boundary and the
+    block-level list must hold the union of the two slots. Reported in
+    https://github.com/erigontech/erigon/issues/23407.
+    """
+    alice = pre.fund_eoa()
+    slots = [0x01, 0x02]  # one per transaction
+    pre_value = 0xDEAD
+
+    reverting_writer = pre.deploy_contract(
+        code=Op.SSTORE(Op.CALLDATALOAD(0), 0x42) + Op.REVERT(0, 0),
+        storage=dict.fromkeys(slots, pre_value),
+    )
+    # Ignores the failed call so the transaction itself succeeds and only
+    # `reverting_writer`'s frame is rolled back.
+    caller = pre.deploy_contract(
+        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=reverting_writer,
+                args_offset=0,
+                args_size=Op.CALLDATASIZE,
+            )
+        )
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(sender=alice, to=caller, data=Hash(slot))
+                    for slot in slots
+                ],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                                BalNonceChange(
+                                    block_access_index=2, post_nonce=2
+                                ),
+                            ],
+                        ),
+                        caller: BalAccountExpectation.empty(),
+                        reverting_writer: BalAccountExpectation(
+                            storage_changes=[],
+                            storage_reads=slots,
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=2),
+            reverting_writer: Account(storage=dict.fromkeys(slots, pre_value)),
+        },
+    )
+
+
 def test_bal_cross_tx_storage_chain(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
