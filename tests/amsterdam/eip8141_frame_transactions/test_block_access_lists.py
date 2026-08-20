@@ -13,6 +13,7 @@ recorded.
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     BalAccountExpectation,
     BalBalanceChange,
@@ -29,15 +30,26 @@ from execution_testing import (
     Op,
     Transaction,
     TransactionReceipt,
+    keccak256,
 )
 
+from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
+from tests.osaka.eip7951_p256verify_precompiles.spec import Spec as Spec7951
+
 from .helpers import sender_frame, verify_frame
+from .signature_helpers import P256_SIGNATURE, p256_entry
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
+
+ECRECOVER_ADDRESS = EcrecoverSpec.ECRECOVER
+"""The `ecrecover` precompile, which validates SECP256K1 signature entries."""
+
+P256VERIFY_ADDRESS = Address(Spec7951.P256VERIFY)
+"""The `P256VERIFY` precompile (EIP-7951), which validates P256 entries."""
 
 SLOT = 0x01
 """Storage slot the target contracts write."""
@@ -437,4 +449,76 @@ def test_bal_sponsored_payer_and_sender(
             payer: Account(nonce=0, balance=payer_post_balance),
             target: Account(storage={SLOT: WRITTEN_VALUE}),
         },
+    )
+
+
+def test_bal_omits_signature_validation_precompiles(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Signature validation must leave no trace in the block access list.
+
+    A frame transaction's protocol-validated signatures are checked before
+    execution, outside the EVM, so `ecrecover` and `P256VERIFY` are never
+    *called* by the transaction: "since the signature validation does not
+    happen in EVM execution, the related precompiles `ecrecover` and
+    `P256VERIFY` must not be added to the block-level access list."
+
+    The distinction is invisible in state -- a precompile has no storage,
+    balance or nonce to change -- but the BAL is committed to in the block
+    header, so an implementation that validates signatures by dispatching
+    through its own EVM adds the precompile as a touched address, produces a
+    different block access list hash, and has its block rejected. Nothing
+    else in the transaction's result differs, which is what makes this worth
+    pinning.
+
+    The transaction carries one signature of each protocol-validated scheme
+    so both precompiles are exercised, and asserts each is absent.
+    """
+    sender = pre.fund_eoa()
+    target = pre.deploy_contract(code=Op.STOP)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(flags=Spec.APPROVE_EXECUTION_AND_PAYMENT),
+            sender_frame(target=target),
+        ],
+        signatures=[
+            # Index 0 authorizes the default code, and is validated with
+            # `ecrecover`.
+            FrameSignature(
+                scheme=Spec.SCHEME_SECP256K1,
+                signer=Bytes(sender),
+            ),
+            # Carried only to exercise `P256VERIFY`; no frame references it.
+            # A P256 entry's signer is `keccak256(qx || qy)[12:]`.
+            p256_entry(
+                r=int.from_bytes(P256_SIGNATURE[0:32], "big"),
+                s=int.from_bytes(P256_SIGNATURE[32:64], "big"),
+                qx=int.from_bytes(P256_SIGNATURE[64:96], "big"),
+                qy=int.from_bytes(P256_SIGNATURE[96:128], "big"),
+                signer=Bytes(keccak256(P256_SIGNATURE[64:128])[12:]),
+            ),
+        ],
+    )
+    tx.sign()
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                # `None` asserts absence: neither precompile belongs in the
+                # list, because neither was reached from EVM execution.
+                ECRECOVER_ADDRESS: None,
+                P256VERIFY_ADDRESS: None,
+            },
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={sender: Account(nonce=1)},
     )
