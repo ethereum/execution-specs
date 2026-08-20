@@ -194,6 +194,23 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                 pass
 
 
+DEFAULT_FRAME_GAS_LIMIT = 100_000
+"""
+Default execution gas budget of a frame, with ample headroom for the
+sender's default code, a value transfer, or a small call. Tests that
+are gas-sensitive should set `gas_limit` explicitly.
+"""
+
+DEFAULT_FRAME_STATE_GAS_LIMIT = 400_000
+"""
+Default state gas budget of a frame, with ample headroom for an
+account creation (183,600) plus a couple of storage slot creations
+(97,920 each); unused budget is refunded at settlement. Tests that
+are gas-sensitive — including any expiry verifier frame, which must
+declare a zero state budget — should set `state_gas_limit` explicitly.
+"""
+
+
 class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
     """
     Frame within an [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141)
@@ -203,7 +220,10 @@ class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
     mode: NumberBoundTypeVar = Field(0)  # type: ignore
     flags: NumberBoundTypeVar = Field(0)  # type: ignore
     target: Address | None = None
-    gas_limit: NumberBoundTypeVar = Field(0)  # type: ignore
+    gas_limit: NumberBoundTypeVar = Field(DEFAULT_FRAME_GAS_LIMIT)  # type: ignore
+    state_gas_limit: NumberBoundTypeVar = Field(  # type: ignore
+        DEFAULT_FRAME_STATE_GAS_LIMIT
+    )
     value: NumberBoundTypeVar = Field(0)  # type: ignore
     data: Bytes = Field(Bytes(b""))
 
@@ -211,10 +231,17 @@ class FrameGeneric(CamelModel, Generic[NumberBoundTypeVar], RLPSerializable):
         "mode",
         "flags",
         "target",
-        "gas_limit",
+        "gas_limits",
         "value",
         "data",
     ]
+
+    @property
+    def gas_limits(self) -> List[NumberBoundTypeVar]:
+        """
+        Return the frame's nested `limits = [execution, state]` RLP list.
+        """
+        return [self.gas_limit, self.state_gas_limit]
 
 
 class Frame(FrameGeneric[HexNumber]):
@@ -634,6 +661,21 @@ class Transaction(
         )
 
     @property
+    def fees(self) -> List[HexNumber]:
+        """
+        Return the frame transaction's nested `fees` RLP list:
+        `[max_priority_fee_per_gas, max_fee_per_gas, max_fee_per_blob_gas]`.
+        """
+        assert self.max_priority_fee_per_gas is not None
+        assert self.max_fee_per_gas is not None
+        assert self.max_fee_per_blob_gas is not None
+        return [
+            self.max_priority_fee_per_gas,
+            self.max_fee_per_gas,
+            self.max_fee_per_blob_gas,
+        ]
+
+    @property
     def signing_signatures(self) -> List[FrameSignature]:
         """
         Return the signature entries as included in the canonical frame
@@ -963,9 +1005,7 @@ class Transaction(
                 "sender",
                 "frames",
                 "signing_signatures",
-                "max_priority_fee_per_gas",
-                "max_fee_per_gas",
-                "max_fee_per_blob_gas",
+                "fees",
                 "blob_versioned_hashes",
             ]
         elif self.ty == 6:

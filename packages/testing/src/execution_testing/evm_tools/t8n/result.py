@@ -75,7 +75,8 @@ def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
                     frame_receipts=[
                         FrameReceipt(
                             status=int(frame_receipt.status),
-                            gas_used=int(frame_receipt.gas_used),
+                            gas_used=int(frame_receipt.gas_used.execution),
+                            state_gas_used=int(frame_receipt.gas_used.state),
                             logs=[
                                 TransactionLog(
                                     address=log.address,

@@ -529,22 +529,28 @@ FeeMarketCapableTransaction = (
 """
 Transaction types that include the [EIP-1559]-style fee structure.
 
+Frame transactions carry the fee parameters nested in their
+[`fees`][f] list rather than as flat fields.
+
 See [`FeeMarketTransaction`][fmt] for more details.
 
 [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
 [fmt]: ref:ethereum.forks.amsterdam.transactions.FeeMarketTransaction
-"""
+[f]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction.fees
+"""  # noqa: E501
 
 
 BlobCapableTransaction = BlobTransaction | FrameTransaction
 """
-Transaction types that include the [EIP-4844]-style blobs.
+Transaction types that can carry [EIP-4844] blobs.
 
-See [`BlobTransaction`][fmt] for more details.
+See [`BlobTransaction`][bt] and [`FrameTransaction`][ftx] for more
+details.
 
 [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-[fmt]: ref:ethereum.forks.amsterdam.transactions.BlobTransaction
-"""
+[bt]: ref:ethereum.forks.amsterdam.transactions.BlobTransaction
+[ftx]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction
+"""  # noqa: E501
 
 
 def encode_transaction(tx: Transaction) -> LegacyTransaction | Bytes:
@@ -823,19 +829,27 @@ def calculate_effective_gas_price(
 
     A fee-market transaction pays the base fee plus a priority fee
     capped by both of its fee caps; its maximum fee must cover the base
-    fee, or an `InsufficientMaxFeePerGasError` is raised. A transaction
-    priced with a plain gas price pays that price outright, which must
-    likewise cover the base fee.
+    fee, or an `InsufficientMaxFeePerGasError` is raised. A frame
+    transaction follows the same rule, with the fee caps read from its
+    nested `fees` list. A transaction priced with a plain gas price
+    pays that price outright, which must likewise cover the base fee.
     """
     if isinstance(tx, FeeMarketCapableTransaction):
-        if tx.max_fee_per_gas < base_fee_per_gas:
+        if isinstance(tx, FrameTransaction):
+            max_fee_per_gas = tx.fees.max_fee_per_gas
+            max_priority_fee_per_gas = tx.fees.max_priority_fee_per_gas
+        else:
+            max_fee_per_gas = tx.max_fee_per_gas
+            max_priority_fee_per_gas = tx.max_priority_fee_per_gas
+
+        if max_fee_per_gas < base_fee_per_gas:
             raise InsufficientMaxFeePerGasError(
-                tx.max_fee_per_gas, base_fee_per_gas
+                max_fee_per_gas, base_fee_per_gas
             )
 
         priority_fee_per_gas = min(
-            tx.max_priority_fee_per_gas,
-            tx.max_fee_per_gas - base_fee_per_gas,
+            max_priority_fee_per_gas,
+            max_fee_per_gas - base_fee_per_gas,
         )
         return priority_fee_per_gas + base_fee_per_gas
 
@@ -848,7 +862,12 @@ def calculate_max_gas_fee(tx: Transaction, gas_limit: Uint) -> Uint:
     """
     Calculate the largest execution-gas fee the transaction can incur:
     `gas_limit` priced at the transaction's fee cap.
+
+    Frame transactions never reach this function: their maximum cost is
+    anchored on the derived `max_gas` and computed in the frame flow.
     """
+    assert not isinstance(tx, FrameTransaction)
+
     if isinstance(tx, FeeMarketCapableTransaction):
         return gas_limit * tx.max_fee_per_gas
     return gas_limit * tx.gas_price

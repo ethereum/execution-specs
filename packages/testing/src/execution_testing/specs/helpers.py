@@ -417,6 +417,16 @@ def verify_frame_transaction_receipt(
                 expected_value=expected_frame.gas_used,
                 actual_value=actual_frame.gas_used,
             )
+        if (
+            expected_frame.state_gas_used is not None
+            and actual_frame.state_gas_used != expected_frame.state_gas_used
+        ):
+            raise TransactionReceiptMismatchError(
+                index=transaction_index,
+                field_name=f"frame_receipts[{frame_idx}].state_gas_used",
+                expected_value=expected_frame.state_gas_used,
+                actual_value=actual_frame.state_gas_used,
+            )
         if expected_frame.logs is not None:
             actual_frame_logs = actual_frame.logs or []
             if len(expected_frame.logs) != len(actual_frame_logs):
