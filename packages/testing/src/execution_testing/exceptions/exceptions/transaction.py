@@ -208,8 +208,8 @@ class TransactionException(ExceptionBase):
     TYPE_6_INVALID_FRAME_EXECUTION = auto()
     """
     Transaction is type 6, but frame execution invalidated it (a SENDER
-    frame ran before execution approval, a VERIFY frame reverted, or no
-    frame approved gas payment).
+    frame ran before execution approval, a VERIFY frame reverted or
+    halted exceptionally, or no frame approved gas payment).
     """
     LOG_MISMATCH = auto()
     """Transaction receipt logs do not match expected logs."""
