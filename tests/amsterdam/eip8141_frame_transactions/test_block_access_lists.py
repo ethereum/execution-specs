@@ -33,6 +33,9 @@ from execution_testing import (
     keccak256,
 )
 
+from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
+from tests.osaka.eip7951_p256verify_precompiles.spec import Spec as Spec7951
+
 from .helpers import sender_frame, verify_frame
 from .signature_helpers import P256_SIGNATURE, p256_entry
 from .spec import Spec, ref_spec_8141
@@ -42,10 +45,10 @@ REFERENCE_SPEC_VERSION = ref_spec_8141.version
 
 pytestmark = pytest.mark.valid_from("Bogota")
 
-ECRECOVER_ADDRESS = Address(0x01)
+ECRECOVER_ADDRESS = EcrecoverSpec.ECRECOVER
 """The `ecrecover` precompile, which validates SECP256K1 signature entries."""
 
-P256VERIFY_ADDRESS = Address(0x100)
+P256VERIFY_ADDRESS = Address(Spec7951.P256VERIFY)
 """The `P256VERIFY` precompile (EIP-7951), which validates P256 entries."""
 
 SLOT = 0x01
@@ -480,7 +483,7 @@ def test_bal_omits_signature_validation_precompiles(
         sender=sender,
         frames=[
             verify_frame(flags=Spec.APPROVE_EXECUTION_AND_PAYMENT),
-            sender_frame(target=target, gas_limit=WRITE_FRAME_GAS),
+            sender_frame(target=target),
         ],
         signatures=[
             # Index 0 authorizes the default code, and is validated with
