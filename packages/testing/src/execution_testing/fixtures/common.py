@@ -145,19 +145,34 @@ class FixtureReceiptDelegation(ReceiptDelegation):
 
 
 class FixtureFrameReceipt(CamelModel, RLPSerializable):
-    """Fixture variant of the EIP-8141 FrameReceipt type."""
+    """
+    Fixture variant of the EIP-8141 FrameReceipt type.
+
+    The consensus encoding nests the frame's gas usage as the pair
+    `gas_used = [execution, state]`; here the two dimensions are the
+    flat `gas_used` and `state_gas_used` fields.
+    """
 
     model_config = CamelModel.model_config | {"extra": "ignore"}
 
     status: ZeroPaddedHexNumber
     gas_used: ZeroPaddedHexNumber
+    state_gas_used: ZeroPaddedHexNumber
     logs: List[FixtureTransactionLog]
 
     rlp_fields: ClassVar[List[str]] = [
         "status",
-        "gas_used",
+        "gas_used_pair",
         "logs",
     ]
+
+    @property
+    def gas_used_pair(self) -> List[ZeroPaddedHexNumber]:
+        """
+        Return the receipt's nested `gas_used = [execution, state]`
+        RLP list.
+        """
+        return [self.gas_used, self.state_gas_used]
 
 
 class FixtureTransactionReceipt(CamelModel, RLPSerializable):

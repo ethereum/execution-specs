@@ -131,6 +131,16 @@ class TransactionLoad:
         """Get the explicit sender address of a frame transaction."""
         return self.fork.hex_to_address(self.raw.get("sender"))
 
+    def json_to_fees(self) -> Any:
+        """Get the nested fee parameters of a frame transaction."""
+        return self.fork.TransactionFees(
+            max_priority_fee_per_gas=hex_to_uint(
+                self.raw.get("maxPriorityFeePerGas")
+            ),
+            max_fee_per_gas=hex_to_uint(self.raw.get("maxFeePerGas")),
+            max_fee_per_blob_gas=hex_to_u256(self.raw.get("maxFeePerBlobGas")),
+        )
+
     def json_to_frames(self) -> Any:
         """Get the frames of a frame transaction."""
         frames = []
@@ -149,7 +159,14 @@ class TransactionLoad:
                         parse_hex_or_int(frame_data.get("flags", 0), Uint)
                     ),
                     to=to,
-                    gas=parse_hex_or_int(frame_data.get("gasLimit", 0), U64),
+                    gas_limits=self.fork.GasLimits(
+                        execution=parse_hex_or_int(
+                            frame_data.get("gasLimit", 0), U64
+                        ),
+                        state=parse_hex_or_int(
+                            frame_data.get("stateGasLimit", 0), U64
+                        ),
+                    ),
                     value=parse_hex_or_int(frame_data.get("value", 0), U256),
                     data=hex_to_bytes(frame_data.get("data", "0x")),
                 )
