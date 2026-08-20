@@ -259,4 +259,23 @@ def test_blockchain_via_engine(
                                 f"unexpected status: want "
                                 f"{PayloadStatusEnum.VALID}, got {status}"
                             )
+                        if payload.inclusion_list_satisfied is not None:
+                            fcu_ils = (
+                                forkchoice_response.payload_status.inclusion_list_satisfied  # noqa: E501
+                            )
+                            # The client must evaluate the retained
+                            # inclusion lists when the forkchoice head is
+                            # deemed VALID.
+                            if fcu_ils is None:
+                                raise LoggedError(
+                                    "expected `inclusionListSatisfied` in "
+                                    "forkchoice response."
+                                )
+                            if payload.inclusion_list_satisfied != fcu_ils:
+                                raise LoggedError(
+                                    f"unexpected inclusion list satisfied "
+                                    f"in forkchoice response: want "
+                                    f"{payload.inclusion_list_satisfied}, "
+                                    f"got {fcu_ils}"
+                                )
         logger.info("All payloads processed successfully.")
