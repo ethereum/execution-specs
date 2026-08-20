@@ -1016,13 +1016,6 @@ class BlockchainTest(BaseTest):
                 "provided by the transition tool"
             )
 
-            # Only meaningful when the backend attested the hash itself: then
-            # this cross-checks the backend's hash against EEST's re-encoding
-            # of the decoded BAL. When the backend does not (a client returns
-            # the BAL body only, so the header hash below is already EEST's
-            # derivation from these same bytes), the comparison is `a == a` and
-            # the re-encode it needs is the single most expensive step of a
-            # stateful fill.
             if t8n.attests_block_access_list_hash:
                 computed_block_access_list_hash = Hash(t8n_bal.rlp.keccak256())
                 assert (

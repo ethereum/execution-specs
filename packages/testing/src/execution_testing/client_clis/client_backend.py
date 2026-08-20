@@ -167,9 +167,6 @@ class ClientBackend:
     start_block: Dict[str, Any] | None
     """Client head after global pre-run setup; per-test chains off this."""
 
-    # An engine ``ExecutionPayload`` carries the BAL body but not its hash, so
-    # the hash in our ``Result`` is EEST's own derivation from that body --
-    # not an independent attestation to verify against.
     attests_block_access_list_hash: ClassVar[bool] = False
 
     # t8n-compatibility stubs — fill's filler reads these on the backend.
@@ -517,12 +514,8 @@ class ClientBackend:
         block_access_list_hash: Hash | None = None
         bal_rlp = getattr(built_payload, "block_access_list", None)
         if bal_rlp is not None:
-            # Hash the client's own bytes. Decoding them into a
-            # ``BlockAccessList`` only to re-encode and hash that would yield a
-            # different value whenever the client's RLP is non-canonical --
-            # silently replacing what the client committed to -- and on a
-            # BAL-heavy block the round trip costs more than the whole block's
-            # execution.
+            # Hash the client's own bytes: a re-encode of the decoded BAL
+            # would diverge whenever the client's RLP is non-canonical.
             block_access_list_hash = Hash(bal_rlp.keccak256())
 
         return Result(
