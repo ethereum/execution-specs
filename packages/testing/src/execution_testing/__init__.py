@@ -64,6 +64,8 @@ from .specs import (
     TransactionTestFiller,
 )
 from .test_types import (
+    DEFAULT_FRAME_GAS_LIMIT,
+    DEFAULT_FRAME_STATE_GAS_LIMIT,
     DETERMINISTIC_FACTORY_ADDRESS,
     EOA,
     Alloc,
@@ -187,6 +189,8 @@ __all__ = (
     "ConsolidationRequest",
     "ExtCallGenerator",
     "DeploymentTestType",
+    "DEFAULT_FRAME_GAS_LIMIT",
+    "DEFAULT_FRAME_STATE_GAS_LIMIT",
     "DepositRequest",
     "EIPChecklist",
     "EngineAPIError",
