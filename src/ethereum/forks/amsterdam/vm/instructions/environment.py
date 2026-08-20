@@ -88,8 +88,10 @@ def balance(evm: Evm) -> None:
 
 def origin(evm: Evm) -> None:
     """
-    Pushes the address of the original transaction sender to the stack.
-    The origin address can only be an EOA.
+    Pushes the caller of the transaction's top-level call to the stack,
+    at every call depth. In a frame transaction this is the executing
+    frame's caller: `FRAME_ENTRY_POINT` in `DEFAULT` and `VERIFY`
+    frames, and the sender — possibly a contract — in `SENDER` frames.
 
     Parameters
     ----------

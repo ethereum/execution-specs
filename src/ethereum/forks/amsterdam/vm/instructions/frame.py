@@ -74,7 +74,9 @@ def approve(evm: Evm) -> None:
     # A scope with bits beyond the approval mask is never allowed.
     if scope & ~U256(APPROVE_SCOPE_MASK) != U256(0):
         raise Revert
-    if not attempt_approval(evm.tx_env, FrameFlag(Uint(scope))):
+    if not attempt_approval(
+        evm.tx_env, FrameFlag(Uint(scope)), evm.accessed_addresses
+    ):
         raise Revert
 
     evm.output = Bytes(memory_read_bytes(evm.memory, offset, length))
@@ -107,11 +109,11 @@ def txparam(evm: Evm) -> None:
     elif param == U256(0x02):
         value = U256.from_be_bytes(tx.sender)
     elif param == U256(0x03):
-        value = U256(tx.max_priority_fee_per_gas)
+        value = U256(tx.fees.max_priority_fee_per_gas)
     elif param == U256(0x04):
-        value = U256(tx.max_fee_per_gas)
+        value = U256(tx.fees.max_fee_per_gas)
     elif param == U256(0x05):
-        value = tx.max_fee_per_blob_gas
+        value = tx.fees.max_fee_per_blob_gas
     elif param == U256(0x06):
         value = U256(frame_context.max_cost)
     elif param == U256(0x07):
@@ -124,6 +126,9 @@ def txparam(evm: Evm) -> None:
         value = U256(frame_context.current_frame_index)
     elif param == U256(0x0B):
         value = U256(len(tx.signatures))
+    elif param == U256(0x0C):
+        # State gas remaining in the executing frame's pool.
+        value = U256(frame_context.state_gas_left)
     else:
         raise InvalidParameter("undefined TXPARAM parameter")
 
@@ -208,9 +213,12 @@ def frameparam(evm: Evm) -> None:
     Push frame-scoped information of the chosen frame onto the stack,
     selected by the parameter operand.
 
-    The status of a frame exists only once the frame has completed:
-    requesting it for the current or a subsequent frame results in an
-    exceptional halt.
+    A frame's status and gas usage are read from its receipt, which
+    exists only once the frame has completed: requesting them for the
+    current or a subsequent frame results in an exceptional halt. The
+    receipt values are live, not final — a completed frame's state gas
+    usage decreases when a later frame refills a state charge
+    attributed to it, and is restored when that refill rolls back.
     """
     # STACK
     frame_index = pop(evm.stack)
@@ -229,7 +237,7 @@ def frameparam(evm: Evm) -> None:
     if param == U256(0x00):
         value = U256.from_be_bytes(resolve_frame_target(tx, frame))
     elif param == U256(0x01):
-        value = U256(frame.gas)
+        value = U256(frame.gas_limits.execution)
     elif param == U256(0x02):
         value = U256(frame.mode)
     elif param == U256(0x03):
@@ -252,6 +260,22 @@ def frameparam(evm: Evm) -> None:
             value = U256(0)
     elif param == U256(0x08):
         value = frame.value
+    elif param == U256(0x09):
+        value = U256(frame.gas_limits.state)
+    elif param == U256(0x0A):
+        if frame_index >= U256(frame_context.current_frame_index):
+            raise InvalidParameter(
+                "gas usage of the current or a subsequent frame"
+            )
+        receipt = frame_context.frame_receipts[int(frame_index)]
+        value = U256(receipt.gas_used.execution)
+    elif param == U256(0x0B):
+        if frame_index >= U256(frame_context.current_frame_index):
+            raise InvalidParameter(
+                "gas usage of the current or a subsequent frame"
+            )
+        receipt = frame_context.frame_receipts[int(frame_index)]
+        value = U256(receipt.gas_used.state)
     else:
         raise InvalidParameter("undefined FRAMEPARAM parameter")
 
@@ -263,82 +287,100 @@ def frameparam(evm: Evm) -> None:
 
 def sigparam(evm: Evm) -> None:
     """
-    Access signature-scoped metadata of the chosen signature entry.
+    Push signature-scoped metadata of the chosen signature entry onto
+    the stack, selected by the parameter operand.
 
-    The raw signature bytes of protocol-validated schemes are
-    intentionally not accessible: the copy operation is defined only
-    for `ARBITRARY` entries, whose bytes the protocol does not
-    validate, and the resolved signer only for protocol-validated
-    entries, to which the protocol assigns one.
+    Each scheme family withholds the metadata the protocol does not
+    define for it: the resolved signer is available only for
+    protocol-validated entries, to which the protocol assigns one, and
+    the signature byte length only for `ARBITRARY` entries — the raw
+    signature bytes of protocol-validated schemes, including their
+    length, are not introspectable.
     """
     # STACK
     signature_index = pop(evm.stack)
     param = pop(evm.stack)
 
-    if param == U256(0x04):
-        # STACK (copy operation)
-        memory_offset = pop(evm.stack)
-        data_offset = pop(evm.stack)
-        length = pop(evm.stack)
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_SIGPARAM)
 
-        # GAS
-        words = ceil32(Uint(length)) // Uint(32)
-        copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
-        extend_memory = calculate_gas_extend_memory(
-            evm.memory, [(memory_offset, length)]
-        )
-        charge_gas(
-            evm,
-            GasCosts.OPCODE_SIGPARAM_COPY_BASE
-            + copy_gas_cost
-            + extend_memory.cost,
-        )
+    # OPERATION
+    frame_context = frame_transaction_context(evm)
+    signatures = frame_context.tx.signatures
+    if signature_index >= U256(len(signatures)):
+        raise InvalidParameter("signature index out of bounds")
+    signature = signatures[int(signature_index)]
 
-        # OPERATION
-        frame_context = frame_transaction_context(evm)
-        signatures = frame_context.tx.signatures
-        if signature_index >= U256(len(signatures)):
-            raise InvalidParameter("signature index out of bounds")
-        signature = signatures[int(signature_index)]
+    if param == U256(0x00):
+        resolved_signer = frame_context.resolved_signers[int(signature_index)]
+        if resolved_signer is None:
+            raise InvalidParameter("resolved signer of an ARBITRARY entry")
+        value = U256.from_be_bytes(resolved_signer)
+    elif param == U256(0x01):
+        value = U256(signature.scheme)
+    elif param == U256(0x02):
+        if len(signature.message) == 0:
+            value = U256(0)
+        else:
+            value = U256.from_be_bytes(signature.message)
+    elif param == U256(0x03):
         if signature.scheme != FrameSignatureScheme.ARBITRARY:
             raise InvalidParameter(
-                "signature bytes of a protocol-validated scheme"
+                "signature length of a protocol-validated scheme"
             )
-
-        evm.memory += b"\x00" * extend_memory.expand_by
-        signature_bytes = buffer_read(signature.signature, data_offset, length)
-        memory_write(evm.memory, memory_offset, signature_bytes)
+        value = U256(len(signature.signature))
     else:
-        # GAS
-        charge_gas(evm, GasCosts.OPCODE_SIGPARAM)
+        raise InvalidParameter("undefined SIGPARAM parameter")
 
-        # OPERATION
-        frame_context = frame_transaction_context(evm)
-        signatures = frame_context.tx.signatures
-        if signature_index >= U256(len(signatures)):
-            raise InvalidParameter("signature index out of bounds")
-        signature = signatures[int(signature_index)]
+    push(evm.stack, value)
 
-        if param == U256(0x00):
-            resolved_signer = frame_context.resolved_signers[
-                int(signature_index)
-            ]
-            if resolved_signer is None:
-                raise InvalidParameter("resolved signer of an ARBITRARY entry")
-            value = U256.from_be_bytes(resolved_signer)
-        elif param == U256(0x01):
-            value = U256(signature.scheme)
-        elif param == U256(0x02):
-            if len(signature.message) == 0:
-                value = U256(0)
-            else:
-                value = U256.from_be_bytes(signature.message)
-        elif param == U256(0x03):
-            value = U256(len(signature.signature))
-        else:
-            raise InvalidParameter("undefined SIGPARAM parameter")
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
 
-        push(evm.stack, value)
+
+def sigdatacopy(evm: Evm) -> None:
+    """
+    Copy a portion of the chosen signature entry's raw signature bytes
+    to memory.
+
+    The copy is defined only for `ARBITRARY` entries, whose bytes the
+    protocol does not validate; the raw signature bytes of
+    protocol-validated schemes are intentionally not accessible. The
+    operation semantics and gas match `CALLDATACOPY`: bytes beyond the
+    end of the signature are copied as zeroes, and the memory is
+    expanded as needed.
+    """
+    # STACK
+    memory_offset = pop(evm.stack)
+    data_offset = pop(evm.stack)
+    length = pop(evm.stack)
+    signature_index = pop(evm.stack)
+
+    # GAS
+    words = ceil32(Uint(length)) // Uint(32)
+    copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_offset, length)]
+    )
+    charge_gas(
+        evm,
+        GasCosts.OPCODE_SIGDATACOPY_BASE + copy_gas_cost + extend_memory.cost,
+    )
+
+    # OPERATION
+    frame_context = frame_transaction_context(evm)
+    signatures = frame_context.tx.signatures
+    if signature_index >= U256(len(signatures)):
+        raise InvalidParameter("signature index out of bounds")
+    signature = signatures[int(signature_index)]
+    if signature.scheme != FrameSignatureScheme.ARBITRARY:
+        raise InvalidParameter(
+            "signature bytes of a protocol-validated scheme"
+        )
+
+    evm.memory += b"\x00" * extend_memory.expand_by
+    signature_bytes = buffer_read(signature.signature, data_offset, length)
+    memory_write(evm.memory, memory_offset, signature_bytes)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

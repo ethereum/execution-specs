@@ -367,6 +367,28 @@ FRAME_CASES = [
         id="frame_gas_sum_overflows",
         marks=pytest.mark.exception_test,
     ),
+    pytest.param(
+        # The total sums both dimensions, so a state budget drives
+        # the same overflow.
+        [
+            verify_frame(),
+            default_frame(state_gas_limit=2**64 - 1),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="frame_state_gas_sum_overflows",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # Each dimension's budget fits into 64 bits on its own; only
+        # their cross-dimension sum overflows.
+        [
+            verify_frame(),
+            default_frame(gas_limit=2**63, state_gas_limit=2**63),
+        ],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="frame_gas_cross_dimension_sum_overflows",
+        marks=pytest.mark.exception_test,
+    ),
     # Decode-time rejections: field values outside their type's
     # domain never construct, so the transaction never decodes.
     pytest.param(
@@ -397,6 +419,12 @@ FRAME_CASES = [
         [verify_frame(), default_frame(gas_limit=2**64)],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="frame_gas_above_64_bits",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        [verify_frame(), default_frame(state_gas_limit=2**64)],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="frame_state_gas_above_64_bits",
         marks=pytest.mark.exception_test,
     ),
 ]
@@ -490,6 +518,14 @@ EXPIRY_VERIFIER_CASES = [
         [verify_frame(), expiry_frame(value=1)],
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
         id="expiry_frame_with_value",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        # The expiry verifier creates no state, so its frame must
+        # declare no state gas budget.
+        [verify_frame(), expiry_frame(state_gas_limit=1)],
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT,
+        id="expiry_frame_with_state_gas",
         marks=pytest.mark.exception_test,
     ),
     pytest.param(
@@ -1054,6 +1090,74 @@ def test_gas_limit_cap_from_frame_gas_transaction(
         nonce=1,
         frames=[verify_frame(gas_limit=cap - intrinsic + cap_excess)],
         error=error,
+    )
+
+    transaction_test(pre=pre, tx=tx)
+
+
+def test_gas_limit_cap_exempts_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Declare a state gas budget as large as the per-transaction gas cap
+    on a transaction whose execution dimension sits exactly at the cap.
+
+    The cap of EIP-7825 binds the execution dimension alone, so the
+    state budget does not count toward it and the transaction stays
+    valid.
+    """
+    sender = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=10**18,
+    )
+    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=1,
+        return_cost_deducted_prior_execution=True,
+    )
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[verify_frame(gas_limit=cap - intrinsic, state_gas_limit=cap)],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=2)},
+    )
+
+
+def test_gas_limit_cap_exempts_state_gas_transaction(
+    transaction_test: TransactionTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Assert the same state gas exemption as
+    `test_gas_limit_cap_exempts_state_gas` on the transaction itself
+    rather than on a block containing it; see the module docstring for
+    why every static case fills both formats.
+    """
+    sender = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=10**18,
+    )
+    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=1,
+        return_cost_deducted_prior_execution=True,
+    )
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[verify_frame(gas_limit=cap - intrinsic, state_gas_limit=cap)],
     )
 
     transaction_test(pre=pre, tx=tx)
