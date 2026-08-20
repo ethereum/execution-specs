@@ -29,6 +29,7 @@ from ..gas import (
     charge_gas,
     charge_state_gas,
     check_gas,
+    credit_frame_state_gas_refund,
     credit_state_gas_refund,
 )
 from ..stack import pop, push
@@ -139,21 +140,38 @@ def sstore(evm: Evm) -> None:
 
     # STATE GAS
     # A first-time set of a zero slot pays for the state it creates; a
-    # slot set then cleared refills the earlier charge.
+    # slot set then cleared refills the earlier charge — to the meter's
+    # reservoir, or to the frame that owns the outstanding charge.
+    frame_context = evm.tx_env.frame_context
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
             state_gas = StateGasCosts.STORAGE_SET
 
     if current_value != new_value and original_value == new_value:
         if original_value == 0:
-            # Slot set then cleared: refund the state gas charge.
-            credit_state_gas_refund(evm.gas_meter, StateGasCosts.STORAGE_SET)
+            if frame_context is None:
+                credit_state_gas_refund(
+                    evm.gas_meter, StateGasCosts.STORAGE_SET
+                )
+            else:
+                owner = frame_context.outstanding_charge_owners.pop(
+                    (evm.current_target, key)
+                )
+                credit_frame_state_gas_refund(
+                    frame_context, owner, StateGasCosts.STORAGE_SET
+                )
 
     # Charge execution gas before state gas so that an execution-gas
     # OOG does not consume state gas that would inflate the parent's
     # reservoir on frame failure.
     charge_gas(evm, gas_cost)
     charge_state_gas(evm, state_gas)
+    # Record the executing frame as the outstanding charge's owner: a
+    # later refill of this slot is attributed back to it.
+    if frame_context is not None and state_gas != Uint(0):
+        frame_context.outstanding_charge_owners[(evm.current_target, key)] = (
+            frame_context.current_frame_index
+        )
     set_storage(tx_state, evm.current_target, key, new_value)
 
     # PROGRAM COUNTER

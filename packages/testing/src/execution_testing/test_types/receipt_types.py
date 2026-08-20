@@ -41,10 +41,15 @@ class FrameReceipt(CamelModel):
     """
     Per-frame receipt of an
     [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
+
+    The consensus receipt reports the frame's gas usage as the pair
+    `gas_used = [execution, state]`; here the two dimensions are the
+    flat `gas_used` and `state_gas_used` fields.
     """
 
     status: HexNumber | None = None
     gas_used: HexNumber | None = None
+    state_gas_used: HexNumber | None = None
     logs: List[TransactionLog] | None = None
 
 

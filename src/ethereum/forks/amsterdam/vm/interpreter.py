@@ -52,6 +52,7 @@ from ..vm.gas import (
     GasCosts,
     GasMeter,
     StateGasCosts,
+    StateGasReservoir,
     charge_gas,
     charge_state_gas,
     charge_state_gas_from_meter,
@@ -93,10 +94,16 @@ MAX_INIT_CODE_SIZE = 2 * MAX_CODE_SIZE
 @dataclass
 class TransactionOutput:
     """
-    Settled output of a transaction's top-level call.
+    Settled output of a transaction's execution.
 
-    Carry the figures fee settlement and the receipt need, so the
-    frame itself never leaves the interpreter.
+    Carry the figures fee settlement and the receipt need, so the EVM
+    frames themselves never leave the interpreter. Produced by
+    [`process_top_level`][ptl] for a transaction's single top-level
+    call, and by [`process_frames`][pf] for a frame transaction's
+    frame sequence.
+
+    [ptl]: ref:ethereum.forks.amsterdam.vm.interpreter.process_top_level
+    [pf]: ref:ethereum.forks.amsterdam.vm.frame_interpreter.process_frames
     """
 
     gas_left: ExecutionGas
@@ -118,7 +125,12 @@ class TransactionOutput:
     """The output of the execution."""
 
     state_gas_left: StateGas
-    """State gas remaining in the reservoir after execution."""
+    """
+    State gas not charged at settlement: the reservoir remainder for a
+    regular transaction, or the frames' unused state budgets — skipped
+    frames and refill-reduced receipts included — for a frame
+    transaction.
+    """
 
     state_gas_used: int
     """Net state gas consumed; negative when refunds exceed charges."""
@@ -274,10 +286,13 @@ def process_top_level(
     assert top_level_context is not None
     assert tx_env.frame_context is None
 
-    gas_meter = GasMeter(
-        gas_left=tx_env.execution_gas_grant,
+    reservoir = StateGasReservoir(
         state_gas_left=tx_env.state_gas_reservoir,
         state_gas_baseline=tx_env.state_gas_reservoir,
+    )
+    gas_meter = GasMeter(
+        gas_left=tx_env.execution_gas_grant,
+        reservoir=reservoir,
     )
 
     prep_snapshot = copy_tx_state(tx_env.state)
@@ -297,7 +312,7 @@ def process_top_level(
             accounts_to_delete=set(),
             error=halt,
             return_data=Bytes(b""),
-            state_gas_left=gas_meter.state_gas_left,
+            state_gas_left=reservoir.state_gas_left,
             state_gas_used=tx_state_gas_used(
                 gas_meter, tx_env.state_gas_reservoir
             ),
@@ -330,7 +345,7 @@ def process_top_level(
         accounts_to_delete=accounts_to_delete,
         error=evm.error,
         return_data=evm.output,
-        state_gas_left=gas_meter.state_gas_left,
+        state_gas_left=reservoir.state_gas_left,
         state_gas_used=tx_state_gas_used(
             gas_meter, tx_env.state_gas_reservoir
         ),
