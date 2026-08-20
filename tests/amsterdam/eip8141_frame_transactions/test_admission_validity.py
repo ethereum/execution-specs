@@ -17,14 +17,19 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Block,
+    BlockchainTestFiller,
+    BlockException,
+    Environment,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
     TransactionException,
 )
 
 from .helpers import verify_frame
-from .spec import ref_spec_8141
+from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8141.version
@@ -127,4 +132,101 @@ def test_nonce_at_maximum(
         pre=pre,
         tx=tx,
         post={sender: Account(nonce=2**64 - 1)},
+    )
+
+
+BLOCK_GAS_LIMIT = 200_000
+"""
+Block gas limit sized so a single frame transaction's reservation can
+cross it in either dimension.
+"""
+
+CAPACITY_EXECUTION_GAS = 50_000
+"""Execution budget of the state-dimension capacity cases."""
+
+
+@pytest.mark.parametrize(
+    "dimension,excess",
+    [
+        pytest.param("execution", 0, id="execution_reservation_at_limit"),
+        pytest.param(
+            "execution",
+            1,
+            id="execution_reservation_above_limit",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param("state", 0, id="state_reservation_at_limit"),
+        pytest.param(
+            "state",
+            1,
+            id="state_reservation_above_limit",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_block_capacity_reservations(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    dimension: str,
+    excess: int,
+) -> None:
+    """
+    Reserve a block's remaining capacity per gas dimension.
+
+    A frame transaction's explicit budgets make its reservations exact:
+    the intrinsic cost plus the frames' execution budgets in the
+    execution dimension, the frames' state budgets in the state
+    dimension. A reservation at the block's gas limit is includable;
+    one unit above leaves the transaction unincludable and the block
+    invalid.
+    """
+    sender = pre.deploy_contract(
+        code=Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION_AND_PAYMENT),
+        balance=10**18,
+    )
+    # A contract sender carries no signature entries and the frame no
+    # data, so a frame count prices the intrinsic cost exactly.
+    intrinsic = fork.frame_transaction_intrinsic_cost_calculator()(
+        frames=1,
+        return_cost_deducted_prior_execution=True,
+    )
+    if dimension == "execution":
+        execution_budget = BLOCK_GAS_LIMIT - intrinsic + excess
+        state_budget = 0
+    else:
+        execution_budget = CAPACITY_EXECUTION_GAS
+        state_budget = BLOCK_GAS_LIMIT + excess
+
+    tx = Transaction(
+        sender=sender,
+        nonce=1,
+        frames=[
+            verify_frame(
+                gas_limit=execution_budget, state_gas_limit=state_budget
+            )
+        ],
+        error=(
+            TransactionException.GAS_ALLOWANCE_EXCEEDED if excess else None
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                gas_limit=BLOCK_GAS_LIMIT,
+                exception=(
+                    [
+                        BlockException.GAS_USED_OVERFLOW,
+                        TransactionException.GAS_ALLOWANCE_EXCEEDED,
+                    ]
+                    if excess
+                    else None
+                ),
+            )
+        ],
+        post={sender: Account(nonce=1 if excess else 2)},
+        genesis_environment=Environment(gas_limit=BLOCK_GAS_LIMIT),
     )

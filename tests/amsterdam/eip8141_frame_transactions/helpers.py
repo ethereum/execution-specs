@@ -6,14 +6,6 @@ from execution_testing import Frame
 
 from .spec import Spec
 
-AMPLE_FRAME_GAS = 100_000
-"""
-Default frame gas limit, with ample headroom for the sender's default
-code (signature validation plus `APPROVE`) or a small value transfer.
-Tests that are not gas-sensitive should use this default rather than
-picking a value.
-"""
-
 
 def verify_frame(**overrides: Any) -> Frame:
     """
@@ -26,7 +18,6 @@ def verify_frame(**overrides: Any) -> Frame:
     kwargs: Dict[str, Any] = dict(
         mode=Spec.MODE_VERIFY,
         flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
-        gas_limit=AMPLE_FRAME_GAS,
     )
     kwargs.update(overrides)
     return Frame(**kwargs)
@@ -41,7 +32,6 @@ def default_frame(**overrides: Any) -> Frame:
     """
     kwargs: Dict[str, Any] = dict(
         mode=Spec.MODE_DEFAULT,
-        gas_limit=AMPLE_FRAME_GAS,
     )
     kwargs.update(overrides)
     return Frame(**kwargs)
@@ -57,7 +47,6 @@ def sender_frame(**overrides: Any) -> Frame:
     """
     kwargs: Dict[str, Any] = dict(
         mode=Spec.MODE_SENDER,
-        gas_limit=AMPLE_FRAME_GAS,
     )
     kwargs.update(overrides)
     return Frame(**kwargs)
@@ -68,6 +57,9 @@ def expiry_frame(**overrides: Any) -> Frame:
     Return a `VERIFY` frame targeting the expiry verifier predeploy
     with the maximum expiry timestamp, so it never expires.
 
+    An expiry verifier frame is only valid with a zero state gas
+    budget, so the frame overrides the framework's default explicitly.
+
     Keyword arguments override the corresponding frame fields, for
     variants that differ from the canonical frame in a single field.
     """
@@ -75,7 +67,7 @@ def expiry_frame(**overrides: Any) -> Frame:
         mode=Spec.MODE_VERIFY,
         flags=Spec.APPROVE_NONE,
         target=Spec.EXPIRY_VERIFIER,
-        gas_limit=AMPLE_FRAME_GAS,
+        state_gas_limit=0,
         data=(2**64 - 1).to_bytes(Spec.EXPIRY_DATA_LENGTH, "big"),
     )
     kwargs.update(overrides)

@@ -12,6 +12,7 @@ from typing import Dict, Optional
 
 import pytest
 from execution_testing import (
+    DEFAULT_FRAME_GAS_LIMIT,
     Account,
     Address,
     Alloc,
@@ -24,7 +25,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import AMPLE_FRAME_GAS, default_frame, sender_frame, verify_frame
+from .helpers import default_frame, sender_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -131,7 +132,8 @@ def test_precompile_target_rejecting_its_input(
             frame_receipts=[
                 FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
                 FrameReceipt(
-                    status=Spec.STATUS_FAILURE, gas_used=AMPLE_FRAME_GAS
+                    status=Spec.STATUS_FAILURE,
+                    gas_used=DEFAULT_FRAME_GAS_LIMIT,
                 ),
             ],
         ),
@@ -248,30 +250,39 @@ def test_dead_target_entry_charge(
 ) -> None:
     """
     Charge the state gas of reviving a target that is not alive at
-    frame entry, on top of the target's own access.
+    frame entry, from the frame's state gas budget, on top of the
+    target's own access charged to its execution gas budget.
 
     The target has no code, so the frame runs empty code and its
-    `gas_used` is the entry charge alone. Given one gas less than the
-    charge, the frame never runs: it forfeits its whole gas limit, the
-    target stays dead, and no transfer log is emitted.
+    receipt reports the entry charges alone: the target's access as
+    execution gas and the revival as state gas. Given one state gas
+    less than the revival charge, the frame never runs: it halts
+    exceptionally, forfeiting its whole execution gas budget with zero
+    state gas used, the target stays dead, and no transfer log is
+    emitted.
     """
     sender = pre.fund_eoa()
     dead = pre.nonexistent_account()
 
-    entry_gas = fork.frame_entry_gas_calculator()(
-        sends_value_to_dead_account=True
+    entry_gas = fork.frame_entry_gas_calculator()()
+    revival_state_gas = fork.gas_costs().NEW_ACCOUNT
+    frame_state_gas = (
+        revival_state_gas if affordable else revival_state_gas - 1
     )
-    frame_gas = entry_gas + AMPLE_FRAME_GAS if affordable else entry_gas - 1
 
     post: Dict[Address, Optional[Account]]
     if affordable:
         expected_frame = FrameReceipt(
-            status=Spec.STATUS_SUCCESS, gas_used=entry_gas
+            status=Spec.STATUS_SUCCESS,
+            gas_used=entry_gas,
+            state_gas_used=revival_state_gas,
         )
         post = {dead: Account(balance=TRANSFERRED_VALUE)}
     else:
         expected_frame = FrameReceipt(
-            status=Spec.STATUS_FAILURE, gas_used=frame_gas
+            status=Spec.STATUS_FAILURE,
+            gas_used=DEFAULT_FRAME_GAS_LIMIT,
+            state_gas_used=0,
         )
         post = {dead: Account.NONEXISTENT}
 
@@ -281,7 +292,7 @@ def test_dead_target_entry_charge(
             verify_frame(),
             sender_frame(
                 target=dead,
-                gas_limit=frame_gas,
+                state_gas_limit=frame_state_gas,
                 value=TRANSFERRED_VALUE,
             ),
         ],

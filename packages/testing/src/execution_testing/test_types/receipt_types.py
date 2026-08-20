@@ -41,10 +41,15 @@ class FrameReceipt(CamelModel):
     """
     Per-frame receipt of an
     [EIP-8141](https://eips.ethereum.org/EIPS/eip-8141) frame transaction.
+
+    The consensus receipt reports the frame's gas usage as the pair
+    `gas_used = [execution, state]`; here the two dimensions are the
+    flat `gas_used` and `state_gas_used` fields.
     """
 
     status: HexNumber | None = None
     gas_used: HexNumber | None = None
+    state_gas_used: HexNumber | None = None
     logs: List[TransactionLog] | None = None
 
 
@@ -373,6 +378,16 @@ def verify_frame_transaction_receipt(
                 field_name=f"frame_receipts[{frame_idx}].gas_used",
                 expected_value=expected_frame.gas_used,
                 actual_value=actual_frame.gas_used,
+            )
+        if (
+            expected_frame.state_gas_used is not None
+            and actual_frame.state_gas_used != expected_frame.state_gas_used
+        ):
+            raise TransactionReceiptMismatchError(
+                index=transaction_index,
+                field_name=f"frame_receipts[{frame_idx}].state_gas_used",
+                expected_value=expected_frame.state_gas_used,
+                actual_value=actual_frame.state_gas_used,
             )
         if expected_frame.logs is not None:
             actual_frame_logs = actual_frame.logs or []

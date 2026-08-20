@@ -2,21 +2,24 @@
 Tests for the introspection instructions of
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
-`TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRAMEPARAM` and `SIGPARAM`
-are exercised from a `DEFAULT` frame that stores what it reads, so the
-post state pins the value each selector returns.
+`TXPARAM`, `FRAMEDATALOAD`, `FRAMEDATACOPY`, `FRAMEPARAM`, `SIGPARAM`
+and `SIGDATACOPY` are exercised from a `DEFAULT` frame that stores what
+it reads, so the post state pins the value each selector returns.
 """
 
 from typing import List
 
 import pytest
 from execution_testing import (
+    DEFAULT_FRAME_GAS_LIMIT,
+    DEFAULT_FRAME_STATE_GAS_LIMIT,
     EOA,
     Account,
     Address,
     Alloc,
     Bytecode,
     Bytes,
+    Fork,
     Frame,
     FrameSignature,
     Op,
@@ -38,10 +41,14 @@ SLOT_RESULT = 0x01
 PROBE_FRAME_DATA = Bytes(bytes(range(1, 41)))
 """Data of the probe frame: 40 bytes, so a word read is truncated."""
 
-# A fresh SSTORE costs STATE_BYTES_PER_STORAGE_SET * COST_PER_STATE_BYTE
-# of state gas under EIP-8037, and a frame transaction holds no state
-# gas reservoir, so a probe writing two slots needs room for both.
 PROBE_FRAME_GAS = 500_000
+"""Execution gas budget of the probe frames."""
+
+PROBE_FRAME_STATE_GAS = 200_000
+"""
+State gas budget of the probe frames, distinct from the framework
+default so a probe reading its own frame's budget pins the right one.
+"""
 
 MAX_PRIORITY_FEE = 7
 MAX_FEE = 1_000_000_000
@@ -69,6 +76,7 @@ def probe_transaction(
                 mode=Spec.MODE_DEFAULT,
                 target=probe,
                 gas_limit=PROBE_FRAME_GAS,
+                state_gas_limit=PROBE_FRAME_STATE_GAS,
                 data=PROBE_FRAME_DATA,
             ),
         ],
@@ -199,6 +207,44 @@ def test_txparam_sender_and_sig_hash(
     )
 
 
+def test_txparam_state_gas_left(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Read the executing frame's remaining state gas pool through
+    `TXPARAM`, before and after a write that draws from it.
+
+    The first read happens before any state charge, so it reports the
+    frame's full budget; the write storing it creates a fresh slot, so
+    the second read reports the budget less that slot's creation.
+    """
+    sender = pre.fund_eoa()
+    first_write = Op.SSTORE(
+        SLOT_RESULT, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT)
+    )
+    probe = pre.deploy_contract(
+        code=first_write
+        + Op.SSTORE(SLOT_RESULT + 1, Op.TXPARAM(Spec.TXPARAM_STATE_GAS_LEFT))
+        + Op.STOP
+    )
+
+    state_test(
+        pre=pre,
+        tx=probe_transaction(sender, probe),
+        post={
+            probe: Account(
+                storage={
+                    SLOT_RESULT: PROBE_FRAME_STATE_GAS,
+                    SLOT_RESULT + 1: PROBE_FRAME_STATE_GAS
+                    - first_write.state_cost(fork),
+                }
+            )
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "frame_index,param,expected",
     [
@@ -216,7 +262,18 @@ def test_txparam_sender_and_sig_hash(
             id="allowed_scope",
         ),
         pytest.param(0, Spec.FRAMEPARAM_DATA_LENGTH, 0, id="empty_data"),
-        pytest.param(0, Spec.FRAMEPARAM_GAS_LIMIT, 100_000, id="gas_limit"),
+        pytest.param(
+            0,
+            Spec.FRAMEPARAM_GAS_LIMIT,
+            DEFAULT_FRAME_GAS_LIMIT,
+            id="gas_limit",
+        ),
+        pytest.param(
+            0,
+            Spec.FRAMEPARAM_STATE_GAS_LIMIT,
+            DEFAULT_FRAME_STATE_GAS_LIMIT,
+            id="state_gas_limit",
+        ),
         pytest.param(0, Spec.FRAMEPARAM_ATOMIC_BATCH, 0, id="atomic_batch"),
         pytest.param(
             0,
@@ -234,6 +291,12 @@ def test_txparam_sender_and_sig_hash(
         pytest.param(
             1, Spec.FRAMEPARAM_GAS_LIMIT, PROBE_FRAME_GAS, id="own_gas_limit"
         ),
+        pytest.param(
+            1,
+            Spec.FRAMEPARAM_STATE_GAS_LIMIT,
+            PROBE_FRAME_STATE_GAS,
+            id="own_state_gas_limit",
+        ),
     ],
 )
 def test_frameparam(
@@ -243,7 +306,13 @@ def test_frameparam(
     param: int,
     expected: int,
 ) -> None:
-    """Read frame scoped information through `FRAMEPARAM`."""
+    """
+    Read frame scoped information through `FRAMEPARAM`.
+
+    Unlike the receipt-reported selectors, a frame's declared budgets
+    are static data: reading the executing frame's own state gas
+    budget is allowed.
+    """
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
         code=Op.SSTORE(SLOT_RESULT, Op.FRAMEPARAM(frame_index, param))
@@ -318,7 +387,6 @@ def test_frameparam_atomic_batch_set(
             ),
             Frame(
                 mode=Spec.MODE_DEFAULT,
-                gas_limit=100_000,
             ),
         ],
     )
@@ -337,12 +405,83 @@ def test_frameparam_atomic_batch_set(
     )
 
 
+def test_frameparam_gas_used(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Read a completed frame's receipt gas usage — both dimensions —
+    through `FRAMEPARAM`.
+
+    A worker frame performs one fresh storage write, so its receipt
+    reports the frame entry's cold target access plus the write's
+    execution gas in one dimension and the slot's creation in the
+    other.
+    """
+    sender = pre.fund_eoa()
+    worker_code = Op.SSTORE(SLOT_RESULT, 1) + Op.STOP
+    worker = pre.deploy_contract(code=worker_code)
+    probe = pre.deploy_contract(
+        code=Op.SSTORE(
+            SLOT_RESULT,
+            Op.FRAMEPARAM(1, Spec.FRAMEPARAM_EXECUTION_GAS_USED),
+        )
+        + Op.SSTORE(
+            SLOT_RESULT + 1,
+            Op.FRAMEPARAM(1, Spec.FRAMEPARAM_STATE_GAS_USED),
+        )
+        + Op.STOP
+    )
+
+    tx = Transaction(
+        sender=sender,
+        max_priority_fee_per_gas=MAX_PRIORITY_FEE,
+        max_fee_per_gas=MAX_FEE,
+        frames=[
+            verify_frame(),
+            Frame(mode=Spec.MODE_DEFAULT, target=worker),
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                target=probe,
+                gas_limit=PROBE_FRAME_GAS,
+                state_gas_limit=PROBE_FRAME_STATE_GAS,
+            ),
+        ],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            worker: Account(storage={SLOT_RESULT: 1}),
+            probe: Account(
+                storage={
+                    SLOT_RESULT: fork.gas_costs().COLD_ACCOUNT_ACCESS
+                    + worker_code.execution_cost(fork),
+                    SLOT_RESULT + 1: worker_code.state_cost(fork),
+                }
+            ),
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "frame_index,param",
     [
         pytest.param(1, Spec.FRAMEPARAM_STATUS, id="status_of_current_frame"),
+        pytest.param(
+            1,
+            Spec.FRAMEPARAM_EXECUTION_GAS_USED,
+            id="execution_gas_used_of_current_frame",
+        ),
+        pytest.param(
+            1,
+            Spec.FRAMEPARAM_STATE_GAS_USED,
+            id="state_gas_used_of_current_frame",
+        ),
         pytest.param(2, Spec.FRAMEPARAM_MODE, id="frame_index_out_of_bounds"),
-        pytest.param(0, 0x09, id="undefined_param"),
+        pytest.param(0, 0x0C, id="undefined_param"),
     ],
 )
 def test_frameparam_halts(
@@ -352,10 +491,11 @@ def test_frameparam_halts(
     param: int,
 ) -> None:
     """
-    `FRAMEPARAM` halts exceptionally on the status of the current
-    frame, an out of bounds frame index, and an undefined selector.
-    The halt fails the frame without invalidating the transaction,
-    because the frame does not run in `VERIFY` mode.
+    `FRAMEPARAM` halts exceptionally on the receipt-reported selectors
+    — status and gas usage — of the current frame, an out of bounds
+    frame index, and an undefined selector. The halt fails the frame
+    without invalidating the transaction, because the frame does not
+    run in `VERIFY` mode.
 
     The probe writes a marker before the halting read, so a selector
     that returned zero instead of halting would leave the marker
@@ -379,16 +519,28 @@ def test_frameparam_halts(
     "halting_read",
     [
         pytest.param(
-            Op.POP(Op.TXPARAM(0x0C)),
+            Op.POP(Op.TXPARAM(0x0D)),
             id="txparam_undefined_param",
+        ),
+        pytest.param(
+            Op.POP(Op.SIGPARAM(0, 0x04)),
+            id="sigparam_undefined_copy_param",
         ),
         pytest.param(
             Op.POP(Op.SIGPARAM(0, 0x05)),
             id="sigparam_undefined_param",
         ),
         pytest.param(
+            Op.POP(Op.SIGPARAM(0, Spec.SIGPARAM_SIGNATURE_LENGTH)),
+            id="sigparam_length_of_protocol_validated_entry",
+        ),
+        pytest.param(
             Op.POP(Op.SIGPARAM(1, Spec.SIGPARAM_SCHEME)),
             id="sigparam_signature_index_out_of_bounds",
+        ),
+        pytest.param(
+            Op.SIGDATACOPY(0, 0, 32, 1),
+            id="sigdatacopy_signature_index_out_of_bounds",
         ),
         pytest.param(
             Op.POP(Op.FRAMEDATALOAD(0, 2)),
@@ -406,16 +558,20 @@ def test_introspection_halts(
     halting_read: Bytecode,
 ) -> None:
     """
-    `TXPARAM`, `SIGPARAM`, `FRAMEDATALOAD` and `FRAMEDATACOPY` halt
-    exceptionally on undefined selectors and out of bounds indices.
-    The halt fails the frame without invalidating the transaction,
-    because the frame does not run in `VERIFY` mode.
+    `TXPARAM`, `SIGPARAM`, `SIGDATACOPY`, `FRAMEDATALOAD` and
+    `FRAMEDATACOPY` halt exceptionally on undefined selectors, out of
+    bounds indices, and the signature length of a protocol-validated
+    entry — the raw signature bytes the protocol validates are not
+    introspectable, their length included. `SIGPARAM`'s former copy
+    selector (`0x04`) is undefined. The halt fails the frame without
+    invalidating the transaction, because the frame does not run in
+    `VERIFY` mode.
 
-    The probe transaction carries two frames and one signature entry,
-    so frame index 2 and signature index 1 are the first indices out
-    of bounds. The probe writes a marker before the halting read, so
-    a read that returned a value instead of halting would leave the
-    marker behind.
+    The probe transaction carries two frames and one protocol-validated
+    signature entry, so frame index 2 and signature index 1 are the
+    first indices out of bounds. The probe writes a marker before the
+    halting read, so a read that returned a value instead of halting
+    would leave the marker behind.
     """
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
@@ -513,9 +669,6 @@ def test_framedatacopy(
             Spec.SIGPARAM_SCHEME,
             Spec.SCHEME_SECP256K1,
             id="secp256k1_scheme",
-        ),
-        pytest.param(
-            0, Spec.SIGPARAM_SIGNATURE_LENGTH, 65, id="secp256k1_length"
         ),
         pytest.param(0, Spec.SIGPARAM_MSG, 0, id="canonical_hash_msg"),
         pytest.param(
@@ -626,46 +779,24 @@ def test_sigparam_resolved_signer(
     )
 
 
-def sigparam_copy(
-    signature_index: int,
-    param: int,
-    mem_offset: int,
-    data_offset: int,
-    length: int,
-) -> Bytecode:
-    """
-    Return bytecode for `SIGPARAM`'s copy operation, whose five stack
-    operands the opcode helper does not model.
-    """
-    return (
-        Op.PUSH1(length)
-        + Op.PUSH1(data_offset)
-        + Op.PUSH1(mem_offset)
-        + Op.PUSH1(param)
-        + Op.PUSH1(signature_index)
-        + Op.SIGPARAM
-    )
-
-
-def test_sigparam_copy_arbitrary(
+def test_sigdatacopy(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """
-    Copy an `ARBITRARY` entry's raw signature bytes into memory, and
-    check that the same copy against a protocol validated entry halts
-    the frame instead.
+    Copy an `ARBITRARY` entry's raw signature bytes into memory
+    through `SIGDATACOPY`, including the zero fill past the end of the
+    signature, and check that the same copy against a protocol
+    validated entry halts the frame instead.
     """
     sender = pre.fund_eoa()
     copied = pre.deploy_contract(
-        code=sigparam_copy(1, Spec.SIGPARAM_COPY, 0, 0, 32)
+        code=Op.SIGDATACOPY(0, 0, 32, 1)
         + Op.SSTORE(SLOT_RESULT, Op.MLOAD(0))
         + Op.STOP
     )
     refused = pre.deploy_contract(
-        code=sigparam_copy(0, Spec.SIGPARAM_COPY, 0, 0, 32)
-        + Op.SSTORE(SLOT_RESULT, 1)
-        + Op.STOP
+        code=Op.SIGDATACOPY(0, 0, 32, 0) + Op.SSTORE(SLOT_RESULT, 1) + Op.STOP
     )
 
     signatures = [

@@ -394,6 +394,35 @@ class Receipt:
 @final
 @slotted_freezable
 @dataclass
+class GasUsed:
+    """
+    The gas a [`Frame`] used, one amount per gas dimension, mirroring
+    the frame's [`GasLimits`][gl].
+
+    [`Frame`]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.Frame
+    [gl]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.GasLimits
+    """  # noqa: E501
+
+    execution: Uint
+    """
+    Execution gas used by the frame, not reduced by refunds. Final
+    once the frame completes.
+    """
+
+    state: Uint
+    """
+    State gas attributed to the frame after all refills and rollbacks
+    applied so far. A later frame's refill of a charge this frame paid
+    lowers this amount, and an atomic batch unroll zeroes it for the
+    unrolled frames; the value is final only when the transaction
+    ends. The sum over all frames is the transaction's state gas
+    usage.
+    """
+
+
+@final
+@slotted_freezable
+@dataclass
 class FrameReceipt:
     """
     Result of a single frame's execution, included in the frame
@@ -405,9 +434,9 @@ class FrameReceipt:
     Outcome of the frame's execution.
     """
 
-    gas_used: Uint
+    gas_used: GasUsed
     """
-    Gas used by the frame, not reduced by refunds.
+    Gas used by the frame, one amount per gas dimension.
     """
 
     logs: Tuple[Log, ...]
