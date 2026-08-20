@@ -108,10 +108,10 @@ def run_test_case(
     from .. import create_parser
 
     env = deepcopy(test_case.env)
-    try:
-        env["blockHashes"] = {"0": env["previousHash"]}
-    except KeyError:
-        env["blockHashes"] = {}
+    previous_hash = env.pop("previousHash", None)
+    env["blockHashes"] = (
+        {"0": previous_hash} if previous_hash is not None else {}
+    )
     env["withdrawals"] = []
 
     alloc = deepcopy(test_case.pre)
@@ -276,25 +276,26 @@ class StateTest:
                 t8n_extra=t8n_extra,
                 output_basedir=sys.stderr,
             )
+            state_root = result.state_root.hex()
 
             # Always output the state root on stderr (even with tracing
             # disabled) for the holiman/goevmlab integration.
             json.dump(
-                {"stateRoot": "0x" + result.state_root.hex()},
+                {"stateRoot": state_root},
                 sys.stderr,
             )
             sys.stderr.write("\n")
 
             passed = hex_to_bytes(test_case.post["hash"]) == result.state_root
             result_dict = {
-                "stateRoot": "0x" + result.state_root.hex(),
+                "stateRoot": state_root,
                 "fork": test_case.fork_name,
                 "name": test_case.key,
                 "pass": passed,
             }
 
             if not passed:
-                actual = result.state_root.hex()
+                actual = state_root[2:]
                 expected = test_case.post["hash"][2:]
                 result_dict["error"] = (
                     f"post state root mismatch: got {actual}, want {expected}"
