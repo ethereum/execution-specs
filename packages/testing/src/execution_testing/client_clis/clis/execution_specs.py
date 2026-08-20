@@ -311,7 +311,7 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         # reject as they are constructed (undefined modes, flags, or
         # schemes), which on a real client fail to decode.
         TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
-            r"FrameCountError|InvalidMaxFeePerBlobGas"
+            r"FrameCountError|InvalidMaxFeePerBlobGasError"
             r"|invalid frame (signature )?field"
         ),
     }
