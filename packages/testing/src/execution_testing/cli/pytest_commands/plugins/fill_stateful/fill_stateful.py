@@ -174,6 +174,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "This flag checks every account at start_block.)"
         ),
     )
+    group.addoption(
+        "--no-reset-between-tests",
+        action="store_true",
+        dest="no_reset_between_tests",
+        default=False,
+        help=(
+            "Accumulate state across tests (don't rewind between them). Useful"
+            "for pre-populating datadir. Fixtures remain valid only from their"
+            "recorded start_block. Don't mix with single-anchor fills."
+        ),
+    )
 
 
 def _resolve_session_fork(
@@ -530,6 +541,12 @@ def opcode_count_trace_timeout(request: pytest.FixtureRequest) -> str:
 
 
 @pytest.fixture(scope="session")
+def no_reset_between_tests(request: pytest.FixtureRequest) -> bool:
+    """Whether --no-reset-between-tests state accumulation is enabled."""
+    return request.config.getoption("no_reset_between_tests")
+
+
+@pytest.fixture(scope="session")
 def client_backend(
     eth_rpc: ChainBuilderEthRPC,
     debug_rpc: DebugRPC,
@@ -794,6 +811,7 @@ def _reset_chain_between_tests(
     client_backend: ClientBackend,
     debug_rpc: DebugRPC,
     eth_rpc: "ChainBuilderEthRPC",
+    no_reset_between_tests: bool,
 ) -> Generator[None, None, None]:
     """
     Rewind to start_block after each test so the chain is identical for
@@ -805,6 +823,8 @@ def _reset_chain_between_tests(
     drifted (e.g. a live reorg).
     """
     yield
+    if no_reset_between_tests:
+        return
     if client_backend.start_block is None:
         return
     start_hex = client_backend.start_block["number"]
