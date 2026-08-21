@@ -86,6 +86,7 @@ FACTORY = Address(Spec.FACTORY_ADDRESS)
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
 @EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
 @EIPChecklist.Opcode.Test.Terminating.Rollback.Balance()
+@pytest.mark.valid_before("EIP4758")
 def test_selfdestructing_initcode_preserves_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -257,6 +258,7 @@ def test_selfdestructing_initcode_preserves_balance(
 )
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
 @EIPChecklist.Opcode.Test.Terminating.Scenarios.TopLevel()
+@pytest.mark.valid_before("EIP4758")
 def test_create_transaction_initcode_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,
