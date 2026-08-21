@@ -39,6 +39,9 @@ pytestmark = pytest.mark.valid_from("Bogota")
 SLOT_EXECUTED = 0x01
 """Storage slot used by target contracts to record execution."""
 
+SLOT_CALL_OUTCOME = 0x02
+"""Storage slot used by target contracts to record a nested call's success."""
+
 
 def test_transfer_with_default_code(
     state_test: StateTestFiller,
@@ -443,6 +446,86 @@ def test_frame_revert_discards_the_approval_it_granted(
         post={
             sender: Account(
                 storage={SLOT_EXECUTED: 0 if frame_reverts else 1}
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "inner_attempts_approval",
+    [
+        pytest.param(True, id="refused_approval"),
+        pytest.param(False, id="plain_return"),
+    ],
+)
+def test_refused_approval_reverts_only_its_call_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    inner_attempts_approval: bool,
+) -> None:
+    """
+    A refused `APPROVE` reverts the call frame that issued it, not the
+    whole frame: its caller observes a failed call and runs on to a
+    successful frame.
+
+    The `plain_return` case is the control, replacing the inner
+    `APPROVE` with a bare `STOP`, so that the recorded call outcome
+    attributes to the refusal rather than to the nested call itself.
+    """
+    sender = pre.fund_eoa()
+
+    # The frame carries no approval flags, so any scope it attempts to
+    # approve lies outside its own and is refused. Targeting a
+    # non-sender is not an option: a frame flagged to approve execution
+    # must resolve to the sender to be statically valid.
+    inner = (
+        Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION)
+        if inner_attempts_approval
+        else Op.STOP
+    )
+    # Calldata distinguishes the invocations: the frame supplies some,
+    # the self-call supplies none.
+    outer = Op.SSTORE(
+        SLOT_CALL_OUTCOME, Op.CALL(gas=Op.GAS, address=Op.ADDRESS)
+    ) + Op.SSTORE(SLOT_EXECUTED, 1)
+    target = pre.deploy_contract(
+        code=Conditional(
+            condition=Op.CALLDATASIZE, if_true=outer, if_false=inner
+        )
+    )
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            Frame(
+                mode=Spec.MODE_VERIFY,
+                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
+            ),
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                target=target,
+                data=Bytes(b"\x01"),
+            ),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(status=Spec.STATUS_SUCCESS, logs=[]),
+                FrameReceipt(status=Spec.STATUS_SUCCESS),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            target: Account(
+                storage={
+                    SLOT_CALL_OUTCOME: 0 if inner_attempts_approval else 1,
+                    SLOT_EXECUTED: 1,
+                }
             ),
         },
     )

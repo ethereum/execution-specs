@@ -383,11 +383,13 @@ def attempt_approval(
     When incrementing the nonce creates the sender account, the
     account creation is charged from the executing frame's state gas
     pool immediately before the increment. A pool that cannot cover
-    the charge halts the frame exceptionally — the halt's rollback
-    discards every approval effect.
+    the charge halts the current call frame exceptionally — the halt's
+    rollback discards every approval effect, including an execution
+    approval this same call already recorded.
 
     Return whether the approval was granted; a refusal reverts the
-    requesting frame.
+    requesting call frame, which is the frame itself only when the
+    protocol default code is the caller.
     """
     frame_context = tx_env.frame_context
     assert frame_context is not None

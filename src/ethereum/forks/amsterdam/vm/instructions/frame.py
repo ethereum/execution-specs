@@ -43,13 +43,14 @@ def approve(evm: Evm) -> None:
     transaction-scoped approval context based on the scope operand.
 
     The memory region designated by the offset and length operands
-    becomes the frame's return data, following `RETURN` semantics —
-    only the memory expansion is charged. A refused approval — an
-    `ADDRESS` other than the frame's resolved target, a scope outside
-    the frame's allowed flags, or a failed precondition — reverts the
-    frame instead. The approval's writes deliberately bypass the
-    `VERIFY` static restriction: only `APPROVE` may mutate state
-    there.
+    becomes the call frame's return data, following `RETURN`
+    semantics — only the memory expansion is charged. A refused
+    approval — an `ADDRESS` other than the frame's resolved target, a
+    scope outside the frame's allowed flags, or a failed precondition
+    — reverts the current call frame, not the whole frame: a caller
+    that handles the revert carries on. The approval's writes
+    deliberately bypass the `VERIFY` static restriction: only
+    `APPROVE` may mutate state there.
     """
     # STACK
     offset = pop(evm.stack)
