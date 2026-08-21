@@ -41,15 +41,17 @@ from tests.benchmark.helper.storage import (
     initializer_calldata_generator,
 )
 
+LOOP_GAS_THRESHOLD = 0xFFFF
+
 
 def _max_sloads_per_tx(tx_gas_limit: int, fork: Fork) -> int:
     """
     Conservative upper bound on cold SLOADs that fit in a max-gas tx.
 
-    Derived from the cold SLOAD cost (EIP-2929: 2100 gas) and used by
-    the bloated SLOAD benchmarks both as the inter-tx offset stride
-    (to keep consecutive txs' SLOAD ranges disjoint) and as the
-    per-target storage pre-load count.
+    Derived from the fork's cold `SLOAD` cost (`COLD_STORAGE_ACCESS`)
+    and used by the bloated SLOAD benchmarks both as the inter-tx
+    offset stride (to keep consecutive txs' SLOAD ranges disjoint) and
+    as the per-target storage pre-load count.
     """
     cold_sload_cost = Op.SLOAD(key_warm=False).gas_cost(fork)
     return tx_gas_limit // cold_sload_cost
@@ -172,6 +174,7 @@ def test_sload_benchmark(
             pre=pre,
             fork=fork,
             tx_gas_limit=tx_gas_limit,
+            block_gas_budget=gas_benchmark_value,
             needs_init=storage_keys_pre_set,
             num_target_slots=num_target_slots,
             initializer_code=initializer_code,
@@ -278,7 +281,7 @@ def test_sload_bloated(
                 + Op.PUSH1(1)  # [1, index]
                 + Op.ADD  # [index+1]
             ),
-            condition=Op.GT(Op.GAS, 0xFFFF),
+            condition=Op.GT(Op.GAS, LOOP_GAS_THRESHOLD),
         )
         + Op.PUSH0  # [0, index+1]
         + Op.SSTORE  # s[0] = index+1
@@ -332,15 +335,19 @@ def test_sload_bloated_prefetch_miss(
     runs them sequentially to propagate state changes — forcing
     every tx's prewarm scope to restart from pre-block state.
     """
-    # Runtime: read old offset from slot 0, write new offset from
-    # calldata to slot 0, then SLOAD sequentially from old offset.
-    runtime_code = (
-        Op.SLOAD(Op.PUSH0)
-        + Op.SSTORE(Op.PUSH0, Op.CALLDATALOAD(Op.PUSH0))
-        + While(
-            body=(Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(1) + Op.ADD),
-            condition=Op.GT(Op.GAS, 0xFFFF),
-        )
+    plant_code = Op.SLOAD(Op.PUSH0, key_warm=False) + Op.SSTORE(
+        Op.PUSH0,
+        Op.CALLDATALOAD(Op.PUSH0),
+        key_warm=True,
+        original_value=0,
+        current_value=0,
+        new_value=1,
+    )
+    # Read the old offset from slot 0, write the new offset from
+    # calldata to slot 0, then SLOAD sequentially from the old offset.
+    runtime_code = plant_code + While(
+        body=(Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(1) + Op.ADD),
+        condition=Op.GT(Op.GAS, LOOP_GAS_THRESHOLD),
     )
 
     authority = pre.stub_eoa(token_name)
@@ -372,6 +379,13 @@ def test_sload_bloated_prefetch_miss(
     base_offset = max_sloads_per_tx if existing_slots else START_SLOT
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         calldata=b"\xff" * 32,
+        recipient_type=RecipientType.DELEGATION_7702,
+    ) + fork.transaction_top_frame_gas_calculator()(
+        recipient_type=RecipientType.DELEGATION_7702
+    )
+
+    plant_tx_gas = (
+        intrinsic_gas + plant_code.gas_cost(fork) + LOOP_GAS_THRESHOLD
     )
 
     # senders_iter yields one sender per tx (fresh per call in
@@ -384,14 +398,10 @@ def test_sload_bloated_prefetch_miss(
     gas_available = gas_benchmark_value
     txs: list[Transaction] = []
 
-    # First transaction: minimal gas, only writes the initial
-    # offset. Gas limit ensures remaining gas after the SLOAD +
-    # SSTORE setup falls below the 0xFFFF loop threshold so the
-    # SLOAD loop does not run. This tx's job is to change slot 0
-    # inside the benchmark block so every subsequent max-gas tx
-    # reads an offset the prefetcher's pre-block snapshot does
-    # not see, achieving a 100% prefetch miss rate on max-gas txs.
-    first_tx_gas = min(gas_available, intrinsic_gas + 30_000)
+    # This tx's job is to change slot 0 inside the benchmark block so
+    # every subsequent max-gas tx reads an offset the prefetcher's
+    # pre-block snapshot does not see, achieving a 100% miss rate.
+    first_tx_gas = min(gas_available, plant_tx_gas)
     sender = next(senders_iter)
     senders.append(sender)
     txs.append(
@@ -407,7 +417,7 @@ def test_sload_bloated_prefetch_miss(
     # Subsequent transactions: max gas, each shifts the offset
     # so the next transaction SLOADs from a different range.
     tx_index = 1
-    while gas_available >= intrinsic_gas:
+    while gas_available >= plant_tx_gas:
         tx_gas = min(gas_available, tx_gas_limit)
         new_offset = base_offset + tx_index * max_sloads_per_tx
         sender = next(senders_iter)
@@ -516,7 +526,7 @@ def test_sload_bloated_multi_contract(
         + Op.SLOAD(Op.PUSH0)
         + While(
             body=(Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(1) + Op.ADD),
-            condition=Op.GT(Op.GAS, 0xFFFF),
+            condition=Op.GT(Op.GAS, LOOP_GAS_THRESHOLD),
         )
         + Op.PUSH0
         + Op.SSTORE
@@ -538,7 +548,7 @@ def test_sload_bloated_multi_contract(
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
     # Minimum per-tx gas ensuring the SLOAD loop runs at least one
     # iteration so every target satisfies storage_reads=[base_offset]:
-    # intrinsic + CALL + offset_holder + setup + 0xFFFF loop threshold
+    # intrinsic + CALL + offset_holder + setup + loop threshold
     # + one iteration + final SSTORE, with buffer.
     min_tx_gas = intrinsic_gas + 130_000
 

@@ -10,6 +10,7 @@ from execution_testing import (
     Fork,
     Hash,
     Transaction,
+    TransactionWithCost,
 )
 
 from .enums import CacheStrategy
@@ -109,30 +110,35 @@ def build_cache_strategy_blocks(
 
 def pack_transactions_into_blocks(
     transactions: list[Transaction],
-    gas_limit: int,
+    block_gas_budget: int,
 ) -> list[Block]:
     """
-    Pack transactions into blocks without exceeding gas_limit per block.
+    Pack transactions into blocks without exceeding block_gas_budget.
 
-    Greedily add transactions to the current block until adding another
-    would exceed the gas limit, then start a new block.
+    A block's gas occupancy is the maximum across the independent
+    EIP-8037 gas dimensions rather than their sum, so the execution and
+    state dimensions are accumulated separately.
     """
-    if not transactions:
-        return []
-
     blocks: list[Block] = []
     current_txs: list[Transaction] = []
-    current_gas = 0
+    execution_gas = 0
+    state_gas = 0
 
     for tx in transactions:
-        tx_gas_limit = tx.gas_limit
-        if current_gas + tx_gas_limit > gas_limit and current_txs:
+        if isinstance(tx, TransactionWithCost):
+            tx_execution, tx_state = tx.execution_cost, tx.state_cost
+        else:
+            tx_execution, tx_state = int(tx.gas_limit), 0
+        occupancy = max(execution_gas + tx_execution, state_gas + tx_state)
+        if occupancy > block_gas_budget and current_txs:
             blocks.append(Block(txs=current_txs))
             current_txs = []
-            current_gas = 0
+            execution_gas = 0
+            state_gas = 0
 
         current_txs.append(tx)
-        current_gas += tx_gas_limit
+        execution_gas += tx_execution
+        state_gas += tx_state
 
     if current_txs:
         blocks.append(Block(txs=current_txs))
