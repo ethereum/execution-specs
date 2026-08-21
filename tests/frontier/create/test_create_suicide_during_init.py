@@ -38,6 +38,7 @@ class Operation(Enum):
     coverage_missed_reason="Tip to coinbase, og test contains empty account.",
 )
 @pytest.mark.valid_from("Frontier")
+@pytest.mark.valid_before("EIP4758")
 @pytest.mark.with_all_create_opcodes
 @pytest.mark.parametrize("transaction_create", [False, True])
 @pytest.mark.parametrize(

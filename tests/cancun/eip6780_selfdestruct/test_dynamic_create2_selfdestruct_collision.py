@@ -43,6 +43,7 @@ REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
         (False, True),
     ],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_dynamic_create2_selfdestruct_collision(
     fork: Fork,
     create2_dest_already_in_state: bool,
@@ -271,6 +272,7 @@ def test_dynamic_create2_selfdestruct_collision(
     "call_create2_contract_at_the_end",
     (True, False),
 )
+@pytest.mark.valid_before("EIP4758")
 def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     fork: Fork,
     create2_dest_already_in_state: bool,
@@ -547,6 +549,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         (True, True),
     ],
 )
+@pytest.mark.valid_before("EIP4758")
 def test_dynamic_create2_selfdestruct_collision_multi_tx(
     fork: Fork,
     selfdestruct_on_first_tx: bool,
