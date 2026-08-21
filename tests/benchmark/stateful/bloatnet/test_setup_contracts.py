@@ -119,9 +119,13 @@ def test_deploy_existing_contracts(
 
     Delegate deterministic EOAs to EXISTING_CONTRACT_DIFF_MAX receivers.
     """
+    contract_modes = list(CONTRACT_MODES)
+    if code_size == Amsterdam.max_code_size():
+        contract_modes.append(AccountMode.EXISTING_CONTRACT_JUMPDEST)
+
     txs = []
     post: dict = {}
-    for account_mode in CONTRACT_MODES:
+    for account_mode in contract_modes:
         creator = AccountCreator(account_mode, code_size=code_size)
         initcode = creator.initcode
         regular_gas, state_gas = deployment_gas(
