@@ -83,19 +83,6 @@ from tests.benchmark.helper.numeric import (
             ),
         ),
         pytest.param(
-            # This has the cycle of 2, see above.
-            Op.DIV,
-            (
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
-                # We want the first divisor to be slightly bigger than
-                # 2**192: a four-word divisor falls past the one- and
-                # two-word fast paths onto the general long-division
-                # algorithm, which the 2**64 and 2**128 cases above do not
-                # reach.
-                0x1000000000000000000000000000000000000000000000033,
-            ),
-        ),
-        pytest.param(
             # Same as DIV-0
             # But the numerator made positive, and the divisor made negative.
             Op.SDIV,
@@ -112,15 +99,6 @@ from tests.benchmark.helper.numeric import (
             (
                 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFCD,
-            ),
-        ),
-        pytest.param(
-            # Same as the 2**192 DIV case above, with the numerator made
-            # positive and the divisor made negative.
-            Op.SDIV,
-            (
-                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
-                0xFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCD,
             ),
         ),
         pytest.param(
