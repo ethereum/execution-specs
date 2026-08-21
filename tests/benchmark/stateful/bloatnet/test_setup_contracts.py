@@ -17,6 +17,7 @@ from execution_testing import (
     TransactionWithCost,
     compute_create2_address,
 )
+from execution_testing.forks import Amsterdam, Osaka
 
 from tests.benchmark.helper.account_creator import (
     AccountCreator,
@@ -101,12 +102,16 @@ def deployment_gas(
 
 
 @pytest.mark.valid_from("Amsterdam")
+@pytest.mark.parametrize(
+    "code_size", [Osaka.max_code_size(), Amsterdam.max_code_size()]
+)
 def test_deploy_existing_contracts(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
+    code_size: int,
 ) -> None:
     """
     Deploy the contracts behind the `AccountMode.EXISTING_CONTRACT_*`
@@ -117,7 +122,7 @@ def test_deploy_existing_contracts(
     txs = []
     post: dict = {}
     for account_mode in CONTRACT_MODES:
-        creator = AccountCreator(account_mode)
+        creator = AccountCreator(account_mode, code_size=code_size)
         initcode = creator.initcode
         regular_gas, state_gas = deployment_gas(
             fork, initcode, creator.runtime_size
@@ -130,7 +135,7 @@ def test_deploy_existing_contracts(
                     data=Hash(salt) + initcode,
                     gas_limit=regular_gas + state_gas,
                     sender=sender,
-                    regular_cost=regular_gas,
+                    execution_cost=regular_gas,
                     state_cost=state_gas,
                 )
             )
@@ -149,7 +154,7 @@ def test_deploy_existing_contracts(
     top_frame = fork.transaction_top_frame_gas_calculator()
     # DIFF receivers share one initcode; build it once for CREATE2 derivation.
     diff_initcode = AccountCreator(
-        AccountMode.EXISTING_CONTRACT_DIFF_MAX
+        AccountMode.EXISTING_CONTRACT_DIFF_MAX, code_size=code_size
     ).initcode
 
     authorizations = []
@@ -207,7 +212,7 @@ def test_deploy_existing_contracts(
                 gas_limit=regular_gas + state_gas + gas_buffer,
                 sender=delegation_sender,
                 authorization_list=authorization_list,
-                regular_cost=regular_gas + gas_buffer,
+                execution_cost=regular_gas + gas_buffer,
                 state_cost=state_gas,
             )
         )

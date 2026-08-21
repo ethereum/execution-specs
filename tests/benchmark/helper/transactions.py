@@ -177,7 +177,7 @@ def pack_transactions_with_cost_into_blocks(
             current_state = 0
 
         current_txs.append(tx)
-        current_regular += tx.regular_cost
+        current_regular += tx.execution_cost
         current_state += tx.state_cost
 
     if current_txs:
