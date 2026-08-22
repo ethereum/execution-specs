@@ -250,37 +250,24 @@ def create_evm_from_frame(
     frame: Frame,
     resolved_target: Address,
     gas_meter: GasMeter,
-    warm_addresses: Set[Address],
-    warm_storage_keys: Set[Tuple[Address, Bytes32]],
+    accessed_addresses: Set[Address],
+    accessed_storage_keys: Set[Tuple[Address, Bytes32]],
 ) -> Evm:
     """
     Build a frame's top-level EVM.
 
-    The frame starts warm with the coinbase, the precompiles, and the
-    journal shared across frames — not its caller, and not its target:
-    the target's warm or cold access is charged here, within the
-    frame's own execution gas budget, as is the access for resolving
-    an EIP-7702 delegation. A value transfer reviving a dead account
-    is charged to the frame's state gas pool, after the caller's
-    balance check and before the frame's code executes. A charge
-    exceeding either budget raises instead of building the EVM,
-    failing the frame.
+    The access sets arrive from `execute_frame`, which seeded them
+    from the journal shared across frames and charged the resolved
+    target's warm or cold access into them at frame entry. Charged
+    here are the frame's remaining entry costs: the access for
+    resolving an EIP-7702 delegation, from the frame's own execution
+    gas budget, and the state gas for a value transfer reviving a
+    dead account — after the caller's balance check and before the
+    frame's code executes. A charge exceeding either budget raises
+    instead of building the EVM, failing the frame.
     """
     frame_context = tx_env.frame_context
     assert frame_context is not None
-
-    ## Warm up the access sets
-    accessed_addresses: Set[Address] = set(warm_addresses)
-    accessed_addresses.add(block_env.coinbase)
-    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
-    accessed_storage_keys = set(warm_storage_keys)
-
-    ## Resolve dispatch and charge its state-dependent costs
-    if resolved_target in accessed_addresses:
-        charge_gas_from_meter(gas_meter, GasCosts.WARM_ACCESS)
-    else:
-        charge_gas_from_meter(gas_meter, GasCosts.COLD_ACCOUNT_ACCESS)
-        accessed_addresses.add(resolved_target)
 
     if frame.value > U256(0) and not is_account_alive(
         tx_env.state, resolved_target
@@ -336,16 +323,17 @@ def create_evm_from_frame(
 def execute_default_verify_code(
     tx_env: TransactionEnvironment,
     frame: Frame,
-    warm_addresses: Set[Address],
 ) -> FrameStatus:
     """
     Execute the protocol default code of a `VERIFY` frame whose
     resolved target has no code, returning the frame's status.
 
-    The default code consumes no execution gas. It can consume state
-    gas through `APPROVE`, when incrementing the nonce creates the
-    sender account; a pool that cannot cover that charge raises,
-    halting the frame exceptionally.
+    The default code draws no execution gas of its own: the frame's
+    only execution charge is the resolved target's access, taken by
+    `execute_frame` at frame entry. It can consume state gas through
+    `APPROVE`, when incrementing the nonce creates the sender
+    account; a pool that cannot cover that charge raises, halting the
+    frame exceptionally.
 
     The default code approves the scope allowed by the frame's flags,
     provided the transaction carries an authorizing secp256k1
@@ -385,7 +373,7 @@ def execute_default_verify_code(
     if frame_context.resolved_signers[signature_index] != resolved_target:
         return FrameStatus.FAILURE
 
-    if not attempt_approval(tx_env, allowed_scope, warm_addresses):
+    if not attempt_approval(tx_env, allowed_scope):
         return FrameStatus.FAILURE
 
     return FrameStatus.SUCCESS
@@ -400,10 +388,14 @@ def execute_frame(
     """
     Run a single frame as a top-level call and reduce its outcome.
 
-    A `VERIFY` frame whose resolved target has no code runs the
-    protocol default code instead of an EVM. As with an ordinary
-    `CALL`, a caller that cannot cover the transferred value reverts
-    the frame before it executes, consuming no gas.
+    Every frame is charged its resolved target's warm or cold access
+    at frame entry, from its own execution gas budget, before
+    anything else: resolving the target's code is how the protocol
+    dispatches the frame. A `VERIFY` frame whose resolved target has
+    no code then runs the protocol default code instead of an EVM. As
+    with an ordinary `CALL`, a caller that cannot cover the
+    transferred value reverts the frame, consuming the gas charged so
+    far.
 
     The frame's receipt reports its usage of both gas dimensions at
     frame exit: the execution gas its meter consumed — the whole
@@ -413,9 +405,9 @@ def execute_frame(
     here at frame entry, so its receipt reports zero state gas.
 
     On success the frame's accesses are committed back to the
-    journal's warm sets; a failed frame's accesses are discarded with
-    its EVM, so nothing it touched stays warm. The default code runs
-    without an EVM and warms in the journal's set directly.
+    journal's warm sets — the resolved target included, which is what
+    keeps a payer warm for later frames — and a failed frame's
+    accesses are discarded, so nothing it touched stays warm.
     """
     frame_context = tx_env.frame_context
     assert frame_context is not None
@@ -428,6 +420,40 @@ def execute_frame(
     # receipts are undone with it.
     entry_snapshot = copy_frame_context(tx_env)
     state_budget = Uint(frame.gas_limits.state)
+    execution_budget = Uint(frame.gas_limits.execution)
+
+    gas_meter = GasMeter(
+        gas_left=ExecutionGas(execution_budget),
+        reservoir=None,
+    )
+
+    ## Warm up the frame's access sets
+    accessed_addresses: Set[Address] = set(journal.warm_addresses)
+    accessed_addresses.add(block_env.coinbase)
+    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
+    accessed_storage_keys = set(journal.warm_storage_keys)
+
+    ## Charge the resolved target's access
+    try:
+        if resolved_target in accessed_addresses:
+            charge_gas_from_meter(gas_meter, GasCosts.WARM_ACCESS)
+        else:
+            charge_gas_from_meter(gas_meter, GasCosts.COLD_ACCOUNT_ACCESS)
+            accessed_addresses.add(resolved_target)
+    except ExceptionalHalt:
+        # The target's access exceeded the frame's execution budget:
+        # the frame halts exceptionally, consuming the budget whole.
+        # Nothing else has been charged, so there is nothing to
+        # restore.
+        return FrameOutcome(
+            receipt=FrameReceipt(
+                status=FrameStatus.FAILURE,
+                gas_used=GasUsed(execution=execution_budget, state=Uint(0)),
+                logs=(),
+            ),
+            refund_counter=0,
+            accounts_to_delete=set(),
+        )
 
     target_account = get_account(tx_state, resolved_target)
     if (
@@ -435,9 +461,7 @@ def execute_frame(
         and target_account.code_hash == EMPTY_CODE_HASH
     ):
         try:
-            status = execute_default_verify_code(
-                tx_env, frame, journal.warm_addresses
-            )
+            status = execute_default_verify_code(tx_env, frame)
         except ExceptionalHalt:
             # `APPROVE` could not cover the sender-creation state
             # charge: the frame halts exceptionally with no approval
@@ -447,7 +471,7 @@ def execute_frame(
                 receipt=FrameReceipt(
                     status=FrameStatus.FAILURE,
                     gas_used=GasUsed(
-                        execution=Uint(frame.gas_limits.execution),
+                        execution=execution_budget,
                         state=Uint(0),
                     ),
                     logs=(),
@@ -455,11 +479,13 @@ def execute_frame(
                 refund_counter=0,
                 accounts_to_delete=set(),
             )
+        if status == FrameStatus.SUCCESS:
+            journal.warm_addresses.update(accessed_addresses)
         return FrameOutcome(
             receipt=FrameReceipt(
                 status=status,
                 gas_used=GasUsed(
-                    execution=Uint(0),
+                    execution=execution_budget - Uint(gas_meter.gas_left),
                     state=state_budget - Uint(frame_context.state_gas_left),
                 ),
                 logs=(),
@@ -474,17 +500,15 @@ def execute_frame(
             return FrameOutcome(
                 receipt=FrameReceipt(
                     status=FrameStatus.FAILURE,
-                    gas_used=GasUsed(execution=Uint(0), state=Uint(0)),
+                    gas_used=GasUsed(
+                        execution=execution_budget - Uint(gas_meter.gas_left),
+                        state=Uint(0),
+                    ),
                     logs=(),
                 ),
                 refund_counter=0,
                 accounts_to_delete=set(),
             )
-
-    gas_meter = GasMeter(
-        gas_left=ExecutionGas(Uint(frame.gas_limits.execution)),
-        reservoir=None,
-    )
 
     try:
         evm = create_evm_from_frame(
@@ -493,8 +517,8 @@ def execute_frame(
             frame,
             resolved_target,
             gas_meter,
-            journal.warm_addresses,
-            journal.warm_storage_keys,
+            accessed_addresses,
+            accessed_storage_keys,
         )
     except ExceptionalHalt:
         # The frame's entry charges exceeded its own budgets: the
@@ -504,7 +528,7 @@ def execute_frame(
             receipt=FrameReceipt(
                 status=FrameStatus.FAILURE,
                 gas_used=GasUsed(
-                    execution=Uint(frame.gas_limits.execution),
+                    execution=execution_budget,
                     state=Uint(0),
                 ),
                 logs=(),
@@ -522,7 +546,7 @@ def execute_frame(
         restore_frame_context(tx_env, entry_snapshot)
 
     gas_used = GasUsed(
-        execution=Uint(frame.gas_limits.execution) - Uint(gas_meter.gas_left),
+        execution=execution_budget - Uint(gas_meter.gas_left),
         state=state_budget - Uint(frame_context.state_gas_left),
     )
     if evm.error is None:

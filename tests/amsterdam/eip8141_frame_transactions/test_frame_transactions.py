@@ -15,6 +15,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Conditional,
+    Fork,
     Frame,
     FrameReceipt,
     FrameSignature,
@@ -25,6 +26,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
+from .helpers import default_code_frame_gas
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -38,6 +40,9 @@ pytestmark = pytest.mark.valid_from("Bogota")
 
 SLOT_EXECUTED = 0x01
 """Storage slot used by target contracts to record execution."""
+
+SLOT_CALL_OUTCOME = 0x02
+"""Storage slot used by target contracts to record a nested call's success."""
 
 
 def test_transfer_with_default_code(
@@ -443,6 +448,107 @@ def test_frame_revert_discards_the_approval_it_granted(
         post={
             sender: Account(
                 storage={SLOT_EXECUTED: 0 if frame_reverts else 1}
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "inner_attempts_approval",
+    [
+        pytest.param(True, id="refused_approval"),
+        pytest.param(False, id="plain_return"),
+    ],
+)
+def test_refused_approval_reverts_only_its_call_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    inner_attempts_approval: bool,
+) -> None:
+    """
+    A refused `APPROVE` reverts the call frame that issued it, not the
+    whole frame: its caller observes a failed call and runs on to a
+    successful frame, and the receipt keeps the refused call's gas
+    consumed.
+
+    The `plain_return` case is the control, replacing the inner
+    `APPROVE` with a bare `STOP`, so that the recorded call outcome
+    attributes to the refusal rather than to the nested call itself.
+    """
+    sender = pre.fund_eoa()
+
+    # The frame carries no approval flags, so any scope it attempts to
+    # approve lies outside its own and is refused. Targeting a
+    # non-sender is not an option: a frame flagged to approve execution
+    # must resolve to the sender to be statically valid. The inner code
+    # runs via `DELEGATECALL`, which preserves `ADDRESS`, so the
+    # refusal comes from the scope alone — and both executed paths stay
+    # straight-line, so the receipt pins the frame's exact gas.
+    inner_code = (
+        Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION)
+        if inner_attempts_approval
+        else Op.STOP
+    )
+    inner = pre.deploy_contract(code=inner_code)
+    target_code = Op.SSTORE(
+        SLOT_CALL_OUTCOME,
+        Op.DELEGATECALL(gas=Op.GAS, address=inner),
+        new_value=0 if inner_attempts_approval else 1,
+    ) + Op.SSTORE(SLOT_EXECUTED, 1)
+    target = pre.deploy_contract(code=target_code)
+
+    # The refused call's gas stays consumed: the frame reports its
+    # target's cold entry access, the outer code, and the inner code
+    # the revert cut short.
+    frame_gas = (
+        fork.frame_entry_gas_calculator()()
+        + target_code.execution_cost(fork)
+        + inner_code.execution_cost(fork)
+    )
+    fresh_write_state_cost = Op.SSTORE(SLOT_EXECUTED, 1).state_cost(fork)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            Frame(
+                mode=Spec.MODE_VERIFY,
+                flags=Spec.APPROVE_EXECUTION_AND_PAYMENT,
+            ),
+            Frame(
+                mode=Spec.MODE_DEFAULT,
+                target=target,
+            ),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                    logs=[],
+                ),
+                # The control's outcome write creates a second slot.
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=frame_gas,
+                    state_gas_used=fresh_write_state_cost
+                    * (1 if inner_attempts_approval else 2),
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            target: Account(
+                storage={
+                    SLOT_CALL_OUTCOME: 0 if inner_attempts_approval else 1,
+                    SLOT_EXECUTED: 1,
+                }
             ),
         },
     )

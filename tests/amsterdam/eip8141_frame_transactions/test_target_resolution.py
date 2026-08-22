@@ -16,8 +16,10 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytes,
     Fork,
     FrameReceipt,
+    FrameSignature,
     Op,
     StateTestFiller,
     Transaction,
@@ -25,7 +27,12 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import default_frame, sender_frame, verify_frame
+from .helpers import (
+    default_code_frame_gas,
+    default_frame,
+    sender_frame,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -45,6 +52,9 @@ BN254_ADD = Address(0x06)
 
 OFF_THE_CURVE = b"\xff" * 128
 """`BN254_ADD` input that is not a pair of curve points."""
+
+SLOT_CREATED = 0x01
+"""Storage slot a worker contract creates."""
 
 
 def identity_gas(fork: Fork, data: bytes) -> int:
@@ -99,7 +109,10 @@ def test_precompile_target(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
                     gas_used=identity_gas(fork, data),
@@ -114,6 +127,7 @@ def test_precompile_target(
 def test_precompile_target_rejecting_its_input(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Fail the frame whose targeted precompile rejects its input: the
@@ -130,7 +144,10 @@ def test_precompile_target_rejecting_its_input(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(
                     status=Spec.STATUS_FAILURE,
                     gas_used=DEFAULT_FRAME_GAS_LIMIT,
@@ -216,7 +233,10 @@ def test_delegated_target_entry_charge(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 *warming_receipts,
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
@@ -299,7 +319,10 @@ def test_dead_target_entry_charge(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 expected_frame,
             ],
         ),
@@ -331,7 +354,10 @@ def test_delegated_to_precompile_target(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
                     gas_used=entry_gas(delegated=True, delegation_warm=True),
@@ -341,6 +367,216 @@ def test_delegated_to_precompile_target(
     )
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+@pytest.mark.parametrize(
+    "affordable",
+    [
+        pytest.param(True, id="affordable"),
+        pytest.param(False, id="one_gas_short"),
+    ],
+)
+def test_frame_entry_gas_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    affordable: bool,
+) -> None:
+    """
+    Run a frame budgeted exactly its target's entry access, and one
+    budgeted a single gas less.
+
+    The target holds no code, so the entry access is the whole of the
+    frame's execution: at the exact budget the frame succeeds having
+    spent all of it, and one gas short it halts exceptionally,
+    forfeiting the budget. A `DEFAULT` frame's failure is its own, so
+    the transaction stays valid either way.
+    """
+    sender = pre.fund_eoa()
+    target = pre.fund_eoa(amount=1)
+
+    entry_gas = fork.frame_entry_gas_calculator()()
+    budget = entry_gas if affordable else entry_gas - 1
+    expected_frame_receipt = (
+        FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=entry_gas)
+        if affordable
+        else FrameReceipt(status=Spec.STATUS_FAILURE, gas_used=budget)
+    )
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(target=target, gas_limit=budget),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
+                expected_frame_receipt,
+            ],
+        ),
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+def test_entry_charge_halt_unrolls_batch(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Halt a mid-batch frame on its entry access charge.
+
+    The halt unrolls the batch like any other frame failure: the
+    executed frame keeps its status and execution gas with its state
+    gas zeroed, the halting frame forfeits its whole budget, and the
+    terminator is skipped.
+    """
+    sender = pre.fund_eoa()
+    halting_target = pre.fund_eoa(amount=1)
+
+    worker_code = Op.SSTORE(SLOT_CREATED, 1)
+    worker = pre.deploy_contract(code=worker_code)
+
+    # Both frame targets are fresh, so each entry access is cold.
+    entry_gas = fork.frame_entry_gas_calculator()()
+    worker_gas = entry_gas + worker_code.execution_cost(fork)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=worker,
+                gas_limit=worker_gas,
+                state_gas_limit=worker_code.state_cost(fork),
+            ),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=halting_target,
+                gas_limit=entry_gas - 1,
+            ),
+            default_frame(target=worker, gas_limit=worker_gas),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
+                # The unroll zeroes the executed frame's state gas and
+                # keeps its execution gas.
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=worker_gas,
+                    state_gas_used=0,
+                ),
+                FrameReceipt(
+                    status=Spec.STATUS_FAILURE, gas_used=entry_gas - 1
+                ),
+                FrameReceipt(status=Spec.STATUS_SKIPPED, gas_used=0),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            # The unroll discarded the worker's write.
+            worker: Account(storage={SLOT_CREATED: 0}),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "affordable",
+    [
+        pytest.param(True, id="affordable"),
+        pytest.param(
+            False, id="one_gas_short", marks=pytest.mark.exception_test
+        ),
+    ],
+)
+def test_default_code_entry_gas_shortfall(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    affordable: bool,
+) -> None:
+    """
+    Approve payment through a sponsor's protocol default code with the
+    sponsor's entry access barely affordable, and one gas short of it.
+
+    The entry access is charged before the frame is dispatched, so the
+    frame one gas short halts before the default code is evaluated: no
+    approval is granted, and a failed `VERIFY` frame invalidates the
+    transaction. The affordable case is the control that attributes the
+    rejection to the entry charge rather than to the sponsorship shape
+    — the same frame, one gas richer, approves and binds the payer.
+    """
+    sender = pre.fund_eoa()
+    payer = pre.fund_eoa()
+
+    # The transaction touches the sponsor nowhere else, so its frame
+    # pays the cold access.
+    entry_gas = fork.frame_entry_gas_calculator()()
+    budget = entry_gas if affordable else entry_gas - 1
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            verify_frame(
+                flags=Spec.APPROVE_PAYMENT, target=payer, gas_limit=budget
+            ),
+        ],
+        signatures=[
+            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            FrameSignature(
+                scheme=Spec.SCHEME_SECP256K1,
+                signer=Bytes(payer),
+                secret_key=payer.key,
+            ),
+        ],
+        error=(
+            None
+            if affordable
+            else TransactionException.TYPE_6_INVALID_FRAME_EXECUTION
+        ),
+        expected_receipt=(
+            TransactionReceipt(
+                payer=payer,
+                frame_receipts=[
+                    FrameReceipt(
+                        status=Spec.STATUS_SUCCESS,
+                        gas_used=default_code_frame_gas(
+                            fork, target_warm=True
+                        ),
+                    ),
+                    FrameReceipt(
+                        status=Spec.STATUS_SUCCESS, gas_used=entry_gas
+                    ),
+                ],
+            )
+            if affordable
+            else None
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={sender: Account(nonce=1 if affordable else 0)},
+    )
 
 
 def test_verify_frame_delegated_to_precompile_target(
@@ -372,7 +608,10 @@ def test_verify_frame_delegated_to_precompile_target(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
                     gas_used=entry_gas(delegated=True, delegation_warm=True),

@@ -36,7 +36,7 @@ from execution_testing import (
 from tests.frontier.precompiles.spec import Spec as EcrecoverSpec
 from tests.osaka.eip7951_p256verify_precompiles.spec import Spec as Spec7951
 
-from .helpers import sender_frame, verify_frame
+from .helpers import default_code_frame_gas, sender_frame, verify_frame
 from .signature_helpers import P256_SIGNATURE, p256_entry
 from .spec import Spec, ref_spec_8141
 
@@ -297,7 +297,10 @@ def test_bal_unaffordable_designation_absent(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(status=Spec.STATUS_FAILURE, gas_used=frame_gas),
             ],
         ),
@@ -377,8 +380,10 @@ def test_bal_sponsored_payer_and_sender(
     tx.sign()
     assert tx.frames is not None and tx.signatures is not None
 
-    # The two VERIFY frames run the protocol default code, which
-    # consumes no gas; the SENDER frame charges its cold target's
+    # The two VERIFY frames run the protocol default code, whose only
+    # execution charge is their target's access at entry: warm for the
+    # sender the first frame resolves to, cold for the sponsor the
+    # second one names. The SENDER frame charges its cold target's
     # access at entry and then runs the storage write.
     sponsored_gas_used = (
         fork.frame_transaction_intrinsic_cost_calculator()(
@@ -386,6 +391,8 @@ def test_bal_sponsored_payer_and_sender(
             signatures=tx.signatures,
             return_cost_deducted_prior_execution=True,
         )
+        + default_code_frame_gas(fork, target_warm=True)
+        + default_code_frame_gas(fork, target_warm=False)
         + fork.frame_entry_gas_calculator()()
         + target_code.gas_cost(fork)
     )
