@@ -32,7 +32,7 @@ def _write_group(
     """Write a single fine-grained group file, as Phase 1 would."""
     builder = PreAllocGroupBuilder(
         test_ids=[test_id],
-        environment=environment,
+        environment=environment.set_fork_requirements(fork),
         fork=fork,
         group_salt=group_salt,
         group_hash=stem,

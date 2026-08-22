@@ -45,7 +45,6 @@ from execution_testing.fixtures import (
     FixtureFillingPhase,
     LabeledFixtureFormat,
     PreAllocGroup,
-    PreAllocGroupBuilder,
     PreAllocGroupBuilders,
     PreAllocGroups,
     StateFixture,
@@ -921,10 +920,8 @@ def pytest_terminal_summary(
                 # Count accounts by loading as builder (no genesis computation)
                 total_accounts = 0
                 for group_file in group_files:
-                    builder = PreAllocGroupBuilder.model_validate_json(
-                        group_file.read_text()
-                    )
-                    total_accounts += builder.get_pre_account_count()
+                    pre_alloc_group = PreAllocGroup.from_file(group_file)
+                    total_accounts += pre_alloc_group.pre_account_count
             else:
                 assert session_instance.pre_alloc_group_builders is not None
                 total_groups = len(
@@ -2073,14 +2070,18 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         if not is_worker:
             _log_timing("Phase 1 (master): merging partial group files...")
             t0 = time.time()
+            optimistic_pre_alloc_grouping_disabled = session.config.getoption(
+                "optimistic_pre_alloc_grouping_disabled"
+            )
+            assert isinstance(optimistic_pre_alloc_grouping_disabled, bool)
             pre_alloc_folder = fixture_output.pre_alloc_groups_folder_path
-            merge_partial_group_files(pre_alloc_folder)
+            merge_partial_group_files(
+                pre_alloc_folder, final=optimistic_pre_alloc_grouping_disabled
+            )
             _log_timing(
                 f"Phase 1 (master): merge done in {time.time() - t0:.1f}s"
             )
-            if not session.config.getoption(
-                "optimistic_pre_alloc_grouping_disabled"
-            ):
+            if not optimistic_pre_alloc_grouping_disabled:
                 # Pack the fine-grained groups into fewer, larger ones so
                 # Engine X boots one client for many tests instead of one per
                 # test.

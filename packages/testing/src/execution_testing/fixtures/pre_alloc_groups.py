@@ -4,6 +4,7 @@ import json
 import os
 from collections import defaultdict
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import (
     Any,
@@ -33,8 +34,11 @@ from execution_testing.test_types.chain_config_types import DEFAULT_CHAIN_ID
 from .blockchain import FixtureHeader
 
 
-class PreAllocGroupBuilder(CamelModel):
-    """Pre-allocation group builder."""
+class PreAllocGroupCommon(CamelModel):
+    """
+    Common fields between the pre-alloc group builder and the final
+    pre-alloc group.
+    """
 
     test_ids: List[str] = Field(default_factory=list)
     environment: Environment = Field(
@@ -49,8 +53,26 @@ class PreAllocGroupBuilder(CamelModel):
             "groups only pack with groups carrying the same salt."
         ),
     )
-    group_hash: AllocGroupHash
+    group_hash: AllocGroupHash | None = None
+
+    @classmethod
+    def from_file(cls, file: Path) -> Self:
+        """Load a pre-allocation group or builder from a JSON file."""
+        return cls.model_validate_json(file.read_bytes())
+
+
+class PreAllocGroupBuilder(PreAllocGroupCommon):
+    """
+    Pre-allocation group temporary builder.
+
+    This file must _NOT_ be saved as the final output of the filling process.
+    """
+
     pre: Alloc
+
+    # Ensures the final pre-alloc group model is incompatible with the
+    # incomplete builder.
+    builder: str = "builder"
 
     def model_post_init(self, __context: Any) -> None:
         """
@@ -128,13 +150,18 @@ def _get_worker_id() -> Optional[str]:
     return os.environ.get("PYTEST_XDIST_WORKER")
 
 
-def merge_partial_group_files(folder: Path) -> None:
+def merge_partial_group_files(folder: Path, final: bool) -> None:
     """
     Merge all partial group files into final group files.
 
     Called by master process after all workers have finished Phase 1.
     Each worker writes {group_hash}.partial.{worker_id}.json files,
     which are merged here into {group_hash}.json files.
+
+    The `final` parameter establishes whether to save the files in builder
+    format, in order for them to be able to be re-processed by
+    `pack_pre_alloc_groups`, or the pre-alloc format to be included
+    in the output.
     """
     partial_files = list(folder.glob("*.partial.*.json"))
     if not partial_files:
@@ -195,11 +222,15 @@ def merge_partial_group_files(folder: Path) -> None:
 
         # Write final merged file
         if merged_builder is not None:
-            target_path.write_text(
-                merged_builder.model_dump_json(
+            if final:
+                output = merged_builder.build().model_dump_json(
                     by_alias=True, exclude_none=True, indent=2
                 )
-            )
+            else:
+                output = merged_builder.model_dump_json(
+                    by_alias=True, exclude_none=True, indent=2
+                )
+            target_path.write_text(output)
 
 
 def _packed_group_hash(test_ids: List[str]) -> AllocGroupHash:
@@ -424,7 +455,7 @@ def pack_pre_alloc_groups(folder: Path) -> None:
     builders = []
     phase1_hash_by_test: Dict[str, AllocGroupHash] = {}
     for file in files:
-        builder = PreAllocGroupBuilder.model_validate_json(file.read_text())
+        builder = PreAllocGroupBuilder.from_file(file)
         for test_id in builder.test_ids:
             phase1_hash_by_test[test_id] = AllocGroupHash(file.stem)
         builders.append(builder)
@@ -466,7 +497,7 @@ def pack_pre_alloc_groups(folder: Path) -> None:
             packed_hash = _packed_group_hash(merged.test_ids)
             merged.group_hash = packed_hash
             (folder / f"{packed_hash}.json").write_text(
-                merged.model_dump_json(
+                merged.build().model_dump_json(
                     by_alias=True, exclude_none=True, indent=2
                 )
             )
@@ -479,14 +510,7 @@ def pack_pre_alloc_groups(folder: Path) -> None:
 
 
 class PreAllocGroupBuilders(EthereumTestRootModel):
-    """
-    Root model mapping pre-allocation group hashes to test groups.
-
-    If lazy_load is True, the groups are not loaded from the folder until they
-    are accessed.
-
-    Iterating will fail if lazy_load is True.
-    """
+    """Root model mapping pre-allocation group builers to group hashes."""
 
     root: Dict[AllocGroupHash, PreAllocGroupBuilder] = Field(
         default_factory=dict
@@ -642,7 +666,7 @@ class GroupPreAlloc(Alloc):
         return self._pre_alloc_group_hash
 
 
-class PreAllocGroup(PreAllocGroupBuilder):
+class PreAllocGroup(PreAllocGroupCommon):
     """
     Pre-allocation group for tests with identical Environment and fork values.
 
@@ -663,28 +687,15 @@ class PreAllocGroup(PreAllocGroupBuilder):
         self.pre._cached_state_root = self.genesis.state_root
         self.pre._pre_alloc_group_hash = self.group_hash
 
-    @classmethod
-    def from_file(cls, file: Path) -> Self:
+    def hash(self) -> Hash:
         """
-        Load a pre-allocation group from a JSON file.
-
-        Files are stored in builder format (without genesis). Genesis is
-        computed on-demand when loading, ensuring state root computation
-        happens exactly once in Phase 2, not during Phase 1 merging.
+        Return a Hash based on the canonical JSON of the model.
         """
-        with open(file) as f:
-            data = f.read()
-
-        builder = PreAllocGroupBuilder.model_validate_json(data)
-        built = builder.build()
-        # Use cls.model_validate to ensure proper Self return type
-        v = cls.model_validate(built.model_dump())
-        if file.stem != str(v.group_hash):
-            raise Exception(
-                "invalid group hash found inside file: "
-                f"file={file}, group_hash={v.group_hash}"
-            )
-        return v
+        canonical_json = json.dumps(
+            self.model_dump(mode="json", by_alias=True, exclude_none=True),
+            sort_keys=True,
+        )
+        return Hash(sha256(canonical_json.encode("utf-8")).digest())
 
 
 class PreAllocGroups(EthereumTestRootModel):
