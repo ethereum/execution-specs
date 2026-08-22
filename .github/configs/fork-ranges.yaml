@@ -16,3 +16,6 @@
 - label: amsterdam
   from: Amsterdam
   until: Amsterdam
+- label: bogota
+  from: Bogota
+  until: Bogota
