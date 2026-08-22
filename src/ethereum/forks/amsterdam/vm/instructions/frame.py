@@ -43,13 +43,14 @@ def approve(evm: Evm) -> None:
     transaction-scoped approval context based on the scope operand.
 
     The memory region designated by the offset and length operands
-    becomes the frame's return data, following `RETURN` semantics —
-    only the memory expansion is charged. A refused approval — an
-    `ADDRESS` other than the frame's resolved target, a scope outside
-    the frame's allowed flags, or a failed precondition — reverts the
-    frame instead. The approval's writes deliberately bypass the
-    `VERIFY` static restriction: only `APPROVE` may mutate state
-    there.
+    becomes the call frame's return data, following `RETURN`
+    semantics — only the memory expansion is charged. A refused
+    approval — an `ADDRESS` other than the frame's resolved target, a
+    scope outside the frame's allowed flags, or a failed precondition
+    — reverts the current call frame, not the whole frame: a caller
+    that handles the revert carries on. The approval's writes
+    deliberately bypass the `VERIFY` static restriction: only
+    `APPROVE` may mutate state there.
     """
     # STACK
     offset = pop(evm.stack)
@@ -74,9 +75,7 @@ def approve(evm: Evm) -> None:
     # A scope with bits beyond the approval mask is never allowed.
     if scope & ~U256(APPROVE_SCOPE_MASK) != U256(0):
         raise Revert
-    if not attempt_approval(
-        evm.tx_env, FrameFlag(Uint(scope)), evm.accessed_addresses
-    ):
+    if not attempt_approval(evm.tx_env, FrameFlag(Uint(scope))):
         raise Revert
 
     evm.output = Bytes(memory_read_bytes(evm.memory, offset, length))

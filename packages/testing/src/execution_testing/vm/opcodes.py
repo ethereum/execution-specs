@@ -5979,6 +5979,7 @@ class Opcodes(Opcode, Enum):
         pushed_stack_items=0,
         kwargs=["offset", "size", "scope"],
         terminating=True,
+        metadata={"new_memory_size": 0, "old_memory_size": 0},
     )
     """
     APPROVE(offset, size, scope)

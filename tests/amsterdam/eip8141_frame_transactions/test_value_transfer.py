@@ -19,6 +19,7 @@ from execution_testing import (
     Bytes,
     Fork,
     FrameReceipt,
+    FrameSignature,
     Hash,
     StateTestFiller,
     Transaction,
@@ -27,7 +28,11 @@ from execution_testing import (
     keccak256,
 )
 
-from .helpers import sender_frame, verify_frame
+from .helpers import (
+    default_code_frame_gas,
+    sender_frame,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -101,6 +106,7 @@ def test_value_transfer(
         value_frame = sender_frame(value=TRANSFER_VALUE)
         entry_gas = fork.frame_entry_gas_calculator()(target_warm=True)
         logs = []
+    verify_gas = default_code_frame_gas(fork, target_warm=True)
 
     tx = Transaction(
         sender=sender,
@@ -126,17 +132,19 @@ def test_value_transfer(
         signatures=tx.signatures,
         sender=sender,
     )
-    # The frames run no code beyond the target's entry access, so the
+    # Neither frame runs code beyond its target's entry access, so the
     # floor may bind; both anchors carry the value transfer cost, so
     # the pin exercises it either way.
-    gas_used = max(intrinsic + entry_gas, calldata_floor)
+    gas_used = max(intrinsic + verify_gas + entry_gas, calldata_floor)
 
     tx.expected_receipt = TransactionReceipt(
         payer=sender,
         cumulative_gas_used=gas_used,
         frame_receipts=[
             FrameReceipt(
-                status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                status=Spec.STATUS_SUCCESS,
+                gas_used=verify_gas,
+                state_gas_used=0,
             ),
             FrameReceipt(
                 status=Spec.STATUS_SUCCESS,
@@ -152,3 +160,67 @@ def test_value_transfer(
         post[recipient] = Account(balance=1 + TRANSFER_VALUE)
 
     state_test(pre=pre, tx=tx, post=post)
+
+
+def test_value_transfer_exceeding_balance(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Transfer more value than the sender holds, with a sponsor paying.
+
+    The balance check happens after the target's access is charged, so
+    the reverting frame's receipt reports that access rather than
+    nothing. A sponsor pays the gas, keeping the shortfall a property
+    of the sender's balance alone, and a `SENDER` frame's failure
+    leaves the transaction valid.
+    """
+    sender = pre.fund_eoa(amount=TRANSFER_VALUE)
+    payer = pre.fund_eoa()
+    recipient = pre.fund_eoa(amount=1)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(flags=Spec.APPROVE_EXECUTION),
+            verify_frame(flags=Spec.APPROVE_PAYMENT, target=payer),
+            sender_frame(target=recipient, value=TRANSFER_VALUE + 1),
+        ],
+        signatures=[
+            FrameSignature(scheme=Spec.SCHEME_SECP256K1, signer=Bytes(sender)),
+            FrameSignature(
+                scheme=Spec.SCHEME_SECP256K1,
+                signer=Bytes(payer),
+                secret_key=payer.key,
+            ),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=payer,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=False),
+                ),
+                FrameReceipt(
+                    status=Spec.STATUS_FAILURE,
+                    gas_used=fork.frame_entry_gas_calculator()(),
+                    state_gas_used=0,
+                    logs=[],
+                ),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1, balance=TRANSFER_VALUE),
+            recipient: Account(balance=1),
+        },
+    )
