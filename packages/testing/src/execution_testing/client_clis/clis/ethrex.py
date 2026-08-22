@@ -59,6 +59,22 @@ class EthrexExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BASEFEE_PER_GAS: (
             "Base fee per gas is incorrect"
         ),
+        TransactionException.TYPE_6_INVALID_SIGNATURE: (
+            "Invalid frame transaction: signature validation failed"
+        ),
+        TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
+            "Invalid frame transaction: VERIFY frame did not call APPROVE "
+            "or payer not approved"
+        ),
+        # EIP-8141 permits fee fields up to 2**256, so a fixture testing
+        # overflow encodes more than 256 bits and ethrex rejects it while
+        # decoding the field rather than while validating the transaction.
+        TransactionException.GASPRICE_OVERFLOW: (
+            "Error decoding field 'max_fee_per_gas'"
+        ),
+        TransactionException.PRIORITY_OVERFLOW: (
+            "Error decoding field 'max_priority_fee_per_gas'"
+        ),
     }
     mapping_regex = {
         TransactionException.INVALID_SIGNATURE_VRS: (
@@ -196,5 +212,16 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"exceeding max valid index \d+|"
             r"Failed to RLP decode BAL|"
             r"Block access list accounts not in strictly ascending order.*"
+        ),
+        # `validate_static_constraints` names the EIP-8141 rule it failed, so
+        # the reason follows the prefix. Two other shapes reach the same
+        # conclusion: ethrex checks signature-entry structure inside signature
+        # validation rather than static validation, and a frame or signature
+        # field too wide for its type is rejected while decoding.
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
+            r"Invalid frame transaction format: .*|"
+            r"Invalid frame transaction: signature validation failed|"
+            r"Error decoding field 'frames' of type .*|"
+            r"Error decoding field 'signatures' of type .*"
         ),
     }
