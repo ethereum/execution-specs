@@ -510,7 +510,7 @@ def pack_pre_alloc_groups(folder: Path) -> None:
 
 
 class PreAllocGroupBuilders(EthereumTestRootModel):
-    """Root model mapping pre-allocation group builers to group hashes."""
+    """Root model mapping pre-allocation group builders to group hashes."""
 
     root: Dict[AllocGroupHash, PreAllocGroupBuilder] = Field(
         default_factory=dict
