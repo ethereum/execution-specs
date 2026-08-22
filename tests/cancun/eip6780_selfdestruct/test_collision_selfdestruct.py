@@ -19,8 +19,8 @@ from execution_testing import (
     compute_create2_address,
 )
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7610.md"
-REFERENCE_SPEC_VERSION = "80ef48d0bbb5a4939ade51caaaac57b5df6acd4e"
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
+REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
 
 
 @pytest.mark.valid_from("Cancun")
