@@ -26,6 +26,7 @@ from execution_testing.base_types import (
     CamelModel,
     EthereumTestRootModel,
     Hash,
+    ZeroPaddedHexNumber,
 )
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import Alloc, AllocGroupHash, Environment
@@ -45,7 +46,7 @@ class PreAllocGroupCommon(CamelModel):
         ..., description="Grouping environment for this test group"
     )
     fork: Fork | TransitionFork = Field(..., alias="network")
-    chain_id: int = DEFAULT_CHAIN_ID
+    chain_id: ZeroPaddedHexNumber = ZeroPaddedHexNumber(DEFAULT_CHAIN_ID)
     group_salt: str | None = Field(
         None,
         description=(
