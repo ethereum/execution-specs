@@ -53,6 +53,9 @@ BN254_ADD = Address(0x06)
 OFF_THE_CURVE = b"\xff" * 128
 """`BN254_ADD` input that is not a pair of curve points."""
 
+SLOT_CREATED = 0x01
+"""Storage slot a worker contract creates."""
+
 
 def identity_gas(fork: Fork, data: bytes) -> int:
     """
@@ -419,6 +422,79 @@ def test_frame_entry_gas_boundary(
     )
 
     state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+def test_entry_charge_halt_unrolls_batch(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Halt a mid-batch frame on its entry access charge.
+
+    The halt unrolls the batch like any other frame failure: the
+    executed frame keeps its status and execution gas with its state
+    gas zeroed, the halting frame forfeits its whole budget, and the
+    terminator is skipped.
+    """
+    sender = pre.fund_eoa()
+    halting_target = pre.fund_eoa(amount=1)
+
+    worker_code = Op.SSTORE(SLOT_CREATED, 1)
+    worker = pre.deploy_contract(code=worker_code)
+
+    # Both frame targets are fresh, so each entry access is cold.
+    entry_gas = fork.frame_entry_gas_calculator()()
+    worker_gas = entry_gas + worker_code.execution_cost(fork)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=worker,
+                gas_limit=worker_gas,
+                state_gas_limit=worker_code.state_cost(fork),
+            ),
+            default_frame(
+                flags=Spec.ATOMIC_BATCH_FLAG,
+                target=halting_target,
+                gas_limit=entry_gas - 1,
+            ),
+            default_frame(target=worker, gas_limit=worker_gas),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
+                # The unroll zeroes the executed frame's state gas and
+                # keeps its execution gas.
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=worker_gas,
+                    state_gas_used=0,
+                ),
+                FrameReceipt(
+                    status=Spec.STATUS_FAILURE, gas_used=entry_gas - 1
+                ),
+                FrameReceipt(status=Spec.STATUS_SKIPPED, gas_used=0),
+            ],
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            sender: Account(nonce=1),
+            # The unroll discarded the worker's write.
+            worker: Account(storage={SLOT_CREATED: 0}),
+        },
+    )
 
 
 @pytest.mark.parametrize(

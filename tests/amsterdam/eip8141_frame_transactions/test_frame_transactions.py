@@ -15,6 +15,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Conditional,
+    Fork,
     Frame,
     FrameReceipt,
     FrameSignature,
@@ -25,6 +26,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
+from .helpers import default_code_frame_gas
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -461,12 +463,14 @@ def test_frame_revert_discards_the_approval_it_granted(
 def test_refused_approval_reverts_only_its_call_frame(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     inner_attempts_approval: bool,
 ) -> None:
     """
     A refused `APPROVE` reverts the call frame that issued it, not the
     whole frame: its caller observes a failed call and runs on to a
-    successful frame.
+    successful frame, and the receipt keeps the refused call's gas
+    consumed.
 
     The `plain_return` case is the control, replacing the inner
     `APPROVE` with a bare `STOP`, so that the recorded call outcome
@@ -477,22 +481,32 @@ def test_refused_approval_reverts_only_its_call_frame(
     # The frame carries no approval flags, so any scope it attempts to
     # approve lies outside its own and is refused. Targeting a
     # non-sender is not an option: a frame flagged to approve execution
-    # must resolve to the sender to be statically valid.
-    inner = (
+    # must resolve to the sender to be statically valid. The inner code
+    # runs via `DELEGATECALL`, which preserves `ADDRESS`, so the
+    # refusal comes from the scope alone — and both executed paths stay
+    # straight-line, so the receipt pins the frame's exact gas.
+    inner_code = (
         Op.APPROVE(0, 0, Spec.APPROVE_EXECUTION)
         if inner_attempts_approval
         else Op.STOP
     )
-    # Calldata distinguishes the invocations: the frame supplies some,
-    # the self-call supplies none.
-    outer = Op.SSTORE(
-        SLOT_CALL_OUTCOME, Op.CALL(gas=Op.GAS, address=Op.ADDRESS)
+    inner = pre.deploy_contract(code=inner_code)
+    target_code = Op.SSTORE(
+        SLOT_CALL_OUTCOME,
+        Op.DELEGATECALL(gas=Op.GAS, address=inner),
+        new_value=0 if inner_attempts_approval else 1,
     ) + Op.SSTORE(SLOT_EXECUTED, 1)
-    target = pre.deploy_contract(
-        code=Conditional(
-            condition=Op.CALLDATASIZE, if_true=outer, if_false=inner
-        )
+    target = pre.deploy_contract(code=target_code)
+
+    # The refused call's gas stays consumed: the frame reports its
+    # target's cold entry access, the outer code, and the inner code
+    # the revert cut short.
+    frame_gas = (
+        fork.frame_entry_gas_calculator()()
+        + target_code.execution_cost(fork)
+        + inner_code.execution_cost(fork)
     )
+    fresh_write_state_cost = Op.SSTORE(SLOT_EXECUTED, 1).state_cost(fork)
 
     tx = Transaction(
         sender=sender,
@@ -504,14 +518,23 @@ def test_refused_approval_reverts_only_its_call_frame(
             Frame(
                 mode=Spec.MODE_DEFAULT,
                 target=target,
-                data=Bytes(b"\x01"),
             ),
         ],
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, logs=[]),
-                FrameReceipt(status=Spec.STATUS_SUCCESS),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                    logs=[],
+                ),
+                # The control's outcome write creates a second slot.
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=frame_gas,
+                    state_gas_used=fresh_write_state_cost
+                    * (1 if inner_attempts_approval else 2),
+                ),
             ],
         ),
     )
