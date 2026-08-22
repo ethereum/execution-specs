@@ -23,7 +23,11 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import default_frame, verify_frame
+from .helpers import (
+    default_code_frame_gas,
+    default_frame,
+    verify_frame,
+)
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -78,7 +82,12 @@ def test_calldata_floor_with_state_gas(
         frames=[
             # The floor must dominate the settlement anchor, so every
             # budget the anchor sums is kept to what execution needs.
-            verify_frame(gas_limit=0, state_gas_limit=0),
+            # The verifying frame needs its entry access and nothing
+            # more: the default code itself draws no execution gas.
+            verify_frame(
+                gas_limit=default_code_frame_gas(fork, target_warm=True),
+                state_gas_limit=0,
+            ),
             default_frame(
                 target=worker,
                 gas_limit=FLOOR_WORKER_GAS,
@@ -163,6 +172,7 @@ def test_storage_refund_settlement(
     tx.sign()
     assert tx.frames is not None and tx.signatures is not None
 
+    verify_gas = default_code_frame_gas(fork, target_warm=True)
     frame_execution_gas = fork.frame_entry_gas_calculator()() + (
         worker_code.execution_cost(fork)
     )
@@ -172,6 +182,7 @@ def test_storage_refund_settlement(
             signatures=tx.signatures,
             return_cost_deducted_prior_execution=True,
         )
+        + verify_gas
         + frame_execution_gas
     )
     refund = worker_code.refund(fork)
@@ -184,7 +195,9 @@ def test_storage_refund_settlement(
         cumulative_gas_used=gas_used,
         frame_receipts=[
             FrameReceipt(
-                status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                status=Spec.STATUS_SUCCESS,
+                gas_used=verify_gas,
+                state_gas_used=0,
             ),
             # The receipt reports pre-refund execution gas; the refund
             # applies only at transaction settlement.

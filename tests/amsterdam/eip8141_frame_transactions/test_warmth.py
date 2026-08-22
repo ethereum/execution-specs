@@ -37,7 +37,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import verify_frame
+from .helpers import default_code_frame_gas, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -178,7 +178,12 @@ def test_sender_is_warm(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                # The verifying frame resolves to the sender, so its
+                # entry charge is the warm access.
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
                     gas_used=probe.frame_gas,
@@ -223,7 +228,10 @@ def test_coinbase_is_warm(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
                     gas_used=probe.frame_gas,
@@ -338,7 +346,10 @@ def test_frame_target_entry_charge(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 *[
                     FrameReceipt(status=status, gas_used=gas)
                     for status, gas in expected
@@ -417,7 +428,10 @@ def test_warmth_carry_to_next_frame(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(status=warmer_status, gas_used=warmer_gas),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
@@ -447,9 +461,11 @@ def test_payer_warm_after_default_code_payment_approval(
     Measure a `BALANCE` of the payer in the frame after a sponsored
     payment approval through the payer's protocol default code.
 
-    Collecting the maximum cost warms the payer like any
-    protocol-touched account — also on the default code path, which
-    runs without an EVM and warms in the journal directly.
+    The payer needs no warming rule of its own: it is the resolved
+    target of the frame that approves payment, so that frame charges
+    the payer's access at entry — a cold one, the transaction having
+    touched the sponsor nowhere else — and commits the warmth to the
+    journal shared across frames when it succeeds.
     """
     sender = pre.fund_eoa()
     payer = pre.fund_eoa()
@@ -474,8 +490,14 @@ def test_payer_warm_after_default_code_payment_approval(
         expected_receipt=TransactionReceipt(
             payer=payer,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=False),
+                ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
                     gas_used=probe.frame_gas,
@@ -534,7 +556,10 @@ def test_origin_warmth_by_frame_mode(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
                     gas_used=fork.gas_costs().COLD_ACCOUNT_ACCESS
@@ -642,7 +667,10 @@ def test_warmth_from_inner_call(
         expected_receipt=TransactionReceipt(
             payer=sender,
             frame_receipts=[
-                FrameReceipt(status=Spec.STATUS_SUCCESS, gas_used=0),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
                 FrameReceipt(status=outer_status, gas_used=outer_gas),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
