@@ -11,10 +11,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
 
 import click
+from pydantic import ValidationError
 from rich.console import Console
 from rich.markup import escape as rich_escape
 
 from execution_testing.base_types import Hash
+from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.consume import TestCaseIndexFile
@@ -69,7 +71,7 @@ class HashableItem:
 
         if print_type is None or self.type >= print_type:
             next_level += 1
-            lines.append(f"{' ' * level}{print_name}: 0x{self.hash().hex()}")
+            lines.append(f"{' ' * level}{print_name}: {self.hash().hex()}")
 
         # Stop recursion if we've reached max_depth
         if max_depth is not None and next_level > max_depth:
@@ -94,11 +96,24 @@ class HashableItem:
     ) -> "HashableItem":
         """Create a hashable item from a JSON file."""
         items = {}
-        with file_path.open("r") as f:
-            data = json.load(f)
+        file_text = file_path.read_text()
+        # Special-case the pre-alloc groups
+        try:
+            v = PreAllocGroup.from_file(file_path)
+            return cls(
+                type=HashableItemType.FILE,
+                root=v.hash(),
+                parents=parents + [file_path.name],
+            )
+        except ValidationError:
+            pass
+        data = json.loads(file_text)
         for key, item in sorted(data.items()):
             if not isinstance(item, dict):
-                raise TypeError(f"Expected dict, got {type(item)} for {key}")
+                raise TypeError(
+                    f"Expected dict, got {type(item)} for {key}, "
+                    f"json file: {file_path.name}"
+                )
             if "_info" not in item:
                 raise KeyError(
                     f"Expected '_info' in {key}, json file: {file_path.name}"
@@ -251,7 +266,7 @@ def render_hash_report(
     """Return canonical output lines for a folder."""
     item = HashableItem.from_folder(folder_path=folder)
     if root:
-        return [f"0x{item.hash().hex()}"]
+        return [item.hash().hex()]
     print_type: Optional[HashableItemType] = None
     if files:
         print_type = HashableItemType.FILE
@@ -276,7 +291,7 @@ def collect_hashes(
 
     if print_type is None or item.type >= print_type:
         if path:
-            result[path] = f"0x{item.hash().hex()}"
+            result[path] = item.hash().hex()
         depth += 1
         if max_depth is not None and depth > max_depth:
             return result
@@ -454,8 +469,8 @@ def compare_cmd(
         if root:
             if left_item.hash() == right_item.hash():
                 sys.exit(0)
-            left_hashes = {"root": f"0x{left_item.hash().hex()}"}
-            right_hashes = {"root": f"0x{right_item.hash().hex()}"}
+            left_hashes = {"root": left_item.hash().hex()}
+            right_hashes = {"root": right_item.hash().hex()}
         else:
             print_type: Optional[HashableItemType] = None
             if files:
