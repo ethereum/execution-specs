@@ -28,7 +28,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import default_frame, verify_frame
+from .helpers import default_code_frame_gas, default_frame, verify_frame
 from .spec import Spec, ref_spec_8141
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8141.git_path
@@ -108,7 +108,9 @@ def test_same_frame_refill(
             payer=sender,
             frame_receipts=[
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                    state_gas_used=0,
                 ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
@@ -198,7 +200,9 @@ def test_cross_frame_refill(
             payer=sender,
             frame_receipts=[
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                    state_gas_used=0,
                 ),
                 # The owner's attribution is gone: the refill returned
                 # its charge at settlement.
@@ -289,7 +293,9 @@ def test_state_gas_exhaustion(
             payer=sender,
             frame_receipts=[
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                    state_gas_used=0,
                 ),
                 receipt,
             ],
@@ -316,8 +322,8 @@ def test_approve_creates_sender(
 
     Incrementing the nonce creates the sender account, and `APPROVE`
     charges the account creation to the approving frame's state gas
-    pool — here inside the payer's protocol default code, which
-    consumes no execution gas at all.
+    pool — here inside the payer's protocol default code, whose only
+    execution charge is the payer's cold access at frame entry.
     """
     sender = pre.fund_eoa(amount=0)
     payer = pre.fund_eoa()
@@ -340,11 +346,13 @@ def test_approve_creates_sender(
             payer=payer,
             frame_receipts=[
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                    state_gas_used=0,
                 ),
                 FrameReceipt(
                     status=Spec.STATUS_SUCCESS,
-                    gas_used=0,
+                    gas_used=default_code_frame_gas(fork, target_warm=False),
                     state_gas_used=fork.gas_costs().NEW_ACCOUNT,
                 ),
             ],
@@ -473,7 +481,9 @@ def test_refill_after_intermediate_modification(
             payer=sender,
             frame_receipts=[
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                    state_gas_used=0,
                 ),
                 # The creation's attribution is gone: the third
                 # frame's refill returned it at settlement.
@@ -593,7 +603,9 @@ def test_batch_unroll_restores_refilled_receipt(
             payer=sender,
             frame_receipts=[
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                    state_gas_used=0,
                 ),
                 # The unroll restored the refill the batch frame
                 # applied to this receipt.
@@ -700,7 +712,9 @@ def test_frame_revert_restores_refilled_receipt(
             payer=sender,
             frame_receipts=[
                 FrameReceipt(
-                    status=Spec.STATUS_SUCCESS, gas_used=0, state_gas_used=0
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                    state_gas_used=0,
                 ),
                 # The revert restored the refill the failing frame
                 # applied to this receipt.

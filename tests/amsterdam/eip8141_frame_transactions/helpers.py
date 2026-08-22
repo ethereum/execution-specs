@@ -2,9 +2,23 @@
 
 from typing import Any, Dict
 
-from execution_testing import Frame
+from execution_testing import Fork, Frame
 
 from .spec import Spec
+
+
+def default_code_frame_gas(fork: Fork, *, target_warm: bool) -> int:
+    """
+    Return the execution gas a frame running the protocol default code
+    reports in its receipt.
+
+    The default code draws no execution gas of its own, so the frame's
+    only charge is its resolved target's access at frame entry, warm or
+    cold per `target_warm`. A frame that resolves to the transaction
+    sender finds it warm, the sender seeding every frame's warm set; a
+    frame targeting a sponsor usually does not.
+    """
+    return fork.frame_entry_gas_calculator()(target_warm=target_warm)
 
 
 def verify_frame(**overrides: Any) -> Frame:
