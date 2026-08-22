@@ -2,13 +2,14 @@
 Target resolution tests for
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
-Only a `VERIFY` frame's codeless target runs the default code; every
-other frame runs a top-level call, which dispatches a precompile by
-address and follows an EIP-7702 designation. Each case pins the
-resolution through the frame receipt's `gas_used`.
+A frame runs a top-level call, which dispatches a precompile by
+address and follows an EIP-7702 designation; the default code is left
+to a `VERIFY` frame whose codeless target is no precompile. Each case
+pins the resolution through the frame receipt's `gas_used`.
 """
 
-from typing import Dict, Optional
+from functools import partial
+from typing import Callable, Dict, Optional
 
 import pytest
 from execution_testing import (
@@ -18,6 +19,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Fork,
+    Frame,
     FrameReceipt,
     FrameSignature,
     Op,
@@ -50,6 +52,12 @@ IDENTITY = Address(0x04)
 BN254_ADD = Address(0x06)
 """The `BN254_ADD` precompile, which rejects a point off the curve."""
 
+P256VERIFY = Address(0x100)
+"""The `P256VERIFY` precompile, which sits above the low precompiles."""
+
+IN_THE_GAP = Address(0x12)
+"""Codeless address between the low precompiles and `P256VERIFY`."""
+
 OFF_THE_CURVE = b"\xff" * 128
 """`BN254_ADD` input that is not a pair of curve points."""
 
@@ -76,6 +84,7 @@ def identity_gas(fork: Fork, data: bytes) -> int:
     [
         pytest.param(Spec.MODE_DEFAULT, id="default_mode"),
         pytest.param(Spec.MODE_SENDER, id="sender_mode"),
+        pytest.param(Spec.MODE_VERIFY, id="verify_mode"),
     ],
 )
 @pytest.mark.parametrize(
@@ -96,15 +105,23 @@ def test_precompile_target(
     """
     Execute the precompile a frame targets, charging the frame its
     input-dependent gas on top of the warm frame-entry access.
+
+    A `VERIFY` frame dispatches it too, rather than reading the empty
+    code hash a precompile account carries as the default code's cue.
     """
     sender = pre.fund_eoa()
-    frame = default_frame if mode == Spec.MODE_DEFAULT else sender_frame
+    builders: Dict[int, Callable[..., Frame]] = {
+        Spec.MODE_DEFAULT: default_frame,
+        Spec.MODE_SENDER: sender_frame,
+        # Only the default code approves, and the precompile displaces it.
+        Spec.MODE_VERIFY: partial(verify_frame, flags=Spec.APPROVE_NONE),
+    }
 
     tx = Transaction(
         sender=sender,
         frames=[
             verify_frame(),
-            frame(target=IDENTITY, data=data),
+            builders[mode](target=IDENTITY, data=data),
         ],
         expected_receipt=TransactionReceipt(
             payer=sender,
@@ -160,20 +177,15 @@ def test_precompile_target_rejecting_its_input(
 
 
 @pytest.mark.exception_test
-def test_verify_frame_precompile_target(
+def test_verify_frame_precompile_rejecting_its_input(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
     """
-    Reject a frame transaction whose `VERIFY` frame targets a
-    precompile: the target's empty code hash routes the frame to the
-    default code, which reverts because no signature entry can resolve
-    to a precompile address.
-
-    The first frame approves both execution and payment, so the
-    approvals do not depend on the frame under test. Dispatching the
-    precompile instead would leave every approval in place and make the
-    transaction valid, rather than rejecting it for a missing approval.
+    Reject the transaction whose `VERIFY` frame targets a precompile
+    that rejects its input: the dispatched precompile halts the frame,
+    and a failed `VERIFY` frame invalidates the transaction where a
+    `DEFAULT` frame's failure stays its own.
     """
     sender = pre.fund_eoa()
 
@@ -181,7 +193,76 @@ def test_verify_frame_precompile_target(
         sender=sender,
         frames=[
             verify_frame(),
-            verify_frame(flags=Spec.APPROVE_NONE, target=IDENTITY),
+            verify_frame(
+                flags=Spec.APPROVE_NONE,
+                target=BN254_ADD,
+                data=OFF_THE_CURVE,
+            ),
+        ],
+        error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
+    )
+
+    # The rejected transaction leaves the sender's nonce untouched.
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=0)})
+
+
+def test_verify_frame_target_above_the_precompile_gap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Dispatch `P256VERIFY` for the `VERIFY` frame that targets it: the
+    exact set of active precompiles routes the frame, not an address
+    range that stops below the gap separating it from the rest.
+    """
+    sender = pre.fund_eoa()
+    entry_gas = fork.frame_entry_gas_calculator()(target_warm=True)
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            verify_frame(flags=Spec.APPROVE_NONE, target=P256VERIFY),
+        ],
+        expected_receipt=TransactionReceipt(
+            payer=sender,
+            frame_receipts=[
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=default_code_frame_gas(fork, target_warm=True),
+                ),
+                FrameReceipt(
+                    status=Spec.STATUS_SUCCESS,
+                    gas_used=entry_gas
+                    + fork.gas_costs().PRECOMPILE_P256VERIFY,
+                ),
+            ],
+        ),
+    )
+
+    state_test(pre=pre, tx=tx, post={sender: Account(nonce=1)})
+
+
+@pytest.mark.exception_test
+def test_verify_frame_target_inside_the_precompile_gap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Run the default code for a `VERIFY` frame targeting a codeless
+    address in the gap below `P256VERIFY`: the default code reverts on
+    the frame's empty approval scope, rejecting the transaction. An
+    address range spanning the gap would dispatch instead and accept
+    it.
+    """
+    sender = pre.fund_eoa()
+
+    tx = Transaction(
+        sender=sender,
+        frames=[
+            verify_frame(),
+            verify_frame(flags=Spec.APPROVE_NONE, target=IN_THE_GAP),
         ],
         error=TransactionException.TYPE_6_INVALID_FRAME_EXECUTION,
     )
