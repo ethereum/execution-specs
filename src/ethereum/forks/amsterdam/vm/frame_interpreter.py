@@ -392,8 +392,9 @@ def execute_frame(
     at frame entry, from its own execution gas budget, before
     anything else: resolving the target's code is how the protocol
     dispatches the frame. A `VERIFY` frame whose resolved target has
-    no code then runs the protocol default code instead of an EVM. As
-    with an ordinary `CALL`, a caller that cannot cover the
+    no code then runs the protocol default code instead of an EVM,
+    unless that target is a precompile, which dispatches in every
+    mode. As with an ordinary `CALL`, a caller that cannot cover the
     transferred value reverts the frame, consuming the gas charged so
     far.
 
@@ -458,6 +459,7 @@ def execute_frame(
     target_account = get_account(tx_state, resolved_target)
     if (
         frame.mode == FrameMode.VERIFY
+        and resolved_target not in PRE_COMPILED_CONTRACTS
         and target_account.code_hash == EMPTY_CODE_HASH
     ):
         try:
