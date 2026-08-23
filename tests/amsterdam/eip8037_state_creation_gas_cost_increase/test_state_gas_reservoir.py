@@ -1034,6 +1034,102 @@ def test_top_level_failure_spilled_state_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_top_level_failure_after_child_reversal_refund(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    failure_mode: str,
+) -> None:
+    """
+    Verify a state-gas credit earned in a subcall survives the
+    successful call merge but not a top-level exceptional halt.
+
+    The parent SSTOREs zero-to-nonzero with a reservoir covering only
+    half the charge, so the set spills into `gas_left`. The child then
+    restores the slot to its original zero. The restoration credits a
+    full SSTORE state charge to a frame whose ledger recorded no state
+    usage of its own, and the child returns successfully, merging the
+    credit into the parent above the start reservoir.
+
+    - Halt burns everything above the start reservoir (the credit
+      included), so the sender pays `tx_gas - reservoir =
+      gas_limit_cap` regardless of the credit.
+    - REVERT refunds all state gas LIFO, so the sender pays only the
+      regular component plus intrinsic.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+
+    terminator = Op.REVERT(0, 0) if failure_mode == "revert" else Op.INVALID
+
+    # Restores the slot its caller just set; credits a full SSTORE
+    # state charge to this frame, which has no state usage of its own.
+    child_code = Op.SSTORE(
+        0,
+        0,
+        key_warm=False,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+    child = pre.deploy_contract(code=child_code)
+
+    parent_code = (
+        Op.SSTORE(0, 1)
+        + Op.POP(Op.CALL(gas=Op.GAS, address=child))
+        + terminator
+    )
+    parent = pre.deploy_contract(code=parent_code)
+
+    # Reservoir covers half an SSTORE's state gas, so the parent's
+    # set spills into gas_left and the child starts with an empty
+    # reservoir.
+    reservoir = sstore_state_gas // 2
+    tx_gas = gas_limit_cap + reservoir
+
+    if failure_mode == "revert":
+        # gas_left preserved and all state gas refunded, so the sender
+        # pays only the regular component: everything except the
+        # parent's SSTORE state charge.
+        expected_cumulative = (
+            intrinsic_cost
+            + parent_code.gas_cost(fork)
+            + child_code.gas_cost(fork)
+            - sstore_state_gas
+        )
+    else:
+        # gas_left burned after LIFO refill. The credit merged from
+        # the child is consumed with everything else; only the start
+        # reservoir survives.
+        expected_cumulative = tx_gas - reservoir
+        assert expected_cumulative == gas_limit_cap
+
+    tx = Transaction(
+        to=parent,
+        state_gas_reservoir=reservoir,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
+    )
+
+    post = {
+        parent: Account(storage={}),
+        child: Account(storage={}),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
 def _build_call_chain(
     pre: Alloc,
     frame_bodies: list[Bytecode],
