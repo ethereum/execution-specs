@@ -1034,6 +1034,66 @@ def test_top_level_failure_spilled_state_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "gas_limit",
+    [
+        pytest.param(150_000, id="gas_150k"),
+        pytest.param(200_000, id="gas_200k"),
+        pytest.param(300_000, id="gas_300k"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_spilled_state_gas_consumed_across_halt_chain(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_limit: int,
+) -> None:
+    """
+    Verify spilled state gas stays consumed along a chain of halting frames.
+
+    A self-`DELEGATECALL`ing contract writes `NOT(storage[slot])`, so set and
+    clear alternate down the shared-storage call stack and the reservoir is
+    recycled instead of drained once. Each frame reuses the value it wrote as
+    a `CALL`'s `args_size`, so the frames that set the slot halt on the
+    memory-size overflow while the frames that cleared it re-enter the
+    contract, interleaving halting and surviving frames. Every halt must burn
+    its spill rather than credit it back to the caller's reservoir, so the
+    top-level halt charges the whole gas limit.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    # Below the cap, so the reservoir starts empty and every set spills.
+    assert gas_limit < gas_limit_cap
+
+    slot = 0
+    value_offset = 0
+    contract = pre.deploy_contract(
+        code=(
+            # Memory is per-frame, so each frame keeps the value it wrote
+            # and reuses it below as the CALL's args_size.
+            Op.MSTORE(value_offset, Op.NOT(Op.SLOAD(slot)))
+            + Op.SSTORE(slot, Op.MLOAD(value_offset))
+            + Op.POP(Op.DELEGATECALL(address=Op.ADDRESS))
+            # An all-ones args_size overflows the memory-size calculation
+            # and halts the frame. A zero one, in a frame that cleared the
+            # slot, re-enters the contract and spawns further frames.
+            + Op.POP(
+                Op.CALL(address=Op.ADDRESS, args_size=Op.MLOAD(value_offset))
+            )
+        ),
+    )
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_limit),
+    )
+
+    state_test(pre=pre, post={contract: Account(storage={})}, tx=tx)
+
+
 def _build_call_chain(
     pre: Alloc,
     frame_bodies: list[Bytecode],
