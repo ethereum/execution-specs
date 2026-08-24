@@ -452,6 +452,7 @@ def worker_key(
     eth_rpc: EthRPC,
     session_worker_key: EOA,
     client_backend: ClientBackend,
+    no_reset_between_tests: bool,
 ) -> EOA:
     """Sync seed key nonce before each test."""
     # Read the nonce at the reset head (start_block), not "latest": a client
@@ -459,8 +460,14 @@ def worker_key(
     # the previous test's tip (e.g. nethermind's debug_resetHead) would
     # otherwise report a stale, too-high nonce and get every funding tx
     # rejected ("Invalid nonce - expected 0").
+    #
+    # This inverts under --no-reset-between-tests: there is no rewind, so
+    # `latest` is reliable, the seed key's nonce has advanced past start_block
+    # (earlier tests funded senders with it), and start_block's historical
+    # state gets pruned on a long accumulating run against a non-archive
+    # client ("historical state ... is not available"). Read at `latest` then.
     start = client_backend.start_block
-    if start is None:
+    if no_reset_between_tests or start is None:
         account = eth_rpc.get_account(session_worker_key, skip_code=True)
     else:
         account = eth_rpc.get_account(
