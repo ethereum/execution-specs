@@ -18,6 +18,7 @@ deterministic ``CREATE2`` factory predeploy.
 - [EIP-8038: State Access Gas Cost Increase][EIP-8038]
 - [EIP-8246: Remove SELFDESTRUCT balance burn][EIP-8246]
 - [EIP-8282: Builder Execution Requests][EIP-8282]
+- [EIP-8304: Trustless log and transaction index][EIP-8304]
 
 ### Releases
 
@@ -36,6 +37,7 @@ deterministic ``CREATE2`` factory predeploy.
 [EIP-8038]: https://eips.ethereum.org/EIPS/eip-8038
 [EIP-8246]: https://eips.ethereum.org/EIPS/eip-8246
 [EIP-8282]: https://eips.ethereum.org/EIPS/eip-8282
+[EIP-8304]: https://eips.ethereum.org/EIPS/eip-8304
 """
 
 from ethereum.fork_criteria import ForkCriteria, Unscheduled

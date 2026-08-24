@@ -87,6 +87,9 @@ def build_block_environment(
             fork.BlockAccessListBuilder()
         )
 
+    if fork.has_index_tables:
+        kw_arguments["index_tables"] = {}
+
     if fork.has_slot_number:
         slot_number = env.slot_number
         kw_arguments["slot_number"] = (
