@@ -376,3 +376,15 @@ def test_reassigned_sender_does_not_override_the_signer() -> None:
     assert tx.secret_key == SIGNING_KEY
     tx.sender = EOA(key=OTHER_KEY)
     assert tx.with_signature_and_sender().sender == EOA(key=SIGNING_KEY)
+
+
+def test_mismatched_sender_address_is_trusted() -> None:
+    """
+    An `EOA` whose address does not derive from its key is taken as-is.
+    """
+    inconsistent = EOA(address=0x1234, key=SIGNING_KEY)
+    signed = signable_transaction(
+        sender=inconsistent
+    ).with_signature_and_sender()
+    assert signed.sender == inconsistent
+    assert signed.sender != recover_sender(signed)
