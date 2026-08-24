@@ -1,12 +1,35 @@
 """Test suite for transaction signing and serialization."""
 
-from typing import Tuple
+from typing import Any, Tuple
 
 import pytest
+from spec256k1 import PublicKey
 
-from execution_testing.base_types import AccessList, Hash
+from execution_testing.base_types import AccessList, Address, Hash
 
+from .. import transaction_types
+from ..account_types import EOA
 from ..transaction_types import Transaction
+from ..utils import keccak256
+
+SIGNING_KEY = Hash(bytes(range(1, 33)))
+OTHER_KEY = Hash(bytes(range(33, 65)))
+
+
+def signable_transaction(**kwargs: Any) -> Transaction:
+    """Return a minimal legacy transaction ready to be signed."""
+    return Transaction(ty=0, gas_limit=21_000, nonce=0, **kwargs)
+
+
+def recover_sender(tx: Transaction) -> Address:
+    """Recover the sender of a signed transaction from its signature."""
+    public_key = PublicKey.from_signature_and_message(
+        tx.signature_bytes,
+        tx.rlp_signing_bytes().keccak256(),
+    )
+    return Address(
+        keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
+    )
 
 
 @pytest.mark.parametrize(
@@ -299,3 +322,69 @@ def test_gas_limit_none_alias_is_unset(alias: str) -> None:
     tx = Transaction.model_validate({alias: None})
     assert "gas_limit" not in tx.model_fields_set
     assert tx.gas_limit == 21_000
+
+
+def test_derived_sender_matches_recovery() -> None:
+    """The derived sender equals the one recovered from the signature."""
+    signed = signable_transaction(
+        secret_key=SIGNING_KEY
+    ).with_signature_and_sender()
+    assert signed.sender == recover_sender(signed)
+
+
+def test_known_sender_skips_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A sender holding the signing key is reused as-is."""
+
+    def unexpected_recovery(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError(
+            "recovered the public key even though the sender was known"
+        )
+
+    monkeypatch.setattr(
+        transaction_types.PublicKey,
+        "from_signature_and_message",
+        unexpected_recovery,
+    )
+    sender = EOA(key=SIGNING_KEY)
+    signed = signable_transaction(sender=sender).with_signature_and_sender()
+    assert signed.sender == sender
+
+
+@pytest.mark.parametrize(
+    "sender",
+    [
+        pytest.param(EOA(key=OTHER_KEY), id="holds_another_key"),
+        pytest.param(EOA(address=0x1234), id="keyless"),
+    ],
+)
+def test_sender_without_the_signing_key_is_derived(sender: EOA) -> None:
+    """A sender that does not hold the signing key is not trusted."""
+    tx = signable_transaction(sender=sender, secret_key=SIGNING_KEY)
+    assert tx.with_signature_and_sender().sender == EOA(key=SIGNING_KEY)
+
+
+def test_reassigned_sender_does_not_override_the_signer() -> None:
+    """
+    A sender reassigned after construction is not trusted.
+
+    `validate_assignment=True` lets `sender` be replaced while
+    `secret_key` keeps the original key.
+    """
+    tx = signable_transaction(sender=EOA(key=SIGNING_KEY))
+    assert tx.secret_key == SIGNING_KEY
+    tx.sender = EOA(key=OTHER_KEY)
+    assert tx.with_signature_and_sender().sender == EOA(key=SIGNING_KEY)
+
+
+def test_mismatched_sender_address_is_trusted() -> None:
+    """
+    An `EOA` whose address does not derive from its key is taken as-is.
+    """
+    inconsistent = EOA(address=0x1234, key=SIGNING_KEY)
+    signed = signable_transaction(
+        sender=inconsistent
+    ).with_signature_and_sender()
+    assert signed.sender == inconsistent
+    assert signed.sender != recover_sender(signed)
