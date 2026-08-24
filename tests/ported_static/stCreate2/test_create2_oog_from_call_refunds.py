@@ -39,6 +39,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SStore_Refund_NoOoG",
         ),
         pytest.param(
@@ -57,6 +58,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             3,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SStore_Call_Refund_NoOoG",
         ),
         pytest.param(
@@ -111,6 +113,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             12,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SelfDestruct_Refund_NoOoG",
         ),
         pytest.param(
@@ -129,6 +132,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             15,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="LogOp_NoOoG",
         ),
         pytest.param(

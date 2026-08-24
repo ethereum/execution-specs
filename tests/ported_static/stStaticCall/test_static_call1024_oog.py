@@ -38,6 +38,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="d0",
         ),
         pytest.param(

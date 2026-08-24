@@ -34,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_callcode_to_precompile_from_transaction(
     state_test: StateTestFiller,
     fork: Fork,

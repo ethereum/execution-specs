@@ -28,6 +28,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_exp_power256(
     state_test: StateTestFiller,
     pre: Alloc,

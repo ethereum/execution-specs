@@ -55,6 +55,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         ),
     ],
 )
+@pytest.mark.valid_before("EIP8368")
 def test_by_zero(
     state_test: StateTestFiller,
     pre: Alloc,

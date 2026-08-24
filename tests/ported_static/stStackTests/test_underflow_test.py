@@ -39,6 +39,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="ADD-1",
         ),
         pytest.param(
@@ -51,6 +52,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             2,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="MUL-1",
         ),
         pytest.param(
@@ -63,6 +65,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             4,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SUB-1",
         ),
         pytest.param(
@@ -75,6 +78,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             6,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DIV-1",
         ),
         pytest.param(
@@ -87,6 +91,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             8,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SDIV-1",
         ),
         pytest.param(
@@ -99,6 +104,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             10,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="MOD-1",
         ),
         pytest.param(
@@ -111,6 +117,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             12,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SMOD-1",
         ),
         pytest.param(
@@ -123,6 +130,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             14,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="ADDMOD-2",
         ),
         pytest.param(
@@ -135,6 +143,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             16,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="MULMOD-2",
         ),
         pytest.param(
@@ -147,6 +156,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             18,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="EXP-1",
         ),
         pytest.param(
@@ -159,6 +169,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             20,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SIGNEXTEND-1",
         ),
         pytest.param(
@@ -171,6 +182,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             22,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="LT-1",
         ),
         pytest.param(
@@ -183,6 +195,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             24,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="GT-1",
         ),
         pytest.param(
@@ -195,6 +208,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             26,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SLT-1",
         ),
         pytest.param(
@@ -207,6 +221,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             28,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SGT-1",
         ),
         pytest.param(
@@ -219,6 +234,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             30,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="EQ-1",
         ),
         pytest.param(
@@ -231,6 +247,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             32,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="ISZERO-0",
         ),
         pytest.param(
@@ -243,6 +260,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             34,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="AND-1",
         ),
         pytest.param(
@@ -255,6 +273,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             36,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="OR-1",
         ),
         pytest.param(
@@ -267,6 +286,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             38,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="XOR-1",
         ),
         pytest.param(
@@ -279,6 +299,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             40,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="NOT-0",
         ),
         pytest.param(
@@ -291,6 +312,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             42,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="BYTE-1",
         ),
         pytest.param(
@@ -303,6 +325,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             44,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SHL-1",
         ),
         pytest.param(
@@ -315,6 +338,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             46,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SHR-1",
         ),
         pytest.param(
@@ -327,6 +351,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             48,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SAR-1",
         ),
         pytest.param(
@@ -339,6 +364,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             50,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SHA3-1",
         ),
         pytest.param(
@@ -351,6 +377,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             52,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="BALANCE-0",
         ),
         pytest.param(
@@ -363,6 +390,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             54,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="CALLDATALOAD-0",
         ),
         pytest.param(
@@ -375,6 +403,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             56,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="CALLDATACOPY-2",
         ),
         pytest.param(
@@ -387,6 +416,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             58,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="CODECOPY-2",
         ),
         pytest.param(
@@ -399,6 +429,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             60,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="EXTCODESIZE-0",
         ),
         pytest.param(
@@ -411,6 +442,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             62,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="EXTCODECOPY-3",
         ),
         pytest.param(
@@ -423,6 +455,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             64,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="EXTCODEHASH-0",
         ),
         pytest.param(
@@ -435,6 +468,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             66,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="BLOCKHASH-0",
         ),
         pytest.param(
@@ -447,6 +481,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             68,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="POP-0",
         ),
         pytest.param(
@@ -459,6 +494,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             70,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="MLOAD-0",
         ),
         pytest.param(
@@ -471,6 +507,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             72,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="MSTORE-1",
         ),
         pytest.param(
@@ -483,6 +520,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             74,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="MSTORE8-1",
         ),
         pytest.param(
@@ -495,6 +533,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             76,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SLOAD-0",
         ),
         pytest.param(
@@ -507,6 +546,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             78,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="LOG0-1",
         ),
         pytest.param(
@@ -519,6 +559,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             80,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="LOG1-2",
         ),
         pytest.param(
@@ -531,6 +572,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             82,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="LOG2-3",
         ),
         pytest.param(
@@ -543,6 +585,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             84,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="LOG3-4",
         ),
         pytest.param(
@@ -555,6 +598,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             86,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="LOG4-5",
         ),
         pytest.param(
@@ -567,6 +611,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             88,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="CREATE-2",
         ),
         pytest.param(
@@ -579,6 +624,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             90,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="CALL-6",
         ),
         pytest.param(
@@ -591,6 +637,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             92,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="CALLCODE-6",
         ),
         pytest.param(
@@ -603,6 +650,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             94,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="RETURN-1",
         ),
         pytest.param(
@@ -615,6 +663,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             96,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DELEGATECALL-5",
         ),
         pytest.param(
@@ -627,6 +676,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             98,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="CREATE2-3",
         ),
         pytest.param(
@@ -639,6 +689,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             100,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="STATICCALL-5",
         ),
         pytest.param(
@@ -651,6 +702,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             102,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP1-0",
         ),
         pytest.param(
@@ -663,6 +715,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             104,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP2-1",
         ),
         pytest.param(
@@ -675,6 +728,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             106,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP3-2",
         ),
         pytest.param(
@@ -687,6 +741,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             108,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP4-3",
         ),
         pytest.param(
@@ -699,6 +754,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             110,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP5-4",
         ),
         pytest.param(
@@ -711,6 +767,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             112,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP6-5",
         ),
         pytest.param(
@@ -723,6 +780,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             114,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP7-6",
         ),
         pytest.param(
@@ -735,6 +793,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             116,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP8-7",
         ),
         pytest.param(
@@ -747,6 +806,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             118,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP9-8",
         ),
         pytest.param(
@@ -759,6 +819,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             120,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP10-9",
         ),
         pytest.param(
@@ -771,6 +832,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             122,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP11-10",
         ),
         pytest.param(
@@ -783,6 +845,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             124,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP12-11",
         ),
         pytest.param(
@@ -795,6 +858,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             126,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP13-12",
         ),
         pytest.param(
@@ -807,6 +871,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             128,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP14-13",
         ),
         pytest.param(
@@ -819,6 +884,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             130,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP15-14",
         ),
         pytest.param(
@@ -831,6 +897,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             132,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="DUP16-15",
         ),
         pytest.param(
@@ -843,6 +910,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             134,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP1-1",
         ),
         pytest.param(
@@ -855,6 +923,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             136,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP2-2",
         ),
         pytest.param(
@@ -867,6 +936,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             138,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP3-3",
         ),
         pytest.param(
@@ -879,6 +949,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             140,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP4-4",
         ),
         pytest.param(
@@ -891,6 +962,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             142,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP5-5",
         ),
         pytest.param(
@@ -903,6 +975,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             144,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP6-6",
         ),
         pytest.param(
@@ -915,6 +988,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             146,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP7-7",
         ),
         pytest.param(
@@ -927,6 +1001,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             148,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP8-8",
         ),
         pytest.param(
@@ -939,6 +1014,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             150,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP9-9",
         ),
         pytest.param(
@@ -951,6 +1027,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             152,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP10-10",
         ),
         pytest.param(
@@ -963,6 +1040,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             154,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP11-11",
         ),
         pytest.param(
@@ -975,6 +1053,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             156,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP12-12",
         ),
         pytest.param(
@@ -987,6 +1066,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             158,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP13-13",
         ),
         pytest.param(
@@ -999,6 +1079,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             160,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP14-14",
         ),
         pytest.param(
@@ -1011,6 +1092,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             162,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP15-15",
         ),
         pytest.param(
@@ -1023,6 +1105,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             164,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="SWAP16-16",
         ),
         pytest.param(

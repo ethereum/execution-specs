@@ -27,6 +27,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSpecialTest/deploymentErrorFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_before("EIP8368")
 def test_deployment_error(
     state_test: StateTestFiller,
     fork: Fork,

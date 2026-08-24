@@ -52,9 +52,14 @@ class StateGasCosts:
 
     Kept separate from `GasCosts` because these carry a different unit:
     state-byte counts that convert into gas via `COST_PER_STATE_BYTE`.
+
+    EIP-8368 recalibrates `COST_PER_STATE_BYTE` with the EIP-8037
+    derivation at a 300M reference block gas limit, twice the original
+    150M reference. The EIP leaves the reference limit and the value
+    TBD, so both are provisional.
     """
 
-    COST_PER_STATE_BYTE: Final[StateGasPerByte] = StateGasPerByte(Uint(1530))
+    COST_PER_STATE_BYTE: Final[StateGasPerByte] = StateGasPerByte(Uint(3060))
     STATE_BYTES_PER_NEW_ACCOUNT: Final[Uint] = Uint(120)
     STATE_BYTES_PER_STORAGE_SET: Final[Uint] = Uint(64)
     STATE_BYTES_PER_AUTH_BASE: Final[Uint] = Uint(23)

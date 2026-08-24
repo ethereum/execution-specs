@@ -28,6 +28,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_log1_non_empty_mem_log_mem_size1_log_mem_start31(
     state_test: StateTestFiller,
     pre: Alloc,

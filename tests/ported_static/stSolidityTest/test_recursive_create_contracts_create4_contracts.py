@@ -32,6 +32,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_recursive_create_contracts_create4_contracts(
     state_test: StateTestFiller,
     fork: Fork,

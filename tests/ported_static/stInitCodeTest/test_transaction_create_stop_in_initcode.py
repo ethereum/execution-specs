@@ -29,6 +29,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stInitCodeTest/TransactionCreateStopInInitcodeFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_before("EIP8368")
 def test_transaction_create_stop_in_initcode(
     state_test: StateTestFiller,
     pre: Alloc,

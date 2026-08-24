@@ -32,7 +32,15 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "deploy_outcome", ["created", "code_deposit_oog", "invalid_opcode"]
+    "deploy_outcome",
+    [
+        pytest.param(
+            "created",
+            marks=pytest.mark.valid_before("EIP8368"),
+        ),
+        "code_deposit_oog",
+        "invalid_opcode",
+    ],
 )
 @pytest.mark.parametrize(
     "refund_source",

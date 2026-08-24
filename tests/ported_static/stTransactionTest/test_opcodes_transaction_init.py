@@ -237,6 +237,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             33,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="d33",
         ),
         pytest.param(
@@ -303,6 +304,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             44,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="d44",
         ),
         pytest.param(
@@ -765,6 +767,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             121,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="d121",
         ),
         pytest.param(

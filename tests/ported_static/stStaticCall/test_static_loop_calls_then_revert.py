@@ -49,6 +49,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_static_loop_calls_then_revert(
     state_test: StateTestFiller,
     pre: Alloc,

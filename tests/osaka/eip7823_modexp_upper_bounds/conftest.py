@@ -196,7 +196,9 @@ def total_gas_used(
         fork.transaction_intrinsic_cost_calculator()
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    extra_gas = 500_000
+    # The measurement contract stores up to four fresh slots, whose
+    # state gas scales with the fork's cost per state byte.
+    extra_gas = 500_000 + 4 * Op.SSTORE(new_value=1).state_cost(fork)
 
     total_gas = (
         extra_gas

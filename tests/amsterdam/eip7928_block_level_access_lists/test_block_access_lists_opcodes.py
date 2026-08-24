@@ -2055,8 +2055,15 @@ def test_bal_create_oog_code_deposit(
     """
     alice = pre.fund_eoa()
 
-    # create init code that returns a very large contract to force OOG
-    deposited_len = 10_000
+    # Create init code that returns a large contract to force OOG,
+    # sized so the deposit's state gas stays affordable within the
+    # transaction gas limit cap at the fork's cost per state byte.
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    deposited_len = min(
+        10_000,
+        cap // (2 * max(1, fork.cost_per_state_byte())),
+    )
     initcode = Op.RETURN(
         0,
         deposited_len,
@@ -3940,6 +3947,7 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
 def test_bal_dirty_account_selfdestruct(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     create_opcode: Op,
     destruction_successful: bool,
     oracle_suffix: Bytecode,
@@ -4069,7 +4077,14 @@ def test_bal_dirty_account_selfdestruct(
         sender=alice,
         to=factory,
         data=init_code,
-        gas_limit=1_000_000,
+        # Cover the scenario's state creation at the fork's cost per
+        # state byte: the ephemeral account and code, its dirtied
+        # slot, its empty child account, and the beneficiary.
+        gas_limit=1_000_000
+        + init_code.state_cost(fork)
+        + 2 * Op.CREATE(value=0, offset=0, size=0).state_cost(fork)
+        + Op.SSTORE(new_value=1).state_cost(fork)
+        + Op.SELFDESTRUCT(0, account_new=True).state_cost(fork),
     )
 
     block = Block(

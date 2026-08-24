@@ -26,6 +26,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_callcallcall_000_suicide_middle(
     state_test: StateTestFiller,
     pre: Alloc,

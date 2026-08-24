@@ -61,6 +61,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             3,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="caller-self-destruct",
         ),
         pytest.param(
@@ -85,6 +86,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             7,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="caller-self-destruct",
         ),
     ],

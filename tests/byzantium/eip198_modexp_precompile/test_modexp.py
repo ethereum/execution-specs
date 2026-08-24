@@ -11,6 +11,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -488,6 +489,7 @@ def test_modexp(
     mod_exp_input: ModExpInput | Bytes,
     output: ModExpOutput,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test the MODEXP precompile."""
     env = Environment()
@@ -529,11 +531,23 @@ def test_modexp(
         + Op.STOP(),
     )
 
+    # The harness stores the call result in a fresh slot and deploys
+    # the returned data as contract code, so its budget scales with
+    # the fork's cost per state byte.
+    state_gas_headroom = (
+        Op.SSTORE(new_value=1).state_cost(fork)
+        + Op.CREATE(value=0, offset=0, size=0).state_cost(fork)
+        + Op.RETURN(
+            0,
+            0,
+            code_deposit_size=16 + len(output.returned_data),
+        ).state_cost(fork)
+    )
     tx = Transaction(
         ty=0x0,
         to=account,
         data=mod_exp_input,
-        gas_limit=2_000_000,
+        gas_limit=2_000_000 + state_gas_headroom,
         protected=True,
         sender=sender,
     )

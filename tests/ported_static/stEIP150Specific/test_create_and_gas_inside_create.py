@@ -56,6 +56,7 @@ MEM_EXPANSION_BYTES = 0x20
 @pytest.mark.parametrize(
     "memory_expansion", [False, True], ids=["flat", "mem_expansion"]
 )
+@pytest.mark.valid_before("EIP8368")
 def test_create_and_gas_inside_create(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -121,10 +121,19 @@ def setup_selfdestruct_test(
         else None
     )
 
+    # State creation charges scale with the fork's cost per state
+    # byte: a dead beneficiary and the same-tx victim deployment each
+    # create an account. Zero before state gas exists.
+    state_gas_headroom = Op.SELFDESTRUCT(0, account_new=True).state_cost(fork)
+    if same_tx:
+        state_gas_headroom += Op.CREATE(value=0, offset=0, size=0).state_cost(
+            fork
+        ) + Initcode(deploy_code=victim_code).state_cost(fork)
+
     tx = Transaction(
         sender=alice,
         to=caller,
-        gas_limit=500_000,
+        gas_limit=500_000 + state_gas_headroom,
         protected=fork.supports_protected_txs(),
         access_list=access_list,
     )

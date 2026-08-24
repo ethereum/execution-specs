@@ -2199,6 +2199,7 @@ def test_bal_multiple_balance_changes_same_account(
 def test_bal_multiple_storage_writes_same_slot(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test that BAL tracks multiple writes to the same storage slot across
@@ -2220,9 +2221,12 @@ def test_bal_multiple_storage_writes_same_slot(
     increment_code = Op.SSTORE(1, Op.ADD(Op.SLOAD(1), 1))
     contract = pre.deploy_contract(code=increment_code)
 
-    tx1 = Transaction(sender=alice, to=contract, gas_limit=200_000)
-    tx2 = Transaction(sender=alice, to=contract, gas_limit=200_000)
-    tx3 = Transaction(sender=alice, to=contract, gas_limit=200_000)
+    # The first write creates the slot, charging state gas at the
+    # fork's cost per state byte.
+    tx_gas_limit = 200_000 + increment_code.state_cost(fork)
+    tx1 = Transaction(sender=alice, to=contract, gas_limit=tx_gas_limit)
+    tx2 = Transaction(sender=alice, to=contract, gas_limit=tx_gas_limit)
+    tx3 = Transaction(sender=alice, to=contract, gas_limit=tx_gas_limit)
 
     blockchain_test(
         pre=pre,
@@ -2689,10 +2693,13 @@ def test_bal_many_storage_writes_single_account(
     contract = pre.deploy_contract(code=contract_code)
 
     alice = pre.fund_eoa()
+    # The distinct fresh slots can cost more state gas than the
+    # transaction gas limit cap allows; grant it as a reservoir and
+    # let the gas limit cover the cap plus the reservoir.
     tx = Transaction(
         sender=alice,
         to=contract,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        state_gas_reservoir=contract_code.state_cost(fork),
     )
 
     account_expectations = {

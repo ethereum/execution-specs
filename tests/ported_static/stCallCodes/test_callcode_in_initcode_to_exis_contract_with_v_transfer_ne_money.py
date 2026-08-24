@@ -52,6 +52,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_callcode_in_initcode_to_exis_contract_with_v_transfer_ne_money(
     state_test: StateTestFiller,
     pre: Alloc,

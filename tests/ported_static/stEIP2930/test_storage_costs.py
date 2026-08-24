@@ -53,6 +53,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="declaredKeyWrite",
         ),
         pytest.param(
@@ -89,6 +90,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             6,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="undeclaredKeyWrite",
         ),
         pytest.param(
@@ -125,6 +127,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             12,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="undeclaredKeyWrite",
         ),
         pytest.param(
@@ -161,6 +164,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             18,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="undeclaredKeyWrite",
         ),
         pytest.param(
@@ -197,36 +201,42 @@ REFERENCE_SPEC_VERSION = "N/A"
             24,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="declaredKeyWrite_postSSTORE",
         ),
         pytest.param(
             25,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="undeclaredKeyWrite_postSSTORE",
         ),
         pytest.param(
             26,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="declaredKeyRead_postSSTORE",
         ),
         pytest.param(
             27,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="undeclaredKeyRead_postSSTORE",
         ),
         pytest.param(
             28,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="declaredKeyWrite_postSLOAD",
         ),
         pytest.param(
             29,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="undeclaredKeyWrite_postSLOAD",
         ),
         pytest.param(
@@ -263,6 +273,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             35,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="declaredKeyWrite",
         ),
     ],

@@ -1,0 +1,3 @@
+general/code_coverage/eels = Single-constant change to COST_PER_STATE_BYTE in vm/gas.py; every charge path is exercised by the EIP-8037 suite
+general/code_coverage/test_coverage = Charge mechanism coverage lives in tests/amsterdam/eip8037_state_creation_gas_cost_increase; this suite pins the recalibrated value
+general/code_coverage/missed_lines = The EIP changes no lines beyond the constant definition

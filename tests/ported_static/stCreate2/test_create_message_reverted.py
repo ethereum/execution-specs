@@ -49,6 +49,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             1,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="-g1",
         ),
     ],

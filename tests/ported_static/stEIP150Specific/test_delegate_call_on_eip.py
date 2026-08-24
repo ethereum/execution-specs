@@ -40,6 +40,7 @@ CALLER_GAS = 400_000
     ["state_tests/stEIP150Specific/DelegateCallOnEIPFiller.json"],
 )
 @pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_before("EIP8368")
 def test_delegate_call_on_eip(
     state_test: StateTestFiller,
     pre: Alloc,

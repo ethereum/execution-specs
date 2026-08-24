@@ -10,6 +10,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     CodeGasMeasure,
+    Environment,
     Fork,
     Initcode,
     Op,
@@ -27,6 +28,22 @@ REFERENCE_SPEC_VERSION = ref_spec_7954.version
 pytestmark = pytest.mark.valid_from("EIP7954")
 
 CREATE2_SALT = 0xC0FFEE
+
+
+def max_deposit_env(fork: Fork) -> Environment:
+    """
+    Return a block environment able to fund a max-size code deposit at
+    the fork's cost per state byte.
+    """
+    deposit_state_gas = Op.RETURN(
+        0,
+        fork.max_code_size(),
+        code_deposit_size=fork.max_code_size(),
+    ).state_cost(fork)
+    return Environment(
+        gas_limit=max(Environment().gas_limit, 2 * deposit_state_gas)
+    )
+
 
 DEPLOY_CODE_SIZE_PARAMS = [
     pytest.param(lambda f: f.max_code_size(), id="at_max"),
@@ -61,7 +78,7 @@ def test_max_code_size(
     else:
         post[create_address] = Account.NONEXISTENT
 
-    state_test(pre=pre, tx=tx, post=post)
+    state_test(env=max_deposit_env(fork), pre=pre, tx=tx, post=post)
 
 
 @pytest.mark.parametrize("deploy_code_size", DEPLOY_CODE_SIZE_PARAMS)
@@ -120,7 +137,7 @@ def test_max_code_size_via_create(
     else:
         post[create_address] = Account.NONEXISTENT
 
-    state_test(pre=pre, tx=tx, post=post)
+    state_test(env=max_deposit_env(fork), pre=pre, tx=tx, post=post)
 
 
 @pytest.mark.parametrize(
@@ -175,7 +192,7 @@ def test_max_code_size_deposit_gas(
         else Account.NONEXISTENT,
     }
 
-    state_test(pre=pre, tx=tx, post=post)
+    state_test(env=max_deposit_env(fork), pre=pre, tx=tx, post=post)
 
 
 def test_max_code_size_with_max_initcode(
@@ -201,7 +218,7 @@ def test_max_code_size_with_max_initcode(
 
     post = {create_address: Account(code=deploy_code)}
 
-    state_test(pre=pre, tx=tx, post=post)
+    state_test(env=max_deposit_env(fork), pre=pre, tx=tx, post=post)
 
 
 def test_max_code_size_external_opcodes(

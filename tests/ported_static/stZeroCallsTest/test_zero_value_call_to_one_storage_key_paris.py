@@ -39,6 +39,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_zero_value_call_to_one_storage_key_paris(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -33,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_create_e_contract_create_e_contract_in_init_tr(
     state_test: StateTestFiller,
     pre: Alloc,

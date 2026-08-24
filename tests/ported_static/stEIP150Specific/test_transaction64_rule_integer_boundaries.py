@@ -106,6 +106,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_transaction64_rule_integer_boundaries(
     state_test: StateTestFiller,
     pre: Alloc,

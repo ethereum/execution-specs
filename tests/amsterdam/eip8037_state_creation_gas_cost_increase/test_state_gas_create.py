@@ -17,6 +17,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Environment,
     Fork,
     Header,
     Initcode,
@@ -132,6 +133,7 @@ def test_create_with_reservoir(
 def test_create2_child_spill_not_double_charged(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test CREATE2 child state gas paid from `gas_left` is not recharged.
@@ -162,9 +164,14 @@ def test_create2_child_spill_not_double_charged(
         initcode=bytes(init_code),
     )
 
+    # The spilled child state gas scales with the fork's cost per
+    # state byte.
+    child_state_gas = Op.CREATE2(value=0, offset=0, size=0, salt=0).state_cost(
+        fork
+    ) + init_code.state_cost(fork)
     tx = Transaction(
         to=factory,
-        gas_limit=1_000_000,
+        gas_limit=1_000_000 + child_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -221,13 +228,21 @@ def test_code_deposit_state_gas_scales_with_size(
         sender=sender,
     )
 
+    # The gas limit cap plus the reservoir can exceed the default
+    # block gas limit at the fork's cost per state byte.
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None
+    env = Environment(
+        gas_limit=max(Environment().gas_limit, cap + total_state_gas)
+    )
+
     if code_size > fork.max_code_size():
         create_address = compute_create_address(address=sender, nonce=0)
         post = {create_address: Account.NONEXISTENT}
     else:
         post = {}
 
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -315,7 +330,10 @@ def test_code_deposit_state_gas_exact_fit_boundary(
         ),
     )
 
-    state_test(pre=pre, post=post, tx=tx)
+    # The reservoir regime's gas limit can exceed the default block
+    # gas limit at the fork's cost per state byte.
+    env = Environment(gas_limit=max(Environment().gas_limit, int(gas_limit)))
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("EIP8037")

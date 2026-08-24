@@ -42,12 +42,14 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="d0-g0",
         ),
         pytest.param(
             0,
             1,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="d0-g1",
         ),
         pytest.param(

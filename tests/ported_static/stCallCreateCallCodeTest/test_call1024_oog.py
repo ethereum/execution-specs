@@ -250,7 +250,21 @@ def predict_recursion_storage(
 @pytest.mark.parametrize(
     # Ported budgets; each pins a distinct OOG-terminated depth.
     "tx_gas_limit",
-    [13_120_826, 9_320_826, 15_720_826, 11_220_826],
+    [
+        pytest.param(
+            13_120_826,
+            marks=pytest.mark.valid_before("EIP8368"),
+        ),
+        pytest.param(
+            9_320_826,
+            marks=pytest.mark.valid_before("EIP8368"),
+        ),
+        15_720_826,
+        pytest.param(
+            11_220_826,
+            marks=pytest.mark.valid_before("EIP8368"),
+        ),
+    ],
 )
 def test_call1024_oog(
     state_test: StateTestFiller,

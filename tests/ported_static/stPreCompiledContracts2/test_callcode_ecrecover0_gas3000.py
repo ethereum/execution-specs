@@ -29,6 +29,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_before("EIP8368")
 def test_callcode_ecrecover0_gas3000(
     state_test: StateTestFiller,
     pre: Alloc,

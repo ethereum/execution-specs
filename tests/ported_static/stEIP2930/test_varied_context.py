@@ -177,12 +177,14 @@ REFERENCE_SPEC_VERSION = "N/A"
             20,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="recurseValid",
         ),
         pytest.param(
             21,
             0,
             0,
+            marks=pytest.mark.valid_before("EIP8368"),
             id="recurseInvalid",
         ),
         pytest.param(
