@@ -24,7 +24,7 @@ from tests.benchmark.helper.account_creator import (
     AccountMode,
 )
 from tests.benchmark.helper.account_sender_receiver import (
-    DELEGATE_BASE_KEY,
+    delegate_base_key,
 )
 from tests.benchmark.helper.transactions import (
     pack_transactions_with_cost_into_blocks,
@@ -40,7 +40,6 @@ RECEIVER_CONTRACT_COUNT = int(
 )
 
 CONTRACT_MODES = [
-    AccountMode.EXISTING_CONTRACT_MINIMAL,
     AccountMode.EXISTING_CONTRACT_SAME_MAX,
     AccountMode.EXISTING_CONTRACT_DIFF_MAX,
 ]
@@ -120,6 +119,10 @@ def test_deploy_existing_contracts(
     Delegate deterministic EOAs to EXISTING_CONTRACT_DIFF_MAX receivers.
     """
     contract_modes = list(CONTRACT_MODES)
+    # One STOP byte: same initcode and CREATE2 address at every code size,
+    # so a second deployment would collide and revert the factory.
+    if code_size == Osaka.max_code_size():
+        contract_modes.append(AccountMode.EXISTING_CONTRACT_MINIMAL)
     if code_size == Amsterdam.max_code_size():
         contract_modes.append(AccountMode.EXISTING_CONTRACT_JUMPDEST)
 
@@ -161,9 +164,10 @@ def test_deploy_existing_contracts(
         AccountMode.EXISTING_CONTRACT_DIFF_MAX, code_size=code_size
     ).initcode
 
+    base_key = delegate_base_key(code_size)
     authorizations = []
     for i in range(RECEIVER_CONTRACT_COUNT):
-        authority = EOA(key=DELEGATE_BASE_KEY + i)
+        authority = EOA(key=base_key + i)
         target = compute_create2_address(
             address=DETERMINISTIC_FACTORY_ADDRESS,
             salt=i,
