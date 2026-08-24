@@ -392,6 +392,9 @@ class T8N(Load):
                 self.fork.BlockAccessIndex(Uint(len(self.txs)) + Uint(1))
             )
 
+        if self.fork.has_index_tables:
+            self.fork.update_index_tables(block_env, block_output)
+
         if not self.fork.proof_of_stake and self.state_reward != -1:
             # ``-1`` is the sentinel for "skip block rewards entirely"
             # (testing-side ``TransitionToolData.__post_init__`` sets

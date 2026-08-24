@@ -70,6 +70,16 @@ class ForkLoad:
         return self._module("fork").BLOCK_REWARD
 
     @property
+    def update_index_tables(self) -> Any:
+        """update_index_tables function of the given fork."""
+        return self._module("fork").update_index_tables
+
+    @property
+    def has_index_tables(self) -> bool:
+        """Check if the fork maintains index tables (EIP-8304)."""
+        return hasattr(self._module("fork"), "update_index_tables")
+
+    @property
     def process_general_purpose_requests(self) -> Any:
         """process_general_purpose_requests function of the given fork."""
         return self._module("fork").process_general_purpose_requests
