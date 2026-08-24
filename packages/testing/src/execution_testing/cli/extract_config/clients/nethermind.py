@@ -508,6 +508,10 @@ class NethermindInitConfig(NethermindNodeConfigModel):
     log_file_name: str = "/hive.logs.txt"
 
 
+_RPC_TRANSPORTS = "http;ws"  # codespell:ignore ws
+_RPC_MODULES = "debug;net;eth;subscribe;engine;web3;client;admin"
+
+
 class NethermindJsonRpcConfig(NethermindNodeConfigModel):
     """Nethermind's `JsonRpc` config section."""
 
@@ -533,10 +537,8 @@ class NethermindJsonRpcConfig(NethermindNodeConfigModel):
         "Testing",
     ]
     additional_rpc_urls: List[str] = [
-        "http://0.0.0.0:8550|http;ws|debug;net;eth;subscribe;engine;"
-        "web3;client;admin|no-auth",
-        "http://0.0.0.0:8551|http;ws|debug;net;eth;subscribe;engine;"
-        "web3;client;admin",
+        f"http://0.0.0.0:8550|{_RPC_TRANSPORTS}|{_RPC_MODULES}|no-auth",
+        f"http://0.0.0.0:8551|{_RPC_TRANSPORTS}|{_RPC_MODULES}",
     ]
 
 
