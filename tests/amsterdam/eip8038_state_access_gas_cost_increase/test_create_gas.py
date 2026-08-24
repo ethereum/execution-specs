@@ -506,7 +506,8 @@ def test_create2_to_occupied_address(
     #
     # `address=` hard-codes the occupant at the derived collision address;
     # it requires `pre_alloc_mutable`. This is the only way to pre-seat the
-    # exact CREATE2 target, mirroring the create collision tests.
+    # exact CREATE2 target, mirroring
+    # `tests/frontier/create/test_create_collision.py`.
     occupant_code = Op.SSTORE(0, 0x42) + Op.STOP
     occupant_storage = Storage({0x1: 0xCAFE})  # type: ignore[dict-item]
     pre.deploy_contract(

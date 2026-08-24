@@ -502,9 +502,10 @@ def test_create2_address_collision(
     """
     Test CREATE2 returns zero on address collision.
 
-    When CREATE2 targets an address that already has code or storage,
-    the collision is detected early and returns zero without charging
-    state gas. The existing account is left unchanged.
+    When CREATE2 targets an address that already has code or a
+    non-zero nonce (EIP-684), the collision is detected early and
+    returns zero without charging state gas. The existing account is
+    left unchanged.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
