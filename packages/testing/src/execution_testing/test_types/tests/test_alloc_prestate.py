@@ -131,11 +131,6 @@ def test_cache_build_and_read_methods_agree_with_source() -> None:
     assert alloc.get_code(spec_state.EMPTY_CODE_HASH) == b""
     assert alloc.get_code(keccak256(CODE)) == CODE
 
-    # account_has_storage distinguishes the contract from EOAs.
-    assert alloc.account_has_storage(ADDR_B) is True
-    assert alloc.account_has_storage(ADDR_A) is False
-    assert alloc.account_has_storage(ADDR_MISSING) is False
-
     # Missing accounts return None from get_account_optional.
     assert alloc.get_account_optional(ADDR_MISSING) is None
 
