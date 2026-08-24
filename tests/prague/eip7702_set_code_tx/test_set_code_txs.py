@@ -3687,6 +3687,188 @@ def test_delegation_clearing(
         pytest.param(True, id="self_sponsored"),
     ],
 )
+def test_delegation_clearing_preserves_storage(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    self_sponsored: bool,
+) -> None:
+    """
+    Test that clearing the delegation of an account that already carries a
+    delegation in the pre-state resets its code but leaves its storage
+    untouched.
+    """
+    slot_preserved = 1
+
+    delegation_address = pre.deploy_contract(Op.STOP)
+    storage = Storage({slot_preserved: 0x2A})  # type: ignore[dict-item]
+
+    auth_signer = pre.fund_eoa(delegation=delegation_address, storage=storage)
+
+    authorization = AuthorizationTuple(
+        address=Spec.RESET_DELEGATION_ADDRESS,
+        nonce=auth_signer.nonce + (1 if self_sponsored else 0),
+        signer=auth_signer,
+    )
+
+    tx = Transaction(
+        to=pre.deploy_contract(Op.STOP),
+        value=0,
+        authorization_list=[authorization],
+        sender=auth_signer if self_sponsored else pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                nonce=auth_signer.nonce + 1,
+                code=b"",
+                storage=storage,
+            ),
+        },
+    )
+
+
+def test_delegation_clearing_and_set_preserves_storage(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that clearing a pre-state delegation and setting a new one in the
+    same authorization list keeps the authority's storage intact and
+    readable.
+    """
+    slot_preserved = 1
+    slot_read_back = 2
+    slot_marker = 3
+
+    auth_signer = pre.fund_eoa(
+        0,
+        delegation=pre.deploy_contract(Op.STOP),
+        storage=Storage({slot_preserved: 0x2A}),  # type: ignore[dict-item]
+    )
+    reader = pre.deploy_contract(
+        Op.SSTORE(slot_read_back, Op.SLOAD(slot_preserved))
+        # The write to an untouched slot forces the storage root to be
+        # recomputed from the whole slot set.
+        + Op.SSTORE(slot_marker, 1)
+        + Op.STOP
+    )
+
+    tx = Transaction(
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=Spec.RESET_DELEGATION_ADDRESS,  # Reset
+                nonce=auth_signer.nonce,
+                signer=auth_signer,
+            ),
+            AuthorizationTuple(
+                address=reader,
+                nonce=auth_signer.nonce + 1,
+                signer=auth_signer,
+            ),
+        ],
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                nonce=auth_signer.nonce + 2,
+                code=Spec.delegation_designation(reader),
+                storage={
+                    slot_preserved: 0x2A,
+                    slot_read_back: 0x2A,
+                    slot_marker: 1,
+                },
+            ),
+        },
+    )
+
+
+def test_delegation_clearing_storage_readable_in_later_tx(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that the storage of an authority whose pre-state delegation is
+    cleared is still readable by a later transaction of the same block.
+    """
+    slot_preserved = 1
+    slot_read_back = 2
+    slot_marker = 3
+
+    auth_signer = pre.fund_eoa(
+        0,
+        delegation=pre.deploy_contract(Op.STOP),
+        storage=Storage({slot_preserved: 0x2A}),  # type: ignore[dict-item]
+    )
+    reader = pre.deploy_contract(
+        Op.SSTORE(slot_read_back, Op.SLOAD(slot_preserved))
+        # The write to an untouched slot forces the storage root to be
+        # recomputed from the whole slot set.
+        + Op.SSTORE(slot_marker, 1)
+        + Op.STOP
+    )
+
+    sender = pre.fund_eoa()
+
+    tx_1 = Transaction(
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=Spec.RESET_DELEGATION_ADDRESS,  # Reset
+                nonce=auth_signer.nonce,
+                signer=auth_signer,
+            ),
+        ],
+        sender=sender,
+    )
+    tx_2 = Transaction(
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=reader,
+                nonce=auth_signer.nonce + 1,
+                signer=auth_signer,
+            ),
+        ],
+        sender=sender,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx_1, tx_2])],
+        post={
+            auth_signer: Account(
+                nonce=auth_signer.nonce + 2,
+                code=Spec.delegation_designation(reader),
+                storage={
+                    slot_preserved: 0x2A,
+                    slot_read_back: 0x2A,
+                    slot_marker: 1,
+                },
+            ),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "self_sponsored",
+    [
+        pytest.param(False, id="not_self_sponsored"),
+        pytest.param(True, id="self_sponsored"),
+    ],
+)
 @pytest.mark.parametrize(
     "pre_set_delegation_code",
     [
