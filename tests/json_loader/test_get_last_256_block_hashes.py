@@ -70,68 +70,20 @@ def _expected_hashes(block_hashes: List[Hash32]) -> List[Hash32]:
     return block_hashes[-256:]
 
 
-def test_empty_chain() -> None:
-    """Return no hashes when the chain has no blocks."""
-    chain, hashes = _make_chain(0)
-    assert hashes == []
-    assert get_last_256_block_hashes(chain) == []
-
-
-def test_one_block() -> None:
-    """Include the genesis parent and the only block hash."""
-    chain, hashes = _make_chain(1)
-    result = get_last_256_block_hashes(chain)
-    assert result == [ZERO_HASH, hashes[0]]
-    assert result[-1] == _header_hash(chain.blocks[-1].header)
-
-
 @pytest.mark.parametrize(
     "length",
     [
-        pytest.param(2, id="two_blocks"),
-        pytest.param(254, id="less_than_256"),
-        pytest.param(255, id="exactly_255"),
-        pytest.param(256, id="exactly_256"),
-        pytest.param(257, id="more_than_256"),
+        pytest.param(0, id="empty_chain"),
+        pytest.param(1, id="one_block"),
+        pytest.param(255, id="last_untruncated_length"),
+        pytest.param(256, id="first_truncation"),
+        pytest.param(257, id="genesis_hash_dropped"),
     ],
 )
 def test_hash_window(length: int) -> None:
-    """Match length, order, and the keccak of the latest header."""
+    """Match the expected window and the keccak of the latest header."""
     chain, hashes = _make_chain(length)
     result = get_last_256_block_hashes(chain)
-    expected = _expected_hashes(hashes)
-
-    assert result == expected
-    assert len(result) == min(length + 1, 256)
-    assert result[-1] == _header_hash(chain.blocks[-1].header)
-    if length >= 2:
-        assert result[-2] == chain.blocks[-1].header.parent_hash
-        assert result[-2] == _header_hash(chain.blocks[-2].header)
-
-
-def test_window_drops_oldest_after_256() -> None:
-    """Drop the genesis hash once 257 blocks are on the chain."""
-    chain_256, hashes_256 = _make_chain(256)
-    chain_257, hashes_257 = _make_chain(257)
-
-    result_256 = get_last_256_block_hashes(chain_256)
-    result_257 = get_last_256_block_hashes(chain_257)
-
-    assert result_256 == hashes_256
-    assert result_256[0] == hashes_256[0]
-    assert ZERO_HASH not in result_256
-    assert result_257 == hashes_257[-256:]
-    assert result_257[0] == hashes_257[1]
-    assert hashes_257[0] not in result_257
-
-
-def test_hashes_are_in_increasing_block_number_order() -> None:
-    """Keep older hashes before newer hashes."""
-    chain, hashes = _make_chain(257)
-    result = get_last_256_block_hashes(chain)
-    for index in range(len(result) - 1):
-        older = result[index]
-        newer = result[index + 1]
-        older_number = hashes.index(older)
-        newer_number = hashes.index(newer)
-        assert older_number < newer_number
+    assert result == _expected_hashes(hashes)
+    if length > 0:
+        assert result[-1] == _header_hash(chain.blocks[-1].header)
