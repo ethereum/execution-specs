@@ -41,10 +41,21 @@ class TransactionLoad:
     def __init__(self, raw: Any, fork: Any) -> None:
         self.raw = raw
         self.fork = fork
+        self.tx_cls: Any = None
 
-    def json_to_chain_id(self) -> U64:
-        """Get chain ID for the transaction."""
-        return hex_to_u64(self.raw.get("chainId", "0x01"))
+    def json_to_chain_id(self) -> U64 | U256:
+        """
+        Get chain ID for the transaction.
+
+        Frame transactions widen the field to 256 bits; every other
+        type keeps the 64 bits of [EIP-155].
+
+        [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
+        """
+        raw_chain_id = self.raw.get("chainId", "0x01")
+        if self.tx_cls is getattr(self.fork, "FrameTransaction", None):
+            return hex_to_u256(raw_chain_id)
+        return hex_to_u64(raw_chain_id)
 
     def json_to_nonce(self) -> U256:
         """Get the nonce for the transaction."""
@@ -237,6 +248,7 @@ class TransactionLoad:
         """
         Extract all the transaction parameters from the json file.
         """
+        self.tx_cls = tx_cls
         parameters = []
         for field in fields(tx_cls):
             parameters.append(getattr(self, f"json_to_{field.name}")())

@@ -390,7 +390,7 @@ class FrameTransaction:
     [EIP-8141]: https://eips.ethereum.org/EIPS/eip-8141
     """
 
-    chain_id: U64
+    chain_id: U256
     """
     The ID of the chain on which this transaction is executed.
     """

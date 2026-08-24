@@ -59,6 +59,21 @@ ADMISSION_CASES = [
         None,
         id="max_cost_within_bound",
     ),
+    pytest.param(
+        # A frame transaction's chain id is a 256-bit field, so a value
+        # too wide for the 64-bit field of every other transaction type
+        # still decodes and is rejected for naming another chain.
+        dict(chain_id=2**64),
+        TransactionException.INVALID_CHAINID,
+        id="chain_id_above_64_bits",
+        marks=pytest.mark.exception_test,
+    ),
+    pytest.param(
+        dict(chain_id=2**256 - 1),
+        TransactionException.INVALID_CHAINID,
+        id="chain_id_at_256_bit_maximum",
+        marks=pytest.mark.exception_test,
+    ),
 ]
 """
 Field-level variations of a minimal frame transaction, each with the

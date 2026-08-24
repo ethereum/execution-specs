@@ -883,12 +883,18 @@ def check_nonce(tx: Transaction, sender_nonce: Uint) -> None:
         raise NonceMismatchError("nonce too high")
 
 
-def chain_id(tx: Transaction) -> None | U64:
+def chain_id(tx: Transaction) -> None | U64 | U256:
     """
     Extract the chain identifier from a transaction. See [EIP-155].
 
+    [`FrameTransaction`][f] widens the field to [`U256`][u], so callers must
+    not assume the result fits in a [`U64`][v].
+
     [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
-    """
+    [f]: ref:ethereum.forks.amsterdam.transactions.frame_transaction.FrameTransaction
+    [u]: ref:ethereum_types.numeric.U256
+    [v]: ref:ethereum_types.numeric.U64
+    """  # noqa: E501
     if isinstance(tx, LegacyTransaction):
         if tx.v == 27 or tx.v == 28:
             return None
