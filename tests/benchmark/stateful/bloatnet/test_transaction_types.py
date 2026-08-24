@@ -112,7 +112,9 @@ def test_ether_transfers_onchain_receivers(
                 verified_accounts=verified_accounts,
             )
         case "diff_to_unique_code_jumpdest_contract":
-            creator = AccountCreator(AccountMode.EXISTING_CONTRACT_JUMPDEST)
+            creator = AccountCreator(
+                AccountMode.EXISTING_CONTRACT_JUMPDEST, code_size=code_size
+            )
             receivers = yield_distinct_create2_receiver(creator.initcode)
             receiver_execution_gas = creator.execution_code.gas_cost(fork)
             register_targets = partial(
@@ -153,11 +155,12 @@ def test_ether_transfers_onchain_receivers(
                 label=case_id,
             )
         case "diff_to_delegated_contract_diff":
-            receivers = yield_distinct_delegate_receiver()
+            receivers = yield_distinct_delegate_receiver(code_size)
             recipient_type = RecipientType.DELEGATION_7702
             register_targets = partial(
                 register_delegate_targets,
                 pre,
+                code_size=code_size,
                 verified_accounts=verified_accounts,
             )
         case _:
