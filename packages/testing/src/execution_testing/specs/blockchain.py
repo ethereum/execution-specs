@@ -1016,15 +1016,16 @@ class BlockchainTest(BaseTest):
                 "provided by the transition tool"
             )
 
-            computed_block_access_list_hash = Hash(t8n_bal.rlp.keccak256())
-            assert (
-                computed_block_access_list_hash
-                == header.block_access_list_hash
-            ), (
-                "Block access list hash in header does not match the "
-                f"computed hash from BAL: {header.block_access_list_hash} "
-                f"!= {computed_block_access_list_hash}"
-            )
+            if t8n.attests_block_access_list_hash:
+                computed_block_access_list_hash = Hash(t8n_bal.rlp.keccak256())
+                assert (
+                    computed_block_access_list_hash
+                    == header.block_access_list_hash
+                ), (
+                    "Block access list hash in header does not match the "
+                    f"computed hash from BAL: {header.block_access_list_hash} "
+                    f"!= {computed_block_access_list_hash}"
+                )
 
         if block.rlp_modifier is not None:
             # Modify any parameter specified in the `rlp_modifier` after

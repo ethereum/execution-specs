@@ -207,6 +207,7 @@ class TransitionTool(EthereumCLI):
     supports_opcode_count: ClassVar[bool] = False
     supports_xdist: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = False
+    attests_block_access_list_hash: ClassVar[bool] = True
     fork_name_map: ClassVar[Dict[str, str]] = {}
 
     @abstractmethod

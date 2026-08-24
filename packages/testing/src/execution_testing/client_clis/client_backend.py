@@ -41,7 +41,6 @@ from execution_testing.test_types import (
     Transaction,
     Withdrawal,
 )
-from execution_testing.test_types.block_access_list import BlockAccessList
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
 from .cli_types import (
@@ -167,6 +166,8 @@ class ClientBackend:
     """Raw datadir head, set by the fill-stateful plugin pre-session."""
     start_block: Dict[str, Any] | None
     """Client head after global pre-run setup; per-test chains off this."""
+
+    attests_block_access_list_hash: ClassVar[bool] = False
 
     # t8n-compatibility stubs — fill's filler reads these on the backend.
     opcode_count: OpcodeCount | None = None
@@ -513,9 +514,9 @@ class ClientBackend:
         block_access_list_hash: Hash | None = None
         bal_rlp = getattr(built_payload, "block_access_list", None)
         if bal_rlp is not None:
-            block_access_list_hash = Hash(
-                BlockAccessList.from_rlp(bal_rlp).rlp.keccak256()
-            )
+            # Hash the client's own bytes: a re-encode of the decoded BAL
+            # would diverge whenever the client's RLP is non-canonical.
+            block_access_list_hash = Hash(bal_rlp.keccak256())
 
         return Result(
             state_root=built_payload.state_root,
