@@ -18,7 +18,7 @@ fill's perspective.
 callers continue to work unchanged.
 """
 
-from typing import List, Protocol, runtime_checkable
+from typing import ClassVar, List, Protocol, runtime_checkable
 
 from execution_testing.exceptions import ExceptionMapper
 
@@ -42,6 +42,14 @@ class FillerBackend(Protocol):
     Maps backend-specific errors to EEST transaction/block exceptions.
     ``exception_mapper.reliable`` indicates whether the mapping is trusted
     for test assertions (t8n: True; live-client: typically False).
+    """
+
+    attests_block_access_list_hash: ClassVar[bool]
+    """
+    Whether ``Result.block_access_list_hash`` is computed by the backend
+    rather than derived by EEST from the BAL body the backend returned
+    (t8n: True; live-client: False, since an engine ``ExecutionPayload``
+    carries the body but no hash).
     """
 
     def evaluate(
