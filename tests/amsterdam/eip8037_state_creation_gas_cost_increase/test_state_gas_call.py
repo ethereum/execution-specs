@@ -263,8 +263,12 @@ def test_reservoir_restored_after_child_spill_and_halt(
     parent; the spilled gas stays burned (re-classified as execution).
     The parent does two SSTOREs: the first drains the recovered
     reservoir, the second spills from the parent's own `gas_left`.
+    The receipt pins the halted child's whole budget as consumed, so
+    a credit of the burned spill back to the parent is caught.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    child_budget = 500_000
 
     # Child does two SSTOREs then halts
     child = pre.deploy_contract(
@@ -272,15 +276,20 @@ def test_reservoir_restored_after_child_spill_and_halt(
     )
 
     parent_storage = Storage()
-    parent = pre.deploy_contract(
-        code=(
-            Op.POP(Op.CALL(gas=500_000, address=child))
-            # First SSTORE drains the recovered reservoir; second
-            # SSTORE spills from parent's gas_left (gas_limit_cap is
-            # large enough to absorb it).
-            + Op.SSTORE(parent_storage.store_next(1), 1)
-            + Op.SSTORE(parent_storage.store_next(1), 1)
-        ),
+    parent_code = (
+        Op.POP(Op.CALL(gas=child_budget, address=child))
+        # First SSTORE drains the recovered reservoir; second
+        # SSTORE spills from parent's gas_left (gas_limit_cap is
+        # large enough to absorb it).
+        + Op.SSTORE(parent_storage.store_next(1), 1)
+        + Op.SSTORE(parent_storage.store_next(1), 1)
+    )
+    parent = pre.deploy_contract(code=parent_code)
+
+    # The halted child burns its whole budget. The parent's own sets
+    # and their state gas are inside `gas_cost`.
+    expected_cumulative = (
+        intrinsic_cost + parent_code.gas_cost(fork) + child_budget
     )
 
     # Reservoir = 1 SSTORE's worth of state gas — child will spill
@@ -288,6 +297,9 @@ def test_reservoir_restored_after_child_spill_and_halt(
         to=parent,
         state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
     )
 
     post = {parent: Account(storage=parent_storage)}
