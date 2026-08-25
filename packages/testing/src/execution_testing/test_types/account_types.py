@@ -473,16 +473,6 @@ class Alloc(BaseAlloc):
             return Bytes(b"")
         return self._code_store[code_hash]
 
-    def account_has_storage(self, address: Bytes20) -> bool:
-        """
-        Return whether the account at `address` has any storage slots set.
-
-        Conforms to `ethereum.state.PreState.account_has_storage`.
-        """
-        self._ensure_live()
-        account = self.root.get(Address(address))
-        return account is not None and bool(account.storage.root)
-
     def compute_state_root(self, block_diff: spec_state.BlockDiff) -> Hash32:
         """
         Compute the state root after applying `block_diff` to the

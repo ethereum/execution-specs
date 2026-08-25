@@ -1,7 +1,9 @@
 """
-Test collision in CREATE/CREATE2 account creation, where the existing account
-only has a non-zero storage slot set.
+Test collision in CREATE/CREATE2 account creation, where the existing
+account has non-empty code or nonce (EIP-684).
 """
+
+from typing import Dict
 
 import pytest
 from execution_testing import (
@@ -18,25 +20,20 @@ from execution_testing import (
     compute_create_address,
 )
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7610.md"
-REFERENCE_SPEC_VERSION = "80ef48d0bbb5a4939ade51caaaac57b5df6acd4e"
-
 pytestmark = [
     pytest.mark.valid_from("Frontier"),
     pytest.mark.ported_from(
         [
             "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stSStoreTest/InitCollisionFiller.json",
             "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stSStoreTest/InitCollisionNonZeroNonceFiller.json",
-            "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stSStoreTest/InitCollisionParisFiller.json",
         ],
         pr=["https://github.com/ethereum/execution-spec-tests/pull/636"],
     ),
     pytest.mark.parametrize(
-        "collision_nonce,collision_balance,collision_code",
+        "collision_nonce,collision_code,collision_storage",
         [
-            pytest.param(0, 0, b"\0", id="non-empty-code"),
-            pytest.param(0, 1, b"", id="non-empty-balance"),
-            pytest.param(1, 0, b"", id="non-empty-nonce"),
+            pytest.param(0, b"\0", {0x01: 0x01}, id="non-empty-code"),
+            pytest.param(1, b"", {}, id="non-empty-nonce"),
         ],
     ),
     pytest.mark.parametrize(
@@ -62,19 +59,20 @@ pytestmark = [
 
 @pytest.mark.with_all_contract_creating_tx_types
 @pytest.mark.eels_base_coverage
-def test_init_collision_create_tx(
+def test_create_tx_collision(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_type: int,
     collision_nonce: int,
-    collision_balance: int,
     collision_code: bytes,
+    collision_storage: Dict[int, int],
     initcode: Bytecode,
     fork: Fork,
 ) -> None:
     """
     Test that a contract creation transaction exceptionally aborts when
-    the target address has a non-empty storage, balance, nonce, or code.
+    the target address has non-empty code or nonce, leaving the existing
+    account untouched.
     """
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -88,10 +86,9 @@ def test_init_collision_create_tx(
 
     # This is the collision
     pre[created_contract_address] = Account(
-        storage={0x01: 0x01},
         nonce=collision_nonce,
-        balance=collision_balance,
         code=collision_code,
+        storage=collision_storage,
     )
 
     expected_block_access_list = None
@@ -106,7 +103,9 @@ def test_init_collision_create_tx(
         pre=pre,
         post={
             created_contract_address: Account(
-                storage={0x01: 0x01},
+                nonce=collision_nonce,
+                code=collision_code,
+                storage=collision_storage,
             ),
         },
         tx=tx,
@@ -123,18 +122,19 @@ def test_init_collision_create_tx(
         ),
     ],
 )
-def test_init_collision_create_opcode(
+def test_create_opcode_collision(
     state_test: StateTestFiller,
     pre: Alloc,
     opcode: Op,
     collision_nonce: int,
-    collision_balance: int,
     collision_code: bytes,
+    collision_storage: Dict[int, int],
     initcode: Bytecode,
 ) -> None:
     """
-    Test that a contract creation opcode exceptionally aborts when the target
-    address has a non-empty storage, balance, nonce, or code.
+    Test that a contract creation opcode exceptionally aborts when the
+    target address has non-empty code or nonce, leaving the existing
+    account untouched.
     """
     assert len(initcode) <= 32
     contract_creator_code = (
@@ -184,17 +184,18 @@ def test_init_collision_create_opcode(
     )
 
     pre[created_contract_address] = Account(
-        storage={0x01: 0x01},
         nonce=collision_nonce,
-        balance=collision_balance,
         code=collision_code,
+        storage=collision_storage,
     )
 
     state_test(
         pre=pre,
         post={
             created_contract_address: Account(
-                storage={0x01: 0x01},
+                nonce=collision_nonce,
+                code=collision_code,
+                storage=collision_storage,
             ),
             gas_limiter_address: Account(storage={0x01: 0x00}),
         },

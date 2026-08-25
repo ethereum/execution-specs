@@ -120,12 +120,10 @@ def generic_create(
     create_message_gas = withhold_create_gas(evm.gas_meter)
 
     # On a collision the child's execution-gas grant is consumed and no
-    # account is created; a storage-only collision target is
-    # non-existent: charged above, refilled here.
+    # account is created. A collision target has code or a nonce, so
+    # the account-creation charge above was never taken.
     if not account_deployable(tx_state, contract_address):
         increment_nonce(tx_state, sender_address)
-        if new_account_charged:
-            credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
 
