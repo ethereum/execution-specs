@@ -23,7 +23,7 @@ from execution_testing import (
 
 pytestmark = [
     pytest.mark.valid_from("Frontier"),
-    # We need to modify the pre-alloc to include the collision
+    # We need to modify the pre-alloc to include the target account
     pytest.mark.pre_alloc_mutable,
 ]
 
