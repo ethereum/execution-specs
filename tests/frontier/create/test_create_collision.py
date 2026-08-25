@@ -169,19 +169,11 @@ def test_create_tx_collision(
     "collision_nonce,collision_code,collision_storage,collision_balance,initcode",
     COLLISION_PARAMS,
 )
-@pytest.mark.parametrize(
-    "opcode",
-    [
-        Op.CREATE,
-        pytest.param(
-            Op.CREATE2, marks=pytest.mark.valid_from("Constantinople")
-        ),
-    ],
-)
+@pytest.mark.with_all_create_opcodes
 def test_create_opcode_collision(
     state_test: StateTestFiller,
     pre: Alloc,
-    opcode: Op,
+    create_opcode: Op,
     collision_nonce: int,
     collision_code: bytes,
     collision_storage: Dict[int, int],
@@ -199,7 +191,9 @@ def test_create_opcode_collision(
         # this runs out of gas, and every other fork jumps to a non-JUMPDEST.
         Op.MSTORE(0, Op.PUSH32(bytes(initcode).ljust(32, b"\0")))
         + Op.JUMPI(
-            condition=Op.ISZERO(opcode(value=0, offset=0, size=len(initcode))),
+            condition=Op.ISZERO(
+                create_opcode(value=0, offset=0, size=len(initcode))
+            ),
             pc=0,
         )
         + Op.STOP
@@ -231,7 +225,7 @@ def test_create_opcode_collision(
         nonce=1,
         salt=0,
         initcode=initcode,
-        opcode=opcode,
+        opcode=create_opcode,
     )
 
     tx = Transaction(
@@ -298,19 +292,11 @@ def test_create_tx_balance_only_target(
     )
 
 
-@pytest.mark.parametrize(
-    "opcode",
-    [
-        Op.CREATE,
-        pytest.param(
-            Op.CREATE2, marks=pytest.mark.valid_from("Constantinople")
-        ),
-    ],
-)
+@pytest.mark.with_all_create_opcodes
 def test_create_opcode_balance_only_target(
     state_test: StateTestFiller,
     pre: Alloc,
-    opcode: Op,
+    create_opcode: Op,
 ) -> None:
     """
     Test that a contract creation opcode succeeds when the target
@@ -322,7 +308,7 @@ def test_create_opcode_balance_only_target(
     contract_creator_code = (
         # Stores the created address, which is non-zero on success.
         Op.MSTORE(0, Op.PUSH32(bytes(initcode).ljust(32, b"\0")))
-        + Op.SSTORE(0x01, opcode(value=0, offset=0, size=len(initcode)))
+        + Op.SSTORE(0x01, create_opcode(value=0, offset=0, size=len(initcode)))
         + Op.STOP
     )
     contract_creator_address = pre.deploy_contract(contract_creator_code)
@@ -332,7 +318,7 @@ def test_create_opcode_balance_only_target(
         nonce=1,
         salt=0,
         initcode=initcode,
-        opcode=opcode,
+        opcode=create_opcode,
     )
 
     tx = Transaction(
