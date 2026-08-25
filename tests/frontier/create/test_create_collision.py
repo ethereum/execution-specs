@@ -27,6 +27,11 @@ pytestmark = [
     pytest.mark.pre_alloc_mutable,
 ]
 
+CORRECT_INITCODE = Initcode(
+    deploy_code=Op.STOP,
+    initcode_prefix=Op.SSTORE(0, 1) + Op.SSTORE(1, 0),
+)
+
 # Every account shape where creation must abort under EIP-684: the
 # product of nonce, code, storage and balance with non-empty code or
 # nonce. Cells with zero nonce and empty code are excluded: with
@@ -37,13 +42,13 @@ pytestmark = [
 # instead of code or nonce; cells with non-empty storage also check
 # that the aborted creation neither wipes the storage nor runs the
 # initcode, which would zero slot 0x01 in the correct-initcode case.
-COLLISION_ACCOUNT_PARAMS = [
-    pytest.param(
+COLLISION_ACCOUNT_CASES = [
+    (
         nonce,
         code,
         storage,
         balance,
-        id=(
+        (
             f"nonce_{nonce}-"
             f"{'code' if code else 'no_code'}-"
             f"{'storage' if storage else 'no_storage'}-"
@@ -57,17 +62,33 @@ COLLISION_ACCOUNT_PARAMS = [
     if nonce != 0 or code != b""
 ]
 
-CORRECT_INITCODE = Initcode(
-    deploy_code=Op.STOP,
-    initcode_prefix=Op.SSTORE(0, 1) + Op.SSTORE(1, 0),
-)
+INITCODE_CASES = [
+    (CORRECT_INITCODE, "correct-initcode", False),
+    (Op.REVERT(0, 0), "revert-initcode", True),
+    (Op.MSTORE(0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1), "oog-initcode", True),
+]
 
-INITCODE_PARAMS = [
-    pytest.param(CORRECT_INITCODE, id="correct-initcode"),
-    pytest.param(Op.REVERT(0, 0), id="revert-initcode"),
+# Preserve the reverting and out-of-gas initcode coverage for the two
+# original ported account shapes. The successful initcode is the probe
+# that distinguishes a missed collision for every additional shape.
+ORIGINAL_COLLISION_ACCOUNT_IDS = {
+    "nonce_0-code-storage-balance_0",
+    "nonce_1-no_code-no_storage-balance_0",
+}
+
+COLLISION_PARAMS = [
     pytest.param(
-        Op.MSTORE(0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1), id="oog-initcode"
-    ),
+        nonce,
+        code,
+        storage,
+        balance,
+        initcode,
+        id=f"{initcode_id}-{account_id}",
+    )
+    for initcode, initcode_id, original_accounts_only in INITCODE_CASES
+    for nonce, code, storage, balance, account_id in COLLISION_ACCOUNT_CASES
+    if not original_accounts_only
+    or account_id in ORIGINAL_COLLISION_ACCOUNT_IDS
 ]
 
 PORTED_FROM = pytest.mark.ported_from(
@@ -81,10 +102,9 @@ PORTED_FROM = pytest.mark.ported_from(
 
 @PORTED_FROM
 @pytest.mark.parametrize(
-    "collision_nonce,collision_code,collision_storage,collision_balance",
-    COLLISION_ACCOUNT_PARAMS,
+    "collision_nonce,collision_code,collision_storage,collision_balance,initcode",
+    COLLISION_PARAMS,
 )
-@pytest.mark.parametrize("initcode", INITCODE_PARAMS)
 @pytest.mark.with_all_contract_creating_tx_types
 @pytest.mark.eels_base_coverage
 def test_create_tx_collision(
@@ -146,10 +166,9 @@ def test_create_tx_collision(
 
 @PORTED_FROM
 @pytest.mark.parametrize(
-    "collision_nonce,collision_code,collision_storage,collision_balance",
-    COLLISION_ACCOUNT_PARAMS,
+    "collision_nonce,collision_code,collision_storage,collision_balance,initcode",
+    COLLISION_PARAMS,
 )
-@pytest.mark.parametrize("initcode", INITCODE_PARAMS)
 @pytest.mark.parametrize(
     "opcode",
     [
