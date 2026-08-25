@@ -230,6 +230,47 @@ class TopFrameGasCalculator(Protocol):
         pass
 
 
+class TransactionGasToReachExecutionCalculator(Protocol):
+    """
+    A protocol to calculate the gas a transaction must be funded with to
+    be guaranteed to reach the start of EVM execution at a given fork.
+    """
+
+    def __call__(
+        self,
+        *,
+        calldata: BytesConvertible = b"",
+        contract_creation: bool = False,
+        access_list: List[AccessList] | None = None,
+        authorizations: Sequence[AuthorizationGasInfo] = (),
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
+        delegation_warm: bool = False,
+    ) -> int:
+        """
+        Return the gas a transaction must be funded with to be
+        guaranteed to reach the start of EVM execution.
+
+        Args:
+          calldata: The data of the transaction.
+          contract_creation: Whether the transaction creates a contract.
+          access_list: The list of access lists for the transaction.
+          authorizations: The transaction's EIP-7702 authorizations.
+                          Structural values are required rather than a
+                          count, because the top-frame charge depends on
+                          each authority's pre-transaction state.
+          sends_value: Whether the transaction transfers a non-zero
+                       value.
+          recipient_type: Category of the transaction recipient.
+          delegation_warm: Whether a delegated recipient's delegation
+                           target is already warm.
+
+        Returns: Gas required to reach the start of execution.
+
+        """
+        pass
+
+
 class BlobGasPriceCalculator(Protocol):
     """
     A protocol to calculate the blob gas price given the excess blob gas at a
@@ -866,6 +907,84 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         del contract_creation, sends_value, recipient_type, authorizations
         return 0
+
+    @classmethod
+    def transaction_gas_to_reach_execution_calculator(
+        cls,
+    ) -> TransactionGasToReachExecutionCalculator:
+        """
+        Return a callable giving the gas a transaction must be funded
+        with to be guaranteed to reach the start of EVM execution.
+
+        A transaction funded with only its intrinsic cost is valid but
+        is not guaranteed to execute: since EIP-2780 the charges that
+        depend on the pre-transaction state are levied at the top frame,
+        after the intrinsic deduction and before execution begins. Such
+        a transaction runs out of gas without running any code, which is
+        silent unless the test pins the receipt status.
+
+        The returned value is the larger of the gas required for the
+        transaction to be valid (which accounts for the calldata floor)
+        and the gas consumed before execution begins (the portion of the
+        intrinsic cost deducted up front, plus the top-frame execution
+        and state charges).
+
+        Naturally correct across all forks: the top-frame charges
+        default to 0, so before EIP-2780 this returns exactly the
+        intrinsic cost.
+        """
+        intrinsic_cost_calculator = cls.transaction_intrinsic_cost_calculator()
+        top_frame_gas_calculator = cls.transaction_top_frame_gas_calculator()
+
+        def fn(
+            *,
+            calldata: BytesConvertible = b"",
+            contract_creation: bool = False,
+            access_list: List[AccessList] | None = None,
+            authorizations: Sequence[AuthorizationGasInfo] = (),
+            sends_value: bool = False,
+            recipient_type: RecipientType = RecipientType.CONTRACT,
+            delegation_warm: bool = False,
+        ) -> int:
+            # Forks without EIP-7702 reject a non-None authorization
+            # argument, so an empty sequence is normalized away.
+            authorization_list = authorizations if authorizations else None
+            validity_minimum = intrinsic_cost_calculator(
+                calldata=calldata,
+                contract_creation=contract_creation,
+                access_list=access_list,
+                authorization_list_or_count=authorization_list,
+                sends_value=sends_value,
+                recipient_type=recipient_type,
+            )
+            deducted_prior_execution = intrinsic_cost_calculator(
+                calldata=calldata,
+                contract_creation=contract_creation,
+                access_list=access_list,
+                authorization_list_or_count=authorization_list,
+                return_cost_deducted_prior_execution=True,
+                sends_value=sends_value,
+                recipient_type=recipient_type,
+            )
+            top_frame_gas = top_frame_gas_calculator(
+                contract_creation=contract_creation,
+                sends_value=sends_value,
+                recipient_type=recipient_type,
+                delegation_warm=delegation_warm,
+                authorizations=authorizations,
+            )
+            top_frame_state_gas = cls.transaction_top_frame_state_gas(
+                contract_creation=contract_creation,
+                sends_value=sends_value,
+                recipient_type=recipient_type,
+                authorizations=authorizations,
+            )
+            return max(
+                validity_minimum,
+                deducted_prior_execution + top_frame_gas + top_frame_state_gas,
+            )
+
+        return fn
 
     @classmethod
     def call_value_stipend(cls) -> int:
