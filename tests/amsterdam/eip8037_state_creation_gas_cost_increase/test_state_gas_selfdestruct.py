@@ -9,6 +9,7 @@ already exists or the originator has zero balance.
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
 """
+# NOTE: Finish test review
 
 import pytest
 from execution_testing import (
@@ -773,26 +774,43 @@ def test_selfdestruct_new_beneficiary_account_write_cost(
     execution gas plus the account-creation state gas, and not the
     legacy combined execution account-creation cost.
     """
-    # TODO: Modify to subcall scenario
     beneficiary = pre.fund_eoa(amount=0)
 
     victim_code = Op.SELFDESTRUCT(beneficiary, account_new=True)
     victim = pre.deploy_contract(code=victim_code, balance=1)
 
-    # Tight budget: slack is less than the legacy 25,000 execution
-    # account-creation cost minus `ACCOUNT_WRITE`, so any execution draw
-    # beyond `ACCOUNT_WRITE` would OOG. The opcode metadata folds the
-    # `ACCOUNT_WRITE` execution cost and the account-creation state gas
-    # into `gas_cost`.
-    intrinsic = fork.transaction_intrinsic_cost_calculator()()
-    gas_limit = intrinsic + victim_code.gas_cost(fork)
+    storage = Storage()
+    execution_cost = victim_code.execution_cost(fork)
+    state_cost = victim_code.state_cost(fork)
+
+    slot = storage.store_next(1, "subcall_succeeds")
+
+    caller_code = Op.SSTORE(
+        slot,
+        Op.CALL(gas=execution_cost, address=victim),
+        # gas accounting
+        key_warm=False,
+        original_value=2,
+        current_value=2,
+        new_value=1,
+    )
+    caller = pre.deploy_contract(code=caller_code, storage={slot: 2})
+
     tx = Transaction(
-        to=victim,
-        gas_limit=gas_limit,
+        to=caller,
+        state_gas_reservoir=state_cost,
         sender=pre.fund_eoa(),
     )
 
-    state_test(pre=pre, post={beneficiary: Account(balance=1)}, tx=tx)
+    state_test(
+        pre=pre,
+        post={
+            beneficiary: Account(balance=1),
+            victim: Account(balance=0),
+            caller: Account(storage=storage),
+        },
+        tx=tx,
+    )
 
 
 @pytest.mark.parametrize(

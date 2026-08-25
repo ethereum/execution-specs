@@ -424,15 +424,14 @@ def test_block_gas_used_call_new_account(
         intrinsic_gas + parent_code.execution_cost(fork) + intrinsic_gas
     )
     block_state = parent_code.state_cost(fork)
+    assert block_state > block_execution, "requires state gas to dominate"
 
     blockchain_test(
         pre=pre,
         blocks=[
             Block(
                 txs=txs,
-                header_verify=Header(
-                    gas_used=max(block_execution, block_state)
-                ),
+                header_verify=Header(gas_used=block_state),
             )
         ],
         post={parent: Account(storage=parent_storage)},
@@ -461,7 +460,9 @@ def test_block_gas_used_create_tx(
     create_state = fork.transaction_top_frame_state_gas(contract_creation=True)
     stop_execution = intrinsic_calc()
 
-    expected = max(create_execution + stop_execution, create_state)
+    assert create_state > create_execution + stop_execution, (
+        "create state should dominate"
+    )
 
     sender = pre.fund_eoa()
     txs = [
@@ -478,7 +479,7 @@ def test_block_gas_used_create_tx(
         blocks=[
             Block(
                 txs=txs,
-                header_verify=Header(gas_used=expected),
+                header_verify=Header(gas_used=create_state),
             )
         ],
         post={
