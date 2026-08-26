@@ -1619,6 +1619,9 @@ def pytest_collection_modifyitems(
     deselected: List[pytest.Item] = []
     # function name -> (reason, total, deselected_count)
     filter_stats: Dict[str, Tuple[str, int, int]] = {}
+    validity_deselected: List[pytest.Item] = []
+    # function name -> deselected_count
+    validity_stats: Dict[str, int] = {}
 
     for i, item in enumerate(items):
         params = _get_item_params(item)
@@ -1666,6 +1669,9 @@ def pytest_collection_modifyitems(
 
         if fork not in valid_fork_set:
             items_to_remove.append(i)
+            validity_deselected.append(item)
+            fn_name = item.nodeid.split("[")[0]
+            validity_stats[fn_name] = validity_stats.get(fn_name, 0) + 1
 
     # Fail if a filter_combinations predicate eliminated every case
     # for a test function — the predicate is almost certainly wrong.
@@ -1697,4 +1703,22 @@ def pytest_collection_modifyitems(
                     writer.line(f"  {fn_name}: {dc} deselected ({reason})")
             if config.option.verbose >= 2:
                 for item in deselected:
+                    writer.line(f"    {item.nodeid}")
+
+    if validity_deselected:
+        config.hook.pytest_deselected(items=validity_deselected)
+        if config.option.verbose >= 0:
+            # Fork-less items skip the check, so the tally cannot say "all".
+            surviving = {item.nodeid.split("[")[0] for item in items}
+            writer = config.get_terminal_writer()
+            writer.line("")
+            writer.sep(
+                "-",
+                f"{len(validity_deselected)} deselected by validity markers",
+            )
+            for fn_name, dc in sorted(validity_stats.items()):
+                gone = "" if fn_name in surviving else " (no cases left)"
+                writer.line(f"  {fn_name}: {dc} deselected{gone}")
+            if config.option.verbose >= 2:
+                for item in validity_deselected:
                     writer.line(f"    {item.nodeid}")
