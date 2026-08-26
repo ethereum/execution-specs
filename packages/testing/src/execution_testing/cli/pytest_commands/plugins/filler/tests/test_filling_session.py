@@ -84,7 +84,7 @@ class TestFillingSession:
         config = MockConfig(use_pre_alloc_groups=True)
 
         # Mock the file system operations
-        group_hash = AllocGroupHash.from_hash("test_hash")
+        group_hash = AllocGroupHash.from_preimage("test_hash")
         test_group_builder = PreAllocGroupBuilder(
             pre=Alloc().model_dump(mode="json"),
             environment=Environment()
@@ -180,7 +180,7 @@ class TestFillingSession:
         """Test getting a pre-alloc group by hash."""
         config = MockConfig(use_pre_alloc_groups=True)
 
-        group_hash = AllocGroupHash.from_hash("test_hash")
+        group_hash = AllocGroupHash.from_preimage("test_hash")
         test_group_builder = PreAllocGroupBuilder(
             pre=Alloc().model_dump(mode="json"),
             environment=Environment()
@@ -203,7 +203,9 @@ class TestFillingSession:
                     session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
         assert (
-            session.get_pre_alloc_group(AllocGroupHash.from_hash("test_hash"))
+            session.get_pre_alloc_group(
+                AllocGroupHash.from_preimage("test_hash")
+            )
             is test_group
         )
 
@@ -227,7 +229,7 @@ class TestFillingSession:
             ValueError, match="Pre-allocation hash .* not found"
         ):
             session.get_pre_alloc_group(
-                AllocGroupHash.from_hash("missing_hash")
+                AllocGroupHash.from_preimage("missing_hash")
             )
 
     def test_get_pre_alloc_group_not_initialized(self) -> None:
@@ -243,7 +245,9 @@ class TestFillingSession:
         with pytest.raises(
             ValueError, match="Pre-allocation groups not initialized"
         ):
-            session.get_pre_alloc_group(AllocGroupHash.from_hash("any_hash"))
+            session.get_pre_alloc_group(
+                AllocGroupHash.from_preimage("any_hash")
+            )
 
     def test_save_pre_alloc_groups(self) -> None:
         """Test saving pre-alloc groups to disk."""
@@ -260,7 +264,7 @@ class TestFillingSession:
         # here we only need a non-empty mapping for save_pre_alloc_groups
         # to exercise its mkdir/to_folder path.
         assert session.pre_alloc_group_builders is not None
-        group_hash = AllocGroupHash.from_hash("test_hash")
+        group_hash = AllocGroupHash.from_preimage("test_hash")
         session.pre_alloc_group_builders.root[group_hash] = (
             PreAllocGroupBuilder(
                 pre=Alloc().model_dump(mode="json"),

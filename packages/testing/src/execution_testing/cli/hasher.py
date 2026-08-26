@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
 
 import click
-from pydantic import ValidationError
 from rich.console import Console
 from rich.markup import escape as rich_escape
 
@@ -96,17 +95,14 @@ class HashableItem:
     ) -> "HashableItem":
         """Create a hashable item from a JSON file."""
         items = {}
-        file_text = file_path.read_text()
-        # Special-case the pre-alloc groups
-        try:
-            v = PreAllocGroup.from_file(file_path)
+        # Pre-alloc group files live under a "pre_alloc" folder
+        if file_path.parent.name == "pre_alloc":
             return cls(
                 type=HashableItemType.FILE,
-                root=v.hash(),
+                root=PreAllocGroup.from_file(file_path).hash(),
                 parents=parents + [file_path.name],
             )
-        except ValidationError:
-            pass
+        file_text = file_path.read_text()
         data = json.loads(file_text)
         for key, item in sorted(data.items()):
             if not isinstance(item, dict):

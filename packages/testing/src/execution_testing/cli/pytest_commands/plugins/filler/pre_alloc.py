@@ -134,7 +134,7 @@ class Alloc(SharedAlloc):
             for deleted_address in sorted(self._deleted_addresses):
                 buffer += deleted_address
 
-        return AllocGroupHash.from_hash(buffer)
+        return AllocGroupHash.from_preimage(buffer)
 
     def compute_pre_alloc_group_hash(
         self,
@@ -145,15 +145,17 @@ class Alloc(SharedAlloc):
     ) -> AllocGroupHash:
         """Hash (fork, env) in order to group tests by genesis config."""
         combined_hash = (
-            AllocGroupHash.from_hash(fork.name())
-            ^ AllocGroupHash.from_hash(genesis_environment.canonical_json())
+            AllocGroupHash.from_preimage(fork.name())
+            ^ AllocGroupHash.from_preimage(
+                genesis_environment.canonical_json()
+            )
             ^ self.modified_accounts_salt()
         )
 
         # Check if this pre-allocation has a group salt
         if group_salt:
             # Add custom salt to hash
-            combined_hash = combined_hash ^ AllocGroupHash.from_hash(
+            combined_hash = combined_hash ^ AllocGroupHash.from_preimage(
                 group_salt
             )
 

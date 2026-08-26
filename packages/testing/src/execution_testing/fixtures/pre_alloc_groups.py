@@ -58,8 +58,19 @@ class PreAllocGroupCommon(CamelModel):
 
     @classmethod
     def from_file(cls, file: Path) -> Self:
-        """Load a pre-allocation group or builder from a JSON file."""
-        return cls.model_validate_json(file.read_bytes())
+        """
+        Load a pre-allocation group or builder from a JSON file.
+
+        Additionally, verify that the file name contains the group hash.
+        """
+        instance = cls.model_validate_json(file.read_bytes())
+        if str(instance.group_hash).lower() not in file.stem.lower():
+            raise Exception(
+                f"Pre-alloc group file name `{file}` does not contain the "
+                "group hash contained in the file "
+                f"`{str(instance.group_hash)}`"
+            )
+        return instance
 
 
 class PreAllocGroupBuilder(PreAllocGroupCommon):
@@ -135,7 +146,8 @@ class PreAllocGroupBuilder(PreAllocGroupCommon):
 
         Saves the builder format (without genesis/state_root) to avoid
         expensive state root computation during Phase 1. State root is
-        computed once when loading in Phase 2 via PreAllocGroup.from_file().
+        computed once when the `build` method is used to construct the final
+        `PreAllocGroup`.
         """
         suffix = f".{worker_id}" if worker_id else ".main"
         partial_path = file.with_suffix(f".partial{suffix}.json")
@@ -157,10 +169,9 @@ def merge_partial_group_files(folder: Path, final: bool) -> None:
     Each worker writes {group_hash}.partial.{worker_id}.json files,
     which are merged here into {group_hash}.json files.
 
-    The `final` parameter establishes whether to save the files in builder
-    format, in order for them to be able to be re-processed by
-    `pack_pre_alloc_groups`, or the pre-alloc format to be included
-    in the output.
+    The `final` parameter establishes whether to save the files in the final
+    pre-alloc format to be included in the output, or in the builder format,
+    in order for them to be able to be re-processed later.
     """
     partial_files = list(folder.glob("*.partial.*.json"))
     if not partial_files:
@@ -234,7 +245,7 @@ def merge_partial_group_files(folder: Path, final: bool) -> None:
 
 def _packed_group_hash(test_ids: List[str]) -> AllocGroupHash:
     """Return a deterministic ``0x``-prefixed id for a packed group."""
-    return AllocGroupHash.from_hash("\n".join(test_ids))
+    return AllocGroupHash.from_preimage("\n".join(test_ids))
 
 
 # The test id -> group hash index written next to the group files by

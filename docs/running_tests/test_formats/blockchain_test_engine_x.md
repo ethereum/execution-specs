@@ -34,6 +34,7 @@ Each file in the `pre_alloc` folder corresponds to a pre-allocation group identi
    "network": "Prague",
    "chainId": "0x01",
    "groupHash": "0xb664b0d847df2cf7",
+   "genesis": { ... },
    "pre": { ... }
 }
 ```
@@ -47,6 +48,7 @@ Each file in the `pre_alloc` folder corresponds to a pre-allocation group identi
 - **`chainId`**: Chain id the group's genesis is configured for
 - **`groupHash`**: The group's own hash; matches the file name and the [`preHash`](#-prehash-string) of every test in the group
 - **`groupSalt`**: Optional isolation salt; only present for groups that were explicitly isolated
+- **`genesis`**: Genesis block header ([`FixtureHeader`](./blockchain_test.md#fixtureheader)) shared by every test in the group, derived from the environment the group was keyed on; its state root matches the state root of `pre`
 - **`pre`**: Pre-allocation group [`Alloc`](./common_types.md#alloc-mappingaddressaccount) object containing initial account states
 
 ## Consumption
@@ -56,12 +58,12 @@ For each [`BlockchainTestEngineXFixture`](#blockchaintestenginexfixture) test ob
 1. **Load Pre-Allocation Group**:
    - Read the appropriate file from the `pre_alloc` folder in the same directory
    - Locate the pre-allocation group using [`preHash`](#-prehash-string)
-   - Extract the `pre` allocation from the group
+   - Extract the `pre` allocation and `genesis` header from the group
 
 2. **Initialize Client**:
    - Use [`network`](#-network-fork) to configure the execution fork schedule
    - Use the pre-allocation group's `pre` allocation as the starting state
-   - Use [`genesisBlockHeader`](#-genesisblockheader-fixtureheader) as the genesis block header
+   - Use the pre-allocation group's `genesis` as the genesis block header
 
 3. **Execute Engine API Sequence**:
    - For each [`FixtureEngineNewPayload`](#fixtureenginenewpayload) in [`engineNewPayloads`](#-enginenewpayloads-listfixtureenginenewpayload):
@@ -89,10 +91,6 @@ This field is going to be replaced by the value contained in `config.network`.
 #### - `preHash`: `string`
 
 Hash identifier referencing a pre-allocation group in the `pre_alloc` folder. This hash uniquely identifies the combination of fork, environment, and pre-allocation state that defines the group. It is `0x`-prefixed, 8 bytes wide, and matches both the group file's name and its `groupHash` field.
-
-#### - `genesisBlockHeader`: [`FixtureHeader`](./blockchain_test.md#fixtureheader)
-
-Genesis block header. The state root in this header must match the state root calculated from the pre-allocation group referenced by [`preHash`](#-prehash-string).
 
 #### - `engineNewPayloads`: [`List`](./common_types.md#list)`[`[`FixtureEngineNewPayload`](#fixtureenginenewpayload)`]`
 

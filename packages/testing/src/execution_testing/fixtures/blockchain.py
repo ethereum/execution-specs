@@ -927,12 +927,10 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     pre_hash: AllocGroupHash
     """Hash of the pre-allocation group this test belongs to."""
 
-    post_state_diff: Alloc | None = None
+    post_state_diff: Alloc
     """
     State difference from genesis after test execution (efficiency
     optimization).
-
-    TODO: Remove `| None = None` defaults once we are past `v20.0.1` release.
     """
 
     payloads: List[FixtureEngineNewPayload] = Field(

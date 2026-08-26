@@ -917,7 +917,7 @@ def pytest_terminal_summary(
                 )
                 group_files = list(pre_alloc_folder.glob("*.json"))
                 total_groups = len(group_files)
-                # Count accounts by loading as builder (no genesis computation)
+                # Count accounts from the final pre-alloc group files
                 total_accounts = 0
                 for group_file in group_files:
                     pre_alloc_group = PreAllocGroup.from_file(group_file)

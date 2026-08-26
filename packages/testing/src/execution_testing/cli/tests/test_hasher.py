@@ -8,10 +8,13 @@ from typing import Generator, List
 import pytest
 from click.testing import CliRunner
 
-from execution_testing.base_types import Hash
+from execution_testing.base_types import Account, Address, Hash
 from execution_testing.cli.gen_index import merge_partial_indexes
 from execution_testing.cli.hasher import HashableItem, hasher
 from execution_testing.fixtures.consume import IndexFile, TestCaseIndexFile
+from execution_testing.fixtures.pre_alloc_groups import PreAllocGroupBuilder
+from execution_testing.forks import Fork, Prague
+from execution_testing.test_types import Alloc, Environment
 
 HASH_1 = 0x1111111111111111111111111111111111111111111111111111111111111111
 HASH_2 = 0x2222222222222222222222222222222222222222222222222222222222222222
@@ -57,6 +60,27 @@ def create_fixture(path: Path, test_name: str, hash_value: int) -> None:
     )
 
 
+def create_pre_alloc_group(
+    folder: Path, balance: int, fork: Fork = Prague
+) -> Path:
+    """Write a pre-allocation group file, as filling phase 1 produces it."""
+    folder.mkdir(parents=True, exist_ok=True)
+    builder = PreAllocGroupBuilder(
+        test_ids=["tests/test_group.py::test_group"],
+        environment=Environment().set_fork_requirements(fork),
+        fork=fork,
+        group_hash=0x0011223344556677,
+        pre=Alloc({Address(0x1000): Account(balance=balance)}),
+    )
+    group_file = folder / f"{builder.group_hash}.json"
+    group_file.write_text(
+        builder.build().model_dump_json(
+            by_alias=True, exclude_none=True, indent=2
+        )
+    )
+    return group_file
+
+
 class TestCompareIdenticalDirectories:
     """Test comparing identical directories."""
 
@@ -95,6 +119,66 @@ class TestCompareDifferentDirectories:
         assert "test1" in result.output
         assert "abc123" in result.output
         assert "def456" in result.output
+
+
+class TestComparePreAllocGroups:
+    """
+    Compare directories holding a `pre_alloc` group folder.
+
+    Group files are hashed by their `PreAllocGroup` content, which the hasher
+    keys off the folder name rather than off a trial parse, so a broken group
+    file fails as a group instead of falling through to the fixture path.
+    """
+
+    def test_compare_identical_groups(self, tmp_path: Path) -> None:
+        """Identical group files hash equal."""
+        for name in ("dir_a", "dir_b"):
+            root = tmp_path / name / "blockchain_tests_engine_x"
+            create_fixture(root / "test.json", "test1", 0xABC123)
+            create_pre_alloc_group(root / "pre_alloc", balance=1)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            hasher,
+            ["compare", str(tmp_path / "dir_a"), str(tmp_path / "dir_b")],
+        )
+        assert result.exit_code == 0
+        assert result.output == ""
+
+    def test_compare_different_groups(self, tmp_path: Path) -> None:
+        """A changed pre-allocation shows as a group file difference."""
+        for name, balance in (("dir_a", 1), ("dir_b", 2)):
+            root = tmp_path / name / "blockchain_tests_engine_x"
+            create_fixture(root / "test.json", "test1", 0xABC123)
+            create_pre_alloc_group(root / "pre_alloc", balance=balance)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            hasher,
+            ["compare", str(tmp_path / "dir_a"), str(tmp_path / "dir_b")],
+        )
+        assert result.exit_code == 1
+        assert "pre_alloc" in result.output
+        # The regular fixture sitting next to the group folder is untouched.
+        assert "test.json" not in result.output
+
+    def test_broken_group_file_reports_a_group_error(
+        self, tmp_path: Path
+    ) -> None:
+        """A malformed group file fails as a group, not as a fixture."""
+        root = tmp_path / "dir_a" / "blockchain_tests_engine_x"
+        pre_alloc = root / "pre_alloc"
+        pre_alloc.mkdir(parents=True)
+        (pre_alloc / "broken.json").write_text(json.dumps({"test1": {}}))
+
+        runner = CliRunner()
+        result = runner.invoke(
+            hasher,
+            ["compare", str(tmp_path / "dir_a"), str(tmp_path / "dir_a")],
+        )
+        assert result.exit_code == 2
+        assert "PreAllocGroup" in result.output
+        assert "_info" not in result.output
 
 
 class TestCompareMissingDirectory:

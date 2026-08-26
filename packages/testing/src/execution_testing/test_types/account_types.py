@@ -114,7 +114,7 @@ class AllocGroupHash(FixedSizeBytes[8]):  # type: ignore
     """Class that helps represent hashes used to group allocs."""
 
     @classmethod
-    def from_hash(cls, x: str | bytes) -> "AllocGroupHash":
+    def from_preimage(cls, x: str | bytes) -> "AllocGroupHash":
         """
         Perform a hash (sha256) then truncate the output to get the alloc
         hash.
