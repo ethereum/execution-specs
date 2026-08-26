@@ -11,6 +11,7 @@ from typing import (
     Dict,
     List,
     Protocol,
+    Self,
     Set,
     Type,
     Union,
@@ -216,43 +217,6 @@ class BaseFixture(CamelModel):
         return False
 
     @classmethod
-    def with_label_suffix(
-        cls,
-        suffix: str,
-        description: str | None = None,
-        *,
-        transition_tool_cache_key: str | None = None,
-        variant: str | None = None,
-    ) -> "LabeledFixtureFormat":
-        """
-        Return this format labeled `<format_id>_<suffix>`.
-
-        Use this instead of building a `LabeledFixtureFormat` by hand when a
-        spec type re-labels the formats of another one: the label is derived
-        from `format_id()`, so a format that already carries a label derives a
-        distinct label per label instead of collapsing them all onto its
-        format name.
-
-        `transition_tool_cache_key` defaults to this format's key, which is
-        what a label that only renames the same fixture wants. A suffix that
-        asks the transition tool for something different must pass its own
-        key, or an empty string to opt out of caching.
-
-        `variant` names what the label asks its spec type to fill differently,
-        for that spec type to query with `is_variant()` rather than comparing
-        formats.
-        """
-        return LabeledFixtureFormat(
-            cls,
-            f"{cls.format_id()}_{suffix}",
-            description
-            if description is not None
-            else f"A {cls.format_id()} {suffix.replace('_', ' ')}",
-            transition_tool_cache_key=transition_tool_cache_key,
-            variant=variant,
-        )
-
-    @classmethod
     def marks(
         cls, *, transition_tool_cache_key: str | None = None
     ) -> List[pytest.MarkDecorator | pytest.Mark]:
@@ -435,14 +399,16 @@ class LabeledFixtureFormat:
         labels.append(self.label)
         return labels
 
+    @classmethod
     def with_label_suffix(
-        self,
+        cls,
+        fixture_format: "Type[BaseFixture] | LabeledFixtureFormat",
         suffix: str,
         description: str | None = None,
         *,
-        transition_tool_cache_key: str | None = None,
+        transition_tool_cache_key_suffix: str | None = None,
         variant: str | None = None,
-    ) -> "LabeledFixtureFormat":
+    ) -> Self:
         """
         Return this label re-labeled as `<label>_<suffix>`.
 
@@ -457,12 +423,19 @@ class LabeledFixtureFormat:
         `variant` defaults to this label's variant, so re-labeling a variant
         keeps filling that variant.
         """
-        return LabeledFixtureFormat(
-            self,
-            f"{self.format_id()}_{suffix}",
-            description
+        transition_tool_cache_key: str | None = None
+        if transition_tool_cache_key_suffix is not None:
+            parent_key = fixture_format.transition_tool_cache_key
+            if parent_key:
+                transition_tool_cache_key = (
+                    f"{parent_key}_{transition_tool_cache_key_suffix}"
+                )
+        return cls(
+            fixture_format=fixture_format,
+            label=f"{fixture_format.format_id()}_{suffix}",
+            description=description
             if description is not None
-            else f"A {self.format_id()} {suffix.replace('_', ' ')}",
+            else f"A {fixture_format.format_id()} {suffix.replace('_', ' ')}",
             transition_tool_cache_key=transition_tool_cache_key,
             variant=variant,
         )
