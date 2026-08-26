@@ -1656,8 +1656,7 @@ class Bogota(
     BogotaEIPs,
     Amsterdam,
     deployed=False,
-    transition_tool_name="Amsterdam",
 ):
-    """Bogotá fork: Amsterdam + Bogotá EIPs (FOCIL)."""
+    """Bogota fork."""
 
     pass

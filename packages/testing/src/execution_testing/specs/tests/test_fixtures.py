@@ -26,8 +26,8 @@ from execution_testing.fixtures import (
     StateFixture,
 )
 from execution_testing.forks import (
-    Amsterdam,
     Berlin,
+    Bogota,
     Cancun,
     Fork,
     Istanbul,
@@ -35,7 +35,6 @@ from execution_testing.forks import (
     Paris,
     Shanghai,
 )
-from execution_testing.rpc.rpc_types import PayloadStatusEnum
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -128,8 +127,10 @@ def test_make_genesis(  # noqa: D103
     assert fixture.genesis.block_hash.startswith(fixture_hash)
 
 
+@pytest.mark.parametrize("inclusion_list_satisfied", [False, True])
 def test_blockchain_fixtures_include_inclusion_lists(
     default_t8n: TransitionTool,
+    inclusion_list_satisfied: bool,
 ) -> None:
     """Test inclusion list plumbing across classic and engine fixtures."""
     tx = Transaction(
@@ -138,17 +139,19 @@ def test_blockchain_fixtures_include_inclusion_lists(
         gas_limit=21_000,
         gas_price=10,
     )
-    block = Block()
     sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     signed_il_tx = tx.with_signature_and_sender()
 
     pre = Alloc({sender: Account(balance=10**18)})
 
-    block.inclusion_list_txs = [tx]
+    if inclusion_list_satisfied:
+        block = Block(txs=[tx], inclusion_list_txs=[tx])
+    else:
+        block = Block(txs=[], inclusion_list_txs=[tx])
 
     engine_fixture = (
         BlockchainTest(
-            fork=Amsterdam,
+            fork=Bogota,
             pre=pre,
             post={},
             blocks=[block],
@@ -159,9 +162,10 @@ def test_blockchain_fixtures_include_inclusion_lists(
     )
     assert isinstance(engine_fixture, BlockchainEngineFixture)
     assert engine_fixture.payloads[0].params[-1] == [signed_il_tx.rlp()]
+    assert engine_fixture.payloads[0].valid()
     assert (
-        engine_fixture.payloads[0].expected_status()
-        == PayloadStatusEnum.INCLUSION_LIST_UNSATISFIED.value
+        engine_fixture.payloads[0].inclusion_list_satisfied
+        == inclusion_list_satisfied
     )
 
 

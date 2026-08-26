@@ -150,14 +150,34 @@ def test_blockchain_via_engine(
                         )
                         status = payload_response.status
                         logger.info(f"Payload response status: {status}")
-                        expected_status = PayloadStatusEnum(
-                            payload.expected_status()
+                        expected_validity = (
+                            PayloadStatusEnum.VALID
+                            if payload.valid()
+                            else PayloadStatusEnum.INVALID
                         )
-                        if payload_response.status != expected_status:
+                        if payload_response.status != expected_validity:
                             raise LoggedError(
-                                f"unexpected status: want {expected_status},"
+                                f"unexpected status: want {expected_validity},"
                                 f" got {payload_response.status}"
                             )
+                        if payload.inclusion_list_satisfied is not None:
+                            if (
+                                payload_response.inclusion_list_satisfied
+                                is None
+                            ):
+                                raise LoggedError(
+                                    "expected `inclusion_list_satisfied` in "
+                                    "response."
+                                )
+                            if (
+                                payload.inclusion_list_satisfied
+                                != payload_response.inclusion_list_satisfied
+                            ):
+                                raise LoggedError(
+                                    f"unexpected inclusion list satisfied: "
+                                    f"want {payload.inclusion_list_satisfied},"
+                                    f" got {payload_response.inclusion_list_satisfied}"  # noqa: E501
+                                )
                         if payload.error_code is not None:
                             raise LoggedError(
                                 "Client failed to raise expected Engine API "
