@@ -346,6 +346,32 @@ def test_param_level_valid_from(state_test, value):
 """
 
 
+def generate_param_level_all_excluded_test() -> str:
+    """Generate a test whose every param names a later fork."""
+    return """
+import pytest
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(
+            True,
+            id="from_paris",
+            marks=pytest.mark.valid_from("Paris"),
+        ),
+        pytest.param(
+            False,
+            id="from_shanghai",
+            marks=pytest.mark.valid_from("Shanghai"),
+        ),
+    ],
+)
+@pytest.mark.state_test_only
+def test_all_params_excluded(state_test, value):
+    pass
+"""
+
+
 def generate_param_level_valid_until_test() -> str:
     """Generate a test function with param-level valid_until markers."""
     return """
@@ -539,3 +565,64 @@ def test_param_level_validity_markers(
         *pytest_args,
     )
     result.assert_outcomes(**outcomes)
+
+
+def test_param_level_deselections_are_reported(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    Params dropped by their own validity markers are counted and named.
+
+    `filter_combinations` reports every case it drops; the param-level
+    validity path removed items from the collection without handing them to
+    `pytest_deselected`, so they appeared in no count and no summary.
+    """
+    pytester.makepyfile(generate_param_level_marker_test())
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--from=Berlin",
+        "--until=Paris",
+    )
+
+    # from_tangerine is valid at Berlin, London and Paris; from_paris only at
+    # Paris. Four of the six parametrizations survive.
+    result.assert_outcomes(passed=4, deselected=2)
+    result.stdout.fnmatch_lines(
+        [
+            "*2 deselected by validity markers*",
+            "*test_param_level_valid_from: 2 deselected",
+        ]
+    )
+
+
+def test_param_level_deselection_of_every_case_is_named(
+    pytester: pytest.Pytester,
+) -> None:
+    """
+    A test left with no case at all says so, rather than just vanishing.
+
+    Unlike `filter_combinations`, this is not an error: a narrow fork range
+    legitimately excludes every param of a test written for later forks. It
+    is reported because it is otherwise indistinguishable from a typo in a
+    marker.
+    """
+    pytester.makepyfile(generate_param_level_all_excluded_test())
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--from=Berlin",
+        "--until=London",
+    )
+
+    # Berlin and London precede both markers, so all four cases go.
+    result.assert_outcomes(passed=0, deselected=4)
+    result.stdout.fnmatch_lines(
+        ["*test_all_params_excluded: 4 deselected (no cases left)"]
+    )
