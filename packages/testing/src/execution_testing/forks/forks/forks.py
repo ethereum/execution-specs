@@ -111,7 +111,6 @@ class Frontier(BaseFork):
             NEW_ACCOUNT=25_000,
             # Contract Creation
             CODE_DEPOSIT_PER_BYTE=200,
-            CODE_INIT_PER_WORD=2,
             # Authorization
             AUTH_PER_EMPTY_ACCOUNT=0,
             # Utility
@@ -183,6 +182,7 @@ class Frontier(BaseFork):
             OPCODE_KECCAK256_PER_WORD=6,
             # Zero-initialized: introduced in later forks, set via
             # replace() in the fork that activates them.
+            CODE_INIT_PER_WORD=0,
             TX_DATA_TOKEN_STANDARD=0,
             TX_DATA_TOKEN_FLOOR=0,
             PRECOMPILE_ECADD=0,
