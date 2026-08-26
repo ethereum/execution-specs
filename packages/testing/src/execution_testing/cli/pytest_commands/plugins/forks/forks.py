@@ -49,6 +49,8 @@ logger = get_logger(__name__)
 # Session-scoped cache for the lazily-computed unsupported-fork set
 # (see `get_unsupported_forks`).
 unsupported_forks_key: StashKey[FrozenSet[Fork | TransitionFork]] = StashKey()
+# Tests generation never parametrized, node id -> why.
+unparametrized_key: StashKey[Dict[str, str]] = StashKey()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -1268,6 +1270,12 @@ def fork_markers(
     ]
 
 
+def _record_unparametrized(metafunc: Metafunc, reason: str) -> None:
+    """Note a test that generation is about to drop without parametrizing."""
+    stash = metafunc.config.stash.setdefault(unparametrized_key, {})
+    stash[metafunc.definition.nodeid] = reason
+
+
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """Pytest hook used to dynamically generate test cases."""
     test_name = metafunc.function.__name__
@@ -1293,6 +1301,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
     pytest_params: List[Any]
     if not test_fork_set:
+        _record_unparametrized(
+            metafunc, "its markers enable it for no fork at all"
+        )
         if metafunc.config.getoption("verbose") >= 2:
             pytest_params = [
                 pytest.param(
@@ -1321,6 +1332,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     intersection_set -= get_unsupported_forks(metafunc.config)
 
     if not intersection_set:
+        _record_unparametrized(
+            metafunc, "no selected fork is in its validity range"
+        )
         if metafunc.config.getoption("verbose") >= 2:
             pytest_params = [
                 pytest.param(
@@ -1722,3 +1736,13 @@ def pytest_collection_modifyitems(
             if config.option.verbose >= 2:
                 for item in validity_deselected:
                     writer.line(f"    {item.nodeid}")
+
+    # These never became items, so no deselection hook can carry them.
+    unparametrized = config.stash.get(unparametrized_key, {})
+    if unparametrized and config.option.verbose >= 0:
+        writer = config.get_terminal_writer()
+        writer.line("")
+        writer.sep("-", f"{len(unparametrized)} not parametrized for any fork")
+        if config.option.verbose >= 2:
+            for nodeid, reason in sorted(unparametrized.items()):
+                writer.line(f"  {nodeid}: {reason}")
