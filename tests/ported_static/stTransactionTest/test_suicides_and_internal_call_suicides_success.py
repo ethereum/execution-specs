@@ -7,30 +7,29 @@ Ported from:
 state_tests/stTransactionTest/SuicidesAndInternalCallSuicidesSuccessFiller.json
 
 @manually-enhanced: Do not overwrite. The two forwarded-gas calldata words
-derive from the fork's SELFDESTRUCT new-account cost (state-priced under
-EIP-8037), keeping one arm starved and one funded on every fork.
+derive from the fork's SELFDESTRUCT new-account cost (state-priced
+under EIP-8037), and the two arms sit one gas either side of it, so the
+boundary is exact on every fork rather than approximate. The floor is
+Berlin: the cold-access metadata the budget derives from has no meaning
+before EIP-2929.
 """
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Environment,
-    Hash,
     StateTestFiller,
     Transaction,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
-
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+CALL_VALUE = 1
+SD_VALUE = 999
 
 
 @pytest.mark.ported_from(
@@ -38,129 +37,73 @@ REFERENCE_SPEC_VERSION = "N/A"
         "state_tests/stTransactionTest/SuicidesAndInternalCallSuicidesSuccessFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize(
-    "d, g, v",
+    "sufficient_selfdestruct_gas",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="d0",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1",
-        ),
+        pytest.param(False, id="insufficient_selfdestruct_gas"),
+        pytest.param(True, id="sufficient_selfdestruct_gas"),
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_suicides_and_internal_call_suicides_success(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    sufficient_selfdestruct_gas: bool,
 ) -> None:
     """A funded SELFDESTRUCT materializes its beneficiary."""
-    coinbase = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_0 = Address(0x0000000000000000000000000000000000000000)
-    contract_1 = Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0xABA9500)
+    self_destructing_contract_recipient = pre.nonexistent_account()
     # Source: lll
     # {(SELFDESTRUCT 0x0000000000000000000000000000000000000001)}
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0x0000000000000000000000000000000000000000),  # noqa: E501
+    self_destruct_code = Op.SELFDESTRUCT(
+        address=self_destructing_contract_recipient,
+        # The beneficiary has never been touched, so the access is cold,
+        # and it does not exist, so it has to be created.
+        address_warm=False,
+        account_new=True,
     )
+    self_destructing_contract = pre.deploy_contract(code=self_destruct_code)
+
+    # What the callee needs: the beneficiary push plus the SELFDESTRUCT,
+    # including its EIP-8037 state charge. A value-bearing CALL hands it
+    # a stipend on top of the ask, so the ask that exactly suffices is
+    # that much smaller; the two arms sit one gas either side of it.
+    required_gas = self_destruct_code.gas_cost(fork)
+    exact_ask = required_gas - fork.gas_costs().CALL_STIPEND
+    assert exact_ask > 0, "the stipend alone would fund the SELFDESTRUCT"
+    call_gas = exact_ask if sufficient_selfdestruct_gas else exact_ask - 1
+
     # Source: lll
     # {(CALL (CALLDATALOAD 0) 0x0000000000000000000000000000000000000000 1 0 0 0 0) (SELFDESTRUCT 0)}  # noqa: E501
-    contract_1 = pre.deploy_contract(  # noqa: F841
+    caller_self_destructing_contract = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
-                gas=Op.CALLDATALOAD(offset=contract_0),
-                address=contract_0,
-                value=0x1,
-                args_offset=contract_0,
-                args_size=contract_0,
-                ret_offset=contract_0,
-                ret_size=contract_0,
+                gas=call_gas,
+                address=self_destructing_contract,
+                value=CALL_VALUE,
             )
         )
-        + Op.SELFDESTRUCT(address=contract_0)
+        + Op.SELFDESTRUCT(address=self_destructing_contract)
         + Op.STOP,
-        balance=1000,
-        nonce=0,
-        address=Address(0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+        balance=CALL_VALUE + SD_VALUE,
     )
 
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(
-                    0x0000000000000000000000000000000000000001
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(0x0000000000000000000000000000000000000001): Account(
-                    storage={}, balance=1
-                ),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    # The calldata word is the gas forwarded to the self-destructing
-    # callee. Its SELFDESTRUCT pays a new-account charge for the funded
-    # beneficiary (state-priced under EIP-8037, spilling from the
-    # callee's grant), so both budgets derive from that cost: one starves
-    # it, one funds it with margin.
-    sd_cost = Op.SELFDESTRUCT.with_metadata(
-        address_warm=True, account_new=True
-    ).gas_cost(fork)
-    tx_data = [
-        Hash(sd_cost // 2),
-        Hash(sd_cost + 5_000),
-    ]
-    tx_gas = [
-        fork.transaction_intrinsic_cost_calculator()(
-            calldata=Hash(0), sends_value=True
-        )
-        + sd_cost
-        + 40_000
-    ]
-    tx_value = [10]
+    # The beneficiary is created only when the forwarded gas covers the
+    # new-account charge; otherwise the callee runs out and never pays.
+    post: dict[Address, Account | None] = {
+        self_destructing_contract_recipient: (
+            Account(storage={}, balance=CALL_VALUE)
+            if sufficient_selfdestruct_gas
+            else Account.NONEXISTENT
+        ),
+    }
 
     tx = Transaction(
-        sender=sender,
-        to=contract_1,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=caller_self_destructing_contract,
+        # Charge state gas to the frames, so the callee's new-account
+        # charge is paid out of `call_gas` and the boundary is real.
+        state_gas_reservoir=0,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

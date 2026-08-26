@@ -1,1530 +1,584 @@
 """
 Verify each opcode family executes inside a creation transaction's init
-code, including invalid-code and side-effect cases.
+code, and that its result reaches the deployed contract.
 
 Ported from:
 state_tests/stTransactionTest/Opcodes_TransactionInitFiller.json
+
+@manually-enhanced: Do not overwrite. The ported test only checked that
+each init code ran to completion, so an opcode returning the wrong
+result was invisible. Every arm that produces a value now MSTOREs it and
+RETURNs it as the deployed code, making the outcome observable. Cases
+are keyed by opcode and parametrized from `fork.valid_opcodes()`, so a
+newly-enabled opcode fails here until a case is added. The filler's
+`returner` target returned four zero bytes, indistinguishable from an
+empty return; it now returns a marker word so the RETURNDATA* arms can
+be checked. Sub-calls are sized from the callee's own
+`gas_cost(fork)` rather than forwarding everything, which is what lets
+the test reach back to Frontier, and the created account's nonce is
+derived from EIP-161 rather than pinned at one.
 """
 
+from dataclasses import dataclass, field
+from typing import Callable, Generator
+
 import pytest
+from _pytest.mark.structures import ParameterSet
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Bytes,
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create2_address,
     compute_create_address,
+    keccak256,
 )
 from execution_testing.forks import Fork
-from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
+from execution_testing.vm import Bytecode, Op, Opcodes
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_VALUE = 100_000
+WORD = 32
+ALL_ONES = 2**256 - 1
+RETURN_MARKER = 0xBEEF
+# Markers planted at the exact stack depth each EIP-8024 opcode
+# reaches, so surfacing one proves the depth was right.
+DUPN_MARKER = 0xA1
+SWAPN_MARKER = 0xB2
+EXCHANGE_MARKER = 0xC3
+
+# Block context, pinned so the opcodes that read it can be asserted
+# rather than merely executed. The block gas limit keeps its default:
+# a transaction with no explicit limit is granted exactly that much, so
+# lowering it here would make every arm exceed the block.
+COINBASE = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
+BLOCK_NUMBER = 1
+BLOCK_TIMESTAMP = 1_000
+PREV_RANDAO = 0x20000
+BASE_FEE_PER_GAS = 10
+EXCESS_BLOB_GAS = 0
+SLOT_NUMBER = 7
+
+# Markers written then read back, so a store or copy that silently did
+# nothing is distinguishable from one that worked.
+STORE_MARKER = 0xD1CE
+MSTORE8_BYTE = 0xAB
+RETURNER_MARKER = 0xF00D
+SHA3_INPUT = 0x5EED
+STORER_BALANCE = 0x1234
+CALL_SUCCEEDED = 1
+# Two distinct words, so the one left after a POP identifies how many
+# items it removed.
+POP_TOP = 0xE1
+POP_UNDER = 0xE2
+JUMP_MARKER = 0x7A
+
+STORER_CODE = Op.SSTORE(key=0x0, value=0x1) + Op.STOP
+"""Pre-deployed target whose code EXTCODE* arms read."""
+# The ported filler's returner returned four zero bytes, which no
+# assertion can distinguish from an empty return; it now returns a
+# marker word so RETURNDATASIZE and RETURNDATACOPY are checkable.
+RETURNER_CODE = Op.MSTORE(
+    offset=0x0, value=RETURNER_MARKER, new_memory_size=WORD
+) + Op.RETURN(offset=0x0, size=WORD)
+"""Pre-deployed target that returns a known word."""
+
+
+def _code_word(code: Bytecode) -> int:
+    """Return a code's first word, as a COPY into memory would read it."""
+    return int.from_bytes(bytes(code)[:WORD].ljust(WORD, b"\x00"), "big")
+
+
+def _base_nonce(fork: Fork) -> int:
+    """Return a newly created contract's starting nonce (EIP-161)."""
+    return int(fork.is_eip_enabled(161))
+
+
+def _hash_word(data: bytes) -> int:
+    """Return keccak256 of `data` as a word."""
+    return int.from_bytes(bytes(keccak256(data)), "big")
+
+
+def _jump_over_revert(conditional: bool) -> Bytecode:
+    """
+    Jump past a REVERT to reach a marker push.
+
+    The target is derived from the code it skips, and a jump landing
+    anywhere else either reverts or faults on a non-JUMPDEST, so the
+    marker surviving into the deployed code is the proof. Valid only
+    with an empty `prefix`, which puts this body at offset 0.
+    """
+    revert = Op.REVERT(offset=0x0, size=0x0)
+    jump = (
+        Op.JUMPI(pc=Op.PUSH1(data_placeholder="target"), condition=1)
+        if conditional
+        else Op.JUMP(pc=Op.PUSH1(data_placeholder="target"))
+    )
+    code = jump + revert + Op.JUMPDEST + Op.PUSH1[JUMP_MARKER]
+    code.substitute(target=len(jump) + len(revert))
+    return code
+
+
+ENV = Environment(
+    fee_recipient=COINBASE,
+    number=BLOCK_NUMBER,
+    timestamp=BLOCK_TIMESTAMP,
+    prev_randao=PREV_RANDAO,
+    base_fee_per_gas=BASE_FEE_PER_GAS,
+    excess_blob_gas=EXCESS_BLOB_GAS,
+    slot_number=SLOT_NUMBER,
+)
+
+
+@dataclass(frozen=True)
+class Targets:
+    """What an init-code body may need beyond the opcode itself."""
+
+    storer: Address
+    """Contract whose code performs `sstore(0, 1)`."""
+    returner: Address
+    """Contract that returns a known word."""
+    fork: Fork
+    """Lets a body size a sub-call from its callee's own cost."""
+
+
+@dataclass(frozen=True)
+class Context:
+    """Runtime facts an expected value may depend on."""
+
+    created: Address
+    sender: Address
+    init_code: Bytecode
+    fork: Fork
+
+
+@dataclass(frozen=True)
+class Case:
+    """
+    One opcode exercised inside a creation transaction's init code.
+
+    `expected` is the word the deployed contract must hold. Unless
+    `terminates` is set, the scaffold supplies the MSTORE/RETURN that
+    puts it there, so `body` need only leave it on the stack. A callable
+    body receives the pre-deployed `Targets`.
+    """
+
+    body: Bytecode | Callable[[Targets], Bytecode]
+    expected: int | Callable[[Context], int] | None = None
+    prefix: Bytecode = field(default_factory=Bytecode)
+    terminates: bool = False
+    """`body` ends the frame itself; the scaffold adds no RETURN."""
+    discarded: bool = False
+    """The created account must not exist once the frame ends."""
+    creations: int = 0
+    """Contracts the init code creates, which raise its own nonce."""
+    extra: Callable[[Context], dict] | None = None
+    """Further post-state entries, given the runtime context."""
+
+
+def _stack(depth: int) -> tuple[Bytecode, int]:
+    """
+    Push `depth` distinct non-zero words, deepest first.
+
+    Return the pushed code and the deepest value, which is what a
+    correct `DUP<depth>` or `SWAP<depth - 1>` must surface.
+    """
+    values = [0xA0 + i for i in range(depth)]
+    code = Bytecode()
+    for value in values:
+        code += Op.PUSH1[value]
+    return code, values[0]
+
+
+def _dup_op(n: int) -> Opcodes:
+    """Return the `DUP<n>` opcode."""
+    return getattr(Op, f"DUP{n}")
+
+
+def _swap_op(n: int) -> Opcodes:
+    """Return the `SWAP<n>` opcode."""
+    return getattr(Op, f"SWAP{n}")
+
+
+def _push_op(n: int) -> Opcodes:
+    """Return the `PUSH<n>` opcode."""
+    return getattr(Op, f"PUSH{n}")
+
+
+def _dup_case(n: int) -> Case:
+    """DUP<n> must reach exactly `n` items down the stack."""
+    prep, deepest = _stack(n)
+    return Case(_dup_op(n), deepest, prefix=prep)
+
+
+def _swap_case(n: int) -> Case:
+    """SWAP<n> must exchange the top with the item `n` below it."""
+    prep, deepest = _stack(n + 1)
+    return Case(_swap_op(n), deepest, prefix=prep)
+
+
+def _push_case(n: int) -> Case:
+    """PUSH<n> must place its whole immediate on the stack."""
+    value = int.from_bytes(bytes(range(1, n + 1)), "big")
+    return Case(_push_op(n)[value], value)
+
+
+def _address_word(address: Address) -> int:
+    """Return an address as the word an opcode would push."""
+    return int.from_bytes(bytes(address), "big")
+
+
+# Every opcode valid on a fork must appear here. `valid_opcodes()`
+# drives the parametrization, so a newly-enabled opcode fails this test
+# until a case is added; there is no opt-out.
+CASES: dict[Opcodes, Case] = {
+    # --- Arithmetic. Operands chosen so the answer is self-evident.
+    Op.ADD: Case(Op.ADD(2, 3), 5),
+    Op.MUL: Case(Op.MUL(3, 4), 12),
+    Op.SUB: Case(Op.SUB(5, 3), 2),
+    Op.DIV: Case(Op.DIV(12, 4), 3),
+    Op.SDIV: Case(Op.SDIV(12, 4), 3),
+    Op.MOD: Case(Op.MOD(7, 3), 1),
+    Op.SMOD: Case(Op.SMOD(7, 3), 1),
+    Op.ADDMOD: Case(Op.ADDMOD(5, 3, 4), 0),
+    Op.MULMOD: Case(Op.MULMOD(5, 3, 4), 3),
+    Op.EXP: Case(Op.EXP(2, 10), 1024),
+    Op.SIGNEXTEND: Case(Op.SIGNEXTEND(0, 0xFF), ALL_ONES),
+    # --- Comparison and bitwise.
+    Op.LT: Case(Op.LT(1, 2), 1),
+    Op.GT: Case(Op.GT(2, 1), 1),
+    Op.SLT: Case(Op.SLT(1, 2), 1),
+    Op.SGT: Case(Op.SGT(2, 1), 1),
+    Op.EQ: Case(Op.EQ(3, 3), 1),
+    Op.ISZERO: Case(Op.ISZERO(0), 1),
+    Op.AND: Case(Op.AND(0xF0, 0x3C), 0x30),
+    Op.OR: Case(Op.OR(0xF0, 0x3C), 0xFC),
+    Op.XOR: Case(Op.XOR(0xF0, 0x3C), 0xCC),
+    Op.NOT: Case(Op.NOT(0), ALL_ONES),
+    Op.BYTE: Case(Op.BYTE(31, 0xAB), 0xAB),
+    Op.SHL: Case(Op.SHL(1, 1), 2),
+    Op.SHR: Case(Op.SHR(1, 2), 1),
+    Op.SAR: Case(Op.SAR(1, 2), 1),
+    Op.CLZ: Case(Op.CLZ(1), 255),
+    # --- Frame identity. A creation frame has no calldata, and the
+    # account already holds the transaction's value while init runs.
+    Op.ADDRESS: Case(Op.ADDRESS, lambda c: _address_word(c.created)),
+    Op.ORIGIN: Case(Op.ORIGIN, lambda c: _address_word(c.sender)),
+    Op.CALLER: Case(Op.CALLER, lambda c: _address_word(c.sender)),
+    Op.CALLVALUE: Case(Op.CALLVALUE, TX_VALUE),
+    Op.CALLDATASIZE: Case(Op.CALLDATASIZE, 0),
+    Op.CODESIZE: Case(Op.CODESIZE, lambda c: len(c.init_code)),
+    Op.SELFBALANCE: Case(Op.SELFBALANCE, TX_VALUE),
+    # The current block is not yet on the chain, so it hashes to zero.
+    # Asking for an ancestor instead reaches into `block_hashes`, which
+    # a single-block state test does not populate.
+    Op.BLOCKHASH: Case(Op.BLOCKHASH(block_number=Op.NUMBER), 0),
+    # A legacy transaction carries no blobs.
+    Op.BLOBHASH: Case(Op.BLOBHASH(index=0), 0),
+    # --- Round-trips, so a read that wrongly yields zero is
+    # distinguishable from a correct one.
+    Op.SLOAD: Case(Op.SLOAD(0x0), 42, prefix=Op.SSTORE(key=0x0, value=42)),
+    Op.MLOAD: Case(Op.MLOAD(0x40), 7, prefix=Op.MSTORE(offset=0x40, value=7)),
+    Op.TLOAD: Case(Op.TLOAD(0x0), 99, prefix=Op.TSTORE(key=0x0, value=99)),
+    Op.MCOPY: Case(
+        Op.MLOAD(0x80),
+        7,
+        prefix=Op.MSTORE(offset=0x40, value=7)
+        + Op.MCOPY(dest_offset=0x80, offset=0x40, size=WORD),
+    ),
+    Op.MSIZE: Case(Op.MSIZE, 0x60, prefix=Op.MSTORE(offset=0x40, value=0)),
+    Op.PUSH0: Case(Op.PUSH0, 0),
+    # --- Reading other accounts, against their known code and balance.
+    Op.EXTCODESIZE: Case(
+        lambda t: Op.EXTCODESIZE(address=t.storer), len(STORER_CODE)
+    ),
+    Op.EXTCODEHASH: Case(
+        lambda t: Op.EXTCODEHASH(address=t.storer),
+        _hash_word(bytes(STORER_CODE)),
+    ),
+    Op.BALANCE: Case(lambda t: Op.BALANCE(address=t.storer), STORER_BALANCE),
+    # --- A call reports success as its stack result.
+    Op.CALL: Case(
+        lambda t: Op.CALL(
+            address=t.returner, gas=RETURNER_CODE.gas_cost(t.fork)
+        ),
+        CALL_SUCCEEDED,
+    ),
+    Op.CALLCODE: Case(
+        lambda t: Op.CALLCODE(
+            address=t.returner, gas=RETURNER_CODE.gas_cost(t.fork)
+        ),
+        CALL_SUCCEEDED,
+    ),
+    Op.DELEGATECALL: Case(
+        lambda t: Op.DELEGATECALL(
+            address=t.returner, gas=RETURNER_CODE.gas_cost(t.fork)
+        ),
+        CALL_SUCCEEDED,
+    ),
+    Op.STATICCALL: Case(
+        lambda t: Op.STATICCALL(
+            address=t.returner, gas=RETURNER_CODE.gas_cost(t.fork)
+        ),
+        CALL_SUCCEEDED,
+    ),
+    # --- Hashing a word we planted.
+    Op.SHA3: Case(
+        Op.SHA3(offset=0x1C0, size=WORD),
+        _hash_word(SHA3_INPUT.to_bytes(WORD, "big")),
+        prefix=Op.MSTORE(offset=0x1C0, value=SHA3_INPUT),
+    ),
+    Op.CHAINID: Case(Op.CHAINID, 1),
+    # --- Jumps must clear the REVERT they skip over.
+    Op.JUMP: Case(_jump_over_revert(conditional=False), JUMP_MARKER),
+    Op.JUMPI: Case(_jump_over_revert(conditional=True), JUMP_MARKER),
+    # A creation frame has no calldata: the transaction's `data` is this
+    # init code, and it is code here, not input. An implementation that
+    # also exposed it as calldata would read a non-zero word.
+    Op.CALLDATALOAD: Case(Op.CALLDATALOAD(offset=0x0), 0),
+    # POP must remove exactly the top item, leaving the one beneath.
+    Op.POP: Case(
+        Op.POP,
+        POP_UNDER,
+        prefix=Op.PUSH1[POP_UNDER] + Op.PUSH1[POP_TOP],
+    ),
+    # --- Stores and copies, each read back out of the location it
+    # wrote, so an operation that did nothing fails.
+    Op.MSTORE: Case(
+        Op.MLOAD(0x100),
+        STORE_MARKER,
+        prefix=Op.MSTORE(offset=0x100, value=STORE_MARKER),
+    ),
+    # MSTORE8 writes one byte, which lands in the word's high end.
+    Op.MSTORE8: Case(
+        Op.MLOAD(0x120),
+        MSTORE8_BYTE << 248,
+        prefix=Op.MSTORE8(offset=0x120, value=MSTORE8_BYTE),
+    ),
+    Op.SSTORE: Case(
+        Op.SLOAD(0x2),
+        STORE_MARKER,
+        prefix=Op.SSTORE(key=0x2, value=STORE_MARKER),
+    ),
+    Op.TSTORE: Case(
+        Op.TLOAD(0x2),
+        STORE_MARKER,
+        prefix=Op.TSTORE(key=0x2, value=STORE_MARKER),
+    ),
+    # A creation frame has no calldata, so the copy must clear the
+    # marker already sitting at the destination.
+    Op.CALLDATACOPY: Case(
+        Op.MLOAD(0x140),
+        0,
+        prefix=Op.MSTORE(offset=0x140, value=STORE_MARKER)
+        + Op.CALLDATACOPY(dest_offset=0x140, offset=0x0, size=WORD),
+    ),
+    Op.CODECOPY: Case(
+        Op.MLOAD(0x160),
+        lambda c: _code_word(c.init_code),
+        prefix=Op.CODECOPY(dest_offset=0x160, offset=0x0, size=WORD),
+    ),
+    Op.EXTCODECOPY: Case(
+        lambda t: Op.EXTCODECOPY(
+            address=t.storer, dest_offset=0x180, offset=0x0, size=WORD
+        )
+        + Op.MLOAD(0x180),
+        _code_word(STORER_CODE),
+    ),
+    Op.RETURNDATASIZE: Case(
+        lambda t: Op.POP(Op.CALL(address=t.returner)) + Op.RETURNDATASIZE,
+        WORD,
+    ),
+    Op.RETURNDATACOPY: Case(
+        lambda t: Op.POP(Op.CALL(address=t.returner))
+        + Op.RETURNDATACOPY(dest_offset=0x1A0, offset=0x0, size=WORD)
+        + Op.MLOAD(0x1A0),
+        RETURNER_MARKER,
+    ),
+    # --- Block context, each read back against the pinned environment.
+    Op.COINBASE: Case(Op.COINBASE, _address_word(COINBASE)),
+    Op.NUMBER: Case(Op.NUMBER, BLOCK_NUMBER),
+    Op.TIMESTAMP: Case(Op.TIMESTAMP, BLOCK_TIMESTAMP),
+    Op.PREVRANDAO: Case(Op.PREVRANDAO, PREV_RANDAO),
+    Op.BASEFEE: Case(Op.BASEFEE, BASE_FEE_PER_GAS),
+    Op.GASLIMIT: Case(Op.GASLIMIT, int(ENV.gas_limit)),
+    Op.SLOTNUM: Case(Op.SLOTNUM, SLOT_NUMBER),
+    Op.BLOBBASEFEE: Case(
+        Op.BLOBBASEFEE,
+        lambda c: c.fork.blob_gas_price_calculator()(
+            excess_blob_gas=EXCESS_BLOB_GAS
+        ),
+    ),
+    # --- EIP-8024 immediate-operand stack ops. DUPN[n] copies the
+    # n-th item up, SWAPN[n] swaps the top with the one n below it, and
+    # EXCHANGE[a, b] swaps two items beneath the top.
+    Op.DUPN: Case(
+        Op.DUPN[17],
+        DUPN_MARKER,
+        prefix=Op.PUSH1[DUPN_MARKER] + Op.PUSH0 * 16,
+    ),
+    Op.SWAPN: Case(
+        Op.SWAPN[17],
+        SWAPN_MARKER,
+        prefix=Op.PUSH1[SWAPN_MARKER] + Op.PUSH0 * 17,
+    ),
+    Op.EXCHANGE: Case(
+        Op.EXCHANGE[1, 2] + Op.POP,
+        EXCHANGE_MARKER,
+        prefix=Op.PUSH1[EXCHANGE_MARKER] + Op.PUSH0 * 2,
+    ),
+    # --- Frames that end themselves.
+    Op.RETURN: Case(
+        Op.MSTORE(offset=0x0, value=RETURN_MARKER)
+        + Op.RETURN(offset=0x0, size=WORD),
+        RETURN_MARKER,
+        terminates=True,
+    ),
+    Op.REVERT: Case(
+        Op.REVERT(offset=0x0, size=0x0), terminates=True, discarded=True
+    ),
+    Op.SELFDESTRUCT: Case(
+        Op.SELFDESTRUCT(address=Op.ORIGIN),
+        terminates=True,
+        discarded=True,
+    ),
+    # --- Creating from within init code bumps this account's own nonce
+    # and leaves the nested account behind.
+    Op.CREATE: Case(
+        Op.CREATE(value=0x0, offset=0x0, size=0x0),
+        lambda c: _address_word(
+            compute_create_address(
+                address=c.created, nonce=_base_nonce(c.fork)
+            )
+        ),
+        creations=1,
+        extra=lambda c: {
+            compute_create_address(
+                address=c.created, nonce=_base_nonce(c.fork)
+            ): Account(nonce=_base_nonce(c.fork))
+        },
+    ),
+    Op.CREATE2: Case(
+        Op.CREATE2(value=0x0, offset=0x0, size=0x0, salt=0x0),
+        lambda c: _address_word(
+            compute_create2_address(address=c.created, salt=0x0, initcode=b"")
+        ),
+        creations=1,
+        extra=lambda c: {
+            compute_create2_address(
+                address=c.created, salt=0x0, initcode=b""
+            ): Account(nonce=_base_nonce(c.fork))
+        },
+    ),
+    # --- Arms with no value of their own: they must simply run.
+    Op.STOP: Case(Op.STOP),
+    Op.JUMPDEST: Case(Op.JUMPDEST),
+    Op.PC: Case(Op.POP(Op.PC)),
+    Op.GAS: Case(Op.POP(Op.GAS)),
+    Op.GASPRICE: Case(Op.POP(Op.GASPRICE)),
+    Op.LOG0: Case(Op.LOG0(offset=0x0, size=0x0)),
+    Op.LOG1: Case(Op.LOG1(offset=0x0, size=0x0, topic_1=0x0)),
+    Op.LOG2: Case(Op.LOG2(offset=0x0, size=0x0, topic_1=0x0, topic_2=0x0)),
+    Op.LOG3: Case(
+        Op.LOG3(offset=0x0, size=0x0, topic_1=0x0, topic_2=0x0, topic_3=0x0)
+    ),
+    Op.LOG4: Case(
+        Op.LOG4(
+            offset=0x0,
+            size=0x0,
+            topic_1=0x0,
+            topic_2=0x0,
+            topic_3=0x0,
+            topic_4=0x0,
+        )
+    ),
+    # Reaching other accounts.
+}
+CASES.update({_push_op(n): _push_case(n) for n in range(1, 33)})
+CASES.update({_dup_op(n): _dup_case(n) for n in range(1, 17)})
+CASES.update({_swap_op(n): _swap_case(n) for n in range(1, 17)})
+
+
+def opcodes_by_fork(fork: Fork) -> Generator[ParameterSet, None, None]:
+    """Yield every opcode this fork enables, identified by its name."""
+    for opcode in fork.valid_opcodes():
+        yield pytest.param(opcode, id=opcode._name_.lower())
 
 
 @pytest.mark.ported_from(
     ["state_tests/stTransactionTest/Opcodes_TransactionInitFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="d0",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="d1",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="d2",
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="d3",
-        ),
-        pytest.param(
-            4,
-            0,
-            0,
-            id="d4",
-        ),
-        pytest.param(
-            5,
-            0,
-            0,
-            id="d5",
-        ),
-        pytest.param(
-            6,
-            0,
-            0,
-            id="d6",
-        ),
-        pytest.param(
-            7,
-            0,
-            0,
-            id="d7",
-        ),
-        pytest.param(
-            8,
-            0,
-            0,
-            id="d8",
-        ),
-        pytest.param(
-            9,
-            0,
-            0,
-            id="d9",
-        ),
-        pytest.param(
-            10,
-            0,
-            0,
-            id="d10",
-        ),
-        pytest.param(
-            11,
-            0,
-            0,
-            id="d11",
-        ),
-        pytest.param(
-            12,
-            0,
-            0,
-            id="d12",
-        ),
-        pytest.param(
-            13,
-            0,
-            0,
-            id="d13",
-        ),
-        pytest.param(
-            14,
-            0,
-            0,
-            id="d14",
-        ),
-        pytest.param(
-            15,
-            0,
-            0,
-            id="d15",
-        ),
-        pytest.param(
-            16,
-            0,
-            0,
-            id="d16",
-        ),
-        pytest.param(
-            17,
-            0,
-            0,
-            id="d17",
-        ),
-        pytest.param(
-            18,
-            0,
-            0,
-            id="d18",
-        ),
-        pytest.param(
-            19,
-            0,
-            0,
-            id="d19",
-        ),
-        pytest.param(
-            20,
-            0,
-            0,
-            id="d20",
-        ),
-        pytest.param(
-            21,
-            0,
-            0,
-            id="d21",
-        ),
-        pytest.param(
-            22,
-            0,
-            0,
-            id="d22",
-        ),
-        pytest.param(
-            23,
-            0,
-            0,
-            id="d23",
-        ),
-        pytest.param(
-            24,
-            0,
-            0,
-            id="d24",
-        ),
-        pytest.param(
-            25,
-            0,
-            0,
-            id="d25",
-        ),
-        pytest.param(
-            26,
-            0,
-            0,
-            id="d26",
-        ),
-        pytest.param(
-            27,
-            0,
-            0,
-            id="d27",
-        ),
-        pytest.param(
-            28,
-            0,
-            0,
-            id="d28",
-        ),
-        pytest.param(
-            29,
-            0,
-            0,
-            id="d29",
-        ),
-        pytest.param(
-            30,
-            0,
-            0,
-            id="d30",
-        ),
-        pytest.param(
-            31,
-            0,
-            0,
-            id="d31",
-        ),
-        pytest.param(
-            32,
-            0,
-            0,
-            id="d32",
-        ),
-        pytest.param(
-            33,
-            0,
-            0,
-            id="d33",
-        ),
-        pytest.param(
-            34,
-            0,
-            0,
-            id="d34",
-        ),
-        pytest.param(
-            35,
-            0,
-            0,
-            id="d35",
-        ),
-        pytest.param(
-            36,
-            0,
-            0,
-            id="d36",
-        ),
-        pytest.param(
-            37,
-            0,
-            0,
-            id="d37",
-        ),
-        pytest.param(
-            38,
-            0,
-            0,
-            id="d38",
-        ),
-        pytest.param(
-            39,
-            0,
-            0,
-            id="d39",
-        ),
-        pytest.param(
-            40,
-            0,
-            0,
-            id="d40",
-        ),
-        pytest.param(
-            41,
-            0,
-            0,
-            id="d41",
-        ),
-        pytest.param(
-            42,
-            0,
-            0,
-            id="d42",
-        ),
-        pytest.param(
-            43,
-            0,
-            0,
-            id="d43",
-        ),
-        pytest.param(
-            44,
-            0,
-            0,
-            id="d44",
-        ),
-        pytest.param(
-            45,
-            0,
-            0,
-            id="d45",
-        ),
-        pytest.param(
-            46,
-            0,
-            0,
-            id="d46",
-        ),
-        pytest.param(
-            47,
-            0,
-            0,
-            id="d47",
-        ),
-        pytest.param(
-            48,
-            0,
-            0,
-            id="d48",
-        ),
-        pytest.param(
-            49,
-            0,
-            0,
-            id="d49",
-        ),
-        pytest.param(
-            50,
-            0,
-            0,
-            id="d50",
-        ),
-        pytest.param(
-            51,
-            0,
-            0,
-            id="d51",
-        ),
-        pytest.param(
-            52,
-            0,
-            0,
-            id="d52",
-        ),
-        pytest.param(
-            53,
-            0,
-            0,
-            id="d53",
-        ),
-        pytest.param(
-            54,
-            0,
-            0,
-            id="d54",
-        ),
-        pytest.param(
-            55,
-            0,
-            0,
-            id="d55",
-        ),
-        pytest.param(
-            56,
-            0,
-            0,
-            id="d56",
-        ),
-        pytest.param(
-            57,
-            0,
-            0,
-            id="d57",
-        ),
-        pytest.param(
-            58,
-            0,
-            0,
-            id="d58",
-        ),
-        pytest.param(
-            59,
-            0,
-            0,
-            id="d59",
-        ),
-        pytest.param(
-            60,
-            0,
-            0,
-            id="d60",
-        ),
-        pytest.param(
-            61,
-            0,
-            0,
-            id="d61",
-        ),
-        pytest.param(
-            62,
-            0,
-            0,
-            id="d62",
-        ),
-        pytest.param(
-            63,
-            0,
-            0,
-            id="d63",
-        ),
-        pytest.param(
-            64,
-            0,
-            0,
-            id="d64",
-        ),
-        pytest.param(
-            65,
-            0,
-            0,
-            id="d65",
-        ),
-        pytest.param(
-            66,
-            0,
-            0,
-            id="d66",
-        ),
-        pytest.param(
-            67,
-            0,
-            0,
-            id="d67",
-        ),
-        pytest.param(
-            68,
-            0,
-            0,
-            id="d68",
-        ),
-        pytest.param(
-            69,
-            0,
-            0,
-            id="d69",
-        ),
-        pytest.param(
-            70,
-            0,
-            0,
-            id="d70",
-        ),
-        pytest.param(
-            71,
-            0,
-            0,
-            id="d71",
-        ),
-        pytest.param(
-            72,
-            0,
-            0,
-            id="d72",
-        ),
-        pytest.param(
-            73,
-            0,
-            0,
-            id="d73",
-        ),
-        pytest.param(
-            74,
-            0,
-            0,
-            id="d74",
-        ),
-        pytest.param(
-            75,
-            0,
-            0,
-            id="d75",
-        ),
-        pytest.param(
-            76,
-            0,
-            0,
-            id="d76",
-        ),
-        pytest.param(
-            77,
-            0,
-            0,
-            id="d77",
-        ),
-        pytest.param(
-            78,
-            0,
-            0,
-            id="d78",
-        ),
-        pytest.param(
-            79,
-            0,
-            0,
-            id="d79",
-        ),
-        pytest.param(
-            80,
-            0,
-            0,
-            id="d80",
-        ),
-        pytest.param(
-            81,
-            0,
-            0,
-            id="d81",
-        ),
-        pytest.param(
-            82,
-            0,
-            0,
-            id="d82",
-        ),
-        pytest.param(
-            83,
-            0,
-            0,
-            id="d83",
-        ),
-        pytest.param(
-            84,
-            0,
-            0,
-            id="d84",
-        ),
-        pytest.param(
-            85,
-            0,
-            0,
-            id="d85",
-        ),
-        pytest.param(
-            86,
-            0,
-            0,
-            id="d86",
-        ),
-        pytest.param(
-            87,
-            0,
-            0,
-            id="d87",
-        ),
-        pytest.param(
-            88,
-            0,
-            0,
-            id="d88",
-        ),
-        pytest.param(
-            89,
-            0,
-            0,
-            id="d89",
-        ),
-        pytest.param(
-            90,
-            0,
-            0,
-            id="d90",
-        ),
-        pytest.param(
-            91,
-            0,
-            0,
-            id="d91",
-        ),
-        pytest.param(
-            92,
-            0,
-            0,
-            id="d92",
-        ),
-        pytest.param(
-            93,
-            0,
-            0,
-            id="d93",
-        ),
-        pytest.param(
-            94,
-            0,
-            0,
-            id="d94",
-        ),
-        pytest.param(
-            95,
-            0,
-            0,
-            id="d95",
-        ),
-        pytest.param(
-            96,
-            0,
-            0,
-            id="d96",
-        ),
-        pytest.param(
-            97,
-            0,
-            0,
-            id="d97",
-        ),
-        pytest.param(
-            98,
-            0,
-            0,
-            id="d98",
-        ),
-        pytest.param(
-            99,
-            0,
-            0,
-            id="d99",
-        ),
-        pytest.param(
-            100,
-            0,
-            0,
-            id="d100",
-        ),
-        pytest.param(
-            101,
-            0,
-            0,
-            id="d101",
-        ),
-        pytest.param(
-            102,
-            0,
-            0,
-            id="d102",
-        ),
-        pytest.param(
-            103,
-            0,
-            0,
-            id="d103",
-        ),
-        pytest.param(
-            104,
-            0,
-            0,
-            id="d104",
-        ),
-        pytest.param(
-            105,
-            0,
-            0,
-            id="d105",
-        ),
-        pytest.param(
-            106,
-            0,
-            0,
-            id="d106",
-        ),
-        pytest.param(
-            107,
-            0,
-            0,
-            id="d107",
-        ),
-        pytest.param(
-            108,
-            0,
-            0,
-            id="d108",
-        ),
-        pytest.param(
-            109,
-            0,
-            0,
-            id="d109",
-        ),
-        pytest.param(
-            110,
-            0,
-            0,
-            id="d110",
-        ),
-        pytest.param(
-            111,
-            0,
-            0,
-            id="d111",
-        ),
-        pytest.param(
-            112,
-            0,
-            0,
-            id="d112",
-        ),
-        pytest.param(
-            113,
-            0,
-            0,
-            id="d113",
-        ),
-        pytest.param(
-            114,
-            0,
-            0,
-            id="d114",
-        ),
-        pytest.param(
-            115,
-            0,
-            0,
-            id="d115",
-        ),
-        pytest.param(
-            116,
-            0,
-            0,
-            id="d116",
-        ),
-        pytest.param(
-            117,
-            0,
-            0,
-            id="d117",
-        ),
-        pytest.param(
-            118,
-            0,
-            0,
-            id="d118",
-        ),
-        pytest.param(
-            119,
-            0,
-            0,
-            id="d119",
-        ),
-        pytest.param(
-            120,
-            0,
-            0,
-            id="d120",
-        ),
-        pytest.param(
-            121,
-            0,
-            0,
-            id="d121",
-        ),
-        pytest.param(
-            122,
-            0,
-            0,
-            id="d122",
-        ),
-        pytest.param(
-            123,
-            0,
-            0,
-            id="d123",
-        ),
-        pytest.param(
-            124,
-            0,
-            0,
-            id="d124",
-        ),
-        pytest.param(
-            125,
-            0,
-            0,
-            id="d125",
-        ),
-        pytest.param(
-            126,
-            0,
-            0,
-            id="d126",
-        ),
-        pytest.param(
-            127,
-            0,
-            0,
-            id="d127",
-        ),
-        pytest.param(
-            128,
-            0,
-            0,
-            id="invalid_first_byte_ef",
-        ),
-        pytest.param(
-            129,
-            0,
-            0,
-            id="side_effects",
-        ),
-        pytest.param(
-            130,
-            0,
-            0,
-            id="side_effects_invalid_opcode",
-        ),
-        pytest.param(
-            131,
-            0,
-            0,
-            id="side_effects_return_ef",
-        ),
-    ],
-)
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.parametrize_by_fork("opcode", opcodes_by_fork)
 def test_opcodes_transaction_init(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    opcode: Opcodes,
 ) -> None:
-    """Run each opcode inside a creation transaction's init code."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B)
-    contract_1 = Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    """Run one opcode inside a creation transaction's init code."""
+    case = CASES.get(opcode)
+    assert case is not None, (
+        f"{opcode._name_} is valid on this fork but has no case; "
+        "add one to CASES"
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=1000000,
+    sender = pre.fund_eoa()
+    targets = Targets(
+        storer=pre.deploy_contract(code=STORER_CODE, balance=STORER_BALANCE),
+        returner=pre.deploy_contract(code=RETURNER_CODE),
+        fork=fork,
     )
+    body = case.body if isinstance(case.body, Bytecode) else case.body(targets)
+    created = compute_create_address(address=sender, nonce=0)
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, storage={0: 0})
-    # Source: yul
-    # berlin { sstore(0, 1) }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1) + Op.STOP,
-        nonce=0,
-        address=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),  # noqa: E501
+    if case.terminates:
+        init_code = case.prefix + body
+    elif case.expected is None:
+        init_code = case.prefix + body + Op.RETURN(offset=0x0, size=0x0)
+    else:
+        init_code = (
+            case.prefix
+            + Op.MSTORE(offset=0x0, value=body)
+            + Op.RETURN(offset=0x0, size=WORD)
+        )
+
+    context = Context(
+        created=created, sender=sender, init_code=init_code, fork=fork
     )
-    # Source: raw
-    # 0x61ffff5060046000f3
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.POP(0xFFFF) + Op.RETURN(offset=0x0, size=0x4),
-        balance=0xDE0B6B3A7640000,
-        nonce=1,
-        address=Address(0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6),  # noqa: E501
-    )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": 33, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    storage={
-                        0: 0x38600060013960015160005560006000F3000000000000000000000000000000,  # noqa: E501
-                    },
-                    nonce=1,
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 37, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 38, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 120, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=2
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 124, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 125, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 126, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": 127, "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {
-                "data": [
-                    0,
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10,
-                    11,
-                    12,
-                    13,
-                    14,
-                    15,
-                    16,
-                    17,
-                    18,
-                    19,
-                    20,
-                    21,
-                    22,
-                    23,
-                    24,
-                    25,
-                    26,
-                    27,
-                    28,
-                    29,
-                    30,
-                    31,
-                    32,
-                    34,
-                    35,
-                    36,
-                    39,
-                    40,
-                    41,
-                    42,
-                    43,
-                    44,
-                    45,
-                    46,
-                    47,
-                    48,
-                    49,
-                    50,
-                    51,
-                    52,
-                    53,
-                    54,
-                    55,
-                    56,
-                    57,
-                    58,
-                    59,
-                    60,
-                    61,
-                    62,
-                    63,
-                    64,
-                    65,
-                    66,
-                    67,
-                    68,
-                    69,
-                    70,
-                    71,
-                    72,
-                    73,
-                    74,
-                    75,
-                    76,
-                    77,
-                    78,
-                    79,
-                    80,
-                    81,
-                    82,
-                    83,
-                    84,
-                    85,
-                    86,
-                    87,
-                    88,
-                    89,
-                    90,
-                    91,
-                    92,
-                    93,
-                    94,
-                    95,
-                    96,
-                    97,
-                    98,
-                    99,
-                    100,
-                    101,
-                    102,
-                    103,
-                    104,
-                    105,
-                    106,
-                    107,
-                    108,
-                    109,
-                    110,
-                    111,
-                    112,
-                    113,
-                    114,
-                    115,
-                    116,
-                    117,
-                    118,
-                    119,
-                    121,
-                    122,
-                    123,
-                ],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [128], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [129], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(storage={0: 1, 1: 0}),
-                compute_create_address(address=sender, nonce=0): Account(
-                    nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [130], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(storage={}),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [131], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(storage={}),
-                compute_create_address(
-                    address=sender, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Op.STOP + Op.RETURN(offset=0x0, size=0x1),
-        Op.POP(Op.ADD(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.MUL(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.SUB(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.DIV(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.SDIV(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.MOD(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.SMOD(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.ADDMOD(0x1, 0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.MULMOD(0x1, 0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.EXP(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.SIGNEXTEND(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.LT(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.GT(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.SLT(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.SGT(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.EQ(0x1, 0x1)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.ISZERO(0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.AND(0x0, 0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.OR(0x0, 0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.XOR(0x0, 0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.NOT(0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.BYTE(0x0, 0x8050201008040201))
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.SHA3(offset=0x0, size=0x0) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.ADDRESS) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.BALANCE(address=0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.ORIGIN) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.CALLER) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.CALLVALUE) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.CALLDATALOAD(offset=0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.CALLDATASIZE) + Op.RETURN(offset=0x0, size=0x0),
-        Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=0x0)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.CODESIZE) + Op.RETURN(offset=0x0, size=0x0),
-        Op.CODECOPY(dest_offset=0x1, offset=0x0, size=Op.CODESIZE)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x1))
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.GASPRICE) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.EXTCODESIZE(address=0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.EXTCODECOPY(
-            address=0x1000000000000000000000000000000000000010,
-            dest_offset=0x0,
-            offset=0x0,
-            size=0x14,
+    deployed_code = b""
+    if case.expected is not None:
+        value = (
+            case.expected(context)
+            if callable(case.expected)
+            else case.expected
         )
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.RETURNDATASIZE) + Op.RETURN(offset=0x0, size=0x0),
-        Op.RETURNDATACOPY(dest_offset=0x0, offset=0x0, size=0x0)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0x0) * 2 + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.MLOAD(offset=0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.MSTORE(offset=0x0, value=0x0) + Op.RETURN(offset=0x0, size=0x0),
-        Op.MSTORE8(offset=0x0, value=0xFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.SLOAD(key=0x0)) + Op.RETURN(offset=0x0, size=0x0),
-        Op.SSTORE(key=0x1, value=0x1) + Op.RETURN(offset=0x0, size=0x0),
-        Op.JUMP(pc=0x4)
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.JUMPI(pc=0x6, condition=0x1)
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.PC) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.MSIZE) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.GAS) + Op.RETURN(offset=0x0, size=0x0),
-        Op.JUMPDEST + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFF) + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        )
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        )
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF]
-        + Op.POP(Op.DUP1)
-        + Op.POP
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 2
-        + Op.POP(Op.DUP2)
-        + Op.POP * 2
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 3
-        + Op.POP(Op.DUP3)
-        + Op.POP * 3
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 4
-        + Op.POP(Op.DUP4)
-        + Op.POP * 4
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 5
-        + Op.POP(Op.DUP5)
-        + Op.POP * 5
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 6
-        + Op.POP(Op.DUP6)
-        + Op.POP * 6
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 7
-        + Op.POP(Op.DUP7)
-        + Op.POP * 7
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 8
-        + Op.POP(Op.DUP8)
-        + Op.POP * 8
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 9
-        + Op.POP(Op.DUP9)
-        + Op.POP * 9
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 10
-        + Op.POP(Op.DUP10)
-        + Op.POP * 10
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 11
-        + Op.POP(Op.DUP11)
-        + Op.POP * 11
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 12
-        + Op.POP(Op.DUP12)
-        + Op.POP * 12
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 13
-        + Op.POP(Op.DUP13)
-        + Op.POP * 13
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 14
-        + Op.POP(Op.DUP14)
-        + Op.POP * 14
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 15
-        + Op.POP(Op.DUP15)
-        + Op.POP * 15
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 16
-        + Op.POP(Op.DUP16)
-        + Op.POP * 16
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 2
-        + Op.SWAP1
-        + Op.POP * 2
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 3
-        + Op.SWAP2
-        + Op.POP * 3
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 4
-        + Op.SWAP3
-        + Op.POP * 4
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 5
-        + Op.SWAP4
-        + Op.POP * 5
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 6
-        + Op.SWAP5
-        + Op.POP * 6
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 7
-        + Op.SWAP6
-        + Op.POP * 7
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0xFF] * 8
-        + Op.SWAP7
-        + Op.POP * 8
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0xFF] * 8
-        + Op.SWAP8
-        + Op.POP * 9
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0xFF] * 9
-        + Op.SWAP9
-        + Op.POP * 10
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0xFF] * 10
-        + Op.SWAP10
-        + Op.POP * 11
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0xFF] * 11
-        + Op.SWAP11
-        + Op.POP * 12
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0xFF] * 12
-        + Op.SWAP12
-        + Op.POP * 13
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0xFF] * 13
-        + Op.SWAP13
-        + Op.POP * 14
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0xFF] * 14
-        + Op.SWAP14
-        + Op.POP * 15
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0xFF] * 15
-        + Op.SWAP15
-        + Op.POP * 16
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0xFF] * 16
-        + Op.SWAP16
-        + Op.POP * 17
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.LOG0(offset=0x0, size=0x0) + Op.RETURN(offset=0x0, size=0x0),
-        Op.LOG1(offset=0x0, size=0x0, topic_1=0xFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.LOG2(offset=0x0, size=0x0, topic_1=0xFF, topic_2=0xFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.LOG3(offset=0x0, size=0x0, topic_1=0xFF, topic_2=0xFF, topic_3=0xFF)
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.LOG4(
-            offset=0x0,
-            size=0x0,
-            topic_1=0xFF,
-            topic_2=0xFF,
-            topic_3=0xFF,
-            topic_4=0xFF,
-        )
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(Op.CREATE(value=0xFF, offset=0x0, size=0x0))
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(
-            Op.CALL(
-                gas=0x64,
-                address=contract_1,
-                value=0x17,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(
-            Op.CALLCODE(
-                gas=0x64,
-                address=contract_1,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(
-            Op.DELEGATECALL(
-                gas=0x186A0,
-                address=contract_1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.POP(
-            Op.STATICCALL(
-                gas=0x2710,
-                address=contract_1,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-        )
-        + Op.RETURN(offset=0x0, size=0x0),
-        Op.REVERT(offset=0x0, size=0x0) + Op.RETURN(offset=0x0, size=0x0),
-        Op.SELFDESTRUCT(address=Op.ORIGIN),
-        Bytes("ef"),
-        Op.CALL(
-            # Derived: the callee's cold first-set store is state-priced
-            # under EIP-8037 and must fit the grant.
-            gas=Op.SSTORE(
-                key=0x0,
-                value=0x1,
-                key_warm=False,
-                original_value=0,
-                new_value=1,
-            ).gas_cost(fork)
-            + 5_000,
-            address=contract_0,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        Op.POP(
-            Op.CALL(
-                gas=0xC350,
-                address=contract_0,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            )
-        )
-        + Op.INVALID,
-        Op.POP(
-            Op.CALL(
-                gas=0xC350,
-                address=contract_0,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            )
-        )
-        + Op.MSTORE8(offset=0x0, value=0xEF)
-        + Op.RETURN(offset=0x0, size=0x1),
-    ]
-    # The d120 arm's nested CREATE adds a new-account state charge under
-    # EIP-8037 (0 before); every other arm keeps the ported budget.
-    tx_gas = [400000 + (fork.create_state_gas() if d == 120 else 0)]
-    tx_value = [100000]
+        deployed_code = value.to_bytes(WORD, "big")
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        data=init_code,
+        value=TX_VALUE,
+        protected=fork.supports_protected_txs(),
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    post: dict[Address, Account | None] = {sender: Account(nonce=1)}
+    post[created] = (
+        Account.NONEXISTENT
+        if case.discarded
+        else Account(
+            code=deployed_code,
+            # EIP-161 starts a new contract's nonce at one; before it,
+            # at zero.
+            nonce=_base_nonce(fork) + case.creations,
+        )
+    )
+    if case.extra is not None:
+        post.update(case.extra(context))
+
+    state_test(env=ENV, pre=pre, post=post, tx=tx)

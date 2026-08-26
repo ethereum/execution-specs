@@ -27,13 +27,15 @@ from execution_testing.vm import Op
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
+RETENTION_MARGIN = 64
+
 
 @pytest.mark.ported_from(
     [
         "state_tests/stHomesteadSpecific/contractCreationOOGdontLeaveEmptyContractViaTransactionFiller.json"  # noqa: E501
     ],
 )
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Berlin")  # Istanbul and before require EIP-2929
 @pytest.mark.parametrize(
     "enough_gas",
     [
@@ -41,7 +43,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         pytest.param(False, id="oog_no_account"),
     ],
 )
-def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
+def test_contract_creation_oog_dont_leave_empty_contract_via_transaction(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -58,7 +60,7 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
     # store must fit inside its grant.
     writer_needed = writer_store.gas_cost(fork)
     call_code = Op.CALL(
-        gas=writer_needed + 1_000,
+        gas=writer_needed,
         address=writer,
         args_size=0x40,
         ret_size=0x40,
@@ -67,18 +69,20 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
         account_new=False,
         new_memory_size=0x40,
     )
-    initcode = call_code + Op.STOP
+    padding_gas = -(-writer_needed // 63) + RETENTION_MARGIN
+    padding = Op.JUMPDEST * padding_gas
+
+    execution = call_code.gas_cost(fork) + writer_needed + padding_gas
+    initcode = call_code + padding + Op.STOP
 
     overhead = fork.transaction_intrinsic_cost_calculator()(
         calldata=initcode,
         contract_creation=True,
+        return_cost_deducted_prior_execution=True,
     ) + fork.transaction_top_frame_state_gas(contract_creation=True)
-    execution = call_code.gas_cost(fork) + writer_needed
-    # The OOG arm dies charging the init code's own CALL (a failed inner
-    # call alone would not fail the creation): a bare 100-gas allowance
-    # over the fixed charges cannot cover the call's access cost even
-    # with the intrinsic estimate's slack.
-    gas_limit = overhead + (execution + 2_000 if enough_gas else 100)
+    gas_limit = overhead + execution
+    if not enough_gas:
+        gas_limit -= 1
 
     sender = pre.fund_eoa()
     tx = Transaction(

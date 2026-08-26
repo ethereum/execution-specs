@@ -1,839 +1,446 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Verify that each memory-touching operation runs out of gas at its budget:
+a caller forwards a fixed amount to a contract holding one operation
+whose memory reach exceeds it, and stores whether the sub-call survived.
 
 Ported from:
 state_tests/stMemoryTest/oogFiller.yml
 
-@manually-enhanced: Do not overwrite. Each parametrization forwards a
-fixed in-bytecode gas budget to an inner operation and asserts whether
-it succeeds. The `0x3E` (RETURNDATACOPY) success case routes through a
-nested value-0 CALL to a cold contract; EIP-8038's cold account access
-reprice consumes the budget's slack and OOGs the copy. Bump only that
-budget by the fork-derived `COLD_ACCOUNT_ACCESS - 2600` so the success
-path stays funded; the value is exactly 0 before EIP-8038 and all
-other budgets are untouched.
+@manually-enhanced: Do not overwrite. The ported fan of 22 pre-deployed
+contracts collapses to one subject built per case, and every ported gas
+constant becomes a budget derived from that subject's own bytecode: its
+exact cost, or one gas short. The two RETURNDATACOPY arms instead
+withhold one of EIP-211's two gas terms each, which is what the filler
+starved with its pinned pair before EIP-2929 moved the CALL leg past it.
 """
+
+from typing import Generator
 
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
+    Bytecode,
+    Fork,
     Hash,
+    Op,
     StateTestFiller,
     Transaction,
-)
-from execution_testing.forks import Fork
-from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+# Memory offsets the operations reach for, past what the starved budgets
+# can pay to expand to.
+REACH = 0x1000
+FAR_REACH = 0x10000
+# Handed back by the return-data source for RETURNDATACOPY to copy.
+RETURN_WORD = 0x102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20
+# Size of the argument and return windows the calls hand out.
+WINDOW = 0x20
+# Proves the caller ran to completion when the observable is zero.
+CANARY = 0xC0DE
+
+OPERATIONS_BY_OPCODE = {
+    Op.CALL: [
+        "call",
+        "call_args",
+        "call_return",
+    ],
+    Op.CALLCODE: [
+        "callcode",
+        "callcode_args",
+        "callcode_return",
+    ],
+    Op.DELEGATECALL: [
+        "delegatecall",
+        "delegatecall_args",
+        "delegatecall_return",
+    ],
+    Op.STATICCALL: [
+        "staticcall",
+        "staticcall_args",
+        "staticcall_return",
+    ],
+}
+
+
+# Memory-touching opcodes that `test_oog`'s success flag cannot observe,
+# and so are covered by a test of their own.
+SPECIAL_CASED = {Op.REVERT}
+
+
+def operations_by_fork(fork: Fork) -> Generator[str, None, None]:
+    """Return the list of operations per opcode that modifies the memory."""
+    for opcode in fork.valid_opcodes():
+        if "new_memory_size" in opcode.metadata:
+            if opcode in SPECIAL_CASED:
+                continue
+            if opcode not in OPERATIONS_BY_OPCODE:
+                operations = [opcode._name_.lower()]
+            else:
+                operations = OPERATIONS_BY_OPCODE[opcode]
+            for operation in operations:
+                yield operation
+
+
+@pytest.fixture
+def subject_code(operation: str, pre: Alloc, fork: Fork) -> Bytecode:
+    """Build the body exercising `operation` past its memory reach."""
+    if operation == "sha3":
+        code = (
+            Op.SHA3(
+                offset=0x0,
+                size=REACH,
+                data_size=REACH,
+                new_memory_size=REACH,
+            )
+            + Op.STOP
+        )
+        return code
+    if operation == "calldatacopy":
+        code = (
+            Op.CALLDATACOPY(
+                dest_offset=0x0,
+                offset=0x0,
+                size=REACH,
+                data_size=REACH,
+                new_memory_size=REACH,
+            )
+            + Op.STOP
+        )
+        return code
+    if operation == "codecopy":
+        code = (
+            Op.CODECOPY(
+                dest_offset=0x0,
+                offset=0x0,
+                size=REACH,
+                data_size=REACH,
+                new_memory_size=REACH,
+            )
+            + Op.STOP
+        )
+        return code
+    if operation == "extcodecopy":
+        code = (
+            Op.EXTCODECOPY(
+                address=Op.ADDRESS,
+                dest_offset=0x0,
+                offset=0x0,
+                size=REACH,
+                address_warm=True,
+                data_size=REACH,
+                new_memory_size=REACH,
+            )
+            + Op.STOP
+        )
+        return code
+    if operation == "returndatacopy":
+        callee_code = Op.MSTORE(
+            offset=0x0, value=RETURN_WORD, new_memory_size=0x20
+        ) + Op.RETURN(
+            offset=0x0, size=0x20, new_memory_size=0x20, old_memory_size=0x20
+        )
+        return_data_source = pre.deploy_contract(code=callee_code)
+        return (
+            # Give RETURNDATACOPY something to copy. `inner_call_cost`
+            # folds the callee's own gas into this frame's cost.
+            Op.POP(
+                Op.CALL(
+                    gas=Op.GAS,
+                    address=return_data_source,
+                    value=0x0,
+                    args_offset=0x0,
+                    args_size=WINDOW,
+                    ret_offset=0x0,
+                    ret_size=WINDOW,
+                    address_warm=False,
+                    value_transfer=False,
+                    new_memory_size=0x20,
+                    inner_call_cost=callee_code.gas_cost(fork),
+                )
+            )
+            + Op.RETURNDATACOPY(
+                dest_offset=REACH,
+                offset=0x0,
+                size=0x10,
+                data_size=0x10,
+                old_memory_size=0x20,
+                new_memory_size=REACH + 0x10,
+            )
+            + Op.STOP
+        )
+    if operation == "mload":
+        code = Op.MLOAD(offset=REACH, new_memory_size=REACH + 0x20) + Op.STOP
+        return code
+    if operation == "mstore":
+        code = (
+            Op.MSTORE(offset=REACH, value=0xFF, new_memory_size=REACH + 0x20)
+            + Op.STOP
+        )
+        return code
+    if operation == "mstore8":
+        code = (
+            Op.MSTORE8(offset=REACH, value=0xFF, new_memory_size=REACH + 0x1)
+            + Op.STOP
+        )
+        return code
+    if operation == "mcopy":
+        code = (
+            Op.MCOPY(
+                dest_offset=REACH,
+                offset=0x0,
+                size=WINDOW,
+                data_size=WINDOW,
+                new_memory_size=REACH + WINDOW,
+            )
+            + Op.STOP
+        )
+        return code
+    if operation.startswith("log"):
+        topics = [0x1, 0x2, 0x3, 0x4][: int(operation[3:])]
+        log_opcode = getattr(Op, operation.upper())
+        code = (
+            log_opcode(
+                FAR_REACH,
+                0x20,
+                *topics,
+                data_size=0x20,
+                new_memory_size=FAR_REACH + 0x20,
+            )
+            + Op.STOP
+        )
+        return code
+    if operation == "create":
+        # Metadata leaves the bytes unchanged, so the budget is derived
+        # from the very code deployed.
+        code = (
+            Op.CREATE(
+                value=0x0,
+                offset=FAR_REACH,
+                size=0x20,
+                new_memory_size=FAR_REACH + 0x20,
+                init_code_size=0x20,
+            )
+            + Op.STOP
+        )
+        return code
+    if operation == "create2":
+        code = (
+            Op.CREATE2(
+                value=0x0,
+                offset=FAR_REACH,
+                size=0x20,
+                salt=0x5A17,
+                new_memory_size=FAR_REACH + 0x20,
+                init_code_size=0x20,
+            )
+            + Op.STOP
+        )
+        return code
+    if operation == "return":
+        code = Op.RETURN(
+            offset=FAR_REACH, size=0x20, new_memory_size=FAR_REACH + 0x20
+        )
+        return code
+
+    stop_contract = pre.deploy_contract(code=Op.STOP)
+    call_op, _, window = operation.partition("_")
+    assert call_op in ("call", "callcode", "delegatecall", "staticcall"), (
+        f"unknown operation {operation}"
+    )
+    args_offset = 0x0 if window == "return" else FAR_REACH
+    ret_offset = 0x0 if window == "args" else FAR_REACH
+    if not window:
+        ret_offset = FAR_REACH + WINDOW
+    call_kwargs: dict = {
+        "gas": Op.GAS,
+        "address": stop_contract,
+        "args_offset": args_offset,
+        "args_size": WINDOW,
+        "ret_offset": ret_offset,
+        "ret_size": WINDOW,
+        "address_warm": False,
+        "new_memory_size": max(args_offset, ret_offset) + WINDOW,
+    }
+    if call_op in ("call", "callcode"):
+        call_kwargs["value"] = 0x0
+    code = getattr(Op, call_op.upper())(**call_kwargs) + Op.STOP
+    return code
+
+
+@pytest.mark.ported_from(
+    ["state_tests/stMemoryTest/oogFiller.yml"],
+)
+@pytest.mark.valid_from("Berlin")
+@pytest.mark.parametrize("succeeds", [True, False], ids=["enough", "oog"])
+@pytest.mark.parametrize_by_fork("operation", operations_by_fork)
+def test_oog(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    subject_code: Bytecode,
+    succeeds: bool,
+) -> None:
+    """Forward a fixed budget to one memory-touching operation."""
+    exact = subject_code.gas_cost(fork)
+    forwarded_gas = exact if succeeds else exact - 1
+    subject = pre.deploy_contract(code=subject_code)
+    # Reads subject and budget from calldata, stores whether it survived.
+    caller = pre.deploy_contract(
+        code=Op.SSTORE(
+            key=0x0, value=Op.CALL(gas=forwarded_gas, address=subject)
+        )
+        + Op.STOP,
+    )
+    tx = Transaction(sender=pre.fund_eoa(), to=caller, state_gas_reservoir=0)
+    post = {caller: Account(storage={0: 1 if succeeds else 0})}
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.ported_from(
     ["state_tests/stMemoryTest/oogFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            4,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            5,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            6,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            7,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            8,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            9,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            10,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            11,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            12,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            13,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            14,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            15,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            16,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            17,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            18,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            19,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            20,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            21,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            22,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            23,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            24,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            25,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            26,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            27,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            28,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            29,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            30,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            31,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            32,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            33,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            34,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            35,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            36,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            37,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            38,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            39,
-            0,
-            0,
-            id="failure",
-        ),
-        pytest.param(
-            40,
-            0,
-            0,
-            id="success",
-        ),
-        pytest.param(
-            41,
-            0,
-            0,
-            id="failure",
-        ),
-    ],
-)
-@pytest.mark.pre_alloc_mutable
-def test_oog(
+@pytest.mark.parametrize("succeeds", [True, False], ids=["enough", "oog"])
+def test_oog_returndatacopy_expansion(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    succeeds: bool,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail."""
-    # EIP-8038 cold account access reprice; 0 before EIP-8038. The
-    # `0x3E` RETURNDATACOPY success case forwards just enough gas for a
-    # nested CALL to a cold contract plus the copy; the reprice eats the
-    # slack, so add it back to that one budget.
-    cold_account_delta = fork.gas_costs().COLD_ACCOUNT_ACCESS - 2600
-    # The CREATE/CREATE2 success budgets are derived: EIP-8037 adds the
-    # new-account state gas (~183k), far past the ported 0xFFFF budget.
-    create_budget = (
-        Op.CREATE(
-            value=0x0,
-            offset=0x10000,
-            size=0x20,
-            new_memory_size=0x10020,
-            init_code_size=0x20,
-        ).gas_cost(fork)
-        + 1_000
-    )
-    create2_budget = (
-        Op.CREATE2(
-            value=0x0,
-            offset=0x10000,
-            size=0x20,
-            salt=0x5A17,
-            new_memory_size=0x10020,
-            init_code_size=0x20,
-        ).gas_cost(fork)
-        + 1_000
-    )
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x0000000000000000000000000000000000010020)
-    contract_1 = Address(0x0000000000000000000000000000000000010037)
-    contract_2 = Address(0x0000000000000000000000000000000000010039)
-    contract_3 = Address(0x000000000000000000000000000000000001003C)
-    contract_4 = Address(0x000000000000000000000000000000000001003E)
-    contract_5 = Address(0x000000000000000000000000000000000001113E)
-    contract_6 = Address(0x0000000000000000000000000000000000010051)
-    contract_7 = Address(0x0000000000000000000000000000000000010052)
-    contract_8 = Address(0x0000000000000000000000000000000000010053)
-    contract_9 = Address(0x00000000000000000000000000000000000100A0)
-    contract_10 = Address(0x00000000000000000000000000000000000100A1)
-    contract_11 = Address(0x00000000000000000000000000000000000100A2)
-    contract_12 = Address(0x00000000000000000000000000000000000100A3)
-    contract_13 = Address(0x00000000000000000000000000000000000100A4)
-    contract_14 = Address(0x00000000000000000000000000000000000100F0)
-    contract_15 = Address(0x00000000000000000000000000000000000100F5)
-    contract_16 = Address(0x00000000000000000000000000000000000100F3)
-    contract_17 = Address(0x00000000000000000000000000000000000100F1)
-    contract_18 = Address(0x00000000000000000000000000000000000100F2)
-    contract_19 = Address(0x00000000000000000000000000000000000100F4)
-    contract_20 = Address(0x00000000000000000000000000000000000100FA)
-    contract_21 = Address(0x00000000000000000000000000000000000111F1)
-    contract_22 = Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC)
-    sender = pre.fund_eoa(amount=0xBA1A9CE0BA1A9CE, nonce=1)
+    """
+    Starve RETURNDATACOPY's memory expansion specifically.
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
+    EIP-211 prices the opcode as
+    `_with_memory_expansion(_with_data_copy(...))`. `test_oog` withholds
+    one gas, leaving the copy term unpaid; this withholds the expansion
+    term whole, so the opcode is reached and dies on the other charge.
+    """
+    callee_code = Op.MSTORE(
+        offset=0x0, value=RETURN_WORD, new_memory_size=0x20
+    ) + Op.RETURN(
+        offset=0x0, size=0x20, new_memory_size=0x20, old_memory_size=0x20
     )
+    return_data_source = pre.deploy_contract(code=callee_code)
+    # Give RETURNDATACOPY something to copy. `inner_call_cost` folds the
+    # callee's own gas into this frame's cost.
+    call_code = Op.POP(
+        Op.CALL(
+            gas=Op.GAS,
+            address=return_data_source,
+            value=0x0,
+            args_offset=0x0,
+            args_size=WINDOW,
+            ret_offset=0x0,
+            ret_size=WINDOW,
+            address_warm=False,
+            value_transfer=False,
+            new_memory_size=0x20,
+            inner_call_cost=callee_code.gas_cost(fork),
+        )
+    )
+    # Pricing the same opcode with and without growth isolates the
+    # expansion term, which is what this budget withholds.
+    returndatacopy = Op.RETURNDATACOPY(
+        dest_offset=REACH,
+        offset=0x0,
+        size=0x10,
+        data_size=0x10,
+        old_memory_size=0x20,
+        new_memory_size=REACH + 0x10,
+    )
+    flat = Op.RETURNDATACOPY(
+        dest_offset=REACH,
+        offset=0x0,
+        size=0x10,
+        data_size=0x10,
+        old_memory_size=0x20,
+        new_memory_size=0x20,
+    )
+    expansion = returndatacopy.gas_cost(fork) - flat.gas_cost(fork)
 
-    # Source: yul
-    # berlin
-    # {
-    #     // Instead of keccak256, which seems to be optimized into
-    #     // not happening
-    #     pop(verbatim_2i_1o(hex"20", 0, 0x1000))
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.SHA3(offset=0x0, size=0x1000) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000010020),  # noqa: E501
+    code = call_code + returndatacopy + Op.STOP
+    starved = code.gas_cost(fork) - expansion
+    # The budget still has to reach the opcode. The ported 0x7D0 no
+    # longer does: EIP-2929 repriced the cold account access and the
+    # CALL leg grew past it, so it starved the call instead.
+    assert starved > call_code.gas_cost(fork), (
+        "budget no longer reaches RETURNDATACOPY"
     )
-    # Source: yul
-    # berlin
-    # {
-    #    calldatacopy(0,0,0x1000)
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLDATACOPY(dest_offset=Op.DUP1, offset=0x0, size=0x1000)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000010037),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    codecopy(0,0,0x1000)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.CODECOPY(dest_offset=Op.DUP1, offset=0x0, size=0x1000)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000010039),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    extcodecopy(address(),0,0,0x1000)
-    # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.EXTCODECOPY(
-            address=Op.ADDRESS, dest_offset=Op.DUP1, offset=0x0, size=0x1000
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000001003C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    mstore(0, 0x0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20)  # noqa: E501
-    #    return(0,0x20)
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(
-            offset=0x0,
-            value=0x102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20,  # noqa: E501
-        )
-        + Op.RETURN(offset=0x0, size=0x20),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000001113E),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #     pop(verbatim_1i_1o(hex"51", 0x1000))
-    # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.MLOAD(offset=0x1000) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000010051),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #     mstore(0x1000, 0xFF)
-    # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x1000, value=0xFF) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000010052),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #     mstore8(0x1000, 0xFF)
-    # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE8(offset=0x1000, value=0xFF) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x0000000000000000000000000000000000010053),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    log0(0x10000, 0x20)
-    # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
-        code=Op.LOG0(offset=0x10000, size=0x20) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100A0),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    log1(0x10000, 0x20, 0x1)
-    # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
-        code=Op.LOG1(offset=0x10000, size=0x20, topic_1=0x1) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100A1),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    log2(0x10000, 0x20, 0x1, 0x2)
-    # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
-        code=Op.LOG2(offset=0x10000, size=0x20, topic_1=0x1, topic_2=0x2)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100A2),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    log3(0x10000, 0x20, 0x1, 0x2, 0x3)
-    # }
-    contract_12 = pre.deploy_contract(  # noqa: F841
-        code=Op.LOG3(
-            offset=0x10000, size=0x20, topic_1=0x1, topic_2=0x2, topic_3=0x3
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100A3),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    log4(0x10000, 0x20, 0x1, 0x2, 0x3, 0x4)
-    # }
-    contract_13 = pre.deploy_contract(  # noqa: F841
-        code=Op.LOG4(
-            offset=0x10000,
-            size=0x20,
-            topic_1=0x1,
-            topic_2=0x2,
-            topic_3=0x3,
-            topic_4=0x4,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100A4),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    pop(create(0, 0x10000, 0x20))
-    # }
-    contract_14 = pre.deploy_contract(  # noqa: F841
-        code=Op.CREATE(value=0x0, offset=0x10000, size=0x20) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F0),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    pop(create2(0, 0x10000, 0x20, 0x5a17))
-    # }
-    contract_15 = pre.deploy_contract(  # noqa: F841
-        code=Op.CREATE2(value=0x0, offset=0x10000, size=0x20, salt=0x5A17)
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F5),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    return(0x10000, 0x20)
-    # }
-    contract_16 = pre.deploy_contract(  # noqa: F841
-        code=Op.RETURN(offset=0x10000, size=0x20),
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F3),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    stop()
-    # }
-    contract_21 = pre.deploy_contract(  # noqa: F841
-        code=Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000111F1),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    let op     := calldataload(0x04)
-    #    let gasAmt := calldataload(0x24)
-    #
-    #    // Call the function that actually goes OOG (or not)
-    #    sstore(0, call(gasAmt, add(0x10000,op), 0, 0, 0, 0, 0))
-    # }
-    contract_22 = pre.deploy_contract(  # noqa: F841
+    forwarded_gas = code.gas_cost(fork) if succeeds else starved
+    subject = pre.deploy_contract(code=code)
+    # Reads subject and budget from calldata, stores whether it survived.
+    caller = pre.deploy_contract(
         code=Op.SSTORE(
             key=0x0,
             value=Op.CALL(
-                gas=Op.CALLDATALOAD(offset=0x24),
-                address=Op.ADD(Op.CALLDATALOAD(offset=0x4), 0x10000),
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
+                gas=Op.CALLDATALOAD(offset=0x20),
+                address=Op.CALLDATALOAD(offset=0x0),
             ),
         )
         + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC),  # noqa: E501
     )
-    # Source: yul
-    # berlin
-    # {
-    #    // Make sure there is return data to be copied
-    #    pop(call(gas(), 0x1113e, 0, 0, 0x20, 0, 0x20))
-    #
-    #    returndatacopy(0x1000,0,0x10)
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        data=Hash(subject, left_padding=True) + Hash(forwarded_gas),
+        state_gas_reservoir=0,
+    )
+    post = {caller: Account(storage={0: 1 if succeeds else 0})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    ["state_tests/stMemoryTest/oogFiller.yml"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("succeeds", [True, False], ids=["enough", "oog"])
+def test_oog_revert(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    succeeds: bool,
+) -> None:
+    """
+    Starve REVERT's memory expansion.
+
+    A funded REVERT still makes the caller's CALL return 0, so the flag
+    the other cases assert on cannot tell it apart from running out of
+    gas. Its return data can: a REVERT that paid for its window hands
+    back `WINDOW` bytes, one that ran out hands back none.
+    """
+    code = Op.REVERT(
+        offset=FAR_REACH, size=WINDOW, new_memory_size=FAR_REACH + WINDOW
+    )
+    exact = code.gas_cost(fork)
+    forwarded_gas = exact if succeeds else exact - 1
+    subject = pre.deploy_contract(code=code)
+    # Reads subject and budget from calldata, stores the size of the
+    # revert data, then a canary so a caller that never ran is not
+    # mistaken for a starved REVERT.
+    caller = pre.deploy_contract(
         code=Op.POP(
             Op.CALL(
-                gas=Op.GAS,
-                address=0x1113E,
-                value=Op.DUP1,
-                args_offset=Op.DUP2,
-                args_size=Op.DUP2,
-                ret_offset=0x0,
-                ret_size=0x20,
+                gas=Op.CALLDATALOAD(offset=0x20),
+                address=Op.CALLDATALOAD(offset=0x0),
             )
         )
-        + Op.RETURNDATACOPY(dest_offset=0x1000, offset=0x0, size=0x10)
+        + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
+        + Op.SSTORE(key=0x1, value=CANARY)
         + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x000000000000000000000000000000000001003E),  # noqa: E501
     )
-    # Source: yul
-    # berlin
-    # {
-    #    pop(call(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
-    # }
-    contract_17 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALL(
-            gas=Op.GAS,
-            address=0x111F1,
-            value=Op.DUP2,
-            args_offset=0x10000,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F1),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    pop(staticcall(gas(), 0x111f1, 0x10000, 0, 0, 0))
-    # }
-    contract_20 = pre.deploy_contract(  # noqa: F841
-        code=Op.STATICCALL(
-            gas=Op.GAS,
-            address=0x111F1,
-            args_offset=0x10000,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100FA),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    pop(delegatecall(gas(), 0x111f1, 0x10000, 0, 0, 0))
-    # }
-    contract_19 = pre.deploy_contract(  # noqa: F841
-        code=Op.DELEGATECALL(
-            gas=Op.GAS,
-            address=0x111F1,
-            args_offset=0x10000,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F4),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #    pop(callcode(gas(), 0x111f1, 0, 0x10000, 0, 0, 0))
-    # }
-    contract_18 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLCODE(
-            gas=Op.GAS,
-            address=0x111F1,
-            value=Op.DUP2,
-            args_offset=0x10000,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000100F2),  # noqa: E501
-    )
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {
-                "data": [
-                    0,
-                    2,
-                    4,
-                    6,
-                    8,
-                    9,
-                    12,
-                    14,
-                    16,
-                    18,
-                    20,
-                    22,
-                    24,
-                    26,
-                    28,
-                    30,
-                    32,
-                    34,
-                    36,
-                    38,
-                    40,
-                ],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {contract_22: Account(storage={0: 1})},
-        },
-        {
-            "indexes": {
-                "data": [
-                    1,
-                    3,
-                    5,
-                    7,
-                    10,
-                    11,
-                    13,
-                    15,
-                    17,
-                    19,
-                    21,
-                    23,
-                    25,
-                    27,
-                    29,
-                    31,
-                    33,
-                    35,
-                    37,
-                    39,
-                    41,
-                ],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {contract_22: Account(storage={0: 0})},
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("1a8451e6") + Hash(0x20) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0x20) + Hash(0x4BA),
-        Bytes("1a8451e6") + Hash(0x37) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0x37) + Hash(0x32A),
-        Bytes("1a8451e6") + Hash(0x39) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0x39) + Hash(0x32A),
-        Bytes("1a8451e6") + Hash(0x3C) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0x3C) + Hash(0x2BC),
-        Bytes("1a8451e6") + Hash(0x3E) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0x3E) + Hash(0xC02 + cold_account_delta),
-        Bytes("1a8451e6") + Hash(0x3E) + Hash(0x7D0),
-        Bytes("1a8451e6") + Hash(0x3E) + Hash(0xC01),
-        Bytes("1a8451e6") + Hash(0x51) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0x51) + Hash(0x190),
-        Bytes("1a8451e6") + Hash(0x52) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0x52) + Hash(0x190),
-        Bytes("1a8451e6") + Hash(0x53) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0x53) + Hash(0x190),
-        Bytes("1a8451e6") + Hash(0xA0) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xA0) + Hash(0x39D0),
-        Bytes("1a8451e6") + Hash(0xA1) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xA1) + Hash(0x39D0),
-        Bytes("1a8451e6") + Hash(0xA2) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xA2) + Hash(0x39D0),
-        Bytes("1a8451e6") + Hash(0xA3) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xA3) + Hash(0x39D0),
-        Bytes("1a8451e6") + Hash(0xA4) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xA4) + Hash(0x39D0),
-        Bytes("1a8451e6") + Hash(0xF0) + Hash(create_budget),
-        Bytes("1a8451e6") + Hash(0xF0) + Hash(0x7D00),
-        Bytes("1a8451e6") + Hash(0xF5) + Hash(create2_budget),
-        Bytes("1a8451e6") + Hash(0xF5) + Hash(0x7D00),
-        Bytes("1a8451e6") + Hash(0xF3) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xF3) + Hash(0x36B0),
-        Bytes("1a8451e6") + Hash(0xF1) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xF1) + Hash(0x2BC),
-        Bytes("1a8451e6") + Hash(0xF2) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xF2) + Hash(0x2BC),
-        Bytes("1a8451e6") + Hash(0xF4) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xF4) + Hash(0x2BC),
-        Bytes("1a8451e6") + Hash(0xFA) + Hash(0xFFFF),
-        Bytes("1a8451e6") + Hash(0xFA) + Hash(0x2BC),
-    ]
-    tx_gas = [16777216]
-
     tx = Transaction(
-        sender=sender,
-        to=contract_22,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        nonce=1,
-        error=_exc,
+        sender=pre.fund_eoa(),
+        to=caller,
+        data=Hash(subject, left_padding=True) + Hash(forwarded_gas),
+        state_gas_reservoir=0,
     )
-
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    post = {
+        caller: Account(
+            storage={0: WINDOW if succeeds else 0, 1: CANARY},
+        )
+    }
+    state_test(pre=pre, post=post, tx=tx)

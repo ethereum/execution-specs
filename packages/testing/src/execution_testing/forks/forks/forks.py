@@ -124,7 +124,7 @@ class Frontier(BaseFork):
             TX_DATA_PER_NON_ZERO=68,
             TX_CREATE=32_000,
             # Refunds
-            REFUND_STORAGE_CLEAR=4_800,
+            REFUND_STORAGE_CLEAR=15_000,
             REFUND_AUTH_PER_EXISTING_ACCOUNT=0,
             # Precompiles
             PRECOMPILE_ECRECOVER=3_000,

@@ -10,930 +10,355 @@ Written primarily by Paweł Bylica (@chfast). Somewhat modified by Ori (@qbzzt)
 Ported from:
 state_tests/stCreateTest/CreateAddressWarmAfterFailFiller.yml
 
-@manually-enhanced: Do not overwrite. The post-state records measured
-probe-CALL costs; derive them from the fork's gas model (CALL regular
-cost with warm/cold, value-transfer, and new-account metadata, minus
-the returned stipend) plus the dispatcher's fixed framing gas, so
-EIP-2929/8037/8038 repricings track automatically. The transaction
-gas limit carries reservoir headroom for the state gas the dispatcher
-incurs on EIP-8037 forks, keeping state gas out of the measurements.
+@manually-enhanced: Do not overwrite. The post-state records the
+measured cost of accessing the create address after a failed CREATE,
+which is a cold account access. EIP-8038 reprices a cold account
+access from 2 600 to 3 000, so each such measurement gains 400 at
+Amsterdam. Derive that delta from the fork's gas model so it is
+exactly 0 pre-EIP-8037 and tracks parameter changes; do not hardcode
+the Amsterdam value.
 """
+
+from typing import NamedTuple
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Bytes,
-    Environment,
+    CodeGasMeasure,
     Hash,
     StateTestFiller,
     Transaction,
     compute_create_address,
 )
 from execution_testing.forks import Fork
-from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
-)
+from execution_testing.vm import Bytecode, Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+CREATE_RESULT_SLOT = 0
+CALL_RESULT_SLOT = 1
+FIRST_CREATED_CALL_COST_SLOT = 2
+
+
+def create_from(*, create_opcode: Op, initcode: Bytecode) -> Bytecode:
+    """Place `initcode` at memory 0 and CREATE, or CREATE2, from it."""
+    return Op.MSTORE(
+        offset=0,
+        value=Op.PUSH32[Hash(initcode, right_padding=True)],
+    ) + Op.SSTORE(
+        CREATE_RESULT_SLOT,
+        create_opcode(value=0, offset=0, size=len(initcode)),
+    )
+
+
+class CaseOutcome(NamedTuple):
+    """
+    The facts a case's post-state follows from.
+
+    `create_result` is what slot 0 records, where `None` stands for the
+    probed address itself.
+    """
+
+    create_result_stored: bool
+    call_result: int
+    probed_deployed_code: Bytecode | None
+    probed_warm: bool
+    entry_nonce_bump: bool
+
+
+# The entry contract's own create fails: EIP-2929 keeps the create
+# address warm, and the nonce bump outlives the child frame's failure.
+CREATE_FAILED = CaseOutcome(
+    create_result_stored=False,
+    call_result=0,
+    probed_deployed_code=None,
+    probed_warm=True,
+    entry_nonce_bump=True,
+)
+# The create succeeds, so slot 0 records the address it deployed to.
+CREATE_SUCCEEDED = CaseOutcome(
+    create_result_stored=True,
+    call_result=0,
+    probed_deployed_code=Op.STOP,
+    probed_warm=True,
+    entry_nonce_bump=True,
+)
+# A callee ran the create and died out of gas, so its rollback took the
+# warmed create address with it and its CALL reports failure.
+CALLEE_OUT_OF_GAS = CaseOutcome(
+    create_result_stored=False,
+    call_result=0,
+    probed_deployed_code=None,
+    probed_warm=False,
+    entry_nonce_bump=False,
+)
+# A callee ran the create and died out of gas, so its rollback took the
+# warmed create address with it and its CALL reports failure.
+CONSTRUCTOR_OUT_OF_GAS = CaseOutcome(
+    create_result_stored=False,
+    call_result=1,
+    probed_deployed_code=None,
+    probed_warm=True,
+    entry_nonce_bump=False,
+)
+# A callee could not create at all, so it returns normally and its CALL
+# reports success, but nothing ever warmed the create address.
+CALLEE_COULD_NOT_CREATE = CaseOutcome(
+    create_result_stored=False,
+    call_result=1,
+    probed_deployed_code=None,
+    probed_warm=False,
+    entry_nonce_bump=False,
+)
 
 
 @pytest.mark.ported_from(
     ["state_tests/stCreateTest/CreateAddressWarmAfterFailFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize("value", [0, 1], ids=["v0", "v1"])
+@pytest.mark.with_all_create_opcodes
 @pytest.mark.parametrize(
-    "d, g, v",
+    "initcode_outcome",
     [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="create-contructor-revert-v0",
-        ),
-        pytest.param(
-            0,
-            0,
-            1,
-            id="create-contructor-revert-v1",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="create2-contructor-revert-v0",
-        ),
-        pytest.param(
-            1,
-            0,
-            1,
-            id="create2-contructor-revert-v1",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="create-code-too-big-v0",
-            marks=pytest.mark.valid_before("EIP7954"),
-        ),
-        pytest.param(
-            2,
-            0,
-            1,
-            id="create-code-too-big-v1",
-            marks=pytest.mark.valid_before("EIP7954"),
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="create2-code-too-big-v0",
-            marks=pytest.mark.valid_before("EIP7954"),
-        ),
-        pytest.param(
-            3,
-            0,
-            1,
-            id="create2-code-too-big-v1",
-            marks=pytest.mark.valid_before("EIP7954"),
-        ),
-        pytest.param(
-            4,
-            0,
-            0,
-            id="create-invalid-opcode-v0",
-        ),
-        pytest.param(
-            4,
-            0,
-            1,
-            id="create-invalid-opcode-v1",
-        ),
-        pytest.param(
-            5,
-            0,
-            0,
-            id="create2-invalid-opcode-v0",
-        ),
-        pytest.param(
-            5,
-            0,
-            1,
-            id="create2-invalid-opcode-v1",
-        ),
-        pytest.param(
-            6,
-            0,
-            0,
-            id="create-oog-constructor-v0",
-        ),
-        pytest.param(
-            6,
-            0,
-            1,
-            id="create-oog-constructor-v1",
-        ),
-        pytest.param(
-            7,
-            0,
-            0,
-            id="create-oog-post-constr-v0",
-        ),
-        pytest.param(
-            7,
-            0,
-            1,
-            id="create-oog-post-constr-v1",
-        ),
-        pytest.param(
-            8,
-            0,
-            0,
-            id="create2-oog-constructor-v0",
-        ),
-        pytest.param(
-            8,
-            0,
-            1,
-            id="create2-oog-constructor-v1",
-        ),
-        pytest.param(
-            9,
-            0,
-            0,
-            id="create2-oog-post-constr-v0",
-        ),
-        pytest.param(
-            9,
-            0,
-            1,
-            id="create2-oog-post-constr-v1",
-        ),
-        pytest.param(
-            10,
-            0,
-            0,
-            id="create-high-nonce-v0",
-        ),
-        pytest.param(
-            10,
-            0,
-            1,
-            id="create-high-nonce-v1",
-        ),
-        pytest.param(
-            11,
-            0,
-            0,
-            id="create-0xef-v0",
-        ),
-        pytest.param(
-            11,
-            0,
-            1,
-            id="create-0xef-v1",
-        ),
-        pytest.param(
-            12,
-            0,
-            0,
-            id="create2-0xef-v0",
-        ),
-        pytest.param(
-            12,
-            0,
-            1,
-            id="create2-0xef-v1",
-        ),
-        pytest.param(
-            13,
-            0,
-            0,
-            id="create-ok-v0",
-        ),
-        pytest.param(
-            13,
-            0,
-            1,
-            id="create-ok-v1",
-        ),
-        pytest.param(
-            14,
-            0,
-            0,
-            id="create2-ok-v0",
-        ),
-        pytest.param(
-            14,
-            0,
-            1,
-            id="create2-ok-v1",
-        ),
+        "contructor-revert",
+        "code-too-big",
+        "invalid-opcode",
+        "oog-constructor",
+        "oog-post-constr",
+        "high-nonce",
+        "0xef",
+        "success",
     ],
 )
-@pytest.mark.pre_alloc_mutable
 def test_create_address_warm_after_fail(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    value: int,
+    initcode_outcome: str,
+    create_opcode: Op,
 ) -> None:
     """
     Invokes failing CREATE (because initcode fails) and checks
-    if the...
+    if the contract address that was supposed to be created is warm after the
+    attempt.
     """
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x00000000000000000000000000000000000C0DEC)
-    contract_1 = Address(0x00000000000000000000000000000000C0DE1006)
-    contract_2 = Address(0x00000000000000000000000000000020C0DE1006)
-    contract_3 = Address(0x00000000000000000000000000000000C0DEFFFF)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    sender = pre.fund_eoa()
+
+    create_attempt: Bytecode
+    creator_address: Address | None = None
+    creator_nonce = 1
+    initcode: Bytecode
+
+    if initcode_outcome == "contructor-revert":
+        initcode = Op.REVERT(0, 0)
+        create_attempt = create_from(
+            create_opcode=create_opcode, initcode=initcode
+        )
+        outcome = CREATE_FAILED
+
+    elif initcode_outcome == "code-too-big":
+        initcode = Op.RETURN(
+            offset=0x0,
+            size=fork.max_code_size() + 1,
+            new_memory_size=fork.max_code_size() + 1,
+            code_deposit_size=fork.max_code_size() + 1,
+        )
+        create_attempt = create_from(
+            create_opcode=create_opcode, initcode=initcode
+        )
+        outcome = CREATE_FAILED
+
+    elif initcode_outcome == "invalid-opcode":
+        initcode = Op.INVALID
+        create_attempt = create_from(
+            create_opcode=create_opcode, initcode=initcode
+        )
+        outcome = CREATE_FAILED
+
+    elif initcode_outcome in ["oog-constructor", "oog-post-constr"]:
+        deploy_size = 10
+        initcode = Op.RETURN(
+            offset=0,
+            size=deploy_size,
+            new_memory_size=deploy_size,
+            code_deposit_size=deploy_size,
+        )
+        pre_create_code = Op.MSTORE(
+            offset=0,
+            value=Op.PUSH32[Hash(initcode, right_padding=True)],
+            new_memory_size=32,
+        ) + create_opcode(
+            value=0,
+            offset=0,
+            size=len(initcode),
+            init_code_size=len(initcode),
+            account_new=True,
+        )
+
+        initcode_success_gas = pre_create_code.gas_cost(fork) + (
+            initcode.gas_cost(fork) * 64 // 63
+        )
+        callee_code_suffix: Bytecode | Op
+        if initcode_outcome == "oog-constructor":
+            # Run OOG at the code deposit
+            gas = initcode_success_gas - 1
+            assert (
+                (initcode_success_gas - pre_create_code.gas_cost(fork))
+                * 63
+                // 64
+            ) < initcode.gas_cost(fork)
+            callee_code_suffix = Op.STOP
+            # Constructor runs out of gas, but the callee does the warming, so
+            # is not reverted.
+            outcome = CONSTRUCTOR_OUT_OF_GAS
+
+        elif initcode_outcome == "oog-post-constr":
+            # Run OOG at the JUMPDEST
+            gas = initcode_success_gas
+            callee_code_suffix = (
+                Op.MSTORE(
+                    2**12,
+                    1,
+                    old_memory_size=32,
+                    new_memory_size=2**12,
+                )
+                + Op.STOP
+            )
+            assert callee_code_suffix.gas_cost(fork) > (
+                gas
+                - (pre_create_code.gas_cost(fork) + initcode.gas_cost(fork))
+            )
+            # Callee runs out of gas, the created contract warming is reverted.
+            outcome = CALLEE_OUT_OF_GAS
+
+        else:
+            raise Exception(f"invalid initcode_outcome: {initcode_outcome}")
+
+        callee_code = pre_create_code + callee_code_suffix
+        creator_address = pre.deploy_contract(code=callee_code)
+
+        create_attempt = Op.SSTORE(
+            CALL_RESULT_SLOT,
+            Op.CALL(gas=gas, address=creator_address),
+        )
+
+    elif initcode_outcome == "high-nonce":
+        high_nonce = 2**64 - 1
+        deploy_size = 10
+        initcode = Op.RETURN(
+            offset=0,
+            size=deploy_size,
+            new_memory_size=deploy_size,
+            code_deposit_size=deploy_size,
+        )
+        pre_create_code = Op.MSTORE(
+            offset=0,
+            value=Op.PUSH32[Hash(initcode, right_padding=True)],
+        ) + create_opcode(
+            value=0,
+            offset=0,
+            size=len(initcode),
+            init_code_size=len(initcode),
+            account_new=True,
+        )
+        creator_address = pre.deploy_contract(
+            code=pre_create_code + Op.STOP,
+            nonce=high_nonce,
+        )
+        create_attempt = Op.SSTORE(
+            CALL_RESULT_SLOT,
+            Op.CALL(address=creator_address),
+        )
+        creator_nonce = high_nonce
+        outcome = CALLEE_COULD_NOT_CREATE
+
+    elif initcode_outcome == "0xef":
+        initcode = Op.MSTORE8(offset=0, value=0xEF) + Op.RETURN(
+            offset=0, size=1
+        )
+        create_attempt = create_from(
+            create_opcode=create_opcode, initcode=initcode
+        )
+        outcome = CREATE_FAILED
+
+    elif initcode_outcome == "success":
+        initcode = Op.RETURN(
+            offset=0x0,
+            size=0x1,
+            new_memory_size=0x1,
+            code_deposit_size=0x1,
+        )
+        create_attempt = create_from(
+            create_opcode=create_opcode, initcode=initcode
+        )
+        outcome = CREATE_SUCCEEDED
+
+    else:
+        raise ValueError(f"unhandled case: d={initcode_outcome}")
+
+    call = Op.CALL(
+        gas=0,
+        address=Op.CALLDATALOAD(0),
+        value=Op.CALLVALUE,
+        address_warm=outcome.probed_warm,
+        value_transfer=bool(value),
+        account_new=bool(value) and outcome.probed_deployed_code is None,
+    )
+    measure_call = CodeGasMeasure(
+        code=call,
+        extra_stack_items=1,
+        sstore_key=FIRST_CREATED_CALL_COST_SLOT,
+    )
+    entry_contract = pre.deploy_contract(
+        code=create_attempt + measure_call + Op.STOP
+    )
+    if creator_address is None:
+        creator_address = entry_contract
+
+    probed_address = compute_create_address(
+        address=creator_address,
+        nonce=creator_nonce,
+        initcode=initcode,
+        opcode=create_opcode,
     )
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=999,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=3000000000,
+    probed_post: Account | None = (
+        Account(code=outcome.probed_deployed_code, balance=value, nonce=1)
+        if outcome.probed_deployed_code
+        else Account(code=b"", balance=value, nonce=0)
+        if value != 0
+        else Account.NONEXISTENT
     )
 
-    pre[sender] = Account(balance=0xE8D4A51001)
-    # Source: yul
-    # berlin
-    #   object "C" {
-    #     code {
-    #       datacopy(0, dataoffset("dummy"), datasize("dummy"))
-    #       sstore(0, create(0, 0, datasize("dummy")))
-    #       stop()
-    #     }
-    #     object "dummy" {
-    #       code {
-    #         return(0,0x6000)
-    #     }
-    #   }
-    #  }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.CODECOPY(dest_offset=0x0, offset=0x12, size=0x6)
-        + Op.SSTORE(
-            key=0x0, value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x6)
-        )
-        + Op.STOP
-        + Op.INVALID
-        + Op.RETURN(offset=0x0, size=0x6000),
-        balance=4096,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000C0DE1006),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    #   object "C" {
-    #     code {
-    #       datacopy(0, dataoffset("dummy"), datasize("dummy"))
-    #       sstore(0, create2(0, 0, datasize("dummy"), 0))
-    #       stop()
-    #     }
-    #     object "dummy" {
-    #       code {
-    #         return(0,0x6000)
-    #     }
-    #   }
-    #  }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.CODECOPY(dest_offset=0x0, offset=0x13, size=0x6)
-        + Op.SSTORE(
-            key=0x0,
-            value=Op.CREATE2(
-                value=Op.DUP1, offset=Op.DUP2, size=0x6, salt=0x0
-            ),
-        )
-        + Op.STOP
-        + Op.INVALID
-        + Op.RETURN(offset=0x0, size=0x6000),
-        balance=4096,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000020C0DE1006),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    #   object "C" {
-    #     code {
-    #       datacopy(0, dataoffset("dummy"), datasize("dummy"))
-    #       sstore(0, create(0, 0, datasize("dummy")))
-    #       stop()
-    #     }
-    #     object "dummy" {
-    #       code {
-    #         return(0,0x20)
-    #     }
-    #   }
-    #  }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.CODECOPY(dest_offset=0x0, offset=0x12, size=0x5)
-        + Op.SSTORE(
-            key=0x0, value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x5)
-        )
-        + Op.STOP
-        + Op.INVALID
-        + Op.RETURN(offset=0x0, size=0x20),
-        balance=4096,
-        nonce=18446744073709551615,
-        address=Address(0x00000000000000000000000000000000C0DEFFFF),  # noqa: E501
-    )
-    # Source: yul
-    # london
-    #   object "C" {
-    #     code {
-    #       let failType := calldataload(4)
-    #       let initcode_size
-    #
-    #       // The return values of various actions. Done twice to see if there is a difference  # noqa: E501
-    #       let create_1 := 0
-    #       let call_created_1 := 2
-    #       let call_created_2 := 3
-    #       let call_empty_1 := 4
-    #       let call_empty_2 := 5
-    #
-    #       // The costs of those operations
-    #       let create_1_cost := 10
-    #       let call_created_1_cost := 12
-    #       let call_created_2_cost := 13
-    #       let call_empty_1_cost := 14
-    #       let call_empty_2_cost := 15
-    #
-    #       // Make the storage cells we use here are warm
-    #       sstore(create_1, 0xdead60A7)
-    #       sstore(call_created_1, 0xdead60A7)
-    #       sstore(call_created_2, 0xdead60A7)
-    #       sstore(call_empty_1, 0xdead60A7)
-    #       sstore(call_empty_2, 0xdead60A7)
-    #       sstore(call_created_1_cost, 0xdead60A7)
-    #       sstore(call_created_2_cost, 0xdead60A7)
-    #       sstore(call_empty_1_cost, 0xdead60A7)
-    #       sstore(call_empty_2_cost, 0xdead60A7)
-    # ... (173 more lines)
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=bytes.fromhex(
-            "6004356000906002600390600493600593600c90600d96600e90600f9863dead60a7865563dead60a7875563dead60a7885563dead60a7825563dead60a7895563dead60a7855563dead60a7815563dead60a7835563dead60a78a5573d4e7ae083132925a4927c1f5816238ba17b82a00938060001461044c5780600a1461040e57806001146103dc5780600b146103a357806002146103715780600c1461033257806003146102f757806004146102bb578060051461027f5780600d146102435780600e1461020657806006146101d4578060101461019b5780600714610169576011146100ed57600080fd5b60009788808080809b9a819b9a829b73f7fef4b66b1570a057d7d5cec5c58846befa5b5c92615a1760058061049488398680f590555b5a825583808080348782f190555a81540390555a8755349082f190555a81540390555a825583808080348782f190555a81540390555a8755349082f190555a8154039055005b5060009788808080809b9a819b9a829b6000805160206104998339815191529260058061049487398580f09055610123565b5060009788808080809b9a819b9a829b73562d97e3e4d6d3c6e791ea64bb73d820871aa2199284600a8061048a83398180f59055610123565b5060009788808080809b9a819b9a829b60008051602061049983398151915292600a8061048a87398580f09055610123565b5060009788808080809b9a819b9a829b73d70df326038a3c7ca8fac785a99162bfe75ccc469284808080806420c0de100662010000f19055610123565b5060009788808080809b9a819b9a829b73d70df326038a3c7ca8fac785a99162bfe75ccc469284808080806420c0de1006617000f19055610123565b5060009788808080809b9a819b9a829b73b2050fc27ab6d6d42dc0ce6f7c0bf9481a4c3fc392848080808063c0deffff62010000f19055610123565b5060009788808080809b9a819b9a829b73a5a6a95fd9554f15ab6986a57519092be209512592848080808063c0de100662010000f19055610123565b5060009788808080809b9a819b9a829b73a5a6a95fd9554f15ab6986a57519092be209512592848080808063c0de1006617000f19055610123565b5060009788808080809b9a819b9a829b73a13d43586820e5d97a3fd1960625d537c86dc4e79284600665fe60106000f360d01b82528180f59055610123565b5060009788808080809b9a819b9a829b6000805160206104998339815191529260018061048987398580f09055610123565b5060009788808080809b9a819b9a829b73014001fdbede82315f4b8c2a7d45e980a8a4a12e928460068061048383398180f59055610123565b5060009788808080809b9a819b9a829b6000805160206104998339815191529260068061048387398580f09055610123565b5060009788808080809b9a819b9a829b7343255ee039968e0254887fc8c7172736983d878c928460056460006000fd60d81b82528180f59055610123565b5060009788808080809b9a819b9a829b6000805160206104998339815191529260048061047f87398580f0905561012356fe600080fd6160016000f3fe60ef60005360106000f360016000f3000000000000000000000000d4e7ae083132925a4927c1f5816238ba17b82a65"  # noqa: E501
+    gas_costs = fork.gas_costs()
+    probe_cost = call.gas_cost(fork) - (gas_costs.CALL_STIPEND if value else 0)
+
+    post = {
+        sender: Account(nonce=1),
+        entry_contract: Account(
+            storage={
+                CREATE_RESULT_SLOT: (
+                    probed_address if outcome.create_result_stored else 0
+                ),
+                CALL_RESULT_SLOT: outcome.call_result,
+                FIRST_CREATED_CALL_COST_SLOT: probe_cost,
+            },
+            nonce=1 + int(outcome.entry_nonce_bump),
         ),
-        balance=4096,
-        nonce=0,
-        address=Address(0x00000000000000000000000000000000000C0DEC),  # noqa: E501
-    )
-
-    # The dispatcher measures each probe CALL with a GAS-delta window.
-    # The window's framing (stack shuffling, the two dirty-warm SSTOREs
-    # bracketing the call, and the closing GAS read) is baked into the
-    # ported bytecode blob and fork-stable; the CALL's own cost is
-    # derived from the fork so warm/cold, value-transfer, and
-    # new-account repricings (EIP-2929, EIP-8037, EIP-8038) track
-    # automatically. On EIP-8037 forks the state-gas component is paid
-    # from the transaction's reservoir (see the gas limit below), so
-    # the windows observe only the regular cost.
-    first_call_frame = 228
-    repeat_call_frame = 216
-
-    def measured_call(frame: int, *, warm: bool, new: bool) -> int:
-        """Compute the gas one dispatcher probe-CALL window measures."""
-        call = Op.CALL(
-            address_warm=warm,
-            value_transfer=bool(v),
-            account_new=new and bool(v),
-        )
-        measured = frame + call.execution_cost(fork)
-        if v:
-            # The callee is empty (or STOP-only), so the stipend
-            # forwarded with the value returns unused.
-            measured -= fork.gas_costs().CALL_STIPEND
-        return measured
-
-    # Slot 12: first call to the CREATE target. Warm if a failed CREATE
-    # accessed it (the subject, EIP-2929), cold if the creating frame
-    # itself failed (or CREATE aborted on a nonce overflow), and an
-    # existing account when the CREATE succeeded.
-    warm_new_call = measured_call(first_call_frame, warm=True, new=True)
-    cold_new_call = measured_call(first_call_frame, warm=False, new=True)
-    warm_existing_call = measured_call(first_call_frame, warm=True, new=False)
-    # Slots 13/15: repeated calls, always warm to an existing account.
-    repeat_call = measured_call(repeat_call_frame, warm=True, new=False)
-    # Slot 14: first call to the never-created empty address.
-    empty_call = cold_new_call
-
-    expect_entries_: list[dict] = [
-        {
-            "indexes": {"data": [0, 2, 11, 4], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(
-                    address=contract_0, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [0, 2, 11, 4], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(address=contract_0, nonce=0): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(
-                    address=contract_0, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                Address(0x43255EE039968E0254887FC8C7172736983D878C): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [12], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                Address(
-                    0x562D97E3E4D6D3C6E791EA64BB73D820871AA219
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [12], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                Address(0x562D97E3E4D6D3C6E791EA64BB73D820871AA219): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                Address(
-                    0x014001FDBEDE82315F4B8C2A7D45E980A8A4A12E
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                Address(0x014001FDBEDE82315F4B8C2A7D45E980A8A4A12E): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [5], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                Address(
-                    0xA13D43586820E5D97A3FD1960625D537C86DC4E7
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [5], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                Address(0xA13D43586820E5D97A3FD1960625D537C86DC4E7): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [10], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 1,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: cold_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=0,
-                ),
-                Address(
-                    0xB2050FC27AB6D6D42DC0CE6F7C0BF9481A4C3FC3
-                ): Account.NONEXISTENT,
-                Address(
-                    0xD4E7AE083132925A4927C1F5816238BA17B82A00
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [10], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 1,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: cold_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=0,
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-                Address(0xB2050FC27AB6D6D42DC0CE6F7C0BF9481A4C3FC3): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [8, 9, 6, 7], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: cold_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=0,
-                ),
-                compute_create_address(
-                    address=contract_0, nonce=0
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [8, 9, 6, 7], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: cold_new_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=0,
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [13], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: compute_create_address(address=contract_0, nonce=0),
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_existing_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(address=contract_0, nonce=0): Account(
-                    code=bytes.fromhex("00")
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [13], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: compute_create_address(address=contract_0, nonce=0),
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_existing_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                compute_create_address(address=contract_0, nonce=0): Account(
-                    code=bytes.fromhex("00"), balance=2, nonce=1
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [14], "gas": -1, "value": [0]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_existing_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                Address(0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C): Account(
-                    code=bytes.fromhex("00"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [14], "gas": -1, "value": [1]},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                contract_0: Account(
-                    storage={
-                        0: 0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        12: warm_existing_call,
-                        13: repeat_call,
-                        14: empty_call,
-                        15: repeat_call,
-                    },
-                    nonce=1,
-                ),
-                Address(0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C): Account(
-                    code=bytes.fromhex("00"), balance=2, nonce=1
-                ),
-                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
-                    code=b"", balance=2, nonce=0
-                ),
-            },
-        },
-    ]
-
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
-
-    tx_data = [
-        Bytes("52c3fd24") + Hash(0x0),
-        Bytes("52c3fd24") + Hash(0xA),
-        Bytes("52c3fd24") + Hash(0x1),
-        Bytes("52c3fd24") + Hash(0xB),
-        Bytes("52c3fd24") + Hash(0x2),
-        Bytes("52c3fd24") + Hash(0xC),
-        Bytes("52c3fd24") + Hash(0x3),
-        Bytes("52c3fd24") + Hash(0x4),
-        Bytes("52c3fd24") + Hash(0xD),
-        Bytes("52c3fd24") + Hash(0xE),
-        Bytes("52c3fd24") + Hash(0x5),
-        Bytes("52c3fd24") + Hash(0x6),
-        Bytes("52c3fd24") + Hash(0x10),
-        Bytes("52c3fd24") + Hash(0x7),
-        Bytes("52c3fd24") + Hash(0x11),
-    ]
-    # Under EIP-8037 the gas above the execution cap becomes the
-    # state-gas reservoir. Size it to cover every state charge the
-    # dispatcher can incur — nine 0→non-zero SSTOREs, the CREATE's
-    # peak new-account charge plus up to two accounts created by the
-    # value-bearing probe calls (one spare), and the code deposit —
-    # so no state gas spills into the measured windows. The headroom
-    # is 0 pre-EIP-8037, leaving the budget unchanged on older forks.
-    state_gas_headroom = (
-        9 * Op.SSTORE(new_value=1).state_cost(fork)
-        + 4
-        * Op.CALL(
-            address_warm=True, value_transfer=True, account_new=True
-        ).state_cost(fork)
-        + fork.code_deposit_state_gas(code_size=1)
-    )
-    tx_gas = [16777216 + state_gas_headroom]
-    tx_value = [0, 1]
+        probed_address: probed_post,
+    }
 
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        value=tx_value[v],
-        error=_exc,
+        to=entry_contract,
+        data=Hash(probed_address, left_padding=True),
+        state_gas_reservoir=0,
+        value=value,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

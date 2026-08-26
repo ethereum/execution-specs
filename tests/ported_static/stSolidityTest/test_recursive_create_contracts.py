@@ -14,10 +14,7 @@ behavior on every fork.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
-    Bytes,
-    Environment,
     Hash,
     StateTestFiller,
     Transaction,
@@ -33,250 +30,259 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.ported_from(
     ["state_tests/stSolidityTest/RecursiveCreateContractsFiller.json"],
 )
-@pytest.mark.valid_from("Cancun")
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.valid_from("SpuriousDragon")
 def test_recursive_create_contracts(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """Recursive contract creation runs dry at the expected depth."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
-    sender = pre.fund_eoa(amount=0x1DCD6500)
+    sender = pre.fund_eoa()
 
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=100000000,
-    )
+    # Source: solidity
+    # contract recursiveCreate1
+    # {
+    #     uint depp;
+    #     function recursiveCreate1(address a, uint depth)
+    #     {
+    #         depth = depth - 1;
+    #         depp = depth;
+    #         if (depth > 0)
+    #             main(a).create2(depth);          // CALL back into main
+    #     }
+    # }
+    #
 
-    # Source: raw
-    # 0x60003560e060020a90048063820b13f614610021578063a444f5e91461003257005b61002c600435610093565b60006000f35b61003d600435610043565b60006000f35b600073095e7baea6a6c7c4c2dfeb977efac326af552d8760008190555081600181905550606b6101ad600039606b600054600160a060020a0316815260200182815260200160006000f090505050565b600060c86100e560003960c8600054600160a060020a0316815260200182815260200160006000f0905080600160a060020a0316600060026000600060006000848787f16100dd57005b50505050505600604060c860043960045160245160006001820391508160008190555060008211602657604c565b606b605d600039606b83600160a060020a0316815260200182815260200160006000f090505b505050600180605c6000396000f300006040606b6004396004516024516001810390508060008190555060008111602457605b565b81600160a060020a031663820b13f6600060008260e060020a026000526004858152602001600060008660325a03f1605857005b50505b5050600180606a6000396000f300006040606b6004396004516024516001810390508060008190555060008111602457605b565b81600160a060020a031663820b13f6600060008260e060020a026000526004858152602001600060008660325a03f1605857005b50505b5050600180606a6000396000f30000  # noqa: E501
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.CALLDATALOAD(offset=0x0)
-        + Op.EXP(0x2, 0xE0)
-        + Op.SWAP1
-        + Op.DIV
-        + Op.JUMPI(pc=Op.PUSH2[0x21], condition=Op.EQ(0x820B13F6, Op.DUP1))
-        + Op.JUMPI(pc=Op.PUSH2[0x32], condition=Op.EQ(0xA444F5E9, Op.DUP1))
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.PUSH2[0x2C]
-        + Op.CALLDATALOAD(offset=0x4)
-        + Op.JUMP(pc=Op.PUSH2[0x93])
-        + Op.JUMPDEST
-        + Op.RETURN(offset=0x0, size=0x0)
-        + Op.JUMPDEST
-        + Op.PUSH2[0x3D]
-        + Op.CALLDATALOAD(offset=0x4)
-        + Op.JUMP(pc=Op.PUSH2[0x43])
-        + Op.JUMPDEST
-        + Op.RETURN(offset=0x0, size=0x0)
-        + Op.JUMPDEST
-        + Op.PUSH1[0x0]
-        + Op.PUSH20[0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87]
-        + Op.PUSH1[0x0]
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.SSTORE
-        + Op.POP
-        + Op.DUP2
-        + Op.PUSH1[0x1]
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.SSTORE
-        + Op.POP
-        + Op.CODECOPY(dest_offset=0x0, offset=0x1AD, size=0x6B)
-        + Op.PUSH1[0x6B]
-        + Op.MSTORE(
-            offset=Op.DUP2,
-            value=Op.AND(Op.SUB(Op.EXP(0x2, 0xA0), 0x1), Op.SLOAD(key=0x0)),
+    constructor_args_size = 0x40  # (address a, uint depth)
+
+    return_contract_code = Op.JUMPDEST + Op.MSTORE(0, 0) + Op.RETURN(0, 1)
+    args_memory_offset = 0x40
+    depth = Op.SUB(Op.MLOAD(offset=args_memory_offset + 0x20), 1)
+    initcode_1_p1 = (
+        Op.CODECOPY(
+            dest_offset=args_memory_offset,
+            offset=Op.PUSH1(data_placeholder="initcode_size"),
+            size=constructor_args_size,
         )
-        + Op.PUSH1[0x20]
-        + Op.ADD
-        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP3)
-        + Op.PUSH1[0x20]
-        + Op.CREATE(value=0x0, offset=0x0, size=Op.ADD)
-        + Op.SWAP1
-        + Op.POP * 3
-        + Op.JUMP
-        + Op.JUMPDEST
-        + Op.PUSH1[0x0]
-        + Op.CODECOPY(dest_offset=0x0, offset=Op.PUSH2[0xE5], size=0xC8)
-        + Op.PUSH1[0xC8]
-        + Op.MSTORE(
-            offset=Op.DUP2,
-            value=Op.AND(Op.SUB(Op.EXP(0x2, 0xA0), 0x1), Op.SLOAD(key=0x0)),
-        )
-        + Op.PUSH1[0x20]
-        + Op.ADD
-        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP3)
-        + Op.PUSH1[0x20]
-        + Op.CREATE(value=0x0, offset=0x0, size=Op.ADD)
-        + Op.SWAP1
-        + Op.POP
-        + Op.AND(Op.SUB(Op.EXP(0x2, 0xA0), 0x1), Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.PUSH1[0x2]
+        + Op.SSTORE(0, depth)
         + Op.JUMPI(
-            pc=Op.PUSH2[0xDD],
+            pc=Op.PUSH1(data_placeholder="callback_jumpdest"),
+            condition=Op.GT(depth, 0),
+        )
+        + return_contract_code
+    )
+    initcode_1_p2 = (
+        Op.JUMPDEST  # Callback jumpdest
+        + Op.MSTORE(
+            offset=0,
+            value=depth,
+        )
+        + Op.JUMPI(
+            pc=Op.PUSH1(data_placeholder="return_contract_jumpdest"),
             condition=Op.CALL(
-                gas=Op.DUP8,
-                address=Op.DUP8,
-                value=Op.DUP5,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
+                gas=Op.SUB(Op.GAS, 0x32),
+                address=Op.MLOAD(offset=args_memory_offset),
+                args_offset=0,
+                args_size=0x20,
             ),
         )
         + Op.STOP
-        + Op.JUMPDEST
-        + Op.POP * 5
-        + Op.JUMP
-        + Op.STOP
-        + Op.CODECOPY(dest_offset=0x4, offset=0xC8, size=0x40)
-        + Op.MLOAD(offset=0x4)
-        + Op.MLOAD(offset=0x24)
-        + Op.PUSH1[0x0]
-        + Op.SUB(Op.DUP3, 0x1)
-        + Op.SWAP2
-        + Op.POP
-        + Op.DUP2
-        + Op.PUSH1[0x0]
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.SSTORE
-        + Op.POP
-        + Op.JUMPI(pc=0x26, condition=Op.GT(Op.DUP3, 0x0))
-        + Op.JUMP(pc=0x4C)
-        + Op.JUMPDEST
-        + Op.CODECOPY(dest_offset=0x0, offset=0x5D, size=0x6B)
-        + Op.PUSH1[0x6B]
-        + Op.MSTORE(
-            offset=Op.DUP2,
-            value=Op.AND(Op.SUB(Op.EXP(0x2, 0xA0), 0x1), Op.DUP4),
-        )
-        + Op.PUSH1[0x20]
-        + Op.ADD
-        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP3)
-        + Op.PUSH1[0x20]
-        + Op.CREATE(value=0x0, offset=0x0, size=Op.ADD)
-        + Op.SWAP1
-        + Op.POP
-        + Op.JUMPDEST
-        + Op.POP * 3
-        + Op.PUSH1[0x1]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x5C, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP * 2
-        + Op.CODECOPY(dest_offset=0x4, offset=0x6B, size=0x40)
-        + Op.MLOAD(offset=0x4)
-        + Op.MLOAD(offset=0x24)
-        + Op.SUB(Op.DUP2, 0x1)
-        + Op.SWAP1
-        + Op.POP
-        + Op.DUP1
-        + Op.PUSH1[0x0]
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.SSTORE
-        + Op.POP
-        + Op.JUMPI(pc=0x24, condition=Op.GT(Op.DUP2, 0x0))
-        + Op.JUMP(pc=0x5B)
-        + Op.JUMPDEST
-        + Op.AND(Op.SUB(Op.EXP(0x2, 0xA0), 0x1), Op.DUP2)
-        + Op.PUSH4[0x820B13F6]
-        + Op.PUSH1[0x0] * 2
-        + Op.MSTORE(offset=0x0, value=Op.MUL(Op.EXP(0x2, 0xE0), Op.DUP3))
-        + Op.PUSH1[0x4]
-        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP6)
-        + Op.PUSH1[0x20]
-        + Op.ADD
-        + Op.PUSH1[0x0] * 2
-        + Op.DUP7
-        + Op.SUB(Op.GAS, 0x32)
-        + Op.JUMPI(pc=0x58, condition=Op.CALL)
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.POP * 2
-        + Op.JUMPDEST
-        + Op.POP * 2
-        + Op.PUSH1[0x1]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x6A, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP * 2
-        + Op.CODECOPY(dest_offset=0x4, offset=0x6B, size=0x40)
-        + Op.MLOAD(offset=0x4)
-        + Op.MLOAD(offset=0x24)
-        + Op.SUB(Op.DUP2, 0x1)
-        + Op.SWAP1
-        + Op.POP
-        + Op.DUP1
-        + Op.PUSH1[0x0]
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.SSTORE
-        + Op.POP
-        + Op.JUMPI(pc=0x24, condition=Op.GT(Op.DUP2, 0x0))
-        + Op.JUMP(pc=0x5B)
-        + Op.JUMPDEST
-        + Op.AND(Op.SUB(Op.EXP(0x2, 0xA0), 0x1), Op.DUP2)
-        + Op.PUSH4[0x820B13F6]
-        + Op.PUSH1[0x0] * 2
-        + Op.MSTORE(offset=0x0, value=Op.MUL(Op.EXP(0x2, 0xE0), Op.DUP3))
-        + Op.PUSH1[0x4]
-        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP6)
-        + Op.PUSH1[0x20]
-        + Op.ADD
-        + Op.PUSH1[0x0] * 2
-        + Op.DUP7
-        + Op.SUB(Op.GAS, 0x32)
-        + Op.JUMPI(pc=0x58, condition=Op.CALL)
-        + Op.STOP
-        + Op.JUMPDEST
-        + Op.POP * 2
-        + Op.JUMPDEST
-        + Op.POP * 2
-        + Op.PUSH1[0x1]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x6A, size=Op.DUP1)
-        + Op.PUSH1[0x0]
-        + Op.RETURN
-        + Op.STOP * 2,
-        balance=0x314DC6448D9338C15B0A00000000,
-        nonce=0,
-        address=Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87),  # noqa: E501
+        + return_contract_code
+    )
+    initcode_1 = initcode_1_p1 + initcode_1_p2
+    initcode_1.substitute(
+        initcode_size=len(initcode_1),
+        return_contract_jumpdest=len(initcode_1) - len(return_contract_code),
+        callback_jumpdest=len(initcode_1_p1),
     )
 
+    # Source: solidity
+    # contract recursiveCreate2
+    # {
+    #     uint depp;
+    #     function recursiveCreate2(address a, uint depth)
+    #     {
+    #         depth = depth - 1;
+    #         depp = depth;
+    #         if (depth > 0)
+    #             recursiveCreate1 rec1 = new recursiveCreate1(a, depth);
+    #     }
+    # }
+
+    args_memory_offset = len(initcode_1) + constructor_args_size
+    address = Op.MLOAD(offset=args_memory_offset)
+    depth = Op.SUB(Op.MLOAD(offset=args_memory_offset + 0x20), 1)
+    initcode_2_p1 = (
+        Op.CODECOPY(
+            dest_offset=args_memory_offset,
+            offset=Op.PUSH1(data_placeholder="calldata_offset"),
+            size=constructor_args_size,
+        )
+        + Op.SSTORE(0, depth)
+        + Op.JUMPI(
+            pc=Op.PUSH1(data_placeholder="create_jumpdest"),
+            condition=Op.GT(depth, 0),
+        )
+        + return_contract_code
+    )
+    initcode_2_p2 = (
+        Op.JUMPDEST  # create jumpdest
+        + Op.CODECOPY(
+            dest_offset=0,
+            offset=Op.PUSH1(data_placeholder="initcode_1_offset"),
+            size=len(initcode_1),
+        )
+        + Op.MSTORE(
+            offset=len(initcode_1),
+            value=address,
+        )
+        + Op.MSTORE(
+            offset=len(initcode_1) + 0x20,
+            value=depth,
+        )
+        + Op.POP(
+            Op.CREATE(
+                value=0,
+                offset=0,
+                size=len(initcode_1) + constructor_args_size,
+            )
+        )
+        + return_contract_code
+    )
+    initcode_2 = initcode_2_p1 + initcode_2_p2
+    initcode_2.substitute(
+        create_jumpdest=len(initcode_2_p1),
+        initcode_1_offset=len(initcode_2),
+        calldata_offset=len(initcode_2) + len(initcode_1),
+    )
+
+    # Source: solidity
+    # contract main
+    # {
+    #     address maincontract;
+    #     uint depp;
+    #     function run(uint depth)
+    #     {
+    #         maincontract = 0x095e7baea6a6c7c4c2dfeb977efac326af552d87;
+    #         depp = depth;
+    #         recursiveCreate1 rec1 = new recursiveCreate1(maincontract,depth);
+    #     }
+    #
+    #     function create2(uint depth)
+    #     {
+    #         recursiveCreate2 rec2 = new recursiveCreate2(maincontract,depth);
+    #         address(rec2).send(2);
+    #     }
+    # }
+
+    dispatcher = Op.JUMPI(
+        pc=Op.PUSH2(data_placeholder="tx_entry_func_offset"),
+        condition=Op.EQ(1, Op.CALLVALUE),
+    )
+
+    depth = Op.CALLDATALOAD(offset=0)
+
+    # tx_entry_func -> initcode_1 -> re_entry_func -> initcode_2
+    #                      ^                               |
+    #                      |_______________________________|
+
+    re_entry_func_p1 = (
+        Op.JUMPDEST
+        + Op.CODECOPY(
+            dest_offset=0,
+            offset=Op.PUSH2(data_placeholder="initcode_2_offset"),
+            size=len(initcode_2) + len(initcode_1),
+        )
+        + Op.MSTORE(
+            offset=len(initcode_2) + len(initcode_1),
+            value=Op.ADDRESS,
+        )
+        + Op.MSTORE(
+            offset=len(initcode_2) + len(initcode_1) + 0x20,
+            value=depth,
+        )
+        + Op.JUMPI(
+            pc=Op.PUSH2(data_placeholder="re_entry_func_send_ok_offset"),
+            condition=Op.CALL(
+                gas=0,
+                address=Op.CREATE(
+                    value=0,
+                    offset=0,
+                    size=len(initcode_2) + len(initcode_1) + 0x40,
+                ),
+                value=1,
+            ),
+        )
+        + Op.INVALID  # Send fails
+    )
+    re_entry_func_p2 = Op.JUMPDEST + Op.RETURN(offset=0, size=0)
+    re_entry_func = re_entry_func_p1 + re_entry_func_p2
+
+    tx_entry_func = (
+        Op.JUMPDEST
+        + Op.SSTORE(0, Op.ADDRESS)
+        + Op.SSTORE(1, depth)
+        + Op.CODECOPY(
+            dest_offset=0,
+            offset=Op.PUSH2(data_placeholder="initcode_1_offset"),
+            size=len(initcode_1),
+        )
+        + Op.MSTORE(
+            offset=len(initcode_1),
+            value=Op.ADDRESS,
+        )
+        + Op.MSTORE(
+            offset=len(initcode_1) + 0x20,
+            value=depth,
+        )
+        + Op.POP(
+            Op.CREATE(
+                value=0,
+                offset=0,
+                size=len(initcode_1) + 0x40,
+            )
+        )
+        + Op.RETURN(offset=0, size=0)
+    )
+
+    factory_code = (
+        dispatcher + re_entry_func + tx_entry_func + initcode_2 + initcode_1
+    )
+
+    jump_targets = {
+        "re_entry_func_send_ok_offset": (
+            len(dispatcher) + len(re_entry_func_p1)
+        ),
+        "tx_entry_func_offset": (len(dispatcher) + len(re_entry_func)),
+    }
+
+    initcode_2_offset = (
+        len(dispatcher) + len(tx_entry_func) + len(re_entry_func)
+    )
+    initcode_1_offset = initcode_2_offset + len(initcode_2)
+    factory_code.substitute(
+        **jump_targets,
+        initcode_2_offset=initcode_2_offset,
+        initcode_1_offset=initcode_1_offset,
+    )
+
+    factory = pre.deploy_contract(code=factory_code, balance=0x20000000)
+
+    max_depth = 772
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=Bytes("a444f5e9") + Hash(0x304),
-        # EIP-8037 surcharge (0 before): the first child creation's
-        # new-account and code-deposit state gas spill into this
-        # budget; the recursion still runs dry at the ported depth.
-        gas_limit=300000
-        + fork.create_state_gas()
-        + fork.code_deposit_state_gas(code_size=0xC8),
+        to=factory,
+        data=Hash(max_depth),
         value=1,
     )
 
     post = {
-        contract_0: Account(
-            storage={0: contract_0, 1: 772},
-            balance=0x314DC6448D9338C15B0A00000001,
-            nonce=1,
+        factory: Account(
+            storage={0: factory, 1: max_depth},
         ),
         sender: Account(nonce=1),
-        compute_create_address(address=contract_0, nonce=0): Account(
-            storage={0: 771}, nonce=1
+        # Check only first created contract
+        compute_create_address(address=factory, nonce=1): Account(
+            storage={0: max_depth - 1}, nonce=1
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

@@ -2,17 +2,28 @@
 Verify the EIP-150 repriced code/account operations in one frame:
 EXTCODESIZE, EXTCODECOPY, SLOAD, failing value CALL/CALLCODE (insufficient
 balance), DELEGATECALL that writes the caller's storage, a call to a
-nonexistent account, BALANCE, and the whole window's measured gas.
+nonexistent account, BALANCE, and the whole window's measured gas --
+with and without argument windows that expand memory.
 
 Ported from:
 state_tests/stEIP150Specific/NewGasPriceForCodesFiller.json
+state_tests/stMemExpandingEIP150Calls/NewGasPriceForCodesWithMemExpandingCallsFiller.json
 
-@manually-enhanced: Do not overwrite. The ported bytecode shape is kept,
-but the window delta, the mid-execution sender balance, and the copied
-code word are derived (opcode metadata, fee formula, the deployed bytes);
-the delegate's budget is derived so its store — state-priced under
-EIP-8037 — fits inside the grant (a reservoir-less sub-call pays state
-gas from its regular grant); each failed value call returns its stipend.
+@manually-enhanced: Do not overwrite. The two fillers are one frame that
+differs only in whether the calls carry an argument/return window, so
+they collapse to one test parametrized on `mem_expansion`. The window
+delta, the mid-execution sender balance, and the copied code word are
+derived (opcode metadata, fee formula, the deployed bytes); the
+delegate's budget is derived so its store -- state-priced under EIP-8037
+-- fits inside the grant (a reservoir-less sub-call pays state gas from
+its regular grant); each failed value call returns its stipend.
+
+The mem-expanding filler stored a raw `GAS` reading, which pins
+`gas_limit - intrinsic - overhead` and shifts with EIP-2780's intrinsic
+change; it now shares the base filler's `SUB(entry, GAS)` delta. That
+forced the entry snapshot down to `GAS_SCRATCH`: the ported slot at
+0x3E7 grew memory to 1031 bytes, which already exceeds the 510-byte call
+window, so keeping it would have made the expanding arm expand nothing.
 """
 
 import pytest
@@ -36,18 +47,36 @@ DELEGATE_VALUE = 0x11
 # Budget for the calls whose outcome does not depend on it (the value
 # calls fail on insufficient balance; the absent target runs nothing).
 FORWARDED_GAS = 0x7530
+# Memory word holding the entry gas reading. Kept low so the calls'
+# window, not the snapshot, is what drives the memory expansion.
+GAS_SCRATCH = 0x20
+SCRATCH_MEM = GAS_SCRATCH + 0x20
+# The ported calls' argument window, driving the memory expansion.
+MEM_OFFSET = 0xFF
+MEM_SIZE = 0xFF
 GAS_PRICE = 10
 INITIAL_BALANCE = 10**15
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stEIP150Specific/NewGasPriceForCodesFiller.json"],
+    [
+        "state_tests/stEIP150Specific/NewGasPriceForCodesFiller.json",
+        "state_tests/stMemExpandingEIP150Calls/NewGasPriceForCodesWithMemExpandingCallsFiller.json",  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Berlin")
+@pytest.mark.parametrize(
+    "mem_expansion",
+    [
+        pytest.param(True, id="mem_expanding_calls"),
+        pytest.param(False, id="empty_call_window"),
+    ],
+)
 def test_new_gas_price_for_codes(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    mem_expansion: bool,
 ) -> None:
     """Measure a frame exercising every repriced code/account operation."""
     sender = pre.fund_eoa(amount=INITIAL_BALANCE)
@@ -66,13 +95,29 @@ def test_new_gas_price_for_codes(
     # store is paid from the regular grant, so the budget is derived.
     delegate_budget = delegate_store.gas_cost(fork) + 2_000
 
+    # The calls either carry the ported argument/return window -- growing
+    # memory past the entry snapshot -- or leave every operand zero.
+    call_window = {
+        "args_offset": MEM_OFFSET,
+        "args_size": MEM_SIZE,
+        "ret_offset": MEM_OFFSET,
+        "ret_size": MEM_SIZE,
+    }
+    peak_mem = MEM_OFFSET + MEM_SIZE if mem_expansion else SCRATCH_MEM
+    if not mem_expansion:
+        call_window = {}
+
     # The measured window: entry GAS snapshot through the closing GAS.
     # The value-bearing CALL and CALLCODE fail on insufficient balance
     # (this contract holds nothing), costing their access and transfer
     # charges minus the returned stipend; the DELEGATECALL runs the
     # writer against this contract's storage.
     window = (
-        Op.MSTORE(offset=0x3E7, value=Op.GAS, new_memory_size=0x407)
+        # Put the starting gas into memory
+        Op.MSTORE(
+            offset=GAS_SCRATCH, value=Op.GAS, new_memory_size=SCRATCH_MEM
+        )
+        # Store the size of the target
         + Op.SSTORE(
             key=0x1,
             value=Op.EXTCODESIZE(address=code_target, address_warm=False),
@@ -80,6 +125,7 @@ def test_new_gas_price_for_codes(
             original_value=0,
             new_value=1,
         )
+        # Copy the target's code into memory
         + Op.EXTCODECOPY(
             address=code_target,
             dest_offset=0x0,
@@ -87,9 +133,10 @@ def test_new_gas_price_for_codes(
             size=COPY_SIZE,
             address_warm=True,
             data_size=COPY_SIZE,
-            new_memory_size=0x407,
-            old_memory_size=0x407,
+            new_memory_size=SCRATCH_MEM,
+            old_memory_size=SCRATCH_MEM,
         )
+        # Store the target's code
         + Op.SSTORE(
             key=0x2,
             value=Op.MLOAD(offset=0x0),
@@ -97,6 +144,7 @@ def test_new_gas_price_for_codes(
             original_value=0,
             new_value=1,
         )
+        # Re-store the value from key 0
         + Op.SSTORE(
             key=0x4,
             value=Op.SLOAD(key=0x0, key_warm=False),
@@ -113,6 +161,10 @@ def test_new_gas_price_for_codes(
                 address_warm=False,
                 value_transfer=True,
                 account_new=False,
+                # The first call is the one that grows memory.
+                new_memory_size=peak_mem,
+                old_memory_size=SCRATCH_MEM,
+                **call_window,  # type: ignore[arg-type]
             ),
             key_warm=False,
             original_value=0,
@@ -127,6 +179,9 @@ def test_new_gas_price_for_codes(
                 address_warm=True,
                 value_transfer=True,
                 account_new=False,
+                new_memory_size=peak_mem,
+                old_memory_size=peak_mem,
+                **call_window,  # type: ignore[arg-type]
             ),
             key_warm=False,
             original_value=0,
@@ -138,6 +193,9 @@ def test_new_gas_price_for_codes(
                 gas=delegate_budget,
                 address=storage_writer,
                 address_warm=True,
+                new_memory_size=peak_mem,
+                old_memory_size=peak_mem,
+                **call_window,  # type: ignore[arg-type]
             ),
             key_warm=False,
             original_value=0,
@@ -152,6 +210,9 @@ def test_new_gas_price_for_codes(
                 address_warm=False,
                 value_transfer=False,
                 account_new=False,
+                new_memory_size=peak_mem,
+                old_memory_size=peak_mem,
+                **call_window,  # type: ignore[arg-type]
             ),
             key_warm=False,
             original_value=0,
@@ -167,7 +228,7 @@ def test_new_gas_price_for_codes(
     )
     delta_store = Op.SSTORE(
         key=0xA,
-        value=Op.SUB(Op.MLOAD(offset=0x3E7), Op.GAS),
+        value=Op.SUB(Op.MLOAD(offset=GAS_SCRATCH), Op.GAS),
         key_warm=False,
         original_value=0,
         new_value=1,
