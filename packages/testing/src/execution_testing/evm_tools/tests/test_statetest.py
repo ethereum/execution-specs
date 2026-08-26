@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from execution_testing.base_types import Hash
+from execution_testing.base_types import EmptyTrieRoot, Hash
 from execution_testing.evm_tools import statetest
 from execution_testing.evm_tools.statetest import (
     StateTest,
@@ -23,7 +23,12 @@ from execution_testing.test_types import Environment
 pytestmark = pytest.mark.evm_tools
 
 
-def _test_case(*, env: dict[str, Any], post_hash: str) -> StateTestCase:
+def _test_case(
+    *,
+    env: dict[str, Any],
+    post_hash: str,
+    transaction_value: str = "0x0",
+) -> StateTestCase:
     """Create a minimal state test case."""
     return StateTestCase(
         path="test.json",
@@ -39,7 +44,7 @@ def _test_case(*, env: dict[str, Any], post_hash: str) -> StateTestCase:
         transaction={
             "data": ["0x"],
             "gasLimit": ["0x5208"],
-            "value": ["0x0"],
+            "value": [transaction_value],
         },
     )
 
@@ -79,6 +84,23 @@ def test_run_test_case_translates_previous_hash(
         "blockHashes": {"0": previous_hash},
         "withdrawals": [],
     }
+
+
+def test_run_test_case_accepts_empty_hex_value() -> None:
+    """Treat the legacy empty hexadecimal transaction value as zero."""
+    test_case = _test_case(
+        env={
+            "currentBaseFee": "0x7",
+            "currentRandom": "0x" + "00" * 32,
+        },
+        post_hash="0x",
+        transaction_value="0x",
+    )
+
+    with ForkCache() as fork_cache:
+        result = run_test_case(test_case, fork_cache)
+
+    assert result.state_root == Hash(EmptyTrieRoot)
 
 
 def test_run_one_formats_state_root_once(
