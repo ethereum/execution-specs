@@ -23,7 +23,7 @@ from execution_testing.forks import (
     get_development_forks,
 )
 from execution_testing.specs.blockchain import GENESIS_ENVIRONMENT_DEFAULTS
-from execution_testing.test_types import Environment
+from execution_testing.test_types import Alloc, Environment
 
 # ``build_genesis_header`` pins these two values instead of taking them
 # from the environment; mirror them so both builders receive equivalent
@@ -46,3 +46,20 @@ def test_execute_genesis_matches_fill_genesis(fork: Fork) -> None:
     fill_genesis = FixtureHeader.genesis(fork, env, pre_alloc.state_root())
     assert to_json(execute_genesis) == to_json(fill_genesis)
     assert execute_genesis.block_hash == fill_genesis.block_hash
+
+
+@pytest.mark.parametrize("fork", FORKS, ids=lambda fork: fork.name())
+def test_execute_genesis_uses_fork_state_commitment(fork: Fork) -> None:
+    """The execute genesis root must use the fork-selected commitment."""
+    pre_alloc, execute_genesis = build_genesis_header(fork)
+
+    # The commitment is private state and is intentionally absent from the
+    # serialized allocation. Reconstructing the same logical allocation gives
+    # this assertion an independent provider selection instead of reusing the
+    # provider already chosen by ``build_genesis_header``.
+    independent_pre = Alloc.model_validate(pre_alloc.model_dump())
+    independent_pre.migrate_state_commitment(
+        fork.transitions_from().state_commitment()
+    )
+
+    assert execute_genesis.state_root == independent_pre.state_root()

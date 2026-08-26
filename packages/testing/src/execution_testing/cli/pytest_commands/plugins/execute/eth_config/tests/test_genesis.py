@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from execution_testing.base_types import Hash
+from execution_testing.base_types import (
+    Account,
+    Address,
+    Hash,
+    StateCommitment,
+)
 from execution_testing.forks import (
     BPO1,
     BPO2,
@@ -13,6 +18,7 @@ from execution_testing.forks import (
     BPO4,
     BPO5,
     Berlin,
+    BinaryTree,
     Byzantium,
     Cancun,
     Constantinople,
@@ -27,8 +33,14 @@ from execution_testing.forks import (
 from execution_testing.rpc import (
     ForkConfigBlobSchedule,
 )
+from execution_testing.test_types import Alloc
 
-from ..execute_types import ForkActivationTimes, Genesis, NetworkConfig
+from ..execute_types import (
+    ForkActivationTimes,
+    Genesis,
+    GenesisConfig,
+    NetworkConfig,
+)
 
 CURRENT_FILE = Path(realpath(__file__))
 CURRENT_FOLDER = CURRENT_FILE.parent
@@ -139,3 +151,37 @@ def test_genesis_parsing(
         f"Unexpected network config: {network_config}, "
         f"expected: {expected_network_config}"
     )
+
+
+def test_binary_tree_genesis_seeds_alloc_state_commitment() -> None:
+    """Genesis hashing must use the provider selected by the active fork."""
+    address = Address(0x100)
+    alloc = Alloc({address: Account(balance=1, storage={0: 1})})
+
+    mpt_alloc = alloc.model_copy(deep=True)
+    mpt_alloc.migrate_state_commitment(StateCommitment.MPT)
+    mpt_root = mpt_alloc.state_root()
+
+    genesis = Genesis(
+        config=GenesisConfig(
+            chain_id=1,
+            terminal_total_difficulty=0,
+            terminal_total_difficulty_passed=True,
+            fork_activation_times=ForkActivationTimes(root={BinaryTree: 0}),
+            blob_schedule={},
+        ),
+        alloc=alloc,
+        fee_recipient=Address(0),
+        difficulty=0,
+        extra_data=b"",
+        gas_limit=30_000_000,
+        nonce=0,
+        mixhash=Hash(0),
+        timestamp=0,
+        parent_hash=Hash(0),
+    )
+
+    assert genesis.config.fork() is BinaryTree
+    assert genesis.alloc.state_commitment() is StateCommitment.BINARY_TREE
+    assert genesis.alloc.state_root() != mpt_root
+    _ = genesis.hash
