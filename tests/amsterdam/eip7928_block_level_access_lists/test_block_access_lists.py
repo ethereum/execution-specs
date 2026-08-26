@@ -48,6 +48,7 @@ SYSTEM_ADDRESS = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE)
 
 
 @EIPChecklist.BlockHeaderField.Test.ValueBehavior.Accept()
+@EIPChecklist.BlockHeaderField.Test.Genesis()
 def test_bal_nonce_changes(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
