@@ -877,6 +877,7 @@ def build_amsterdam_stateless_artifacts_from_t8n(
         decode_execution_requests,
     )
     from ethereum.forks.amsterdam.stateless import (
+        STATELESS_INPUT_SCHEMA_ID,
         StatelessValidationResult,
         compute_new_payload_request_root,
     )
@@ -886,9 +887,6 @@ def build_amsterdam_stateless_artifacts_from_t8n(
     from ethereum.forks.amsterdam.stateless_host import (
         build_stateless_input,
         serialize_stateless_input,
-    )
-    from ethereum.forks.amsterdam.stateless_ssz import (
-        STATELESS_INPUT_SCHEMA_ID,
     )
     from ethereum_types.bytes import Bytes as AmsterdamBytes
     from ethereum_types.numeric import U16, U64
@@ -1058,7 +1056,7 @@ def assert_amsterdam_stateless_output_schema_id(
     """
     Assert the output identifies the input schema executed by the guest.
     """
-    from ethereum.forks.amsterdam.stateless_ssz import (
+    from ethereum.forks.amsterdam.stateless import (
         STATELESS_INPUT_SCHEMA_ID,
     )
     from ethereum_types.numeric import U16

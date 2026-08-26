@@ -1,6 +1,7 @@
 """Tests for stateless_guest serialization roundtrip."""
 
 import random
+from hashlib import sha256
 from typing import Tuple
 
 import pytest
@@ -26,6 +27,14 @@ from ethereum.forks.amsterdam.execution_engine.validation_helpers import (
 )
 from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
+    MAX_BYTES_PER_CODE,
+    MAX_BYTES_PER_HEADER,
+    MAX_BYTES_PER_WITNESS_NODE,
+    MAX_WITNESS_HEADERS,
+    STATELESS_INPUT_SCHEMA_FORK_INDEX,
+    STATELESS_INPUT_SCHEMA_ID,
+    STATELESS_INPUT_SCHEMA_ID_BYTES,
+    STATELESS_INPUT_SCHEMA_REVISION,
     ExecutionWitness,
     ProtocolFork,
     StatelessInput,
@@ -42,17 +51,6 @@ from ethereum.forks.amsterdam.stateless_host import (
     build_stateless_input,
     deserialize_stateless_output,
     serialize_stateless_input,
-)
-from ethereum.forks.amsterdam.stateless_ssz import (
-    MAX_BYTES_PER_CODE,
-    MAX_BYTES_PER_HEADER,
-    MAX_BYTES_PER_WITNESS_NODE,
-    MAX_WITNESS_HEADERS,
-    STATELESS_INPUT_SCHEMA_FORK_INDEX,
-    STATELESS_INPUT_SCHEMA_ID,
-    STATELESS_INPUT_SCHEMA_ID_BYTES,
-    STATELESS_INPUT_SCHEMA_REVISION,
-    stateless_input_to_ssz,
 )
 from ethereum.forks.amsterdam.transactions import LegacyTransaction
 from ethereum.state import Address, Root
@@ -198,6 +196,18 @@ def _make_stateless_output() -> StatelessValidationResult:
     )
 
 
+def _make_known_stateless_values() -> tuple[
+    StatelessInput, StatelessValidationResult
+]:
+    """Return order-independent values used by SSZ known-answer tests."""
+    state = _RNG.getstate()
+    try:
+        _RNG.seed(0xDEADBEEF)
+        return _make_stateless_input(), _make_stateless_output()
+    finally:
+        _RNG.setstate(state)
+
+
 class TestBuildStatelessInput:
     """Test host-side StatelessInput construction."""
 
@@ -334,6 +344,22 @@ class TestSerializeStatelessInput:
         recovered = deserialize_stateless_input(encoded)
         assert recovered == original
 
+    def test_known_encoding_and_request_root(self) -> None:
+        """Retain the schema bytes and payload request hash-tree root."""
+        original, _ = _make_known_stateless_values()
+        encoded = serialize_stateless_input(original)
+
+        assert len(encoded) == 3072
+        assert sha256(encoded).hexdigest() == (
+            "b7d516d24d8bde7426cae58f22b04fd7e824353eccc30bba9592487bcf4e55ec"
+        )
+        assert compute_new_payload_request_root(original) == Hash32(
+            bytes.fromhex(
+                "71d67022e2df6fc9b757f8c4614f1da2"
+                "0c993efe8595a715829093c431b3f4eb"
+            )
+        )
+
     def test_empty_witness(self) -> None:
         """Works with an empty witness."""
         original = StatelessInput(
@@ -443,6 +469,12 @@ class TestDeserializeStatelessInput:
         encoded = serialize_stateless_input(original)
         recovered = deserialize_stateless_input(encoded)
         assert recovered == original
+        payload = recovered.new_payload_request.execution_payload
+        assert type(payload.block_number) is Uint
+        assert type(payload.timestamp) is U256
+        assert type(payload.transactions) is tuple
+        assert type(recovered.witness.state) is tuple
+        assert type(recovered.public_keys) is tuple
 
     def test_empty_witness(self) -> None:
         """Works with an empty witness."""
@@ -492,7 +524,7 @@ class TestDeserializeStatelessInput:
     def test_legacy_raw_ssz_input_rejected(self) -> None:
         """Reject unprefixed SSZ input bytes."""
         original = _make_stateless_input()
-        raw_ssz = Bytes(stateless_input_to_ssz(original).encode_bytes())
+        raw_ssz = Bytes(original.encode_bytes())
         assert raw_ssz[:2] != STATELESS_INPUT_SCHEMA_ID_BYTES
         with pytest.raises(ValueError, match="Unsupported stateless input"):
             deserialize_stateless_input(raw_ssz)
@@ -510,6 +542,14 @@ class TestSerializeStatelessOutput:
         assert recovered == original
         assert recovered.chain_id == U64(1)
         assert recovered.schema_id == U16(STATELESS_INPUT_SCHEMA_ID)
+
+    def test_known_encoding(self) -> None:
+        """Retain the fixed SSZ output encoding."""
+        _, original = _make_known_stateless_values()
+        assert serialize_stateless_output(original).hex() == (
+            "0d663a7de3d811fbc797f605a65d2745df3a97d9f1994dfb685ff66d2917009f"
+            "0101000000000000000115"
+        )
 
     def test_failed_validation(self) -> None:
         """Preserve the input schema when later validation fails."""

@@ -65,7 +65,7 @@ def invalid_first_ssz_offset(input_bytes: Bytes) -> Bytes:
 
     The stateless input starts with a 2-byte schema id, followed by the
     encoded payload selected by that schema. For Amsterdam schema 0x1501,
-    the payload is an SSZ-encoded ``SSZStatelessInput`` container. Its
+    the payload is an SSZ-encoded ``StatelessInput`` container. Its
     first four SSZ bytes encode the offset to the first variable-size field.
     Setting that offset to 1 makes it point inside the fixed-size section,
     so the SSZ decoder must reject the input before stateless validation
