@@ -98,7 +98,7 @@ def create_storage_initializer() -> IteratingBytecode:
 
     storage[i] = i for i in [index, index + num).
 
-    Returns: (bytecode, loop_cost, overhead)
+    Return an IteratingBytecode with the initialization loop.
     """
     prefix = (
         Op.CALLDATALOAD(0)  # [index]
@@ -137,7 +137,7 @@ def create_benchmark_executor(
     - CALLDATA[0..32] start slot (index)
     - CALLDATA[32..64] slot count (num)
 
-    Returns: (bytecode, loop_cost, overhead)
+    Return an IteratingBytecode with the benchmark execution loop.
     """
     prefix = (
         Op.CALLDATALOAD(0)  # [index]
