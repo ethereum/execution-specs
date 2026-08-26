@@ -38,6 +38,10 @@ from ..helpers.exceptions import (
     GenesisBlockMismatchExceptionError,
     LoggedError,
 )
+from ..helpers.post_state import (
+    prime_post_verification_queries,
+    verify_post_verification_queries,
+)
 from ..helpers.rejected_blocks import (
     BlockRejectionTracker,
     verify_block_rejection,
@@ -126,6 +130,9 @@ def test_blockchain_via_engine(
         # pre-alloc group, so later tests skip the redundant getBlockByNumber
         # round-trip; per-test clients get a fresh id each test and re-verify.
         genesis_verified_clients.add(client.id)
+
+    with timing_data.time("Prime post-state RPC cache"):
+        prime_post_verification_queries(eth_rpc, fixture.post_verifications)
 
     with timing_data.time("Payloads execution") as total_payload_timing:
         logger.info(
@@ -231,3 +238,6 @@ def test_blockchain_via_engine(
                                 f"{PayloadStatusEnum.VALID}, got {status}"
                             )
         logger.info("All payloads processed successfully.")
+
+    with timing_data.time("Verify post-state RPC cache"):
+        verify_post_verification_queries(eth_rpc, fixture.post_verifications)
