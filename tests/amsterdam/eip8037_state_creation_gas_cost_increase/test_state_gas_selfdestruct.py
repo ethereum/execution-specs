@@ -9,7 +9,6 @@ already exists or the originator has zero balance.
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
 """
-# NOTE: Finish test review
 
 import pytest
 from execution_testing import (
