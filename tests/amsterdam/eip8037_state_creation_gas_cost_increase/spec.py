@@ -22,10 +22,8 @@ class ReferenceSpec:
     version: str
 
 
-# TODO: update version once
-# https://github.com/ethereum/EIPs/pull/11328 is merged
 ref_spec_8037 = ReferenceSpec(
-    "EIPS/eip-8037.md", "a12902ae1b811c45a81b51bfce671cf7a1fb27f3"
+    "EIPS/eip-8037.md", "5a8c80897aeb0952322cd0dfff767c541002b8c3"
 )
 
 
