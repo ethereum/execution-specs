@@ -1396,6 +1396,8 @@ class BlockchainTest(BaseTest):
                     block.expected_inclusion_list_satisfied = False
                 if block.header_verify:
                     block.header_verify = None
+                if block.rlp_modifier:
+                    block.rlp_modifier = None
                 if block.expected_gas_used:
                     block.expected_gas_used = None
                 if block.expected_block_access_list:
