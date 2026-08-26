@@ -27,6 +27,10 @@ pytestmark = [
     pytest.mark.pre_alloc_mutable,
 ]
 
+# The prefix makes any initcode execution visible in storage: it adds
+# slot 0x00, the witness that creation ran in the balance-only tests,
+# and zeroes slot 0x01, which the collision tests pre-seed on some
+# account shapes. On a correct collision abort neither write happens.
 CORRECT_INITCODE = Initcode(
     deploy_code=Op.STOP,
     initcode_prefix=Op.SSTORE(0, 1) + Op.SSTORE(1, 0),
