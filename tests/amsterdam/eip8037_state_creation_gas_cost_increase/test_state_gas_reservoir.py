@@ -1035,11 +1035,11 @@ def test_top_level_failure_spilled_state_gas(
 
 
 @pytest.mark.parametrize(
-    "gas_limit",
+    "descent_frames",
     [
-        pytest.param(150_000, id="gas_150k"),
-        pytest.param(200_000, id="gas_200k"),
-        pytest.param(300_000, id="gas_300k"),
+        pytest.param(2, id="descent_frames_2"),
+        pytest.param(4, id="descent_frames_4"),
+        pytest.param(8, id="descent_frames_8"),
     ],
 )
 @pytest.mark.valid_from("EIP8037")
@@ -1047,7 +1047,7 @@ def test_spilled_state_gas_consumed_across_halt_chain(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    gas_limit: int,
+    descent_frames: int,
 ) -> None:
     """
     Verify spilled state gas stays consumed along a chain of halting frames.
@@ -1061,28 +1061,35 @@ def test_spilled_state_gas_consumed_across_halt_chain(
     its spill rather than credit it back to the caller's reservoir, so the
     top-level halt charges the whole gas limit.
     """
+    slot = 0
+    value_offset = 0
+    code = (
+        # Memory is per-frame, so each frame keeps the value it wrote
+        # and reuses it below as the CALL's args_size.
+        Op.MSTORE(value_offset, Op.NOT(Op.SLOAD(slot)))
+        + Op.SSTORE(slot, Op.MLOAD(value_offset))
+        + Op.POP(Op.DELEGATECALL(address=Op.ADDRESS))
+        # An all-ones args_size overflows the memory-size calculation
+        # and halts the frame. A zero one, in a frame that cleared the
+        # slot, re-enters the contract and spawns further frames.
+        + Op.POP(Op.CALL(address=Op.ADDRESS, args_size=Op.MLOAD(value_offset)))
+    )
+    contract = pre.deploy_contract(code=code)
+
+    # One fresh spilled set plus a descent budget in static frame
+    # costs. Clear credits recycle the reservoir for deeper sets, and
+    # warm frames cost less than the static sum, so the descent runs
+    # past the budget. Fork-derived so the depth regimes survive
+    # repricings.
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + Op.SSTORE(new_value=1).state_cost(fork)
+        + descent_frames * code.execution_cost(fork)
+    )
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     # Below the cap, so the reservoir starts empty and every set spills.
     assert gas_limit < gas_limit_cap
-
-    slot = 0
-    value_offset = 0
-    contract = pre.deploy_contract(
-        code=(
-            # Memory is per-frame, so each frame keeps the value it wrote
-            # and reuses it below as the CALL's args_size.
-            Op.MSTORE(value_offset, Op.NOT(Op.SLOAD(slot)))
-            + Op.SSTORE(slot, Op.MLOAD(value_offset))
-            + Op.POP(Op.DELEGATECALL(address=Op.ADDRESS))
-            # An all-ones args_size overflows the memory-size calculation
-            # and halts the frame. A zero one, in a frame that cleared the
-            # slot, re-enters the contract and spawns further frames.
-            + Op.POP(
-                Op.CALL(address=Op.ADDRESS, args_size=Op.MLOAD(value_offset))
-            )
-        ),
-    )
 
     tx = Transaction(
         to=contract,
