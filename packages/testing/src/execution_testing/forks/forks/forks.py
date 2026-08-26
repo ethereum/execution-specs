@@ -175,7 +175,7 @@ class Frontier(BaseFork):
             OPCODE_COPY_PER_WORD=3,
             OPCODE_CREATE_BASE=32_000,
             OPCODE_EXP_BASE=10,
-            OPCODE_EXP_PER_BYTE=50,
+            OPCODE_EXP_PER_BYTE=10,
             OPCODE_LOG_BASE=375,
             OPCODE_LOG_DATA_PER_BYTE=8,
             OPCODE_LOG_TOPIC=375,
@@ -1373,6 +1373,7 @@ class TangerineWhistle(
 class SpuriousDragon(
     eips.EIP170,
     eips.EIP161,
+    eips.EIP160,
     eips.EIP155,
     TangerineWhistle,
     ruleset_name="SPURIOUS",
