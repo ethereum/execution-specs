@@ -26,6 +26,7 @@ from execution_testing import (
     Op,
     Storage,
     Transaction,
+    TransactionReceipt,
 )
 
 from .spec import ref_spec_8037
@@ -115,28 +116,30 @@ def test_multi_block_mixed_state_operations(
 
     This mixed scenario tests that `receipt_gas_used` is consistent
     across different state gas paths within a multi-block chain.
+    Every receipt pins its cumulative gas, so a mis-credited spill
+    on any path breaks the fill.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    child_budget = 500_000
 
-    reverting_child = pre.deploy_contract(
-        code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)),
-    )
-    halting_child = pre.deploy_contract(
-        code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.INVALID),
-    )
+    reverting_child_code = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)
+    reverting_child = pre.deploy_contract(code=reverting_child_code)
+    halting_child_code = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.INVALID
+    halting_child = pre.deploy_contract(code=halting_child_code)
 
     all_contracts = []
     all_storages = []
 
     # Simple SSTOREs from reservoir
     block1_txs = []
-    for _ in range(2):
+    for i in range(2):
         storage = Storage()
-        contract = pre.deploy_contract(
-            code=(Op.SSTORE(storage.store_next(1), 1)),
-        )
+        code = Op.SSTORE(storage.store_next(1), 1)
+        contract = pre.deploy_contract(code=code)
         all_contracts.append(contract)
         all_storages.append(storage)
+        tx_gas_used = intrinsic_cost + code.gas_cost(fork)
         block1_txs.append(
             Transaction(
                 to=contract,
@@ -144,26 +147,29 @@ def test_multi_block_mixed_state_operations(
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=(i + 1) * tx_gas_used,
+                ),
             )
         )
 
     # Child spill + revert
     block2_txs = []
-    for _ in range(2):
+    for i in range(2):
         storage = Storage()
-        parent = pre.deploy_contract(
-            code=(
-                Op.POP(
-                    Op.CALL(
-                        gas=500_000,
-                        address=reverting_child,
-                    )
-                )
-                + Op.SSTORE(storage.store_next(1), 1)
-            ),
-        )
+        parent_code = Op.POP(
+            Op.CALL(gas=child_budget, address=reverting_child)
+        ) + Op.SSTORE(storage.store_next(1), 1)
+        parent = pre.deploy_contract(code=parent_code)
         all_contracts.append(parent)
         all_storages.append(storage)
+        # The reverted child refunds its state gas and returns its
+        # unspent budget, so only its execution gas is consumed.
+        tx_gas_used = (
+            intrinsic_cost
+            + parent_code.gas_cost(fork)
+            + reverting_child_code.execution_cost(fork)
+        )
         block2_txs.append(
             Transaction(
                 to=parent,
@@ -171,26 +177,26 @@ def test_multi_block_mixed_state_operations(
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=(i + 1) * tx_gas_used,
+                ),
             )
         )
 
     # Child spill + exceptional halt
     block3_txs = []
-    for _ in range(2):
+    for i in range(2):
         storage = Storage()
-        parent = pre.deploy_contract(
-            code=(
-                Op.POP(
-                    Op.CALL(
-                        gas=500_000,
-                        address=halting_child,
-                    )
-                )
-                + Op.SSTORE(storage.store_next(1), 1)
-            ),
-        )
+        parent_code = Op.POP(
+            Op.CALL(gas=child_budget, address=halting_child)
+        ) + Op.SSTORE(storage.store_next(1), 1)
+        parent = pre.deploy_contract(code=parent_code)
         all_contracts.append(parent)
         all_storages.append(storage)
+        # The halted child burns its whole budget, spill included.
+        tx_gas_used = (
+            intrinsic_cost + parent_code.gas_cost(fork) + child_budget
+        )
         block3_txs.append(
             Transaction(
                 to=parent,
@@ -198,6 +204,9 @@ def test_multi_block_mixed_state_operations(
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=(i + 1) * tx_gas_used,
+                ),
             )
         )
 

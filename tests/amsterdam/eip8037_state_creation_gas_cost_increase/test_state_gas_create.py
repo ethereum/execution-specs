@@ -1953,12 +1953,14 @@ def test_create2_failed_deposit_refunds_storage_state_gas(
     """
     Test a failed CREATE2 deposit refunds the init's storage-slot state gas.
 
-    Total gas used is independent of `slots`, so a client that drops the
-    slot refund diverges for `slots >= 1`; `slots == 0` is the negative
-    control.
+    Total state gas refunded is independent of `slots`, so a client
+    that drops the slot refund diverges for `slots >= 1` and
+    `slots == 0` is the negative control. The receipt pins the init
+    frame's whole 63/64 share as burned, slot spills included.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
 
     # init: write `slots` new storage slots, then trigger a deposit failure
     init_code = Bytecode()
@@ -1972,21 +1974,50 @@ def test_create2_failed_deposit_refunds_storage_state_gas(
         init_code += Op.RETURN(0, fork.max_code_size())
     mstore_value, size = init_code_at_high_bytes(init_code)
 
-    storage = Storage()
-    factory = pre.deploy_contract(
-        code=(
-            Op.MSTORE(0, mstore_value)
-            + Op.SSTORE(
-                storage.store_next(0, "create2_failed"),
-                Op.CREATE2(value=0, offset=0, size=size, salt=0),
-            )
-        ),
+    create_call = Op.CREATE2(
+        value=0, offset=0, size=size, salt=0, init_code_size=size
     )
+    storage = Storage()
+    factory_create_code = (
+        Op.MSTORE(0, mstore_value, new_memory_size=32) + create_call
+    )
+    factory_post_create_code = (
+        # Store the CREATE2 result (0 on failure): a cold 0 -> 0 no-op.
+        Op.PUSH1(storage.store_next(0, "create2_failed"))
+        + Op.SSTORE.with_metadata(original_value=0, new_value=0)(
+            unchecked=True
+        )
+    )
+    factory = pre.deploy_contract(
+        code=factory_create_code + factory_post_create_code,
+    )
+
+    # Simulate the runtime gas: the whole-cap gas limit leaves no
+    # reservoir, so every state charge spills from `gas_left` and the
+    # failed deposit burns the init frame's whole share regardless of
+    # `slots` or `fail_mode`.
+    sim_gas_left = (
+        gas_limit_cap
+        - intrinsic_cost
+        - factory_create_code.execution_cost(fork)
+    )
+    # CREATE2's new-account state gas spills wholly from gas_left and
+    # refills there when the create fails.
+    new_account_state_gas = create_call.state_cost(fork)
+    sim_gas_left -= new_account_state_gas
+    # 63/64 retention: the factory keeps gas_left // 64.
+    sim_gas_left = sim_gas_left // 64
+    sim_gas_left += new_account_state_gas
+    sim_gas_left -= factory_post_create_code.execution_cost(fork)
+    expected_cumulative = gas_limit_cap - sim_gas_left
 
     tx = Transaction(
         to=factory,
         gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_cumulative,
+        ),
     )
 
     state_test(
