@@ -91,9 +91,11 @@ class StateTest(BaseTest):
     ] = [
         StateFixture,
     ] + [
-        fixture_format.with_label_suffix(
-            "from_state_test",
-            f"A {fixture_format.format_id()} generated from a state_test",
+        LabeledFixtureFormat.with_label_suffix(
+            fixture_format=fixture_format,
+            suffix="from_state_test",
+            description=f"A {fixture_format.format_id()} generated from a "
+            "state_test",
         )
         for fixture_format in BlockchainTest.supported_fixture_formats
         # Exclude sync fixtures from state tests - they don't make sense for

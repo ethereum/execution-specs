@@ -178,7 +178,6 @@ def built_block(
         alloc=LazyAllocStr(raw="", _state_root=Hash(0)),
         state_root=Hash(0),
         txs=[],
-        inclusion_list_txs=None,
         ommers=[],
         withdrawals=None,
         requests=None,
@@ -186,6 +185,8 @@ def built_block(
         fork=fork,
         rlp_modifier=rlp_modifier,
         block_access_list=block_access_list,
+        inclusion_list_txs=None,
+        inclusion_list_satisfied=None,
         engine_new_payload_block_access_list=engine_new_payload_block_access_list,
     )
 

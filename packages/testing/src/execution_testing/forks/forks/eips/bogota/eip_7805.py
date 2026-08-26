@@ -20,3 +20,8 @@ class EIP7805(
     engine_forkchoice_updated_version_bump=True,
 ):
     """EIP-7805 class."""
+
+    @classmethod
+    def engine_new_payload_inclusion_list_transactions(cls) -> bool:
+        """Payload attributes include the inclusion list transactions."""
+        return True
