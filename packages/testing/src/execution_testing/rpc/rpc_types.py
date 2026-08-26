@@ -172,7 +172,6 @@ class PayloadStatusEnum(str, Enum):
     SYNCING = "SYNCING"
     ACCEPTED = "ACCEPTED"
     INVALID_BLOCK_HASH = "INVALID_BLOCK_HASH"
-    INCLUSION_LIST_UNSATISFIED = "INCLUSION_LIST_UNSATISFIED"
 
 
 class BlockTransactionExceptionWithMessage(
@@ -205,6 +204,7 @@ class PayloadStatus(CamelModel):
         ]
         | None
     )
+    inclusion_list_satisfied: bool | None = None
 
 
 class ForkchoiceUpdateResponse(CamelModel):
