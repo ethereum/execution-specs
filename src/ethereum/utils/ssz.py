@@ -10,6 +10,7 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
+    final,
     get_args,
     get_origin,
     get_type_hints,
@@ -32,32 +33,38 @@ class _SszType:
     pass
 
 
+@final
 @dataclass(frozen=True)
 class _Uint(_SszType):
     bits: int
 
 
+@final
 @dataclass(frozen=True)
 class _ByteVector(_SszType):
     length: int
 
 
+@final
 @dataclass(frozen=True)
 class _ByteList(_SszType):
     limit: int
 
 
+@final
 @dataclass(frozen=True)
 class _List(_SszType):
     element: _SszType
     limit: int
 
 
+@final
 @dataclass(frozen=True)
 class _ProgressiveList(_SszType):
     element: _SszType
 
 
+@final
 @dataclass(frozen=True)
 class _Container(_SszType):
     model: Any
@@ -71,6 +78,7 @@ class _ProgressiveByteList(_SszType):
     pass
 
 
+@final
 @dataclass(frozen=True)
 class _ListLimit:
     limit: int
