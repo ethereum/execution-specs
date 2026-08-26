@@ -37,14 +37,14 @@ from .blockchain import FixtureHeader
 
 class PreAllocGroupCommon(CamelModel):
     """
-    Common fields between the pre-alloc group builder and the final
-    pre-alloc group.
+    Fields that identify a pre-allocation group, in either of its two forms.
+
+    `PreAllocGroupBuilder` is the scratch accumulator phase 1 fills in and
+    must never publish; `PreAllocGroup` is the artifact consumers read. The
+    two are not interchangeable and share only the fields below.
     """
 
     test_ids: List[str] = Field(default_factory=list)
-    environment: Environment = Field(
-        ..., description="Grouping environment for this test group"
-    )
     fork: Fork | TransitionFork = Field(..., alias="network")
     chain_id: ZeroPaddedHexNumber = ZeroPaddedHexNumber(DEFAULT_CHAIN_ID)
     group_salt: str | None = Field(
@@ -69,11 +69,10 @@ class PreAllocGroupBuilder(PreAllocGroupCommon):
     This file must _NOT_ be saved as the final output of the filling process.
     """
 
+    environment: Environment = Field(
+        ..., description="Grouping environment for this test group"
+    )
     pre: Alloc
-
-    # Ensures the final pre-alloc group model is incompatible with the
-    # incomplete builder.
-    builder: str = "builder"
 
     def model_post_init(self, __context: Any) -> None:
         """
@@ -114,7 +113,6 @@ class PreAllocGroupBuilder(PreAllocGroupCommon):
         """Build the pre-alloc group."""
         return PreAllocGroup(
             test_ids=self.test_ids,
-            environment=self.environment,
             fork=self.fork,
             chain_id=self.chain_id,
             group_salt=self.group_salt,
@@ -671,8 +669,9 @@ class PreAllocGroup(PreAllocGroupCommon):
     """
     Pre-allocation group for tests with identical Environment and fork values.
 
-    Groups tests by a hash of their fixture Environment and fork to enable
-    pre-allocation group optimization.
+    Grouping is still keyed on the tests' fixture Environment and fork, but
+    that Environment lives in phase 1 (`PreAllocGroupBuilder`) only: what
+    reaches the final group is the `genesis` header derived from it.
     """
 
     pre: GroupPreAlloc

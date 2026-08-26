@@ -34,7 +34,6 @@ Each file in the `pre_alloc` folder corresponds to a pre-allocation group identi
    "network": "Prague",
    "chainId": "0x01",
    "groupHash": "0xb664b0d847df2cf7",
-   "environment": { ... },
    "pre": { ... }
 }
 ```
@@ -48,7 +47,6 @@ Each file in the `pre_alloc` folder corresponds to a pre-allocation group identi
 - **`chainId`**: Chain id the group's genesis is configured for
 - **`groupHash`**: The group's own hash; matches the file name and the [`preHash`](#-prehash-string) of every test in the group
 - **`groupSalt`**: Optional isolation salt; only present for groups that were explicitly isolated
-- **`environment`**: Complete [`Environment`](./common_types.md#environment) object with execution context
 - **`pre`**: Pre-allocation group [`Alloc`](./common_types.md#alloc-mappingaddressaccount) object containing initial account states
 
 ## Consumption
@@ -58,12 +56,11 @@ For each [`BlockchainTestEngineXFixture`](#blockchaintestenginexfixture) test ob
 1. **Load Pre-Allocation Group**:
    - Read the appropriate file from the `pre_alloc` folder in the same directory
    - Locate the pre-allocation group using [`preHash`](#-prehash-string)
-   - Extract the `pre` allocation and `environment` from the group
+   - Extract the `pre` allocation from the group
 
 2. **Initialize Client**:
    - Use [`network`](#-network-fork) to configure the execution fork schedule
    - Use the pre-allocation group's `pre` allocation as the starting state
-   - Use the pre-allocation group's `environment` as the execution context
    - Use [`genesisBlockHeader`](#-genesisblockheader-fixtureheader) as the genesis block header
 
 3. **Execute Engine API Sequence**:

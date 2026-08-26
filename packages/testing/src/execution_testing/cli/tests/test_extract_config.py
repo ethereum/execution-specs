@@ -14,7 +14,6 @@ from execution_testing.forks import (
     forks_from_until,
     get_deployed_forks,
 )
-from execution_testing.test_types import Environment
 
 
 def forks_from_prague_onward() -> list[Fork]:
@@ -29,11 +28,8 @@ def test_genesis_state_from_pre_alloc_group_uses_stored_chain_id(
     fork: Fork,
 ) -> None:
     """Pre-alloc group files should preserve the configured chain ID."""
-    builder = PreAllocGroup(
+    group = PreAllocGroup(
         test_ids=["test_id"],
-        environment=Environment()
-        .set_fork_requirements(fork)
-        .model_dump(mode="json", exclude={"parent_hash"}),
         fork=fork.name(),
         chain_id=12345,
         genesis=FixtureHeader(
@@ -60,7 +56,7 @@ def test_genesis_state_from_pre_alloc_group_uses_stored_chain_id(
     )
     fixture_path = tmp_path / "pre_alloc.json"
     fixture_path.write_text(
-        builder.model_dump_json(by_alias=True, exclude_none=True, indent=2)
+        group.model_dump_json(by_alias=True, exclude_none=True, indent=2)
     )
 
     genesis_state = GenesisState.from_fixture(fixture_path)
@@ -75,11 +71,8 @@ def test_genesis_state_from_legacy_pre_alloc_group_defaults_chain_id(
     fork: Fork,
 ) -> None:
     """Legacy pre-alloc groups without chain ID should still default to 1."""
-    builder = PreAllocGroup(
+    group = PreAllocGroup(
         test_ids=["test_id"],
-        environment=Environment()
-        .set_fork_requirements(fork)
-        .model_dump(mode="json", exclude={"parent_hash"}),
         fork=fork.name(),
         genesis=FixtureHeader(
             parent_hash=0,
@@ -104,7 +97,7 @@ def test_genesis_state_from_legacy_pre_alloc_group_defaults_chain_id(
         test_count=1,
     )
     fixture_path = tmp_path / "legacy_pre_alloc.json"
-    fixture_path.write_text(builder.model_dump_json(exclude={"chain_id"}))
+    fixture_path.write_text(group.model_dump_json(exclude={"chain_id"}))
 
     genesis_state = GenesisState.from_fixture(fixture_path)
 

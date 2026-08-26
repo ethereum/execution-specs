@@ -1,4 +1,4 @@
-"""Tests for conflict-aware packing of pre-allocation groups."""
+"""Tests for pre-allocation group building and conflict-aware packing."""
 
 import json
 from pathlib import Path
@@ -7,6 +7,7 @@ from typing import Dict
 import pytest
 
 from execution_testing.base_types import Account, Address
+from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.fixtures.pre_alloc_groups import (
     TEST_GROUP_INDEX_FILE,
     GroupIndexEntry,
@@ -15,7 +16,7 @@ from execution_testing.fixtures.pre_alloc_groups import (
     packed_group_hash_for_test,
     read_test_group_index,
 )
-from execution_testing.forks import Fork, Osaka, Prague
+from execution_testing.forks import Fork, Osaka, Prague, get_forks
 from execution_testing.test_types import Alloc, AllocGroupHash, Environment
 
 
@@ -528,3 +529,58 @@ def test_pack_isolates_disagreeing_shared_address(tmp_path: Path) -> None:
         "tests/b.py::test_b",
         "tests/c.py::test_c",
     ]
+
+
+def test_builder_genesis_carries_the_environment() -> None:
+    """
+    Every `Environment` field the genesis header shares reaches that header.
+
+    A final `PreAllocGroup` does not carry the `Environment` it was grouped
+    on, only the `genesis` header the builder derives from it, so this
+    mapping is the whole of what a consumer ends up seeing.
+
+    The fields to compare come from the two models, so one added to both is
+    covered without touching this test. Fields left `None` are skipped, and
+    the newest fork is used: `FixtureHeader.genesis` dumps the environment
+    with `exclude_none=True` and derives the rest itself, gated on the fork
+    (the empty block access list hash, for one).
+    """
+    fork = get_forks()[-1]
+    environment = Environment(
+        fee_recipient=0x1234,
+        prev_randao=0x5678,
+        extra_data=b"\x01\x02",
+        number=0,
+        timestamp=7,
+        difficulty=0,
+        gas_limit=0x123456,
+        base_fee_per_gas=99,
+        excess_blob_gas=0x20000,
+        blob_gas_used=0x10000,
+        parent_beacon_block_root=0xABC,
+        slot_number=42,
+    ).set_fork_requirements(fork)
+
+    genesis = (
+        PreAllocGroupBuilder(
+            test_ids=["tests/a.py::test_a"],
+            environment=environment,
+            fork=fork,
+            pre=Alloc(),
+        )
+        .build()
+        .genesis
+    )
+
+    carried = sorted(
+        field
+        for field in set(Environment.model_fields)
+        & set(FixtureHeader.model_fields)
+        if getattr(environment, field) is not None
+    )
+    assert carried, "no environment field reaches the genesis header"
+    for field in carried:
+        assert getattr(genesis, field) == getattr(environment, field), (
+            f"{field} did not reach the genesis header: "
+            f"{getattr(environment, field)} != {getattr(genesis, field)}"
+        )
