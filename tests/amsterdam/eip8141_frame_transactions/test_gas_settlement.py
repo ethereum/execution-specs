@@ -2,11 +2,10 @@
 Transaction-level gas settlement tests for
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
-A frame transaction's `gas_used` is the sum of its two block-accounted
-dimensions: the execution dimension — the post-refund usage held to
-the EIP-7623 calldata floor — plus the final attributed state gas.
-Blocks receive the settlement dimensions directly, so a storage refund
-lowers the block's execution counter along with the payer's charge.
+A frame transaction's payer-facing `gas_used` is the post-refund execution
+usage held to the EIP-7623 calldata floor plus final attributed state gas.
+Block accounting keeps the same state dimension but counts execution before
+storage refunds, as required by EIP-7778.
 """
 
 import pytest
@@ -134,11 +133,11 @@ def test_storage_refund_settlement(
     """
     Settle a frame transaction that clears a pre-existing storage slot.
 
-    The EIP-3529 refund reduces the payer's charge and — because a
-    frame transaction contributes its settlement dimensions to the
-    block directly — the block's execution gas counter equally, pinned
-    through the header. Clearing durable state consumes no state gas,
-    so the frame declares none.
+    The EIP-3529 refund reduces the payer's charge, while EIP-7778 keeps
+    the refunded execution gas counted toward the block gas limit. The
+    receipt therefore reports post-refund cumulative gas and the block
+    header reports pre-refund gas. Clearing durable state consumes no
+    state gas, so the frame declares none.
     """
     sender = pre.fund_eoa()
     clear = Op.SSTORE(
@@ -216,5 +215,5 @@ def test_storage_refund_settlement(
             sender: Account(nonce=1),
             worker: Account(storage={SLOT: 0}),
         },
-        blockchain_test_header_verify=Header(gas_used=gas_used),
+        blockchain_test_header_verify=Header(gas_used=gas_used_before_refund),
     )
