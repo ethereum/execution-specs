@@ -4,7 +4,7 @@ Stateless validation interfaces.
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import List, Sequence, Tuple, final
+from typing import Annotated, List, Sequence, Tuple, final
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -14,6 +14,13 @@ from ethereum_types.numeric import U16, U64
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
 from ethereum.state import Root
+from ethereum.utils.ssz import (
+    SszContainer,
+    byte_list,
+    byte_vector,
+    progressive_list,
+    ssz_list,
+)
 
 from .blocks import Header
 from .execution_engine.new_payload import execute_new_payload_request
@@ -23,27 +30,42 @@ from .fork import ChainContext
 from .fork_types import VersionedHash
 from .witness_state import WitnessState, build_code_db, build_node_db
 
+MAX_WITNESS_HEADERS = 256
+MAX_BYTES_PER_CODE = 2**16
+MAX_BYTES_PER_HEADER = 2**10
+MAX_BYTES_PER_WITNESS_NODE = 2**10
+PUBLIC_KEY_BYTES = 65
+
 
 @final
 @slotted_freezable
 @dataclass
-class ExecutionWitness:
+class ExecutionWitness(SszContainer):
     """
     Execution witness data for stateless validation.
     """
 
-    state: Tuple[Bytes, ...]
+    state: Annotated[
+        Tuple[Annotated[Bytes, byte_list(MAX_BYTES_PER_WITNESS_NODE)], ...],
+        progressive_list(),
+    ]
     """
     Hashed trie-node preimages needed during execution and state-root
     recomputation.
     """
 
-    codes: Tuple[Bytes, ...]
+    codes: Annotated[
+        Tuple[Annotated[Bytes, byte_list(MAX_BYTES_PER_CODE)], ...],
+        progressive_list(),
+    ]
     """
     Contract-code preimages (created or accessed) needed during execution.
     """
 
-    headers: Tuple[Bytes, ...]
+    headers: Annotated[
+        Tuple[Annotated[Bytes, byte_list(MAX_BYTES_PER_HEADER)], ...],
+        ssz_list(MAX_WITNESS_HEADERS),
+    ]
     """
     RLP-encoded block headers used for pre-state and ``BLOCKHASH`` correctness
     proofs. This may trend toward empty EIP-7709.
@@ -106,10 +128,22 @@ class ProtocolFork(IntEnum):
     Amsterdam = 0x15
 
 
+STATELESS_INPUT_SCHEMA_FORK_INDEX = ProtocolFork.Amsterdam
+STATELESS_INPUT_SCHEMA_REVISION = 0x01
+STATELESS_INPUT_SCHEMA_ID = (
+    STATELESS_INPUT_SCHEMA_FORK_INDEX << 8
+) | STATELESS_INPUT_SCHEMA_REVISION
+STATELESS_INPUT_SCHEMA_ID_SIZE = 2
+STATELESS_INPUT_SCHEMA_ID_BYTES = STATELESS_INPUT_SCHEMA_ID.to_bytes(
+    STATELESS_INPUT_SCHEMA_ID_SIZE,
+    "big",
+)
+
+
 @final
 @slotted_freezable
 @dataclass
-class StatelessInput:
+class StatelessInput(SszContainer):
     """
     Input to stateless validation.
     """
@@ -132,7 +166,10 @@ class StatelessInput:
     Chain identifier used during payload validation and execution.
     """
 
-    public_keys: Tuple[Bytes, ...]
+    public_keys: Annotated[
+        Tuple[Annotated[Bytes, byte_vector(PUBLIC_KEY_BYTES)], ...],
+        progressive_list(),
+    ]
     """
     65-byte uncompressed transaction public keys, in payload order.
     """
@@ -141,7 +178,7 @@ class StatelessInput:
 @final
 @slotted_freezable
 @dataclass
-class StatelessValidationResult:
+class StatelessValidationResult(SszContainer):
     """
     Result returned by stateless validation.
 
@@ -186,10 +223,7 @@ def compute_new_payload_request_root(
     """
     Compute the request root for a stateless input via SSZ hash tree root.
     """
-    from .stateless_ssz import _new_payload_request_to_ssz
-
-    ssz_npr = _new_payload_request_to_ssz(stateless_input.new_payload_request)
-    return Hash32(ssz_npr.hash_tree_root())
+    return Hash32(stateless_input.new_payload_request.hash_tree_root())
 
 
 def _decode_header(header_bytes: Bytes) -> Header | PreviousForkHeader:
@@ -232,8 +266,6 @@ def verify_stateless_new_payload(
     """
     Statelessly validate the execution payload.
     """
-    from .stateless_ssz import STATELESS_INPUT_SCHEMA_ID
-
     new_payload_request_root = compute_new_payload_request_root(
         stateless_input
     )

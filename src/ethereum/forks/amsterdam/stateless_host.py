@@ -17,15 +17,10 @@ from .execution_engine.requests import ExecutionRequests
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import VersionedHash
 from .stateless import (
+    STATELESS_INPUT_SCHEMA_ID_BYTES,
     ExecutionWitness,
     StatelessInput,
     StatelessValidationResult,
-)
-from .stateless_ssz import (
-    STATELESS_INPUT_SCHEMA_ID_BYTES,
-    SSZStatelessValidationResult,
-    ssz_to_validation_result,
-    stateless_input_to_ssz,
 )
 from .transactions import (
     BlobTransaction,
@@ -40,16 +35,14 @@ def serialize_stateless_input(
     stateless_input: StatelessInput,
 ) -> Bytes:
     """Serialize a StatelessInput to schema-prefixed SSZ bytes."""
-    ssz_obj = stateless_input_to_ssz(stateless_input)
     return Bytes(
-        STATELESS_INPUT_SCHEMA_ID_BYTES + bytes(ssz_obj.encode_bytes())
+        STATELESS_INPUT_SCHEMA_ID_BYTES + stateless_input.encode_bytes()
     )
 
 
 def deserialize_stateless_output(data: Bytes) -> StatelessValidationResult:
     """Deserialize a StatelessValidationResult from SSZ bytes."""
-    ssz_obj = SSZStatelessValidationResult.decode_bytes(data)
-    return ssz_to_validation_result(ssz_obj)
+    return StatelessValidationResult.decode_bytes(data)
 
 
 def build_stateless_input(

@@ -3,7 +3,7 @@ Execution engine data structures and aliases.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, final
+from typing import Annotated, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -11,6 +11,14 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.state import Address, Root
+from ethereum.utils.ssz import (
+    ProgressiveSszContainer,
+    SszContainer,
+    byte_list,
+    progressive_byte_list,
+    progressive_list,
+    uint,
+)
 
 from ..blocks import Withdrawal
 from ..fork import BlockChain
@@ -22,12 +30,13 @@ from .requests import ExecutionRequests
 ExecutionEngine = BlockChain
 PayloadId = Bytes8
 _ZERO_HASH32 = Hash32(b"\x00" * 32)
+MAX_EXTRA_DATA_BYTES = 32
 
 
 @final
 @slotted_freezable
 @dataclass
-class ExecutionPayload:
+class ExecutionPayload(ProgressiveSszContainer):
     """
     Represent a new block to be processed by the execution layer.
 
@@ -45,25 +54,28 @@ class ExecutionPayload:
     receipts_root: Root
     logs_bloom: Bloom
     prev_randao: Bytes32
-    block_number: Uint
-    gas_limit: Uint
-    gas_used: Uint
-    timestamp: U256
-    extra_data: Bytes
-    base_fee_per_gas: Uint
+    block_number: Annotated[Uint, uint(64)]
+    gas_limit: Annotated[Uint, uint(64)]
+    gas_used: Annotated[Uint, uint(64)]
+    timestamp: Annotated[U256, uint(64)]
+    extra_data: Annotated[Bytes, byte_list(MAX_EXTRA_DATA_BYTES)]
+    base_fee_per_gas: Annotated[Uint, uint(256)]
     block_hash: Hash32
-    transactions: Tuple[Bytes, ...]
-    withdrawals: Tuple[Withdrawal, ...]
+    transactions: Annotated[
+        Tuple[Annotated[Bytes, progressive_byte_list()], ...],
+        progressive_list(),
+    ]
+    withdrawals: Annotated[Tuple[Withdrawal, ...], progressive_list()]
     blob_gas_used: U64
     excess_blob_gas: U64
-    block_access_list: Bytes
+    block_access_list: Annotated[Bytes, progressive_byte_list()]
     slot_number: U64
 
 
 @final
 @slotted_freezable
 @dataclass
-class NewPayloadRequest:
+class NewPayloadRequest(SszContainer):
     """
     Contains an execution payload along with versioned hashes, the
     parent beacon block root, and execution requests for the
@@ -79,7 +91,7 @@ class NewPayloadRequest:
     """
 
     execution_payload: ExecutionPayload
-    versioned_hashes: Tuple[VersionedHash, ...]
+    versioned_hashes: Annotated[Tuple[VersionedHash, ...], progressive_list()]
     parent_beacon_block_root: Root
     execution_requests: ExecutionRequests
 

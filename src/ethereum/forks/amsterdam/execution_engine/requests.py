@@ -7,7 +7,7 @@ lists.
 """
 
 from dataclasses import dataclass
-from typing import Sequence, Tuple, final
+from typing import Annotated, Sequence, Tuple, final
 
 from ethereum_types.bytes import Bytes, Bytes32, Bytes48, Bytes96
 from ethereum_types.frozen import slotted_freezable
@@ -15,6 +15,11 @@ from ethereum_types.numeric import U64
 
 from ethereum.exceptions import InvalidBlock
 from ethereum.state import Address
+from ethereum.utils.ssz import (
+    ProgressiveSszContainer,
+    SszContainer,
+    progressive_list,
+)
 
 from ..requests import (
     BUILDER_DEPOSIT_REQUEST_TYPE,
@@ -34,7 +39,7 @@ BUILDER_EXIT_REQUEST_SIZE = 68
 @final
 @slotted_freezable
 @dataclass
-class DepositRequest:
+class DepositRequest(SszContainer):
     """A single EIP-6110 deposit request."""
 
     pubkey: Bytes48
@@ -47,7 +52,7 @@ class DepositRequest:
 @final
 @slotted_freezable
 @dataclass
-class WithdrawalRequest:
+class WithdrawalRequest(SszContainer):
     """A single EIP-7002 withdrawal request."""
 
     source_address: Address
@@ -58,7 +63,7 @@ class WithdrawalRequest:
 @final
 @slotted_freezable
 @dataclass
-class ConsolidationRequest:
+class ConsolidationRequest(SszContainer):
     """A single EIP-7251 consolidation request."""
 
     source_address: Address
@@ -69,7 +74,7 @@ class ConsolidationRequest:
 @final
 @slotted_freezable
 @dataclass
-class BuilderDepositRequest:
+class BuilderDepositRequest(SszContainer):
     """A single EIP-8282 builder deposit request."""
 
     pubkey: Bytes48
@@ -81,7 +86,7 @@ class BuilderDepositRequest:
 @final
 @slotted_freezable
 @dataclass
-class BuilderExitRequest:
+class BuilderExitRequest(SszContainer):
     """A single EIP-8282 builder exit request."""
 
     source_address: Address
@@ -91,18 +96,24 @@ class BuilderExitRequest:
 @final
 @slotted_freezable
 @dataclass
-class ExecutionRequests:
+class ExecutionRequests(ProgressiveSszContainer):
     """
     Typed engine-API container of execution-layer triggered requests.
 
     Mirrors the consensus-layer ``ExecutionRequests`` Container.
     """
 
-    deposits: Tuple[DepositRequest, ...]
-    withdrawals: Tuple[WithdrawalRequest, ...]
-    consolidations: Tuple[ConsolidationRequest, ...]
-    builder_deposits: Tuple[BuilderDepositRequest, ...]
-    builder_exits: Tuple[BuilderExitRequest, ...]
+    deposits: Annotated[Tuple[DepositRequest, ...], progressive_list()]
+    withdrawals: Annotated[Tuple[WithdrawalRequest, ...], progressive_list()]
+    consolidations: Annotated[
+        Tuple[ConsolidationRequest, ...], progressive_list()
+    ]
+    builder_deposits: Annotated[
+        Tuple[BuilderDepositRequest, ...], progressive_list()
+    ]
+    builder_exits: Annotated[
+        Tuple[BuilderExitRequest, ...], progressive_list()
+    ]
 
 
 def _encode_deposit(d: DepositRequest) -> Bytes:

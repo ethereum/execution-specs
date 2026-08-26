@@ -1149,7 +1149,7 @@ def test_execution_witness_in_blockchain_fixture(
     # statelessInputBytes is schema-prefixed guest input bytes.
     sib = block.stateless_input_bytes
     assert sib is not None and len(sib) > 0
-    from ethereum.forks.amsterdam.stateless_ssz import (
+    from ethereum.forks.amsterdam.stateless import (
         STATELESS_INPUT_SCHEMA_ID,
         STATELESS_INPUT_SCHEMA_ID_BYTES,
     )
@@ -1368,7 +1368,7 @@ def test_execution_witness_expected_true_reuses_canonical_stateless_result(
     from ethereum.forks.amsterdam.stateless_host import (
         deserialize_stateless_output,
     )
-    from ethereum.forks.amsterdam.stateless_ssz import (
+    from ethereum.forks.amsterdam.stateless import (
         STATELESS_INPUT_SCHEMA_ID,
     )
     from ethereum_types.bytes import Bytes as EthereumBytes
@@ -1433,7 +1433,7 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
     from ethereum.forks.amsterdam.stateless_host import (
         deserialize_stateless_output,
     )
-    from ethereum.forks.amsterdam.stateless_ssz import (
+    from ethereum.forks.amsterdam.stateless import (
         STATELESS_INPUT_SCHEMA_ID,
     )
     from ethereum_types.bytes import Bytes as EthereumBytes
