@@ -494,7 +494,7 @@ def test_placeholder_incongruent_parameters(
     placeholder_sizes: dict[str, int] | None,
 ) -> None:
     """Test that placeholder offsets and sizes must agree with each other."""
-    with pytest.raises(Exception, match="incongruent parameters"):
+    with pytest.raises(ValueError, match="incongruent parameters"):
         Bytecode(
             placeholder_offsets=placeholder_offsets,
             placeholder_sizes=placeholder_sizes,
@@ -564,13 +564,13 @@ def test_placeholder_bytes_guard() -> None:
     code = Op.POP(Op.PUSH2(data_placeholder="value"))
     reference = Op.POP(Op.PUSH2(0))
 
-    with pytest.raises(Exception, match="active placeholders"):
+    with pytest.raises(ValueError, match="active placeholders"):
         bytes(code)
 
-    with pytest.raises(Exception, match="active placeholders"):
+    with pytest.raises(ValueError, match="active placeholders"):
         code.hex()
 
-    with pytest.raises(Exception, match="active placeholders"):
+    with pytest.raises(ValueError, match="active placeholders"):
         code.keccak256()
 
     # Length and gas cost remain available, which is what makes the
@@ -629,7 +629,7 @@ def test_placeholder_conflicting_names_raise() -> None:
     """Test that concatenating a reused placeholder name raises."""
     code = Op.POP(Op.PUSH2(data_placeholder="value"))
 
-    with pytest.raises(Exception, match="Conflicting data placeholders"):
+    with pytest.raises(ValueError, match="Conflicting data placeholders"):
         code + code
 
     # Distinct names concatenate without complaint

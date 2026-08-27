@@ -74,13 +74,13 @@ class Bytecode:
             opcode_list = []
         if placeholder_offsets is not None or placeholder_sizes is not None:
             if placeholder_offsets is None or placeholder_sizes is None:
-                raise Exception(
+                raise ValueError(
                     f"incongruent parameters: placeholder_offsets "
                     f"({placeholder_offsets}) placeholder_sizes "
                     f"({placeholder_sizes})"
                 )
             if len(placeholder_offsets) != len(placeholder_sizes):
-                raise Exception(
+                raise ValueError(
                     f"incongruent parameters: len(placeholder_offsets) "
                     f"({len(placeholder_offsets)}) len(placeholder_sizes) "
                     f"({len(placeholder_sizes)})"
@@ -151,7 +151,7 @@ class Bytecode:
     def __bytes__(self) -> bytes:
         """Return the opcode byte representation."""
         if self._placeholder_offsets or self._placeholder_sizes:
-            raise Exception(
+            raise ValueError(
                 "bytecode with active placeholders cannot be converted to "
                 "bytes"
             )
@@ -278,7 +278,7 @@ class Bytecode:
             )
             != 0
         ):
-            raise Exception(
+            raise ValueError(
                 "Conflicting data placeholders between bytecode objects: "
                 f"{self._placeholder_offsets.keys()}, "
                 f"{other._placeholder_offsets.keys()}"
