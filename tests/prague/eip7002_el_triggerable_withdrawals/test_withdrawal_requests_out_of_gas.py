@@ -5,9 +5,11 @@ Tests that withdrawal requests whose triggering call runs out of gas are not
 included in the block, for
 [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.org/EIPS/eip-7002).
 
-The gas limits are supplied per-request via the interaction's `gas_limits`
-list rather than being baked into the withdrawal request descriptor, keeping
-the gas concern isolated to these dedicated tests.
+The relay contract self-measures, at runtime, the gas its call to the
+predeploy needs and then forwards one gas less to the request marked invalid,
+so the out-of-gas boundary holds across forks without a hard-coded gas value.
+The coarse starvation cases still pass their limits per request via the
+interaction's `gas_limits` list.
 """
 
 from typing import List
@@ -19,7 +21,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Environment,
     SystemContractInteractionContract,
-    SystemContractInteractionTransaction,
+    SystemContractInteractionMeasuredOutOfGasContract,
 )
 
 from .helpers import WithdrawalRequest
@@ -37,46 +39,30 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 [
-                    SystemContractInteractionTransaction(
+                    SystemContractInteractionMeasuredOutOfGasContract(
                         requests=[
                             WithdrawalRequest(
                                 validator_pubkey=0x01,
                                 amount=0,
-                                valid=False,
+                                fee=WithdrawalRequest.get_fee(0),
                             ),
                             WithdrawalRequest(
                                 validator_pubkey=0x02,
                                 amount=0,
-                            ),
-                        ],
-                        # Value obtained from trace minus one
-                        gas_limits=[114_247 - 1, None],
-                    ),
-                ],
-            ],
-            id="single_block_multiple_withdrawal_request_first_oog",
-        ),
-        pytest.param(
-            [
-                [
-                    SystemContractInteractionTransaction(
-                        requests=[
-                            WithdrawalRequest(
-                                validator_pubkey=0x01,
-                                amount=0,
+                                fee=WithdrawalRequest.get_fee(0),
                             ),
                             WithdrawalRequest(
-                                validator_pubkey=0x02,
+                                validator_pubkey=0x03,
                                 amount=0,
+                                fee=WithdrawalRequest.get_fee(0),
+                                # Starved of gas by the relay contract.
                                 valid=False,
                             ),
                         ],
-                        # Value obtained from trace minus one
-                        gas_limits=[None, 80_047 - 1],
                     ),
                 ],
             ],
-            id="single_block_multiple_withdrawal_request_last_oog",
+            id="single_block_multiple_withdrawal_requests_measured_oog",
         ),
         pytest.param(
             [
@@ -153,9 +139,9 @@ def test_withdrawal_requests_out_of_gas(
     Test that a withdrawal request whose triggering call runs out of gas is
     not included, while the other requests in the block are.
 
-    The gas limits are supplied per-request via the interaction's `gas_limits`
-    list rather than being baked into the withdrawal request descriptor,
-    keeping the gas concern isolated to these dedicated tests.
+    The relay contract self-measures the required gas and forwards one gas
+    less than needed to the invalid request, so the out-of-gas holds across
+    forks without any hard-coded gas value.
     """
     blockchain_test(
         genesis_environment=Environment(),
