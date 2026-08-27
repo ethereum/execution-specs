@@ -4,6 +4,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
+from hashlib import sha256
 from types import ModuleType
 from typing import (
     Any,
@@ -28,6 +29,7 @@ from spec256k1 import PrivateKey
 from execution_testing.base_types import (
     Account,
     Address,
+    FixedSizeBytes,
     Hash,
     HashInt,
     Number,
@@ -106,6 +108,31 @@ class EOA(Address):
     def copy(self) -> Self:
         """Return copy of the EOA."""
         return self.__class__(Address(self), key=self.key, nonce=self.nonce)
+
+
+class AllocGroupHash(FixedSizeBytes[8]):  # type: ignore
+    """Class that helps represent hashes used to group allocs."""
+
+    @classmethod
+    def from_preimage(cls, x: str | bytes) -> "AllocGroupHash":
+        """
+        Perform a hash (sha256) then truncate the output to get the alloc
+        hash.
+        """
+        if isinstance(x, str):
+            x = x.encode("utf-8")
+        return cls(sha256(x).digest()[:8])
+
+    def __xor__(self, other: "int | AllocGroupHash") -> "AllocGroupHash":
+        """
+        Alloc hashes are usually combination of multiple inputs via
+        XOR operation.
+        """
+        if isinstance(other, int):
+            other = AllocGroupHash(other)
+        return AllocGroupHash(
+            bytes(a ^ b for a, b in zip(self, other, strict=True))
+        )
 
 
 class Alloc(BaseAlloc):
@@ -339,6 +366,57 @@ class Alloc(BaseAlloc):
                     account.check_alloc(address, got_account)
                 else:
                     raise Alloc.MissingAccountError(address=address)
+
+    def get_alloc_grouping_hash(self) -> AllocGroupHash | None:
+        """
+        Return the grouping hash if the allocation belongs to a particular
+        group, otherwise `None`.
+
+        Method can be overloaded by other implementations of the Alloc to
+        return the appropriate group.
+        """
+        return None
+
+    def calculate_diff(self, base_alloc: "Alloc") -> "Alloc":
+        """
+        Calculate the state difference between self and a base.
+
+        Returns an Alloc containing only the accounts that:
+        - Changed between base and self (balance, nonce, storage, code)
+        - Were created during test execution (new accounts)
+        - Were deleted during test execution (represented as None)
+
+        Args:
+            base_alloc: Genesis pre-allocation state
+
+        Returns:
+            Alloc containing only the state differences for efficient storage
+
+        """
+        diff: Dict[Address, Account | None] = {}
+
+        # Find all addresses that exist in either state
+        all_addresses = set(self.root.keys()) | set(base_alloc.root.keys())
+
+        for address in all_addresses:
+            genesis_account = base_alloc.root.get(address)
+            post_account = self.root.get(address)
+
+            # Account was deleted (exists in genesis but not in post)
+            if genesis_account is not None and post_account is None:
+                diff[address] = None
+
+            # Account was created (doesn't exist in genesis but exists in post)
+            elif genesis_account is None and post_account is not None:
+                diff[address] = post_account
+
+            # Account was modified (exists in both but different)
+            elif genesis_account != post_account:
+                diff[address] = post_account
+
+            # Account unchanged - don't include in diff
+
+        return Alloc(diff)
 
     # ------------------------------------------------------------------
     # PreState protocol implementation

@@ -1,6 +1,5 @@
 """Pre-alloc specifically conditioned for test filling."""
 
-import hashlib
 import inspect
 from functools import cache
 from hashlib import sha256
@@ -30,6 +29,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
+    AllocGroupHash,
     Environment,
     compute_deterministic_create2_address,
     contract_address_from_hash,
@@ -99,7 +99,7 @@ class Alloc(SharedAlloc):
         """Pre-processes the code before setting it."""
         return code
 
-    def modified_accounts_salt(self) -> int:
+    def modified_accounts_salt(self) -> AllocGroupHash:
         """
         Return a salt if this pre-allocation was affected by setting addresses
         to hard-coded accounts or has pre-funded addresses.
@@ -113,7 +113,7 @@ class Alloc(SharedAlloc):
             and not self._hardcoded_addresses_deployed_to
             and not self._deleted_addresses
         ):
-            return 0
+            return AllocGroupHash(0)
 
         # Build a hashable buffer from the modified accounts.
         buffer = b""
@@ -134,9 +134,7 @@ class Alloc(SharedAlloc):
             for deleted_address in sorted(self._deleted_addresses):
                 buffer += deleted_address
 
-        return int.from_bytes(
-            hashlib.sha256(buffer).digest()[:8], byteorder="big"
-        )
+        return AllocGroupHash.from_preimage(buffer)
 
     def compute_pre_alloc_group_hash(
         self,
@@ -144,24 +142,24 @@ class Alloc(SharedAlloc):
         fork: Fork | TransitionFork,
         genesis_environment: Environment,
         group_salt: str | None,
-    ) -> str:
+    ) -> AllocGroupHash:
         """Hash (fork, env) in order to group tests by genesis config."""
-        fork_digest = hashlib.sha256(fork.name().encode("utf-8")).digest()
-        fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")
         combined_hash = (
-            fork_hash
-            ^ hash(genesis_environment)
+            AllocGroupHash.from_preimage(fork.name())
+            ^ AllocGroupHash.from_preimage(
+                genesis_environment.canonical_json()
+            )
             ^ self.modified_accounts_salt()
         )
 
         # Check if this pre-allocation has a group salt
         if group_salt:
             # Add custom salt to hash
-            salt_hash = hashlib.sha256(group_salt.encode("utf-8")).digest()
-            salt_int = int.from_bytes(salt_hash[:8], byteorder="big")
-            combined_hash = combined_hash ^ salt_int
+            combined_hash = combined_hash ^ AllocGroupHash.from_preimage(
+                group_salt
+            )
 
-        return f"0x{combined_hash:016x}"
+        return AllocGroupHash(combined_hash)
 
     def _deterministic_deploy_contract(
         self,

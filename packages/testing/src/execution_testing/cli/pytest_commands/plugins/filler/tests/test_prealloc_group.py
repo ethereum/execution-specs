@@ -687,71 +687,8 @@ def test_pre_alloc_grouping_by_test_type(
         for group_hash, group in groups.items():
             error_message += f"\n{group_hash}: \n"
             error_message += f"tests: {group.test_ids}\n"
-            env_json = group.environment.model_dump_json(
+            genesis_json = group.genesis.model_dump_json(
                 indent=2, exclude_none=True
             )
-            error_message += f"env: {env_json}\n"
+            error_message += f"genesis: {genesis_json}\n"
         raise AssertionError(error_message)
-
-    for group_hash, group in groups.items():
-        assert (
-            group.environment.fee_recipient == group.genesis.fee_recipient
-        ), (
-            f"Fee recipient mismatch for group {group_hash}: "
-            f"{group.environment.fee_recipient} != "
-            f"{group.genesis.fee_recipient}"
-        )
-        assert group.environment.prev_randao == group.genesis.prev_randao, (
-            f"Prev randao mismatch for group {group_hash}: "
-            f"{group.environment.prev_randao} != {group.genesis.prev_randao}"
-        )
-        assert group.environment.extra_data == group.genesis.extra_data, (
-            f"Extra data mismatch for group {group_hash}: "
-            f"{group.environment.extra_data} != {group.genesis.extra_data}"
-        )
-        assert group.environment.number == group.genesis.number, (
-            f"Number mismatch for group {group_hash}: "
-            f"{group.environment.number} != {group.genesis.number}"
-        )
-        assert group.environment.timestamp == group.genesis.timestamp, (
-            f"Timestamp mismatch for group {group_hash}: "
-            f"{group.environment.timestamp} != {group.genesis.timestamp}"
-        )
-        assert group.environment.difficulty == group.genesis.difficulty, (
-            f"Difficulty mismatch for group {group_hash}: "
-            f"{group.environment.difficulty} != {group.genesis.difficulty}"
-        )
-        assert group.environment.gas_limit == group.genesis.gas_limit, (
-            f"Gas limit mismatch for group {group_hash}: "
-            f"{group.environment.gas_limit} != {group.genesis.gas_limit}"
-        )
-        assert (
-            group.environment.base_fee_per_gas
-            == group.genesis.base_fee_per_gas
-        ), (
-            f"Base fee per gas mismatch for group {group_hash}: "
-            f"{group.environment.base_fee_per_gas} != "
-            f"{group.genesis.base_fee_per_gas}"
-        )
-        assert (
-            group.environment.excess_blob_gas == group.genesis.excess_blob_gas
-        ), (
-            f"Excess blob gas mismatch for group {group_hash}: "
-            f"{group.environment.excess_blob_gas} != "
-            f"{group.genesis.excess_blob_gas}"
-        )
-        assert (
-            group.environment.blob_gas_used == group.genesis.blob_gas_used
-        ), (
-            f"Blob gas used mismatch for group {group_hash}: "
-            f"{group.environment.blob_gas_used} != "
-            f"{group.genesis.blob_gas_used}"
-        )
-        assert (
-            group.environment.parent_beacon_block_root
-            == group.genesis.parent_beacon_block_root
-        ), (
-            f"Parent beacon block root mismatch for group {group_hash}: "
-            f"{group.environment.parent_beacon_block_root} != "
-            f"{group.genesis.parent_beacon_block_root}"
-        )

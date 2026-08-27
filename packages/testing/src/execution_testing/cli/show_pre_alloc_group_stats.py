@@ -159,7 +159,7 @@ def analyze_pre_alloc_folder(folder: Path) -> Dict:
     for hash_key, group in pre_alloc_groups.items():
         group_details.append(
             {
-                "hash": hash_key[:8] + "...",  # Shortened hash for display
+                "hash": str(hash_key),
                 "tests": group.test_count,
                 "accounts": group.pre_account_count,
                 "fork": group.fork.name(),

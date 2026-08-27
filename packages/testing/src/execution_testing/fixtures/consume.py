@@ -3,15 +3,33 @@
 import datetime
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Iterator, List, Optional, TextIO
+from typing import Annotated, Any, Iterator, List, Optional, TextIO
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, BeforeValidator, RootModel
 
-from execution_testing.base_types import HexNumber
+from execution_testing.base_types import Hash
 from execution_testing.forks import Fork, TransitionFork
+from execution_testing.test_types import AllocGroupHash
 
 from .base import BaseFixture, FixtureFormat
 from .file import Fixtures
+
+
+def _left_pad_hash(value: Any) -> Any:
+    """Left-pad a hash that was serialized without its leading zeros."""
+    if isinstance(value, str):
+        return Hash(value, left_padding=True)
+    return value
+
+
+IndexHash = Annotated[Hash, BeforeValidator(_left_pad_hash)]
+"""
+A hash read from an index file.
+
+Index files written before hashes were typed stored them as numbers, which
+drops any leading zero bytes (and writes a missing root hash as ``0x0``), so
+a hash read back from one is padded to its full width instead of rejected.
+"""
 
 
 class FixtureConsumer(ABC):
@@ -47,10 +65,10 @@ class TestCaseBase(BaseModel):
     """Base model for a test case used in EEST consume commands."""
 
     id: str
-    fixture_hash: HexNumber | None = None
+    fixture_hash: IndexHash
     fork: Fork | TransitionFork | None = None
     format: FixtureFormat
-    pre_hash: str | None = None
+    pre_hash: AllocGroupHash | None = None
     __test__ = False  # stop pytest from collecting this class as a test
 
 
@@ -84,7 +102,7 @@ class TestCaseIndexFile(TestCaseBase):
 class IndexFile(BaseModel):
     """The model definition used for fixture index files."""
 
-    root_hash: HexNumber | None
+    root_hash: IndexHash | None
     created_at: datetime.datetime
     test_count: int
     forks: Optional[List[Fork]] = []
@@ -113,7 +131,7 @@ class IndexFile(BaseModel):
         root_hash = HashableItem.from_index_entries(all_cases).hash()
 
         return cls(
-            root_hash=HexNumber(root_hash),
+            root_hash=root_hash,
             created_at=datetime.datetime.now(datetime.timezone.utc),
             test_count=len(all_cases),
             forks=sorted(all_forks, key=lambda f: f.name()),
