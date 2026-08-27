@@ -828,7 +828,28 @@ def _reset_chain_between_tests(
     so the client reorgs onto it even without a debug rewind. Afterwards we
     verify the block at the start_block number matches and fail loudly if it
     drifted (e.g. a live reorg).
+
+    Under ``--no-reset-between-tests`` there is no rewind, so re-anchor on
+    the live head before each test instead.
     """
+    if no_reset_between_tests:
+        # The session captured start_block once, at the head that followed
+        # the global setup. With the rewind skipped, the chain keeps moving,
+        # so that anchor goes stale the moment the first test builds a block
+        # — and every later test would still chain its first block from it.
+        # The client rejects that parent outright once it is no longer the
+        # head ("parentHash is not current head"), or, on a long enough run
+        # against a non-archive client, once its state has been pruned
+        # ("historical state ... is not available").
+        #
+        # Re-reading the head here keeps each test anchored to what the
+        # previous test actually left behind, which is the chain the
+        # accumulating mode is built around. Consumers are unaffected: they
+        # route pre-run setup by directory (``pre_run/*.json``, applied once
+        # per session), not by matching a fixture's ``start_block_hash``.
+        head = eth_rpc.get_block_by_number("latest")
+        if head is not None:
+            client_backend.start_block = head
     yield
     if no_reset_between_tests:
         return
