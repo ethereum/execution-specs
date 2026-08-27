@@ -4,7 +4,6 @@ import pytest
 
 from execution_testing.base_types import Address
 
-from ..bytecode import Placeholder
 from ..opcodes import Bytecode
 from ..opcodes import Macros as Om
 from ..opcodes import Opcodes as Op
@@ -470,268 +469,175 @@ def test_opcode_kwargs_validation() -> None:
         Op.MSTORE(offest=0, valu=1, extra=2)  # codespell:ignore offest,valu
 
 
-def test_placeholder_width_validation() -> None:
-    """Test that placeholder width is validated correctly."""
-    valid_width_ranges = 32
-
-    for i in range(1, valid_width_ranges + 1):
-        p = Placeholder(width=i)
-        assert p.width == i
-
-    # Invalid widths
-    with pytest.raises(ValueError, match="width must be between 1 and 32"):
-        Placeholder(width=0)
-
-    with pytest.raises(ValueError, match="width must be between 1 and 32"):
-        Placeholder(width=33)
-
-    with pytest.raises(ValueError, match="width must be between 1 and 32"):
-        Placeholder(width=-1)
-
-
-def test_placeholder_unique_id() -> None:
-    """Test that each placeholder gets a unique ID."""
-    p1 = Placeholder(width=2)
-    p2 = Placeholder(width=2)
-    p3 = Placeholder(width=1)
-
-    assert p1._id != p2._id
-    assert p2._id != p3._id
-    assert p1._id != p3._id
-
-
-def test_placeholder_repr() -> None:
-    """Test placeholder string representation."""
-    p = Placeholder(width=2)
-    repr_str = repr(p)
-    assert "Placeholder" in repr_str
-    assert "width=2" in repr_str
-
-
-def test_placeholder_in_bytecode() -> None:
-    """Test that placeholder can be used in bytecode construction."""
-    p = Placeholder(width=2)
-    code = Op.GT(Op.GAS, p)
-
-    # Should have placeholder tracked
-    assert p in code._placeholders
-    # Placeholder offset should be tracked (PUSH2 opcode + data)
-    assert code._placeholders[p] > 0
+def test_placeholder_requires_data_portion() -> None:
+    """Test that a placeholder requires an opcode with a data portion."""
+    with pytest.raises(
+        ValueError,
+        match="`data_placeholder` requires an opcode with data portion",
+    ):
+        Op.ADD(1, 2, data_placeholder="value")
 
 
 @pytest.mark.parametrize(
-    "width",
-    [pytest.param(w, id=f"PUSH{w}") for w in range(1, 33)],
-)
-def test_placeholder_creates_correct_push_opcode(width: int) -> None:
-    """Test that placeholder creates the correct PUSH opcode."""
-    p = Placeholder(width=width)
-    code = Op.ADD(p, 0)
-    expected_push_opcode = getattr(Op, f"PUSH{width}").int()
-    assert bytes(code)[2] == expected_push_opcode
-
-
-@pytest.mark.parametrize(
-    "width,fill_value",
+    "placeholder_offsets,placeholder_sizes",
     [
-        pytest.param(1, 0x42, id="width=1"),
-        pytest.param(2, 0x1234, id="width=2"),
-        pytest.param(3, 0x123456, id="width=3"),
-        pytest.param(4, 0x12345678, id="width=4"),
-        pytest.param(8, 0xFF, id="width=8"),
-        pytest.param(16, 0xABCD, id="width=16"),
-        pytest.param(32, 0xDEADBEEF, id="width=32"),
+        pytest.param({"value": 1}, None, id="offsets_only"),
+        pytest.param(None, {"value": 2}, id="sizes_only"),
+        pytest.param(
+            {"value": 1, "other": 4}, {"value": 2}, id="length_mismatch"
+        ),
     ],
 )
-def test_placeholder_fill_basic(width: int, fill_value: int) -> None:
-    """Test basic placeholder fill functionality."""
-    p = Placeholder(width=width)
-    push_op = getattr(Op, f"PUSH{width}")
-    code = Op.POP(p)
+def test_placeholder_incongruent_parameters(
+    placeholder_offsets: dict[str, int] | None,
+    placeholder_sizes: dict[str, int] | None,
+) -> None:
+    """Test that placeholder offsets and sizes must agree with each other."""
+    with pytest.raises(Exception, match="incongruent parameters"):
+        Bytecode(
+            placeholder_offsets=placeholder_offsets,
+            placeholder_sizes=placeholder_sizes,
+        )
 
-    # Before fill, bytecode should contain zeros
+
+@pytest.mark.parametrize(
+    "size,value",
+    [
+        pytest.param(1, 0x42, id="PUSH1"),
+        pytest.param(2, 0x1234, id="PUSH2"),
+        pytest.param(3, 0x123456, id="PUSH3"),
+        pytest.param(4, 0x12345678, id="PUSH4"),
+        pytest.param(8, 0xFF, id="PUSH8"),
+        pytest.param(16, 0xABCD, id="PUSH16"),
+        pytest.param(32, 0xDEADBEEF, id="PUSH32"),
+    ],
+)
+def test_placeholder_substitute_basic(size: int, value: int) -> None:
+    """Test basic placeholder substitution functionality."""
+    push_op = getattr(Op, f"PUSH{size}")
+    code = Op.POP(push_op(data_placeholder="value"))
+
+    # The placeholder is sized after the opcode's data portion
+    assert code._placeholder_sizes == {"value": size}
+
+    # Before substitution, the data portion is zeroed
     assert bytes(code) == bytes(Op.POP(push_op(0)))
 
-    # Fill with actual value
-    filled = code.fill(p, fill_value)
-    assert bytes(filled) == bytes(Op.POP(push_op(fill_value)))
-
-
-def test_placeholder_fill_removes_placeholder() -> None:
-    """Test that fill removes the placeholder from tracking."""
-    p = Placeholder(width=2)
-    code = Op.POP(p)
-
-    assert p in code._placeholders
-    filled = code.fill(p, 0x1234)
-    assert p not in filled._placeholders
+    # Substitute the actual value
+    substituted = code.substitute(value=value)
+    assert bytes(substituted) == bytes(Op.POP(push_op(value)))
 
 
 @pytest.mark.parametrize(
-    "width",
+    "size",
     [
-        pytest.param(1, id="width=1"),
-        pytest.param(2, id="width=2"),
-        pytest.param(4, id="width=4"),
-        pytest.param(8, id="width=8"),
-        pytest.param(32, id="width=32"),
+        pytest.param(1, id="PUSH1"),
+        pytest.param(2, id="PUSH2"),
+        pytest.param(4, id="PUSH4"),
+        pytest.param(8, id="PUSH8"),
+        pytest.param(32, id="PUSH32"),
     ],
 )
-def test_placeholder_fill_overflow(width: int) -> None:
-    """Test that fill raises error for value overflow."""
-    p = Placeholder(width=width)
-    code = Op.POP(p)
+def test_placeholder_substitute_out_of_range(size: int) -> None:
+    """Test that substitute rejects values that don't fit."""
+    push_op = getattr(Op, f"PUSH{size}")
+    code = Op.POP(push_op(data_placeholder="value"))
 
-    overflow_value = 256**width
-    with pytest.raises(ValueError, match="doesn't fit"):
-        code.fill(p, overflow_value)
+    for out_of_range in (-1, 256**size):
+        with pytest.raises(ValueError, match="doesn't fit"):
+            code.substitute(value=out_of_range)
 
     # Max value should work
-    max_value = 256**width - 1
-    filled = code.fill(p, max_value)
-    push_op = getattr(Op, f"PUSH{width}")
-    assert bytes(filled) == bytes(Op.POP(push_op(max_value)))
+    max_value = 256**size - 1
+    substituted = code.substitute(value=max_value)
+    assert bytes(substituted) == bytes(Op.POP(push_op(max_value)))
 
 
-def test_placeholder_fill_negative_value() -> None:
-    """Test that fill raises error for negative values."""
-    p = Placeholder(width=2)
-    code = Op.POP(p)
-
-    with pytest.raises(ValueError, match="doesn't fit"):
-        code.fill(p, -1)
-
-
-def test_placeholder_fill_not_found() -> None:
-    """Test that fill raises error for non-existent placeholder."""
-    p1 = Placeholder(width=2)
-    p2 = Placeholder(width=2)
-    code = Op.POP(p1)
+def test_placeholder_substitute_not_found() -> None:
+    """Test that substitute raises error for an unknown placeholder."""
+    code = Op.POP(Op.PUSH2(data_placeholder="value"))
 
     with pytest.raises(KeyError, match="not found in bytecode"):
-        code.fill(p2, 0x1234)
-
-
-def test_placeholder_in_complex_bytecode() -> None:
-    """Test placeholder in more complex bytecode constructions."""
-    loop_cost = Placeholder(width=2)
-
-    code = (
-        Op.JUMPDEST
-        + Op.PUSH1(1)
-        + Op.ADD
-        + Op.DUP1
-        + Op.JUMPI(Op.GT(Op.GAS, loop_cost), 0)
-        + Op.STOP
-    )
-
-    # Placeholder should be tracked
-    assert loop_cost in code._placeholders
-
-    # Fill and verify the bytecode is valid
-    filled = code.fill(loop_cost, 1000)
-    assert loop_cost not in filled._placeholders
-
-    # Verify the value 1000 (0x03E8) appears in the bytecode
-    filled_bytes = bytes(filled)
-    assert b"\x03\xe8" in filled_bytes
+        code.substitute(other_value=0x1234)
 
 
 def test_placeholder_immutability() -> None:
-    """Test that fill returns a new bytecode without modifying original."""
-    p = Placeholder(width=2)
-    original = Op.POP(p)
+    """Test that substitute leaves the original bytecode untouched."""
+    original = Op.POP(Op.PUSH2(data_placeholder="value"))
     original_bytes = bytes(original)
 
-    filled = original.fill(p, 0x1234)
+    substituted = original.substitute(value=0x1234)
 
     # Original should be unchanged
     assert bytes(original) == original_bytes
-    assert p in original._placeholders
+    assert "value" in original._placeholder_offsets
+    assert "value" in original._placeholder_sizes
 
-    # Filled should be different
-    assert bytes(filled) != original_bytes
-    assert p not in filled._placeholders
-
-
-@pytest.mark.parametrize(
-    "width,max_value",
-    [
-        pytest.param(w, 256**w - 1, id=f"width={w}")
-        for w in [1, 2, 3, 4, 8, 16, 20, 32]
-    ],
-)
-def test_placeholder_max_values(width: int, max_value: int) -> None:
-    """Test that placeholders accept their maximum values."""
-    p = Placeholder(width=width)
-    code = Op.POP(p)
-
-    # Should work with max value
-    filled = code.fill(p, max_value)
-    assert p not in filled._placeholders
-
-    # Should fail with max value + 1
-    p2 = Placeholder(width=width)
-    code2 = Op.POP(p2)
-    with pytest.raises(ValueError, match="doesn't fit"):
-        code2.fill(p2, max_value + 1)
-
-
-def test_placeholder_fill_zero() -> None:
-    """Test that fill with value=0 produces correct bytecode."""
-    p = Placeholder(width=2)
-    code = Op.POP(p)
-
-    filled = code.fill(p, 0)
-    assert bytes(filled) == bytes(Op.POP(Op.PUSH2(0)))
+    # The result should differ and no longer track the placeholder
+    assert bytes(substituted) != original_bytes
+    assert "value" not in substituted._placeholder_offsets
+    assert "value" not in substituted._placeholder_sizes
 
 
 def test_multiple_placeholders() -> None:
     """Test multiple placeholders in the same bytecode."""
-    p1 = Placeholder(width=2)
-    p2 = Placeholder(width=1)
+    code = Op.ADD(
+        Op.PUSH2(data_placeholder="first"),
+        Op.PUSH1(data_placeholder="second"),
+    )
+    expected = bytes(Op.ADD(Op.PUSH2(0x1234), Op.PUSH1(0xAB)))
 
-    code = Op.ADD(p1, p2)
+    assert code._placeholder_sizes == {"first": 2, "second": 1}
 
-    assert p1 in code._placeholders
-    assert p2 in code._placeholders
+    # Substitute first placeholder, second should remain
+    with_first = code.substitute(first=0x1234)
+    assert "first" not in with_first._placeholder_offsets
+    assert "second" in with_first._placeholder_offsets
 
-    # Fill first placeholder, second should remain
-    filled1 = code.fill(p1, 0x1234)
-    assert p1 not in filled1._placeholders
-    assert p2 in filled1._placeholders
+    # Substitute second placeholder
+    with_both = with_first.substitute(second=0xAB)
+    assert not with_both._placeholder_offsets
+    assert bytes(with_both) == expected
 
-    # Fill second placeholder
-    filled2 = filled1.fill(p2, 0xAB)
-    assert p1 not in filled2._placeholders
-    assert p2 not in filled2._placeholders
-
-    # Verify final bytecode
-    assert bytes(filled2) == bytes(Op.ADD(Op.PUSH2(0x1234), Op.PUSH1(0xAB)))
+    # Both placeholders can also be substituted in a single call
+    assert bytes(code.substitute(first=0x1234, second=0xAB)) == expected
 
 
 def test_placeholder_offset_after_concatenation() -> None:
     """Test that placeholder offsets are adjusted after concatenation."""
-    p = Placeholder(width=2)
     prefix = Op.PUSH1(0xFF) + Op.POP
-    suffix = Op.POP(p)
+    suffix = Op.POP(Op.PUSH2(data_placeholder="value"))
 
     combined = prefix + suffix
 
-    assert p in combined._placeholders
     # The placeholder offset should account for the prefix length
-    assert combined._placeholders[p] == (len(prefix) + suffix._placeholders[p])
+    assert combined._placeholder_offsets["value"] == (
+        len(prefix) + suffix._placeholder_offsets["value"]
+    )
+    assert combined._placeholder_sizes == suffix._placeholder_sizes
 
-    # Fill should still produce correct bytecode
-    filled = combined.fill(p, 0xBEEF)
+    # Substitution should still produce correct bytecode
+    substituted = combined.substitute(value=0xBEEF)
     expected = prefix + Op.POP(Op.PUSH2(0xBEEF))
-    assert bytes(filled) == bytes(expected)
+    assert bytes(substituted) == bytes(expected)
+
+
+def test_placeholder_conflicting_names_raise() -> None:
+    """Test that concatenating a reused placeholder name raises."""
+    code = Op.POP(Op.PUSH2(data_placeholder="value"))
+
+    with pytest.raises(Exception, match="Conflicting data placeholders"):
+        code + code
+
+    # Distinct names concatenate without complaint
+    other = Op.POP(Op.PUSH2(data_placeholder="other_value"))
+    combined = code + other
+    assert set(combined._placeholder_offsets) == {"value", "other_value"}
 
 
 def test_placeholder_mul_raises() -> None:
     """Test that multiplying bytecode with placeholders raises."""
-    p = Placeholder(width=2)
-    code = Op.POP(p)
+    code = Op.POP(Op.PUSH2(data_placeholder="value"))
 
     with pytest.raises(ValueError, match="Cannot multiply.*placeholders"):
         code * 3
@@ -739,15 +645,39 @@ def test_placeholder_mul_raises() -> None:
     # Multiplying by 0 and 1 should still work
     assert bytes(code * 0) == b""
     assert bytes(code * 1) == bytes(code)
-    assert p in (code * 1)._placeholders
+    assert "value" in (code * 1)._placeholder_offsets
 
 
 def test_placeholder_in_opcode_list() -> None:
     """Test that placeholder PUSH opcode is included in opcode_list."""
-    p = Placeholder(width=2)
-    code = Op.POP(p)
+    code = Op.POP(Op.PUSH2(data_placeholder="value"))
 
     # The opcode_list should contain the PUSH2 and POP opcodes
     assert len(code.opcode_list) == 2
     assert code.opcode_list[0] == Op.PUSH2
     assert code.opcode_list[1] == Op.POP
+
+
+def test_placeholder_in_complex_bytecode() -> None:
+    """Test placeholder in more complex bytecode constructions."""
+    code = (
+        Op.JUMPDEST
+        + Op.PUSH1(1)
+        + Op.ADD
+        + Op.DUP1
+        + Op.JUMPI(
+            Op.GT(Op.GAS, Op.PUSH2(data_placeholder="loop_cost")),
+            0,
+        )
+        + Op.STOP
+    )
+
+    # Placeholder should be tracked
+    assert "loop_cost" in code._placeholder_offsets
+
+    # Substitute and verify the bytecode is valid
+    substituted = code.substitute(loop_cost=1000)
+    assert "loop_cost" not in substituted._placeholder_offsets
+
+    # Verify the value 1000 (0x03E8) appears in the bytecode
+    assert b"\x03\xe8" in bytes(substituted)

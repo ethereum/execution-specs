@@ -24,7 +24,7 @@ from typing import (
 from execution_testing.base_types import to_bytes
 
 from .bases import OpcodeBase
-from .bytecode import Bytecode, Placeholder
+from .bytecode import Bytecode
 
 
 def _get_int_size(n: int) -> int:
@@ -45,20 +45,12 @@ KW_ARGS_DEFAULTS_TYPE = Mapping[str, "int | bytes | str | Opcode | Bytecode"]
 
 def _stack_argument_to_bytecode(
     arg: (
-        "int | bytes | SupportsBytes | str | Opcode"
-        " | Bytecode | Iterable[int] | Placeholder"
+        "int | bytes | SupportsBytes | str | Opcode | Bytecode | Iterable[int]"
     ),
 ) -> Bytecode:
     """Convert stack argument in an opcode or macro to bytecode."""
     if isinstance(arg, Bytecode):
         return arg
-
-    # Handle Placeholder - create appropriate PUSH with zeros
-    if isinstance(arg, Placeholder):
-        push_opcode = _push_opcodes_byte_list[arg.width - 1]
-        bytecode = Bytecode(push_opcode[bytes(arg.width)])
-        bytecode._placeholders = {arg: 1}
-        return bytecode
 
     # We are going to push a constant to the stack.
     data_size = 0
@@ -337,10 +329,7 @@ class Opcode(Bytecode, OpcodeBase):
 
     def __call__(
         self,
-        *args_t: (
-            "int | bytes | str | Opcode"
-            " | Bytecode | Iterable[int] | Placeholder"
-        ),
+        *args_t: "int | bytes | str | Opcode | Bytecode | Iterable[int]",
         unchecked: bool = False,
         **kwargs: "int | bytes | str | Opcode | Bytecode",
     ) -> "Bytecode | Opcode":
@@ -373,10 +362,9 @@ class Opcode(Bytecode, OpcodeBase):
 
         Hex-strings will be automatically converted to bytes.
         """
-        args: List[
-            "int | bytes | str | Opcode"
-            " | Bytecode | Iterable[int] | Placeholder"
-        ] = list(args_t)
+        args: List["int | bytes | str | Opcode | Bytecode | Iterable[int]"] = (
+            list(args_t)
+        )
         opcode = self
 
         # handle metadata first
@@ -390,6 +378,20 @@ class Opcode(Bytecode, OpcodeBase):
                 # Nothing else to do, return
                 return opcode
 
+        if "data_placeholder" in kwargs:
+            if not opcode.has_data_portion():
+                raise ValueError(
+                    "`data_placeholder` requires an opcode with data portion"
+                )
+            data_placeholder = kwargs.pop("data_placeholder")
+            if not isinstance(data_placeholder, str):
+                raise ValueError("`data_placeholder` must be a str")
+            data_size = opcode.data_portion_length
+            opcode = opcode[b"\0" * data_size]
+
+            opcode._placeholder_offsets = {data_placeholder: 1}
+            opcode._placeholder_sizes = {data_placeholder: data_size}
+
         if opcode.has_data_portion():
             if len(args) == 0:
                 raise ValueError(
@@ -398,7 +400,6 @@ class Opcode(Bytecode, OpcodeBase):
             assert type(opcode) is Opcode
             get_item_arg = args.pop()
             assert not isinstance(get_item_arg, Bytecode)
-            assert not isinstance(get_item_arg, Placeholder)
             return opcode[get_item_arg](*args)
 
         if opcode.kwargs is not None and len(kwargs) > 0:
