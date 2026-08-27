@@ -150,6 +150,11 @@ class Bytecode:
 
     def __bytes__(self) -> bytes:
         """Return the opcode byte representation."""
+        if self._placeholder_offsets or self._placeholder_sizes:
+            raise Exception(
+                "bytecode with active placeholders cannot be converted to "
+                "bytes"
+            )
         return self._bytes_
 
     def __len__(self) -> int:
@@ -348,7 +353,7 @@ class Bytecode:
     def keccak256(self) -> Hash:
         """Return the keccak256 hash of the opcode byte representation."""
         if self._keccak_256_ is None:
-            self._keccak_256_ = Bytes(self._bytes_).keccak256()
+            self._keccak_256_ = Bytes(self).keccak256()
         return self._keccak_256_
 
     def gas_cost(self, fork: Type[ForkOpcodeInterface]) -> int:
@@ -398,61 +403,44 @@ class Bytecode:
                 self._refund_ += opcode_refund_calculator(opcode)
         return self._refund_
 
-    def substitute(self, **kwargs: int) -> "Bytecode":
+    def substitute(self, **kwargs: int) -> None:
         """
         Replace named placeholders with actual values.
 
         Args:
             kwargs: The placeholders and their values to set
 
-        Returns:
-            New Bytecode with the placeholders replaced
-
         Raises:
             ValueError: If a value doesn't fit in the placeholder's size
             KeyError: If a placeholder name is not found in this bytecode
 
         """
-        placeholder_offsets = self._placeholder_offsets.copy()
-        placeholder_sizes = self._placeholder_sizes.copy()
-
-        new_bytes = self._bytes_
         for placeholder, value in kwargs.items():
-            if placeholder not in placeholder_offsets:
+            if placeholder not in self._placeholder_offsets:
                 raise KeyError(
                     f"Placeholder {placeholder} not found in bytecode"
                 )
 
-            offset, size = (
-                placeholder_offsets.pop(placeholder),
-                placeholder_sizes.pop(placeholder),
-            )
-
-            max_value = (1 << (size * 8)) - 1
+            max_value = (1 << (self._placeholder_sizes[placeholder] * 8)) - 1
             if value < 0 or value > max_value:
                 raise ValueError(
-                    f"Value {value} doesn't fit in {size} bytes "
+                    f"Value {value} doesn't fit in "
+                    f"{self._placeholder_sizes[placeholder]} bytes "
                     f"(max {max_value})"
                 )
 
-            # Replace the placeholder bytes with the actual value
-            new_bytes = (
-                new_bytes[:offset]
-                + value.to_bytes(size, "big")
-                + new_bytes[(offset + size) :]
+            offset, size = (
+                self._placeholder_offsets.pop(placeholder),
+                self._placeholder_sizes.pop(placeholder),
             )
 
-        return Bytecode(
-            new_bytes,
-            popped_stack_items=self.popped_stack_items,
-            pushed_stack_items=self.pushed_stack_items,
-            max_stack_height=self.max_stack_height,
-            min_stack_height=self.min_stack_height,
-            terminating=self.terminating,
-            opcode_list=self.opcode_list[:],
-            placeholder_offsets=placeholder_offsets,
-            placeholder_sizes=placeholder_sizes,
-        )
+            # Replace the placeholder bytes with the actual value
+            self._bytes_ = (
+                self._bytes_[:offset]
+                + value.to_bytes(size, "big")
+                + self._bytes_[(offset + size) :]
+            )
+            self._keccak_256_ = None
 
     def state_refund(self, fork: Type[ForkOpcodeInterface]) -> int:
         """

@@ -34,26 +34,49 @@ Pass `data_placeholder` with a name to any opcode that takes a data portion. The
 
 ```python
 code = Op.POP(Op.PUSH2(data_placeholder="loop_cost"))
-# bytes: 61 0000 50
 ```
 
 The opcode you choose fixes the slot width — `PUSH2` reserves two bytes. Pick an opcode wide enough for the largest value you intend to substitute; substituting a value that does not fit is an error rather than a silent truncation.
 
 Any opcode with a data portion is accepted: `PUSH1`–`PUSH32`, which is the common case, as well as `DUPN`, `SWAPN`, and `EXCHANGE`. Until it is substituted, the slot holds zero, which for `DUPN` and `SWAPN` is not a valid index — see [Restrictions](#restrictions).
 
-The result is an ordinary `Bytecode` object. It concatenates, hashes, and reports gas like any other bytecode, and it can be nested inside further opcode calls.
+The result is an ordinary `Bytecode` object: it concatenates, reports its length and gas cost, and can be nested inside further opcode calls.
+
+!!! warning "An open slot cannot be converted to bytes"
+    While any placeholder is still unsubstituted, `bytes(code)`, `code.hex()`, and equality comparisons raise:
+
+    ```text
+    Exception: bytecode with active placeholders cannot be converted to bytes
+    ```
+
+    This is deliberate — the reserved slot holds zero, so silently emitting it would deploy code that pushes the wrong value. Substitute every slot before handing the bytecode to `pre.deploy_contract()`, an `Account`, or a transaction. `len()` and `gas_cost()` deliberately keep working, since measuring the template is the whole point.
 
 ## Substituting Values
 
-`Bytecode.substitute()` takes placeholder names as keyword arguments and returns a **new** `Bytecode` with those slots filled:
+`Bytecode.substitute()` takes placeholder names as keyword arguments and fills those slots **in place**. It returns `None`:
 
 ```python
-final = code.substitute(loop_cost=1000)
+code = Op.POP(Op.PUSH2(data_placeholder="loop_cost"))
+
+code.substitute(loop_cost=1000)
+
 # bytes: 61 03e8 50
-assert bytes(final) == bytes(Op.POP(Op.PUSH2(1000)))
+assert bytes(code) == bytes(Op.POP(Op.PUSH2(1000)))
 ```
 
-The original is left untouched, so a template can be reused for several substitutions. Names that have been substituted are no longer tracked on the result.
+Substituted names are no longer tracked afterwards, so the same slot cannot be filled twice.
+
+!!! warning "Substitution mutates the bytecode"
+    `substitute()` does not return a copy — there is no `new_code = code.substitute(...)`, and assigning its result stores `None`. Because the object itself is modified, a template cannot be reused for two different values; build a fresh bytecode for each one.
+
+Concatenation does copy, so a fragment used to build a larger program keeps its own open slot:
+
+```python
+fragment = Op.POP(Op.PUSH2(data_placeholder="value"))
+combined = Op.PUSH1(0xFF) + Op.POP + fragment
+
+combined.substitute(value=0xBEEF)   # `fragment` is untouched
+```
 
 ## Why the Measurement Is Exact
 
@@ -61,6 +84,8 @@ Because the placeholder's width is fixed when the code is built, the bytecode's 
 
 - Every `PUSH1`–`PUSH32` costs the same 3 gas (`G_VERY_LOW`) regardless of width or pushed value, and none of them incur state gas.
 - The encoded length does not change, so every offset, jump target, and code-size calculation measured on the template remains valid.
+
+`len()`, `gas_cost()`, `state_cost()`, and `refund()` all work on a template with open slots; only conversion to bytes is withheld.
 
 This is what makes the two-pass approach sound: measure on the template, then substitute.
 
@@ -76,10 +101,9 @@ loop = (
 per_iteration = loop.gas_cost(fork)
 
 # Feed the measurement back into the code that produced it
-final_loop = loop.substitute(reserve=per_iteration)
+loop.substitute(reserve=per_iteration)
 
-assert final_loop.gas_cost(fork) == per_iteration
-assert len(final_loop) == len(loop)
+assert loop.gas_cost(fork) == per_iteration
 ```
 
 ## Multiple Placeholders
@@ -94,10 +118,17 @@ code = Op.ADD(
 
 # Together
 code.substitute(first=0x1234, second=0xAB)
+```
 
-# Or progressively, leaving the rest for later
-partial = code.substitute(first=0x1234)
-final = partial.substitute(second=0xAB)
+```python
+code = Op.ADD(
+    Op.PUSH2(data_placeholder="first"),
+    Op.PUSH1(data_placeholder="second"),
+)
+
+# Or progressively, leaving the remaining slots open
+code.substitute(first=0x1234)
+code.substitute(second=0xAB)
 ```
 
 Substituting a subset is useful when the values become known at different points, for example a gas reserve known after measuring the loop and a jump target known after the surrounding program is assembled.
@@ -127,7 +158,7 @@ Give each slot a distinct name, or substitute one fragment before combining it.
 
 - **The opcode must have a data portion.** `Op.ADD(1, 2, data_placeholder="x")` raises `ValueError`; there is nowhere to put the slot.
 - **The name must be a string.** `Op.PUSH2(data_placeholder=1)` raises `ValueError`.
-- **Substitution checks the slot width, not the opcode's own constraints.** A placeholder writes raw bytes into the data portion, so encoder validation that normally runs when the data portion is given directly is skipped. `Op.DUPN(5)` raises, because a `DUPN` index must be in `[17, 235]`, but `Op.DUPN(data_placeholder="depth").substitute(depth=5)` produces `e605` without complaint. For `PUSH1`–`PUSH32` this is irrelevant, since every byte value is a valid operand; for `DUPN`, `SWAPN`, and `EXCHANGE` the caller is responsible for the range.
+- **Substitution checks the slot width, not the opcode's own constraints.** A placeholder writes raw bytes into the data portion, so encoder validation that normally runs when the data portion is given directly is skipped. `Op.DUPN(5)` raises, because a `DUPN` index must be in `[17, 235]`, but building `Op.DUPN(data_placeholder="depth")` and substituting `depth=5` produces `e605` without complaint. For `PUSH1`–`PUSH32` this is irrelevant, since every byte value is a valid operand; for `DUPN`, `SWAPN`, and `EXCHANGE` the caller is responsible for the range.
 - **Bytecode containing placeholders cannot be repeated with `*`.** Duplicating the bytes would duplicate the slot, leaving one name pointing at several offsets, so `code * 3` raises `ValueError`. Multiplying by `0` or `1` is still allowed. Substitute first, then repeat.
 
 ## Error Reference
@@ -141,6 +172,7 @@ Give each slot a distinct name, or substitute one fragment before combining it.
 | Negative value | `ValueError` | `Value -1 doesn't fit in <k> bytes (max <max>)` |
 | Same name on both sides of `+` | `Exception` | `Conflicting data placeholders between bytecode objects` |
 | `*` on bytecode with placeholders | `ValueError` | `Cannot multiply bytecode containing placeholders` |
+| `bytes()`, `hex()`, or `==` while a slot is open | `Exception` | `bytecode with active placeholders cannot be converted to bytes` |
 
 ## Related
 

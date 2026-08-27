@@ -3,6 +3,7 @@
 import pytest
 
 from execution_testing.base_types import Address
+from execution_testing.forks.forks.forks import Prague
 
 from ..opcodes import Bytecode
 from ..opcodes import Macros as Om
@@ -520,12 +521,9 @@ def test_placeholder_substitute_basic(size: int, value: int) -> None:
     # The placeholder is sized after the opcode's data portion
     assert code._placeholder_sizes == {"value": size}
 
-    # Before substitution, the data portion is zeroed
-    assert bytes(code) == bytes(Op.POP(push_op(0)))
-
     # Substitute the actual value
-    substituted = code.substitute(value=value)
-    assert bytes(substituted) == bytes(Op.POP(push_op(value)))
+    code.substitute(value=value)
+    assert bytes(code) == bytes(Op.POP(push_op(value)))
 
 
 @pytest.mark.parametrize(
@@ -549,8 +547,8 @@ def test_placeholder_substitute_out_of_range(size: int) -> None:
 
     # Max value should work
     max_value = 256**size - 1
-    substituted = code.substitute(value=max_value)
-    assert bytes(substituted) == bytes(Op.POP(push_op(max_value)))
+    code.substitute(value=max_value)
+    assert bytes(code) == bytes(Op.POP(push_op(max_value)))
 
 
 def test_placeholder_substitute_not_found() -> None:
@@ -561,22 +559,30 @@ def test_placeholder_substitute_not_found() -> None:
         code.substitute(other_value=0x1234)
 
 
-def test_placeholder_immutability() -> None:
-    """Test that substitute leaves the original bytecode untouched."""
-    original = Op.POP(Op.PUSH2(data_placeholder="value"))
-    original_bytes = bytes(original)
+def test_placeholder_bytes_guard() -> None:
+    """Test that bytecode with an open placeholder cannot become bytes."""
+    code = Op.POP(Op.PUSH2(data_placeholder="value"))
+    reference = Op.POP(Op.PUSH2(0))
 
-    substituted = original.substitute(value=0x1234)
+    with pytest.raises(Exception, match="active placeholders"):
+        bytes(code)
 
-    # Original should be unchanged
-    assert bytes(original) == original_bytes
-    assert "value" in original._placeholder_offsets
-    assert "value" in original._placeholder_sizes
+    with pytest.raises(Exception, match="active placeholders"):
+        code.hex()
 
-    # The result should differ and no longer track the placeholder
-    assert bytes(substituted) != original_bytes
-    assert "value" not in substituted._placeholder_offsets
-    assert "value" not in substituted._placeholder_sizes
+    with pytest.raises(Exception, match="active placeholders"):
+        code.keccak256()
+
+    # Length and gas cost remain available, which is what makes the
+    # measure-then-substitute pattern possible
+    assert len(code) == len(reference)
+    assert code.gas_cost(Prague) == reference.gas_cost(Prague)
+
+    # Once every slot is filled the conversion succeeds
+    code.substitute(value=0x1234)
+    filled = Op.POP(Op.PUSH2(0x1234))
+    assert bytes(code) == bytes(filled)
+    assert code.keccak256() == filled.keccak256()
 
 
 def test_multiple_placeholders() -> None:
@@ -590,17 +596,14 @@ def test_multiple_placeholders() -> None:
     assert code._placeholder_sizes == {"first": 2, "second": 1}
 
     # Substitute first placeholder, second should remain
-    with_first = code.substitute(first=0x1234)
-    assert "first" not in with_first._placeholder_offsets
-    assert "second" in with_first._placeholder_offsets
+    code.substitute(first=0x1234)
+    assert "first" not in code._placeholder_offsets
+    assert "second" in code._placeholder_offsets
 
     # Substitute second placeholder
-    with_both = with_first.substitute(second=0xAB)
-    assert not with_both._placeholder_offsets
-    assert bytes(with_both) == expected
-
-    # Both placeholders can also be substituted in a single call
-    assert bytes(code.substitute(first=0x1234, second=0xAB)) == expected
+    code.substitute(second=0xAB)
+    assert not code._placeholder_offsets
+    assert bytes(code) == expected
 
 
 def test_placeholder_offset_after_concatenation() -> None:
@@ -617,9 +620,9 @@ def test_placeholder_offset_after_concatenation() -> None:
     assert combined._placeholder_sizes == suffix._placeholder_sizes
 
     # Substitution should still produce correct bytecode
-    substituted = combined.substitute(value=0xBEEF)
+    combined.substitute(value=0xBEEF)
     expected = prefix + Op.POP(Op.PUSH2(0xBEEF))
-    assert bytes(substituted) == bytes(expected)
+    assert bytes(combined) == bytes(expected)
 
 
 def test_placeholder_conflicting_names_raise() -> None:
@@ -644,7 +647,7 @@ def test_placeholder_mul_raises() -> None:
 
     # Multiplying by 0 and 1 should still work
     assert bytes(code * 0) == b""
-    assert bytes(code * 1) == bytes(code)
+    assert len(code * 1) == len(code)
     assert "value" in (code * 1)._placeholder_offsets
 
 
@@ -676,8 +679,8 @@ def test_placeholder_in_complex_bytecode() -> None:
     assert "loop_cost" in code._placeholder_offsets
 
     # Substitute and verify the bytecode is valid
-    substituted = code.substitute(loop_cost=1000)
-    assert "loop_cost" not in substituted._placeholder_offsets
+    code.substitute(loop_cost=1000)
+    assert "loop_cost" not in code._placeholder_offsets
 
     # Verify the value 1000 (0x03E8) appears in the bytecode
-    assert b"\x03\xe8" in bytes(substituted)
+    assert b"\x03\xe8" in bytes(code)
