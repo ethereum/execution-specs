@@ -111,7 +111,6 @@ class Frontier(BaseFork):
             NEW_ACCOUNT=25_000,
             # Contract Creation
             CODE_DEPOSIT_PER_BYTE=200,
-            CODE_INIT_PER_WORD=2,
             # Authorization
             AUTH_PER_EMPTY_ACCOUNT=0,
             # Utility
@@ -124,7 +123,7 @@ class Frontier(BaseFork):
             TX_DATA_PER_NON_ZERO=68,
             TX_CREATE=32_000,
             # Refunds
-            REFUND_STORAGE_CLEAR=4_800,
+            REFUND_STORAGE_CLEAR=15_000,
             REFUND_AUTH_PER_EXISTING_ACCOUNT=0,
             # Precompiles
             PRECOMPILE_ECRECOVER=3_000,
@@ -175,7 +174,7 @@ class Frontier(BaseFork):
             OPCODE_COPY_PER_WORD=3,
             OPCODE_CREATE_BASE=32_000,
             OPCODE_EXP_BASE=10,
-            OPCODE_EXP_PER_BYTE=50,
+            OPCODE_EXP_PER_BYTE=10,
             OPCODE_LOG_BASE=375,
             OPCODE_LOG_DATA_PER_BYTE=8,
             OPCODE_LOG_TOPIC=375,
@@ -183,6 +182,7 @@ class Frontier(BaseFork):
             OPCODE_KECCAK256_PER_WORD=6,
             # Zero-initialized: introduced in later forks, set via
             # replace() in the fork that activates them.
+            CODE_INIT_PER_WORD=0,
             TX_DATA_TOKEN_STANDARD=0,
             TX_DATA_TOKEN_FLOOR=0,
             PRECOMPILE_ECADD=0,
@@ -1373,6 +1373,7 @@ class TangerineWhistle(
 class SpuriousDragon(
     eips.EIP170,
     eips.EIP161,
+    eips.EIP160,
     eips.EIP155,
     TangerineWhistle,
     ruleset_name="SPURIOUS",

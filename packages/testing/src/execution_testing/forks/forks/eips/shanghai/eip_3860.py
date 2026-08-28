@@ -7,6 +7,7 @@ every 32-byte chunk of initcode.
 https://eips.ethereum.org/EIPS/eip-3860
 """
 
+from dataclasses import replace
 from typing import List, Sized
 
 from execution_testing.base_types import AccessList, Bytes
@@ -21,6 +22,14 @@ from ...helpers import ceiling_division
 
 class EIP3860(BaseFork):
     """EIP-3860 class."""
+
+    @classmethod
+    def gas_costs(cls) -> GasCosts:
+        """Introduce the per-word initcode metering cost."""
+        return replace(
+            super(EIP3860, cls).gas_costs(),
+            CODE_INIT_PER_WORD=2,
+        )
 
     @classmethod
     def max_initcode_size(cls) -> int:
