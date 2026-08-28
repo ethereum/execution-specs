@@ -21,6 +21,8 @@ from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
+    Bytecode,
+    CodeGasMeasure,
     Environment,
     Fork,
     Header,
@@ -29,6 +31,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -67,15 +70,35 @@ def test_pricing_at_various_gas_limits(
     independent of block gas limit. At each block size, an SSTORE
     zero-to-nonzero should succeed when given sufficient total gas.
     """
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    env = Environment(gas_limit=block_gas_limit)
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    tx_gas = min(gas_limit_cap + sstore_state_gas, block_gas_limit)
-
     storage = Storage()
+    code = Op.SSTORE(
+        storage.store_next(1),
+        1,
+        # gas accounting
+        original_value=0,
+        new_value=1,
+    )
+    env = Environment(gas_limit=block_gas_limit)
+
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + fork.transaction_top_frame_gas_calculator()()
+        + code.gas_cost(fork)
+    )
+
+    tx_gas = min(gas_limit, block_gas_limit)
+
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1),
+        code=code,
+    )
+
+    # The state charge does not scale with the block gas limit, so the
+    # header reports the same `gas_used` at 1M and at 1G.
+    state_gas = code.state_cost(fork)
+    execution_gas = gas_limit - state_gas
+    expected_gas_used = max(execution_gas, state_gas)
+    assert expected_gas_used == state_gas, (
+        "expected state gas to dominate execution gas"
     )
 
     tx = Transaction(
@@ -85,14 +108,25 @@ def test_pricing_at_various_gas_limits(
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
 
 
+@pytest.mark.parametrize(
+    "gas_delta",
+    [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_charge_draws_entirely_from_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    gas_delta: int,
 ) -> None:
     """
     Test state gas is drawn entirely from the reservoir.
@@ -101,37 +135,54 @@ def test_charge_draws_entirely_from_reservoir(
     gas_left should not be reduced by the state charge. Verify by
     performing an execution-gas-heavy computation after the SSTORE.
     """
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    inner_code = Op.SSTORE(0, 1)
+    inner = pre.deploy_contract(code=inner_code)
+    inner_gas = inner_code.execution_cost(fork)
 
+    succeeds = gas_delta == 0
     storage = Storage()
+
+    slot = storage.store_next(int(succeeds), "inner_succeeded")
     contract = pre.deploy_contract(
-        code=(
-            # SSTORE draws state gas from reservoir
-            Op.SSTORE(storage.store_next(1), 1)
-            # Remaining gas_left is available for execution ops
-            + Op.SSTORE(
-                storage.store_next(1),
-                Op.ADD(1, 0),  # Cheap execution-gas op
-            )
+        code=Op.SSTORE(
+            slot,
+            Op.CALL(gas=inner_gas, address=inner),
+            # gas accounting
+            original_value=1,
+            current_value=1,
+            new_value=int(succeeds),
+            key_warm=False,
         ),
+        storage={slot: 1},
     )
 
-    # Provide exact state gas in the reservoir
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=sstore_state_gas * 2,
+        state_gas_reservoir=inner_code.state_cost(fork) + gas_delta,
         sender=pre.fund_eoa(),
     )
 
-    post = {contract: Account(storage=storage)}
+    post = {
+        contract: Account(storage=storage),
+        inner: Account(storage={0: int(succeeds)}),
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "reservoir_fraction",
+    [
+        pytest.param(0, id="all_spilled"),
+        pytest.param(2, id="half_spilled"),
+        pytest.param(1, id="none_spilled"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_charge_spills_to_gas_left(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    reservoir_fraction: int,
 ) -> None:
     """
     Test state gas spills from reservoir to gas_left.
@@ -140,22 +191,43 @@ def test_charge_spills_to_gas_left(
     state charge, the remainder is taken from gas_left. The SSTORE
     should still succeed.
     """
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    measured_code = Op.SSTORE(
+        1,
+        1,
+        # gas accounting
+        original_value=0,
+        current_value=0,
+        new_value=1,
+        key_warm=False,
+    )
+    state_gas = measured_code.state_cost(fork)
+    execution_gas = measured_code.execution_cost(fork)
 
-    storage = Storage()
+    reservoir = state_gas // reservoir_fraction if reservoir_fraction else 0
+    spill = state_gas - reservoir
+
+    # Slot 0 already holds a value, so writing the measurement into it
+    # is a nonzero write that adds no state gas of its own.
+    result_slot = 0
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1),
+        code=CodeGasMeasure(code=measured_code, sstore_key=result_slot),
+        storage={result_slot: 1},
     )
 
-    # Provide half the state gas in the reservoir, rest from gas_left
-    half_state_gas = sstore_state_gas // 2
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=half_state_gas,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
-    post = {contract: Account(storage=storage)}
+    post = {
+        contract: Account(
+            storage={
+                result_slot: execution_gas + spill,
+                1: 1,
+            }
+        )
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -179,13 +251,19 @@ def test_charge_spill_boundary(
     the block bills it as state gas; one gas short, neither pool can
     cover the charge and the frame runs out of gas with the slot unset.
     """
-    code = Op.SSTORE(0, 1)
+    code = Op.SSTORE(
+        0,
+        1,
+        # gas accounting
+        original_value=0,
+        new_value=1,
+    )
     contract = pre.deploy_contract(code=code)
 
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
     execution = code.execution_cost(fork)
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    gas_limit = intrinsic + execution + sstore_state_gas + gas_delta
+    state = code.state_cost(fork)
+    gas_limit = intrinsic + execution + state + gas_delta
 
     tx = Transaction(
         to=contract,
@@ -194,7 +272,7 @@ def test_charge_spill_boundary(
     )
 
     header = Header(
-        gas_used=max(intrinsic + execution, sstore_state_gas)
+        gas_used=max(intrinsic + execution, state)
         if gas_delta == 0
         else gas_limit
     )
@@ -211,6 +289,7 @@ def test_charge_spill_boundary(
 def test_refund_cap_includes_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test the 1/5 refund cap includes state gas used from gas_left.
@@ -221,20 +300,69 @@ def test_refund_cap_includes_state_gas(
     performs an SSTORE zero-to-nonzero-to-zero sequence to generate
     a refund and verifies the transaction succeeds.
     """
+    cleared_slots = 3
+    set_slots = 3
+
+    storage = Storage()
+    code = Bytecode()
+    for _ in range(cleared_slots):
+        code += Op.SSTORE(
+            storage.store_next(0, "cleared"),
+            0,
+            # gas accounting
+            original_value=1,
+            current_value=1,
+            new_value=0,
+            key_warm=False,
+        )
+    for _ in range(set_slots):
+        code += Op.SSTORE(
+            storage.store_next(1, "set"),
+            1,
+            # gas accounting
+            original_value=0,
+            current_value=0,
+            new_value=1,
+            key_warm=False,
+        )
     contract = pre.deploy_contract(
-        code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
+        code=code,
+        storage=dict.fromkeys(range(cleared_slots), 1),
     )
 
-    # No reservoir — all gas from gas_left, refund cap applies
+    state_gas = code.state_cost(fork)
+    execution_gas = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + code.execution_cost(fork)
+    )
+    before_refund = execution_gas + state_gas
+    refund = min(before_refund // 5, code.refund(fork))
+    # Counting the state charge lifts the cap above the refund,
+    # While execution gas alone would cut it short.
+    assert refund == code.refund(fork)
+    assert execution_gas // fork.max_refund_quotient() < code.refund(fork)
+
+    # Block accounting ignores refunds, so the header still reports the
+    # dominant pre-refund dimension.
+    expected_gas_used = max(execution_gas, state_gas)
+    assert expected_gas_used == state_gas
+
     tx = Transaction(
         to=contract,
         state_gas_reservoir=0,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=before_refund - refund
+        ),
     )
 
-    # Slot 0 restored to zero
-    post = {contract: Account(storage={0: 0})}
-    state_test(pre=pre, post=post, tx=tx)
+    post = {contract: Account(storage=storage)}
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
@@ -253,20 +381,37 @@ def test_refund_with_reservoir_state_gas(
     both dimensions. An SSTORE zero-to-nonzero-to-zero sequence
     should refund correctly.
     """
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    kept = Op.SSTORE(0, 1, original_value=0, current_value=0, new_value=1)
+    restored = Op.SSTORE(
+        1, 1, original_value=0, current_value=0, new_value=1
+    ) + Op.SSTORE(
+        1, 0, key_warm=True, original_value=0, current_value=1, new_value=0
+    )
+    code = kept + restored
+    contract = pre.deploy_contract(code=code)
 
-    contract = pre.deploy_contract(
-        code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
+    net_state_gas = code.state_cost(fork) - code.state_refund(fork)
+    refund_counter = code.refund(fork) - code.state_refund(fork)
+    gas_used_before_refund = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + code.execution_cost(fork)
+        + net_state_gas
+    )
+    refund = min(
+        gas_used_before_refund // fork.max_refund_quotient(), refund_counter
     )
 
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=sstore_state_gas,
+        state_gas_reservoir=code.state_cost(fork),
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_used_before_refund - refund
+        ),
     )
 
-    # Slot 0 restored to zero
-    post = {contract: Account(storage={0: 0})}
+    post = {contract: Account(storage={0: 1, 1: 0})}
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -524,13 +669,20 @@ def test_create_state_gas_scales_with_cpsb(
     create_state_gas = fork.create_state_gas(code_size=1)
 
     storage = Storage()
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                storage.store_next(1, "create_success"),
-                Op.GT(Op.CREATE(0, 0, 1), 0),
-            )
-        ),
+    contract_code = Op.SSTORE(
+        storage.store_next(1, "create_success"),
+        Op.GT(Op.CREATE(0, 0, 1), 0),
+    )
+    contract = pre.deploy_contract(code=contract_code)
+
+    state_gas = contract_code.state_cost(fork)
+    execution_gas = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + contract_code.execution_cost(fork)
+    )
+    expected_gas_used = max(execution_gas, state_gas)
+    assert expected_gas_used == state_gas, (
+        "expected state gas to dominate execution gas"
     )
 
     tx_gas = min(gas_limit_cap + create_state_gas, block_gas_limit)
@@ -541,7 +693,13 @@ def test_create_state_gas_scales_with_cpsb(
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
 
 
 @pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
@@ -570,9 +728,19 @@ def test_call_new_account_state_gas_scales_with_cpsb(
         account_new=True,
     )
     storage = Storage()
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1, "call_success"), call),
-        balance=1,
+    contract_code = Op.SSTORE(storage.store_next(1, "call_success"), call)
+    contract = pre.deploy_contract(code=contract_code, balance=1)
+
+    state_gas = contract_code.state_cost(fork)
+    execution_gas = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + contract_code.execution_cost(fork)
+        # The empty target returns the value-call stipend unused.
+        - fork.call_value_stipend()
+    )
+    expected_gas_used = max(execution_gas, state_gas)
+    assert expected_gas_used == state_gas, (
+        "expected state gas to dominate execution gas"
     )
 
     tx_gas = min(gas_limit_cap + call.state_cost(fork), block_gas_limit)
@@ -583,7 +751,13 @@ def test_call_new_account_state_gas_scales_with_cpsb(
     )
 
     post = {contract: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
 
 
 @pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
@@ -607,15 +781,19 @@ def test_selfdestruct_new_beneficiary_scales_with_cpsb(
 
     beneficiary = pre.fund_eoa(0)
     storage = Storage()
-    caller = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                storage.store_next(1, "selfdestruct_ran"),
-                1,
-            )
-            + Op.SELFDESTRUCT(beneficiary)
-        ),
-        balance=1,
+    caller_code = Op.SSTORE(
+        storage.store_next(1, "selfdestruct_ran"), 1
+    ) + Op.SELFDESTRUCT(beneficiary, account_new=True)
+    caller = pre.deploy_contract(code=caller_code, balance=1)
+
+    state_gas = caller_code.state_cost(fork)
+    execution_gas = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + caller_code.execution_cost(fork)
+    )
+    expected_gas_used = max(execution_gas, state_gas)
+    assert expected_gas_used == state_gas, (
+        "expected state gas to dominate execution gas"
     )
 
     tx_gas = min(gas_limit_cap + new_account_state_gas, block_gas_limit)
@@ -626,7 +804,13 @@ def test_selfdestruct_new_beneficiary_scales_with_cpsb(
     )
 
     post = {caller: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
 
 
 @pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
@@ -648,8 +832,42 @@ def test_sstore_refund_scales_with_cpsb(
     env = Environment(gas_limit=block_gas_limit)
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    contract = pre.deploy_contract(
-        code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
+    code = Op.SSTORE(
+        0,
+        1,
+        # gas accounting
+        original_value=0,
+        current_value=0,
+        new_value=1,
+        key_warm=False,
+    ) + Op.SSTORE(
+        0,
+        0,
+        # gas accounting
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+    contract = pre.deploy_contract(code=code)
+
+    # Restoring the slot hands the whole state charge straight back to
+    # its own dimension, so none of it is billed; only the execution
+    # refund passes through the one fifth cap.
+    net_state_gas = code.state_cost(fork) - code.state_refund(fork)
+    assert net_state_gas == 0
+
+    refund_counter = code.refund(fork) - code.state_refund(fork)
+
+    gas_used_before_refund = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + code.execution_cost(fork)
+        + net_state_gas
+    )
+
+    refund = min(
+        gas_used_before_refund // fork.max_refund_quotient(), refund_counter
     )
 
     tx_gas = min(gas_limit_cap + sstore_state_gas, block_gas_limit)
@@ -657,6 +875,9 @@ def test_sstore_refund_scales_with_cpsb(
         to=contract,
         gas_limit=tx_gas,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=gas_used_before_refund - refund
+        ),
     )
 
     post = {contract: Account(storage={0: 0})}
@@ -708,11 +929,21 @@ def test_auth_state_gas_scales_with_cpsb(
     )
 
     storage = Storage()
-    target = pre.deploy_contract(
-        code=Op.SSTORE(
-            storage.store_next(1, "delegated_call_success"),
-            Op.CALL(gas=100_000, address=signer),
-        ),
+    target_code = Op.SSTORE(
+        storage.store_next(1, "delegated_call_success"),
+        Op.CALL(gas=100_000, address=signer, delegated_address=True),
+    )
+
+    target = pre.deploy_contract(code=target_code)
+
+    state_gas = auth_state_gas + target_code.state_cost(fork)
+    execution_gas = fork.transaction_intrinsic_cost_calculator()(
+        authorization_list_or_count=authorization_list
+    ) + target_code.execution_cost(fork)
+
+    expected_gas_used = max(execution_gas, state_gas)
+    assert expected_gas_used == state_gas, (
+        "expected state gas to dominate execution gas"
     )
 
     tx_gas = min(gas_limit_cap + auth_state_gas, block_gas_limit)
@@ -725,4 +956,10 @@ def test_auth_state_gas_scales_with_cpsb(
     )
 
     post = {target: Account(storage=storage)}
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
