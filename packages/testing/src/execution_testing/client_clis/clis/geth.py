@@ -108,6 +108,7 @@ class GethExceptionMapper(ExceptionMapper):
             "invalid number of versionedHashes"
         ),
         BlockException.INVALID_REQUESTS: "invalid requests hash",
+        BlockException.SYSTEM_CONTRACT_EMPTY: "empty system contract",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
             "system call failed to execute:"
         ),
