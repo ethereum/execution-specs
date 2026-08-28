@@ -34,35 +34,77 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
+def calldata_length_where_floor_overtakes(fork: Fork, state_gas: int) -> int:
+    """
+    Return the shortest all-nonzero calldata whose floor outgrows
+    `state_gas`.
+    """
+    floor_calculator = fork.transaction_data_floor_cost_calculator()
+
+    def floor_at(length: int) -> int:
+        return floor_calculator(data=b"\x01" * length)
+
+    low, high = 0, 1
+    while floor_at(high) <= state_gas:
+        high *= 2
+    while low < high:
+        middle = (low + high) // 2
+        if floor_at(middle) > state_gas:
+            high = middle
+        else:
+            low = middle + 1
+    return low
+
+
 @EIPChecklist.GasRefundsChanges.Test.CrossFunctional.CalldataCost()
+@pytest.mark.parametrize(
+    "floor_dominates",
+    [
+        pytest.param(False, id="state_gas_dominates"),
+        pytest.param(True, id="calldata_floor_dominates"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_calldata_floor_with_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    floor_dominates: bool,
 ) -> None:
     """
     Test calldata floor does not affect state gas charging.
 
-    A transaction with large calldata triggers the calldata floor for
-    execution gas, but state gas for SSTORE is charged independently.
+    The calldata is sized to the exact length at which the floor
+    overtakes the SSTORE's state gas, so the two variants sit one byte
+    either side of that boundary. The block bills the state charge
+    below it and the floor above it, while the sender's bill stays the
+    sum of both dimensions throughout: the floor never discounts the
+    state gas, and the state gas never discounts the floor.
     """
     storage = Storage()
     code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
     state_cost = code.state_cost(fork)
     execution_cost = code.execution_cost(fork)
 
-    calldata = b"\x01" * 256
+    flip_length = calldata_length_where_floor_overtakes(fork, state_cost)
+    calldata = b"\x01" * (flip_length if floor_dominates else flip_length - 1)
+
     floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=calldata,
         return_cost_deducted_prior_execution=True,
     )
     tx_execution = intrinsic + execution_cost
-    assert floor < state_cost, "calldata floor must stay under the state gas"
     assert tx_execution < state_cost, (
-        "state dimension must dominate the execution dimension"
+        "the code's own execution gas must stay under the state gas, so "
+        "the floor alone decides the execution dimension"
     )
+    if floor_dominates:
+        assert floor > state_cost, "calldata floor must outgrow the state gas"
+    else:
+        assert floor < state_cost, (
+            "calldata floor must stay under the state gas"
+        )
 
     contract = pre.deploy_contract(code=code)
 
@@ -80,7 +122,9 @@ def test_calldata_floor_with_sstore(
         pre=pre,
         post={contract: Account(storage=storage)},
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=state_cost),
+        blockchain_test_header_verify=Header(
+            gas_used=max(tx_execution, floor, state_cost)
+        ),
     )
 
 

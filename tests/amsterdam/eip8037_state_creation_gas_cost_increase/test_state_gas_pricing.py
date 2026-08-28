@@ -131,9 +131,10 @@ def test_charge_draws_entirely_from_reservoir(
     """
     Test state gas is drawn entirely from the reservoir.
 
-    When the reservoir has enough gas for the SSTORE state cost,
-    gas_left should not be reduced by the state charge. Verify by
-    performing an execution-gas-heavy computation after the SSTORE.
+    The inner frame is handed exactly its SSTORE's execution cost, so
+    it has no `gas_left` to spill from and the state charge must come
+    entirely from the reservoir. An exact reservoir succeeds; one gas
+    short halts the frame.
     """
     inner_code = Op.SSTORE(0, 1)
     inner = pre.deploy_contract(code=inner_code)
@@ -285,20 +286,28 @@ def test_charge_spill_boundary(
 
 
 @EIPChecklist.GasRefundsChanges.Test.RefundCalculation()
+@pytest.mark.parametrize(
+    "fund_from_reservoir",
+    [
+        pytest.param(False, id="spilled_from_gas_left"),
+        pytest.param(True, id="drawn_from_reservoir"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_refund_cap_includes_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    fund_from_reservoir: bool,
 ) -> None:
     """
-    Test the 1/5 refund cap includes state gas used from gas_left.
+    Test the 1/5 refund cap counts state gas whichever pool funds it.
 
-    When state gas is drawn from gas_left (no reservoir), it counts
-    toward tx_gas_used_before_refund. The 1/5 refund cap applies to
-    the combined total of execution + state gas consumed. This test
-    performs an SSTORE zero-to-nonzero-to-zero sequence to generate
-    a refund and verifies the transaction succeeds.
+    The cap applies to the combined execution plus state gas consumed,
+    and the gas used before the refund is the same whether the state
+    charge spills from `gas_left` or draws from the reservoir. Both
+    variants therefore expect the identical refund: one the execution
+    dimension alone would have capped short.
     """
     cleared_slots = 3
     set_slots = 3
@@ -349,7 +358,7 @@ def test_refund_cap_includes_state_gas(
 
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=0,
+        state_gas_reservoir=state_gas if fund_from_reservoir else 0,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=before_refund - refund

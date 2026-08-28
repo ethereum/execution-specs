@@ -44,11 +44,16 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
+@pytest.mark.parametrize(
+    "sufficient_gas",
+    ["sufficient_gas", "insufficient_execute", "insufficient_state"],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_child_call_uses_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    sufficient_gas: str,
 ) -> None:
     """
     Test child call can use parent's state gas reservoir.
@@ -59,7 +64,9 @@ def test_child_call_uses_reservoir(
     """
     child_storage = Storage()
     code = Op.SSTORE(
-        child_storage.store_next(1),
+        child_storage.store_next(
+            1 if sufficient_gas == "sufficient_gas" else 0
+        ),
         1,
         # gas accounting
         original_value=0,
@@ -68,6 +75,10 @@ def test_child_call_uses_reservoir(
 
     state_gas = code.state_cost(fork)
     execution_gas = code.execution_cost(fork)
+    if sufficient_gas == "insufficient_execute":
+        execution_gas -= 1
+    elif sufficient_gas == "insufficient_state":
+        state_gas -= 1
     child = pre.deploy_contract(
         code=code,
     )
@@ -76,7 +87,9 @@ def test_child_call_uses_reservoir(
     parent = pre.deploy_contract(
         code=(
             Op.SSTORE(
-                parent_storage.store_next(1),
+                parent_storage.store_next(
+                    1 if sufficient_gas == "sufficient_gas" else 0
+                ),
                 Op.CALL(gas=execution_gas, address=child),
             )
         )
@@ -326,6 +339,9 @@ def test_reservoir_restored_after_child_spill_and_revert(
         to=parent,
         state_gas_reservoir=sstore_state_gas,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=execution_gas + sstore_state_gas,
+        ),
     )
 
     post = {
@@ -438,11 +454,19 @@ def test_reservoir_restored_after_child_spill_and_halt(
     )
 
 
+@pytest.mark.parametrize(
+    "sufficent_gas",
+    [
+        pytest.param(False, id="insufficient_gas"),
+        pytest.param(True, id="sufficient_gas"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_reservoir_restored_after_child_full_drain_and_revert(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    sufficent_gas: bool,
 ) -> None:
     """
     Test reservoir restored when child exactly exhausts it then reverts.
@@ -462,16 +486,20 @@ def test_reservoir_restored_after_child_full_drain_and_revert(
     probe_code = Op.SSTORE(0, 1)
     probe = pre.deploy_contract(code=probe_code)
     probe_gas = probe_code.execution_cost(fork)
+    if not sufficent_gas:
+        probe_gas -= 1
 
     parent_storage = Storage()
-    probe_slot = parent_storage.store_next(1, "probe_succeeds")
+    probe_slot = parent_storage.store_next(
+        2 if sufficent_gas else 1, "probe_succeeds"
+    )
     parent_code = Op.POP(Op.CALL(gas=child_gas, address=child)) + Op.SSTORE(
         probe_slot,
-        Op.CALL(gas=probe_gas, address=probe),
+        Op.ADD(Op.CALL(gas=probe_gas, address=probe), 1),
         # gas accounting
         original_value=1,
         current_value=1,
-        new_value=1,
+        new_value=2 if sufficent_gas else 1,
         key_warm=False,
     )
     parent = pre.deploy_contract(code=parent_code, storage={probe_slot: 1})
@@ -482,7 +510,9 @@ def test_reservoir_restored_after_child_full_drain_and_revert(
         + child_gas
         + probe_gas
     )
-    expected_gas_used = max(execution_gas, sstore_state_gas)
+    expected_gas_used = max(
+        execution_gas, sstore_state_gas if sufficent_gas else 0
+    )
 
     tx = Transaction(
         to=parent,
@@ -492,7 +522,7 @@ def test_reservoir_restored_after_child_full_drain_and_revert(
 
     post = {
         parent: Account(storage=parent_storage),
-        probe: Account(storage={0: 1}),
+        probe: Account(storage={0: 1 if sufficent_gas else 0}),
     }
     state_test(
         pre=pre,
@@ -502,11 +532,19 @@ def test_reservoir_restored_after_child_full_drain_and_revert(
     )
 
 
+@pytest.mark.parametrize(
+    "sufficent_gas",
+    [
+        pytest.param(False, id="insufficient_gas"),
+        pytest.param(True, id="sufficient_gas"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_sequential_calls_reservoir_restored_between_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    sufficent_gas: bool,
 ) -> None:
     """
     Test reservoir restored across sequential child reverts.
@@ -526,19 +564,23 @@ def test_sequential_calls_reservoir_restored_between_reverts(
     probe_code = Op.SSTORE(0, 1)
     probe = pre.deploy_contract(code=probe_code)
     probe_gas = probe_code.execution_cost(fork)
+    if not sufficent_gas:
+        probe_gas -= 1
 
     parent_storage = Storage()
-    probe_slot = parent_storage.store_next(1, "probe_succeeds")
+    probe_slot = parent_storage.store_next(
+        2 if sufficent_gas else 1, "probe_succeeds"
+    )
     parent_code = (
         Op.POP(Op.CALL(gas=child_gas, address=child))
-        + Op.POP(Op.CALL(gas=child_gas, address=child))
+        + Op.POP(Op.CALL(gas=child_gas, address=child, address_warm=True))
         + Op.SSTORE(
             probe_slot,
-            Op.CALL(gas=probe_gas, address=probe),
+            Op.ADD(Op.CALL(gas=probe_gas, address=probe), 1),
             # gas accounting
             original_value=1,
             current_value=1,
-            new_value=1,
+            new_value=2 if sufficent_gas else 1,
             key_warm=False,
         )
     )
@@ -550,7 +592,9 @@ def test_sequential_calls_reservoir_restored_between_reverts(
         + 2 * child_gas
         + probe_gas
     )
-    expected_gas_used = max(execution_gas, sstore_state_gas)
+    expected_gas_used = max(
+        execution_gas, sstore_state_gas if sufficent_gas else 0
+    )
 
     tx = Transaction(
         to=parent,
@@ -560,7 +604,7 @@ def test_sequential_calls_reservoir_restored_between_reverts(
 
     post = {
         parent: Account(storage=parent_storage),
-        probe: Account(storage={0: 1}),
+        probe: Account(storage={0: 1 if sufficent_gas else 0}),
     }
     state_test(
         pre=pre,
@@ -570,25 +614,36 @@ def test_sequential_calls_reservoir_restored_between_reverts(
     )
 
 
+@pytest.mark.parametrize(
+    "sufficient_gas",
+    [
+        pytest.param(False, id="insufficient_gas"),
+        pytest.param(True, id="sufficient_gas"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_nested_calls_reservoir_passing(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    sufficient_gas: bool,
 ) -> None:
     """
     Test reservoir passes through nested calls.
 
     The reservoir is passed from A to B to C. C performs an SSTORE
     using the reservoir gas. After all calls return, A verifies
-    success.
+    success. C is handed only its execution cost, so one gas less
+    halts it before the SSTORE and leaves the reservoir untouched.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     c_storage = Storage()
-    c_code = Op.SSTORE(c_storage.store_next(1), 1)
+    c_code = Op.SSTORE(c_storage.store_next(1 if sufficient_gas else 0), 1)
     c = pre.deploy_contract(code=c_code)
     c_gas = c_code.execution_cost(fork)
+    if not sufficient_gas:
+        c_gas -= 1
 
     # Each hop forwards only execution gas; the reservoir rides along in
     # full, so C's SSTORE lands only if it reached the bottom frame. B
@@ -596,13 +651,12 @@ def test_nested_calls_reservoir_passing(
     # of the gas it holds.
     b_code = Op.CALL(gas=c_gas, address=c)
     b = pre.deploy_contract(code=b_code)
-    b_gas = b_code.execution_cost(fork) + c_gas * 64 // 63
 
     a_storage = Storage()
     call_slot = a_storage.store_next(1, "nested_call_succeeds")
     a_code = Op.SSTORE(
         call_slot,
-        Op.CALL(gas=b_gas, address=b),
+        Op.CALL(address=b),
         # gas accounting
         original_value=1,
         current_value=1,
@@ -617,7 +671,9 @@ def test_nested_calls_reservoir_passing(
         + b_code.execution_cost(fork)
         + c_gas
     )
-    expected_gas_used = max(execution_gas, sstore_state_gas)
+    expected_gas_used = max(
+        execution_gas, sstore_state_gas if sufficient_gas else 0
+    )
 
     tx = Transaction(
         to=a,
@@ -886,28 +942,51 @@ def test_staticcall_passes_reservoir(
     """
     Test STATICCALL passes reservoir but cannot use it for state ops.
 
-    STATICCALL forbids state-modifying operations. The reservoir is
-    passed to the child but cannot be consumed. After the STATICCALL
-    returns, the parent can still use the reservoir for its own SSTORE.
+    The static child is handed the full execution cost of an SSTORE,
+    so only the static-context restriction can stop it, and it halts.
+    The parent then calls a probe handed only its SSTORE's execution
+    cost, so the probe has no `gas_left` to spill from and succeeds
+    only if the rejected write left the reservoir untouched.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    # Child does a read-only operation. The metadata carries the memory
-    # it touches so the forwarded gas covers the expansion too.
-    child_code = Op.MSTORE(0, Op.ADDRESS, new_memory_size=32)
+    child_code = Op.SSTORE(0, 1)
     child = pre.deploy_contract(code=child_code)
     child_gas = child_code.execution_cost(fork)
 
+    probe_code = Op.SSTORE(0, 1)
+    probe = pre.deploy_contract(code=probe_code)
+    probe_gas = probe_code.execution_cost(fork)
+
     parent_storage = Storage()
-    parent_code = Op.POP(
-        Op.STATICCALL(gas=child_gas, address=child)
-    ) + Op.SSTORE(parent_storage.store_next(1), 1)
-    parent = pre.deploy_contract(code=parent_code)
+    static_slot = parent_storage.store_next(1, "staticcall_fails")
+    probe_slot = parent_storage.store_next(2, "probe_succeeds")
+    parent_code = Op.SSTORE(
+        static_slot,
+        Op.ADD(Op.STATICCALL(gas=child_gas, address=child), 1),
+        # gas accounting
+        original_value=1,
+        current_value=1,
+        new_value=1,
+        key_warm=False,
+    ) + Op.SSTORE(
+        probe_slot,
+        Op.ADD(Op.CALL(gas=probe_gas, address=probe), 1),
+        # gas accounting
+        original_value=1,
+        current_value=1,
+        new_value=2,
+        key_warm=False,
+    )
+    parent = pre.deploy_contract(
+        code=parent_code, storage={static_slot: 1, probe_slot: 1}
+    )
 
     execution_gas = (
         fork.transaction_intrinsic_cost_calculator()()
         + parent_code.execution_cost(fork)
         + child_gas
+        + probe_gas
     )
     expected_gas_used = max(execution_gas, sstore_state_gas)
     assert expected_gas_used == sstore_state_gas, (
@@ -920,7 +999,11 @@ def test_staticcall_passes_reservoir(
         sender=pre.fund_eoa(),
     )
 
-    post = {parent: Account(storage=parent_storage)}
+    post = {
+        parent: Account(storage=parent_storage),
+        child: Account(storage={0: 0}),
+        probe: Account(storage={0: 1}),
+    }
     state_test(
         pre=pre,
         post=post,
