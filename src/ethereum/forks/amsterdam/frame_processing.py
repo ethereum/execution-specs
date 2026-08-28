@@ -295,29 +295,14 @@ def process_frame_transaction(
         tx_output.refund_counter,
         StateGas(Uint(tx_output.state_gas_used)),
     )
-    # The payer-facing gas remains post-refund.
-    gas_used = Uint(settlement.execution_gas_used) + Uint(
-        settlement.state_gas_used
-    )
 
-    # EIP-7778 keeps storage refunds out of block gas accounting. The
-    # state dimension is already net; only execution is reconstructed
-    # from pre-refund usage and held to the calldata floor.
-    gas_used_before_refund = frame_context.standard_gas_limit - tx_unused_gas
-    block_execution_gas_used = ExecutionGas(
-        max(
-            gas_used_before_refund - Uint(settlement.state_gas_used),
-            tx_env.calldata_floor,
-        )
-    )
+    disburse_frame_gas_fees(block_env, tx_env, settlement.gas_used)
 
-    disburse_frame_gas_fees(block_env, tx_env, gas_used)
-
-    block_output.block_gas_used += block_execution_gas_used
+    block_output.block_gas_used += settlement.execution_gas_used
     block_output.block_state_gas_used += settlement.state_gas_used
     block_output.blob_gas_used += calculate_total_blob_gas(tx)
 
-    block_output.cumulative_gas_used += gas_used
+    block_output.cumulative_gas_used += settlement.gas_used
     receipt = make_frame_receipt(
         tx,
         payer,

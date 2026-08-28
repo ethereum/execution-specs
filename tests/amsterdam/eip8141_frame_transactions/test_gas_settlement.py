@@ -125,18 +125,35 @@ def test_calldata_floor_with_state_gas(
     )
 
 
+@pytest.mark.parametrize(
+    "calldata_padding_length,floor_case",
+    [
+        pytest.param(0, "below_post_refund", id="post_refund_above_floor"),
+        pytest.param(
+            768,
+            "between",
+            id="floor_between_pre_and_post_refund",
+        ),
+        pytest.param(
+            1024,
+            "above_pre_refund",
+            id="floor_above_pre_refund",
+        ),
+    ],
+)
 def test_storage_refund_settlement(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    calldata_padding_length: int,
+    floor_case: str,
 ) -> None:
     """
     Settle a frame transaction that clears a pre-existing storage slot.
 
-    The EIP-3529 refund reduces the payer's charge, while EIP-7778 keeps
-    the refunded execution gas counted toward the block gas limit. The
-    receipt therefore reports post-refund cumulative gas and the block
-    header reports pre-refund gas. Clearing durable state consumes no
+    The three cases pin both settlement clamps around the calldata floor:
+    payer-facing gas uses post-refund execution while block execution gas
+    remains pre-refund under EIP-7778. Clearing durable state consumes no
     state gas, so the frame declares none.
     """
     sender = pre.fund_eoa()
@@ -164,10 +181,12 @@ def test_storage_refund_settlement(
                 target=worker,
                 gas_limit=REFUND_WORKER_GAS,
                 state_gas_limit=0,
+                data=b"\x00" * calldata_padding_length,
             ),
         ],
     )
-    # Materialize the signature bytes the intrinsic cost charges for.
+    # Materialize the signature bytes the intrinsic cost and calldata
+    # floor charge for.
     tx.sign()
     assert tx.frames is not None and tx.signatures is not None
 
@@ -187,11 +206,25 @@ def test_storage_refund_settlement(
     refund = worker_code.refund(fork)
     # The premise of the test: the refund applies uncapped.
     assert 0 < refund <= gas_used_before_refund // 5
-    gas_used = gas_used_before_refund - refund
+    gas_used_after_refund = gas_used_before_refund - refund
+    calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
+        frames=tx.frames, signatures=tx.signatures
+    )
+
+    if floor_case == "below_post_refund":
+        assert calldata_floor < gas_used_after_refund
+    elif floor_case == "between":
+        assert gas_used_after_refund < calldata_floor < gas_used_before_refund
+    else:
+        assert floor_case == "above_pre_refund"
+        assert gas_used_before_refund < calldata_floor
+
+    payer_gas_used = max(gas_used_after_refund, calldata_floor)
+    block_gas_used = max(gas_used_before_refund, calldata_floor)
 
     tx.expected_receipt = TransactionReceipt(
         payer=sender,
-        cumulative_gas_used=gas_used,
+        cumulative_gas_used=payer_gas_used,
         frame_receipts=[
             FrameReceipt(
                 status=Spec.STATUS_SUCCESS,
@@ -215,5 +248,5 @@ def test_storage_refund_settlement(
             sender: Account(nonce=1),
             worker: Account(storage={SLOT: 0}),
         },
-        blockchain_test_header_verify=Header(gas_used=gas_used_before_refund),
+        blockchain_test_header_verify=Header(gas_used=block_gas_used),
     )
