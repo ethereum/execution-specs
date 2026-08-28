@@ -155,6 +155,7 @@ class GasCosts:
     OPCODE_PREVRANDAO: Final[Uint] = BASE
     OPCODE_RETURNDATASIZE: Final[Uint] = BASE
     OPCODE_CHAINID: Final[Uint] = BASE
+    OPCODE_SELFBALANCE: Final[Uint] = FAST_STEP
     OPCODE_BASEFEE: Final[Uint] = BASE
     OPCODE_BLOBBASEFEE: Final[Uint] = BASE
     OPCODE_BLOBHASH: Final[Uint] = Uint(3)
@@ -162,6 +163,8 @@ class GasCosts:
     OPCODE_PUSH0: Final[Uint] = BASE
     OPCODE_DUP: Final[Uint] = VERY_LOW
     OPCODE_SWAP: Final[Uint] = VERY_LOW
+    OPCODE_TLOAD: Final[Uint] = WARM_ACCESS
+    OPCODE_TSTORE: Final[Uint] = WARM_ACCESS
 
     # Dynamic Opcodes
     OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW

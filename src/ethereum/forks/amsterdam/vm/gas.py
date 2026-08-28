@@ -226,6 +226,7 @@ class GasCosts:
     OPCODE_PREVRANDAO: Final[ExecutionGas] = BASE
     OPCODE_RETURNDATASIZE: Final[ExecutionGas] = BASE
     OPCODE_CHAINID: Final[ExecutionGas] = BASE
+    OPCODE_SELFBALANCE: Final[ExecutionGas] = FAST_STEP
     OPCODE_BASEFEE: Final[ExecutionGas] = BASE
     OPCODE_BLOBBASEFEE: Final[ExecutionGas] = BASE
     OPCODE_SLOTNUM: Final[ExecutionGas] = BASE
