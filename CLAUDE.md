@@ -51,6 +51,7 @@ When reviewing PRs that implement or test EIPs:
 - Working on EIP test coverage or checklists → run `/eip-checklist` first
 - Checking if config/skills are stale → run `/audit-config`
 - Writing or modifying docstrings in `src/ethereum/` → run `/write-docstring` first
+- Cutting a devnet fixture release → run `/devnet-release` first
 - Done with changes and ready to lint → run `/lint`
 
 ## Available Skills
@@ -67,3 +68,4 @@ When reviewing PRs that implement or test EIPs:
 - `/audit-config` — verify CLAUDE.md and skills are still accurate
 - `/write-docstring` — narrative Markdown docstring conventions for the spec
 - `/grammar-check` — audit grammar in documentation and code comments
+- `/devnet-release` — devnet fixture release runbook: versioning, dispatch, hive wiring, notes
