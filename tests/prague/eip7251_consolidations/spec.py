@@ -45,6 +45,9 @@ class Spec:
     )
     # The start memory slot of the in-state consolidation request message queue
     CONSOLIDATION_REQUEST_QUEUE_STORAGE_OFFSET = 4
+    # Slots each queued request occupies: source address, then the source and
+    # target validator pubkeys
+    CONSOLIDATION_REQUEST_QUEUE_SLOTS_PER_REQUEST = 4
     # Max number of consolidation requests that can be de-queued into a block
     MAX_CONSOLIDATION_REQUESTS_PER_BLOCK = 2
     TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK = 1

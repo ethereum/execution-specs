@@ -52,6 +52,9 @@ class Spec:
     )
     # The start memory slot of the in-state withdrawal request message queue
     WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET = 4
+    # Slots each queued request occupies: source address, first 32 bytes of
+    # the validator pubkey, and its remaining bytes packed with the amount
+    WITHDRAWAL_REQUEST_QUEUE_SLOTS_PER_REQUEST = 3
     # Maximum number of withdrawal requests that can be de-queued into a block
     MAX_WITHDRAWAL_REQUESTS_PER_BLOCK = 16
     TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK = 2

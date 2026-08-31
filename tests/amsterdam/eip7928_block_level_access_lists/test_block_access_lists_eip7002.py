@@ -65,7 +65,9 @@ def _build_queue_storage_slots(
     queue_writes = []
     queue_reads = []
     for i in range(num_reqs):
-        base_slot = Spec7002.WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET + (i * 3)
+        base_slot = Spec7002.WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET + (
+            i * Spec7002.WITHDRAWAL_REQUEST_QUEUE_SLOTS_PER_REQUEST
+        )
         # Slot +0: source address
         queue_writes.append(
             BalStorageSlot(

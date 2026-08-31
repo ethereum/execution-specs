@@ -15,6 +15,16 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 - Exception: use `blockchain_test` when the test needs more than one transaction (a `state_test` holds exactly one) or more than one block (e.g. transaction-ordering or fork-transition tests).
 - Anti-pattern: wrapping one transaction in a `Block` to reach `blockchain_test`. A `state_test` can assert the transaction's gas used and receipt logs (the tx's `expected_receipt=TransactionReceipt(cumulative_gas_used=...)`), reserve state gas (the tx's `state_gas_reservoir=`), and other block-header fields (`blockchain_test_header_verify=Header(...)`) without it.
 
+## Fail Loudly
+
+A test that quietly stops exercising what it claims is worse than no test. Wire every premise so a change **fails** the test instead of silently retargeting it.
+
+- **Assert what helpers assume.** A helper that splits a budget or derives a boundary asserts its preconditions, so a repricing fails instead of moving the measurement.
+- **Derive parameters from what the test asserts.** If a boundary is `len(slots) * COST`, compute it from the same `slots` the expectation checks.
+- **Always assert `post`.** A BAL expectation checks access, `post` checks state; neither implies the other.
+- **Witness that the code path ran.** Where success and never-executed look identical, `SSTORE` a sentinel and assert it in `post`; `Account.NONEXISTENT` and balance checks work too.
+- **Pin block premises with `header_verify=Header(...)`.** A block that must be exactly full, or use a specific `gas_used`, asserts it.
+
 ## Pre-State Setup
 
 - `pre.fund_eoa()` — create funded EOA, returns Address. Accepts `amount=`, `nonce=`
@@ -34,6 +44,8 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 - `storage = Storage()` then `storage.store_next(expected_value)` — auto-increments slot
 - `Op.SSTORE(storage.store_next(sender), Op.ORIGIN)` — build bytecode + expected storage in one step
 - Post-state: `post = {contract: Account(storage=storage)}`
+- `Account(storage=...)` compares storage **exhaustively** — any slot you omit must be zero. Opt an omitted key out with `Storage.set_expect_any(key)`.
+- BAL expectation fields behave differently: a field left unset is not checked, `[]` asserts empty, and a non-empty list matches as an **ordered subsequence** (extra actual entries are skipped, yours must appear in order). `BalAccountExpectation()` with no field set raises — use `.empty()` for an account with no changes, and `{address: None}` to assert an address is absent.
 
 ## Markers
 
@@ -43,7 +55,7 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 - `@pytest.mark.with_all_call_opcodes` — parametrize CALL/CALLCODE/DELEGATECALL/STATICCALL
 - `@pytest.mark.with_all_evm_code_types` — parametrize across EVM code types
 - `@pytest.mark.slow` — excluded by default in fill
-- `@pytest.mark.exception_test` — marks tests expecting exceptions
+- `@pytest.mark.exception_test` — marks tests expecting exceptions. When only some parametrized cases raise, put it on the `pytest.param(..., marks=...)`, not the function, or the passing cases fail.
 
 ## Fork-Aware Logic
 
@@ -68,6 +80,7 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 - Rule: omit `gas_limit`. It auto-fills so the transaction executes in full without running out of gas.
 - Exception: set `gas_limit` explicitly for gas-sensitive tests (intrinsic-gas boundaries, OOG, code-deposit limits, or gas metering).
 - Anti-pattern: the `gas_limit=fork.transaction_gas_limit_cap()` boilerplate is now redundant.
+- A transaction that runs out of gas consumes exactly its `gas_limit`, so an `Om.OOG` contract is the way to control block gas used — and therefore gas remaining — deterministically.
 
 ## Exception Testing
 
