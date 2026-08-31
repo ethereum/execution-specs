@@ -37,12 +37,13 @@ from execution_testing import (
     Fork,
     Initcode,
     Op,
+    StateTestFiller,
     Transaction,
     compute_create_address,
 )
 from execution_testing import Macros as Om
 
-from .spec import ref_spec_7928
+from .spec import Spec, ref_spec_7928
 from .test_block_access_lists_eip4788 import SYSTEM_ADDRESS
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -3568,6 +3569,128 @@ def test_bal_create_early_failure(
             ),
             would_be_contract_address: Account.NONEXISTENT,
         },
+    )
+
+
+@pytest.mark.with_all_create_opcodes
+@pytest.mark.parametrize(
+    "factory_nonce",
+    [
+        pytest.param(Spec.MAX_NONCE, id="nonce_at_max"),
+        pytest.param(Spec.MAX_NONCE - 1, id="nonce_below_max"),
+    ],
+)
+def test_bal_create_nonce_overflow(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    create_opcode: Op,
+    factory_nonce: int,
+) -> None:
+    """
+    Test BAL with the factory's nonce at the EIP-2681 boundary.
+
+    At the maximum nonce the creation fails before the computed address
+    is accessed, so the address MUST NOT appear in the BAL; one below
+    the maximum the creation proceeds and the address appears with its
+    deployed nonce and code.
+    """
+    alice = pre.fund_eoa()
+
+    init_code = Initcode(deploy_code=Op.STOP)
+    init_code_bytes = bytes(init_code)
+
+    factory_code = (
+        Op.MSTORE(0, Op.PUSH32(init_code_bytes))
+        + Op.SSTORE(
+            0x00,
+            Op.GT(
+                create_opcode(
+                    value=0,
+                    offset=32 - len(init_code_bytes),
+                    size=len(init_code_bytes),
+                ),
+                0,
+            ),
+        )
+        + Op.STOP
+    )
+
+    factory = pre.deploy_contract(
+        code=factory_code,
+        nonce=factory_nonce,
+        storage={0x00: 0xDEAD},
+    )
+
+    target = compute_create_address(
+        address=factory,
+        nonce=factory_nonce,
+        salt=0,
+        initcode=init_code_bytes,
+        opcode=create_opcode,
+    )
+
+    tx = Transaction(sender=alice, to=factory)
+
+    factory_nonce_changes: list[BalNonceChange]
+    target_expectation: BalAccountExpectation | None
+    target_post: Account | None
+
+    if factory_nonce == Spec.MAX_NONCE:
+        create_result = 0
+        factory_nonce_changes = []
+        target_expectation = None
+        target_post = Account.NONEXISTENT
+    elif factory_nonce == Spec.MAX_NONCE - 1:
+        create_result = 1
+        factory_nonce_changes = [
+            BalNonceChange(block_access_index=1, post_nonce=Spec.MAX_NONCE)
+        ]
+        target_expectation = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+            code_changes=[
+                BalCodeChange(block_access_index=1, new_code=bytes(Op.STOP))
+            ],
+        )
+        target_post = Account(nonce=1, code=Op.STOP)
+    else:
+        raise ValueError(f"Invariant: unhandled factory_nonce {factory_nonce}")
+
+    state_test(
+        pre=pre,
+        post={
+            alice: Account(nonce=1),
+            # At the boundary the nonce is unchanged; one below, it is
+            # incremented into it. Both arms end at the maximum.
+            factory: Account(
+                nonce=Spec.MAX_NONCE, storage={0x00: create_result}
+            ),
+            target: target_post,
+        },
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                factory: BalAccountExpectation(
+                    nonce_changes=factory_nonce_changes,
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x00,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1,
+                                    post_value=create_result,
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                target: target_expectation,
+            }
+        ),
     )
 
 
