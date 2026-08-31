@@ -41,8 +41,17 @@ def test_tx_gas_limit(
     sender = pre.fund_eoa()
     to = pre.fund_eoa()
 
+    # One gas above the block gas limit, so the transaction is otherwise
+    # valid (well above intrinsic cost) and only the allowance check fires.
+    # The limit itself is 100k rather than the 21k intrinsic minimum so that
+    # a block in this environment CAN be valid on forks with the EIP-7928
+    # block-access-list item budget (`gas_limit // 2000`): at 21k the budget
+    # is 10 items, less than the protocol-level writes of an empty block, so
+    # the auto-generated inclusion-list variant of this test — which moves
+    # the failing transaction into the inclusion list and expects the
+    # emptied block to be VALID — was invalid-by-environment.
     tx = Transaction(
-        gas_limit=21001,
+        gas_limit=100_001,
         to=to,
         gas_price=0x10,  # Must be >= base fee to isolate gas limit validation
         sender=sender,
@@ -50,8 +59,8 @@ def test_tx_gas_limit(
         error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 
-    modified_fields = {"gas_limit": ZeroPaddedHexNumber(21000)}
-    env.gas_limit = ZeroPaddedHexNumber(21000)
+    modified_fields = {"gas_limit": ZeroPaddedHexNumber(100_000)}
+    env.gas_limit = ZeroPaddedHexNumber(100_000)
 
     block = Block(
         txs=[tx],
