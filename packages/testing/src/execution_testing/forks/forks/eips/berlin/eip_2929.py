@@ -26,6 +26,72 @@ class EIP2929(BaseFork):
         return gas_costs.COLD_ACCOUNT_ACCESS
 
     @classmethod
+    def _calculate_sstore_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Charge SSTORE by net gas metering with warm and cold keys."""
+        metadata = opcode.metadata
+
+        original_value = metadata["original_value"]
+        current_value = metadata["current_value"]
+        if current_value is None:
+            current_value = original_value
+        new_value = metadata["new_value"]
+
+        gas_cost = 0 if metadata["key_warm"] else gas_costs.COLD_STORAGE_ACCESS
+
+        if original_value == current_value and current_value != new_value:
+            if original_value == 0:
+                gas_cost += gas_costs.STORAGE_SET
+            else:
+                gas_cost += (
+                    gas_costs.COLD_STORAGE_WRITE
+                    - gas_costs.COLD_STORAGE_ACCESS
+                )
+        else:
+            gas_cost += gas_costs.WARM_SLOAD
+
+        return gas_cost
+
+    @classmethod
+    def _calculate_sstore_refund(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Refund SSTORE by net gas metering with warm and cold keys."""
+        metadata = opcode.metadata
+
+        original_value = metadata["original_value"]
+        current_value = metadata["current_value"]
+        if current_value is None:
+            current_value = original_value
+        new_value = metadata["new_value"]
+
+        refund = 0
+        if current_value != new_value:
+            if original_value != 0 and current_value != 0 and new_value == 0:
+                # Storage is cleared for the first time in the transaction
+                refund += gas_costs.REFUND_STORAGE_CLEAR
+
+            if original_value != 0 and current_value == 0:
+                # Gas refund issued earlier to be reversed
+                refund -= gas_costs.REFUND_STORAGE_CLEAR
+
+            if original_value == new_value:
+                # Storage slot being restored to its original value
+                if original_value == 0:
+                    # Slot was originally empty and was SET earlier
+                    refund += gas_costs.STORAGE_SET - gas_costs.WARM_SLOAD
+                else:
+                    # Slot was originally non-empty and was UPDATED earlier
+                    refund += (
+                        gas_costs.COLD_STORAGE_WRITE
+                        - gas_costs.COLD_STORAGE_ACCESS
+                        - gas_costs.WARM_SLOAD
+                    )
+
+        return refund
+
+    @classmethod
     def _selfdestruct_access_cost(
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:

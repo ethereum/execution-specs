@@ -9,6 +9,8 @@ https://eips.ethereum.org/EIPS/eip-150
 
 from dataclasses import replace
 
+from execution_testing.vm import OpcodeBase
+
 from ....base_fork import BaseFork
 from ....gas_costs import GasCosts
 
@@ -27,3 +29,15 @@ class EIP150(BaseFork):
             OPCODE_SLOAD=200,
             OPCODE_SELFDESTRUCT_BASE=5_000,
         )
+
+    @classmethod
+    def _calculate_selfdestruct_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Charge for beneficiary creation, introduced by EIP-150."""
+        base_cost = super(EIP150, cls)._calculate_selfdestruct_gas(
+            opcode, gas_costs
+        )
+        if opcode.metadata["account_new"]:
+            base_cost += gas_costs.NEW_ACCOUNT
+        return base_cost

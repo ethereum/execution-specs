@@ -17,10 +17,14 @@ class EIP3529(BaseFork):
 
     @classmethod
     def gas_costs(cls) -> GasCosts:
-        """Storage clearing refund is reduced from 15000 to 4800."""
+        """
+        Reduce the storage clearing refund, remove the SELFDESTRUCT
+        refund.
+        """
         return replace(
             super(EIP3529, cls).gas_costs(),
             REFUND_STORAGE_CLEAR=4_800,
+            REFUND_SELF_DESTRUCT=0,
         )
 
     @classmethod

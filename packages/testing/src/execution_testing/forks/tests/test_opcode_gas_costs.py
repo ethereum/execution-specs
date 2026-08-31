@@ -5,6 +5,7 @@ import pytest
 from execution_testing.vm import Bytecode, Op
 
 from ..forks.forks import (
+    Berlin,
     ConstantinopleFix,
     Homestead,
     Istanbul,
@@ -328,7 +329,7 @@ from ..helpers import Fork
         pytest.param(
             Homestead,
             Op.CALL(address_warm=False, value_transfer=True, account_new=True),
-            Homestead.gas_costs().OPCODE_CALL_BASE,
+            40 + 9_000 + 25_000,
             id="call_cold_account_new_homestead",
         ),
         pytest.param(
@@ -483,6 +484,21 @@ from ..helpers import Fork
             5_000 + 25_000,
             id="selfdestruct_new_account_spurious_dragon",
         ),
+        # The new account charge is independent of a value transfer
+        # until EIP-161, and SELFDESTRUCT charges nothing before
+        # EIP-150.
+        pytest.param(
+            Homestead,
+            Op.CALL(account_new=True),
+            40 + 25_000,
+            id="call_new_account_without_value_homestead",
+        ),
+        pytest.param(
+            Homestead,
+            Op.SELFDESTRUCT(account_new=True),
+            0,
+            id="selfdestruct_new_account_homestead",
+        ),
     ],
 )
 def test_opcode_gas_costs(fork: Fork, opcode: Op, expected_cost: int) -> None:  # noqa: D103
@@ -551,6 +567,67 @@ def test_bytecode_gas_costs(  # noqa: D103
             Op.MSTORE,
             0,
             id="mstore_no_refund",
+        ),
+        # Legacy storage refunds, every clearing write refunds.
+        pytest.param(
+            Homestead,
+            Op.SSTORE(original_value=5, new_value=0),
+            15_000,
+            id="sstore_clear_homestead",
+        ),
+        pytest.param(
+            Homestead,
+            Op.SSTORE(original_value=0, current_value=5, new_value=0),
+            15_000,
+            id="sstore_re_clear_homestead",
+        ),
+        # EIP-2200 net metering refunds at Istanbul.
+        pytest.param(
+            Istanbul,
+            Op.SSTORE(original_value=5, current_value=6, new_value=5),
+            5_000 - 800,
+            id="sstore_restore_reset_istanbul",
+        ),
+        pytest.param(
+            Istanbul,
+            Op.SSTORE(original_value=0, current_value=5, new_value=0),
+            20_000 - 800,
+            id="sstore_restore_set_istanbul",
+        ),
+        # EIP-2929 warm and cold refund terms.
+        pytest.param(
+            Osaka,
+            Op.SSTORE(original_value=5, current_value=6, new_value=5),
+            Osaka.gas_costs().COLD_STORAGE_WRITE
+            - Osaka.gas_costs().COLD_STORAGE_ACCESS
+            - Osaka.gas_costs().WARM_SLOAD,
+            id="sstore_restore_reset_osaka",
+        ),
+        # EIP-3529 boundary for the storage clear refund.
+        pytest.param(
+            Berlin,
+            Op.SSTORE(original_value=5, new_value=0),
+            15_000,
+            id="sstore_clear_berlin",
+        ),
+        # SELFDESTRUCT refund until EIP-3529 removes it.
+        pytest.param(
+            Homestead,
+            Op.SELFDESTRUCT(self_destructed_account=True),
+            24_000,
+            id="selfdestruct_refund_homestead",
+        ),
+        pytest.param(
+            Berlin,
+            Op.SELFDESTRUCT(self_destructed_account=True),
+            24_000,
+            id="selfdestruct_refund_berlin",
+        ),
+        pytest.param(
+            Osaka,
+            Op.SELFDESTRUCT(self_destructed_account=True),
+            0,
+            id="selfdestruct_refund_osaka",
         ),
     ],
 )
@@ -667,6 +744,58 @@ def test_bytecode_refunds(  # noqa: D103
             Osaka.gas_costs().COLD_STORAGE_ACCESS
             + Osaka.gas_costs().STORAGE_RESET,
             id="sstore_clear_cold",  # 5 → 0
+        ),
+        # Legacy SSTORE, charged by the current value only. Literal
+        # values pin the historical schedule from the EELS vm/gas.py
+        # constants of each fork.
+        pytest.param(
+            Homestead,
+            Op.SSTORE(new_value=5),
+            20_000,
+            id="sstore_set_homestead",  # 0 → 5
+        ),
+        pytest.param(
+            Homestead,
+            Op.SSTORE(original_value=5, new_value=0),
+            5_000,
+            id="sstore_clear_homestead",  # 5 → 0
+        ),
+        pytest.param(
+            Homestead,
+            Op.SSTORE(original_value=5, current_value=0, new_value=7),
+            20_000,
+            id="sstore_dirty_set_homestead",  # 5 → 0 → 7
+        ),
+        pytest.param(
+            Homestead,
+            Op.SSTORE(key_warm=True, new_value=5),
+            20_000,
+            id="sstore_warmth_inert_homestead",  # 0 → 5
+        ),
+        # EIP-2200 net metering at Istanbul.
+        pytest.param(
+            Istanbul,
+            Op.SSTORE(original_value=5, new_value=5),
+            800,
+            id="sstore_noop_istanbul",  # 5 → 5
+        ),
+        pytest.param(
+            Istanbul,
+            Op.SSTORE(original_value=5, current_value=6, new_value=7),
+            800,
+            id="sstore_dirty_istanbul",  # 5 → 6 → 7
+        ),
+        pytest.param(
+            Istanbul,
+            Op.SSTORE(new_value=5),
+            20_000,
+            id="sstore_set_istanbul",  # 0 → 5
+        ),
+        pytest.param(
+            Istanbul,
+            Op.SSTORE(original_value=5, new_value=0),
+            5_000,
+            id="sstore_clear_istanbul",  # 5 → 0
         ),
     ],
 )
