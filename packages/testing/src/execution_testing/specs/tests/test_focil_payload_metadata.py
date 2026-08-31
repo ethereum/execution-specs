@@ -38,7 +38,11 @@ def test_inclusion_list_result_only_emitted_for_valid_payloads(
         staticmethod(capture),
     )
 
-    block = BuiltBlock.model_construct(
+    # `model_construct` skips validation and
+    # `get_fixture_engine_new_payload` only forwards these fields, so the
+    # sentinels never need to satisfy the model's field types. Splat them
+    # from an untyped dict so the type checker does not require them to.
+    fields: dict[str, Any] = dict(
         fork=object(),
         header=object(),
         txs=[],
@@ -53,6 +57,7 @@ def test_inclusion_list_result_only_emitted_for_valid_payloads(
         engine_new_payload_block_access_list=None,
         engine_new_payload_slot_number=None,
     )
+    block = BuiltBlock.model_construct(**fields)
 
     assert block.get_fixture_engine_new_payload() is sentinel
     assert captured["inclusion_list_satisfied"] is expected
