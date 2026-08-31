@@ -96,11 +96,7 @@ def test_extcodehash_after_precompile_touch(
     state_test(pre=pre, post=post, tx=tx)
 
 
-# Before Berlin the opcode metadata gas model prices account access
-# with warm and cold costs that do not exist yet, so the exact-gas tests
-# start at Berlin. The probe test above still pins the charge on older
-# forks through the sender balance in the state root.
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("SpuriousDragon")
 @pytest.mark.parametrize(
     "precompile,args_size",
     [
@@ -161,7 +157,7 @@ def test_call_new_account_charge_after_precompile_touch(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("SpuriousDragon")
 @pytest.mark.parametrize(
     "precompile",
     [
