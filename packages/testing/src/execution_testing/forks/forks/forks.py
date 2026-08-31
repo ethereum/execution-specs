@@ -101,6 +101,10 @@ class Frontier(BaseFork):
             COLD_ACCOUNT_ACCESS=2_600,
             WARM_SLOAD=100,
             COLD_STORAGE_ACCESS=2_100,
+            OPCODE_BALANCE=20,
+            OPCODE_EXTERNAL_BASE=20,
+            OPCODE_CALL_BASE=40,
+            OPCODE_SLOAD=50,
             # Storage
             STORAGE_SET=20_000,
             COLD_STORAGE_WRITE=5_000,
@@ -170,7 +174,7 @@ class Frontier(BaseFork):
             OPCODE_MLOAD_BASE=VERY_LOW,
             OPCODE_MSTORE_BASE=VERY_LOW,
             OPCODE_MSTORE8_BASE=VERY_LOW,
-            OPCODE_SELFDESTRUCT_BASE=5_000,
+            OPCODE_SELFDESTRUCT_BASE=0,
             OPCODE_COPY_PER_WORD=3,
             OPCODE_CREATE_BASE=32_000,
             OPCODE_EXP_BASE=10,
@@ -377,7 +381,7 @@ class Frontier(BaseFork):
                 memory_expansion_calculator,
             ),
             Opcodes.ADDRESS: gas_costs.BASE,
-            Opcodes.BALANCE: cls._with_account_access(0, gas_costs),
+            Opcodes.BALANCE: gas_costs.OPCODE_BALANCE,
             Opcodes.ORIGIN: gas_costs.BASE,
             Opcodes.CALLER: gas_costs.BASE,
             Opcodes.CALLVALUE: gas_costs.BASE,
@@ -395,10 +399,10 @@ class Frontier(BaseFork):
                 memory_expansion_calculator,
             ),
             Opcodes.GASPRICE: gas_costs.BASE,
-            Opcodes.EXTCODESIZE: cls._with_account_access(0, gas_costs),
+            Opcodes.EXTCODESIZE: gas_costs.OPCODE_EXTERNAL_BASE,
             Opcodes.EXTCODECOPY: cls._with_memory_expansion(
                 cls._with_data_copy(
-                    cls._with_account_access(0, gas_costs),
+                    gas_costs.OPCODE_EXTERNAL_BASE,
                     gas_costs,
                 ),
                 memory_expansion_calculator,
@@ -422,11 +426,7 @@ class Frontier(BaseFork):
                 gas_costs.OPCODE_MSTORE8_BASE,
                 memory_expansion_calculator,
             ),
-            Opcodes.SLOAD: lambda op: (
-                gas_costs.WARM_SLOAD
-                if op.metadata["key_warm"]
-                else gas_costs.COLD_STORAGE_ACCESS
-            ),
+            Opcodes.SLOAD: gas_costs.OPCODE_SLOAD,
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_gas(
                 op, gas_costs
             ),
@@ -679,6 +679,28 @@ class Frontier(BaseFork):
         return gas_cost
 
     @classmethod
+    def _call_access_cost(cls, opcode: OpcodeBase, gas_costs: GasCosts) -> int:
+        """
+        Return the CALL family account access cost.
+
+        Flat before EIP-2929 introduces warm and cold pricing.
+        """
+        del opcode
+        return gas_costs.OPCODE_CALL_BASE
+
+    @classmethod
+    def _selfdestruct_access_cost(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Return the SELFDESTRUCT beneficiary access cost.
+
+        Zero before EIP-2929 introduces warm and cold pricing.
+        """
+        del opcode, gas_costs
+        return 0
+
+    @classmethod
     def _calculate_call_gas(
         cls, opcode: OpcodeBase, gas_costs: GasCosts
     ) -> int:
@@ -687,11 +709,7 @@ class Frontier(BaseFork):
         """
         metadata = opcode.metadata
 
-        # Base cost depends on address warmth
-        if metadata["address_warm"]:
-            base_cost = gas_costs.WARM_ACCESS
-        else:
-            base_cost = gas_costs.COLD_ACCOUNT_ACCESS
+        base_cost = cls._call_access_cost(opcode, gas_costs)
 
         if metadata["inner_call_cost"]:
             return base_cost + metadata["inner_call_cost"]
@@ -737,9 +755,7 @@ class Frontier(BaseFork):
 
         base_cost = gas_costs.OPCODE_SELFDESTRUCT_BASE
 
-        # Check if the beneficiary is cold
-        if not metadata["address_warm"]:
-            base_cost += gas_costs.COLD_ACCOUNT_ACCESS
+        base_cost += cls._selfdestruct_access_cost(opcode, gas_costs)
 
         # Check if creating a new account
         if metadata["account_new"]:
@@ -1362,6 +1378,7 @@ class DAOFork(
 
 
 class TangerineWhistle(
+    eips.EIP150,
     DAOFork,
     ruleset_name="TANGERINE",
 ):
@@ -1444,6 +1461,7 @@ class MuirGlacier(
 
 class Berlin(
     eips.EIP2930,
+    eips.EIP2929,
     Istanbul,
 ):
     """Berlin fork."""
