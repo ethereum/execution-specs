@@ -34,7 +34,7 @@ from ..fork_types import (
 )
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
-from .gas import GasMeter
+from .gas import GasMeter, repay_state_gas_spill
 
 __all__ = ("Environment", "Evm")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
@@ -204,6 +204,13 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     warmed access sets -- survives only on success, dying with a
     failed child's reverted state.
 
+    A successful merge ends with the reservoir repaying any [spill]
+    still outstanding: a cross-frame refund lands in the reservoir
+    while the `gas_left` that funded the charge stays reduced, and the
+    merge is where the claim and the credit first share a meter. A
+    failed child repays nothing -- its rollback restored the state
+    whose removal any refund credited.
+
     Parameters
     ----------
     evm :
@@ -235,6 +242,7 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
 
     # Everything else survives only on success.
     if not child_evm.error:
+        repay_state_gas_spill(gas_meter)
         evm.logs += child_evm.logs
         evm.accounts_to_delete.update(child_evm.accounts_to_delete)
         evm.accessed_addresses.update(child_evm.accessed_addresses)
