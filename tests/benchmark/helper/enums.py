@@ -5,7 +5,7 @@ from enum import Enum, auto
 from execution_testing import TxOutcome
 
 
-class StorageAction:
+class StorageAction(Enum):
     """Enum for storage actions."""
 
     READ = auto()

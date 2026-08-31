@@ -15,7 +15,7 @@ from typing import List, Set
 
 import click
 
-from execution_testing.base_types import HexNumber
+from execution_testing.base_types import Hash
 from execution_testing.fixtures.consume import (
     IndexFile,
     TestCaseIndexFile,
@@ -36,7 +36,7 @@ def load_index(folder: Path) -> IndexFile:
     return IndexFile.model_validate_json(index_path.read_text())
 
 
-def get_fixture_hashes(index: IndexFile) -> Set[HexNumber]:
+def get_fixture_hashes(index: IndexFile) -> Set[Hash]:
     """Extract fixture hashes and their corresponding file paths from index."""
     hash_set = set()
 
@@ -49,14 +49,14 @@ def get_fixture_hashes(index: IndexFile) -> Set[HexNumber]:
 
 
 def find_duplicates(
-    base_hashes: Set[HexNumber], patch_hashes: Set[HexNumber]
-) -> Set[HexNumber]:
+    base_hashes: Set[Hash], patch_hashes: Set[Hash]
+) -> Set[Hash]:
     """Find fixture hashes that exist in both base and patch."""
     return base_hashes & patch_hashes
 
 
 def pop_all_by_hash(
-    index: IndexFile, fixture_hash: HexNumber
+    index: IndexFile, fixture_hash: Hash
 ) -> List[TestCaseIndexFile]:
     """Pops all test cases from an index file by their hash."""
     test_cases = []

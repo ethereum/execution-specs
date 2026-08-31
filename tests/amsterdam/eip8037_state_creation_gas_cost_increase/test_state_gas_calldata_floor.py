@@ -34,41 +34,105 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
+def calldata_length_where_floor_overtakes(fork: Fork, state_gas: int) -> int:
+    """
+    Return the shortest all-nonzero calldata whose floor outgrows
+    `state_gas`.
+    """
+    floor_calculator = fork.transaction_data_floor_cost_calculator()
+
+    def floor_at(length: int) -> int:
+        return floor_calculator(data=b"\x01" * length)
+
+    low, high = 0, 1
+    while floor_at(high) <= state_gas:
+        high *= 2
+    while low < high:
+        middle = (low + high) // 2
+        if floor_at(middle) > state_gas:
+            high = middle
+        else:
+            low = middle + 1
+    return low
+
+
 @EIPChecklist.GasRefundsChanges.Test.CrossFunctional.CalldataCost()
+@pytest.mark.parametrize(
+    "floor_dominates",
+    [
+        pytest.param(False, id="state_gas_dominates"),
+        pytest.param(True, id="calldata_floor_dominates"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_calldata_floor_with_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    floor_dominates: bool,
 ) -> None:
     """
     Test calldata floor does not affect state gas charging.
 
-    A transaction with large calldata triggers the calldata floor for
-    execution gas, but state gas for SSTORE is charged independently.
+    The calldata is sized to the exact length at which the floor
+    overtakes the SSTORE's state gas, so the two variants sit one byte
+    either side of that boundary. The block bills the state charge
+    below it and the floor above it, while the sender's bill stays the
+    sum of both dimensions throughout: the floor never discounts the
+    state gas, and the state gas never discounts the floor.
     """
     storage = Storage()
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1),
-    )
+    code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
+    state_cost = code.state_cost(fork)
+    execution_cost = code.execution_cost(fork)
 
-    # Large calldata to trigger the calldata floor
-    calldata = b"\x01" * 256
+    flip_length = calldata_length_where_floor_overtakes(fork, state_cost)
+    calldata = b"\x01" * (flip_length if floor_dominates else flip_length - 1)
+
+    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    tx_execution = intrinsic + execution_cost
+    assert tx_execution < state_cost, (
+        "the code's own execution gas must stay under the state gas, so "
+        "the floor alone decides the execution dimension"
+    )
+    if floor_dominates:
+        assert floor > state_cost, "calldata floor must outgrow the state gas"
+    else:
+        assert floor < state_cost, (
+            "calldata floor must stay under the state gas"
+        )
+
+    contract = pre.deploy_contract(code=code)
 
     tx = Transaction(
         to=contract,
         data=calldata,
         state_gas_reservoir=0,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=tx_execution + state_cost
+        ),
     )
 
-    post = {contract: Account(storage=storage)}
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post={contract: Account(storage=storage)},
+        tx=tx,
+        blockchain_test_header_verify=Header(
+            gas_used=max(tx_execution, floor, state_cost)
+        ),
+    )
 
 
 @pytest.mark.valid_from("EIP8037")
 def test_calldata_floor_independent_of_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test calldata floor applies only to execution gas dimension.
@@ -80,17 +144,28 @@ def test_calldata_floor_independent_of_state_gas(
     """
     contract = pre.deploy_contract(code=Op.STOP)
 
-    # Large calldata so the floor exceeds actual execution gas
     calldata = b"\xff" * 512
+    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    tx_execution = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    assert tx_execution < floor, "calldata floor must bind"
 
     tx = Transaction(
         to=contract,
         data=calldata,
         state_gas_reservoir=0,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=floor),
     )
 
-    state_test(pre=pre, post={}, tx=tx)
+    state_test(
+        pre=pre,
+        post={},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=floor),
+    )
 
 
 @pytest.mark.valid_from("EIP8037")
@@ -105,25 +180,41 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
     Even when calldata floor > actual execution gas used, state gas for
     SSTORE is charged normally from the reservoir or gas_left.
     """
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-
     storage = Storage()
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1),
+    code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
+    state_cost = code.state_cost(fork)
+    execution_cost = code.execution_cost(fork)
+
+    calldata = b"\x01" * 1024
+    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    tx_execution = intrinsic + execution_cost
+    assert tx_execution < floor < state_cost, (
+        "floor must bind the execution dimension without reaching the "
+        "state dimension"
     )
 
-    # Large calldata so floor dominates execution gas
-    calldata = b"\x01" * 1024
+    contract = pre.deploy_contract(code=code)
 
     tx = Transaction(
         to=contract,
         data=calldata,
-        state_gas_reservoir=sstore_state_gas,
+        state_gas_reservoir=state_cost,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=tx_execution + state_cost
+        ),
     )
 
-    post = {contract: Account(storage=storage)}
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post={contract: Account(storage=storage)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=state_cost),
+    )
 
 
 @pytest.mark.inclusion_test
@@ -161,6 +252,7 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     cap = fork.transaction_gas_limit_cap()
     assert cap is not None
     floor_cost = fork.transaction_data_floor_cost_calculator()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
 
     # Binary-search the largest all-nonzero calldata whose floor cost fits
     # within the gas cap; `exceeds_cap` adds one more byte to tip the floor
@@ -182,15 +274,17 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     max_bytes = low + 1 if exceeds_cap else low
     calldata = b"\x01" * max_bytes
 
-    contract = pre.deploy_contract(Op.STOP)
+    storage = Storage()
+    code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
+    contract = pre.deploy_contract(code=code)
+
     floor = floor_cost(data=calldata)
+    execution = intrinsic_cost(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
 
     if exceeds_cap:
-        intrinsic = fork.transaction_intrinsic_cost_calculator()
-        execution = intrinsic(
-            calldata=calldata,
-            return_cost_deducted_prior_execution=True,
-        )
         assert floor > cap, "calldata floor must exceed the cap"
         assert execution < cap, "execution intrinsic must stay below the cap"
         # Fund the floor in full so the sufficiency check cannot reject the
@@ -198,6 +292,9 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
         gas_limit = floor + 1_000_000
     else:
         assert floor <= cap
+        assert execution + code.gas_cost(fork) <= cap, (
+            "the cap must still fund the callee's execution and state gas"
+        )
         gas_limit = cap
 
     tx = Transaction(
@@ -208,20 +305,29 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
         error=TransactionException.INTRINSIC_GAS_TOO_LOW
         if exceeds_cap
         else None,
+        expected_receipt=None
+        if exceeds_cap
+        else TransactionReceipt(cumulative_gas_used=floor),
     )
 
-    post = {contract: Account(code=Op.STOP)} if not exceeds_cap else {}
-    state_test(pre=pre, post=post, tx=tx)
+    state_test(
+        pre=pre,
+        post={contract: Account(storage={0: 0} if exceeds_cap else storage)},
+        tx=tx,
+        blockchain_test_header_verify=None
+        if exceeds_cap
+        else Header(gas_used=floor),
+    )
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_calldata_floor_applied_to_sender_refund(
+def test_calldata_floor_charged_to_sender(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    Verify the calldata floor is applied to the sender gas refund.
+    Verify the calldata floor is what the sender pays for.
 
     With a STOP callee and large all-nonzero calldata, execution gas
     falls below the calldata floor. The sender must be charged
@@ -231,9 +337,14 @@ def test_calldata_floor_applied_to_sender_refund(
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     calldata = b"\xff" * 1024
-    calldata_floor = fork.transaction_intrinsic_cost_calculator()(
-        calldata=calldata,
+    calldata_floor = fork.transaction_data_floor_cost_calculator()(
+        data=calldata,
     )
+    execution = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    assert execution < calldata_floor, "calldata floor must bind"
     gas_price = 10**9
     initial = gas_limit_cap * gas_price
 

@@ -30,5 +30,6 @@ For help deciding which test format to select, see [Types of Tests](./types_of_t
 ## Advanced Topics
 
 - [Opcode Metadata and Gas Calculations](./opcode_metadata.md) - Calculate gas costs and refunds using opcode metadata (advanced feature for gas-focused tests)
+- [Bytecode Placeholders](./bytecode_placeholders.md) - Embed a value that depends on the bytecode containing it, by reserving a fixed-width slot and substituting the measured value
 
 Please check that your code adheres to the repo's coding standards and read the other pages in this section for more background and an explanation of how to implement state transition and blockchain tests.

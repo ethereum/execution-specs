@@ -8,8 +8,11 @@ import pytest
 from hive.client import Client
 
 from execution_testing.base_types import to_json
-from execution_testing.fixtures import BlockchainEngineXFixture
-from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
+from execution_testing.fixtures import (
+    BlockchainEngineXFixture,
+    PreAllocGroup,
+)
+from execution_testing.test_types import AllocGroupHash
 
 from ..consume import FixturesSource
 from .helpers.ruleset import ruleset
@@ -142,19 +145,19 @@ def multi_test_client_manager() -> Generator[
 
 
 @pytest.fixture(scope="session")
-def pre_alloc_group_cache() -> dict[str, PreAllocGroup]:
+def pre_alloc_group_cache() -> dict[AllocGroupHash, PreAllocGroup]:
     """Cache for pre-allocation groups to avoid reloading from disk."""
     return {}
 
 
 @pytest.fixture(scope="session")
-def client_genesis_cache() -> dict[str, dict]:
+def client_genesis_cache() -> dict[AllocGroupHash, dict]:
     """Cache for client genesis configs to avoid redundant to_json calls."""
     return {}
 
 
 @pytest.fixture(scope="session")
-def environment_cache() -> dict[str, dict]:
+def environment_cache() -> dict[AllocGroupHash, dict]:
     """Cache for environment configs to avoid redundant computation."""
     return {}
 
@@ -163,7 +166,7 @@ def environment_cache() -> dict[str, dict]:
 def pre_alloc_group(
     fixture: BlockchainEngineXFixture,
     fixtures_source: FixturesSource,
-    pre_alloc_group_cache: dict[str, PreAllocGroup],
+    pre_alloc_group_cache: dict[AllocGroupHash, PreAllocGroup],
 ) -> PreAllocGroup:
     """Load the pre-allocation group for the current test case."""
     pre_hash = fixture.pre_hash
@@ -210,7 +213,7 @@ def pre_alloc_group(
 def client_genesis(
     pre_alloc_group: PreAllocGroup,
     fixture: BlockchainEngineXFixture,
-    client_genesis_cache: dict[str, dict],
+    client_genesis_cache: dict[AllocGroupHash, dict],
 ) -> dict:
     """
     Convert pre-alloc group genesis header and pre-state to client genesis.
@@ -243,7 +246,7 @@ def environment(
     pre_alloc_group: PreAllocGroup,
     fixture: BlockchainEngineXFixture,
     check_live_port: int,
-    environment_cache: dict[str, dict],
+    environment_cache: dict[AllocGroupHash, dict],
 ) -> dict:
     """
     Define environment variables for multi-test client startup.
