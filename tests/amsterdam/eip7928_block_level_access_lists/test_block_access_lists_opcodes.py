@@ -3976,8 +3976,18 @@ def test_bal_create2_selfdestruct_then_recreate_and_write(
                                     block_access_index=1, post_balance=0
                                 ),
                             ],
+                            nonce_changes=[],
+                            code_changes=[],
                             storage_changes=[],
                             storage_reads=[0, target_balance],
+                        ),
+                        beneficiary: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=target_balance,
+                                ),
+                            ],
                         ),
                     }
                 ),
@@ -3986,6 +3996,7 @@ def test_bal_create2_selfdestruct_then_recreate_and_write(
         post={
             target: Account.NONEXISTENT,
             beneficiary: Account(balance=target_balance),
+            factory: Account(nonce=3),
         },
     )
 
