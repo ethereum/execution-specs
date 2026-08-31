@@ -40,6 +40,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing import Macros as Om
 
 from .spec import ref_spec_7928
 from .test_block_access_lists_eip4788 import SYSTEM_ADDRESS
@@ -3925,6 +3926,66 @@ def test_bal_create2_selfdestruct_then_recreate_same_block(
             if pre_balance > 0
             else Account.NONEXISTENT,
             factory: Account(nonce=3, storage={0: target_a, 1: 1}),
+        },
+    )
+
+
+def test_bal_create2_selfdestruct_then_recreate_and_write(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure `storage_reads` unions the wiped `SSTORE`s of an address that two
+    transactions each recreate, write and destroy at the same CREATE2
+    destination.
+
+    Reported in https://github.com/erigontech/erigon/issues/23407.
+    """
+    alice = pre.fund_eoa()
+    beneficiary = pre.fund_eoa(amount=0)
+    salt = 0
+    target_balance = 100
+
+    # The balance names the slot, so the second transaction cannot pick its
+    # own until the first one has drained the account.
+    initcode = bytes(
+        Op.SSTORE(Op.SELFBALANCE, 0xCAFE) + Op.SELFDESTRUCT(beneficiary)
+    )
+    factory = pre.deploy_contract(
+        code=Om.MSTORE(initcode, 0)
+        + Op.POP(Op.CREATE2(offset=0, size=len(initcode), salt=salt))
+    )
+    target = compute_create_address(
+        address=factory,
+        salt=salt,
+        initcode=initcode,
+        opcode=Op.CREATE2,
+    )
+    pre.fund_address(target, target_balance)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[Transaction(sender=alice, to=factory) for _ in range(2)],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        target: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1, post_balance=0
+                                ),
+                            ],
+                            storage_changes=[],
+                            storage_reads=[0, target_balance],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            target: Account.NONEXISTENT,
+            beneficiary: Account(balance=target_balance),
         },
     )
 
