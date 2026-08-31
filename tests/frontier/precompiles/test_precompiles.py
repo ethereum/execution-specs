@@ -7,6 +7,8 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Fork,
     Op,
     StateTestFiller,
@@ -139,3 +141,43 @@ def test_precompiles(
     post = {account: Account(storage={0: 0 if precompile_exists else 1})}
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.with_all_precompiles
+def test_precompile_as_coinbase(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    precompile: int,
+) -> None:
+    """
+    Verify that an enabled precompile as block coinbase yields a valid
+    state transition.
+    """
+    sender = pre.fund_eoa()
+    coinbase = Address(precompile)
+
+    blocks = [
+        Block(
+            fee_recipient=coinbase,
+            txs=[
+                Transaction(
+                    sender=sender,
+                    to=sender,
+                    protected=fork.supports_protected_txs(),
+                ),
+            ],
+        ),
+        Block(
+            fee_recipient=coinbase,
+            txs=[
+                Transaction(
+                    sender=sender,
+                    to=coinbase,
+                    protected=fork.supports_protected_txs(),
+                ),
+            ],
+        ),
+    ]
+    blockchain_test(pre=pre, post={}, blocks=blocks)
