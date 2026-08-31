@@ -108,11 +108,8 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
 
         # For enginex: ensure xdist uses loadgroup distribution so tests with
         # the same xdist_group marker (pre-alloc group) run on the same worker
-        if self.command_name == "enginex" and self._has_parallelism_flag(
-            modified_args
-        ):
-            if "--dist" not in modified_args:
-                modified_args.extend(["--dist", "loadgroup"])
+        if self.command_name == "enginex":
+            modified_args = self._ensure_loadgroup_dist(modified_args)
 
         if os.getenv("HIVE_RANDOM_SEED") is not None:
             warnings.warn(
@@ -146,7 +143,75 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
 
     def _has_parallelism_flag(self, args: List[str]) -> bool:
         """Check if args already contain parallelism flag."""
-        return "-n" in args
+        return any(
+            arg.startswith("-n")
+            or arg == "--numprocesses"
+            or arg.startswith("--numprocesses=")
+            for arg in args
+        )
+
+    def _ensure_loadgroup_dist(self, args: List[str]) -> List[str]:
+        """
+        Ensure EngineX xdist runs keep pre-alloc groups on one worker.
+
+        EngineX client cleanup depends on each worker seeing every test in a
+        group. Any xdist distribution mode other than loadgroup can split a
+        pre-alloc group across workers, causing each worker to start its own
+        group client and defer cleanup until session teardown.
+
+        `--dist=loadgroup` is inert when xdist is not active (no `-n`), so
+        it is safe to ensure unconditionally.
+        """
+        if any("no:xdist" in arg for arg in args):
+            # Without xdist, `--dist` is an unknown argument.
+            return args[:]
+        modified_args = args[:]
+        found_dist = False
+        changed_dist = False
+        index = 0
+
+        while index < len(modified_args):
+            arg = modified_args[index]
+            if arg == "--dist":
+                found_dist = True
+                if index + 1 < len(modified_args):
+                    value = modified_args[index + 1]
+                    if value.startswith("-"):
+                        # Malformed `--dist <flag>`: leave it for
+                        # argparse to reject with a clear error.
+                        index += 1
+                        continue
+                    if value != "loadgroup":
+                        modified_args[index + 1] = "loadgroup"
+                        changed_dist = True
+                    index += 2
+                    continue
+                modified_args.append("loadgroup")
+                changed_dist = True
+            elif arg.startswith("--dist="):
+                found_dist = True
+                if arg != "--dist=loadgroup":
+                    modified_args[index] = "--dist=loadgroup"
+                    changed_dist = True
+            elif arg == "-d":
+                # xdist's shorthand for `--dist=load`; it clobbers any
+                # `--dist` value during pytest-xdist's cmdline hook, so
+                # it must be removed rather than overridden.
+                del modified_args[index]
+                changed_dist = True
+                continue
+            index += 1
+
+        if not found_dist:
+            modified_args.extend(["--dist", "loadgroup"])
+        if changed_dist:
+            warnings.warn(
+                "`consume enginex` requires `--dist=loadgroup`; overriding "
+                "the provided xdist distribution mode.",
+                stacklevel=2,
+            )
+
+        return modified_args
 
 
 class WatchFlagsProcessor(ArgumentProcessor):
