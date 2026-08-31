@@ -30,6 +30,7 @@ When done with changes, ask the user if they'd like to run `/lint` before commit
 - `mainnet` = stable specs for forks live on mainnet
 - PRs target the default branch
 - PRs strictly follow the template in `.github/PULL_REQUEST_TEMPLATE.md`.
+- Never add Claude attribution links (`Claude-Session:` trailers or `claude.ai` URLs) to commit messages or PR descriptions.
 
 ## PR Reviews
 
