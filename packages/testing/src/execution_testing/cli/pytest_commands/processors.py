@@ -162,6 +162,9 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
         `--dist=loadgroup` is inert when xdist is not active (no `-n`), so
         it is safe to ensure unconditionally.
         """
+        if any("no:xdist" in arg for arg in args):
+            # Without xdist, `--dist` is an unknown argument.
+            return args[:]
         modified_args = args[:]
         found_dist = False
         changed_dist = False
@@ -172,7 +175,13 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
             if arg == "--dist":
                 found_dist = True
                 if index + 1 < len(modified_args):
-                    if modified_args[index + 1] != "loadgroup":
+                    value = modified_args[index + 1]
+                    if value.startswith("-"):
+                        # Malformed `--dist <flag>`: leave it for
+                        # argparse to reject with a clear error.
+                        index += 1
+                        continue
+                    if value != "loadgroup":
                         modified_args[index + 1] = "loadgroup"
                         changed_dist = True
                     index += 2
