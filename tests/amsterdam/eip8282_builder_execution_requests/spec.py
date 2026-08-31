@@ -53,6 +53,11 @@ class Spec:
     QUEUE_HEAD_STORAGE_SLOT = 2
     QUEUE_TAIL_STORAGE_SLOT = 3
     QUEUE_STORAGE_OFFSET = 4
+    # Slots each queued record occupies: the 184 deposit input bytes fill
+    # six words; an exit's 20-byte source address and 48-byte pubkey fill
+    # three.
+    DEPOSIT_REQUEST_QUEUE_SLOTS_PER_REQUEST = 6
+    EXIT_REQUEST_QUEUE_SLOTS_PER_REQUEST = 3
 
     # Minimum credited stake for a builder deposit, in wei (1 ETH).
     BUILDER_MIN_DEPOSIT = 1_000_000_000_000_000_000
