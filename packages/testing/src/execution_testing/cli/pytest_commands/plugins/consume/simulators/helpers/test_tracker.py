@@ -42,9 +42,7 @@ def count_tests_per_group(
     return group_counts
 
 
-def make_group_identifier(
-    pre_hash: AllocGroupHash, client_name: str
-) -> str:
+def make_group_identifier(pre_hash: AllocGroupHash, client_name: str) -> str:
     """Build xdist group key from pre-alloc hash and client name."""
     return f"{pre_hash}-{client_name}"
 

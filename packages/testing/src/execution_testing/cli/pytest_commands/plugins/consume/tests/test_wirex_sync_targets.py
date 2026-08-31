@@ -34,6 +34,12 @@ from ..simulators.wirex.sync_targets import (
 GENESIS = Hash(0)
 
 
+def test_fixture_schema_retains_plural_sync_payloads() -> None:
+    """The consume-side model must not discard the fill-side targets."""
+    field = BlockchainEngineXFixture.model_fields["sync_payloads"]
+    assert field.alias == "syncPayloads"
+
+
 @dataclass
 class _StubExecutionPayload:
     """The two hash fields ancestry resolution reads."""
