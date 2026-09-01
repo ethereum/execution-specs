@@ -43,7 +43,9 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 
-from .spec import Spec, ref_spec_7928
+from tests.frontier.eip2681_limit_account_nonce.spec import Spec as Spec2681
+
+from .spec import ref_spec_7928
 from .test_block_access_lists_eip4788 import SYSTEM_ADDRESS
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -3576,8 +3578,8 @@ def test_bal_create_early_failure(
 @pytest.mark.parametrize(
     "factory_nonce",
     [
-        pytest.param(Spec.MAX_NONCE, id="nonce_at_max"),
-        pytest.param(Spec.MAX_NONCE - 1, id="nonce_below_max"),
+        pytest.param(Spec2681.max_nonce, id="nonce_at_max"),
+        pytest.param(Spec2681.max_nonce - 1, id="nonce_below_max"),
     ],
 )
 def test_bal_create_nonce_overflow(
@@ -3635,15 +3637,15 @@ def test_bal_create_nonce_overflow(
     target_expectation: BalAccountExpectation | None
     target_post: Account | None
 
-    if factory_nonce == Spec.MAX_NONCE:
+    if factory_nonce == Spec2681.max_nonce:
         create_result = 0
         factory_nonce_changes = []
         target_expectation = None
         target_post = Account.NONEXISTENT
-    elif factory_nonce == Spec.MAX_NONCE - 1:
+    elif factory_nonce == Spec2681.max_nonce - 1:
         create_result = 1
         factory_nonce_changes = [
-            BalNonceChange(block_access_index=1, post_nonce=Spec.MAX_NONCE)
+            BalNonceChange(block_access_index=1, post_nonce=Spec2681.max_nonce)
         ]
         target_expectation = BalAccountExpectation(
             nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
@@ -3662,7 +3664,7 @@ def test_bal_create_nonce_overflow(
             # At the boundary the nonce is unchanged; one below, it is
             # incremented into it. Both arms end at the maximum.
             factory: Account(
-                nonce=Spec.MAX_NONCE, storage={0x00: create_result}
+                nonce=Spec2681.max_nonce, storage={0x00: create_result}
             ),
             target: target_post,
         },
