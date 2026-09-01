@@ -417,7 +417,13 @@ def test_field_as_list(
                 TransactionException.RLP_ERROR_SIZE,
             ],
         ),
-        ("tx_as_byte_string", TransactionException.RLP_INVALID_HEADER),
+        (
+            "tx_as_byte_string",
+            [
+                TransactionException.RLP_INVALID_HEADER,
+                TransactionException.TYPE_NOT_SUPPORTED,
+            ],
+        ),
         (
             "list_size_leading_zeros",
             TransactionException.RLP_ERROR_SIZE_LEADING_ZEROS,
@@ -437,6 +443,10 @@ def test_invalid_structure(
     A list header that declares less than the actual payload leaves
     both a truncated final field and a trailing byte at the top level,
     so clients report it as either an EOF or a size error.
+
+    Encoding the transaction as a byte string is a plain RLP error
+    before EIP-2718; afterwards the string is read as a typed
+    transaction whose type byte is unsupported.
     """
     fields = signed_tx_fields(pre, fork)
     items = [rlp_bytes(fields[name]) for name in fields]
