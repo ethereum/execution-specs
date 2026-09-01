@@ -32,7 +32,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .spec import ref_spec_8037
+from .spec import Spec, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -369,4 +369,154 @@ def test_parked_credit_cannot_fund_execution(
     )
 
     post = {contract: Account(storage={SLOT_MARKER: 0, SLOT_X: 0})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("child_ending", ["stop", "revert", "invalid"])
+@pytest.mark.valid_from("EIP8037")
+def test_child_clear_repays_own_spill_first(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    child_ending: str,
+) -> None:
+    """
+    Test the cross-slot LIFO split of a cross-frame refund in a child.
+
+    The parent spills two fresh sets; a delegated child spills a set
+    of its own, then clears both parent slots. The first credit repays
+    the child's borrow, the second parks in the reservoir, and a
+    failing child discards the parked credit with its rollback.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+
+    fresh_set = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=1,
+    )
+    warm_clear = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+
+    child_body = (
+        fresh_set(SLOT_MARKER, 1)
+        + warm_clear(SLOT_X, 0)
+        + warm_clear(SLOT_Y, 0)
+    )
+    if child_ending == "stop":
+        child_code = child_body + Op.STOP
+    elif child_ending == "revert":
+        child_code = child_body + Op.REVERT(0, 0)
+    elif child_ending == "invalid":
+        child_code = child_body + Op.INVALID
+    else:
+        raise ValueError(f"unhandled child ending: {child_ending}")
+    child = pre.deploy_contract(code=child_code)
+
+    # A budget covering the child's SSTORE stipend sentry through its
+    # own spilled set and both clears.
+    child_budget = fork.call_value_stipend() + 1 + child_code.gas_cost(fork)
+
+    call_window = Op.POP(
+        Op.DELEGATECALL(gas=child_budget, address=child, address_warm=False)
+    )
+    code = (
+        fresh_set(SLOT_X, 1)
+        + fresh_set(SLOT_Y, 1)
+        + Op.MSTORE(32, 0, new_memory_size=64, old_memory_size=0)
+        + Op.MSTORE(0, Op.GAS)
+        + call_window
+        + Op.MSTORE(32, Op.GAS)
+        + fresh_set(SLOT_RESULT, Op.SUB(Op.MLOAD(0), Op.MLOAD(32)))
+    )
+    contract = pre.deploy_contract(code=code)
+
+    if child_ending == "stop":
+        child_consumed = child_code.execution_cost(fork)
+    elif child_ending == "revert":
+        child_consumed = child_code.execution_cost(fork)
+    elif child_ending == "invalid":
+        child_consumed = child_budget
+    else:
+        raise ValueError(f"unhandled child ending: {child_ending}")
+    # Gas measured between the two reads: the first stamp's store, the
+    # call window, the child's consumption, and the second read itself.
+    window_cost = (
+        Op.MSTORE(0, Op.GAS).gas_cost(fork)
+        + call_window.execution_cost(fork)
+        + child_consumed
+    )
+
+    parent_exec = code.execution_cost(fork)
+    if child_ending == "stop":
+        # The child's slot and the result slot survive; the child's
+        # borrow was repaid by the first clear's credit, so only the
+        # parked second credit cancels a parent spill at settlement.
+        before_refund = (
+            intrinsic_cost
+            + parent_exec
+            + child_code.execution_cost(fork)
+            + 2 * sstore_state_gas
+        )
+        restore_refund = 2 * (warm_clear.refund(fork) - sstore_state_gas)
+        expected_gas_used = before_refund - min(
+            before_refund // fork.max_refund_quotient(), restore_refund
+        )
+    elif child_ending == "revert":
+        expected_gas_used = (
+            intrinsic_cost
+            + parent_exec
+            + child_code.execution_cost(fork)
+            + 3 * sstore_state_gas
+        )
+    elif child_ending == "invalid":
+        expected_gas_used = (
+            intrinsic_cost + parent_exec + child_budget + 3 * sstore_state_gas
+        )
+    else:
+        raise ValueError(f"unhandled child ending: {child_ending}")
+
+    gas_limit = (
+        intrinsic_cost
+        + code.gas_cost(fork)
+        + child_budget
+        + child_budget // 63
+        + 1
+    )
+    # The spill premise needs the reservoir empty at transaction start.
+    assert gas_limit <= Spec.TX_MAX_GAS_LIMIT
+
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    if child_ending == "stop":
+        storage = {
+            SLOT_X: 0,
+            SLOT_Y: 0,
+            SLOT_MARKER: 1,
+            SLOT_RESULT: window_cost,
+        }
+    elif child_ending in ("revert", "invalid"):
+        storage = {
+            SLOT_X: 1,
+            SLOT_Y: 1,
+            SLOT_MARKER: 0,
+            SLOT_RESULT: window_cost,
+        }
+    else:
+        raise ValueError(f"unhandled child ending: {child_ending}")
+
+    post = {contract: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)
