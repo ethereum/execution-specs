@@ -37,6 +37,9 @@ from .exceptions import (
 )
 from .fork_types import Authorization, ExecutionGas, VersionedHash
 
+VERSIONED_HASH_VERSION_KZG = b"\x01"
+"""Version byte that every blob versioned hash must start with."""
+
 
 @final
 @dataclass
@@ -59,11 +62,6 @@ class IntrinsicGasCost:
 BLOB_COUNT_LIMIT = 6
 """
 Maximum number of blobs a single transaction may carry.
-"""
-
-VERSIONED_HASH_VERSION_KZG = b"\x01"
-"""
-Version byte that every blob versioned hash must start with.
 """
 
 ACCESS_LIST_ADDRESS_FLOOR_TOKENS = Uint(80)
@@ -584,9 +582,11 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
         return tx
 
 
-def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
+def validate_transaction(
+    tx: Transaction, sender: Address | None = None
+) -> IntrinsicGasCost:
     """
-    Verifies a transaction.
+    Validate the state-independent properties of a transaction.
 
     The gas in a transaction gets used to pay for the intrinsic cost of
     operations, therefore if there is insufficient gas then it would not
@@ -607,8 +607,9 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     execution-gas a transaction can spend, so it is checked against the
     intrinsic execution cost rather than against the gas limit.
 
-    This function takes a transaction and gas_limit as parameters and
-    returns the intrinsic gas costs for the transaction after validation.
+    If `sender` has already been recovered, it may be supplied to avoid
+    recovering it again when calculating sender-dependent intrinsic gas.
+    The function returns the intrinsic gas costs after validation.
     It throws an `InsufficientTransactionGasError` exception if the
     transaction does not provide enough gas to cover the intrinsic cost,
     and a `NonceOverflowError` exception if the nonce overflows.
@@ -628,6 +629,9 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     """  # noqa: E501
     from .vm.gas import GasCosts
     from .vm.interpreter import MAX_INIT_CODE_SIZE
+
+    if sender is None:
+        sender = recover_sender(tx)
 
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
