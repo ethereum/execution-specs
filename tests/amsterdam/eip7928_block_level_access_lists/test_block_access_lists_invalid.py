@@ -9,6 +9,7 @@ from typing import Callable
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     BalAccountChange,
     BalAccountExpectation,
@@ -1741,7 +1742,14 @@ def test_bal_invalid_engine_payload_encoding(
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "field",
-    ["storage_slot", "storage_value", "storage_read", "balance"],
+    [
+        "storage_slot",
+        "storage_value",
+        "storage_read",
+        "balance",
+        "block_access_index",
+        "nonce",
+    ],
 )
 def test_bal_invalid_non_minimal_scalar_encoding(
     blockchain_test: BlockchainTestFiller,
@@ -1749,7 +1757,7 @@ def test_bal_invalid_non_minimal_scalar_encoding(
     field: BalScalarField,
 ) -> None:
     """
-    Reject a `newPayload` whose BAL encodes one of its uint256 scalars with
+    Reject a `newPayload` whose BAL encodes one of its integer scalars with
     a leading zero byte.
 
     The field is present but not a valid encoding, so the payload is
@@ -1764,6 +1772,20 @@ def test_bal_invalid_non_minimal_scalar_encoding(
 
     tx = Transaction(sender=alice, to=oracle, value=10**15)
 
+    target: Address
+    if field == "nonce":
+        target = alice
+    elif field in (
+        "storage_slot",
+        "storage_value",
+        "storage_read",
+        "balance",
+        "block_access_index",
+    ):
+        target = oracle
+    else:
+        raise ValueError(f"Unhandled field: {field}")
+
     blockchain_test(
         pre=pre,
         # The block is rejected and the post state remains unchanged.
@@ -1774,6 +1796,13 @@ def test_bal_invalid_non_minimal_scalar_encoding(
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
                         oracle: BalAccountExpectation(
                             storage_changes=[
                                 BalStorageSlot(
@@ -1795,7 +1824,7 @@ def test_bal_invalid_non_minimal_scalar_encoding(
                             ],
                         ),
                     }
-                ).modify_rlp(encode_scalar_non_minimally(oracle, field)),
+                ).modify_rlp(encode_scalar_non_minimally(target, field)),
             )
         ],
     )

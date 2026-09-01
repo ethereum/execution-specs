@@ -390,6 +390,14 @@ def test_reused_callable_does_not_carry_found_state(
             "storage_read", CONTRACT, (1, 2, 0), b"\x02", id="storage_read"
         ),
         pytest.param("balance", ALICE, (0, 3, 0, 1), b"\x64", id="balance"),
+        pytest.param(
+            "block_access_index",
+            ALICE,
+            (0, 3, 0, 0),
+            b"\x01",
+            id="block_access_index",
+        ),
+        pytest.param("nonce", ALICE, (0, 4, 0, 1), b"\x01", id="nonce"),
     ],
 )
 def test_encode_scalar_non_minimally(
@@ -412,7 +420,15 @@ def test_encode_scalar_non_minimally(
 
 
 @pytest.mark.parametrize(
-    "field", ["storage_slot", "storage_value", "storage_read", "balance"]
+    "field",
+    [
+        "storage_slot",
+        "storage_value",
+        "storage_read",
+        "balance",
+        "block_access_index",
+        "nonce",
+    ],
 )
 def test_encode_scalar_non_minimally_missing_entry_raises(
     field: BalScalarField,
@@ -432,6 +448,6 @@ def test_encode_scalar_non_minimally_unknown_field_raises(
     sample_bal: BlockAccessList,
 ) -> None:
     """Raise when the field is not a BAL scalar."""
-    unknown_field: Any = "nonce"
+    unknown_field: Any = "code"
     with pytest.raises(ValueError, match="Unknown BAL scalar field"):
         encode_scalar_non_minimally(ALICE, unknown_field)(sample_bal)

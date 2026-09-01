@@ -27,17 +27,31 @@ from . import (
 )
 
 BalScalarField = Literal[
-    "storage_slot", "storage_value", "storage_read", "balance"
+    "storage_slot",
+    "storage_value",
+    "storage_read",
+    "balance",
+    "block_access_index",
+    "nonce",
 ]
-"""EIP-7928 uint256 fields, each RLP-encoded as a minimal scalar."""
+"""
+EIP-7928 integer fields, each RLP-encoded as a minimal scalar.
+
+``block_access_index`` is read from the account's first balance change.
+"""
 
 _STORAGE_CHANGES_INDEX = BalAccountChange.rlp_fields.index("storage_changes")
 _STORAGE_READS_INDEX = BalAccountChange.rlp_fields.index("storage_reads")
 _BALANCE_CHANGES_INDEX = BalAccountChange.rlp_fields.index("balance_changes")
+_NONCE_CHANGES_INDEX = BalAccountChange.rlp_fields.index("nonce_changes")
 _SLOT_INDEX = BalStorageSlot.rlp_fields.index("slot")
 _SLOT_CHANGES_INDEX = BalStorageSlot.rlp_fields.index("slot_changes")
 _POST_VALUE_INDEX = BalStorageChange.rlp_fields.index("post_value")
 _POST_BALANCE_INDEX = BalBalanceChange.rlp_fields.index("post_balance")
+_BLOCK_ACCESS_INDEX_INDEX = BalBalanceChange.rlp_fields.index(
+    "block_access_index"
+)
+_POST_NONCE_INDEX = BalNonceChange.rlp_fields.index("post_nonce")
 
 
 def _remove_field_from_accounts(
@@ -900,6 +914,10 @@ def _scalar_leaf(
         return element[_STORAGE_READS_INDEX], 0
     elif field == "balance":
         return element[_BALANCE_CHANGES_INDEX][0], _POST_BALANCE_INDEX
+    elif field == "block_access_index":
+        return element[_BALANCE_CHANGES_INDEX][0], _BLOCK_ACCESS_INDEX_INDEX
+    elif field == "nonce":
+        return element[_NONCE_CHANGES_INDEX][0], _POST_NONCE_INDEX
     else:
         raise ValueError(f"Unknown BAL scalar field: {field}")
 
