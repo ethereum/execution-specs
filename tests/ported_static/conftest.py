@@ -13,6 +13,7 @@ remove this skip list.
 from pathlib import Path
 
 import pytest
+from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
 from execution_testing.forks import Amsterdam
 
 _SKIP_LIST_PATH = Path(__file__).parent / "amsterdam_skip_list.txt"
@@ -22,21 +23,20 @@ _AMSTERDAM_SKIP_CASES: frozenset[str] = frozenset(
     if line.strip() and not line.lstrip().startswith("#")
 )
 
-# Fixture format suffixes pytest appends inside the parametrize id. These
-# must be stripped from the nodeid before substring-matching against the
-# skip list, because the skip list predates these suffixes.
-_FIXTURE_FORMAT_TOKENS: tuple[str, ...] = (
-    "-blockchain_test_engine_from_state_test",
-    "-blockchain_test_from_state_test",
-    "-blockchain_test_engine",
-    "-blockchain_test",
-    "-state_test",
-)
+
+def _fixture_format_tokens() -> tuple[str, ...]:
+    """
+    Return the fixture format suffixes pytest appends inside parametrize ids.
+    """
+    names = set(BaseFixture.formats) | set(
+        LabeledFixtureFormat.registered_labels
+    )
+    return tuple(f"-{name}" for name in sorted(names, key=len, reverse=True))
 
 
-def _normalize_nodeid(nodeid: str) -> str:
+def _normalize_nodeid(nodeid: str, tokens: tuple[str, ...]) -> str:
     """Strip pytest fixture-format suffixes to match the skip list format."""
-    for token in _FIXTURE_FORMAT_TOKENS:
+    for token in tokens:
         nodeid = nodeid.replace(token, "")
     return nodeid
 
@@ -48,6 +48,7 @@ def pytest_collection_modifyitems(
     skip_marker = pytest.mark.skip(
         reason="Ported static test gas limits not yet updated for EIP-8037"
     )
+    tokens = _fixture_format_tokens()
     for item in items:
         if "ported_static" not in item.nodeid:
             continue
@@ -59,7 +60,7 @@ def pytest_collection_modifyitems(
         # EIP-8037 breakage applies equally to its descendant forks.
         # Rewriting the item's fork token to Amsterdam's lets one list
         # cover them all.
-        normalized = _normalize_nodeid(item.nodeid).replace(
+        normalized = _normalize_nodeid(item.nodeid, tokens).replace(
             f"fork_{fork.name()}", "fork_Amsterdam"
         )
         for skip_case in _AMSTERDAM_SKIP_CASES:

@@ -1,6 +1,6 @@
 """Ethereum Virtual Machine bytecode primitives and utilities."""
 
-from typing import Any, List, Self, SupportsBytes, Type
+from typing import Any, Dict, List, Self, SupportsBytes, Type
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core.core_schema import (
@@ -52,6 +52,8 @@ class Bytecode:
 
     terminating: bool
     opcode_list: List[OpcodeBase]
+    _placeholder_offsets: Dict[str, int]
+    _placeholder_sizes: Dict[str, int]
 
     def __new__(
         cls,
@@ -64,10 +66,25 @@ class Bytecode:
         terminating: bool = False,
         name: str = "",
         opcode_list: List[OpcodeBase] | None = None,
+        placeholder_offsets: Dict[str, int] | None = None,
+        placeholder_sizes: Dict[str, int] | None = None,
     ) -> Self:
         """Create new opcode instance."""
         if opcode_list is None:
             opcode_list = []
+        if placeholder_offsets is not None or placeholder_sizes is not None:
+            if placeholder_offsets is None or placeholder_sizes is None:
+                raise ValueError(
+                    f"incongruent parameters: placeholder_offsets "
+                    f"({placeholder_offsets}) placeholder_sizes "
+                    f"({placeholder_sizes})"
+                )
+            if len(placeholder_offsets) != len(placeholder_sizes):
+                raise ValueError(
+                    f"incongruent parameters: len(placeholder_offsets) "
+                    f"({len(placeholder_offsets)}) len(placeholder_sizes) "
+                    f"({len(placeholder_sizes)})"
+                )
         if bytes_or_byte_code_base is None:
             instance = super().__new__(cls)
             instance._bytes_ = b""
@@ -78,6 +95,9 @@ class Bytecode:
             instance.terminating = False
             instance._name_ = name
             instance.opcode_list = opcode_list
+            instance._placeholder_offsets = placeholder_offsets or {}
+            instance._placeholder_sizes = placeholder_sizes or {}
+
             return instance
 
         if isinstance(bytes_or_byte_code_base, Bytecode):
@@ -92,6 +112,12 @@ class Bytecode:
             obj.terminating = bytes_or_byte_code_base.terminating
             obj.opcode_list = bytes_or_byte_code_base.opcode_list[:]
             obj._name_ = bytes_or_byte_code_base._name_
+            obj._placeholder_offsets = (
+                bytes_or_byte_code_base._placeholder_offsets.copy()
+            )
+            obj._placeholder_sizes = (
+                bytes_or_byte_code_base._placeholder_sizes.copy()
+            )
             return obj
 
         if isinstance(bytes_or_byte_code_base, bytes):
@@ -114,6 +140,8 @@ class Bytecode:
             obj.terminating = terminating
             obj.opcode_list = opcode_list
             obj._name_ = name
+            obj._placeholder_offsets = placeholder_offsets or {}
+            obj._placeholder_sizes = placeholder_sizes or {}
             return obj
 
         raise TypeError(
@@ -122,6 +150,11 @@ class Bytecode:
 
     def __bytes__(self) -> bytes:
         """Return the opcode byte representation."""
+        if self._placeholder_offsets or self._placeholder_sizes:
+            raise ValueError(
+                "bytecode with active placeholders cannot be converted to "
+                "bytes"
+            )
         return self._bytes_
 
     def __len__(self) -> int:
@@ -228,7 +261,7 @@ class Bytecode:
             c_min + a_max - a_min, c_min - a_pop + a_push + b_max - b_min
         )
 
-        return Bytecode(
+        c = Bytecode(
             self._bytes_ + other._bytes_,
             popped_stack_items=c_pop,
             pushed_stack_items=c_push,
@@ -237,6 +270,26 @@ class Bytecode:
             terminating=other.terminating,
             opcode_list=self.opcode_list + other.opcode_list,
         )
+        # Merge placeholders, adjusting offsets for 'other'
+        if (
+            len(
+                self._placeholder_offsets.keys()
+                & other._placeholder_offsets.keys()
+            )
+            != 0
+        ):
+            raise ValueError(
+                "Conflicting data placeholders between bytecode objects: "
+                f"{self._placeholder_offsets.keys()}, "
+                f"{other._placeholder_offsets.keys()}"
+            )
+        c._placeholder_offsets = self._placeholder_offsets.copy()
+        c._placeholder_sizes = (
+            self._placeholder_sizes | other._placeholder_sizes
+        )
+        for placeholder, offset in other._placeholder_offsets.items():
+            c._placeholder_offsets[placeholder] = len(self) + offset
+        return c
 
     def __radd__(self, other: "Bytecode | int | None") -> "Bytecode":
         """
@@ -260,6 +313,11 @@ class Bytecode:
             return Bytecode()
         if other == 1:
             return Bytecode(self)
+
+        if self._placeholder_offsets or self._placeholder_sizes:
+            raise ValueError(
+                "Cannot multiply bytecode containing placeholders"
+            )
 
         result_bytes = self._bytes_ * other
 
@@ -295,7 +353,7 @@ class Bytecode:
     def keccak256(self) -> Hash:
         """Return the keccak256 hash of the opcode byte representation."""
         if self._keccak_256_ is None:
-            self._keccak_256_ = Bytes(self._bytes_).keccak256()
+            self._keccak_256_ = Bytes(self).keccak256()
         return self._keccak_256_
 
     def gas_cost(self, fork: Type[ForkOpcodeInterface]) -> int:
@@ -344,6 +402,45 @@ class Bytecode:
             for opcode in self.opcode_list:
                 self._refund_ += opcode_refund_calculator(opcode)
         return self._refund_
+
+    def substitute(self, **kwargs: int) -> None:
+        """
+        Replace named placeholders with actual values.
+
+        Args:
+            kwargs: The placeholders and their values to set
+
+        Raises:
+            ValueError: If a value doesn't fit in the placeholder's size
+            KeyError: If a placeholder name is not found in this bytecode
+
+        """
+        for placeholder, value in kwargs.items():
+            if placeholder not in self._placeholder_offsets:
+                raise KeyError(
+                    f"Placeholder {placeholder} not found in bytecode"
+                )
+
+            max_value = (1 << (self._placeholder_sizes[placeholder] * 8)) - 1
+            if value < 0 or value > max_value:
+                raise ValueError(
+                    f"Value {value} doesn't fit in "
+                    f"{self._placeholder_sizes[placeholder]} bytes "
+                    f"(max {max_value})"
+                )
+
+            offset, size = (
+                self._placeholder_offsets.pop(placeholder),
+                self._placeholder_sizes.pop(placeholder),
+            )
+
+            # Replace the placeholder bytes with the actual value
+            self._bytes_ = (
+                self._bytes_[:offset]
+                + value.to_bytes(size, "big")
+                + self._bytes_[(offset + size) :]
+            )
+            self._keccak_256_ = None
 
     def state_refund(self, fork: Type[ForkOpcodeInterface]) -> int:
         """

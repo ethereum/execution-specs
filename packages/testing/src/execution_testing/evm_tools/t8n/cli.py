@@ -125,23 +125,27 @@ def _parse_ommers_from_env_json(env_json: Any, fork: Any) -> List[Ommer]:
 
 def _normalize_tx_json(tx: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Drop fields that the testing ``Transaction`` model rejects.
+    Normalize JSON inputs that the testing ``Transaction`` model rejects.
 
-    Three boundary mismatches to smooth over:
+    Four boundary mismatches to smooth over:
 
-    1. ``yParity`` on authorization tuples. The testing
+    1. An empty hexadecimal transaction value. Some legacy state tests
+       encode zero as ``0x``, while the testing ``HexNumber`` requires at
+       least one digit. Normalize it to the accepted numeric ``0x0``
+       representation.
+    2. ``yParity`` on authorization tuples. The testing
        ``AuthorizationTuple`` serializer emits both ``v`` and
        ``yParity`` (they are guaranteed equal — see the model's
        ``duplicate_v_as_y_parity``), but its validator binds only
        ``v`` and treats ``yParity`` as an extra-forbidden field.
-    2. ``secretKey`` on an already-signed tx. The testing
+    3. ``secretKey`` on an already-signed tx. The testing
        ``Transaction`` retains the private key after auto-signing in
        ``model_post_init``, so the dump still carries ``secretKey``
        alongside the populated ``v``/``r``/``s``. On re-validation
        the model rejects the pair with
        ``InvalidSignaturePrivateKeyError``. Strip ``secretKey``
        whenever ``v`` is set (i.e. the tx is already signed).
-    3. A tx with no signature material at all. Filled state tests
+    4. A tx with no signature material at all. Filled state tests
        store a tx whose signature is deliberately invalid without
        ``v``/``r``/``s`` or ``secretKey`` (the fixture format cannot
        express explicit signature values), expecting the fork to
@@ -149,6 +153,8 @@ def _normalize_tx_json(tx: Dict[str, Any]) -> Dict[str, Any]:
        would make ``Transaction.rlp`` try to auto-sign a key-less tx
        and die on an assertion.
     """
+    if tx.get("value") == "0x":
+        tx["value"] = "0x0"
     auth_list = tx.get("authorizationList")
     if isinstance(auth_list, list):
         tx["authorizationList"] = [

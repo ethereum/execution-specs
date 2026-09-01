@@ -28,22 +28,27 @@ Each file in the `pre_alloc` folder corresponds to a pre-allocation group identi
 
 ```json
 {
-   "test_count": 88,
-   "pre_account_count": 174,
+   "testCount": 88,
+   "preAccountCount": 174,
    "testIds": ["test1", "test2", ...],
    "network": "Prague",
-   "environment": { ... },
+   "chainId": "0x01",
+   "groupHash": "0xb664b0d847df2cf7",
+   "genesis": { ... },
    "pre": { ... }
 }
 ```
 
 #### Pre-Allocation Group Fields
 
-- **`test_count`**: Number of tests in this pre-allocation group
-- **`pre_account_count`**: Number of accounts in the pre-allocation group
+- **`testCount`**: Number of tests in this pre-allocation group
+- **`preAccountCount`**: Number of accounts in the pre-allocation group
 - **`testIds`**: Array of test identifiers that belong to this group
 - **`network`**: Fork name (e.g., "Prague", "Cancun")
-- **`environment`**: Complete [`Environment`](./common_types.md#environment) object with execution context
+- **`chainId`**: Chain id the group's genesis is configured for
+- **`groupHash`**: The group's own hash; matches the file name and the [`preHash`](#-prehash-string) of every test in the group
+- **`groupSalt`**: Optional isolation salt; only present for groups that were explicitly isolated
+- **`genesis`**: Genesis block header ([`FixtureHeader`](./blockchain_test.md#fixtureheader)) shared by every test in the group, derived from the environment the group was keyed on; its state root matches the state root of `pre`
 - **`pre`**: Pre-allocation group [`Alloc`](./common_types.md#alloc-mappingaddressaccount) object containing initial account states
 
 ## Consumption
@@ -53,13 +58,12 @@ For each [`BlockchainTestEngineXFixture`](#blockchaintestenginexfixture) test ob
 1. **Load Pre-Allocation Group**:
    - Read the appropriate file from the `pre_alloc` folder in the same directory
    - Locate the pre-allocation group using [`preHash`](#-prehash-string)
-   - Extract the `pre` allocation and `environment` from the group
+   - Extract the `pre` allocation and `genesis` header from the group
 
 2. **Initialize Client**:
    - Use [`network`](#-network-fork) to configure the execution fork schedule
    - Use the pre-allocation group's `pre` allocation as the starting state
-   - Use the pre-allocation group's `environment` as the execution context
-   - Use [`genesisBlockHeader`](#-genesisblockheader-fixtureheader) as the genesis block header
+   - Use the pre-allocation group's `genesis` as the genesis block header
 
 3. **Execute Engine API Sequence**:
    - For each [`FixtureEngineNewPayload`](#fixtureenginenewpayload) in [`engineNewPayloads`](#-enginenewpayloads-listfixtureenginenewpayload):
@@ -69,10 +73,8 @@ For each [`BlockchainTestEngineXFixture`](#blockchaintestenginexfixture) test ob
 
 4. **Verify Final State**:
    - Compare the final chain head against [`lastblockhash`](#-lastblockhash-hash)
-   - If [`postStateDiff`](#-poststatediff-optionalalloc) is present:
-     - Apply the state differences to the pre-allocation group
-     - Verify the resulting state matches the client's final state
-   - If `post` field were present (not typical), verify it directly
+   - Apply [`postStateDiff`](#-poststatediff-alloc) to the pre-allocation group
+   - Verify the resulting state matches the client's final state
 
 ## Structures
 
@@ -88,11 +90,7 @@ This field is going to be replaced by the value contained in `config.network`.
 
 #### - `preHash`: `string`
 
-Hash identifier referencing a pre-allocation group in the `pre_alloc` folder. This hash uniquely identifies the combination of fork, environment, and pre-allocation state that defines the group.
-
-#### - `genesisBlockHeader`: [`FixtureHeader`](./blockchain_test.md#fixtureheader)
-
-Genesis block header. The state root in this header must match the state root calculated from the pre-allocation group referenced by [`preHash`](#-prehash-string).
+Hash identifier referencing a pre-allocation group in the `pre_alloc` folder. This hash uniquely identifies the combination of fork, environment, and pre-allocation state that defines the group. It is `0x`-prefixed, 8 bytes wide, and matches both the group file's name and its `groupHash` field.
 
 #### - `engineNewPayloads`: [`List`](./common_types.md#list)`[`[`FixtureEngineNewPayload`](#fixtureenginenewpayload)`]`
 
@@ -106,7 +104,7 @@ Optional synchronization payload. When present, this payload is typically used t
 
 Hash of the last valid block after all payloads have been processed, or the genesis block hash if all payloads are invalid.
 
-#### - `postStateDiff`: [`Optional`](./common_types.md#optional)`[`[`Alloc`](./common_types.md#alloc-mappingaddressaccount)`]`
+#### - `postStateDiff`: [`Alloc`](./common_types.md#alloc-mappingaddressaccount)
 
 State differences from the pre-allocation group after test execution. This optimization stores only the accounts that changed, were created, or were deleted during test execution, rather than the complete final state.
 

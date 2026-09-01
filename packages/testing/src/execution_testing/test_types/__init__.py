@@ -1,6 +1,6 @@
 """Common definitions and types."""
 
-from .account_types import EOA, Alloc
+from .account_types import EOA, Alloc, AllocGroupHash
 from .blob_types import Blob
 from .block_access_list import (
     BalAccountAbsentValues,
@@ -72,6 +72,7 @@ __all__ = (
     "DETERMINISTIC_FACTORY_BYTECODE",
     "DETERMINISTIC_FACTORY_ADDRESS",
     "Alloc",
+    "AllocGroupHash",
     "AuthorizationTuple",
     "BalAccountAbsentValues",
     "BalAccountChange",

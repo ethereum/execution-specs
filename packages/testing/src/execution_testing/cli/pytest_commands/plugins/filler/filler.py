@@ -30,12 +30,7 @@ from _pytest.terminal import TerminalReporter
 from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
 
-from execution_testing.base_types import (
-    Account,
-    Address,
-    ReferenceSpec,
-)
-from execution_testing.base_types import Alloc as BaseAlloc
+from execution_testing.base_types import ReferenceSpec
 from execution_testing.cli.gen_index import (
     merge_partial_indexes,
 )
@@ -44,14 +39,12 @@ from execution_testing.client_clis.clis.geth import FixtureConsumerTool
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
-    BlockchainEngineXFixture,
     BlockchainFixture,
     FixtureCollector,
     FixtureConsumer,
     FixtureFillingPhase,
     LabeledFixtureFormat,
     PreAllocGroup,
-    PreAllocGroupBuilder,
     PreAllocGroupBuilders,
     PreAllocGroups,
     StateFixture,
@@ -64,7 +57,7 @@ from execution_testing.fixtures.engine_x_checks import (
     verify_engine_x_execution,
 )
 from execution_testing.fixtures.pre_alloc_groups import (
-    GroupIndexEntry,
+    GroupIndexEntries,
     _get_worker_id,
     merge_partial_group_files,
     pack_pre_alloc_groups,
@@ -78,7 +71,7 @@ from execution_testing.forks import (
 )
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import FillResult, OpMode
-from execution_testing.test_types import EnvironmentDefaults
+from execution_testing.test_types import AllocGroupHash, EnvironmentDefaults
 from execution_testing.test_types.chain_config_types import (
     DEFAULT_CHAIN_ID,
     ChainConfigDefaults,
@@ -170,7 +163,7 @@ class FillingSession:
     # of tests it holds, so it can no longer be recomputed per-test; a test
     # finds its group through the packed index file instead (see
     # read_test_group_index).
-    _test_group_index: Dict[str, GroupIndexEntry] | None = field(
+    _test_group_index: GroupIndexEntries | None = field(
         default=None, repr=False
     )
 
@@ -237,7 +230,7 @@ class FillingSession:
         match self.filling_phase:
             case FixtureFillingPhase.PRE_ALLOC_GENERATION:
                 # Phase 1: Create empty container for collecting groups
-                self.pre_alloc_group_builders = PreAllocGroupBuilders(root={})
+                self.pre_alloc_group_builders = PreAllocGroupBuilders()
             case FixtureFillingPhase.FILL_AFTER_PRE_ALLOC_GENERATION:
                 # Phase 2: Load pre-alloc groups from disk
                 pre_alloc_folder = (
@@ -272,12 +265,14 @@ class FillingSession:
         """
         return self.filling_phase in fixture_format.format_phases
 
-    def get_pre_alloc_group(self, hash_key: str) -> PreAllocGroup:
+    def get_pre_alloc_group(
+        self, pre_alloc_hash: AllocGroupHash
+    ) -> PreAllocGroup:
         """
         Get a pre-allocation group by hash.
 
         Args:
-            hash_key: The hash of the pre-alloc group.
+            pre_alloc_hash: The hash of the pre-alloc group.
 
         Returns:
             The pre-allocation group.
@@ -289,20 +284,23 @@ class FillingSession:
         if self.pre_alloc_groups is None:
             raise ValueError("Pre-allocation groups not initialized")
 
-        if hash_key not in self.pre_alloc_groups:
+        if pre_alloc_hash not in self.pre_alloc_groups:
             pre_alloc_path = (
-                self.fixture_output.pre_alloc_groups_folder_path / hash_key
+                self.fixture_output.pre_alloc_groups_folder_path
+                / f"{pre_alloc_hash}.json"
             )
             raise ValueError(
-                f"Pre-allocation hash {hash_key} not found in "
+                f"Pre-allocation hash {pre_alloc_hash} not found in "
                 f"pre-allocation groups. Please check the file at: "
                 f"{pre_alloc_path}. Make sure phase 1 "
                 "(--generate-pre-alloc-groups) was run before phase 2."
             )
 
-        return self.pre_alloc_groups[hash_key]
+        return self.pre_alloc_groups[pre_alloc_hash]
 
-    def group_hash_for_test(self, test_id: str, phase1_hash: str) -> str:
+    def group_hash_for_test(
+        self, test_id: str, phase1_hash: AllocGroupHash
+    ) -> AllocGroupHash:
         """
         Return the packed pre-alloc group hash that owns ``test_id``.
 
@@ -384,57 +382,6 @@ class TransitionToolCacheStats:
             subkey_test_miss=data.get("subkey_test_miss", 0),
             unique_keys=data.get("unique_keys", 0),
         )
-
-
-def calculate_post_state_diff(
-    post_state: BaseAlloc, genesis_state: BaseAlloc
-) -> BaseAlloc:
-    """
-    Calculate the state difference between post_state and genesis_state.
-
-    This function enables significant space savings in Engine X fixtures by
-    storing only the accounts that changed during test execution, rather than
-    the full post-state which may contain thousands of unchanged accounts.
-
-    Returns an Alloc containing only the accounts that:
-    - Changed between genesis and post state (balance, nonce, storage, code)
-    - Were created during test execution (new accounts)
-    - Were deleted during test execution (represented as None)
-
-    Args:
-        post_state: Final state after test execution
-        genesis_state: Genesis pre-allocation state
-
-    Returns:
-        Alloc containing only the state differences for efficient storage
-
-    """
-    diff: Dict[Address, Account | None] = {}
-
-    # Find all addresses that exist in either state
-    all_addresses = set(post_state.root.keys()) | set(
-        genesis_state.root.keys()
-    )
-
-    for address in all_addresses:
-        genesis_account = genesis_state.root.get(address)
-        post_account = post_state.root.get(address)
-
-        # Account was deleted (exists in genesis but not in post)
-        if genesis_account is not None and post_account is None:
-            diff[address] = None
-
-        # Account was created (doesn't exist in genesis but exists in post)
-        elif genesis_account is None and post_account is not None:
-            diff[address] = post_account
-
-        # Account was modified (exists in both but different)
-        elif genesis_account != post_account:
-            diff[address] = post_account
-
-        # Account unchanged - don't include in diff
-
-    return BaseAlloc(diff)
 
 
 def default_output_directory() -> str:
@@ -630,6 +577,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Generate all fixture formats including BlockchainEngineX. "
             "Enables two-phase execution: Phase 1 generates pre-allocation "
             "groups, phase 2 generates all supported fixture formats."
+        ),
+    )
+    test_group.addoption(
+        "--disable-optimistic-pre-alloc-grouping",
+        action="store_true",
+        dest="optimistic_pre_alloc_grouping_disabled",
+        default=False,
+        help=(
+            "Disable optimistic grouping that uses heuristics to attempt to "
+            "predict tests that reuse the same addresses, but still try to "
+            "group them in order to reduce the group count."
         ),
     )
 
@@ -959,13 +917,11 @@ def pytest_terminal_summary(
                 )
                 group_files = list(pre_alloc_folder.glob("*.json"))
                 total_groups = len(group_files)
-                # Count accounts by loading as builder (no genesis computation)
+                # Count accounts from the final pre-alloc group files
                 total_accounts = 0
                 for group_file in group_files:
-                    builder = PreAllocGroupBuilder.model_validate_json(
-                        group_file.read_text()
-                    )
-                    total_accounts += builder.get_pre_account_count()
+                    pre_alloc_group = PreAllocGroup.from_file(group_file)
+                    total_accounts += pre_alloc_group.pre_account_count
             else:
                 assert session_instance.pre_alloc_group_builders is not None
                 total_groups = len(
@@ -1519,6 +1475,14 @@ def commit_hash_or_tag() -> str:
     return get_current_commit_hash_or_tag()
 
 
+@pytest.fixture(scope="session")
+def optimistic_pre_alloc_grouping_disabled(
+    request: pytest.FixtureRequest,
+) -> bool:
+    """Whether optimistic pre-allocation grouping is disabled or not."""
+    return request.config.getoption("optimistic_pre_alloc_grouping_disabled")
+
+
 @pytest.fixture(scope="function")
 def fixture_source_url(
     request: pytest.FixtureRequest,
@@ -1580,6 +1544,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         fixture_source_url: str,
         gas_benchmark_value: int,
         fixed_opcode_count: int | None,
+        optimistic_pre_alloc_grouping_disabled: bool,
         is_tx_gas_heavy_test: bool,
         is_exception_test: bool,
         is_inclusion_test: bool,
@@ -1665,8 +1630,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                             request.node.nodeid
                         )
 
-                pre_alloc_hash: str | None = None
+                pre_alloc_hash: AllocGroupHash | None = None
                 # Phase 1: Generate pre-allocation groups
+                test_id = _strip_xdist_group_suffix(request.node.nodeid)
                 if (
                     session.filling_phase
                     == FixtureFillingPhase.PRE_ALLOC_GENERATION
@@ -1674,7 +1640,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     # Use the original update_pre_alloc_groups method which
                     # returns the groups
                     assert session.pre_alloc_group_builders is not None
-                    test_id = _strip_xdist_group_suffix(request.node.nodeid)
                     genesis_environment = self.get_genesis_environment()
                     pre_alloc_hash = pre.compute_pre_alloc_group_hash(
                         fork=fork,
@@ -1698,21 +1663,21 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     FixtureFillingPhase.PRE_ALLOC_GENERATION
                     in fixture_format.format_phases
                 ):
-                    # Groups are packed after phase 1, so a test's group hash
-                    # can no longer be recomputed from its own pre; look it up
-                    # by test id instead, fingerprinted by the recomputed
-                    # phase 1 hash so a stale group folder fails loudly.
-                    test_id = _strip_xdist_group_suffix(request.node.nodeid)
-                    pre_alloc_hash = session.group_hash_for_test(
-                        test_id,
-                        phase1_hash=pre.compute_pre_alloc_group_hash(
-                            fork=fork,
-                            genesis_environment=(
-                                self.get_genesis_environment()
-                            ),
-                            group_salt=group_salt,
-                        ),
+                    pre_alloc_hash = pre.compute_pre_alloc_group_hash(
+                        fork=fork,
+                        genesis_environment=self.get_genesis_environment(),
+                        group_salt=group_salt,
                     )
+                    if not optimistic_pre_alloc_grouping_disabled:
+                        # Groups are packed after phase 1, so a test's group
+                        # hash can no longer be recomputed from its own pre;
+                        # look it up by test id instead, fingerprinted by the
+                        # recomputed phase 1 hash so a stale group folder fails
+                        # loudly.
+                        pre_alloc_hash = session.group_hash_for_test(
+                            test_id,
+                            phase1_hash=pre_alloc_hash,
+                        )
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre
                 fill_result: FillResult | None = None
@@ -1754,28 +1719,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     ),
                     gas_benchmark_value=gas_benchmark_value,
                 )
-
-                # Post-process for Engine X format (add pre_hash and state
-                # diff)
-                if (
-                    FixtureFillingPhase.PRE_ALLOC_GENERATION
-                    in fixture_format.format_phases
-                    and pre_alloc_hash is not None
-                ):
-                    # TODO: This should be handled by the `generate` method
-                    # of the spec.
-                    assert isinstance(fixture, BlockchainEngineXFixture)
-                    fixture.pre_hash = pre_alloc_hash
-
-                    # Calculate state diff for efficiency
-                    if (
-                        hasattr(fixture, "post_state")
-                        and fixture.post_state is not None
-                    ):
-                        group = session.get_pre_alloc_group(pre_alloc_hash)
-                        fixture.post_state_diff = calculate_post_state_diff(
-                            fixture.post_state, group.pre
-                        )
 
                 fill_metadata: Dict[str, Any] = {}
                 if t8n.opcode_count is not None:
@@ -2135,18 +2078,26 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         if not is_worker:
             _log_timing("Phase 1 (master): merging partial group files...")
             t0 = time.time()
+            optimistic_pre_alloc_grouping_disabled = session.config.getoption(
+                "optimistic_pre_alloc_grouping_disabled"
+            )
+            assert isinstance(optimistic_pre_alloc_grouping_disabled, bool)
             pre_alloc_folder = fixture_output.pre_alloc_groups_folder_path
-            merge_partial_group_files(pre_alloc_folder)
+            merge_partial_group_files(
+                pre_alloc_folder, final=optimistic_pre_alloc_grouping_disabled
+            )
             _log_timing(
                 f"Phase 1 (master): merge done in {time.time() - t0:.1f}s"
             )
-            # Pack the fine-grained groups into fewer, larger ones so Engine X
-            # boots one client for many tests instead of one per test.
-            t0 = time.time()
-            pack_pre_alloc_groups(pre_alloc_folder)
-            _log_timing(
-                f"Phase 1 (master): pack done in {time.time() - t0:.1f}s"
-            )
+            if not optimistic_pre_alloc_grouping_disabled:
+                # Pack the fine-grained groups into fewer, larger ones so
+                # Engine X boots one client for many tests instead of one per
+                # test.
+                t0 = time.time()
+                pack_pre_alloc_groups(pre_alloc_folder)
+                _log_timing(
+                    f"Phase 1 (master): pack done in {time.time() - t0:.1f}s"
+                )
         else:
             # Workers: clear in-memory state to reduce memory pressure while
             # waiting for other workers to finish
@@ -2208,37 +2159,40 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             file.unlink()
         _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
 
-    # Loudly fail the fill if pre-alloc group packing changed any Engine X
-    # test's execution (raises on drift, like a pre-alloc collision).
-    _log_timing("verify_engine_x_execution: starting...")
-    t0 = time.time()
-    engine_x_check = verify_engine_x_execution(fixture_output.directory)
-    engine_x_warning: str | None = None
-    if engine_x_check is not None:
-        if engine_x_check.compared > 0:
-            logger.info(engine_x_check.summary)
-        elif engine_x_check.skipped > 0:
+    if not session.config.getoption("optimistic_pre_alloc_grouping_disabled"):
+        # Loudly fail the fill if pre-alloc group packing changed any Engine X
+        # test's execution (raises on drift, like a pre-alloc collision).
+        _log_timing("verify_engine_x_execution: starting...")
+        t0 = time.time()
+        engine_x_check = verify_engine_x_execution(fixture_output.directory)
+        engine_x_warning: str | None = None
+        if engine_x_check is not None:
+            if engine_x_check.compared > 0:
+                logger.info(engine_x_check.summary)
+            elif engine_x_check.skipped > 0:
+                engine_x_warning = (
+                    "Engine X execution consistency check skipped: none of "
+                    f"the {engine_x_check.skipped} Engine X fixtures have a "
+                    "blockchain_tests_engine sibling fixture to compare "
+                    "against. Leaks from pre-alloc group packing are not "
+                    "verified for this output."
+                )
+        elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
             engine_x_warning = (
-                "Engine X execution consistency check skipped: none of "
-                f"the {engine_x_check.skipped} Engine X fixtures have a "
-                "blockchain_tests_engine sibling fixture to compare "
-                "against. Leaks from pre-alloc group packing are not "
-                "verified for this output."
+                "Engine X execution consistency check skipped: this fill "
+                "generated no blockchain_tests_engine fixtures to compare "
+                "against (e.g. filling with `-m blockchain_test_engine_x`). "
+                "Leaks from pre-alloc group packing are not verified for this "
+                "output."
             )
-    elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
-        engine_x_warning = (
-            "Engine X execution consistency check skipped: this fill "
-            "generated no blockchain_tests_engine fixtures to compare "
-            "against (e.g. filling with `-m blockchain_test_engine_x`). "
-            "Leaks from pre-alloc group packing are not verified for this "
-            "output."
+        if engine_x_warning is not None:
+            logger.warning(engine_x_warning)
+            # Repeated in the terminal summary; a log line alone is easy to
+            # miss.
+            session.config.engine_x_check_warning = engine_x_warning  # type: ignore[attr-defined] # noqa: E501
+        _log_timing(
+            f"verify_engine_x_execution: done in {time.time() - t0:.1f}s"
         )
-    if engine_x_warning is not None:
-        logger.warning(engine_x_warning)
-        # Repeated in the terminal summary; a log line alone is easy to
-        # miss.
-        session.config.engine_x_check_warning = engine_x_warning  # type: ignore[attr-defined] # noqa: E501
-    _log_timing(f"verify_engine_x_execution: done in {time.time() - t0:.1f}s")
 
     # Verify fixtures after merge if verification is enabled
     if session.config.getoption("verify_fixtures"):

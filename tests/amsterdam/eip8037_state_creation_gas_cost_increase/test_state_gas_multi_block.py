@@ -22,6 +22,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Environment,
     Fork,
     Op,
     Storage,
@@ -120,13 +121,19 @@ def test_multi_block_mixed_state_operations(
     on any path breaks the fill.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
-    child_budget = 500_000
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    priority_fee = 1
+    child_gas = 500_000
 
     reverting_child_code = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)
     reverting_child = pre.deploy_contract(code=reverting_child_code)
-    halting_child_code = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.INVALID
-    halting_child = pre.deploy_contract(code=halting_child_code)
+
+    halting_child = pre.deploy_contract(
+        code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.INVALID),
+    )
+    # Every transaction spends its whole bill on gas, and the coinbase
+    # takes `priority_fee` per unit of it.
+    block_gas_used = [0, 0, 0]
 
     all_contracts = []
     all_storages = []
@@ -135,15 +142,16 @@ def test_multi_block_mixed_state_operations(
     block1_txs = []
     for i in range(2):
         storage = Storage()
-        code = Op.SSTORE(storage.store_next(1), 1)
-        contract = pre.deploy_contract(code=code)
+        contract_code = Op.SSTORE(storage.store_next(1), 1)
+        contract = pre.deploy_contract(code=contract_code)
+        tx_gas_used = intrinsic_gas + contract_code.gas_cost(fork)
+        block_gas_used[0] += tx_gas_used
         all_contracts.append(contract)
         all_storages.append(storage)
-        tx_gas_used = intrinsic_cost + code.gas_cost(fork)
         block1_txs.append(
             Transaction(
                 to=contract,
-                state_gas_reservoir=sstore_state_gas,
+                state_gas_reservoir=contract_code.state_cost(fork),
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
@@ -158,22 +166,23 @@ def test_multi_block_mixed_state_operations(
     for i in range(2):
         storage = Storage()
         parent_code = Op.POP(
-            Op.CALL(gas=child_budget, address=reverting_child)
+            Op.CALL(gas=child_gas, address=reverting_child)
         ) + Op.SSTORE(storage.store_next(1), 1)
         parent = pre.deploy_contract(code=parent_code)
-        all_contracts.append(parent)
-        all_storages.append(storage)
         # The reverted child refunds its state gas and returns its
         # unspent budget, so only its execution gas is consumed.
         tx_gas_used = (
-            intrinsic_cost
+            intrinsic_gas
             + parent_code.gas_cost(fork)
             + reverting_child_code.execution_cost(fork)
         )
+        block_gas_used[1] += tx_gas_used
+        all_contracts.append(parent)
+        all_storages.append(storage)
         block2_txs.append(
             Transaction(
                 to=parent,
-                state_gas_reservoir=sstore_state_gas,
+                state_gas_reservoir=parent_code.state_cost(fork),
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
@@ -188,15 +197,14 @@ def test_multi_block_mixed_state_operations(
     for i in range(2):
         storage = Storage()
         parent_code = Op.POP(
-            Op.CALL(gas=child_budget, address=halting_child)
+            Op.CALL(gas=child_gas, address=halting_child)
         ) + Op.SSTORE(storage.store_next(1), 1)
         parent = pre.deploy_contract(code=parent_code)
+        # The halted child burns its whole budget, spill included.
+        tx_gas_used = intrinsic_gas + parent_code.gas_cost(fork) + child_gas
+        block_gas_used[2] += tx_gas_used
         all_contracts.append(parent)
         all_storages.append(storage)
-        # The halted child burns its whole budget, spill included.
-        tx_gas_used = (
-            intrinsic_cost + parent_code.gas_cost(fork) + child_budget
-        )
         block3_txs.append(
             Transaction(
                 to=parent,
@@ -215,10 +223,12 @@ def test_multi_block_mixed_state_operations(
         Block(txs=block2_txs),
         Block(txs=block3_txs),
     ]
-    post = {
+    post: dict = {
         c: Account(storage=s)
         for c, s in zip(all_contracts, all_storages, strict=False)
     }
+    fee_recipient = Environment().fee_recipient
+    post[fee_recipient] = Account(balance=sum(block_gas_used) * priority_fee)
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
@@ -246,31 +256,42 @@ def test_multi_block_observed_coinbase_balance(
       Tx 4: Store `BALANCE(COINBASE)` in slot 0.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    priority_fee = 1
+    child_gas = 500_000
 
-    reporter1 = pre.deploy_contract(
-        code=(Op.SSTORE(0, Op.BALANCE(Op.COINBASE))),
-    )
-    reporter2 = pre.deploy_contract(
-        code=(Op.SSTORE(0, Op.BALANCE(Op.COINBASE))),
-    )
+    reporter_code = Op.SSTORE(0, Op.BALANCE(Op.COINBASE, address_warm=True))
+    reporter1 = pre.deploy_contract(code=reporter_code)
+    reporter2 = pre.deploy_contract(code=reporter_code)
+    reporter_gas = intrinsic_gas + reporter_code.gas_cost(fork)
 
     # Block 1 tx 1: simple SSTORE
     sstore_storage = Storage()
-    sstore_contract = pre.deploy_contract(
-        code=(Op.SSTORE(sstore_storage.store_next(1), 1)),
+    sstore_code = Op.SSTORE(sstore_storage.store_next(1), 1)
+    sstore_contract = pre.deploy_contract(code=sstore_code)
+    sstore_tx_gas = (
+        intrinsic_gas + sstore_code.execution_cost(fork) + sstore_state_gas
     )
 
     # Block 2 tx 3: child spill + revert, parent SSTORE
-    reverting_child = pre.deploy_contract(
-        code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)),
-    )
+    reverting_child_code = Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)
+    reverting_child = pre.deploy_contract(code=reverting_child_code)
     spill_storage = Storage()
-    spill_parent = pre.deploy_contract(
-        code=(
-            Op.POP(Op.CALL(gas=500_000, address=reverting_child))
-            + Op.SSTORE(spill_storage.store_next(1), 1)
-        ),
+    spill_code = Op.POP(
+        Op.CALL(gas=child_gas, address=reverting_child)
+    ) + Op.SSTORE(spill_storage.store_next(1), 1)
+    spill_parent = pre.deploy_contract(code=spill_code)
+
+    spill_tx_gas = (
+        intrinsic_gas
+        + spill_code.gas_cost(fork)
+        + reverting_child_code.execution_cost(fork)
     )
+
+    reporter1_observes = sstore_tx_gas * priority_fee
+    reporter2_observes = (
+        sstore_tx_gas + reporter_gas + spill_tx_gas
+    ) * priority_fee
 
     blocks = [
         Block(
@@ -310,9 +331,10 @@ def test_multi_block_observed_coinbase_balance(
             ]
         ),
     ]
-
     post = {
         sstore_contract: Account(storage=sstore_storage),
         spill_parent: Account(storage=spill_storage),
+        reporter1: Account(storage={0: reporter1_observes}),
+        reporter2: Account(storage={0: reporter2_observes}),
     }
     blockchain_test(pre=pre, blocks=blocks, post=post)

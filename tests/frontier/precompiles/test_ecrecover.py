@@ -236,6 +236,42 @@ from execution_testing.vm import Opcodes as Op
             ),
             id="u1_eq_neg_u2_R_eq_neg_G",
         ),
+        # u1 < u2 && R == -G
+        pytest.param(
+            bytes.fromhex(
+                "8641998106234453aa5f9d6a3178f4f7b812e00b817a776265dfdd31b93e29a9"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+            ),
+            bytes.fromhex(
+                "f37cccfdf3b97758ab40c52b9d0e160e0537f9b65b9c51b2b3e502b62df02f30"
+            ),
+            bytes.fromhex(
+                "00000000000000000000000080c0dbf239224071c59dd8970ab9d542e3414ab2"
+            ),
+            id="u1_lt_u2_R_eq_neg_G",
+        ),
+        # u1 == u2 && R == -G, so the recovered point is the point at infinity
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"
+            ),
+            b"",
+            id="u1_eq_u2_R_eq_neg_G",
+        ),
         # 13u1 == u2 && R == -13G
         pytest.param(
             bytes.fromhex(

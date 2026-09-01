@@ -5,13 +5,15 @@ import logging
 import pytest
 from pytest import StashKey
 
+from execution_testing.test_types import AllocGroupHash
+
 logger = logging.getLogger(__name__)
 
 # Typed stash keys for session-scoped data (replaces dynamic attributes)
 enginex_group_counts_key: StashKey[dict[str, int]] = StashKey()
 
 
-def make_group_identifier(pre_hash: str, client_name: str) -> str:
+def make_group_identifier(pre_hash: AllocGroupHash, client_name: str) -> str:
     """Build xdist group key from pre-alloc hash and client name."""
     return f"{pre_hash}-{client_name}"
 

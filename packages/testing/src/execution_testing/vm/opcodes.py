@@ -378,6 +378,20 @@ class Opcode(Bytecode, OpcodeBase):
                 # Nothing else to do, return
                 return opcode
 
+        if "data_placeholder" in kwargs:
+            if not opcode.has_data_portion():
+                raise ValueError(
+                    "`data_placeholder` requires an opcode with data portion"
+                )
+            data_placeholder = kwargs.pop("data_placeholder")
+            if not isinstance(data_placeholder, str):
+                raise ValueError("`data_placeholder` must be a str")
+            data_size = opcode.data_portion_length
+            opcode = opcode[b"\0" * data_size]
+
+            opcode._placeholder_offsets = {data_placeholder: 1}
+            opcode._placeholder_sizes = {data_placeholder: data_size}
+
         if opcode.has_data_portion():
             if len(args) == 0:
                 raise ValueError(

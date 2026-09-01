@@ -23,7 +23,6 @@ from execution_testing import (
     BlockException,
     Bytes,
     EIPChecklist,
-    EngineAPIError,
     Environment,
     Fork,
     Hash,
@@ -1708,6 +1707,9 @@ def test_bal_invalid_engine_payload_encoding(
     list: the empty byte string `0x` (an empty BAL is `0xc0`), the RLP
     empty byte string `0x80` (valid RLP but not a list), or a truncated
     list header `0xc1`.
+
+    The field is present but not a valid encoding, so the payload is
+    invalid rather than the request being malformed.
     """
     sender = pre.fund_eoa()
     receiver = pre.nonexistent_account()
@@ -1727,7 +1729,6 @@ def test_bal_invalid_engine_payload_encoding(
                     invalid_bal_payload
                 ),
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
-                engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],
     )
