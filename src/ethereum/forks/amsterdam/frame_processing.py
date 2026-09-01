@@ -287,26 +287,22 @@ def process_frame_transaction(
     payer = frame_context.payer
     assert payer is not None
 
+    tx_unused_gas = Uint(tx_output.gas_left) + Uint(tx_output.state_gas_left)
     settlement = settle_frame_transaction_gas(
         frame_context.standard_gas_limit,
         tx_env.calldata_floor,
-        Uint(tx_output.gas_left) + Uint(tx_output.state_gas_left),
+        tx_unused_gas,
         tx_output.refund_counter,
         StateGas(Uint(tx_output.state_gas_used)),
     )
-    # The payer pays for exactly the capacity the transaction occupies
-    # across both dimensions.
-    gas_used = Uint(settlement.execution_gas_used) + Uint(
-        settlement.state_gas_used
-    )
 
-    disburse_frame_gas_fees(block_env, tx_env, gas_used)
+    disburse_frame_gas_fees(block_env, tx_env, settlement.gas_used)
 
     block_output.block_gas_used += settlement.execution_gas_used
     block_output.block_state_gas_used += settlement.state_gas_used
     block_output.blob_gas_used += calculate_total_blob_gas(tx)
 
-    block_output.cumulative_gas_used += gas_used
+    block_output.cumulative_gas_used += settlement.gas_used
     receipt = make_frame_receipt(
         tx,
         payer,
