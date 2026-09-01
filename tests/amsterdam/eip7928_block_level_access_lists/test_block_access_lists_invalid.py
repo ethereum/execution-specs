@@ -47,6 +47,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     duplicate_slot_change,
     duplicate_storage_read,
     duplicate_storage_slot,
+    encode_balance_non_minimally,
     insert_storage_read,
     modify_balance,
     modify_code,
@@ -1729,6 +1730,57 @@ def test_bal_invalid_engine_payload_encoding(
                     invalid_bal_payload
                 ),
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
+def test_bal_invalid_non_minimal_balance_encoding(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a `newPayload` whose BAL encodes a `post_balance` with a leading
+    zero byte.
+
+    Only the encoding differs, so the header still commits to the canonical
+    BAL: a client that skips the minimal-scalar check and re-encodes the
+    decoded BAL before hashing computes a matching hash and accepts.
+    """
+    sender = pre.fund_eoa(amount=10**18)
+    receiver = pre.fund_eoa(amount=0)
+
+    tx = Transaction(
+        sender=sender,
+        to=receiver,
+        value=10**15,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post={
+            sender: Account(balance=10**18, nonce=0),
+            receiver: None,
+        },
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        receiver: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=10**15,
+                                )
+                            ],
+                        ),
+                    }
+                ).modify_rlp(encode_balance_non_minimally(receiver)),
             )
         ],
     )

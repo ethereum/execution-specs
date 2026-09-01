@@ -8,8 +8,11 @@ and can be combined to create complex modifications.
 
 from typing import Any, Callable, List, Optional
 
+import ethereum_rlp as eth_rlp
+
 from execution_testing.base_types import (
     Address,
+    Bytes,
     ZeroPaddedHexNumber,
 )
 
@@ -21,6 +24,9 @@ from . import (
     BalStorageChange,
     BlockAccessList,
 )
+
+_BALANCE_CHANGES_INDEX = BalAccountChange.rlp_fields.index("balance_changes")
+_POST_BALANCE_INDEX = BalBalanceChange.rlp_fields.index("post_balance")
 
 
 def _remove_field_from_accounts(
@@ -870,6 +876,35 @@ def keep_only(
     return transform
 
 
+def encode_balance_non_minimally(
+    address: Address,
+) -> Callable[[BlockAccessList], Bytes]:
+    """
+    Re-encode the BAL with the account's first ``post_balance`` carrying a
+    leading zero byte, leaving every other field canonically encoded.
+
+    ``eth_rlp.encode`` emits an integer minimally but a ``bytes`` verbatim,
+    so substituting the leaf recomputes every enclosing length prefix.
+    """
+
+    def transform(bal: BlockAccessList) -> Bytes:
+        elements = bal.to_list()
+        for account_change, element in zip(bal.root, elements, strict=True):
+            if account_change.address != address:
+                continue
+            balance_changes = element[_BALANCE_CHANGES_INDEX]
+            if not balance_changes:
+                raise ValueError(f"No balance change for {address} in the BAL")
+            post_balance = balance_changes[0][_POST_BALANCE_INDEX]
+            balance_changes[0][_POST_BALANCE_INDEX] = (
+                b"\x00" + post_balance.to_be_bytes()
+            )
+            return Bytes(eth_rlp.encode(elements))
+        raise ValueError(f"Address {address} was not found in the BAL")
+
+    return transform
+
+
 __all__ = [
     # Account-level modifiers
     "remove_accounts",
@@ -902,4 +937,6 @@ __all__ = [
     "duplicate_storage_read",
     "duplicate_slot_change",
     "insert_storage_read",
+    # Encoding modifiers
+    "encode_balance_non_minimally",
 ]
