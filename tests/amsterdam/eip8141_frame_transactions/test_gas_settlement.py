@@ -2,11 +2,10 @@
 Transaction-level gas settlement tests for
 [EIP-8141: Frame Transaction](https://eips.ethereum.org/EIPS/eip-8141).
 
-A frame transaction's `gas_used` is the sum of its two block-accounted
-dimensions: the execution dimension — the post-refund usage held to
-the EIP-7623 calldata floor — plus the final attributed state gas.
-Blocks receive the settlement dimensions directly, so a storage refund
-lowers the block's execution counter along with the payer's charge.
+A frame transaction's payer-facing `gas_used` is the post-refund execution
+usage held to the EIP-7623 calldata floor plus final attributed state gas.
+Block accounting keeps the same state dimension but counts execution before
+storage refunds, as required by EIP-7778.
 """
 
 import pytest
@@ -126,19 +125,27 @@ def test_calldata_floor_with_state_gas(
     )
 
 
+@pytest.mark.parametrize(
+    "floor_case",
+    [
+        pytest.param("below_post_refund", id="post_refund_above_floor"),
+        pytest.param("between", id="floor_between_pre_and_post_refund"),
+        pytest.param("above_pre_refund", id="floor_above_pre_refund"),
+    ],
+)
 def test_storage_refund_settlement(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    floor_case: str,
 ) -> None:
     """
     Settle a frame transaction that clears a pre-existing storage slot.
 
-    The EIP-3529 refund reduces the payer's charge and — because a
-    frame transaction contributes its settlement dimensions to the
-    block directly — the block's execution gas counter equally, pinned
-    through the header. Clearing durable state consumes no state gas,
-    so the frame declares none.
+    The three cases pin both settlement clamps around the calldata floor:
+    payer-facing gas uses post-refund execution while block execution gas
+    remains pre-refund under EIP-7778. Clearing durable state consumes no
+    state gas, so the frame declares none.
     """
     sender = pre.fund_eoa()
     clear = Op.SSTORE(
@@ -157,42 +164,79 @@ def test_storage_refund_settlement(
     worker_code = padding + clear + Op.STOP
     worker = pre.deploy_contract(code=worker_code, storage={SLOT: 1})
 
-    tx = Transaction(
-        sender=sender,
-        frames=[
-            verify_frame(),
-            default_frame(
-                target=worker,
-                gas_limit=REFUND_WORKER_GAS,
-                state_gas_limit=0,
-            ),
-        ],
-    )
-    # Materialize the signature bytes the intrinsic cost charges for.
-    tx.sign()
-    assert tx.frames is not None and tx.signatures is not None
-
     verify_gas = default_code_frame_gas(fork, target_warm=True)
     frame_execution_gas = fork.frame_entry_gas_calculator()() + (
         worker_code.execution_cost(fork)
     )
-    gas_used_before_refund = (
-        fork.frame_transaction_intrinsic_cost_calculator()(
-            frames=tx.frames,
-            signatures=tx.signatures,
-            return_cost_deducted_prior_execution=True,
+
+    data = b""
+    bytes_to_add_per_iteration = b"\x00" * 16
+    num_iterations = 200
+    found_floor_case = False
+
+    for _ in range(num_iterations):
+        tx = Transaction(
+            sender=sender,
+            nonce=0,
+            frames=[
+                verify_frame(),
+                default_frame(
+                    target=worker,
+                    gas_limit=REFUND_WORKER_GAS,
+                    state_gas_limit=0,
+                    data=data,
+                ),
+            ],
         )
-        + verify_gas
-        + frame_execution_gas
-    )
-    refund = worker_code.refund(fork)
-    # The premise of the test: the refund applies uncapped.
-    assert 0 < refund <= gas_used_before_refund // 5
-    gas_used = gas_used_before_refund - refund
+        # Materialize the signature bytes the intrinsic cost and calldata
+        # floor charge for.
+        tx.sign()
+        assert tx.frames is not None and tx.signatures is not None
+
+        gas_used_before_refund = (
+            fork.frame_transaction_intrinsic_cost_calculator()(
+                frames=tx.frames,
+                signatures=tx.signatures,
+                return_cost_deducted_prior_execution=True,
+            )
+            + verify_gas
+            + frame_execution_gas
+        )
+        refund = worker_code.refund(fork)
+        # The premise of the test: the refund applies uncapped.
+        assert 0 < refund <= gas_used_before_refund // 5
+        gas_used_after_refund = gas_used_before_refund - refund
+        calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
+            frames=tx.frames, signatures=tx.signatures
+        )
+
+        if floor_case == "below_post_refund":
+            found_floor_case = calldata_floor < gas_used_after_refund
+        elif floor_case == "between":
+            found_floor_case = (
+                gas_used_after_refund < calldata_floor < gas_used_before_refund
+            )
+        else:
+            assert floor_case == "above_pre_refund"
+            found_floor_case = gas_used_before_refund < calldata_floor
+
+        if found_floor_case:
+            break
+
+        data += bytes_to_add_per_iteration
+
+    if not found_floor_case:
+        raise ValueError(
+            f"Could not find calldata for {floor_case} in "
+            f"{num_iterations} iterations."
+        )
+
+    payer_gas_used = max(gas_used_after_refund, calldata_floor)
+    block_gas_used = max(gas_used_before_refund, calldata_floor)
 
     tx.expected_receipt = TransactionReceipt(
         payer=sender,
-        cumulative_gas_used=gas_used,
+        cumulative_gas_used=payer_gas_used,
         frame_receipts=[
             FrameReceipt(
                 status=Spec.STATUS_SUCCESS,
@@ -216,5 +260,5 @@ def test_storage_refund_settlement(
             sender: Account(nonce=1),
             worker: Account(storage={SLOT: 0}),
         },
-        blockchain_test_header_verify=Header(gas_used=gas_used),
+        blockchain_test_header_verify=Header(gas_used=block_gas_used),
     )
