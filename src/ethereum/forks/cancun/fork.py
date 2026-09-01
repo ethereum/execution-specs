@@ -38,9 +38,6 @@ from .exceptions import (
     BlobGasLimitExceededError,
     InsufficientMaxFeePerBlobGasError,
     InsufficientMaxFeePerGasError,
-    InvalidBlobVersionedHashError,
-    NoBlobDataError,
-    TransactionTypeContractCreationError,
     WrongChainIdError,
 )
 from .fork_types import VersionedHash
@@ -68,7 +65,8 @@ from .transactions import (
     encode_transaction,
     get_transaction_hash,
     recover_sender,
-    validate_transaction,
+    validate_blob_transaction,
+    validate_transaction_common,
 )
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
@@ -91,7 +89,6 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
 MAX_BLOB_GAS_PER_BLOCK: Final[U64] = U64(786432)
-VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 
 @final
@@ -419,13 +416,6 @@ def check_transaction(
     BlobGasLimitExceededError :
         If the blob gas used by the transaction exceeds the block's blob gas
         limit.
-    InvalidBlobVersionedHashError :
-        If the transaction contains a blob versioned hash with an invalid
-        version.
-    NoBlobDataError :
-        If the transaction is a type 3 but has no blobs.
-    TransactionTypeContractCreationError:
-        If the transaction type is not allowed to create contracts.
 
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
@@ -467,16 +457,7 @@ def check_transaction(
         max_gas_fee = tx.gas * tx.gas_price
 
     if isinstance(tx, BlobTransaction):
-        if not isinstance(tx.to, Address):
-            raise TransactionTypeContractCreationError(tx)
-        if len(tx.blob_versioned_hashes) == 0:
-            raise NoBlobDataError("no blob data in transaction")
-        for blob_versioned_hash in tx.blob_versioned_hashes:
-            if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
-                raise InvalidBlobVersionedHashError(
-                    "invalid blob versioned hash"
-                )
-
+        validate_blob_transaction(tx)
         blob_gas_price = calculate_blob_gas_price(block_env.excess_blob_gas)
         if Uint(tx.max_fee_per_blob_gas) < blob_gas_price:
             raise InsufficientMaxFeePerBlobGasError(
@@ -695,7 +676,7 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic_gas = validate_transaction(tx)
+    intrinsic_gas = validate_transaction_common(tx)
 
     (
         sender,
