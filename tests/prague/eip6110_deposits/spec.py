@@ -28,3 +28,10 @@ class Spec:
     DEPOSIT_EVENT_SIGNATURE_HASH = (
         0x649BBC62D0E31342AFEA4E5CD82D4049E7E1EE912FC0889AA790803BE39038C5
     )
+    MIN_DEPOSIT_AMOUNT = 1_000_000_000
+    MIN_DEPOSIT_VALUE = MIN_DEPOSIT_AMOUNT * 10**9
+    MAX_DEPOSIT_REQUESTS_PER_PAYLOAD = 8192
+    """
+    Maximum deposit requests a consensus layer payload can carry:
+    https://github.com/ethereum/consensus-specs/blob/721cc37193d0321fef6519119c9dc9d34a79dd57/presets/mainnet/electra.yaml#L36
+    """
