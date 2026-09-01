@@ -7,15 +7,25 @@ code.
 https://eips.ethereum.org/EIPS/eip-1052
 """
 
+from dataclasses import replace
 from typing import Callable, Dict, List
 
 from execution_testing.vm import OpcodeBase, Opcodes
 
 from ....base_fork import BaseFork
+from ....gas_costs import GasCosts
 
 
 class EIP1052(BaseFork):
     """EIP-1052 class."""
+
+    @classmethod
+    def gas_costs(cls) -> GasCosts:
+        """Introduce the EXTCODEHASH gas cost."""
+        return replace(
+            super(EIP1052, cls).gas_costs(),
+            OPCODE_EXTCODEHASH=400,
+        )
 
     @classmethod
     def opcode_gas_map(
@@ -26,7 +36,7 @@ class EIP1052(BaseFork):
         base_map = super(EIP1052, cls).opcode_gas_map()
         return {
             **base_map,
-            Opcodes.EXTCODEHASH: cls._with_account_access(0, gas_costs),
+            Opcodes.EXTCODEHASH: gas_costs.OPCODE_EXTCODEHASH,
         }
 
     @classmethod
