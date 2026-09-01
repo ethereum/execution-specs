@@ -587,6 +587,15 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def block_time(cls) -> int:
+        """
+        Return the seconds between a block and its parent when a test
+        does not pin a block timestamp.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def opcode_gas_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:

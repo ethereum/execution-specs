@@ -1,5 +1,6 @@
 """Ethereum blockchain test spec definition and filler."""
 
+from hashlib import sha256
 from pprint import pprint
 from typing import (
     Any,
@@ -83,7 +84,8 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
+from execution_testing.logging import get_logger
 from execution_testing.test_types import (
     Alloc,
     Environment,
@@ -102,6 +104,91 @@ from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
 from .helpers import verify_block, verify_transactions
+
+logger = get_logger(__name__)
+
+MAX_SYNC_BLOCK_BLOB_PRICE_STEPS = 1024
+"""
+Steps of the blob price's Taylor series the appended sync block's fee
+context may need (see ``sync_block_context_unavailable``).
+
+Any value between a few hundred and a few million serves equally well:
+a uint256 cannot hold a price past about 177 steps, while the excess
+blob gas an expected-invalid header can pin needs on the order of a
+trillion.
+"""
+
+
+def sync_block_context_unavailable(
+    head: "FixtureHeader", test_fork: Fork | TransitionFork
+) -> str | None:
+    """
+    Return why no block can be built above ``head``, or ``None`` when
+    one can be.
+
+    These conditions are decided by the filler rather than declared by
+    the test, because each is a fact of arithmetic the fill can check
+    directly; asking authors to record them would mean re-deriving
+    spec constants inside test parametrizations, which goes stale
+    whenever a fork changes one. A client is no better off than the
+    filler in any of these cases: it cannot derive or parse a child of
+    such a header either.
+
+    The fork-arithmetic clauses judge the head under the fork the
+    appended block *itself* would be built under, resolved from
+    ``test_fork`` at that block's own number and timestamp. On a
+    transition chain this need not be the fork the head was built
+    under: the appended block sits one block later, and a timestamp
+    transition can fall between the two. Judging against the head's
+    fork, or against the chain's final fork, gets the wrong answer on
+    either side of that boundary.
+    """
+    # Type ceilings first: the fork of a block that cannot exist is
+    # not well-defined. Engine payload block numbers, timestamps, gas
+    # limits and slot numbers must fit uint64. The appended block takes
+    # its parent's block number plus one and its timestamp plus the block
+    # time of the head's own fork; it inherits the parent's gas limit and
+    # takes its slot number plus one. Python integers do not wrap and
+    # `t8n` accepts some of the values, so unguarded these heads would
+    # not fill bare: the typed payload model rejects the overflowing
+    # child and fails the whole fill. The fields are semantic and never
+    # clamped or shifted; the fill declines the block instead.
+    if int(head.number) + 1 > 2**64 - 1:
+        return "the head's block number has no successor in uint64"
+    if int(head.gas_limit) > 2**64 - 1:
+        return "the head's gas limit does not fit uint64"
+    block_time = test_fork.fork_at(
+        block_number=int(head.number), timestamp=int(head.timestamp)
+    ).block_time()
+    if int(head.timestamp) + block_time > 2**64 - 1:
+        return "the head's timestamp leaves no uint64 room for a child"
+    if head.slot_number is not None and int(head.slot_number) + 1 > 2**64 - 1:
+        return "the head's slot number has no successor in uint64"
+    fork = test_fork.fork_at(
+        block_number=int(head.number) + 1,
+        timestamp=int(head.timestamp) + block_time,
+    )
+    # The appended block inherits its parent's gas limit, and the
+    # fork's floor is not a constant: from Amsterdam on it is the
+    # budget an empty block's own access list needs.
+    if int(head.gas_limit) < fork.minimum_block_gas_limit():
+        return (
+            "the head's gas limit is below the fork's minimum, and the "
+            "appended block inherits it"
+        )
+    if head.excess_blob_gas is None or head.blob_gas_used is None:
+        return None
+    excess_blob_gas = int(head.excess_blob_gas)
+    if excess_blob_gas + int(head.blob_gas_used) > 2**64 - 1:
+        return "the head's blob gas fields do not sum within uint64"
+    # From Osaka on (EIP-7918) a child's excess blob gas needs its
+    # parent's blob gas price, whose Taylor series takes one step per
+    # update fraction of that excess on an integer that grows at every
+    # step, so a head pinning an excess near 2**64 never finishes.
+    update_fraction = fork.blob_base_fee_update_fraction()
+    if excess_blob_gas > MAX_SYNC_BLOCK_BLOB_PRICE_STEPS * update_fraction:
+        return "the head's excess blob gas admits no evaluable blob price"
+    return None
 
 
 def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
@@ -375,7 +462,9 @@ class Block(Header):
             "split via _split_blocks_by_phase first."
         )
 
-    def set_environment(self, env: Environment) -> Environment:
+    def set_environment(
+        self, env: Environment, test_fork: Fork | TransitionFork
+    ) -> Environment:
         """
         Create copy of the environment with the characteristics of this
         specific block.
@@ -441,8 +530,14 @@ class Block(Header):
             new_env_values["timestamp"] = self.timestamp
         else:
             assert env.parent_timestamp is not None
+            # The step is the parent's fork's block time: this block's
+            # own fork cannot be resolved until its timestamp is known.
+            parent_fork = test_fork.fork_at(
+                block_number=max(int(Number(new_env_values["number"])) - 1, 0),
+                timestamp=int(Number(env.parent_timestamp)),
+            )
             new_env_values["timestamp"] = int(
-                Number(env.parent_timestamp) + 12
+                Number(env.parent_timestamp) + parent_fork.block_time()
             )
 
         return env.copy(**new_env_values)
@@ -782,9 +877,12 @@ class BlockchainTest(BaseTest):
             and "blockchain_test_only" in marker_names
         ):
             return True
+        engine_formats: List[FixtureFormat] = [
+            BlockchainEngineFixture,
+            BlockchainEngineXFixture,
+        ]
         if (
-            fixture_format
-            not in [BlockchainEngineFixture, BlockchainEngineXFixture]
+            fixture_format not in engine_formats
             and "blockchain_test_engine_only" in marker_names
         ):
             return True
@@ -873,7 +971,7 @@ class BlockchainTest(BaseTest):
         filling will pass an ``ClientBackend`` that drives
         ``testing_buildBlockV1`` against a live client.
         """
-        env = block.set_environment(previous_env)
+        env = block.set_environment(previous_env, self.fork)
         fork = self.fork.fork_at(
             block_number=env.number, timestamp=env.timestamp
         )
@@ -1255,6 +1353,117 @@ class BlockchainTest(BaseTest):
             post_verifications=PostVerifications.from_alloc(self.post),
         )
 
+    def sync_payload_eligible(self) -> bool:
+        """
+        Return whether this test can carry appended sync payloads.
+
+        Eligible unless the fill context withheld the block (the
+        ``--no-sync-block`` option or the test's own opt-out, folded
+        into ``sync_block``), the chain has no blocks to append to, or
+        a block asserts an Engine API error code: that assertion is
+        about the client's answer to the announcement of the test's
+        *own* payload, and a block appended above it would be announced
+        instead, so the refusal the test verifies would never happen.
+
+        Expected-invalid blocks are eligible. Each one is a leaf because
+        rejected blocks never advance the builder's canonical parent; a
+        target above that leaf puts the rejected block itself on the
+        wire, where a client must fetch and judge it through its sync
+        path.
+        """
+        if not self.sync_block or not self.blocks:
+            return False
+        return all(
+            block.engine_api_error_code is None for block in self.blocks
+        )
+
+    def sync_payload_leaf_indices(self) -> List[int]:
+        """
+        Return authored block indices that need their own sync target.
+
+        An expected-invalid block never becomes the parent of the next
+        block, so every such block is a leaf of the authored payload
+        graph. When the final block is valid, it is the graph's remaining
+        canonical leaf. Earlier valid blocks need no separate target:
+        they are ancestors of a later leaf and will travel with it.
+
+        The order is operational. Rejected leaves come where the author
+        placed them and the final valid leaf comes last, allowing a
+        consumer to try rejected branches before making the valid branch
+        canonical when it chooses to reuse one client.
+        """
+        if not self.sync_payload_eligible():
+            return []
+        leaves = [
+            index
+            for index, block in enumerate(self.blocks)
+            if block.exception is not None
+        ]
+        final_index = len(self.blocks) - 1
+        if self.blocks[final_index].exception is None:
+            leaves.append(final_index)
+        return leaves
+
+    def build_sync_payload(
+        self,
+        t8n: FillerBackend,
+        *,
+        head: BuiltBlock,
+        alloc: Alloc | LazyAlloc,
+    ) -> FixtureEngineNewPayload | None:
+        """
+        Build the empty block appended above one authored leaf.
+
+        ``head`` is the leaf's built block, valid or not, and ``alloc``
+        is the state available at that leaf: a valid head's post-state
+        or, when the head is expected to be rejected and was rolled back,
+        the state of its own parent.
+
+        Above a rejected head the block is a sync target only, not a
+        valid continuation: its ``state_root`` follows from a state
+        transition no client would compute, since no client accepts its
+        parent. What it must get right is the part of its header a
+        client checks without the parent's state - it names the
+        rejected block as its parent, one block above it, with the fee
+        and gas context the fork derives from that block's header -
+        which is enough for the client to answer the announcement with
+        SYNCING and fetch the ancestry it lacks. It rejects the test's
+        block from that ancestry long before it would execute this one.
+
+        Return ``None`` when no block can be built above the head (see
+        ``sync_block_context_unavailable``): the chain then fills as
+        exactly the author's own.
+        """
+        unavailable = sync_block_context_unavailable(head.header, self.fork)
+        if unavailable is not None:
+            logger.info(
+                f"no sync payload appended above leaf "
+                f"{head.header.block_hash}: {unavailable}"
+            )
+            return None
+        env = apply_new_parent(head.env, head.header)
+        extra_data = Bytes(sha256(self.sync_block_salt.encode()).digest()[:16])
+        try:
+            sync_block = self.generate_block_data(
+                t8n=t8n,
+                block=Block(extra_data=extra_data),
+                previous_env=env,
+                previous_alloc=alloc,
+            )
+        except Exception as e:
+            raise Exception(
+                "an appended sync payload could not be built above one "
+                "of this test's leaves. Inspect the chained error and, if "
+                "the framework lacks support for this context, extend the "
+                "sync-payload framework and add regression coverage rather "
+                "than disabling devp2p coverage with `sync_block=False`. "
+                "Use `sync_block=False` only when the test deliberately "
+                "leaves a terminal context in which no child block can "
+                "execute, such as a sabotaged system contract that every "
+                "block calls."
+            ) from e
+        return sync_block.get_fixture_engine_new_payload()
+
     def make_hive_fixture(
         self,
         t8n: FillerBackend,
@@ -1263,6 +1472,15 @@ class BlockchainTest(BaseTest):
     ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
+        sync_payload_candidates: List[
+            Tuple[BuiltBlock, Alloc | LazyAlloc]
+        ] = []
+        sync_payload_leaf_hashes: set[Hash] = set()
+        sync_payload_leaf_indices = (
+            set(self.sync_payload_leaf_indices())
+            if fixture_format == BlockchainEngineXFixture
+            else set()
+        )
 
         pre, genesis = self.make_genesis(
             apply_pre_allocation_blockchain=fixture_format
@@ -1276,7 +1494,7 @@ class BlockchainTest(BaseTest):
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
-        for block in self.blocks:
+        for block_index, block in enumerate(self.blocks):
             built_block = self.generate_block_data(
                 t8n=t8n,
                 block=block,
@@ -1304,6 +1522,15 @@ class BlockchainTest(BaseTest):
                 head_hash = built_block.header.block_hash
             else:
                 invalid_blocks += 1
+
+            if block_index in sync_payload_leaf_indices:
+                # A valid leaf uses its post-state. An invalid leaf did
+                # not advance ``alloc``, so it retains its valid parent's
+                # state - exactly the context build_sync_payload needs.
+                leaf_hash = built_block.header.block_hash
+                if leaf_hash not in sync_payload_leaf_hashes:
+                    sync_payload_candidates.append((built_block, alloc))
+                    sync_payload_leaf_hashes.add(leaf_hash)
 
             if block.expected_post_state:
                 self.verify_post_state(
@@ -1356,6 +1583,17 @@ class BlockchainTest(BaseTest):
                 )
             fixture_data["pre_hash"] = pre_alloc_group_hash
             fixture_data["post_state_diff"] = alloc.calculate_diff(self.pre)
+            sync_payloads: List[FixtureEngineNewPayload] = []
+            for head, leaf_alloc in sync_payload_candidates:
+                sync_payload = self.build_sync_payload(
+                    t8n, head=head, alloc=leaf_alloc
+                )
+                if sync_payload is not None:
+                    sync_payloads.append(sync_payload)
+            if sync_payloads:
+                # Stored out-of-chain: payloads, the canonical head and
+                # the post state stay exactly the author's directives.
+                fixture_data["sync_payloads"] = sync_payloads
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
             assert genesis.header.block_hash != head_hash, (

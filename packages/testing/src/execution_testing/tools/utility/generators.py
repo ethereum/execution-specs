@@ -351,6 +351,12 @@ def generate_system_contract_deploy_test(
                 pre=pre,
                 blocks=blocks,
                 post=post,
+                # When empty code fails the block, the chain ends at
+                # the fork with the system contract still undeployed,
+                # so the sync block the filler would append above it
+                # cannot execute either.
+                sync_block=not fail_on_empty_code
+                or test_type != DeploymentTestType.DEPLOY_AFTER_FORK,
             )
 
         wrapper.__name__ = func.__name__  # type: ignore
@@ -478,6 +484,14 @@ def generate_system_contract_error_test(
                     )
                 ],
                 post=post,
+                # The error modes leave the system contract
+                # deliberately broken in the chain's canonical state,
+                # and every block after the fork calls it, so the sync
+                # block the filler would append above the chain cannot
+                # execute. The GAS_LIMIT chain is valid and its post
+                # state makes the contract cheaper to re-run, so it
+                # keeps its block.
+                sync_block=test_type == SystemContractTestType.GAS_LIMIT,
             )
 
         wrapper.__name__ = func.__name__  # type: ignore

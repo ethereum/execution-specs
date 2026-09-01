@@ -94,6 +94,7 @@ from ..shared.helpers import (
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
+from .pre_alloc import _strip_any_xdist_group_suffix
 
 if TYPE_CHECKING:
     from .pre_alloc import Alloc
@@ -588,6 +589,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Disable optimistic grouping that uses heuristics to attempt to "
             "predict tests that reuse the same addresses, but still try to "
             "group them in order to reduce the group count."
+        ),
+    )
+    test_group.addoption(
+        "--no-sync-block",
+        action="store_false",
+        dest="sync_block",
+        default=True,
+        help=(
+            "Do not append framework-built empty payloads above the leaves "
+            "of blockchain_test_engine_x fixtures; no fixture carries "
+            "`syncPayloads`. See 'Sync Payloads' in the filling-tests docs."
         ),
     )
 
@@ -1449,21 +1461,12 @@ def filler_path(request: pytest.FixtureRequest) -> Path:
     return request.config.getoption("filler_path")
 
 
-def _strip_xdist_group_suffix(s: str) -> str:
-    """Strip @t8n-cache-* suffix, preserving other xdist_group markers."""
-    if "@" in s:
-        base, suffix = s.rsplit("@", 1)
-        if suffix.startswith("t8n-cache-"):
-            return base
-    return s
-
-
 def node_to_test_info(node: pytest.Item) -> TestInfo:
     """Return test info of the current node item."""
     # Strip xdist group suffix (@groupname) that may be added during execution.
     return TestInfo(
-        name=_strip_xdist_group_suffix(node.name),
-        id=_strip_xdist_group_suffix(node.nodeid),
+        name=_strip_any_xdist_group_suffix(node.name),
+        id=_strip_any_xdist_group_suffix(node.nodeid),
         original_name=node.originalname,  # type: ignore
         module_path=Path(node.path),
     )
@@ -1583,6 +1586,20 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
                 kwargs["is_exception_test"] = is_exception_test
                 kwargs["is_inclusion_test"] = is_inclusion_test
+                # Appended sync payloads: on unless the option or the
+                # test's own opt-out (a caller-passed
+                # ``sync_block=False``) withholds it. Only fixture
+                # formats with a place for the targets (engine_x) ever
+                # build them.
+                kwargs["sync_block"] = request.config.getoption(
+                    "sync_block"
+                ) and kwargs.get("sync_block", True)
+                # Salt with the test's own id, so appended target hashes
+                # are unique to the test and independent of how the fill
+                # was distributed.
+                kwargs["sync_block_salt"] = _strip_any_xdist_group_suffix(
+                    request.node.nodeid
+                )
                 if (
                     op_mode == OpMode.OPTIMIZE_GAS
                     or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
@@ -1618,13 +1635,13 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         # "separate" (or a bare marker): salt with the
                         # test's node id so the test gets its own genesis
                         # instead of a group named literally "separate".
-                        group_salt = _strip_xdist_group_suffix(
+                        group_salt = _strip_any_xdist_group_suffix(
                             request.node.nodeid
                         )
 
                 pre_alloc_hash: AllocGroupHash | None = None
                 # Phase 1: Generate pre-allocation groups
-                test_id = _strip_xdist_group_suffix(request.node.nodeid)
+                test_id = _strip_any_xdist_group_suffix(request.node.nodeid)
                 if (
                     session.filling_phase
                     == FixtureFillingPhase.PRE_ALLOC_GENERATION

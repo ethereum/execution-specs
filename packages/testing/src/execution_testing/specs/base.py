@@ -146,6 +146,31 @@ class BaseTest(BaseModel):
         # instead of each test having to set it
     )
     operation_mode: OpMode | None = None
+    sync_block: bool = False
+    """
+    Append framework-built empty blocks above a blockchain test's
+    authored leaves, stored out-of-chain in the fixture's
+    ``sync_payloads`` field, when filling a fixture format that carries
+    them (currently ``blockchain_test_engine_x``).
+
+    A sync-based consumer announces each appended block, which makes
+    every representable payload the test author wrote an ancestor of at
+    least one target the client must fetch and execute through its
+    devp2p sync path. The test's own directives are filled exactly as
+    written. Enabled unless ``--no-sync-block`` withholds them or the
+    test itself opts out by passing ``sync_block=False``; see "Sync
+    Payloads" in the filling-tests docs.
+    """
+    sync_block_salt: str = ""
+    """
+    Per-test value digested into each appended block's ``extra_data``.
+
+    Two tests of one pre-allocation group may declare byte-identical
+    payload graphs, and a client reused across the group only starts a
+    sync for a head it has never seen; the salt keeps every appended
+    block's hash unique to its test. Different leaves already have
+    different parent hashes. The filler salts with the test's node id.
+    """
     gas_optimization_max_gas_limit: int | None = None
     expected_benchmark_gas_used: int | None = None
     skip_gas_used_validation: bool = False

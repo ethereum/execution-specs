@@ -336,6 +336,19 @@ class Frontier(BaseFork):
         return max(minimum_block_gas_limit, bal_minimum_block_gas_limit)
 
     @classmethod
+    def block_time(cls) -> int:
+        """
+        Return the seconds between a block and its parent when a test
+        does not pin a block timestamp.
+
+        Pre-merge this is a framework convention: real block times
+        were variable, and published fixtures have always stepped by
+        twelve. From Paris on it equals the protocol's slot time. A
+        fork that changes the slot time overrides this at itself.
+        """
+        return 12
+
+    @classmethod
     def opcode_gas_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
