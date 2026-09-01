@@ -32,7 +32,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .spec import Spec, ref_spec_8037
+from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -490,7 +490,9 @@ def test_child_clear_repays_own_spill_first(
         + 1
     )
     # The spill premise needs the reservoir empty at transaction start.
-    assert gas_limit <= Spec.TX_MAX_GAS_LIMIT
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    assert gas_limit <= gas_limit_cap
 
     tx = Transaction(
         to=contract,
