@@ -36,6 +36,7 @@ def tx_validity(fork: Fork) -> Generator[ParameterSet, None, None]:
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.ported_from(
     [
         "https://github.com/ethereum/legacytests/blob/master/Cancun/GeneralStateTests/stEIP1559/typeTwoBerlin.json"
@@ -74,6 +75,7 @@ def test_eip1559_tx_validity(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.valid_from("SpuriousDragon")
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types

@@ -15,6 +15,7 @@ from ethereum_types.numeric import Uint
 from py_ecc.optimized_bls12_381 import FQ12, curve_order, is_inf, pairing
 from py_ecc.optimized_bls12_381 import multiply as bls12_multiply
 
+from ....fork_types import ExecutionGas
 from ....vm import Evm
 from ....vm.gas import charge_gas
 from ...exceptions import InvalidParameter
@@ -42,7 +43,7 @@ def bls12_pairing(evm: Evm) -> None:
 
     # GAS
     k = len(data) // 384
-    gas_cost = Uint(32600 * k + 37700)
+    gas_cost = ExecutionGas(Uint(32600 * k + 37700))
     charge_gas(evm, gas_cost)
 
     # OPERATION

@@ -23,7 +23,10 @@ from .spec import ref_spec_7981
 REFERENCE_SPEC_GIT_PATH = ref_spec_7981.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7981.version
 
-pytestmark = pytest.mark.valid_at("EIP7981")
+pytestmark = [
+    pytest.mark.valid_at("EIP7981"),
+    pytest.mark.inclusion_test,
+]
 
 
 @EIPChecklist.GasCostChanges.Test.OutOfGas()

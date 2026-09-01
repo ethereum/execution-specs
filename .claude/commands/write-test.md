@@ -75,6 +75,13 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 - Each EIP directory has `spec.py` with `ReferenceSpec(git_path=..., version=...)` and test files declaring `REFERENCE_SPEC_GIT_PATH` / `REFERENCE_SPEC_VERSION`
 - Use `conftest.py` for shared fixtures within an EIP directory
 
+## Test Docstrings
+
+- Keep the docstring to a short summary of the scenario and the rule it pins — a sentence or two.
+- Do not narrate the implementation: parametrized cases, gas decompositions, and case-by-case outcome walkthroughs are already expressed by the code. Prose restating them goes stale when the test changes and adds review burden.
+- State only what the code cannot show (e.g. why a boundary value is chosen). Prefer a short inline comment at the relevant line over growing the docstring.
+- Never hardcode numeric gas values in docstrings; name the constants instead.
+
 ## Parametrization
 
 - `@pytest.mark.parametrize("name", [pytest.param(val, id="label"), ...])` with descriptive `id=` strings

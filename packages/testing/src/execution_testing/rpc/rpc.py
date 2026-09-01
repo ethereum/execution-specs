@@ -229,9 +229,13 @@ class BaseRPC:
     simulators.
     """
 
+    OVERLOAD_THRESHOLD: int = 1000
+    DEFAULT_MAX_BATCH_SIZE: int = 750
+
     namespace: ClassVar[str]
     response_validation_context: Any | None
     request_timeout: TimeoutType
+    max_batch_size: int
 
     def __init__(
         self,
@@ -239,17 +243,29 @@ class BaseRPC:
         *,
         response_validation_context: Any | None = None,
         request_timeout: TimeoutType = DEFAULT_REQUEST_TIMEOUT,
+        max_batch_size: int | None = None,
     ):
         """
         Initialize BaseRPC class with the given url.
 
-        `request_timeout` bounds every request made through this client;
+        - `request_timeout` bounds every request made through this client;
         `None` disables the bound.
+        - `max_batch_size` caps how many calls in a single batch request.
         """
         self.url = url
         self.request_id_counter = count(1)
         self.response_validation_context = response_validation_context
         self.request_timeout = request_timeout
+        if max_batch_size is not None and max_batch_size < 1:
+            raise ValueError(
+                f"max_batch_size must be >= 1, got {max_batch_size}"
+            )
+        self.max_batch_size = max_batch_size or self.DEFAULT_MAX_BATCH_SIZE
+        if self.max_batch_size > self.OVERLOAD_THRESHOLD:
+            logger.warning(
+                f"max_batch_size ({max_batch_size}) exceeds safe threshold "
+                f"({self.OVERLOAD_THRESHOLD}) and may cause RPC instability."
+            )
         self.session = requests.Session()
 
     def close(self) -> None:
@@ -382,22 +398,13 @@ class BaseRPC:
 
         return JSONRPCResponse.model_validate(response.json())
 
-    def post_batch_request(
+    def _post_single_batch(
         self,
-        *,
         calls: Sequence[RPCCall],
-        extra_headers: Dict[str, str] | None = None,
-        timeout: TimeoutType = None,
+        extra_headers: Dict[str, str],
+        timeout: TimeoutType,
     ) -> List[JSONRPCResponse]:
-        """
-        Send a JSON-RPC batch POST request to the client RPC server at port
-        defined in the url.
-
-        A `timeout` of `None` applies the client's `request_timeout`.
-        """
-        if extra_headers is None:
-            extra_headers = {}
-
+        """Send one batch POST and return responses in request order."""
         json_rpc_requests = [
             self._build_json_rpc_request(call) for call in calls
         ]
@@ -434,8 +441,35 @@ class BaseRPC:
             )
             results.append(response_map[json_rpc_request.id])
 
-        logger.info(f"Batch RPC: {len(results)} responses received")
         return results
+
+    def post_batch_request(
+        self,
+        *,
+        calls: Sequence[RPCCall],
+        extra_headers: Dict[str, str] | None = None,
+        timeout: TimeoutType = None,
+    ) -> List[JSONRPCResponse]:
+        """
+        Send JSON-RPC batch POST requests to the client RPC server at port
+        defined in the url.
+
+        Responses are returned in the same order as `calls`.
+        """
+        if not calls:
+            return []
+        if extra_headers is None:
+            extra_headers = {}
+
+        responses: List[JSONRPCResponse] = []
+        for start in range(0, len(calls), self.max_batch_size):
+            chunk = calls[start : start + self.max_batch_size]
+            responses.extend(
+                self._post_single_batch(chunk, extra_headers, timeout)
+            )
+
+        logger.info(f"Batch RPC: {len(responses)} responses received")
+        return responses
 
 
 class BaseJwtRPC(BaseRPC):
@@ -478,12 +512,8 @@ class EthRPC(BaseRPC):
     within EEST based hive simulators.
     """
 
-    OVERLOAD_THRESHOLD: int = 1000
-    DEFAULT_MAX_TRANSACTIONS_PER_BATCH: int = 750
-
     transaction_wait_timeout: int = 60
     poll_interval: float = 1.0  # how often to poll for tx inclusion
-    max_transactions_per_batch: int = DEFAULT_MAX_TRANSACTIONS_PER_BATCH
 
     gas_information_stale_seconds: int
 
@@ -498,7 +528,6 @@ class EthRPC(BaseRPC):
         transaction_wait_timeout: int = 60,
         poll_interval: float | None = None,
         gas_information_stale_seconds: int = 12,
-        max_transactions_per_batch: int | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize JWT-authenticated RPC class with the given JWT secret."""
@@ -532,19 +561,6 @@ class EthRPC(BaseRPC):
             "maxPriorityFeePerGas": 0.0,
             "blobBaseFee": 0.0,
         }
-
-        # Transaction batching configuration
-        if max_transactions_per_batch is None:
-            max_transactions_per_batch = (
-                self.DEFAULT_MAX_TRANSACTIONS_PER_BATCH
-            )
-        self.max_transactions_per_batch = max_transactions_per_batch
-        if max_transactions_per_batch > self.OVERLOAD_THRESHOLD:
-            logger.warning(
-                f"max_transactions_per_batch ({max_transactions_per_batch}) "
-                f"exceeds the safe threshold ({self.OVERLOAD_THRESHOLD}). "
-                "This may cause RPC service instability or failures."
-            )
 
     def config(self, timeout: int | None = None) -> EthConfigResponse | None:
         """
@@ -595,6 +611,17 @@ class EthRPC(BaseRPC):
         params = [block, full_txs]
         return self.post_request(
             request=RPCCall(method="getBlockByNumber", params=params)
+        ).result_or_raise()
+
+    def get_block_receipts(
+        self, block_hash: Hash
+    ) -> List[dict[str, Any]] | None:
+        """`eth_getBlockReceipts`: Returns every receipt in a block."""
+        logger.info(f"Requesting all receipts for block {block_hash}..")
+        return self.post_request(
+            request=RPCCall(
+                method="getBlockReceipts", params=[f"{block_hash}"]
+            )
         ).result_or_raise()
 
     def get_block_by_hash(
@@ -852,6 +879,27 @@ class EthRPC(BaseRPC):
                 params=[f"{transaction_hash}"],
             )
         ).result_or_raise()
+
+    def get_transaction_receipts(
+        self, transaction_hashes: Sequence[Hash]
+    ) -> List[dict[str, Any] | None]:
+        """
+        `eth_getTransactionReceipt` batch: receipts for many transactions.
+
+        Returns one entry per input hash, in the same order.
+        """
+        if not transaction_hashes:
+            return []
+        logger.info(f"Batch requesting {len(transaction_hashes)} tx receipts")
+        calls = [
+            RPCCall(
+                method="getTransactionReceipt",
+                params=[f"{tx_hash}"],
+            )
+            for tx_hash in transaction_hashes
+        ]
+        responses = self.post_batch_request(calls=calls)
+        return [r.result_or_raise() for r in responses]
 
     def get_storage_at(
         self,
@@ -1276,7 +1324,7 @@ class EthRPC(BaseRPC):
         block. Transactions are sent in batches to avoid RPC overload.
         """
         results: List[Any] = []
-        batch_size = self.max_transactions_per_batch
+        batch_size = self.max_batch_size
         total_txs = len(transactions)
 
         for i in range(0, total_txs, batch_size):

@@ -19,6 +19,7 @@ from py_ecc.optimized_bls12_381.optimized_curve import (
     multiply as bls12_multiply,
 )
 
+from ....fork_types import ExecutionGas
 from ....vm import Evm
 from ....vm.gas import (
     GasCosts,
@@ -99,7 +100,9 @@ def bls12_g1_msm(evm: Evm) -> None:
     else:
         discount = Uint(G1_MAX_DISCOUNT)
 
-    gas_cost = Uint(k) * GasCosts.PRECOMPILE_BLS_G1MUL * discount // MULTIPLIER
+    gas_cost = ExecutionGas(
+        Uint(k) * GasCosts.PRECOMPILE_BLS_G1MUL * discount // MULTIPLIER
+    )
     charge_gas(evm, gas_cost)
 
     # OPERATION

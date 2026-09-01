@@ -13,7 +13,7 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
-from ...fork_types import StateGas
+from ...fork_types import ExecutionGas, StateGas
 from ...state_tracker import (
     get_storage,
     get_storage_original,
@@ -85,7 +85,7 @@ def sstore(evm: Evm) -> None:
     # GAS (STATE-INDEPENDENT)
     # Price what is computable without touching state, and check it is
     # affordable before any state access is performed.
-    gas_cost = Uint(0)
+    gas_cost = GasCosts.ZERO
 
     # Access cost: cold or warm, always charged.
     is_cold_access = (
@@ -101,7 +101,9 @@ def sstore(evm: Evm) -> None:
     # records the slot read in the Block Access List. Post-repricing the
     # access cost can exceed the stipend, so the EIP-2200 stipend sentry
     # (`gas_left > CALL_STIPEND`) is no longer sufficient on its own.
-    check_gas(evm, max(gas_cost, GasCosts.CALL_STIPEND + Uint(1)))
+    check_gas(
+        evm, max(gas_cost, ExecutionGas(GasCosts.CALL_STIPEND + Uint(1)))
+    )
 
     # STATE ACCESS (STATE-DEPENDENT GAS)
     # Perform the access and complete the state-dependent pricing from

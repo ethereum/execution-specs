@@ -53,6 +53,7 @@ def test_over_max_code_size_mainnet(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 def test_over_max_initcode_size_mainnet(
     state_test: StateTestFiller,

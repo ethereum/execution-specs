@@ -32,6 +32,7 @@ from ethereum.trace import (
 from ethereum.utils.numeric import ceil32
 
 from ..blocks import Log
+from ..fork_types import ExecutionGas, StateGas
 from ..state_tracker import (
     TransactionState,
     account_deployable,
@@ -95,7 +96,7 @@ class TransactionOutput:
     frame itself never leaves the interpreter.
     """
 
-    gas_left: Uint
+    gas_left: ExecutionGas
     """Execution gas remaining after execution."""
 
     refund_counter: U256
@@ -113,7 +114,7 @@ class TransactionOutput:
     return_data: Bytes
     """The output of the execution."""
 
-    state_gas_left: Uint
+    state_gas_left: StateGas
     """State gas remaining in the reservoir after execution."""
 
     state_gas_used: int
@@ -372,7 +373,7 @@ def process_create(evm: Evm) -> Evm:
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
             # Hash cost for computing keccak256 of deployed bytecode
-            code_hash_gas = (
+            code_hash_gas = ExecutionGas(
                 GasCosts.OPCODE_KECCAK256_PER_WORD
                 * ceil32(ulen(contract_code))
                 // Uint(32)

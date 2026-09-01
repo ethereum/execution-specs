@@ -1290,6 +1290,7 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "delta",
     [

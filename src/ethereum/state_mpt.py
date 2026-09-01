@@ -79,14 +79,6 @@ class State:
         assert isinstance(value, U256)
         return value
 
-    def account_has_storage(self, address: Address) -> bool:
-        """
-        Check whether an account has any storage.
-
-        Only needed for EIP-7610.
-        """
-        return address in self._storage_tries
-
     def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
         Compute the state root after applying `block_diff` to the

@@ -26,7 +26,12 @@ from ..exceptions import (
     BlobGasLimitExceededError,
     InsufficientMaxFeePerBlobGasError,
 )
-from ..fork_types import StateGas, StateGasPerByte, VersionedHash
+from ..fork_types import (
+    ExecutionGas,
+    StateGas,
+    StateGasPerByte,
+    VersionedHash,
+)
 from ..transactions import (
     TX_MAX_GAS_LIMIT,
     BlobTransaction,
@@ -71,34 +76,35 @@ class GasCosts:
     """
 
     # Tiers
-    BASE: Final[Uint] = Uint(2)
-    VERY_LOW: Final[Uint] = Uint(3)
-    LOW: Final[Uint] = Uint(5)
-    MID: Final[Uint] = Uint(8)
-    HIGH: Final[Uint] = Uint(10)
+    BASE: Final[ExecutionGas] = ExecutionGas(Uint(2))
+    VERY_LOW: Final[ExecutionGas] = ExecutionGas(Uint(3))
+    LOW: Final[ExecutionGas] = ExecutionGas(Uint(5))
+    MID: Final[ExecutionGas] = ExecutionGas(Uint(8))
+    HIGH: Final[ExecutionGas] = ExecutionGas(Uint(10))
 
     # Access
-    WARM_ACCESS: Final[Uint] = Uint(100)
-    COLD_ACCOUNT_ACCESS: Final[Uint] = Uint(3000)
-    COLD_STORAGE_ACCESS: Final[Uint] = Uint(2100)
+    WARM_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(100))
+    COLD_ACCOUNT_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(3000))
+    COLD_STORAGE_ACCESS: Final[ExecutionGas] = ExecutionGas(Uint(2100))
 
     # Storage
-    STORAGE_WRITE: Final[Uint] = Uint(10000)
+    STORAGE_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(10000))
 
     # Call
-    CALL_VALUE: Final[Uint] = Uint(11300)  # ACCOUNT_WRITE + CALL_STIPEND
-    CALL_STIPEND: Final[Uint] = Uint(2300)
-    ACCOUNT_WRITE: Final[Uint] = Uint(9000)
+    # ACCOUNT_WRITE + CALL_STIPEND
+    CALL_VALUE: Final[ExecutionGas] = ExecutionGas(Uint(11300))
+    CALL_STIPEND: Final[ExecutionGas] = ExecutionGas(Uint(2300))
+    ACCOUNT_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(9000))
 
     # Contract Creation
-    CODE_DEPOSIT_PER_BYTE: Final[Uint] = Uint(200)
-    CODE_INIT_PER_WORD: Final[Uint] = Uint(2)
-    CREATE_ACCESS: Final[Uint] = ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS
+    CODE_DEPOSIT_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(200))
+    CODE_INIT_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(2))
+    CREATE_ACCESS: Final[ExecutionGas] = ACCOUNT_WRITE + COLD_ACCOUNT_ACCESS
 
     # Utility
-    ZERO: Final[Uint] = Uint(0)
-    MEMORY_PER_WORD: Final[Uint] = Uint(3)
-    FAST_STEP: Final[Uint] = Uint(5)
+    ZERO: Final[ExecutionGas] = ExecutionGas(Uint(0))
+    MEMORY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))
+    FAST_STEP: Final[ExecutionGas] = ExecutionGas(Uint(5))
 
     # Refunds
     REFUND_STORAGE_CLEAR: Final[int] = int(
@@ -106,26 +112,32 @@ class GasCosts:
     )
 
     # Precompiles
-    PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
-    PRECOMPILE_P256VERIFY: Final[Uint] = Uint(6900)
-    PRECOMPILE_SHA256_BASE: Final[Uint] = Uint(60)
-    PRECOMPILE_SHA256_PER_WORD: Final[Uint] = Uint(12)
-    PRECOMPILE_RIPEMD160_BASE: Final[Uint] = Uint(600)
-    PRECOMPILE_RIPEMD160_PER_WORD: Final[Uint] = Uint(120)
-    PRECOMPILE_IDENTITY_BASE: Final[Uint] = Uint(15)
-    PRECOMPILE_IDENTITY_PER_WORD: Final[Uint] = Uint(3)
-    PRECOMPILE_BLAKE2F_PER_ROUND: Final[Uint] = Uint(1)
-    PRECOMPILE_POINT_EVALUATION: Final[Uint] = Uint(50000)
-    PRECOMPILE_BLS_G1ADD: Final[Uint] = Uint(375)
-    PRECOMPILE_BLS_G1MUL: Final[Uint] = Uint(12000)
-    PRECOMPILE_BLS_G1MAP: Final[Uint] = Uint(5500)
-    PRECOMPILE_BLS_G2ADD: Final[Uint] = Uint(600)
-    PRECOMPILE_BLS_G2MUL: Final[Uint] = Uint(22500)
-    PRECOMPILE_BLS_G2MAP: Final[Uint] = Uint(23800)
-    PRECOMPILE_ECADD: Final[Uint] = Uint(150)
-    PRECOMPILE_ECMUL: Final[Uint] = Uint(6000)
-    PRECOMPILE_ECPAIRING_BASE: Final[Uint] = Uint(45000)
-    PRECOMPILE_ECPAIRING_PER_POINT: Final[Uint] = Uint(34000)
+    PRECOMPILE_ECRECOVER: Final[ExecutionGas] = ExecutionGas(Uint(3000))
+    PRECOMPILE_P256VERIFY: Final[ExecutionGas] = ExecutionGas(Uint(6900))
+    PRECOMPILE_SHA256_BASE: Final[ExecutionGas] = ExecutionGas(Uint(60))
+    PRECOMPILE_SHA256_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(12))
+    PRECOMPILE_RIPEMD160_BASE: Final[ExecutionGas] = ExecutionGas(Uint(600))
+    PRECOMPILE_RIPEMD160_PER_WORD: Final[ExecutionGas] = ExecutionGas(
+        Uint(120)
+    )
+    PRECOMPILE_IDENTITY_BASE: Final[ExecutionGas] = ExecutionGas(Uint(15))
+    PRECOMPILE_IDENTITY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))
+    PRECOMPILE_BLAKE2F_PER_ROUND: Final[ExecutionGas] = ExecutionGas(Uint(1))
+    PRECOMPILE_POINT_EVALUATION: Final[ExecutionGas] = ExecutionGas(
+        Uint(50000)
+    )
+    PRECOMPILE_BLS_G1ADD: Final[ExecutionGas] = ExecutionGas(Uint(375))
+    PRECOMPILE_BLS_G1MUL: Final[ExecutionGas] = ExecutionGas(Uint(12000))
+    PRECOMPILE_BLS_G1MAP: Final[ExecutionGas] = ExecutionGas(Uint(5500))
+    PRECOMPILE_BLS_G2ADD: Final[ExecutionGas] = ExecutionGas(Uint(600))
+    PRECOMPILE_BLS_G2MUL: Final[ExecutionGas] = ExecutionGas(Uint(22500))
+    PRECOMPILE_BLS_G2MAP: Final[ExecutionGas] = ExecutionGas(Uint(23800))
+    PRECOMPILE_ECADD: Final[ExecutionGas] = ExecutionGas(Uint(150))
+    PRECOMPILE_ECMUL: Final[ExecutionGas] = ExecutionGas(Uint(6000))
+    PRECOMPILE_ECPAIRING_BASE: Final[ExecutionGas] = ExecutionGas(Uint(45000))
+    PRECOMPILE_ECPAIRING_PER_POINT: Final[ExecutionGas] = ExecutionGas(
+        Uint(34000)
+    )
 
     # Blobs
     PER_BLOB: Final[U64] = U64(2**17)
@@ -137,20 +149,24 @@ class GasCosts:
     BLOB_BASE_FEE_UPDATE_FRACTION: Final[Uint] = Uint(11684671)
 
     # Block Access Lists
-    BLOCK_ACCESS_LIST_ITEM: Final[Uint] = Uint(2000)
+    BLOCK_ACCESS_LIST_ITEM: Final[ExecutionGas] = ExecutionGas(Uint(2000))
 
     # Transactions
-    TX_BASE: Final[Uint] = Uint(12000)
-    TX_CREATE: Final[Uint] = Uint(32000)
-    TX_VALUE_COST: Final[Uint] = Uint(6000)
-    TX_DATA_TOKEN_STANDARD: Final[Uint] = Uint(4)
-    TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(16)
-    TX_ACCESS_LIST_ADDRESS: Final[Uint] = COLD_ACCOUNT_ACCESS - WARM_ACCESS
-    TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = COLD_STORAGE_ACCESS - WARM_ACCESS
+    TX_BASE: Final[ExecutionGas] = ExecutionGas(Uint(12000))
+    TX_CREATE: Final[ExecutionGas] = ExecutionGas(Uint(32000))
+    TX_VALUE_COST: Final[ExecutionGas] = ExecutionGas(Uint(6000))
+    TX_DATA_TOKEN_STANDARD: Final[ExecutionGas] = ExecutionGas(Uint(4))
+    TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(16))
+    TX_ACCESS_LIST_ADDRESS: Final[ExecutionGas] = (
+        COLD_ACCOUNT_ACCESS - WARM_ACCESS
+    )
+    TX_ACCESS_LIST_STORAGE_KEY: Final[ExecutionGas] = (
+        COLD_STORAGE_ACCESS - WARM_ACCESS
+    )
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
-    EXECUTION_PER_AUTH_BASE_COST: Final[Uint] = (
+    EXECUTION_PER_AUTH_BASE_COST: Final[ExecutionGas] = ExecutionGas(
         AUTH_TUPLE_BYTES * TX_DATA_TOKEN_FLOOR
         + PRECOMPILE_ECRECOVER
         + COLD_ACCOUNT_ACCESS
@@ -162,86 +178,86 @@ class GasCosts:
     LIMIT_MINIMUM: Final[Uint] = Uint(5000)
 
     # Static Opcodes
-    OPCODE_ADD: Final[Uint] = VERY_LOW
-    OPCODE_SUB: Final[Uint] = VERY_LOW
-    OPCODE_MUL: Final[Uint] = LOW
-    OPCODE_DIV: Final[Uint] = LOW
-    OPCODE_SDIV: Final[Uint] = LOW
-    OPCODE_MOD: Final[Uint] = LOW
-    OPCODE_SMOD: Final[Uint] = LOW
-    OPCODE_ADDMOD: Final[Uint] = MID
-    OPCODE_MULMOD: Final[Uint] = MID
-    OPCODE_SIGNEXTEND: Final[Uint] = LOW
-    OPCODE_LT: Final[Uint] = VERY_LOW
-    OPCODE_GT: Final[Uint] = VERY_LOW
-    OPCODE_SLT: Final[Uint] = VERY_LOW
-    OPCODE_SGT: Final[Uint] = VERY_LOW
-    OPCODE_EQ: Final[Uint] = VERY_LOW
-    OPCODE_ISZERO: Final[Uint] = VERY_LOW
-    OPCODE_AND: Final[Uint] = VERY_LOW
-    OPCODE_OR: Final[Uint] = VERY_LOW
-    OPCODE_XOR: Final[Uint] = VERY_LOW
-    OPCODE_NOT: Final[Uint] = VERY_LOW
-    OPCODE_BYTE: Final[Uint] = VERY_LOW
-    OPCODE_SHL: Final[Uint] = VERY_LOW
-    OPCODE_SHR: Final[Uint] = VERY_LOW
-    OPCODE_SAR: Final[Uint] = VERY_LOW
-    OPCODE_CLZ: Final[Uint] = LOW
-    OPCODE_JUMP: Final[Uint] = MID
-    OPCODE_JUMPI: Final[Uint] = HIGH
-    OPCODE_JUMPDEST: Final[Uint] = Uint(1)
-    OPCODE_CALLDATALOAD: Final[Uint] = VERY_LOW
-    OPCODE_BLOCKHASH: Final[Uint] = Uint(20)
-    OPCODE_COINBASE: Final[Uint] = BASE
-    OPCODE_POP: Final[Uint] = BASE
-    OPCODE_MSIZE: Final[Uint] = BASE
-    OPCODE_PC: Final[Uint] = BASE
-    OPCODE_GAS: Final[Uint] = BASE
-    OPCODE_ADDRESS: Final[Uint] = BASE
-    OPCODE_ORIGIN: Final[Uint] = BASE
-    OPCODE_CALLER: Final[Uint] = BASE
-    OPCODE_CALLVALUE: Final[Uint] = BASE
-    OPCODE_CALLDATASIZE: Final[Uint] = BASE
-    OPCODE_CODESIZE: Final[Uint] = BASE
-    OPCODE_GASPRICE: Final[Uint] = BASE
-    OPCODE_TIMESTAMP: Final[Uint] = BASE
-    OPCODE_NUMBER: Final[Uint] = BASE
-    OPCODE_GASLIMIT: Final[Uint] = BASE
-    OPCODE_PREVRANDAO: Final[Uint] = BASE
-    OPCODE_RETURNDATASIZE: Final[Uint] = BASE
-    OPCODE_CHAINID: Final[Uint] = BASE
-    OPCODE_BASEFEE: Final[Uint] = BASE
-    OPCODE_BLOBBASEFEE: Final[Uint] = BASE
-    OPCODE_SLOTNUM: Final[Uint] = BASE
-    OPCODE_BLOBHASH: Final[Uint] = Uint(3)
-    OPCODE_PUSH: Final[Uint] = VERY_LOW
-    OPCODE_PUSH0: Final[Uint] = BASE
-    OPCODE_DUP: Final[Uint] = VERY_LOW
-    OPCODE_SWAP: Final[Uint] = VERY_LOW
-    OPCODE_DUPN: Final[Uint] = VERY_LOW
-    OPCODE_SWAPN: Final[Uint] = VERY_LOW
-    OPCODE_EXCHANGE: Final[Uint] = VERY_LOW
-    OPCODE_TLOAD: Final[Uint] = Uint(100)
-    OPCODE_TSTORE: Final[Uint] = Uint(100)
+    OPCODE_ADD: Final[ExecutionGas] = VERY_LOW
+    OPCODE_SUB: Final[ExecutionGas] = VERY_LOW
+    OPCODE_MUL: Final[ExecutionGas] = LOW
+    OPCODE_DIV: Final[ExecutionGas] = LOW
+    OPCODE_SDIV: Final[ExecutionGas] = LOW
+    OPCODE_MOD: Final[ExecutionGas] = LOW
+    OPCODE_SMOD: Final[ExecutionGas] = LOW
+    OPCODE_ADDMOD: Final[ExecutionGas] = MID
+    OPCODE_MULMOD: Final[ExecutionGas] = MID
+    OPCODE_SIGNEXTEND: Final[ExecutionGas] = LOW
+    OPCODE_LT: Final[ExecutionGas] = VERY_LOW
+    OPCODE_GT: Final[ExecutionGas] = VERY_LOW
+    OPCODE_SLT: Final[ExecutionGas] = VERY_LOW
+    OPCODE_SGT: Final[ExecutionGas] = VERY_LOW
+    OPCODE_EQ: Final[ExecutionGas] = VERY_LOW
+    OPCODE_ISZERO: Final[ExecutionGas] = VERY_LOW
+    OPCODE_AND: Final[ExecutionGas] = VERY_LOW
+    OPCODE_OR: Final[ExecutionGas] = VERY_LOW
+    OPCODE_XOR: Final[ExecutionGas] = VERY_LOW
+    OPCODE_NOT: Final[ExecutionGas] = VERY_LOW
+    OPCODE_BYTE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_SHL: Final[ExecutionGas] = VERY_LOW
+    OPCODE_SHR: Final[ExecutionGas] = VERY_LOW
+    OPCODE_SAR: Final[ExecutionGas] = VERY_LOW
+    OPCODE_CLZ: Final[ExecutionGas] = LOW
+    OPCODE_JUMP: Final[ExecutionGas] = MID
+    OPCODE_JUMPI: Final[ExecutionGas] = HIGH
+    OPCODE_JUMPDEST: Final[ExecutionGas] = ExecutionGas(Uint(1))
+    OPCODE_CALLDATALOAD: Final[ExecutionGas] = VERY_LOW
+    OPCODE_BLOCKHASH: Final[ExecutionGas] = ExecutionGas(Uint(20))
+    OPCODE_COINBASE: Final[ExecutionGas] = BASE
+    OPCODE_POP: Final[ExecutionGas] = BASE
+    OPCODE_MSIZE: Final[ExecutionGas] = BASE
+    OPCODE_PC: Final[ExecutionGas] = BASE
+    OPCODE_GAS: Final[ExecutionGas] = BASE
+    OPCODE_ADDRESS: Final[ExecutionGas] = BASE
+    OPCODE_ORIGIN: Final[ExecutionGas] = BASE
+    OPCODE_CALLER: Final[ExecutionGas] = BASE
+    OPCODE_CALLVALUE: Final[ExecutionGas] = BASE
+    OPCODE_CALLDATASIZE: Final[ExecutionGas] = BASE
+    OPCODE_CODESIZE: Final[ExecutionGas] = BASE
+    OPCODE_GASPRICE: Final[ExecutionGas] = BASE
+    OPCODE_TIMESTAMP: Final[ExecutionGas] = BASE
+    OPCODE_NUMBER: Final[ExecutionGas] = BASE
+    OPCODE_GASLIMIT: Final[ExecutionGas] = BASE
+    OPCODE_PREVRANDAO: Final[ExecutionGas] = BASE
+    OPCODE_RETURNDATASIZE: Final[ExecutionGas] = BASE
+    OPCODE_CHAINID: Final[ExecutionGas] = BASE
+    OPCODE_BASEFEE: Final[ExecutionGas] = BASE
+    OPCODE_BLOBBASEFEE: Final[ExecutionGas] = BASE
+    OPCODE_SLOTNUM: Final[ExecutionGas] = BASE
+    OPCODE_BLOBHASH: Final[ExecutionGas] = ExecutionGas(Uint(3))
+    OPCODE_PUSH: Final[ExecutionGas] = VERY_LOW
+    OPCODE_PUSH0: Final[ExecutionGas] = BASE
+    OPCODE_DUP: Final[ExecutionGas] = VERY_LOW
+    OPCODE_SWAP: Final[ExecutionGas] = VERY_LOW
+    OPCODE_DUPN: Final[ExecutionGas] = VERY_LOW
+    OPCODE_SWAPN: Final[ExecutionGas] = VERY_LOW
+    OPCODE_EXCHANGE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_TLOAD: Final[ExecutionGas] = ExecutionGas(Uint(100))
+    OPCODE_TSTORE: Final[ExecutionGas] = ExecutionGas(Uint(100))
 
     # Dynamic Opcode Components
-    OPCODE_RETURNDATACOPY_BASE: Final[Uint] = VERY_LOW
-    OPCODE_RETURNDATACOPY_PER_WORD: Final[Uint] = Uint(3)
-    OPCODE_CALLDATACOPY_BASE: Final[Uint] = VERY_LOW
-    OPCODE_CODECOPY_BASE: Final[Uint] = VERY_LOW
-    OPCODE_MCOPY_BASE: Final[Uint] = VERY_LOW
-    OPCODE_MLOAD_BASE: Final[Uint] = VERY_LOW
-    OPCODE_MSTORE_BASE: Final[Uint] = VERY_LOW
-    OPCODE_MSTORE8_BASE: Final[Uint] = VERY_LOW
-    OPCODE_COPY_PER_WORD: Final[Uint] = Uint(3)
-    OPCODE_EXP_BASE: Final[Uint] = Uint(10)
-    OPCODE_EXP_PER_BYTE: Final[Uint] = Uint(50)
-    OPCODE_KECCAK256_BASE: Final[Uint] = Uint(30)
-    OPCODE_KECCAK256_PER_WORD: Final[Uint] = Uint(6)
-    OPCODE_LOG_BASE: Final[Uint] = Uint(375)
-    OPCODE_LOG_DATA_PER_BYTE: Final[Uint] = Uint(8)
-    OPCODE_LOG_TOPIC: Final[Uint] = Uint(375)
-    OPCODE_SELFDESTRUCT_BASE: Final[Uint] = Uint(5000)
+    OPCODE_RETURNDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_RETURNDATACOPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))
+    OPCODE_CALLDATACOPY_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_CODECOPY_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_MCOPY_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_MLOAD_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_MSTORE_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_MSTORE8_BASE: Final[ExecutionGas] = VERY_LOW
+    OPCODE_COPY_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(3))
+    OPCODE_EXP_BASE: Final[ExecutionGas] = ExecutionGas(Uint(10))
+    OPCODE_EXP_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(50))
+    OPCODE_KECCAK256_BASE: Final[ExecutionGas] = ExecutionGas(Uint(30))
+    OPCODE_KECCAK256_PER_WORD: Final[ExecutionGas] = ExecutionGas(Uint(6))
+    OPCODE_LOG_BASE: Final[ExecutionGas] = ExecutionGas(Uint(375))
+    OPCODE_LOG_DATA_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(8))
+    OPCODE_LOG_TOPIC: Final[ExecutionGas] = ExecutionGas(Uint(375))
+    OPCODE_SELFDESTRUCT_BASE: Final[ExecutionGas] = ExecutionGas(Uint(5000))
 
 
 BLOB_SCHEDULE_TARGET = GasCosts.BLOB_SCHEDULE_TARGET
@@ -265,7 +281,7 @@ class GasMeter:
     [`Evm`]: ref:ethereum.forks.amsterdam.vm.Evm
     """
 
-    gas_left: Uint
+    gas_left: ExecutionGas
     """
     Gas still available from the frame's execution-gas grant. Pays
     execution-gas charges, and state charges as [spill] once the
@@ -274,13 +290,13 @@ class GasMeter:
     [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
     """
 
-    state_gas_left: Uint
+    state_gas_left: StateGas
     """
     State gas still available in the frame's reservoir. Charges draw
     from here first and spill into `gas_left` once it is empty.
     """
 
-    state_gas_baseline: Uint
+    state_gas_baseline: StateGas
     """
     Reservoir level a rollback refills to: the frame's grant at entry,
     moved down by [`commit_state_gas`][commit] when charges become
@@ -292,7 +308,7 @@ class GasMeter:
     refund_counter: int = 0
     """Gas eligible for refund at the end of the transaction."""
 
-    state_gas_spilled: Uint = Uint(0)
+    state_gas_spilled: StateGas = StateGas(Uint(0))
     """
     Execution gas spent covering state charges after the reservoir
     emptied. Credited back to `gas_left` first, in LIFO order, on a
@@ -302,7 +318,7 @@ class GasMeter:
     [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     """
 
-    state_gas_committed_spill: Uint = Uint(0)
+    state_gas_committed_spill: StateGas = StateGas(Uint(0))
     """
     [Spill] that [`commit_state_gas`][commit] marked non-refillable.
     It outlives the rollbacks [`restore_state_gas`][restore] performs;
@@ -324,13 +340,13 @@ class ExtendMemory:
     """
     Define the parameters for memory extension in opcodes.
 
-    `cost`: `ethereum.base_types.Uint`
+    `cost`: `ExecutionGas`
         The gas required to perform the extension
     `expand_by`: `ethereum.base_types.Uint`
         The size by which the memory will be extended
     """
 
-    cost: Uint
+    cost: ExecutionGas
     expand_by: Uint
 
 
@@ -341,19 +357,19 @@ class MessageCallGas:
     Define the gas cost and gas given to the sub-call for executing the call
     opcodes.
 
-    `cost`: `ethereum.base_types.Uint`
+    `cost`: `ExecutionGas`
         The gas required to execute the call opcode, excludes
         memory expansion costs.
-    `sub_call`: `ethereum.base_types.Uint`
+    `sub_call`: `ExecutionGas`
         The portion of gas available to sub-calls that is refundable
         if not consumed.
     """
 
-    cost: Uint
-    sub_call: Uint
+    cost: ExecutionGas
+    sub_call: ExecutionGas
 
 
-def check_gas(evm: "Evm", amount: Uint) -> None:
+def check_gas(evm: "Evm", amount: ExecutionGas) -> None:
     """
     Checks if `amount` gas is available without charging it.
     Raises OutOfGasError if insufficient gas.
@@ -363,14 +379,14 @@ def check_gas(evm: "Evm", amount: Uint) -> None:
     evm :
         The current EVM.
     amount :
-        The amount of gas to check.
+        The amount of execution gas to check.
 
     """
     if evm.gas_meter.gas_left < amount:
         raise OutOfGasError
 
 
-def charge_gas_from_meter(gas_meter: GasMeter, amount: Uint) -> None:
+def charge_gas_from_meter(gas_meter: GasMeter, amount: ExecutionGas) -> None:
     """
     Subtracts `amount` from `gas_left` (execution gas).
 
@@ -387,7 +403,7 @@ def charge_gas_from_meter(gas_meter: GasMeter, amount: Uint) -> None:
     gas_meter.gas_left -= amount
 
 
-def charge_gas(evm: "Evm", amount: Uint) -> None:
+def charge_gas(evm: "Evm", amount: ExecutionGas) -> None:
     """
     Subtracts `amount` from `gas_left` (execution gas).
 
@@ -421,10 +437,10 @@ def charge_state_gas_from_meter(gas_meter: GasMeter, amount: StateGas) -> None:
     """
     if gas_meter.state_gas_left >= amount:
         gas_meter.state_gas_left -= amount
-    elif gas_meter.state_gas_left + gas_meter.gas_left >= amount:
+    elif Uint(gas_meter.state_gas_left) + Uint(gas_meter.gas_left) >= amount:
         remainder = amount - gas_meter.state_gas_left
-        gas_meter.state_gas_left = Uint(0)
-        gas_meter.gas_left -= remainder
+        gas_meter.state_gas_left = StateGas(Uint(0))
+        gas_meter.gas_left = ExecutionGas(gas_meter.gas_left - Uint(remainder))
         gas_meter.state_gas_spilled += remainder
     else:
         raise OutOfGasError
@@ -481,7 +497,7 @@ def commit_state_gas(gas_meter: GasMeter) -> None:
     assert gas_meter.state_gas_left <= gas_meter.state_gas_baseline
     gas_meter.state_gas_committed_spill += gas_meter.state_gas_spilled
     gas_meter.state_gas_baseline = gas_meter.state_gas_left
-    gas_meter.state_gas_spilled = Uint(0)
+    gas_meter.state_gas_spilled = StateGas(Uint(0))
 
 
 def restore_state_gas(gas_meter: GasMeter) -> None:
@@ -503,14 +519,16 @@ def restore_state_gas(gas_meter: GasMeter) -> None:
     [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
 
     """  # noqa: E501
-    gas_meter.gas_left += gas_meter.state_gas_spilled
-    gas_meter.state_gas_spilled = Uint(0)
+    gas_meter.gas_left = ExecutionGas(
+        gas_meter.gas_left + Uint(gas_meter.state_gas_spilled)
+    )
+    gas_meter.state_gas_spilled = StateGas(Uint(0))
     gas_meter.state_gas_left = gas_meter.state_gas_baseline
     gas_meter.refund_counter = 0
 
 
 def restore_state_gas_to_entry(
-    gas_meter: GasMeter, state_gas_reservoir: Uint
+    gas_meter: GasMeter, state_gas_reservoir: StateGas
 ) -> None:
     """
     Roll the frame's state gas back to frame entry, undoing any commit.
@@ -536,16 +554,20 @@ def restore_state_gas_to_entry(
     # Only pre-dispatch failures roll back to entry, and no refund
     # accrues before dispatch.
     assert gas_meter.refund_counter == 0
-    gas_meter.gas_left += (
-        gas_meter.state_gas_spilled + gas_meter.state_gas_committed_spill
+    gas_meter.gas_left = ExecutionGas(
+        gas_meter.gas_left
+        + Uint(gas_meter.state_gas_spilled)
+        + Uint(gas_meter.state_gas_committed_spill)
     )
-    gas_meter.state_gas_spilled = Uint(0)
-    gas_meter.state_gas_committed_spill = Uint(0)
+    gas_meter.state_gas_spilled = StateGas(Uint(0))
+    gas_meter.state_gas_committed_spill = StateGas(Uint(0))
     gas_meter.state_gas_left = state_gas_reservoir
     gas_meter.state_gas_baseline = state_gas_reservoir
 
 
-def tx_state_gas_used(gas_meter: GasMeter, state_gas_reservoir: Uint) -> int:
+def tx_state_gas_used(
+    gas_meter: GasMeter, state_gas_reservoir: StateGas
+) -> int:
     """
     Return the net state gas a transaction's execution consumed.
 
@@ -599,7 +621,7 @@ def credit_state_gas_refund(gas_meter: GasMeter, amount: StateGas) -> None:
 
     """
     from_gas_left = min(amount, gas_meter.state_gas_spilled)
-    gas_meter.gas_left += from_gas_left
+    gas_meter.gas_left = ExecutionGas(gas_meter.gas_left + Uint(from_gas_left))
     gas_meter.state_gas_spilled -= from_gas_left
     gas_meter.state_gas_left += amount - from_gas_left
 
@@ -617,10 +639,10 @@ def forfeit_remaining_gas(gas_meter: GasMeter) -> None:
     # A rollback owes any outstanding spill back to `gas_left`; it
     # must be restored before the remainder burns.
     assert gas_meter.state_gas_spilled == Uint(0)
-    gas_meter.gas_left = Uint(0)
+    gas_meter.gas_left = ExecutionGas(Uint(0))
 
 
-def withhold_create_gas(gas_meter: GasMeter) -> Uint:
+def withhold_create_gas(gas_meter: GasMeter) -> ExecutionGas:
     """
     Withhold and return the gas made available to a `CREATE*` child.
 
@@ -634,7 +656,7 @@ def withhold_create_gas(gas_meter: GasMeter) -> Uint:
 
     Returns
     -------
-    child_gas : `ethereum.base_types.Uint`
+    child_gas : `ExecutionGas`
         The execution gas granted to the child frame.
 
     """
@@ -643,7 +665,7 @@ def withhold_create_gas(gas_meter: GasMeter) -> Uint:
     return child_gas
 
 
-def drain_state_gas_reservoir(gas_meter: GasMeter) -> Uint:
+def drain_state_gas_reservoir(gas_meter: GasMeter) -> StateGas:
     """
     Empty the frame's state gas reservoir for a child frame.
 
@@ -658,17 +680,17 @@ def drain_state_gas_reservoir(gas_meter: GasMeter) -> Uint:
 
     Returns
     -------
-    reservoir : `ethereum.base_types.Uint`
+    reservoir : `StateGas`
         The state gas granted to the child frame.
 
     """
     reservoir = gas_meter.state_gas_left
-    gas_meter.state_gas_left = Uint(0)
+    gas_meter.state_gas_left = StateGas(Uint(0))
     return reservoir
 
 
 def restore_child_gas(
-    gas_meter: GasMeter, gas: Uint, state_gas_reservoir: Uint
+    gas_meter: GasMeter, gas: ExecutionGas, state_gas_reservoir: StateGas
 ) -> None:
     """
     Return a child frame's unused gas grant to the parent.
@@ -691,7 +713,7 @@ def restore_child_gas(
     gas_meter.state_gas_left += state_gas_reservoir
 
 
-def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
+def calculate_memory_gas_cost(size_in_bytes: Uint) -> ExecutionGas:
     """
     Calculates the gas cost for allocating memory
     to the smallest multiple of 32 bytes,
@@ -704,7 +726,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
 
     Returns
     -------
-    total_gas_cost : `ethereum.base_types.Uint`
+    total_gas_cost : `ExecutionGas`
         The gas cost for storing data in memory.
 
     """
@@ -713,7 +735,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
     try:
-        return total_gas_cost
+        return ExecutionGas(total_gas_cost)
     except ValueError as e:
         raise OutOfGasError from e
 
@@ -738,7 +760,7 @@ def calculate_gas_extend_memory(
 
     """
     size_to_extend = Uint(0)
-    to_be_paid = Uint(0)
+    to_be_paid = GasCosts.ZERO
     current_size = ulen(memory)
     for start_position, size in extensions:
         if size == 0:
@@ -760,11 +782,11 @@ def calculate_gas_extend_memory(
 
 def calculate_message_call_gas(
     value: U256,
-    gas: Uint,
-    gas_left: Uint,
-    memory_cost: Uint,
-    extra_gas: Uint,
-    call_stipend: Uint = GasCosts.CALL_STIPEND,
+    gas: ExecutionGas,
+    gas_left: ExecutionGas,
+    memory_cost: ExecutionGas,
+    extra_gas: ExecutionGas,
+    call_stipend: ExecutionGas = GasCosts.CALL_STIPEND,
 ) -> MessageCallGas:
     """
     Calculates the MessageCallGas (cost and gas made available to the sub-call)
@@ -792,7 +814,7 @@ def calculate_message_call_gas(
     message_call_gas: `MessageCallGas`
 
     """
-    call_stipend = Uint(0) if value == 0 else call_stipend
+    call_stipend = GasCosts.ZERO if value == 0 else call_stipend
     if gas_left < extra_gas + memory_cost:
         return MessageCallGas(gas + extra_gas, gas + call_stipend)
 
@@ -801,7 +823,7 @@ def calculate_message_call_gas(
     return MessageCallGas(gas + extra_gas, gas + call_stipend)
 
 
-def max_message_call_gas(gas: Uint) -> Uint:
+def max_message_call_gas(gas: ExecutionGas) -> ExecutionGas:
     """
     Calculates the maximum gas that is allowed for making a message call.
 
@@ -812,14 +834,14 @@ def max_message_call_gas(gas: Uint) -> Uint:
 
     Returns
     -------
-    max_allowed_message_call_gas: `ethereum.base_types.Uint`
+    max_allowed_message_call_gas: `ExecutionGas`
         The maximum gas allowed for making the message-call.
 
     """
-    return gas - (gas // Uint(64))
+    return ExecutionGas(gas - (gas // Uint(64)))
 
 
-def init_code_cost(init_code_length: Uint) -> Uint:
+def init_code_cost(init_code_length: Uint) -> ExecutionGas:
     """
     Calculates the gas to be charged for the init code in CREATE*
     opcodes as well as create transactions.
@@ -832,11 +854,13 @@ def init_code_cost(init_code_length: Uint) -> Uint:
 
     Returns
     -------
-    init_code_gas: `ethereum.base_types.Uint`
+    init_code_gas: `ExecutionGas`
         The gas to be charged for the init code.
 
     """
-    return GasCosts.CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
+    return ExecutionGas(
+        GasCosts.CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
+    )
 
 
 def calculate_excess_blob_gas(
@@ -857,13 +881,14 @@ def calculate_excess_blob_gas(
         The excess blob gas for the current block.
 
     """
-    # At the fork block, these are defined as zero.
+    # Defaults for a parent without blob gas fields.
     excess_blob_gas = U64(0)
     blob_gas_used = U64(0)
     base_fee_per_gas = Uint(0)
 
     if isinstance(parent_header, (Header, PreviousForkHeader)):
-        # After the fork block, read them from the parent header.
+        # Read them from any parent that carries the fields, so
+        # accumulated excess blob gas survives a fork transition.
         excess_blob_gas = parent_header.excess_blob_gas
         blob_gas_used = parent_header.blob_gas_used
         base_fee_per_gas = parent_header.base_fee_per_gas
@@ -1050,10 +1075,10 @@ class EvmGasAllocation:
     Split of a transaction's EVM gas across the two dimensions.
     """
 
-    execution_gas: Uint
+    execution_gas: ExecutionGas
     """Execution gas granted to the top frame, capped by the budget."""
 
-    state_gas_reservoir: Uint
+    state_gas_reservoir: StateGas
     """State gas set aside for the top frame's reservoir."""
 
 
@@ -1087,8 +1112,8 @@ def allocate_evm_gas(
     """
     evm_gas = tx_gas - Uint(intrinsic.execution)
     execution_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.execution
-    execution_gas = min(execution_gas_budget, evm_gas)
-    state_gas_reservoir = Uint(evm_gas - execution_gas)
+    execution_gas = ExecutionGas(min(execution_gas_budget, evm_gas))
+    state_gas_reservoir = StateGas(evm_gas - execution_gas)
     return EvmGasAllocation(execution_gas, state_gas_reservoir)
 
 
@@ -1108,18 +1133,18 @@ class TransactionGasSettlement:
     gas_left: Uint
     """Gas returned to the sender, priced at the effective gas price."""
 
-    execution_gas_used: Uint
+    execution_gas_used: ExecutionGas
     """Execution gas the transaction contributes to the block total."""
 
-    state_gas_used: Uint
+    state_gas_used: StateGas
     """State gas the transaction contributes to the block total."""
 
 
 def settle_transaction_gas(
     tx_gas: Uint,
     calldata_floor: Uint,
-    gas_left: Uint,
-    state_gas_left: Uint,
+    gas_left: ExecutionGas,
+    state_gas_left: StateGas,
     refund_counter: U256,
     state_gas_used: int,
 ) -> TransactionGasSettlement:
@@ -1168,10 +1193,12 @@ def settle_transaction_gas(
     gas_used_after_refund = gas_used_before_refund - gas_refund
     gas_used = max(gas_used_after_refund, calldata_floor)
 
-    settled_state_gas_used = Uint(max(0, state_gas_used))
-    execution_gas_used = max(
-        gas_used_before_refund - settled_state_gas_used,
-        calldata_floor,
+    settled_state_gas_used = StateGas(Uint(max(0, state_gas_used)))
+    execution_gas_used = ExecutionGas(
+        max(
+            gas_used_before_refund - settled_state_gas_used,
+            calldata_floor,
+        )
     )
     return TransactionGasSettlement(
         gas_used=gas_used,

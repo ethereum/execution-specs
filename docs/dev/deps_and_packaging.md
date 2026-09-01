@@ -8,8 +8,8 @@ The repo is a `uv` workspace with two members, each defined by its own `pyprojec
 
 | Package                      | `pyproject.toml`                                                                                                            | Contents                                                 |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `ethereum-execution`         | [`pyproject.toml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/pyproject.toml)                                  | The Python specs (`src/ethereum/`) and associated tools. |
-| `ethereum-execution-testing` | [`packages/testing/pyproject.toml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/packages/testing/pyproject.toml) | The EEST test framework under `packages/testing/`.       |
+| `ethereum-execution`         | [`pyproject.toml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/pyproject.toml)                                  | The Python specs (`src/ethereum/`) and spec-maintenance tools (`src/ethereum_spec_tools/`). |
+| `ethereum-execution-testing` | [`packages/testing/pyproject.toml`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/packages/testing/pyproject.toml) | The EEST test framework under `packages/testing/`, including the `ethereum-spec-evm` CLI (`t8n`, `b11r`, state-test runner). |
 
 A single [`uv.lock`](https://github.com/ethereum/execution-specs/blob/a830dab6f130151ab9023a473b7543120aa21961/uv.lock) at the repo root pins dependencies for both packages.
 

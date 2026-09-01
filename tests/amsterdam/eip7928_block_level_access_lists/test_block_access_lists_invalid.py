@@ -2008,7 +2008,12 @@ def test_bal_invalid_omitted_slot_change_at_index(
         blocks=[
             Block(
                 txs=[tx1, tx2],
-                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                # Clients that execute against the declared BAL see gas
+                # diverge before the BAL comparison (e.g. geth, reth).
+                exception=[
+                    BlockException.INVALID_BLOCK_ACCESS_LIST,
+                    BlockException.INVALID_GAS_USED,
+                ],
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
                         alice: BalAccountExpectation(

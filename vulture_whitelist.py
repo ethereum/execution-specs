@@ -7,7 +7,6 @@ imports. Each bare expression tells Vulture to ignore that specific symbol.
 """
 
 from ethereum.cancun.blocks import Withdrawal
-from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
@@ -24,15 +23,6 @@ from ethereum.trace import EvmTracer
 from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
 from ethereum_spec_tools.docc import *
-from ethereum_spec_tools.evm_tools.daemon import _EvmToolHandler
-from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
-    TransactionLoad,
-)
-from ethereum_spec_tools.evm_tools.t8n.block_environment import Ommer
-from ethereum_spec_tools.evm_tools.t8n.evm_trace.eip3155 import (
-    FinalTrace,
-    Trace,
-)
 from ethereum_spec_tools.lint.lints.final_decorator import (
     FinalDecoratorHygiene,
 )
@@ -41,6 +31,9 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
 from ethereum_spec_tools.lint.lints.uint_len import UintLenHygiene
+from ethereum_spec_tools.loaders.transaction_loader import (
+    TransactionLoad,
+)
 from ethereum_spec_tools.new_fork.codemod.comment import CommentReplaceCommand
 from ethereum_spec_tools.new_fork.codemod.constant import SetConstantCommand
 from ethereum_spec_tools.new_fork.codemod.string_replace import (
@@ -100,17 +93,6 @@ docc.render_diff
 docc.render_before_after
 docc._EthereumListingSource.listing_order_key
 
-# src/ethereum_spec_tools/evm_tools/daemon.py
-_EvmToolHandler.do_POST
-_EvmToolHandler.log_request
-
-# src/ethereum_spec_tools/evm_tools/transition_tool.py
-EELST8N
-EELST8N._info_metadata
-EELST8N.version
-EELST8N.is_fork_supported
-EELST8N.evaluate
-
 # src/ethereum_spec_tools/loaders/transaction_loader.py
 TransactionLoad.json_to_authorizations
 TransactionLoad.json_to_chain_id
@@ -129,25 +111,6 @@ TransactionLoad.json_to_v
 TransactionLoad.json_to_y_parity
 TransactionLoad.json_to_r
 TransactionLoad.json_to_s
-
-# src/ethereum_spec_tools/evm_tools/t8n/block_environment.py
-Ommer.delta
-
-# src/ethereum_spec_tools/evm_tools/t8n/__init__.py
-# `protected` is a field on the testing-package `Transaction` model;
-# T8N flips it to False for pre-EIP-155 forks before calling `sign()`.
-_unused_protected_marker = None
-_unused_protected_marker.protected  # type: ignore[attr-defined]
-
-# src/ethereum_spec_tools/evm_tools/t8n/evm_trace/eip3155.py
-Trace.gasCost
-Trace.memSize
-Trace.returnData
-Trace.refund
-Trace.opName
-Trace.stateGas
-Trace.stateGasCost
-FinalTrace.gasUsed
 
 # src/ethereum_spec_tools/lint/lints/final_decorator.py
 FinalDecoratorHygiene
@@ -182,8 +145,8 @@ CommentReplaceCommand.transform_module_impl
 
 _children  # unused attribute (src/ethereum_spec_tools/docc.py:751)
 
-# evm_tools/loaders/fixture_loader.py - abstract methods
-from ethereum_spec_tools.evm_tools.loaders.fixture_loader import BaseLoad
+# loaders/fixture_loader.py - abstract methods
+from ethereum_spec_tools.loaders.fixture_loader import BaseLoad
 
 BaseLoad.json_to_header
 BaseLoad.json_to_state
@@ -244,3 +207,26 @@ ProtocolFork.Prague
 ProtocolFork.Osaka
 ProtocolFork.BPO1
 ProtocolFork.BPO2
+
+# packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/
+# eip3155.py - EIP-3155 trace output field names, serialized to JSON
+gasCost
+gasUsed
+memSize
+opName
+refund
+returnData
+stateGas
+stateGasCost
+
+# packages/testing/src/execution_testing/evm_tools/daemon.py -
+# overrides `BaseHTTPRequestHandler.log_request`
+log_request
+
+# packages/testing/src/execution_testing/evm_tools/t8n/cli.py - field
+# on the testing `Transaction` model, read by `Transaction.sign`
+protected
+
+# packages/testing/src/execution_testing/evm_tools/tests/ - pytest
+# marker magic variable
+pytestmark

@@ -42,40 +42,82 @@ pytestmark = pytest.mark.valid_at_transition_to("EIP8037")
 def test_sstore_state_gas_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test SSTORE state gas activates at the EIP-8037 fork boundary.
 
-    Before the fork, an SSTORE zero-to-nonzero succeeds with only
-    execution gas (no state gas dimension). After the fork, the same
-    operation requires state gas. Both blocks use TX_MAX_GAS_LIMIT
-    which provides enough gas in either regime.
+    A sub-call granted only the store's execution gas succeeds before
+    the fork, and after it only when a reservoir carries the new state
+    charge into the child frame.
     """
-    contract_before = pre.deploy_contract(
-        code=Op.SSTORE(0, 1),
+    before_fork = fork.fork_at(timestamp=14_999)
+    after_fork = fork.fork_at(timestamp=15_000)
+
+    sstore_code = Op.SSTORE(0, 1, original_value=0, new_value=1)
+    # Each side gets only what its own fork prices as execution gas.
+    before_grant = sstore_code.gas_cost(before_fork)
+    execution_gas = sstore_code.execution_cost(after_fork)
+    state_gas = sstore_code.state_cost(after_fork)
+    assert sstore_code.state_cost(before_fork) == 0, "no state dimension yet"
+    assert state_gas > 0
+
+    storage_before = Storage()
+    target_before = pre.deploy_contract(code=sstore_code)
+    caller_before = pre.deploy_contract(
+        code=Op.SSTORE(
+            storage_before.store_next(1, "subcall_succeeds"),
+            Op.CALL(gas=before_grant, address=target_before),
+        ),
     )
-    contract_after = pre.deploy_contract(
-        code=Op.SSTORE(0, 1),
+
+    storage_funded = Storage()
+    target_funded = pre.deploy_contract(code=sstore_code)
+    caller_funded = pre.deploy_contract(
+        code=Op.SSTORE(
+            storage_funded.store_next(1, "reservoir_pays_state_gas"),
+            Op.CALL(gas=execution_gas, address=target_funded),
+        ),
+    )
+
+    storage_starved = Storage()
+    target_starved = pre.deploy_contract(code=sstore_code)
+    caller_starved = pre.deploy_contract(
+        code=Op.SSTORE(
+            storage_starved.store_next(0, "subcall_runs_out_of_state_gas"),
+            Op.CALL(gas=execution_gas, address=target_starved),
+        ),
     )
 
     blocks = [
-        # Before fork: SSTORE succeeds with execution gas only
+        # Pre-fork: the grant is the whole price.
         Block(
             timestamp=14_999,
             txs=[
                 Transaction(
-                    to=contract_before,
+                    to=caller_before,
                     state_gas_reservoir=0,
                     sender=pre.fund_eoa(),
                 ),
             ],
         ),
-        # After fork: SSTORE succeeds — state gas drawn from gas_left
+        # Post-fork: the reservoir pays the state charge.
         Block(
             timestamp=15_000,
             txs=[
                 Transaction(
-                    to=contract_after,
+                    to=caller_funded,
+                    state_gas_reservoir=state_gas,
+                    sender=pre.fund_eoa(),
+                ),
+            ],
+        ),
+        # Post-fork, no reservoir: the state charge halts the child.
+        Block(
+            timestamp=15_001,
+            txs=[
+                Transaction(
+                    to=caller_starved,
                     state_gas_reservoir=0,
                     sender=pre.fund_eoa(),
                 ),
@@ -84,8 +126,12 @@ def test_sstore_state_gas_at_transition(
     ]
 
     post = {
-        contract_before: Account(storage={0: 1}),
-        contract_after: Account(storage={0: 1}),
+        caller_before: Account(storage=storage_before),
+        target_before: Account(storage={0: 1}),
+        caller_funded: Account(storage=storage_funded),
+        target_funded: Account(storage={0: 1}),
+        caller_starved: Account(storage=storage_starved),
+        target_starved: Account(storage={0: 0}),
     }
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
@@ -192,20 +238,18 @@ def test_reservoir_available_after_transition(
     which child calls can draw from for state operations.
     """
     after_fork = fork.fork_at(timestamp=15_000)
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(after_fork)
+    child_code = Op.SSTORE(0, 1, original_value=0, new_value=1)
+    sstore_state_gas = child_code.state_cost(after_fork)
 
     child_storage = Storage()
-    child = pre.deploy_contract(
-        code=Op.SSTORE(child_storage.store_next(1), 1),
-    )
+    child_storage.store_next(1, "child_slot_set")
+    child = pre.deploy_contract(code=child_code)
 
     parent_storage = Storage()
     parent = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                parent_storage.store_next(1),
-                Op.CALL(gas=100_000, address=child),
-            )
+        code=Op.SSTORE(
+            parent_storage.store_next(1, "subcall_succeeds"),
+            Op.CALL(gas=child_code.execution_cost(after_fork), address=child),
         ),
     )
 

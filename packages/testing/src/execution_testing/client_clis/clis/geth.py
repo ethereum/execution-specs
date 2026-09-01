@@ -138,6 +138,9 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             r"invalid gasUsed: have \d+, gasLimit \d+"
         ),
+        BlockException.INVALID_GAS_USED: (
+            r"invalid gas used \(remote: \d+ local: \d+\)"
+        ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             r"invalid requests hash|failed to parse deposit logs"
         ),
@@ -156,7 +159,10 @@ class GethExceptionMapper(ExceptionMapper):
         # EELS definition for `is_valid_deposit_event_data`:
         # https://github.com/ethereum/execution-specs/blob/5ddb904fa7ba27daeff423e78466744c51e8cb6a/src/ethereum/forks/prague/requests.py#L51
         # BAL Exceptions
-        BlockException.INVALID_BAL_HASH: (r"invalid block access list:"),
+        BlockException.INVALID_BAL_HASH: (
+            r"invalid block access list:|"
+            r"access list hash mismatch"
+        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"difference between computed state diff and "
             r"BAL entry for account|"
@@ -165,11 +171,14 @@ class GethExceptionMapper(ExceptionMapper):
             r"which weren't reported in BAL|"
             r"BAL change not reported in computed|"
             r"additional mutations compared to BAL|"
+            r"access list hash mismatch|"
+            r"failed to decode BAL|"
             r"[bB][aA][lL] validation fail"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (r"invalid block access list:"),
         BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
-            r"block access list exceeds gas limit"
+            r"block access list exceeds gas limit|"
+            r"block access list exceeds size constraint"
         ),
         BlockException.GAS_USED_OVERFLOW: (r"gas limit reached"),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (

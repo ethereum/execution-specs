@@ -519,6 +519,73 @@ def test_call_to_precompile_in_pointer_context(
     )
 
 
+@pytest.mark.with_all_call_opcodes
+@pytest.mark.valid_from("Prague")
+def test_precompile_call_from_delegated_frame(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_opcode: Op,
+) -> None:
+    """
+    Tx -> entry contract -> delegated authority -> precompile.
+
+    Being reached through a delegation must not stop the frame from calling a
+    precompile directly, for any of the call opcodes.
+    """
+    storage: Storage = Storage()
+
+    identity_precompile = 0x04
+    # Identity echoes its input, so a precompile that did not run is visible
+    # as empty return data instead of only as a gas difference.
+    precompile_input = 0xC0FFEE
+
+    delegation_target = pre.deploy_contract(
+        code=Op.MSTORE(0, precompile_input)
+        + Op.SSTORE(
+            storage.store_next(1, "call_result"),
+            call_opcode(
+                address=identity_precompile,
+                args_offset=0,
+                args_size=32,
+                ret_offset=32,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(
+            storage.store_next(32, "returndatasize"), Op.RETURNDATASIZE
+        )
+        + Op.SSTORE(
+            storage.store_next(precompile_input, "returned_data"),
+            Op.MLOAD(32),
+        )
+        + Op.STOP
+    )
+
+    authority = pre.fund_eoa()
+    entry_contract = pre.deploy_contract(
+        code=Op.CALL(address=authority) + Op.STOP
+    )
+
+    tx = Transaction(
+        to=entry_contract,
+        sender=pre.fund_eoa(),
+        authorization_list=[
+            AuthorizationTuple(
+                address=delegation_target,
+                nonce=0,
+                signer=authority,
+            )
+        ],
+    )
+
+    post = {authority: Account(storage=storage)}
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+    )
+
+
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize("sender_delegated", [True, False])
@@ -2010,6 +2077,7 @@ def test_pointer_resets_an_empty_code_account_with_storage(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "tx_value",
     [0, 1],

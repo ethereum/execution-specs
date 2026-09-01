@@ -17,6 +17,7 @@ from ethereum_types.numeric import U256, Uint, ulen
 from ethereum.state import EMPTY_ACCOUNT
 from ethereum.utils.numeric import ceil32
 
+from ...fork_types import ExecutionGas
 from ...state_tracker import get_account, get_code
 from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
@@ -224,7 +225,7 @@ def calldatacopy(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(size)) // Uint(32)
-    copy_gas_cost = GasCosts.OPCODE_COPY_PER_WORD * words
+    copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
@@ -285,7 +286,7 @@ def codecopy(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(size)) // Uint(32)
-    copy_gas_cost = GasCosts.OPCODE_COPY_PER_WORD * words
+    copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
@@ -378,7 +379,7 @@ def extcodecopy(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(size)) // Uint(32)
-    copy_gas_cost = GasCosts.OPCODE_COPY_PER_WORD * words
+    copy_gas_cost = ExecutionGas(GasCosts.OPCODE_COPY_PER_WORD * words)
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
@@ -447,7 +448,9 @@ def returndatacopy(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(size)) // Uint(32)
-    copy_gas_cost = GasCosts.OPCODE_RETURNDATACOPY_PER_WORD * words
+    copy_gas_cost = ExecutionGas(
+        GasCosts.OPCODE_RETURNDATACOPY_PER_WORD * words
+    )
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )

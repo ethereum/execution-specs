@@ -86,7 +86,7 @@ class TransactionTest(BaseTest):
     def generate(
         self,
         t8n: TransitionTool,
-        fixture_format: FixtureFormat,
+        fixture_format: FixtureFormat | LabeledFixtureFormat,
     ) -> FillResult:
         """Generate the TransactionTest fixture."""
         del t8n
@@ -100,7 +100,7 @@ class TransactionTest(BaseTest):
     def execute(
         self,
         *,
-        execute_format: ExecuteFormat,
+        execute_format: ExecuteFormat | LabeledExecuteFormat,
     ) -> BaseExecute:
         """Execute the transaction test by sending it to the live network."""
         if execute_format == TransactionPost:

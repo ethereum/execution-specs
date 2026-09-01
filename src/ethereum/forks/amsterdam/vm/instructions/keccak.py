@@ -16,6 +16,7 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
+from ...fork_types import ExecutionGas
 from .. import Evm
 from ..gas import (
     GasCosts,
@@ -45,7 +46,7 @@ def keccak(evm: Evm) -> None:
 
     # GAS
     words = ceil32(Uint(size)) // Uint(32)
-    word_gas_cost = GasCosts.OPCODE_KECCAK256_PER_WORD * words
+    word_gas_cost = ExecutionGas(GasCosts.OPCODE_KECCAK256_PER_WORD * words)
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )

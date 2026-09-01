@@ -182,6 +182,10 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "bigmem: Tests that consume a large amount of memory.",
+    )
+    config.addinivalue_line(
+        "markers",
         "eip_checklist(item_id, eip=None): Mark a test as implementing a "
         "specific checklist item. The first positional parameter is the "
         "checklist item ID. The optional 'eip' keyword parameter specifies "
@@ -189,8 +193,14 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "derived_test: Mark a test as a derived test (E.g. a BlockchainTest "
-        "that is derived from a StateTest).",
+        "primary_format: Mark the first fixture format generated for a test. "
+        "Select with `-m primary_format` to fill every test exactly once.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "inclusion_test: Mark a test that verifies whether a transaction can "
+        "be included in a block. The transaction under test must be the last "
+        "one of the last block.",
     )
     config.addinivalue_line(
         "markers",
@@ -389,3 +399,12 @@ def is_exception_test(request: pytest.FixtureRequest) -> bool:
     test (invalid block, invalid transaction).
     """
     return request.node.get_closest_marker("exception_test") is not None
+
+
+@pytest.fixture(scope="function")
+def is_inclusion_test(request: pytest.FixtureRequest) -> bool:
+    """
+    Check, given the test node properties, whether the test is an inclusion
+    test.
+    """
+    return request.node.get_closest_marker("inclusion_test") is not None

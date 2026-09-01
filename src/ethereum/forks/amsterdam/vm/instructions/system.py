@@ -20,7 +20,7 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.state import Address
 from ethereum.utils.numeric import ceil32
 
-from ...fork_types import StateGas
+from ...fork_types import ExecutionGas, StateGas
 from ...state_tracker import (
     account_deployable,
     get_account,
@@ -120,12 +120,10 @@ def generic_create(
     create_message_gas = withhold_create_gas(evm.gas_meter)
 
     # On a collision the child's execution-gas grant is consumed and no
-    # account is created; a storage-only collision target is
-    # non-existent: charged above, refilled here.
+    # account is created. A collision target has code or a nonce, so
+    # the account-creation charge above was never taken.
     if not account_deployable(tx_state, contract_address):
         increment_nonce(tx_state, sender_address)
-        if new_account_charged:
-            credit_state_gas_refund(evm.gas_meter, StateGasCosts.NEW_ACCOUNT)
         push(evm.stack, U256(0))
         return
 
@@ -282,10 +280,12 @@ def create2(evm: Evm) -> None:
     init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GasCosts.CREATE_ACCESS
-        + GasCosts.OPCODE_KECCAK256_PER_WORD * call_data_words
-        + extend_memory.cost
-        + init_code_gas,
+        ExecutionGas(
+            GasCosts.CREATE_ACCESS
+            + GasCosts.OPCODE_KECCAK256_PER_WORD * call_data_words
+            + extend_memory.cost
+            + init_code_gas
+        ),
     )
 
     if memory_size > U256(MAX_INIT_CODE_SIZE):
@@ -351,8 +351,8 @@ class GenericCall:
     Parameters for the core logic of the `CALL*` family of opcodes.
     """
 
-    gas: Uint
-    state_gas_reservoir: Uint
+    gas: ExecutionGas
+    state_gas_reservoir: StateGas
     value: U256
     caller: Address
     to: Address
@@ -480,7 +480,7 @@ def call(evm: Evm) -> None:
 
     """
     # STACK
-    gas = Uint(pop(evm.stack))
+    gas = ExecutionGas(Uint(pop(evm.stack)))
     to = to_address_masked(pop(evm.stack))
     value = pop(evm.stack)
     memory_input_start_position = pop(evm.stack)
@@ -508,7 +508,7 @@ def call(evm: Evm) -> None:
     else:
         access_gas_cost = GasCosts.WARM_ACCESS
 
-    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
+    transfer_gas_cost = GasCosts.ZERO if value == 0 else GasCosts.CALL_VALUE
 
     check_gas(
         evm,
@@ -558,9 +558,9 @@ def call(evm: Evm) -> None:
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
-        Uint(evm.gas_meter.gas_left),
-        memory_cost=Uint(0),
-        extra_gas=Uint(0),
+        evm.gas_meter.gas_left,
+        memory_cost=GasCosts.ZERO,
+        extra_gas=GasCosts.ZERO,
     )
     charge_gas(evm, message_call_gas.cost)
     call_state_gas_reservoir = drain_state_gas_reservoir(evm.gas_meter)
@@ -607,7 +607,7 @@ def callcode(evm: Evm) -> None:
 
     """
     # STACK
-    gas = Uint(pop(evm.stack))
+    gas = ExecutionGas(Uint(pop(evm.stack)))
     code_address = to_address_masked(pop(evm.stack))
     value = pop(evm.stack)
     memory_input_start_position = pop(evm.stack)
@@ -634,7 +634,7 @@ def callcode(evm: Evm) -> None:
     else:
         access_gas_cost = GasCosts.WARM_ACCESS
 
-    transfer_gas_cost = Uint(0) if value == 0 else GasCosts.CALL_VALUE
+    transfer_gas_cost = GasCosts.ZERO if value == 0 else GasCosts.CALL_VALUE
 
     check_gas(
         evm,
@@ -673,7 +673,7 @@ def callcode(evm: Evm) -> None:
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
-        Uint(evm.gas_meter.gas_left),
+        evm.gas_meter.gas_left,
         extend_memory.cost,
         extra_gas,
     )
@@ -749,7 +749,7 @@ def selfdestruct(evm: Evm) -> None:
     # and the creation, charged by the frame whose opcode causes it;
     # it refills only through the frame's own rollback.
     state_gas = StateGas(Uint(0))
-    account_write_gas = Uint(0)
+    account_write_gas = GasCosts.ZERO
     if (
         not is_account_alive(tx_state, beneficiary)
         and get_account(tx_state, evm.current_target).balance != 0
@@ -796,7 +796,7 @@ def delegatecall(evm: Evm) -> None:
 
     """
     # STACK
-    gas = Uint(pop(evm.stack))
+    gas = ExecutionGas(Uint(pop(evm.stack)))
     code_address = to_address_masked(pop(evm.stack))
     memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
@@ -854,7 +854,7 @@ def delegatecall(evm: Evm) -> None:
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
-        Uint(evm.gas_meter.gas_left),
+        evm.gas_meter.gas_left,
         extend_memory.cost,
         extra_gas,
     )
@@ -899,7 +899,7 @@ def staticcall(evm: Evm) -> None:
 
     """
     # STACK
-    gas = Uint(pop(evm.stack))
+    gas = ExecutionGas(Uint(pop(evm.stack)))
     to = to_address_masked(pop(evm.stack))
     memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
@@ -957,7 +957,7 @@ def staticcall(evm: Evm) -> None:
     message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
-        Uint(evm.gas_meter.gas_left),
+        evm.gas_meter.gas_left,
         extend_memory.cost,
         extra_gas,
     )

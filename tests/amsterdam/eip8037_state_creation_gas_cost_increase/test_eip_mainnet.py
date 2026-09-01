@@ -11,9 +11,10 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    compute_create_address,
 )
 
-from .spec import ref_spec_8037
+from .spec import init_code_at_high_bytes, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -47,18 +48,15 @@ def test_create_charges_state_gas(
 ) -> None:
     """Test CREATE charges state gas for new account creation."""
     init_code = Op.STOP
+    mstore_value, size = init_code_at_high_bytes(init_code)
 
     storage = Storage()
     contract = pre.deploy_contract(
         code=(
-            Op.MSTORE(
-                0,
-                int.from_bytes(bytes(init_code), "big")
-                << (256 - 8 * len(init_code)),
-            )
+            Op.MSTORE(0, mstore_value)
             + Op.SSTORE(
                 storage.store_next(True),
-                Op.GT(Op.CREATE(0, 0, len(init_code)), 0),
+                Op.GT(Op.CREATE(0, 0, size), 0),
             )
         ),
     )
@@ -78,11 +76,14 @@ def test_create_tx_deploys_contract(
     pre: Alloc,
 ) -> None:
     """Test contract creation transaction succeeds with state gas."""
+    sender = pre.fund_eoa()
     tx = Transaction(
         to=None,
         data=Op.STOP,
         state_gas_reservoir=0,
-        sender=pre.fund_eoa(),
+        sender=sender,
     )
 
-    state_test(pre=pre, post={}, tx=tx)
+    created = compute_create_address(address=sender, nonce=0)
+    post = {created: Account(nonce=1, code=b"")}
+    state_test(pre=pre, post=post, tx=tx)

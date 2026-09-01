@@ -22,6 +22,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7976.version
 pytestmark = pytest.mark.valid_at("EIP7976")
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
     "zero_bytes",

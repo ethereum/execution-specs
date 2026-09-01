@@ -7,6 +7,7 @@ from execution_testing import (
     Alloc,
     Bytes,
     Fork,
+    Op,
     RecipientType,
     StateTestFiller,
     Transaction,
@@ -18,7 +19,11 @@ from execution_testing import (
 from ...prague.eip7623_increase_calldata_cost.helpers import (
     find_floor_cost_threshold,
 )
-from .helpers import EOA_INITIAL_BALANCE
+from .helpers import (
+    EOA_INITIAL_BALANCE,
+    AuthorizationAction,
+    build_authorization,
+)
 from .spec import ref_spec_2780
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_2780.git_path
@@ -64,6 +69,7 @@ def _floor_dominating_calldata(fork: Fork) -> Bytes:
     return Bytes(b"\x00" * byte_count)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "outcome",
     [
@@ -226,6 +232,7 @@ def _floor_dominating_initcode(fork: Fork) -> Bytes:
     return Bytes(b"\x00" * byte_count)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "outcome",
     [
@@ -320,6 +327,106 @@ def test_calldata_floor_contract_creation(
         post = {
             sender: Account(nonce=1),
             created: Account(nonce=1, balance=value, code=b""),
+        }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.inclusion_test
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        pytest.param("floor_binds", id="floor_binds"),
+        pytest.param(
+            "below_floor",
+            id="below_floor_rejected",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+def test_calldata_floor_with_authorizations(
+    fork: Fork,
+    pre: Alloc,
+    state_test: StateTestFiller,
+    outcome: str,
+) -> None:
+    """
+    A data-heavy type-4 transaction whose calldata floor exceeds the
+    full authorization total: the intrinsic plus the authorization's
+    top-frame execution and state charges.
+    """
+    sender = pre.fund_eoa()
+    recipient = pre.deploy_contract(code=Op.STOP)
+    scenario = build_authorization(
+        pre, AuthorizationAction.SETS_NEW_DELEGATION
+    )
+    authorization_list = [scenario.authorization]
+
+    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
+    floor_calc = fork.transaction_data_floor_cost_calculator()
+    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+        recipient_type=RecipientType.CONTRACT,
+        authorizations=authorization_list,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        recipient_type=RecipientType.CONTRACT,
+        authorizations=authorization_list,
+    )
+
+    def total(byte_count: int) -> int:
+        return (
+            intrinsic_calc(
+                calldata=b"\x00" * byte_count,
+                recipient_type=RecipientType.CONTRACT,
+                authorization_list_or_count=authorization_list,
+                return_cost_deducted_prior_execution=True,
+            )
+            + top_frame_gas
+            + top_frame_state_gas
+        )
+
+    def floor(byte_count: int) -> int:
+        return floor_calc(
+            data=b"\x00" * byte_count,
+            recipient_type=RecipientType.CONTRACT,
+        )
+
+    threshold = find_floor_cost_threshold(
+        floor_data_gas_cost_calculator=floor,
+        intrinsic_gas_cost_calculator=total,
+    )
+    byte_count = threshold + 1
+    calldata = Bytes(b"\x00" * byte_count)
+    calldata_floor = floor(byte_count)
+    assert calldata_floor > total(byte_count), (
+        "the calldata floor must dominate the full authorization total"
+    )
+
+    post: dict[Address, Account | None]
+    if outcome == "below_floor":
+        tx = Transaction(
+            sender=sender,
+            to=recipient,
+            data=calldata,
+            authorization_list=authorization_list,
+            gas_limit=calldata_floor - 1,
+            error=TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
+        )
+        post = {scenario.authority: scenario.original_account}
+    else:
+        tx = Transaction(
+            sender=sender,
+            to=recipient,
+            data=calldata,
+            authorization_list=authorization_list,
+            gas_limit=calldata_floor,
+            expected_receipt=TransactionReceipt(
+                cumulative_gas_used=calldata_floor,
+            ),
+        )
+        post = {
+            sender: Account(nonce=1),
+            scenario.authority: scenario.applied_account,
         }
 
     state_test(pre=pre, tx=tx, post=post)

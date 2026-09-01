@@ -12,7 +12,7 @@ class ReferenceSpec:
 
 
 ref_spec_8070 = ReferenceSpec(
-    "EIPS/eip-8070.md", "64d1b463e1c75884c995f81d8ffab40401acbcaa"
+    "EIPS/eip-8070.md", "43c7af020f1641924bed60565fde86f6ad3469df"
 )
 
 
@@ -22,6 +22,9 @@ class Spec:
     Parameters from the EIP-8070 specification as defined at
     https://eips.ethereum.org/EIPS/eip-8070.
     """
+
+    BLOB_COMMITMENT_VERSION_KZG = 1
+    """Version byte of a KZG blob versioned hash (EIP-4844)."""
 
     CELLS_PER_EXT_BLOB = 128
     """Number of cells an extended blob is split into for `getBlobsV4`."""

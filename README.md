@@ -31,6 +31,10 @@ just shell-completions
 
 Python 3.11–3.14 are supported; 3.12 tends to be the smoothest for local setup (pre-built wheels are available across the dependency set). For alternative `just` installation paths, macOS-specific installation notes, and troubleshooting, see [Installation](docs/getting_started/installation.md).
 
+## Reference EVM CLI
+
+`ethereum-spec-evm` — a `t8n` transition tool, `b11r` block builder, and state-test runner that execute the spec directly — is provided by the `ethereum-execution-testing` workspace package rather than by `ethereum-execution`. Within a checkout it is available as `uv run ethereum-spec-evm`; for standalone installation (e.g. in client CI or fuzzing setups), see [packages/testing/README.md](packages/testing/README.md).
+
 ## Documentation
 
 - **Repo documentation (default branch/fork)**: <https://steel.ethereum.foundation/docs/execution-specs/>

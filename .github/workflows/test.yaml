@@ -69,6 +69,16 @@ jobs:
           EOF
           uvx --from actionlint-py actionlint
 
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - name: Test packaging
+        run: just test-packaging
+
   fill:
     name: fill (${{ matrix.label }})
     runs-on: [self-hosted-ghr, size-xl-x64]
@@ -100,7 +110,7 @@ jobs:
       - name: Run fill (${{ matrix.label }})
         run: >
           just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
-          -m "not slow and not derived_test"
+          -m "not slow and primary_format"
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov

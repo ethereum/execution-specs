@@ -26,6 +26,7 @@ from execution_testing.test_types.block_types import Environment
 from execution_testing.test_types.transaction_types import TransactionDefaults
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
 def test_tx_gas_limit(
@@ -61,6 +62,7 @@ def test_tx_gas_limit(
     blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "nonce_diff, expected_exception",
     [
@@ -102,6 +104,7 @@ def test_tx_nonce(
     state_test(pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
@@ -129,6 +132,7 @@ def test_tx_max_nonce(state_test: StateTestFiller, pre: Alloc) -> None:
     state_test(pre=pre, post={sender: Account(nonce=max_nonce)}, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.exception_test
 def test_tx_nonce_overflow(
     transaction_test: TransactionTestFiller,
@@ -151,6 +155,7 @@ def test_tx_nonce_overflow(
     transaction_test(pre=pre, tx=tx)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "balance_diff, expected_exception",
     [
@@ -205,6 +210,7 @@ def test_sender_balance(
     blockchain_test(pre=pre, post={}, blocks=[block], genesis_environment=env)
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.state_test_only
 @pytest.mark.exception_test
@@ -249,6 +255,7 @@ def test_sender_balance_insufficient_state_test(
 SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage

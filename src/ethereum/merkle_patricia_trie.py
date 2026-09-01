@@ -418,7 +418,6 @@ def _prepare_data(
     root. Keys are hashed with [`keccak256`] when the trie is secured, then
     expanded into nibble form via [`bytes_to_nibble_list`][bnl].
 
-    [`Trie`]: ref:ethereum.merkle_patricia_trie.Trie
     [`patricialize`]: ref:ethereum.merkle_patricia_trie.patricialize
     [`encode_node`]: ref:ethereum.merkle_patricia_trie.encode_node
     [`Account`]: ref:ethereum.state.Account

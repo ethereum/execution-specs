@@ -5,14 +5,14 @@ Set EOA account code.
 from typing import Optional, Set, Tuple
 
 from ethereum_rlp import rlp
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidSignatureError
 from ethereum.state import Address
 
-from ..fork_types import Authorization
+from ..fork_types import Authorization, ExecutionGas
 from ..state_tracker import (
     TransactionState,
     account_exists,
@@ -158,7 +158,7 @@ def recover_authority(authorization: Authorization) -> Address:
 
 def calculate_delegation_cost(
     evm: Evm, address: Address
-) -> Tuple[bool, Address, Uint]:
+) -> Tuple[bool, Address, ExecutionGas]:
     """
     Get the delegation address and the cost of access from the address.
 
@@ -171,7 +171,7 @@ def calculate_delegation_cost(
 
     Returns
     -------
-    delegation : `Tuple[bool, Address, Uint]`
+    delegation : `Tuple[bool, Address, ExecutionGas]`
         The delegation address and access gas cost.
 
     """
@@ -184,7 +184,7 @@ def calculate_delegation_cost(
     )
 
     if not is_valid_delegation(code):
-        return False, address, Uint(0)
+        return False, address, GasCosts.ZERO
 
     delegated_address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
 

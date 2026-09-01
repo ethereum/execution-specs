@@ -86,7 +86,7 @@ logger = get_logger(__name__)
 
 class UTCFormatter(logging.Formatter):
     """
-    Log formatter that formats UTC timestamps without milliseconds.
+    Log formatter that formats UTC timestamps with millisecond precision.
     """
 
     def formatTime(self, record: LogRecord, datefmt: str | None = None) -> str:  # noqa: D102,N802
@@ -94,7 +94,7 @@ class UTCFormatter(logging.Formatter):
         del datefmt
 
         dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
-        return dt.strftime("%Y-%m-%d %H:%M:%S")
+        return f"{dt.strftime('%Y-%m-%d %H:%M:%S')}.{int(record.msecs):03d}"
 
     def format(self, record: LogRecord) -> str:
         """Format with relative pathname from current working directory."""

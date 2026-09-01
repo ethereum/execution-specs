@@ -30,6 +30,9 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis import ClientBackend
 from execution_testing.client_clis.cli_types import EnginePayloadMetadata
+from execution_testing.client_clis.client_backend import (
+    DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT,
+)
 from execution_testing.fixtures import FixtureFillingPhase
 from execution_testing.fixtures.blockchain import (
     StatefulPreRunFixture,
@@ -145,6 +148,19 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "struct-log tracer otherwise (besu). Requires the `debug` "
             "namespace. Adds a full re-execution trace per block — slow; "
             "opt-in."
+        ),
+    )
+    group.addoption(
+        "--opcode-count-trace-timeout",
+        action="store",
+        dest="opcode_count_trace_timeout",
+        default=DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT,
+        type=str,
+        help=(
+            "Per-transaction bound for the --extract-opcode-count trace, as "
+            "a Go duration (e.g. 30s, 5m, 1h). Without it the client applies "
+            "its own (5s on geth), which a benchmark block's trace outruns; "
+            "the abandoned transaction is then tallied as zero."
         ),
     )
     group.addoption(
@@ -484,7 +500,7 @@ def max_gas_limit_per_test(
     return fork_at_genesis.transaction_gas_limit_cap()
 
 
-# Other live-client fixtures (``max_transactions_per_batch``,
+# Other live-client fixtures (``max_batch_size``,
 # ``default_*``, fee fields, ``dry_run``, ...) come from
 # ``shared.live_client_flags``. ``skip_cleanup`` from ``execute.pre_alloc``;
 # we force it on in ``pytest_configure``.
@@ -508,10 +524,17 @@ def extract_opcode_count(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.fixture(scope="session")
+def opcode_count_trace_timeout(request: pytest.FixtureRequest) -> str:
+    """The --opcode-count-trace-timeout bound sent with each trace."""
+    return request.config.getoption("opcode_count_trace_timeout")
+
+
+@pytest.fixture(scope="session")
 def client_backend(
     eth_rpc: ChainBuilderEthRPC,
     debug_rpc: DebugRPC,
     extract_opcode_count: bool,
+    opcode_count_trace_timeout: str,
     session_fork: Fork | TransitionFork,
     default_gas_price: int | None,
     default_max_fee_per_gas: int | None,
@@ -537,6 +560,7 @@ def client_backend(
         fork=session_fork,
         debug_rpc=debug_rpc,
         extract_opcode_count=extract_opcode_count,
+        opcode_count_trace_timeout=opcode_count_trace_timeout,
     )
 
     priority_fee = default_max_priority_fee_per_gas

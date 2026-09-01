@@ -179,7 +179,7 @@ def test_contract_creation_tx_collision(
     Test that a contract-creating transaction with an address collision
     emits no log.
 
-    Per EIP-7610, contract creation aborts when the target address already
+    Per EIP-684, contract creation aborts when the target address already
     has non-empty code or nonce. The collision check happens before any
     value transfer, so EIP-7708 emits no Transfer log.
     """

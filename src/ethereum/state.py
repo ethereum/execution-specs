@@ -119,14 +119,6 @@ class PreState(Protocol):
         """
         ...
 
-    def account_has_storage(self, address: Address) -> bool:
-        """
-        Check whether an account has any storage.
-
-        Only needed for EIP-7610.
-        """
-        ...
-
     def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
         Compute the state root after applying `block_diff` to the

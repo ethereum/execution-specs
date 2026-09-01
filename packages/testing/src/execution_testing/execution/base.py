@@ -1,8 +1,9 @@
 """Ethereum test execution base types."""
 
 from abc import abstractmethod
-from typing import Annotated, Any, ClassVar, Dict, Type
+from typing import Annotated, Any, ClassVar, Dict, List, Type
 
+import pytest
 from pydantic import PlainSerializer, PlainValidator
 from pytest import FixtureRequest
 
@@ -42,6 +43,29 @@ class BaseExecute(CamelModel):
         if cls.format_name:
             # Register the new execute format
             BaseExecute.formats[cls.format_name] = cls
+
+    @classmethod
+    def format_class(cls) -> "Type[BaseExecute]":
+        """Get the execute format."""
+        return cls
+
+    @classmethod
+    def format_id(cls) -> str:
+        """Get string used as identifier for this format."""
+        return cls.format_name.lower()
+
+    @classmethod
+    def marks(cls) -> List[pytest.MarkDecorator | pytest.Mark]:
+        """
+        Get list of pytest marks that need to be added to a test produced
+        with this execute format.
+        """
+        return [
+            getattr(
+                pytest.mark,
+                cls.format_name.lower(),
+            ),
+        ]
 
     def prepare_transactions(
         self,
@@ -107,11 +131,7 @@ class LabeledExecuteFormat:
         description: str,
     ):
         """Initialize the execute format with a custom label."""
-        self.format = (
-            execute_format.format
-            if isinstance(execute_format, LabeledExecuteFormat)
-            else execute_format
-        )
+        self.format = execute_format.format_class()
         self.label = label
         self.description = description
         if label not in LabeledExecuteFormat.registered_labels:
@@ -122,23 +142,59 @@ class LabeledExecuteFormat:
         """Get the execute format name."""
         return self.format.format_name
 
+    def format_class(self) -> Type[BaseExecute]:
+        """Get the format without label."""
+        return self.format
+
     @property
     def requires_engine_rpc(self) -> bool:
-        """Get the requires engine RPC flag."""
+        """Get the requires-engine-RPC flag."""
         return self.format.requires_engine_rpc
+
+    def format_id(self) -> str:
+        """Get string used as identifier for this format."""
+        return self.label
+
+    def marks(self) -> List[pytest.MarkDecorator | pytest.Mark]:
+        """
+        Get list of pytest marks that need to be added to a test produced
+        with this execute format.
+        """
+        marks: List[pytest.MarkDecorator | pytest.Mark] = self.format.marks()
+        if self.label.lower() != self.format.format_name.lower():
+            marks.append(
+                getattr(
+                    pytest.mark,
+                    self.label.lower(),
+                )
+            )
+        return marks
 
     def __eq__(self, other: Any) -> bool:
         """
         Check if two labeled execute formats are equal.
 
+        Two labeled formats are equal only when they share both format and
+        label, so one format can carry more than one label.
+
         If the other object is a ExecuteFormat type, the format of the labeled
         execute format will be compared with the format of the other object.
         """
         if isinstance(other, LabeledExecuteFormat):
-            return self.format == other.format
+            return self.format == other.format and self.label == other.label
         if isinstance(other, type) and issubclass(other, BaseExecute):
             return self.format == other
         return False
+
+    def __hash__(self) -> int:
+        """
+        Return the hash of the wrapped format.
+
+        A labeled format compares equal to the plain format it wraps, so both
+        must hash alike. Two labels of one format collide, which is allowed
+        since they no longer compare equal.
+        """
+        return hash(self.format)
 
 
 # Type alias for a base execute class

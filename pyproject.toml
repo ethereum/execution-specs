@@ -38,12 +38,7 @@ dependencies = [
 [tool.setuptools]
 packages = [
     "ethereum_spec_tools",
-    "ethereum_spec_tools.evm_tools",
-    "ethereum_spec_tools.evm_tools.t8n",
-    "ethereum_spec_tools.evm_tools.t8n.evm_trace",
-    "ethereum_spec_tools.evm_tools.b11r",
-    "ethereum_spec_tools.evm_tools.statetest",
-    "ethereum_spec_tools.evm_tools.loaders",
+    "ethereum_spec_tools.loaders",
     "ethereum_spec_tools.lint",
     "ethereum_spec_tools.lint.lints",
     "ethereum_spec_tools.new_fork",
@@ -264,8 +259,6 @@ ethereum-spec-lint = "ethereum_spec_tools.lint:main"
 ethereum-spec-sync = "ethereum_spec_tools.sync:main"
 ethereum-spec-new-fork = "ethereum_spec_tools.new_fork.cli:main"
 ethereum-spec-patch = "ethereum_spec_tools.patch_tool:main"
-ethereum-spec-evm = "ethereum_spec_tools.evm_tools:main"
-whitelist = "ethereum_spec_tools.whitelist:main"
 
 [project.entry-points."docc.plugins"]
 "ethereum_spec_tools.docc.listing" = "ethereum_spec_tools.docc:EthereumListingDiscover"
@@ -285,7 +278,6 @@ whitelist = "ethereum_spec_tools.whitelist:main"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "bigmem: marks tests as big memory (deselect with '-m \"not bigmem\"')",
-    "evm_tools: marks tests as evm_tools (deselect with '-m \"not evm_tools\"')",
     "json_blockchain_tests: marks tests as json_blockchain_tests (deselect with '-m \"not json_blockchain_tests\"')",
     "json_state_tests: marks tests as json_state_tests (deselect with '-m \"not json_state_tests\"')",
     "vm_test: marks tests as vm_test (deselect with '-m \"not vm_test\"')",
@@ -407,7 +399,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/ethereum_spec_tools/evm_tools/loaders/fork_loader.py" = [
+"src/ethereum_spec_tools/loaders/fork_loader.py" = [
     "N802", # Property names do not need to be lowercase
 ]
 "src/ethereum_spec_tools/lint/*" = [
@@ -417,13 +409,11 @@ ignore = [
     "N806", # Special crypto code absolved of variable naming reqs
     "N802", # Special crypto code absolved of function naming reqs
 ]
-"src/ethereum_spec_tools/evm_tools/t8n/evm_trace/eip3155.py" = [
-    "N815", # The traces must use camel case in JSON property names
-]
-"src/ethereum_spec_tools/evm_tools/t8n/evm_trace.py" = [
+"packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/eip3155.py" = [
     "N815", # The traces must use camel case in JSON property names
 ]
 "tests/*" = ["ARG001"]
+"packages/testing/src/execution_testing/evm_tools/tests/*" = ["ARG001"]
 "vulture_whitelist.py" = [
     "B018", # Useless expression (intentional for Vulture whitelisting)
     "E402", # Module-level imports throughout file (needed for whitelisting)
@@ -516,6 +506,7 @@ exclude = [
     "^logs/",
     "^site/",
     "^tests/json_loader/fixtures/",
+    "^packages/testing/build/",
 ]
 plugins = ["pydantic.mypy"]
 

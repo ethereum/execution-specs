@@ -234,6 +234,7 @@ def test_simple_gas_accounting(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "refund_tx_reverts",
     [
@@ -530,6 +531,7 @@ def test_varying_calldata_costs(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "refund_tx_reverts",
     [
@@ -614,7 +616,10 @@ def test_extra_tx_admission_uses_pre_refund_gas(
         blocks=[
             Block(
                 txs=[refund_tx, extra_tx],
-                exception=BlockException.GAS_USED_OVERFLOW,
+                exception=[
+                    BlockException.GAS_USED_OVERFLOW,
+                    TransactionException.GAS_ALLOWANCE_EXCEEDED,
+                ],
                 gas_limit=environment_gas_limit,
             )
         ],

@@ -41,7 +41,6 @@ from execution_testing.test_types import (
     Transaction,
     Withdrawal,
 )
-from execution_testing.test_types.block_access_list import BlockAccessList
 from execution_testing.test_types.receipt_types import TransactionReceipt
 
 from .cli_types import (
@@ -74,6 +73,8 @@ STRUCT_LOG_TRACER_CONFIG = {
     "disableMemory": True,
     "disableStorage": True,
 }
+
+DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT = "1h"
 
 
 def _normalize_opcode_name(name: str) -> str | None:
@@ -166,6 +167,8 @@ class ClientBackend:
     start_block: Dict[str, Any] | None
     """Client head after global pre-run setup; per-test chains off this."""
 
+    attests_block_access_list_hash: ClassVar[bool] = False
+
     # t8n-compatibility stubs — fill's filler reads these on the backend.
     opcode_count: OpcodeCount | None = None
     opcode_count_per_block: List[OpcodeCount] | None = None
@@ -190,6 +193,7 @@ class ClientBackend:
         fork: Fork | TransitionFork,
         debug_rpc: DebugRPC | None = None,
         extract_opcode_count: bool = False,
+        opcode_count_trace_timeout: str = DEFAULT_OPCODE_COUNT_TRACE_TIMEOUT,
     ) -> None:
         """Initialize with the RPC clients and the session fork."""
         self.testing_rpc = testing_rpc
@@ -198,6 +202,7 @@ class ClientBackend:
         self.fork = fork
         self.debug_rpc = debug_rpc
         self.extract_opcode_count = extract_opcode_count
+        self.opcode_count_trace_timeout = opcode_count_trace_timeout
         # Sticky fallback to struct logs (besu has no JS tracer).
         self._js_tracer_unsupported = False
         self.exception_mapper = ClientBackendExceptionMapper()
@@ -292,7 +297,9 @@ class ClientBackend:
         assert np_version is not None
         assert fcu_version is not None
 
-        receipts = self._fetch_receipts(txs)
+        receipts = self._fetch_receipts(
+            txs, get_payload_response.execution_payload.block_hash
+        )
         result = self._build_result(
             built_payload=get_payload_response.execution_payload,
             execution_requests=get_payload_response.execution_requests,
@@ -356,7 +363,8 @@ class ClientBackend:
         """Raw ``debug_traceBlockByHash`` call; exceptions propagate."""
         assert self.debug_rpc is not None
         return self.debug_rpc.trace_block_by_hash(
-            str(block_hash), tracer_config
+            str(block_hash),
+            {"timeout": self.opcode_count_trace_timeout, **tracer_config},
         )
 
     def _payload_attributes(
@@ -434,18 +442,54 @@ class ClientBackend:
         )
 
     def _fetch_receipts(
-        self, txs: List[Transaction]
+        self,
+        txs: List[Transaction],
+        block_hash: Hash,
     ) -> List[TransactionReceipt]:
-        """Fetch receipts for each transaction. TODO: batch via JSON-RPC."""
-        receipts: List[TransactionReceipt] = []
-        for tx in txs:
-            receipt_data = self.eth_rpc.get_transaction_receipt(tx.hash)
-            if receipt_data is None:
-                raise RuntimeError(
-                    f"No receipt found for transaction {tx.hash}"
-                )
-            receipts.append(TransactionReceipt.model_validate(receipt_data))
-        return receipts
+        """
+        Fetch all transaction receipts in order.
+
+        Use `eth_getBlockReceipts` for the block, then fetch any receipt it
+        did not return with a batched `eth_getTransactionReceipt` fallback.
+        Raise an error if any receipt remains missing.
+        """
+        if not txs:
+            return []
+        block_receipts: List[dict[str, Any]] = []
+        try:
+            block_receipts = self.eth_rpc.get_block_receipts(block_hash) or []
+        except JSONRPCError as error:
+            logger.warning(
+                f"eth_getBlockReceipts failed for block {block_hash}: {error}"
+            )
+
+        receipt_data_by_hash: Dict[Hash, dict[str, Any]] = {}
+        for receipt_data in block_receipts:
+            tx_hash = receipt_data.get("transactionHash")
+            if tx_hash is not None:
+                receipt_data_by_hash[Hash(tx_hash)] = receipt_data
+
+        missing = [
+            tx.hash for tx in txs if tx.hash not in receipt_data_by_hash
+        ]
+        if missing:
+            logger.warning(
+                f"Block receipts covered {len(txs) - len(missing)} of "
+                f"{len(txs)} transactions; fetching the remaining "
+                f"{len(missing)} in a batched fallback"
+            )
+            fetched = self.eth_rpc.get_transaction_receipts(missing)
+            for tx_hash, fetched_data in zip(missing, fetched, strict=True):
+                if fetched_data is None:
+                    raise RuntimeError(
+                        f"No receipt found for transaction {tx_hash}"
+                    )
+                receipt_data_by_hash[tx_hash] = fetched_data
+
+        return [
+            TransactionReceipt.model_validate(receipt_data_by_hash[tx.hash])
+            for tx in txs
+        ]
 
     def _build_result(
         self,
@@ -470,9 +514,9 @@ class ClientBackend:
         block_access_list_hash: Hash | None = None
         bal_rlp = getattr(built_payload, "block_access_list", None)
         if bal_rlp is not None:
-            block_access_list_hash = Hash(
-                BlockAccessList.from_rlp(bal_rlp).rlp.keccak256()
-            )
+            # Hash the client's own bytes: a re-encode of the decoded BAL
+            # would diverge whenever the client's RLP is non-canonical.
+            block_access_list_hash = Hash(bal_rlp.keccak256())
 
         return Result(
             state_root=built_payload.state_root,

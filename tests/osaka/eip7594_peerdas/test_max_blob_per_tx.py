@@ -55,11 +55,25 @@ def blob_gas_price(fork: Fork | TransitionFork) -> int:
 
 
 @pytest.fixture
+def tx_gas(fork: Fork | TransitionFork) -> int:
+    """Intrinsic gas for the value-carrying blob transactions."""
+    return max(
+        fork.transitions_from().transaction_intrinsic_cost_calculator()(
+            sends_value=True
+        ),
+        fork.transitions_to().transaction_intrinsic_cost_calculator()(
+            sends_value=True
+        ),
+    )
+
+
+@pytest.fixture
 def tx(
     sender: Address,
     destination: Address,
     blob_gas_price: int,
     blob_count: int,
+    tx_gas: int,
 ) -> Transaction:
     """Blob transaction fixture."""
     return Transaction(
@@ -67,7 +81,7 @@ def tx(
         sender=sender,
         to=destination,
         value=1,
-        gas_limit=21_000,
+        gas_limit=tx_gas,
         max_fee_per_gas=10,
         max_priority_fee_per_gas=1,
         max_fee_per_blob_gas=blob_gas_price,
@@ -103,6 +117,7 @@ def test_valid_max_blobs_per_tx(
     )
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize_by_fork(
     "blob_count",
     lambda fork: [

@@ -35,6 +35,7 @@ pytestmark = pytest.mark.valid_from("Shanghai")
 ONE_GWEI = 10**9
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.parametrize(
     "test_case",
     [

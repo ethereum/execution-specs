@@ -27,6 +27,7 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
+@pytest.mark.inclusion_test
 @pytest.mark.ported_from(
     ["state_tests/stTransactionTest/NoSrcAccountCreate1559Filler.yml"],
 )

@@ -272,34 +272,7 @@ def account_deployable(tx_state: TransactionState, address: Address) -> bool:
     if account.nonce != Uint(0) or account.code_hash != EMPTY_CODE_HASH:
         return False
 
-    if account_has_storage(tx_state, address):
-        return False
-
     return True
-
-
-def account_has_storage(tx_state: TransactionState, address: Address) -> bool:
-    """
-    Check if an account has storage.
-
-    Parameters
-    ----------
-    tx_state :
-        The transaction state.
-    address :
-        Address of the account that needs to be checked.
-
-    Returns
-    -------
-    has_storage : ``bool``
-        True if the account has storage, False otherwise.
-
-    """
-    if tx_state.storage_writes.get(address):
-        return True
-    if tx_state.parent.storage_writes.get(address):
-        return True
-    return tx_state.parent.pre_state.account_has_storage(address)
 
 
 def account_exists_and_is_empty(

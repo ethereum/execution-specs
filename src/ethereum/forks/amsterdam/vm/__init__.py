@@ -26,7 +26,12 @@ from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import Authorization, VersionedHash
+from ..fork_types import (
+    Authorization,
+    ExecutionGas,
+    StateGas,
+    VersionedHash,
+)
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
 from .gas import GasMeter
@@ -70,10 +75,10 @@ class BlockOutput:
 
     Contains the following:
 
-    block_gas_used : `ethereum.base_types.Uint`
+    block_gas_used : `ExecutionGas`
         Execution gas used for executing all transactions. EIP-8037
         names this counter `block_execution_gas_used`.
-    block_state_gas_used : `ethereum.base_types.Uint`
+    block_state_gas_used : `StateGas`
         State gas used for executing all transactions.
     cumulative_gas_used : `ethereum.base_types.Uint`
         Cumulative gas paid by users (post-refund, post-floor).
@@ -96,8 +101,8 @@ class BlockOutput:
         The block access list for the block.
     """
 
-    block_gas_used: Uint = Uint(0)
-    block_state_gas_used: Uint = Uint(0)
+    block_gas_used: ExecutionGas = ExecutionGas(Uint(0))
+    block_state_gas_used: StateGas = StateGas(Uint(0))
     cumulative_gas_used: Uint = Uint(0)
     transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = (
         field(default_factory=lambda: Trie(secured=False, default=None))
@@ -130,8 +135,8 @@ class TransactionEnvironment:
     value: U256
     gas_limit: Uint
     effective_gas_price: Uint
-    execution_gas_grant: Uint
-    state_gas_reservoir: Uint
+    execution_gas_grant: ExecutionGas
+    state_gas_reservoir: StateGas
     calldata_floor: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
