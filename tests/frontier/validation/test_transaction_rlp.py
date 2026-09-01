@@ -12,7 +12,10 @@ from execution_testing import (
     TransactionTestFiller,
 )
 
-pytestmark = pytest.mark.valid_from("Frontier")
+pytestmark = [
+    pytest.mark.valid_from("Frontier"),
+    pytest.mark.inclusion_test,
+]
 
 LEGACY_TX_TESTS = (
     "https://github.com/ethereum/tests/blob/"
