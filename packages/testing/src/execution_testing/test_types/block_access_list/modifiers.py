@@ -6,7 +6,7 @@ Lists in various ways for testing invalid block scenarios. They are composable
 and can be combined to create complex modifications.
 """
 
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Literal, Optional
 
 import ethereum_rlp as eth_rlp
 
@@ -22,10 +22,21 @@ from . import (
     BalBalanceChange,
     BalNonceChange,
     BalStorageChange,
+    BalStorageSlot,
     BlockAccessList,
 )
 
+BalScalarField = Literal[
+    "storage_slot", "storage_value", "storage_read", "balance"
+]
+"""EIP-7928 uint256 fields, each RLP-encoded as a minimal scalar."""
+
+_STORAGE_CHANGES_INDEX = BalAccountChange.rlp_fields.index("storage_changes")
+_STORAGE_READS_INDEX = BalAccountChange.rlp_fields.index("storage_reads")
 _BALANCE_CHANGES_INDEX = BalAccountChange.rlp_fields.index("balance_changes")
+_SLOT_INDEX = BalStorageSlot.rlp_fields.index("slot")
+_SLOT_CHANGES_INDEX = BalStorageSlot.rlp_fields.index("slot_changes")
+_POST_VALUE_INDEX = BalStorageChange.rlp_fields.index("post_value")
 _POST_BALANCE_INDEX = BalBalanceChange.rlp_fields.index("post_balance")
 
 
@@ -876,11 +887,25 @@ def keep_only(
     return transform
 
 
-def encode_balance_non_minimally(
-    address: Address,
+def _scalar_leaf(
+    element: List[Any], field: BalScalarField
+) -> tuple[List[Any], int]:
+    """Return the container and index of the scalar named by ``field``."""
+    if field == "storage_slot":
+        return element[_STORAGE_CHANGES_INDEX][0], _SLOT_INDEX
+    if field == "storage_value":
+        slot = element[_STORAGE_CHANGES_INDEX][0]
+        return slot[_SLOT_CHANGES_INDEX][0], _POST_VALUE_INDEX
+    if field == "storage_read":
+        return element[_STORAGE_READS_INDEX], 0
+    return element[_BALANCE_CHANGES_INDEX][0], _POST_BALANCE_INDEX
+
+
+def encode_scalar_non_minimally(
+    address: Address, field: BalScalarField
 ) -> Callable[[BlockAccessList], Bytes]:
     """
-    Re-encode the BAL with the account's first ``post_balance`` carrying a
+    Re-encode the BAL with the account's first ``field`` scalar carrying a
     leading zero byte, leaving every other field canonically encoded.
 
     ``eth_rlp.encode`` emits an integer minimally but a ``bytes`` verbatim,
@@ -892,13 +917,13 @@ def encode_balance_non_minimally(
         for account_change, element in zip(bal.root, elements, strict=True):
             if account_change.address != address:
                 continue
-            balance_changes = element[_BALANCE_CHANGES_INDEX]
-            if not balance_changes:
-                raise ValueError(f"No balance change for {address} in the BAL")
-            post_balance = balance_changes[0][_POST_BALANCE_INDEX]
-            balance_changes[0][_POST_BALANCE_INDEX] = (
-                b"\x00" + post_balance.to_be_bytes()
-            )
+            try:
+                container, index = _scalar_leaf(element, field)
+            except IndexError:
+                raise ValueError(
+                    f"No {field} entry for {address} in the BAL"
+                ) from None
+            container[index] = b"\x00" + container[index].to_be_bytes()
             return Bytes(eth_rlp.encode(elements))
         raise ValueError(f"Address {address} was not found in the BAL")
 
@@ -938,5 +963,6 @@ __all__ = [
     "duplicate_slot_change",
     "insert_storage_read",
     # Encoding modifiers
-    "encode_balance_non_minimally",
+    "BalScalarField",
+    "encode_scalar_non_minimally",
 ]

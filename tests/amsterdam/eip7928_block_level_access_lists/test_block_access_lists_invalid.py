@@ -36,6 +36,7 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.test_types.block_access_list.modifiers import (
+    BalScalarField,
     append_account,
     append_change,
     append_empty_slot,
@@ -47,7 +48,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     duplicate_slot_change,
     duplicate_storage_read,
     duplicate_storage_slot,
-    encode_balance_non_minimally,
+    encode_scalar_non_minimally,
     insert_storage_read,
     modify_balance,
     modify_code,
@@ -1738,40 +1739,54 @@ def test_bal_invalid_engine_payload_encoding(
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.blockchain_test_engine_only
 @pytest.mark.exception_test
-def test_bal_invalid_non_minimal_balance_encoding(
+@pytest.mark.parametrize(
+    "field",
+    ["storage_slot", "storage_value", "storage_read", "balance"],
+)
+def test_bal_invalid_non_minimal_scalar_encoding(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    field: BalScalarField,
 ) -> None:
     """
-    Reject a `newPayload` whose BAL encodes a `post_balance` with a leading
-    zero byte.
+    Reject a `newPayload` whose BAL encodes one of its uint256 scalars with
+    a leading zero byte.
+
+    The field is present but not a valid encoding, so the payload is
+    invalid rather than the request being malformed.
 
     Only the encoding differs, so the header still commits to the canonical
     BAL: a client that skips the minimal-scalar check and re-encodes the
     decoded BAL before hashing computes a matching hash and accepts.
     """
-    sender = pre.fund_eoa(amount=10**18)
-    receiver = pre.fund_eoa(amount=0)
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.SSTORE(1, 1) + Op.SLOAD(2))
 
-    tx = Transaction(
-        sender=sender,
-        to=receiver,
-        value=10**15,
-    )
+    tx = Transaction(sender=alice, to=oracle, value=10**15)
 
     blockchain_test(
         pre=pre,
-        post={
-            sender: Account(balance=10**18, nonce=0),
-            receiver: None,
-        },
+        # The block is rejected and the post state remains unchanged.
+        post=pre,
         blocks=[
             Block(
                 txs=[tx],
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
-                        receiver: BalAccountExpectation(
+                        oracle: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=1,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        )
+                                    ],
+                                )
+                            ],
+                            storage_reads=[2],
                             balance_changes=[
                                 BalBalanceChange(
                                     block_access_index=1,
@@ -1780,7 +1795,7 @@ def test_bal_invalid_non_minimal_balance_encoding(
                             ],
                         ),
                     }
-                ).modify_rlp(encode_balance_non_minimally(receiver)),
+                ).modify_rlp(encode_scalar_non_minimally(oracle, field)),
             )
         ],
     )
