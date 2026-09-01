@@ -56,6 +56,14 @@ from .requests import (
     compute_requests_hash,
     parse_deposit_requests,
 )
+from .slot_timing import (
+    BASE_SLOT_DURATION_MS,
+    SLOT_DURATION_SCHEDULE,
+    SlotDurationSchedule,
+    get_slot_duration_ms,
+    get_transition_durations,
+    scale_transition_limit,
+)
 from .state_tracker import (
     BlockState,
     TransactionState,
@@ -111,6 +119,12 @@ SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
 BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
+"""
+Address of the beacon roots ring buffer contract. Its 8191-entry buffer
+holds one root per slot, so its wall-clock coverage shrinks from ~27.3
+hours to ~22.8 hours under 10-second slots. The buffer length is part of
+the deployed contract and is deliberately not changed by this fork.
+"""
 SYSTEM_TRANSACTION_GAS = ExecutionGas(Uint(30000000))
 SYSTEM_MAX_SSTORES_PER_CALL = Uint(16)
 """
@@ -134,6 +148,12 @@ BUILDER_EXIT_CONTRACT_ADDRESS = hex_to_address(
 HISTORY_STORAGE_ADDRESS = hex_to_address(
     "0x0000F90827F1C53a10cb7A02335B175320002935"
 )
+"""
+Address of the block hash history contract. Its 8191-entry window is
+denominated in blocks, so its wall-clock coverage shrinks from ~27.3
+hours to ~22.8 hours under 10-second slots. The window length is part of
+the deployed contract and is deliberately not changed by this fork.
+"""
 MAX_BLOCK_SIZE = 10_485_760
 SAFETY_MARGIN = 2_097_152
 MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
@@ -370,57 +390,42 @@ def calculate_base_fee_per_gas(
     parent_gas_limit: Uint,
     parent_gas_used: Uint,
     parent_base_fee_per_gas: Uint,
+    gas_limit_reference: Optional[Uint] = None,
+    slot_duration_ms: Optional[Uint] = None,
 ) -> Uint:
-    """
-    Calculates the base fee per gas for the block.
-
-    Parameters
-    ----------
-    block_gas_limit :
-        Gas limit of the block for which the base fee is being calculated.
-    parent_gas_limit :
-        Gas limit of the parent block.
-    parent_gas_used :
-        Gas used in the parent block.
-    parent_base_fee_per_gas :
-        Base fee per gas of the parent block.
-
-    Returns
-    -------
-    base_fee_per_gas : `Uint`
-        Base fee per gas for the block.
-
-    """
+    """Calculate the base fee while preserving wall-clock response."""
+    if gas_limit_reference is None:
+        gas_limit_reference = parent_gas_limit
+    if slot_duration_ms is None:
+        slot_duration_ms = get_slot_duration_ms(U64(0))
     parent_gas_target = parent_gas_limit // ELASTICITY_MULTIPLIER
-    if not check_gas_limit(block_gas_limit, parent_gas_limit):
+    if not check_gas_limit(block_gas_limit, gas_limit_reference):
         raise InvalidBlock
 
     if parent_gas_used == parent_gas_target:
         expected_base_fee_per_gas = parent_base_fee_per_gas
     elif parent_gas_used > parent_gas_target:
         gas_used_delta = parent_gas_used - parent_gas_target
-
         parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
         target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
-
         base_fee_per_gas_delta = max(
-            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR,
+            target_fee_gas_delta
+            * slot_duration_ms
+            // (BASE_SLOT_DURATION_MS * BASE_FEE_MAX_CHANGE_DENOMINATOR),
             Uint(1),
         )
-
         expected_base_fee_per_gas = (
             parent_base_fee_per_gas + base_fee_per_gas_delta
         )
     else:
         gas_used_delta = parent_gas_target - parent_gas_used
-
         parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
         target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
-
         base_fee_per_gas_delta = (
-            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR
+            target_fee_gas_delta
+            * slot_duration_ms
+            // (BASE_SLOT_DURATION_MS * BASE_FEE_MAX_CHANGE_DENOMINATOR)
         )
-
         expected_base_fee_per_gas = (
             parent_base_fee_per_gas - base_fee_per_gas_delta
         )
@@ -429,41 +434,48 @@ def calculate_base_fee_per_gas(
 
 
 def validate_header(
-    parent_header: Header | PreviousHeader, header: Header
+    parent_header: Header | PreviousHeader,
+    header: Header,
+    slot_duration_schedule: SlotDurationSchedule = SLOT_DURATION_SCHEDULE,
 ) -> None:
-    """
-    Verify a block header against its parent.
-
-    In order to consider a block's header valid, the logic for the
-    quantities in the header should match the logic for the block itself.
-    For example the header timestamp should be greater than the block's parent
-    timestamp because the block was created *after* the parent block.
-    Additionally, the block's number should be directly following the parent
-    block's number since it is the next block in the sequence.
-
-    Parameters
-    ----------
-    parent_header :
-        Header of the parent block.
-    header :
-        Header to check for correctness.
-
-    """
+    """Verify a block header against its parent."""
     if header.number < Uint(1):
         raise InvalidBlock
 
-    excess_blob_gas = calculate_excess_blob_gas(parent_header)
+    excess_blob_gas = calculate_excess_blob_gas(
+        parent_header,
+        header.slot_number,
+        slot_duration_schedule,
+    )
     if header.excess_blob_gas != excess_blob_gas:
         raise InvalidBlock
 
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
 
+    parent_slot_number: Optional[U64]
+    if isinstance(parent_header, Header):
+        parent_slot_number = parent_header.slot_number
+    else:
+        parent_slot_number = None
+
+    old_duration_ms, new_duration_ms = get_transition_durations(
+        parent_slot_number,
+        header.slot_number,
+        slot_duration_schedule,
+    )
+    gas_limit_reference = scale_transition_limit(
+        parent_header.gas_limit,
+        old_duration_ms,
+        new_duration_ms,
+    )
     expected_base_fee_per_gas = calculate_base_fee_per_gas(
         header.gas_limit,
         parent_header.gas_limit,
         parent_header.gas_used,
         parent_header.base_fee_per_gas,
+        gas_limit_reference=gas_limit_reference,
+        slot_duration_ms=new_duration_ms,
     )
     if expected_base_fee_per_gas != header.base_fee_per_gas:
         raise InvalidBlock
@@ -560,6 +572,7 @@ def check_transaction(
             tx.blob_versioned_hashes,
             tx.max_fee_per_blob_gas,
             block_env.excess_blob_gas,
+            block_env.slot_number,
         )
 
         max_gas_fee += Uint(calculate_total_blob_gas(tx)) * Uint(
@@ -955,7 +968,11 @@ def update_sender_state(
 
     effective_gas_fee = tx_env.gas_limit * tx_env.effective_gas_price
     if isinstance(tx, BlobTransaction):
-        blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)
+        blob_gas_fee = calculate_data_fee(
+            block_env.excess_blob_gas,
+            tx,
+            block_env.slot_number,
+        )
     else:
         blob_gas_fee = Uint(0)
 
