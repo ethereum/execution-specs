@@ -45,6 +45,8 @@ SLOT_Y = 2
 SLOT_MARKER = 3
 SLOT_RESULT = 4
 SLOT_INCREASED = 5
+SLOT_PROBE = 6
+SLOT_PROBE_RESULT = 7
 
 
 def window_cost_excess(result_sstore: Opcode = Op.SSTORE) -> Bytecode:
@@ -614,5 +616,99 @@ def test_cross_frame_refund_after_delegation_spill(
     post = {
         contract: Account(storage={SLOT_X: 0, SLOT_RESULT: call_cost}),
         signer: Account(code=Spec7702.delegation_designation(contract)),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("reservoir_slots", [0, 1, 2])
+@pytest.mark.valid_from("EIP8037")
+def test_cross_frame_refund_with_reservoir_grant(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    reservoir_slots: int,
+) -> None:
+    """
+    Test a cross-frame refund with a reservoir the sender paid for.
+
+    The reservoir covers none, one or both of the parent's two sets and
+    the rest spill. A delegated child clears both slots. The call and a
+    later set cost the same in every case: the refund stays in the
+    reservoir and the spill is not repaid.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    fresh_set = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=1,
+    )
+    warm_clear = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+
+    child_code = warm_clear(SLOT_X, 0) + warm_clear(SLOT_Y, 0)
+    child = pre.deploy_contract(code=child_code)
+    # SSTORE needs more than the call stipend left, so give the child
+    # that much on top of its cost.
+    child_budget = fork.call_value_stipend() + 1 + child_code.gas_cost(fork)
+
+    call = Op.POP(
+        Op.DELEGATECALL(gas=child_budget, address=child, address_warm=False)
+    )
+    probe = fresh_set(SLOT_PROBE, 1)
+    code = (
+        Op.MSTORE(64, 0, new_memory_size=96, old_memory_size=0)
+        + fresh_set(SLOT_X, 1)
+        + fresh_set(SLOT_Y, 1)
+        + Op.MSTORE(0, Op.GAS)
+        + call
+        + Op.MSTORE(32, Op.GAS)
+        + probe
+        + Op.MSTORE(64, Op.GAS)
+        + fresh_set(SLOT_RESULT, Op.SUB(Op.MLOAD(0), Op.MLOAD(32)))
+        + fresh_set(SLOT_PROBE_RESULT, Op.SUB(Op.MLOAD(32), Op.MLOAD(64)))
+    )
+    contract = pre.deploy_contract(code=code)
+
+    # A window runs from one GAS read to the next: the store of the
+    # first read, the window's code and the second read.
+    stamp_cost = Op.MSTORE(0, Op.GAS).gas_cost(fork)
+    call_cost = (
+        stamp_cost
+        + call.execution_cost(fork)
+        + child_code.execution_cost(fork)
+    )
+    probe_cost = stamp_cost + probe.execution_cost(fork)
+
+    gas_used = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + code.gas_cost(fork)
+        + child_code.gas_cost(fork)
+        - child_code.state_refund(fork)
+    )
+    refund = child_code.refund(fork) - child_code.state_refund(fork)
+    gas_used -= min(gas_used // fork.max_refund_quotient(), refund)
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=reservoir_slots * sstore_state_gas,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
+    )
+
+    post = {
+        contract: Account(
+            storage={
+                SLOT_X: 0,
+                SLOT_Y: 0,
+                SLOT_PROBE: 1,
+                SLOT_RESULT: call_cost,
+                SLOT_PROBE_RESULT: probe_cost,
+            }
+        )
     }
     state_test(pre=pre, post=post, tx=tx)
