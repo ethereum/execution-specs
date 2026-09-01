@@ -221,22 +221,6 @@ class TestGetCode:
         assert witness_state.get_code(_CODE_HASH) == _CODE
 
 
-class TestAccountHasStorage:
-    """Test WitnessState.account_has_storage."""
-
-    def test_with_storage(self) -> None:
-        """Returns True for an account that has a non-empty storage trie."""
-        witness_state = _make_ws(
-            {_ADDR1: _acct()}, {_ADDR1: {_SLOT1: U256(1)}}
-        )
-        assert witness_state.account_has_storage(_ADDR1) is True
-
-    def test_without_storage(self) -> None:
-        """Returns False for an account with an empty storage trie."""
-        witness_state = _make_ws({_ADDR1: _acct(balance=100)})
-        assert witness_state.account_has_storage(_ADDR1) is False
-
-
 class TestComputeStateRoot:
     """Test WitnessState.compute_state_root_and_trie_changes."""
 

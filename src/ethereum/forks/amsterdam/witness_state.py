@@ -212,17 +212,6 @@ class WitnessState:
             return b""
         return self._code_db[code_hash]
 
-    def account_has_storage(self, address: Address) -> bool:
-        """
-        Check whether an account has any storage.
-
-        Only needed for EIP-7610.
-        """
-        if address not in self._storage_root_cache:
-            self.get_account_optional(address)
-        storage_root = self._storage_root_cache.get(address, EMPTY_TRIE_ROOT)
-        return storage_root != EMPTY_TRIE_ROOT
-
     def compute_state_root(self, block_diff: BlockDiff) -> Root:
         """
         Compute the state root after applying ``block_diff``.
