@@ -1406,11 +1406,14 @@ def settle_transaction_gas(
 @dataclass
 class FrameTransactionGasSettlement:
     """
-    Settled per-dimension gas for a finished frame transaction.
+    Settled gas amounts for a finished frame transaction.
 
-    Hold only the two block-accounted dimensions; their sum is the
-    transaction's `gas_used`, derived by the caller.
+    Hold the payer-facing total alongside the two block-accounted
+    dimensions so the caller does not have to reconstruct settlement.
     """
+
+    gas_used: Uint
+    """Total gas charged to the payer, after refund and floor."""
 
     execution_gas_used: ExecutionGas
     """Execution gas the transaction contributes to the block total."""
@@ -1437,17 +1440,20 @@ def settle_frame_transaction_gas(
       ([EIP-3529]) — state gas refills bypass the cap by design: a
       refill reverses a charge for state that was never durably
       created, and has already reduced the owning frame's receipt, and
-      with it the pre-refund usage; and
-    - the execution dimension, as the post-refund usage less the final
-      attributed state gas, held to the calldata floor ([EIP-7623]).
-      The floor binds the execution dimension alone, so — unlike the
-      regular flow — a floor-bound transaction pays the floor plus its
-      state gas in full.
+      with it the pre-refund usage;
+    - the payer-facing execution dimension, as the post-refund usage
+      less the final attributed state gas, held to the calldata floor
+      ([EIP-7623]); and
+    - the block-accounted execution dimension, as the pre-refund usage
+      less the final attributed state gas, held to the same floor.
+      Storage refunds therefore reduce what the payer pays without
+      reducing block execution gas ([EIP-7778]).
 
-    The refund cap of a state-dominated transaction can exceed its
-    intrinsic cost plus execution usage, driving the subtraction
-    negative, so it is computed in plain integers before the floor
-    clamps it.
+    The floor binds the execution dimension alone, so a floor-bound
+    transaction pays the floor plus its state gas in full. The refund
+    cap of a state-dominated transaction can exceed its intrinsic cost
+    plus execution usage, driving the payer-facing subtraction negative,
+    so it is computed in plain integers before the floor clamps it.
 
     Parameters
     ----------
@@ -1470,10 +1476,11 @@ def settle_frame_transaction_gas(
     Returns
     -------
     settlement : `FrameTransactionGasSettlement`
-        The settled per-dimension gas.
+        The settled gas amounts.
 
     [EIP-3529]: https://eips.ethereum.org/EIPS/eip-3529
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    [EIP-7778]: https://eips.ethereum.org/EIPS/eip-7778
 
     """
     gas_used_before_refund = standard_gas_limit - tx_unused_gas
@@ -1482,7 +1489,7 @@ def settle_frame_transaction_gas(
     )
     gas_used_after_refund = gas_used_before_refund - applied_refund
 
-    execution_gas_used = ExecutionGas(
+    payer_execution_gas_used = ExecutionGas(
         Uint(
             max(
                 int(gas_used_after_refund) - int(tx_state_gas),
@@ -1490,7 +1497,14 @@ def settle_frame_transaction_gas(
             )
         )
     )
+    block_execution_gas_used = ExecutionGas(
+        max(
+            gas_used_before_refund - Uint(tx_state_gas),
+            calldata_floor,
+        )
+    )
     return FrameTransactionGasSettlement(
-        execution_gas_used=execution_gas_used,
+        gas_used=Uint(payer_execution_gas_used) + Uint(tx_state_gas),
+        execution_gas_used=block_execution_gas_used,
         state_gas_used=tx_state_gas,
     )
