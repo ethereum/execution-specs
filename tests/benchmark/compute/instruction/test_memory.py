@@ -177,13 +177,14 @@ def test_nested_frame_memory(
         Op.MSTORE8(mem_size - 1, 0xFF) if mem_size > 0 else Bytecode()
     )
 
-    descend = Op.MSTORE(0, Op.SUB(Op.CALLDATALOAD(0), 1)) + Op.POP(
-        Op.CALL(
+    descend = Op.MSTORE(0, Op.SUB(Op.CALLDATALOAD(0), 1)) + Conditional(
+        condition=Op.CALL(
             gas=Op.GAS,
             address=Op.ADDRESS,
             args_offset=0,
             args_size=32,
-        )
+        ),
+        if_false=Op.REVERT(0, 0),
     )
 
     entry_address = pre.deploy_contract(

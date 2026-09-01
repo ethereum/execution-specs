@@ -594,7 +594,7 @@ def test_nested_frame_state_access(
         if_false=Op.REVERT(0, 0),
     )
     invoke_leaf = Op.CALL(
-        gas=Op.GAS, address=leaf_address, address_warm=True
+        gas=Op.GAS, address=leaf_address, address_warm=False
     ) + Conditional(
         condition=Op.RETURNDATASIZE, if_false=Op.REVERT(Op.PUSH0, Op.PUSH0)
     )
@@ -606,15 +606,13 @@ def test_nested_frame_state_access(
     )
     entry_address = pre.deploy_contract(code=frame_code)
 
-    frame_gas = frame_code.execution_cost(fork)
+    frame_gas = frame_code.gas_cost(fork)
     leaf_gas = leaf_code.gas_cost(fork)
     leaf_state_gas = leaf_code.state_cost(fork)
 
-    def deepest_frame(execution_gas: int, reservoir_gas: int) -> int:
+    def deepest_frame(execution_gas: int) -> int:
         """Return the deepest frame that can still afford the leaf call."""
-        leaf_call_gas = frame_gas + math.ceil(
-            (leaf_gas - reservoir_gas) * 64 / 63
-        )
+        leaf_call_gas = frame_gas + math.ceil(leaf_gas * 64 / 63)
         frames = 0
         while True:
             forwarded_gas = execution_gas - frame_gas
@@ -645,7 +643,7 @@ def test_nested_frame_state_access(
                 to=entry_address,
                 gas_limit=execution_gas + reservoir_gas,
                 data=Hash(
-                    deepest_frame(execution_gas - intrinsic_gas, reservoir_gas)
+                    deepest_frame(execution_gas - intrinsic_gas)
                     if depth is None
                     else depth
                 ),
