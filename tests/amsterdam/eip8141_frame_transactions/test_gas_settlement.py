@@ -126,26 +126,17 @@ def test_calldata_floor_with_state_gas(
 
 
 @pytest.mark.parametrize(
-    "calldata_padding_length,floor_case",
+    "floor_case",
     [
-        pytest.param(0, "below_post_refund", id="post_refund_above_floor"),
-        pytest.param(
-            768,
-            "between",
-            id="floor_between_pre_and_post_refund",
-        ),
-        pytest.param(
-            1024,
-            "above_pre_refund",
-            id="floor_above_pre_refund",
-        ),
+        pytest.param("below_post_refund", id="post_refund_above_floor"),
+        pytest.param("between", id="floor_between_pre_and_post_refund"),
+        pytest.param("above_pre_refund", id="floor_above_pre_refund"),
     ],
 )
 def test_storage_refund_settlement(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    calldata_padding_length: int,
     floor_case: str,
 ) -> None:
     """
@@ -173,51 +164,73 @@ def test_storage_refund_settlement(
     worker_code = padding + clear + Op.STOP
     worker = pre.deploy_contract(code=worker_code, storage={SLOT: 1})
 
-    tx = Transaction(
-        sender=sender,
-        frames=[
-            verify_frame(),
-            default_frame(
-                target=worker,
-                gas_limit=REFUND_WORKER_GAS,
-                state_gas_limit=0,
-                data=b"\x00" * calldata_padding_length,
-            ),
-        ],
-    )
-    # Materialize the signature bytes the intrinsic cost and calldata
-    # floor charge for.
-    tx.sign()
-    assert tx.frames is not None and tx.signatures is not None
-
     verify_gas = default_code_frame_gas(fork, target_warm=True)
     frame_execution_gas = fork.frame_entry_gas_calculator()() + (
         worker_code.execution_cost(fork)
     )
-    gas_used_before_refund = (
-        fork.frame_transaction_intrinsic_cost_calculator()(
-            frames=tx.frames,
-            signatures=tx.signatures,
-            return_cost_deducted_prior_execution=True,
-        )
-        + verify_gas
-        + frame_execution_gas
-    )
-    refund = worker_code.refund(fork)
-    # The premise of the test: the refund applies uncapped.
-    assert 0 < refund <= gas_used_before_refund // 5
-    gas_used_after_refund = gas_used_before_refund - refund
-    calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
-        frames=tx.frames, signatures=tx.signatures
-    )
 
-    if floor_case == "below_post_refund":
-        assert calldata_floor < gas_used_after_refund
-    elif floor_case == "between":
-        assert gas_used_after_refund < calldata_floor < gas_used_before_refund
-    else:
-        assert floor_case == "above_pre_refund"
-        assert gas_used_before_refund < calldata_floor
+    data = b""
+    bytes_to_add_per_iteration = b"\x00" * 16
+    num_iterations = 200
+    found_floor_case = False
+
+    for _ in range(num_iterations):
+        tx = Transaction(
+            sender=sender,
+            frames=[
+                verify_frame(),
+                default_frame(
+                    target=worker,
+                    gas_limit=REFUND_WORKER_GAS,
+                    state_gas_limit=0,
+                    data=data,
+                ),
+            ],
+        )
+        # Materialize the signature bytes the intrinsic cost and calldata
+        # floor charge for.
+        tx.sign()
+        assert tx.frames is not None and tx.signatures is not None
+
+        gas_used_before_refund = (
+            fork.frame_transaction_intrinsic_cost_calculator()(
+                frames=tx.frames,
+                signatures=tx.signatures,
+                return_cost_deducted_prior_execution=True,
+            )
+            + verify_gas
+            + frame_execution_gas
+        )
+        refund = worker_code.refund(fork)
+        # The premise of the test: the refund applies uncapped.
+        assert 0 < refund <= gas_used_before_refund // 5
+        gas_used_after_refund = gas_used_before_refund - refund
+        calldata_floor = fork.frame_transaction_data_floor_cost_calculator()(
+            frames=tx.frames, signatures=tx.signatures
+        )
+
+        if floor_case == "below_post_refund":
+            found_floor_case = calldata_floor < gas_used_after_refund
+        elif floor_case == "between":
+            found_floor_case = (
+                gas_used_after_refund
+                < calldata_floor
+                < gas_used_before_refund
+            )
+        else:
+            assert floor_case == "above_pre_refund"
+            found_floor_case = gas_used_before_refund < calldata_floor
+
+        if found_floor_case:
+            break
+
+        data += bytes_to_add_per_iteration
+
+    if not found_floor_case:
+        raise ValueError(
+            f"Could not find calldata for {floor_case} in "
+            f"{num_iterations} iterations."
+        )
 
     payer_gas_used = max(gas_used_after_refund, calldata_floor)
     block_gas_used = max(gas_used_before_refund, calldata_floor)
