@@ -177,6 +177,7 @@ def test_storage_refund_settlement(
     for _ in range(num_iterations):
         tx = Transaction(
             sender=sender,
+            nonce=0,
             frames=[
                 verify_frame(),
                 default_frame(
