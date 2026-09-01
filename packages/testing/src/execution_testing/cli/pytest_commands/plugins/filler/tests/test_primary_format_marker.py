@@ -65,6 +65,16 @@ NORMAL_STATE_MODULE = textwrap.dedent(
     """
 )
 
+TRANSACTION_MODULE = textwrap.dedent(
+    f"""\
+    import pytest
+
+    @pytest.mark.valid_at("{FORK}")
+    def test_case(transaction_test) -> None:
+        pass
+    """
+)
+
 TEST_MODULE_DIR = "tests/prague/dummy_test_module"
 
 
@@ -130,6 +140,26 @@ def test_primary_format_selects_first_survivor(
     assert result.ret == 0, f"Collection failed:\n{result.outlines}"
     result.stdout.fnmatch_lines([f"*{present}"])
     result.stdout.no_fnmatch_line(f"*{absent}")
+
+
+def test_transaction_format_union_selects_unmarked_source_test(
+    pytester: pytest.Pytester,
+) -> None:
+    """Select transaction fixtures without an EELS source marker."""
+    write_test_module(pytester, TRANSACTION_MODULE)
+
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--collect-only",
+        "-q",
+        "-m",
+        "(eels_base_coverage or transaction_test) and primary_format",
+        TEST_MODULE_DIR,
+    )
+
+    assert result.ret == pytest.ExitCode.OK
+    result.stdout.fnmatch_lines(["*test_case*transaction_test*", "*1 test*"])
 
 
 def test_pre_alloc_group_session_generates_one_format_per_test(
