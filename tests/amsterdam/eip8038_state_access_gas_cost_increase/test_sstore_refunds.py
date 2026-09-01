@@ -36,6 +36,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Fork,
+    GasConsumer,
     Op,
     StateTestFiller,
     Transaction,
@@ -90,9 +91,9 @@ def test_sstore_clear_grants_refund(
         current_value=1,
         new_value=0,
     )(0, 0)
-    # Burn cheap gas (JUMPDEST = 1 gas, no stack effect) so that
-    # gas_used // 5 exceeds the refund and the full grant applies.
-    burn = Op.JUMPDEST * 60_000
+    # Burn unrelated execution gas so that gas_used // 5 exceeds the
+    # refund and the full grant applies.
+    burn = GasConsumer(gas=clear.refund(fork) * 5, fork=fork)
     code = clear + burn
 
     contract = pre.deploy_contract(code=code, storage={0: 1})
@@ -189,7 +190,7 @@ def test_sstore_restore_nonzero_refunds_write(
         current_value=2,
         new_value=1,
     )(0, 1)
-    burn = Op.JUMPDEST * 60_000
+    burn = GasConsumer(gas=code.refund(fork) * 5, fork=fork)
     code += burn
 
     contract = pre.deploy_contract(code=code, storage={0: 1})
@@ -284,7 +285,7 @@ def test_sstore_refund_cap_exact_equality(
     The applied refund equals the EIP-3529 cap at exact equality.
 
     A single non-zero-original clear accrues ``REFUND_STORAGE_CLEAR``.
-    Cheap ``JUMPDEST`` gas (1 each) is burned so the gross gas lands at
+    Unrelated execution gas is burned so the gross gas lands at
     exactly ``max_refund_quotient * accrued``; the quotient cap
     ``gross // max_refund_quotient`` then equals the accrued refund
     *exactly*, the boundary between the cap binding and not binding. The
@@ -304,20 +305,13 @@ def test_sstore_refund_cap_exact_equality(
         return_cost_deducted_prior_execution=True
     )
     # Target the exact boundary: gross == quotient * accrued, so that
-    # gross // quotient == accrued with no slack. Solve for the JUMPDEST
-    # count from the remaining gas after intrinsic and the clear's
-    # execution cost; each JUMPDEST costs exactly 1 gas.
-    jumpdest_gas = Op.JUMPDEST.gas_cost(fork)
+    # gross // quotient == accrued with no slack. The burn is whatever
+    # is left after the intrinsic cost and the clear's execution cost.
     target_gross = quotient * accrued
     base_gross = intrinsic + clear.execution_cost(fork)
     burn_gas = target_gross - base_gross
-    num_jumpdest, remainder = divmod(burn_gas, jumpdest_gas)
-    # An exact integer JUMPDEST count must reach the boundary; otherwise
-    # the equality below would not hold and the test would (correctly)
-    # fail rather than silently approximate.
-    assert remainder == 0
 
-    code = clear + Op.JUMPDEST * num_jumpdest
+    code = clear + GasConsumer(gas=burn_gas, fork=fork)
     contract = pre.deploy_contract(code=code, storage={0: 1})
 
     gross = intrinsic + code.execution_cost(fork) + code.state_cost(fork)

@@ -21,6 +21,7 @@ from execution_testing import (
     Bytecode,
     Environment,
     Fork,
+    GasConsumer,
     Hash,
     Header,
     Op,
@@ -157,24 +158,20 @@ def test_block_gas_used_execution_dominates(
     Verify block.gas_used = block_execution_gas when execution dominates.
 
     The contract sets a fresh slot, then exhausts an exactly sized gas
-    limit on memory expansion, so the state dimension is non-zero while
-    the larger execution dimension sets the header.
+    limit on a pure execution-gas burn, so the state dimension is
+    non-zero while the larger execution dimension sets the header.
     """
-    sink_memory_size = 256 * 1024
-
     storage = Storage()
-    code = Op.SSTORE(
+    sstore = Op.SSTORE(
         storage.store_next(1, "slot_set"),
         1,
         # gas accounting
         original_value=0,
         new_value=1,
-    ) + Op.MSTORE8(
-        sink_memory_size - 1,
-        0,
-        # gas accounting
-        new_memory_size=sink_memory_size,
     )
+    # Burn twice the state gas the slot charges, so the execution
+    # dimension is the one the header must follow.
+    code = sstore + GasConsumer(gas=2 * sstore.state_cost(fork), fork=fork)
 
     contract = pre.deploy_contract(code=code)
 
