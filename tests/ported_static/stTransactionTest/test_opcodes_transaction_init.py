@@ -123,15 +123,31 @@ def _jump_over_revert(conditional: bool) -> Bytecode:
     return code
 
 
-ENV = Environment(
-    fee_recipient=COINBASE,
-    number=BLOCK_NUMBER,
-    timestamp=BLOCK_TIMESTAMP,
-    prev_randao=PREV_RANDAO,
-    base_fee_per_gas=BASE_FEE_PER_GAS,
-    excess_blob_gas=EXCESS_BLOB_GAS,
-    slot_number=SLOT_NUMBER,
-)
+def _env(fork: Fork) -> Environment:
+    """
+    Build the pinned block context, limited to the fork's own fields.
+
+    A pin the fork ignores would otherwise be serialized into its
+    fixtures verbatim.
+    """
+    pins: dict[str, int] = {}
+    if fork.header_prev_randao_required():
+        pins["prev_randao"] = PREV_RANDAO
+    else:
+        # Pre-merge, the 0x44 opcode reads the difficulty instead.
+        pins["difficulty"] = PREV_RANDAO
+    if fork.header_base_fee_required():
+        pins["base_fee_per_gas"] = BASE_FEE_PER_GAS
+    if fork.header_excess_blob_gas_required():
+        pins["excess_blob_gas"] = EXCESS_BLOB_GAS
+    if fork.header_slot_number_required():
+        pins["slot_number"] = SLOT_NUMBER
+    return Environment(
+        fee_recipient=COINBASE,
+        number=BLOCK_NUMBER,
+        timestamp=BLOCK_TIMESTAMP,
+        **pins,
+    )
 
 
 @dataclass(frozen=True)
@@ -154,6 +170,7 @@ class Context:
     sender: Address
     init_code: Bytecode
     fork: Fork
+    env: Environment
 
 
 @dataclass(frozen=True)
@@ -405,7 +422,7 @@ CASES: dict[Opcodes, Case] = {
     Op.TIMESTAMP: Case(Op.TIMESTAMP, BLOCK_TIMESTAMP),
     Op.PREVRANDAO: Case(Op.PREVRANDAO, PREV_RANDAO),
     Op.BASEFEE: Case(Op.BASEFEE, BASE_FEE_PER_GAS),
-    Op.GASLIMIT: Case(Op.GASLIMIT, int(ENV.gas_limit)),
+    Op.GASLIMIT: Case(Op.GASLIMIT, lambda c: int(c.env.gas_limit)),
     Op.SLOTNUM: Case(Op.SLOTNUM, SLOT_NUMBER),
     Op.BLOBBASEFEE: Case(
         Op.BLOBBASEFEE,
@@ -547,8 +564,13 @@ def test_opcodes_transaction_init(
             + Op.RETURN(offset=0x0, size=WORD)
         )
 
+    env = _env(fork)
     context = Context(
-        created=created, sender=sender, init_code=init_code, fork=fork
+        created=created,
+        sender=sender,
+        init_code=init_code,
+        fork=fork,
+        env=env,
     )
     deployed_code = b""
     if case.expected is not None:
@@ -581,4 +603,4 @@ def test_opcodes_transaction_init(
     if case.extra is not None:
         post.update(case.extra(context))
 
-    state_test(env=ENV, pre=pre, post=post, tx=tx)
+    state_test(env=env, pre=pre, post=post, tx=tx)
