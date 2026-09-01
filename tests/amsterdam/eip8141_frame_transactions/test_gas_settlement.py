@@ -212,7 +212,9 @@ def test_storage_refund_settlement(
         if floor_case == "below_post_refund":
             found_floor_case = calldata_floor < gas_used_after_refund
         elif floor_case == "between":
-            found_floor_case = gas_used_after_refund < calldata_floor < gas_used_before_refund
+            found_floor_case = (
+                gas_used_after_refund < calldata_floor < gas_used_before_refund
+            )
         else:
             assert floor_case == "above_pre_refund"
             found_floor_case = gas_used_before_refund < calldata_floor
