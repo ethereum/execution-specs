@@ -214,6 +214,33 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
 
         return self.copy(**updated_values)
 
+    def without_fork_ignored_fields(self, fork: Fork) -> "Environment":
+        """
+        Return a copy with the fields the fork's header lacks unset.
+
+        A test may pin fields for the newest forks it runs on. Older
+        forks ignore the pins, and serializing them into those forks'
+        fixtures would misstate the environment.
+        """
+        cleared: Dict[str, Any] = {}
+
+        if not fork.header_prev_randao_required():
+            cleared["prev_randao"] = None
+
+        if not fork.header_base_fee_required():
+            cleared["base_fee_per_gas"] = None
+
+        if not fork.header_excess_blob_gas_required():
+            cleared["excess_blob_gas"] = None
+
+        if not fork.header_blob_gas_used_required():
+            cleared["blob_gas_used"] = None
+
+        if not fork.header_slot_number_required():
+            cleared["slot_number"] = None
+
+        return self.copy(**cleared)
+
     def canonical_json(self) -> str:
         """
         Return the canonical JSON encoding of this model.
