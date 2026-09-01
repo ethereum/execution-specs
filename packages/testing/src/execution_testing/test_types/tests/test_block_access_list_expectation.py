@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from execution_testing.base_types import Address, StorageKey
+from execution_testing.base_types import Address, Bytes, StorageKey
 from execution_testing.test_types.block_access_list import (
     BalAccountAbsentValues,
     BalAccountChange,
@@ -1172,6 +1172,54 @@ def test_validate_any_change_fails_with_empty_actual() -> None:
         match="Expected at least one change in slot",
     ):
         expectation.verify_against(actual_bal)
+
+
+def test_modify_rlp_rewrites_encoding_only() -> None:
+    """`modify_rlp` re-encodes the BAL without touching its contents."""
+    alice = Address(0xA)
+    actual_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=alice,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            ),
+        ]
+    )
+    expectation = BlockAccessListExpectation()
+    rlp_expectation = expectation.modify_rlp(lambda _: Bytes(b"\xc0"))
+
+    assert not expectation.has_modifier
+    assert expectation.modified_rlp(actual_bal) is None
+    assert rlp_expectation.has_modifier
+    assert rlp_expectation.modified_rlp(actual_bal) == b"\xc0"
+    assert rlp_expectation.modify_if_invalid_test(actual_bal) == actual_bal
+
+
+def test_modify_rlp_chains_with_modify() -> None:
+    """A content modifier survives a later `modify_rlp`."""
+    alice = Address(0xA)
+    actual_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=alice,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            ),
+        ]
+    )
+    content_only = BlockAccessListExpectation().modify(
+        lambda _: BlockAccessList([])
+    )
+    both = content_only.modify_rlp(lambda bal: bal.rlp)
+
+    assert content_only.has_modifier
+    assert content_only.modified_rlp(actual_bal) is None
+    assert both.has_modifier
+    assert both.modify_if_invalid_test(actual_bal) == BlockAccessList([])
+    assert both.modified_rlp(actual_bal) == actual_bal.rlp
 
 
 def test_validate_any_change_mutual_exclusion_with_slot_changes() -> None:

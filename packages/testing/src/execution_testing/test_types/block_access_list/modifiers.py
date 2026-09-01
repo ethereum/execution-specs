@@ -893,12 +893,15 @@ def _scalar_leaf(
     """Return the container and index of the scalar named by ``field``."""
     if field == "storage_slot":
         return element[_STORAGE_CHANGES_INDEX][0], _SLOT_INDEX
-    if field == "storage_value":
+    elif field == "storage_value":
         slot = element[_STORAGE_CHANGES_INDEX][0]
         return slot[_SLOT_CHANGES_INDEX][0], _POST_VALUE_INDEX
-    if field == "storage_read":
+    elif field == "storage_read":
         return element[_STORAGE_READS_INDEX], 0
-    return element[_BALANCE_CHANGES_INDEX][0], _POST_BALANCE_INDEX
+    elif field == "balance":
+        return element[_BALANCE_CHANGES_INDEX][0], _POST_BALANCE_INDEX
+    else:
+        raise ValueError(f"Unknown BAL scalar field: {field}")
 
 
 def encode_scalar_non_minimally(
@@ -919,11 +922,12 @@ def encode_scalar_non_minimally(
                 continue
             try:
                 container, index = _scalar_leaf(element, field)
+                scalar = container[index]
             except IndexError:
                 raise ValueError(
                     f"No {field} entry for {address} in the BAL"
                 ) from None
-            container[index] = b"\x00" + container[index].to_be_bytes()
+            container[index] = b"\x00" + scalar.to_be_bytes()
             return Bytes(eth_rlp.encode(elements))
         raise ValueError(f"Address {address} was not found in the BAL")
 

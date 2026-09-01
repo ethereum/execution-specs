@@ -1,7 +1,8 @@
 """Unit tests for BAL modifier functions."""
 
-from typing import Callable
+from typing import Any, Callable
 
+import ethereum_rlp as eth_rlp
 import pytest
 
 from execution_testing.base_types import Address
@@ -15,6 +16,7 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessList,
 )
 from execution_testing.test_types.block_access_list.modifiers import (
+    BalScalarField,
     append_change,
     append_storage,
     duplicate_account,
@@ -24,6 +26,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     duplicate_slot_change,
     duplicate_storage_read,
     duplicate_storage_slot,
+    encode_scalar_non_minimally,
     insert_storage_read,
     modify_balance,
     modify_code,
@@ -368,3 +371,67 @@ def test_reused_callable_does_not_carry_found_state(
     modifier(sample_bal)
     with pytest.raises(ValueError, match="not found"):
         modifier(missing_bal)
+
+
+@pytest.mark.parametrize(
+    "field, address, leaf_path, canonical_leaf",
+    [
+        pytest.param(
+            "storage_slot", CONTRACT, (1, 1, 0, 0), b"\x01", id="storage_slot"
+        ),
+        pytest.param(
+            "storage_value",
+            CONTRACT,
+            (1, 1, 0, 1, 0, 1),
+            b"\x42",
+            id="storage_value",
+        ),
+        pytest.param(
+            "storage_read", CONTRACT, (1, 2, 0), b"\x02", id="storage_read"
+        ),
+        pytest.param("balance", ALICE, (0, 3, 0, 1), b"\x64", id="balance"),
+    ],
+)
+def test_encode_scalar_non_minimally(
+    sample_bal: BlockAccessList,
+    field: BalScalarField,
+    address: Address,
+    leaf_path: tuple[int, ...],
+    canonical_leaf: bytes,
+) -> None:
+    """Only the targeted leaf changes, and only in its encoding."""
+    encoded = encode_scalar_non_minimally(address, field)(sample_bal)
+
+    assert encoded != sample_bal.rlp
+    assert BlockAccessList.from_rlp(encoded).rlp == sample_bal.rlp
+
+    leaf: Any = eth_rlp.decode(encoded)
+    for index in leaf_path:
+        leaf = leaf[index]
+    assert leaf == b"\x00" + canonical_leaf
+
+
+@pytest.mark.parametrize(
+    "field", ["storage_slot", "storage_value", "storage_read", "balance"]
+)
+def test_encode_scalar_non_minimally_missing_entry_raises(
+    field: BalScalarField,
+) -> None:
+    """Raise when the account has no entry for the targeted field."""
+    with pytest.raises(ValueError, match=f"No {field} entry"):
+        encode_scalar_non_minimally(ALICE, field)(_ALICE_ONLY_BAL)
+
+
+def test_encode_scalar_non_minimally_missing_address_raises() -> None:
+    """Raise when the address is absent."""
+    with pytest.raises(ValueError, match="not found"):
+        encode_scalar_non_minimally(ALICE, "balance")(_EMPTY_BAL)
+
+
+def test_encode_scalar_non_minimally_unknown_field_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise when the field is not a BAL scalar."""
+    unknown_field: Any = "nonce"
+    with pytest.raises(ValueError, match="Unknown BAL scalar field"):
+        encode_scalar_non_minimally(ALICE, unknown_field)(sample_bal)
