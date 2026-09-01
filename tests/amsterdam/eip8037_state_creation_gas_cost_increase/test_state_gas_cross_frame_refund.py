@@ -78,7 +78,7 @@ def test_cross_frame_refund_parks_in_reservoir(
     """
     clearer = pre.deploy_contract(code=Op.SSTORE(SLOT_X, 0))
 
-    call_window = Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=clearer))
+    call_window = Op.POP(Op.DELEGATECALL(address=clearer))
     code = (
         # Warm the clearer and the slot while it is still zero, and
         # pre-expand the measurement memory, so the two measured
@@ -101,7 +101,7 @@ def test_cross_frame_refund_parks_in_reservoir(
 
     tx = Transaction(
         to=contract,
-        gas_limit=1_000_000,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
     )
 
@@ -183,7 +183,7 @@ def test_parked_credit_returns_at_settlement(
 
     tx = Transaction(
         to=contract,
-        gas_limit=1_000_000,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_gas_used
@@ -278,7 +278,7 @@ def test_parked_credit_funds_state_at_full_price(
 
     tx = Transaction(
         to=contract,
-        gas_limit=1_000_000,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_gas_used
@@ -337,9 +337,13 @@ def test_parked_credit_cannot_fund_execution(
             Op.DELEGATECALL(gas=Op.GAS, address=clearer, address_warm=False)
         )
     )
-    tail = Op.MSTORE.with_metadata(new_memory_size=192_032, old_memory_size=0)(
-        192_000, 1
+    # TODO: The tail spends a set amount of execution gas; a JUMPDEST
+    # run is the most future-proof inline way until a fork util exists.
+    tail_ops = min(
+        sstore_state_gas // Op.JUMPDEST.gas_cost(fork),
+        fork.max_code_size() - len(head),
     )
+    tail = Op.JUMPDEST * tail_ops
     code = head + tail
     contract = pre.deploy_contract(code=code)
 
@@ -482,21 +486,9 @@ def test_child_clear_repays_own_spill_first(
     else:
         raise ValueError(f"unhandled child ending: {child_ending}")
 
-    gas_limit = (
-        intrinsic_cost
-        + code.gas_cost(fork)
-        + child_budget
-        + child_budget // 63
-        + 1
-    )
-    # The spill premise needs the reservoir empty at transaction start.
-    gas_limit_cap = fork.transaction_gas_limit_cap()
-    assert gas_limit_cap is not None
-    assert gas_limit <= gas_limit_cap
-
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit,
+        state_gas_reservoir=0,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_gas_used
