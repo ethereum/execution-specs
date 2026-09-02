@@ -23,6 +23,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    AuthorizationTuple,
     Bytecode,
     Fork,
     Op,
@@ -31,6 +32,8 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
 )
+
+from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
 from .spec import ref_spec_8037
 
@@ -513,4 +516,103 @@ def test_child_clear_repays_own_spill_first(
         raise ValueError(f"unhandled child ending: {child_ending}")
 
     post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_cross_frame_refund_after_delegation_spill(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test a cross-frame refund after the sender's delegation spilled.
+
+    A set-code transaction with an empty reservoir pays its delegation
+    from `gas_left` and commits that spill before the code runs. The
+    code spills a fresh set and a delegated child clears it. The call
+    costs the same as without the delegation and the delegation stays
+    billed.
+    """
+    fresh_set = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=0,
+        current_value=0,
+        new_value=1,
+    )
+    warm_clear = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+
+    child_code = warm_clear(SLOT_X, 0)
+    child = pre.deploy_contract(code=child_code)
+    # SSTORE needs more than the call stipend left, so give the child
+    # that much on top of its cost.
+    child_budget = fork.call_value_stipend() + 1 + child_code.gas_cost(fork)
+
+    call = Op.POP(
+        Op.DELEGATECALL(gas=child_budget, address=child, address_warm=False)
+    )
+    code = (
+        Op.MSTORE(32, 0, new_memory_size=64, old_memory_size=0)
+        + fresh_set(SLOT_X, 1)
+        + Op.MSTORE(0, Op.GAS)
+        + call
+        + Op.MSTORE(32, Op.GAS)
+        + fresh_set(SLOT_RESULT, Op.SUB(Op.MLOAD(0), Op.MLOAD(32)))
+    )
+    contract = pre.deploy_contract(code=code)
+
+    signer = pre.fund_eoa()
+    authorization_list = [
+        AuthorizationTuple(
+            address=contract,
+            nonce=0,
+            signer=signer,
+            creates_account=False,
+            writes_delegation=True,
+        )
+    ]
+
+    # The window runs from one GAS read to the next: the store of the
+    # first read, the call and the second read.
+    call_cost = (
+        Op.MSTORE(0, Op.GAS).gas_cost(fork)
+        + call.execution_cost(fork)
+        + child_code.execution_cost(fork)
+    )
+
+    gas_used = (
+        fork.transaction_intrinsic_cost_calculator()(
+            authorization_list_or_count=authorization_list,
+            return_cost_deducted_prior_execution=True,
+        )
+        + fork.transaction_top_frame_gas_calculator()(
+            authorizations=authorization_list
+        )
+        + fork.transaction_top_frame_state_gas(
+            authorizations=authorization_list
+        )
+        + code.gas_cost(fork)
+        + child_code.gas_cost(fork)
+        - child_code.state_refund(fork)
+    )
+    refund = child_code.refund(fork) - child_code.state_refund(fork)
+    gas_used -= min(gas_used // fork.max_refund_quotient(), refund)
+
+    tx = Transaction(
+        to=contract,
+        authorization_list=authorization_list,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
+    )
+
+    post = {
+        contract: Account(storage={SLOT_X: 0, SLOT_RESULT: call_cost}),
+        signer: Account(code=Spec7702.delegation_designation(contract)),
+    }
     state_test(pre=pre, post=post, tx=tx)
