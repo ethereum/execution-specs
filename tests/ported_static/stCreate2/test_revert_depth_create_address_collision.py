@@ -179,6 +179,7 @@ def test_revert_depth_create_address_collision(
     overhead = fork.transaction_intrinsic_cost_calculator()(
         calldata=tx_data,
         sends_value=tx_value > 0,
+        return_cost_deducted_prior_execution=True,
     ) + sstore_0.gas_cost(fork)
     # Enough at the CALL that the EIP-150 clamp still grants the full
     # ask.

@@ -110,6 +110,7 @@ def test_create_message_reverted_oog_in_init2(
             calldata=outer_initcode,
             contract_creation=True,
             sends_value=True,
+            return_cost_deducted_prior_execution=True,
         )
         + fork.transaction_top_frame_state_gas(contract_creation=True)
         + canary_store.gas_cost(fork)
