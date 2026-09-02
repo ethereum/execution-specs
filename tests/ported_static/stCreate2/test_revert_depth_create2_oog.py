@@ -1,17 +1,19 @@
 """
 Verify a CREATE2 two frames deep under out-of-gas pressure: the calldata
 sets the grant a caller forwards to a creating contract, and the two
-budgets decide whether the creation completes, the creator dies mid-way,
-or the whole outer frame runs dry — each with a distinct post-state.
+budgets decide whether the creation stands, the creator dies after it,
+or the whole outer frame runs dry, each with a distinct post-state.
 
 Ported from:
 state_tests/stCreate2/RevertDepthCreate2OOGFiller.json
 state_tests/stCreate2/RevertDepthCreate2OOGBerlinFiller.json
 
 @manually-enhanced: Do not overwrite. The byte-identical Berlin twin is
-folded in; every budget derives from fork composites; the creator now
+folded in and every budget derives from fork composites. The creator
 stores the CREATE2 result so a wrongly failed (or wrongly succeeding)
-creation is visible beyond the created account itself.
+creation is visible beyond the created account, and every starved arm
+completes the CREATE2 before running dry, so the rollback of a finished
+creation is what each of them pins.
 """
 
 import pytest
@@ -38,10 +40,8 @@ CREATOR_START_SLOT = 0x2
 CREATOR_DONE_SLOT = 0x3
 CREATE2_RESULT_SLOT = 0x5
 
-# Gas available in the caller frame at the CALL on the starved-outer
-# arms: far below the creator's needs, and retaining under 1/64th of the
-# EIP-2200 stipend so no post-call store can run — the caller must die.
-STARVED_AVAILABLE = 20_000
+# Gas the covered creator has left over after its completion marker.
+CREATOR_SPARE = 1_000
 
 
 @pytest.mark.ported_from(
@@ -106,16 +106,18 @@ def test_revert_depth_create2_oog(
     )
 
     # The empty-init-code child consumes nothing and returns its whole
-    # grant, so the creator's needs are just its composite costs.
+    # grant, so the creator's needs are just its composite costs. A
+    # starved creator gets through the CREATE2 and the result store and
+    # dies on its completion marker, which it can only half afford.
     creator_needed = (
         sstore_2.gas_cost(fork)
         + result_store.gas_cost(fork)
         + sstore_3.gas_cost(fork)
     )
     if creator_covered:
-        forwarded = creator_needed + 1_000
+        forwarded = creator_needed + CREATOR_SPARE
     else:
-        forwarded = creator_needed // 2
+        forwarded = creator_needed - sstore_3.gas_cost(fork) // 2
 
     # The caller: entry marker, the CALL with its grant taken from
     # calldata (as in the ported filler), result store, completion
@@ -156,13 +158,13 @@ def test_revert_depth_create2_oog(
         calldata=tx_data,
         sends_value=tx_value > 0,
     ) + sstore_0.gas_cost(fork)
+    # Enough at the CALL that the EIP-150 clamp still grants the full
+    # ask.
+    available = -(-forwarded * 64 // 63) + 64
+    assert available - available // 64 >= forwarded, (
+        "the full ask must be granted"
+    )
     if outer_covered:
-        # Enough at the CALL that the EIP-150 clamp still grants the
-        # full ask, plus the caller's post-call stores.
-        available = -(-forwarded * 64 // 63) + 64
-        assert available - available // 64 >= forwarded, (
-            "the full ask must be granted"
-        )
         gas_limit = (
             overhead
             + sstore_1.gas_cost(fork)
@@ -170,14 +172,14 @@ def test_revert_depth_create2_oog(
             + available
         )
     else:
-        # The clamped grant starves the creator, and the 1/64 retention
-        # cannot run any store afterwards: the caller must die too.
-        granted = STARVED_AVAILABLE - STARVED_AVAILABLE // 64
-        assert granted < creator_needed, "the creator must be starved"
-        assert STARVED_AVAILABLE // 64 <= fork.gas_costs().CALL_STIPEND, (
+        # Nothing is budgeted for the caller's post-call stores: what the
+        # 1/64 retention and the creator's spare add up to cannot pay the
+        # result store, so the caller dies after the creator returns.
+        store_cost = sstore_1.gas_cost(fork) - call_code.gas_cost(fork)
+        assert available // 64 + CREATOR_SPARE < store_cost, (
             "the retention must not afford the post-call store"
         )
-        gas_limit = overhead + call_code.gas_cost(fork) + STARVED_AVAILABLE
+        gas_limit = overhead + available
 
     sender = pre.fund_eoa()
     tx = Transaction(
@@ -190,12 +192,14 @@ def test_revert_depth_create2_oog(
 
     created = compute_create2_address(creator, 0, b"")
     if not outer_covered:
-        # The whole transaction ran dry: only the code survives.
+        # The whole transaction ran dry after the CREATE2: only the code
+        # survives.
         caller_account = Account(storage={}, code=caller_code, balance=0)
         creator_account = Account(storage={}, nonce=1)
         created_account: Account | None = Account.NONEXISTENT
     elif not creator_covered:
-        # The creator died mid-creation and was rolled back.
+        # The creator died after its CREATE2 and was rolled back with
+        # the creation and its nonce bump.
         caller_account = Account(
             storage={
                 CALLER_START_SLOT: 0x1,
