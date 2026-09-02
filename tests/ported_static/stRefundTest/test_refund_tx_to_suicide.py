@@ -1,7 +1,7 @@
 """
 Verify a transaction into a self-destructing contract: the balance
-(including the transaction value) moves to the beneficiary and, post
-EIP-3529, no self-destruct refund is granted.
+(including the transaction value) moves to the beneficiary and the
+self-destruct refund the fork grants (none from EIP-3529 on) is applied.
 
 Ported from:
 state_tests/stRefundTest/refund_TxToSuicideFiller.json
@@ -39,7 +39,7 @@ def test_refund_tx_to_suicide(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Self-destruct moves the balance and grants no refund."""
+    """Self-destruct moves the balance and refunds what the fork says."""
     beneficiary = pre.nonexistent_account()
     # From EIP-6780 on, a pre-existing contract only moves its balance.
     code = Op.SELFDESTRUCT(

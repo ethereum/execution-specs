@@ -1,6 +1,7 @@
 """
-Verify a storage-clear refund earned inside a sub-call: the sender's final
-balance reflects the executed gas minus the capped refund.
+Verify a storage-clear refund earned inside a sub-call is credited to
+the transaction: the sender's final balance reflects the executed gas
+minus the refund.
 
 Ported from:
 state_tests/stRefundTest/refund_CallAFiller.json
@@ -9,6 +10,8 @@ state_tests/stRefundTest/refund_CallAFiller.json
 instead of a schedule-sized constant, and the sender's balance, refund cap
 and budget derive from the fork (`code.gas_cost` / `code.refund`
 composites), so EIP-8037's repriced stores are tracked instead of pinned.
+The legacy transaction value and the caller balance it pinned are dropped
+as incidental to the refund.
 """
 
 import pytest
@@ -37,7 +40,7 @@ def test_refund_call_a(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """A callee's storage clear refunds gas up to the EIP-3529 cap."""
+    """A callee's storage clear is credited to the transaction refund."""
     callee_code = Op.SSTORE(
         key=0x1, value=0x0, key_warm=False, original_value=1, new_value=0
     )
