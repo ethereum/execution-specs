@@ -388,6 +388,11 @@ class Block(Header):
             overrides.append("engine_new_payload_block_access_list")
         if self.engine_new_payload_slot_number is not None:
             overrides.append("engine_new_payload_slot_number")
+        if (
+            self.expected_block_access_list is not None
+            and self.expected_block_access_list.has_rlp_modifier
+        ):
+            overrides.append("expected_block_access_list.modify_rlp")
         return overrides
 
     def set_environment(self, env: Environment) -> Environment:
@@ -1057,6 +1062,7 @@ class BlockchainTest(BaseTest):
         # Process block access list - apply transformer if present for invalid
         # tests
         bal = t8n_bal
+        bal_rlp_override: Bytes | None = None
 
         # Always validate BAL structural integrity (ordering, duplicates)
         # if present
@@ -1073,10 +1079,13 @@ class BlockchainTest(BaseTest):
             bal = block.expected_block_access_list.modify_if_invalid_test(
                 t8n_bal
             )
-            if bal != t8n_bal:
-                # If the BAL was modified and the fork requires it, update the
-                # header hash
+            if bal.rlp != t8n_bal.rlp:
+                # Compare bytes, not contents: an encoding override also
+                # moves the header commitment.
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
+            bal_rlp_override = block.expected_block_access_list.modified_rlp(
+                bal
+            )
 
         built_block_kwargs: Dict[str, Any] = dict(
             header=header,
@@ -1095,6 +1104,8 @@ class BlockchainTest(BaseTest):
             block_access_list=bal,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
+                if block.engine_new_payload_block_access_list is not None
+                else bal_rlp_override
             ),
             engine_new_payload_slot_number=(
                 block.engine_new_payload_slot_number
@@ -1122,7 +1133,7 @@ class BlockchainTest(BaseTest):
                 and block.engine_new_payload_slot_number is None
                 and not (
                     block.expected_block_access_list is not None
-                    and block.expected_block_access_list._modifier is not None
+                    and block.expected_block_access_list.has_modifier
                 )
             ):
                 # Only verify block level exception if: - No transaction
@@ -1133,8 +1144,9 @@ class BlockchainTest(BaseTest):
                 # what normally produces the block exception. - No engine
                 # payload BAL override was specified, because it corrupts only
                 # the engine payload after the transition tool has run. - No
-                # BAL modifier was specified, because modified BAL also
-                # produces block exceptions.
+                # BAL modifier was specified, because a rewritten BAL, whether
+                # in contents or in encoding, is applied after the transition
+                # tool has run and is what produces the block exception.
                 built_block.verify_block_exception(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )

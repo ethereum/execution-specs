@@ -19,7 +19,10 @@ from execution_testing.fixtures.blockchain import (
 )
 from execution_testing.forks import Amsterdam
 from execution_testing.test_types import Alloc, Environment
-from execution_testing.test_types.block_access_list import BlockAccessList
+from execution_testing.test_types.block_access_list import (
+    BlockAccessList,
+    BlockAccessListExpectation,
+)
 
 from ..blockchain import Block, BlockchainTest, BuiltBlock, Header
 
@@ -279,6 +282,26 @@ class TestEnginePayloadOnlyOverrides:
                 Block(engine_new_payload_slot_number=0),
                 ["engine_new_payload_slot_number"],
                 id="payload_slot_number",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify_rlp(
+                            lambda bal: bal.rlp
+                        )
+                    ),
+                ),
+                ["expected_block_access_list.modify_rlp"],
+                id="payload_bal_encoding",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                ),
+                [],
+                id="bal_contents_header_follows",
             ),
         ],
     )

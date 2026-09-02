@@ -9,7 +9,12 @@ from typing import Any, Callable, ClassVar, Dict, List, Optional
 
 from pydantic import Field, PrivateAttr
 
-from execution_testing.base_types import Address, CamelModel, StorageKey
+from execution_testing.base_types import (
+    Address,
+    Bytes,
+    CamelModel,
+    StorageKey,
+)
 
 from .account_absent_values import BalAccountAbsentValues
 from .account_changes import (
@@ -128,6 +133,9 @@ class BlockAccessListExpectation(CamelModel):
     _modifier: Callable[["BlockAccessList"], "BlockAccessList"] | None = (
         PrivateAttr(default=None)
     )
+    _rlp_modifier: Callable[["BlockAccessList"], Bytes] | None = PrivateAttr(
+        default=None
+    )
 
     def modify(
         self, *modifiers: Callable[["BlockAccessList"], "BlockAccessList"]
@@ -172,6 +180,39 @@ class BlockAccessListExpectation(CamelModel):
         if self._modifier:
             return self._modifier(t8n_bal)
         return t8n_bal
+
+    def modify_rlp(
+        self, modifier: Callable[["BlockAccessList"], Bytes]
+    ) -> "BlockAccessListExpectation":
+        """
+        Create a new expectation that re-encodes the BAL carried by the
+        engine payload, leaving the header commitment canonical.
+
+        Use this for encoding-level invalid cases; `modify` changes the
+        BAL's contents and so also moves the header hash.
+
+        Only the engine payload can carry the re-encoding, so the test must
+        be marked `blockchain_test_engine_only`.
+        """
+        new_instance = self.model_copy(deep=True)
+        new_instance._rlp_modifier = modifier
+        return new_instance
+
+    def modified_rlp(self, bal: "BlockAccessList") -> Bytes | None:
+        """Return the re-encoded payload BAL, or None if unmodified."""
+        if self._rlp_modifier:
+            return self._rlp_modifier(bal)
+        return None
+
+    @property
+    def has_modifier(self) -> bool:
+        """Return whether this expectation rewrites the BAL."""
+        return self._modifier is not None or self._rlp_modifier is not None
+
+    @property
+    def has_rlp_modifier(self) -> bool:
+        """Return whether this expectation re-encodes the payload BAL."""
+        return self._rlp_modifier is not None
 
     def verify_against(self, actual_bal: "BlockAccessList") -> None:
         """

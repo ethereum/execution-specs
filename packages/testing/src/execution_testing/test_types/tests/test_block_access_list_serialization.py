@@ -84,3 +84,24 @@ def test_bal_serialization_roundtrip_zero_padded_hex() -> None:
     # Round-trip: deserialize and verify equality
     restored = BlockAccessList.model_validate(json_data)
     assert restored == original
+
+
+def test_bal_rlp_override_replaces_serialization_only() -> None:
+    """`with_rlp_override` swaps the bytes but keeps the contents."""
+    original = BlockAccessList(
+        [
+            BalAccountChange(
+                address=Address(0xA),
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            )
+        ]
+    )
+    canonical = original.rlp
+    overridden = original.with_rlp_override(Bytes(b"\xc0"))
+
+    assert overridden.rlp == b"\xc0"
+    assert overridden.rlp_hash == Bytes(b"\xc0").keccak256()
+    assert overridden.to_list() == original.to_list()
+    assert original.rlp == canonical
