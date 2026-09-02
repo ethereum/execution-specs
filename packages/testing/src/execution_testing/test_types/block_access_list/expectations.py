@@ -160,6 +160,12 @@ class BlockAccessListExpectation(CamelModel):
             ).modify(remove_nonces(alice))
 
         """
+        if self._modifier is not None:
+            raise ValueError(
+                "This expectation already has a content modifier; a second "
+                "`modify` call would replace it. Pass every modifier to a "
+                "single `modify` call instead."
+            )
         new_instance = self.model_copy(deep=True)
         new_instance._modifier = compose(*modifiers)
         return new_instance
@@ -194,6 +200,12 @@ class BlockAccessListExpectation(CamelModel):
         Only the engine payload can carry the re-encoding, so the test must
         be marked `blockchain_test_engine_only`.
         """
+        if self._rlp_modifier is not None:
+            raise ValueError(
+                "This expectation already re-encodes the block access list; "
+                "a second `modify_rlp` call would replace the first. Keep a "
+                "single `modify_rlp` call."
+            )
         new_instance = self.model_copy(deep=True)
         new_instance._rlp_modifier = modifier
         return new_instance

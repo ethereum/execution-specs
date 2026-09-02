@@ -1226,6 +1226,36 @@ def test_modify_rlp_chains_with_modify() -> None:
     assert both.modified_rlp(actual_bal) == actual_bal.rlp
 
 
+def test_modify_chains_with_modify_rlp() -> None:
+    """A content modifier may follow an earlier `modify_rlp`."""
+    both = (
+        BlockAccessListExpectation()
+        .modify_rlp(lambda bal: bal.rlp)
+        .modify(lambda _: BlockAccessList([]))
+    )
+
+    assert both.has_rlp_modifier
+    assert both.modify_if_invalid_test(BlockAccessList([])) == (
+        BlockAccessList([])
+    )
+
+
+def test_second_modify_is_refused() -> None:
+    """A second `modify` would silently replace the first."""
+    expectation = BlockAccessListExpectation().modify(lambda bal: bal)
+
+    with pytest.raises(ValueError, match="already has a content modifier"):
+        expectation.modify(lambda bal: bal)
+
+
+def test_second_modify_rlp_is_refused() -> None:
+    """A second `modify_rlp` would silently replace the first."""
+    expectation = BlockAccessListExpectation().modify_rlp(lambda bal: bal.rlp)
+
+    with pytest.raises(ValueError, match="already re-encodes"):
+        expectation.modify_rlp(lambda bal: bal.rlp)
+
+
 def test_validate_any_change_mutual_exclusion_with_slot_changes() -> None:
     """
     validate_any_change=True and non-empty slot_changes raises ValueError.
