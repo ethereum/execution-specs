@@ -729,6 +729,11 @@ def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
     return out
 
 
+# EIP-7805 caps a committee member's list; gossip rejects anything larger,
+# so no conforming member could produce an entry above it.
+MAX_BYTES_PER_INCLUSION_LIST = 8192
+
+
 class InclusionListVariantFixtureFormat(LabeledFixtureFormat):
     """Inclusion list variant of the normal blockchain formats."""
 
@@ -982,6 +987,15 @@ class BlockchainTest(BaseTest):
             if inclusion_list_txs is not None
             else None
         )
+        for il_tx in inclusion_list_txs or []:
+            il_tx_bytes = len(il_tx.rlp())
+            if il_tx_bytes > MAX_BYTES_PER_INCLUSION_LIST:
+                pytest.skip(
+                    f"inclusion list entry of {il_tx_bytes} bytes exceeds "
+                    f"MAX_BYTES_PER_INCLUSION_LIST "
+                    f"({MAX_BYTES_PER_INCLUSION_LIST}); no conforming "
+                    f"committee member could have produced it"
+                )
 
         if (failing_tx_count := len([tx for tx in txs if tx.error])) > 0:
             if failing_tx_count > 1:
