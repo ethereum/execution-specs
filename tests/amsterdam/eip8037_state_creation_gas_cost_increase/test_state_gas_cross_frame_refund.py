@@ -22,6 +22,7 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     AuthorizationTuple,
     Bytecode,
@@ -35,7 +36,7 @@ from execution_testing import (
 
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
-from .spec import ref_spec_8037
+from .spec import init_code_at_high_bytes, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -67,6 +68,47 @@ def window_cost_excess(result_sstore: Opcode = Op.SSTORE) -> Bytecode:
     )
 
 
+def deploy_slot_holder(pre: Alloc) -> Address:
+    """
+    Deploy the contract owning the slot the dispatches clear.
+
+    It stores its calldata size, so a call carrying one byte sets the
+    slot and a call carrying none clears it.
+    """
+    return pre.deploy_contract(code=Op.SSTORE(SLOT_X, Op.CALLDATASIZE))
+
+
+def clearing_probe_code(
+    set_slot: Bytecode, windows: list[Bytecode]
+) -> Bytecode:
+    """
+    Return code measuring a clearing window against a no-op window.
+
+    `windows` holds three copies of the dispatch under test. The first
+    warms the target and the slot while the slot is still zero, and
+    pre-expands the measurement memory, so the two measured windows
+    below are byte-identical and cost-identical. `set_slot` then sets
+    the slot with the reservoir empty, spilling the state charge. The
+    first measured window clears the slot and the second repeats as a
+    no-op, so the refunded state gas is what separates their cost.
+    """
+    warm, first, second = windows
+    return (
+        warm
+        + Op.MSTORE(64, 0)
+        + set_slot
+        + Op.MSTORE(0, Op.GAS)
+        + first
+        + Op.MSTORE(32, Op.GAS)
+        + second
+        + Op.MSTORE(64, Op.GAS)
+        + Op.SSTORE(SLOT_INCREASED, Op.GT(Op.MLOAD(32), Op.MLOAD(0)))
+        + window_cost_excess()
+        # The marker distinguishes the pinned run from a reverted one.
+        + Op.SSTORE(SLOT_MARKER, 1)
+    )
+
+
 @pytest.mark.valid_from("EIP8037")
 def test_cross_frame_refund_parks_in_reservoir(
     state_test: StateTestFiller,
@@ -82,27 +124,10 @@ def test_cross_frame_refund_parks_in_reservoir(
     the clearing window costs the same as a no-op window.
     """
     clearer = pre.deploy_contract(code=Op.SSTORE(SLOT_X, 0))
-
-    call_window = Op.POP(Op.DELEGATECALL(address=clearer))
-    code = (
-        # Warm the clearer and the slot while it is still zero, and
-        # pre-expand the measurement memory, so the two measured
-        # windows below are byte-identical and cost-identical.
-        call_window
-        + Op.MSTORE(64, 0)
-        + Op.SSTORE(SLOT_X, 1)
-        + Op.MSTORE(0, Op.GAS)
-        + call_window
-        + Op.MSTORE(32, Op.GAS)
-        + call_window
-        + Op.MSTORE(64, Op.GAS)
-        + Op.SSTORE(SLOT_INCREASED, Op.GT(Op.MLOAD(32), Op.MLOAD(0)))
-        + window_cost_excess()
-        # Every other expected slot is zero, so the marker is what
-        # distinguishes the pinned run from a reverted one.
-        + Op.SSTORE(SLOT_MARKER, 1)
+    window = Op.POP(Op.DELEGATECALL(address=clearer))
+    contract = pre.deploy_contract(
+        code=clearing_probe_code(Op.SSTORE(SLOT_X, 1), [window] * 3)
     )
-    contract = pre.deploy_contract(code=code)
 
     tx = Transaction(
         to=contract,
@@ -710,5 +735,116 @@ def test_cross_frame_refund_with_reservoir_grant(
                 SLOT_PROBE_RESULT: probe_cost,
             }
         )
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.with_all_call_opcodes(
+    # A static child cannot write, so it can never refund.
+    selector=lambda call_opcode: call_opcode != Op.STATICCALL
+)
+@pytest.mark.valid_from("EIP8037")
+def test_cross_frame_refund_parks_in_reservoir_at_a_call(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_opcode: Opcode,
+) -> None:
+    """
+    Test a call merging a refund parks it in the reservoir.
+
+    A holder contract owns the cleared slot, so every dispatch reaches
+    it the same way. The clearing window and the no-op window cost the
+    same: the refund stays in the reservoir across the merge.
+    """
+    holder = deploy_slot_holder(pre)
+    set_slot = Op.POP(Op.CALL(address=holder, args_size=1))
+    clearer = pre.deploy_contract(code=Op.CALL(address=holder))
+    window = Op.POP(call_opcode(address=clearer))
+    contract = pre.deploy_contract(
+        code=clearing_probe_code(set_slot, [window] * 3)
+    )
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    # Under the merge-time repayment of ethereum/EIPs#12265 the
+    # clearing window repays the spill and the excess wraps to minus
+    # the slot's state cost.
+    post = {
+        holder: Account(storage={SLOT_X: 0}),
+        contract: Account(
+            storage={SLOT_MARKER: 1, SLOT_INCREASED: 0, SLOT_RESULT: 0}
+        ),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.with_all_create_opcodes
+@pytest.mark.valid_from("EIP8037")
+def test_cross_frame_refund_parks_in_reservoir_at_a_create(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Opcode,
+) -> None:
+    """
+    Test a create merging a refund parks it in the reservoir.
+
+    The initcode reaches a holder contract that clears its own slot.
+    The refund stays in the reservoir across the merge, where the next
+    window's account creation charge draws on it, so the clearing
+    window costs one slot's state gas more than the no-op window.
+    """
+    holder = deploy_slot_holder(pre)
+    set_slot = Op.POP(Op.CALL(address=holder, args_size=1))
+    # Pushing the zero arguments with PUSH0 keeps the initcode inside a
+    # single memory word.
+    initcode = Op.CALL(
+        Op.GAS, holder, Op.PUSH0, Op.PUSH0, Op.PUSH0, Op.PUSH0, Op.PUSH0
+    )
+    mstore_value, size = init_code_at_high_bytes(initcode)
+
+    # The probe measures with memory below 96, so the initcode sits
+    # above it.
+    code_offset = 96
+
+    def window(salt: int) -> Bytecode:
+        # A repeated CREATE2 salt would collide with the account the
+        # previous window created.
+        if create_opcode == Op.CREATE2:
+            return Op.POP(Op.CREATE2(0, code_offset, size, salt))
+        return Op.POP(Op.CREATE(0, code_offset, size))
+
+    contract = pre.deploy_contract(
+        code=Op.MSTORE(code_offset, mstore_value)
+        + clearing_probe_code(set_slot, [window(salt) for salt in range(3)])
+    )
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    cleared = Op.SSTORE.with_metadata(
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+    # Under the merge-time repayment of ethereum/EIPs#12265 the refund
+    # reaches `gas_left` instead, so the excess flips sign.
+    post = {
+        holder: Account(storage={SLOT_X: 0}),
+        contract: Account(
+            storage={
+                SLOT_MARKER: 1,
+                SLOT_INCREASED: 0,
+                SLOT_RESULT: cleared.state_refund(fork),
+            }
+        ),
     }
     state_test(pre=pre, post=post, tx=tx)
