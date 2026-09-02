@@ -14,18 +14,19 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BuilderDepositRequest,
+    BuilderExitRequest,
     SystemContractInteractionMeasuredOutOfGasContract,
 )
 
-from .helpers import BuilderDepositRequest, BuilderExitRequest
-from .spec import Spec, ref_spec_8282
+from .spec import ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
+MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
 
 
 @pytest.mark.parametrize(

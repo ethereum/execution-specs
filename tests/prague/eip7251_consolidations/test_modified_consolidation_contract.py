@@ -7,11 +7,11 @@ from typing import List
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
     Bytecode,
+    ConsolidationRequest,
     Header,
     Op,
     Requests,
@@ -21,7 +21,6 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 
-from .helpers import ConsolidationRequest
 from .spec import Spec as Spec_EIP7251
 from .spec import ref_spec_7251
 
@@ -39,7 +38,7 @@ def consolidation_list_with_custom_fee(n: int) -> List[ConsolidationRequest]:  #
         ConsolidationRequest(
             source_pubkey=0x01,
             target_pubkey=0x02,
-            fee=Spec_EIP7251.get_fee(10),
+            fee=ConsolidationRequest.get_fee(10),
         )
         for i in range(n)
     ]
@@ -108,7 +107,7 @@ def test_extra_consolidations(
 
     modified_code += Op.RETURN(0, memory_offset)
 
-    pre[Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS] = Account(
+    pre[ConsolidationRequest.system_contract_address] = Account(
         code=modified_code,
         nonce=1,
         balance=0,
@@ -138,7 +137,7 @@ def test_extra_consolidations(
 
 @pytest.mark.parametrize(
     "system_contract",
-    [Address(Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS)],
+    [ConsolidationRequest.system_contract_address],
 )
 @generate_system_contract_error_test(  # type: ignore[arg-type]
     max_gas_limit=Spec_EIP7251.SYSTEM_CALL_GAS_LIMIT,

@@ -7,9 +7,12 @@ from execution_testing import (
     Block,
     BlockException,
     Bytes,
+    ConsolidationRequest,
+    DepositRequest,
     EngineAPIError,
     Header,
     SystemContractInteractionBase,
+    WithdrawalRequest,
 )
 
 from ...common.system_contract_request_fixtures import (
@@ -18,9 +21,6 @@ from ...common.system_contract_request_fixtures import (
     system_contract_interactions_per_block_copy,  # noqa: F401
     timestamp,  # noqa: F401
 )
-from ..eip6110_deposits.helpers import DepositRequest
-from ..eip7002_el_triggerable_withdrawals.helpers import WithdrawalRequest
-from ..eip7251_consolidations.helpers import ConsolidationRequest
 
 
 @pytest.fixture

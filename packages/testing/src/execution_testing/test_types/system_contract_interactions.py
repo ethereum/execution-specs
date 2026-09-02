@@ -1,173 +1,23 @@
 """
-Test-side descriptors for execution-layer requests triggered via system
-contracts.
+Test-side interactions with system contracts.
 
-A `SystemContractRequest` is a `RequestBase` (it serializes to the on-chain
-request bytes) that also carries the calldata, value and validity needed to
-drive and verify a request from a test. The interaction classes
-(`SystemContractInteractionTransaction` / `SystemContractInteractionContract`)
-operate on any `SystemContractRequest`, so a single interaction can even mix
-request types in one transaction.
+The interaction classes (`SystemContractInteractionTransaction` /
+`SystemContractInteractionContract`) drive any mix of
+`SystemContractRequest`s from a transaction or a relay contract.
 """
 
-from abc import abstractmethod
 from dataclasses import dataclass, field, replace
-from typing import Callable, ClassVar, List, Literal, Self, Sequence
+from typing import List, Self, Sequence, Type
 
-from execution_testing.base_types import Address, CamelModel
-from execution_testing.forks.forks.helpers import fake_exponential
+from execution_testing.base_types import Address
+from execution_testing.forks import (
+    FeeSystemContractRequest,
+    SystemContractRequest,
+)
 from execution_testing.vm import Bytecode, Op
 
 from .account_types import EOA, Alloc
-from .request_types import RequestBase
 from .transaction_types import Transaction
-
-
-class SystemContractRequest(RequestBase, CamelModel):
-    """
-    Test descriptor for a request triggered by calling a system contract.
-
-    Holds the fields and interface shared by all request types; the concrete
-    serialized fields (and the `RequestBase.__bytes__` / `type`) are provided
-    by each subclass.
-    """
-
-    valid: bool = True
-    """Whether the request is expected to be valid and therefore included."""
-    calldata_modifier: Callable[[bytes], bytes] = lambda x: x
-    """Calldata modifier function applied when building the calldata."""
-
-    interaction_contract_address: ClassVar[Address]
-    """Address of the system contract that processes the request."""
-
-    @property
-    @abstractmethod
-    def value(self) -> int:
-        """Value (in wei) of the call that triggers the request."""
-        ...
-
-    @property
-    @abstractmethod
-    def calldata(self) -> bytes:
-        """Calldata of the call that triggers the request."""
-        ...
-
-    @abstractmethod
-    def with_source_address(self, source_address: Address) -> Self:
-        """Return a copy of the request with its source address set."""
-        ...
-
-    def set_source_address(self, source_address: Address) -> None:
-        """
-        Record `source_address` on the request in place, for request types
-        that carry one (e.g. withdrawals, consolidations). A no-op for request
-        types whose serialized form omits the source (e.g. deposits).
-        """
-        if "source_address" in type(self).model_fields:
-            self.source_address = source_address
-
-    @classmethod
-    @abstractmethod
-    def from_index(cls, index: int) -> Self:
-        """Build a request from a sequential index."""
-        ...
-
-
-class FeeSystemContractRequest(SystemContractRequest):
-    """
-    A `SystemContractRequest` whose triggering call must pay a fee that grows
-    with the per-block excess request count, following the `fake_exponential`
-    dynamic shared by EIP-7002, EIP-7251 (and future system contracts).
-
-    Subclasses set `min_fee`, `update_fraction` and `target_per_block`, and
-    implement `from_index` to build a request from a sequential index.
-    """
-
-    fee: int = 0
-    """Fee (in wei) paid to the system contract to enqueue the request."""
-
-    min_fee: ClassVar[int]
-    """Minimum fee, charged when there is no excess."""
-    update_fraction: ClassVar[int]
-    """Controls how quickly the fee grows with the excess request count."""
-    target_per_block: ClassVar[int]
-    """Target requests per block; excess above this raises the fee."""
-    max_per_block: ClassVar[int]
-    """Maximum number of requests dequeued into a single block."""
-    excess_fee_processing: ClassVar[Literal["block", "call"]] = "block"
-    """When the excess fee is recalculated."""
-
-    @property
-    def value(self) -> int:
-        """The value of the triggering call is the fee."""
-        return self.fee
-
-    @classmethod
-    def get_fee(cls, excess: int) -> int:
-        """Return the fee charged for the given excess request count."""
-        return fake_exponential(cls.min_fee, excess, cls.update_fraction)
-
-    @classmethod
-    def get_excess(cls, previous_excess: int, count: int) -> int:
-        """Return the new excess after a block processing `count` requests."""
-        return max(0, previous_excess + count - cls.target_per_block)
-
-    @classmethod
-    def get_n_fee_increments(cls, n: int) -> List[int]:
-        """Get the first N excess request counts that increase the fee."""
-        excess_request_counts: List[int] = []
-        last_fee = 1
-        i = 0
-        while len(excess_request_counts) < n:
-            fee = cls.get_fee(i)
-            if fee > last_fee:
-                excess_request_counts.append(i)
-                last_fee = fee
-            i += 1
-        return excess_request_counts
-
-    @classmethod
-    def get_n_fee_increment_blocks(
-        cls, n: int
-    ) -> List[List["SystemContractInteractionContract"]]:
-        """
-        Return N blocks such that each subsequent block has an increasing fee
-        for the requests.
-
-        Each block contains the number of requests required to reach the next
-        fee increment (plus the per-block target), built from sequential
-        indices via `from_index` and wrapped in a relay-contract interaction.
-        """
-        blocks = []
-        previous_excess = 0
-        request_index = 0
-        previous_fee = 0
-        for required_excess_requests in cls.get_n_fee_increments(n):
-            requests_required = (
-                required_excess_requests
-                + cls.target_per_block
-                - previous_excess
-            )
-            fee = cls.get_fee(previous_excess)
-            assert fee > previous_fee
-            blocks.append(
-                [
-                    SystemContractInteractionContract(
-                        requests=[
-                            cls.from_index(i)
-                            for i in range(
-                                request_index,
-                                request_index + requests_required,
-                            )
-                        ],
-                    )
-                ],
-            )
-            previous_fee = fee
-            request_index += requests_required
-            previous_excess = required_excess_requests
-
-        return blocks
 
 
 def relay_contract_code(
@@ -202,7 +52,7 @@ def relay_contract_code(
         code += Op.CALLDATACOPY(0, current_offset, len(r.calldata)) + Op.POP(
             call_type(
                 Op.GAS if gas_limit is None else gas_limit,
-                r.interaction_contract_address,
+                r.system_contract_address,
                 *value_arg,
                 0,
                 len(r.calldata),
@@ -272,7 +122,7 @@ class SystemContractInteractionTransaction(SystemContractInteractionBase):
             txs.append(
                 Transaction(
                     gas_limit=gas_limit,
-                    to=request.interaction_contract_address,
+                    to=request.system_contract_address,
                     value=request.value,
                     data=request.calldata,
                     sender=self.sender_account,
@@ -461,7 +311,7 @@ class SystemContractInteractionMeasuredOutOfGasContract(
             copy = Op.CALLDATACOPY(0, offsets[index], len(r.calldata))
             call = Op.CALL(
                 gas_argument,
-                r.interaction_contract_address,
+                r.system_contract_address,
                 r.value,
                 0,
                 len(r.calldata),
@@ -512,3 +362,46 @@ class SystemContractInteractionMeasuredOutOfGasContract(
         for i in invalid_indices:
             code += issue(index=i, gas_argument=forwarded_gas)
         return code + self.extra_code
+
+
+def fee_increment_blocks(
+    request_class: Type[FeeSystemContractRequest], n: int
+) -> List[List[SystemContractInteractionContract]]:
+    """
+    Return N blocks such that each subsequent block has an increasing fee for
+    the requests of `request_class`.
+
+    Each block contains the number of requests required to reach the next fee
+    increment (plus the per-block target), built from sequential indices via
+    `from_index` and wrapped in a relay-contract interaction.
+    """
+    blocks = []
+    previous_excess = 0
+    request_index = 0
+    previous_fee = 0
+    for required_excess_requests in request_class.get_n_fee_increments(n):
+        requests_required = (
+            required_excess_requests
+            + request_class.target_per_block
+            - previous_excess
+        )
+        fee = request_class.get_fee(previous_excess)
+        assert fee > previous_fee
+        blocks.append(
+            [
+                SystemContractInteractionContract(
+                    requests=[
+                        request_class.from_index(i)
+                        for i in range(
+                            request_index,
+                            request_index + requests_required,
+                        )
+                    ],
+                )
+            ]
+        )
+        previous_fee = fee
+        request_index += requests_required
+        previous_excess = required_excess_requests
+
+    return blocks

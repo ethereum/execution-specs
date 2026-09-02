@@ -83,12 +83,11 @@ from execution_testing.fixtures.common import (
     FixtureTransactionReceipt,
 )
 from execution_testing.fixtures.post_verifications import PostVerifications
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, Requests
 from execution_testing.test_types import (
     Alloc,
     Environment,
     Removable,
-    Requests,
     TestPhase,
     Transaction,
     Withdrawal,

@@ -10,7 +10,7 @@ from typing import List, Mapping
 
 from execution_testing.base_types import Address
 
-from ....base_fork import BaseFork
+from ....base_fork import BaseFork, SystemCallPhase
 
 BEACON_ROOTS_ADDRESS = 0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02
 
@@ -38,6 +38,16 @@ class EIP4788(BaseFork):
     def system_contracts(cls) -> List[Address]:
         """Add the beacon roots system contract."""
         return [Address(BEACON_ROOTS_ADDRESS, label="BEACON_ROOTS_ADDRESS")]
+
+    @classmethod
+    def system_contract_call_phases(cls) -> Mapping[Address, SystemCallPhase]:
+        """Call the beacon roots contract before the transactions."""
+        return {
+            Address(
+                BEACON_ROOTS_ADDRESS, label="BEACON_ROOTS_ADDRESS"
+            ): SystemCallPhase.BEFORE_TRANSACTIONS,
+            **super(EIP4788, cls).system_contract_call_phases(),
+        }
 
     @classmethod
     def pre_allocation_blockchain(cls) -> Mapping:

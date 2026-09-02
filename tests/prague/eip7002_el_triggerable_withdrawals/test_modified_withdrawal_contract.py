@@ -7,7 +7,6 @@ from typing import List
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -17,11 +16,11 @@ from execution_testing import (
     Requests,
     SystemContractInteractionTransaction,
     Transaction,
+    WithdrawalRequest,
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
 
-from .helpers import WithdrawalRequest
 from .spec import Spec as Spec_EIP7002
 from .spec import ref_spec_7002
 
@@ -39,7 +38,7 @@ def withdrawal_list_with_custom_fee(n: int) -> List[WithdrawalRequest]:  # noqa:
         WithdrawalRequest(
             validator_pubkey=i + 1,
             amount=0,
-            fee=Spec_EIP7002.get_fee(0),
+            fee=WithdrawalRequest.get_fee(0),
         )
         for i in range(n)
     ]
@@ -109,7 +108,7 @@ def test_extra_withdrawals(
 
     modified_code += Op.RETURN(0, memory_offset)
 
-    pre[Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS] = Account(
+    pre[WithdrawalRequest.system_contract_address] = Account(
         code=modified_code,
         nonce=1,
         balance=0,
@@ -139,7 +138,7 @@ def test_extra_withdrawals(
 
 @pytest.mark.parametrize(
     "system_contract",
-    [Address(Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS)],
+    [WithdrawalRequest.system_contract_address],
 )
 @generate_system_contract_error_test(  # type: ignore[arg-type]
     max_gas_limit=Spec_EIP7002.SYSTEM_CALL_GAS_LIMIT,

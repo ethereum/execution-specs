@@ -12,12 +12,12 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BuilderExitRequest,
     SystemContractInteractionTransaction,
     Transaction,
 )
 
-from .helpers import BuilderExitRequest
-from .spec import Spec, ref_spec_8282
+from .spec import ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8282.version
@@ -94,7 +94,7 @@ def test_builder_requests_during_fork(
     """
     # We need to delete the deployed contract that comes by default in the pre
     # state.
-    pre[Spec.BUILDER_EXIT_CONTRACT_ADDRESS] = Account(
+    pre[BuilderExitRequest.system_contract_address] = Account(
         balance=0,
         code=bytes(),
         nonce=0,

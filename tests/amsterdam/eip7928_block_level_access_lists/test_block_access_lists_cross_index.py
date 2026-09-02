@@ -12,7 +12,6 @@ tracking and NOOP filtering behavior.
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     BalAccountAbsentValues,
     BalAccountExpectation,
@@ -24,12 +23,12 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
+    ConsolidationRequest,
     Op,
     Transaction,
+    WithdrawalRequest,
 )
 
-from ...prague.eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
-from ...prague.eip7251_consolidations.spec import Spec as Spec7251
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -37,12 +36,8 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-WITHDRAWAL_REQUEST_ADDRESS = Address(
-    Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
-)
-CONSOLIDATION_REQUEST_ADDRESS = Address(
-    Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
-)
+WITHDRAWAL_REQUEST_ADDRESS = WithdrawalRequest.system_contract_address
+CONSOLIDATION_REQUEST_ADDRESS = ConsolidationRequest.system_contract_address
 
 
 def test_bal_withdrawal_contract_cross_index(
@@ -430,7 +425,7 @@ def test_bal_withdrawal_predeploy_balance_observed_cross_tx(
     making its address one whose pre-block snapshot would otherwise mask the
     BAL overlay if consulted ahead of the BAL prefix.
     """
-    fee = 1  # Spec7002.get_fee(0) is 1 when excess == 0; one request fits.
+    fee = 1  # WithdrawalRequest.get_fee(0) with no excess; one request fits.
     withdrawal_calldata = (
         (b"\x01" + b"\x00" * 47)  # 48-byte validator pubkey
         + (b"\x00" * 8)  # 8-byte amount
