@@ -706,19 +706,22 @@ def _get_pre_tx_account(
 
 
 def _get_pre_tx_storage(
-    pre_tx_storage: Dict[Address, Dict[Bytes32, U256]],
-    pre_state: PreState,
+    block_state: BlockState,
     address: Address,
     key: Bytes32,
 ) -> U256:
     """
     Look up a storage value in cumulative state, falling back to `pre_state`.
 
-    Returns `0` if not set.
+    Returns `0` if not set, or if the storage at `address` was wiped
+    earlier in the block.
     """
-    if address in pre_tx_storage and key in pre_tx_storage[address]:
-        return pre_tx_storage[address][key]
-    return pre_state.get_storage(address, key)
+    if address in block_state.storage_writes:
+        if key in block_state.storage_writes[address]:
+            return block_state.storage_writes[address][key]
+    if address in block_state.storage_clears:
+        return U256(0)
+    return block_state.pre_state.get_storage(address, key)
 
 
 def _index_start_account(
@@ -754,7 +757,7 @@ def _index_start_storage(
     index_key = (builder.block_access_index, address, key)
     if index_key not in builder.index_start_storage:
         builder.index_start_storage[index_key] = _get_pre_tx_storage(
-            block_state.storage_writes, block_state.pre_state, address, key
+            block_state, address, key
         )
     return builder.index_start_storage[index_key]
 
