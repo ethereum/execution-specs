@@ -216,7 +216,9 @@ def test_revert_depth_create_address_collision(
     if not outer_covered:
         # The whole transaction ran dry after the collision: only the
         # code survives.
-        caller_account = Account(storage={}, code=caller_code, balance=0)
+        caller_account = Account(
+            storage={}, code=caller_code, balance=0, nonce=1
+        )
         creator_account = Account(storage={}, nonce=1)
     elif not creator_covered:
         # The creator reached the collision but died on its aftermath
@@ -229,6 +231,7 @@ def test_revert_depth_create_address_collision(
             },
             code=caller_code,
             balance=tx_value,
+            nonce=1,
         )
         creator_account = Account(storage={}, nonce=1)
     else:
@@ -242,6 +245,7 @@ def test_revert_depth_create_address_collision(
             },
             code=caller_code,
             balance=tx_value,
+            nonce=1,
         )
         creator_account = Account(
             storage={
