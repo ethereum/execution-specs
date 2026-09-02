@@ -8,10 +8,13 @@ and on an INVALID that pins the refund bookkeeping.
 Ported from:
 state_tests/stCreate2/Create2OOGFromCallRefundsFiller.yml
 
-@manually-enhanced: Do not overwrite. The transaction budget and the
-sender's funding derive from the fork: the ported 400k regular budget
-plus the deepest arm's peak outstanding EIP-8037 state gas, guarded to
-stay below the 5000-byte deposit charge that starves the OoG arms.
+@manually-enhanced: Do not overwrite. The SSTORE pairs solc had folded
+out of five init codes are restored, so the refunds the OoG arms must
+discard are actually earned. The transaction budget and the sender's
+funding derive from the fork: the ported 400k regular budget plus the
+restored sets and the deepest arm's outstanding EIP-8037 state gas,
+guarded to stay below the 5000-byte deposit charge that starves the OoG
+arms.
 """
 
 import pytest
@@ -25,6 +28,8 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create2_address,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -249,22 +254,24 @@ def test_create2_oog_from_call_refunds(
         base_fee_per_gas=10,
     )
 
-    # EIP-8037 charges state gas on top of the ported regular budget.
-    # The headroom is the deepest arm's (create-inside-create2) peak
-    # outstanding state gas: a NEW_ACCOUNT charge and one live fresh
-    # slot set at each creation depth, plus the one-byte code deposits;
-    # all terms are zero before Amsterdam.
-    fresh_set_state = Op.SSTORE(
+    # The ported budget was sized for the compiled programs, in which
+    # solc had folded a fresh set out of the deepest arm's two init codes
+    # (restored below). On top of it, EIP-8037 charges state gas: the
+    # deepest arm (create inside create2) makes three fresh sets and two
+    # new accounts and deposits one byte at each depth. All state terms
+    # are zero before Amsterdam.
+    fresh_set = Op.SSTORE(
         key=0x0, value=0x1, key_warm=False, original_value=0, new_value=1
-    ).state_cost(fork)
+    )
     new_account_state = Op.CREATE2(
         value=0x0, offset=0x0, size=0x0, salt=0x0
     ).state_cost(fork)
     tx_gas_limit = (
         PORTED_GAS_LIMIT
+        + 2 * fresh_set.execution_cost(fork)
+        + 3 * fresh_set.state_cost(fork)
         + 2 * new_account_state
-        + 2 * fresh_set_state
-        + 3 * fork.code_deposit_state_gas(code_size=1)
+        + 2 * fork.code_deposit_state_gas(code_size=1)
         + 20_000
     )
     # The budget must stay below the oversized deposit charge so the
@@ -316,11 +323,10 @@ def test_create2_oog_from_call_refunds(
     #   return(0, 1)
     # }
     contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
-        + Op.RETURN,
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x0)
+        + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000001A),  # noqa: E501
     )
@@ -349,11 +355,9 @@ def test_create2_oog_from_call_refunds(
     #   invalid()
     # }
     contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SWAP1
-        + Op.SSTORE
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x0)
         + Op.INVALID,
         nonce=0,
         address=Address(0x000000000000000000000000000000000000001C),  # noqa: E501
@@ -420,11 +424,9 @@ def test_create2_oog_from_call_refunds(
     #   return(0, 1)
     # }
     contract_28 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP1, value=Op.DUP1)
-        + Op.PUSH1[0x1]
-        + Op.SWAP1
-        + Op.RETURN,
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=0x0, value=0x0)
+        + Op.RETURN(offset=0x0, size=0x1),
         nonce=1,
         address=Address(0x00000000000000000000000000000000000C0DE1),  # noqa: E501
     )
@@ -830,25 +832,27 @@ def test_create2_oog_from_call_refunds(
     #   let noOpt := msize()
     # }
     contract_22 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.PUSH3[0xC0DE1]
-        + Op.EXTCODESIZE(address=Op.DUP1)
-        + Op.SWAP2
-        + Op.DUP3
-        + Op.SWAP2
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.EXTCODECOPY
-        + Op.POP(
-            Op.CREATE2(value=Op.DUP1, offset=Op.DUP2, size=Op.DUP2, salt=0x0)
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x0)
+        + Op.EXTCODECOPY(
+            address=contract_28,
+            dest_offset=0x0,
+            offset=0x0,
+            size=Op.EXTCODESIZE(address=contract_28),
         )
-        + Op.ADD
-        + Op.RETURN,
+        + Op.POP(
+            Op.CREATE2(
+                value=0x0,
+                offset=0x0,
+                size=Op.EXTCODESIZE(address=contract_28),
+                salt=0x0,
+            )
+        )
+        + Op.RETURN(
+            offset=Op.ADD(Op.EXTCODESIZE(address=contract_28), 0x1),
+            size=0x1,
+        ),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000008A),  # noqa: E501
     )
@@ -961,26 +965,56 @@ def test_create2_oog_from_call_refunds(
     #   let noOptimization := msize()
     # }
     contract_19 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.PUSH3[0xC0DE1]
-        + Op.EXTCODESIZE(address=Op.DUP1)
-        + Op.SWAP2
-        + Op.DUP3
-        + Op.SWAP2
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.EXTCODECOPY
-        + Op.POP(Op.CREATE(value=Op.DUP1, offset=0x0, size=Op.DUP1))
-        + Op.ADD
-        + Op.RETURN,
+        code=Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x0)
+        + Op.EXTCODECOPY(
+            address=contract_28,
+            dest_offset=0x0,
+            offset=0x0,
+            size=Op.EXTCODESIZE(address=contract_28),
+        )
+        + Op.POP(
+            Op.CREATE(
+                value=0x0,
+                offset=0x0,
+                size=Op.EXTCODESIZE(address=contract_28),
+            )
+        )
+        + Op.RETURN(
+            offset=Op.ADD(Op.EXTCODESIZE(address=contract_28), 0x1),
+            size=0x1,
+        ),
         nonce=0,
         address=Address(0x000000000000000000000000000000000000007A),  # noqa: E501
     )
+
+    # Every created account's address follows from the init code the arm
+    # copies, so the post tracks the restored bytecode.
+    def code_of(holder: Address) -> Bytes:
+        """Return the init code deployed at a holder address."""
+        holder_account = pre[holder]
+        assert holder_account is not None
+        return holder_account.code
+
+    def created_by(holder: Address) -> Address:
+        """Return the address contract_0 creates from a holder's code."""
+        return compute_create2_address(contract_0, 0, code_of(holder))
+
+    def nested_by_create(outer: Address) -> Address:
+        """Return the address an init code's CREATE makes."""
+        return compute_create_address(address=outer, nonce=1)
+
+    def nested_by_create2(outer: Address) -> Address:
+        """Return the address an init code's CREATE2 of contract_28 makes."""
+        return compute_create2_address(outer, 0, code_of(contract_28))
+
+    deployed = Account(storage={0: 1}, code=bytes.fromhex("00"), nonce=1)
+    creating_deployed = Account(
+        storage={0: 1}, code=bytes.fromhex("00"), nonce=2
+    )
+    nested_deployed = Account(storage={}, code=bytes.fromhex("00"), nonce=1)
+    burned = Account(balance=0, nonce=2)
 
     expect_entries_: list[dict] = []
     if fork.is_eip_enabled(8037):
@@ -1018,9 +1052,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address(0xCFB6834F84B9E726F5F8AEF446D585B732ABDD99): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
+                created_by(contract_1): deployed,
             },
         },
         {
@@ -1028,9 +1060,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address(0xD615C5EAFF84F487CFF253B50DC18517FC8385B0): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
+                created_by(contract_4): deployed,
             },
         },
         {
@@ -1038,9 +1068,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address(0x0D44B2AD06C5C9F9A86C9EDF8D13FB7D44FE756C): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
+                created_by(contract_7): deployed,
             },
         },
         {
@@ -1048,9 +1076,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address(0x858EC13538276B49D5ECE2A408C8331CCB79AD89): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
+                created_by(contract_10): deployed,
             },
         },
         {
@@ -1061,31 +1087,15 @@ def test_create2_oog_from_call_refunds(
             },
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0x95E88628C53B5C0E40FF6DE65A3CF8CDC3B477F7
-                ): Account.NONEXISTENT,
-                Address(
-                    0x66E1CC2616A273450621C8CC5E91D8CFD92494FA
-                ): Account.NONEXISTENT,
-                Address(
-                    0x6175BA9976476425B1CDA8E1DA479768FB429542
-                ): Account.NONEXISTENT,
-                Address(
-                    0x8DFF0E448F1E078E9B8A7FCF0BF6C291F167AAEF
-                ): Account.NONEXISTENT,
-                Address(
-                    0xA2C4270800A5DBEEA48464E5F2420EFB1747725A
-                ): Account.NONEXISTENT,
-                Address(
-                    0x4D80F1150EE236ADFAAB47C70DF90E757CEF1141
-                ): Account.NONEXISTENT,
-                Address(
-                    0x0566DC8DABC80FAD3ED9AB2B4309EBFD98894F44
-                ): Account.NONEXISTENT,
-                Address(
-                    0x55305CC46BDAF1E755A05A771D55CFEC3FEDEF90
-                ): Account.NONEXISTENT,
+                sender: burned,
+                created_by(contract_2): Account.NONEXISTENT,
+                created_by(contract_3): Account.NONEXISTENT,
+                created_by(contract_5): Account.NONEXISTENT,
+                created_by(contract_6): Account.NONEXISTENT,
+                created_by(contract_8): Account.NONEXISTENT,
+                created_by(contract_9): Account.NONEXISTENT,
+                created_by(contract_11): Account.NONEXISTENT,
+                created_by(contract_12): Account.NONEXISTENT,
             },
         },
         {
@@ -1093,9 +1103,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address(0xD83E541AA11C5AE1E9C847AA1728D5BC47D32FAF): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
+                created_by(contract_13): deployed,
                 contract_26: Account(balance=0, nonce=1),
             },
         },
@@ -1103,13 +1111,9 @@ def test_create2_oog_from_call_refunds(
             "indexes": {"data": [13, 14], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0x8F6E6C741AC95C1A9109850EA1A3FFC722DC3BF8
-                ): Account.NONEXISTENT,
-                Address(
-                    0x1F5D187BB3A48DBB2C011D0A6E731AC8131799AD
-                ): Account.NONEXISTENT,
+                sender: burned,
+                created_by(contract_14): Account.NONEXISTENT,
+                created_by(contract_15): Account.NONEXISTENT,
                 contract_26: Account(
                     storage={1: 1}, code=bytes.fromhex("32ff"), nonce=1
                 ),
@@ -1120,22 +1124,16 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address(0x2A2141ED764598D4C5A8B6E036987928D5EC6BEA): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
+                created_by(contract_16): deployed,
             },
         },
         {
             "indexes": {"data": [16, 17], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0x74B39291DFC237C0D42FD15457754778F51C6DE8
-                ): Account.NONEXISTENT,
-                Address(
-                    0x3399C78929EAB89C673A8986FF7CA9CCC49DB454
-                ): Account.NONEXISTENT,
+                sender: burned,
+                created_by(contract_17): Account.NONEXISTENT,
+                created_by(contract_18): Account.NONEXISTENT,
             },
         },
         {
@@ -1143,31 +1141,19 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address(0xDEB7D920F2653A8EDDCFFCA0A77F56FCD788C00A): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=2
-                ),
-                Address(0x8109D28DE74BFAC2F298EC019548B8C346E51310): Account(
-                    storage={}, code=bytes.fromhex("00"), nonce=1
-                ),
+                created_by(contract_19): creating_deployed,
+                nested_by_create(created_by(contract_19)): nested_deployed,
             },
         },
         {
             "indexes": {"data": [19, 20], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0xF922B2F70110C83F8EC7DF512B41BAC5627E8E59
-                ): Account.NONEXISTENT,
-                Address(
-                    0x2CA788D22E21134AB1909266ED3B6C352E2A07CB
-                ): Account.NONEXISTENT,
-                Address(
-                    0x398426E736801FE712DF1EF078A3B6CA3C6F063B
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB520686759CED3BC9D8898E02EE41623032FF47F
-                ): Account.NONEXISTENT,
+                sender: burned,
+                created_by(contract_20): Account.NONEXISTENT,
+                nested_by_create(created_by(contract_20)): Account.NONEXISTENT,
+                created_by(contract_21): Account.NONEXISTENT,
+                nested_by_create(created_by(contract_21)): Account.NONEXISTENT,
             },
         },
         {
@@ -1175,30 +1161,22 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address(0x5A2664B55822AA3C6D9D90FEC18B4C87CDE07D04): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=2
-                ),
-                Address(0x442ED1B502544D146E46B5D9849A476AEBD3B8DB): Account(
-                    storage={}, code=bytes.fromhex("00"), nonce=1
-                ),
+                created_by(contract_22): creating_deployed,
+                nested_by_create2(created_by(contract_22)): nested_deployed,
             },
         },
         {
             "indexes": {"data": [22, 23], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0xDD2C53BFCAF5C1D698A2B21C0908F15F7FBFD635
+                sender: burned,
+                created_by(contract_23): Account.NONEXISTENT,
+                nested_by_create2(
+                    created_by(contract_23)
                 ): Account.NONEXISTENT,
-                Address(
-                    0x2D556BDBCC37C7A021879A21ABE25D1850D4FD36
-                ): Account.NONEXISTENT,
-                Address(
-                    0xA99DA4EA490335C986D52B0CC9E3F78B286AC5FC
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB4AB8AB0D363765586925E35C715E342E4AE3C63
+                created_by(contract_24): Account.NONEXISTENT,
+                nested_by_create2(
+                    created_by(contract_24)
                 ): Account.NONEXISTENT,
             },
         },
