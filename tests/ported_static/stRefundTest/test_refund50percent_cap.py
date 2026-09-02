@@ -1,5 +1,5 @@
 """
-Verify the EIP-3529 refund cap over six storage clears: the sender's final
+Verify the refund cap over six storage clears: the sender's final
 balance reflects the executed gas minus the capped refund.
 
 Ported from:
@@ -38,7 +38,7 @@ def test_refund50percent_cap(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Six storage clears refund gas up to the EIP-3529 cap."""
+    """Six storage clears refund gas up to the fork's cap."""
     code = (
         Op.POP(Op.SLOAD(key=0x1, key_warm=False))
         + Op.POP(Op.SLOAD(key=0x2, key_warm=False))
@@ -93,8 +93,9 @@ def test_refund50percent_cap(
         gas_price=GAS_PRICE,
     )
 
-    # EIP-3529 caps the refund at a fifth of the executed gas.
-    refund = min(code.refund(fork), executed // 5)
+    # The refund is capped at a fork-defined fraction of the executed
+    # gas.
+    refund = min(code.refund(fork), executed // fork.max_refund_quotient())
     gas_used = executed - refund
 
     post = {

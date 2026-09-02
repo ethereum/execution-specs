@@ -1,6 +1,6 @@
 """
-Verify the EIP-3529 refund cap over five storage clears: the sender's
-final balance reflects the executed gas minus the capped refund.
+Verify the refund cap over five storage clears: the sender's final
+balance reflects the executed gas minus the capped refund.
 
 Ported from:
 state_tests/stRefundTest/refund50_2Filler.json
@@ -37,7 +37,7 @@ def test_refund50_2(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Five storage clears refund gas up to the EIP-3529 cap."""
+    """Five storage clears refund gas up to the fork's cap."""
     code = (
         Op.SSTORE(
             key=0xA, value=0x1, key_warm=False, original_value=0, new_value=1
@@ -78,8 +78,10 @@ def test_refund50_2(
         gas_price=GAS_PRICE,
     )
 
-    # EIP-3529 caps the refund at a fifth of the executed gas.
-    refund = min(code.refund(fork), executed // 5)
+    # The refund is capped at a fork-defined fraction of the executed
+    # gas. On EIP-8037 forks the repriced fresh sets lift that cap above
+    # the five clears' refund, which then binds instead.
+    refund = min(code.refund(fork), executed // fork.max_refund_quotient())
     gas_used = executed - refund
 
     post = {

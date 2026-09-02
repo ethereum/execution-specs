@@ -73,9 +73,12 @@ def test_refund_call_a(
         gas_price=GAS_PRICE,
     )
 
-    # EIP-3529 caps the refund at a fifth of the executed gas.
+    # The refund is capped at a fork-defined fraction of the executed
+    # gas. A single clear stays well under it, so the earned refund is
+    # what the balance pins.
     refund = min(
-        caller_code.refund(fork) + callee_code.refund(fork), executed // 5
+        caller_code.refund(fork) + callee_code.refund(fork),
+        executed // fork.max_refund_quotient(),
     )
     gas_used = executed - refund
 

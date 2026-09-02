@@ -63,8 +63,9 @@ def test_refund_tx_to_suicide(
         value=TX_VALUE,
     )
 
-    # EIP-3529 removed the self-destruct refund entirely.
-    refund = min(code.refund(fork), executed // 5)
+    # The self-destruct refund (zero from EIP-3529 on) and the cap both
+    # come from the fork.
+    refund = min(code.refund(fork), executed // fork.max_refund_quotient())
     gas_used = executed - refund
 
     post = {

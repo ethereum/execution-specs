@@ -1,7 +1,7 @@
 """
-Verify the EIP-3529 refund cap when eight storage clears surround a
-gas-limited call to a self-destructing contract: the stored gas delta and
-the sender's final balance track the executed gas minus the capped refund,
+Verify the refund cap when eight storage clears surround a gas-limited
+call to a self-destructing contract: the stored gas delta and the
+sender's final balance track the executed gas minus the capped refund,
 for both a starved and a fully funded sub-call.
 
 Ported from:
@@ -130,7 +130,7 @@ def test_refund_suicide50procent_cap(
     gas_delta = head.gas_cost(fork) + body.gas_cost(fork) + inner_consumed
 
     data = Hash(grant)
-    # The refund cap is a fifth of the gas actually deducted before
+    # The refund cap is a fraction of the gas actually deducted before
     # execution, which excludes the EIP-7623 calldata floor.
     intrinsic = fork.transaction_intrinsic_cost_calculator()(
         calldata=data, return_cost_deducted_prior_execution=True
@@ -147,11 +147,12 @@ def test_refund_suicide50procent_cap(
         gas_price=GAS_PRICE,
     )
 
-    # EIP-3529 caps the refund at a fifth of the executed gas.
+    # The refund is capped at a fork-defined fraction of the executed
+    # gas.
     total_refund = body.refund(fork) + (
         destructor_code.refund(fork) if call_succeeds else 0
     )
-    refund = min(total_refund, executed // 5)
+    refund = min(total_refund, executed // fork.max_refund_quotient())
     gas_used = executed - refund
 
     post = {
