@@ -28,6 +28,7 @@ from execution_testing import (
     add_kzg_version,
     compute_create_address,
 )
+from execution_testing.checklists import EIPChecklist
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP4844_Spec
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
@@ -47,6 +48,7 @@ REFERENCE_SPEC_VERSION = ref_spec_2780.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize("recipient_type", RECIPIENT_TYPES_NON_CREATE)
 @pytest.mark.parametrize(
     "value",
@@ -135,6 +137,7 @@ def test_value_moving_transactions(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "delegation_warm",
     [
@@ -200,6 +203,7 @@ def test_self_transfer_with_delegated_sender(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types
 def test_intrinsic_decomposition_across_tx_types(
     fork: Fork,
@@ -271,6 +275,7 @@ def test_intrinsic_decomposition_across_tx_types(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [
@@ -441,6 +446,7 @@ def _precompile_calldata(precompile: Address) -> bytes:
     return bytes([0x00] * input_size if input_size > 0 else [])
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.parametrize(
     "value",
     [

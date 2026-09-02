@@ -33,10 +33,12 @@ from execution_testing import (
     Op,
     RecipientType,
     Transaction,
+    TransactionException,
     TransactionReceipt,
     TransitionFork,
     compute_create_address,
 )
+from execution_testing.checklists import EIPChecklist
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .helpers import EOA_INITIAL_BALANCE
@@ -52,6 +54,8 @@ PRE_FORK_TIMESTAMP = 14_999
 POST_FORK_TIMESTAMP = 15_000
 
 
+@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
+@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 @pytest.mark.parametrize(
     "self_transfer",
     [
@@ -160,6 +164,8 @@ def test_intrinsic_reduction_across_amsterdam_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
+@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 @pytest.mark.parametrize(
     "value",
     [
@@ -274,6 +280,8 @@ def test_creation_tx_intrinsic_across_amsterdam_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
+@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
+@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_setcode_tx_across_amsterdam_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -366,5 +374,117 @@ def test_setcode_tx_across_amsterdam_transition(
             balance=0,
             code=Spec7702.delegation_designation(delegate_to),
         )
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork()
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork()
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "recipient_type",
+    [
+        pytest.param(RecipientType.EOA, id="plain_call"),
+        pytest.param(RecipientType.SELF, id="self_transfer"),
+    ],
+)
+def test_intrinsic_validity_across_amsterdam_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: TransitionFork,
+    recipient_type: RecipientType,
+) -> None:
+    """
+    Pin the intrinsic-validity flip across the Amsterdam boundary.
+
+    A zero-value call to an existing EOA needs the flat pre-fork
+    ``TX_BASE`` but only the decomposed ``TX_BASE + COLD_ACCOUNT_ACCESS``
+    once EIP-2780 activates. A self-transfer drops to the lowered
+    ``TX_BASE`` alone. Either way the post-fork intrinsic is strictly
+    lower, so one gas limit straddles the boundary. Off-by-one gas
+    limits around each fork's requirement pin all four behaviors:
+
+    1. Pre-fork block with the exact post-fork intrinsic is rejected:
+       the new constraint is met, the old one is not.
+    2. Pre-fork block with the exact pre-fork intrinsic is accepted.
+    3. Post-fork block with one gas below the post-fork intrinsic is
+       rejected.
+    4. Post-fork block with the exact post-fork intrinsic, the gas
+       limit rejected before the fork, is accepted.
+
+    No EVM bytecode runs, so each accepted transaction consumes exactly
+    its intrinsic, pinned through the sender balance.
+    """
+    gas_price = 1_000_000_000
+    sender_initial_balance = 10**18
+
+    pre_fork = fork.fork_at(timestamp=PRE_FORK_TIMESTAMP)
+    post_fork = fork.fork_at(timestamp=POST_FORK_TIMESTAMP)
+    intrinsic_pre = pre_fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=recipient_type,
+        return_cost_deducted_prior_execution=True,
+    )
+    intrinsic_post = post_fork.transaction_intrinsic_cost_calculator()(
+        recipient_type=recipient_type,
+        return_cost_deducted_prior_execution=True,
+    )
+    assert intrinsic_post < intrinsic_pre, (
+        f"shape does not discriminate: post-fork intrinsic "
+        f"{intrinsic_post} is not below pre-fork intrinsic {intrinsic_pre}"
+    )
+
+    post: dict[Address, Account] = {}
+
+    def make_tx(
+        gas_limit: int, error: TransactionException | None = None
+    ) -> Transaction:
+        sender = pre.fund_eoa(sender_initial_balance)
+        target = (
+            sender
+            if recipient_type == RecipientType.SELF
+            else pre.fund_eoa(amount=EOA_INITIAL_BALANCE)
+        )
+        if error is None:
+            post[sender] = Account(
+                nonce=1,
+                balance=sender_initial_balance - gas_limit * gas_price,
+            )
+        return Transaction(
+            sender=sender,
+            to=target,
+            gas_limit=gas_limit,
+            gas_price=gas_price,
+            error=error,
+        )
+
+    too_low = TransactionException.INTRINSIC_GAS_TOO_LOW
+    blocks = [
+        # 1. Rejected before the fork: the post-fork intrinsic is not
+        # enough under the flat pre-fork base.
+        Block(
+            timestamp=PRE_FORK_TIMESTAMP,
+            txs=[make_tx(intrinsic_post, error=too_low)],
+            exception=too_low,
+        ),
+        # 2. Accepted before the fork: the exact pre-fork intrinsic.
+        Block(
+            timestamp=PRE_FORK_TIMESTAMP,
+            txs=[make_tx(intrinsic_pre)],
+        ),
+        # 3. Rejected after the fork: one below the decomposed
+        # intrinsic.
+        Block(
+            timestamp=POST_FORK_TIMESTAMP,
+            txs=[make_tx(intrinsic_post - 1, error=too_low)],
+            exception=too_low,
+        ),
+        # 4. Accepted after the fork: the gas limit block 1 rejected.
+        Block(
+            timestamp=POST_FORK_TIMESTAMP,
+            txs=[make_tx(intrinsic_post)],
+        ),
+    ]
 
     blockchain_test(pre=pre, blocks=blocks, post=post)

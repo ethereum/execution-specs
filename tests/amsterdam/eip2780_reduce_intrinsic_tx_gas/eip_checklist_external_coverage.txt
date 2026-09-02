@@ -1,0 +1,3 @@
+general/code_coverage/eels = Covered in EELS
+general/code_coverage/test_coverage = Run locally
+general/code_coverage/missed_lines = No missed lines; the EIP's additions to calculate_intrinsic_cost, create_evm, charge_value_transfer_to_non_alive_account, resolve_delegated_code_address and set_delegation are all exercised by this suite
