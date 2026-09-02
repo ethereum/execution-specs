@@ -1,7 +1,7 @@
 """
 Test collision in CREATE/CREATE2 account creation, where the existing
 account has non-empty code or nonce (EIP-684), and that an account
-with only a balance is deployable.
+with only a balance or only storage is deployable.
 """
 
 from typing import Dict
@@ -38,10 +38,9 @@ CORRECT_INITCODE = Initcode(
 
 # Every account shape where creation must abort under EIP-684: the
 # product of nonce, code, storage and balance with non-empty code or
-# nonce. Cells with zero nonce and empty code are excluded: with
-# non-empty storage the behavior is undefined in protocol (EIP-7610
-# was declined for inclusion in Glamsterdam), and with empty storage
-# the account is deployable (see the balance-only tests). Cells with
+# nonce. Cells with zero nonce and empty code are excluded because
+# the account is deployable (see the balance-only and storage-only
+# tests). Cells with
 # empty storage catch clients that incorrectly abort on storage
 # instead of code or nonce; cells with non-empty storage also check
 # that the aborted creation neither wipes the storage nor runs the
@@ -340,6 +339,117 @@ def test_create_opcode_balance_only_target(
                 balance=1,
                 code=CORRECT_INITCODE.deploy_code,
                 storage={0x00: 0x01},
+            ),
+            contract_creator_address: Account(
+                storage={0x01: created_contract_address}
+            ),
+        },
+        tx=tx,
+    )
+
+
+# Initcode for the storage-only tests. Slot 0x00 records one more than
+# the value the initcode reads from slot 0x01, which the target account
+# pre-seeds: a wiped target stores 1, a retained one stores 2, and an
+# aborted creation stores nothing.
+STORAGE_PROBE_INITCODE = Initcode(
+    deploy_code=Op.STOP,
+    initcode_prefix=Op.SSTORE(0, Op.ADD(Op.SLOAD(1), 1)),
+)
+STORAGE_ONLY_PRE_STORAGE = {0x01: 0x01, 0x02: 0x02}
+STORAGE_ONLY_POST_STORAGE = {0x00: 0x01, 0x01: 0x00, 0x02: 0x00}
+
+
+@pytest.mark.parametrize("balance", [0, 1])
+@pytest.mark.with_all_contract_creating_tx_types
+def test_create_tx_storage_only_target(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_type: int,
+    balance: int,
+) -> None:
+    """
+    Test that a contract creation transaction succeeds when the target
+    address has zero nonce and no code but non-empty storage: EIP-684
+    does not consider storage, and the pre-existing storage is wiped
+    before the initcode runs.
+    """
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        ty=tx_type,
+        to=None,
+        data=STORAGE_PROBE_INITCODE,
+        protected=False,
+    )
+
+    created_contract_address = tx.created_contract
+
+    pre[created_contract_address] = Account(
+        balance=balance, storage=STORAGE_ONLY_PRE_STORAGE
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            created_contract_address: Account(
+                balance=balance,
+                code=STORAGE_PROBE_INITCODE.deploy_code,
+                storage=STORAGE_ONLY_POST_STORAGE,
+            ),
+        },
+        tx=tx,
+    )
+
+
+@pytest.mark.parametrize("balance", [0, 1])
+@pytest.mark.with_all_create_opcodes
+def test_create_opcode_storage_only_target(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    create_opcode: Op,
+    balance: int,
+) -> None:
+    """
+    Test that a contract creation opcode succeeds when the target
+    address has zero nonce and no code but non-empty storage: EIP-684
+    does not consider storage, and the pre-existing storage is wiped
+    before the initcode runs.
+    """
+    initcode = STORAGE_PROBE_INITCODE
+    assert len(initcode) <= 32
+    contract_creator_code = (
+        # Stores the created address, which is non-zero on success.
+        Op.MSTORE(0, Op.PUSH32(bytes(initcode).ljust(32, b"\0")))
+        + Op.SSTORE(0x01, create_opcode(value=0, offset=0, size=len(initcode)))
+        + Op.STOP
+    )
+    contract_creator_address = pre.deploy_contract(contract_creator_code)
+
+    created_contract_address = compute_create_address(
+        address=contract_creator_address,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=contract_creator_address,
+        protected=False,
+    )
+
+    pre[created_contract_address] = Account(
+        balance=balance, storage=STORAGE_ONLY_PRE_STORAGE
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            created_contract_address: Account(
+                balance=balance,
+                code=STORAGE_PROBE_INITCODE.deploy_code,
+                storage=STORAGE_ONLY_POST_STORAGE,
             ),
             contract_creator_address: Account(
                 storage={0x01: created_contract_address}
