@@ -1016,37 +1016,7 @@ def test_create2_oog_from_call_refunds(
     nested_deployed = Account(storage={}, code=bytes.fromhex("00"), nonce=1)
     burned = Account(balance=0, nonce=2)
 
-    expect_entries_: list[dict] = []
-    if fork.is_eip_enabled(8037):
-        expect_entries_.append(
-            {
-                "indexes": {
-                    "data": [
-                        1,
-                        2,
-                        4,
-                        5,
-                        7,
-                        8,
-                        10,
-                        11,
-                        13,
-                        14,
-                        16,
-                        17,
-                        19,
-                        20,
-                        22,
-                        23,
-                    ],
-                    "gas": -1,
-                    "value": -1,
-                },
-                "network": [">=Cancun"],
-                "result": {sender: Account(nonce=2)},
-            }
-        )
-    expect_entries_ += [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0], "gas": -1, "value": -1},
             "network": [">=Cancun"],
