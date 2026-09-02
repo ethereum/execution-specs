@@ -121,12 +121,12 @@ def test_call_new_account_charge_after_precompile_touch(
     Charge the full value-call cost to a dead precompile that was touched
     earlier in the transaction.
 
-    The measured cost includes the new-account charge while it is
-    execution gas. Once it moves to state gas the GAS delta no longer
-    sees it, but the fixture still pins it through the sender balance in
-    the state root. The zero gas argument makes the callee run on the
-    value stipend alone, which is below its precompile cost, so the
-    callee always halts and no gas flows back into the measurement.
+    The measured call forwards zero gas, so the callee runs on the value
+    stipend alone, halts, and returns nothing into the measurement. From
+    Amsterdam the new-account charge is state gas: invisible to the GAS
+    delta and refunded when the callee halts. A second call then creates
+    the account for real, so its charge stays paid and the sender balance
+    pins it in the state root.
     """
     storage = Storage()
     measured_call = Op.CALL(
@@ -139,20 +139,27 @@ def test_call_new_account_charge_after_precompile_touch(
         address_warm=True,
         new_memory_size=args_size,
     )
-    code = touch_code(precompile, touch) + CodeGasMeasure(
-        code=measured_call,
-        extra_stack_items=1,
-        sstore_key=storage.store_next(
-            measured_call.execution_cost(fork), "measured_call_cost"
-        ),
+    creating_call = Op.CALL(gas=100_000, address=precompile, value=1)
+    code = (
+        touch_code(precompile, touch)
+        + CodeGasMeasure(
+            code=measured_call,
+            extra_stack_items=1,
+            sstore_key=storage.store_next(
+                measured_call.execution_cost(fork), "measured_call_cost"
+            ),
+        )
+        + Op.SSTORE(
+            storage.store_next(1, "creating_call_result"), creating_call
+        )
     )
     caller = pre.deploy_contract(code, balance=1, storage=storage.canary())
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
 
     post = {
-        caller: Account(storage=storage, balance=1),
-        precompile: Account.NONEXISTENT,
+        caller: Account(storage=storage, balance=0),
+        precompile: Account(balance=1),
     }
     state_test(pre=pre, post=post, tx=tx)
 
