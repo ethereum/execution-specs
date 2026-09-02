@@ -33,7 +33,7 @@ TX_VALUE = 10
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund_TxToSuicideFiller.json"],
 )
-@pytest.mark.valid_from("London")
+@pytest.mark.valid_from("Berlin")
 def test_refund_tx_to_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -41,8 +41,12 @@ def test_refund_tx_to_suicide(
 ) -> None:
     """Self-destruct moves the balance and grants no refund."""
     beneficiary = pre.nonexistent_account()
+    # From EIP-6780 on, a pre-existing contract only moves its balance.
     code = Op.SELFDESTRUCT(
-        address=beneficiary, address_warm=False, account_new=True
+        address=beneficiary,
+        address_warm=False,
+        account_new=True,
+        self_destructed_account=not fork.is_eip_enabled(6780),
     )
     target = pre.deploy_contract(
         code=code,

@@ -32,7 +32,7 @@ GAS_PRICE = 10
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refund50percentCapFiller.json"],
 )
-@pytest.mark.valid_from("London")
+@pytest.mark.valid_from("Berlin")
 def test_refund50percent_cap(
     state_test: StateTestFiller,
     pre: Alloc,

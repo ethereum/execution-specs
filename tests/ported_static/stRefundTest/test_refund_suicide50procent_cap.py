@@ -42,7 +42,7 @@ GRANT_MARGIN = 1_000
 @pytest.mark.ported_from(
     ["state_tests/stRefundTest/refundSuicide50procentCapFiller.json"],
 )
-@pytest.mark.valid_from("London")
+@pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize(
     "call_succeeds",
     [False, True],
@@ -55,8 +55,12 @@ def test_refund_suicide50procent_cap(
     call_succeeds: bool,
 ) -> None:
     """Storage clears around a self-destruct call refund up to the cap."""
+    # From EIP-6780 on, a pre-existing contract only moves its balance.
     destructor_code = Op.SELFDESTRUCT(
-        address=Op.CALLER, address_warm=True, account_new=False
+        address=Op.CALLER,
+        address_warm=True,
+        account_new=False,
+        self_destructed_account=not fork.is_eip_enabled(6780),
     )
     destructor = pre.deploy_contract(
         code=destructor_code,
