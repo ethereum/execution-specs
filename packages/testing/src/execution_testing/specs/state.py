@@ -110,6 +110,8 @@ class StateTest(BaseTest):
 
     supported_markers: ClassVar[Dict[str, str]] = {
         "state_test_only": "Only generate a state test fixture",
+        "frame_tx_incompatible": "The test's oracle depends on the "
+        "transaction type, so no frame transaction variant is generated",
     }
 
     def verify_modified_gas_limit(
