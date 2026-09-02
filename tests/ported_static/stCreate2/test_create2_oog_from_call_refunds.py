@@ -276,11 +276,13 @@ def test_create2_oog_from_call_refunds(
     )
     # The budget must stay below the oversized deposit charge so the
     # OoG arms keep starving on it on every fork.
-    oog_deposit = (
-        OOG_DEPOSIT_SIZE * fork.gas_costs().CODE_DEPOSIT_PER_BYTE
-        + fork.code_deposit_state_gas(code_size=OOG_DEPOSIT_SIZE)
-    )
-    assert tx_gas_limit < oog_deposit, "the OoG arms must stay starved"
+    oog_deposit_charge = Op.RETURN(
+        offset=0x0,
+        size=OOG_DEPOSIT_SIZE,
+        new_memory_size=OOG_DEPOSIT_SIZE,
+        code_deposit_size=OOG_DEPOSIT_SIZE,
+    ).gas_cost(fork)
+    assert tx_gas_limit < oog_deposit_charge, "the OoG arms must stay starved"
 
     # The exact funding makes the OoG arms' post-state balance zero.
     pre[sender] = Account(balance=tx_gas_limit * GAS_PRICE, nonce=1)

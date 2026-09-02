@@ -96,8 +96,15 @@ def test_create2_oo_gafter_init_code_revert2(
     # but not the deposit charge, and the creator's 1/64 retention still
     # covers its tail (the result MSTORE and the REVERT).
     child_exec = child_mstore.gas_cost(fork) + child_return.gas_cost(fork)
-    deposit_cost = DEPOSIT_SIZE * fork.gas_costs().CODE_DEPOSIT_PER_BYTE
-    deposit_cost += fork.code_deposit_state_gas(code_size=DEPOSIT_SIZE)
+    # The deposit charge is the RETURN's metadata-priced cost, minus the
+    # RETURN itself, so it tracks the fork's pricing of the deposit.
+    deposit_cost = Op.RETURN(
+        offset=0x0,
+        size=DEPOSIT_SIZE,
+        new_memory_size=DEPOSIT_SIZE,
+        old_memory_size=0x20,
+        code_deposit_size=DEPOSIT_SIZE,
+    ).gas_cost(fork) - child_return.gas_cost(fork)
     child_grant = child_exec + deposit_cost // 2
     rem_after_create = -(-child_grant * 64 // 63)
     forwarded = (
