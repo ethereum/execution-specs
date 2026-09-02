@@ -1,8 +1,8 @@
 """
 Verify a mutual CALL recursion that terminates by gas exhaustion: two
 contracts increment their own counters and call each other until the
-EIP-150 63/64 attenuation starves the deepest frame, whose failed store
-reverts alone while every ancestor's increment persists.
+EIP-150 63/64 attenuation starves the deepest frame, which halts before
+its own store while every ancestor's increment persists.
 
 Ported from:
 state_tests/stRevertTest/LoopCallsDepthThenRevertFiller.json
@@ -54,7 +54,7 @@ def test_loop_calls_depth_then_revert(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Only the gas-starved deepest frame of a call loop reverts."""
+    """Only the gas-starved deepest frame of a call loop fails."""
     ping = pre.deploy_contract(code=loop_code(PONG_ADDRESS))
     pong = pre.deploy_contract(code=loop_code(ping), address=PONG_ADDRESS)
 
