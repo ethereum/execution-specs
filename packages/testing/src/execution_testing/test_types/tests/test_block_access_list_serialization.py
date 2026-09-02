@@ -5,6 +5,10 @@ These tests verify that BAL models serialize to JSON with the correct
 format, particularly zero-padded hex strings.
 """
 
+from typing import Any
+
+import pytest
+
 from execution_testing.base_types import Address, Bytes
 from execution_testing.test_types.block_access_list import (
     BalAccountChange,
@@ -107,3 +111,25 @@ def test_bal_rlp_override_replaces_serialization_only() -> None:
     assert overridden.rlp_hash == Bytes(b"\xc0").keccak256()
     assert overridden.to_list() == original.to_list()
     assert original.rlp == canonical
+
+
+@pytest.mark.parametrize(
+    "rlp",
+    [
+        pytest.param("0xc0", id="str"),
+        pytest.param(None, id="none"),
+        pytest.param(BlockAccessList([]), id="list"),
+    ],
+)
+def test_bal_rlp_override_refuses_non_bytes(rlp: Any) -> None:
+    """The override bypasses validation, so its type is checked here."""
+    with pytest.raises(TypeError, match="expects the serialization as bytes"):
+        BlockAccessList([]).with_rlp_override(rlp)
+
+
+def test_bal_rlp_override_accepts_plain_bytes() -> None:
+    """Plain bytes are coerced so ``rlp_hash`` keeps working."""
+    overridden = BlockAccessList([]).with_rlp_override(b"\xc0")
+
+    assert overridden.rlp == Bytes(b"\xc0")
+    assert overridden.rlp_hash == Bytes(b"\xc0").keccak256()

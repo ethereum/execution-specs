@@ -160,7 +160,7 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
         """Return the list for RLP encoding per EIP-7928."""
         return to_serializable_element(self.root)
 
-    def with_rlp_override(self, rlp: Bytes) -> "BlockAccessList":
+    def with_rlp_override(self, rlp: bytes) -> "BlockAccessList":
         """
         Return a BAL with the same contents whose serialization is ``rlp``,
         mirroring ``RLPSerializable.rlp_override``.
@@ -168,8 +168,13 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
         A fresh instance is built rather than a copy so that no cached
         canonical encoding is carried over.
         """
+        if not isinstance(rlp, bytes):
+            raise TypeError(
+                "`with_rlp_override` expects the serialization as bytes, got "
+                f"{type(rlp).__name__}. Pass the encoded block access list."
+            )
         new_instance = BlockAccessList(root=self.root)
-        new_instance._rlp_override = rlp
+        new_instance._rlp_override = Bytes(rlp)
         return new_instance
 
     @property

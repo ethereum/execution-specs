@@ -1256,6 +1256,24 @@ def test_second_modify_rlp_is_refused() -> None:
         expectation.modify_rlp(lambda bal: bal.rlp)
 
 
+def test_modify_rlp_with_content_modifier_is_refused() -> None:
+    """An encoder must return bytes, not a rewritten list."""
+    content_modifier: Any = lambda bal: bal  # noqa: E731
+    expectation = BlockAccessListExpectation().modify_rlp(content_modifier)
+
+    with pytest.raises(TypeError, match="returning bytes"):
+        expectation.modified_rlp(BlockAccessList([]))
+
+
+def test_modify_with_encoder_is_refused() -> None:
+    """A content modifier must return a list, not bytes."""
+    encoder: Any = lambda bal: bal.rlp  # noqa: E731
+    expectation = BlockAccessListExpectation().modify(encoder)
+
+    with pytest.raises(TypeError, match="returning a BlockAccessList"):
+        expectation.modify_if_invalid_test(BlockAccessList([]))
+
+
 def test_validate_any_change_mutual_exclusion_with_slot_changes() -> None:
     """
     validate_any_change=True and non-empty slot_changes raises ValueError.
