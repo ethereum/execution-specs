@@ -375,6 +375,21 @@ class Block(Header):
             "split via _split_blocks_by_phase first."
         )
 
+    def engine_payload_only_overrides(self) -> List[str]:
+        """
+        Return the names of the settings that only reach the engine payload.
+
+        An RLP block cannot carry them, so a fixture that delivers blocks as
+        RLP would present a valid block while claiming the exception they
+        are meant to cause.
+        """
+        overrides: List[str] = []
+        if self.engine_new_payload_block_access_list is not None:
+            overrides.append("engine_new_payload_block_access_list")
+        if self.engine_new_payload_slot_number is not None:
+            overrides.append("engine_new_payload_slot_number")
+        return overrides
+
     def set_environment(self, env: Environment) -> Environment:
         """
         Create copy of the environment with the characteristics of this
@@ -1158,6 +1173,16 @@ class BlockchainTest(BaseTest):
         t8n: FillerBackend,
     ) -> FillResult:
         """Create a fixture from the blockchain test definition."""
+        for i, block in enumerate(self.blocks):
+            overrides = block.engine_payload_only_overrides()
+            if overrides:
+                raise Exception(
+                    f"test correctness: block {i} sets {', '.join(overrides)}"
+                    ", which only reach the engine payload and cannot be "
+                    "expressed in an RLP blockchain fixture. Mark the test "
+                    "`blockchain_test_engine_only`."
+                )
+
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
 
         pre, genesis = self.make_genesis(apply_pre_allocation_blockchain=True)

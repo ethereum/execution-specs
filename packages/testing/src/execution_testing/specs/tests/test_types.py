@@ -1,5 +1,7 @@
 """Test types from execution_testing.specs."""
 
+from unittest.mock import sentinel
+
 import pytest
 
 from execution_testing.base_types import (
@@ -16,10 +18,10 @@ from execution_testing.fixtures.blockchain import (
     FixtureHeader,
 )
 from execution_testing.forks import Amsterdam
-from execution_testing.test_types import Environment
+from execution_testing.test_types import Alloc, Environment
 from execution_testing.test_types.block_access_list import BlockAccessList
 
-from ..blockchain import BuiltBlock, Header
+from ..blockchain import Block, BlockchainTest, BuiltBlock, Header
 
 fixture_header_ones = FixtureHeader(
     parent_hash=Hash(1),
@@ -256,3 +258,43 @@ class TestDeriveEnginePayloadModifier:
         ).engine_payload_modifier()
         assert isinstance(modifier, FixtureExecutionPayloadModifier)
         assert modifier.block_access_list == Bytes(b"")
+
+
+class TestEnginePayloadOnlyOverrides:
+    """
+    A block setting that only reaches the engine payload cannot be expressed
+    in an RLP blockchain fixture, so ``make_fixture`` refuses to build one.
+    """
+
+    @pytest.mark.parametrize(
+        "block,expected",
+        [
+            pytest.param(Block(), [], id="none"),
+            pytest.param(
+                Block(engine_new_payload_block_access_list=Bytes(b"")),
+                ["engine_new_payload_block_access_list"],
+                id="payload_bal",
+            ),
+            pytest.param(
+                Block(engine_new_payload_slot_number=0),
+                ["engine_new_payload_slot_number"],
+                id="payload_slot_number",
+            ),
+        ],
+    )
+    def test_overrides_are_named(
+        self, block: Block, expected: list[str]
+    ) -> None:
+        """Each payload-only setting is reported by name."""
+        assert block.engine_payload_only_overrides() == expected
+
+    def test_make_fixture_refuses_payload_only_override(self) -> None:
+        """The RLP fixture builder fails before it touches the t8n."""
+        test = BlockchainTest(
+            fork=Amsterdam,
+            pre=Alloc(),
+            post=Alloc(),
+            blocks=[Block(engine_new_payload_slot_number=0)],
+        )
+        with pytest.raises(Exception, match="blockchain_test_engine_only"):
+            test.make_fixture(sentinel.t8n)
