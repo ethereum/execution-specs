@@ -1117,6 +1117,20 @@ class BlockchainTest(BaseTest):
                 bal
             )
             if (
+                block.expected_block_access_list.has_modifier
+                and bal.rlp == t8n_bal.rlp
+                and (
+                    bal_rlp_override is None or bal_rlp_override == t8n_bal.rlp
+                )
+            ):
+                raise Exception(
+                    f"test correctness: block {int(env.number)}'s block "
+                    "access list modifier left the list unchanged, so the "
+                    "block would be labelled invalid for no reason. Make the "
+                    "modifier change the list, or drop it along with the "
+                    "exception."
+                )
+            if (
                 bal.has_rlp_override
                 and block.engine_new_payload_block_access_list is not None
             ):

@@ -6,6 +6,9 @@ once the transition tool has produced the list.
 payload can carry. `fill` therefore refuses the RLP blockchain fixture
 format for such a block, and refuses an explicit payload override that would
 replace the committed bytes. The same block fills as an engine fixture.
+
+A modifier that leaves both the list and its payload encoding unchanged is
+refused as well, since it would label a valid block invalid.
 """
 
 import textwrap
@@ -153,3 +156,50 @@ def test_explicit_payload_bal_with_override_rlp_is_refused(
     output = output_of(result)
     assert "would replace the bytes the header commits to" in output, output
     assert "Keep one" in output, output
+
+
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(".modify(lambda bal: bal)", id="identity_contents"),
+        pytest.param(
+            ".modify_rlp(lambda bal: bal.rlp)", id="identity_encoding"
+        ),
+        pytest.param(
+            ".modify(override_rlp(lambda bal: bal.rlp))",
+            id="identity_override",
+        ),
+    ],
+)
+def test_unchanged_bal_is_refused(
+    pytester: pytest.Pytester, modifier: str
+) -> None:
+    """Every modifier kind is checked against the transition tool's list."""
+    module_path = write_test_module(pytester, modifier=modifier)
+
+    result = run_fill(pytester, module_path, "blockchain_test_engine")
+
+    result.assert_outcomes(passed=0, failed=1)
+    output = output_of(result)
+    assert "left the list unchanged" in output, output
+    assert "drop it along with the exception" in output, output
+
+
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            ".modify(lambda _: BlockAccessList([]))", id="contents_change"
+        ),
+        pytest.param(
+            ".modify_rlp(lambda _: EMPTY_LIST)", id="encoding_change"
+        ),
+    ],
+)
+def test_changed_bal_fills(pytester: pytest.Pytester, modifier: str) -> None:
+    """A modifier that changes the list or its encoding is accepted."""
+    module_path = write_test_module(pytester, modifier=modifier)
+
+    result = run_fill(pytester, module_path, "blockchain_test_engine")
+
+    result.assert_outcomes(passed=1, failed=0)
