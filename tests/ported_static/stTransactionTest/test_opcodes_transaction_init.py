@@ -63,6 +63,13 @@ BASE_FEE_PER_GAS = 10
 EXCESS_BLOB_GAS = 0
 SLOT_NUMBER = 7
 
+FORK_DEPENDENT_ENVIRONMENT_FIELDS: dict[Opcodes, dict[str, int]] = {
+    Op.BASEFEE: {"base_fee_per_gas": BASE_FEE_PER_GAS},
+    Op.BLOBBASEFEE: {"excess_blob_gas": EXCESS_BLOB_GAS},
+    Op.SLOTNUM: {"slot_number": SLOT_NUMBER},
+}
+"""Environment pins needed only by the opcode case that reads them."""
+
 # Markers written then read back, so a store or copy that silently did
 # nothing is distinguishable from one that worked.
 STORE_MARKER = 0xD1CE
@@ -121,24 +128,6 @@ def _jump_over_revert(conditional: bool) -> Bytecode:
     code = jump + revert + Op.JUMPDEST + Op.PUSH1[JUMP_MARKER]
     code.substitute(target=len(jump) + len(revert))
     return code
-
-
-def _env(fork: Fork) -> Environment:
-    """Build the pinned block context out of the fields the fork has."""
-    env = Environment.for_fork(
-        fork,
-        fee_recipient=COINBASE,
-        number=BLOCK_NUMBER,
-        timestamp=BLOCK_TIMESTAMP,
-        prev_randao=PREV_RANDAO,
-        base_fee_per_gas=BASE_FEE_PER_GAS,
-        excess_blob_gas=EXCESS_BLOB_GAS,
-        slot_number=SLOT_NUMBER,
-    )
-    if not fork.header_prev_randao_required():
-        # Pre-merge, the 0x44 opcode reads the difficulty instead.
-        env = env.copy(difficulty=PREV_RANDAO)
-    return env
 
 
 @dataclass(frozen=True)
@@ -555,7 +544,22 @@ def test_opcodes_transaction_init(
             + Op.RETURN(offset=0x0, size=WORD)
         )
 
-    env = _env(fork)
+    environment_fields = FORK_DEPENDENT_ENVIRONMENT_FIELDS.get(opcode, {})
+    if opcode == Op.PREVRANDAO:
+        # Opcode 0x44 reads difficulty pre-merge and prev_randao post-merge.
+        environment_fields = {
+            (
+                "prev_randao"
+                if fork.header_prev_randao_required()
+                else "difficulty"
+            ): PREV_RANDAO
+        }
+    env = Environment(
+        fee_recipient=COINBASE,
+        number=BLOCK_NUMBER,
+        timestamp=BLOCK_TIMESTAMP,
+        **environment_fields,
+    )
     context = Context(
         created=created,
         sender=sender,
