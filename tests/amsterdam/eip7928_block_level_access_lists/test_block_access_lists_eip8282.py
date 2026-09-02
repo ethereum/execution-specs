@@ -4,7 +4,7 @@ Tests for the effects of EIP-8282 builder requests on EIP-7928.
 Pin the block access list produced by the builder deposit and exit
 predeploys: the enqueuing transactions grow the count and queue tail
 slots, and the post-execution system call dequeues the records, resetting
-or advancing the bus slots depending on whether the sweep is clean or
+or advancing the queue slots depending on whether the sweep is clean or
 partial.
 """
 
@@ -20,38 +20,20 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    BuilderDepositRequest,
+    BuilderExitRequest,
     FeeSystemContractRequest,
     SystemContractInteractionBase,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
 )
 
-from ..eip8282_builder_execution_requests.helpers import (
-    BuilderDepositRequest,
-    BuilderExitRequest,
-)
-from ..eip8282_builder_execution_requests.spec import Spec as Spec8282
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
-
-
-def _fees(
-    request_class: Type[FeeSystemContractRequest], count: int
-) -> List[int]:
-    """
-    Return the fee each of `count` requests enqueued in a single block must
-    pay, matching the predeploy's in-call excess computation: requests
-    already queued this block beyond the target raise the fee for the next
-    one (the stored excess starts at zero).
-    """
-    return [
-        request_class.get_fee(max(i - request_class.target_per_block, 0))
-        for i in range(count)
-    ]
 
 
 def _request(
@@ -61,13 +43,13 @@ def _request(
     return request_class.from_index(index).copy(fee=fee)
 
 
-def _request_bus_expectation(
+def _request_queue_expectation(
     request_class: Type[FeeSystemContractRequest],
     enqueues: List[Tuple[int, int]],
     system_call_index: int,
 ) -> BalAccountExpectation:
     """
-    Build the BAL expectation for a request-bus predeploy.
+    Build the BAL expectation for a request queue predeploy.
 
     `enqueues` lists `(block_access_index, cumulative_count)` for each
     transaction that enqueues into this predeploy. The count and queue tail
@@ -111,7 +93,7 @@ def _request_bus_expectation(
     if new_excess:
         storage_changes.append(
             BalStorageSlot(
-                slot=Spec8282.EXCESS_STORAGE_SLOT,
+                slot=request_class.excess_slot,
                 slot_changes=[
                     BalStorageChange(
                         block_access_index=system_call_index,
@@ -122,27 +104,27 @@ def _request_bus_expectation(
         )
     storage_changes.append(
         BalStorageSlot(
-            slot=Spec8282.COUNT_STORAGE_SLOT, slot_changes=count_changes
+            slot=request_class.count_slot, slot_changes=count_changes
         )
     )
     if head_changes:
         storage_changes.append(
             BalStorageSlot(
-                slot=Spec8282.QUEUE_HEAD_STORAGE_SLOT,
+                slot=request_class.queue_head_slot,
                 slot_changes=head_changes,
             )
         )
     storage_changes.append(
         BalStorageSlot(
-            slot=Spec8282.QUEUE_TAIL_STORAGE_SLOT, slot_changes=tail_changes
+            slot=request_class.queue_tail_slot, slot_changes=tail_changes
         )
     )
 
     storage_reads = []
     if not new_excess:
-        storage_reads.append(Spec8282.EXCESS_STORAGE_SLOT)
+        storage_reads.append(request_class.excess_slot)
     if not partial_sweep:
-        storage_reads.append(Spec8282.QUEUE_HEAD_STORAGE_SLOT)
+        storage_reads.append(request_class.queue_head_slot)
 
     kwargs: Dict = {"storage_changes": storage_changes}
     if storage_reads:
@@ -183,7 +165,7 @@ def test_bal_builder_request_dequeue(
         num_requests = request_class.max_per_block + 1
     requests = [
         _request(request_class, i, fee)
-        for i, fee in enumerate(_fees(request_class, num_requests))
+        for i, fee in enumerate(request_class.get_enqueue_fees(num_requests))
     ]
     interaction: SystemContractInteractionBase
     if via_contract:
@@ -214,8 +196,8 @@ def test_bal_builder_request_dequeue(
                         for i in range(len(txs))
                     ],
                 ),
-                request_class.interaction_contract_address: (
-                    _request_bus_expectation(
+                request_class.system_contract_address: (
+                    _request_queue_expectation(
                         request_class, enqueues, system_call_index
                     )
                 ),
@@ -233,10 +215,10 @@ def test_bal_builder_deposits_and_exits_same_block(
     """
     Ensure BAL tracks both builder predeploys when a single block
     interleaves deposit and exit requests, pinning which transaction
-    indices each contract's bus-slot changes carry.
+    indices each contract's queue-slot changes carry.
     """
-    deposit_fees = _fees(BuilderDepositRequest, 2)
-    exit_fees = _fees(BuilderExitRequest, 2)
+    deposit_fees = BuilderDepositRequest.get_enqueue_fees(2)
+    exit_fees = BuilderExitRequest.get_enqueue_fees(2)
     interactions = [
         SystemContractInteractionTransaction(
             requests=[_request(BuilderDepositRequest, 0, deposit_fees[0])]
@@ -270,13 +252,13 @@ def test_bal_builder_deposits_and_exits_same_block(
         for i, sender in enumerate(senders)
     }
     # Deposits are enqueued by transactions 1 and 3, exits by 2 and 4.
-    account_expectations[
-        BuilderDepositRequest.interaction_contract_address
-    ] = _request_bus_expectation(
-        BuilderDepositRequest, [(1, 1), (3, 2)], system_call_index
+    account_expectations[BuilderDepositRequest.system_contract_address] = (
+        _request_queue_expectation(
+            BuilderDepositRequest, [(1, 1), (3, 2)], system_call_index
+        )
     )
-    account_expectations[BuilderExitRequest.interaction_contract_address] = (
-        _request_bus_expectation(
+    account_expectations[BuilderExitRequest.system_contract_address] = (
+        _request_queue_expectation(
             BuilderExitRequest, [(2, 1), (4, 2)], system_call_index
         )
     )
@@ -298,7 +280,7 @@ def test_bal_builder_deposits_and_exits_same_block(
             BuilderDepositRequest(
                 pubkey=1,
                 withdrawal_credentials=2,
-                amount=Spec8282.BUILDER_MIN_DEPOSIT // 10**9,
+                amount=BuilderDepositRequest.min_deposit_wei // 10**9,
                 signature=3,
                 fee=0,
                 valid=False,
@@ -327,7 +309,7 @@ def test_bal_builder_request_invalid(
     sender = prepared.sender_account
     assert sender is not None
 
-    contract = request_obj.interaction_contract_address
+    contract = request_obj.system_contract_address
 
     block = Block(
         txs=txs,
@@ -340,10 +322,10 @@ def test_bal_builder_request_invalid(
                 ),
                 contract: BalAccountExpectation(
                     storage_reads=[
-                        Spec8282.EXCESS_STORAGE_SLOT,
-                        Spec8282.COUNT_STORAGE_SLOT,
-                        Spec8282.QUEUE_HEAD_STORAGE_SLOT,
-                        Spec8282.QUEUE_TAIL_STORAGE_SLOT,
+                        request_obj.excess_slot,
+                        request_obj.count_slot,
+                        request_obj.queue_head_slot,
+                        request_obj.queue_tail_slot,
                     ],
                     storage_changes=[],
                 ),

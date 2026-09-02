@@ -9,10 +9,10 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    DepositRequest,
     SystemContractInteractionTransaction,
 )
 
-from .helpers import DepositRequest
 from .spec import ref_spec_6110
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path

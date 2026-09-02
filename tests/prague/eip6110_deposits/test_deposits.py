@@ -14,6 +14,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
+    DepositRequest,
     Environment,
     Fork,
     Hash,
@@ -27,7 +28,7 @@ from execution_testing import (
     While,
 )
 
-from .helpers import DepositRequest, deposit_contract_execution_gas
+from .helpers import deposit_contract_execution_gas
 from .spec import Spec, ref_spec_6110
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path
@@ -1107,7 +1108,7 @@ def test_deposit_high_count(
     relay_loop_code = While(
         body=Op.POP(
             Op.CALL(
-                address=deposit.interaction_contract_address,
+                address=deposit.system_contract_address,
                 value=deposit.value,
                 args_offset=0,
                 args_size=len(deposit.calldata),

@@ -40,6 +40,7 @@ from execution_testing.vm import (
 
 from ..recipient_type import RecipientType
 from .gas_costs import GasCosts
+from .requests import SystemContractRequest
 
 
 class MemoryExpansionGasCalculator(Protocol):
@@ -260,6 +261,14 @@ class RefundTypes(Enum):
 
     STORAGE_CLEAR = auto()
     AUTHORIZATION_EXISTING_AUTHORITY = auto()
+
+
+class SystemCallPhase(Enum):
+    """When a block calls a system contract, if at all."""
+
+    NONE = "none"
+    BEFORE_TRANSACTIONS = "before_transactions"
+    AFTER_TRANSACTIONS = "after_transactions"
 
 
 class BaseForkMeta(ABCMeta):
@@ -1100,6 +1109,20 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def system_contracts(cls) -> List[Address]:
         """Return list of system contracts supported by the fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def system_contract_call_phases(cls) -> Mapping[Address, SystemCallPhase]:
+        """Return when the block calls each of its system contracts."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def system_contract_request_types(
+        cls,
+    ) -> List[Type[SystemContractRequest]]:
+        """Return the request classes triggered through a system contract."""
         pass
 
     @classmethod

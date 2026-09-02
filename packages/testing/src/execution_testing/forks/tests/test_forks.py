@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from execution_testing.base_types import BlobSchedule
 from execution_testing.vm import Opcodes
 
-from ..base_fork import BaseFork, BaseForkMeta
+from ..base_fork import BaseFork, BaseForkMeta, SystemCallPhase
 from ..forks.eips.paris.eip_3675 import EIP3675
 from ..forks.forks import (
     BPO1,
@@ -42,6 +42,7 @@ from ..forks.transition import (
     ShanghaiToCancunAtTime15k,
 )
 from ..helpers import (
+    ALL_FORKS,
     Fork,
     ForkAdapter,
     ForkOrNoneAdapter,
@@ -55,6 +56,7 @@ from ..helpers import (
     transition_fork_from_to,
     transition_fork_to,
 )
+from ..requests import FeeSystemContractRequest
 from ..transition_base_fork import TransitionBaseClass, transition_fork
 
 FIRST_DEPLOYED = Frontier
@@ -395,6 +397,37 @@ def test_pre_alloc() -> None:  # noqa: D103
 
 def test_precompiles() -> None:  # noqa: D103
     assert sorted(Cancun.precompiles()) == list(range(1, 11))
+
+
+@pytest.mark.parametrize("fork", sorted(ALL_FORKS, key=str), ids=str)
+def test_system_contract_request_types(fork: Fork) -> None:
+    """
+    Every request type is a request class whose system contract is one of
+    the fork's system contracts.
+    """
+    request_classes = fork.system_contract_request_types()
+    assert sorted(cls.type for cls in request_classes) == list(
+        range(0, fork.max_request_type() + 1)
+    )
+    assert {cls.system_contract_address for cls in request_classes} <= set(
+        fork.system_contracts()
+    )
+
+
+@pytest.mark.parametrize("fork", sorted(ALL_FORKS, key=str), ids=str)
+def test_system_contract_call_phases(fork: Fork) -> None:
+    """
+    Every system contract declares when the block calls it, and every
+    queued request predeploy is called after the transactions.
+    """
+    phases = fork.system_contract_call_phases()
+    assert set(phases) == set(fork.system_contracts())
+    for request_class in fork.system_contract_request_types():
+        if issubclass(request_class, FeeSystemContractRequest):
+            assert (
+                phases[request_class.system_contract_address]
+                is SystemCallPhase.AFTER_TRANSACTIONS
+            )
 
 
 def test_tx_types() -> None:  # noqa: D103

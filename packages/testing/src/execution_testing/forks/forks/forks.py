@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized
+from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized, Type
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import FixtureHeader
@@ -31,10 +31,12 @@ from ..base_fork import (
     ExcessBlobGasCalculator,
     MemoryExpansionGasCalculator,
     RefundTypes,
+    SystemCallPhase,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
 from ..gas_costs import BASE, HIGH, LOW, MID, VERY_LOW, GasCosts
+from ..requests import SystemContractRequest
 from . import eips
 from .eips.amsterdam import AmsterdamEIPs
 from .helpers import ceiling_division
@@ -1077,6 +1079,18 @@ class Frontier(BaseFork):
     def system_contracts(cls) -> List[Address]:
         """At Genesis, no system contracts are present."""
         return []
+
+    @classmethod
+    def system_contract_request_types(
+        cls,
+    ) -> List[Type[SystemContractRequest]]:
+        """At Genesis, no system contract triggers execution requests."""
+        return []
+
+    @classmethod
+    def system_contract_call_phases(cls) -> Mapping[Address, SystemCallPhase]:
+        """At Genesis, no system contract is called."""
+        return {}
 
     @classmethod
     def deterministic_factory_predeploy_address(cls) -> Address | None:
