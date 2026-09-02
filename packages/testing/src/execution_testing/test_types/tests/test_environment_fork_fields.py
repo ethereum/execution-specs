@@ -53,11 +53,16 @@ def test_for_fork_keeps_only_the_fork_fields(fork: Fork) -> None:
 @fork_cases
 @pytest.mark.parametrize("name", list(PINS))
 def test_check_fork_fields(fork: Fork, name: str) -> None:
-    """A pin the fork's header lacks raises and names the field."""
+    """
+    A pin the fork's header lacks raises, naming the field and both
+    ways out.
+    """
     env = Environment(**{name: PINS[name]})
     if name in DROPPED[fork]:
-        with pytest.raises(ValueError, match=name):
+        with pytest.raises(ValueError, match=name) as excinfo:
             env.check_fork_fields(fork)
+        assert "Environment.for_fork" in str(excinfo.value)
+        assert "rlp_modifier" in str(excinfo.value)
     else:
         env.check_fork_fields(fork)
 
