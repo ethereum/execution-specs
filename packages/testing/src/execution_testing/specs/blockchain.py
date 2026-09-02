@@ -1116,6 +1116,20 @@ class BlockchainTest(BaseTest):
             bal_rlp_override = block.expected_block_access_list.modified_rlp(
                 bal
             )
+            if (
+                bal.has_rlp_override
+                and block.engine_new_payload_block_access_list is not None
+            ):
+                raise Exception(
+                    f"test correctness: block {int(env.number)} sets "
+                    "`engine_new_payload_block_access_list` and its block "
+                    "access list modifier re-encodes the list; the explicit "
+                    "payload override would replace the bytes the header "
+                    "commits to. Keep one: "
+                    "`engine_new_payload_block_access_list` delivers "
+                    "arbitrary bytes, `override_rlp` re-encodes the list and "
+                    "commits the header to it."
+                )
 
         built_block_kwargs: Dict[str, Any] = dict(
             header=header,
@@ -1269,6 +1283,18 @@ class BlockchainTest(BaseTest):
                 if block.include_receipts_in_output is not None
                 else self.include_tx_receipts_in_output
             )
+            if (
+                built_block.block_access_list is not None
+                and built_block.block_access_list.has_rlp_override
+            ):
+                raise Exception(
+                    f"test correctness: block {block_number}'s block access "
+                    "list modifier re-encodes the list, but block RLP does "
+                    "not carry the block access list, so an RLP blockchain "
+                    "fixture cannot deliver the re-encoded bytes. Mark the "
+                    "test `blockchain_test_engine_only`."
+                )
+
             fixture_blocks.append(
                 built_block.get_fixture_block(
                     include_receipts=include_receipts

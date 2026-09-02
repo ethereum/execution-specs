@@ -101,6 +101,8 @@ def test_bal_rlp_override_replaces_serialization_only() -> None:
     canonical = original.rlp
     overridden = original.with_rlp_override(Bytes(b"\xc0"))
 
+    assert overridden.has_rlp_override
+    assert not original.has_rlp_override
     assert overridden.rlp == b"\xc0"
     assert overridden.rlp_hash == Bytes(b"\xc0").keccak256()
     assert overridden.to_list() == original.to_list()

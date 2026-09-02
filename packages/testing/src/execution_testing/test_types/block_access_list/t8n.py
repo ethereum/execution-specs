@@ -172,6 +172,11 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
         new_instance._rlp_override = rlp
         return new_instance
 
+    @property
+    def has_rlp_override(self) -> bool:
+        """Return whether ``rlp`` is an override rather than the encoding."""
+        return self._rlp_override is not None
+
     @cached_property
     def rlp(self) -> Bytes:
         """Return the RLP encoded block access list for hash verification."""
