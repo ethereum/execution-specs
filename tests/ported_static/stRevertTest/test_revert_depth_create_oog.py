@@ -2,15 +2,17 @@
 Verify revert propagation around a nested CREATE that runs out of gas:
 a sub-call either funds its CREATE-then-store sequence completely, or
 runs out of gas after the CREATE, reverting the created account but not
-the caller; a starved outer budget reverts everything.
+the caller. A starved outer budget reverts everything after the
+sub-call ran, a completed creation included.
 
 Ported from:
 state_tests/stRevertTest/RevertDepthCreateOOGFiller.json
 
 @manually-enhanced: Do not overwrite. The sub-call grants and both
 transaction budgets derive from fork composites (EIP-8037 state gas is
-tracked instead of pinned), all addresses are dynamic, and every account
-including the created one is pinned in each arm.
+tracked instead of pinned), all addresses are dynamic, every account
+including the created one is pinned in each arm, and the starved arms
+run the CREATE before the transaction dies.
 """
 
 import pytest
@@ -33,9 +35,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 PARTIAL_MARGIN = 5_000
 # Head room on top of a derived budget.
 BUDGET_MARGIN = 5_000
-# Gas left at the caller's call site in the starved arm: too little for
-# any frame to complete.
-STARVE_MARGIN = 1_000
 
 
 @pytest.mark.ported_from(
@@ -61,7 +60,7 @@ def test_revert_depth_create_oog(
     ample_budget: bool,
     tx_value: int,
 ) -> None:
-    """An out-of-gas CREATE frame reverts alone; a starved caller fully."""
+    """An out-of-gas CREATE frame reverts alone, a starved caller in full."""
     creator_store = Op.SSTORE(
         key=0x2, value=0x8, key_warm=False, original_value=0, new_value=8
     )
@@ -136,17 +135,22 @@ def test_revert_depth_create_oog(
         )
         assert grant <= available - available // 64, "grant must be granted"
     else:
-        # The caller reaches its call with only STARVE_MARGIN left: the
-        # creator halts at its first store and the retained 1/64 cannot
-        # pass the EIP-2200 stipend check, so everything reverts.
+        # The grant is granted in full but nothing is budgeted for the
+        # caller's post-call stores: the 1/64 retention plus whatever the
+        # creator hands back cannot pay them, so the whole transaction
+        # runs dry after the creator ran.
+        available = -(-grant * 64 // 63) + 64
+        assert grant <= available - available // 64, "grant must be granted"
+        creator_spare = grant - inner_consumed
+        assert available // 64 + creator_spare < tail_store.gas_cost(fork), (
+            "caller must die"
+        )
         gas_limit = (
             intrinsic
             + head_store.gas_cost(fork)
             + call_code.gas_cost(fork)
-            + STARVE_MARGIN
+            + available
         )
-        assert STARVE_MARGIN - STARVE_MARGIN // 64 <= 2300, "creator halts"
-        assert STARVE_MARGIN // 64 <= 2300, "caller store must halt"
 
     sender = pre.fund_eoa()
     tx = Transaction(
