@@ -828,6 +828,11 @@ class BlockchainTest(BaseTest):
 
     def get_genesis_environment(self) -> Environment:
         """Get the genesis environment for pre-allocation groups."""
+        # Checked before the defaults below add the mix hash under
+        # `prev_randao`, which every genesis header carries.
+        self.genesis_environment.check_fork_fields(
+            self.fork.transitions_from()
+        )
         modified_values = self.genesis_environment.set_fork_requirements(
             self.fork.transitions_from()
         ).model_dump(exclude_unset=True)
@@ -893,6 +898,7 @@ class BlockchainTest(BaseTest):
             block_number=env.number, timestamp=env.timestamp
         )
         env = env.set_fork_requirements(fork)
+        env.check_fork_fields(fork)
         txs = block.txs[:]
         if any("gas_limit" not in tx.model_fields_set for tx in block.txs):
             max_tx_gas_limit = Transaction.calculate_max_gas_limit(
