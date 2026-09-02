@@ -8,9 +8,10 @@ Ported from:
 state_tests/stCreate2/CreateMessageRevertedOOGInInit2Filler.json
 
 @manually-enhanced: Do not overwrite. Both budgets are derived from fork
-composites (intrinsic + top-frame state gas + the composed init code);
-the outer created account is asserted on both arms with a pre-CREATE2
-canary, and the child account's storage on the success arm.
+composites (intrinsic + top-frame state gas + the composed init code).
+The outer created account is asserted on both arms with a pre-CREATE2
+canary, the child account's storage on the success arm, and the starved
+child lands its first store before dying so its rollback is observable.
 """
 
 import pytest
@@ -32,6 +33,9 @@ CANARY_SLOT = 0x2
 CANARY = 0xFF
 TX_VALUE = 100
 CHILD_STORED = {0x0: 0xC, 0x1: 0xD}
+# What the starved child has left after its first store: under the
+# EIP-2200 stipend gate and far below a second fresh store.
+STORE_SPARE = 1_000
 
 
 @pytest.mark.ported_from(
@@ -53,26 +57,28 @@ def test_create_message_reverted_oog_in_init2(
 ) -> None:
     """The budget decides how far an init-code CREATE2's child gets."""
     # The child's init code writes two fresh slots and deposits nothing.
-    inner_initcode = Op.SSTORE(
+    first_store = Op.SSTORE(
         key=0x0,
         value=CHILD_STORED[0x0],
         key_warm=False,
         original_value=0,
         new_value=CHILD_STORED[0x0],
-    ) + Op.SSTORE(
+    )
+    second_store = Op.SSTORE(
         key=0x1,
         value=CHILD_STORED[0x1],
         key_warm=False,
         original_value=0,
         new_value=CHILD_STORED[0x1],
     )
+    inner_initcode = first_store + second_store
     inner_bytes = bytes(inner_initcode)
     assert len(inner_bytes) <= 0x20, "inner init code must fit one word"
 
     # The outer init code writes a completion canary before the CREATE2
-    # (only a POP runs after it: on the starved arm the 1/64 retention
-    # cannot afford an SSTORE), stages the child's init code in memory
-    # and runs the CREATE2; it deposits no code.
+    # (only a POP runs after it: the retention after a failed child is
+    # not budgeted for a store), stages the child's init code in memory
+    # and runs the CREATE2. It deposits no code.
     canary_store = Op.SSTORE(
         key=CANARY_SLOT,
         value=CANARY,
@@ -114,7 +120,12 @@ def test_create_message_reverted_oog_in_init2(
     if child_covered:
         gas_limit = overhead + -(-child_needed * 64 // 63) + 3_000
     else:
-        gas_limit = overhead + child_needed // 2
+        # The child lands its first store and dies on the second, so a
+        # child that leaked instead of rolling back would show a slot.
+        child_grant = first_store.gas_cost(fork) + STORE_SPARE
+        assert STORE_SPARE < second_store.gas_cost(fork), "child must die"
+        assert STORE_SPARE <= fork.gas_costs().CALL_STIPEND, "child must die"
+        gas_limit = overhead + -(-child_grant * 64 // 63)
 
     sender = pre.fund_eoa()
     tx = Transaction(
