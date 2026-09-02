@@ -3,7 +3,7 @@
 import json
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Dict, Generic, List, Sequence
+from typing import Any, Callable, Dict, Generic, List, Sequence
 
 import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
@@ -26,6 +26,23 @@ from execution_testing.forks import Fork
 DEFAULT_BASE_FEE = 7
 CURRENT_MAINNET_BLOCK_GAS_LIMIT = 60_000_000
 DEFAULT_BLOCK_GAS_LIMIT = CURRENT_MAINNET_BLOCK_GAS_LIMIT * 2
+
+FORK_GATED_FIELDS: Dict[str, Callable[[Fork], bool]] = {
+    "prev_randao": lambda fork: fork.header_prev_randao_required(),
+    "base_fee_per_gas": lambda fork: fork.header_base_fee_required(),
+    "parent_base_fee_per_gas": lambda fork: fork.header_base_fee_required(),
+    "withdrawals": lambda fork: fork.header_withdrawals_required(),
+    "excess_blob_gas": lambda fork: fork.header_excess_blob_gas_required(),
+    "blob_gas_used": lambda fork: fork.header_blob_gas_used_required(),
+    "parent_beacon_block_root": (
+        lambda fork: fork.header_beacon_root_required()
+    ),
+    "slot_number": lambda fork: fork.header_slot_number_required(),
+}
+"""
+Environment fields that only some block headers carry, keyed by the
+fork predicate that admits each one.
+"""
 
 
 @dataclass
@@ -214,32 +231,46 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
 
         return self.copy(**updated_values)
 
-    def without_fork_ignored_fields(self, fork: Fork) -> "Environment":
+    @classmethod
+    def for_fork(cls, fork: Fork, **kwargs: Any) -> "Environment":
         """
-        Return a copy with the fields the fork's header lacks unset.
+        Build an environment from only the fields the fork's header has.
 
-        A test may pin fields for the newest forks it runs on. Older
-        forks ignore the pins, and serializing them into those forks'
-        fixtures would misstate the environment.
+        Use it when one pinned context spans forks whose headers differ:
+        the pins the fork lacks are dropped instead of raising in
+        `check_fork_fields`.
         """
-        cleared: Dict[str, Any] = {}
+        return cls(
+            **{
+                name: value
+                for name, value in kwargs.items()
+                if name not in FORK_GATED_FIELDS
+                or FORK_GATED_FIELDS[name](fork)
+            }
+        )
 
-        if not fork.header_prev_randao_required():
-            cleared["prev_randao"] = None
+    def check_fork_fields(self, fork: Fork) -> None:
+        """
+        Raise if a set field is one the fork's block header lacks.
 
-        if not fork.header_base_fee_required():
-            cleared["base_fee_per_gas"] = None
-
-        if not fork.header_excess_blob_gas_required():
-            cleared["excess_blob_gas"] = None
-
-        if not fork.header_blob_gas_used_required():
-            cleared["blob_gas_used"] = None
-
-        if not fork.header_slot_number_required():
-            cleared["slot_number"] = None
-
-        return self.copy(**cleared)
+        Serializing such a field into a fixture would misstate the block
+        context, so the test has to state its intent instead.
+        """
+        unsupported = [
+            name
+            for name, required in FORK_GATED_FIELDS.items()
+            if getattr(self, name) is not None and not required(fork)
+        ]
+        if not unsupported:
+            return
+        raise ValueError(
+            f"{', '.join(unsupported)} set for {fork.name()}, whose block "
+            "header has no such field. Remove the field from the test, "
+            "build the environment with Environment.for_fork(fork, ...) "
+            "to keep only the fields the fork has, or, to check that "
+            "clients reject the field, set it on the block through "
+            "Block(rlp_modifier=Header(...))."
+        )
 
     def canonical_json(self) -> str:
         """

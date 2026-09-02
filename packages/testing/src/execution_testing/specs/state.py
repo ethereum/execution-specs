@@ -343,7 +343,7 @@ class StateTest(BaseTest):
         )
 
         env = self.env.set_fork_requirements(fork)
-        env = env.without_fork_ignored_fields(fork)
+        env.check_fork_fields(fork)
         tx = self.tx.with_gas_limit(
             max_gas_limit=env.gas_limit,
             transaction_gas_limit_cap=fork.transaction_gas_limit_cap(),
