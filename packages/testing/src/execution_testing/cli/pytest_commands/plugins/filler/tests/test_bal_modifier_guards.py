@@ -9,11 +9,22 @@ replace the committed bytes. The same block fills as an engine fixture.
 
 A modifier that leaves both the list and its payload encoding unchanged is
 refused as well, since it would label a valid block invalid.
+
+The commitment tests pin what the block hash of a filled engine payload
+commits to: the canonical RLP for `modify_rlp`, the payload RLP for
+`override_rlp` and for content modifiers.
 """
 
+import json
 import textwrap
+from pathlib import Path
+from typing import Any
 
 import pytest
+
+from execution_testing.base_types import Bytes, EmptyTrieRoot
+from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.test_types.block_access_list import BlockAccessList
 
 FORK = "Amsterdam"
 
@@ -26,6 +37,7 @@ MODULE_TEMPLATE = textwrap.dedent(
     import pytest
 
     from execution_testing import (
+        Address,
         Alloc,
         Block,
         BlockAccessList,
@@ -36,10 +48,19 @@ MODULE_TEMPLATE = textwrap.dedent(
         Transaction,
     )
     from execution_testing.test_types.block_access_list.modifiers import (
+        encode_scalar_non_minimally,
         override_rlp,
     )
 
     EMPTY_LIST = Bytes(b"\\xc0")
+    # EIP-2935: written by the pre-execution system call of every block, so
+    # even an empty block's list has a storage value to re-encode.
+    HISTORY_STORAGE_ADDRESS = Address(
+        0x0000F90827F1C53A10CB7A02335B175320002935
+    )
+    RE_ENCODE = encode_scalar_non_minimally(
+        HISTORY_STORAGE_ADDRESS, "storage_value"
+    )
 
     {markers}
     @pytest.mark.valid_at("{fork}")
@@ -51,7 +72,7 @@ MODULE_TEMPLATE = textwrap.dedent(
             post={{}},
             blocks=[
                 Block(
-                    txs=[tx],
+                    txs={txs},
                     exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                     expected_block_access_list=(
                         BlockAccessListExpectation(){modifier}
@@ -72,6 +93,7 @@ def write_test_module(
     modifier: str,
     markers: str = ENGINE_ONLY_MARKER,
     block_kwargs: str = "",
+    txs: str = "[tx]",
 ) -> str:
     """
     Write a single-test module with the given BAL modifier chain and return
@@ -86,6 +108,7 @@ def write_test_module(
             fork=FORK,
             modifier=modifier,
             block_kwargs=block_kwargs,
+            txs=txs,
         )
     )
     pytester.copy_example(
@@ -115,6 +138,54 @@ def run_fill(
 def output_of(result: pytest.RunResult) -> str:
     """Return the combined output of a fill run."""
     return "\n".join(result.outlines + result.errlines)
+
+
+def only_fixture(fixtures_dir: Path) -> dict[str, Any]:
+    """Return the single fixture a fill of the dummy module produced."""
+    files = [p for p in fixtures_dir.rglob("*.json") if ".meta" not in p.parts]
+    assert len(files) == 1, files
+    fixtures = json.loads(files[0].read_text())
+    assert len(fixtures) == 1, list(fixtures)
+    return next(iter(fixtures.values()))
+
+
+def rebuilt_block_hash(fixture: dict[str, Any], bal_hash: Bytes) -> str:
+    """
+    Recompute the block hash of the fixture's only payload with the header's
+    BAL hash replaced by ``bal_hash``.
+
+    The block is empty, so its transaction and withdrawal roots are the empty
+    trie root and its requests hash is the genesis one.
+    """
+    payload = fixture["engineNewPayloads"][0]
+    execution_payload = payload["params"][0]
+    empty_trie_root = "0x" + EmptyTrieRoot.hex()
+    header = dict(fixture["genesisBlockHeader"])
+    del header["hash"]
+    header.update(
+        {
+            "parentHash": execution_payload["parentHash"],
+            "coinbase": execution_payload["feeRecipient"],
+            "stateRoot": execution_payload["stateRoot"],
+            "transactionsTrie": empty_trie_root,
+            "receiptTrie": execution_payload["receiptsRoot"],
+            "bloom": execution_payload["logsBloom"],
+            "number": execution_payload["blockNumber"],
+            "gasLimit": execution_payload["gasLimit"],
+            "gasUsed": execution_payload["gasUsed"],
+            "timestamp": execution_payload["timestamp"],
+            "extraData": execution_payload["extraData"],
+            "mixHash": execution_payload["prevRandao"],
+            "baseFeePerGas": execution_payload["baseFeePerGas"],
+            "withdrawalsRoot": empty_trie_root,
+            "blobGasUsed": execution_payload["blobGasUsed"],
+            "excessBlobGas": execution_payload["excessBlobGas"],
+            "parentBeaconBlockRoot": payload["params"][2],
+            "slotNumber": execution_payload["slotNumber"],
+            "blockAccessListHash": str(bal_hash),
+        }
+    )
+    return str(FixtureHeader.model_validate(header).block_hash)
 
 
 def test_engine_format_fills_override_rlp(pytester: pytest.Pytester) -> None:
@@ -203,3 +274,56 @@ def test_changed_bal_fills(pytester: pytest.Pytester, modifier: str) -> None:
     result = run_fill(pytester, module_path, "blockchain_test_engine")
 
     result.assert_outcomes(passed=1, failed=0)
+
+
+@pytest.mark.parametrize(
+    "modifier,header_commits_to",
+    [
+        pytest.param(
+            ".modify_rlp(RE_ENCODE)", "canonical_rlp", id="modify_rlp"
+        ),
+        pytest.param(
+            ".modify(override_rlp(RE_ENCODE))",
+            "payload_rlp",
+            id="override_rlp",
+        ),
+        pytest.param(
+            ".modify(lambda _: BlockAccessList([]))",
+            "payload_rlp",
+            id="contents",
+        ),
+    ],
+)
+def test_header_commitment(
+    pytester: pytest.Pytester, modifier: str, header_commits_to: str
+) -> None:
+    """
+    The payload RLP is checked against what the block hash commits to,
+    rebuilt from the fixture itself.
+    """
+    module_path = write_test_module(pytester, modifier=modifier, txs="[]")
+
+    result = run_fill(pytester, module_path, "blockchain_test_engine")
+
+    result.assert_outcomes(passed=1, failed=0)
+    fixture = only_fixture(pytester.path / "fixtures")
+    execution_payload = fixture["engineNewPayloads"][0]["params"][0]
+    payload_rlp = Bytes(execution_payload["blockAccessList"])
+    canonical_rlp = BlockAccessList.from_rlp(payload_rlp).rlp
+    if "RE_ENCODE" in modifier:
+        assert payload_rlp != canonical_rlp, (
+            "re-encoding did not reach the payload"
+        )
+    else:
+        assert payload_rlp == Bytes(b"\xc0")
+    if header_commits_to == "canonical_rlp":
+        committed, other = canonical_rlp, payload_rlp
+    elif header_commits_to == "payload_rlp":
+        committed, other = payload_rlp, canonical_rlp
+    else:
+        raise ValueError(f"Unhandled commitment: {header_commits_to}")
+
+    block_hash = execution_payload["blockHash"]
+    assert rebuilt_block_hash(fixture, committed.keccak256()) == block_hash
+    if other != committed:
+        assert rebuilt_block_hash(fixture, other.keccak256()) != block_hash
