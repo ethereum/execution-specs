@@ -842,7 +842,23 @@ class BlockchainTest(BaseTest):
                     f"test correctness: block {i} modifies its block access "
                     "list but declares no `exception` or "
                     "`engine_api_error_code`, so the corrupted block access "
-                    "list would be filled as valid."
+                    "list would be filled as valid. Declare the exception "
+                    "the modified block access list must cause, or drop the "
+                    "modifier."
+                )
+            if (
+                block.engine_new_payload_block_access_list is not None
+                and expectation is not None
+                and expectation.has_rlp_modifier
+            ):
+                raise Exception(
+                    f"test correctness: block {i} sets "
+                    "`engine_new_payload_block_access_list` and re-encodes "
+                    "the block access list with `modify_rlp`; the explicit "
+                    "payload override would discard the re-encoding. Keep "
+                    "one: `engine_new_payload_block_access_list` delivers "
+                    "arbitrary bytes, `modify_rlp` re-encodes the list the "
+                    "transition tool produced."
                 )
 
     def get_genesis_environment(self) -> Environment:

@@ -400,3 +400,63 @@ class TestBalModifierRequiresException:
         BlockchainTest(
             fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
         )
+
+
+class TestConflictingPayloadOverrides:
+    """
+    An explicit engine payload BAL wins over `modify_rlp`, so setting both
+    would silently drop the re-encoding.
+    """
+
+    def test_explicit_payload_bal_with_modify_rlp_is_refused(self) -> None:
+        """Both payload-only settings on one block fail at construction."""
+        block = Block(
+            engine_new_payload_block_access_list=Bytes(b"\xc0"),
+            expected_block_access_list=(
+                BlockAccessListExpectation().modify_rlp(lambda bal: bal.rlp)
+            ),
+            exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+        )
+        with pytest.raises(Exception, match="discard the re-encoding"):
+            BlockchainTest(
+                fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
+            )
+
+    @pytest.mark.parametrize(
+        "block",
+        [
+            pytest.param(
+                Block(
+                    engine_new_payload_block_access_list=Bytes(b"\xc0"),
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                ),
+                id="explicit_payload_bal_only",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify_rlp(
+                            lambda bal: bal.rlp
+                        )
+                    ),
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                ),
+                id="modify_rlp_only",
+            ),
+            pytest.param(
+                Block(
+                    engine_new_payload_block_access_list=Bytes(b"\xc0"),
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                ),
+                id="explicit_payload_bal_with_content_modifier",
+            ),
+        ],
+    )
+    def test_single_payload_path_is_accepted(self, block: Block) -> None:
+        """One payload path at a time, or a content modifier, is fine."""
+        BlockchainTest(
+            fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
+        )
