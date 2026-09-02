@@ -1,16 +1,20 @@
 """
-Verify that a reverting callee's return data replaces the empty return
-data left by a previously failed call: each prober records the failed
-call's result and RETURNDATASIZE, for CALL, CALLCODE, DELEGATECALL and a
-nested CALL chain, with an ample and a starved transaction budget.
+Verify that a reverting callee's return data replaces the non-empty
+return data buffer left by an earlier call: each prober first fills the
+buffer from a returning callee, then records the failed call's result
+and RETURNDATASIZE, for CALL, CALLCODE, DELEGATECALL and a nested CALL
+chain, with an ample and a starved transaction budget.
 
 Ported from:
 state_tests/stRevertTest/RevertOpcodeInCallsOnNonEmptyReturnDataFiller.json
 
-@manually-enhanced: Do not overwrite. Sub-calls forward all gas and the
-ample arm omits the gas limit (maxing the EIP-8037 reservoir), replacing
-per-fork gas bumps; the starved budget derives from fork composites; all
-addresses are dynamic and every contract is pinned in the post.
+@manually-enhanced: Do not overwrite. The buffer-filling call forwards
+gas so the buffer really is non-empty before the probe (the legacy
+filler gave it a zero grant, so nothing was ever replaced). Sub-calls
+forward all gas and the ample arm omits the gas limit (maxing the
+EIP-8037 reservoir), replacing per-fork gas bumps. The starved budget
+derives from fork composites, all addresses are dynamic and every
+contract is pinned in the post.
 """
 
 import pytest
@@ -34,9 +38,7 @@ NESTED_RESULT_SLOT = 0x4
 NESTED_RETURN_DATA_SIZE_SLOT = 0x5
 ENTRY_SLOT = 0xA
 ENTRY_SLOT_INITIAL = 255
-# A zero-gas grant: the prelude call must fail without touching the
-# return data buffer.
-FAILING_CALL_GAS = 0
+RETURNED_SIZE = 0x40
 # Gas left at the entry frame's call site in the starved arm: enough to
 # start the call, too little for any frame to complete.
 STARVE_MARGIN = 1_000
@@ -65,8 +67,8 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
     call_op: Op | None,
     ample_gas: bool,
 ) -> None:
-    """A revert's return data is observed after a failed call."""
-    # Reverts one byte of return data; the store before the REVERT is
+    """A revert's return data replaces a non-empty buffer."""
+    # Reverts one byte of return data. The store before the REVERT is
     # undone and the code after it must never run.
     reverter = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC)
@@ -74,15 +76,13 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         + Op.SSTORE(key=0x3, value=0xD)
         + Op.STOP,
     )
-    # Would return 64 bytes, but is only ever called with zero gas.
-    returner = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x1, value=0xC)
-        + Op.RETURN(offset=0x0, size=0x40),
-    )
+    # Fills the return data buffer with RETURNED_SIZE bytes.
+    returner_code = Op.MSTORE(
+        offset=0x1, value=0xC, new_memory_size=RETURNED_SIZE
+    ) + Op.RETURN(offset=0x0, size=RETURNED_SIZE)
+    returner = pre.deploy_contract(code=returner_code)
 
-    prelude = Op.POP(
-        Op.CALL(gas=FAILING_CALL_GAS, address=returner, address_warm=False)
-    )
+    prelude = Op.POP(Op.CALL(address=returner, address_warm=False))
 
     def prober_code(
         op: Op, callee: Address, result_slot: int, rds_slot: int
@@ -150,6 +150,7 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         starved = (
             intrinsic
             + prelude.gas_cost(fork)
+            + returner_code.gas_cost(fork)
             + big_call.gas_cost(fork)
             + STARVE_MARGIN
         )
@@ -175,7 +176,8 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         }
     elif call_op is None:
         # The nested prober's callee completes (its own probe fails), so
-        # the outer call succeeds and returns no data.
+        # the outer call succeeds and its empty return data replaces the
+        # buffer the prelude filled.
         post = {
             **untouched,
             entry: Account(storage={ENTRY_SLOT: 1}),
