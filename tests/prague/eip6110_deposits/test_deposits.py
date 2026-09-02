@@ -35,13 +35,6 @@ REFERENCE_SPEC_VERSION = ref_spec_6110.version
 
 pytestmark = pytest.mark.valid_from("Prague")
 
-DEPOSITS_PER_TRANSACTION = 256
-"""
-Deposits driven by each transaction. Spreading the deposits over several
-transactions keeps every one of them under the EIP-7825 transaction gas limit
-cap, and under the block gas limit of a live network when the test is run with
-`execute`.
-"""
 
 
 @pytest.mark.parametrize(
