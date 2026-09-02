@@ -26,7 +26,8 @@ from execution_testing.test_types.block_types import Environment
 from execution_testing.test_types.transaction_types import TransactionDefaults
 
 
-@pytest.mark.inclusion_test
+# No inclusion_test marker: the 21,000 gas limit pinned below leaves the
+# variant an empty block under the block-access-list item floor.
 @pytest.mark.exception_test
 @pytest.mark.eels_base_coverage
 def test_tx_gas_limit(
