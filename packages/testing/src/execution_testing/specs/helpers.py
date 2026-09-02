@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Dict, List
 
+from execution_testing.base_types import HexNumber
 from execution_testing.client_clis import Result
 from execution_testing.exceptions import (
     BlockException,
@@ -131,6 +132,28 @@ class TransactionReceiptMismatchError(Exception):
             f"\n   What: {field_name} mismatch!"
             f"\n   Want: {expected_value}"
             f"\n    Got: {actual_value}"
+        )
+        super().__init__(message)
+
+
+class TransactionReceiptIncompleteError(Exception):
+    """
+    Exception used when the transition tool returns incomplete information
+    required to validate the test.
+    """
+
+    def __init__(
+        self,
+        index: int,
+        field_name: str,
+        expected_value: Any,
+    ):
+        """Initialize the exception."""
+        message = (
+            f"\nTransactionReceiptIncomplete (pos={index}):"
+            f"\n   What: {field_name} missing!"
+            f"\n   Want: {expected_value}"
+            f"\n    Got: MISSING"
         )
         super().__init__(message)
 
@@ -297,7 +320,9 @@ def verify_log(
 
 
 def verify_transaction_receipt(
+    *,
     transaction_index: int,
+    previous_cumulative_gas_used: int | None,
     expected_receipt: TransactionReceipt | None,
     actual_receipt: TransactionReceipt | None,
 ) -> None:
@@ -318,12 +343,46 @@ def verify_transaction_receipt(
     ):
         raise TransactionReceiptMismatchError(
             index=transaction_index,
-            field_name="gas_used",
+            field_name="cumulative_gas_used",
             expected_value=expected_receipt.cumulative_gas_used,
             actual_value=actual_receipt.cumulative_gas_used,
         )
-    if expected_receipt.logs is not None and actual_receipt.logs is not None:
+    if expected_receipt.gas_used is not None:
+        actual_gas_used: int
+        if actual_receipt.gas_used is not None:
+            actual_gas_used = actual_receipt.gas_used
+        else:
+            if previous_cumulative_gas_used is None:
+                raise TransactionReceiptIncompleteError(
+                    index=transaction_index - 1,
+                    field_name="cumulative_gas_used",
+                    expected_value=expected_receipt.gas_used,
+                )
+            current_cumulative_gas_used = actual_receipt.cumulative_gas_used
+            if current_cumulative_gas_used is None:
+                raise TransactionReceiptIncompleteError(
+                    index=transaction_index,
+                    field_name="cumulative_gas_used",
+                    expected_value=expected_receipt.gas_used,
+                )
+            actual_gas_used = HexNumber(
+                current_cumulative_gas_used - previous_cumulative_gas_used
+            )
+        if expected_receipt.gas_used != actual_gas_used:
+            raise TransactionReceiptMismatchError(
+                index=transaction_index,
+                field_name="gas_used",
+                expected_value=expected_receipt.gas_used,
+                actual_value=actual_gas_used,
+            )
+    if expected_receipt.logs is not None:
         actual_logs = actual_receipt.logs
+        if actual_logs is None:
+            raise TransactionReceiptIncompleteError(
+                index=transaction_index,
+                field_name="logs",
+                expected_value=expected_receipt.logs,
+            )
         expected_logs = expected_receipt.logs
         if len(expected_logs) != len(actual_logs):
             raise LogMismatchError(
@@ -337,6 +396,21 @@ def verify_transaction_receipt(
             zip(expected_logs, actual_logs, strict=True)
         ):
             verify_log(transaction_index, log_idx, expected, actual)
+    if expected_receipt.status is not None:
+        if actual_receipt.status is None:
+            raise TransactionReceiptIncompleteError(
+                index=transaction_index,
+                field_name="status/succeeded",
+                expected_value=expected_receipt.status,
+            )
+        if expected_receipt.status != actual_receipt.status:
+            raise TransactionReceiptMismatchError(
+                index=transaction_index,
+                field_name="status/succeeded",
+                expected_value=expected_receipt.status,
+                actual_value=actual_receipt.status,
+            )
+
     # TODO: Add more fields as needed
 
 
@@ -357,6 +431,7 @@ def verify_transactions(
     }
 
     receipt_index = 0
+    previous_cumulative_gas_used: int | None = 0
     for i, tx in enumerate(txs):
         error_message = rejected_txs[i] if i in rejected_txs else None
         info = TransactionExceptionInfo(
@@ -366,9 +441,14 @@ def verify_transactions(
         )
         info.verify(strict_match=transition_tool_exceptions_reliable)
         if error_message is None:
+            actual_receipt = result.receipts[receipt_index]
             verify_transaction_receipt(
-                i, tx.expected_receipt, result.receipts[receipt_index]
+                transaction_index=i,
+                previous_cumulative_gas_used=previous_cumulative_gas_used,
+                expected_receipt=tx.expected_receipt,
+                actual_receipt=actual_receipt,
             )
+            previous_cumulative_gas_used = actual_receipt.cumulative_gas_used
             receipt_index += 1
 
     return list(rejected_txs.keys())
