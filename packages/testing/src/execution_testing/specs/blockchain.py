@@ -813,12 +813,13 @@ class BlockchainTest(BaseTest):
 
     def get_genesis_environment(self) -> Environment:
         """Get the genesis environment for pre-allocation groups."""
-        genesis_fork = self.fork.transitions_from()
         # Checked before the defaults below add the mix hash under
         # `prev_randao`, which every genesis header carries.
-        self.genesis_environment.check_fork_fields(genesis_fork)
+        self.genesis_environment.check_fork_fields(
+            self.fork.transitions_from()
+        )
         modified_values = self.genesis_environment.set_fork_requirements(
-            genesis_fork
+            self.fork.transitions_from()
         ).model_dump(exclude_unset=True)
         return Environment(**(GENESIS_ENVIRONMENT_DEFAULTS | modified_values))
 
