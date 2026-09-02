@@ -33,15 +33,20 @@ FORK_GATED_FIELDS: Dict[str, Callable[[Fork], bool]] = {
     "parent_base_fee_per_gas": lambda fork: fork.header_base_fee_required(),
     "withdrawals": lambda fork: fork.header_withdrawals_required(),
     "excess_blob_gas": lambda fork: fork.header_excess_blob_gas_required(),
+    "parent_excess_blob_gas": (
+        lambda fork: fork.header_excess_blob_gas_required()
+    ),
     "blob_gas_used": lambda fork: fork.header_blob_gas_used_required(),
+    "parent_blob_gas_used": lambda fork: fork.header_blob_gas_used_required(),
     "parent_beacon_block_root": (
         lambda fork: fork.header_beacon_root_required()
     ),
     "slot_number": lambda fork: fork.header_slot_number_required(),
+    "parent_slot_number": lambda fork: fork.header_slot_number_required(),
 }
 """
-Environment fields that only some block headers carry, keyed by the
-fork predicate that admits each one.
+Environment fields, current and parent, that only some block headers
+carry, keyed by the fork predicate that admits each one.
 """
 
 

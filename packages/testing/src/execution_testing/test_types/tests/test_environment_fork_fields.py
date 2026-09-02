@@ -16,9 +16,12 @@ PINS: Dict[str, Any] = {
     "parent_base_fee_per_gas": 9,
     "withdrawals": [],
     "excess_blob_gas": 3,
+    "parent_excess_blob_gas": 2,
     "blob_gas_used": 4,
+    "parent_blob_gas_used": 1,
     "parent_beacon_block_root": 5,
     "slot_number": 7,
+    "parent_slot_number": 6,
 }
 
 DROPPED: Dict[Fork, Set[str]] = {
@@ -26,11 +29,14 @@ DROPPED: Dict[Fork, Set[str]] = {
     Paris: {
         "withdrawals",
         "excess_blob_gas",
+        "parent_excess_blob_gas",
         "blob_gas_used",
+        "parent_blob_gas_used",
         "parent_beacon_block_root",
         "slot_number",
+        "parent_slot_number",
     },
-    Cancun: {"slot_number"},
+    Cancun: {"slot_number", "parent_slot_number"},
     Amsterdam: set(),
 }
 
