@@ -422,8 +422,91 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.INVALID_CHAINID: (
             r"InvalidTxChainId|Signature is invalid."
         ),
+        # `Transaction \d+ is not valid: <cause>` is the wrapper the client
+        # puts around any payload transaction that fails to RLP-decode, so
+        # this entry alone cannot tell one decode failure from another. It is
+        # kept broad because the mapper is additive: a fixture passes when its
+        # expected exception is among those matched, and the entries below
+        # supply the discriminating labels for the causes that have one.
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
             r"Transaction \d+ is not valid"
+        ),
+        # Frame transaction static constraints: frame count, mode, flags,
+        # value placement, atomic batch, expiry verifier, signature entry
+        # structure, nonce and blob fields.
+        TransactionException.TYPE_6_INVALID_FRAME_FORMAT: (
+            r"frame transaction must contain between 1 and 64 frames"
+            r"|frame transaction sender must be set"
+            r"|frame mode must be DEFAULT, VERIFY, SENDER, or POST_TX"
+            r"|POST_TX frames must form a trailing suffix of the frame list"
+            r"|POST_TX frames are not enabled"
+            r"|frame flags must not use reserved bits"
+            r"|frame value is only allowed in SENDER mode"
+            r"|frames allowed to approve execution must target the sender"
+            r"|the last frame must not have the atomic batch flag set"
+            r"|the atomic batch flag must not be set on a VERIFY frame"
+            r"|the atomic batch flag must not be set on a POST_TX frame"
+            r"|an atomic batch frame must not be followed by a VERIFY frame"
+            r"|an atomic batch frame must not be followed by a POST_TX frame"
+            r"|frames belonging to an atomic batch must not carry approval"
+            r" scope"
+            r"|total frame gas must not exceed 2\^64 - 1"
+            r"|expiry verifier frame must have zero flags, zero value, and"
+            r" 8-byte data"
+            r"|at most one expiry verifier frame is allowed"
+            r"|unknown signature scheme"
+            r"|ARBITRARY signatures must not name a signer"
+            r"|signature msg must be empty or a 32-byte digest"
+            r"|explicit signature msg must not be the zero digest"
+            r"|max fee per blob gas must be 0 when there are no blob hashes"
+            r"|keyed nonces are not enabled"
+            r"|legacy nonce is not allowed"
+            r"|malformed nonce key set"
+            r"|at most 16 recent root references are allowed"
+            r"|frame transaction SECP256K1 signer does not match the"
+            r" recovered address"
+            r"|frame transaction P256 signer does not match the public key"
+            # Decode-time rejections of a frame field too wide or too long
+            # for its type, which the fixtures also file as format failures.
+            # Generic decoder wordings carrying no frame context, so they
+            # widen the label rather than pinpoint it.
+            r"|Expected a sequence prefix to be in the range of <192, 255>"
+            r"|Unexpected length of integer value"
+            r"|Unexpected RLP prefix"
+            r"|Collection count"
+            r"|An RLP limit exceeded"
+        ),
+        # Signature entries that fail protocol validation. Disjoint from the
+        # format set above, which files a signer not matching the recovered
+        # key as a format failure rather than a signature failure.
+        TransactionException.TYPE_6_INVALID_SIGNATURE: (
+            r"frame transaction has an invalid signature"
+            r"|frame transaction signature has the wrong length"
+            r"|frame transaction signature must use a 0/1 recovery id and a"
+            r" canonical low s value"
+            r"|frame transaction P256 signature must be canonical with a low"
+            r" s value"
+            r"|frame transaction P256 signatures require the secp256r1"
+            r" precompile"
+        ),
+        # A well-formed, correctly signed transaction that frame execution
+        # then invalidates. Never a bare "frame": that would also catch the
+        # format and signature wordings above.
+        TransactionException.TYPE_6_INVALID_FRAME_EXECUTION: (
+            r"VERIFY frame reverted"
+            r"|validation prefix frame reverted"
+            r"|SENDER frame before execution approval"
+            r"|never set a payer"
+        ),
+        # A fee field wider than 32 bytes trips the decoder length guard,
+        # which names neither the field nor the transaction type, so both fee
+        # labels take the same pattern. The second wording is the same guard
+        # with the client trace logging enabled.
+        TransactionException.GASPRICE_OVERFLOW: (
+            r"Collection count|An RLP limit exceeded"
+        ),
+        TransactionException.PRIORITY_OVERFLOW: (
+            r"Collection count|An RLP limit exceeded"
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"BlockBlobGasExceeded: A block cannot have more than "
@@ -433,8 +516,17 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"BlobTxGasLimitExceeded: Transaction's totalDataGas=\d+ "
             r"exceeded MaxBlobGas per transaction=\d+"
         ),
+        # A frame transaction reports the per-transaction gas cap against its
+        # own reservation rather than through the shared prefix.
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"TxGasLimitCapExceeded:"
+            r"TxGasLimitCapExceeded:|exceeds the transaction gas cap of"
+        ),
+        # Reached only when gas limit * price (+ value) overflows, never on a
+        # plain balance shortfall. The client composes this onto its
+        # insufficient-funds wording, so both labels match and the fixture
+        # picks the one it named.
+        TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
+            r"required balance exceeds 256 bits"
         ),
         BlockException.INCORRECT_EXCESS_BLOB_GAS: (
             r"HeaderExcessBlobGasMismatch: Excess blob gas in header "
