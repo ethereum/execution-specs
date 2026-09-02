@@ -83,7 +83,7 @@ def test_revert_depth_create_address_collision(
     outer_covered: bool,
     tx_value: int,
 ) -> None:
-    """A CREATE2 collision burns the grant; budgets decide what's left."""
+    """A CREATE2 collision burns the grant and budgets decide the rest."""
     # The creator: entry marker, result-slot pre-write, then the CREATE2
     # aimed at the caller's (occupied) address, whose result overwrites
     # the sentinel as a dirty-warm store the 1/64 retention can pay.
@@ -120,8 +120,8 @@ def test_revert_depth_create_address_collision(
         code=sstore_2 + sentinel_store + result_store + Op.STOP
     )
 
-    # The caller occupies the creator's CREATE2 target (this is the
-    # repaired collision, and why the pre allocation must stay mutable).
+    # The caller occupies the creator's CREATE2 target. This is the
+    # repaired collision, and why the pre allocation must stay mutable.
     sstore_0 = Op.SSTORE(
         key=CALLER_START_SLOT,
         value=0x1,
@@ -223,7 +223,7 @@ def test_revert_depth_create_address_collision(
         creator_account = Account(storage={}, nonce=1)
     elif not creator_covered:
         # The creator reached the collision but died on its aftermath
-        # and was rolled back — including the collision's nonce bump.
+        # and was rolled back, including the collision's nonce bump.
         caller_account = Account(
             storage={
                 CALLER_START_SLOT: 0x1,

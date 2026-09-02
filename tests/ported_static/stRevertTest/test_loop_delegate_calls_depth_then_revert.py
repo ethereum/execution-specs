@@ -29,7 +29,7 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 # The recursion depth is a function of this budget via EIP-150's 63/64
-# forwarding rule; changing it changes the pinned frame count.
+# forwarding rule. Changing it changes the pinned frame count.
 GAS_BUDGET = 10_000_000
 # Fixed address for the second contract: it must be known before the
 # first contract's code (which delegate-calls it) can be built.
@@ -68,7 +68,7 @@ def test_loop_delegate_calls_depth_then_revert(
 
     # Completed frames under GAS_BUDGET, pinned per gas-schedule era:
     # every frame increments the entry contract's counter because
-    # DELEGATECALL keeps the storage context; the partner's own storage
+    # DELEGATECALL keeps the storage context. The partner's own storage
     # is never touched. EIP-8037's state gas for the first store shifts
     # the depth the 63/64 attenuation allows.
     frames = 385 if fork.is_eip_enabled(8037) else 386

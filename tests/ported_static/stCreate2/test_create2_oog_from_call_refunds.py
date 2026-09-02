@@ -2,7 +2,7 @@
 Verify gas refunds earned inside a CREATE2's init code (storage clears,
 via direct stores and CALL/CALLCODE/DELEGATECALL helpers, selfdestructs,
 and nested creations) against out-of-gas boundaries: each scenario runs
-once completing normally and twice dying — on an oversized code deposit
+once completing normally and twice dying, on an oversized code deposit
 and on an INVALID that pins the refund bookkeeping.
 
 Ported from:
@@ -44,7 +44,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 GAS_PRICE = 10
 # The ported budget, proven to cover every NoOoG arm's regular gas.
 PORTED_GAS_LIMIT = 400_000
-# The OoG arms return this much memory as code; the deposit charge is
+# The OoG arms return this much memory as code. The deposit charge is
 # what must exceed the transaction budget so they starve.
 OOG_DEPOSIT_SIZE = 0x1388
 
@@ -211,7 +211,7 @@ def test_create2_oog_from_call_refunds(
     g: int,
     v: int,
 ) -> None:
-    """Test_create2_oog_from_call_refunds."""
+    """Init-code refunds survive only a completing CREATE2."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
     contract_0 = Address(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA)
     contract_1 = Address(0x000000000000000000000000000000000000001A)

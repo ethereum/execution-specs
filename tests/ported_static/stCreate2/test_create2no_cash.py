@@ -9,8 +9,8 @@ state_tests/stCreate2/create2noCashFiller.json
 
 @manually-enhanced: Do not overwrite. The creation-transaction wrapper
 and tuned gas budgets are replaced by a deployed entry contract that
-records the call result; the created account and the creator's nonce
-(no bump on the balance preflight) are asserted explicitly.
+records the call result, and the created account and the creator's
+nonce (no bump on the balance preflight) are asserted explicitly.
 """
 
 import pytest
@@ -50,7 +50,7 @@ def test_create2no_cash(
 ) -> None:
     """A CREATE2 endowment beyond the creator's balance cannot create."""
     # The creator holds one wei less than the endowment it attempts to
-    # transfer; only the topped-up arm can afford it.
+    # transfer. Only the topped-up arm can afford it.
     creator = pre.deploy_contract(
         code=Op.POP(
             Op.CREATE2(value=CREATE2_ENDOWMENT, offset=0x0, size=0x0, salt=0x0)

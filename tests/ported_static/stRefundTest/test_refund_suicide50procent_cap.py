@@ -8,9 +8,9 @@ Ported from:
 state_tests/stRefundTest/refundSuicide50procentCapFiller.json
 
 @manually-enhanced: Do not overwrite. The sub-call grant, the stored gas
-delta, the refund cap and the budget all derive from fork composites; the
-destructor self-destructs to CALLER so every address is dynamic; the post
-branches on EIP-6780 for the destructor's survival.
+delta, the refund cap and the budget all derive from fork composites. The
+destructor self-destructs to CALLER so every address is dynamic, and the
+post branches on EIP-6780 for the destructor's survival.
 """
 
 import pytest
@@ -107,8 +107,8 @@ def test_refund_suicide50procent_cap(
             original_value=1,
             new_value=0,
         )
-    # Second GAS read closes the window; the head's own GAS cost stands in
-    # for it in the derived delta (both GAS reads cost the same).
+    # Second GAS read closes the window. The head's own GAS cost stands
+    # in for it in the derived delta (both GAS reads cost the same).
     # new_value is a placeholder: an SSTORE's cost depends only on the
     # zero/non-zero transition, not the stored magnitude.
     tail = Op.SSTORE(

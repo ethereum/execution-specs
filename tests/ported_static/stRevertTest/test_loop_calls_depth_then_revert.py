@@ -28,7 +28,7 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 # The recursion depth is a function of this budget via EIP-150's 63/64
-# forwarding rule; changing it changes the pinned frame counts.
+# forwarding rule. Changing it changes the pinned frame counts.
 GAS_BUDGET = 10_000_000
 # Fixed address for the second contract: it must be known before the
 # first contract's code (which calls it) can be built.

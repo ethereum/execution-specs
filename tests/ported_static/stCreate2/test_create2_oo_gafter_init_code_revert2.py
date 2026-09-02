@@ -9,7 +9,7 @@ state_tests/stCreate2/Create2OOGafterInitCodeRevert2Filler.json
 
 @manually-enhanced: Do not overwrite. The forwarded grant is derived from
 fork composites so the child fails exactly at the deposit charge on every
-fork; the revert payload now also carries the CREATE2 result, and the
+fork. The revert payload now also carries the CREATE2 result, and the
 caller stores the call result plus both payload words.
 """
 
@@ -31,8 +31,8 @@ PAYLOAD_SLOT = 0x1
 CREATE2_RESULT_SLOT = 0x2
 CALL_RESULT_SLOT = 0x3
 
-# The init code returns this many memory bytes as the code to deposit;
-# the grant is sized so this charge is exactly what the child cannot pay.
+# The init code returns this many memory bytes as the code to deposit.
+# The grant is sized so this charge is exactly what the child cannot pay.
 DEPOSIT_SIZE = 0x40
 
 
@@ -45,7 +45,7 @@ def test_create2_oo_gafter_init_code_revert2(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """A CREATE2 child dies at the deposit charge; its creator reverts."""
+    """A CREATE2 child dies at the deposit charge and its creator reverts."""
     # The child's init code: one word of scratch data, then a deposit
     # request the sized grant cannot cover. The would-be deposited code
     # (an SSTORE) never runs.
