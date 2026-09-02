@@ -190,6 +190,9 @@ class BlockAccessListExpectation(CamelModel):
 
         Use this for encoding-level invalid cases; `modify` changes the
         BAL's contents and so also moves the header hash.
+
+        Only the engine payload can carry the re-encoding, so the test must
+        be marked `blockchain_test_engine_only`.
         """
         new_instance = self.model_copy(deep=True)
         new_instance._rlp_modifier = modifier
@@ -205,6 +208,11 @@ class BlockAccessListExpectation(CamelModel):
     def has_modifier(self) -> bool:
         """Return whether this expectation rewrites the BAL."""
         return self._modifier is not None or self._rlp_modifier is not None
+
+    @property
+    def has_rlp_modifier(self) -> bool:
+        """Return whether this expectation re-encodes the payload BAL."""
+        return self._rlp_modifier is not None
 
     def verify_against(self, actual_bal: "BlockAccessList") -> None:
         """

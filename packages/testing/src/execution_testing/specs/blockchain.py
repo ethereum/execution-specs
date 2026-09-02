@@ -388,6 +388,11 @@ class Block(Header):
             overrides.append("engine_new_payload_block_access_list")
         if self.engine_new_payload_slot_number is not None:
             overrides.append("engine_new_payload_slot_number")
+        if (
+            self.expected_block_access_list is not None
+            and self.expected_block_access_list.has_rlp_modifier
+        ):
+            overrides.append("expected_block_access_list.modify_rlp")
         return overrides
 
     def set_environment(self, env: Environment) -> Environment:

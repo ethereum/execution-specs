@@ -1191,8 +1191,10 @@ def test_modify_rlp_rewrites_encoding_only() -> None:
     rlp_expectation = expectation.modify_rlp(lambda _: Bytes(b"\xc0"))
 
     assert not expectation.has_modifier
+    assert not expectation.has_rlp_modifier
     assert expectation.modified_rlp(actual_bal) is None
     assert rlp_expectation.has_modifier
+    assert rlp_expectation.has_rlp_modifier
     assert rlp_expectation.modified_rlp(actual_bal) == b"\xc0"
     assert rlp_expectation.modify_if_invalid_test(actual_bal) == actual_bal
 
@@ -1216,8 +1218,10 @@ def test_modify_rlp_chains_with_modify() -> None:
     both = content_only.modify_rlp(lambda bal: bal.rlp)
 
     assert content_only.has_modifier
+    assert not content_only.has_rlp_modifier
     assert content_only.modified_rlp(actual_bal) is None
     assert both.has_modifier
+    assert both.has_rlp_modifier
     assert both.modify_if_invalid_test(actual_bal) == BlockAccessList([])
     assert both.modified_rlp(actual_bal) == actual_bal.rlp
 
