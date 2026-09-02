@@ -2198,8 +2198,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     elif (fixture_output.directory / ENGINE_X_FIXTURES_DIR).is_dir():
         logger.info(
             "Engine X execution consistency check skipped: optimistic "
-            "pre-alloc grouping is disabled, so packing cannot have "
-            "changed any test's execution."
+            "pre-alloc grouping is disabled."
         )
 
     # Verify fixtures after merge if verification is enabled
