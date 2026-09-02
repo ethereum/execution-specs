@@ -3,17 +3,17 @@ Verify a CREATE2 whose target address holds a pre-existing account that
 SELFDESTRUCTed earlier in the same transaction: the collision stands
 (the account is only emptied, not freed), consuming the child's grant,
 and the sized budget then runs the creating init code out of gas so the
-whole creation transaction rolls back — including the selfdestruct's
+whole creation transaction rolls back, including the selfdestruct's
 balance transfer.
 
 Ported from:
 state_tests/stCreate2/create2collisionSelfdestructedOOGFiller.json
 
 @manually-enhanced: Do not overwrite. Collider and beneficiary addresses
-are computed instead of hardcoded, the budget is derived from fork
-composites, and the post-collision work is sized above the collision's
-1/64 retention on every fork (the alive collider means the CREATE2
-charges — and refunds — no new-account state gas).
+are computed instead of hardcoded, and the budget derives from fork
+composites: the CREATE2's slack would fund the post-collision stores had
+the creation gone through, so the rollback is attributable to the
+collision's burned grant on every fork.
 """
 
 import pytest
@@ -33,10 +33,8 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 COLLIDER_BALANCE = 1
-# Gas left for the collision to consume: the CREATE2's child grant. Its
-# 1/64 retention (plus any state refund) must stay below the two-store
-# victim cost, which the guard below asserts.
-CHILD_GRANT_SLACK = 30_000
+# Head room on top of the slack the CREATE2 finds when it runs.
+SLACK_MARGIN = 5_000
 
 
 @pytest.mark.ported_from(
@@ -47,10 +45,19 @@ CHILD_GRANT_SLACK = 30_000
     "inner_initcode",
     [
         pytest.param(Bytecode(), id="empty_initcode"),
-        pytest.param(Op.SSTORE(key=0x1, value=0x1), id="storing_initcode"),
         pytest.param(
-            Op.MSTORE(offset=0x0, value=0x6001600155)
-            + Op.RETURN(offset=0x1B, size=0x5),
+            Op.SSTORE(
+                key=0x1,
+                value=0x1,
+                key_warm=False,
+                original_value=0,
+                new_value=1,
+            ),
+            id="storing_initcode",
+        ),
+        pytest.param(
+            Op.MSTORE(offset=0x0, value=0x6001600155, new_memory_size=0x20)
+            + Op.RETURN(offset=0x1B, size=0x5, code_deposit_size=0x5),
             id="depositing_initcode",
         ),
     ],
@@ -67,8 +74,8 @@ def test_create2collision_selfdestructed_oog(
     outer_created = compute_create_address(address=sender, nonce=0)
 
     # The collider occupies the CREATE2 target (which depends on the
-    # init code below through its hash) and selfdestructs when called;
-    # its address is derived from the pre-funded sender, so the pre
+    # init code below through its hash) and selfdestructs when called.
+    # Its address is derived from the pre-funded sender, so the pre
     # allocation must stay mutable.
     beneficiary = pre.nonexistent_account()
     collider_work = Op.SELFDESTRUCT(
@@ -85,7 +92,7 @@ def test_create2collision_selfdestructed_oog(
 
     # The outer init code selfdestructs the collider, stages the child's
     # init code (never executed: the collision aborts before dispatch)
-    # and runs the CREATE2 into the collision; the two stores after it
+    # and runs the CREATE2 into the collision. The two stores after it
     # are the victims the burned grant leaves unaffordable.
     inner_bytes = bytes(inner_initcode)
     assert len(inner_bytes) <= 0x20, "inner init code must fit one word"
@@ -131,26 +138,36 @@ def test_create2collision_selfdestructed_oog(
         Op.POP(call_code) + setup + Op.POP(create2_code) + victim_stores
     )
 
-    # The budget covers everything up to and including the CREATE2's own
-    # charges plus the slack the collision consumes; the guard proves
-    # the victims exceed what the collision leaves behind, so the outer
-    # frame must die and the whole creation rolls back. The collider is
-    # alive at the CREATE2 (only emptied by its selfdestruct), so no
-    # new-account state gas is charged — or refunded — there.
+    # The slack is what the CREATE2 finds when it runs. It would pay for
+    # the victims even if a client let the creation through (freeing the
+    # selfdestructed target, so charging it as a new account, and running
+    # the child), so only the collision's burn can starve them. The
+    # collider is alive at the CREATE2 (only emptied by its selfdestruct),
+    # so no new-account state gas is charged there.
+    new_account_state = Op.CREATE2(
+        value=0x0, offset=0x0, size=0x0, salt=0x0
+    ).state_cost(fork)
+    slack = (
+        victim_stores.gas_cost(fork)
+        + new_account_state
+        + inner_initcode.gas_cost(fork)
+        + SLACK_MARGIN
+    )
     gas_limit = (
         fork.transaction_intrinsic_cost_calculator()(
             calldata=outer_initcode,
             contract_creation=True,
+            return_cost_deducted_prior_execution=True,
         )
         + fork.transaction_top_frame_state_gas(contract_creation=True)
         + call_code.gas_cost(fork)
         + collider_work.gas_cost(fork)
         + setup.gas_cost(fork)
         + create2_code.gas_cost(fork)
-        + CHILD_GRANT_SLACK
+        + slack
     )
-    leftover = CHILD_GRANT_SLACK // 64
-    assert leftover + 2_500 < victim_stores.gas_cost(fork), (
+    # The collision leaves one 64th of the slack: never the victims.
+    assert slack // 64 < victim_stores.gas_cost(fork), (
         "the collision's leavings must not afford the victim stores"
     )
 
