@@ -8,6 +8,7 @@ format, particularly zero-padded hex strings.
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from execution_testing.base_types import Address, Bytes
 from execution_testing.test_types.block_access_list import (
@@ -113,18 +114,12 @@ def test_bal_rlp_override_replaces_serialization_only() -> None:
     assert original.rlp == canonical
 
 
-@pytest.mark.parametrize(
-    "rlp",
-    [
-        pytest.param(None, id="none"),
-        pytest.param(BlockAccessList([]), id="list"),
-        pytest.param(0xC0, id="int"),
-    ],
-)
-def test_bal_rlp_override_refuses_non_bytes(rlp: Any) -> None:
-    """The override bypasses validation, so its type is checked here."""
-    with pytest.raises(TypeError, match="expects the serialization as bytes"):
-        BlockAccessList([]).with_rlp_override(rlp)
+def test_bal_rlp_override_rejects_unconvertible_input() -> None:
+    """``validate_call`` rejects what ``Bytes`` cannot coerce."""
+    unconvertible: Any = None
+
+    with pytest.raises(ValidationError):
+        BlockAccessList([]).with_rlp_override(unconvertible)
 
 
 @pytest.mark.parametrize(
