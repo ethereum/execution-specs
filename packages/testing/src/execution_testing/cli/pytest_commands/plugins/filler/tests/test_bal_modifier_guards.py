@@ -11,8 +11,7 @@ A modifier that leaves both the list and its payload encoding unchanged is
 refused as well, since it would label a valid block invalid.
 
 The commitment tests pin what the block hash of a filled engine payload
-commits to: the canonical RLP for `modify_rlp`, the payload RLP for
-`override_rlp` and for content modifiers.
+commits to.
 """
 
 import json
@@ -26,6 +25,7 @@ from execution_testing.base_types import Bytes, EmptyTrieRoot
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.test_types.block_access_list import BlockAccessList
 
+# BALs exist from Amsterdam; the fill needs a fork that emits one.
 FORK = "Amsterdam"
 
 TEST_MODULE_DIR = "tests/amsterdam/dummy_test_module"
@@ -84,7 +84,7 @@ MODULE_TEMPLATE = textwrap.dedent(
     """
 )
 
-OVERRIDE_RLP = ".modify(override_rlp(lambda _: EMPTY_LIST))"
+OVERRIDE_RLP_WITH_EMPTY_LIST = ".modify(override_rlp(lambda _: EMPTY_LIST))"
 
 
 def write_test_module(
@@ -159,38 +159,36 @@ def rebuilt_block_hash(fixture: dict[str, Any], bal_hash: Bytes) -> str:
     """
     payload = fixture["engineNewPayloads"][0]
     execution_payload = payload["params"][0]
-    empty_trie_root = "0x" + EmptyTrieRoot.hex()
-    header = dict(fixture["genesisBlockHeader"])
-    del header["hash"]
-    header.update(
-        {
-            "parentHash": execution_payload["parentHash"],
-            "coinbase": execution_payload["feeRecipient"],
-            "stateRoot": execution_payload["stateRoot"],
-            "transactionsTrie": empty_trie_root,
-            "receiptTrie": execution_payload["receiptsRoot"],
-            "bloom": execution_payload["logsBloom"],
-            "number": execution_payload["blockNumber"],
-            "gasLimit": execution_payload["gasLimit"],
-            "gasUsed": execution_payload["gasUsed"],
-            "timestamp": execution_payload["timestamp"],
-            "extraData": execution_payload["extraData"],
-            "mixHash": execution_payload["prevRandao"],
-            "baseFeePerGas": execution_payload["baseFeePerGas"],
-            "withdrawalsRoot": empty_trie_root,
-            "blobGasUsed": execution_payload["blobGasUsed"],
-            "excessBlobGas": execution_payload["excessBlobGas"],
-            "parentBeaconBlockRoot": payload["params"][2],
-            "slotNumber": execution_payload["slotNumber"],
-            "blockAccessListHash": str(bal_hash),
-        }
+    genesis = FixtureHeader.model_validate(fixture["genesisBlockHeader"])
+    header = genesis.copy(
+        parent_hash=execution_payload["parentHash"],
+        fee_recipient=execution_payload["feeRecipient"],
+        state_root=execution_payload["stateRoot"],
+        transactions_trie=EmptyTrieRoot,
+        receipts_root=execution_payload["receiptsRoot"],
+        logs_bloom=execution_payload["logsBloom"],
+        number=execution_payload["blockNumber"],
+        gas_limit=execution_payload["gasLimit"],
+        gas_used=execution_payload["gasUsed"],
+        timestamp=execution_payload["timestamp"],
+        extra_data=execution_payload["extraData"],
+        prev_randao=execution_payload["prevRandao"],
+        base_fee_per_gas=execution_payload["baseFeePerGas"],
+        withdrawals_root=EmptyTrieRoot,
+        blob_gas_used=execution_payload["blobGasUsed"],
+        excess_blob_gas=execution_payload["excessBlobGas"],
+        parent_beacon_block_root=payload["params"][2],
+        slot_number=execution_payload["slotNumber"],
+        block_access_list_hash=bal_hash,
     )
-    return str(FixtureHeader.model_validate(header).block_hash)
+    return str(header.block_hash)
 
 
 def test_engine_format_fills_override_rlp(pytester: pytest.Pytester) -> None:
     """Positive control: the engine payload can carry the re-encoding."""
-    module_path = write_test_module(pytester, modifier=OVERRIDE_RLP)
+    module_path = write_test_module(
+        pytester, modifier=OVERRIDE_RLP_WITH_EMPTY_LIST
+    )
 
     result = run_fill(pytester, module_path, "blockchain_test_engine")
 
@@ -200,7 +198,7 @@ def test_engine_format_fills_override_rlp(pytester: pytest.Pytester) -> None:
 def test_rlp_format_refuses_override_rlp(pytester: pytest.Pytester) -> None:
     """Block RLP never carries the list, so the fixture cannot deliver it."""
     module_path = write_test_module(
-        pytester, modifier=OVERRIDE_RLP, markers=""
+        pytester, modifier=OVERRIDE_RLP_WITH_EMPTY_LIST, markers=""
     )
 
     result = run_fill(pytester, module_path, "blockchain_test")
@@ -215,12 +213,13 @@ def test_rlp_format_refuses_override_rlp(pytester: pytest.Pytester) -> None:
     "modifier,block_kwargs",
     [
         pytest.param(
-            OVERRIDE_RLP,
+            OVERRIDE_RLP_WITH_EMPTY_LIST,
             'engine_new_payload_block_access_list=Bytes(b"\\x80"),',
             id="explicit_payload_bal",
         ),
         pytest.param(
-            OVERRIDE_RLP + ".modify_rlp(lambda _: Bytes(b'\\x80'))",
+            OVERRIDE_RLP_WITH_EMPTY_LIST
+            + ".modify_rlp(lambda _: Bytes(b'\\x80'))",
             "",
             id="modify_rlp",
         ),
@@ -258,7 +257,7 @@ def test_second_payload_writer_after_override_rlp_is_refused(
 def test_unchanged_bal_is_refused(
     pytester: pytest.Pytester, modifier: str
 ) -> None:
-    """Every modifier kind is checked against the transition tool's list."""
+    """An unchanged list or encoding is caught once the t8n has run."""
     module_path = write_test_module(pytester, modifier=modifier)
 
     result = run_fill(pytester, module_path, "blockchain_test_engine")
@@ -290,25 +289,33 @@ def test_changed_bal_fills(pytester: pytest.Pytester, modifier: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "modifier,header_commits_to",
+    "modifier,header_commits_to,payload_encoding",
     [
         pytest.param(
-            ".modify_rlp(RE_ENCODE)", "canonical_rlp", id="modify_rlp"
+            ".modify_rlp(RE_ENCODE)",
+            "canonical_rlp",
+            "re_encoded",
+            id="modify_rlp",
         ),
         pytest.param(
             ".modify(override_rlp(RE_ENCODE))",
             "payload_rlp",
+            "re_encoded",
             id="override_rlp",
         ),
         pytest.param(
             ".modify(lambda _: BlockAccessList([]))",
             "payload_rlp",
+            "empty_list",
             id="contents",
         ),
     ],
 )
 def test_header_commitment(
-    pytester: pytest.Pytester, modifier: str, header_commits_to: str
+    pytester: pytest.Pytester,
+    modifier: str,
+    header_commits_to: str,
+    payload_encoding: str,
 ) -> None:
     """
     The payload RLP is checked against what the block hash commits to,
@@ -323,12 +330,14 @@ def test_header_commitment(
     execution_payload = fixture["engineNewPayloads"][0]["params"][0]
     payload_rlp = Bytes(execution_payload["blockAccessList"])
     canonical_rlp = BlockAccessList.from_rlp(payload_rlp).rlp
-    if "RE_ENCODE" in modifier:
+    if payload_encoding == "re_encoded":
         assert payload_rlp != canonical_rlp, (
             "re-encoding did not reach the payload"
         )
-    else:
+    elif payload_encoding == "empty_list":
         assert payload_rlp == Bytes(b"\xc0")
+    else:
+        raise ValueError(f"Unhandled payload encoding: {payload_encoding}")
     if header_commits_to == "canonical_rlp":
         committed, other = canonical_rlp, payload_rlp
     elif header_commits_to == "payload_rlp":

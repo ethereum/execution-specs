@@ -1227,7 +1227,18 @@ def test_modify_rlp_chains_with_modify() -> None:
 
 
 def test_modify_chains_with_modify_rlp() -> None:
-    """A content modifier may follow an earlier `modify_rlp`."""
+    """An encoding modifier survives a later `modify`."""
+    alice = Address(0xA)
+    actual_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=alice,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            ),
+        ]
+    )
     both = (
         BlockAccessListExpectation()
         .modify_rlp(lambda bal: bal.rlp)
@@ -1235,9 +1246,8 @@ def test_modify_chains_with_modify_rlp() -> None:
     )
 
     assert both.has_rlp_modifier
-    assert both.modify_if_invalid_test(BlockAccessList([])) == (
-        BlockAccessList([])
-    )
+    assert both.modify_if_invalid_test(actual_bal) == BlockAccessList([])
+    assert both.modified_rlp(actual_bal) == actual_bal.rlp
 
 
 def test_second_modify_is_refused() -> None:
