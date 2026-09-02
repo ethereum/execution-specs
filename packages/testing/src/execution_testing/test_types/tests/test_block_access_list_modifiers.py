@@ -32,6 +32,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     modify_code,
     modify_nonce,
     modify_storage,
+    override_rlp,
     remove_nonces,
     reorder_accounts,
     swap_bal_indices,
@@ -451,3 +452,15 @@ def test_encode_scalar_non_minimally_unknown_field_raises(
     unknown_field: Any = "code"
     with pytest.raises(ValueError, match="Unknown BAL scalar field"):
         encode_scalar_non_minimally(ALICE, unknown_field)(sample_bal)
+
+
+def test_override_rlp_commits_encoder_output(
+    sample_bal: BlockAccessList,
+) -> None:
+    """`override_rlp` makes the encoder's bytes the BAL's serialization."""
+    encoder = encode_scalar_non_minimally(ALICE, "balance")
+    overridden = override_rlp(encoder)(sample_bal)
+
+    assert overridden.rlp == encoder(sample_bal)
+    assert overridden.rlp != sample_bal.rlp
+    assert overridden.root == sample_bal.root

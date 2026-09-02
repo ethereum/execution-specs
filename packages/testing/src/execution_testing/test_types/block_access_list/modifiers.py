@@ -952,6 +952,20 @@ def encode_scalar_non_minimally(
     return transform
 
 
+def override_rlp(
+    encoder: Callable[[BlockAccessList], Bytes],
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Lift an encoding modifier into a content modifier, so the header commits
+    to the re-encoded bytes instead of the canonical encoding.
+    """
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        return bal.with_rlp_override(encoder(bal))
+
+    return transform
+
+
 __all__ = [
     # Account-level modifiers
     "remove_accounts",
@@ -987,4 +1001,5 @@ __all__ = [
     # Encoding modifiers
     "BalScalarField",
     "encode_scalar_non_minimally",
+    "override_rlp",
 ]

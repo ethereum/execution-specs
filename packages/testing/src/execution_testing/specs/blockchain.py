@@ -1074,9 +1074,9 @@ class BlockchainTest(BaseTest):
             bal = block.expected_block_access_list.modify_if_invalid_test(
                 t8n_bal
             )
-            if bal != t8n_bal:
-                # If the BAL was modified and the fork requires it, update the
-                # header hash
+            if bal.rlp != t8n_bal.rlp:
+                # Compare bytes, not contents: an encoding override also
+                # moves the header commitment.
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
             bal_rlp_override = block.expected_block_access_list.modified_rlp(
                 bal

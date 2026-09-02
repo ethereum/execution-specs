@@ -55,6 +55,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     modify_code,
     modify_nonce,
     modify_storage,
+    override_rlp,
     remove_accounts,
     remove_balances,
     remove_code,
@@ -1751,10 +1752,12 @@ def test_bal_invalid_engine_payload_encoding(
         "nonce",
     ],
 )
+@pytest.mark.parametrize("header_commits_to", ["canonical_rlp", "payload_rlp"])
 def test_bal_invalid_non_minimal_scalar_encoding(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     field: BalScalarField,
+    header_commits_to: str,
 ) -> None:
     """
     Reject a `newPayload` whose BAL encodes one of its integer scalars with
@@ -1763,9 +1766,11 @@ def test_bal_invalid_non_minimal_scalar_encoding(
     The field is present but not a valid encoding, so the payload is
     invalid rather than the request being malformed.
 
-    Only the encoding differs, so the header still commits to the canonical
-    BAL: a client that skips the minimal-scalar check and re-encodes the
-    decoded BAL before hashing computes a matching hash and accepts.
+    With the header committing to the canonical RLP, a client that
+    decodes leniently and hashes a re-encoding of the decoded BAL computes
+    a matching hash and accepts. With the header committing to the
+    payload RLP, a client that decodes leniently and hashes the bytes as
+    received accepts instead.
     """
     alice = pre.fund_eoa()
     oracle = pre.deploy_contract(code=Op.SSTORE(1, 1) + Op.SLOAD(2))
@@ -1786,6 +1791,39 @@ def test_bal_invalid_non_minimal_scalar_encoding(
     else:
         raise ValueError(f"Unhandled field: {field}")
 
+    encoder = encode_scalar_non_minimally(target, field)
+    expectation = BlockAccessListExpectation(
+        account_expectations={
+            alice: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            ),
+            oracle: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
+                        ],
+                    )
+                ],
+                storage_reads=[2],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=10**15)
+                ],
+            ),
+        }
+    )
+    if header_commits_to == "canonical_rlp":
+        expectation = expectation.modify_rlp(encoder)
+    elif header_commits_to == "payload_rlp":
+        expectation = expectation.modify(override_rlp(encoder))
+    else:
+        raise ValueError(f"Unhandled header commitment: {header_commits_to}")
+
     blockchain_test(
         pre=pre,
         # The block is rejected and the post state remains unchanged.
@@ -1794,37 +1832,7 @@ def test_bal_invalid_non_minimal_scalar_encoding(
             Block(
                 txs=[tx],
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
-                expected_block_access_list=BlockAccessListExpectation(
-                    account_expectations={
-                        alice: BalAccountExpectation(
-                            nonce_changes=[
-                                BalNonceChange(
-                                    block_access_index=1, post_nonce=1
-                                )
-                            ],
-                        ),
-                        oracle: BalAccountExpectation(
-                            storage_changes=[
-                                BalStorageSlot(
-                                    slot=1,
-                                    slot_changes=[
-                                        BalStorageChange(
-                                            block_access_index=1,
-                                            post_value=1,
-                                        )
-                                    ],
-                                )
-                            ],
-                            storage_reads=[2],
-                            balance_changes=[
-                                BalBalanceChange(
-                                    block_access_index=1,
-                                    post_balance=10**15,
-                                )
-                            ],
-                        ),
-                    }
-                ).modify_rlp(encode_scalar_non_minimally(target, field)),
+                expected_block_access_list=expectation,
             )
         ],
     )
