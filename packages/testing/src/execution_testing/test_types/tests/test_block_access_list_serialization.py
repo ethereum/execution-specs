@@ -116,9 +116,9 @@ def test_bal_rlp_override_replaces_serialization_only() -> None:
 @pytest.mark.parametrize(
     "rlp",
     [
-        pytest.param("0xc0", id="str"),
         pytest.param(None, id="none"),
         pytest.param(BlockAccessList([]), id="list"),
+        pytest.param(0xC0, id="int"),
     ],
 )
 def test_bal_rlp_override_refuses_non_bytes(rlp: Any) -> None:
@@ -127,9 +127,13 @@ def test_bal_rlp_override_refuses_non_bytes(rlp: Any) -> None:
         BlockAccessList([]).with_rlp_override(rlp)
 
 
-def test_bal_rlp_override_accepts_plain_bytes() -> None:
-    """Plain bytes are coerced so ``rlp_hash`` keeps working."""
-    overridden = BlockAccessList([]).with_rlp_override(b"\xc0")
+@pytest.mark.parametrize(
+    "rlp",
+    [pytest.param(b"\xc0", id="bytes"), pytest.param("0xc0", id="hex_str")],
+)
+def test_bal_rlp_override_coerces_to_bytes(rlp: Any) -> None:
+    """Plain bytes and hex strings are coerced so ``rlp_hash`` works."""
+    overridden = BlockAccessList([]).with_rlp_override(rlp)
 
     assert overridden.rlp == Bytes(b"\xc0")
     assert overridden.rlp_hash == Bytes(b"\xc0").keccak256()

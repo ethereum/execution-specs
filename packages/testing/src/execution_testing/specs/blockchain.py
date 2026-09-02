@@ -840,7 +840,7 @@ class BlockchainTest(BaseTest):
             ):
                 raise Exception(
                     f"test correctness: block {i} modifies its block access "
-                    "list but declares no `exception` or "
+                    "list or its encoding but declares no `exception` or "
                     "`engine_api_error_code`, so the corrupted block access "
                     "list would be filled as valid. Declare the exception "
                     "the modified block access list must cause, or drop the "
@@ -1124,10 +1124,10 @@ class BlockchainTest(BaseTest):
                 )
             ):
                 raise Exception(
-                    f"test correctness: block {int(env.number)}'s block "
-                    "access list modifier left the list unchanged, so the "
-                    "block would be labelled invalid for no reason. Make the "
-                    "modifier change the list, or drop it along with the "
+                    f"test correctness: block number {int(env.number)}'s "
+                    "block access list modifier left the list unchanged, so "
+                    "the block would be labelled invalid for no reason. Make "
+                    "the modifier change the list, or drop it along with the "
                     "exception."
                 )
             if (
@@ -1135,7 +1135,7 @@ class BlockchainTest(BaseTest):
                 and block.engine_new_payload_block_access_list is not None
             ):
                 raise Exception(
-                    f"test correctness: block {int(env.number)} sets "
+                    f"test correctness: block number {int(env.number)} sets "
                     "`engine_new_payload_block_access_list` and its block "
                     "access list modifier re-encodes the list; the explicit "
                     "payload override would replace the bytes the header "
@@ -1271,7 +1271,7 @@ class BlockchainTest(BaseTest):
         benchmark_gas_used: int | None = None
         benchmark_block_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
-        for block in self.blocks:
+        for i, block in enumerate(self.blocks):
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
             # Set the environment according to the block to execute.
@@ -1282,6 +1282,17 @@ class BlockchainTest(BaseTest):
                 previous_alloc=alloc,
             )
             block_number = int(built_block.header.number)
+            if (
+                built_block.block_access_list is not None
+                and built_block.block_access_list.has_rlp_override
+            ):
+                raise Exception(
+                    f"test correctness: block {i}'s block access list "
+                    "modifier re-encodes the list, but block RLP does not "
+                    "carry the block access list, so an RLP blockchain "
+                    "fixture cannot deliver the re-encoded bytes. Mark the "
+                    "test `blockchain_test_engine_only`."
+                )
             is_last_block = block is self.blocks[-1]
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = built_block.cumulative_gas_used()
@@ -1297,18 +1308,6 @@ class BlockchainTest(BaseTest):
                 if block.include_receipts_in_output is not None
                 else self.include_tx_receipts_in_output
             )
-            if (
-                built_block.block_access_list is not None
-                and built_block.block_access_list.has_rlp_override
-            ):
-                raise Exception(
-                    f"test correctness: block {block_number}'s block access "
-                    "list modifier re-encodes the list, but block RLP does "
-                    "not carry the block access list, so an RLP blockchain "
-                    "fixture cannot deliver the re-encoded bytes. Mark the "
-                    "test `blockchain_test_engine_only`."
-                )
-
             fixture_blocks.append(
                 built_block.get_fixture_block(
                     include_receipts=include_receipts
