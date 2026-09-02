@@ -43,7 +43,12 @@ from execution_testing.test_types import (
 )
 from execution_testing.vm import Op
 
-from ..blockchain import Block, BlockchainTest, Header
+from ..blockchain import (
+    MAX_BYTES_PER_INCLUSION_LIST,
+    Block,
+    BlockchainTest,
+    Header,
+)
 from ..state import StateTest
 from .helpers import remove_info_metadata
 
@@ -167,6 +172,30 @@ def test_blockchain_fixtures_include_inclusion_lists(
         engine_fixture.payloads[0].inclusion_list_satisfied
         == inclusion_list_satisfied
     )
+
+
+def test_oversized_inclusion_list_entry_is_skipped(
+    default_t8n: TransitionTool,
+) -> None:
+    """An entry above the per-list cap is unreachable, so filling skips."""
+    sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    tx = Transaction(
+        nonce=0,
+        to=Address(0x1234),
+        gas_limit=1_000_000,
+        gas_price=10,
+        data=bytes(MAX_BYTES_PER_INCLUSION_LIST + 1),
+    )
+    pre = Alloc({sender: Account(balance=10**18)})
+
+    with pytest.raises(pytest.skip.Exception, match="MAX_BYTES_PER"):
+        BlockchainTest(
+            fork=Bogota,
+            pre=pre,
+            post={},
+            blocks=[Block(txs=[], inclusion_list_txs=[tx])],
+            genesis_environment=Environment(),
+        ).generate(t8n=default_t8n, fixture_format=BlockchainEngineFixture)
 
 
 @pytest.mark.parametrize(
