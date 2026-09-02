@@ -1130,19 +1130,19 @@ class BlockchainTest(BaseTest):
                     "the modifier change the list, or drop it along with the "
                     "exception."
                 )
-            if (
-                bal.has_rlp_override
-                and block.engine_new_payload_block_access_list is not None
+            if bal.has_rlp_override and (
+                block.engine_new_payload_block_access_list is not None
+                or bal_rlp_override is not None
             ):
                 raise Exception(
-                    f"test correctness: block number {int(env.number)} sets "
-                    "`engine_new_payload_block_access_list` and its block "
-                    "access list modifier re-encodes the list; the explicit "
-                    "payload override would replace the bytes the header "
-                    "commits to. Keep one: "
+                    f"test correctness: block number {int(env.number)} "
+                    "re-encodes the block access list with `override_rlp` "
+                    "and also replaces the payload bytes, so the payload "
+                    "would not carry what the header commits to. Keep one: "
+                    "`override_rlp` commits the header to its re-encoding, "
+                    "`modify_rlp` re-encodes the payload only, "
                     "`engine_new_payload_block_access_list` delivers "
-                    "arbitrary bytes, `override_rlp` re-encodes the list and "
-                    "commits the header to it."
+                    "arbitrary bytes."
                 )
 
         built_block_kwargs: Dict[str, Any] = dict(

@@ -211,21 +211,34 @@ def test_rlp_format_refuses_override_rlp(pytester: pytest.Pytester) -> None:
     assert "Mark the test `blockchain_test_engine_only`" in output, output
 
 
-def test_explicit_payload_bal_with_override_rlp_is_refused(
-    pytester: pytest.Pytester,
+@pytest.mark.parametrize(
+    "modifier,block_kwargs",
+    [
+        pytest.param(
+            OVERRIDE_RLP,
+            'engine_new_payload_block_access_list=Bytes(b"\\x80"),',
+            id="explicit_payload_bal",
+        ),
+        pytest.param(
+            OVERRIDE_RLP + ".modify_rlp(lambda _: Bytes(b'\\x80'))",
+            "",
+            id="modify_rlp",
+        ),
+    ],
+)
+def test_second_payload_writer_after_override_rlp_is_refused(
+    pytester: pytest.Pytester, modifier: str, block_kwargs: str
 ) -> None:
-    """The explicit payload bytes would replace the committed ones."""
+    """A second writer of the payload bytes would break the commitment."""
     module_path = write_test_module(
-        pytester,
-        modifier=OVERRIDE_RLP,
-        block_kwargs=('engine_new_payload_block_access_list=Bytes(b"\\x80"),'),
+        pytester, modifier=modifier, block_kwargs=block_kwargs
     )
 
     result = run_fill(pytester, module_path, "blockchain_test_engine")
 
     result.assert_outcomes(passed=0, failed=1)
     output = output_of(result)
-    assert "would replace the bytes the header commits to" in output, output
+    assert "would not carry what the header commits to" in output, output
     assert "Keep one" in output, output
 
 
