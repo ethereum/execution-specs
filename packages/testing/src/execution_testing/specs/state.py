@@ -322,6 +322,13 @@ class StateTest(BaseTest):
 
     def generate_blockchain_test(self) -> BlockchainTest:
         """Generate a BlockchainTest fixture from this StateTest fixture."""
+        # Checked before the genesis derivation below, which asks the
+        # fork for blob constants a fork without blobs does not have.
+        self.env.check_fork_fields(
+            self.fork.fork_at(
+                block_number=self.env.number, timestamp=self.env.timestamp
+            )
+        )
         return BlockchainTest.from_test(
             base_test=self,
             genesis_environment=self._generate_blockchain_genesis_environment(),
