@@ -13,6 +13,7 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis import Result
 from execution_testing.client_clis.cli_types import LazyAllocStr
+from execution_testing.exceptions import BlockException, EngineAPIError
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayloadModifier,
     FixtureHeader,
@@ -321,3 +322,81 @@ class TestEnginePayloadOnlyOverrides:
         )
         with pytest.raises(Exception, match="blockchain_test_engine_only"):
             test.make_fixture(sentinel.t8n)
+
+
+class TestBalModifierRequiresException:
+    """A block that rewrites its BAL must declare how the block fails."""
+
+    @pytest.mark.parametrize(
+        "block",
+        [
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                ),
+                id="contents",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify_rlp(
+                            lambda bal: bal.rlp
+                        )
+                    ),
+                ),
+                id="encoding",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                    exception=[],
+                ),
+                id="empty_exception_list",
+            ),
+        ],
+    )
+    def test_modifier_without_declared_failure_is_refused(
+        self, block: Block
+    ) -> None:
+        """The check runs at construction, before any t8n call."""
+        with pytest.raises(Exception, match="declares no `exception`"):
+            BlockchainTest(
+                fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
+            )
+
+    @pytest.mark.parametrize(
+        "block",
+        [
+            pytest.param(
+                Block(expected_block_access_list=BlockAccessListExpectation()),
+                id="no_modifier",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                ),
+                id="exception",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                    engine_api_error_code=EngineAPIError.InvalidParams,
+                ),
+                id="engine_api_error",
+            ),
+        ],
+    )
+    def test_declared_failure_is_accepted(self, block: Block) -> None:
+        """Modifiers paired with a declared failure construct normally."""
+        BlockchainTest(
+            fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
+        )

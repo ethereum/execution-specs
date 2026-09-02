@@ -830,6 +830,20 @@ class BlockchainTest(BaseTest):
                         "last transaction of the last block, but block "
                         f"{i} contains an invalid transaction elsewhere"
                     )
+        for i, block in enumerate(self.blocks):
+            expectation = block.expected_block_access_list
+            if (
+                expectation is not None
+                and expectation.has_modifier
+                and not block.exception
+                and block.engine_api_error_code is None
+            ):
+                raise Exception(
+                    f"test correctness: block {i} modifies its block access "
+                    "list but declares no `exception` or "
+                    "`engine_api_error_code`, so the corrupted block access "
+                    "list would be filled as valid."
+                )
 
     def get_genesis_environment(self) -> Environment:
         """Get the genesis environment for pre-allocation groups."""
