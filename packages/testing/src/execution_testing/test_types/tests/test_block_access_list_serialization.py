@@ -5,6 +5,11 @@ These tests verify that BAL models serialize to JSON with the correct
 format, particularly zero-padded hex strings.
 """
 
+from typing import Any
+
+import pytest
+from pydantic import ValidationError
+
 from execution_testing.base_types import Address, Bytes
 from execution_testing.test_types.block_access_list import (
     BalAccountChange,
@@ -101,7 +106,29 @@ def test_bal_rlp_override_replaces_serialization_only() -> None:
     canonical = original.rlp
     overridden = original.with_rlp_override(Bytes(b"\xc0"))
 
+    assert overridden.has_rlp_override
+    assert not original.has_rlp_override
     assert overridden.rlp == b"\xc0"
     assert overridden.rlp_hash == Bytes(b"\xc0").keccak256()
     assert overridden.to_list() == original.to_list()
     assert original.rlp == canonical
+
+
+def test_bal_rlp_override_rejects_unconvertible_input() -> None:
+    """``validate_call`` rejects what ``Bytes`` cannot coerce."""
+    unconvertible: Any = None
+
+    with pytest.raises(ValidationError):
+        BlockAccessList([]).with_rlp_override(unconvertible)
+
+
+@pytest.mark.parametrize(
+    "rlp",
+    [pytest.param(b"\xc0", id="bytes"), pytest.param("0xc0", id="hex_str")],
+)
+def test_bal_rlp_override_coerces_to_bytes(rlp: Any) -> None:
+    """Plain bytes and hex strings are coerced so ``rlp_hash`` works."""
+    overridden = BlockAccessList([]).with_rlp_override(rlp)
+
+    assert overridden.rlp == Bytes(b"\xc0")
+    assert overridden.rlp_hash == Bytes(b"\xc0").keccak256()

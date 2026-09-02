@@ -1,11 +1,11 @@
 """Block Access List (BAL) for t8n tool communication and fixtures."""
 
 from functools import cached_property
-from typing import Any, Callable, List, Sequence, Union
+from typing import Any, Callable, List, Self, Sequence, Union
 
 import ethereum_rlp as eth_rlp
 from ethereum_rlp import Simple
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, validate_call
 
 from execution_testing.base_types import (
     Address,
@@ -160,7 +160,8 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
         """Return the list for RLP encoding per EIP-7928."""
         return to_serializable_element(self.root)
 
-    def with_rlp_override(self, rlp: Bytes) -> "BlockAccessList":
+    @validate_call
+    def with_rlp_override(self, rlp: Bytes) -> Self:
         """
         Return a BAL with the same contents whose serialization is ``rlp``,
         mirroring ``RLPSerializable.rlp_override``.
@@ -168,9 +169,14 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
         A fresh instance is built rather than a copy so that no cached
         canonical encoding is carried over.
         """
-        new_instance = BlockAccessList(root=self.root)
+        new_instance = type(self)(root=self.root)
         new_instance._rlp_override = rlp
         return new_instance
+
+    @property
+    def has_rlp_override(self) -> bool:
+        """Return whether ``rlp`` is an override rather than the encoding."""
+        return self._rlp_override is not None
 
     @cached_property
     def rlp(self) -> Bytes:

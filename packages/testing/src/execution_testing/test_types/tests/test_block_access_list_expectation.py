@@ -1226,6 +1226,64 @@ def test_modify_rlp_chains_with_modify() -> None:
     assert both.modified_rlp(actual_bal) == actual_bal.rlp
 
 
+def test_modify_chains_with_modify_rlp() -> None:
+    """An encoding modifier survives a later `modify`."""
+    alice = Address(0xA)
+    actual_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=alice,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            ),
+        ]
+    )
+    both = (
+        BlockAccessListExpectation()
+        .modify_rlp(lambda bal: bal.rlp)
+        .modify(lambda _: BlockAccessList([]))
+    )
+
+    assert both.has_rlp_modifier
+    assert both.modify_if_invalid_test(actual_bal) == BlockAccessList([])
+    assert both.modified_rlp(actual_bal) == actual_bal.rlp
+
+
+def test_second_modify_is_refused() -> None:
+    """A second `modify` would silently replace the first."""
+    expectation = BlockAccessListExpectation().modify(lambda bal: bal)
+
+    with pytest.raises(ValueError, match="already has a content modifier"):
+        expectation.modify(lambda bal: bal)
+
+
+def test_second_modify_rlp_is_refused() -> None:
+    """A second `modify_rlp` would silently replace the first."""
+    expectation = BlockAccessListExpectation().modify_rlp(lambda bal: bal.rlp)
+
+    with pytest.raises(ValueError, match="already re-encodes"):
+        expectation.modify_rlp(lambda bal: bal.rlp)
+
+
+def test_modify_rlp_with_content_modifier_is_refused() -> None:
+    """An encoder must return bytes, not a rewritten list."""
+    content_modifier: Any = lambda bal: bal  # noqa: E731
+    expectation = BlockAccessListExpectation().modify_rlp(content_modifier)
+
+    with pytest.raises(TypeError, match="returning bytes"):
+        expectation.modified_rlp(BlockAccessList([]))
+
+
+def test_modify_with_encoder_is_refused() -> None:
+    """A content modifier must return a list, not bytes."""
+    encoder: Any = lambda bal: bal.rlp  # noqa: E731
+    expectation = BlockAccessListExpectation().modify(encoder)
+
+    with pytest.raises(TypeError, match="returning a BlockAccessList"):
+        expectation.modify_if_invalid_test(BlockAccessList([]))
+
+
 def test_validate_any_change_mutual_exclusion_with_slot_changes() -> None:
     """
     validate_any_change=True and non-empty slot_changes raises ValueError.
