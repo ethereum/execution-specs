@@ -1086,6 +1086,17 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         pass
 
     @classmethod
+    def execution_witness_implicit_code_addresses(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
+        """
+        Return addresses whose pre-state bytecodes are implicitly expected in
+        execution witnesses for block execution at this fork.
+        """
+        del block_number, timestamp
+        return []
+
+    @classmethod
     @abstractmethod
     def deterministic_factory_predeploy_address(cls) -> Address | None:
         """

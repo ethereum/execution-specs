@@ -198,6 +198,7 @@ def create_evm(
         code = get_code(
             tx_env.state,
             get_account(tx_env.state, code_address).code_hash,
+            code_address,
         )
 
     ## Build the frame
