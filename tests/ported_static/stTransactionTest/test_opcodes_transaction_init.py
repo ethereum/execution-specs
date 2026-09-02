@@ -124,30 +124,21 @@ def _jump_over_revert(conditional: bool) -> Bytecode:
 
 
 def _env(fork: Fork) -> Environment:
-    """
-    Build the pinned block context, limited to the fork's own fields.
-
-    A pin the fork ignores would otherwise be serialized into its
-    fixtures verbatim.
-    """
-    pins: dict[str, int] = {}
-    if fork.header_prev_randao_required():
-        pins["prev_randao"] = PREV_RANDAO
-    else:
-        # Pre-merge, the 0x44 opcode reads the difficulty instead.
-        pins["difficulty"] = PREV_RANDAO
-    if fork.header_base_fee_required():
-        pins["base_fee_per_gas"] = BASE_FEE_PER_GAS
-    if fork.header_excess_blob_gas_required():
-        pins["excess_blob_gas"] = EXCESS_BLOB_GAS
-    if fork.header_slot_number_required():
-        pins["slot_number"] = SLOT_NUMBER
-    return Environment(
+    """Build the pinned block context out of the fields the fork has."""
+    env = Environment.for_fork(
+        fork,
         fee_recipient=COINBASE,
         number=BLOCK_NUMBER,
         timestamp=BLOCK_TIMESTAMP,
-        **pins,
+        prev_randao=PREV_RANDAO,
+        base_fee_per_gas=BASE_FEE_PER_GAS,
+        excess_blob_gas=EXCESS_BLOB_GAS,
+        slot_number=SLOT_NUMBER,
     )
+    if not fork.header_prev_randao_required():
+        # Pre-merge, the 0x44 opcode reads the difficulty instead.
+        env = env.copy(difficulty=PREV_RANDAO)
+    return env
 
 
 @dataclass(frozen=True)
