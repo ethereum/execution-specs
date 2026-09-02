@@ -234,6 +234,18 @@ def _comparable_bal(bal: Bytes, parent_hash: Hash) -> Any:
     test observes block hashes and cannot survive grouping). An
     undecodable BAL (an intentionally malformed one from a negative
     test) is compared verbatim.
+
+    Known limitation: a header parent hash injected with
+    `Block.rlp_modifier=Header(parent_hash=...)` defeats the mask. The
+    override is applied after t8n has executed the block, so the BAL
+    keeps the real parent hash while the payload field holds the
+    injected value; the mask matches neither, and the check fails
+    loudly on a difference that packing did not cause. No test does
+    this today. If one appears, isolate it with
+    `@pytest.mark.pre_alloc_group("separate")`, or make the mask derive
+    the expected value from the chain itself (the genesis hash at
+    payload 0, the previous payload's block hash after that) instead of
+    the payload's own `parent_hash` field.
     """
     try:
         accounts = BlockAccessList.from_rlp(bal)
