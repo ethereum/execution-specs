@@ -222,7 +222,7 @@ class DepositRequest(DepositRequestBase, SystemContractRequest):
 # be read off its source. The tables below are the opcodes it executes for one
 # deposit, counted from an EVM trace, so that the fork's own gas schedule
 # prices them and the estimate follows repricings. Regenerate them by filling
-# `test_deposit_high_count` with `--traces --evm-dump-dir <dir>` and counting
+# any single deposit test with `--traces --evm-dump-dir <dir>` and counting
 # the `opName` of the depth-2 steps of one call frame.
 
 _DEPOSIT_CALL_OPCODES: Dict[Opcode, int] = {

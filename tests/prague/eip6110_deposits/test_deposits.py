@@ -36,7 +36,6 @@ REFERENCE_SPEC_VERSION = ref_spec_6110.version
 pytestmark = pytest.mark.valid_from("Prague")
 
 
-
 @pytest.mark.parametrize(
     "requests",
     [
