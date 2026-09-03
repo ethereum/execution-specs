@@ -3414,7 +3414,7 @@ def test_bal_cross_block_ripemd160_state_leak(
 )
 def test_bal_insufficient_balance_call_to_touched_precompile(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     touch_first: bool,
 ) -> None:
     """
@@ -3440,8 +3440,13 @@ def test_bal_insufficient_balance_call_to_touched_precompile(
 
     tx = Transaction(sender=alice, to=caller)
 
-    block = Block(
-        txs=[tx],
+    state_test(
+        pre=pre,
+        post={
+            caller: Account(balance=1),
+            ripemd160_addr: Account.NONEXISTENT,
+        },
+        tx=tx,
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
@@ -3453,15 +3458,6 @@ def test_bal_insufficient_balance_call_to_touched_precompile(
                 ripemd160_addr: BalAccountExpectation.empty(),
             }
         ),
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[block],
-        post={
-            caller: Account(balance=1),
-            ripemd160_addr: Account.NONEXISTENT,
-        },
     )
 
 

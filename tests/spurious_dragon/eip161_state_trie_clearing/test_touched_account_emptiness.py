@@ -34,11 +34,14 @@ def touch_code(precompile: Address, touch: str) -> Bytecode:
     """Return the same-transaction touch that precedes the probe."""
     if touch == "none":
         return Bytecode()
-    if touch == "zero_value_call":
+    elif touch == "zero_value_call":
         return Op.POP(Op.CALL(gas=100_000, address=precompile))
-    # The value exceeds the caller's balance, so the transfer fails
-    # after the target access is charged.
-    return Op.POP(Op.CALL(gas=100_000, address=precompile, value=2**100))
+    elif touch == "insufficient_value_call":
+        # The value exceeds the caller's balance, so the transfer fails
+        # after the target access is charged.
+        return Op.POP(Op.CALL(gas=100_000, address=precompile, value=2**100))
+    else:
+        raise ValueError(f"Unknown touch: {touch}")
 
 
 @pytest.mark.valid_from("ConstantinopleFix")
