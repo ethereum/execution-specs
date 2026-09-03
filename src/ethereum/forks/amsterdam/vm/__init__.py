@@ -48,7 +48,12 @@ from ..transactions.frame_transaction import (
     FrameTransaction,
     resolve_frame_target,
 )
-from .gas import GasMeter, StateGasCosts, charge_frame_state_gas
+from .gas import (
+    GasMeter,
+    StateGasCosts,
+    charge_frame_state_gas,
+    repay_state_gas_spill,
+)
 
 __all__ = ("Environment", "Evm")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
@@ -501,6 +506,17 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
     here -- while in the single-gas-field model every meter carries
     one.
 
+    In the single-gas-field model a successful merge ends with the
+    reservoir repaying any [spill] still outstanding: a cross-frame
+    refund lands in the reservoir while the `gas_left` that funded the
+    charge stays reduced, and the merge is where the claim and the
+    credit first share a meter. A failed child repays nothing -- its
+    rollback restored the state whose removal any refund credited.
+    Within a frame transaction the repayment never runs: with no
+    reservoir on the meter there is nothing to repay from, and with
+    state charges never drawn from `gas_left` there is no spill to
+    repay.
+
     Parameters
     ----------
     evm :
@@ -545,6 +561,11 @@ def incorporate_child(evm: Evm, child_evm: Evm) -> None:
 
         parent_reservoir.state_gas_left += child_reservoir.state_gas_left
         parent_reservoir.state_gas_spilled += child_reservoir.state_gas_spilled
+
+        # A successful merge ends with the reservoir repaying any spill
+        # still outstanding; a failed child arrived with none.
+        if not child_evm.error:
+            repay_state_gas_spill(gas_meter)
 
     # Everything else survives only on success.
     if not child_evm.error:
