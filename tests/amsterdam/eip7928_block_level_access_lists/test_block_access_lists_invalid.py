@@ -9,6 +9,7 @@ from typing import Callable
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     BalAccountChange,
     BalAccountExpectation,
@@ -36,6 +37,7 @@ from execution_testing import (
     compute_create_address,
 )
 from execution_testing.test_types.block_access_list.modifiers import (
+    BalScalarField,
     append_account,
     append_change,
     append_empty_slot,
@@ -47,11 +49,13 @@ from execution_testing.test_types.block_access_list.modifiers import (
     duplicate_slot_change,
     duplicate_storage_read,
     duplicate_storage_slot,
+    encode_scalar_non_minimally,
     insert_storage_read,
     modify_balance,
     modify_code,
     modify_nonce,
     modify_storage,
+    override_rlp,
     remove_accounts,
     remove_balances,
     remove_code,
@@ -1729,6 +1733,106 @@ def test_bal_invalid_engine_payload_encoding(
                     invalid_bal_payload
                 ),
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.blockchain_test_engine_only
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "field",
+    [
+        "storage_slot",
+        "storage_value",
+        "storage_read",
+        "balance",
+        "block_access_index",
+        "nonce",
+    ],
+)
+@pytest.mark.parametrize("header_commits_to", ["canonical_rlp", "payload_rlp"])
+def test_bal_invalid_non_minimal_scalar_encoding(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    field: BalScalarField,
+    header_commits_to: str,
+) -> None:
+    """
+    Reject a `newPayload` whose BAL encodes one of its integer scalars with
+    a leading zero byte.
+
+    The field is present but not a valid encoding, so the payload is
+    invalid rather than the request being malformed.
+
+    With the header committing to the canonical RLP, a client that
+    decodes leniently and hashes a re-encoding of the decoded BAL computes
+    a matching hash and accepts. With the header committing to the
+    payload RLP, a client that decodes leniently and hashes the bytes as
+    received accepts instead.
+    """
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.SSTORE(1, 1) + Op.SLOAD(2))
+
+    tx = Transaction(sender=alice, to=oracle, value=10**15)
+
+    target: Address
+    if field == "nonce":
+        target = alice
+    elif field in (
+        "storage_slot",
+        "storage_value",
+        "storage_read",
+        "balance",
+        "block_access_index",
+    ):
+        target = oracle
+    else:
+        raise ValueError(f"Unhandled field: {field}")
+
+    encoder = encode_scalar_non_minimally(target, field)
+    expectation = BlockAccessListExpectation(
+        account_expectations={
+            alice: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            ),
+            oracle: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=1
+                            )
+                        ],
+                    )
+                ],
+                storage_reads=[2],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=10**15)
+                ],
+            ),
+        }
+    )
+    if header_commits_to == "canonical_rlp":
+        expectation = expectation.modify_rlp(encoder)
+    elif header_commits_to == "payload_rlp":
+        expectation = expectation.modify(override_rlp(encoder))
+    else:
+        raise ValueError(f"Unhandled header commitment: {header_commits_to}")
+
+    blockchain_test(
+        pre=pre,
+        # The block is rejected and the post state remains unchanged.
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=expectation,
             )
         ],
     )

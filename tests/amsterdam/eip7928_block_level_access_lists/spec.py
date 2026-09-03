@@ -13,31 +13,9 @@ class ReferenceSpec:
 
 ref_spec_7928 = ReferenceSpec(
     git_path="EIPS/eip-7928.md",
-    version="aca88aa0932580c29d0233f902cb4390e88b8c41",
+    version="d6f0b763bcb92d19ea342d3e09550853c741246e",
 )
 
 
 class Spec:
-    """Constants and parameters from EIP-7928."""
-
-    # RLP encoding is used for block access list data structures
-    BAL_ENCODING_FORMAT: str = "RLP"
-
-    # Maximum limits for block access list data structures
-    TARGET_MAX_GAS_LIMIT = 600_000_000
-    MAX_TXS: int = 30_000
-    MAX_SLOTS: int = 300_000
-    MAX_ACCOUNTS: int = 300_000
-    # TODO: Use this as a function of the current fork.
-    MAX_CODE_SIZE: int = 24_576  # 24 KiB
-
-    # Type size constants
-    ADDRESS_SIZE: int = 20  # Ethereum address size in bytes
-    STORAGE_KEY_SIZE: int = 32  # Storage slot key size in bytes
-    STORAGE_VALUE_SIZE: int = 32  # Storage value size in bytes
-    HASH_SIZE: int = 32  # Hash size in bytes
-
-    # Numeric type limits
-    MAX_TX_INDEX: int = 2**32 - 1  # uint32 max value
-    MAX_BALANCE: int = 2**128 - 1  # uint128 max value
-    MAX_NONCE: int = 2**64 - 1  # uint64 max value
+    """Constants from EIP-7928."""

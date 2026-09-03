@@ -15,6 +15,7 @@ from execution_testing.fixtures import (
     TransactionFixture,
 )
 from execution_testing.fixtures.transaction import FixtureResult
+from execution_testing.recipient_type import RecipientType
 from execution_testing.test_types import Alloc, Transaction
 
 from .base import BaseTest, FillResult, OpMode
@@ -62,6 +63,12 @@ class TransactionTest(BaseTest):
                 contract_creation=self.tx.to is None,
                 access_list=self.tx.access_list,
                 authorization_list_or_count=self.tx.authorization_list,
+                sends_value=self.tx.value > 0,
+                recipient_type=(
+                    RecipientType.SELF
+                    if self.tx.to == self.tx.sender
+                    else RecipientType.CONTRACT
+                ),
             )
             result = FixtureResult(
                 exception=None,

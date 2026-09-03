@@ -14,7 +14,6 @@ from execution_testing import (
 from execution_testing import (
     Macros as Om,
 )
-from execution_testing.forks.forks.forks import Berlin
 from execution_testing.vm import Opcodes as Op
 
 from .spec import PointG1, Scalar, Spec, ref_spec_196
@@ -116,12 +115,8 @@ def test_invalid_gas_consumption(
         address_warm=False
     ).gas_cost(fork)
 
-    # Pre-EIP-2929: fixed call = 700; Berlin+: warm access cost.
-    gas_costs = fork.gas_costs()
-    if fork >= Berlin:
-        staticcall_base = gas_costs.WARM_ACCESS
-    else:
-        staticcall_base = 700
+    # Precompiles are warm from Berlin, flat call cost before.
+    staticcall_base = Op.STATICCALL(address_warm=True).gas_cost(fork)
 
     account = pre.deploy_contract(
         code=(

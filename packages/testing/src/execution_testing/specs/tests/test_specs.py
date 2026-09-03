@@ -11,6 +11,8 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
     StateFixture,
 )
+from execution_testing.forks import Istanbul
+from execution_testing.test_types import Alloc, Environment, Transaction
 
 from ..base import BaseTest
 from ..blockchain import BlockchainTest
@@ -177,3 +179,23 @@ def test_state_test_labels_every_blockchain_test_format() -> None:
             derived[label].transition_tool_cache_key
             == fixture_format.transition_tool_cache_key
         )
+
+
+def test_state_test_conversion_checks_the_env_first() -> None:
+    """
+    Verify converting a state test to a blockchain test reports an env
+    field the fork lacks with the field check's message.
+
+    The genesis derivation runs before `BlockchainTest` checks the env,
+    and for a blob field on a fork without blobs it fails on the fork's
+    missing blob constants instead, which does not name the field.
+    """
+    state_test = StateTest(
+        env=Environment(excess_blob_gas=1),
+        pre=Alloc(),
+        post=Alloc(),
+        tx=Transaction(),
+        fork=Istanbul,
+    )
+    with pytest.raises(ValueError, match="excess_blob_gas"):
+        state_test.generate_blockchain_test()

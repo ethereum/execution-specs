@@ -26,6 +26,14 @@ class GasCosts:
     COLD_ACCOUNT_ACCESS: int
     WARM_SLOAD: int
     COLD_STORAGE_ACCESS: int
+    # Flat access costs used before EIP-2929 introduces warm and cold
+    # pricing. Field names follow the EELS gas constants.
+    OPCODE_BALANCE: int
+    OPCODE_EXTERNAL_BASE: int
+    OPCODE_CALL_BASE: int
+    OPCODE_SLOAD: int
+    # Introduced by EIP-1052, zero before Constantinople.
+    OPCODE_EXTCODEHASH: int = 0
 
     # Storage
     STORAGE_SET: int
@@ -68,6 +76,7 @@ class GasCosts:
 
     # Refunds
     REFUND_STORAGE_CLEAR: int
+    REFUND_SELF_DESTRUCT: int
     REFUND_AUTH_PER_EXISTING_ACCOUNT: int
 
     # Precompiles

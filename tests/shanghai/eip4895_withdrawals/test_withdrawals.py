@@ -684,16 +684,13 @@ def test_zero_amount(
         withdrawals = all_withdrawals[0:2]
         post = {
             account: all_post[account]
-            for account in post
-            if account in [empty_accounts[0], zero_balance_contract]
+            for account in [empty_accounts[0], zero_balance_contract]
         }
     elif test_case == ZeroAmountTestCases.THREE_ONE_WITH_VALUE:
         withdrawals = all_withdrawals[0:3]
         post = {
             account: all_post[account]
-            for account in post
-            if account
-            in [
+            for account in [
                 empty_accounts[0],
                 zero_balance_contract,
                 empty_accounts[1],

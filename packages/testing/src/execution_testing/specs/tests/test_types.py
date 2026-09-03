@@ -1,5 +1,7 @@
 """Test types from execution_testing.specs."""
 
+from unittest.mock import sentinel
+
 import pytest
 
 from execution_testing.base_types import (
@@ -11,15 +13,19 @@ from execution_testing.base_types import (
 )
 from execution_testing.client_clis import Result
 from execution_testing.client_clis.cli_types import LazyAllocStr
+from execution_testing.exceptions import BlockException, EngineAPIError
 from execution_testing.fixtures.blockchain import (
     FixtureExecutionPayloadModifier,
     FixtureHeader,
 )
 from execution_testing.forks import Amsterdam
-from execution_testing.test_types import Environment
-from execution_testing.test_types.block_access_list import BlockAccessList
+from execution_testing.test_types import Alloc, Environment
+from execution_testing.test_types.block_access_list import (
+    BlockAccessList,
+    BlockAccessListExpectation,
+)
 
-from ..blockchain import BuiltBlock, Header
+from ..blockchain import Block, BlockchainTest, BuiltBlock, Header
 
 fixture_header_ones = FixtureHeader(
     parent_hash=Hash(1),
@@ -256,3 +262,201 @@ class TestDeriveEnginePayloadModifier:
         ).engine_payload_modifier()
         assert isinstance(modifier, FixtureExecutionPayloadModifier)
         assert modifier.block_access_list == Bytes(b"")
+
+
+class TestEnginePayloadOnlyOverrides:
+    """
+    A block setting that only reaches the engine payload cannot be expressed
+    in an RLP blockchain fixture, so ``make_fixture`` refuses to build one.
+    """
+
+    @pytest.mark.parametrize(
+        "block,expected",
+        [
+            pytest.param(Block(), [], id="none"),
+            pytest.param(
+                Block(engine_new_payload_block_access_list=Bytes(b"")),
+                ["engine_new_payload_block_access_list"],
+                id="payload_bal",
+            ),
+            pytest.param(
+                Block(engine_new_payload_slot_number=0),
+                ["engine_new_payload_slot_number"],
+                id="payload_slot_number",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify_rlp(
+                            lambda bal: bal.rlp
+                        )
+                    ),
+                ),
+                ["expected_block_access_list.modify_rlp"],
+                id="payload_bal_encoding",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                ),
+                [],
+                id="bal_contents_header_follows",
+            ),
+        ],
+    )
+    def test_overrides_are_named(
+        self, block: Block, expected: list[str]
+    ) -> None:
+        """Each payload-only setting is reported by name."""
+        assert block.engine_payload_only_overrides() == expected
+
+    def test_make_fixture_refuses_payload_only_override(self) -> None:
+        """The RLP fixture builder fails before it touches the t8n."""
+        test = BlockchainTest(
+            fork=Amsterdam,
+            pre=Alloc(),
+            post=Alloc(),
+            blocks=[Block(engine_new_payload_slot_number=0)],
+        )
+        with pytest.raises(Exception, match="blockchain_test_engine_only"):
+            test.make_fixture(sentinel.t8n)
+
+
+class TestBalModifierRequiresException:
+    """A block that rewrites its BAL must declare how the block fails."""
+
+    @pytest.mark.parametrize(
+        "block",
+        [
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                ),
+                id="contents",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify_rlp(
+                            lambda bal: bal.rlp
+                        )
+                    ),
+                ),
+                id="encoding",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                    exception=[],
+                ),
+                id="empty_exception_list",
+            ),
+        ],
+    )
+    def test_modifier_without_declared_failure_is_refused(
+        self, block: Block
+    ) -> None:
+        """The check runs at construction, before any t8n call."""
+        with pytest.raises(Exception, match="declares no `exception`"):
+            BlockchainTest(
+                fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
+            )
+
+    @pytest.mark.parametrize(
+        "block",
+        [
+            pytest.param(
+                Block(expected_block_access_list=BlockAccessListExpectation()),
+                id="no_modifier",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                ),
+                id="exception",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                    engine_api_error_code=EngineAPIError.InvalidParams,
+                ),
+                id="engine_api_error",
+            ),
+        ],
+    )
+    def test_declared_failure_is_accepted(self, block: Block) -> None:
+        """Modifiers paired with a declared failure construct normally."""
+        BlockchainTest(
+            fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
+        )
+
+
+class TestConflictingPayloadOverrides:
+    """
+    An explicit engine payload BAL wins over `modify_rlp`, so setting both
+    would silently drop the re-encoding.
+    """
+
+    def test_explicit_payload_bal_with_modify_rlp_is_refused(self) -> None:
+        """Both payload-only settings on one block fail at construction."""
+        block = Block(
+            engine_new_payload_block_access_list=Bytes(b"\xc0"),
+            expected_block_access_list=(
+                BlockAccessListExpectation().modify_rlp(lambda bal: bal.rlp)
+            ),
+            exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+        )
+        with pytest.raises(Exception, match="discard the re-encoding"):
+            BlockchainTest(
+                fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
+            )
+
+    @pytest.mark.parametrize(
+        "block",
+        [
+            pytest.param(
+                Block(
+                    engine_new_payload_block_access_list=Bytes(b"\xc0"),
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                ),
+                id="explicit_payload_bal_only",
+            ),
+            pytest.param(
+                Block(
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify_rlp(
+                            lambda bal: bal.rlp
+                        )
+                    ),
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                ),
+                id="modify_rlp_only",
+            ),
+            pytest.param(
+                Block(
+                    engine_new_payload_block_access_list=Bytes(b"\xc0"),
+                    expected_block_access_list=(
+                        BlockAccessListExpectation().modify(lambda bal: bal)
+                    ),
+                    exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                ),
+                id="explicit_payload_bal_with_content_modifier",
+            ),
+        ],
+    )
+    def test_single_payload_path_is_accepted(self, block: Block) -> None:
+        """One payload path at a time, or a content modifier, is fine."""
+        BlockchainTest(
+            fork=Amsterdam, pre=Alloc(), post=Alloc(), blocks=[block]
+        )
