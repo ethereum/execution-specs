@@ -11,6 +11,10 @@ settlement is unchanged because it sums both pools. The measured
 windows subtract `gas_left` readings with `SUB`, so a window repaid
 more than it cost reads below zero.
 
+A same-frame control pins the pre-existing form of that last behavior:
+a local refill can already make the second of two `GAS` readings larger
+than the first. Merge-time repayment extends it across a frame boundary.
+
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
 """
@@ -164,6 +168,47 @@ def clearing_probe_code(
         # The marker distinguishes the pinned run from a reverted one.
         + Op.SSTORE(SLOT_MARKER, 1)
     )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_same_frame_refund_increases_gas_left(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test a same-frame refill can increase `gas_left` between reads.
+
+    This is the local control for the cross-frame behavior: a fresh set
+    spills from `gas_left`, the first measured window clears it in the
+    same frame, and the second repeats the clear as a no-op. The two
+    windows have identical bytecode and execution cost, so their exact
+    difference is the state-gas refill.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+
+    window = Op.SSTORE(SLOT_X, 0)
+    contract = pre.deploy_contract(
+        code=clearing_probe_code(FRESH_SET(SLOT_X, 1), [window] * 3)
+    )
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        contract: Account(
+            storage={
+                SLOT_X: 0,
+                SLOT_MARKER: 1,
+                SLOT_INCREASED: 1,
+                SLOT_RESULT: -sstore_state_gas,
+            }
+        )
+    }
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("call_opcode", [Op.CALLCODE, Op.DELEGATECALL])
@@ -646,6 +691,90 @@ def test_parked_credit_discarded_when_clearing_frame_reverts(
     )
 
     post = {probe: Account(storage=probe_storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_repaid_credit_enters_next_call_forwarding_base(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test repaid gas participates in the next call's 63/64 base.
+
+    Without the repayment, the parent has one gas less than the
+    smallest base whose 63/64 allowance can run the probe. The clearing
+    child's merge repays a full slot charge before the probe call, so
+    the allowance grows, the probe completes, and its marker changes.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+
+    clearer_code = WARM_CLEAR(SLOT_X, 0)
+    clearer = pre.deploy_contract(code=clearer_code)
+    head = FRESH_SET(SLOT_X, 1) + Op.POP(
+        Op.DELEGATECALL(gas=Op.GAS, address=clearer, address_warm=False)
+    )
+
+    # A nonzero-to-nonzero write leaves an observable success marker
+    # without consuming state gas of its own.
+    probe_code = Op.SSTORE.with_metadata(
+        key_warm=False,
+        original_value=1,
+        current_value=1,
+        new_value=2,
+    )(SLOT_X, 2)
+    probe = pre.deploy_contract(code=probe_code, storage={SLOT_X: 1})
+    probe_execution = probe_code.execution_cost(fork)
+
+    # Find the smallest base whose EIP-150 allowance
+    # `base - base // 64` covers the probe exactly.
+    forwarding_base = probe_execution
+    while forwarding_base - forwarding_base // 64 < probe_execution:
+        forwarding_base += 1
+    assert (
+        forwarding_base - 1 - (forwarding_base - 1) // 64
+        < probe_execution
+        <= forwarding_base - forwarding_base // 64
+    )
+    repaid_base = forwarding_base - 1 + sstore_state_gas
+    assert repaid_base - repaid_base // 64 >= probe_execution
+
+    probe_call = Op.CALL(
+        gas=0xFFFFFFFF,
+        address=probe,
+        value=0,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=0,
+        address_warm=False,
+    )
+    # With no repayment, paying the call's own execution cost leaves
+    # `forwarding_base - 1`, so the probe OOGs by construction. The
+    # repayment is the only additional execution gas available.
+    sliver = probe_call.execution_cost(fork) + forwarding_base - 1
+    clear_budget = budget_above_sstore_stipend(fork, clearer_code)
+    assert sliver >= clear_budget * 64 // 63 + 1
+    gas_limit = (
+        intrinsic_cost
+        + head.gas_cost(fork)
+        + clearer_code.gas_cost(fork)
+        + sliver
+    )
+
+    contract = pre.deploy_contract(code=head + Op.POP(probe_call))
+    tx = Transaction(
+        to=contract,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        contract: Account(storage={SLOT_X: 0}),
+        probe: Account(storage={SLOT_X: 2}),
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
