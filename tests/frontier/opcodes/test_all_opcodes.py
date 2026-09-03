@@ -67,6 +67,10 @@ def prepare_suffix(opcode: Opcode) -> Bytecode:
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.eels_base_coverage
+# The valid-opcode oracle depends on the transaction type: EIP-8141's
+# introspection opcodes (e.g. TXPARAM, 0xB0) exceptionally halt under
+# a legacy transaction but execute inside a frame transaction.
+@pytest.mark.frame_tx_incompatible
 def test_all_opcodes(
     state_test: StateTestFiller, pre: Alloc, fork: Fork
 ) -> None:
