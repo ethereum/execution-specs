@@ -24,7 +24,6 @@ from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
 from execution_testing.fixtures.base import FixtureFillingPhase
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import Frame, Transaction
-from execution_testing.test_types.block_types import DEFAULT_BLOCK_GAS_LIMIT
 
 if TYPE_CHECKING:
     from .state import StateTest
@@ -170,6 +169,7 @@ def as_frame_transaction(
     tx: Transaction,
     fork: Fork,
     env_gas_limit: int,
+    chain_id: int,
     pre: Any = None,
 ) -> Transaction:
     """
@@ -244,6 +244,7 @@ def as_frame_transaction(
     execution_budget, state_budget = frame_budgets(fork, tx, env_gas_limit)
 
     return Transaction(
+        chain_id=chain_id,
         sender=tx.sender,
         nonce=tx.nonce,
         expected_receipt=expected_receipt,
@@ -272,23 +273,12 @@ def convert_to_frame_transaction_variant(test: "StateTest") -> "StateTest":
     frame transaction, skipping the test when the transaction carries
     a feature a frame transaction cannot express.
 
-    Along with the transaction rewrite, the copy raises a small block
-    gas limit to the framework default and strips the test's gas-usage
-    pins, neither of which can carry over to the frame shape.
+    Along with the transaction rewrite, the copy strips the test's
+    gas-usage pins, which cannot carry over to the frame shape.
     """
     update: Dict[str, Any] = {}
 
-    # A test's small block gas limit cannot hold the frame budgets,
-    # and unlike the legacy one-dimensional gas pool the two frame
-    # dimensions cannot spill into each other, so no split of a small
-    # block satisfies every execution/state mix. The block size is not
-    # what these tests assert: raise the variant's block gas limit to
-    # the framework default so every conversion gets the same generous
-    # budgets.
     env = test.env
-    if int(env.gas_limit) < DEFAULT_BLOCK_GAS_LIMIT:
-        env = env.model_copy(update={"gas_limit": DEFAULT_BLOCK_GAS_LIMIT})
-        update["env"] = env
 
     if test.blockchain_test_header_verify is not None:
         update["blockchain_test_header_verify"] = without_gas_pins(
@@ -304,6 +294,7 @@ def convert_to_frame_transaction_variant(test: "StateTest") -> "StateTest":
         test.tx,
         fork=fork,
         env_gas_limit=int(env.gas_limit),
+        chain_id=test.chain_id,
         pre=test.pre,
     )
     update["tx"] = tx
