@@ -60,9 +60,16 @@ def spec_supported_fixture_formats_verifier(spec: Type[SpecType]) -> None:
     """
     Verify that the provided spec does not break the
     format-class+transition_tool_cache_key rule.
+
+    An empty cache key opts the format out of caching entirely (no
+    `transition_tool_cache_key` mark is emitted, so the filler removes
+    the cache for its tests), so two formats of the same class may both
+    carry an empty key without ever sharing cached output.
     """
     keys: Dict[Tuple[Type[BaseFixture], str], str] = dict()
     for fixture_format in spec.supported_fixture_formats:
+        if not fixture_format.transition_tool_cache_key:
+            continue
         key = (
             fixture_format.format_class(),
             fixture_format.transition_tool_cache_key,
@@ -156,11 +163,17 @@ def test_state_test_labels_every_blockchain_test_format() -> None:
     Deriving the label from `format_name` rather than `format_id()` would
     collapse two labels of one format onto the same derived label, and the
     duplicate would be dropped silently by `registered_labels`.
+
+    Variant labels (e.g. the frame transaction variants) deliberately add
+    further labels per format, so only plain labels count toward the
+    one-label-per-format property.
     """
     derived = {
         fixture_format.format_id(): fixture_format
         for fixture_format in StateTest.supported_fixture_formats
-        if fixture_format.format_class() is not StateFixture
+        if isinstance(fixture_format, LabeledFixtureFormat)
+        and fixture_format.format_class() is not StateFixture
+        and fixture_format.variant is None
     }
     expected = [
         fixture_format

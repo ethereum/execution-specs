@@ -24,14 +24,6 @@ _AMSTERDAM_SKIP_CASES: frozenset[str] = frozenset(
 )
 
 
-_TRANSACTION_SHAPE_TOKENS = ("-non_frame_tx", "-frame_tx")
-"""
-Transaction-shape id segments added by the tree-level frame
-transaction conversion, stripped so the skip list matches both
-shapes of a listed case.
-"""
-
-
 def _fixture_format_tokens() -> tuple[str, ...]:
     """
     Return the fixture format suffixes pytest appends inside parametrize ids.
@@ -39,10 +31,7 @@ def _fixture_format_tokens() -> tuple[str, ...]:
     names = set(BaseFixture.formats) | set(
         LabeledFixtureFormat.registered_labels
     )
-    return (
-        tuple(f"-{name}" for name in sorted(names, key=len, reverse=True))
-        + _TRANSACTION_SHAPE_TOKENS
-    )
+    return tuple(f"-{name}" for name in sorted(names, key=len, reverse=True))
 
 
 def _normalize_nodeid(nodeid: str, tokens: tuple[str, ...]) -> str:

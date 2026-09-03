@@ -60,9 +60,32 @@ from execution_testing.test_types import (
 from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
+from .frame_transaction_variant import (
+    FRAME_TRANSACTION_VARIANT,
+    convert_to_frame_transaction_variant,
+    frame_transaction_variants,
+)
 from .helpers import verify_transactions
 
 logger = get_logger(__name__)
+
+BASE_STATE_TEST_FIXTURE_FORMATS: List[FixtureFormat | LabeledFixtureFormat] = [
+    StateFixture,
+    *(
+        fixture_format.with_label_suffix(
+            "from_state_test",
+            f"A {fixture_format.format_id()} generated from a state_test",
+        )
+        for fixture_format in BlockchainTest.supported_fixture_formats
+        # Exclude sync fixtures from state tests - they don't make sense
+        # for state tests
+        if "Sync" not in fixture_format.format_class().__name__
+    ),
+]
+"""
+Fixture formats a state test fills as authored, each of which also
+fills as its ``frame_tx`` variant where eligible.
+"""
 
 
 class StateTest(BaseTest):
@@ -89,16 +112,8 @@ class StateTest(BaseTest):
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
     ] = [
-        StateFixture,
-    ] + [
-        fixture_format.with_label_suffix(
-            "from_state_test",
-            f"A {fixture_format.format_id()} generated from a state_test",
-        )
-        for fixture_format in BlockchainTest.supported_fixture_formats
-        # Exclude sync fixtures from state tests - they don't make sense for
-        # state tests
-        if "Sync" not in fixture_format.format_class().__name__
+        *BASE_STATE_TEST_FIXTURE_FORMATS,
+        *frame_transaction_variants(BASE_STATE_TEST_FIXTURE_FORMATS),
     ]
     supported_execute_formats: ClassVar[Sequence[LabeledExecuteFormat]] = [
         LabeledExecuteFormat(
@@ -530,12 +545,17 @@ class StateTest(BaseTest):
     ) -> FillResult:
         """Generate the BlockchainTest fixture."""
         self.check_exception_test(exception=self.tx.error is not None)
+        test = self
+        if isinstance(
+            fixture_format, LabeledFixtureFormat
+        ) and fixture_format.is_variant(FRAME_TRANSACTION_VARIANT):
+            test = convert_to_frame_transaction_variant(self)
         if fixture_format in BlockchainTest.supported_fixture_formats:
-            return self.generate_blockchain_test().generate(
+            return test.generate_blockchain_test().generate(
                 t8n=t8n, fixture_format=fixture_format
             )
         elif fixture_format == StateFixture:
-            return self.make_state_test_fixture(t8n)
+            return test.make_state_test_fixture(t8n)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 

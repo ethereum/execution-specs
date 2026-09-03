@@ -1926,14 +1926,27 @@ def pytest_collection_modifyitems(
     #    don't clear the cache between two cacheable ones; e.g., for
     #    StateTest the _from_state_test labels sort engine_x between the
     #    two cacheable formats alphabetically, breaking cache hits)
-    # 4. Deterministic order within groups (alphabetical by nodeid)
-    def sort_key(item: pytest.Item) -> tuple[bool, str, bool, str]:
+    # 4. Formats sharing a cache key adjacent (the cache holds a single
+    #    key, so interleaving two key families — e.g. the frame_tx
+    #    variants between their base formats — would clear it every
+    #    item)
+    # 5. Deterministic order within groups (alphabetical by nodeid)
+    def sort_key(item: pytest.Item) -> tuple[bool, str, bool, str, str]:
         base = item_base_nodeids[id(item)]
         is_slow = base in slow_base_nodeids
-        has_cache_key = (
-            item.get_closest_marker("transition_tool_cache_key") is not None
+        cache_key_marker = item.get_closest_marker("transition_tool_cache_key")
+        cache_key = (
+            str(cache_key_marker.args[0])
+            if cache_key_marker is not None and cache_key_marker.args
+            else ""
         )
-        return (not is_slow, base, not has_cache_key, item.nodeid)
+        return (
+            not is_slow,
+            base,
+            cache_key == "",
+            cache_key,
+            item.nodeid,
+        )
 
     items.sort(key=sort_key)
 
