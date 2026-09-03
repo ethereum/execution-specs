@@ -31,6 +31,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Fork,
+    GasConsumer,
     Header,
     Op,
     RecipientType,
@@ -306,23 +307,20 @@ def test_top_frame_new_account_skipped_for_nonce_only_recipient(
     state_test(pre=pre, tx=tx, post=post)
 
 
+EXECUTION_GAS_BURNED = 5_000
+
+
 def creation_tx_init_code(fork: Fork) -> tuple[Bytecode, int]:
     """
     Build init code for exact-gas creation-transaction tests and return
     it with its execution gas.
 
-    The code deploys empty code (no deposit charges) and expands memory
-    so that its execution gas lifts the transaction's exact total above
-    the calldata floor, which would otherwise bind once the top-frame
+    The code deploys empty code (no deposit charges) and burns execution
+    gas so that the transaction's exact total lands above the calldata
+    floor, which would otherwise bind once the top-frame
     ``NEW_ACCOUNT`` charge is skipped.
     """
-    memory_offset = 30_000
-    init_code = (
-        Op.MSTORE.with_metadata(
-            new_memory_size=memory_offset + 32, old_memory_size=0
-        )(memory_offset, 0)
-        + Op.STOP
-    )
+    init_code = GasConsumer(gas=EXECUTION_GAS_BURNED, fork=fork) + Op.STOP
     return init_code, init_code.gas_cost(fork)
 
 
@@ -390,7 +388,7 @@ def test_top_frame_new_account_skipped_for_prefunded_create_target(
     assert total_gas > calldata_floor, (
         "The exact total must exceed the calldata floor for the "
         "gas pin to observe the skipped charge."
-        "Lift memory expansion in `creation_tx_init_code` to fix."
+        "Raise the `EXECUTION_GAS_BURNED` gas target to fix."
     )
 
     tx = Transaction(
@@ -489,7 +487,7 @@ def test_top_frame_new_account_skipped_for_create_target_funded_same_block(
     assert create_total > calldata_floor, (
         "the exact total must exceed the calldata floor for the "
         "gas pin to observe the skipped charge."
-        "Lift memory expansion in `creation_tx_init_code` to fix."
+        "Raise the `EXECUTION_GAS_BURNED` gas target to fix."
     )
     create_tx = Transaction(
         sender=sender,
