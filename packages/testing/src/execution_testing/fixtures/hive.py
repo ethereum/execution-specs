@@ -22,9 +22,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureHeader,
 )
 from execution_testing.fixtures.file import Fixtures
-from execution_testing.fixtures.pre_alloc_groups import (
-    PreAllocGroupBuilder,
-)
+from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
 from execution_testing.forks import Fork
 
 
@@ -76,8 +74,7 @@ class GenesisState(BaseModel):
             pass
 
         try:
-            builder = PreAllocGroupBuilder.model_validate_json(fixture_bytes)
-            pre_alloc_group = builder.build()
+            pre_alloc_group = PreAllocGroup.model_validate_json(fixture_bytes)
             return cls(
                 header=pre_alloc_group.genesis,
                 alloc=pre_alloc_group.pre,
