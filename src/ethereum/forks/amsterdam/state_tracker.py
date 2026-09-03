@@ -19,7 +19,16 @@ within a single transaction and supports copy-on-write rollback.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple, final
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    final,
+)
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -39,6 +48,10 @@ if TYPE_CHECKING:
     from .block_access_lists import BlockAccessListBuilder
 
 
+CodeRead = Tuple[Address, Hash32]
+"""Code read keyed by account address and code hash."""
+
+
 @final
 @dataclass
 class BlockState:
@@ -47,8 +60,9 @@ class BlockState:
 
     Read chain: block writes -> pre_state.
 
-    ``account_reads`` and ``storage_reads`` accumulate across all
-    transactions for BAL generation.
+    ``account_reads`` and ``storage_reads`` accumulate across all transactions
+    for BAL generation. ``code_reads`` accumulates code accesses used for
+    execution witness generation.
     """
 
     pre_state: PreState
@@ -60,7 +74,9 @@ class BlockState:
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
+    code_reads: Set[CodeRead] = field(default_factory=set)
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
+    oldest_ancestor_offset: Optional[Uint] = None
 
 
 @final
@@ -71,9 +87,9 @@ class TransactionState:
 
     Read chain: tx writes -> block writes -> pre_state.
 
-    ``storage_reads`` and ``account_reads`` are shared references
-    that survive rollback (reads from failed calls still appear in the
-    Block Access List).
+    ``storage_reads``, ``account_reads``, and ``code_reads`` are shared
+    references that survive rollback (reads from failed calls still
+    appear in the Block Access List).
     """
 
     parent: BlockState
@@ -85,6 +101,7 @@ class TransactionState:
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
+    code_reads: Set[CodeRead] = field(default_factory=set)
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     created_accounts: Set[Address] = field(default_factory=set)
     transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
@@ -213,11 +230,20 @@ def get_account(tx_state: TransactionState, address: Address) -> Account:
         return account
 
 
-def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
+def get_code(
+    tx_state: TransactionState,
+    code_hash: Hash32,
+    address: Address,
+) -> Bytes:
     """
     Get the bytecode for a given code hash.
 
     Read chain: tx code_writes -> block code_writes -> pre_state.
+
+    Only record a ``code_reads`` entry when the bytecode is actually
+    fetched from ``pre_state``.  Reads satisfied by ``code_writes``
+    (same-tx or earlier-tx CREATEs) are already available to a
+    stateless verifier and do not need to appear in the witness.
 
     Parameters
     ----------
@@ -225,6 +251,8 @@ def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
         The transaction state.
     code_hash :
         Hash of the code to look up.
+    address :
+        Address whose code is being accessed.
 
     Returns
     -------
@@ -238,6 +266,7 @@ def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
         return tx_state.code_writes[code_hash]
     if code_hash in tx_state.parent.code_writes:
         return tx_state.parent.code_writes[code_hash]
+    tx_state.code_reads.add((address, code_hash))
     return tx_state.parent.pre_state.get_code(code_hash)
 
 
@@ -720,8 +749,8 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
     Create a snapshot of the transaction state for rollback.
 
     Deep-copy writes and transient storage.  The parent reference,
-    ``created_accounts``, ``storage_reads``, and ``account_reads``
-    are shared (not rolled back).
+    ``created_accounts``, ``storage_reads``, ``account_reads``, and
+    ``code_reads`` are shared (not rolled back).
 
     Parameters
     ----------
@@ -741,6 +770,7 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
             addr: dict(slots)
             for addr, slots in tx_state.storage_writes.items()
         },
+        code_reads=tx_state.code_reads,
         code_writes=dict(tx_state.code_writes),
         created_accounts=tx_state.created_accounts,
         transient_storage=dict(tx_state.transient_storage),
@@ -801,6 +831,7 @@ def incorporate_tx_into_block(
     # Merge reads and touches into block-level sets
     block.storage_reads.update(tx_state.storage_reads)
     block.account_reads.update(tx_state.account_reads)
+    block.code_reads.update(tx_state.code_reads)
 
     # Merge cumulative writes
     for address, account in tx_state.account_writes.items():
@@ -820,6 +851,7 @@ def incorporate_tx_into_block(
     tx_state.transient_storage.clear()
     tx_state.storage_reads = set()
     tx_state.account_reads = set()
+    tx_state.code_reads = set()
 
 
 def extract_block_diff(block_state: BlockState) -> BlockDiff:
@@ -842,3 +874,49 @@ def extract_block_diff(block_state: BlockState) -> BlockDiff:
         storage_changes=block_state.storage_writes,
         code_changes=block_state.code_writes,
     )
+
+
+def get_witness_ancestors(
+    block_headers: List[Bytes],
+    oldest_ancestor_offset: Optional[Uint],
+) -> List[Bytes]:
+    """
+    Collect RLP-encoded ancestor headers from ``oldest_ancestor_offset``
+    blocks back onward.
+
+    Parameters
+    ----------
+    block_headers :
+        RLP-encoded headers.
+    oldest_ancestor_offset :
+        Offset from the current block to the oldest ancestor accessed
+        during execution, or ``None`` if no ancestor was accessed.
+
+    """
+    if oldest_ancestor_offset is None:
+        return []
+    return list(block_headers[-int(oldest_ancestor_offset) :])
+
+
+def track_ancestor_access(block_state: BlockState, offset: Uint) -> None:
+    """
+    Record that an ancestor block was accessed.
+
+    Update ``oldest_ancestor_offset`` if ``offset`` is further back (larger)
+    than the current value.  Called by the BLOCKHASH opcode (when
+    returning a valid hash) and the EIP-2935 system contract call.
+
+    Parameters
+    ----------
+    block_state :
+        The block state.
+    offset :
+        Offset from the current block to the ancestor that was
+        accessed.
+
+    """
+    if (
+        block_state.oldest_ancestor_offset is None
+        or offset > block_state.oldest_ancestor_offset
+    ):
+        block_state.oldest_ancestor_offset = offset

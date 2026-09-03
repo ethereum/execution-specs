@@ -26,6 +26,7 @@ dependencies = [
     "py-ecc>=8.0.0b2,<9",
     "ethereum-types>=0.4.1,<0.5",
     "ethereum-rlp>=0.1.6,<0.2",
+    "eth-remerkleable>=0.1.29,<0.2",
     "cryptography>=45.0.1,<46",
     "platformdirs>=4.2,<5",
     "libcst>=1.8,<2",
@@ -190,10 +191,7 @@ packages = [
 "ethereum_spec_tools" = ["py.typed"]
 
 [project.optional-dependencies]
-optimized = [
-    "rust-pyspec-glue>=0.0.9,<0.1.0",
-    "ethash>=1.1.0,<2",
-]
+optimized = ["rust-pyspec-glue>=0.0.9,<0.1.0", "ethash>=1.1.0,<2"]
 
 [dependency-groups]
 test = [
@@ -219,11 +217,7 @@ actionlint = [
     "pyflakes>=3.0",
     "shellcheck-py>=0.10",
 ]
-doc = [
-    "docc>=0.6.1,<0.7.0",
-    "fladrif>=0.2.0,<0.3.0",
-    "mistletoe>=1.5.0,<2",
-]
+doc = ["docc>=0.6.1,<0.7.0", "fladrif>=0.2.0,<0.3.0", "mistletoe>=1.5.0,<2"]
 mkdocs = [
     "cairosvg>=2.7.0,<3",
     "codespell>=2.4.1,<3",
@@ -255,9 +249,7 @@ dev = [
 # Opt-in (not part of dev): native-accelerated state and ethash for the
 # sync tool. ethash has no CPython 3.14 wheels, so installing this group
 # requires a C toolchain on 3.14.
-optimized = [
-    "ethereum-execution[optimized]",
-]
+optimized = ["ethereum-execution[optimized]"]
 
 [tool.setuptools.dynamic]
 version = { attr = "ethereum.__version__" }
@@ -348,27 +340,18 @@ transform = [
 
 [tool.docc.plugins."docc.python.transform"]
 excluded_references = [
-    "ethereum_spec_tools.lint.lints",   # This is a namespace package.
+    "ethereum_spec_tools.lint.lints", # This is a namespace package.
 ]
 
 [tool.docc.plugins."ethereum_spec_tools.docc.python"]
-paths = [
-    "src",
-]
-excluded_paths = [
-    "src/ethereum_optimized",
-    "src/ethereum_spec_tools",
-]
+paths = ["src"]
+excluded_paths = ["src/ethereum_optimized", "src/ethereum_spec_tools"]
 
 [tool.docc.plugins."docc.html.context"]
-extra_css = [
-    "static/custom.css",
-]
+extra_css = ["static/custom.css"]
 
 [tool.docc.plugins."docc.files.discover"]
-files = [
-    "static/custom.css",
-]
+files = ["static/custom.css"]
 
 [tool.docc.output]
 path = ".just/docs-spec"
@@ -384,15 +367,15 @@ line-length = 79
 [tool.ruff.lint]
 exclude = ["tests/fixtures"]
 select = [
-    "E", # pycodestyle errors
-    "F", # Pyflakes
-    "B", # flake8-bugbear
-    "W", # pycodestyle warnings
-    "I", # isort
-    "A", # flake8-builtins
-    "N", # pep8-naming
-    "D", # pydocstyle
-    "C4", # flake8-comprehensions
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "B",   # flake8-bugbear
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "A",   # flake8-builtins
+    "N",   # pep8-naming
+    "D",   # pydocstyle
+    "C4",  # flake8-comprehensions
     "ARG", # flake8-unused-arguments
 ]
 fixable = [
@@ -404,38 +387,38 @@ fixable = [
     "D", # pydocstyle
 ]
 ignore = [
-# Common to STEEL
-    "C401",     # Unnecessary generator set
-    "C408",     # Unnecessary collection call
-    "D107",     # Missing docstring in __init__
-    "D200",     # One-line docstring should fit on one line with quotes
-    "D203",     # 1 blank line required before class docstring
-    "D205",     # Missing blank line after summary
-    "D212",     # Multi-line docstring summary should start at the first line
-    "D401",     # First line should be in imperative mood ("Do", not "Does")
+    # Common to STEEL
+    "C401", # Unnecessary generator set
+    "C408", # Unnecessary collection call
+    "D107", # Missing docstring in __init__
+    "D200", # One-line docstring should fit on one line with quotes
+    "D203", # 1 blank line required before class docstring
+    "D205", # Missing blank line after summary
+    "D212", # Multi-line docstring summary should start at the first line
+    "D401", # First line should be in imperative mood ("Do", not "Does")
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "src/ethereum_spec_tools/loaders/fork_loader.py" = [
-    "N802"          # Property names do not need to be lowercase
+    "N802", # Property names do not need to be lowercase
 ]
 "src/ethereum_spec_tools/lint/*" = [
-    "N802"          # Special linting code absolved of function naming reqs
+    "N802", # Special linting code absolved of function naming reqs
 ]
 "src/ethereum/crypto/*" = [
-    "N806",         # Special crypto code absolved of variable naming reqs
-    "N802"          # Special crypto code absolved of function naming reqs
+    "N806", # Special crypto code absolved of variable naming reqs
+    "N802", # Special crypto code absolved of function naming reqs
 ]
 "packages/testing/src/execution_testing/evm_tools/t8n/evm_trace/eip3155.py" = [
-    "N815"          # The traces must use camel case in JSON property names
+    "N815", # The traces must use camel case in JSON property names
 ]
 "tests/*" = ["ARG001"]
 "packages/testing/src/execution_testing/evm_tools/tests/*" = ["ARG001"]
 "vulture_whitelist.py" = [
-    "B018",  # Useless expression (intentional for Vulture whitelisting)
-    "E402",  # Module-level imports throughout file (needed for whitelisting)
-    "F403",  # Star imports needed for whitelisting
-    "F405",  # Undefined names from star imports
+    "B018", # Useless expression (intentional for Vulture whitelisting)
+    "E402", # Module-level imports throughout file (needed for whitelisting)
+    "F403", # Star imports needed for whitelisting
+    "F405", # Undefined names from star imports
 ]
 
 [tool.ruff.lint.mccabe]
@@ -478,9 +461,9 @@ skip = [
     "*.coverage*",
     "uv.lock",
 ]
-ignore-words = "whitelist.txt"  # Custom whitelist file
-count = true                    # Display counts of errors
-check-hidden = false            # Don't check hidden files (starting with .)
+ignore-words = "whitelist.txt" # Custom whitelist file
+count = true # Display counts of errors
+check-hidden = false # Don't check hidden files (starting with .)
 
 [tool.mypy]
 namespace_packages = true
@@ -503,12 +486,12 @@ enable_error_code = [
     "exhaustive-match",
     "deprecated",
 
-   #"mutable-override",
-   #"truthy-bool",
-   #"explicit-override",
-   #"ignore-without-code",
-   #"possibly-undefined",
-   #"redundant-expr",
+    #"mutable-override",
+    #"truthy-bool",
+    #"explicit-override",
+    #"ignore-without-code",
+    #"possibly-undefined",
+    #"redundant-expr",
 ]
 exclude = [
     "^\\.cache/",

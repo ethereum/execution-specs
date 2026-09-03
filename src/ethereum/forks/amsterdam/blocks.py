@@ -19,6 +19,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.state import Address, Root
+from ethereum.utils.ssz import SszContainer
 
 from .fork_types import Bloom
 from .transactions import (
@@ -34,7 +35,7 @@ from .transactions import (
 @final
 @slotted_freezable
 @dataclass
-class Withdrawal:
+class Withdrawal(SszContainer):
     """
     Withdrawals represent a transfer of ETH from the consensus layer (beacon
     chain) to the execution layer, as validated by the consensus layer. Each

@@ -56,6 +56,7 @@ from .rpc_types import (
     JSONRPCError,
     JSONRPCRequest,
     JSONRPCResponse,
+    NewPayloadWithWitnessResponse,
     PayloadAttributes,
     PayloadStatus,
     PayloadStatusEnum,
@@ -157,6 +158,21 @@ class ForkchoiceUpdateTimeoutError(Exception):
             f"final status: {final_status}"
         )
         super().__init__(msg)
+
+
+class EngineWitnessEndpointNotImplementedError(Exception):
+    """
+    Raised when the client does not implement the REST
+    ``/new-payload-with-witness`` endpoint (HTTP 404 or 405).
+    """
+
+    def __init__(self, url: str, http_status: int):
+        """Initialize with endpoint URL and HTTP status."""
+        self.url = url
+        self.http_status = http_status
+        super().__init__(
+            f"REST endpoint not implemented at {url} (HTTP {http_status})"
+        )
 
 
 class NewPayloadTimeoutError(Exception):
@@ -1440,6 +1456,24 @@ class EngineRPC(BaseJwtRPC):
             context=self.response_validation_context,
         )
 
+    def new_payload_with_witness(
+        self,
+        *params: Any,
+        version: int,
+    ) -> NewPayloadWithWitnessResponse:
+        """
+        `engine_newPayloadWithWitnessVX`: execute the payload and decode the
+        payload status plus hex-encoded RLP execution witness.
+        """
+        method = f"newPayloadWithWitnessV{version}"
+        params_list = [to_json(param) for param in params]
+
+        result = self.post_request(
+            request=RPCCall(method=method, params=params_list)
+        ).result_or_raise()
+
+        return NewPayloadWithWitnessResponse.from_json_rpc_result(result)
+
     def new_payload_with_retry(
         self,
         *params: Any,
@@ -1650,6 +1684,72 @@ class EngineRPC(BaseJwtRPC):
             return response
 
         return _do_forkchoice_update()
+
+
+class EngineSSZRPC(BaseJwtRPC):
+    """
+    REST client for `POST /new-payload-with-witness`.
+
+    The endpoint uses a JSON request body and an SSZ response body; JWT auth
+    is inherited from `BaseJwtRPC`.
+    """
+
+    path: ClassVar[str] = "/new-payload-with-witness"
+    default_timeout: ClassVar[int] = 8
+
+    def new_payload_with_witness(
+        self,
+        *params: Any,
+        timeout: int | None = None,
+    ) -> NewPayloadWithWitnessResponse:
+        """
+        `POST /new-payload-with-witness`: submit a payload and receive the
+        validation result together with the client-generated execution
+        witness.
+
+        Raise `EngineWitnessEndpointNotImplementedError` on HTTP 404 or 405
+        so the caller can skip clients without REST support.
+        """
+        if timeout is None:
+            timeout = self.default_timeout
+
+        url = self.url.rstrip("/") + self.path
+        body = [to_json(param) for param in params]
+        headers = {
+            "Content-Type": "application/json",
+        } | self.namespace_extra_headers()
+
+        logger.debug(f"POST {url}, timeout={timeout}")
+        response = self.session.post(
+            url, json=body, headers=headers, timeout=timeout
+        )
+
+        if response.status_code in (404, 405):
+            raise EngineWitnessEndpointNotImplementedError(
+                url, response.status_code
+            )
+
+        # Engine API errors arrive as an HTTP error + JSON {code, message}.
+        if not response.ok:
+            try:
+                error = response.json()
+            except ValueError:
+                error = None
+            if isinstance(error, dict) and "code" in error:
+                raise JSONRPCError(
+                    code=error["code"],
+                    message=error.get("message", ""),
+                )
+            response.raise_for_status()
+
+        content_type = response.headers.get("Content-Type", "")
+        if "application/octet-stream" not in content_type:
+            raise ValueError(
+                f"Unexpected Content-Type from {url}: {content_type!r} "
+                f"(expected application/octet-stream)"
+            )
+
+        return NewPayloadWithWitnessResponse.from_ssz_bytes(response.content)
 
 
 class NetRPC(BaseRPC):
