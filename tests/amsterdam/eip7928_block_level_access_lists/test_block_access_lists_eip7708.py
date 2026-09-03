@@ -27,6 +27,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
+from ..eip7708_eth_transfer_logs.spec import Spec as Spec7708
 from ..eip7708_eth_transfer_logs.spec import transfer_log
 from .spec import ref_spec_7928
 
@@ -161,6 +162,10 @@ def test_transfer_logs_and_bal_balance_changes(
                         )
                     ],
                 ),
+                # SYSTEM_ADDRESS is touched by EIP-7708 to emit Transfer
+                # logs but its own balance never changes, so it must
+                # appear in the BAL with no field changes.
+                Spec7708.SYSTEM_ADDRESS: None,
                 # The tip is a BAL-only flow: it must never produce a
                 # Transfer log, and the zero-tip second transaction must
                 # not add a second balance change.
