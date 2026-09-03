@@ -17,13 +17,13 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 
 ## Fail Loudly
 
-A test that quietly stops exercising what it claims is worse than no test. Wire every premise so a change **fails** the test instead of silently retargeting it.
+Wire a test's premises so that a change fails it instead of silently retargeting what it exercises.
 
-- **Assert what helpers assume.** A helper that splits a budget or derives a boundary asserts its preconditions, so a repricing fails instead of moving the measurement.
+- **Assert what helpers assume.** A helper that derives a boundary from gas costs asserts its preconditions, so a repricing fails the test instead of moving the measurement.
 - **Derive parameters from what the test asserts.** If a boundary is `len(slots) * COST`, compute it from the same `slots` the expectation checks.
-- **Always assert `post`.** A BAL expectation checks access, `post` checks state; neither implies the other.
-- **Witness that the code path ran.** Where success and never-executed look identical, `SSTORE` a sentinel and assert it in `post`; `Account.NONEXISTENT` and balance checks work too.
-- **Pin block premises with `header_verify=Header(...)`.** A block that must be exactly full, or use a specific `gas_used`, asserts it.
+- **Assert `post` alongside a BAL expectation.** The BAL checks access, `post` checks state; neither implies the other.
+- **Witness that the code path ran.** Where success and never-executed look identical, leave a trace the `post` can assert: an `SSTORE`d sentinel, a balance, or `Account.NONEXISTENT`.
+- **Pin block premises.** A block that must be exactly full asserts its `gas_used` with `header_verify=Header(...)`.
 
 ## Pre-State Setup
 
@@ -80,7 +80,7 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 - Rule: omit `gas_limit`. It auto-fills so the transaction executes in full without running out of gas.
 - Exception: set `gas_limit` explicitly for gas-sensitive tests (intrinsic-gas boundaries, OOG, code-deposit limits, or gas metering).
 - Anti-pattern: the `gas_limit=fork.transaction_gas_limit_cap()` boilerplate is now redundant.
-- A transaction that runs out of gas consumes exactly its `gas_limit`, so an `Om.OOG` contract is the way to control block gas used — and therefore gas remaining — deterministically.
+- A transaction that runs out of gas consumes exactly its `gas_limit`, so calling an `Om.OOG` contract pins a transaction's gas used to a chosen value without any cost arithmetic. Useful when a block's `gas_used` must land on an exact number.
 
 ## Exception Testing
 
