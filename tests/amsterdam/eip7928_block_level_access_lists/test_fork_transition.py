@@ -26,6 +26,9 @@ from execution_testing import (
     TransactionReceipt,
     TransitionFork,
 )
+from execution_testing.forks.forks.eips.amsterdam.eip_8253 import (
+    EIP_8253_TARGETED_ACCOUNTS,
+)
 
 from ..eip7708_eth_transfer_logs.spec import transfer_log
 from ..eip8282_builder_execution_requests.helpers import (
@@ -234,7 +237,12 @@ def test_fork_transition_bal_size_constraint(
       `BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED`.
     """
     amsterdam = fork.transitions_to()
-    min_gas_limit = amsterdam.minimum_block_gas_limit()
+    fork_transition_items = len(EIP_8253_TARGETED_ACCOUNTS)
+    min_gas_limit = max(
+        amsterdam.minimum_block_gas_limit(),
+        (amsterdam.empty_block_bal_item_count() + fork_transition_items)
+        * amsterdam.gas_costs().BLOCK_ACCESS_LIST_ITEM,
+    )
     over_budget_gas_limit = min_gas_limit - 1
 
     pre_fork_block = Block(

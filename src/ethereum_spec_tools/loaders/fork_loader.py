@@ -121,6 +121,16 @@ class ForkLoad:
         return self._module("fork").state_transition
 
     @property
+    def has_block_start_transition(self) -> bool:
+        """Whether this fork defines a block-start state transition."""
+        return hasattr(self._module("fork"), "apply_block_start_transition")
+
+    @property
+    def apply_block_start_transition(self) -> Any:
+        """Block-start state transition function of the fork."""
+        return self._module("fork").apply_block_start_transition
+
+    @property
     def signing_hash(self) -> Any:
         """signing_hash function of the fork."""
         return self._module("transactions").signing_hash
