@@ -144,10 +144,8 @@ jobs:
       - name: Checkout Hive
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # TODO: restore ethereum/hive@master before merge, once
-          # ethereum/hive#1606 lands
-          repository: danceratopz/hive
-          ref: eels-sim-github-token
+          repository: ethereum/hive
+          ref: master
           path: hive
 
       # Redirect Go's caches to a per-job temp dir so the setup-go cache
