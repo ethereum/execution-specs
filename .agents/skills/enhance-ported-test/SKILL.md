@@ -130,7 +130,8 @@ to keep it.
 
 ### 2. Remove `gas_limit` from the transaction (if gas is not the subject)
 This is the common case and belongs early. Omitting `gas_limit` maxes out the
-gas the tx receives, so the body executes fully. See `write-test.md` "Transactions".
+gas the tx receives, so the body executes fully. See the [Transactions section]
+(../write-test/SKILL.md#transactions) of the `write-test` skill.
 - **Remove it** when the test is about *behavior* and just needs to run to
   completion. This also lets you delete any per-fork gas band-aids (e.g.
   `fork.is_eip_enabled(8037)` budget bumps) and often the `fork` param itself.
