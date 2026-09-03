@@ -263,9 +263,6 @@ check-eip-versions-collect:
 [group('integration tests')]
 consume-collect: (_tmp "consume-collect")
     #!/usr/bin/env bash
-    # Assert exact collected-test counts for the 16-case DUP1..DUP16 fill:
-    # an empty parametrization (e.g. a missing fixture format) collects a
-    # single placeholder item and exits 0, so counts must be checked.
     set -euo pipefail
     fixtures="{{ output_dir }}/consume-collect/fixtures"
     uv run fill \
@@ -275,14 +272,12 @@ consume-collect: (_tmp "consume-collect")
         --clean \
         -q \
         tests/frontier/opcodes/test_dup.py
-    uv run consume engine --collect-only -q --input "$fixtures" \
-        | tee /dev/stderr | grep -q '^16 tests collected'
-    uv run consume rlp --collect-only -q --input "$fixtures" \
-        | tee /dev/stderr | grep -q '^16 tests collected'
-    uv run consume enginex --collect-only -q --input "$fixtures" \
-        | tee /dev/stderr | grep -q '^16 tests collected'
-    uv run consume direct --collect-only -q --input "$fixtures" \
-        | tee /dev/stderr | grep -q '^32 tests collected'
+    for consume_command in engine rlp enginex direct; do
+        uv run consume "$consume_command" \
+            --collect-only -q \
+            -o empty_parameter_set_mark=fail_at_collect \
+            --input "$fixtures"
+    done
 
 # Run the spec-tools tests (lint and new-fork tooling)
 [group('integration tests')]
