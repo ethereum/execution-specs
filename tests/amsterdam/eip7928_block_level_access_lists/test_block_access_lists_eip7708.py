@@ -162,9 +162,9 @@ def test_transfer_logs_and_bal_balance_changes(
                         )
                     ],
                 ),
-                # SYSTEM_ADDRESS is touched by EIP-7708 to emit Transfer
-                # logs but its own balance never changes, so it must
-                # appear in the BAL with no field changes.
+                # System address MUST NOT be included: EIP-7708 emits
+                # Transfer logs from SYSTEM_ADDRESS, but that address is
+                # not itself a BAL account access.
                 Spec7708.SYSTEM_ADDRESS: None,
                 # The tip is a BAL-only flow: it must never produce a
                 # Transfer log, and the zero-tip second transaction must
