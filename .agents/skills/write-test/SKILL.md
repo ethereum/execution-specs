@@ -1,3 +1,8 @@
+---
+name: write-test
+description: Write consensus tests using repository patterns and fixtures.
+---
+
 # Write Test
 
 Conventions and patterns for writing consensus tests. Run this skill before writing or modifying tests.

@@ -1,3 +1,8 @@
+---
+name: pytester
+description: Write and run isolated pytester-based plugin tests.
+---
+
 # Pytester
 
 Guide for pytester-based plugin/CLI tests. Run before writing or modifying these tests.

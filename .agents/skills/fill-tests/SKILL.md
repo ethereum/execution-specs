@@ -1,3 +1,8 @@
+---
+name: fill-tests
+description: Fill test fixtures with the repository fill command.
+---
+
 # Fill Tests
 
 CLI reference for the `fill` command. Run this skill before filling test fixtures. The `fill` command is pytest-based — all standard pytest flags work.
