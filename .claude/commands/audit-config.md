@@ -8,6 +8,10 @@ Periodic verification skill to prevent CLAUDE.md and skills from going stale. Ru
 
 Check that every file path or directory referenced in `CLAUDE.md` and `.claude/commands/*.md` still exists. Report any broken references.
 
+Confirm that every `.claude/commands/<name>.md` file has a corresponding
+`.agents/skills/<name>/SKILL.md` entry that points back to it, and that there are
+no orphaned Codex skill entries.
+
 ### 2. Verify CLI Commands
 
 Run `--help` on referenced commands and confirm mentioned flags still exist:

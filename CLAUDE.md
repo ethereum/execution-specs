@@ -34,6 +34,10 @@ When done with changes, ask the user if they'd like to run `/lint` before commit
 
 ## PR Reviews
 
+Reviews are strictly read-only. Never submit a GitHub review, post review
+findings as a PR or issue comment, approve, request changes, or react to review
+threads. Return findings in chat or write them to a local draft instead.
+
 When reviewing PRs that implement or test EIPs:
 
 1. Identify the EIP number(s) from the branch name, PR title, or changed file paths
