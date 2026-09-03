@@ -167,6 +167,41 @@ jobs:
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  execute-collect:
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - name: Collect the full test tree via the execute plugins
+        run: just execute-collect
+
+  consume-collect:
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - name: Collect the consume test cases of a mini fixture set
+        run: just consume-collect
+
+  check-eip-versions-collect:
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - name: Collect the EIP version checks
+        run: just check-eip-versions-collect
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
   spec-tools:
     runs-on: ubuntu-latest
     needs: static

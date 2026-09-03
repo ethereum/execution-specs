@@ -226,6 +226,64 @@ json-loader *args: (_tmp "json-loader")
         "$@" \
         tests/json_loader
 
+# Collect (without running) the full test tree via the execute remote and execute hive plugin stacks
+[group('integration tests')]
+execute-collect:
+    #!/usr/bin/env bash
+    # Assert a sane collected-test floor: guards against a silent pass if
+    # collection shrinks drastically or yields only placeholder items.
+    set -euo pipefail
+    summary_floor='^[0-9]{4,}(/[0-9]+)? tests collected'
+    uv run execute remote \
+        --collect-only -q \
+        --fork "{{ latest_fork }}" \
+        --rpc-endpoint http://127.0.0.1:1 \
+        --rpc-seed-key 0x0000000000000000000000000000000000000000000000000000000000000001 \
+        --rpc-chain-id 1 \
+        | tee /dev/stderr | tail -n 3 | grep -qE "$summary_floor"
+    uv run execute hive \
+        --collect-only -q \
+        --fork "{{ latest_fork }}" \
+        | tee /dev/stderr | tail -n 3 | grep -qE "$summary_floor"
+
+# Collect (without running) the EIP version checks over the full test tree
+[group('integration tests')]
+check-eip-versions-collect:
+    #!/usr/bin/env bash
+    # Assert a sane collected-test floor: guards against a silent pass if
+    # collection shrinks drastically or yields only placeholder items.
+    set -euo pipefail
+    export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
+    uv run check_eip_versions \
+        --collect-only -q \
+        | tee /dev/stderr | tail -n 3 \
+        | grep -qE '^[0-9]{4,}(/[0-9]+)? tests collected'
+
+# Collect (without running) the consume test cases of a freshly filled mini fixture set
+[group('integration tests')]
+consume-collect: (_tmp "consume-collect")
+    #!/usr/bin/env bash
+    # Assert exact collected-test counts for the 16-case DUP1..DUP16 fill:
+    # an empty parametrization (e.g. a missing fixture format) collects a
+    # single placeholder item and exits 0, so counts must be checked.
+    set -euo pipefail
+    fixtures="{{ output_dir }}/consume-collect/fixtures"
+    uv run fill \
+        --fork "{{ latest_fork }}" \
+        --generate-all-formats \
+        --output="$fixtures" \
+        --clean \
+        -q \
+        tests/frontier/opcodes/test_dup.py
+    uv run consume engine --collect-only -q --input "$fixtures" \
+        | tee /dev/stderr | grep -q '^16 tests collected'
+    uv run consume rlp --collect-only -q --input "$fixtures" \
+        | tee /dev/stderr | grep -q '^16 tests collected'
+    uv run consume enginex --collect-only -q --input "$fixtures" \
+        | tee /dev/stderr | grep -q '^16 tests collected'
+    uv run consume direct --collect-only -q --input "$fixtures" \
+        | tee /dev/stderr | grep -q '^32 tests collected'
+
 # Run the spec-tools tests (lint and new-fork tooling)
 [group('integration tests')]
 spec-tools *args: (_tmp "spec-tools")
