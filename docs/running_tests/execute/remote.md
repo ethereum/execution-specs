@@ -62,10 +62,7 @@ This outputs the minimum balance needed and total gas consumption per test, usef
 Pass `--estimate-gas` to estimate eligible test transactions after their contracts have been deployed and senders funded:
 
 ```bash
-uv run execute remote --fork=Amsterdam --estimate-gas \
-  --rpc-endpoint="$DEVNET_RPC" --chain-id="$DEVNET_CHAIN_ID" \
-  --rpc-seed-key="$DEVNET_TEST_KEY" \
-  tests/amsterdam/eip8037_state_creation_gas_cost_increase/
+uv run execute remote --fork=Amsterdam --rpc-endpoint=https://rpc.endpoint.io --rpc-seed-key 0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f --chain-id 12345 --estimate-gas ./tests/prague/eip7702_set_code_tx/
 ```
 
 The runner sends each eligible transaction with exactly the returned estimate, requires a successful receipt, and checks the test's expected post-state. It waits for preceding transactions to be included before estimating against `latest`, so estimates see their state changes. RPC errors and estimates that fail execution are test failures; there is no fallback to the default limit. Different clients may return different sufficient estimates.
@@ -74,7 +71,7 @@ This mode applies to transaction-post tests with an omitted `gas_limit`. Explici
 
 Funding still uses the conservative implicit gas budget. The RPC request uses that budget as its gas ceiling, and the returned estimate must fit it. This avoids a funding/estimation dependency and permits Amsterdam estimates above the execution-gas cap when state gas requires it. Initial funding requirements are not reduced by this option. `--dry-run` continues to report the conservative funding budget without estimating test transactions against undeployed state.
 
-Use existing scenarios with implicit gas limits to exercise estimation. Record the client version, fork configuration, command and results for each live run; a fixture fill alone does not validate a client's RPC estimator. Dedicated RPC conformance tests also belong in `ethereum/execution-apis`.
+Use suites whose transactions leave `gas_limit` unset, such as the EIP-7702 tests above. Suites that pin explicit gas limits or reservoirs, such as the EIP-8037 state gas tests, exercise the estimator for only a few transactions. Record the client version, fork configuration, command and results for each live run; a fixture fill alone does not validate a client's RPC estimator. Dedicated RPC conformance tests also belong in `ethereum/execution-apis`.
 
 ### Limit Gas Used By Tests
 
