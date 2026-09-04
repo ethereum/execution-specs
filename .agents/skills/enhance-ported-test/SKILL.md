@@ -331,6 +331,14 @@ verifies anything. Improve coupling and observability:
   init code of step 0 is the same family, one level down: there the *bytecode*
   stopped matching the scenario its own Yul comment describes.
 
+**Engine X packing can introduce an intentional collision into another test.**
+Two tests that deploy identical creator bytecode derive the same CREATE address.
+If one predeploys a collider there and the other requires it absent, their
+pre-allocations must not share a packed genesis. Give the collision test a named
+`@pytest.mark.pre_alloc_group(...)`, then fill both with
+`--generate-all-formats` and verify Engine X matches its ordinary engine sibling.
+Validated on the `stRevertTest` CREATE collision and CREATE-OOG pair.
+
 ### 9. Introduce variables that encode relationships
 Whenever a literal carries intent or two literals are logically linked, lift them
 into named variables that express the *relationship*, not just the value. E.g.

@@ -50,6 +50,8 @@ RETENTION_MARGIN = 100
     ["creator_oog", "creator_ok", "caller_oog", "tx_oog"],
 )
 @pytest.mark.parametrize("tx_value", [1, 0], ids=["v1", "v0"])
+# Keep the intentional collider out of other tests with the same creator.
+@pytest.mark.pre_alloc_group("create_address_collision")
 @pytest.mark.pre_alloc_mutable
 def test_revert_depth_create_address_collision(
     state_test: StateTestFiller,
