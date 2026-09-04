@@ -932,6 +932,10 @@ class BlockchainTest(BaseTest):
         fork = self.fork.fork_at(
             block_number=env.number, timestamp=env.timestamp
         )
+        parent_fork = self.fork.fork_at(
+            block_number=max(0, int(env.number) - 1),
+            timestamp=int(env.parent_timestamp or 0),
+        )
         env = env.set_fork_requirements(fork)
         env.check_fork_fields(fork)
         txs = block.txs[:]
@@ -978,6 +982,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                is_fork_transition=fork is not parent_fork,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )

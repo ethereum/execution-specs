@@ -330,6 +330,7 @@ class TransitionTool(EthereumCLI):
         reward: int
         blob_schedule: BlobSchedule | None
         state_test: bool = False
+        is_fork_transition: bool = False
 
         @property
         def fork_name(self) -> str:

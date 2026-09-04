@@ -40,6 +40,9 @@ from .block_access_lists import (
 )
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
+from .eip_8253 import (
+    apply_eip_8253_transition as apply_block_start_transition,
+)
 from .exceptions import WrongChainIdError
 from .fork_types import (
     Authorization,
@@ -167,6 +170,7 @@ class BlockChain:
     blocks: List[Block]
     state: State
     chain_id: U64
+    fork_transition_pending: bool = False
 
 
 def apply_fork(old: BlockChain) -> BlockChain:
@@ -189,7 +193,12 @@ def apply_fork(old: BlockChain) -> BlockChain:
         Upgraded block chain object for this hard fork.
 
     """
-    return old
+    return BlockChain(
+        blocks=old.blocks,
+        state=old.state,
+        chain_id=old.chain_id,
+        fork_transition_pending=True,
+    )
 
 
 def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
@@ -261,9 +270,15 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_header=chain.blocks[-1].header,
     )
 
-    block_diff = execute_block(block, chain.state, chain_context)
+    block_diff = execute_block(
+        block,
+        chain.state,
+        chain_context,
+        apply_fork_transition=chain.fork_transition_pending,
+    )
 
     apply_changes_to_state(chain.state, block_diff)
+    chain.fork_transition_pending = False
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
         # Real clients have to store more blocks to deal with reorgs, but the
@@ -275,6 +290,7 @@ def execute_block(
     block: Block,
     pre_state: State,
     chain_context: ChainContext,
+    apply_fork_transition: bool = False,
 ) -> BlockDiff:
     """
     Execute a block and validate the resulting roots against the header.
@@ -289,6 +305,8 @@ def execute_block(
         Pre-execution state provider.
     chain_context :
         Chain context that the block may need during execution.
+    apply_fork_transition :
+        Whether to apply the one-time state transition before block execution.
 
     Returns
     -------
@@ -306,6 +324,13 @@ def execute_block(
         raise InvalidBlock
 
     block_state = BlockState(pre_state=pre_state)
+    block_access_list_builder = BlockAccessListBuilder()
+
+    if apply_fork_transition:
+        apply_block_start_transition(
+            block_state,
+            block_access_list_builder,
+        )
 
     block_env = vm.BlockEnvironment(
         chain_id=chain_context.chain_id,
@@ -319,7 +344,7 @@ def execute_block(
         prev_randao=block.header.prev_randao,
         excess_blob_gas=block.header.excess_blob_gas,
         parent_beacon_block_root=block.header.parent_beacon_block_root,
-        block_access_list_builder=BlockAccessListBuilder(),
+        block_access_list_builder=block_access_list_builder,
         slot_number=block.header.slot_number,
     )
 
