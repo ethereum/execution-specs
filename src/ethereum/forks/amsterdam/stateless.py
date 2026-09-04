@@ -184,36 +184,36 @@ class StatelessValidationResult(SszContainer):
 
     Note: We use return values to denote "public inputs".
 
-    If ``successful_validation`` is ``False``, the remaining fields are
-    only meaningful when the input bytes were decoded successfully. If
-    decoding failed before a ``StatelessInput`` existed,
-    ``run_stateless_guest`` returns a failed result with sentinel defaults.
+    If ``schema_id`` is zero, the guest could not decode the input or
+    produce a validation result, and the remaining fields have sentinel
+    defaults. Otherwise, the fields identify the decoded input, including
+    when execution validation fails.
 
     """
 
     new_payload_request_root: Hash32
     """
-    SSZ root of the decoded ``NewPayloadRequest``. This is zero when
-    ``run_stateless_guest`` cannot decode the input bytes.
+    SSZ root of the decoded ``NewPayloadRequest``. This is zero in the
+    sentinel result.
     """
 
     successful_validation: bool
     """
     Whether the decoded stateless input validated successfully. ``False``
-    means validation failed or the guest input bytes could not be decoded.
+    means validation failed or the guest could not produce a result.
     """
 
     chain_id: U64
     """
-    Chain identifier decoded from the input. This is zero when
-    ``run_stateless_guest`` cannot decode the input bytes.
+    Chain identifier decoded from the input. This is zero in the sentinel
+    result.
     """
 
     schema_id: U16
     """
     Exact input schema decoded and executed by the guest. This uses the
-    invalid-input sentinel when ``run_stateless_guest`` cannot decode the
-    input bytes.
+    zero sentinel when the guest cannot decode the input or produce a
+    validation result.
     """
 
 

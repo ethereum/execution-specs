@@ -568,6 +568,50 @@ class TestSerializeStatelessOutput:
 class TestRunStatelessGuest:
     """Test stateless guest input and output handling."""
 
+    def test_request_commitment_failure_returns_sentinel(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Failure to compute the public commitment must fail closed."""
+        stateless_input = _make_stateless_input()
+        input_bytes = serialize_stateless_input(stateless_input)
+
+        def fail_hash_tree_root(self: NewPayloadRequest) -> bytes:
+            raise RuntimeError("Request commitment unavailable")
+
+        monkeypatch.setattr(
+            NewPayloadRequest, "hash_tree_root", fail_hash_tree_root
+        )
+        result = deserialize_stateless_output(run_stateless_guest(input_bytes))
+
+        assert result == StatelessValidationResult(
+            new_payload_request_root=Hash32(b"\0" * 32),
+            successful_validation=False,
+            chain_id=U64(0),
+            schema_id=U16(0),
+        )
+
+    def test_noncanonical_ssz_returns_sentinel_failure(self) -> None:
+        """Reject shifted container offsets that leave trailing data unread."""
+        stateless_input = _make_stateless_input()
+        encoded = bytearray(serialize_stateless_input(stateless_input))
+        # After the schema prefix: request offset, witness offset, chain ID,
+        # and public-key offset. Shift all three offsets by one byte.
+        for offset in (2, 6, 18):
+            value = int.from_bytes(encoded[offset : offset + 4], "little")
+            encoded[offset : offset + 4] = (value + 1).to_bytes(4, "little")
+        encoded.append(0xFF)
+
+        result = deserialize_stateless_output(
+            run_stateless_guest(Bytes(encoded))
+        )
+
+        assert result == StatelessValidationResult(
+            new_payload_request_root=Hash32(b"\0" * 32),
+            successful_validation=False,
+            chain_id=U64(0),
+            schema_id=U16(0),
+        )
+
     def test_invalid_input_bytes_return_failed_validation(self) -> None:
         """Malformed input returns a failed result with sentinel fields."""
         encoded = run_stateless_guest(Bytes(b""))

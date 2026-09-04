@@ -36,6 +36,16 @@ class _Envelope(SszContainer):
     progressive_items: _ProgressiveItems
 
 
+@dataclass(frozen=True)
+class _ByteLists(SszContainer):
+    bounded: Annotated[
+        Tuple[Annotated[bytes, byte_list(16)], ...], ssz_list(2)
+    ]
+    progressive: Annotated[
+        Tuple[Annotated[bytes, byte_list(16)], ...], progressive_list()
+    ]
+
+
 def test_nested_containers_roundtrip() -> None:
     """Restore Python types after standard and progressive SSZ decoding."""
     item = _Item(key=Bytes32(b"\x11" * 32), value=U16(3))
@@ -84,3 +94,46 @@ def test_fixed_width_integer_roundtrip() -> None:
     assert recovered.count == Uint(2**63)
     assert type(recovered.count) is Uint
     assert U64(recovered.count) == U64(2**63)
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_container_offset_gap_rejected(nested: bool) -> None:
+    """Reject offset gaps in both standard and progressive containers."""
+    original = _Envelope(
+        count=Uint(0),
+        payload=b"",
+        fixed_items=(),
+        progressive_items=_ProgressiveItems(items=()),
+    )
+    encoded = bytearray(original.encode_bytes())
+    offsets: tuple[int, ...]
+    if nested:
+        # The final field is a progressive container with one offset.
+        offsets = (int.from_bytes(encoded[16:20], "little"),)
+    else:
+        offsets = (8, 12, 16)
+    for offset in offsets:
+        value = int.from_bytes(encoded[offset : offset + 4], "little")
+        encoded[offset : offset + 4] = (value + 1).to_bytes(4, "little")
+    encoded.append(0xFF)
+
+    with pytest.raises(ValueError, match="Non-canonical SSZ encoding"):
+        _Envelope.decode_bytes(bytes(encoded))
+
+
+@pytest.mark.parametrize("progressive", [False, True])
+@pytest.mark.parametrize("trailing", [b"", b"ignored"])
+def test_nonempty_list_with_zero_first_offset_rejected(
+    progressive: bool, trailing: bytes
+) -> None:
+    """An empty variable-element list must have a zero-byte encoding."""
+    invalid_list = b"\x00" * 4 + trailing
+    second_offset = 8 if progressive else 8 + len(invalid_list)
+    encoded = (
+        (8).to_bytes(4, "little")
+        + second_offset.to_bytes(4, "little")
+        + invalid_list
+    )
+
+    with pytest.raises(ValueError):
+        _ByteLists.decode_bytes(encoded)
