@@ -50,6 +50,14 @@ from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 from execution_testing.logging import get_logger
 
 from .hive_info import ClientFile, HiveInfo
+from .reporting import (
+    HiveReportedTestCountError,
+    count_skipped_test,
+    end_test_and_count,
+    mark_hive_test_started,
+    record_test_execution,
+    verify_reported_test_count,
+)
 
 logger = get_logger(__name__)
 
@@ -162,6 +170,10 @@ def pytest_runtest_makereport(
     outcome = yield
     report = outcome.get_result()
     setattr(item, f"result_{report.when}", report)
+    if report.when == "setup":
+        record_test_execution(item)
+        if report.skipped:
+            count_skipped_test(item)
 
 
 @pytest.fixture(scope="session")
@@ -199,6 +211,7 @@ def get_test_suite_scope(fixture_name: str, config: pytest.Config) -> str:
 
 @pytest.fixture(scope=get_test_suite_scope)  # type: ignore[arg-type]
 def test_suite(
+    request: pytest.FixtureRequest,
     simulator: Simulation,
     session_temp_folder: Path,
     test_suite_name: str,
@@ -235,6 +248,7 @@ def test_suite(
 
     yield suite
 
+    count_check_error: str | None = None
     with FileLock(users_lock_file):
         with open(users_file, "r") as f:
             users = json.load(f)
@@ -242,9 +256,15 @@ def test_suite(
         with open(users_file, "w") as f:
             json.dump(users, f)
         if users == 0:
+            if getattr(request.config, "assert_reported_test_count", False):
+                count_check_error = verify_reported_test_count(
+                    request, suite, session_temp_folder
+                )
             suite.end()
             suite_file.unlink()
             users_file.unlink()
+    if count_check_error is not None:
+        raise HiveReportedTestCountError(count_check_error)
 
 
 @pytest.fixture(scope="module")
@@ -324,11 +344,11 @@ def hive_test(
             "by the simulator or pytest plugin using this plugin!"
         )
 
-    test_parameter_string = request.node.name
     test: HiveTest = test_suite.start_test(
-        name=test_parameter_string,
+        name=request.node.name,
         description=test_case_description,
     )
+    mark_hive_test_started(request.node)
     yield test
 
     try:
@@ -403,15 +423,6 @@ def hive_test(
                 "unknown).\n\n" + captured_output
             )
 
-        test.end(
-            result=HiveTestResult(
-                test_pass=test_passed, details=test_result_details
-            )
-        )
-        logger.verbose(
-            f"Finished processing logs for test: {request.node.nodeid}"
-        )
-
     except Exception as e:
         logger.verbose(
             f"Error processing logs for test {request.node.nodeid}: {str(e)}"
@@ -420,8 +431,10 @@ def hive_test(
         test_result_details = (
             f"Exception whilst processing test result: {str(e)}"
         )
-        test.end(
-            result=HiveTestResult(
-                test_pass=test_passed, details=test_result_details
-            )
-        )
+    end_test_and_count(
+        request.config,
+        request.node.nodeid,
+        test,
+        HiveTestResult(test_pass=test_passed, details=test_result_details),
+    )
+    logger.verbose(f"Finished processing logs for test: {request.node.nodeid}")
