@@ -226,6 +226,30 @@ json-loader *args: (_tmp "json-loader")
         "$@" \
         tests/json_loader
 
+# Measure full EELS block validation using an existing blockchain_tests directory.
+[group('integration tests')]
+block-coverage fixture_dir fork *args: (_tmp "block-coverage")
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fixtures=$(cd "$1" && pwd)
+    collection=$(mktemp -d "{{ root }}/tests/json_loader/.block-coverage.XXXXXX")
+    trap 'rm -rf "$collection"' EXIT
+    ln -s "$fixtures" "$collection/fixtures"
+    selected_fork="$2"
+    shift 2
+    COVERAGE_FILE="{{ output_dir }}/block-coverage/.coverage" uv run pytest \
+        "$collection/fixtures" \
+        --fork "$selected_fork" --allow-post-state-hash \
+        -m json_blockchain_tests \
+        -n {{ xdist_workers }} --dist=loadfile \
+        --cov-config="{{ root }}/pyproject.toml" \
+        --cov="{{ root }}/src/ethereum" --cov-branch \
+        --cov-report=term-missing \
+        --cov-report="json:{{ output_dir }}/block-coverage/coverage.json" \
+        --cov-report="html:{{ output_dir }}/block-coverage/html" \
+        --basetemp="{{ output_dir }}/block-coverage/tmp" \
+        "$@"
+
 # Run the spec-tools tests (lint and new-fork tooling)
 [group('integration tests')]
 spec-tools *args: (_tmp "spec-tools")

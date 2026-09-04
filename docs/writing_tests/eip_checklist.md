@@ -257,6 +257,50 @@ Example output snippet:
       # Review the generated checklist for completeness
       ```
 
+## Measure full block-validation coverage
+
+Filling fixtures measures the transition tool's execution paths. For changes
+to block validation, also consume the generated blockchain fixtures through
+EELS' JSON loader. This calls `state_transition`, `execute_block`, and
+`validate_header`, including comparisons between execution results and headers.
+
+For example, to measure EIP-8037:
+
+```bash
+uv run fill tests/amsterdam/eip8037_state_creation_gas_cost_increase/ \
+  --fork Amsterdam --output .just/eip8037-fixtures --clean
+just block-coverage .just/eip8037-fixtures/blockchain_tests Amsterdam
+```
+
+The recipe writes coverage data, JSON, and HTML under `.just/block-coverage/`.
+It uses a temporary link under the JSON loader so pytest collects the fixture
+files with the correct hooks, and removes the link after the run. Additional
+pytest arguments, such as `-k`, can follow the fork name. Each run replaces the
+previous block-coverage report; preserve reports before running another suite.
+
+The fork filter selects fixed-fork fixtures only. Transition fixtures require
+a consumer that switches forks at activation; this runner does not validate
+them. Engine and Engine X consumption and live-devnet execution are separate
+checks.
+
+Before completing the code-coverage checklist entries:
+
+1. Review coverage of the EIP's implementation changes, combining evidence
+   from execution, block-validation, and relevant inherited test suites.
+   Whole-package coverage percentages include unrelated EIPs and are not an
+   EIP completeness score.
+2. Add tests for reachable uncovered EIP behavior. For invalid-block tests,
+   verify the intended rejection is exercised: the JSON loader currently
+   accepts any Ethereum or RLP exception. Temporarily removing the target
+   validation check should make the corresponding negative tests fail.
+3. Document missed lines with their source revision and individual reasons
+   for exclusion, such as unreachable code or behavior outside the EIP.
+   Record commands, fixture revisions, results, and coverage artifacts in
+   the linked PR before adding external-coverage entries.
+4. For the optional second-client coverage item, provide an instrumented
+   client run and review its changed-code coverage, or leave the item pending.
+   A passing client-consumption run alone does not establish code coverage.
+
 ## See Also
 
 - [EIP Testing Checklist Template](./checklist_templates/eip_testing_checklist_template.md) - The full checklist template
