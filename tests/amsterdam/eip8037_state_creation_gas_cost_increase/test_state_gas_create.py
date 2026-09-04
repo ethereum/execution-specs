@@ -74,7 +74,7 @@ def test_create_charges_state_gas(
 
     expected_execution = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + code.execution_cost(fork)
         + init_code.gas_cost(fork)
     )
@@ -962,7 +962,7 @@ def test_code_deposit_oog_preserves_parent_reservoir(
 
     expected_execution = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + caller_code.execution_cost(fork)
         + factory_create_code.execution_cost(fork)
         + create_child_gas
@@ -1324,7 +1324,7 @@ def test_sstore_oog_no_reservoir_inflation(
             calldata=bytes(initcode),
             return_cost_deducted_prior_execution=True,
         )
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + caller_code.execution_cost(fork)
         + factory_gas
         - gas_shortfall

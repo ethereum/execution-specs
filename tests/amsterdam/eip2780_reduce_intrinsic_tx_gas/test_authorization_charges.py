@@ -377,7 +377,7 @@ def test_account_write_authority_is_recipient(
     # delegation.
     recipient_type = RecipientType.DELEGATION_7702
     authorizations = [authorization]
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=recipient_type,
         authorizations=authorizations,
     )

@@ -221,7 +221,7 @@ def test_selfdestruct_existing_beneficiary_no_state_gas(
 
     gas_limit = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + code.execution_cost(fork)
     )
 
@@ -262,7 +262,7 @@ def test_selfdestruct_zero_balance_no_state_gas(
 
     gas_limit = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + code.execution_cost(fork)
     )
 
@@ -551,7 +551,7 @@ def test_create_selfdestruct_no_refund_code_deposit_state_gas(
     total_state_gas = factory_code.state_cost(fork) + initcode.state_cost(fork)
     total_execution_gas = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + factory_code.execution_cost(fork)
         + initcode.execution_cost(fork)
     )
@@ -624,7 +624,7 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
 
     baseline_block_execution = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + factory_code.execution_cost(fork)
         + initcode.execution_cost(fork)
     )

@@ -517,7 +517,7 @@ def test_bal_7702_top_frame_delegation_oog(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.DELEGATION_7702,
     )
 
@@ -597,7 +597,7 @@ def test_bal_7702_recipient_excluded_on_authorization_oog(
         authority_expectation = BalAccountExpectation.empty()
         expected_authority = auth.original_account
     else:
-        top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+        top_frame_execution = fork.transaction_top_frame_execution_gas(
             recipient_type=RecipientType.CONTRACT,
             authorizations=authorization_list,
         )

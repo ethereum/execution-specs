@@ -19,7 +19,6 @@ from ....base_fork import (
     AuthorizationGasInfo,
     BaseFork,
     RefundTypes,
-    TopFrameGasCalculator,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
@@ -166,9 +165,15 @@ class EIP2780(BaseFork):
         return fn
 
     @classmethod
-    def transaction_top_frame_gas_calculator(
+    def transaction_top_frame_execution_gas(
         cls,
-    ) -> TopFrameGasCalculator:
+        *,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
+        delegation_warm: bool = False,
+        authorizations: Sequence[AuthorizationGasInfo] = (),
+    ) -> int:
         """
         Return the additional execution gas charged at the top-level
         transaction frame, after intrinsic gas is deducted but before
@@ -184,32 +189,21 @@ class EIP2780(BaseFork):
         returned separately by ``transaction_top_frame_state_gas``.
         """
         gas_costs = cls.gas_costs()
+        del sends_value
+        if contract_creation:
+            return 0
 
-        def fn(
-            *,
-            contract_creation: bool = False,
-            sends_value: bool = False,
-            recipient_type: RecipientType = RecipientType.CONTRACT,
-            delegation_warm: bool = False,
-            authorizations: Sequence[AuthorizationGasInfo] = (),
-        ) -> int:
-            del sends_value
-            if contract_creation:
-                return 0
-
-            execution = 0
-            if recipient_type == RecipientType.DELEGATION_7702:
-                execution += (
-                    gas_costs.WARM_ACCESS
-                    if delegation_warm
-                    else gas_costs.COLD_ACCOUNT_ACCESS
-                )
-            for auth in authorizations:
-                if auth.first_write:
-                    execution += gas_costs.ACCOUNT_WRITE
-            return execution
-
-        return fn
+        execution = 0
+        if recipient_type == RecipientType.DELEGATION_7702:
+            execution += (
+                gas_costs.WARM_ACCESS
+                if delegation_warm
+                else gas_costs.COLD_ACCOUNT_ACCESS
+            )
+        for auth in authorizations:
+            if auth.first_write:
+                execution += gas_costs.ACCOUNT_WRITE
+        return execution
 
     @classmethod
     def transaction_top_frame_state_gas(

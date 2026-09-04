@@ -259,7 +259,7 @@ def test_top_frame_charges_delegation_in_access_list(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=True,
@@ -360,7 +360,7 @@ def test_top_frame_charges_delegation_is_coinbase(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=True,
@@ -488,7 +488,7 @@ def test_top_frame_charges_delegation_is_sender(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=True,
@@ -555,7 +555,7 @@ def test_top_frame_charges_delegation_is_recipient(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=True,
@@ -630,7 +630,7 @@ def test_top_frame_charges_self_delegation_oog(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=True,
@@ -703,7 +703,7 @@ def test_top_frame_charges_delegation_is_precompile(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=True,

@@ -474,7 +474,7 @@ def test_block_gas_used_create_tx(
     create_execution = intrinsic_calc(
         calldata=init_code,
         contract_creation=True,
-    ) + fork.transaction_top_frame_gas_calculator()(contract_creation=True)
+    ) + fork.transaction_top_frame_execution_gas(contract_creation=True)
     create_state = fork.transaction_top_frame_state_gas(contract_creation=True)
     stop_execution = intrinsic_calc()
 

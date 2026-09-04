@@ -712,22 +712,14 @@ class Alloc(SharedAlloc):
                     first_write=True,
                 )
             ]
-            auth_fund_gas_limit = (
-                intrinsic_calc(
-                    authorization_list_or_count=1,
-                    sends_value=True,
-                    recipient_type=RecipientType.EMPTY_ACCOUNT,
-                )
-                + fork.transaction_top_frame_gas_calculator()(
-                    sends_value=True,
-                    recipient_type=RecipientType.EMPTY_ACCOUNT,
-                    authorizations=worst_case_auth,
-                )
-                + fork.transaction_top_frame_state_gas(
-                    sends_value=True,
-                    recipient_type=RecipientType.EMPTY_ACCOUNT,
-                    authorizations=worst_case_auth,
-                )
+            auth_fund_gas_limit = intrinsic_calc(
+                authorization_list_or_count=1,
+                sends_value=True,
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+            ) + fork.transaction_top_frame_gas_calculator()(
+                sends_value=True,
+                recipient_type=RecipientType.EMPTY_ACCOUNT,
+                authorizations=worst_case_auth,
             )
 
             if storage is not None:
