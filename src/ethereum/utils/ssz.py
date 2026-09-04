@@ -136,8 +136,13 @@ class SszContainer:
 
     @classmethod
     def decode_bytes(cls: Type[_C], data: bytes) -> _C:
-        """Decode SSZ bytes into this dataclass type."""
+        """Decode canonical SSZ bytes into this dataclass type."""
         view = _container_type(cls).decode_bytes(data)
+        # The underlying decoder can accept offset gaps and leave bytes
+        # unread. Require the exact encoding, including nested containers,
+        # before exposing the decoded value to validation or hashing.
+        if view.encode_bytes() != data:
+            raise ValueError("Non-canonical SSZ encoding")
         return _from_view(cls, view)
 
 

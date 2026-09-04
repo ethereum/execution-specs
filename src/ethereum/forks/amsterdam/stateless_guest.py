@@ -40,7 +40,7 @@ def deserialize_stateless_input(data: Bytes) -> StatelessInput:
 
 def _default_failed_stateless_output() -> StatelessValidationResult:
     """
-    Return the sentinel result used when stateless input cannot be decoded.
+    Return the sentinel when the guest cannot produce a validation result.
     """
     return StatelessValidationResult(
         new_payload_request_root=Hash32(b"\0" * 32),
@@ -56,10 +56,9 @@ def run_stateless_guest(input_bytes: Bytes) -> Bytes:
     """
     try:
         stateless_input = deserialize_stateless_input(input_bytes)
+        stateless_output = verify_stateless_new_payload(stateless_input)
     except Exception:
         stateless_output = _default_failed_stateless_output()
-    else:
-        stateless_output = verify_stateless_new_payload(stateless_input)
 
     output_bytes = serialize_stateless_output(stateless_output)
     return output_bytes
