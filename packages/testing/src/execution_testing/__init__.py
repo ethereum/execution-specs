@@ -117,6 +117,7 @@ from .tools import (
     gas_test,
     generate_system_contract_deploy_test,
     generate_system_contract_error_test,
+    max_count_with_gas_limit,
 )
 from .vm import (
     Bytecode,
@@ -244,6 +245,7 @@ __all__ = (
     "CreatePreimageLayout",
     "extend_with_defaults",
     "gas_test",
+    "max_count_with_gas_limit",
     "generate_system_contract_deploy_test",
     "generate_system_contract_error_test",
     "keccak256",

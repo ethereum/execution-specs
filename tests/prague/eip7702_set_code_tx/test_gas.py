@@ -24,6 +24,7 @@ from execution_testing import (
     Bytecode,
     ChainConfig,
     CodeGasMeasure,
+    Environment,
     Fork,
     Op,
     StateTestFiller,
@@ -32,11 +33,9 @@ from execution_testing import (
     TransactionException,
     TransactionReceipt,
     extend_with_defaults,
+    max_count_with_gas_limit,
 )
 
-from ...amsterdam.eip8037_state_creation_gas_cost_increase.spec import (
-    Spec as Spec8037,
-)
 from .helpers import AddressType, ChainIDType
 from .spec import Spec, ref_spec_7702
 
@@ -94,6 +93,22 @@ class AccessListType(Enum):
             AccessListType.CONTAINS_SET_CODE_ADDRESS,
             AccessListType.CONTAINS_AUTHORITY_AND_SET_CODE_ADDRESS,
         }
+
+
+@pytest.fixture
+def authorizations_count(request: pytest.FixtureRequest, fork: Fork) -> int:
+    """Size authorization lists using the active fork's intrinsic gas cost."""
+    if isinstance(request.param, int):
+        return request.param
+    max_gas = fork.transaction_gas_limit_cap() or Environment().gas_limit
+    if request.param == "many_with_execution":
+        # Reserve gas for the execution assertions in test_gas_cost.
+        max_gas -= 1_000_000
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    return max_count_with_gas_limit(
+        lambda count: intrinsic_cost(authorization_list_or_count=count),
+        max_gas,
+    )
 
 
 # Fixtures used to parametrize the tests
@@ -798,26 +813,8 @@ def gas_test_parameter_args(
         ]
 
     if include_many:
-        # Fit as many authorizations as possible within the
-        # transaction gas limit cap. Under EIP-8037 the per-auth
-        # intrinsic grows with cpsb; on older forks it is
-        # `Spec.AUTH_PER_EMPTY_ACCOUNT`. Divide by the larger so the
-        # count fits at any fork — older forks simply exercise fewer
-        # authorizations than the cap allows.
-        eip_8037_auth_cost = (
-            Spec8037.PER_AUTH_BASE_COST
-            + (
-                Spec8037.STATE_BYTES_PER_NEW_ACCOUNT
-                + Spec8037.STATE_BYTES_PER_AUTH_BASE
-            )
-            * Spec8037.COST_PER_STATE_BYTE
-        )
-        max_gas = Spec8037.TX_MAX_GAS_LIMIT - 21_000  # TX_BASE
-        if execution_gas_allowance:
-            # Leave some gas for the execution of the test code.
-            max_gas -= 1_000_000
-        many_authorizations_count = max_gas // max(
-            Spec.AUTH_PER_EMPTY_ACCOUNT, eip_8037_auth_cost
+        many_authorizations_count = (
+            "many_with_execution" if execution_gas_allowance else "many"
         )
         cases += [
             pytest.param(
@@ -846,7 +843,9 @@ def gas_test_parameter_args(
             ),
         ]
     return extend_with_defaults(
-        cases=cases, defaults=defaults, indirect=["authorize_to_address"]
+        cases=cases,
+        defaults=defaults,
+        indirect=["authorize_to_address", "authorizations_count"],
     )
 
 
