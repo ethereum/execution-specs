@@ -1,6 +1,9 @@
 # Executing Tests on a Hive Local Network
 
-Tests can be executed on a local hive-controlled single-client network by running the `execute hive` command.
+Execute tests run on a local network whose clients are managed by Hive. Choose the path that fits your task:
+
+- **Run the blob simulator or reproduce a dashboard failure:** use the [published `execute-blobs` image](#the-eelsexecute-blobs-simulator) with `./hive --sim`. Hive runs the simulator and client in containers.
+- **Edit tests or debug interactively:** use [development mode](#running-execute-tests-with-hive-in-dev-mode) with `./hive --dev`, then run `uv run execute hive` from your local checkout.
 
 ## The `eels/execute-blobs` Simulator
 
@@ -13,16 +16,30 @@ The `blob_transaction_test` execute test spec sends blob transactions to a runni
 Tests can be run using:
 
 ```bash
-./hive --client besu --client-file ./configs/osaka.yaml --sim ethereum/eels/execute-blobs
+./hive --sim execute-blobs --client besu \
+    --client-file ./configs/osaka.yaml
 ```
 
 **Note**: If the Engine RPC is unavailable, blob transactions will be sent and `getBlobsV*` validation is skipped.
+
+The default `execute-blobs` Dockerfile uses a published simulator image. Its tag selects the release's Python test sources; images for the branch's current release receive framework updates. See [Simulator Images](../hive/images/index.md) for setup and [Choose a tag](../hive/images/index.md#choose-a-tag) for release, devnet and nightly options. Hive accepts the short name `--sim execute-blobs`.
+
+To select a published release explicitly:
+
+```bash
+./hive --sim execute-blobs --client go-ethereum \
+    --sim.buildarg tag=v20.0.2
+```
+
+To reproduce a dashboard failure, match its simulator image, client version and configuration, and test selection. For [exact reproduction](../hive/images/how_to.md#reproduce-a-run-exactly), pin the image digest; the default `latest` image may have changed since the dashboard run. A [source build](../hive/images/how_to.md#build-from-source-with-dockerfilegit) runs both tests and framework from the selected branch; it does not select a separate release test snapshot.
 
 See [Hive](../hive/index.md) for help installing and configuring Hive.
 
 ## Running `execute` tests with Hive in Dev Mode
 
-This command requires hive to be running in `--dev` mode:
+Switch to development mode when you need to edit tests or simulator code, rerun quickly, or use a Python debugger. Both tests and framework now come from your checkout, rather than the release selected by a published image tag. Install the [testing tools](../../getting_started/installation.md) first; see [Hive development mode](../hive/dev_mode.md) for platform-specific setup.
+
+Start Hive from its checkout and leave it running:
 
 ```bash
 ./hive --dev --client go-ethereum
@@ -30,7 +47,7 @@ This command requires hive to be running in `--dev` mode:
 
 This will start hive in dev mode with the single go-ethereum client available for launching tests.
 
-Then the tests can be executed by setting the `HIVE_SIMULATOR` environment variable
+In another terminal, from your execution-specs checkout, set the `HIVE_SIMULATOR` environment variable:
 
 ```bash
 export HIVE_SIMULATOR=http://127.0.0.1:3000
@@ -41,6 +58,8 @@ and running:
 ```bash
 uv run execute hive --fork=Cancun
 ```
+
+Add `-k test_name` to select a test and `--pdb` to enter the debugger on failure; see [Useful Pytest Options](../useful_pytest_options.md).
 
 If the command above leads to errors such as `ImportError: Error importing plugin "pytest_plugins.execute.rpc.hive": No module named 'hive.client'` run the following to fix it: `uv run eest clean --all`.
 
@@ -56,16 +75,9 @@ One important feature of the `execute hive` command is that, since there is no c
 
 Clients that implement the `testing_buildBlockV1` endpoint can use it as an alternative to the standard Engine API block building flow. Instead of sending transactions to the mempool and building blocks through `engine_forkchoiceUpdatedVX` / `engine_getPayloadVX`, the plugin sends transactions directly inside the `testing_buildBlockV1` call, which builds a block containing exactly those transactions.
 
-To enable this route, pass the `--use-testing-build-block` flag:
+With Hive running in development mode and `HIVE_SIMULATOR` set as above, pass the `--use-testing-build-block` flag:
 
 ```bash
-uv run execute hive --fork=Prague --use-testing-build-block
-```
-
-Or in dev mode:
-
-```bash
-./hive --dev --client go-ethereum
 uv run execute hive --fork=Prague --use-testing-build-block
 ```
 
