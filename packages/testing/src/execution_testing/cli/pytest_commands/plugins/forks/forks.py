@@ -40,6 +40,7 @@ from execution_testing.forks import (
     get_transition_forks,
     transition_fork_to,
 )
+from execution_testing.forks.forks.eips import ALL_EIPS
 from execution_testing.logging import (
     get_logger,
 )
@@ -528,6 +529,14 @@ def pytest_configure(config: pytest.Config) -> None:
             "shown in verbose collection output."
         ),
     )
+    for eip in sorted(ALL_EIPS):
+        config.addinivalue_line(
+            "markers",
+            (
+                f"{eip.name()}: tests explicitly enabled by "
+                f"{eip.name()} via valid_from(...)"
+            ),
+        )
     for d in fork_covariant_decorators:
         config.addinivalue_line("markers", f"{d.marker_name}: {d.description}")
 
@@ -1554,6 +1563,33 @@ def blob_params_changed_at_transition(fork: Fork | TransitionFork) -> bool:
     return False
 
 
+def get_valid_from_eip_marker_names(
+    markers: Iterator[pytest.Mark],
+) -> Set[str]:
+    """
+    Return explicit EIP names from ``valid_from`` markers.
+
+    Only positive EIP-based selectors are promoted to plain pytest markers so
+    ``-m EIP1234`` matches tests explicitly enabled by that EIP.
+    """
+    eip_marker_names: Set[str] = set()
+    for marker in markers:
+        if not marker.args:
+            continue
+        for fork_or_eip in ForkEIPSetAdapter.validate_python(marker.args):
+            if not fork_or_eip.is_transition_fork and fork_or_eip.is_eip():
+                eip_marker_names.add(fork_or_eip.name())
+    return eip_marker_names
+
+
+def add_explicit_eip_markers(item: pytest.Item) -> None:
+    """Attach plain pytest EIP markers derived from ``valid_from``."""
+    for eip_marker_name in sorted(
+        get_valid_from_eip_marker_names(item.iter_markers("valid_from"))
+    ):
+        item.add_marker(getattr(pytest.mark, eip_marker_name))
+
+
 def _get_item_params(
     item: pytest.Item,
 ) -> Dict[str, Any] | None:
@@ -1621,6 +1657,8 @@ def pytest_collection_modifyitems(
     filter_stats: Dict[str, Tuple[str, int, int]] = {}
 
     for i, item in enumerate(items):
+        add_explicit_eip_markers(item)
+
         params = _get_item_params(item)
         if not params:
             continue
