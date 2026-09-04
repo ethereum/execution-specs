@@ -17,6 +17,7 @@ from ethereum_types.numeric import U256, Uint, ulen
 from ethereum.state import EMPTY_ACCOUNT
 from ethereum.utils.numeric import ceil32
 
+from ...block_access_lists import BAL_BYTES_PER_ADDRESS
 from ...fork_types import ExecutionGas
 from ...state_tracker import get_account, get_code
 from ...utils.address import to_address_masked
@@ -28,6 +29,7 @@ from ..gas import (
     calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
+    meter_bal_data,
 )
 from ..stack import pop, push
 
@@ -74,6 +76,8 @@ def balance(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(address)
         charge_gas(evm, GasCosts.COLD_ACCOUNT_ACCESS)
+        # The account enters the block access list on this first touch.
+        meter_bal_data(evm.tx_env, BAL_BYTES_PER_ADDRESS)
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
@@ -346,6 +350,8 @@ def extcodesize(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
+        # The account enters the block access list on this first touch.
+        meter_bal_data(evm.tx_env, BAL_BYTES_PER_ADDRESS)
     access_gas_cost += GasCosts.WARM_ACCESS  # Code reading cost (EIP-8038)
     charge_gas(evm, access_gas_cost)
 
@@ -389,6 +395,8 @@ def extcodecopy(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
+        # The account enters the block access list on this first touch.
+        meter_bal_data(evm.tx_env, BAL_BYTES_PER_ADDRESS)
     access_gas_cost += GasCosts.WARM_ACCESS  # Code reading cost (EIP-8038)
 
     total_gas_cost = access_gas_cost + copy_gas_cost + extend_memory.cost
@@ -492,6 +500,8 @@ def extcodehash(evm: Evm) -> None:
     else:
         evm.accessed_addresses.add(address)
         access_gas_cost = GasCosts.COLD_ACCOUNT_ACCESS
+        # The account enters the block access list on this first touch.
+        meter_bal_data(evm.tx_env, BAL_BYTES_PER_ADDRESS)
 
     charge_gas(evm, access_gas_cost)
 

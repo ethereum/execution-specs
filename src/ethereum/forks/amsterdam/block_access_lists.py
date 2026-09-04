@@ -27,6 +27,32 @@ from .exceptions import BlockAccessListGasLimitExceededError
 from .fork_types import BlockAccessIndex
 from .state_tracker import BlockState, TransactionState, get_code
 
+BAL_BYTES_PER_ADDRESS = Uint(20)
+"""
+Bytes an account address contributes to the block access list.
+"""
+
+BAL_BYTES_PER_STORAGE_KEY = Uint(32)
+"""
+Bytes a storage slot key contributes to the block access list.
+"""
+
+BAL_BYTES_PER_STORAGE_VALUE = Uint(32)
+"""
+Bytes a changed storage slot's post value contributes to the block
+access list.
+"""
+
+BAL_BYTES_PER_BALANCE = Uint(32)
+"""
+Bytes an account's post balance contributes to the block access list.
+"""
+
+BAL_BYTES_PER_NONCE = Uint(8)
+"""
+Bytes an account's post nonce contributes to the block access list.
+"""
+
 
 @final
 @slotted_freezable
