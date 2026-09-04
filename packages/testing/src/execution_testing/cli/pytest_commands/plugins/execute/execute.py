@@ -56,10 +56,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     Both ``pytest-execute*.ini`` and ``pytest-fill-stateful.ini`` load the
     shared plugin ahead of this one.
     """
-    report_group = parser.getgroup(
-        "tests", "Arguments defining html report behavior"
+    estimate_group = parser.getgroup(
+        "execute_estimate_gas",
+        "Arguments defining gas estimation for execute commands",
     )
-    report_group.addoption(
+    estimate_group.addoption(
         "--estimate-gas",
         action="store_true",
         default=False,
@@ -68,6 +69,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "implicit gas limits, after funding and contract deployment. "
             "Preserve explicit gas/reservoir limits and benchmark budgets."
         ),
+    )
+    report_group = parser.getgroup(
+        "tests", "Arguments defining html report behavior"
     )
     report_group.addoption(
         "--no-html",
