@@ -19,7 +19,7 @@ from ethereum_types.numeric import U64, U256, Uint, ulen
 from ethereum.exceptions import GasUsedExceedsLimitError
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
-from ethereum.utils.numeric import ceil32, taylor_exponential
+from ethereum.utils.numeric import ceil32
 
 from ..blocks import Header
 from ..exceptions import (
@@ -32,6 +32,13 @@ from ..fork_types import (
     StateGasPerByte,
     VersionedHash,
 )
+from ..slot_timing import (
+    SLOT_DURATION_SCHEDULE,
+    SlotDurationSchedule,
+    calculate_blob_gas_price_for_slot,
+    get_blob_schedule,
+    get_max_blob_gas_per_block,
+)
 from ..transactions import (
     TX_MAX_GAS_LIMIT,
     BlobTransaction,
@@ -42,6 +49,9 @@ from .exceptions import OutOfGasError
 
 if TYPE_CHECKING:
     from . import BlockEnvironment, BlockOutput, Evm
+
+
+_INITIAL_SLOT = U64(0)
 
 
 # These may be patched at runtime by a future gas repricing utility to
@@ -140,13 +150,22 @@ class GasCosts:
     )
 
     # Blobs
+    #
+    # The per-block blob schedule is rescaled from the previous fork's
+    # target of 14 and maximum of 21 by the slot-duration ratio
+    # (10s / 12s), keeping blob throughput per unit of wall-clock time
+    # approximately constant under the shorter slot: 21 * 10 // 12 = 17
+    # and 14 * 10 / 12 = 11.67, rounded to 12. The update fraction is
+    # rescaled so that the maximum sustained blob base fee growth rate
+    # per unit of wall-clock time is preserved:
+    # 11684671 * (17 - 12) / (21 - 14) * 12 / 10 = 10015432.
     PER_BLOB: Final[U64] = U64(2**17)
-    BLOB_SCHEDULE_TARGET: Final[U64] = U64(14)
+    BLOB_SCHEDULE_TARGET: Final[U64] = U64(12)
     BLOB_TARGET_GAS_PER_BLOCK: Final[U64] = PER_BLOB * BLOB_SCHEDULE_TARGET
     BLOB_BASE_COST: Final[Uint] = Uint(2**13)
-    BLOB_SCHEDULE_MAX: Final[U64] = U64(21)
+    BLOB_SCHEDULE_MAX: Final[U64] = U64(17)
     BLOB_MIN_GASPRICE: Final[Uint] = Uint(1)
-    BLOB_BASE_FEE_UPDATE_FRACTION: Final[Uint] = Uint(11684671)
+    BLOB_BASE_FEE_UPDATE_FRACTION: Final[Uint] = Uint(10015432)
 
     # Block Access Lists
     BLOCK_ACCESS_LIST_ITEM: Final[ExecutionGas] = ExecutionGas(Uint(2000))
@@ -862,52 +881,43 @@ def init_code_cost(init_code_length: Uint) -> ExecutionGas:
 
 def calculate_excess_blob_gas(
     parent_header: Header | PreviousHeader,
+    current_slot_number: U64 = _INITIAL_SLOT,
+    slot_duration_schedule: SlotDurationSchedule = SLOT_DURATION_SCHEDULE,
 ) -> U64:
-    """
-    Calculates the excess blob gas for the current block based
-    on the gas used in the parent block.
-
-    Parameters
-    ----------
-    parent_header :
-        The parent block of the current block.
-
-    Returns
-    -------
-    excess_blob_gas: `ethereum.base_types.U64`
-        The excess blob gas for the current block.
-
-    """
-    # Defaults for a parent without blob gas fields.
+    """Calculate excess blob gas using the current slot-duration era."""
     excess_blob_gas = U64(0)
     blob_gas_used = U64(0)
     base_fee_per_gas = Uint(0)
 
     if isinstance(parent_header, (Header, PreviousHeader)):
-        # Read them from any parent that carries the fields, so
-        # accumulated excess blob gas survives a fork transition.
         excess_blob_gas = parent_header.excess_blob_gas
         blob_gas_used = parent_header.blob_gas_used
         base_fee_per_gas = parent_header.base_fee_per_gas
 
+    blob_schedule = get_blob_schedule(
+        current_slot_number, slot_duration_schedule
+    )
+    target_blob_gas_per_block = GasCosts.PER_BLOB * blob_schedule.target
     parent_blob_gas = excess_blob_gas + blob_gas_used
-    if parent_blob_gas < GasCosts.BLOB_TARGET_GAS_PER_BLOCK:
+    if parent_blob_gas < target_blob_gas_per_block:
         return U64(0)
 
     target_blob_gas_price = Uint(GasCosts.PER_BLOB)
-    target_blob_gas_price *= calculate_blob_gas_price(excess_blob_gas)
+    target_blob_gas_price *= calculate_blob_gas_price(
+        excess_blob_gas,
+        current_slot_number,
+        slot_duration_schedule,
+    )
 
     base_blob_tx_price = GasCosts.BLOB_BASE_COST * base_fee_per_gas
     if base_blob_tx_price > target_blob_gas_price:
-        blob_schedule_delta = (
-            GasCosts.BLOB_SCHEDULE_MAX - GasCosts.BLOB_SCHEDULE_TARGET
-        )
-        return (
+        blob_schedule_delta = blob_schedule.maximum - blob_schedule.target
+        return U64(
             excess_blob_gas
-            + blob_gas_used * blob_schedule_delta // GasCosts.BLOB_SCHEDULE_MAX
+            + blob_gas_used * blob_schedule_delta // blob_schedule.maximum
         )
 
-    return parent_blob_gas - GasCosts.BLOB_TARGET_GAS_PER_BLOCK
+    return U64(parent_blob_gas - target_blob_gas_per_block)
 
 
 def calculate_total_blob_gas(tx: Transaction) -> U64:
@@ -931,47 +941,30 @@ def calculate_total_blob_gas(tx: Transaction) -> U64:
         return U64(0)
 
 
-def calculate_blob_gas_price(excess_blob_gas: U64) -> Uint:
-    """
-    Calculate the blob gasprice for a block.
-
-    Parameters
-    ----------
-    excess_blob_gas :
-        The excess blob gas for the block.
-
-    Returns
-    -------
-    blob_gasprice: `Uint`
-        The blob gasprice.
-
-    """
-    return taylor_exponential(
-        GasCosts.BLOB_MIN_GASPRICE,
-        Uint(excess_blob_gas),
-        GasCosts.BLOB_BASE_FEE_UPDATE_FRACTION,
+def calculate_blob_gas_price(
+    excess_blob_gas: U64,
+    slot_number: U64 = _INITIAL_SLOT,
+    slot_duration_schedule: SlotDurationSchedule = SLOT_DURATION_SCHEDULE,
+) -> Uint:
+    """Calculate the blob gas price for the supplied duration era."""
+    return calculate_blob_gas_price_for_slot(
+        excess_blob_gas,
+        slot_number,
+        slot_duration_schedule,
     )
 
 
-def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
-    """
-    Calculate the blob data fee for a transaction.
-
-    Parameters
-    ----------
-    excess_blob_gas :
-        The excess_blob_gas for the execution.
-    tx :
-        The transaction for which the blob data fee is to be calculated.
-
-    Returns
-    -------
-    data_fee: `Uint`
-        The blob data fee.
-
-    """
+def calculate_data_fee(
+    excess_blob_gas: U64,
+    tx: Transaction,
+    slot_number: U64 = _INITIAL_SLOT,
+    slot_duration_schedule: SlotDurationSchedule = SLOT_DURATION_SCHEDULE,
+) -> Uint:
+    """Calculate the blob data fee for the supplied duration era."""
     return Uint(calculate_total_blob_gas(tx)) * calculate_blob_gas_price(
-        excess_blob_gas
+        excess_blob_gas,
+        slot_number,
+        slot_duration_schedule,
     )
 
 
@@ -979,33 +972,18 @@ def check_max_fee_per_blob_gas(
     blob_versioned_hashes: Tuple[VersionedHash, ...],
     max_fee_per_blob_gas: U256,
     excess_blob_gas: U64,
+    slot_number: U64 = _INITIAL_SLOT,
+    slot_duration_schedule: SlotDurationSchedule = SLOT_DURATION_SCHEDULE,
 ) -> None:
-    """
-    Check that a transaction carrying blobs pays at least the blob gas
-    price.
-
-    A transaction without blobs pays no blob fee, so its fee cap is not
-    checked.
-
-    Parameters
-    ----------
-    blob_versioned_hashes :
-        The transaction's blob versioned hashes.
-    max_fee_per_blob_gas :
-        The transaction's fee cap per unit of blob gas.
-    excess_blob_gas :
-        The block's excess blob gas.
-
-    Raises
-    ------
-    InsufficientMaxFeePerBlobGasError :
-        If the fee cap does not cover the blob gas price.
-
-    """
+    """Check that a blob transaction covers the active-era blob price."""
     if not blob_versioned_hashes:
         return
 
-    blob_gas_price = calculate_blob_gas_price(excess_blob_gas)
+    blob_gas_price = calculate_blob_gas_price(
+        excess_blob_gas,
+        slot_number,
+        slot_duration_schedule,
+    )
     if Uint(max_fee_per_blob_gas) < blob_gas_price:
         raise InsufficientMaxFeePerBlobGasError(
             "insufficient max fee per blob gas"
@@ -1053,7 +1031,10 @@ def check_block_gas_capacity(
     state_gas_available = (
         block_env.block_gas_limit - block_output.block_state_gas_used
     )
-    blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
+    blob_gas_available = (
+        get_max_blob_gas_per_block(block_env.slot_number)
+        - block_output.blob_gas_used
+    )
 
     if min(TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
         raise GasUsedExceedsLimitError("execution gas used exceeds limit")
