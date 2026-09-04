@@ -3405,6 +3405,62 @@ def test_bal_cross_block_ripemd160_state_leak(
     )
 
 
+@pytest.mark.parametrize(
+    "touch_first",
+    [
+        pytest.param(True, id="zero_value_touch"),
+        pytest.param(False, id="no_touch"),
+    ],
+)
+def test_bal_insufficient_balance_call_to_touched_precompile(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    touch_first: bool,
+) -> None:
+    """
+    Ensure BAL records a dead precompile reached only by a failed value
+    transfer, with or without a prior zero-value touch.
+
+    The value call fails its balance check after the target access is
+    charged, so RIPEMD-160 must appear in the BAL with empty changes and
+    must not exist in post-state. Regression test for
+    https://github.com/erigontech/erigon/issues/23670.
+    """
+    ripemd160_addr = Address(0x03)
+    alice = pre.fund_eoa()
+
+    value_call = Op.POP(Op.CALL(gas=100_000, address=ripemd160_addr, value=2))
+    if touch_first:
+        code = (
+            Op.POP(Op.CALL(gas=100_000, address=ripemd160_addr)) + value_call
+        )
+    else:
+        code = value_call
+    caller = pre.deploy_contract(code, balance=1)
+
+    tx = Transaction(sender=alice, to=caller)
+
+    state_test(
+        pre=pre,
+        post={
+            caller: Account(balance=1),
+            ripemd160_addr: Account.NONEXISTENT,
+        },
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                caller: BalAccountExpectation.empty(),
+                ripemd160_addr: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+
 @EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 def test_bal_all_transaction_types(
     pre: Alloc,
