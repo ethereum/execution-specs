@@ -20,6 +20,7 @@ from execution_testing import (
     Alloc,
     Fork,
     StateTestFiller,
+    Storage,
     Transaction,
     compute_create2_address,
     compute_create_address,
@@ -31,8 +32,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 CANARY_SLOT = 0x2
 CANARY = 0xFF
-TX_VALUE = 100
-CHILD_STORED = {0x0: 0xC, 0x1: 0xD}
 # What the starved child has left after its first store: under the
 # EIP-2200 stipend gate and far below a second fresh store.
 STORE_SPARE = 1_000
@@ -57,23 +56,23 @@ def test_create_message_reverted_oog_in_init2(
 ) -> None:
     """The budget decides how far an init-code CREATE2's child gets."""
     # The child's init code writes two fresh slots and deposits nothing.
+    storage = Storage()
     first_store = Op.SSTORE(
-        key=0x0,
-        value=CHILD_STORED[0x0],
+        key=storage.store_next(0xC),
+        value=0xC,
         key_warm=False,
         original_value=0,
-        new_value=CHILD_STORED[0x0],
+        new_value=0xC,
     )
     second_store = Op.SSTORE(
-        key=0x1,
-        value=CHILD_STORED[0x1],
+        key=storage.store_next(0xD),
+        value=0xD,
         key_warm=False,
         original_value=0,
-        new_value=CHILD_STORED[0x1],
+        new_value=0xD,
     )
     inner_initcode = first_store + second_store
-    inner_bytes = bytes(inner_initcode)
-    assert len(inner_bytes) <= 0x20, "inner init code must fit one word"
+    assert len(inner_initcode) <= 0x20, "inner init code must fit one word"
 
     # The outer init code writes a completion canary before the CREATE2
     # (only a POP runs after it: the retention after a failed child is
@@ -88,19 +87,19 @@ def test_create_message_reverted_oog_in_init2(
     )
     setup = Op.MSTORE(
         offset=0x0,
-        value=int.from_bytes(inner_bytes, "big"),
+        value=int.from_bytes(inner_initcode, "big"),
         new_memory_size=0x20,
     )
     create2_code = Op.CREATE2(
         value=0x0,
-        offset=0x20 - len(inner_bytes),
-        size=len(inner_bytes),
+        offset=0x20 - len(inner_initcode),
+        size=len(inner_initcode),
         salt=0x0,
         new_memory_size=0x20,
         old_memory_size=0x20,
-        init_code_size=len(inner_bytes),
+        init_code_size=len(inner_initcode),
     )
-    outer_initcode = canary_store + setup + Op.POP(create2_code) + Op.STOP
+    outer_initcode = canary_store + setup + create2_code + Op.STOP
 
     # Both budgets derive from the same overhead: everything the outer
     # frame pays before (and including) the CREATE2's own charges. The
@@ -113,9 +112,7 @@ def test_create_message_reverted_oog_in_init2(
             return_cost_deducted_prior_execution=True,
         )
         + fork.transaction_top_frame_state_gas(contract_creation=True)
-        + canary_store.gas_cost(fork)
-        + setup.gas_cost(fork)
-        + create2_code.gas_cost(fork)
+        + outer_initcode.gas_cost(fork)
     )
     child_needed = inner_initcode.gas_cost(fork)
     if child_covered:
@@ -134,7 +131,6 @@ def test_create_message_reverted_oog_in_init2(
         to=None,
         data=outer_initcode,
         gas_limit=gas_limit,
-        value=TX_VALUE,
     )
 
     outer_created = compute_create_address(address=sender, nonce=0)
@@ -146,10 +142,9 @@ def test_create_message_reverted_oog_in_init2(
         outer_created: Account(
             nonce=2,
             code=b"",
-            balance=TX_VALUE,
             storage={CANARY_SLOT: CANARY},
         ),
-        child: Account(nonce=1, code=b"", balance=0, storage=CHILD_STORED)
+        child: Account(nonce=1, code=b"", balance=0, storage=storage)
         if child_covered
         else Account.NONEXISTENT,
     }
