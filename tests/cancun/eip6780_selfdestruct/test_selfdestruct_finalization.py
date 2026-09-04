@@ -20,10 +20,13 @@ from execution_testing import (
     BalBalanceChange,
     BalCodeChange,
     BalNonceChange,
+    Block,
     BlockAccessListExpectation,
+    BlockchainTestFiller,
     Bytecode,
     Conditional,
     Fork,
+    Hash,
     Initcode,
     Op,
     StateTestFiller,
@@ -537,6 +540,118 @@ def test_selfdestruct_static_context_same_tx(
             victim: Account(
                 balance=initial_balance, nonce=1, code=victim_code
             ),
+        },
+        tx=tx,
+        expected_block_access_list=expected_bal,
+    )
+
+
+@pytest.mark.parametrize(
+    "endowment",
+    [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
+)
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry(eip=[8246])
+def test_recreate_in_later_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    endowment: int,
+) -> None:
+    """
+    A contract is created and self-destructs in one block, then the same
+    factory creates it again at the same address in a later block. Before
+    EIP-8246 the first account is gone by then, so the second creation
+    starts from nothing; from EIP-8246 on it lands on the balance the first
+    one left behind and adds to it.
+    """
+    sender = pre.fund_eoa()
+    initcode = Op.SELFDESTRUCT(Op.ADDRESS)
+    factory = pre.deploy_contract(
+        code=Om.MSTORE(initcode, 0)
+        + Op.SSTORE(
+            Op.CALLDATALOAD(0),
+            Op.CREATE2(
+                value=Op.CALLVALUE, offset=0, size=len(initcode), salt=0
+            ),
+        )
+        + Op.STOP
+    )
+    created = compute_create_address(
+        address=factory, salt=0, initcode=initcode, opcode=Op.CREATE2
+    )
+
+    def deploy(slot: int) -> Transaction:
+        tx = Transaction(
+            sender=sender, to=factory, value=endowment, data=Hash(slot)
+        )
+        if fork.is_eip_enabled(7708) and endowment > 0:
+            tx.expected_receipt = TransactionReceipt(
+                logs=[
+                    transfer_log(sender, factory, endowment),
+                    transfer_log(factory, created, endowment),
+                ]
+            )
+        return tx
+
+    # Each deployment keeps its endowment under EIP-8246, so the second one
+    # finds the first one's balance still there.
+    final_balance = 2 * endowment if fork.is_eip_enabled(8246) else 0
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[deploy(1)]), Block(txs=[deploy(2)])],
+        post={
+            factory: Account(nonce=3, storage={1: created, 2: created}),
+            created: finalized(fork, final_balance),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "existing_balance",
+    [pytest.param(0, id="zero_balance"), pytest.param(3, id="funded")],
+)
+def test_selfdestruct_to_self_keeps_existing_balance(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    existing_balance: int,
+) -> None:
+    """
+    A contract is created at an address that already held a balance, with
+    the creation forwarding nothing of its own, and then self-destructs to
+    itself. From EIP-8246 on that balance is never moved at all, so the
+    block access list records no change for the account even though it was
+    created and cleared within the transaction.
+    """
+    sender = pre.fund_eoa()
+    initcode = Op.SELFDESTRUCT(Op.ADDRESS)
+    factory = pre.deploy_contract(
+        code=Om.MSTORE(initcode, 0)
+        + Op.SSTORE(0, Op.CREATE(value=0, offset=0, size=len(initcode)))
+        + Op.STOP
+    )
+    created = compute_create_address(address=factory, nonce=1)
+    if existing_balance > 0:
+        pre.fund_address(created, existing_balance)
+
+    tx = Transaction(sender=sender, to=factory)
+    if fork.is_eip_enabled(7708):
+        tx.expected_receipt = TransactionReceipt(logs=[])
+
+    expected_bal = None
+    if fork.is_eip_enabled(7928):
+        # The nonce goes up and back down and no code is ever deposited,
+        # so nothing about the account actually changes.
+        expected_bal = BlockAccessListExpectation(
+            account_expectations={created: BalAccountExpectation.empty()}
+        )
+
+    state_test(
+        pre=pre,
+        post={
+            factory: Account(nonce=2, storage={0: created}),
+            created: finalized(fork, existing_balance),
         },
         tx=tx,
         expected_block_access_list=expected_bal,

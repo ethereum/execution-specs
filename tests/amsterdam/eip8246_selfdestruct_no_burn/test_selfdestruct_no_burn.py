@@ -24,6 +24,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionReceipt,
+    compute_create2_address,
     compute_create_address,
     keccak256,
 )
@@ -33,12 +34,15 @@ from execution_testing import (
 from execution_testing.checklists import EIPChecklist
 
 from ..eip7708_eth_transfer_logs.spec import transfer_log
+from ..eip7997_deterministic_factory_predeploy.spec import Spec
 from .spec import ref_spec_8246
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8246.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8246.version
 
 pytestmark = pytest.mark.valid_from("EIP8246")
+
+FACTORY = Address(Spec.FACTORY_ADDRESS)
 
 
 @pytest.mark.parametrize("initial_balance", [0, 1])
@@ -398,5 +402,66 @@ def test_create2_redeploy_over_remnant(
         post={
             factory: Account(nonce=3, storage={1: created, 2: created}),
             created: created_post,
+        },
+    )
+
+
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry()
+def test_deterministic_factory_redeploy_takes_balance(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    The EIP's third security consideration, using the permissionless
+    EIP-7997 factory. One account deploys a contract through the factory
+    that self-destructs to itself, leaving its balance behind. Anyone else
+    can then call the same factory with the same salt and initcode, land on
+    that balance, and take it.
+    """
+    endowment = 5
+    deployer = pre.fund_eoa()
+    redeployer = pre.fund_eoa()
+    salt = 0x8246
+
+    # Identical bytes both times: the first deployment only funds itself,
+    # while a redeploy finds more than it was sent and sweeps the surplus.
+    initcode = Conditional(
+        condition=Op.GT(Op.BALANCE(Op.ADDRESS), Op.CALLVALUE),
+        if_true=Op.SELFDESTRUCT(Op.ORIGIN),
+        if_false=Op.SELFDESTRUCT(Op.ADDRESS),
+    )
+    created = compute_create2_address(Spec.FACTORY_ADDRESS, salt, initcode)
+    call_data = Hash(salt) + bytes(initcode)
+
+    deploy_tx = Transaction(
+        sender=deployer,
+        to=FACTORY,
+        value=endowment,
+        data=call_data,
+    )
+    deploy_tx.expected_receipt = TransactionReceipt(
+        logs=[
+            transfer_log(deployer, FACTORY, endowment),
+            transfer_log(FACTORY, created, endowment),
+        ]
+    )
+    # The sweep log is what proves the redeployer, not the deployer, ends
+    # up with the balance.
+    redeploy_tx = Transaction(
+        sender=redeployer,
+        to=FACTORY,
+        value=0,
+        data=call_data,
+    )
+    redeploy_tx.expected_receipt = TransactionReceipt(
+        logs=[transfer_log(created, redeployer, endowment)]
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[deploy_tx, redeploy_tx])],
+        post={
+            FACTORY: Account(balance=0, code=Spec.FACTORY_BYTECODE),
+            created: Account.NONEXISTENT,
         },
     )
