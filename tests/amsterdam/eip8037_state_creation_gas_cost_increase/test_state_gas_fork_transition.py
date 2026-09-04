@@ -533,6 +533,8 @@ def test_nonempty_code_deposit_at_transition(
     for timestamp in (14_999, 15_000):
         pricing = fork.fork_at(timestamp=timestamp)
         sender = pre.fund_eoa()
+        init_execution = init_code.execution_cost(pricing)
+        init_state = init_code.state_cost(pricing)
         if creation == "transaction":
             intrinsic = pricing.transaction_intrinsic_cost_calculator()(
                 calldata=bytes(init_code),
@@ -542,8 +544,8 @@ def test_nonempty_code_deposit_at_transition(
             state = pricing.transaction_top_frame_state_gas(
                 contract_creation=True
             )
-            execution = intrinsic + init_code.execution_cost(pricing)
-            state += init_code.state_cost(pricing)
+            execution = intrinsic + init_execution
+            state += init_state
             gas_limit = execution + state + gas_delta
             created = compute_create_address(address=sender, nonce=0)
             tx = Transaction(
@@ -565,7 +567,7 @@ def test_nonempty_code_deposit_at_transition(
                 opcode=opcode,
             )
             intrinsic = pricing.transaction_intrinsic_cost_calculator()()
-            child_gas = init_code.gas_cost(pricing)
+            child_gas = init_execution + init_state
             # Smallest grant forwarding exactly child_gas under EIP-150.
             retained = (child_gas - 1) // 63
             gas_limit = (
@@ -578,11 +580,9 @@ def test_nonempty_code_deposit_at_transition(
             execution = (
                 intrinsic
                 + factory_code.execution_cost(pricing)
-                + init_code.execution_cost(pricing)
+                + init_execution
             )
-            state = factory_code.state_cost(pricing) + init_code.state_cost(
-                pricing
-            )
+            state = factory_code.state_cost(pricing) + init_state
             failed_gas = (
                 intrinsic
                 + factory_code.execution_cost(pricing)

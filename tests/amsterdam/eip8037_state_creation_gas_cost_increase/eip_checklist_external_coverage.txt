@@ -1,3 +1,3 @@
-general/code_coverage/eels = See coverage.md for the source revision, reproducible command, report paths, and statement/branch coverage from this EIP suite.
-general/code_coverage/test_coverage = 2049 fixture variants pass, including the fork transition; see coverage.md for scope and validation limits.
-general/code_coverage/missed_lines = Inspect the generated HTML/JSON reports described in coverage.md; uncovered Amsterdam paths include behavior outside this EIP suite and require review rather than a blanket non-applicable classification.
+general/code_coverage/eels = Generate Amsterdam source coverage by filling this suite with --cov=ethereum.forks.amsterdam --cov-branch --cov-report=html.
+general/code_coverage/test_coverage = This suite covers EIP-8037 execution and state gas accounting, including the fork transition; fixture generation is separate from independent-client consumption.
+general/code_coverage/missed_lines = Review uncovered lines in the generated HTML report; the Amsterdam package also includes behavior outside this EIP suite.

@@ -45,11 +45,8 @@ SYSTEM_CONTRACTS = [
     ),
 ]
 system_contract_cases = pytest.mark.parametrize(
-    "system_contract,checked",
-    [
-        pytest.param(address, checked, id=name)
-        for address, checked, name in SYSTEM_CONTRACTS
-    ],
+    "system_contract",
+    [pytest.param(address, id=name) for address, _, name in SYSTEM_CONTRACTS],
 )
 
 
@@ -60,7 +57,6 @@ def test_system_call_execution_grant(
     pre: Alloc,
     fork: Fork,
     system_contract: int,
-    checked: bool,
 ) -> None:
     """Keep the execution grant independent of the reservoir and tx cap."""
     address = Address(system_contract)
@@ -84,7 +80,6 @@ def test_system_call_reservoir_boundary(
     pre: Alloc,
     fork: Fork,
     system_contract: int,
-    checked: bool,
     allow_spill: bool,
 ) -> None:
     """Fund the reservoir-sized prefix, then require spill for one more set."""
@@ -116,30 +111,9 @@ def test_system_call_reservoir_boundary(
     )
 
 
-@pytest.mark.parametrize(
-    "system_contract,checked,extra_execution",
-    [
-        pytest.param(
-            address,
-            checked,
-            extra,
-            id=f"{name}-{'one_over' if extra else 'exact'}",
-            marks=pytest.mark.exception_test if checked and extra else (),
-        )
-        for address, checked, name in SYSTEM_CONTRACTS
-        for extra in (0, 1)
-    ],
-)
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
-def test_system_call_execution_boundary(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    system_contract: int,
-    checked: bool,
-    extra_execution: int,
-) -> None:
-    """Exhaust execution gas without borrowing the unspent reservoir."""
+@pytest.fixture
+def execution_boundary_code(fork: Fork) -> Bytecode:
+    """Spend the full execution grant while leaving state gas available."""
     budget = WithdrawalSpec.SYSTEM_CALL_GAS_LIMIT
     marker = Op.SSTORE(0, 1)
 
@@ -159,9 +133,36 @@ def test_system_call_execution_boundary(
         else:
             high = middle
     prefix = prefix_for(low)
-    padding = budget - prefix.execution_cost(fork) + extra_execution
+    padding = budget - prefix.execution_cost(fork)
     assert padding >= 0
-    code = prefix + Op.JUMPDEST * padding
+    return prefix + Op.JUMPDEST * padding
+
+
+@pytest.mark.parametrize(
+    "system_contract,checked,extra_execution",
+    [
+        pytest.param(
+            address,
+            checked,
+            extra,
+            id=f"{name}-{'one_over' if extra else 'exact'}",
+            marks=pytest.mark.exception_test if checked and extra else (),
+        )
+        for address, checked, name in SYSTEM_CONTRACTS
+        for extra in (0, 1)
+    ],
+)
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+def test_system_call_execution_boundary(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    system_contract: int,
+    checked: bool,
+    extra_execution: int,
+    execution_boundary_code: Bytecode,
+) -> None:
+    """Exhaust execution gas without borrowing the unspent reservoir."""
+    code = execution_boundary_code + Op.JUMPDEST * extra_execution
     address = Address(system_contract)
     pre[address] = Account(code=code)
     fails_block = checked and extra_execution > 0
