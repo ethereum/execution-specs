@@ -65,7 +65,7 @@ Pass `--estimate-gas` to estimate eligible test transactions after their contrac
 uv run execute remote --fork=Amsterdam --estimate-gas \
   --rpc-endpoint="$DEVNET_RPC" --chain-id="$DEVNET_CHAIN_ID" \
   --rpc-seed-key="$DEVNET_TEST_KEY" \
-  tests/amsterdam/eip8037_state_creation_gas_cost_increase/test_state_gas_estimation.py
+  tests/amsterdam/eip8037_state_creation_gas_cost_increase/
 ```
 
 The runner sends each eligible transaction with exactly the returned estimate, requires a successful receipt, and checks the test's expected post-state. It waits for preceding transactions to be included before estimating against `latest`, so estimates see their state changes. RPC errors and estimates that fail execution are test failures; there is no fallback to the default limit. Different clients may return different sufficient estimates.
@@ -74,7 +74,7 @@ This mode applies to transaction-post tests with an omitted `gas_limit`. Explici
 
 Funding still uses the conservative implicit gas budget. The RPC request uses that budget as its gas ceiling, and the returned estimate must fit it. This avoids a funding/estimation dependency and permits Amsterdam estimates above the execution-gas cap when state gas requires it. Initial funding requirements are not reduced by this option. `--dry-run` continues to report the conservative funding budget without estimating test transactions against undeployed state.
 
-The EIP-8037 scenarios cover account creation, code-deposit word boundaries, fresh storage, calldata floors, authorizations, and cross-frame refills. Record the client version, fork configuration, command and results for each live run; a fixture fill alone does not validate a client's RPC estimator. Dedicated RPC conformance tests also belong in `ethereum/execution-apis`.
+Use existing scenarios with implicit gas limits to exercise estimation. Record the client version, fork configuration, command and results for each live run; a fixture fill alone does not validate a client's RPC estimator. Dedicated RPC conformance tests also belong in `ethereum/execution-apis`.
 
 ### Limit Gas Used By Tests
 
