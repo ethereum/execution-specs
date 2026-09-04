@@ -149,7 +149,7 @@ def clearing_probe_code(
     warms the target and the slot while the slot is still zero, and
     pre-expands the measurement memory, so the two measured windows
     below are byte-identical and cost-identical. `set_slot` then sets
-    the slot with the reservoir empty, spilling the state charge. The
+    the slot, spilling any state charge the reservoir cannot cover. The
     first measured window clears the slot and the second repeats as a
     no-op, so the refunded state gas is what separates their cost.
     """
@@ -170,11 +170,17 @@ def clearing_probe_code(
     )
 
 
+@pytest.mark.parametrize(
+    "fund_half_slot",
+    [False, True],
+    ids=["empty-reservoir", "half-slot-reservoir"],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_same_frame_refund_increases_gas_left(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    fund_half_slot: bool,
 ) -> None:
     """
     Test a same-frame refill can increase `gas_left` between reads.
@@ -183,9 +189,12 @@ def test_same_frame_refund_increases_gas_left(
     spills from `gas_left`, the first measured window clears it in the
     same frame, and the second repeats the clear as a no-op. The two
     windows have identical bytecode and execution cost, so their exact
-    difference is the state-gas refill.
+    difference is the repaid spill. With half a slot funded by the
+    reservoir, only half of the full-slot refund repays the spill.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    reservoir = sstore_state_gas // 2 if fund_half_slot else 0
+    spilled = sstore_state_gas - reservoir
 
     window = Op.SSTORE(SLOT_X, 0)
     contract = pre.deploy_contract(
@@ -194,7 +203,7 @@ def test_same_frame_refund_increases_gas_left(
 
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=0,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
@@ -204,7 +213,7 @@ def test_same_frame_refund_increases_gas_left(
                 SLOT_X: 0,
                 SLOT_MARKER: 1,
                 SLOT_INCREASED: 1,
-                SLOT_RESULT: -sstore_state_gas,
+                SLOT_RESULT: -spilled,
             }
         )
     }
@@ -212,24 +221,34 @@ def test_same_frame_refund_increases_gas_left(
 
 
 @pytest.mark.parametrize("call_opcode", [Op.CALLCODE, Op.DELEGATECALL])
+@pytest.mark.parametrize(
+    "fund_half_slot",
+    [False, True],
+    ids=["empty-reservoir", "half-slot-reservoir"],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_cross_frame_refund_repays_spill_at_merge(
     state_test: StateTestFiller,
     pre: Alloc,
     call_opcode: Opcode,
     fork: Fork,
+    fund_half_slot: bool,
 ) -> None:
     """
     Test a cross-frame refund repays the spill when the child merges.
 
-    The frame sets a slot with the reservoir empty, spilling the state
-    charge from `gas_left`. A child sharing the caller's storage clears the slot and the
-    credit lands in the reservoir, which repays the spill on the merge:
+    The frame sets a slot with an empty or half-slot reservoir, spilling
+    the uncovered state charge from `gas_left`. A child sharing the
+    caller's storage clears the slot and the credit lands in the
+    reservoir, which repays the spill on the merge:
     `gas_left` is higher after the clearing call than before it, and
-    the clearing window costs a full state charge less than a no-op
-    window.
+    the clearing window costs exactly the spilled amount less than a
+    no-op window. Half-slot funding makes the spill smaller than the
+    full-slot refund, catching repayment tracked by slot count.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    reservoir = sstore_state_gas // 2 if fund_half_slot else 0
+    spilled = sstore_state_gas - reservoir
 
     clearer = pre.deploy_contract(code=Op.SSTORE(SLOT_X, 0))
     window = Op.POP(call_opcode(address=clearer))
@@ -239,7 +258,7 @@ def test_cross_frame_refund_repays_spill_at_merge(
 
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=0,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
@@ -249,27 +268,37 @@ def test_cross_frame_refund_repays_spill_at_merge(
                 SLOT_X: 0,
                 SLOT_MARKER: 1,
                 SLOT_INCREASED: 1,
-                SLOT_RESULT: -sstore_state_gas,
+                SLOT_RESULT: -spilled,
             }
         )
     }
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "fund_half_slot",
+    [False, True],
+    ids=["empty-reservoir", "half-slot-reservoir"],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_cross_frame_refund_repays_spill_in_inner_frame(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    fund_half_slot: bool,
 ) -> None:
     """
     Test the repayment lands at an inner frame's merge.
 
     The spill, the clearing call and both `gas_left` reads live in a
     depth-one frame, so an implementation reconciling the pools only
-    when control returns to the top-level frame fails.
+    when control returns to the top-level frame fails. Half-slot funding
+    also checks that the inner merge repays only the spilled gas from
+    the full-slot refund.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    reservoir = sstore_state_gas // 2 if fund_half_slot else 0
+    spilled = sstore_state_gas - reservoir
 
     clearer = pre.deploy_contract(code=Op.SSTORE(SLOT_X, 0))
     window = Op.POP(Op.DELEGATECALL(address=clearer))
@@ -282,7 +311,7 @@ def test_cross_frame_refund_repays_spill_in_inner_frame(
 
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=0,
+        state_gas_reservoir=reservoir,
         sender=pre.fund_eoa(),
     )
 
@@ -292,7 +321,7 @@ def test_cross_frame_refund_repays_spill_in_inner_frame(
                 SLOT_X: 0,
                 SLOT_MARKER: 1,
                 SLOT_INCREASED: 1,
-                SLOT_RESULT: -sstore_state_gas,
+                SLOT_RESULT: -spilled,
             }
         )
     }
@@ -730,9 +759,7 @@ def test_repaid_credit_enters_next_call_forwarding_base(
 
     # Find the smallest base whose EIP-150 allowance
     # `base - base // 64` covers the probe exactly.
-    forwarding_base = probe_execution
-    while forwarding_base - forwarding_base // 64 < probe_execution:
-        forwarding_base += 1
+    forwarding_base = (probe_execution - 1) * 64 // 63 + 1
     assert (
         forwarding_base - 1 - (forwarding_base - 1) // 64
         < probe_execution
