@@ -7,6 +7,7 @@ docs/writing_tests/checklist_templates/eip_testing_checklist_template.md
 """
 
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -431,7 +432,9 @@ class EIPChecklistCollector:
 
     def get_eip_from_item(self, item: pytest.Item) -> EIP | None:
         """Get the EIP for a test item."""
-        test_path = Path(item.location[0])
+        # The collected module, not `item.location`, which for a test built
+        # by a generator points at the module that defines the wrapper.
+        test_path = Path(os.path.relpath(item.path, item.config.rootpath))
         for part_idx, part in enumerate(test_path.parts):
             match = re.match(r"eip(\d+)", part)
             if match:
