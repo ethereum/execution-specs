@@ -174,6 +174,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "This flag checks every account at start_block.)"
         ),
     )
+    group.addoption(
+        "--no-reset-between-tests",
+        action="store_true",
+        dest="no_reset_between_tests",
+        default=False,
+        help=(
+            "Accumulate state across tests (don't rewind between them). Useful"
+            "for pre-populating datadir. Fixtures remain valid only from their"
+            "recorded start_block. Don't mix with single-anchor fills."
+        ),
+    )
 
 
 def _resolve_session_fork(
@@ -441,6 +452,7 @@ def worker_key(
     eth_rpc: EthRPC,
     session_worker_key: EOA,
     client_backend: ClientBackend,
+    no_reset_between_tests: bool,
 ) -> EOA:
     """Sync seed key nonce before each test."""
     # Read the nonce at the reset head (start_block), not "latest": a client
@@ -448,8 +460,14 @@ def worker_key(
     # the previous test's tip (e.g. nethermind's debug_resetHead) would
     # otherwise report a stale, too-high nonce and get every funding tx
     # rejected ("Invalid nonce - expected 0").
+    #
+    # This inverts under --no-reset-between-tests: there is no rewind, so
+    # `latest` is reliable, the seed key's nonce has advanced past start_block
+    # (earlier tests funded senders with it), and start_block's historical
+    # state gets pruned on a long accumulating run against a non-archive
+    # client ("historical state ... is not available"). Read at `latest` then.
     start = client_backend.start_block
-    if start is None:
+    if no_reset_between_tests or start is None:
         account = eth_rpc.get_account(session_worker_key, skip_code=True)
     else:
         account = eth_rpc.get_account(
@@ -527,6 +545,12 @@ def extract_opcode_count(request: pytest.FixtureRequest) -> bool:
 def opcode_count_trace_timeout(request: pytest.FixtureRequest) -> str:
     """The --opcode-count-trace-timeout bound sent with each trace."""
     return request.config.getoption("opcode_count_trace_timeout")
+
+
+@pytest.fixture(scope="session")
+def no_reset_between_tests(request: pytest.FixtureRequest) -> bool:
+    """Whether --no-reset-between-tests state accumulation is enabled."""
+    return request.config.getoption("no_reset_between_tests")
 
 
 @pytest.fixture(scope="session")
@@ -794,6 +818,7 @@ def _reset_chain_between_tests(
     client_backend: ClientBackend,
     debug_rpc: DebugRPC,
     eth_rpc: "ChainBuilderEthRPC",
+    no_reset_between_tests: bool,
 ) -> Generator[None, None, None]:
     """
     Rewind to start_block after each test so the chain is identical for
@@ -805,6 +830,8 @@ def _reset_chain_between_tests(
     drifted (e.g. a live reorg).
     """
     yield
+    if no_reset_between_tests:
+        return
     if client_backend.start_block is None:
         return
     start_hex = client_backend.start_block["number"]
