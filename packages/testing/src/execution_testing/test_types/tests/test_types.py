@@ -6,7 +6,6 @@ import pytest
 
 from execution_testing.base_types import (
     AccessList,
-    Account,
     Address,
     Bytes,
     Storage,
@@ -16,7 +15,7 @@ from execution_testing.base_types import (
 )
 from execution_testing.base_types.pydantic import CopyValidateModel
 
-from ..account_types import EOA, Alloc
+from ..account_types import EOA, Account, Alloc
 from ..block_types import (
     Environment,
     Withdrawal,

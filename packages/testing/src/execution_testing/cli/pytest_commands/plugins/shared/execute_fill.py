@@ -8,14 +8,14 @@ from typing import Dict, List, Tuple
 import pytest
 from pytest import StashKey
 
-from execution_testing.base_types import Account, Number
+from execution_testing.base_types import Number
 from execution_testing.execution import BaseExecute, LabeledExecuteFormat
 from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import OpMode
-from execution_testing.test_types import EOA, Alloc, ChainConfig
+from execution_testing.test_types import EOA, Account, Alloc, ChainConfig
 
 from ..shared.address_stubs import AddressStubs, StubEOA
 from ..shared.helpers import get_rpc_endpoint

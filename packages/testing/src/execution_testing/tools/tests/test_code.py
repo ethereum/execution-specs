@@ -5,7 +5,6 @@ from typing import Mapping
 import pytest
 
 from execution_testing.base_types import (
-    Account,
     Address,
     Hash,
     TestAddress,
@@ -17,7 +16,12 @@ from execution_testing.forks import (
     Cancun,
 )
 from execution_testing.specs import StateTest
-from execution_testing.test_types import Alloc, Environment, Transaction
+from execution_testing.test_types import (
+    Account,
+    Alloc,
+    Environment,
+    Transaction,
+)
 from execution_testing.vm import Bytecode, Op
 
 from ..tools_code import CalldataCase, Case, Conditional, Initcode, Switch

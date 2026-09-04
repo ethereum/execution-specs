@@ -4,8 +4,7 @@ from typing import Type
 
 import pytest
 
-from execution_testing.base_types import Account
-from execution_testing.test_types import Alloc
+from execution_testing.test_types import Account, Alloc
 
 
 @pytest.fixture()

@@ -22,7 +22,6 @@ import ijson  # type: ignore[import-untyped]
 from pydantic import Field, PlainSerializer, PlainValidator, model_validator
 
 from execution_testing.base_types import (
-    Account,
     Bloom,
     Bytes,
     CamelModel,
@@ -45,6 +44,7 @@ from execution_testing.logging import (
 )
 from execution_testing.rpc.rpc_types import GetPayloadResponse
 from execution_testing.test_types import (
+    Account,
     Alloc,
     Environment,
     Transaction,
