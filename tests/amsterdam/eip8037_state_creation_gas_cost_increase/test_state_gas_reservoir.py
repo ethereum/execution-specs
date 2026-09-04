@@ -1953,3 +1953,112 @@ def test_subcall_set_clear_revert_pays_no_state_gas(
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=expected_cumulative),
     )
+
+
+@pytest.mark.parametrize(
+    "funding",
+    [
+        pytest.param("reservoir", id="reservoir"),
+        pytest.param("mixed", id="mixed"),
+        pytest.param("spill", id="spill"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_block_state_dimension_counts_full_charge(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    funding: str,
+) -> None:
+    """
+    Verify the block counts a state charge in full however it is funded.
+
+    The same storage sets are paid entirely from the reservoir, entirely
+    by spilling into `gas_left`, or half from each. The block's state
+    dimension is the charge itself, not the part any one pool covered, so
+    the header must report the same `gas_used` in all three.
+    """
+    num_slots = 3
+    storage = Storage()
+    code = Bytecode()
+    for _ in range(num_slots):
+        code += Op.SSTORE(storage.store_next(1), 1)
+
+    state_gas = code.state_cost(fork)
+    execution_gas = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + code.execution_cost(fork)
+    )
+    assert state_gas > execution_gas, "state must set the header"
+
+    contract = pre.deploy_contract(code=code)
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir={
+            "reservoir": state_gas,
+            "mixed": state_gas // 2,
+            "spill": 0,
+        }[funding],
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=execution_gas + state_gas
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx], header_verify=Header(gas_used=state_gas))],
+        post={contract: Account(storage=storage)},
+    )
+
+
+@pytest.mark.parametrize(
+    "num_access_list_entries",
+    [
+        pytest.param(1, id="one_entry"),
+        pytest.param(20, id="twenty_entries"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_access_list_cost_does_not_consume_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    num_access_list_entries: int,
+) -> None:
+    """
+    Verify the access-list charge is taken from execution gas only.
+
+    An access list is priced in the execution dimension, so however
+    large it grows it must not eat into the reservoir. The reservoir
+    holds exactly one storage set and a probe handed only its SSTORE's
+    execution cost draws on it: the probe lands at either list size.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+
+    probe_storage = Storage()
+    probe_code = Op.SSTORE(probe_storage.store_next(1, "probe_ran"), 1)
+    probe = pre.deploy_contract(probe_code)
+    probe_stipend = probe_code.execution_cost(fork)
+
+    caller = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+    )
+
+    access_list = [
+        AccessList(address=Address(0x10000 + i), storage_keys=[])
+        for i in range(num_access_list_entries)
+    ]
+
+    tx = Transaction(
+        to=caller,
+        access_list=access_list,
+        state_gas_reservoir=sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        pre=pre,
+        post={probe: Account(storage=probe_storage)},
+        tx=tx,
+    )

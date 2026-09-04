@@ -366,6 +366,118 @@ def test_calldata_floor_charged_to_sender(
     )
 
 
+@pytest.mark.parametrize(
+    "funding",
+    ["reservoir", "mixed", "spill"],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_calldata_floor_binds_regardless_of_funding(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    funding: str,
+) -> None:
+    """
+    Bind the calldata floor however the state charge is funded.
+
+    The floor is a lower bound on the sender's bill in the execution
+    dimension alone, so splitting the SSTORE-set charge between the
+    reservoir and `gas_left` must not move it. All three fundings bill
+    the sender exactly the floor.
+    """
+    storage = Storage()
+    code = Op.SSTORE(storage.store_next(1), 1, new_value=1)
+    state_cost = code.state_cost(fork)
+
+    calldata = b"\x00" * 5000
+    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    tx_execution = intrinsic + code.execution_cost(fork)
+    assert floor > tx_execution + state_cost, (
+        "calldata floor must exceed the sender's pre-floor bill"
+    )
+
+    contract = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=contract,
+        data=calldata,
+        state_gas_reservoir={
+            "reservoir": state_cost,
+            "mixed": state_cost // 2,
+            "spill": 0,
+        }[funding],
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=floor),
+    )
+    state_test(
+        pre=pre,
+        post={contract: Account(storage=storage)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=floor),
+    )
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_calldata_floor_survives_state_refund(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify a refund cannot push the sender's bill under the floor.
+
+    The transaction runs a 0 to x to 0 cycle, which both refunds its
+    state charge and earns a write-cost refund, while carrying enough
+    calldata for the floor to bind. The floor is applied after refunds,
+    so the sender still pays it in full.
+    """
+    code = Op.SSTORE(0, 1) + Op.SSTORE(
+        0,
+        0,
+        # gas accounting
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+    assert code.refund(fork) > 0, "the cycle must earn a refund"
+
+    calldata = b"\x00" * 5000
+    floor = fork.transaction_data_floor_cost_calculator()(data=calldata)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=calldata,
+        return_cost_deducted_prior_execution=True,
+    )
+    pre_refund_gas = intrinsic + code.execution_cost(fork)
+    execution_refund = code.refund(fork) - code.state_refund(fork)
+    post_refund_gas = pre_refund_gas - min(
+        pre_refund_gas // fork.max_refund_quotient(), execution_refund
+    )
+    assert floor > post_refund_gas, (
+        "the floor must bind after the refund is applied"
+    )
+
+    contract = pre.deploy_contract(code=code)
+
+    tx = Transaction(
+        to=contract,
+        data=calldata,
+        state_gas_reservoir=Op.SSTORE(new_value=1).state_cost(fork),
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=floor),
+    )
+    state_test(
+        pre=pre,
+        post={contract: Account(storage={0: 0})},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=floor),
+    )
+
+
 @pytest.mark.valid_from("EIP8037")
 def test_calldata_floor_binds_with_reservoir(
     state_test: StateTestFiller,

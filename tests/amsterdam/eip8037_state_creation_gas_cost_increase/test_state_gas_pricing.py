@@ -713,6 +713,70 @@ def test_create_state_gas_scales_with_cpsb(
 
 @pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
 @pytest.mark.valid_from("EIP8037")
+def test_code_deposit_state_gas_scales_with_cpsb(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    block_gas_limit: int,
+    fork: Fork,
+) -> None:
+    """
+    Test the code-deposit state gas holds across block gas limits.
+
+    Code deposit is the only charge billed per byte rather than per
+    account or slot, so it is the most sensitive to the state-byte
+    price. A creation transaction deposits a fixed body and the header
+    must report the state dimension at every block gas limit.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    env = Environment(gas_limit=block_gas_limit)
+
+    code_size = 512
+    init_code = Op.RETURN(
+        0,
+        code_size,
+        # gas accounting
+        code_deposit_size=code_size,
+        new_memory_size=code_size,
+    )
+    deposit_state_gas = init_code.state_cost(fork)
+    assert deposit_state_gas > 0, "the deposit must carry a state charge"
+
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
+        calldata=bytes(init_code),
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    state_gas = (
+        fork.transaction_top_frame_state_gas(contract_creation=True)
+        + deposit_state_gas
+    )
+    execution_gas = intrinsic_execution + init_code.execution_cost(fork)
+    expected_gas_used = max(execution_gas, state_gas)
+    assert expected_gas_used == state_gas, (
+        "expected state gas to dominate execution gas"
+    )
+
+    sender = pre.fund_eoa()
+    created = compute_create_address(address=sender, nonce=0)
+    tx = Transaction(
+        to=None,
+        data=init_code,
+        gas_limit=min(execution_gas + state_gas, block_gas_limit),
+        sender=sender,
+    )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post={created: Account(code=b"\x00" * code_size)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
+
+
+@pytest.mark.parametrize("block_gas_limit", BLOCK_GAS_LIMITS)
+@pytest.mark.valid_from("EIP8037")
 def test_call_new_account_state_gas_scales_with_cpsb(
     state_test: StateTestFiller,
     pre: Alloc,

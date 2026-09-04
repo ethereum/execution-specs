@@ -338,3 +338,156 @@ def test_multi_block_observed_coinbase_balance(
         reporter2: Account(storage={0: reporter2_observes}),
     }
     blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_coinbase_fee_with_state_gas_refund(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Assert the coinbase is paid on the post-refund gas, not the charge.
+
+    A 0 to x to 0 cycle refunds its state charge to the reservoir, so
+    the sender is billed execution gas alone and the miner is paid on
+    that same figure. Paying the miner on the pre-refund total would
+    hand it the whole storage set for free.
+    """
+    cycle_code = Op.SSTORE(0, 1) + Op.SSTORE(
+        0,
+        0,
+        # gas accounting
+        key_warm=True,
+        original_value=0,
+        current_value=1,
+        new_value=0,
+    )
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    cycle = pre.deploy_contract(code=cycle_code)
+
+    # The cycle nets to no state growth, so only execution gas is billed,
+    # less the write-cost refund the restoration earns (capped at the
+    # usual fraction of the pre-refund total).
+    pre_refund_gas = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + cycle_code.execution_cost(fork)
+    )
+    execution_refund = cycle_code.refund(fork) - cycle_code.state_refund(fork)
+    expected_coinbase = pre_refund_gas - min(
+        pre_refund_gas // fork.max_refund_quotient(), execution_refund
+    )
+
+    reporter_storage = Storage()
+    reporter = pre.deploy_contract(
+        code=(
+            Op.SSTORE(
+                reporter_storage.store_next(expected_coinbase, "coinbase"),
+                Op.BALANCE(Op.COINBASE),
+            )
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(
+                        to=cycle,
+                        state_gas_reservoir=sstore_state_gas,
+                        max_priority_fee_per_gas=1,
+                        max_fee_per_gas=8,
+                        sender=pre.fund_eoa(),
+                    ),
+                    Transaction(
+                        to=reporter,
+                        state_gas_reservoir=0,
+                        max_priority_fee_per_gas=1,
+                        max_fee_per_gas=8,
+                        sender=pre.fund_eoa(),
+                    ),
+                ],
+            )
+        ],
+        post={
+            cycle: Account(storage={0: 0}),
+            reporter: Account(storage=reporter_storage),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "dominant_dimension",
+    [
+        pytest.param("state", id="state_dominates"),
+        pytest.param("execution", id="execution_dominates"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_coinbase_fee_follows_dominant_dimension(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    dominant_dimension: str,
+) -> None:
+    """
+    Assert the miner is paid on `max(execution, state)`, whichever leads.
+
+    The same reporter reads the coinbase balance after one transaction
+    whose bottleneck is either dimension. Billing the miner on the
+    execution dimension alone would underpay whenever state leads.
+    """
+    if dominant_dimension == "state":
+        body = Op.SSTORE(0, 1)
+        reservoir = body.state_cost(fork)
+    else:
+        # Nothing but the intrinsic, so the execution dimension leads
+        # with a cost the opcode model prices exactly.
+        body = Op.STOP
+        reservoir = 0
+    contract = pre.deploy_contract(code=body)
+
+    execution = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + body.execution_cost(fork)
+    )
+    state = body.state_cost(fork)
+    expected_coinbase = execution + state
+    if dominant_dimension == "state":
+        assert state > execution
+    else:
+        assert state == 0
+
+    reporter_storage = Storage()
+    reporter = pre.deploy_contract(
+        code=Op.SSTORE(
+            reporter_storage.store_next(expected_coinbase, "coinbase"),
+            Op.BALANCE(Op.COINBASE),
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[
+                    Transaction(
+                        to=contract,
+                        state_gas_reservoir=reservoir,
+                        max_priority_fee_per_gas=1,
+                        max_fee_per_gas=8,
+                        sender=pre.fund_eoa(),
+                    ),
+                    Transaction(
+                        to=reporter,
+                        state_gas_reservoir=0,
+                        max_priority_fee_per_gas=1,
+                        max_fee_per_gas=8,
+                        sender=pre.fund_eoa(),
+                    ),
+                ],
+            )
+        ],
+        post={reporter: Account(storage=reporter_storage)},
+    )
