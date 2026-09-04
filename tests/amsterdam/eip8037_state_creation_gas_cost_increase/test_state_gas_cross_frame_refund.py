@@ -30,6 +30,7 @@ from execution_testing import (
     Op,
     Opcode,
     StateTestFiller,
+    Storage,
     Transaction,
     TransactionReceipt,
 )
@@ -169,22 +170,25 @@ def clearing_probe_code(
     )
 
 
+@pytest.mark.parametrize("call_opcode", [Op.CALLCODE, Op.DELEGATECALL])
 @pytest.mark.valid_from("EIP8037")
 def test_cross_frame_refund_parks_in_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
+    call_opcode: Opcode,
 ) -> None:
     """
     Test a cross-frame refund credits the reservoir, not `gas_left`.
 
     The frame sets a slot with the reservoir empty, spilling the state
-    charge from `gas_left`. A delegated child clears the slot and the
-    credit lands in the reservoir, where it stays through the merge:
+    charge from `gas_left`. A child sharing the caller's storage clears
+    the slot and the credit lands in the reservoir, where it stays
+    through the merge:
     `gas_left` is lower after the clearing call than before it, and
     the clearing window costs the same as a no-op window.
     """
     clearer = pre.deploy_contract(code=Op.SSTORE(SLOT_X, 0))
-    window = Op.POP(Op.DELEGATECALL(address=clearer))
+    window = Op.POP(call_opcode(address=clearer))
     contract = pre.deploy_contract(
         code=clearing_probe_code(Op.SSTORE(SLOT_X, 1), [window] * 3)
     )
@@ -471,6 +475,127 @@ def test_parked_credit_cannot_fund_execution(
     )
 
     post = {contract: Account(storage={SLOT_MARKER: 0, SLOT_X: 0})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "raises_credit",
+    [
+        pytest.param(True, id="credit_funds_probe"),
+        pytest.param(False, id="no_credit_probe_oogs"),
+    ],
+)
+@pytest.mark.parametrize("depth", ["sibling", "grandchild"])
+@pytest.mark.valid_from("EIP8037")
+def test_call_frame_credit_parks_in_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    depth: str,
+    raises_credit: bool,
+) -> None:
+    """
+    Test a credit raised under plain CALL parks in the reservoir.
+
+    The transaction starts with no reservoir. The clearing frame cannot
+    repay the frame that spilled the charge, which has already merged,
+    so the credit lands in the reservoir instead -- the only pool the
+    probe's fixed stipend can reach. Dropping the clear starves the
+    probe, pinning the parked credit as the only funding source.
+    """
+    # A CALL callee owns its storage, so splitting the charge from the
+    # credit needs one contract entered twice rather than two contracts.
+    toggler = pre.deploy_contract(
+        code=Op.SSTORE(SLOT_X, Op.ISZERO(Op.SLOAD(SLOT_X)))
+    )
+    clearing_target = toggler
+    if depth == "grandchild":
+        clearing_target = pre.deploy_contract(
+            code=Op.POP(Op.CALL(gas=Op.GAS, address=toggler))
+        )
+
+    # Without the second entry no credit is raised, which pins the
+    # parked credit as the only thing that can fund the probe.
+    if not raises_credit:
+        clearing_target = pre.deploy_contract(code=Op.STOP)
+
+    probe_storage = Storage()
+    probe_code = Op.SSTORE(
+        probe_storage.store_next(1 if raises_credit else 0, "probe_ran"), 1
+    )
+    probe = pre.deploy_contract(probe_code)
+    probe_stipend = probe_code.execution_cost(fork)
+
+    entry = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=Op.GAS, address=toggler))
+            + Op.POP(Op.CALL(gas=Op.GAS, address=clearing_target))
+            + Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+        )
+    )
+
+    tx = Transaction(
+        to=entry,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {probe: Account(storage=probe_storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "clearing_frame_ending",
+    [
+        pytest.param("stop", id="child_succeeds"),
+        pytest.param("revert", id="child_reverts"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_parked_credit_discarded_when_clearing_frame_reverts(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    clearing_frame_ending: str,
+) -> None:
+    """
+    Test a parked credit survives only if its frame does.
+
+    The delegated child clears the caller's slot, parking the credit in
+    the reservoir. When that child instead REVERTs, the clear is rolled
+    back and the credit must go with it, leaving the probe unable to pay.
+    """
+    # sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    credit_survives = clearing_frame_ending == "stop"
+
+    clear = Op.SSTORE.with_metadata(
+        key_warm=True, original_value=0, current_value=1, new_value=0
+    )(SLOT_X, 0)
+    clearer_code = clear + (Op.STOP if credit_survives else Op.REVERT(0, 0))
+    clearer = pre.deploy_contract(code=clearer_code)
+
+    probe_storage = Storage()
+    probe_code = Op.SSTORE(
+        probe_storage.store_next(1 if credit_survives else 0, "probe_ran"), 1
+    )
+    probe = pre.deploy_contract(probe_code)
+    probe_stipend = probe_code.execution_cost(fork)
+
+    entry = pre.deploy_contract(
+        code=(
+            Op.SSTORE(SLOT_X, 1)
+            + Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=clearer))
+            + Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+        )
+    )
+
+    tx = Transaction(
+        to=entry,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {probe: Account(storage=probe_storage)}
     state_test(pre=pre, post=post, tx=tx)
 
 

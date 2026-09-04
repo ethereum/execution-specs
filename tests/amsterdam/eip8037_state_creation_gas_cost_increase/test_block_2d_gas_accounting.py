@@ -31,6 +31,7 @@ from execution_testing import (
     add_kzg_version,
     compute_create_address,
 )
+from execution_testing.checklists import EIPChecklist
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP4844_Spec
 from .spec import ref_spec_8037
@@ -147,11 +148,23 @@ def test_block_gas_used_state_dominates(
     )
 
 
+@pytest.mark.parametrize(
+    "include_log",
+    [
+        pytest.param(False, id="without_log"),
+        pytest.param(
+            True,
+            id="with_log",
+            marks=EIPChecklist.BlockLevelConstraint.Test.Content.Logs(),
+        ),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_block_gas_used_execution_dominates(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
+    include_log: bool,
 ) -> None:
     """
     Verify block.gas_used = block_execution_gas when execution dominates.
@@ -169,7 +182,12 @@ def test_block_gas_used_execution_dominates(
         # gas accounting
         original_value=0,
         new_value=1,
-    ) + Op.MSTORE8(
+    )
+
+    if include_log:
+        code += Op.LOG0(offset=0, size=0)
+
+    code += Op.MSTORE8(
         sink_memory_size - 1,
         0,
         # gas accounting
@@ -535,18 +553,35 @@ def test_multi_block_dimension_flip(
 @pytest.mark.parametrize(
     "tx_gas_delta, expected_exception",
     [
-        pytest.param(0, None, id="gas_equal"),
+        pytest.param(
+            -1,
+            None,
+            id="gas_one_below",
+            marks=EIPChecklist.BlockLevelConstraint.Test.Boundary.Under(),
+        ),
+        pytest.param(
+            0,
+            None,
+            id="gas_equal",
+            marks=EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact(),
+        ),
         pytest.param(
             1,
             TransactionException.GAS_ALLOWANCE_EXCEEDED,
             id="gas_one_above",
-            marks=pytest.mark.exception_test,
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.BlockLevelConstraint.Test.Boundary.Over(),
+            ],
         ),
         pytest.param(
             2,
             TransactionException.GAS_ALLOWANCE_EXCEEDED,
             id="gas_two_above",
-            marks=pytest.mark.exception_test,
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.BlockLevelConstraint.Test.Boundary.Over(),
+            ],
         ),
     ],
 )
@@ -570,6 +605,7 @@ def test_multi_block_dimension_flip(
         pytest.param(4, False, id="type_4_set_code"),
     ],
 )
+@EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 @pytest.mark.valid_from("EIP8037")
 def test_tx_gas_limit_block_boundary(
     blockchain_test: BlockchainTestFiller,
@@ -961,6 +997,105 @@ def test_base_fee_per_gas_follows_dominant_dimension(
         blocks=[
             Block(
                 txs=txs,
+                gas_limit=gas_limit,
+                header_verify=Header(
+                    gas_used=block_1_gas_used,
+                    base_fee_per_gas=block_1_base_fee,
+                ),
+            ),
+            Block(
+                txs=[],
+                gas_limit=gas_limit,
+                header_verify=Header(
+                    gas_used=0,
+                    base_fee_per_gas=block_2_base_fee,
+                ),
+            ),
+        ],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "dominant_dimension",
+    [
+        pytest.param("state", id="state_below_target"),
+        pytest.param("execution", id="execution_below_target"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_base_fee_decreases_from_dominant_dimension(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    dominant_dimension: str,
+) -> None:
+    """
+    Verify that a block below gas target lowers the child's base fee.
+
+    The decrease is driven by max(execution_gas, state_gas),
+    so reading either dimension correctly matters.
+    """
+    genesis_base_fee = 10**9
+    gas_limit = 600_000
+    target = gas_limit // fork.base_fee_elasticity_multiplier()
+
+    if dominant_dimension == "state":
+        tx_execution, tx_state = sstore_tx_gas(fork, num_sstores=1)
+        assert tx_state > tx_execution, "state must be the bottleneck"
+
+        storage = Storage()
+        contract = pre.deploy_contract(
+            code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP
+        )
+
+        tx = Transaction(
+            to=contract,
+            gas_limit=tx_execution + tx_state,
+            sender=pre.fund_eoa(),
+            max_fee_per_gas=10**10,
+        )
+
+        block_1_gas_used = tx_state
+        post: dict = {contract: Account(storage=storage)}
+    else:
+        contract = pre.deploy_contract(code=Op.STOP)
+        intrinsic = fork.transaction_intrinsic_cost_calculator()()
+        tx = Transaction(
+            to=contract,
+            gas_limit=intrinsic,
+            sender=pre.fund_eoa(),
+            max_fee_per_gas=10**10,
+        )
+        block_1_gas_used = intrinsic
+        post = {}
+
+    assert block_1_gas_used < target, "block 1 must sit below the target"
+
+    base_fee_calc = fork.base_fee_per_gas_calculator()
+    block_1_base_fee = base_fee_calc(
+        parent_base_fee_per_gas=genesis_base_fee,
+        parent_gas_used=0,
+        parent_gas_limit=gas_limit,
+    )
+    block_2_base_fee = base_fee_calc(
+        parent_base_fee_per_gas=block_1_base_fee,
+        parent_gas_used=block_1_gas_used,
+        parent_gas_limit=gas_limit,
+    )
+    assert block_2_base_fee < block_1_base_fee, (
+        "an under-target block must lower the child's base fee"
+    )
+
+    blockchain_test(
+        genesis_environment=Environment(
+            gas_limit=gas_limit,
+            base_fee_per_gas=genesis_base_fee,
+        ),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
                 gas_limit=gas_limit,
                 header_verify=Header(
                     gas_used=block_1_gas_used,
