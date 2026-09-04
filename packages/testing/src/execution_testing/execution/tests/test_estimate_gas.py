@@ -252,3 +252,45 @@ def test_estimate_can_exceed_execution_cap(rpc: Mock) -> None:
     tx = Transaction(sender=EOA(key=123))
     execute(prepare([tx], estimate_gas=True), rpc)
     assert tx.gas_limit == cap + 1_000_000
+
+
+@pytest.mark.parametrize("rejected_index", [None, 0, 1, 2])
+def test_default_batching_and_rejections(
+    rejected_index: int | None, rpc: Mock
+) -> None:
+    """Keep default batching and flush valid transactions around rejections."""
+    sender = EOA(key=123)
+    txs = [Transaction(sender=sender) for _ in range(3)]
+    if rejected_index is not None:
+        txs[rejected_index].error = TransactionException.INTRINSIC_GAS_TOO_LOW
+    plan = prepare(txs)
+    events: list[tuple[str, list[int]]] = []
+    rpc.send_wait_transactions.side_effect = lambda sent: events.append(
+        ("batch", [int(tx.nonce) for tx in sent])
+    )
+
+    def reject(tx: Transaction) -> None:
+        events.append(("reject", [int(tx.nonce)]))
+        raise SendTransactionExceptionError("rejected")
+
+    rpc.send_transaction.side_effect = reject
+    execute(plan, rpc)
+    if rejected_index is None:
+        expected = [("batch", [0, 1, 2])]
+    else:
+        expected = []
+        if rejected_index:
+            expected.append(("batch", list(range(rejected_index))))
+        expected.append(("reject", [rejected_index]))
+        if rejected_index < 2:
+            expected.append(("batch", list(range(rejected_index + 1, 3))))
+    assert events == expected
+    rpc.estimate_gas.assert_not_called()
+    rpc.get_transaction_receipt.assert_not_called()
+
+
+def test_default_empty_block(rpc: Mock) -> None:
+    """Preserve the empty transaction batch passed to the RPC backend."""
+    execute(prepare([]), rpc)
+    rpc.send_wait_transactions.assert_called_once_with([])
+    rpc.estimate_gas.assert_not_called()
