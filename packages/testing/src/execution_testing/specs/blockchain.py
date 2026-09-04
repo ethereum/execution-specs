@@ -1587,7 +1587,7 @@ class BlockchainTest(BaseTest):
                     f"max_fee_per_blob_gas={max_fee_per_blob_gas}."
                 )
             execute_plan.prepare_transactions(
-                env=Environment(gas_limit=HexNumber(start_block["gasLimit"])),
+                env=Environment(gas_limit=start_block.gas_limit),
                 gas_price=gas_price,
                 max_fee_per_gas=max_fee_per_gas,
                 max_priority_fee_per_gas=max_priority_fee_per_gas,
@@ -1606,9 +1606,7 @@ class BlockchainTest(BaseTest):
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
             )
 
-        self.pre.verify_deployed_accounts(
-            int(HexNumber(start_block["number"]))
-        )
+        self.pre.verify_deployed_accounts(int(start_block.number))
 
         # Materialise queued pre-alloc txs into a synthetic setup block.
         blocks_to_process: List[Block] = []
@@ -1628,9 +1626,13 @@ class BlockchainTest(BaseTest):
         # recomputes block_hash from RLP and that diverges from the
         # client's authoritative hash unless every header byte is
         # reproduced exactly.
-        start_block_number = int(HexNumber(start_block["number"]))
-        start_block_hash = Hash(start_block["hash"])
-        parent_header = FixtureHeader.model_validate(start_block)
+        start_block_number = int(start_block.number)
+        start_block_hash = start_block.hash
+        parent_header = FixtureHeader.model_validate(
+            start_block.model_dump(
+                by_alias=True, mode="json", exclude_none=True
+            )
+        )
         env = Environment(
             parent_difficulty=parent_header.difficulty,
             parent_timestamp=parent_header.timestamp,
@@ -1719,8 +1721,8 @@ class BlockchainTest(BaseTest):
             fork=self.fork,
             last_block_hash=head_hash,
             config=FixtureConfig(fork=self.fork),
-            snapshot_block_number=HexNumber(snapshot_block["number"]),
-            snapshot_block_hash=Hash(snapshot_block["hash"]),
+            snapshot_block_number=snapshot_block.number,
+            snapshot_block_hash=snapshot_block.hash,
             start_block_number=HexNumber(start_block_number),
             start_block_hash=start_block_hash,
             setup_payloads=setup_payloads,

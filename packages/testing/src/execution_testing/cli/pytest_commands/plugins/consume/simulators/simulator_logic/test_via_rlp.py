@@ -7,18 +7,16 @@ start-up.
 """
 
 import logging
-from typing import Any, Dict
 
 from pydantic import ValidationError
 
-from execution_testing.base_types import HexNumber
 from execution_testing.fixtures import BlockchainFixture
 from execution_testing.fixtures.blockchain import (
     FixtureBlock,
     FixtureHeader,
 )
 from execution_testing.forks import Fork, TransitionFork
-from execution_testing.rpc import EthRPC
+from execution_testing.rpc import EthRPC, LiveBlock
 
 from ..helpers.exceptions import GenesisBlockMismatchExceptionError
 from ..helpers.timing import TimingData
@@ -27,19 +25,22 @@ logger = logging.getLogger(__name__)
 
 
 def _validate_rpc_header_fields(
-    block: Dict[str, Any],
+    block: LiveBlock,
     fixture_fork: Fork | TransitionFork,
 ) -> None:
     applicable_fork = fixture_fork.fork_at(
-        block_number=HexNumber(block["number"]),
-        timestamp=HexNumber(block["timestamp"]),
+        block_number=block.number,
+        timestamp=block.timestamp,
+    )
+    block_dict = block.model_dump(
+        by_alias=True, mode="json", exclude_none=True
     )
     try:
-        FixtureHeader.model_validate({**block, "fork": applicable_fork})
+        FixtureHeader.model_validate({**block_dict, "fork": applicable_fork})
     except ValidationError as e:
         raise AssertionError(
             f"Invalid or missing required header field for "
-            f"block {block['number']}: {e}"
+            f"block {block.number}: {e}"
         ) from e
 
 
@@ -57,7 +58,7 @@ def test_via_rlp(
         logger.info("Calling getBlockByNumber to get genesis block...")
         genesis_block = eth_rpc.get_block_by_number(0)
         assert genesis_block, "`getBlockByNumber` didn't return a block."
-        if genesis_block["hash"] != str(fixture.genesis.block_hash):
+        if genesis_block.hash != fixture.genesis.block_hash:
             raise GenesisBlockMismatchExceptionError(
                 expected_header=fixture.genesis,
                 got_genesis_block=genesis_block,
@@ -67,18 +68,22 @@ def test_via_rlp(
         block = eth_rpc.get_block_by_number("latest")
         assert block, "`getBlockByNumber` didn't return a block."
         _validate_rpc_header_fields(block, fixture.fork)
-        if block["hash"] != str(fixture.last_block_hash):
+        if block.hash != fixture.last_block_hash:
             try:
-                block_header = FixtureHeader.model_validate(block).model_dump()
+                block_header = FixtureHeader.model_validate(
+                    block.model_dump(
+                        by_alias=True, mode="json", exclude_none=True
+                    )
+                ).model_dump()
                 last_block = FixtureBlock.model_validate(fixture.blocks[-1])
                 last_block_header = last_block.header.model_dump()
 
-                if block_header["number"] != last_block_header["number"]:
+                if block.number != last_block.header.number:
                     # raise with clearer message if block number mismatches
                     raise AssertionError(
                         f"block number mismatch in last block: got "
-                        f"`{block_header['number']}`, "
-                        f"expected `{last_block_header['number']}``"
+                        f"`{block.number}`, "
+                        f"expected `{last_block.header.number}``"
                     )
 
                 # find all mismatched fields
@@ -99,6 +104,6 @@ def test_via_rlp(
             except Exception:
                 raise AssertionError(
                     f"blockHash mismatch in last block: "
-                    f"got `{block['hash']}`, "
+                    f"got `{block.hash}`, "
                     f"expected `{fixture.last_block_hash}`"
                 ) from None

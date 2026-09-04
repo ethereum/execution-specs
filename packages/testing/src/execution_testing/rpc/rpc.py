@@ -56,6 +56,7 @@ from .rpc_types import (
     JSONRPCError,
     JSONRPCRequest,
     JSONRPCResponse,
+    LiveBlock,
     PayloadAttributes,
     PayloadStatus,
     PayloadStatusEnum,
@@ -581,7 +582,7 @@ class EthRPC(BaseRPC):
 
     def get_block_by_number(
         self, block_number: BlockNumberType = "latest", full_txs: bool = True
-    ) -> Any | None:
+    ) -> LiveBlock | None:
         """
         `eth_getBlockByNumber`: Returns information about a block by block
         number.
@@ -593,9 +594,12 @@ class EthRPC(BaseRPC):
         )
         logger.info(f"Requesting info about block {block}..")
         params = [block, full_txs]
-        return self.post_request(
+        response = self.post_request(
             request=RPCCall(method="getBlockByNumber", params=params)
         ).result_or_raise()
+        if response is None:
+            return None
+        return LiveBlock.model_validate(response)
 
     def get_block_receipts(
         self, block_hash: Hash
@@ -610,13 +614,16 @@ class EthRPC(BaseRPC):
 
     def get_block_by_hash(
         self, block_hash: Hash, full_txs: bool = True
-    ) -> Any | None:
+    ) -> LiveBlock | None:
         """`eth_getBlockByHash`: Returns information about a block by hash."""
         logger.info(f"Requesting block info of {block_hash}..")
         params = [f"{block_hash}", full_txs]
-        return self.post_request(
+        response = self.post_request(
             request=RPCCall(method="getBlockByHash", params=params)
         ).result_or_raise()
+        if response is None:
+            return None
+        return LiveBlock.model_validate(response)
 
     def get_block_by_hash_with_retry(
         self,
@@ -625,7 +632,7 @@ class EthRPC(BaseRPC):
         max_attempts: int = 5,
         wait_fixed: float = 1.0,
         on_retry: Callable[[RetryCallState], None] | None = None,
-    ) -> dict[str, Any]:
+    ) -> LiveBlock:
         """
         Get block by hash, retrying if not yet available.
 
@@ -637,7 +644,7 @@ class EthRPC(BaseRPC):
                 Receives tenacity RetryCallState. If None, logs at debug level.
 
         Returns:
-            Block data as a dictionary.
+            The block.
 
         Raises:
             BlockNotAvailableError: If block not available after max_attempts.
@@ -661,7 +668,7 @@ class EthRPC(BaseRPC):
             before_sleep=retry_callback,
             reraise=True,
         )
-        def _get_block() -> dict[str, Any]:
+        def _get_block() -> LiveBlock:
             nonlocal attempts
             attempts += 1
             block = self.get_block_by_hash(block_hash)
