@@ -10,18 +10,29 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
     Bytecode,
+    Conditional,
+    Fork,
     Hash,
     Op,
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
     compute_create_address,
     keccak256,
 )
+from execution_testing import (
+    Macros as Om,
+)
+from execution_testing.checklists import EIPChecklist
 
+from ..eip7708_eth_transfer_logs.spec import transfer_log
 from .spec import ref_spec_8246
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8246.git_path
@@ -63,6 +74,10 @@ pytestmark = pytest.mark.valid_from("EIP8246")
         pytest.param(Op.MSTORE(2**32, 0), False, id="oog"),
     ],
 )
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
+@EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
+@EIPChecklist.Opcode.Test.Terminating.Rollback.Balance()
 def test_selfdestructing_initcode_preserves_balance(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -237,6 +252,8 @@ def test_selfdestructing_initcode_preserves_balance(
     "value",
     [pytest.param(1, id="kept"), pytest.param(0, id="removed")],
 )
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
+@EIPChecklist.Opcode.Test.Terminating.Scenarios.TopLevel()
 def test_create_transaction_initcode_selfdestruct(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -267,3 +284,118 @@ def test_create_transaction_initcode_selfdestruct(
         )
     }
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "sweep_on_redeploy",
+    [
+        pytest.param(False, id="selfdestruct_to_self"),
+        pytest.param(True, id="sweep_to_origin"),
+    ],
+)
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Reentry()
+@EIPChecklist.Opcode.Test.Terminating.Scenarios.Initcode()
+def test_create2_redeploy_over_remnant(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    sweep_on_redeploy: bool,
+) -> None:
+    """
+    Case 17 of the EIP and its third security consideration: the cleared
+    nonce and storage let the same factory CREATE2 over the funded remnant,
+    and the redeployed initcode can spend the preserved balance.
+    """
+    endowment = 5
+    deployer = pre.fund_eoa()
+    redeployer = pre.fund_eoa()
+
+    if sweep_on_redeploy:
+        # Only a redeploy sees a balance above the call value, so the same
+        # initcode bytes sweep to the redeployer the second time.
+        selfdestruct: Bytecode = Conditional(
+            condition=Op.GT(Op.BALANCE(Op.ADDRESS), Op.CALLVALUE),
+            if_true=Op.SELFDESTRUCT(Op.ORIGIN),
+            if_false=Op.SELFDESTRUCT(Op.ADDRESS),
+        )
+        redeploy_value = 0
+    else:
+        selfdestruct = Op.SELFDESTRUCT(Op.ADDRESS)
+        redeploy_value = endowment
+
+    initcode = Op.SSTORE(0, 1) + selfdestruct
+    factory = pre.deploy_contract(
+        code=Om.MSTORE(initcode, 0)
+        + Op.SSTORE(
+            Op.CALLDATALOAD(0),
+            Op.CREATE2(
+                value=Op.CALLVALUE, offset=0, size=len(initcode), salt=0
+            ),
+        )
+        + Op.STOP
+    )
+    created = compute_create_address(
+        address=factory, salt=0, initcode=initcode, opcode=Op.CREATE2
+    )
+
+    tx1 = Transaction(
+        sender=deployer, to=factory, value=endowment, data=Hash(1)
+    )
+    tx2 = Transaction(
+        sender=redeployer, to=factory, value=redeploy_value, data=Hash(2)
+    )
+
+    created_post: Account | None
+    if sweep_on_redeploy:
+        created_post = Account.NONEXISTENT
+        final_balance = 0
+        tx2_logs = [transfer_log(created, redeployer, endowment)]
+    else:
+        final_balance = 2 * endowment
+        created_post = Account(
+            balance=final_balance, nonce=0, code=b"", storage={}
+        )
+        tx2_logs = [
+            transfer_log(redeployer, factory, endowment),
+            transfer_log(factory, created, endowment),
+        ]
+    if fork.is_eip_enabled(7708):
+        tx1.expected_receipt = TransactionReceipt(
+            logs=[
+                transfer_log(deployer, factory, endowment),
+                transfer_log(factory, created, endowment),
+            ]
+        )
+        tx2.expected_receipt = TransactionReceipt(logs=tx2_logs)
+
+    expected_bal = None
+    if fork.is_eip_enabled(7928):
+        expected_bal = BlockAccessListExpectation(
+            account_expectations={
+                created: BalAccountExpectation(
+                    nonce_changes=[],
+                    code_changes=[],
+                    storage_changes=[],
+                    storage_reads=[0],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=endowment
+                        ),
+                        BalBalanceChange(
+                            block_access_index=2, post_balance=final_balance
+                        ),
+                    ],
+                )
+            }
+        )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(txs=[tx1, tx2], expected_block_access_list=expected_bal)
+        ],
+        post={
+            factory: Account(nonce=3, storage={1: created, 2: created}),
+            created: created_post,
+        },
+    )
