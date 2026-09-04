@@ -23,7 +23,6 @@ from execution_testing.client_clis import (
 )
 from execution_testing.exceptions import (
     BlockException,
-    EngineAPIError,
     TransactionException,
 )
 from execution_testing.execution import (
@@ -80,7 +79,6 @@ class StateTest(BaseTest):
         | BlockException
         | None
     ) = None
-    engine_api_error_code: Optional[EngineAPIError] = None
     blockchain_test_header_verify: Optional[Header] = None
     blockchain_test_rlp_modifier: Optional[Header] = None
     expected_block_access_list: Optional[BlockAccessListExpectation] = None
