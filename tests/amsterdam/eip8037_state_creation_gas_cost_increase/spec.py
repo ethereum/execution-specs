@@ -33,6 +33,9 @@ class Spec:
     Increase tests.
     """
 
+    # State reservoir sizing for each protocol system call.
+    SYSTEM_MAX_SSTORES_PER_CALL = 16
+
     # EIP-7825 transaction gas limit cap
     TX_MAX_GAS_LIMIT = 2**24  # 16,777,216
 

@@ -1211,7 +1211,7 @@ def test_create_insufficient_balance_returns_reservoir(
 
 
 @pytest.mark.valid_from("EIP8037")
-def test_call_stack_depth_returns_reservoir(
+def test_recursive_revert_returns_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,

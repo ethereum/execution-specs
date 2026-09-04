@@ -18,6 +18,7 @@ from execution_testing import (
     AuthorizationTuple,
     Block,
     BlockchainTestFiller,
+    BlockException,
     Bytecode,
     Environment,
     Fork,
@@ -1298,4 +1299,83 @@ def test_block_2d_inclusion_execution_gate_full_gas_reservation(
             )
         ],
         post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "header_rule",
+    [
+        "correct",
+        pytest.param("combined", marks=pytest.mark.exception_test),
+        pytest.param("receipts", marks=pytest.mark.exception_test),
+        pytest.param("transaction_maxima", marks=pytest.mark.exception_test),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_reject_incorrect_two_dimensional_header(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    header_rule: str,
+) -> None:
+    """Reject alternate header gas totals for an otherwise valid block."""
+    state_code = Op.SSTORE(0, 1) + Op.SSTORE(
+        1, 0, original_value=1, current_value=1, new_value=0
+    )
+    memory_size = 256 * 1024
+    execution_code = Op.SSTORE(0, 1) + Op.MSTORE8(
+        memory_size - 1, 0, new_memory_size=memory_size
+    )
+    txs = []
+    post = {}
+    execution_total = state_total = receipt_total = maxima_total = 0
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    state_storage = Storage()
+    state_storage[1] = 1
+    for code, storage in (
+        (state_code, state_storage),
+        (execution_code, Storage()),
+    ):
+        contract = pre.deploy_contract(code=code, storage=storage)
+        execution = intrinsic + code.execution_cost(fork)
+        state = code.state_cost(fork)
+        total = execution + state
+        receipt_total += total - min(
+            total // fork.max_refund_quotient(), code.refund(fork)
+        )
+        execution_total += execution
+        state_total += state
+        maxima_total += max(execution, state)
+        txs.append(
+            Transaction(
+                sender=pre.fund_eoa(),
+                to=contract,
+                gas_limit=total,
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=receipt_total
+                ),
+            )
+        )
+        post[contract] = Account(storage={0: 1})
+    totals = {
+        "correct": max(execution_total, state_total),
+        "combined": execution_total + state_total,
+        "receipts": receipt_total,
+        "transaction_maxima": maxima_total,
+    }
+    assert len(set(totals.values())) == len(totals)
+    invalid = header_rule != "correct"
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                header_verify=Header(gas_used=totals["correct"]),
+                rlp_modifier=Header(gas_used=totals[header_rule])
+                if invalid
+                else None,
+                exception=BlockException.INVALID_GAS_USED if invalid else None,
+            )
+        ],
+        post=pre if invalid else post,
     )
