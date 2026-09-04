@@ -1,31 +1,87 @@
 """
-Test_create2_oog_from_call_refunds.
+Verify gas refunds earned inside a CREATE2's init code (storage clears,
+via direct stores and CALL/CALLCODE/DELEGATECALL helpers, selfdestructs,
+and nested creations) against out-of-gas boundaries: each scenario runs
+once completing normally and twice dying, on an oversized code deposit
+and on an INVALID that pins the refund bookkeeping.
 
 Ported from:
 state_tests/stCreate2/Create2OOGFromCallRefundsFiller.yml
+
+@manually-enhanced: Do not overwrite. The SSTORE pairs solc had folded
+out of five init codes are restored, so the refunds the OoG arms must
+discard are actually earned. The transaction budget and the sender's
+funding derive from the fork: the ported 400k regular budget plus the
+restored sets and the deepest arm's outstanding EIP-8037 state gas,
+guarded to stay below the 5000-byte deposit charge that starves the OoG
+arms.
 """
+
+from enum import Enum, auto
 
 import pytest
 from execution_testing import (
-    EOA,
     Account,
     Address,
     Alloc,
-    Bytes,
-    Environment,
-    Hash,
+    Bytecode,
+    Conditional,
+    Fork,
+    Op,
     StateTestFiller,
     Transaction,
-)
-from execution_testing.forks import Fork
-from execution_testing.vm import Op
-
-from tests.ported_static.post_state_resolution import (
-    resolve_expect_post,
+    compute_create2_address,
+    compute_create_address,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+GAS_PRICE = 10
+# The ported budget, proven to cover every NoOoG arm's regular gas.
+PORTED_GAS_LIMIT = 400_000
+# The OoG arms return this much memory as code. The deposit charge is
+# what must exceed the transaction budget so they starve.
+OOG_DEPOSIT_SIZE = 0x1388
+# Init codes return from here, past anything any of them writes to
+# memory, so the byte a completing arm deposits is always zero.
+DEPOSIT_OFFSET = 0x20
+
+
+class Refund(Enum):
+    """How an init code earns the refund the arm is about."""
+
+    DIRECT = auto()
+    """Clears a slot it set itself."""
+    CALL = auto()
+    """Has a callee clear the callee's own slot."""
+    DELEGATECALL = auto()
+    """Runs the callee's clear in its own storage."""
+    CALLCODE = auto()
+    """As DELEGATECALL, with its own address as the caller."""
+    SELFDESTRUCT = auto()
+    """Calls a contract that destroys itself."""
+    LOGS = auto()
+    """Calls a contract that only emits logs, earning nothing."""
+    CREATE = auto()
+    """Nests a CREATE that clears a slot."""
+    CREATE2 = auto()
+    """Nests a CREATE2 that clears a slot."""
+
+
+class Outcome(Enum):
+    """How the init code ends, which decides whether refunds survive."""
+
+    COMPLETES = auto()
+    """Deposits one byte and returns normally."""
+    OOG_DEPOSIT = auto()
+    """Requests a deposit the budget cannot pay for."""
+    OOG_INVALID = auto()
+    """Ends on INVALID, burning whatever gas is left."""
+
+
+NESTED = (Refund.CREATE, Refund.CREATE2)
+"""Arms whose init code creates a further contract."""
 
 
 @pytest.mark.ported_from(
@@ -33,1171 +89,235 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "d, g, v",
-    [
-        pytest.param(
-            0,
-            0,
-            0,
-            id="SStore_Refund_NoOoG",
-        ),
-        pytest.param(
-            1,
-            0,
-            0,
-            id="SStore_Refund_OoG",
-        ),
-        pytest.param(
-            2,
-            0,
-            0,
-            id="SStore_Refund_OoG",
-        ),
-        pytest.param(
-            3,
-            0,
-            0,
-            id="SStore_Call_Refund_NoOoG",
-        ),
-        pytest.param(
-            4,
-            0,
-            0,
-            id="SStore_Refund_OoG",
-        ),
-        pytest.param(
-            5,
-            0,
-            0,
-            id="SStore_Refund_OoG",
-        ),
-        pytest.param(
-            6,
-            0,
-            0,
-            id="SStore_DelegateCall_Refund_NoOoG",
-        ),
-        pytest.param(
-            7,
-            0,
-            0,
-            id="SStore_Refund_OoG",
-        ),
-        pytest.param(
-            8,
-            0,
-            0,
-            id="SStore_Refund_OoG",
-        ),
-        pytest.param(
-            9,
-            0,
-            0,
-            id="SStore_CallCode_Refund_NoOoG",
-        ),
-        pytest.param(
-            10,
-            0,
-            0,
-            id="SStore_Refund_OoG",
-        ),
-        pytest.param(
-            11,
-            0,
-            0,
-            id="SStore_Refund_OoG",
-        ),
-        pytest.param(
-            12,
-            0,
-            0,
-            id="SelfDestruct_Refund_NoOoG",
-        ),
-        pytest.param(
-            13,
-            0,
-            0,
-            id="SelfDestruct_Refund_OoG",
-        ),
-        pytest.param(
-            14,
-            0,
-            0,
-            id="SelfDestruct_Refund_OoG",
-        ),
-        pytest.param(
-            15,
-            0,
-            0,
-            id="LogOp_NoOoG",
-        ),
-        pytest.param(
-            16,
-            0,
-            0,
-            id="LogOp_OoG",
-        ),
-        pytest.param(
-            17,
-            0,
-            0,
-            id="LogOp_OoG",
-        ),
-        pytest.param(
-            18,
-            0,
-            0,
-            id="SStore_Create_Refund_NoOoG",
-        ),
-        pytest.param(
-            19,
-            0,
-            0,
-            id="SStore_Create_Refund_OoG",
-        ),
-        pytest.param(
-            20,
-            0,
-            0,
-            id="SStore_Create_Refund_OoG",
-        ),
-        pytest.param(
-            21,
-            0,
-            0,
-            id="SStore_Create2_Refund_NoOoG",
-        ),
-        pytest.param(
-            22,
-            0,
-            0,
-            id="SStore_Create2_Refund_OoG",
-        ),
-        pytest.param(
-            23,
-            0,
-            0,
-            id="SStore_Create2_Refund_OoG",
-        ),
-    ],
+    "outcome", list(Outcome), ids=lambda o: o.name.lower()
 )
-@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize("refund", list(Refund), ids=lambda r: r.name.lower())
 def test_create2_oog_from_call_refunds(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    d: int,
-    g: int,
-    v: int,
+    refund: Refund,
+    outcome: Outcome,
 ) -> None:
-    """Test_create2_oog_from_call_refunds."""
-    coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
-    contract_0 = Address(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA)
-    contract_1 = Address(0x000000000000000000000000000000000000001A)
-    contract_2 = Address(0x000000000000000000000000000000000000001B)
-    contract_3 = Address(0x000000000000000000000000000000000000001C)
-    contract_4 = Address(0x000000000000000000000000000000000000002A)
-    contract_5 = Address(0x000000000000000000000000000000000000002B)
-    contract_6 = Address(0x000000000000000000000000000000000000002C)
-    contract_7 = Address(0x000000000000000000000000000000000000003A)
-    contract_8 = Address(0x000000000000000000000000000000000000003B)
-    contract_9 = Address(0x000000000000000000000000000000000000003C)
-    contract_10 = Address(0x000000000000000000000000000000000000004A)
-    contract_11 = Address(0x000000000000000000000000000000000000004B)
-    contract_12 = Address(0x000000000000000000000000000000000000004C)
-    contract_13 = Address(0x000000000000000000000000000000000000005A)
-    contract_14 = Address(0x000000000000000000000000000000000000005B)
-    contract_15 = Address(0x000000000000000000000000000000000000005C)
-    contract_16 = Address(0x000000000000000000000000000000000000006A)
-    contract_17 = Address(0x000000000000000000000000000000000000006B)
-    contract_18 = Address(0x000000000000000000000000000000000000006C)
-    contract_19 = Address(0x000000000000000000000000000000000000007A)
-    contract_20 = Address(0x000000000000000000000000000000000000007B)
-    contract_21 = Address(0x000000000000000000000000000000000000007C)
-    contract_22 = Address(0x000000000000000000000000000000000000008A)
-    contract_23 = Address(0x000000000000000000000000000000000000008B)
-    contract_24 = Address(0x000000000000000000000000000000000000008C)
-    contract_25 = Address(0x00000000000000000000000000000000000C0DEA)
-    contract_26 = Address(0x00000000000000000000000000000000000C0DED)
-    contract_27 = Address(0x00000000000000000000000000000000000C0DE0)
-    contract_28 = Address(0x00000000000000000000000000000000000C0DE1)
-    sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-    )
-
-    pre[sender] = Account(balance=0x3D0900, nonce=1)
-    # Source: yul
-    # berlin
-    # {
-    #   let init_addr := calldataload(4)
-    #   let init_length := extcodesize(init_addr)
-    #   extcodecopy(init_addr, 0, 0, init_length)
-    #   let created_addr := create2(0, 0, init_length, 0)
-    #   if eq(created_addr, 0) {
-    #     /* This invalid will deplete the remaining gas to make refund check deterministic */  # noqa: E501
-    #     invalid()
-    #   }
-    # }
-    contract_0 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x0]
-        + Op.DUP1 * 2
-        + Op.CALLDATALOAD(offset=0x4)
-        + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2)
-        + Op.SWAP3
-        + Op.DUP4
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.DUP2
-        + Op.JUMPI(pc=0x16, condition=Op.EQ(Op.CREATE2, Op.DUP1))
+    """Init-code refunds survive only a completing CREATE2."""
+    # The entry point takes the init code straight from the
+    # transaction's calldata. The ported filler instead passed the
+    # address of a contract holding those bytes and EXTCODECOPYed them,
+    # which needed a carrier contract deployed per arm.
+    #
+    # A failed CREATE2 falls through to INVALID, which burns whatever
+    # gas is left; that is what makes the refund bookkeeping in the OoG
+    # arms deterministic.
+    entry_code = (
+        Op.CALLDATACOPY(size=Op.CALLDATASIZE)
+        + Conditional(
+            condition=Op.ISZERO(
+                Op.CREATE2(
+                    value=0x0, offset=0x0, size=Op.CALLDATASIZE, salt=0x0
+                )
+            ),
+            if_true=Op.INVALID,
+        )
         + Op.STOP
-        + Op.JUMPDEST
-        + Op.INVALID,
-        nonce=1,
-        address=Address(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA),  # noqa: E501
     )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   return(0, 1)
-    # }
-    contract_1 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
-        + Op.RETURN,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000001A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   return(0, 5000)
-    # }
-    contract_2 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.RETURN(offset=0x0, size=0x1388),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000001B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   invalid()
-    # }
-    contract_3 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SWAP1
-        + Op.SSTORE
-        + Op.INVALID,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000001C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   // Simple SSTORE to zero to get a refund
-    #   sstore(1, 0)
-    # }
-    contract_25 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
-        storage={1: 1},
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000C0DEA),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   selfdestruct(origin())
-    # }
-    contract_26 = pre.deploy_contract(  # noqa: F841
-        code=Op.SELFDESTRUCT(address=Op.ORIGIN),
-        storage={1: 1},
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000C0DED),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   mstore(0, 0xff)
-    #   log0(0, 32)
-    #   log1(0, 32, 0xfa)
-    #   log2(0, 32, 0xfa, 0xfb)
-    #   log3(0, 32, 0xfa, 0xfb, 0xfc)
-    #   log4(0, 32, 0xfa, 0xfb, 0xfc, 0xfd)
-    # }
-    contract_27 = pre.deploy_contract(  # noqa: F841
-        code=Op.MSTORE(offset=0x0, value=0xFF)
-        + Op.LOG0(offset=0x0, size=0x20)
-        + Op.LOG1(offset=0x0, size=0x20, topic_1=0xFA)
-        + Op.LOG2(offset=0x0, size=0x20, topic_1=0xFA, topic_2=0xFB)
-        + Op.LOG3(
-            offset=0x0, size=0x20, topic_1=0xFA, topic_2=0xFB, topic_3=0xFC
-        )
-        + Op.LOG4(
-            offset=0x0,
-            size=0x20,
-            topic_1=0xFA,
-            topic_2=0xFB,
-            topic_3=0xFC,
-            topic_4=0xFD,
-        )
-        + Op.STOP,
-        storage={1: 1},
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000C0DE0),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(0, 0)
-    #   return(0, 1)
-    # }
-    contract_28 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP1, value=Op.DUP1)
-        + Op.PUSH1[0x1]
-        + Op.SWAP1
-        + Op.RETURN,
-        nonce=1,
-        address=Address(0x00000000000000000000000000000000000C0DE1),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 1)
-    #   let noOpt := msize()
-    # }
-    contract_4 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.CALL(
-            gas=Op.GAS,
-            address=contract_25,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000002A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 5000)
-    # }
-    contract_5 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.CALL(
-            gas=Op.GAS,
-            address=contract_25,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1388),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000002B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   pop(delegatecall(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0))  # noqa: E501
-    #   invalid()
-    # }
-    contract_9 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.POP(
-            Op.DELEGATECALL(
-                gas=Op.GAS,
-                address=contract_25,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            )
-        )
-        + Op.INVALID,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000003C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
-    #   invalid()
-    # }
-    contract_6 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=contract_25,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            )
-        )
-        + Op.INVALID,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000002C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   pop(delegatecall(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 1)
-    #   let noOpt := msize()
-    # }
-    contract_7 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.DELEGATECALL(
-            gas=Op.GAS,
-            address=contract_25,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000003A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   pop(callcode(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 5000)
-    # }
-    contract_11 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.CALLCODE(
-            gas=Op.GAS,
-            address=contract_25,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1388),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000004B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   pop(delegatecall(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 5000)
-    # }
-    contract_8 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.DELEGATECALL(
-            gas=Op.GAS,
-            address=contract_25,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1388),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000003B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   pop(callcode(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 1)
-    #   let noOpt := msize()
-    # }
-    contract_10 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.CALLCODE(
-            gas=Op.GAS,
-            address=contract_25,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000004A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   pop(callcode(gas(), 0x00000000000000000000000000000000000c0deA, 0, 0, 0, 0, 0))  # noqa: E501
-    #   invalid()
-    # }
-    contract_12 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.POP(
-            Op.CALLCODE(
-                gas=Op.GAS,
-                address=contract_25,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            )
-        )
-        + Op.INVALID,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000004C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deD, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 5000)
-    # }
-    contract_14 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.CALL(
-            gas=Op.GAS,
-            address=contract_26,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1388),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000005B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deD, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 1)
-    #   let noOpt := msize()
-    # }
-    contract_13 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.CALL(
-            gas=Op.GAS,
-            address=contract_26,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000005A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0deD, 0, 0, 0, 0, 0))  # noqa: E501
-    #   invalid()
-    # }
-    contract_15 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=contract_26,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            )
-        )
-        + Op.INVALID,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000005C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0de0, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 1)
-    #   let noOpt := msize()
-    # }
-    contract_16 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.CALL(
-            gas=Op.GAS,
-            address=contract_27,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000006A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0de0, 0, 0, 0, 0, 0))  # noqa: E501
-    #   return(0, 5000)
-    # }
-    contract_17 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.CALL(
-            gas=Op.GAS,
-            address=contract_27,
-            value=Op.DUP1,
-            args_offset=Op.DUP1,
-            args_size=Op.DUP1,
-            ret_offset=Op.DUP1,
-            ret_size=0x0,
-        )
-        + Op.RETURN(offset=0x0, size=0x1388),
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000006B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   pop(call(gas(), 0x00000000000000000000000000000000000c0de0, 0, 0, 0, 0, 0))  # noqa: E501
-    #   invalid()
-    # }
-    contract_18 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.POP(
-            Op.CALL(
-                gas=Op.GAS,
-                address=contract_27,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=0x0,
-            )
-        )
-        + Op.INVALID,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000006C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
-    #   let initcodelength := extcodesize(initcodeaddr)
-    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
-    #   pop(create2(0, 0, initcodelength, 0))
-    #   return(add(initcodelength, 1), 5000)
-    # }
-    contract_23 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.PUSH2[0x1388]
-        + Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.PUSH3[0xC0DE1]
-        + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2)
-        + Op.SWAP3
-        + Op.DUP4
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.POP(
-            Op.CREATE2(value=Op.DUP1, offset=Op.DUP2, size=Op.DUP2, salt=0x0)
-        )
-        + Op.ADD
-        + Op.RETURN,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000008B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
-    #   let initcodelength := extcodesize(initcodeaddr)
-    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
-    #   pop(create2(0, 0, initcodelength, 0))
-    #   return(add(initcodelength, 1), 1)
-    #   let noOpt := msize()
-    # }
-    contract_22 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.PUSH3[0xC0DE1]
-        + Op.EXTCODESIZE(address=Op.DUP1)
-        + Op.SWAP2
-        + Op.DUP3
-        + Op.SWAP2
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.EXTCODECOPY
-        + Op.POP(
-            Op.CREATE2(value=Op.DUP1, offset=Op.DUP2, size=Op.DUP2, salt=0x0)
-        )
-        + Op.ADD
-        + Op.RETURN,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000008A),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
-    #   let initcodelength := extcodesize(initcodeaddr)
-    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
-    #   pop(create2(0, 0, initcodelength, 0))
-    #   invalid()
-    # }
-    contract_24 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.PUSH1[0x0]
-        + Op.DUP1
-        + Op.PUSH3[0xC0DE1]
-        + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2)
-        + Op.SWAP3
-        + Op.DUP4
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.DUP2
-        + Op.DUP1
-        + Op.POP(Op.CREATE2)
-        + Op.INVALID,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000008C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
-    #   let initcodelength := extcodesize(initcodeaddr)
-    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
-    #   pop(create(0, 0, initcodelength))
-    #   return(add(initcodelength, 1), 5000)
-    # }
-    contract_20 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.PUSH2[0x1388]
-        + Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.PUSH3[0xC0DE1]
-        + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2)
-        + Op.SWAP3
-        + Op.DUP4
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.POP(Op.CREATE(value=Op.DUP1, offset=0x0, size=Op.DUP1))
-        + Op.ADD
-        + Op.RETURN,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000007B),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
-    #   let initcodelength := extcodesize(initcodeaddr)
-    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
-    #   pop(create(0, 0, initcodelength))
-    #   invalid()
-    # }
-    contract_21 = pre.deploy_contract(  # noqa: F841
-        code=Op.SSTORE(key=0x0, value=0x1)
-        + Op.SSTORE(key=Op.DUP1, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x0)
-        + Op.PUSH1[0x0]
-        + Op.PUSH3[0xC0DE1]
-        + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2)
-        + Op.SWAP3
-        + Op.DUP4
-        + Op.SWAP3
-        + Op.EXTCODECOPY
-        + Op.PUSH1[0x0]
-        + Op.DUP1
-        + Op.POP(Op.CREATE)
-        + Op.INVALID,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000007C),  # noqa: E501
-    )
-    # Source: yul
-    # berlin
-    # {
-    #   sstore(0, 1)
-    #   sstore(1, 1)
-    #   sstore(1, 0)
-    #   let initcodeaddr := 0x00000000000000000000000000000000000c0de1
-    #   let initcodelength := extcodesize(initcodeaddr)
-    #   extcodecopy(initcodeaddr, 0, 0, initcodelength)
-    #   pop(create(0, 0, initcodelength))
-    #   return(add(initcodelength, 1), 1)
-    #   let noOptimization := msize()
-    # }
-    contract_19 = pre.deploy_contract(  # noqa: F841
-        code=Op.PUSH1[0x1]
-        + Op.PUSH1[0x0]
-        + Op.SSTORE(key=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE(key=Op.DUP3, value=Op.DUP1)
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.PUSH3[0xC0DE1]
-        + Op.EXTCODESIZE(address=Op.DUP1)
-        + Op.SWAP2
-        + Op.DUP3
-        + Op.SWAP2
-        + Op.DUP2
-        + Op.SWAP1
-        + Op.EXTCODECOPY
-        + Op.POP(Op.CREATE(value=Op.DUP1, offset=0x0, size=Op.DUP1))
-        + Op.ADD
-        + Op.RETURN,
-        nonce=0,
-        address=Address(0x000000000000000000000000000000000000007A),  # noqa: E501
+    entry = pre.deploy_contract(code=entry_code)
+
+    nested_initcode = (
+        Op.SSTORE(key=0x0, value=0x1)
+        + Op.SSTORE(key=0x0, value=0x0)
+        + Op.RETURN(offset=0x0, size=0x1)
     )
 
-    expect_entries_: list[dict] = []
-    if fork.is_eip_enabled(8037):
-        expect_entries_.append(
-            {
-                "indexes": {
-                    "data": [
-                        1,
-                        2,
-                        4,
-                        5,
-                        7,
-                        8,
-                        10,
-                        11,
-                        13,
-                        14,
-                        16,
-                        17,
-                        19,
-                        20,
-                        22,
-                        23,
-                    ],
-                    "gas": -1,
-                    "value": -1,
-                },
-                "network": [">=Cancun"],
-                "result": {sender: Account(nonce=2)},
-            }
+    body: Bytecode
+    post: dict[Address, Account | None] = {}
+    match refund:
+        case Refund.DIRECT:
+            # Sets a second slot and clears it itself.
+            body = (
+                Op.SSTORE(key=0x0, value=0x1)
+                + Op.SSTORE(key=0x1, value=0x1)
+                + Op.SSTORE(key=0x1, value=0x0)
+            )
+        case Refund.CALL | Refund.DELEGATECALL | Refund.CALLCODE:
+            # The callee clears a slot of its own.
+            clear_target_code = Op.SSTORE(key=0x1, value=0x0) + Op.STOP
+            clear_target = pre.deploy_contract(
+                code=clear_target_code,
+                storage={1: 1},
+            )
+            sstore_code = Op.SSTORE(key=0x0, value=0x1)
+            if refund == Refund.CALL:
+                call_opcode = Op.CALL
+            elif refund == Refund.DELEGATECALL:
+                sstore_code += Op.SSTORE(key=0x1, value=0x1)
+                call_opcode = Op.DELEGATECALL
+            else:
+                sstore_code += Op.SSTORE(key=0x1, value=0x1)
+                call_opcode = Op.CALLCODE
+            body = sstore_code + call_opcode(address=clear_target)
+            post[clear_target] = Account(
+                storage={
+                    1: int(
+                        refund != Refund.CALL or outcome != Outcome.COMPLETES
+                    )
+                }
+            )
+        case Refund.SELFDESTRUCT:
+            # The callee destroys itself.
+            selfdestruct_target_code = Op.SELFDESTRUCT(address=Op.ORIGIN)
+            selfdestruct_target = pre.deploy_contract(
+                code=selfdestruct_target_code,
+                storage={1: 1},
+            )
+            body = Op.SSTORE(key=0x0, value=0x1) + Op.CALL(
+                gas=Op.GAS, address=selfdestruct_target
+            )
+            if outcome is Outcome.COMPLETES:
+                post[selfdestruct_target] = Account(balance=0, nonce=1)
+            else:
+                post[selfdestruct_target] = Account(
+                    storage={1: 1}, code=selfdestruct_target_code, nonce=1
+                )
+        case Refund.LOGS:
+            # The callee only emits logs, so nothing is refunded.
+            log_target_code = (
+                Op.MSTORE(offset=0x0, value=0xFF)
+                + Op.LOG0(offset=0x0, size=0x20)
+                + Op.LOG1(offset=0x0, size=0x20, topic_1=0xFA)
+                + Op.LOG2(offset=0x0, size=0x20, topic_1=0xFA, topic_2=0xFB)
+                + Op.LOG3(
+                    offset=0x0,
+                    size=0x20,
+                    topic_1=0xFA,
+                    topic_2=0xFB,
+                    topic_3=0xFC,
+                )
+                + Op.LOG4(
+                    offset=0x0,
+                    size=0x20,
+                    topic_1=0xFA,
+                    topic_2=0xFB,
+                    topic_3=0xFC,
+                    topic_4=0xFD,
+                )
+                + Op.STOP
+            )
+            body = Op.SSTORE(key=0x0, value=0x1) + Op.CALL(
+                gas=Op.GAS,
+                address=pre.deploy_contract(
+                    code=log_target_code, storage={1: 1}
+                ),
+            )
+        case Refund.CREATE | Refund.CREATE2:
+            nested_carrier = pre.deploy_contract(code=nested_initcode)
+            nested_size = Op.EXTCODESIZE(address=nested_carrier)
+
+            assert DEPOSIT_OFFSET >= len(nested_initcode), (
+                "the deposit offset must clear the copied init code"
+            )
+            body = (
+                Op.SSTORE(key=0x0, value=0x1)
+                + Op.SSTORE(key=0x1, value=0x1)
+                + Op.SSTORE(key=0x1, value=0x0)
+                + Op.EXTCODECOPY(
+                    address=nested_carrier,
+                    dest_offset=0x0,
+                    offset=0x0,
+                    size=nested_size,
+                )
+            )
+            if refund == Refund.CREATE:
+                body += Op.CREATE(offset=0x0, size=nested_size)
+            else:
+                body += Op.CREATE2(offset=0x0, size=nested_size)
+
+    match outcome:
+        case Outcome.COMPLETES:
+            # Deposit a single zero byte and return normally.
+            ends = Op.RETURN(offset=DEPOSIT_OFFSET, size=0x1)
+        case Outcome.OOG_DEPOSIT:
+            # Ask for more code than the budget can pay to deposit.
+            ends = Op.RETURN(
+                offset=DEPOSIT_OFFSET,
+                size=OOG_DEPOSIT_SIZE,
+                code_deposit_size=OOG_DEPOSIT_SIZE,
+            )
+        case Outcome.OOG_INVALID:
+            # Burn whatever gas is left.
+            ends = Op.INVALID
+
+    initcode = body + ends
+
+    # The ported budget was sized for the compiled programs, in which
+    # solc had folded a fresh set out of the deepest arm's two init codes
+    # (restored here). On top of it, EIP-8037 charges state gas: the
+    # deepest arm (create inside create2) makes three fresh sets and two
+    # new accounts and deposits one byte at each depth. All state terms
+    # are zero before Amsterdam.
+    fresh_set = Op.SSTORE(
+        key=0x0, value=0x1, key_warm=False, original_value=0, new_value=1
+    )
+    new_account_state = Op.CREATE2(
+        value=0x0, offset=0x0, size=0x0, salt=0x0
+    ).state_cost(fork)
+    # Passing the init code as calldata adds intrinsic gas to the old
+    # carrier-address setup; derive that allowance from its actual bytes.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    calldata_gas = intrinsic(calldata=initcode) - intrinsic()
+    tx_gas_limit = (
+        PORTED_GAS_LIMIT
+        + 2 * fresh_set.execution_cost(fork)
+        + 3 * fresh_set.state_cost(fork)
+        + 2 * new_account_state
+        + 2 * fork.code_deposit_state_gas(code_size=1)
+        + calldata_gas
+    )
+    # The budget must stay below the oversized deposit charge so the
+    # OoG arms keep starving on it on every fork.
+    if outcome == Outcome.OOG_DEPOSIT:
+        assert tx_gas_limit < ends.gas_cost(fork), (
+            "the OoG arms must stay starved"
         )
-    expect_entries_ += [
-        {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=2),
-                Address(0xCFB6834F84B9E726F5F8AEF446D585B732ABDD99): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=2),
-                Address(0xD615C5EAFF84F487CFF253B50DC18517FC8385B0): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [6], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=2),
-                Address(0x0D44B2AD06C5C9F9A86C9EDF8D13FB7D44FE756C): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [9], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=2),
-                Address(0x858EC13538276B49D5ECE2A408C8331CCB79AD89): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {
-                "data": [1, 2, 4, 5, 7, 8, 10, 11],
-                "gas": -1,
-                "value": -1,
-            },
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0x95E88628C53B5C0E40FF6DE65A3CF8CDC3B477F7
-                ): Account.NONEXISTENT,
-                Address(
-                    0x66E1CC2616A273450621C8CC5E91D8CFD92494FA
-                ): Account.NONEXISTENT,
-                Address(
-                    0x6175BA9976476425B1CDA8E1DA479768FB429542
-                ): Account.NONEXISTENT,
-                Address(
-                    0x8DFF0E448F1E078E9B8A7FCF0BF6C291F167AAEF
-                ): Account.NONEXISTENT,
-                Address(
-                    0xA2C4270800A5DBEEA48464E5F2420EFB1747725A
-                ): Account.NONEXISTENT,
-                Address(
-                    0x4D80F1150EE236ADFAAB47C70DF90E757CEF1141
-                ): Account.NONEXISTENT,
-                Address(
-                    0x0566DC8DABC80FAD3ED9AB2B4309EBFD98894F44
-                ): Account.NONEXISTENT,
-                Address(
-                    0x55305CC46BDAF1E755A05A771D55CFEC3FEDEF90
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [12], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=2),
-                Address(0xD83E541AA11C5AE1E9C847AA1728D5BC47D32FAF): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
-                contract_26: Account(balance=0, nonce=1),
-            },
-        },
-        {
-            "indexes": {"data": [13, 14], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0x8F6E6C741AC95C1A9109850EA1A3FFC722DC3BF8
-                ): Account.NONEXISTENT,
-                Address(
-                    0x1F5D187BB3A48DBB2C011D0A6E731AC8131799AD
-                ): Account.NONEXISTENT,
-                contract_26: Account(
-                    storage={1: 1}, code=bytes.fromhex("32ff"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [15], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=2),
-                Address(0x2A2141ED764598D4C5A8B6E036987928D5EC6BEA): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [16, 17], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0x74B39291DFC237C0D42FD15457754778F51C6DE8
-                ): Account.NONEXISTENT,
-                Address(
-                    0x3399C78929EAB89C673A8986FF7CA9CCC49DB454
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [18], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=2),
-                Address(0xDEB7D920F2653A8EDDCFFCA0A77F56FCD788C00A): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=2
-                ),
-                Address(0x8109D28DE74BFAC2F298EC019548B8C346E51310): Account(
-                    storage={}, code=bytes.fromhex("00"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [19, 20], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0xF922B2F70110C83F8EC7DF512B41BAC5627E8E59
-                ): Account.NONEXISTENT,
-                Address(
-                    0x2CA788D22E21134AB1909266ED3B6C352E2A07CB
-                ): Account.NONEXISTENT,
-                Address(
-                    0x398426E736801FE712DF1EF078A3B6CA3C6F063B
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB520686759CED3BC9D8898E02EE41623032FF47F
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": [21], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=2),
-                Address(0x5A2664B55822AA3C6D9D90FEC18B4C87CDE07D04): Account(
-                    storage={0: 1}, code=bytes.fromhex("00"), nonce=2
-                ),
-                Address(0x442ED1B502544D146E46B5D9849A476AEBD3B8DB): Account(
-                    storage={}, code=bytes.fromhex("00"), nonce=1
-                ),
-            },
-        },
-        {
-            "indexes": {"data": [22, 23], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                sender: Account(balance=0, nonce=2),
-                Address(
-                    0xDD2C53BFCAF5C1D698A2B21C0908F15F7FBFD635
-                ): Account.NONEXISTENT,
-                Address(
-                    0x2D556BDBCC37C7A021879A21ABE25D1850D4FD36
-                ): Account.NONEXISTENT,
-                Address(
-                    0xA99DA4EA490335C986D52B0CC9E3F78B286AC5FC
-                ): Account.NONEXISTENT,
-                Address(
-                    0xB4AB8AB0D363765586925E35C715E342E4AE3C63
-                ): Account.NONEXISTENT,
-            },
-        },
-    ]
 
-    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
+    # The exact funding makes the OoG arms' post-state balance zero.
+    sender = pre.fund_eoa(amount=tx_gas_limit * GAS_PRICE)
 
-    tx_data = [
-        Bytes("693c6139") + Hash(contract_1, left_padding=True),
-        Bytes("693c6139") + Hash(contract_2, left_padding=True),
-        Bytes("693c6139") + Hash(contract_3, left_padding=True),
-        Bytes("693c6139") + Hash(contract_4, left_padding=True),
-        Bytes("693c6139") + Hash(contract_5, left_padding=True),
-        Bytes("693c6139") + Hash(contract_6, left_padding=True),
-        Bytes("693c6139") + Hash(contract_7, left_padding=True),
-        Bytes("693c6139") + Hash(contract_8, left_padding=True),
-        Bytes("693c6139") + Hash(contract_9, left_padding=True),
-        Bytes("693c6139") + Hash(contract_10, left_padding=True),
-        Bytes("693c6139") + Hash(contract_11, left_padding=True),
-        Bytes("693c6139") + Hash(contract_12, left_padding=True),
-        Bytes("693c6139") + Hash(contract_13, left_padding=True),
-        Bytes("693c6139") + Hash(contract_14, left_padding=True),
-        Bytes("693c6139") + Hash(contract_15, left_padding=True),
-        Bytes("693c6139") + Hash(contract_16, left_padding=True),
-        Bytes("693c6139") + Hash(contract_17, left_padding=True),
-        Bytes("693c6139") + Hash(contract_18, left_padding=True),
-        Bytes("693c6139") + Hash(contract_19, left_padding=True),
-        Bytes("693c6139") + Hash(contract_20, left_padding=True),
-        Bytes("693c6139") + Hash(contract_21, left_padding=True),
-        Bytes("693c6139") + Hash(contract_22, left_padding=True),
-        Bytes("693c6139") + Hash(contract_23, left_padding=True),
-        Bytes("693c6139") + Hash(contract_24, left_padding=True),
-    ]
-    tx_gas = [400000]
+    created = compute_create2_address(entry, 0, initcode)
+    nested_created_address: Address | None = None
+    if refund in NESTED:
+        nested_created_address = compute_create_address(
+            address=created,
+            nonce=1,
+            salt=0,
+            initcode=nested_initcode,
+            opcode=Op.CREATE if refund == Refund.CREATE else Op.CREATE2,
+        )
+
+    if outcome is Outcome.COMPLETES:
+        # The CREATE2 finished, so the refunds it earned stand and the
+        # one deposited byte survives.
+        post[sender] = Account(nonce=1)
+        post[created] = Account(
+            storage={0: 1}, code=Op.STOP, nonce=2 if refund in NESTED else 1
+        )
+        if nested_created_address:
+            post[nested_created_address] = Account(
+                storage={}, code=Op.STOP, nonce=1
+            )
+    else:
+        # The frame died, so nothing it did survives and the sender is
+        # charged for the whole budget.
+        post[sender] = Account(balance=0, nonce=1)
+        post[created] = Account.NONEXISTENT
+        if nested_created_address:
+            post[nested_created_address] = Account.NONEXISTENT
 
     tx = Transaction(
         sender=sender,
-        to=contract_0,
-        data=tx_data[d],
-        gas_limit=tx_gas[g],
-        nonce=1,
-        error=_exc,
+        to=entry,
+        data=initcode,
+        gas_limit=tx_gas_limit,
+        gas_price=GAS_PRICE,
     )
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
