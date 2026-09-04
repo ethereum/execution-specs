@@ -4,3 +4,13 @@ self-hosted-runner:
     - size-l-x64
     - size-xl-x64
     - size-gigachungus-x64
+
+# actionlint 1.7.11 predates GitHub's concurrency queue setting.
+# Remove this exception once the pinned actionlint supports it:
+# https://github.com/rhysd/actionlint/issues/687
+# GitHub accepts queue: max (up to 100 pending runs):
+# https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency
+paths:
+  .github/workflows/docker-images.yaml:
+    ignore:
+      - '^unexpected key "queue" for "concurrency" section\.'

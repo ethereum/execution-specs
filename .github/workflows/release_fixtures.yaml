@@ -326,3 +326,19 @@ jobs:
 
           # Creates the tag on the target commit and the release on success.
           gh release create "$TAG_NAME" "${RELEASE_ARGS[@]}" ./artifacts/**/*.tar.gz
+
+  # A scheduled fill also becomes the `nightly` hive simulator images: every
+  # image at the filled commit, from the fixtures_<sha> artifact of this run.
+  # Publishing a release triggers the same workflow through its `release`
+  # event instead. See docs/dev/publishing_images.md.
+  hive-images:
+    name: hive simulator images (nightly)
+    needs: [setup, combine]
+    if: github.event_name == 'schedule' && needs.combine.result == 'success'
+    uses: ./.github/workflows/docker-images.yaml
+    with:
+      nightly_sha: ${{ needs.setup.outputs.target_sha }}
+    permissions:
+      contents: read
+      packages: write
+      actions: read
