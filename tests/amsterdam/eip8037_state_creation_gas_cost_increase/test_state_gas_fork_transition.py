@@ -25,6 +25,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     EIPChecklist,
+    Environment,
     Fork,
     Header,
     Op,
@@ -507,3 +508,92 @@ def test_reservoir_available_after_transition(
     }
 
     blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.inclusion_test
+@EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedBeforeFork()
+@pytest.mark.parametrize(
+    "over_by",
+    [
+        pytest.param(
+            0,
+            id="exact",
+            marks=EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedAfterFork(),
+        ),
+        pytest.param(
+            1,
+            id="one_above",
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.BlockLevelConstraint.Test.ForkTransition.RejectedAfterFork(),
+            ],
+        ),
+    ],
+)
+def test_block_state_inclusion_at_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    over_by: int,
+) -> None:
+    """Activate the cumulative state-gas gate at the fork boundary."""
+    after = fork.fork_at(timestamp=15_000)
+    code = sum((Op.SSTORE(i, 1) for i in range(16)), Bytecode())
+    execution = (
+        after.transaction_intrinsic_cost_calculator()()
+        + code.execution_cost(after)
+    )
+    state = code.state_cost(after)
+    block_limit = execution + state
+    second_limit = execution + over_by
+    assert execution + second_limit <= block_limit
+    stop = pre.deploy_contract(code=Op.STOP)
+    blocks = []
+    post = {}
+    for timestamp in (14_999, 15_000):
+        pricing = fork.fork_at(timestamp=timestamp)
+        intrinsic = pricing.transaction_intrinsic_cost_calculator()()
+        writer = pre.deploy_contract(code=code)
+        first_execution = intrinsic + code.execution_cost(pricing)
+        first_state = code.state_cost(pricing)
+        assert first_execution + first_state <= block_limit
+        assert second_limit >= intrinsic
+        if timestamp < 15_000:
+            assert first_execution + second_limit <= block_limit
+        error = (
+            TransactionException.GAS_ALLOWANCE_EXCEEDED
+            if timestamp == 15_000 and over_by
+            else None
+        )
+        txs = [
+            Transaction(
+                to=writer, sender=pre.fund_eoa(), gas_limit=block_limit
+            ),
+            Transaction(
+                to=stop,
+                sender=pre.fund_eoa(),
+                gas_limit=second_limit,
+                error=error,
+            ),
+        ]
+        blocks.append(
+            Block(
+                timestamp=timestamp,
+                txs=txs,
+                exception=error,
+                header_verify=None
+                if error
+                else Header(
+                    gas_used=max(first_execution + intrinsic, first_state)
+                ),
+            )
+        )
+        post[writer] = Account(
+            storage={} if error else dict.fromkeys(range(16), 1)
+        )
+    blockchain_test(
+        pre=pre,
+        genesis_environment=Environment(gas_limit=block_limit),
+        blocks=blocks,
+        post=post,
+    )

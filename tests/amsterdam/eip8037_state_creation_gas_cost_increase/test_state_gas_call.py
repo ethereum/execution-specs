@@ -962,36 +962,46 @@ def test_delegatecall_reservoir_passing(
     state_test(pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.parametrize("child_action", ["write_rejected", "read_only"])
+@pytest.mark.parametrize(
+    "child_action,reservoir_shortfall",
+    [
+        pytest.param("write_rejected", 0, id="write_rejected"),
+        pytest.param("read_only", 0, id="read_only"),
+        pytest.param("create", 0, id="create_exact"),
+        pytest.param("create", 1, id="create_one_short"),
+        pytest.param("create2", 0, id="create2_exact"),
+        pytest.param("create2", 1, id="create2_one_short"),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_staticcall_passes_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     child_action: str,
+    reservoir_shortfall: int,
 ) -> None:
-    """
-    Test STATICCALL passes reservoir but cannot use it for state ops.
-
-    The static child is handed the full execution cost of an SSTORE,
-    so only the static-context restriction can stop it, and it halts.
-    The parent then calls a probe handed only its SSTORE's execution
-    cost, so the probe has no `gas_left` to spill from and succeeds
-    only if the rejected write left the reservoir untouched.
-
-    `read_only` returns normally instead of halting, pinning that a
-    successful STATICCALL leaves the reservoir alone just the same.
-    """
+    """Preserve the reservoir across successful and rejected static calls."""
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
     if child_action == "read_only":
         child_code: Bytecode = Op.POP(Op.SLOAD(0, key_warm=False))
         static_result = 1
-    else:
+    elif child_action == "write_rejected":
         child_code = Op.SSTORE(0, 1)
+        static_result = 0
+    else:
+        create_opcode = Op.CREATE if child_action == "create" else Op.CREATE2
+        child_code = create_opcode(value=0, offset=0, size=0, init_code_size=0)
         static_result = 0
     child = pre.deploy_contract(code=child_code)
     child_gas = child_code.execution_cost(fork)
+    creating = child_action in ("create", "create2")
+    if creating:
+        # Fund a misplaced account charge far enough to expose spill handling.
+        child_gas += child_code.state_cost(fork)
+        assert child_code.state_cost(fork) > sstore_state_gas
+    probe_succeeds = reservoir_shortfall == 0
 
     probe_code = Op.SSTORE(0, 1)
     probe = pre.deploy_contract(code=probe_code)
@@ -1001,7 +1011,9 @@ def test_staticcall_passes_reservoir(
     static_slot = parent_storage.store_next(
         static_result + 1, "staticcall_result"
     )
-    probe_slot = parent_storage.store_next(2, "probe_succeeds")
+    # The probe receives execution gas only: exact reservoir succeeds;
+    # one short must fail, exposing either lost gas or an inflated reservoir.
+    probe_slot = parent_storage.store_next(1 + probe_succeeds, "probe_result")
     parent_code = Op.SSTORE(
         static_slot,
         Op.ADD(Op.STATICCALL(gas=child_gas, address=child), 1),
@@ -1016,7 +1028,7 @@ def test_staticcall_passes_reservoir(
         # gas accounting
         original_value=1,
         current_value=1,
-        new_value=2,
+        new_value=1 + probe_succeeds,
         key_warm=False,
     )
     parent = pre.deploy_contract(
@@ -1029,22 +1041,29 @@ def test_staticcall_passes_reservoir(
         + child_gas
         + probe_gas
     )
-    expected_gas_used = max(execution_gas, sstore_state_gas)
-    assert expected_gas_used == sstore_state_gas, (
-        "expected state gas to dominate execution gas"
-    )
+    state_gas = sstore_state_gas if probe_succeeds else 0
+    expected_gas_used = max(execution_gas, state_gas)
+    if not creating:
+        assert expected_gas_used == state_gas, (
+            "expected state gas to dominate execution gas"
+        )
 
     tx = Transaction(
         to=parent,
-        state_gas_reservoir=sstore_state_gas,
+        state_gas_reservoir=sstore_state_gas - reservoir_shortfall,
         sender=pre.fund_eoa(),
     )
 
-    post = {
+    post: dict[Address, Account | None] = {
         parent: Account(storage=parent_storage),
-        child: Account(storage={0: 0}),
-        probe: Account(storage={0: 1}),
+        child: Account(nonce=1, storage={0: 0}),
+        probe: Account(storage={0: int(probe_succeeds)}),
     }
+    if creating:
+        created = compute_create_address(
+            address=child, nonce=1, salt=0, initcode=b"", opcode=create_opcode
+        )
+        post[created] = Account.NONEXISTENT
     state_test(
         pre=pre,
         post=post,

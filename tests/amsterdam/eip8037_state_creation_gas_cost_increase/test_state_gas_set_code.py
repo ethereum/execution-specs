@@ -1971,11 +1971,15 @@ def test_auth_sender_billing_after_failure(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
+@pytest.mark.parametrize(
+    "authority_exists", [False, True], ids=["new", "existing"]
+)
 def test_top_level_halt_keeps_intrinsic_auth_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
     inner_shape: str,
+    authority_exists: bool,
 ) -> None:
     """
     Verify a top-level exceptional halt keeps the full authorization
@@ -2000,13 +2004,13 @@ def test_top_level_halt_keeps_intrinsic_auth_state_gas(
     )
 
     delegate = pre.deploy_contract(code=Op.STOP)
-    signer = pre.fund_eoa(amount=0)
+    signer = pre.fund_eoa() if authority_exists else pre.fund_eoa(amount=0)
     authorization_list = [
         AuthorizationTuple(
             address=delegate,
             nonce=0,
             signer=signer,
-            creates_account=True,
+            creates_account=not authority_exists,
             writes_delegation=True,
         ),
     ]
@@ -2021,12 +2025,15 @@ def test_top_level_halt_keeps_intrinsic_auth_state_gas(
         authorization_list=authorization_list,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
+            status=0,
             cumulative_gas_used=gas_limit,
         ),
     )
 
     post = {
-        signer: Account(code=Spec7702.delegation_designation(delegate)),
+        signer: Account(
+            nonce=1, code=Spec7702.delegation_designation(delegate)
+        ),
     }
     state_test(
         pre=pre,
