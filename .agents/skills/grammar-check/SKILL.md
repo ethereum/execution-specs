@@ -1,3 +1,8 @@
+---
+name: grammar-check
+description: Audit grammar in documentation and code comments.
+---
+
 # Grammar Check
 
 Audit grammar in documentation and code comments.

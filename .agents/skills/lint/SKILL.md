@@ -1,3 +1,8 @@
+---
+name: lint
+description: Run and fix the repository static analysis suite.
+---
+
 # Lint
 
 Run the full static analysis suite and fix issues. This matches the CI check on every PR.

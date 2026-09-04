@@ -1,3 +1,8 @@
+---
+name: write-docstring
+description: Write specification docstrings using repository conventions.
+---
+
 # Write Docstring
 
 Conventions for writing docstrings in `src/ethereum/`. Docstrings are the primary prose of the specification — they read as a narrative explaining how Ethereum works, not as traditional Python API documentation. They are rendered into HTML by docc, which parses them as **Markdown** (via mistletoe). Run this skill before writing or modifying docstrings.

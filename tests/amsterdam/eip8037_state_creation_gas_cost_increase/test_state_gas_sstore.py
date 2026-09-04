@@ -134,49 +134,125 @@ def test_sstore_nonzero_to_nonzero(
     )
 
 
+@EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable()
+@pytest.mark.parametrize(
+    "abort_mode",
+    [
+        pytest.param("success", id="success_refund_applied"),
+        pytest.param(
+            "revert",
+            marks=EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.Revert(),
+        ),
+        pytest.param(
+            "out_of_gas",
+            marks=EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.OutOfGas(),
+        ),
+        pytest.param(
+            "invalid_opcode",
+            marks=EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.InvalidOpcode(),
+        ),
+        pytest.param(
+            "upper_revert",
+            marks=EIPChecklist.GasRefundsChanges.Test.ExceptionalAbort.Revertable.UpperRevert(),
+        ),
+    ],
+)
 @pytest.mark.valid_from("EIP8037")
 def test_sstore_nonzero_to_zero(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    abort_mode: str,
 ) -> None:
     """
-    Test SSTORE nonzero-to-zero charges no state gas.
+    Test SSTORE nonzero-to-zero charging and refund rollback.
 
     Clearing a storage slot (setting to zero) does not grow state and
-    earns an execution gas refund (GAS_STORAGE_CLEAR_REFUND).
+    earns an execution gas refund (GAS_STORAGE_CLEAR_REFUND). The success
+    arm retains the original refund assertion. The other arms verify that
+    the same refund is discarded if its frame REVERTs, runs out of gas, or
+    executes INVALID, and if a successful child is rolled back by its caller.
     """
     storage = Storage()
-    code = Op.SSTORE(
+    clear = Op.SSTORE(
         storage.store_next(0),
         0,
+        # gas accounting
         original_value=1,
         current_value=1,
         new_value=0,
-    )
-    assert code.state_cost(fork) == 0, "clearing a slot grows no state"
-    assert code.refund(fork) > 0, "clearing a slot must earn a refund"
-    pre_refund_gas = (
-        fork.transaction_intrinsic_cost_calculator()()
-        + code.execution_cost(fork)
+        key_warm=False,
     )
 
-    contract = pre.deploy_contract(code=code, storage={0: 1})
+    assert clear.state_cost(fork) == 0, "clearing a slot grows no state"
+    assert clear.state_refund(fork) == 0
+    assert clear.refund(fork) > 0, "clearing a slot must earn a refund"
+
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+
+    if abort_mode == "success":
+        code = clear
+        contract = pre.deploy_contract(code=code, storage={0: 1})
+        pre_refund_gas = intrinsic + code.execution_cost(fork)
+        gas_limit = None
+        expected_cumulative = sender_gas_used(fork, pre_refund_gas, code)
+        expected_header_gas = pre_refund_gas
+        post = {contract: Account(storage=storage)}
+    elif abort_mode == "revert":
+        code = clear + Op.REVERT(0, 0)
+        contract = pre.deploy_contract(code=code, storage={0: 1})
+        gas_limit = intrinsic + code.execution_cost(fork)
+        expected_cumulative = gas_limit
+        expected_header_gas = expected_cumulative
+        post = {contract: Account(storage={0: 1})}
+    elif abort_mode == "out_of_gas":
+        # The clear consumes the whole frame budget; the following one-gas
+        # opcode aborts only after the refund has been accrued.
+        code = clear + Op.JUMPDEST
+        contract = pre.deploy_contract(code=code, storage={0: 1})
+        gas_limit = intrinsic + clear.execution_cost(fork)
+        expected_cumulative = gas_limit
+        expected_header_gas = expected_cumulative
+        post = {contract: Account(storage={0: 1})}
+    elif abort_mode == "invalid_opcode":
+        code = clear + Op.INVALID
+        contract = pre.deploy_contract(code=code, storage={0: 1})
+        gas_limit = intrinsic + clear.execution_cost(fork) + 1_000
+        expected_cumulative = gas_limit
+        expected_header_gas = expected_cumulative
+        post = {contract: Account(storage={0: 1})}
+    else:
+        child_code = clear + Op.STOP
+        child = pre.deploy_contract(code=child_code, storage={0: 1})
+        child_execution = child_code.execution_cost(fork)
+        code = Op.POP(Op.CALL(gas=child_execution, address=child)) + Op.REVERT(
+            0, 0
+        )
+        contract = pre.deploy_contract(code=code)
+        expected_cumulative = (
+            intrinsic + code.execution_cost(fork) + child_execution
+        )
+        # Leave enough headroom for EIP-150's 63/64 rule so the child really
+        # completes its clear before the upper frame rolls it back.
+        gas_limit = expected_cumulative + 1_000
+        expected_header_gas = expected_cumulative
+        post = {child: Account(storage={0: 1})}
 
     tx = Transaction(
         to=contract,
+        gas_limit=gas_limit,
         state_gas_reservoir=0,
         sender=pre.fund_eoa(),
         expected_receipt=TransactionReceipt(
-            cumulative_gas_used=sender_gas_used(fork, pre_refund_gas, code)
+            cumulative_gas_used=expected_cumulative,
         ),
     )
 
     state_test(
         pre=pre,
-        post={contract: Account(storage=storage)},
+        post=post,
         tx=tx,
-        blockchain_test_header_verify=Header(gas_used=pre_refund_gas),
+        blockchain_test_header_verify=Header(gas_used=expected_header_gas),
     )
 
 
@@ -466,6 +542,75 @@ def test_sstore_clear_refund_reversal(
         post={contract: Account(storage={0: 2})},
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=tx_execution),
+    )
+
+
+@pytest.mark.parametrize(
+    "initial_value,post_value",
+    [
+        pytest.param(2, 0, id="dirty_clear"),
+        pytest.param(0, 1, id="clear_then_restore_original"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_sstore_dirty_slot_refund(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    initial_value: int,
+    post_value: int,
+) -> None:
+    """
+    Test the refund for a second write to a slot already changed in the
+    same transaction.
+
+    The write cost was paid by the first change, so the second write is
+    charged the warm access alone. Clearing a dirty slot still earns the
+    storage-clear refund; clearing and then writing the original value
+    back reverses that refund and returns the write cost instead.
+    """
+    original = 1
+    code = Op.SSTORE(
+        0,
+        initial_value,
+        # gas accounting
+        original_value=original,
+        current_value=original,
+        new_value=initial_value,
+    ) + Op.SSTORE(
+        0,
+        post_value,
+        # gas accounting
+        key_warm=True,
+        original_value=original,
+        current_value=initial_value,
+        new_value=post_value,
+    )
+    assert code.state_cost(fork) == 0, "a nonzero slot grows no state"
+    assert code.state_refund(fork) == 0, "no state charge, no state refund"
+    assert code.refund(fork) > 0, "the dirty second write earns a refund"
+
+    pre_refund_gas = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + code.execution_cost(fork)
+    )
+
+    contract = pre.deploy_contract(code=code, storage={0: original})
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=sender_gas_used(fork, pre_refund_gas, code)
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        post={contract: Account(storage={0: post_value})},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=pre_refund_gas),
     )
 
 

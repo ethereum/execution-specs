@@ -9,7 +9,12 @@ from typing import Any, Callable, ClassVar, Dict, List, Optional
 
 from pydantic import Field, PrivateAttr
 
-from execution_testing.base_types import Address, CamelModel, StorageKey
+from execution_testing.base_types import (
+    Address,
+    Bytes,
+    CamelModel,
+    StorageKey,
+)
 
 from .account_absent_values import BalAccountAbsentValues
 from .account_changes import (
@@ -128,6 +133,9 @@ class BlockAccessListExpectation(CamelModel):
     _modifier: Callable[["BlockAccessList"], "BlockAccessList"] | None = (
         PrivateAttr(default=None)
     )
+    _rlp_modifier: Callable[["BlockAccessList"], Bytes] | None = PrivateAttr(
+        default=None
+    )
 
     def modify(
         self, *modifiers: Callable[["BlockAccessList"], "BlockAccessList"]
@@ -152,6 +160,12 @@ class BlockAccessListExpectation(CamelModel):
             ).modify(remove_nonces(alice))
 
         """
+        if self._modifier is not None:
+            raise ValueError(
+                "This expectation already has a content modifier; a second "
+                "`modify` call would replace it. Pass every modifier to a "
+                "single `modify` call instead."
+            )
         new_instance = self.model_copy(deep=True)
         new_instance._modifier = compose(*modifiers)
         return new_instance
@@ -169,9 +183,62 @@ class BlockAccessListExpectation(CamelModel):
             The potentially transformed BlockAccessList for the fixture
 
         """
-        if self._modifier:
-            return self._modifier(t8n_bal)
-        return t8n_bal
+        if self._modifier is None:
+            return t8n_bal
+        modified = self._modifier(t8n_bal)
+        if not isinstance(modified, BlockAccessList):
+            raise TypeError(
+                "`modify` expects a content modifier returning a "
+                f"BlockAccessList, got {type(modified).__name__}. Use "
+                "`modify_rlp` or `override_rlp` for encoders."
+            )
+        return modified
+
+    def modify_rlp(
+        self, modifier: Callable[["BlockAccessList"], Bytes]
+    ) -> "BlockAccessListExpectation":
+        """
+        Create a new expectation that re-encodes the BAL carried by the
+        engine payload, leaving the header commitment canonical.
+
+        Use this for encoding-level invalid cases; `modify` changes the
+        BAL's contents and so also moves the header hash.
+
+        Only the engine payload can carry the re-encoding, so the test must
+        be marked `blockchain_test_engine_only`.
+        """
+        if self._rlp_modifier is not None:
+            raise ValueError(
+                "This expectation already re-encodes the block access list; "
+                "a second `modify_rlp` call would replace the first. Keep a "
+                "single `modify_rlp` call."
+            )
+        new_instance = self.model_copy(deep=True)
+        new_instance._rlp_modifier = modifier
+        return new_instance
+
+    def modified_rlp(self, bal: "BlockAccessList") -> Bytes | None:
+        """Return the re-encoded payload BAL, or None if unmodified."""
+        if self._rlp_modifier is None:
+            return None
+        encoded = self._rlp_modifier(bal)
+        if not isinstance(encoded, bytes):
+            raise TypeError(
+                "`modify_rlp` expects an encoder returning bytes, got "
+                f"{type(encoded).__name__}. Use `modify` for content "
+                "modifiers."
+            )
+        return Bytes(encoded)
+
+    @property
+    def has_modifier(self) -> bool:
+        """Return whether this expectation rewrites the BAL."""
+        return self._modifier is not None or self._rlp_modifier is not None
+
+    @property
+    def has_rlp_modifier(self) -> bool:
+        """Return whether this expectation re-encodes the payload BAL."""
+        return self._rlp_modifier is not None
 
     def verify_against(self, actual_bal: "BlockAccessList") -> None:
         """

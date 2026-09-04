@@ -1,3 +1,8 @@
+---
+name: assess-eip
+description: Assess an EIP's implementation complexity and scope.
+---
+
 # Assess EIP
 
 Structured assessment of EIP implementation complexity. When invoked with an EIP number or description, perform the following analysis.

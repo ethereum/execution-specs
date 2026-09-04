@@ -30,6 +30,7 @@ from execution_testing import (
     Op,
     Opcode,
     StateTestFiller,
+    Storage,
     Transaction,
     TransactionReceipt,
 )
@@ -49,17 +50,25 @@ SLOT_INCREASED = 5
 SLOT_PROBE = 6
 SLOT_PROBE_RESULT = 7
 
+# A cold set of a slot that was zero when the transaction began, and
+# the warm clear that undoes it.
+FRESH_SET = Op.SSTORE.with_metadata(
+    key_warm=False, original_value=0, current_value=0, new_value=1
+)
+WARM_CLEAR = Op.SSTORE.with_metadata(
+    key_warm=True, original_value=0, current_value=1, new_value=0
+)
 
-def window_cost_excess(result_sstore: Opcode = Op.SSTORE) -> Bytecode:
+
+def window_cost_excess() -> Bytecode:
     """
     Return code storing the first window's cost over the second's.
 
     Memory holds `g0`, `g1` and `g2` at 0, 32 and 64. The stored
     value is `(g0 - g1) - (g1 - g2)`, the first window's cost minus
-    the second's, computed modulo 2**256. `result_sstore` lets
-    gas-settlement tests carry metadata on the storing opcode.
+    the second's, computed modulo 2**256.
     """
-    return result_sstore(
+    return FRESH_SET(
         SLOT_RESULT,
         Op.SUB(
             Op.ADD(Op.MLOAD(0), Op.MLOAD(64)),
@@ -76,6 +85,58 @@ def deploy_slot_holder(pre: Alloc) -> Address:
     slot and a call carrying none clears it.
     """
     return pre.deploy_contract(code=Op.SSTORE(SLOT_X, Op.CALLDATASIZE))
+
+
+def budget_above_sstore_stipend(fork: Fork, code: Bytecode) -> int:
+    """
+    Return a call budget leaving the child more than the stipend.
+
+    SSTORE refuses to run with only the call stipend left, so a child
+    that stores needs that much on top of what its code costs.
+    """
+    return fork.call_value_stipend() + 1 + code.gas_cost(fork)
+
+
+def delegation_to(
+    pre: Alloc, contract: Address
+) -> tuple[Address, list[AuthorizationTuple]]:
+    """Return a signer and the authorization delegating it to `contract`."""
+    signer = pre.fund_eoa()
+    return signer, [
+        AuthorizationTuple(
+            address=contract,
+            nonce=0,
+            signer=signer,
+            creates_account=False,
+            writes_delegation=True,
+        )
+    ]
+
+
+def clearing_child_code(child_ending: str) -> Bytecode:
+    """
+    Return child code spilling a set, clearing both parent slots,
+    then ending as `child_ending` says.
+    """
+    body = (
+        FRESH_SET(SLOT_MARKER, 1)
+        + WARM_CLEAR(SLOT_X, 0)
+        + WARM_CLEAR(SLOT_Y, 0)
+    )
+    if child_ending == "stop":
+        return body + Op.STOP
+    if child_ending == "revert":
+        return body + Op.REVERT(0, 0)
+    if child_ending == "invalid":
+        return body + Op.INVALID
+    raise ValueError(f"unhandled child ending: {child_ending}")
+
+
+def clearing_child_storage(child_ending: str) -> dict[int, int]:
+    """Return the parent storage a child with this ending leaves behind."""
+    if child_ending == "stop":
+        return {SLOT_X: 0, SLOT_Y: 0, SLOT_MARKER: 1}
+    return {SLOT_X: 1, SLOT_Y: 1, SLOT_MARKER: 0}
 
 
 def clearing_probe_code(
@@ -109,22 +170,25 @@ def clearing_probe_code(
     )
 
 
+@pytest.mark.parametrize("call_opcode", [Op.CALLCODE, Op.DELEGATECALL])
 @pytest.mark.valid_from("EIP8037")
 def test_cross_frame_refund_parks_in_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
+    call_opcode: Opcode,
 ) -> None:
     """
     Test a cross-frame refund credits the reservoir, not `gas_left`.
 
     The frame sets a slot with the reservoir empty, spilling the state
-    charge from `gas_left`. A delegated child clears the slot and the
-    credit lands in the reservoir, where it stays through the merge:
+    charge from `gas_left`. A child sharing the caller's storage clears
+    the slot and the credit lands in the reservoir, where it stays
+    through the merge:
     `gas_left` is lower after the clearing call than before it, and
     the clearing window costs the same as a no-op window.
     """
     clearer = pre.deploy_contract(code=Op.SSTORE(SLOT_X, 0))
-    window = Op.POP(Op.DELEGATECALL(address=clearer))
+    window = Op.POP(call_opcode(address=clearer))
     contract = pre.deploy_contract(
         code=clearing_probe_code(Op.SSTORE(SLOT_X, 1), [window] * 3)
     )
@@ -169,19 +233,12 @@ def test_parked_credit_returns_at_settlement(
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    clearer_code = Op.SSTORE.with_metadata(
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )(SLOT_X, 0)
+    clearer_code = WARM_CLEAR(SLOT_X, 0)
     clearer = pre.deploy_contract(code=clearer_code)
 
     # A budget covering the child's SSTORE stipend sentry through the
     # clear, so the child succeeds and returns the sentry unspent.
-    child_budget = (
-        fork.call_value_stipend() + 1 + clearer_code.execution_cost(fork)
-    )
+    child_budget = budget_above_sstore_stipend(fork, clearer_code)
     code = Op.SSTORE(
         SLOT_X,
         1,
@@ -231,35 +288,79 @@ def test_parked_credit_funds_state_at_full_price(
     fork: Fork,
 ) -> None:
     """
-    Test the parked credit funds a later creation at full price.
+    Test the sender pays full price for a set the parked refund funded.
 
-    After the cross-frame clear parks the credit, a fresh set draws
-    its state charge from the reservoir: `gas_left` drops by only the
-    execution premium across the set window. The receipt still bills
-    both surviving slots at the full state price, so routing a refund
-    through another frame buys no discount on state that persists.
+    A fresh set spills, a delegated child clears it and the refund
+    parks in the reservoir, then a second fresh set draws on it. The
+    surviving slot is billed at the full state price, so routing a
+    refund through another frame buys no discount on state that
+    persists. What the set costs `gas_left` is measured in
+    `test_parked_refund_covers_a_later_set`.
     """
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    clearer_code = Op.SSTORE.with_metadata(
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )(SLOT_X, 0)
+    clearer_code = WARM_CLEAR(SLOT_X, 0)
     clearer = pre.deploy_contract(code=clearer_code)
-    child_budget = (
-        fork.call_value_stipend() + 1 + clearer_code.execution_cost(fork)
+    child_budget = budget_above_sstore_stipend(fork, clearer_code)
+
+    code = (
+        FRESH_SET(SLOT_X, 1)
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=child_budget, address=clearer, address_warm=False
+            )
+        )
+        + FRESH_SET(SLOT_Y, 1)
+    )
+    contract = pre.deploy_contract(code=code)
+
+    # Slot Y survives, fully priced. The cleared slot cancels out of
+    # the settlement sum.
+    before_refund = (
+        intrinsic_cost
+        + code.execution_cost(fork)
+        + clearer_code.execution_cost(fork)
+        + sstore_state_gas
+    )
+    restore_refund = clearer_code.refund(fork) - sstore_state_gas
+    expected_gas_used = before_refund - min(
+        before_refund // fork.max_refund_quotient(), restore_refund
     )
 
-    fresh_set = Op.SSTORE.with_metadata(
-        key_warm=False,
-        original_value=0,
-        current_value=0,
-        new_value=1,
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
     )
-    window_1 = fresh_set(SLOT_Y, 1)
+
+    post = {contract: Account(storage={SLOT_X: 0, SLOT_Y: 1})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_parked_refund_covers_a_later_set(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test a set funded by the parked refund costs `gas_left` nothing.
+
+    After the cross-frame clear parks the refund, a fresh set draws
+    its state charge from the reservoir, so `gas_left` drops by only
+    the set's execution premium over a warm re-set of the same slot.
+    What the sender pays for it is checked in
+    `test_parked_credit_funds_state_at_full_price`.
+    """
+    clearer_code = WARM_CLEAR(SLOT_X, 0)
+    clearer = pre.deploy_contract(code=clearer_code)
+    child_budget = budget_above_sstore_stipend(fork, clearer_code)
+
+    window_1 = FRESH_SET(SLOT_Y, 1)
     window_2 = Op.SSTORE.with_metadata(
         key_warm=True,
         original_value=0,
@@ -278,7 +379,7 @@ def test_parked_credit_funds_state_at_full_price(
 
     code = (
         Op.MSTORE(64, 0, new_memory_size=96, old_memory_size=0)
-        + fresh_set(SLOT_X, 1)
+        + FRESH_SET(SLOT_X, 1)
         + Op.POP(
             Op.DELEGATECALL(
                 gas=child_budget, address=clearer, address_warm=False
@@ -289,30 +390,14 @@ def test_parked_credit_funds_state_at_full_price(
         + Op.MSTORE(32, Op.GAS)
         + window_2
         + Op.MSTORE(64, Op.GAS)
-        + window_cost_excess(result_sstore=fresh_set)
+        + window_cost_excess()
     )
     contract = pre.deploy_contract(code=code)
-
-    # Slot Y and the result slot survive, each fully priced. The
-    # cleared slot cancels out of the settlement sum.
-    before_refund = (
-        intrinsic_cost
-        + code.execution_cost(fork)
-        + clearer_code.execution_cost(fork)
-        + 2 * sstore_state_gas
-    )
-    restore_refund = clearer_code.refund(fork) - sstore_state_gas
-    expected_gas_used = before_refund - min(
-        before_refund // fork.max_refund_quotient(), restore_refund
-    )
 
     tx = Transaction(
         to=contract,
         state_gas_reservoir=0,
         sender=pre.fund_eoa(),
-        expected_receipt=TransactionReceipt(
-            cumulative_gas_used=expected_gas_used
-        ),
     )
 
     post = {
@@ -346,23 +431,12 @@ def test_parked_credit_cannot_fund_execution(
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    clearer_code = Op.SSTORE.with_metadata(
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )(SLOT_X, 0)
+    clearer_code = WARM_CLEAR(SLOT_X, 0)
     clearer = pre.deploy_contract(code=clearer_code)
 
-    fresh_set = Op.SSTORE.with_metadata(
-        key_warm=False,
-        original_value=0,
-        current_value=0,
-        new_value=1,
-    )
     head = (
-        fresh_set(SLOT_MARKER, 1)
-        + fresh_set(SLOT_X, 1)
+        FRESH_SET(SLOT_MARKER, 1)
+        + FRESH_SET(SLOT_X, 1)
         + Op.POP(
             Op.DELEGATECALL(gas=Op.GAS, address=clearer, address_warm=False)
         )
@@ -379,9 +453,7 @@ def test_parked_credit_cannot_fund_execution(
 
     # A sliver covering the child's SSTORE stipend sentry through the
     # one-in-64 withholding. It survives the merge unspent.
-    sliver = (
-        fork.call_value_stipend() + 1 + clearer_code.execution_cost(fork)
-    ) * 64 // 63 + 1
+    sliver = budget_above_sstore_stipend(fork, clearer_code) * 64 // 63 + 1
     tail_cost = tail.gas_cost(fork)
     # The tail must overrun the sliver yet fit inside the parked
     # credit, or the halt stops demonstrating the credit cannot buy
@@ -406,6 +478,127 @@ def test_parked_credit_cannot_fund_execution(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "raises_credit",
+    [
+        pytest.param(True, id="credit_funds_probe"),
+        pytest.param(False, id="no_credit_probe_oogs"),
+    ],
+)
+@pytest.mark.parametrize("depth", ["sibling", "grandchild"])
+@pytest.mark.valid_from("EIP8037")
+def test_call_frame_credit_parks_in_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    depth: str,
+    raises_credit: bool,
+) -> None:
+    """
+    Test a credit raised under plain CALL parks in the reservoir.
+
+    The transaction starts with no reservoir. The clearing frame cannot
+    repay the frame that spilled the charge, which has already merged,
+    so the credit lands in the reservoir instead -- the only pool the
+    probe's fixed stipend can reach. Dropping the clear starves the
+    probe, pinning the parked credit as the only funding source.
+    """
+    # A CALL callee owns its storage, so splitting the charge from the
+    # credit needs one contract entered twice rather than two contracts.
+    toggler = pre.deploy_contract(
+        code=Op.SSTORE(SLOT_X, Op.ISZERO(Op.SLOAD(SLOT_X)))
+    )
+    clearing_target = toggler
+    if depth == "grandchild":
+        clearing_target = pre.deploy_contract(
+            code=Op.POP(Op.CALL(gas=Op.GAS, address=toggler))
+        )
+
+    # Without the second entry no credit is raised, which pins the
+    # parked credit as the only thing that can fund the probe.
+    if not raises_credit:
+        clearing_target = pre.deploy_contract(code=Op.STOP)
+
+    probe_storage = Storage()
+    probe_code = Op.SSTORE(
+        probe_storage.store_next(1 if raises_credit else 0, "probe_ran"), 1
+    )
+    probe = pre.deploy_contract(probe_code)
+    probe_stipend = probe_code.execution_cost(fork)
+
+    entry = pre.deploy_contract(
+        code=(
+            Op.POP(Op.CALL(gas=Op.GAS, address=toggler))
+            + Op.POP(Op.CALL(gas=Op.GAS, address=clearing_target))
+            + Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+        )
+    )
+
+    tx = Transaction(
+        to=entry,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {probe: Account(storage=probe_storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "clearing_frame_ending",
+    [
+        pytest.param("stop", id="child_succeeds"),
+        pytest.param("revert", id="child_reverts"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_parked_credit_discarded_when_clearing_frame_reverts(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    clearing_frame_ending: str,
+) -> None:
+    """
+    Test a parked credit survives only if its frame does.
+
+    The delegated child clears the caller's slot, parking the credit in
+    the reservoir. When that child instead REVERTs, the clear is rolled
+    back and the credit must go with it, leaving the probe unable to pay.
+    """
+    # sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    credit_survives = clearing_frame_ending == "stop"
+
+    clear = Op.SSTORE.with_metadata(
+        key_warm=True, original_value=0, current_value=1, new_value=0
+    )(SLOT_X, 0)
+    clearer_code = clear + (Op.STOP if credit_survives else Op.REVERT(0, 0))
+    clearer = pre.deploy_contract(code=clearer_code)
+
+    probe_storage = Storage()
+    probe_code = Op.SSTORE(
+        probe_storage.store_next(1 if credit_survives else 0, "probe_ran"), 1
+    )
+    probe = pre.deploy_contract(probe_code)
+    probe_stipend = probe_code.execution_cost(fork)
+
+    entry = pre.deploy_contract(
+        code=(
+            Op.SSTORE(SLOT_X, 1)
+            + Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=clearer))
+            + Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+        )
+    )
+
+    tx = Transaction(
+        to=entry,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {probe: Account(storage=probe_storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
 @pytest.mark.parametrize("child_ending", ["stop", "revert", "invalid"])
 @pytest.mark.valid_from("EIP8037")
 def test_child_clear_repays_own_spill_first(
@@ -420,85 +613,40 @@ def test_child_clear_repays_own_spill_first(
     The parent spills two fresh sets; a delegated child spills a set
     of its own, then clears both parent slots. The first credit repays
     the child's borrow, the second parks in the reservoir, and a
-    failing child discards the parked credit with its rollback.
+    failing child discards the parked refund with its rollback. What
+    the call costs `gas_left` is measured in
+    `test_child_clear_window_cost`.
     """
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
 
-    fresh_set = Op.SSTORE.with_metadata(
-        key_warm=False,
-        original_value=0,
-        current_value=0,
-        new_value=1,
-    )
-    warm_clear = Op.SSTORE.with_metadata(
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )
-
-    child_body = (
-        fresh_set(SLOT_MARKER, 1)
-        + warm_clear(SLOT_X, 0)
-        + warm_clear(SLOT_Y, 0)
-    )
-    if child_ending == "stop":
-        child_code = child_body + Op.STOP
-    elif child_ending == "revert":
-        child_code = child_body + Op.REVERT(0, 0)
-    elif child_ending == "invalid":
-        child_code = child_body + Op.INVALID
-    else:
-        raise ValueError(f"unhandled child ending: {child_ending}")
+    child_code = clearing_child_code(child_ending)
     child = pre.deploy_contract(code=child_code)
+    child_budget = budget_above_sstore_stipend(fork, child_code)
 
-    # A budget covering the child's SSTORE stipend sentry through its
-    # own spilled set and both clears.
-    child_budget = fork.call_value_stipend() + 1 + child_code.gas_cost(fork)
-
-    call_window = Op.POP(
-        Op.DELEGATECALL(gas=child_budget, address=child, address_warm=False)
-    )
     code = (
-        fresh_set(SLOT_X, 1)
-        + fresh_set(SLOT_Y, 1)
-        + Op.MSTORE(32, 0, new_memory_size=64, old_memory_size=0)
-        + Op.MSTORE(0, Op.GAS)
-        + call_window
-        + Op.MSTORE(32, Op.GAS)
-        + fresh_set(SLOT_RESULT, Op.SUB(Op.MLOAD(0), Op.MLOAD(32)))
+        FRESH_SET(SLOT_X, 1)
+        + FRESH_SET(SLOT_Y, 1)
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=child_budget, address=child, address_warm=False
+            )
+        )
     )
     contract = pre.deploy_contract(code=code)
 
-    if child_ending == "stop":
-        child_consumed = child_code.execution_cost(fork)
-    elif child_ending == "revert":
-        child_consumed = child_code.execution_cost(fork)
-    elif child_ending == "invalid":
-        child_consumed = child_budget
-    else:
-        raise ValueError(f"unhandled child ending: {child_ending}")
-    # Gas measured between the two reads: the first stamp's store, the
-    # call window, the child's consumption, and the second read itself.
-    window_cost = (
-        Op.MSTORE(0, Op.GAS).gas_cost(fork)
-        + call_window.execution_cost(fork)
-        + child_consumed
-    )
-
     parent_exec = code.execution_cost(fork)
     if child_ending == "stop":
-        # The child's slot and the result slot survive; the child's
-        # borrow was repaid by the first clear's credit, so only the
-        # parked second credit cancels a parent spill at settlement.
+        # Only the child's own slot survives. Its borrow was repaid by
+        # the first clear's refund, so the parked second refund cancels
+        # a parent spill at settlement.
         before_refund = (
             intrinsic_cost
             + parent_exec
             + child_code.execution_cost(fork)
-            + 2 * sstore_state_gas
+            + sstore_state_gas
         )
-        restore_refund = 2 * (warm_clear.refund(fork) - sstore_state_gas)
+        restore_refund = 2 * (WARM_CLEAR.refund(fork) - sstore_state_gas)
         expected_gas_used = before_refund - min(
             before_refund // fork.max_refund_quotient(), restore_refund
         )
@@ -507,14 +655,12 @@ def test_child_clear_repays_own_spill_first(
             intrinsic_cost
             + parent_exec
             + child_code.execution_cost(fork)
-            + 3 * sstore_state_gas
-        )
-    elif child_ending == "invalid":
-        expected_gas_used = (
-            intrinsic_cost + parent_exec + child_budget + 3 * sstore_state_gas
+            + 2 * sstore_state_gas
         )
     else:
-        raise ValueError(f"unhandled child ending: {child_ending}")
+        expected_gas_used = (
+            intrinsic_cost + parent_exec + child_budget + 2 * sstore_state_gas
+        )
 
     tx = Transaction(
         to=contract,
@@ -525,24 +671,74 @@ def test_child_clear_repays_own_spill_first(
         ),
     )
 
-    if child_ending == "stop":
-        storage = {
-            SLOT_X: 0,
-            SLOT_Y: 0,
-            SLOT_MARKER: 1,
-            SLOT_RESULT: window_cost,
-        }
-    elif child_ending in ("revert", "invalid"):
-        storage = {
-            SLOT_X: 1,
-            SLOT_Y: 1,
-            SLOT_MARKER: 0,
-            SLOT_RESULT: window_cost,
-        }
-    else:
-        raise ValueError(f"unhandled child ending: {child_ending}")
+    post = {contract: Account(storage=clearing_child_storage(child_ending))}
+    state_test(pre=pre, post=post, tx=tx)
 
-    post = {contract: Account(storage=storage)}
+
+@pytest.mark.parametrize("child_ending", ["stop", "revert", "invalid"])
+@pytest.mark.valid_from("EIP8037")
+def test_child_clear_window_cost(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    child_ending: str,
+) -> None:
+    """
+    Test the clearing call costs `gas_left` its execution and no more.
+
+    The same shape as `test_child_clear_repays_own_spill_first`, with
+    the call bracketed by two `GAS` reads. Neither the refund the
+    child parks nor the spill it repays reaches `gas_left`, so the
+    window costs the call and the child's execution alone. What the
+    sender pays is checked there.
+    """
+    child_code = clearing_child_code(child_ending)
+    child = pre.deploy_contract(code=child_code)
+    child_budget = budget_above_sstore_stipend(fork, child_code)
+
+    call_window = Op.POP(
+        Op.DELEGATECALL(gas=child_budget, address=child, address_warm=False)
+    )
+    code = (
+        FRESH_SET(SLOT_X, 1)
+        + FRESH_SET(SLOT_Y, 1)
+        + Op.MSTORE(32, 0, new_memory_size=64, old_memory_size=0)
+        + Op.MSTORE(0, Op.GAS)
+        + call_window
+        + Op.MSTORE(32, Op.GAS)
+        + FRESH_SET(SLOT_RESULT, Op.SUB(Op.MLOAD(0), Op.MLOAD(32)))
+    )
+    contract = pre.deploy_contract(code=code)
+
+    # An invalid child burns its whole budget; the others stop at the
+    # end of their code.
+    child_consumed = (
+        child_budget
+        if child_ending == "invalid"
+        else child_code.execution_cost(fork)
+    )
+    # Gas measured between the two reads: the first stamp's store, the
+    # call window, the child's consumption, and the second read itself.
+    window_cost = (
+        Op.MSTORE(0, Op.GAS).gas_cost(fork)
+        + call_window.execution_cost(fork)
+        + child_consumed
+    )
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        contract: Account(
+            storage={
+                **clearing_child_storage(child_ending),
+                SLOT_RESULT: window_cost,
+            }
+        )
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
@@ -557,60 +753,21 @@ def test_cross_frame_refund_after_delegation_spill(
 
     A set-code transaction with an empty reservoir pays its delegation
     from `gas_left` and commits that spill before the code runs. The
-    code spills a fresh set and a delegated child clears it. The call
-    costs the same as without the delegation and the delegation stays
-    billed.
+    code spills a fresh set and a delegated child clears it. The
+    delegation stays billed: the refund does not reach the committed
+    spill. What the call costs `gas_left` is measured in
+    `test_delegation_spill_window_cost`.
     """
-    fresh_set = Op.SSTORE.with_metadata(
-        key_warm=False,
-        original_value=0,
-        current_value=0,
-        new_value=1,
-    )
-    warm_clear = Op.SSTORE.with_metadata(
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
-    )
-
-    child_code = warm_clear(SLOT_X, 0)
+    child_code = WARM_CLEAR(SLOT_X, 0)
     child = pre.deploy_contract(code=child_code)
-    # SSTORE needs more than the call stipend left, so give the child
-    # that much on top of its cost.
-    child_budget = fork.call_value_stipend() + 1 + child_code.gas_cost(fork)
+    child_budget = budget_above_sstore_stipend(fork, child_code)
 
-    call = Op.POP(
+    code = FRESH_SET(SLOT_X, 1) + Op.POP(
         Op.DELEGATECALL(gas=child_budget, address=child, address_warm=False)
-    )
-    code = (
-        Op.MSTORE(32, 0, new_memory_size=64, old_memory_size=0)
-        + fresh_set(SLOT_X, 1)
-        + Op.MSTORE(0, Op.GAS)
-        + call
-        + Op.MSTORE(32, Op.GAS)
-        + fresh_set(SLOT_RESULT, Op.SUB(Op.MLOAD(0), Op.MLOAD(32)))
     )
     contract = pre.deploy_contract(code=code)
 
-    signer = pre.fund_eoa()
-    authorization_list = [
-        AuthorizationTuple(
-            address=contract,
-            nonce=0,
-            signer=signer,
-            creates_account=False,
-            writes_delegation=True,
-        )
-    ]
-
-    # The window runs from one GAS read to the next: the store of the
-    # first read, the call and the second read.
-    call_cost = (
-        Op.MSTORE(0, Op.GAS).gas_cost(fork)
-        + call.execution_cost(fork)
-        + child_code.execution_cost(fork)
-    )
+    signer, authorization_list = delegation_to(pre, contract)
 
     gas_used = (
         fork.transaction_intrinsic_cost_calculator()(
@@ -639,6 +796,62 @@ def test_cross_frame_refund_after_delegation_spill(
     )
 
     post = {
+        contract: Account(storage={SLOT_X: 0}),
+        signer: Account(code=Spec7702.delegation_designation(contract)),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("EIP8037")
+def test_delegation_spill_window_cost(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test the clearing call costs the same after a delegation spilled.
+
+    The same shape as `test_cross_frame_refund_after_delegation_spill`,
+    with the call bracketed by two `GAS` reads. The refund the child
+    merges reaches neither `gas_left` nor the committed spill, so the
+    window costs the call and the child's execution alone. What the
+    sender pays is checked there.
+    """
+    child_code = WARM_CLEAR(SLOT_X, 0)
+    child = pre.deploy_contract(code=child_code)
+    child_budget = budget_above_sstore_stipend(fork, child_code)
+
+    call = Op.POP(
+        Op.DELEGATECALL(gas=child_budget, address=child, address_warm=False)
+    )
+    code = (
+        Op.MSTORE(32, 0, new_memory_size=64, old_memory_size=0)
+        + FRESH_SET(SLOT_X, 1)
+        + Op.MSTORE(0, Op.GAS)
+        + call
+        + Op.MSTORE(32, Op.GAS)
+        + FRESH_SET(SLOT_RESULT, Op.SUB(Op.MLOAD(0), Op.MLOAD(32)))
+    )
+    contract = pre.deploy_contract(code=code)
+
+    signer, authorization_list = delegation_to(pre, contract)
+
+    # The window runs from one GAS read to the next: the store of the
+    # first read, the call and the second read.
+    call_cost = (
+        Op.MSTORE(0, Op.GAS).gas_cost(fork)
+        + call.execution_cost(fork)
+        + child_code.execution_cost(fork)
+    )
+
+    tx = Transaction(
+        to=contract,
+        authorization_list=authorization_list,
+        state_gas_reservoir=0,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
         contract: Account(storage={SLOT_X: 0, SLOT_RESULT: call_cost}),
         signer: Account(code=Spec7702.delegation_designation(contract)),
     }
@@ -654,48 +867,89 @@ def test_cross_frame_refund_with_reservoir_grant(
     reservoir_slots: int,
 ) -> None:
     """
-    Test a cross-frame refund with a reservoir the sender paid for.
+    Test the receipt is the same however much reservoir was bought.
 
-    The reservoir covers none, one or both of the parent's two sets and
-    the rest spill. A delegated child clears both slots. The call and a
-    later set cost the same in every case: the refund stays in the
-    reservoir and the spill is not repaid.
+    The reservoir covers none, one or both of the parent's two sets
+    and the rest spill. A delegated child clears both slots and a
+    later set draws on whatever is left. The receipt is the same in
+    every case, so buying reservoir up front costs the sender nothing
+    and saves nothing. What the call and the set cost `gas_left` is
+    measured in `test_reservoir_grant_window_costs`.
     """
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-    fresh_set = Op.SSTORE.with_metadata(
-        key_warm=False,
-        original_value=0,
-        current_value=0,
-        new_value=1,
+    child_code = WARM_CLEAR(SLOT_X, 0) + WARM_CLEAR(SLOT_Y, 0)
+    child = pre.deploy_contract(code=child_code)
+    child_budget = budget_above_sstore_stipend(fork, child_code)
+
+    code = (
+        FRESH_SET(SLOT_X, 1)
+        + FRESH_SET(SLOT_Y, 1)
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=child_budget, address=child, address_warm=False
+            )
+        )
+        + FRESH_SET(SLOT_PROBE, 1)
     )
-    warm_clear = Op.SSTORE.with_metadata(
-        key_warm=True,
-        original_value=0,
-        current_value=1,
-        new_value=0,
+    contract = pre.deploy_contract(code=code)
+
+    gas_used = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + code.gas_cost(fork)
+        + child_code.gas_cost(fork)
+        - child_code.state_refund(fork)
+    )
+    refund = child_code.refund(fork) - child_code.state_refund(fork)
+    gas_used -= min(gas_used // fork.max_refund_quotient(), refund)
+
+    tx = Transaction(
+        to=contract,
+        state_gas_reservoir=(
+            reservoir_slots * Op.SSTORE(new_value=1).state_cost(fork)
+        ),
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
 
-    child_code = warm_clear(SLOT_X, 0) + warm_clear(SLOT_Y, 0)
+    post = {contract: Account(storage={SLOT_X: 0, SLOT_Y: 0, SLOT_PROBE: 1})}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("reservoir_slots", [0, 1, 2])
+@pytest.mark.valid_from("EIP8037")
+def test_reservoir_grant_window_costs(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    reservoir_slots: int,
+) -> None:
+    """
+    Test a reservoir grant changes neither window's cost.
+
+    The same shape as `test_cross_frame_refund_with_reservoir_grant`,
+    with the call and a later set each bracketed by `GAS` reads. Both
+    windows cost the same however much of the parent's two sets the
+    reservoir covered: the refund stays in the reservoir and the spill
+    is not repaid. What the sender pays is checked there.
+    """
+    child_code = WARM_CLEAR(SLOT_X, 0) + WARM_CLEAR(SLOT_Y, 0)
     child = pre.deploy_contract(code=child_code)
-    # SSTORE needs more than the call stipend left, so give the child
-    # that much on top of its cost.
-    child_budget = fork.call_value_stipend() + 1 + child_code.gas_cost(fork)
+    child_budget = budget_above_sstore_stipend(fork, child_code)
 
     call = Op.POP(
         Op.DELEGATECALL(gas=child_budget, address=child, address_warm=False)
     )
-    probe = fresh_set(SLOT_PROBE, 1)
+    probe = FRESH_SET(SLOT_PROBE, 1)
     code = (
         Op.MSTORE(64, 0, new_memory_size=96, old_memory_size=0)
-        + fresh_set(SLOT_X, 1)
-        + fresh_set(SLOT_Y, 1)
+        + FRESH_SET(SLOT_X, 1)
+        + FRESH_SET(SLOT_Y, 1)
         + Op.MSTORE(0, Op.GAS)
         + call
         + Op.MSTORE(32, Op.GAS)
         + probe
         + Op.MSTORE(64, Op.GAS)
-        + fresh_set(SLOT_RESULT, Op.SUB(Op.MLOAD(0), Op.MLOAD(32)))
-        + fresh_set(SLOT_PROBE_RESULT, Op.SUB(Op.MLOAD(32), Op.MLOAD(64)))
+        + FRESH_SET(SLOT_RESULT, Op.SUB(Op.MLOAD(0), Op.MLOAD(32)))
+        + FRESH_SET(SLOT_PROBE_RESULT, Op.SUB(Op.MLOAD(32), Op.MLOAD(64)))
     )
     contract = pre.deploy_contract(code=code)
 
@@ -709,20 +963,12 @@ def test_cross_frame_refund_with_reservoir_grant(
     )
     probe_cost = stamp_cost + probe.execution_cost(fork)
 
-    gas_used = (
-        fork.transaction_intrinsic_cost_calculator()()
-        + code.gas_cost(fork)
-        + child_code.gas_cost(fork)
-        - child_code.state_refund(fork)
-    )
-    refund = child_code.refund(fork) - child_code.state_refund(fork)
-    gas_used -= min(gas_used // fork.max_refund_quotient(), refund)
-
     tx = Transaction(
         to=contract,
-        state_gas_reservoir=reservoir_slots * sstore_state_gas,
+        state_gas_reservoir=(
+            reservoir_slots * Op.SSTORE(new_value=1).state_cost(fork)
+        ),
         sender=pre.fund_eoa(),
-        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
 
     post = {
