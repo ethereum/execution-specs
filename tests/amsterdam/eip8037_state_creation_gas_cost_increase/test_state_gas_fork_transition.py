@@ -31,9 +31,11 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    TransactionReceipt,
+    compute_create_address,
 )
 
-from .spec import ref_spec_8037
+from .spec import init_code_at_high_bytes, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -506,4 +508,105 @@ def test_reservoir_available_after_transition(
         child: Account(storage=child_storage),
     }
 
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.parametrize("creation", ["transaction", "create", "create2"])
+@pytest.mark.parametrize("code_size", [31, 32, 33])
+@pytest.mark.parametrize("gas_delta", [0, -1], ids=["exact", "one_short"])
+@EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
+@EIPChecklist.GasCostChanges.Test.ForkTransition.After()
+def test_nonempty_code_deposit_at_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    creation: str,
+    code_size: int,
+    gas_delta: int,
+) -> None:
+    """Pin nonempty code deposit and its failure billing across activation."""
+    init_code = Op.RETURN(
+        0, code_size, new_memory_size=code_size, code_deposit_size=code_size
+    )
+    blocks = []
+    post: dict[Address, Account | None] = {}
+    for timestamp in (14_999, 15_000):
+        pricing = fork.fork_at(timestamp=timestamp)
+        sender = pre.fund_eoa()
+        if creation == "transaction":
+            intrinsic = pricing.transaction_intrinsic_cost_calculator()(
+                calldata=bytes(init_code),
+                contract_creation=True,
+                return_cost_deducted_prior_execution=True,
+            )
+            state = pricing.transaction_top_frame_state_gas(
+                contract_creation=True
+            )
+            execution = intrinsic + init_code.execution_cost(pricing)
+            state += init_code.state_cost(pricing)
+            gas_limit = execution + state + gas_delta
+            created = compute_create_address(address=sender, nonce=0)
+            tx = Transaction(
+                to=None, data=init_code, sender=sender, gas_limit=gas_limit
+            )
+            failed_gas = gas_limit
+        else:
+            opcode = Op.CREATE if creation == "create" else Op.CREATE2
+            value, size = init_code_at_high_bytes(init_code)
+            factory_code = Op.MSTORE(0, value, new_memory_size=32) + opcode(
+                value=0, offset=0, size=size, init_code_size=size
+            )
+            factory = pre.deploy_contract(code=factory_code)
+            created = compute_create_address(
+                address=factory,
+                nonce=1,
+                salt=0,
+                initcode=init_code,
+                opcode=opcode,
+            )
+            intrinsic = pricing.transaction_intrinsic_cost_calculator()()
+            child_gas = init_code.gas_cost(pricing)
+            # Smallest grant forwarding exactly child_gas under EIP-150.
+            retained = (child_gas - 1) // 63
+            gas_limit = (
+                intrinsic
+                + factory_code.gas_cost(pricing)
+                + child_gas
+                + retained
+                + gas_delta
+            )
+            execution = (
+                intrinsic
+                + factory_code.execution_cost(pricing)
+                + init_code.execution_cost(pricing)
+            )
+            state = factory_code.state_cost(pricing) + init_code.state_cost(
+                pricing
+            )
+            failed_gas = (
+                intrinsic
+                + factory_code.execution_cost(pricing)
+                + child_gas
+                + gas_delta
+            )
+            tx = Transaction(to=factory, sender=sender, gas_limit=gas_limit)
+            post[factory] = Account(nonce=2)
+        if gas_delta == 0:
+            receipt_gas = execution + state
+            header_gas = max(execution, state)
+            post[created] = Account(nonce=1, code=bytes(code_size))
+        else:
+            receipt_gas = header_gas = failed_gas
+            post[created] = Account.NONEXISTENT
+        tx.expected_receipt = TransactionReceipt(
+            status=int(gas_delta == 0 or creation != "transaction"),
+            cumulative_gas_used=receipt_gas,
+        )
+        blocks.append(
+            Block(
+                timestamp=timestamp,
+                txs=[tx],
+                header_verify=Header(gas_used=header_gas),
+            )
+        )
     blockchain_test(pre=pre, blocks=blocks, post=post)
