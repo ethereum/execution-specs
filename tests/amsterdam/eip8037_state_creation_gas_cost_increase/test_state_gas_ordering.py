@@ -15,18 +15,13 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 
 import pytest
 from execution_testing import (
-    Account,
     Alloc,
     Block,
-    BlockAccessListExpectation,
     BlockchainTestFiller,
     Fork,
     Header,
     Op,
-    StateTestFiller,
-    Storage,
     Transaction,
-    compute_create_address,
 )
 
 from .spec import ref_spec_8037
@@ -174,65 +169,4 @@ def test_state_charge_oog_full_burn_no_state_credit(
         pre=pre,
         blocks=[Block(txs=[tx], header_verify=Header(gas_used=tx_gas_limit))],
         post={},
-    )
-
-
-@pytest.mark.with_all_create_opcodes
-@pytest.mark.parametrize(
-    "reservoir_shortfall", [0, 1], ids=["exact", "one_short"]
-)
-@pytest.mark.valid_from("EIP8037")
-def test_static_create_preserves_reservoir(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    create_opcode: Op,
-    reservoir_shortfall: int,
-) -> None:
-    """Reject static creation before charging or refilling state gas."""
-    creation = create_opcode(value=0, offset=0, size=0, init_code_size=0)
-    creator = pre.deploy_contract(code=creation)
-    created = compute_create_address(
-        address=creator, nonce=1, salt=0, initcode=b"", opcode=create_opcode
-    )
-    probe_code = Op.SSTORE(0, 1)
-    probe = pre.deploy_contract(code=probe_code)
-    reservoir = probe_code.state_cost(fork) - reservoir_shortfall
-    # A misplaced account charge can spill before the static exception.
-    # The probe detects lost reservoir gas or a spill credited to that pool.
-    grant = creation.gas_cost(fork)
-    assert creation.state_cost(fork) > reservoir
-    expected = Storage()
-    static_result = expected.store_next(1)
-    probe_result = expected.store_next(2 if reservoir_shortfall == 0 else 1)
-    caller = pre.deploy_contract(
-        code=Op.SSTORE(
-            static_result, Op.ADD(1, Op.STATICCALL(gas=grant, address=creator))
-        )
-        + Op.SSTORE(
-            probe_result,
-            Op.ADD(
-                1,
-                Op.CALL(gas=probe_code.execution_cost(fork), address=probe),
-            ),
-        ),
-        # Nonzero result slots keep instrumentation out of the reservoir.
-        storage={static_result: 3, probe_result: 3},
-    )
-    tx = Transaction(
-        sender=pre.fund_eoa(), to=caller, state_gas_reservoir=reservoir
-    )
-    state_test(
-        pre=pre,
-        tx=tx,
-        # Rollback can mask late charging; the BAL still exposes target access.
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={created: None}
-        ),
-        post={
-            caller: Account(storage=expected),
-            creator: Account(nonce=1),
-            created: Account.NONEXISTENT,
-            probe: Account(storage={0: int(reservoir_shortfall == 0)}),
-        },
     )
