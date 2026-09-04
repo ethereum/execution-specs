@@ -74,6 +74,16 @@ def invalid_first_ssz_offset(input_bytes: Bytes) -> Bytes:
     return Bytes(input_bytes[:2] + b"\x01\x00\x00\x00" + input_bytes[6:])
 
 
+def shifted_ssz_offsets(input_bytes: Bytes) -> Bytes:
+    """Shift every top-level offset and leave an extra byte at the end."""
+    encoded = bytearray(input_bytes)
+    for offset in (2, 6, 18):
+        value = int.from_bytes(encoded[offset : offset + 4], "little")
+        encoded[offset : offset + 4] = (value + 1).to_bytes(4, "little")
+    encoded.append(0xFF)
+    return Bytes(bytes(encoded))
+
+
 @pytest.mark.parametrize(
     "modifier",
     [
@@ -88,6 +98,7 @@ def invalid_first_ssz_offset(input_bytes: Bytes) -> Bytes:
         pytest.param(truncated_ssz_body, id="truncated_ssz_body"),
         pytest.param(trailing_garbage, id="trailing_garbage"),
         pytest.param(invalid_first_ssz_offset, id="invalid_first_ssz_offset"),
+        pytest.param(shifted_ssz_offsets, id="shifted_ssz_offsets"),
     ],
 )
 def test_invalid_stateless_input_bytes_are_rejected(
