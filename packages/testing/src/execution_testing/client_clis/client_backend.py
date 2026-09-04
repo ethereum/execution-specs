@@ -13,7 +13,7 @@ info, block boundaries, and pre-alloc declarations flow unchanged.
 
 import re
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 from execution_testing.base_types import Bytes, Hash
 from execution_testing.exceptions import ExceptionBase, ExceptionMapper
@@ -97,9 +97,17 @@ def _normalize_opcode_name(name: str) -> str | None:
     return None
 
 
-def _opcode_count_from_js_tracer(traces: Any) -> OpcodeCount:
-    """Aggregate the per-tx ``{opcode: count}`` maps the JS tracer emits."""
+def _opcode_count_from_js_tracer(traces: Any) -> Tuple[OpcodeCount, int]:
+    """
+    Aggregate the per-tx ``{opcode: count}`` maps the JS tracer emits.
+
+    Also returns how many entries actually contributed, so the caller can
+    check the trace covered every transaction. An entry whose trace failed
+    carries an error instead of a ``result`` and contributes nothing; without
+    that count the shortfall is invisible.
+    """
     counts: Dict[str, int] = {}
+    covered = 0
     for entry in traces or []:
         if not isinstance(entry, dict):
             continue
@@ -107,17 +115,24 @@ def _opcode_count_from_js_tracer(traces: Any) -> OpcodeCount:
         # Clients that ignore the JS tracer echo struct logs.
         if not isinstance(tx_counts, dict) or "structLogs" in tx_counts:
             continue
+        covered += 1
         for opcode, count in tx_counts.items():
             key = _normalize_opcode_name(opcode)
             if key is None or not isinstance(count, int):
                 continue
             counts[key] = counts.get(key, 0) + count
-    return OpcodeCount.model_validate(counts)
+    return OpcodeCount.model_validate(counts), covered
 
 
-def _opcode_count_from_struct_logs(traces: Any) -> OpcodeCount:
-    """Count ``structLogs[].op`` entries, one per executed opcode."""
+def _opcode_count_from_struct_logs(traces: Any) -> Tuple[OpcodeCount, int]:
+    """
+    Count ``structLogs[].op`` entries, one per executed opcode.
+
+    Returns the tally and the number of entries that carried struct logs, for
+    the same coverage check as the JS tracer path.
+    """
     counts: Dict[str, int] = {}
+    covered = 0
     for entry in traces or []:
         if not isinstance(entry, dict):
             continue
@@ -125,6 +140,9 @@ def _opcode_count_from_struct_logs(traces: Any) -> OpcodeCount:
         result = entry.get("result")
         if not isinstance(result, dict):
             result = entry
+        if "structLogs" not in result:
+            continue
+        covered += 1
         for step in result.get("structLogs") or []:
             if not isinstance(step, dict):
                 continue
@@ -135,7 +153,7 @@ def _opcode_count_from_struct_logs(traces: Any) -> OpcodeCount:
             if key is None:
                 continue
             counts[key] = counts.get(key, 0) + 1
-    return OpcodeCount.model_validate(counts)
+    return OpcodeCount.model_validate(counts), covered
 
 
 class ClientBackendExceptionMapper(ExceptionMapper):
@@ -328,7 +346,7 @@ class ClientBackend:
         return self.eth_rpc.get_alloc(expected, block_number=block_number)
 
     def extract_block_opcode_count(
-        self, block_hash: Hash
+        self, block_hash: Hash, transaction_count: int | None = None
     ) -> OpcodeCount | None:
         """
         Tally executed opcodes for a block via ``debug_traceBlockByHash``.
@@ -337,25 +355,62 @@ class ClientBackend:
         fails (logged, never fatal). Prefers the JS tracer; a client
         that rejects it falls back to struct logs for the session,
         while transient errors only skip the block.
+
+        ``transaction_count`` enables a coverage check. The trace returns one
+        entry per transaction, and an entry whose trace failed carries an
+        error instead of a result. Aggregating what is left yields a
+        well-formed tally that is silently short by whole transactions, which
+        then fails a downstream count assertion that has nothing to do with
+        tracing. A partial tally is therefore discarded rather than returned:
+        the fixture is still produced, it simply carries no opcode count.
         """
         if not self.extract_opcode_count or self.debug_rpc is None:
             return None
 
         try:
+            covered: int
+            opcode_count: OpcodeCount
             if not self._js_tracer_unsupported:
                 try:
                     traces = self._trace_block(
                         block_hash, {"tracer": OPCODE_COUNT_TRACER_JS}
                     )
-                    return _opcode_count_from_js_tracer(traces)
+                    opcode_count, covered = _opcode_count_from_js_tracer(
+                        traces
+                    )
+                    return self._checked_opcode_count(
+                        opcode_count, covered, transaction_count, block_hash
+                    )
                 except JSONRPCError as e:
                     logger.info(f"JS tracer rejected ({e}); using struct logs")
                     self._js_tracer_unsupported = True
             traces = self._trace_block(block_hash, STRUCT_LOG_TRACER_CONFIG)
-            return _opcode_count_from_struct_logs(traces)
+            opcode_count, covered = _opcode_count_from_struct_logs(traces)
+            return self._checked_opcode_count(
+                opcode_count, covered, transaction_count, block_hash
+            )
         except Exception as e:
             logger.warning(f"opcode trace failed for block {block_hash}: {e}")
             return None
+
+    @staticmethod
+    def _checked_opcode_count(
+        opcode_count: OpcodeCount,
+        covered: int,
+        transaction_count: int | None,
+        block_hash: Hash,
+    ) -> OpcodeCount | None:
+        """Discard a tally that does not cover every transaction."""
+        if transaction_count is None or covered == transaction_count:
+            return opcode_count
+        logger.warning(
+            f"opcode trace for block {block_hash} covered {covered} of "
+            f"{transaction_count} transactions; {transaction_count - covered} "
+            "transaction(s) returned no usable trace. Discarding the partial "
+            "count -- the fixture is still valid, it just carries no opcode "
+            "count. Re-run to obtain one."
+        )
+        return None
 
     def _trace_block(
         self, block_hash: Hash, tracer_config: Dict[str, Any]

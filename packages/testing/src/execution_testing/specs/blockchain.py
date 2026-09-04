@@ -1680,7 +1680,10 @@ class BlockchainTest(BaseTest):
             else:
                 execution_payloads.append(payload)
                 block_opcode_count = t8n.extract_block_opcode_count(
-                    client_hash
+                    client_hash,
+                    len(
+                        built_block.engine_payload.payload_response.execution_payload.transactions
+                    ),
                 )
                 execution_opcode_counts.append(
                     block_opcode_count.model_dump()
