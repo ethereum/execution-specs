@@ -468,6 +468,91 @@ class Block(Header):
         return env.copy(**new_env_values)
 
 
+# Longest RLP length prefix: 0xfb followed by an eight-byte length.
+_RLP_LENGTH_PREFIX_MAX = 9
+
+# Stands in for "cannot be bounded cheaply", larger than any real block RLP
+# limit so the caller measures the exact size instead.
+_RLP_SIZE_UNBOUNDED = 1 << 62
+
+# Every field that can appear in the RLP body of any transaction type. A
+# superset is safe: fields absent from a given type read as ``None`` and are
+# charged one byte, so the result stays an upper bound whatever the type is.
+_TRANSACTION_RLP_FIELDS = (
+    "chain_id",
+    "nonce",
+    "gas_price",
+    "max_priority_fee_per_gas",
+    "max_fee_per_gas",
+    "gas_limit",
+    "to",
+    "value",
+    "data",
+    "access_list",
+    "max_fee_per_blob_gas",
+    "blob_versioned_hashes",
+    "authorization_list",
+    "v",
+    "r",
+    "s",
+)
+
+
+def _rlp_size_upper_bound(value: Any) -> int:
+    """
+    Return an upper bound on ``len(rlp(value))`` without encoding *value*.
+
+    Integers and byte strings are sized exactly; lists recurse; models expose
+    their fields through ``rlp_fields`` or ``to_serializable_list``. Anything
+    else yields ``_RLP_SIZE_UNBOUNDED`` rather than a guess, so the result can
+    never under-estimate.
+    """
+    if value is None:
+        return 1  # encodes as the empty byte string
+    if isinstance(value, (bytes, bytearray)):
+        length = len(value)
+        if length == 1 and value[0] < 0x80:
+            return 1
+        return length + (1 if length <= 55 else _RLP_LENGTH_PREFIX_MAX)
+    # ``int`` covers bool and the HexNumber/Number aliases; ``__index__`` picks
+    # up ``ethereum_types`` Uint/U256, which do not subclass int.
+    if not isinstance(value, int) and hasattr(value, "__index__"):
+        value = int(value)
+    if isinstance(value, int):
+        if value < 0x80:
+            return 1
+        return 1 + (value.bit_length() + 7) // 8
+    if isinstance(value, (list, tuple)):
+        payload = sum(_rlp_size_upper_bound(item) for item in value)
+        return payload + (1 if payload <= 55 else _RLP_LENGTH_PREFIX_MAX)
+    rlp_fields = getattr(value, "rlp_fields", None)
+    if rlp_fields is not None:
+        return _rlp_size_upper_bound(
+            [getattr(value, name, None) for name in rlp_fields]
+        )
+    # Withdrawals and friends expose the serialized order directly.
+    to_serializable_list = getattr(value, "to_serializable_list", None)
+    if callable(to_serializable_list):
+        return _rlp_size_upper_bound(to_serializable_list())
+    # Unrecognised value: rather than guess a size that might under-estimate,
+    # return a bound nothing can fit under, so the caller falls back to
+    # measuring the exact RLP.
+    return _RLP_SIZE_UNBOUNDED
+
+
+def _transaction_rlp_size_upper_bound(transaction: Transaction) -> int:
+    """Bound one transaction as it appears in a block's transaction list."""
+    payload = _rlp_size_upper_bound(
+        [getattr(transaction, name, None) for name in _TRANSACTION_RLP_FIELDS]
+    )
+    if transaction.ty > 0:
+        # A typed transaction is embedded as an opaque byte string holding the
+        # type byte followed by the payload.
+        payload += 1
+        payload += 1 if payload <= 55 else _RLP_LENGTH_PREFIX_MAX
+    return payload
+
+
 class BuiltBlock(CamelModel):
     """Model that contains all properties to build a full block or payload."""
 
@@ -623,6 +708,35 @@ class BuiltBlock(CamelModel):
             transition_tool_exceptions_reliable=transition_tool_exceptions_reliable,
         )
 
+    def block_rlp_size_upper_bound(self) -> int:
+        """
+        Return an over-estimate of this block's RLP size, without encoding it.
+
+        ``get_block_rlp`` has to build the entire ``FixtureBlock`` first -- a
+        pydantic model per transaction, receipt and withdrawal, then a
+        ``model_dump`` of all of them -- which on a benchmark block carrying
+        tens of thousands of transactions costs more than executing the block.
+
+        The EIP-7934 limit is only ever compared against, so an upper bound is
+        enough to rule a violation out; the exact size is only needed once the
+        bound says the limit may actually be reached.
+        """
+        transactions = sum(
+            _transaction_rlp_size_upper_bound(tx) for tx in self.txs
+        )
+        return (
+            _rlp_size_upper_bound(self.header.rlp_encode_list)
+            + transactions
+            + _RLP_LENGTH_PREFIX_MAX  # the transaction list
+            + _RLP_LENGTH_PREFIX_MAX  # ommers, always empty here
+            + (
+                _rlp_size_upper_bound(self.withdrawals)
+                if self.withdrawals is not None
+                else 0
+            )
+            + _RLP_LENGTH_PREFIX_MAX  # the block list itself
+        )
+
     def verify_block_exception(
         self, transition_tool_exceptions_reliable: bool
     ) -> None:
@@ -632,7 +746,10 @@ class BuiltBlock(CamelModel):
         )
         # Verify exceptions that are not caught by the transition tool.
         fork_block_rlp_size_limit = self.fork.block_rlp_size_limit()
-        if fork_block_rlp_size_limit is not None:
+        if (
+            fork_block_rlp_size_limit is not None
+            and self.block_rlp_size_upper_bound() > fork_block_rlp_size_limit
+        ):
             rlp_size = len(self.get_block_rlp())
             if rlp_size > fork_block_rlp_size_limit:
                 got_exception = BlockExceptionWithMessage(
