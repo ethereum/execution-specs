@@ -42,13 +42,16 @@ class SystemContractTestType(StrEnum):
 
     def param(self) -> Any:
         """Return the parameter for the test."""
-        return pytest.param(
-            self,
-            id=self.value,
-            marks=pytest.mark.exception_test
-            if self != SystemContractTestType.GAS_LIMIT
-            else [],
-        )
+        marks: List[Any] = []
+        if self != SystemContractTestType.GAS_LIMIT:
+            marks.append(pytest.mark.exception_test)
+        if self in (
+            SystemContractTestType.GAS_LIMIT,
+            SystemContractTestType.OUT_OF_GAS_ERROR,
+        ):
+            marks.append(pytest.mark.skip_stateless_validation)
+
+        return pytest.param(self, id=self.value, marks=marks)
 
 
 class ContractAddressHasBalance(StrEnum):

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Final, List, Tuple, final
 from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.exceptions import GasUsedExceedsLimitError
-from ethereum.forks.bpo5.blocks import Header as PreviousHeader
+from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
 from ethereum.trace import GasAndRefund, StateGasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
@@ -259,6 +259,9 @@ class GasCosts:
     OPCODE_SELFDESTRUCT_BASE: Final[ExecutionGas] = ExecutionGas(Uint(5000))
 
 
+BLOB_SCHEDULE_TARGET = GasCosts.BLOB_SCHEDULE_TARGET
+BLOB_SCHEDULE_MAX = GasCosts.BLOB_SCHEDULE_MAX
+BLOB_BASE_FEE_UPDATE_FRACTION = GasCosts.BLOB_BASE_FEE_UPDATE_FRACTION
 MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
     GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
 )
@@ -894,7 +897,7 @@ def init_code_cost(init_code_length: Uint) -> ExecutionGas:
 
 
 def calculate_excess_blob_gas(
-    parent_header: Header | PreviousHeader,
+    parent_header: Header | PreviousForkHeader,
 ) -> U64:
     """
     Calculates the excess blob gas for the current block based
@@ -916,7 +919,7 @@ def calculate_excess_blob_gas(
     blob_gas_used = U64(0)
     base_fee_per_gas = Uint(0)
 
-    if isinstance(parent_header, (Header, PreviousHeader)):
+    if isinstance(parent_header, (Header, PreviousForkHeader)):
         # Read them from any parent that carries the fields, so
         # accumulated excess blob gas survives a fork transition.
         excess_blob_gas = parent_header.excess_blob_gas

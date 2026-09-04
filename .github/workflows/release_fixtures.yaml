@@ -27,7 +27,7 @@ on:
         required: true
         type: string
       branch:
-        description: "Branch to release from, e.g. devnets/bal/7 (required for *-devnet features)"
+        description: "Branch or source tag to release from, e.g. devnets/bal/7"
         required: false
         type: string
       evm:
@@ -94,6 +94,16 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "short_sha=${sha:0:7}" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/setup-uv
+
+      - name: Check zkEVM benchmark release request
+        if: inputs.feature == 'zkevm-benchmark'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_SOURCE_REF: ${{ inputs.branch }}
+        run: |
+          uv run -q .github/scripts/check_zkevm_benchmark_release.py \
+            "$INPUT_VERSION" "$INPUT_SOURCE_REF"
 
       - name: Check for new commits (scheduled runs)
         id: check
