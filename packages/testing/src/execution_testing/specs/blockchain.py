@@ -359,21 +359,26 @@ class Block(Header):
         """
         Return the single phase shared by all txs, or ``None`` when the
         block has no phase-tagged txs.
-
-        Mixed-phase blocks must be split via ``_split_blocks_by_phase``
-        before this property is read — they would otherwise need an
-        arbitrary tiebreaker, which is a bug, not a default.
         """
-        phases = {_tx_phase(tx) for tx in self.txs}
-        phases.discard(None)
-        if not phases:
-            return None
-        if len(phases) == 1:
-            return next(iter(phases))
-        raise AssertionError(
-            f"Block.phase called on mixed-phase block (phases={phases}); "
-            "split via _split_blocks_by_phase first."
-        )
+        if self.txs:
+            return self.txs[0].test_phase
+        return None
+
+    def model_post_init(self, __context: Any, /) -> None:
+        """
+        Model post-init to assert transactions in the block do not mix phases.
+
+        All transactions must contain either `None` or a single test phase
+        descriptor.
+        """
+        super().model_post_init(__context)
+        if not self.txs:
+            return
+        phases = [tx.test_phase for tx in self.txs]
+        if len(set(phases)) != 1:
+            raise Exception(
+                "test correctness: Block contains mixed phase transactions."
+            )
 
     def engine_payload_only_overrides(self) -> List[str]:
         """
@@ -485,8 +490,10 @@ class BuiltBlock(CamelModel):
     rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
+    block_phase: TestPhase | None = None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
+    engine_payload: EnginePayloadMetadata | None = None
 
     def cumulative_gas_used(self) -> int:
         """Return the last receipt's cumulative gas used."""
@@ -552,6 +559,23 @@ class BuiltBlock(CamelModel):
             )
 
         return fixture_block
+
+    def get_payload_fixture(
+        self,
+        *,
+        phase: TestPhase | None = None,
+    ) -> Tuple[Hash, FixtureEngineNewPayload]:
+        """Materialise an ``EnginePayloadMetadata`` into a fixture payload."""
+        engine_payload_meta = self.engine_payload
+        if engine_payload_meta is None:
+            raise Exception(
+                "``BuiltBlock`` cannot produce an engine fixture without "
+                "``EnginePayloadMetadata``."
+            )
+        return (
+            engine_payload_meta.payload_response.execution_payload.block_hash,
+            payload_metadata_to_fixture(engine_payload_meta, phase=phase),
+        )
 
     def get_block_rlp(self) -> Bytes:
         """Get the RLP of the block."""
@@ -648,19 +672,6 @@ class BuiltBlock(CamelModel):
         )
 
 
-class TestingBuildBlock(BuiltBlock):
-    """
-    ``BuiltBlock`` from a live-client backend; carries the engine payload
-    so ``make_stateful_fixture`` can record what the client built.
-    """
-
-    __test__ = False  # "Test" prefix; keep pytest from collecting it
-
-    model_config = CamelModel.model_config | {"arbitrary_types_allowed": True}
-
-    engine_payload: EnginePayloadMetadata
-
-
 GENESIS_ENVIRONMENT_DEFAULTS: Dict[str, Any] = {
     "fee_recipient": 0,
     "number": 0,
@@ -672,73 +683,6 @@ GENESIS_ENVIRONMENT_DEFAULTS: Dict[str, Any] = {
 Default values for the genesis environment that are used to create all genesis
 headers.
 """
-
-
-def _tx_phase(tx: Transaction) -> TestPhase | None:
-    """Read a tx's phase: ``test_phase`` first, then ``metadata.phase``."""
-    phase = getattr(tx, "test_phase", None)
-    if phase is not None:
-        return phase
-    meta = getattr(tx, "metadata", None)
-    if meta is None:
-        return None
-    return getattr(meta, "phase", None)
-
-
-def _split_blocks_by_phase(blocks: List[Block]) -> List[Block]:
-    """
-    Split each block into contiguous phase runs.
-
-    A mixed-phase block (e.g. EIP-7702 authorization tagged SETUP
-    followed by benchmark TEST txs) becomes multiple back-to-back
-    blocks, one per run; ``Block.phase`` asserts on mixed input.
-
-    Block-level fields describing final state (``expected_post_state``,
-    ``header_verify``, ...) stay on the LAST sub-block; earlier
-    sub-blocks get them cleared.
-    """
-    out: List[Block] = []
-    for block in blocks:
-        phases = [_tx_phase(tx) for tx in block.txs]
-        if len(set(phases)) <= 1:
-            out.append(block)
-            continue
-
-        runs: List[List[Transaction]] = []
-        current_run: List[Transaction] = []
-        current_phase: Any = object()  # sentinel
-        for tx, phase in zip(block.txs, phases, strict=False):
-            if not current_run or phase == current_phase:
-                current_run.append(tx)
-                current_phase = phase
-            else:
-                runs.append(current_run)
-                current_run = [tx]
-                current_phase = phase
-        if current_run:
-            runs.append(current_run)
-
-        last_idx = len(runs) - 1
-        for idx, run_txs in enumerate(runs):
-            if idx == last_idx:
-                out.append(block.model_copy(update={"txs": run_txs}))
-            else:
-                out.append(
-                    block.model_copy(
-                        update={
-                            "txs": run_txs,
-                            "header_verify": None,
-                            "rlp_modifier": None,
-                            "expected_block_access_list": None,
-                            "expected_post_state": None,
-                            "expected_gas_used": None,
-                            "exception": None,
-                            "skip_exception_verification": False,
-                            "engine_api_error_code": None,
-                        }
-                    )
-                )
-    return out
 
 
 class BlockchainTest(BaseTest):
@@ -813,6 +757,8 @@ class BlockchainTest(BaseTest):
     def model_post_init(self, __context: Any, /) -> None:
         """
         Model post-init to assert static (pre-fill/execute) checks.
+
+        Also verify phase order of the included blocks.
         """
         super().model_post_init(__context)
         if self.is_inclusion_test:
@@ -860,6 +806,18 @@ class BlockchainTest(BaseTest):
                     "arbitrary bytes, `modify_rlp` re-encodes the list the "
                     "transition tool produced."
                 )
+
+        execution_phase_block_found = False
+        for block in self.blocks:
+            if block.phase == TestPhase.SETUP:
+                if execution_phase_block_found:
+                    raise Exception(
+                        "test correctness: blockchain test contains a "
+                        "setup phase block after an execution or "
+                        "unmarked-phase block."
+                    )
+            else:
+                execution_phase_block_found = True
 
     def get_genesis_environment(self) -> Environment:
         """Get the genesis environment for pre-allocation groups."""
@@ -1168,15 +1126,10 @@ class BlockchainTest(BaseTest):
             engine_new_payload_slot_number=(
                 block.engine_new_payload_slot_number
             ),
+            engine_payload=transition_tool_output.engine_payload,
+            block_phase=block.phase,
         )
-        built_block: BuiltBlock
-        if transition_tool_output.engine_payload is not None:
-            built_block = TestingBuildBlock(
-                **built_block_kwargs,
-                engine_payload=transition_tool_output.engine_payload,
-            )
-        else:
-            built_block = BuiltBlock(**built_block_kwargs)
+        built_block = BuiltBlock(**built_block_kwargs)
 
         try:
             rejected_txs = built_block.verify_transactions(
@@ -1610,17 +1563,18 @@ class BlockchainTest(BaseTest):
             int(HexNumber(start_block["number"]))
         )
 
-        # Materialise queued pre-alloc txs into a synthetic setup block.
+        # Collect every setup tx into one flat list — both the
+        # pre-alloc queue and any SETUP blocks the test itself
+        # authored.
+        setup_txs: List[Transaction] = (
+            pending_getter() if callable(pending_getter) else []
+        )
         blocks_to_process: List[Block] = []
-        if callable(pending_getter):
-            setup_txs = pending_getter()
-            if setup_txs:
-                blocks_to_process.append(Block(txs=setup_txs))
-        # Each block must be single-phase (Block.phase asserts otherwise);
-        # mixed blocks (e.g. EIP-7702 authorization + benchmark exec) are
-        # split into contiguous phase runs so benchmark gas isn't
-        # swallowed into ``setupEngineNewPayloads``.
-        blocks_to_process.extend(_split_blocks_by_phase(self.blocks))
+        for block in self.blocks:
+            if block.txs and block.phase is TestPhase.SETUP:
+                setup_txs.extend(block.txs)
+            else:
+                blocks_to_process.append(block)
 
         # Chain off the session start_block. We pull parent_* from a
         # FixtureHeader-validated copy of the client's block dict, but
@@ -1656,6 +1610,52 @@ class BlockchainTest(BaseTest):
         # Alloc is not authoritative in stateful mode; pass self.pre as a
         # placeholder — ClientBackend ignores it.
         alloc: Alloc | LazyAlloc = self.pre
+
+        # Pack setup txs into as few gas-bounded blocks as possible to create
+        # the setup payloads.
+        setup_blocks_gas_target = parent_header.gas_limit // 2
+        while setup_txs:
+            current_run: List[Transaction] = []
+            current_gas = 0
+            while setup_txs:
+                tx = setup_txs[0]
+                if tx.gas_limit > parent_header.gas_limit:
+                    raise ValueError(
+                        f"Setup tx gas_limit ({int(tx.gas_limit)}) exceeds "
+                        f"the snapshot chain's block gas limit "
+                        f"({parent_header.gas_limit}); no packing can make it "
+                        "fit."
+                    )
+                if (
+                    current_run
+                    and current_gas + tx.gas_limit > setup_blocks_gas_target
+                ):
+                    break
+                current_run.append(setup_txs.pop(0))
+                current_gas += tx.gas_limit
+
+            built_block = self.generate_block_data(
+                t8n=t8n,
+                block=Block(txs=current_run),
+                previous_env=env,
+                previous_alloc=alloc,
+            )
+            # The client's authoritative block hash (the FixtureHeader RLP
+            # hash diverges — the client picks fields like gas_limit).
+            client_hash, payload = built_block.get_payload_fixture()
+            setup_payloads.append(payload)
+
+            # apply_new_parent records the RLP hash; the next block's
+            # parent_hash must point at what the client actually built.
+            env = apply_new_parent(built_block.env, built_block.header)
+            env = env.copy(
+                block_hashes={
+                    **env.block_hashes,
+                    HexNumber(int(env.number)): client_hash,
+                },
+            )
+            head_hash = client_hash
+
         for block in blocks_to_process:
             built_block = self.generate_block_data(
                 t8n=t8n,
@@ -1663,43 +1663,29 @@ class BlockchainTest(BaseTest):
                 previous_env=env,
                 previous_alloc=alloc,
             )
-            assert isinstance(built_block, TestingBuildBlock), (
-                "ClientBackend must return TestingBuildBlock; got "
-                f"{type(built_block).__name__}"
-            )
-            payload = payload_metadata_to_fixture(
-                built_block.engine_payload, phase=block.phase
-            )
             # The client's authoritative block hash (the FixtureHeader RLP
             # hash diverges — the client picks fields like gas_limit).
-            client_hash = Hash(
-                built_block.engine_payload.payload_response.execution_payload.block_hash
+            client_hash, payload = built_block.get_payload_fixture()
+            execution_payloads.append(payload)
+            block_opcode_count = t8n.extract_block_opcode_count(client_hash)
+            execution_opcode_counts.append(
+                block_opcode_count.model_dump()
+                if block_opcode_count is not None
+                else None
             )
-            if payload.phase == TestPhase.SETUP:
-                setup_payloads.append(payload)
-            else:
-                execution_payloads.append(payload)
-                block_opcode_count = t8n.extract_block_opcode_count(
-                    client_hash
+            # Setup blocks (pre-alloc funding/deploys) are exempt:
+            # ``expected_receipt_status`` describes the test's own
+            # transactions, and setup txs always succeed.
+            if built_block.result.receipts:
+                self.validate_receipt_status(
+                    receipts=built_block.result.receipts,
+                    block_number=int(built_block.header.number),
                 )
-                execution_opcode_counts.append(
-                    block_opcode_count.model_dump()
-                    if block_opcode_count is not None
-                    else None
-                )
-                # Setup blocks (pre-alloc funding/deploys) are exempt:
-                # ``expected_receipt_status`` describes the test's own
-                # transactions, and setup txs always succeed.
-                if built_block.result.receipts:
-                    self.validate_receipt_status(
-                        receipts=built_block.result.receipts,
-                        block_number=int(built_block.header.number),
-                    )
-                if self.operation_mode == OpMode.BENCHMARKING:
-                    benchmark_gas_used = built_block.cumulative_gas_used()
-                    benchmark_block_gas_used = built_block.block_gas_used()
-                    # Consumed by BenchmarkTest's opcode-count verification.
-                    benchmark_opcode_count = block_opcode_count
+            if self.operation_mode == OpMode.BENCHMARKING:
+                benchmark_gas_used = built_block.cumulative_gas_used()
+                benchmark_block_gas_used = built_block.block_gas_used()
+                # Consumed by BenchmarkTest's opcode-count verification.
+                benchmark_opcode_count = block_opcode_count
             # apply_new_parent records the RLP hash; the next block's
             # parent_hash must point at what the client actually built.
             env = apply_new_parent(built_block.env, built_block.header)

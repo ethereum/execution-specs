@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 # Multiplier applied to a one-shot live fee-market query to absorb the gap
 # between query timing and tx submission (basefee can climb a few blocks
 # between the two; the bump keeps txs landing without per-tx requeries).
-FEE_BUMP_MULTIPLIER = 1.5
+FEE_BUMP_MULTIPLIER = 3.0
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
