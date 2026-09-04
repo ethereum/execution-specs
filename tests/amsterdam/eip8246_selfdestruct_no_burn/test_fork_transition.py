@@ -31,8 +31,9 @@ def test_selfdestruct_to_self_fork_transition(
     pre: Alloc,
 ) -> None:
     """
-    A same-tx selfdestruct-to-self burns the balance before the fork and
-    leaves a balance-only account from the fork block on.
+    A contract created in the transaction self-destructs to itself. Before
+    the fork its balance is burned and the account is deleted; from the fork
+    block on the account stays behind holding that balance.
     """
     endowment = 5
     sender = pre.fund_eoa()

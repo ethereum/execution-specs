@@ -302,9 +302,10 @@ def test_create2_redeploy_over_remnant(
     sweep_on_redeploy: bool,
 ) -> None:
     """
-    Case 17 of the EIP and its third security consideration: the cleared
-    nonce and storage let the same factory CREATE2 over the funded remnant,
-    and the redeployed initcode can spend the preserved balance.
+    Case 17 of the EIP and its third security consideration. Because the
+    account left behind has nonce zero and no storage, the same factory can
+    CREATE2 over it again in a later transaction, and that second deployment
+    can spend the balance the first one left there.
     """
     endowment = 5
     deployer = pre.fund_eoa()

@@ -1,12 +1,14 @@
 """
-Same-transaction SELFDESTRUCT scenarios.
+What is left of a contract that self-destructs in the transaction that
+created it.
 
 Tests for [EIP-6780: SELFDESTRUCT only in same transaction](https://eips.ethereum.org/EIPS/eip-6780).
 
-A contract created in the transaction self-destructs, possibly more than
-once and around value it receives afterwards. Before EIP-8246 finalization
-removes the account and burns whatever it still holds; from EIP-8246 on
-only nonce, code and storage are cleared and the balance survives.
+Such a contract may self-destruct more than once, and may receive more
+value afterwards. At the end of the transaction, before EIP-8246 the
+account is deleted and any balance it still holds is burned; from EIP-8246
+on its nonce, code and storage are cleared but the balance stays, leaving a
+balance-only account behind.
 """
 
 import pytest
@@ -52,8 +54,9 @@ SEND = "send_value"
 
 def finalized(fork: Fork, balance: int) -> Account | None:
     """
-    Post-state of a same-tx destroyed contract that held ``balance`` when
-    the transaction ended: removed, or balance-only under EIP-8246.
+    Expected account for a contract that self-destructed in the transaction
+    that created it, holding ``balance`` when the transaction ended. It is
+    deleted, or under EIP-8246 kept with only that balance.
     """
     if fork.is_eip_enabled(8246) and balance > 0:
         return Account(balance=balance, nonce=0, code=b"", storage={})
@@ -63,7 +66,7 @@ def finalized(fork: Fork, balance: int) -> Account | None:
 def finalized_bal(
     fork: Fork, balance: int, storage_reads: list[int]
 ) -> BalAccountExpectation:
-    """BAL entry of a same-tx destroyed contract."""
+    """Block access list entry expected for that same contract."""
     kept = balance if fork.is_eip_enabled(8246) else 0
     if kept == 0 and not storage_reads:
         return BalAccountExpectation.empty()
@@ -115,8 +118,9 @@ def test_selfdestruct_sequences(
     initial_balance: int,
 ) -> None:
     """
-    Cases 1-12 of the EIP-8246 test list: what a sequence of self-destructs
-    and value sends leaves in a same-tx created contract at finalization.
+    Cases 1-12 of the EIP-8246 test list: a contract created in this
+    transaction runs a sequence of self-destructs and value sends, and
+    whatever it still holds at the end is what it keeps.
     """
     sender = pre.fund_eoa()
     other = pre.fund_eoa(amount=OTHER_BALANCE)
@@ -250,9 +254,10 @@ def test_selfdestruct_clears_nonce_and_storage(
     write_storage: bool,
 ) -> None:
     """
-    Cases 13-16 of the EIP-8246 test list: a same-tx contract that bumped
-    its nonce or wrote storage is removed, or under EIP-8246 reset to a
-    balance-only account.
+    Cases 13-16 of the EIP-8246 test list: a contract created in this
+    transaction raises its nonce or writes storage before self-destructing.
+    It is deleted, or under EIP-8246 has its nonce reset to zero and its
+    storage cleared while it keeps its balance.
     """
     sender = pre.fund_eoa()
     other = pre.fund_eoa(amount=OTHER_BALANCE)
@@ -444,8 +449,8 @@ def test_selfdestruct_static_context_same_tx(
     initial_balance: int,
 ) -> None:
     """
-    SELFDESTRUCT to self in a static context aborts, so the same-tx created
-    contract is never marked and keeps its code.
+    SELFDESTRUCT to self inside a static call aborts the frame, so the
+    contract is never registered for deletion and keeps its code.
     """
     sender = pre.fund_eoa()
     victim_code = Op.SELFDESTRUCT(Op.ADDRESS)

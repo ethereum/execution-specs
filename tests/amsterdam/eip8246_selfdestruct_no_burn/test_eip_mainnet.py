@@ -55,8 +55,9 @@ def test_factory_create_selfdestruct_to_self_keeps_balance(
     pre: Alloc,
 ) -> None:
     """
-    A factory CREATE whose initcode self-destructs to itself, with the
-    balance still observable by the factory in the same transaction.
+    A factory CREATEs a contract whose initcode self-destructs to itself.
+    The factory then reads the new account's balance and finds the
+    endowment still there.
     """
     sender = pre.fund_eoa()
     initcode = Op.SELFDESTRUCT(Op.ADDRESS)
