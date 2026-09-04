@@ -6,12 +6,16 @@ on:
       - "forks/**"
     paths:
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/execute/**"
+      - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/shared/**"
+      - "packages/testing/src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-execute.ini"
       - "packages/testing/src/execution_testing/rpc/**"
       - ".github/workflows/hive-execute.yaml"
       - ".github/actions/start-hive-dev/**"
   pull_request:
     paths:
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/execute/**"
+      - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/shared/**"
+      - "packages/testing/src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-execute.ini"
       - "packages/testing/src/execution_testing/rpc/**"
       - ".github/workflows/hive-execute.yaml"
       - ".github/actions/start-hive-dev/**"
