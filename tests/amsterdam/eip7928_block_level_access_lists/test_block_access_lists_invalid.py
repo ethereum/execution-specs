@@ -11,6 +11,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     BalAccountChange,
     BalAccountExpectation,
     BalBalanceChange,
@@ -65,10 +66,17 @@ from execution_testing.test_types.block_access_list.modifiers import (
     remove_storage,
     remove_storage_reads,
     reverse_accounts,
+    reverse_balance_changes,
+    reverse_code_changes,
+    reverse_nonce_changes,
+    reverse_slot_changes,
+    reverse_storage_reads,
+    reverse_storage_slots,
     sort_accounts_by_address,
     swap_bal_indices,
 )
 
+from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_7928
 from .test_block_access_lists_eip2935 import (
     HISTORY_STORAGE_ADDRESS,
@@ -1250,6 +1258,162 @@ def test_bal_invalid_duplicate_entries(
                         oracle=oracle,
                         created=created,
                     )
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            lambda oracle, **_: reverse_storage_slots(oracle),
+            id="storage_slots_out_of_order",
+        ),
+        pytest.param(
+            lambda oracle, **_: reverse_slot_changes(oracle, 1),
+            id="slot_changes_out_of_order",
+        ),
+        pytest.param(
+            lambda oracle, **_: reverse_storage_reads(oracle),
+            id="storage_reads_out_of_order",
+        ),
+        pytest.param(
+            lambda alice, **_: reverse_balance_changes(alice),
+            id="balance_changes_out_of_order",
+        ),
+        pytest.param(
+            lambda alice, **_: reverse_nonce_changes(alice),
+            id="nonce_changes_out_of_order",
+        ),
+        pytest.param(
+            lambda authority, **_: reverse_code_changes(authority),
+            id="code_changes_out_of_order",
+        ),
+    ],
+)
+def test_bal_invalid_ordering(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    modifier: Callable,
+) -> None:
+    """
+    Test that clients reject blocks where a list inside one BAL account
+    breaks its canonical order: slots and reads by key, changes by block
+    access index. Two transactions give every list a second entry.
+    """
+    alice = pre.fund_eoa()
+    authority = pre.fund_eoa(amount=0)
+    delegate_a = pre.deploy_contract(code=Op.STOP)
+    delegate_b = pre.deploy_contract(code=Op.STOP)
+    oracle = pre.deploy_contract(
+        code=(
+            Op.SSTORE(1, Op.ADD(Op.SLOAD(1), 1))
+            + Op.SSTORE(2, 0x43)
+            + Op.POP(Op.SLOAD(3))
+            + Op.POP(Op.SLOAD(4))
+        ),
+    )
+
+    txs = [
+        Transaction(
+            sender=alice,
+            to=oracle,
+            authorization_list=[
+                AuthorizationTuple(
+                    address=delegate_a, nonce=0, signer=authority
+                )
+            ],
+        ),
+        Transaction(
+            sender=alice,
+            to=oracle,
+            authorization_list=[
+                AuthorizationTuple(
+                    address=delegate_b, nonce=1, signer=authority
+                )
+            ],
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        post=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                                BalNonceChange(
+                                    block_access_index=2, post_nonce=2
+                                ),
+                            ],
+                        ),
+                        authority: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                                BalNonceChange(
+                                    block_access_index=2, post_nonce=2
+                                ),
+                            ],
+                            code_changes=[
+                                BalCodeChange(
+                                    block_access_index=1,
+                                    new_code=Spec7702.delegation_designation(
+                                        delegate_a
+                                    ),
+                                ),
+                                BalCodeChange(
+                                    block_access_index=2,
+                                    new_code=Spec7702.delegation_designation(
+                                        delegate_b
+                                    ),
+                                ),
+                            ],
+                        ),
+                        oracle: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=1,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=1,
+                                        ),
+                                        BalStorageChange(
+                                            block_access_index=2,
+                                            post_value=2,
+                                        ),
+                                    ],
+                                ),
+                                BalStorageSlot(
+                                    slot=2,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=0x43,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[3, 4],
+                        ),
+                        delegate_a: None,
+                        delegate_b: None,
+                    }
+                ).modify(
+                    modifier(alice=alice, oracle=oracle, authority=authority)
                 ),
             )
         ],
