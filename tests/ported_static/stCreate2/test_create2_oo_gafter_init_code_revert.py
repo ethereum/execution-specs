@@ -1,10 +1,10 @@
 """
-Verify a CREATE2 whose child completes its init code but runs out of gas
-at the code-deposit charge, inside a frame that then REVERTs: the revert
-payload carries the CREATE2 result (zero) back to the caller and every
-side effect of the creating frame is rolled back.
+Verify CREATE2 code-deposit success and failure inside a reverting frame.
+The revert payload exposes the CREATE2 result while all creation effects
+are rolled back.
 
 Ported from:
+state_tests/stCreate2/Create2OOGafterInitCodeRevertFiller.json
 state_tests/stCreate2/Create2OOGafterInitCodeRevert2Filler.json
 
 @manually-enhanced: Do not overwrite. Joins the Revert and Revert2
@@ -23,11 +23,11 @@ from execution_testing import (
     Account,
     Alloc,
     Fork,
+    Op,
     StateTestFiller,
     Transaction,
     compute_create2_address,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -109,9 +109,6 @@ def test_create2_oo_gafter_init_code_revert(
         code=creator_setup + create2_code + creator_tail
     )
 
-    # Size the grant so the child's grant covers its init-code execution
-    # but not the deposit charge, and the creator's 1/64 retention still
-    # covers its tail (the result MSTORE and the REVERT).
     # The two arms differ by a single gas: enough to pay the deposit,
     # or one short of it.
     initcode_cost = initcode.gas_cost(fork)

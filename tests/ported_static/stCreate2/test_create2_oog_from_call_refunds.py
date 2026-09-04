@@ -24,14 +24,15 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytecode,
     Conditional,
+    Fork,
+    Op,
     StateTestFiller,
     Transaction,
     compute_create2_address,
     compute_create_address,
 )
-from execution_testing.forks import Fork
-from execution_testing.vm import Bytecode, Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -91,7 +92,6 @@ NESTED = (Refund.CREATE, Refund.CREATE2)
     "outcome", list(Outcome), ids=lambda o: o.name.lower()
 )
 @pytest.mark.parametrize("refund", list(Refund), ids=lambda r: r.name.lower())
-@pytest.mark.pre_alloc_mutable
 def test_create2_oog_from_call_refunds(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -120,8 +120,6 @@ def test_create2_oog_from_call_refunds(
         )
         + Op.STOP
     )
-    # The JUMPDEST sits just past the INVALID it skips.
-    # entry_code.substitute(created=len(entry_code) - len(Op.JUMPDEST + Op.STOP))
     entry = pre.deploy_contract(code=entry_code)
 
     nested_initcode = (
@@ -153,12 +151,17 @@ def test_create2_oog_from_call_refunds(
             elif refund == Refund.DELEGATECALL:
                 sstore_code += Op.SSTORE(key=0x1, value=0x1)
                 call_opcode = Op.DELEGATECALL
-            elif refund == Refund.CALLCODE:
+            else:
                 sstore_code += Op.SSTORE(key=0x1, value=0x1)
                 call_opcode = Op.CALLCODE
-            else:
-                raise Exception("impossible case")
-            body = sstore_code + call_opcode(gas=Op.GAS, address=clear_target)
+            body = sstore_code + call_opcode(address=clear_target)
+            post[clear_target] = Account(
+                storage={
+                    1: int(
+                        refund != Refund.CALL or outcome != Outcome.COMPLETES
+                    )
+                }
+            )
         case Refund.SELFDESTRUCT:
             # The callee destroys itself.
             selfdestruct_target_code = Op.SELFDESTRUCT(address=Op.ORIGIN)
@@ -247,7 +250,7 @@ def test_create2_oog_from_call_refunds(
 
     # The ported budget was sized for the compiled programs, in which
     # solc had folded a fresh set out of the deepest arm's two init codes
-    # (restored below). On top of it, EIP-8037 charges state gas: the
+    # (restored here). On top of it, EIP-8037 charges state gas: the
     # deepest arm (create inside create2) makes three fresh sets and two
     # new accounts and deposits one byte at each depth. All state terms
     # are zero before Amsterdam.
@@ -257,13 +260,17 @@ def test_create2_oog_from_call_refunds(
     new_account_state = Op.CREATE2(
         value=0x0, offset=0x0, size=0x0, salt=0x0
     ).state_cost(fork)
+    # Passing the init code as calldata adds intrinsic gas to the old
+    # carrier-address setup; derive that allowance from its actual bytes.
+    intrinsic = fork.transaction_intrinsic_cost_calculator()
+    calldata_gas = intrinsic(calldata=initcode) - intrinsic()
     tx_gas_limit = (
         PORTED_GAS_LIMIT
         + 2 * fresh_set.execution_cost(fork)
         + 3 * fresh_set.state_cost(fork)
         + 2 * new_account_state
         + 2 * fork.code_deposit_state_gas(code_size=1)
-        + 20_000
+        + calldata_gas
     )
     # The budget must stay below the oversized deposit charge so the
     # OoG arms keep starving on it on every fork.

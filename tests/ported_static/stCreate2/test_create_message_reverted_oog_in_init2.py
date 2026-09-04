@@ -19,13 +19,13 @@ from execution_testing import (
     Account,
     Alloc,
     Fork,
+    Op,
     StateTestFiller,
     Storage,
     Transaction,
     compute_create2_address,
     compute_create_address,
 )
-from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -75,7 +75,7 @@ def test_create_message_reverted_oog_in_init2(
     assert len(inner_initcode) <= 0x20, "inner init code must fit one word"
 
     # The outer init code writes a completion canary before the CREATE2
-    # (only a POP runs after it: the retention after a failed child is
+    # (only STOP runs after it: the retention after a failed child is
     # not budgeted for a store), stages the child's init code in memory
     # and runs the CREATE2. It deposits no code.
     canary_store = Op.SSTORE(
@@ -108,7 +108,6 @@ def test_create_message_reverted_oog_in_init2(
         fork.transaction_intrinsic_cost_calculator()(
             calldata=outer_initcode,
             contract_creation=True,
-            sends_value=True,
             return_cost_deducted_prior_execution=True,
         )
         + fork.transaction_top_frame_state_gas(contract_creation=True)
