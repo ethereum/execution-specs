@@ -108,3 +108,101 @@ def test_forkless_items_pruned_before_filter_combinations(
         pytest.ExitCode.OK,
         pytest.ExitCode.NO_TESTS_COLLECTED,
     )
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+@pytest.mark.parametrize("estimate_gas", [False, True])
+def test_estimation_after_setup(dry_run: bool, estimate_gas: bool) -> None:
+    """Fund before estimation and keep dry runs free of test RPC calls."""
+    from unittest.mock import Mock
+
+    from execution_testing.execution import TransactionPost
+    from execution_testing.forks import Amsterdam
+    from execution_testing.rpc import EthRPC
+    from execution_testing.test_types import EOA, Alloc, Transaction
+
+    from ..execute import base_test_parametrizer
+
+    events: list[str] = []
+    tx = Transaction(sender=EOA(key=123))
+    plan = TransactionPost(blocks=[[tx]], post={})
+    rpc = Mock(spec=EthRPC)
+
+    def estimate(*_args: Any, **_kwargs: Any) -> int:
+        events.append("estimate")
+        return 100_000
+
+    rpc.estimate_gas.side_effect = estimate
+    rpc.send_wait_transactions.side_effect = lambda *_args: events.append(
+        "send"
+    )
+    rpc.get_transaction_receipt.return_value = {"status": "0x1"}
+    rpc.get_alloc.return_value = Alloc()
+    pre = Mock()
+    pre._deployed_contracts = []
+    pre._funded_eoa = []
+    pre.minimum_balance_for_pending_transactions.return_value = (
+        600_000_000,
+        60_000_000,
+    )
+    pre.send_pending_transactions.side_effect = lambda: events.append("setup")
+
+    class TestSpec:
+        """Provide the spec interface used by the execute wrapper."""
+
+        model_fields: dict = {}
+
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        @classmethod
+        def pytest_parameter_name(cls) -> str:
+            return "state_test"
+
+        def execute(self, **_kwargs: Any) -> TransactionPost:
+            return plan
+
+        def validate_benchmark_gas(self, **kwargs: Any) -> None:
+            pass
+
+    config = SimpleNamespace(
+        getoption=lambda *_args: estimate_gas,
+        op_mode=None,
+    )
+    request = SimpleNamespace(
+        param=TransactionPost,
+        config=config,
+        node=SimpleNamespace(
+            config=config, nodeid="test_estimation_after_setup"
+        ),
+    )
+    spec: Any = TestSpec
+    fixture = base_test_parametrizer(spec)
+    wrapper = fixture.__wrapped__(
+        request=request,
+        fork=Amsterdam,
+        pre=pre,
+        eth_rpc=rpc,
+        engine_rpc=None,
+        dry_run=dry_run,
+        collector=Mock(),
+        gas_benchmark_value=0,
+        fixed_opcode_count=None,
+        gas_price=10,
+        max_fee_per_gas=10,
+        max_priority_fee_per_gas=1,
+        max_fee_per_blob_gas=10,
+        max_gas_limit_per_test=None,
+        gas_limit_accumulator=Mock(),
+        env_gas_limit=60_000_000,
+        is_tx_gas_heavy_test=False,
+        is_exception_test=False,
+        is_inclusion_test=False,
+    )
+    wrapper()
+    assert plan.estimate_gas == estimate_gas
+    assert events == (
+        []
+        if dry_run
+        else ["setup"] + (["estimate"] if estimate_gas else []) + ["send"]
+    )

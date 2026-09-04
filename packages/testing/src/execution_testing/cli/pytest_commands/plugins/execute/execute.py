@@ -11,7 +11,11 @@ from pytest_metadata.plugin import metadata_key
 
 from execution_testing.base_types import Account
 from execution_testing.base_types.base_types import HexNumber
-from execution_testing.execution import BaseExecute, LabeledExecuteFormat
+from execution_testing.execution import (
+    BaseExecute,
+    LabeledExecuteFormat,
+    TransactionPost,
+)
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
@@ -54,6 +58,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     """
     report_group = parser.getgroup(
         "tests", "Arguments defining html report behavior"
+    )
+    report_group.addoption(
+        "--estimate-gas",
+        action="store_true",
+        default=False,
+        help=(
+            "Use eth_estimateGas for successful transaction-post tests with "
+            "implicit gas limits, after funding and contract deployment. "
+            "Preserve explicit gas/reservoir limits and benchmark budgets."
+        ),
     )
     report_group.addoption(
         "--no-html",
@@ -369,6 +383,13 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
                 execute = self.execute(execute_format=execute_format)
+
+                if request.config.getoption("estimate_gas", False):
+                    if not isinstance(execute, TransactionPost):
+                        pytest.skip(
+                            "--estimate-gas supports transaction-post tests"
+                        )
+                    execute.estimate_gas = True
 
                 execute.prepare_transactions(
                     env=Environment(gas_limit=env_gas_limit),
