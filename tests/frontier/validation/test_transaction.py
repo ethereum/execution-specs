@@ -137,7 +137,6 @@ def test_tx_max_nonce(state_test: StateTestFiller, pre: Alloc) -> None:
 def test_tx_nonce_overflow(
     transaction_test: TransactionTestFiller,
     pre: Alloc,
-    fork: BaseFork,
 ) -> None:
     """
     Test that a transaction with a nonce that does not fit in 64 bits is
@@ -146,7 +145,6 @@ def test_tx_nonce_overflow(
     tx = Transaction(
         to=pre.nonexistent_account(),
         nonce=2**64,
-        gas_limit=fork.transaction_intrinsic_cost_calculator()(),
         sender=pre.fund_eoa(),
         protected=False,
         error=TransactionException.NONCE_OVERFLOW,

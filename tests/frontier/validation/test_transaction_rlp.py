@@ -124,7 +124,6 @@ def invalid_tx(
         sender=pre.fund_eoa(amount=0),
         to=0,
         gas_price=10,
-        gas_limit=30_000,
         error=error,
     )
     tx.rlp_override = Bytes(rlp)

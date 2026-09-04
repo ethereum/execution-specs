@@ -83,7 +83,6 @@ def test_empty_authorization_list(
 ) -> None:
     """Test sending a transaction with an empty authorization list."""
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[],
@@ -128,7 +127,6 @@ def test_invalid_auth_signature(
     range.
     """
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[
@@ -187,7 +185,6 @@ def test_invalid_tx_invalid_auth_chain_id(
     )
 
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[authorization],
@@ -241,7 +238,6 @@ def test_invalid_tx_invalid_auth_chain_id_encoding(
     )
 
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[authorization],
@@ -284,7 +280,6 @@ def test_invalid_tx_invalid_nonce(
     auth_signer = pre.fund_eoa()
 
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[
@@ -337,7 +332,6 @@ def test_invalid_tx_invalid_nonce_as_list(
         nonce: List[HexNumber]  # type: ignore
 
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[
@@ -386,7 +380,6 @@ def test_invalid_tx_invalid_nonce_encoding(
     )
 
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[authorization],
@@ -439,7 +432,6 @@ def test_invalid_tx_invalid_address(
         address: address_type  # type: ignore
 
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[
@@ -493,7 +485,6 @@ def test_invalid_tx_invalid_authorization_tuple_extra_element(
             return rlp_fields
 
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[
@@ -558,7 +549,6 @@ def test_invalid_tx_invalid_authorization_tuple_missing_element(
             return rlp_fields
 
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[
@@ -610,7 +600,6 @@ def test_invalid_tx_invalid_authorization_tuple_encoded_as_bytes(
         signer=auth_signer,
     )
     tx = ModifiedTransaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[authorization_list.rlp()],
@@ -653,7 +642,6 @@ def test_invalid_tx_invalid_rlp_encoding(
     auth_signer = pre.fund_eoa()
 
     tx = Transaction(
-        gas_limit=100_000,
         to=0,
         value=0,
         authorization_list=[
