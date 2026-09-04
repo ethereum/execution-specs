@@ -83,7 +83,7 @@ def _auth_top_frame_charges(fork: Fork, authorizations: list) -> int:
     ``AUTH_BASE``. Under the zero state reservoir these all draw from
     ``gas_left``.
     """
-    execution = fork.transaction_top_frame_gas_calculator()(
+    execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorizations,
     )
@@ -1265,7 +1265,7 @@ def test_auth_state_gas_in_header_on_dispatch_revert(
     intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
-    auth_execution = fork.transaction_top_frame_gas_calculator()(
+    auth_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )
@@ -1351,7 +1351,7 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
     intrinsic_execution = _intrinsic_execution(
         fork, authorization_list, recipient_type=RecipientType.CONTRACT
     )
-    auth_execution = fork.transaction_top_frame_gas_calculator()(
+    auth_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )

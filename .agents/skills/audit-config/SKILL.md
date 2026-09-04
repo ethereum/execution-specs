@@ -1,12 +1,25 @@
+---
+name: audit-config
+description: Check whether repository guidance and skills are still accurate.
+---
+
 # Audit Config
 
-Periodic verification skill to prevent CLAUDE.md and skills from going stale. Run this manually to check freshness (e.g., after a major refactor, before a release, or when onboarding).
+Periodic verification skill to prevent `AGENTS.md` and skills from going stale.
+Run this manually to check freshness (e.g., after a major refactor, before a
+release, or when onboarding).
 
 ## Checks to Perform
 
 ### 1. Verify File Paths
 
-Check that every file path or directory referenced in `CLAUDE.md` and `.claude/commands/*.md` still exists. Report any broken references.
+Check that every file path or directory referenced in `AGENTS.md` and
+`.agents/skills/*/SKILL.md` still exists. Report any broken references.
+
+Confirm that `CLAUDE.md` is a symlink to `AGENTS.md`. Confirm that every
+`.agents/skills/<name>/` directory has a corresponding
+`.claude/skills/<name>` symlink that points back to it, and that there are no
+orphaned Claude skill links.
 
 ### 2. Verify CLI Commands
 
@@ -28,7 +41,8 @@ Spot-check code patterns mentioned in skills against actual code:
 
 ### 4. Verify Fork List
 
-Check that the fork order and default branch mentioned in `CLAUDE.md` match reality by inspecting `src/ethereum/forks/` and git branch configuration.
+Check that the fork order and default branch mentioned in `AGENTS.md` match
+reality by inspecting `src/ethereum/forks/` and git branch configuration.
 
 ### 5. Verify Docs References
 

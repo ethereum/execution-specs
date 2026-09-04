@@ -24,8 +24,10 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionReceipt,
     compute_create_address,
 )
+from execution_testing.checklists import EIPChecklist
 
 from .spec import init_code_at_high_bytes, ref_spec_8037
 
@@ -33,7 +35,8 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
-@pytest.mark.parametrize("funding", ["reservoir", "spill"])
+@pytest.mark.parametrize("funding", ["reservoir", "spill", "mixed"])
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
 def test_selfdestruct_new_beneficiary_state_gas(
     state_test: StateTestFiller,
@@ -47,8 +50,9 @@ def test_selfdestruct_new_beneficiary_state_gas(
     A contract with nonzero balance self-destructs to a non-alive
     beneficiary, charging new-account state gas. The charge is billed
     identically whether drawn from the reservoir (out-of-cap tx) or
-    spilled into `gas_left` (in-cap tx): the block bills NEW_ACCOUNT in
-    the state dimension and the beneficiary is created.
+    spilled into `gas_left` (in-cap tx), or split between the two: the
+    block bills NEW_ACCOUNT in the state dimension and the beneficiary
+    is created.
     """
     beneficiary = pre.nonexistent_account()
     code = Op.SELFDESTRUCT(beneficiary, account_new=True)
@@ -58,7 +62,11 @@ def test_selfdestruct_new_beneficiary_state_gas(
     tx = Transaction(
         to=contract,
         sender=pre.fund_eoa(),
-        state_gas_reservoir=(state_cost if funding == "reservoir" else 0),
+        state_gas_reservoir={
+            "reservoir": state_cost,
+            "mixed": state_cost // 2,
+            "spill": 0,
+        }[funding],
     )
 
     state_test(
@@ -69,6 +77,125 @@ def test_selfdestruct_new_beneficiary_state_gas(
         },
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=state_cost),
+    )
+
+
+@pytest.mark.parametrize(
+    "gas_delta",
+    [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
+)
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_new_beneficiary_state_gas_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_delta: int,
+) -> None:
+    """
+    Pin the SELFDESTRUCT beneficiary charge at its exact-fit boundary.
+
+    With `gas_limit` set explicitly the transaction has no reservoir, so
+    the charge spills from `gas_left` and the limit is the whole budget.
+    At `exact_fit` the beneficiary is created and the balance moves; one
+    gas short the frame runs out and both are rolled back.
+    """
+    beneficiary = pre.nonexistent_account()
+    code = Op.SELFDESTRUCT(beneficiary, account_new=True)
+    state_gas = code.state_cost(fork)
+    execution_only = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + code.execution_cost(fork)
+    )
+
+    contract = pre.deploy_contract(code=code, balance=1)
+
+    tx = Transaction(
+        to=contract,
+        sender=pre.fund_eoa(),
+        gas_limit=execution_only + state_gas + gas_delta,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=execution_only + state_gas + gas_delta
+        ),
+    )
+
+    if gas_delta == 0:
+        post: dict = {
+            beneficiary: Account(balance=1),
+            contract: Account(balance=0),
+        }
+    else:
+        post = {
+            beneficiary: Account.NONEXISTENT,
+            contract: Account(balance=1),
+        }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_selfdestruct_new_beneficiary_charge_on_frame_failure(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    failure_mode: str,
+) -> None:
+    """
+    Verify the beneficiary charge is undone when its own frame fails.
+
+    A child self-destructs to a fresh beneficiary and its caller then
+    REVERTs or exceptionally halts. Either way no account is created, so
+    the block's state dimension must stay empty and the header reports
+    the execution total alone.
+    """
+    beneficiary = pre.nonexistent_account()
+    destructor_code = Op.SELFDESTRUCT(beneficiary, account_new=True)
+    destructor = pre.deploy_contract(code=destructor_code, balance=1)
+    child_budget = destructor_code.gas_cost(fork)
+
+    ending = Op.REVERT(0, 0) if failure_mode == "revert" else Op.INVALID
+    caller_code = (
+        Op.POP(Op.CALL(gas=child_budget, address=destructor)) + ending
+    )
+    caller = pre.deploy_contract(code=caller_code)
+
+    gas_limit = 1_000_000
+    if failure_mode == "halt":
+        expected_gas_used = gas_limit
+    else:
+        # The revert refunds the beneficiary charge, so the child's
+        # forwarded budget is consumed down to its execution cost alone.
+        expected_gas_used = (
+            fork.transaction_intrinsic_cost_calculator()()
+            + caller_code.execution_cost(fork)
+            + destructor_code.execution_cost(fork)
+        )
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        gas_limit=gas_limit,
+        state_gas_reservoir=0,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            beneficiary: Account.NONEXISTENT,
+            destructor: Account(balance=1),
+        },
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -94,7 +221,7 @@ def test_selfdestruct_existing_beneficiary_no_state_gas(
 
     gas_limit = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + code.execution_cost(fork)
     )
 
@@ -135,7 +262,7 @@ def test_selfdestruct_zero_balance_no_state_gas(
 
     gas_limit = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + code.execution_cost(fork)
     )
 
@@ -424,7 +551,7 @@ def test_create_selfdestruct_no_refund_code_deposit_state_gas(
     total_state_gas = factory_code.state_cost(fork) + initcode.state_cost(fork)
     total_execution_gas = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + factory_code.execution_cost(fork)
         + initcode.execution_cost(fork)
     )
@@ -497,7 +624,7 @@ def test_create_selfdestruct_code_deposit_no_refund_header_check(
 
     baseline_block_execution = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + factory_code.execution_cost(fork)
         + initcode.execution_cost(fork)
     )

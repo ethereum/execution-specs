@@ -1,3 +1,8 @@
+---
+name: edit-workflow
+description: Apply repository conventions when editing GitHub Actions workflows.
+---
+
 # Edit Workflow
 
 GitHub Actions conventions. Run this skill before modifying workflow files in `.github/`.

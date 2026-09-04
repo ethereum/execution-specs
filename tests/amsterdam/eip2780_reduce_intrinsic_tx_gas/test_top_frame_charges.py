@@ -589,7 +589,7 @@ def test_top_frame_execution_charge(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
     )
@@ -950,7 +950,7 @@ def test_receipt_status_top_frame_oog_between_successful_txs(
             recipient_type=RecipientType.DELEGATION_7702,
             return_cost_deducted_prior_execution=True,
         )
-        top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+        top_frame_gas = fork.transaction_top_frame_execution_gas(
             recipient_type=RecipientType.DELEGATION_7702,
         )
         assert top_frame_gas > 0, (

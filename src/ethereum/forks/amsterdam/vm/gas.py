@@ -91,10 +91,9 @@ class GasCosts:
     STORAGE_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(10000))
 
     # Call
-    # ACCOUNT_WRITE + CALL_STIPEND
-    CALL_VALUE: Final[ExecutionGas] = ExecutionGas(Uint(11300))
     CALL_STIPEND: Final[ExecutionGas] = ExecutionGas(Uint(2300))
     ACCOUNT_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(9000))
+    CALL_VALUE: Final[ExecutionGas] = ACCOUNT_WRITE + CALL_STIPEND
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(200))
@@ -308,10 +307,13 @@ class GasMeter:
     state_gas_spilled: StateGas = StateGas(Uint(0))
     """
     Execution gas spent covering state charges after the reservoir
-    emptied. Credited back to `gas_left` first, in LIFO order, on a
-    refund or failure. [EIP-8037] names this quantity
-    `state_gas_from_gas_left`.
+    emptied, not yet credited back. Credited back to `gas_left` first,
+    in LIFO order, on a refund or failure, and repaid from the
+    reservoir when a successful child merges
+    ([`repay_state_gas_spill`][repay]). [EIP-8037] names this
+    quantity `state_gas_from_gas_left`.
 
+    [repay]: ref:ethereum.forks.amsterdam.vm.gas.repay_state_gas_spill
     [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
     """
 
@@ -621,6 +623,37 @@ def credit_state_gas_refund(gas_meter: GasMeter, amount: StateGas) -> None:
     gas_meter.gas_left = ExecutionGas(gas_meter.gas_left + Uint(from_gas_left))
     gas_meter.state_gas_spilled -= from_gas_left
     gas_meter.state_gas_left += amount - from_gas_left
+
+
+def repay_state_gas_spill(gas_meter: GasMeter) -> None:
+    """
+    Repay outstanding [spill] from the reservoir after a child merges.
+
+    A refund may land in a different frame than the charge it undoes:
+    the refunding frame's spill can be smaller than the refund, so the
+    excess credits the reservoir even though the charge drew from
+    `gas_left`. Once a successful child's meter is absorbed, the claim
+    and the credit sit in one meter, and the reservoir repays
+    `gas_left` up to the spill still outstanding. No state creation is
+    undone, so the used counters do not move; gas only crosses back
+    between the two pools it drifted across.
+
+    Parameters
+    ----------
+    gas_meter :
+        The merged gas meter.
+
+    [spill]: ref:ethereum.forks.amsterdam.vm.gas.GasMeter.state_gas_spilled
+
+    """  # noqa: E501
+    repayment = min(gas_meter.state_gas_left, gas_meter.state_gas_spilled)
+    gas_meter.gas_left = ExecutionGas(gas_meter.gas_left + Uint(repayment))
+    gas_meter.state_gas_left -= repayment
+    gas_meter.state_gas_spilled -= repayment
+    # The claim and the credit cannot both survive a repayment.
+    assert gas_meter.state_gas_left == Uint(0) or (
+        gas_meter.state_gas_spilled == Uint(0)
+    )
 
 
 def forfeit_remaining_gas(gas_meter: GasMeter) -> None:

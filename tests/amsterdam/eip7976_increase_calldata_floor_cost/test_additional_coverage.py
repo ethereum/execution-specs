@@ -765,7 +765,7 @@ class TestAuthorizationListGasCost:
         # (execution) and AUTH_BASE (state) each at the top frame; the
         # STOP recipient does no execution, so the receipt is
         # max(execution + state, floor).
-        top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+        top_frame_execution = fork.transaction_top_frame_execution_gas(
             authorizations=authorization_list,
         )
         top_frame_state = fork.transaction_top_frame_state_gas(

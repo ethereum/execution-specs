@@ -445,7 +445,7 @@ def test_mixed_validity_multi_auth_receipt_gas(
         authorization_list_or_count=n,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         authorizations=authorization_list,
     )
     top_frame_state = fork.transaction_top_frame_state_gas(
@@ -605,9 +605,7 @@ def test_many_auths_block_limit(
     )
     per_auth_total = (
         _execution_per_auth(fork)
-        + fork.transaction_top_frame_gas_calculator()(
-            authorizations=[probe_auth]
-        )
+        + fork.transaction_top_frame_execution_gas(authorizations=[probe_auth])
         + fork.transaction_top_frame_state_gas(authorizations=[probe_auth])
     )
     base = fork.transaction_intrinsic_cost_calculator()(

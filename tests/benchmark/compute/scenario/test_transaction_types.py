@@ -205,7 +205,7 @@ def test_ether_transfers(
         access_list=warm_list,
         sends_value=sends_value,
         recipient_type=recipient_type,
-    ) + fork.transaction_top_frame_gas_calculator()(
+    ) + fork.transaction_top_frame_execution_gas(
         sends_value=sends_value,
         recipient_type=recipient_type,
     )
@@ -556,7 +556,7 @@ def test_auth_transaction(
 ) -> None:
     """Test an auth block."""
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
-    top_frame_calc = fork.transaction_top_frame_gas_calculator()
+    top_frame_calc = fork.transaction_top_frame_execution_gas
 
     code = Op.INVALID * fork.max_code_size()
     auth_target = (

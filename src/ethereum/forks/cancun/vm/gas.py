@@ -48,8 +48,8 @@ class GasCosts:
     COLD_STORAGE_WRITE: Final[Uint] = Uint(5000)
 
     # Call
-    CALL_VALUE: Final[Uint] = Uint(9000)
     CALL_STIPEND: Final[Uint] = Uint(2300)
+    CALL_VALUE: Final[Uint] = Uint(9000)
     NEW_ACCOUNT: Final[Uint] = Uint(25000)
 
     # Contract Creation

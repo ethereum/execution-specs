@@ -333,7 +333,7 @@ def test_setcode_tx_across_amsterdam_transition(
             authorization_list_or_count=[authorization],
             return_cost_deducted_prior_execution=True,
         )
-        top_frame_gas = sub_fork.transaction_top_frame_gas_calculator()(
+        top_frame_gas = sub_fork.transaction_top_frame_execution_gas(
             recipient_type=RecipientType.CONTRACT,
             authorizations=[authorization],
         )

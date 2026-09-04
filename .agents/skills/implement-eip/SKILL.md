@@ -1,3 +1,8 @@
+---
+name: implement-eip
+description: Implement EIP specification changes using repository conventions.
+---
+
 # Implement EIP
 
 Patterns for implementing spec changes in `src/ethereum/forks/`. Run this skill before implementing an EIP or modifying fork code.
@@ -10,7 +15,7 @@ Each fork lives at `src/ethereum/forks/<fork_name>/`. Explore the latest fork di
 - `fork.py` — state transition functions
 - `blocks.py` — block structure and validation
 - `transactions.py` — transaction types and processing
-- `state.py` — state trie operations
+- `state_tracker.py` — fork-specific state tracking
 - `vm/instructions/__init__.py` — Ops enum + `op_implementation` dict
 - `vm/gas.py` — gas constants and calculations
 - `vm/precompiled_contracts/__init__.py` — precompile address constants

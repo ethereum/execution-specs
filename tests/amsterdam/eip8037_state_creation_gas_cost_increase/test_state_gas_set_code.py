@@ -53,6 +53,7 @@ from execution_testing import (
 from execution_testing import (
     Macros as Om,
 )
+from execution_testing.checklists import EIPChecklist
 
 from tests.prague.eip7702_set_code_tx.spec import Spec as Spec7702
 
@@ -78,7 +79,7 @@ def _auth_gas(
         sends_value=sends_value,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=recipient_type,
         sends_value=sends_value,
         delegation_warm=delegation_warm,
@@ -119,6 +120,7 @@ def _receipt_and_header(
         pytest.param(3, id="three_auths"),
     ],
 )
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("EIP8037")
 def test_authorization_state_gas_scaling(
     state_test: StateTestFiller,
@@ -175,6 +177,156 @@ def test_authorization_state_gas_scaling(
         post=post,
         tx=tx,
         blockchain_test_header_verify=Header(gas_used=header_gas_used),
+    )
+
+
+@pytest.mark.parametrize(
+    "reservoir_delta",
+    [pytest.param(0, id="exact_fit"), pytest.param(-1, id="one_short")],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_auth_state_gas_drawn_from_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    reservoir_delta: int,
+) -> None:
+    """
+    Verify the top-frame authorization charge is drawn from the state gas
+    reservoir before `gas_left`.
+
+    The reservoir holds the authorization's charge plus one storage set.
+    A probe in a child frame is handed only its SSTORE's execution cost,
+    so it can reach the reservoir but not the caller's `gas_left`: one
+    gas short of that sizing it cannot pay, which happens only if the
+    authorization took its own charge from the reservoir first.
+    """
+    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
+    probe_ran = reservoir_delta == 0
+
+    probe_storage = Storage()
+    probe_code = Op.SSTORE(
+        probe_storage.store_next(1 if probe_ran else 0, "probe_ran"), 1
+    )
+    probe = pre.deploy_contract(probe_code)
+    probe_stipend = probe_code.execution_cost(fork)
+
+    recipient = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=probe_stipend, address=probe))
+    )
+
+    signer = pre.fund_eoa()
+    authorization_list = [
+        AuthorizationTuple(
+            address=recipient,
+            nonce=0,
+            signer=signer,
+            creates_account=False,
+            writes_delegation=True,
+        )
+    ]
+
+    _, _, top_frame_state = _auth_gas(fork, authorization_list)
+    assert top_frame_state > 0, (
+        "the authorization must carry a top-frame state charge"
+    )
+    reservoir = top_frame_state + sstore_state_gas + reservoir_delta
+
+    tx = Transaction(
+        to=recipient,
+        authorization_list=authorization_list,
+        state_gas_reservoir=reservoir,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        signer: Account(code=Spec7702.delegation_designation(recipient)),
+        probe: Account(storage=probe_storage),
+    }
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "failure_mode",
+    [
+        pytest.param("revert", id="revert"),
+        pytest.param("halt", id="halt"),
+    ],
+)
+@pytest.mark.valid_from("EIP8037")
+def test_pre_delegated_authority_no_charge_after_failure(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    failure_mode: str,
+) -> None:
+    """
+    Verify re-delegating an already-delegated authority carries no
+    top-frame state charge, whether or not the top frame then fails.
+
+    The indicator is not net-new, so ``set_delegation`` charges no
+    ``AUTH_BASE``. A failing top frame must not turn that into a charge:
+    the state dimension stays empty and the header reports the execution
+    total alone.
+    """
+    first = pre.deploy_contract(code=Op.STOP)
+
+    ending = Op.REVERT(0, 0) if failure_mode == "revert" else Op.INVALID
+    recipient = pre.deploy_contract(code=ending)
+
+    signer = pre.fund_eoa(delegation=first)
+    authorization_list = [
+        AuthorizationTuple(
+            address=recipient,
+            # The delegation setup already moved the nonce to 1.
+            nonce=1,
+            signer=signer,
+            creates_account=False,
+            writes_delegation=False,
+            first_write=True,
+        )
+    ]
+
+    intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
+        fork,
+        authorization_list,
+        recipient_type=RecipientType.DELEGATION_7702,
+    )
+    assert top_frame_state == 0, (
+        "re-delegating an existing indicator is not net-new state"
+    )
+
+    gas_limit = intrinsic_execution + top_frame_execution + 50_000
+
+    if failure_mode == "halt":
+        # An exceptional halt burns the whole budget.
+        expected_gas_used = gas_limit
+    else:
+        # REVERT returns the gas it did not spend.
+        expected_gas_used = (
+            intrinsic_execution
+            + top_frame_execution
+            + ending.execution_cost(fork)
+        )
+
+    tx = Transaction(
+        to=signer,
+        authorization_list=authorization_list,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            status=0, cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    post = {
+        signer: Account(code=Spec7702.delegation_designation(recipient)),
+    }
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 
@@ -1144,6 +1296,7 @@ def test_auth_with_multiple_sstores(
         ),
     ],
 )
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_authorization_exact_state_gas_boundary(
     blockchain_test: BlockchainTestFiller,
@@ -1892,6 +2045,7 @@ def test_top_level_halt_keeps_intrinsic_auth_state_gas(
         pytest.param(-1, id="one_short"),
     ],
 )
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
 @pytest.mark.valid_from("EIP8037")
 def test_auth_and_execution_state_oog_boundary(
     state_test: StateTestFiller,

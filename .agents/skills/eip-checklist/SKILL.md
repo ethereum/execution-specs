@@ -1,3 +1,8 @@
+---
+name: eip-checklist
+description: Track EIP test coverage with the repository checklist system.
+---
+
 # EIP Checklist
 
 Guide for using the EIP testing checklist system to track test coverage. Run this skill when working on EIP test coverage or checklists.
