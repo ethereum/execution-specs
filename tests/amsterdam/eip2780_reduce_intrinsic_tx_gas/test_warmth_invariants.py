@@ -26,9 +26,11 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    AuthorizationTuple,
     BalAccountExpectation,
     BalBalanceChange,
     BlockAccessListExpectation,
+    ChainConfig,
     Environment,
     Fork,
     Op,
@@ -753,29 +755,68 @@ def test_top_frame_charges_delegation_is_precompile(
         pytest.param(1, id="non-zero_value"),
     ],
 )
+@pytest.mark.parametrize(
+    "invalid_reason",
+    [
+        "stale_nonce",
+        pytest.param("account_code", marks=pytest.mark.pre_alloc_mutable),
+        "chain_id",
+        "nonce_limit",
+        "signature",
+    ],
+)
 def test_top_frame_charges_delegation_is_authority(
     fork: Fork,
     pre: Alloc,
     state_test: StateTestFiller,
     value: int,
+    invalid_reason: str,
+    chain_config: ChainConfig,
 ) -> None:
     """
     Recipient holds a pre-existing EIP-7702 delegation whose target is
     the authority of the transaction's own authorization.
 
-    Authorizations are processed before the recipient's delegation is
-    resolved, and a recovered authority is warmed even when its
-    authorization is then skipped, so the resolution pays
-    ``WARM_ACCESS``. The authorization carries a stale nonce and never
-    applies: the authority stays a plain EOA whose empty code runs to
-    completion, and only the intrinsic per-authorization base is paid
-    for it. Resolving the delegation before processing the
-    authorizations, or not warming a skipped authority, would charge
-    ``COLD_ACCOUNT_ACCESS`` instead and run out of gas here.
+    Chain-ID, nonce-limit and signature failures occur before authority
+    recovery and do not warm the target. A stale nonce or ineligible
+    account code is checked after recovery and warms it even though the
+    authorization is skipped. Only the intrinsic authorization cost is
+    paid in every case; delegation resolution then pays the cold or warm
+    access cost accordingly.
+
+    The target runs empty code or STOP. One spare gas makes an incorrect
+    cold charge in a warm case consume more than the expected receipt
+    gas, even with zero value and no state changes. An incorrect warm
+    charge in a cold case consumes less than expected.
     """
     sender = pre.fund_eoa()
     scenario = build_authorization(pre, AuthorizationAction.INVALID)
-    authorization_list = [scenario.authorization]
+    authority = scenario.authority
+    if invalid_reason == "account_code":
+        scenario.original_account = Account(nonce=0, balance=1, code=Op.STOP)
+        pre[authority] = scenario.original_account
+
+    authorization = AuthorizationTuple(
+        address=scenario.authorization.address,
+        nonce=(
+            2**64 - 1
+            if invalid_reason == "nonce_limit"
+            else 99
+            if invalid_reason == "stale_nonce"
+            else 0
+        ),
+        chain_id=chain_config.chain_id + 1
+        if invalid_reason == "chain_id"
+        else 0,
+        signer=authority,
+        creates_account=False,
+        writes_delegation=False,
+        first_write=False,
+    )
+    if invalid_reason == "signature":
+        authorization = authorization.model_copy(update={"r": 0, "s": 0})
+    authorization_list = [authorization]
+    delegation_warm = invalid_reason in ("stale_nonce", "account_code")
     target = pre.fund_eoa(amount=0, delegation=scenario.authority)
     target_code = Spec7702.delegation_designation(scenario.authority)
 
@@ -788,7 +829,7 @@ def test_top_frame_charges_delegation_is_authority(
     top_frame_gas = fork.transaction_top_frame_gas_calculator()(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
-        delegation_warm=True,
+        delegation_warm=delegation_warm,
         authorizations=authorization_list,
     )
     top_frame_state_gas = fork.transaction_top_frame_state_gas(
@@ -806,7 +847,7 @@ def test_top_frame_charges_delegation_is_authority(
         to=target,
         value=value,
         authorization_list=authorization_list,
-        gas_limit=total_gas_cost,
+        gas_limit=total_gas_cost + 1,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=total_gas_cost,
         ),
@@ -837,7 +878,9 @@ def test_intrinsic_accounts_warm_for_execution(
     ``accessed_addresses`` when the frame starts. A client that charged
     the recipient touch unconditionally but left the recipient out of
     the warm set would pay ``COLD_ACCOUNT_ACCESS`` on the read and run
-    out of gas here.
+    out of gas here. One spare gas distinguishes that halt from
+    successful execution, even though the balance reads change no state
+    and the applied authorization persists after an execution halt.
     """
     sender = pre.fund_eoa()
     scenario = build_authorization(
@@ -878,7 +921,7 @@ def test_intrinsic_accounts_warm_for_execution(
         sender=sender,
         to=recipient,
         authorization_list=authorization_list,
-        gas_limit=total_gas_cost,
+        gas_limit=total_gas_cost + 1,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=total_gas_cost,
         ),

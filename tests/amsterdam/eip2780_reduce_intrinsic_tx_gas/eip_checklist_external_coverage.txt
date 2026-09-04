@@ -1,3 +1,3 @@
-general/code_coverage/eels = Covered in EELS
-general/code_coverage/test_coverage = Run locally
-general/code_coverage/missed_lines = No missed lines; the EIP's additions to calculate_intrinsic_cost, create_evm, charge_value_transfer_to_non_alive_account, resolve_delegated_code_address and set_delegation are all exercised by this suite
+general/code_coverage/eels = Measured with --cov=ethereum.forks.amsterdam while filling this suite and EIP-8037 test_state_gas_create.py::test_create_tx_collision_has_no_net_new_account_charge / test_create_tx_collision_refunds_reservoir; calculate_intrinsic_cost, create_evm, process_top_level, charge_value_transfer_to_non_alive_account, resolve_delegated_code_address, validate_authorization and set_delegation have no missed statements
+general/code_coverage/test_coverage = Measured with --cov=tests.amsterdam.eip2780_reduce_intrinsic_tx_gas: 1560/1565 statements covered
+general/code_coverage/missed_lines = Five test-helper statements are unexecuted: the two lines in each unsupported-enum fallback in build_authorization and setup_target, and the unhandled TopFrameFailureMode fallback. Parametrization enumerates only supported values. The EIP-2780 suite alone misses create_evm's AddressCollision raise; the two EIP-8037 creation-transaction collision tests cover it
