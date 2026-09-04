@@ -156,7 +156,7 @@ class GasCosts:
     TX_CREATE: Final[ExecutionGas] = ExecutionGas(Uint(32000))
     TX_VALUE_COST: Final[ExecutionGas] = ExecutionGas(Uint(6000))
     TX_DATA_TOKEN_STANDARD: Final[ExecutionGas] = ExecutionGas(Uint(4))
-    TX_DATA_TOKEN_FLOOR: Final[ExecutionGas] = ExecutionGas(Uint(16))
+    FLOOR_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(64))
     TX_ACCESS_LIST_ADDRESS: Final[ExecutionGas] = (
         COLD_ACCOUNT_ACCESS - WARM_ACCESS
     )
@@ -167,7 +167,8 @@ class GasCosts:
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
     EXECUTION_PER_AUTH_BASE_COST: Final[ExecutionGas] = ExecutionGas(
-        AUTH_TUPLE_BYTES * TX_DATA_TOKEN_FLOOR
+        # The tuple's bytes at the non-zero calldata rate.
+        AUTH_TUPLE_BYTES * Uint(4) * TX_DATA_TOKEN_STANDARD
         + PRECOMPILE_ECRECOVER
         + COLD_ACCOUNT_ACCESS
         + Uint(2) * WARM_ACCESS
@@ -1139,7 +1140,7 @@ class TransactionGasSettlement:
 
 def settle_transaction_gas(
     tx_gas: Uint,
-    calldata_floor: Uint,
+    content_floor: Uint,
     gas_left: ExecutionGas,
     state_gas_left: StateGas,
     refund_counter: U256,
@@ -1154,7 +1155,7 @@ def settle_transaction_gas(
       execution gas and reservoir the top frame returned;
     - the refund, capped at one fifth of that pre-refund usage;
     - the gas used, taken as the larger of the post-refund usage and the
-      calldata floor, so a transaction never pays below the floor; and
+      content floor, so a transaction never pays below the floor; and
     - the per-dimension block amounts: the state gas used (clamped to
       zero, since refunds can drive it negative) and the execution gas
       used, which carries the floor because the floor binds the
@@ -1166,8 +1167,8 @@ def settle_transaction_gas(
     ----------
     tx_gas :
         The transaction's gas limit.
-    calldata_floor :
-        The transaction's calldata floor gas.
+    content_floor :
+        The transaction's content floor gas.
     gas_left :
         Execution gas the top frame returned.
     state_gas_left :
@@ -1188,13 +1189,13 @@ def settle_transaction_gas(
     gas_used_before_refund = tx_gas - gas_left - state_gas_left
     gas_refund = min(gas_used_before_refund // Uint(5), Uint(refund_counter))
     gas_used_after_refund = gas_used_before_refund - gas_refund
-    gas_used = max(gas_used_after_refund, calldata_floor)
+    gas_used = max(gas_used_after_refund, content_floor)
 
     settled_state_gas_used = StateGas(Uint(max(0, state_gas_used)))
     execution_gas_used = ExecutionGas(
         max(
             gas_used_before_refund - settled_state_gas_used,
-            calldata_floor,
+            content_floor,
         )
     )
     return TransactionGasSettlement(

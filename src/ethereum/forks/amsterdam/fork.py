@@ -618,7 +618,7 @@ def check_transaction(
         effective_gas_price=effective_gas_price,
         execution_gas_grant=allocation.execution_gas,
         state_gas_reservoir=allocation.state_gas_reservoir,
-        calldata_floor=intrinsic.calldata_floor,
+        content_floor=intrinsic.content_floor,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
         accounts_with_paid_writes=accounts_with_paid_writes,
@@ -764,7 +764,7 @@ def process_unchecked_system_transaction(
         state_gas_reservoir=StateGas(
             StateGasCosts.STORAGE_SET * SYSTEM_MAX_SSTORES_PER_CALL
         ),
-        calldata_floor=Uint(0),
+        content_floor=Uint(0),
         access_list_addresses=set(),
         access_list_storage_keys=set(),
         # A system transaction charges no gas, so no write is paid for.
@@ -1061,7 +1061,7 @@ def process_transaction(
 
     settlement = settle_transaction_gas(
         tx_env.gas_limit,
-        tx_env.calldata_floor,
+        tx_env.content_floor,
         tx_output.gas_left,
         tx_output.state_gas_left,
         tx_output.refund_counter,

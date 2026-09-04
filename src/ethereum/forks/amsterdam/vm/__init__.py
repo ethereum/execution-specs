@@ -136,7 +136,7 @@ class TransactionEnvironment:
     effective_gas_price: Uint
     execution_gas_grant: ExecutionGas
     state_gas_reservoir: StateGas
-    calldata_floor: Uint
+    content_floor: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
     accounts_with_paid_writes: Set[Address]
