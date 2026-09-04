@@ -47,6 +47,7 @@ from execution_testing import (
     add_kzg_version,
     call_return_code,
     compute_create_address,
+    max_count_with_gas_limit,
 )
 from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
@@ -4180,18 +4181,7 @@ def test_many_delegations(
     pre: Alloc,
     signer_balance: int,
 ) -> None:
-    """
-    Perform as many delegations as possible in a transaction using the entire
-    block gas limit.
-
-    Every delegation comes from a different signer.
-
-    The account of can be empty or not depending on the `signer_balance`
-    parameter.
-
-    The transaction is expected to succeed and the state after the transaction
-    is expected to have the code of the entry contract set to 1.
-    """
+    """Fill the gas budget with distinct delegations and execute a write."""
     env = Environment()
     tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     if tx_gas_limit_cap is not None:
@@ -4201,16 +4191,31 @@ def test_many_delegations(
 
     success_slot = 1
     entry_code = Op.SSTORE(success_slot, 1) + Op.STOP
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    top_frame_cost = fork.transaction_top_frame_gas_calculator()
     entry_code_gas = entry_code.gas_cost(fork)
-    gas_for_delegations = max_gas - intrinsic_gas - entry_code_gas
-
-    gas_costs = fork.gas_costs()
-    delegation_count = gas_for_delegations // gas_costs.AUTH_PER_EMPTY_ACCOUNT
+    first_signer = pre.fund_eoa(signer_balance)
+    authorization = AuthorizationTuple(
+        address=Address(1),
+        nonce=0,
+        signer=first_signer,
+        creates_account=signer_balance == 0,
+        writes_delegation=True,
+        first_write=True,
+    )
+    delegation_count = max_count_with_gas_limit(
+        lambda count: intrinsic_cost(authorization_list_or_count=count)
+        + top_frame_cost(authorizations=[authorization] * count)
+        + entry_code_gas,
+        max_gas,
+    )
 
     entry_address = pre.deploy_contract(entry_code)
 
-    signers = [pre.fund_eoa(signer_balance) for _ in range(delegation_count)]
+    assert delegation_count > 0
+    signers = [first_signer] + [
+        pre.fund_eoa(signer_balance) for _ in range(delegation_count - 1)
+    ]
 
     tx = Transaction(
         gas_limit=max_gas,
@@ -4221,6 +4226,9 @@ def test_many_delegations(
                 address=Address(i + 1),
                 nonce=0,
                 signer=signer,
+                creates_account=signer_balance == 0,
+                writes_delegation=True,
+                first_write=True,
             )
             for (i, signer) in enumerate(signers)
         ],

@@ -20,6 +20,7 @@ from .tools_code import (
     While,
     WhileGas,
 )
+from .utility.gas import max_count_with_gas_limit
 from .utility.generators import (
     DeploymentTestType,
     gas_test,
@@ -49,6 +50,7 @@ __all__ = (
     "WhileGas",
     "extend_with_defaults",
     "gas_test",
+    "max_count_with_gas_limit",
     "generate_system_contract_deploy_test",
     "generate_system_contract_error_test",
     "get_current_commit_hash_or_tag",
