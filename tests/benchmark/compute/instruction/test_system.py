@@ -110,15 +110,32 @@ def test_contract_calling_many_addresses(
         "access_list": access_list if access_warm else None,
     }
 
-    total_iterations = (
-        sum(
+    stipend = fork.call_value_stipend() if value_transfer else 0
+
+    state_bound = bool(
+        code.state_gas_cost_by_iteration_count(fork=fork, iteration_count=1)
+    )
+
+    if fixed_opcode_count is not None:
+        total_iterations = int(fixed_opcode_count * 1000)
+    else:
+        packing_budget = gas_benchmark_value
+        if stipend and not state_bound:
+            per_iteration = code.tx_execution_gas_cost_by_iteration_count(
+                fork=fork, iteration_count=2, **tx_kwargs
+            ) - code.tx_execution_gas_cost_by_iteration_count(
+                fork=fork, iteration_count=1, **tx_kwargs
+            )
+            packing_budget = (
+                gas_benchmark_value
+                * per_iteration
+                // (per_iteration - stipend)
+            )
+        total_iterations = sum(
             code.tx_iterations_by_gas_limit(
-                fork=fork, gas_limit=gas_benchmark_value, **tx_kwargs
+                fork=fork, gas_limit=packing_budget, **tx_kwargs
             )
         )
-        if fixed_opcode_count is None
-        else int(fixed_opcode_count * 1000)
-    )
 
     if total_iterations == 0:
         pytest.skip(
@@ -127,29 +144,17 @@ def test_contract_calling_many_addresses(
 
     with TestPhaseManager.execution():
         sender = pre.fund_eoa()
-        if fixed_opcode_count is not None:
-            exec_txs = list(
-                code.transactions_by_total_iteration_count(
-                    fork=fork,
-                    total_iterations=total_iterations,
-                    sender=sender,
-                    to=contract_address,
-                    **tx_kwargs,
-                )
+        exec_txs = list(
+            code.transactions_by_total_iteration_count(
+                fork=fork,
+                total_iterations=total_iterations,
+                sender=sender,
+                to=contract_address,
+                **tx_kwargs,
             )
-        else:
-            exec_txs = list(
-                code.transactions_by_gas_limit(
-                    fork=fork,
-                    gas_limit=gas_benchmark_value,
-                    sender=sender,
-                    to=contract_address,
-                    **tx_kwargs,
-                )
-            )
+        )
         total_gas_cost = sum(tx.gas_cost for tx in exec_txs)
-        if value_transfer:
-            total_gas_cost -= fork.gas_costs().CALL_STIPEND * total_iterations
+        total_gas_cost -= stipend * total_iterations
 
     post = {
         Address(start_addr + i): Account(balance=transfer_amount)
