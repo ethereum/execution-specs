@@ -50,6 +50,7 @@ from .specs import (
 )
 from .test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
+    DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
     Alloc,
     AuthorizationTuple,
@@ -132,6 +133,7 @@ from .vm import (
 
 __all__ = (
     "DETERMINISTIC_FACTORY_ADDRESS",
+    "DETERMINISTIC_FACTORY_BYTECODE",
     "AccessList",
     "Account",
     "Address",
