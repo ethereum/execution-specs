@@ -283,27 +283,40 @@ def test_pre_delegated_authority_no_charge_after_failure(
             signer=signer,
             creates_account=False,
             writes_delegation=False,
-            first_write=False,
+            first_write=True,
         )
     ]
 
     intrinsic_execution, top_frame_execution, top_frame_state = _auth_gas(
-        fork, authorization_list
+        fork,
+        authorization_list,
+        recipient_type=RecipientType.DELEGATION_7702,
     )
     assert top_frame_state == 0, (
         "re-delegating an existing indicator is not net-new state"
     )
 
-    # A failing top frame burns its whole budget, so pin the limit and
-    # expect the sender to pay all of it with nothing in the state
-    # dimension.
     gas_limit = intrinsic_execution + top_frame_execution + 50_000
+
+    if failure_mode == "halt":
+        # An exceptional halt burns the whole budget.
+        expected_gas_used = gas_limit
+    else:
+        # REVERT returns the gas it did not spend.
+        expected_gas_used = (
+            intrinsic_execution
+            + top_frame_execution
+            + ending.execution_cost(fork)
+        )
 
     tx = Transaction(
         to=signer,
         authorization_list=authorization_list,
         gas_limit=gas_limit,
         sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            status=0, cumulative_gas_used=expected_gas_used
+        ),
     )
 
     post = {
@@ -313,9 +326,7 @@ def test_pre_delegated_authority_no_charge_after_failure(
         pre=pre,
         post=post,
         tx=tx,
-        blockchain_test_header_verify=Header(
-            gas_used=gas_limit if failure_mode == "halt" else None
-        ),
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
     )
 
 

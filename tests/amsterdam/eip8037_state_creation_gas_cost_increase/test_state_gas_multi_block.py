@@ -16,6 +16,8 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
 """
 
+import math
+
 import pytest
 from execution_testing import (
     Account,
@@ -438,14 +440,17 @@ def test_coinbase_fee_paid_on_execution_and_state(
     bottlenecked on either dimension. The fee sums both either way;
     `max(execution, state)` governs the header, not the sender's bill.
     """
+    state_op = Op.SSTORE(0, 1)
     if dominant_dimension == "state":
-        body = Op.SSTORE(0, 1)
-        reservoir = body.state_cost(fork)
+        body = state_op
     else:
-        # Nothing but the intrinsic, so the execution dimension leads
-        # with a cost the opcode model prices exactly.
-        body = Op.STOP
-        reservoir = 0
+        # Memory cost grows as `words ** 2 // 512`, so this word count
+        # expands past the state charge, leading on execution while the
+        # state dimension stays nonzero.
+        words = math.isqrt(512 * state_op.state_cost(fork))
+        body = state_op + Op.MSTORE(
+            (words - 1) * 32, 0, new_memory_size=words * 32
+        )
     contract = pre.deploy_contract(code=body)
 
     execution = (
@@ -454,10 +459,11 @@ def test_coinbase_fee_paid_on_execution_and_state(
     )
     state = body.state_cost(fork)
     expected_coinbase = execution + state
+    assert state > 0
     if dominant_dimension == "state":
         assert state > execution
     else:
-        assert state == 0
+        assert execution > state
 
     reporter_storage = Storage()
     reporter = pre.deploy_contract(
@@ -474,7 +480,7 @@ def test_coinbase_fee_paid_on_execution_and_state(
                 txs=[
                     Transaction(
                         to=contract,
-                        state_gas_reservoir=reservoir,
+                        state_gas_reservoir=state,
                         max_priority_fee_per_gas=1,
                         max_fee_per_gas=8,
                         sender=pre.fund_eoa(),
