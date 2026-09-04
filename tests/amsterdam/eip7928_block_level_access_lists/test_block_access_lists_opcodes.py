@@ -40,6 +40,7 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
+    TransactionReceipt,
     compute_create_address,
 )
 from execution_testing import Macros as Om
@@ -99,6 +100,13 @@ class OutOfGasBoundary(Enum):
 
 
 @pytest.mark.parametrize(
+    "slot_is_warm",
+    [
+        pytest.param(False, id="cold_slot"),
+        pytest.param(True, id="warm_slot"),
+    ],
+)
+@pytest.mark.parametrize(
     "out_of_gas_at",
     [
         OutOfGasAt.EIP_2200_STIPEND,
@@ -115,17 +123,18 @@ def test_bal_sstore_and_oog(
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
     out_of_gas_at: OutOfGasAt | None,
+    slot_is_warm: bool,
 ) -> None:
     """
     Test BAL recording with SSTORE at various OOG boundaries and success.
 
     ``SSTORE`` clears two gates before the write cost: the EIP-2200
     stipend sentry (``gas_left`` must exceed ``CALL_STIPEND``) and the
-    cold access charge (``COLD_STORAGE_ACCESS``). The slot read is
-    recorded in the BAL only once both are cleared, so the recording
-    gate is the higher of the two — which one dominates depends on the
-    fork's schedule, and the expectations below are derived from that
-    relation rather than assuming it.
+    slot's access charge, cold or warmed through the access list. The
+    slot read is recorded in the BAL only once both are cleared, so the
+    recording gate is the higher of the two — which one dominates depends
+    on the fork's schedule, and the expectations below are derived from
+    that relation rather than assuming it.
 
     1. OOG at the stipend -> sentry fires, no BAL changes
     2. OOG at stipend + 1 -> sentry cleared by one; the read is
@@ -139,16 +148,23 @@ def test_bal_sstore_and_oog(
     """
     alice = pre.fund_eoa()
 
-    # Create contract that attempts SSTORE to cold storage slot 0x01
+    # Create contract that attempts SSTORE to storage slot 0x01
     storage_contract_code = Op.SSTORE(
-        0x01, 0x42, key_warm=False, original_value=0, new_value=0x42
+        0x01, 0x42, key_warm=slot_is_warm, original_value=0, new_value=0x42
     )
 
     storage_contract = pre.deploy_contract(code=storage_contract_code)
 
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
+    access_list = (
+        [AccessList(address=storage_contract, storage_keys=[0x01])]
+        if slot_is_warm
+        else None
+    )
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list
+    )
 
-    # Full cost: PUSHes + SSTORE (COLD_STORAGE_ACCESS + STORAGE_SET)
+    # Full cost: PUSHes + SSTORE (access cost + STORAGE_SET)
     full_cost = storage_contract_code.gas_cost(fork)
 
     # Push cost for the gas-boundary calculations below.
@@ -159,8 +175,12 @@ def test_bal_sstore_and_oog(
     # recorded once the sentry is cleared and the access cost is
     # affordable, so the recording gate is the higher of the two.
     stipend = fork.gas_costs().CALL_STIPEND
-    cold_access = fork.gas_costs().COLD_STORAGE_ACCESS
-    read_gate = max(cold_access, stipend + 1)
+    access_cost = (
+        fork.gas_costs().WARM_ACCESS
+        if slot_is_warm
+        else fork.gas_costs().COLD_STORAGE_ACCESS
+    )
+    read_gate = max(access_cost, stipend + 1)
 
     if out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND:
         # gas_left == stipend: fails the sentry check outright.
@@ -173,7 +193,7 @@ def test_bal_sstore_and_oog(
         # gas_left == access cost - 1: cannot afford the access (when
         # the stipend dominates, the sentry fires first instead), so
         # OOG before the read either way.
-        tx_gas_limit = intrinsic_gas_cost + push_cost + cold_access - 1
+        tx_gas_limit = intrinsic_gas_cost + push_cost + access_cost - 1
     elif out_of_gas_at == OutOfGasAt.ACCESS_COVERED_OOG_ON_WRITE:
         # gas_left == read gate: sentry cleared and access affordable
         # (read recorded), then OOG on the write cost.
@@ -189,6 +209,7 @@ def test_bal_sstore_and_oog(
         sender=alice,
         to=storage_contract,
         gas_limit=tx_gas_limit,
+        access_list=access_list,
     )
 
     # The read is recorded only once the recording gate is covered: the
@@ -198,7 +219,7 @@ def test_bal_sstore_and_oog(
         OutOfGasAt.EXACT_GAS_MINUS_1,
     ) or (
         out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND_PLUS_1
-        and stipend + 1 >= cold_access
+        and stipend + 1 >= access_cost
     )
     expect_storage_write = out_of_gas_at is None
 
@@ -238,6 +259,13 @@ def test_bal_sstore_and_oog(
 
 
 @pytest.mark.parametrize(
+    "slot_is_warm",
+    [
+        pytest.param(False, id="cold_slot"),
+        pytest.param(True, id="warm_slot"),
+    ],
+)
+@pytest.mark.parametrize(
     "fails_at_sload",
     [True, False],
     ids=["oog_at_sload", "successful_sload"],
@@ -247,22 +275,32 @@ def test_bal_sload_and_oog(
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
     fails_at_sload: bool,
+    slot_is_warm: bool,
 ) -> None:
     """
-    Ensure BAL handles SLOAD and OOG during SLOAD appropriately.
+    Ensure BAL handles SLOAD and OOG during SLOAD appropriately. A warm
+    slot is declared in the access list, which by itself does not put it
+    in `storage_reads`.
     """
     alice = pre.fund_eoa()
 
-    # Create contract that attempts SLOAD from cold storage slot 0x01
+    # Create contract that attempts SLOAD from storage slot 0x01
     storage_contract_code = (
-        Op.PUSH1(0x01)  # Storage slot (cold)
-        + Op.SLOAD(key_warm=False)  # Load value from slot - this will OOG
+        Op.PUSH1(0x01)  # Storage slot
+        + Op.SLOAD(key_warm=slot_is_warm)
         + Op.STOP
     )
 
     storage_contract = pre.deploy_contract(code=storage_contract_code)
 
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
+    access_list = (
+        [AccessList(address=storage_contract, storage_keys=[0x01])]
+        if slot_is_warm
+        else None
+    )
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list
+    )
 
     tx_gas_limit = intrinsic_gas_cost + storage_contract_code.gas_cost(fork)
 
@@ -274,6 +312,7 @@ def test_bal_sload_and_oog(
         sender=alice,
         to=storage_contract,
         gas_limit=tx_gas_limit,
+        access_list=access_list,
     )
 
     block = Block(
@@ -298,6 +337,13 @@ def test_bal_sload_and_oog(
 
 
 @pytest.mark.parametrize(
+    "target_is_warm",
+    [
+        pytest.param(False, id="cold_target"),
+        pytest.param(True, id="warm_target"),
+    ],
+)
+@pytest.mark.parametrize(
     "fails_at_balance",
     [True, False],
     ids=["oog_at_balance", "successful_balance"],
@@ -307,21 +353,31 @@ def test_bal_balance_and_oog(
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
     fails_at_balance: bool,
+    target_is_warm: bool,
 ) -> None:
-    """Ensure BAL handles BALANCE and OOG during BALANCE appropriately."""
+    """
+    Ensure BAL handles BALANCE and OOG during BALANCE appropriately. A
+    warm target is declared in the access list, which by itself does not
+    put it in the BAL.
+    """
     alice = pre.fund_eoa()
     bob = pre.fund_eoa()
 
     # Create contract that attempts to check Bob's balance
     balance_checker_code = (
         Op.PUSH20(bob)  # Bob's address
-        + Op.BALANCE(address_warm=False)  # Check balance (cold access)
+        + Op.BALANCE(address_warm=target_is_warm)
         + Op.STOP
     )
 
     balance_checker = pre.deploy_contract(code=balance_checker_code)
 
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
+    access_list = (
+        [AccessList(address=bob, storage_keys=[])] if target_is_warm else None
+    )
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list
+    )
 
     tx_gas_limit = intrinsic_gas_cost + balance_checker_code.gas_cost(fork)
 
@@ -333,6 +389,7 @@ def test_bal_balance_and_oog(
         sender=alice,
         to=balance_checker,
         gas_limit=tx_gas_limit,
+        access_list=access_list,
     )
 
     block = Block(
@@ -467,6 +524,13 @@ def test_bal_selfdestruct_to_system_address_zero_balance(
 
 
 @pytest.mark.parametrize(
+    "target_is_warm",
+    [
+        pytest.param(False, id="cold_target"),
+        pytest.param(True, id="warm_target"),
+    ],
+)
+@pytest.mark.parametrize(
     "fails_at_extcodesize",
     [True, False],
     ids=["oog_at_extcodesize", "successful_extcodesize"],
@@ -476,9 +540,12 @@ def test_bal_extcodesize_and_oog(
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
     fails_at_extcodesize: bool,
+    target_is_warm: bool,
 ) -> None:
     """
-    Ensure BAL handles EXTCODESIZE and OOG during EXTCODESIZE appropriately.
+    Ensure BAL handles EXTCODESIZE and OOG during EXTCODESIZE
+    appropriately. A warm target is declared in the access list, which by
+    itself does not put it in the BAL.
     """
     alice = pre.fund_eoa()
 
@@ -488,13 +555,20 @@ def test_bal_extcodesize_and_oog(
     # Create contract that checks target's code size
     codesize_checker_code = (
         Op.PUSH20(target_contract)  # Target contract address
-        + Op.EXTCODESIZE(address_warm=False)  # Check code size (cold access)
+        + Op.EXTCODESIZE(address_warm=target_is_warm)
         + Op.STOP
     )
 
     codesize_checker = pre.deploy_contract(code=codesize_checker_code)
 
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
+    access_list = (
+        [AccessList(address=target_contract, storage_keys=[])]
+        if target_is_warm
+        else None
+    )
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list
+    )
 
     tx_gas_limit = intrinsic_gas_cost + codesize_checker_code.gas_cost(fork)
     if fails_at_extcodesize:
@@ -505,6 +579,7 @@ def test_bal_extcodesize_and_oog(
         sender=alice,
         to=codesize_checker,
         gas_limit=tx_gas_limit,
+        access_list=access_list,
     )
 
     block = Block(
@@ -530,6 +605,81 @@ def test_bal_extcodesize_and_oog(
             codesize_checker: Account(),
             target_contract: Account(),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "target_is_warm",
+    [
+        pytest.param(False, id="cold_target"),
+        pytest.param(True, id="warm_target"),
+    ],
+)
+@pytest.mark.parametrize(
+    "fails_at_extcodehash",
+    [True, False],
+    ids=["oog_at_extcodehash", "successful_extcodehash"],
+)
+def test_bal_extcodehash_and_oog(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+    fails_at_extcodehash: bool,
+    target_is_warm: bool,
+) -> None:
+    """
+    Ensure the EXTCODEHASH target enters the BAL only once its access
+    cost is paid. A warm target is declared in the access list, which by
+    itself does not put it in the BAL.
+    """
+    alice = pre.fund_eoa()
+    target_contract = pre.deploy_contract(code=Op.STOP)
+
+    codehash_checker_code = (
+        Op.PUSH20(target_contract)
+        + Op.EXTCODEHASH(address_warm=target_is_warm)
+        + Op.STOP
+    )
+    codehash_checker = pre.deploy_contract(code=codehash_checker_code)
+
+    access_list = (
+        [AccessList(address=target_contract, storage_keys=[])]
+        if target_is_warm
+        else None
+    )
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list
+    )
+    tx_gas_limit = intrinsic_gas_cost + codehash_checker_code.gas_cost(fork)
+    if fails_at_extcodehash:
+        tx_gas_limit -= 1
+
+    tx = Transaction(
+        sender=alice,
+        to=codehash_checker,
+        gas_limit=tx_gas_limit,
+        access_list=access_list,
+        expected_receipt=TransactionReceipt(cumulative_gas_used=tx_gas_limit),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            alice: Account(nonce=1),
+            codehash_checker: Account(),
+            target_contract: Account(),
+        },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                codehash_checker: BalAccountExpectation.empty(),
+                target_contract: (
+                    None
+                    if fails_at_extcodehash
+                    else BalAccountExpectation.empty()
+                ),
+            }
+        ),
     )
 
 
@@ -1767,6 +1917,9 @@ def test_bal_staticcall_7702_delegation_and_oog(
     "oog_scenario,memory_offset,copy_size",
     [
         pytest.param("success", 0, 0, id="successful_extcodecopy"),
+        pytest.param(
+            "success", 256, 32, id="successful_extcodecopy_with_memory"
+        ),
         pytest.param("oog_at_cold_access", 0, 0, id="oog_at_cold_access"),
         pytest.param(
             "oog_at_memory_large_offset",
@@ -3283,6 +3436,13 @@ def test_bal_create2_deploy_then_collision(
 
 
 @pytest.mark.parametrize(
+    "init_code_padding",
+    [
+        pytest.param(0, id="init_code_in_memory"),
+        pytest.param(4096, id="init_code_past_memory"),
+    ],
+)
+@pytest.mark.parametrize(
     "oog_boundary",
     [
         OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS,
@@ -3298,18 +3458,23 @@ def test_bal_create_and_oog(
     fork: Fork,
     create_opcode: Op,
     oog_boundary: OutOfGasBoundary,
+    init_code_padding: int,
 ) -> None:
     """
     CREATE/CREATE2 OOG boundary test at three gas levels.
 
     OOG_BEFORE_TARGET_ACCESS and OOG_AFTER_TARGET_ACCESS differ by
     exactly 1 gas, proving the static cost boundary: below it the
-    created address is NOT in BAL, at it the address IS in BAL.
+    created address is NOT in BAL, at it the address IS in BAL. Padding
+    the init code past the stored word makes CREATE's own memory
+    expansion part of that static cost.
     """
     alice = pre.fund_eoa()
 
     init_code = Initcode(deploy_code=Op.STOP)
     init_code_bytes = bytes(init_code)
+    # Zero padding never executes; it only widens the memory CREATE reads.
+    create_init_code = init_code_bytes + bytes(init_code_padding)
 
     factory_mstore = Op.MSTORE(
         0, Op.PUSH32(init_code_bytes), new_memory_size=32
@@ -3317,15 +3482,19 @@ def test_bal_create_and_oog(
     factory_create = create_opcode(
         value=0,
         offset=32 - len(init_code_bytes),
-        size=len(init_code_bytes),
-        init_code_size=len(init_code_bytes),
+        size=len(create_init_code),
+        init_code_size=len(create_init_code),
+        old_memory_size=32,
+        new_memory_size=32 + init_code_padding,
         account_new=False,
     )
     factory_sstore = Op.SSTORE(0x00, 1)
     # A sized burn after the CREATE: far more than a starved frame
     # can afford, and paid for explicitly in the success budget.
     factory_oog_sink = GasConsumer(
-        gas=100_000, fork=fork, previous_memory_size=32
+        gas=100_000,
+        fork=fork,
+        previous_memory_size=32 + init_code_padding,
     )
     factory_code = (
         factory_mstore + factory_create + factory_oog_sink + factory_sstore
@@ -3340,7 +3509,7 @@ def test_bal_create_and_oog(
         address=factory,
         nonce=1,
         salt=0,
-        initcode=init_code_bytes,
+        initcode=create_init_code,
         opcode=create_opcode,
     )
     # Pre-fund the address so no new account is created
