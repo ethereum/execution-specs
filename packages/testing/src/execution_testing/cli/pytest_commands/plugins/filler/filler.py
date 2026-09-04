@@ -58,6 +58,7 @@ from execution_testing.fixtures.engine_x_checks import (
     EngineXExecutionDriftError,
     verify_engine_x_execution,
 )
+from execution_testing.fixtures.hive import generate_hive_files
 from execution_testing.fixtures.pre_alloc_groups import (
     GroupIndexEntries,
     _get_worker_id,
@@ -2101,6 +2102,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
                 _log_timing(
                     f"Phase 1 (master): pack done in {time.time() - t0:.1f}s"
                 )
+
+            hive_folder = fixture_output.hive_folder_path
+            generate_hive_files(pre_alloc_folder, hive_folder)
         else:
             # Workers: clear in-memory state to reduce memory pressure while
             # waiting for other workers to finish
