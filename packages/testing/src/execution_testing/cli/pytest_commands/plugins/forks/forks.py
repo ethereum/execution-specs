@@ -49,6 +49,8 @@ logger = get_logger(__name__)
 # Session-scoped cache for the lazily-computed unsupported-fork set
 # (see `get_unsupported_forks`).
 unsupported_forks_key: StashKey[FrozenSet[Fork | TransitionFork]] = StashKey()
+# Tests generation never parametrized, node id -> why.
+unparametrized_key: StashKey[Dict[str, str]] = StashKey()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -1268,6 +1270,12 @@ def fork_markers(
     ]
 
 
+def _record_unparametrized(metafunc: Metafunc, reason: str) -> None:
+    """Note a test that generation is about to drop without parametrizing."""
+    stash = metafunc.config.stash.setdefault(unparametrized_key, {})
+    stash[metafunc.definition.nodeid] = reason
+
+
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """Pytest hook used to dynamically generate test cases."""
     test_name = metafunc.function.__name__
@@ -1293,6 +1301,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
     pytest_params: List[Any]
     if not test_fork_set:
+        _record_unparametrized(
+            metafunc, "its markers enable it for no fork at all"
+        )
         if metafunc.config.getoption("verbose") >= 2:
             pytest_params = [
                 pytest.param(
@@ -1321,6 +1332,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     intersection_set -= get_unsupported_forks(metafunc.config)
 
     if not intersection_set:
+        _record_unparametrized(
+            metafunc, "no selected fork is in its validity range"
+        )
         if metafunc.config.getoption("verbose") >= 2:
             pytest_params = [
                 pytest.param(
@@ -1619,6 +1633,9 @@ def pytest_collection_modifyitems(
     deselected: List[pytest.Item] = []
     # function name -> (reason, total, deselected_count)
     filter_stats: Dict[str, Tuple[str, int, int]] = {}
+    validity_deselected: List[pytest.Item] = []
+    # function name -> deselected_count
+    validity_stats: Dict[str, int] = {}
 
     for i, item in enumerate(items):
         params = _get_item_params(item)
@@ -1666,6 +1683,9 @@ def pytest_collection_modifyitems(
 
         if fork not in valid_fork_set:
             items_to_remove.append(i)
+            validity_deselected.append(item)
+            fn_name = item.nodeid.split("[")[0]
+            validity_stats[fn_name] = validity_stats.get(fn_name, 0) + 1
 
     # Fail if a filter_combinations predicate eliminated every case
     # for a test function — the predicate is almost certainly wrong.
@@ -1698,3 +1718,31 @@ def pytest_collection_modifyitems(
             if config.option.verbose >= 2:
                 for item in deselected:
                     writer.line(f"    {item.nodeid}")
+
+    if validity_deselected:
+        config.hook.pytest_deselected(items=validity_deselected)
+        if config.option.verbose >= 0:
+            # Fork-less items skip the check, so the tally cannot say "all".
+            surviving = {item.nodeid.split("[")[0] for item in items}
+            writer = config.get_terminal_writer()
+            writer.line("")
+            writer.sep(
+                "-",
+                f"{len(validity_deselected)} deselected by validity markers",
+            )
+            for fn_name, dc in sorted(validity_stats.items()):
+                gone = "" if fn_name in surviving else " (no cases left)"
+                writer.line(f"  {fn_name}: {dc} deselected{gone}")
+            if config.option.verbose >= 2:
+                for item in validity_deselected:
+                    writer.line(f"    {item.nodeid}")
+
+    # These never became items, so no deselection hook can carry them.
+    unparametrized = config.stash.get(unparametrized_key, {})
+    if unparametrized and config.option.verbose >= 0:
+        writer = config.get_terminal_writer()
+        writer.line("")
+        writer.sep("-", f"{len(unparametrized)} not parametrized for any fork")
+        if config.option.verbose >= 2:
+            for nodeid, reason in sorted(unparametrized.items()):
+                writer.line(f"  {nodeid}: {reason}")
