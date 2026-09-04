@@ -774,30 +774,16 @@ def test_top_frame_charges_delegation_is_authority(
     chain_config: ChainConfig,
 ) -> None:
     """
-    Recipient holds a pre-existing EIP-7702 delegation whose target is
-    the authority of the transaction's own authorization.
-
-    Chain-ID, nonce-limit and signature failures occur before authority
-    recovery and do not warm the target. A stale nonce or ineligible
-    account code is checked after recovery and warms it even though the
-    authorization is skipped. Only the intrinsic authorization cost is
-    paid in every case; delegation resolution then pays the cold or warm
-    access cost accordingly.
-
-    The target runs empty code or STOP. One spare gas makes an incorrect
-    cold charge in a warm case consume more than the expected receipt
-    gas, even with zero value and no state changes. An incorrect warm
-    charge in a cold case consumes less than expected.
+    Charge delegation access according to whether a skipped authorization
+    recovered its authority: only failures after recovery warm it.
     """
     sender = pre.fund_eoa()
-    scenario = build_authorization(pre, AuthorizationAction.INVALID)
-    authority = scenario.authority
-    if invalid_reason == "account_code":
-        scenario.original_account = Account(nonce=0, balance=1, code=Op.STOP)
-        pre[authority] = scenario.original_account
+    authority_code = Op.STOP if invalid_reason == "account_code" else None
+    authority = pre.fund_eoa(amount=1, code=authority_code)
+    original_account = pre[authority]
 
     authorization = AuthorizationTuple(
-        address=scenario.authorization.address,
+        address=pre.deploy_contract(code=Op.STOP),
         nonce=(
             2**64 - 1
             if invalid_reason == "nonce_limit"
@@ -817,8 +803,8 @@ def test_top_frame_charges_delegation_is_authority(
         authorization = authorization.model_copy(update={"r": 0, "s": 0})
     authorization_list = [authorization]
     delegation_warm = invalid_reason in ("stale_nonce", "account_code")
-    target = pre.fund_eoa(amount=0, delegation=scenario.authority)
-    target_code = Spec7702.delegation_designation(scenario.authority)
+    target = pre.fund_eoa(amount=0, delegation=authority)
+    target_code = Spec7702.delegation_designation(authority)
 
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         sends_value=bool(value),
@@ -826,7 +812,7 @@ def test_top_frame_charges_delegation_is_authority(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=delegation_warm,
@@ -842,6 +828,8 @@ def test_top_frame_charges_delegation_is_authority(
     )
     total_gas_cost = intrinsic_gas + top_frame_gas
 
+    # A cold charge in a warm case halts and spends the spare gas; a
+    # warm charge in a cold case spends less than the expected receipt.
     tx = Transaction(
         sender=sender,
         to=target,
@@ -856,7 +844,7 @@ def test_top_frame_charges_delegation_is_authority(
     post = {
         sender: Account(nonce=1),
         target: Account(balance=value, code=target_code),
-        scenario.authority: scenario.original_account,
+        authority: original_account,
     }
 
     state_test(pre=pre, tx=tx, post=post)
@@ -902,7 +890,7 @@ def test_intrinsic_accounts_warm_for_execution(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )
