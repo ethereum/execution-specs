@@ -136,6 +136,7 @@ class GasCosts:
     OPCODE_DIFFICULTY: Final[Uint] = BASE
     OPCODE_RETURNDATASIZE: Final[Uint] = BASE
     OPCODE_CHAINID: Final[Uint] = BASE
+    OPCODE_SELFBALANCE: Final[Uint] = FAST_STEP
     OPCODE_PUSH: Final[Uint] = VERY_LOW
     OPCODE_DUP: Final[Uint] = VERY_LOW
     OPCODE_SWAP: Final[Uint] = VERY_LOW
