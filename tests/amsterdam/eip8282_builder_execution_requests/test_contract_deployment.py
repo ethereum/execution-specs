@@ -18,6 +18,7 @@ from execution_testing import (
     TransitionFork,
     generate_system_contract_deploy_test,
 )
+from execution_testing.checklists import EIPChecklist
 from execution_testing.forks import Amsterdam
 
 from .spec import ref_spec_8282
@@ -29,6 +30,8 @@ MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
 
 
 @pytest.mark.eels_base_coverage
+@EIPChecklist.SystemContract.Test.Deployment.Address()
+@EIPChecklist.SystemContract.Test.Deployment.Missing()
 @generate_system_contract_deploy_test(
     fork=Amsterdam,
     factory_json_path=Path(realpath(__file__)).parent
@@ -66,6 +69,8 @@ def test_builder_deposit_contract_deployment(
 
 
 @pytest.mark.eels_base_coverage
+@EIPChecklist.SystemContract.Test.Deployment.Address()
+@EIPChecklist.SystemContract.Test.Deployment.Missing()
 @generate_system_contract_deploy_test(
     fork=Amsterdam,
     factory_json_path=Path(realpath(__file__)).parent
