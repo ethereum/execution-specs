@@ -107,8 +107,6 @@ class TransactionPost(BaseExecute):
         eth_rpc: EthRPC, signed_txs: List[Transaction]
     ) -> List[Hash]:
         """Send a batch, checking any expected transaction rejections."""
-        if not signed_txs:
-            return []
         current_block_tx_hashes: List[Hash] = []
         if any(tx.error is not None for tx in signed_txs):
             tx_queue: List[Transaction] = []
@@ -220,10 +218,11 @@ class TransactionPost(BaseExecute):
                 estimate = (block_index, tx_index) in self._estimate_indices
                 if estimate:
                     # Settle dependencies before estimating against latest.
-                    current_block_tx_hashes.extend(
-                        self._send_transactions(eth_rpc, signed_txs)
-                    )
-                    signed_txs = []
+                    if signed_txs:
+                        current_block_tx_hashes.extend(
+                            self._send_transactions(eth_rpc, signed_txs)
+                        )
+                        signed_txs = []
                     self._estimate_transaction(eth_rpc, tx)
                 # Add metadata
                 tx = tx.with_signature_and_sender()
@@ -256,9 +255,10 @@ class TransactionPost(BaseExecute):
                     )
                 else:
                     signed_txs.append(tx)
-            current_block_tx_hashes.extend(
-                self._send_transactions(eth_rpc, signed_txs)
-            )
+            if signed_txs or not block:
+                current_block_tx_hashes.extend(
+                    self._send_transactions(eth_rpc, signed_txs)
+                )
             all_tx_hashes.extend(current_block_tx_hashes)
             last_block_tx_hashes = current_block_tx_hashes
 
