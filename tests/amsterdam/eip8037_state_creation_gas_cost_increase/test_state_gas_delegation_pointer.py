@@ -67,7 +67,7 @@ def test_sstore_via_delegation_pointer(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
         authorizations=[authorization],
@@ -128,7 +128,7 @@ def test_sstore_direct_call_same_contract(
     intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
     )
     top_frame_state = fork.transaction_top_frame_state_gas(
@@ -211,7 +211,7 @@ def test_delegation_pointer_new_account_state_gas(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
         authorizations=[authorization],
@@ -337,7 +337,7 @@ def test_delegation_pointer_state_gas_on_frame_failure(
         recipient_type=RecipientType.DELEGATION_7702,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
     )

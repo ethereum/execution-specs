@@ -83,7 +83,7 @@ def test_pricing_at_various_gas_limits(
 
     gas_limit = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()()
+        + fork.transaction_top_frame_execution_gas()
         + code.gas_cost(fork)
     )
 
@@ -404,7 +404,7 @@ def test_refund_with_reservoir_state_gas(
     refund_counter = code.refund(fork) - code.state_refund(fork)
     gas_used_before_refund = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + code.execution_cost(fork)
         + net_state_gas
     )
@@ -935,7 +935,7 @@ def test_sstore_refund_scales_with_cpsb(
 
     gas_used_before_refund = (
         fork.transaction_intrinsic_cost_calculator()()
-        + fork.transaction_top_frame_gas_calculator()(contract_creation=False)
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
         + code.execution_cost(fork)
         + net_state_gas
     )

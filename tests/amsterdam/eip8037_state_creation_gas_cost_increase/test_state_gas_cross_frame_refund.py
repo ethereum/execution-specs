@@ -774,7 +774,7 @@ def test_cross_frame_refund_after_delegation_spill(
             authorization_list_or_count=authorization_list,
             return_cost_deducted_prior_execution=True,
         )
-        + fork.transaction_top_frame_gas_calculator()(
+        + fork.transaction_top_frame_execution_gas(
             authorizations=authorization_list
         )
         + fork.transaction_top_frame_state_gas(

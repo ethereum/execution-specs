@@ -1080,7 +1080,7 @@ class IteratingBytecode(Bytecode):
                     iteration_count=iteration_count,
                     start_iteration=start_iteration,
                 )
-        top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+        top_frame_gas = fork.transaction_top_frame_execution_gas(
             **{
                 key: intrinsic_cost_kwargs[key]
                 for key in TOP_FRAME_COST_KWARGS

@@ -364,7 +364,7 @@ def test_calldata_floor_with_authorizations(
 
     intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
     floor_calc = fork.transaction_data_floor_cost_calculator()
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         recipient_type=RecipientType.CONTRACT,
         authorizations=authorization_list,
     )

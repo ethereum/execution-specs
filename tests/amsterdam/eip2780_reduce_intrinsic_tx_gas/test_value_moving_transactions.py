@@ -89,7 +89,7 @@ def test_value_moving_transactions(
         recipient_type=recipient_type,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=recipient_type,
     )
@@ -173,7 +173,7 @@ def test_self_transfer_with_delegated_sender(
         recipient_type=intrinsic_recipient_type,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=True,
         recipient_type=top_frame_recipient_type,
         delegation_warm=delegation_warm,
@@ -235,7 +235,7 @@ def test_intrinsic_decomposition_across_tx_types(
         authorization_list_or_count=authorizations,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=True,
         recipient_type=RecipientType.EOA,
         authorizations=authorizations,

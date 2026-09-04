@@ -79,7 +79,7 @@ def _auth_gas(
         sends_value=sends_value,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         recipient_type=recipient_type,
         sends_value=sends_value,
         delegation_warm=delegation_warm,

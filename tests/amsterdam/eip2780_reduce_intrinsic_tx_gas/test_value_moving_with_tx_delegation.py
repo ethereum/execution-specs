@@ -106,7 +106,7 @@ def test_tx_installs_delegation_on_funded_recipient(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
@@ -203,7 +203,7 @@ def test_tx_installs_delegation_on_empty_recipient(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=RecipientType.DELEGATION_7702,
         delegation_warm=False,
@@ -333,7 +333,7 @@ def test_tx_installs_delegation_on_sender(
         authorization_list_or_count=authorization_list,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_execution = fork.transaction_top_frame_gas_calculator()(
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=top_frame_recipient_type,
         delegation_warm=False,

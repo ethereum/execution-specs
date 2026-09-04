@@ -91,10 +91,9 @@ class GasCosts:
     STORAGE_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(10000))
 
     # Call
-    # ACCOUNT_WRITE + CALL_STIPEND
-    CALL_VALUE: Final[ExecutionGas] = ExecutionGas(Uint(11300))
     CALL_STIPEND: Final[ExecutionGas] = ExecutionGas(Uint(2300))
     ACCOUNT_WRITE: Final[ExecutionGas] = ExecutionGas(Uint(9000))
+    CALL_VALUE: Final[ExecutionGas] = ACCOUNT_WRITE + CALL_STIPEND
 
     # Contract Creation
     CODE_DEPOSIT_PER_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(200))

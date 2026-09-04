@@ -182,18 +182,12 @@ class AuthorizationGasInfo(Protocol):
 
 class TopFrameGasCalculator(Protocol):
     """
-    A protocol to calculate the additional execution gas charged at the
-    top-level transaction frame, after intrinsic gas is deducted but
-    before EVM execution begins.
+    Calculate total execution and state gas charged at the top-level frame,
+    after intrinsic gas is deducted and before EVM execution begins.
 
-    Returns only the execution-gas portion of the post-intrinsic
-    state-aware preparation (e.g. the delegated-recipient access
-    charge). The state-gas portion is exposed separately by
-    ``BaseFork.transaction_top_frame_state_gas`` so tests can model the
-    two-dimensional reservoir explicitly or sum the two via
-    ``oog_budget_lift`` when targeting the spillover boundary.
-
-    Returns 0 for forks that do not perform any such preparation.
+    Use ``transaction_top_frame_execution_gas`` and
+    ``transaction_top_frame_state_gas`` when accounting for each dimension
+    separately. Return zero for forks without top-frame preparation.
     """
 
     def __call__(
@@ -206,14 +200,13 @@ class TopFrameGasCalculator(Protocol):
         authorizations: Sequence[AuthorizationGasInfo] = (),
     ) -> int:
         """
-        Return the execution gas consumed by top-frame preparation for a
+        Return the total gas consumed by top-frame preparation for a
         transaction at this fork.
 
         Args:
           contract_creation: Whether the transaction creates a contract.
-                             Top-frame charges are zero for creates;
-                             equivalent charges are paid via intrinsic
-                             gas.
+                             Account creation may consume top-frame
+                             state gas.
           sends_value: Whether the transaction transfers a non-zero
                        value.
           recipient_type: Category of the transaction recipient.
@@ -822,14 +815,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def transaction_top_frame_gas_calculator(
         cls,
     ) -> TopFrameGasCalculator:
-        """
-        Return a callable that calculates the additional execution gas
-        charged at the top-level transaction frame, after intrinsic
-        gas is deducted but before EVM execution begins.
-
-        Defaults to returning 0 for forks that do not perform such
-        post-intrinsic preparation.
-        """
+        """Return a calculator for total execution and state top-frame gas."""
 
         def fn(
             *,
@@ -839,11 +825,42 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
             delegation_warm: bool = False,
             authorizations: Sequence[AuthorizationGasInfo] = (),
         ) -> int:
-            del contract_creation, sends_value, recipient_type
-            del delegation_warm, authorizations
-            return 0
+            return cls.transaction_top_frame_execution_gas(
+                contract_creation=contract_creation,
+                sends_value=sends_value,
+                recipient_type=recipient_type,
+                delegation_warm=delegation_warm,
+                authorizations=authorizations,
+            ) + cls.transaction_top_frame_state_gas(
+                contract_creation=contract_creation,
+                sends_value=sends_value,
+                recipient_type=recipient_type,
+                authorizations=authorizations,
+            )
 
         return fn
+
+    @classmethod
+    def transaction_top_frame_execution_gas(
+        cls,
+        *,
+        contract_creation: bool = False,
+        sends_value: bool = False,
+        recipient_type: RecipientType = RecipientType.CONTRACT,
+        delegation_warm: bool = False,
+        authorizations: Sequence[AuthorizationGasInfo] = (),
+    ) -> int:
+        """
+        Return the additional execution gas charged at the top-level
+        transaction frame, after intrinsic gas is deducted but before
+        EVM execution begins.
+
+        Defaults to returning 0 for forks that do not perform such
+        post-intrinsic preparation.
+        """
+        del contract_creation, sends_value, recipient_type
+        del delegation_warm, authorizations
+        return 0
 
     @classmethod
     def transaction_top_frame_state_gas(
@@ -857,7 +874,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         Return the state gas charged at the top-level transaction
         frame, after intrinsic gas is deducted but before EVM execution
-        begins. Companion to ``transaction_top_frame_gas_calculator``;
+        begins. Companion to ``transaction_top_frame_execution_gas``;
         tests targeting the spillover boundary feed this through
         ``oog_budget_lift`` to get the equivalent execution-gas budget.
 

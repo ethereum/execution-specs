@@ -64,7 +64,7 @@ def test_transaction_gas(
         recipient_type=recipient_type,
         return_cost_deducted_prior_execution=True,
     )
-    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+    top_frame_gas = fork.transaction_top_frame_execution_gas(
         sends_value=bool(value),
         recipient_type=recipient_type,
     )
