@@ -32,6 +32,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     Withdrawal,
     add_kzg_version,
     compute_create_address,
@@ -164,11 +165,22 @@ def test_bal_balance_changes(
     )
 
 
+@pytest.mark.parametrize(
+    "endowment",
+    [
+        pytest.param(0, id="no_endowment"),
+        pytest.param(100, id="with_endowment"),
+    ],
+)
 def test_bal_code_changes(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    endowment: int,
 ) -> None:
-    """Ensure BAL captures changes to account code."""
+    """
+    Ensure BAL captures changes to account code, and the balance changes
+    on both sides when the CREATE carries an endowment.
+    """
     runtime_code = Op.STOP
     runtime_code_bytes = bytes(runtime_code)
 
@@ -195,12 +207,14 @@ def test_bal_code_changes(
         + Op.PUSH1(
             32 - len(init_code_bytes)
         )  # offset in memory (account for padding)
-        + Op.PUSH1(0x00)  # value = 0 (no ETH sent)
+        + Op.PUSH1(endowment)  # value
         + Op.CREATE  # Deploy the contract
         + Op.STOP
     )
 
-    factory_contract = pre.deploy_contract(code=factory_code)
+    factory_contract = pre.deploy_contract(
+        code=factory_code, balance=endowment
+    )
     alice = pre.fund_eoa()
 
     tx = Transaction(
@@ -225,6 +239,15 @@ def test_bal_code_changes(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=2)
                     ],
+                    balance_changes=(
+                        [
+                            BalBalanceChange(
+                                block_access_index=1, post_balance=0
+                            )
+                        ]
+                        if endowment
+                        else []
+                    ),
                 ),
                 created_contract: BalAccountExpectation(
                     code_changes=[
@@ -232,6 +255,15 @@ def test_bal_code_changes(
                             block_access_index=1, new_code=runtime_code_bytes
                         )
                     ],
+                    balance_changes=(
+                        [
+                            BalBalanceChange(
+                                block_access_index=1, post_balance=endowment
+                            )
+                        ]
+                        if endowment
+                        else []
+                    ),
                 ),
             }
         ),
@@ -242,10 +274,11 @@ def test_bal_code_changes(
         blocks=[block],
         post={
             alice: Account(nonce=1),
-            factory_contract: Account(nonce=2),  # incremented by CREATE to 2
+            factory_contract: Account(nonce=2, balance=0),
             created_contract: Account(
                 code=runtime_code_bytes,
                 storage={},
+                balance=endowment,
             ),
         },
     )
@@ -1630,6 +1663,66 @@ def test_bal_coinbase_zero_tip(
             bob: Account(balance=5),
         },
         genesis_environment=genesis_env,
+    )
+
+
+def test_bal_coinbase_tip_on_exceptional_halt(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Ensure BAL records the final sender and coinbase balances after an
+    exceptional halt: the halt burns the whole gas limit and the tip on
+    it is still paid.
+    """
+    coinbase = pre.fund_eoa(amount=0)
+    base_fee_per_gas = 7
+    tip = 3
+    gas_price = base_fee_per_gas + tip
+
+    halting_contract = pre.deploy_contract(code=Om.OOG)
+    gas_limit = fork.transaction_intrinsic_cost_calculator()() + 10_000
+    alice = pre.fund_eoa(amount=gas_limit * gas_price)
+
+    tx = Transaction(
+        sender=alice,
+        to=halting_contract,
+        gas_limit=gas_limit,
+        gas_price=gas_price,
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_limit),
+    )
+
+    state_test(
+        env=Environment(
+            fee_recipient=coinbase, base_fee_per_gas=base_fee_per_gas
+        ),
+        pre=pre,
+        tx=tx,
+        post={
+            alice: Account(nonce=1, balance=0),
+            coinbase: Account(balance=tip * gas_limit),
+        },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=0)
+                    ],
+                ),
+                coinbase: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1, post_balance=tip * gas_limit
+                        )
+                    ],
+                ),
+                halting_contract: BalAccountExpectation.empty(),
+            }
+        ),
     )
 
 
@@ -3998,6 +4091,117 @@ def test_bal_gas_limit_boundary(
         pre=pre,
         blocks=[block],
         post=post if at_boundary else {},
+        genesis_environment=Environment(
+            base_fee_per_gas=base_fee_per_gas, gas_limit=gas_limit
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "boundary_offset",
+    [
+        pytest.param(0, id="at_boundary"),
+        pytest.param(
+            -1, marks=pytest.mark.exception_test, id="below_boundary"
+        ),
+    ],
+)
+def test_bal_gas_limit_boundary_storage_keys(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    boundary_offset: int,
+) -> None:
+    """
+    Storage keys count toward the BAL item cap as unique keys: a slot
+    written in two transactions is one item, and read slots weigh the
+    same as written ones.
+    """
+    # gas_price == base_fee leaves the coinbase without a balance change.
+    base_fee_per_gas = 7
+    written_slot = 1
+    read_slot = 2
+
+    # Rewriting a non-zero slot avoids EIP-8037 state gas, which would
+    # not fit in a block sized to the item cap.
+    counter_code = Op.SSTORE(
+        written_slot,
+        Op.ADD(Op.SLOAD(written_slot, key_warm=False), 1),
+        key_warm=True,
+        original_value=1,
+        current_value=1,
+        new_value=2,
+    ) + Op.POP(Op.SLOAD(read_slot, key_warm=False))
+    counter = pre.deploy_contract(code=counter_code, storage={written_slot: 1})
+    alice = pre.fund_eoa()
+
+    tx_gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + counter_code.gas_cost(fork)
+    )
+    txs = [
+        Transaction(
+            sender=alice,
+            to=counter,
+            gas_limit=tx_gas_limit,
+            gas_price=base_fee_per_gas,
+        )
+        for _ in range(2)
+    ]
+
+    # alice + counter + coinbase (EIP-3651 warm), then one item per key.
+    storage_keys = [written_slot, read_slot]
+    total_items = fork.empty_block_bal_item_count() + 3 + len(storage_keys)
+    gas_limit = (
+        total_items * fork.gas_costs().BLOCK_ACCESS_LIST_ITEM + boundary_offset
+    )
+
+    at_boundary = boundary_offset == 0
+    block = Block(
+        txs=txs,
+        exception=(
+            None
+            if at_boundary
+            else BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED
+        ),
+        expected_block_access_list=(
+            BlockAccessListExpectation(
+                account_expectations={
+                    alice: BalAccountExpectation(
+                        nonce_changes=[
+                            BalNonceChange(block_access_index=1, post_nonce=1),
+                            BalNonceChange(block_access_index=2, post_nonce=2),
+                        ],
+                    ),
+                    counter: BalAccountExpectation(
+                        storage_changes=[
+                            BalStorageSlot(
+                                slot=written_slot,
+                                slot_changes=[
+                                    BalStorageChange(
+                                        block_access_index=1, post_value=2
+                                    ),
+                                    BalStorageChange(
+                                        block_access_index=2, post_value=3
+                                    ),
+                                ],
+                            )
+                        ],
+                        storage_reads=[read_slot],
+                    ),
+                }
+            )
+            if at_boundary
+            else None
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            counter: Account(storage={written_slot: 3 if at_boundary else 1})
+        },
         genesis_environment=Environment(
             base_fee_per_gas=base_fee_per_gas, gas_limit=gas_limit
         ),
