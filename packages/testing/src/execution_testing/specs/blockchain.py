@@ -802,9 +802,12 @@ class BlockchainTest(BaseTest):
             and "blockchain_test_only" in marker_names
         ):
             return True
+        engine_formats: List[FixtureFormat] = [
+            BlockchainEngineFixture,
+            BlockchainEngineXFixture,
+        ]
         if (
-            fixture_format
-            not in [BlockchainEngineFixture, BlockchainEngineXFixture]
+            fixture_format not in engine_formats
             and "blockchain_test_engine_only" in marker_names
         ):
             return True
