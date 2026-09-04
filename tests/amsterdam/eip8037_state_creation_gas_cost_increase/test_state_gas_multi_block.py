@@ -425,18 +425,18 @@ def test_coinbase_fee_with_state_gas_refund(
     ],
 )
 @pytest.mark.valid_from("EIP8037")
-def test_coinbase_fee_follows_dominant_dimension(
+def test_coinbase_fee_paid_on_execution_and_state(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     dominant_dimension: str,
 ) -> None:
     """
-    Assert the miner is paid on `max(execution, state)`, whichever leads.
+    Assert the miner is paid on execution gas plus state gas.
 
-    The same reporter reads the coinbase balance after one transaction
-    whose bottleneck is either dimension. Billing the miner on the
-    execution dimension alone would underpay whenever state leads.
+    A reporter reads the coinbase balance after a transaction
+    bottlenecked on either dimension. The fee sums both either way;
+    `max(execution, state)` governs the header, not the sender's bill.
     """
     if dominant_dimension == "state":
         body = Op.SSTORE(0, 1)

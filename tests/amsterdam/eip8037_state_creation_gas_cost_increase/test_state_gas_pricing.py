@@ -32,6 +32,7 @@ from execution_testing import (
     Transaction,
     TransactionException,
     TransactionReceipt,
+    compute_create_address,
 )
 from execution_testing.checklists import EIPChecklist
 

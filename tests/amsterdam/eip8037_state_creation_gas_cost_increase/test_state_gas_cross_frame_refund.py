@@ -169,6 +169,7 @@ def clearing_probe_code(
         + Op.SSTORE(SLOT_MARKER, 1)
     )
 
+
 @pytest.mark.parametrize("call_opcode", [Op.CALLCODE, Op.DELEGATECALL])
 @pytest.mark.valid_from("EIP8037")
 def test_cross_frame_refund_parks_in_reservoir(
