@@ -12,11 +12,13 @@ import math
 
 import pytest
 from execution_testing import (
+    Address,
     Alloc,
     AuthorizationTuple,
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    Environment,
     ExtCallGenerator,
     Fork,
     Hash,
@@ -66,25 +68,50 @@ def test_tload(
     )
 
 
-@pytest.mark.repricing(fixed_key=False, fixed_value=False)
+@pytest.mark.repricing(fixed_key=False, tload="none")
 @pytest.mark.parametrize("fixed_key", [True, False])
-@pytest.mark.parametrize("fixed_value", [True, False])
+@pytest.mark.parametrize("tload", ["none", "hit", "miss"])
 def test_tstore(
     benchmark_test: BenchmarkTestFiller,
     fixed_key: bool,
-    fixed_value: bool,
+    tload: str,
 ) -> None:
-    """Benchmark TSTORE instruction."""
-    init_key = 42
-    setup = Op.PUSH1(init_key)
+    """
+    Benchmark TSTORE with a fixed (PUSH0) or unique (GAS) key each op.
 
-    attack_block = Op.TSTORE(Op.DUP2, Op.GAS if not fixed_value else Op.DUP1)
-    cleanup = Op.POP + Op.GAS if not fixed_key else Bytecode()
+    A unique key (GAS) targets a distinct transient slot per write with no
+    memory counter, the worst case for a client's key structure. The value
+    is COINBASE (a nonzero op) so each write actually inserts an entry; a
+    zero value lets clients skip the insert and silently hide the store
+    growth, so the coinbase is asserted nonzero. ``tload`` adds a read of
+    the written key (hit) or of a fresh, never-written key (miss).
+    """
+    assert Environment().fee_recipient != Address(0), (
+        "coinbase must be nonzero so the TSTORE value is nonzero"
+    )
+
+    key = Op.PUSH0 if fixed_key else Op.GAS
+    value = Op.COINBASE
+    if tload == "hit":
+        # Seed the value once; each iteration stores it under the key and
+        # reads it back, feeding the result into the next TSTORE so the
+        # read is used, not discarded. Stack carries [value].
+        setup = Bytecode(value)
+        attack_block = key + Op.SWAP1 + Op.DUP2 + Op.TSTORE + Op.TLOAD
+    elif tload == "miss":
+        # Write the key, then read a fresh, never-written key: a TLOAD
+        # miss on the growing store. Value stays COINBASE (nonzero).
+        setup = Bytecode()
+        attack_block = Op.TSTORE(key, value) + Op.POP(Op.TLOAD(Op.GAS))
+    else:
+        setup = Bytecode()
+        attack_block = Op.TSTORE(key, value)
 
     benchmark_test(
         target_opcode=Op.TSTORE,
         code_generator=JumpLoopGenerator(
-            setup=setup, attack_block=attack_block, cleanup=cleanup
+            setup=setup,
+            attack_block=attack_block,
         ),
     )
 
