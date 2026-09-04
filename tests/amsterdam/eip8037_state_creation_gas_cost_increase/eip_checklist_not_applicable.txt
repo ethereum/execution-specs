@@ -11,3 +11,4 @@ execution_layer_request = EIP does not introduce an execution layer request
 new_transaction_validity_constraint = EIP replaces an existing transaction constraint instead of introducing an independent new constraint
 block_level_constraint/test/content/receipts = Receipt encoding size is not an input to the two-dimensional block gas constraint
 block_level_constraint/test/content/withdrawals = Withdrawals do not consume execution or state gas and are not an input to the two-dimensional block gas constraint
+general/code_coverage/second_client = Optional second-client code-coverage audit explicitly waived by the maintainer; no instrumented second-client run was performed. Engine and Engine X client-consumption checks remain separate release requirements.

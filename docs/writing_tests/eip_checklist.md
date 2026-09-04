@@ -257,6 +257,19 @@ Example output snippet:
       # Review the generated checklist for completeness
       ```
 
+## Measure full block-validation coverage
+
+After filling, run blockchain fixtures through EELS' full block validator:
+
+```bash
+just block-coverage .just/eip8037-fixtures/blockchain_tests Amsterdam
+```
+
+Reports are written to `.just/block-coverage/` and replaced on each run.
+Review the EIP's changed-line coverage and explain any missed lines before
+marking coverage complete. This command excludes fork-transition fixtures;
+second-client coverage and live-devnet execution require separate runs.
+
 ## See Also
 
 - [EIP Testing Checklist Template](./checklist_templates/eip_testing_checklist_template.md) - The full checklist template
