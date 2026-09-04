@@ -11,6 +11,8 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BuilderDepositRequest,
+    BuilderExitRequest,
     Bytecode,
     Header,
     Op,
@@ -20,7 +22,6 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 
-from .helpers import BuilderDepositRequest, BuilderExitRequest
 from .spec import Spec, ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_8282.git_path
@@ -31,7 +32,7 @@ pytestmark: List[pytest.MarkDecorator] = [
     pytest.mark.pre_alloc_mutable(),
 ]
 
-MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
+MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
 
 
 def builder_deposit_list_with_custom_fee(  # noqa: D103
@@ -63,7 +64,7 @@ def run_modified_requests_test(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     *,
-    predeploy_address: int,
+    predeploy_address: Address,
     requests_list: Sequence[SystemContractRequest],
 ) -> None:
     """
@@ -106,25 +107,25 @@ def run_modified_requests_test(
         ),
         pytest.param(
             builder_deposit_list_with_custom_fee(
-                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK - 1
+                BuilderDepositRequest.max_per_block - 1
             ),
             id="max_minus_1_builder_deposit_requests",
         ),
         pytest.param(
             builder_deposit_list_with_custom_fee(
-                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK
+                BuilderDepositRequest.max_per_block
             ),
             id="max_builder_deposit_requests",
         ),
         pytest.param(
             builder_deposit_list_with_custom_fee(
-                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK + 1
+                BuilderDepositRequest.max_per_block + 1
             ),
             id="max_plus_1_builder_deposit_requests",
         ),
         pytest.param(
             builder_deposit_list_with_custom_fee(
-                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK + 2
+                BuilderDepositRequest.max_per_block + 2
             ),
             id="max_plus_2_builder_deposit_requests",
         ),
@@ -142,7 +143,7 @@ def test_extra_builder_deposits(
     run_modified_requests_test(
         blockchain_test,
         pre,
-        predeploy_address=Spec.BUILDER_DEPOSIT_CONTRACT_ADDRESS,
+        predeploy_address=BuilderDepositRequest.system_contract_address,
         requests_list=requests_list,
     )
 
@@ -157,25 +158,25 @@ def test_extra_builder_deposits(
         ),
         pytest.param(
             builder_exit_list_with_custom_fee(
-                Spec.MAX_EXIT_REQUESTS_PER_BLOCK - 1
+                BuilderExitRequest.max_per_block - 1
             ),
             id="max_minus_1_builder_exit_requests",
         ),
         pytest.param(
             builder_exit_list_with_custom_fee(
-                Spec.MAX_EXIT_REQUESTS_PER_BLOCK
+                BuilderExitRequest.max_per_block
             ),
             id="max_builder_exit_requests",
         ),
         pytest.param(
             builder_exit_list_with_custom_fee(
-                Spec.MAX_EXIT_REQUESTS_PER_BLOCK + 1
+                BuilderExitRequest.max_per_block + 1
             ),
             id="max_plus_1_builder_exit_requests",
         ),
         pytest.param(
             builder_exit_list_with_custom_fee(
-                Spec.MAX_EXIT_REQUESTS_PER_BLOCK + 2
+                BuilderExitRequest.max_per_block + 2
             ),
             id="max_plus_2_builder_exit_requests",
         ),
@@ -193,7 +194,7 @@ def test_extra_builder_exits(
     run_modified_requests_test(
         blockchain_test,
         pre,
-        predeploy_address=Spec.BUILDER_EXIT_CONTRACT_ADDRESS,
+        predeploy_address=BuilderExitRequest.system_contract_address,
         requests_list=requests_list,
     )
 
@@ -202,11 +203,11 @@ def test_extra_builder_exits(
     "system_contract",
     [
         pytest.param(
-            Address(Spec.BUILDER_DEPOSIT_CONTRACT_ADDRESS),
+            BuilderDepositRequest.system_contract_address,
             id="builder_deposit_contract",
         ),
         pytest.param(
-            Address(Spec.BUILDER_EXIT_CONTRACT_ADDRESS),
+            BuilderExitRequest.system_contract_address,
             id="builder_exit_contract",
         ),
     ],

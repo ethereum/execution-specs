@@ -13,12 +13,12 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    ConsolidationRequest,
     Environment,
     SystemContractInteractionTransaction,
     Transaction,
 )
 
-from .helpers import ConsolidationRequest
 from .spec import Spec, ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
@@ -93,7 +93,7 @@ def test_consolidation_requests_during_fork(
     """
     # We need to delete the deployed contract that comes by default in the pre
     # state.
-    pre[Spec.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS] = Account(
+    pre[ConsolidationRequest.system_contract_address] = Account(
         balance=0,
         code=bytes(),
         nonce=0,

@@ -10,12 +10,12 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BuilderExitRequest,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
 )
 
-from .helpers import BuilderExitRequest
-from .spec import Spec, ref_spec_8282
+from .spec import ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8282.version
@@ -78,7 +78,7 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
                     SystemContractInteractionContract(
                         requests=[
                             BuilderExitRequest(pubkey=i + 1)
-                            for i in range(Spec.MAX_EXIT_REQUESTS_PER_BLOCK)
+                            for i in range(BuilderExitRequest.max_per_block)
                         ],
                     ),
                 ],
@@ -92,7 +92,7 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
                         requests=[
                             BuilderExitRequest(pubkey=i + 1)
                             for i in range(
-                                Spec.MAX_EXIT_REQUESTS_PER_BLOCK * 2 + 1
+                                BuilderExitRequest.max_per_block * 2 + 1
                             )
                         ],
                     ),

@@ -39,7 +39,7 @@ from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.ru
     ruleset,
 )
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.forks import Osaka
+from execution_testing.forks import Osaka, Requests
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
@@ -48,7 +48,6 @@ from execution_testing.test_types import (
     Alloc,
     ChainConfig,
     Environment,
-    Requests,
     Transaction,
     Withdrawal,
     compute_deterministic_create2_address,

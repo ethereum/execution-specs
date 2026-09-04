@@ -10,9 +10,9 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     SystemContractInteractionTransaction,
+    WithdrawalRequest,
 )
 
-from .helpers import WithdrawalRequest
 from .spec import ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path

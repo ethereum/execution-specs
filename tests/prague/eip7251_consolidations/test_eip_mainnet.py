@@ -9,10 +9,10 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    ConsolidationRequest,
     SystemContractInteractionTransaction,
 )
 
-from .helpers import ConsolidationRequest
 from .spec import ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path

@@ -12,11 +12,11 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    ConsolidationRequest,
     Environment,
     SystemContractInteractionTransaction,
 )
 
-from tests.prague.eip7251_consolidations.helpers import ConsolidationRequest
 from tests.prague.eip7251_consolidations.spec import Spec, ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7251.git_path
@@ -25,20 +25,16 @@ REFERENCE_SPEC_VERSION = ref_spec_7251.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = (
-    Spec.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
+    ConsolidationRequest.system_contract_address
 )
-CONSOLIDATION_REQUEST_COUNT_STORAGE_SLOT = (
-    Spec.CONSOLIDATION_REQUEST_COUNT_STORAGE_SLOT
-)
+CONSOLIDATION_REQUEST_COUNT_STORAGE_SLOT = ConsolidationRequest.count_slot
 CONSOLIDATION_REQUEST_QUEUE_HEAD_STORAGE_SLOT = (
-    Spec.CONSOLIDATION_REQUEST_QUEUE_HEAD_STORAGE_SLOT
+    ConsolidationRequest.queue_head_slot
 )
 CONSOLIDATION_REQUEST_QUEUE_TAIL_STORAGE_SLOT = (
-    Spec.CONSOLIDATION_REQUEST_QUEUE_TAIL_STORAGE_SLOT
+    ConsolidationRequest.queue_tail_slot
 )
-MAX_CONSOLIDATION_REQUESTS_PER_BLOCK = (
-    Spec.MAX_CONSOLIDATION_REQUESTS_PER_BLOCK
-)
+MAX_CONSOLIDATION_REQUESTS_PER_BLOCK = ConsolidationRequest.max_per_block
 SYSTEM_ADDRESS = Address(Spec.SYSTEM_ADDRESS)
 
 
@@ -52,7 +48,7 @@ SYSTEM_ADDRESS = Address(Spec.SYSTEM_ADDRESS)
                         ConsolidationRequest(
                             source_pubkey=0x01,
                             target_pubkey=0x02,
-                            fee=Spec.get_fee(0),
+                            fee=ConsolidationRequest.get_fee(0),
                         )
                     ],
                 )
@@ -66,7 +62,7 @@ SYSTEM_ADDRESS = Address(Spec.SYSTEM_ADDRESS)
                         ConsolidationRequest(
                             source_pubkey=i * 2 + 1,
                             target_pubkey=i * 2 + 2,
-                            fee=Spec.get_fee(0),
+                            fee=ConsolidationRequest.get_fee(0),
                         )
                     ],
                 )
@@ -81,7 +77,7 @@ SYSTEM_ADDRESS = Address(Spec.SYSTEM_ADDRESS)
                         ConsolidationRequest(
                             source_pubkey=i * 2 + 1,
                             target_pubkey=i * 2 + 2,
-                            fee=Spec.get_fee(0),
+                            fee=ConsolidationRequest.get_fee(0),
                         )
                     ],
                 )
