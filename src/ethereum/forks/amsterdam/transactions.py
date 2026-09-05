@@ -53,8 +53,6 @@ class IntrinsicGasCost:
     """
 
 
-TX_MAX_GAS_LIMIT = Uint(16_777_216)
-
 BLOB_COUNT_LIMIT = 6
 """
 Maximum number of blobs a single transaction may carry.
@@ -615,6 +613,7 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
     [EIP-2681]: https://eips.ethereum.org/EIPS/eip-2681
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
     """
+    from .vm.gas import GasCosts
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
@@ -657,11 +656,11 @@ def validate_transaction(tx: Transaction, sender: Address) -> IntrinsicGasCost:
         raise InsufficientTransactionGasError("Insufficient intrinsic gas")
     if intrinsic.calldata_floor > tx.gas:
         raise InsufficientTransactionGasError("Insufficient calldata floor")
-    if intrinsic.execution > TX_MAX_GAS_LIMIT:
+    if intrinsic.execution > GasCosts.TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
             "Intrinsic execution gas exceeds TX_MAX_GAS_LIMIT"
         )
-    if intrinsic.calldata_floor > TX_MAX_GAS_LIMIT:
+    if intrinsic.calldata_floor > GasCosts.TX_MAX_GAS_LIMIT:
         raise InsufficientTransactionGasError(
             "Intrinsic calldata floor exceeds TX_MAX_GAS_LIMIT"
         )

@@ -67,6 +67,7 @@ class GasCosts:
 
     # Refunds
     REFUND_STORAGE_CLEAR: Final[int] = 4800
+    REFUND_AUTH_PER_EXISTING_ACCOUNT: Final[int] = 12500
 
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
