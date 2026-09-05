@@ -33,7 +33,6 @@ from ..fork_types import (
     VersionedHash,
 )
 from ..transactions import (
-    TX_MAX_GAS_LIMIT,
     BlobTransaction,
     IntrinsicGasCost,
     Transaction,
@@ -162,6 +161,8 @@ class GasCosts:
     TX_ACCESS_LIST_STORAGE_KEY: Final[ExecutionGas] = (
         COLD_STORAGE_ACCESS - WARM_ACCESS
     )
+
+    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
@@ -1077,7 +1078,7 @@ def check_block_gas_capacity(
     BlobGasLimitExceededError :
         If the transaction exceeds the block's remaining blob gas.
 
-    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.transactions.TX_MAX_GAS_LIMIT
+    [`TX_MAX_GAS_LIMIT`]: ref:ethereum.forks.amsterdam.vm.gas.GasCosts.TX_MAX_GAS_LIMIT
 
     """  # noqa: E501
     execution_gas_available = (
@@ -1088,7 +1089,7 @@ def check_block_gas_capacity(
     )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if min(TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
+    if min(GasCosts.TX_MAX_GAS_LIMIT, tx_gas) > execution_gas_available:
         raise GasUsedExceedsLimitError("execution gas used exceeds limit")
 
     if tx_gas > state_gas_available:
@@ -1141,7 +1142,7 @@ def allocate_evm_gas(
 
     """
     evm_gas = tx_gas - Uint(intrinsic.execution)
-    execution_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.execution
+    execution_gas_budget = GasCosts.TX_MAX_GAS_LIMIT - intrinsic.execution
     execution_gas = ExecutionGas(min(execution_gas_budget, evm_gas))
     state_gas_reservoir = StateGas(evm_gas - execution_gas)
     return EvmGasAllocation(execution_gas, state_gas_reservoir)
