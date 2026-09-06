@@ -1114,6 +1114,20 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def zero_nonce_storage_accounts(cls) -> List[Address]:
+        """
+        Return the Mainnet accounts with empty code, a zero nonce, and
+        non-empty storage whose nonce is set to one at the fork block
+        (EIP-8253). Empty before the EIP is active.
+
+        Once the list is non-empty, no account of that shape can exist in
+        the state, and the fork block's access list carries one nonce change
+        per listed account.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def pre_allocation(cls) -> Mapping:
         """
         Return required pre-allocation of accounts for any kind of test.

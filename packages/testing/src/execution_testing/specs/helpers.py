@@ -13,7 +13,12 @@ from execution_testing.exceptions import (
     TransactionException,
     UndefinedException,
 )
+from execution_testing.forks import Fork
+from execution_testing.forks.forks.eips.amsterdam.eip_8253 import (
+    ZERO_NONCE_STORAGE_ACCOUNTS,
+)
 from execution_testing.test_types import (
+    Alloc,
     Transaction,
     TransactionLog,
     TransactionReceipt,
@@ -471,3 +476,45 @@ def verify_block(
         got_exception=got_exception,
     )
     info.verify(strict_match=transition_tool_exceptions_reliable)
+
+
+def verify_zero_nonce_storage_accounts(pre_alloc: Alloc, fork: Fork) -> None:
+    """
+    Check the pre-state against the EIP-8253 invariants of `fork`.
+
+    Test chains stand in for Mainnet. Until the fork block bumps them, the
+    targeted accounts have to look like they do on Mainnet if they appear
+    in the pre-state at all: empty code and a zero nonce. From the bump on,
+    no account with empty code, a zero nonce, and non-empty storage can
+    exist, because the fork block removed the last of them.
+
+    Raises an exception describing the offending accounts.
+    """
+    if fork.zero_nonce_storage_accounts():
+        offenders = [
+            address
+            for address, account in pre_alloc.root.items()
+            if account is not None
+            and account.nonce == 0
+            and not account.code
+            and any(int(value) != 0 for value in account.storage.root.values())
+        ]
+        if offenders:
+            raise Exception(
+                "Accounts with empty code, zero nonce and non-empty storage "
+                f"cannot exist in the pre-state from {fork.name()} on "
+                f"(EIP-8253): {offenders}"
+            )
+        return
+
+    offenders = [
+        address
+        for address in ZERO_NONCE_STORAGE_ACCOUNTS
+        if (account := pre_alloc.get(address)) is not None
+        and (account.nonce != 0 or account.code)
+    ]
+    if offenders:
+        raise Exception(
+            "Accounts targeted by EIP-8253 must have a zero nonce and empty "
+            f"code in a pre-state before the bump, as on Mainnet: {offenders}"
+        )

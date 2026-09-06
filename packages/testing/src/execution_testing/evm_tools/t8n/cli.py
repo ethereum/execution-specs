@@ -78,6 +78,15 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument(
         "--state.reward", dest="state_reward", type=int, default=None
     )
+    t8n_parser.add_argument(
+        "--state.fork-activation",
+        dest="state_fork_activation",
+        action="store_true",
+        help=(
+            "The block is the first block of `--state.fork`; apply the "
+            "one-time fork-block state transitions (EIP-8253)."
+        ),
+    )
     t8n_parser.add_argument("--trace", action="store_true")
     t8n_parser.add_argument("--trace.memory", action="store_true")
     t8n_parser.add_argument("--trace.nomemory", action="store_true")
@@ -367,6 +376,7 @@ def build_t8n_from_cli_options(
         reward=_resolve_state_reward(options.state_reward, fork_module),
         blob_schedule=blob_schedule,
         state_test=options.state_test,
+        fork_activation=options.state_fork_activation,
     )
 
     # ``Ommer.address`` is parsed via the per-fork ``hex_to_address``
