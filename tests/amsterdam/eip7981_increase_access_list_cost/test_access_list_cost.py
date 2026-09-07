@@ -271,6 +271,8 @@ def test_duplicate_access_list_entries(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test that duplicate access list entries are charged multiple times.
@@ -278,6 +280,10 @@ def test_duplicate_access_list_entries(
     According to EIP-2930, non-unique addresses and storage keys are allowed
     and charged multiple times. EIP-7981 should maintain this behavior.
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
