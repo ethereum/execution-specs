@@ -12,6 +12,7 @@ from execution_testing import (
     Fork,
     Hash,
     Op,
+    RecipientType,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
@@ -105,6 +106,8 @@ def test_access_list_token_calculation(
     fork: Fork,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
     access_list: list,
     expected_floor_tokens: int,
 ) -> None:
@@ -133,6 +136,10 @@ def test_access_list_token_calculation(
     )
     assert actual_floor_cost == expected_floor_cost
 
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
@@ -171,7 +178,8 @@ def test_access_list_floor_cost_with_calldata(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
-    tx_intrinsic_gas_cost_including_floor_data_cost: int,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test that the floor cost correctly accounts for both access list
@@ -183,10 +191,10 @@ def test_access_list_floor_cost_with_calldata(
     - floor_gas =
       TX_BASE_COST + total_floor_data_tokens * TOTAL_COST_FLOOR_PER_TOKEN
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
     tx.expected_receipt = TransactionReceipt(
-        cumulative_gas_used=tx_intrinsic_gas_cost_including_floor_data_cost
+        status=1, gas_used=tx_expected_gas_used
     )
-
     state_test(
         pre=pre,
         post={},
@@ -220,6 +228,8 @@ def test_large_access_list_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test gas costs for large access lists.
@@ -229,6 +239,10 @@ def test_large_access_list_cost(
        at the fork's cold access costs since EIP-8038)
     2. Data footprint costs (16 per floor token)
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
@@ -248,6 +262,10 @@ def test_large_access_list_cost(
             ],
             id="duplicate_access_list_entries",
         ),
+        pytest.param(
+            [AccessList(address=Address(1), storage_keys=[Hash(0), Hash(0)])],
+            id="duplicate_storage_keys",
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -259,6 +277,8 @@ def test_duplicate_access_list_entries(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test that duplicate access list entries are charged multiple times.
@@ -266,6 +286,10 @@ def test_duplicate_access_list_entries(
     According to EIP-2930, non-unique addresses and storage keys are allowed
     and charged multiple times. EIP-7981 should maintain this behavior.
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
@@ -276,17 +300,17 @@ def test_duplicate_access_list_entries(
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize(
-    "access_list",
+    "data",
     [
-        pytest.param(
-            [
-                AccessList(
-                    address=Address(1),
-                    storage_keys=[Hash(0), Hash(1)],
-                )
-            ],
-            id="single_address_two_keys",
-        ),
+        pytest.param(b"\x00" * 400, id="zero_calldata"),
+        pytest.param(b"\xff" * 400, id="nonzero_calldata"),
+    ],
+)
+@pytest.mark.parametrize(
+    "execution_dominates",
+    [
+        pytest.param(False, id="floor_dominates"),
+        pytest.param(True, id="execution_dominates"),
     ],
 )
 def test_access_list_data_cost_with_execution(
@@ -294,70 +318,183 @@ def test_access_list_data_cost_with_execution(
     pre: Alloc,
     fork: Fork,
     tx_type: int,
-    access_list: list,
+    data: bytes,
+    execution_dominates: bool,
 ) -> None:
-    """
-    Test that the access list data cost is charged when execution gas
-    dominates.
-
-    EIP-7981 charges the access list data cost as a flat surcharge on
-    both sides of the gas-used max, so it is paid in full even when the
-    intrinsic-plus-execution side exceeds the floor. An implementation
-    that only counts access list bytes toward the floor undercharges
-    exactly the surcharge here, failing the receipt pin.
-    """
+    """Charge the full access list surcharge on either side of the maximum."""
+    access_list = [
+        AccessList(address=Address(1), storage_keys=[Hash(0), Hash(1)])
+    ]
     gas_costs = fork.gas_costs()
     surcharge = (
         calculate_access_list_floor_tokens(access_list)
         * gas_costs.TX_DATA_TOKEN_FLOOR
     )
-    # One gas per JUMPDEST, sized so the execution gas strictly exceeds
-    # the surcharge under test.
-    code = Op.JUMPDEST * (surcharge + 1) + Op.STOP
-    contract = pre.deploy_contract(code)
+    # Keep execution free of storage changes and refunds so the two
+    # gas-used branches can be compared directly.
+    code = (Op.PUSH0 + Op.POP) * (10_000 if execution_dominates else 0)
+    contract = pre.deploy_contract(code + Op.STOP)
     execution_gas = code.gas_cost(fork)
-    assert execution_gas > surcharge
 
-    intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas = intrinsic_cost_calculator(
-        access_list=access_list,
+    intrinsic_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_without_access_list = intrinsic_calculator(
+        calldata=data,
         return_cost_deducted_prior_execution=True,
     )
-    # The surcharge must be an explicit term of the intrinsic cost, on
-    # top of the per-entry access charges of the same transaction
-    # without an access list.
+    # The subject is the access-list schedule: derive the surcharge
+    # separately from the calculator's handling of access lists.
     entry_charges = (
         gas_costs.TX_ACCESS_LIST_ADDRESS
         + 2 * gas_costs.TX_ACCESS_LIST_STORAGE_KEY
     )
-    intrinsic_gas_no_access_list = intrinsic_cost_calculator(
-        return_cost_deducted_prior_execution=True,
+    execution_cost = (
+        intrinsic_without_access_list + entry_charges + execution_gas
     )
-    assert (
-        intrinsic_gas
-        == intrinsic_gas_no_access_list + entry_charges + surcharge
-    )
-
-    # The execution side must win the max against the floor.
-    expected_gas_used = intrinsic_gas + execution_gas
-    floor_gas = fork.transaction_data_floor_cost_calculator()(
-        data=b"", access_list=access_list
-    )
-    assert expected_gas_used > floor_gas
+    calldata_floor = fork.transaction_data_floor_cost_calculator()(data=data)
+    assert (execution_cost > calldata_floor) == execution_dominates
+    expected_gas_used = max(execution_cost, calldata_floor) + surcharge
 
     tx = Transaction(
         ty=tx_type,
         sender=pre.fund_eoa(),
         to=contract,
+        data=data,
         access_list=access_list,
-        gas_limit=expected_gas_used,
+        # Surplus gas distinguishes actual billing from simply burning
+        # a gas limit that happens to equal the expected receipt value.
+        gas_limit=expected_gas_used + 1000,
         expected_receipt=TransactionReceipt(
             cumulative_gas_used=expected_gas_used
         ),
     )
 
-    state_test(
-        pre=pre,
-        post={},
-        tx=tx,
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(b"\x00" * 400, id="zero_calldata"),
+        pytest.param(b"\xff" * 400, id="nonzero_calldata"),
+    ],
+)
+@pytest.mark.parametrize(
+    "execution_delta",
+    [
+        pytest.param(-1, id="below_floor"),
+        pytest.param(0, id="at_floor"),
+        pytest.param(1, id="above_floor"),
+    ],
+)
+def test_access_list_data_cost_at_crossover(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    data: bytes,
+    execution_delta: int,
+) -> None:
+    """Charge the full access list surcharge on either side of the maximum."""
+    access_list = [
+        AccessList(address=Address(1), storage_keys=[Hash(0), Hash(1)])
+    ]
+    gas_costs = fork.gas_costs()
+    surcharge = (
+        calculate_access_list_floor_tokens(access_list)
+        * gas_costs.TX_DATA_TOKEN_FLOOR
     )
+    intrinsic_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_without_access_list = intrinsic_calculator(
+        calldata=data,
+        return_cost_deducted_prior_execution=True,
+    )
+    # The subject is the access-list schedule: derive the surcharge
+    # separately from the calculator's handling of access lists.
+    entry_charges = (
+        gas_costs.TX_ACCESS_LIST_ADDRESS
+        + 2 * gas_costs.TX_ACCESS_LIST_STORAGE_KEY
+    )
+    calldata_floor = fork.transaction_data_floor_cost_calculator()(data=data)
+    execution_budget = (
+        calldata_floor - intrinsic_without_access_list - entry_charges
+    )
+    assert execution_budget > 0
+    # JUMPDEST is a one-gas operation; size the program from its modeled
+    # cost so each case lands immediately around the billing crossover.
+    jumpdest_gas = Op.JUMPDEST.gas_cost(fork)
+    assert execution_budget % jumpdest_gas == 0
+    code = Op.JUMPDEST * (execution_budget // jumpdest_gas + execution_delta)
+    contract = pre.deploy_contract(code + Op.STOP)
+    execution_cost = (
+        intrinsic_without_access_list + entry_charges + code.gas_cost(fork)
+    )
+    assert execution_cost - calldata_floor == execution_delta * jumpdest_gas
+    expected_gas_used = max(execution_cost, calldata_floor) + surcharge
+
+    tx = Transaction(
+        ty=tx_type,
+        sender=pre.fund_eoa(),
+        to=contract,
+        data=data,
+        access_list=access_list,
+        # Surplus gas distinguishes actual billing from simply burning
+        # a gas limit that happens to equal the expected receipt value.
+        gas_limit=expected_gas_used + 1000,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
+@pytest.mark.parametrize("self_transfer", [False, True])
+@pytest.mark.parametrize("value", [0, 1])
+@pytest.mark.parametrize("floor_dominates", [False, True])
+def test_access_list_surcharge_with_recipient_costs(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    self_transfer: bool,
+    value: int,
+    floor_dominates: bool,
+) -> None:
+    """Preserve the surcharge with self-transfer and value-transfer bases."""
+    sender = pre.fund_eoa()
+    target = sender if self_transfer else pre.fund_eoa(amount=1)
+    access_list = [AccessList(address=target, storage_keys=[])]
+    recipient_type = RecipientType.SELF if self_transfer else RecipientType.EOA
+    data = b"\x00" * (400 if floor_dominates else 0)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=data,
+        sends_value=value > 0,
+        recipient_type=recipient_type,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = fork.transaction_data_floor_cost_calculator()(
+        data=data, sends_value=value > 0, recipient_type=recipient_type
+    )
+    costs = fork.gas_costs()
+    execution_cost = intrinsic + costs.TX_ACCESS_LIST_ADDRESS
+    surcharge = (
+        calculate_access_list_floor_tokens(access_list)
+        * costs.TX_DATA_TOKEN_FLOOR
+    )
+    assert (floor > execution_cost) == floor_dominates
+    expected_gas = max(execution_cost, floor) + surcharge
+    tx = Transaction(
+        ty=tx_type,
+        sender=sender,
+        to=target,
+        value=value,
+        data=data,
+        access_list=access_list,
+        gas_limit=expected_gas + 1000,
+        expected_receipt=TransactionReceipt(status=1, gas_used=expected_gas),
+    )
+    state_test(pre=pre, post={}, tx=tx)

@@ -87,6 +87,7 @@ def authorization_list(
                 AuthorizationTuple(
                     signer=pre.fund_eoa(1 if authorization_refund else 0),
                     address=Address(1),
+                    creates_account=not authorization_refund,
                 )
             ]
         return None
@@ -96,6 +97,7 @@ def authorization_list(
                 AuthorizationTuple(
                     signer=pre.fund_eoa(1 if authorization_refund else 0),
                     address=Address(1),
+                    creates_account=not authorization_refund,
                 )
             ]
         return None
@@ -103,6 +105,7 @@ def authorization_list(
         AuthorizationTuple(
             signer=pre.fund_eoa(1 if authorization_refund else 0),
             address=address,
+            creates_account=not authorization_refund,
         )
         for address in request.param
     ]
@@ -257,4 +260,23 @@ def tx(
         gas_limit=tx_gas_limit,
         blob_versioned_hashes=blob_versioned_hashes,
         error=tx_error,
+    )
+
+
+@pytest.fixture
+def tx_expected_gas_used(
+    fork: Fork,
+    tx: Transaction,
+    tx_intrinsic_gas_cost_before_execution: int,
+) -> int:
+    """Return gas billed for the suite's empty-code recipient transactions."""
+    top_frame_gas = fork.transaction_top_frame_gas_calculator()(
+        authorizations=tx.authorization_list or [],
+    )
+    floor_gas = fork.transaction_data_floor_cost_calculator()(
+        data=tx.data, access_list=tx.access_list
+    )
+    return max(
+        tx_intrinsic_gas_cost_before_execution + top_frame_gas,
+        floor_gas,
     )

@@ -11,6 +11,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    TransactionReceipt,
 )
 
 from .spec import ref_spec_7981
@@ -77,6 +78,8 @@ def test_access_list_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test that transactions with access lists are charged correctly
@@ -87,6 +90,10 @@ def test_access_list_gas_cost(
     2. Access lists are charged for their data footprint (new in EIP-7981)
     3. Access list data contributes to the floor gas cost
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
@@ -137,6 +144,8 @@ def test_access_list_data_cost_edge_cases(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test edge cases for access list data costs.
@@ -145,6 +154,10 @@ def test_access_list_data_cost_edge_cases(
     - All zero bytes in access list
     - All non-zero bytes in access list
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},

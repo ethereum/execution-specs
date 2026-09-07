@@ -59,6 +59,7 @@ def access_list_shape(addresses: int, keys_per_address: int) -> list:
     ]
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 @pytest.mark.parametrize(
@@ -276,6 +277,7 @@ def test_access_list_validity_across_amsterdam_transition(
     blockchain_test(pre=pre, blocks=blocks, post={})
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.Before()
 @EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_access_list_floor_across_amsterdam_transition(
