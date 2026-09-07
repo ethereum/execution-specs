@@ -10,6 +10,7 @@ from execution_testing import (
     Bytes,
     EIPChecklist,
     Fork,
+    GasConsumer,
     Hash,
     Op,
     StateTestFiller,
@@ -311,9 +312,9 @@ def test_access_list_data_cost_with_execution(
         calculate_access_list_floor_tokens(access_list)
         * gas_costs.TX_DATA_TOKEN_FLOOR
     )
-    # One gas per JUMPDEST, sized so the execution gas strictly exceeds
-    # the surcharge under test.
-    code = Op.JUMPDEST * (surcharge + 1) + Op.STOP
+    # Sized so the execution gas strictly exceeds the surcharge under
+    # test.
+    code = GasConsumer(gas=surcharge + 1, fork=fork) + Op.STOP
     contract = pre.deploy_contract(code)
     execution_gas = code.gas_cost(fork)
     assert execution_gas > surcharge

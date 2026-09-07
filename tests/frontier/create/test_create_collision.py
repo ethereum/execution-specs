@@ -4,7 +4,7 @@ account has non-empty code or nonce (EIP-684), and that an account
 with only a balance is deployable.
 """
 
-from typing import Dict
+from typing import Dict, List
 
 import pytest
 from execution_testing import (
@@ -14,8 +14,10 @@ from execution_testing import (
     BlockAccessListExpectation,
     Bytecode,
     Fork,
+    GasConsumer,
     Initcode,
     Op,
+    ParameterSet,
     StateTestFiller,
     Transaction,
     compute_create_address,
@@ -66,12 +68,6 @@ COLLISION_ACCOUNT_CASES = [
     if nonce != 0 or code != b""
 ]
 
-INITCODE_CASES = [
-    (CORRECT_INITCODE, "correct-initcode", False),
-    (Op.REVERT(0, 0), "revert-initcode", True),
-    (Op.MSTORE(0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1), "oog-initcode", True),
-]
-
 # Preserve the reverting and out-of-gas initcode coverage for the two
 # original ported account shapes. The successful initcode is the probe
 # that distinguishes a missed collision for every additional shape.
@@ -80,20 +76,36 @@ ORIGINAL_COLLISION_ACCOUNT_IDS = {
     "nonce_1-no_code-no_storage-balance_0",
 }
 
-COLLISION_PARAMS = [
-    pytest.param(
-        nonce,
-        code,
-        storage,
-        balance,
-        initcode,
-        id=f"{initcode_id}-{account_id}",
-    )
-    for initcode, initcode_id, original_accounts_only in INITCODE_CASES
-    for nonce, code, storage, balance, account_id in COLLISION_ACCOUNT_CASES
-    if not original_accounts_only
-    or account_id in ORIGINAL_COLLISION_ACCOUNT_IDS
-]
+
+def collision_params(fork: Fork) -> List[ParameterSet]:
+    """
+    Return every account shape crossed with every initcode outcome.
+
+    The out-of-gas initcode is sized against the fork's own memory
+    pricing, so the cases cannot be built before the fork is known.
+    """
+    initcode_cases = [
+        (CORRECT_INITCODE, "correct-initcode", False),
+        (Op.REVERT(0, 0), "revert-initcode", True),
+        (GasConsumer(gas=None, fork=fork), "oog-initcode", True),
+    ]
+    return [
+        pytest.param(
+            nonce,
+            code,
+            storage,
+            balance,
+            initcode,
+            id=f"{initcode_id}-{account_id}",
+        )
+        for initcode, initcode_id, original_accounts_only in initcode_cases
+        for nonce, code, storage, balance, account_id in (
+            COLLISION_ACCOUNT_CASES
+        )
+        if not original_accounts_only
+        or account_id in ORIGINAL_COLLISION_ACCOUNT_IDS
+    ]
+
 
 PORTED_FROM = pytest.mark.ported_from(
     [
@@ -105,9 +117,9 @@ PORTED_FROM = pytest.mark.ported_from(
 
 
 @PORTED_FROM
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "collision_nonce,collision_code,collision_storage,collision_balance,initcode",
-    COLLISION_PARAMS,
+    collision_params,
 )
 @pytest.mark.with_all_contract_creating_tx_types
 @pytest.mark.eels_base_coverage
@@ -169,9 +181,9 @@ def test_create_tx_collision(
 
 
 @PORTED_FROM
-@pytest.mark.parametrize(
+@pytest.mark.parametrize_by_fork(
     "collision_nonce,collision_code,collision_storage,collision_balance,initcode",
-    COLLISION_PARAMS,
+    collision_params,
 )
 @pytest.mark.with_all_create_opcodes
 def test_create_opcode_collision(

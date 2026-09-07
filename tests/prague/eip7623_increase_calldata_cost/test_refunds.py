@@ -12,6 +12,7 @@ from execution_testing import (
     AuthorizationTuple,
     Bytecode,
     Fork,
+    GasConsumer,
     Op,
     StateTestFiller,
     Transaction,
@@ -259,48 +260,10 @@ def to(
     prefix_code_gas: int,
     code_storage: Dict,
 ) -> Address | None:
-    """
-    Return a contract that consumes the expected execution gas.
-
-    Uses a counting loop when the naive JUMPDEST approach would exceed the max
-    contract code size. Loop gas costs are derived from the fork.
-    """
-    extra_gas = execution_gas_used - prefix_code_gas
-    code = prefix_code + (Op.JUMPDEST * extra_gas) + Op.STOP
-    if len(code) <= fork.max_code_size():
-        return pre.deploy_contract(code, storage=code_storage)
-
-    loop_target = len(prefix_code) + len(Op.PUSH2(0))
-    setup = Op.PUSH2(0)
-    loop_body = (
-        Op.JUMPDEST
-        + Op.PUSH1(1)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.DUP1
-        + Op.PUSH1(loop_target)
-        + Op.JUMPI
-    )
-    teardown = Op.POP
-    overhead = setup.gas_cost(fork) + teardown.gas_cost(fork)
-    gas_per_iter = loop_body.gas_cost(fork)
-
-    available = extra_gas - overhead
-    iterations = available // gas_per_iter
-    remaining = available % gas_per_iter
-
+    """Return a contract that consumes the expected execution gas."""
     code = (
         prefix_code
-        + Op.PUSH2(iterations)
-        + Op.JUMPDEST
-        + Op.PUSH1(1)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.DUP1
-        + Op.PUSH1(loop_target)
-        + Op.JUMPI
-        + Op.POP
-        + (Op.JUMPDEST * remaining)
+        + GasConsumer(gas=execution_gas_used - prefix_code_gas, fork=fork)
         + Op.STOP
     )
     return pre.deploy_contract(code, storage=code_storage)

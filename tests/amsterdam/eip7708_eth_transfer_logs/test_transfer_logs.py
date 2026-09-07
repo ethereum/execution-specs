@@ -7,6 +7,8 @@ Tests for the Transfer(address,address,uint256) log emitted when:
 - Nonzero-value-transferring SELFDESTRUCT to a different account
 """
 
+from typing import List
+
 import pytest
 from execution_testing import (
     EOA,
@@ -19,8 +21,10 @@ from execution_testing import (
     Bytes,
     Environment,
     Fork,
+    GasConsumer,
     Initcode,
     Op,
+    ParameterSet,
     StateTestFiller,
     Storage,
     Transaction,
@@ -569,12 +573,17 @@ def test_create_insufficient_balance_no_log(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.parametrize(
-    "initcode",
-    [
+def failing_initcodes(fork: Fork) -> List[ParameterSet]:
+    """
+    Return init codes that fail, one way per case.
+
+    The out-of-gas case is sized against the fork's memory pricing, so the
+    cases cannot be built before the fork is known.
+    """
+    return [
         pytest.param(
             # OOG before return
-            Op.MSTORE(offset=0xFFFFFF, value=0) + Op.RETURN(0, 0),
+            GasConsumer(gas=None, fork=fork) + Op.RETURN(0, 0),
             id="create_out_of_gas_memory_expansion",
         ),
         pytest.param(
@@ -588,8 +597,10 @@ def test_create_insufficient_balance_no_log(
             Op.RETURN(0, 1000),
             id="create_out_of_gas_code_deposit",
         ),
-    ],
-)
+    ]
+
+
+@pytest.mark.parametrize_by_fork("initcode", failing_initcodes)
 def test_create_out_of_gas_no_log(
     state_test: StateTestFiller,
     env: Environment,
@@ -853,14 +864,19 @@ def test_call_to_self_no_log(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.parametrize(
-    "recipient_code,call_gas,call_value,recipient_balance,contract_balance",
-    [
+def failing_inner_operations(fork: Fork) -> List[ParameterSet]:
+    """
+    Return inner operations that fail, one way per case.
+
+    The out-of-gas memory case is sized against the fork's memory pricing,
+    so the cases cannot be built before the fork is known.
+    """
+    return [
         pytest.param(Op.REVERT(0, 0), Op.GAS, 500, 0, 500, id="call_reverted"),
         pytest.param(Op.JUMP(0), 100, 500, 0, 500, id="call_out_of_gas"),
         pytest.param(
-            # OOG with memory expansion - tries to access large memory offset
-            Op.MSTORE(0xFFFFFF, 0) + Op.STOP,
+            # OOG on an unpayable memory expansion
+            GasConsumer(gas=None, fork=fork) + Op.STOP,
             1000,
             500,
             0,
@@ -883,7 +899,12 @@ def test_call_to_self_no_log(
             0,
             id="call_insufficient_balance",
         ),
-    ],
+    ]
+
+
+@pytest.mark.parametrize_by_fork(
+    "recipient_code,call_gas,call_value,recipient_balance,contract_balance",
+    failing_inner_operations,
 )
 def test_failed_inner_operation_no_log(
     state_test: StateTestFiller,

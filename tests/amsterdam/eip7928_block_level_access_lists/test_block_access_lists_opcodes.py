@@ -35,6 +35,7 @@ from execution_testing import (
     Bytecode,
     Conditional,
     Fork,
+    GasConsumer,
     Initcode,
     Op,
     StateTestFiller,
@@ -3332,12 +3333,10 @@ def test_bal_create_and_oog(
         account_new=False,
     )
     factory_sstore = Op.SSTORE(0x00, 1)
-    oog_sink_memory_size = 10000 * 32
-    factory_oog_sink = Op.MSTORE(
-        oog_sink_memory_size - 32,
-        0,
-        old_memory_size=32,
-        new_memory_size=oog_sink_memory_size,
+    # A sized burn after the CREATE: far more than a starved frame
+    # can afford, and paid for explicitly in the success budget.
+    factory_oog_sink = GasConsumer(
+        gas=100_000, fork=fork, previous_memory_size=32
     )
     factory_code = (
         factory_mstore + factory_create + factory_oog_sink + factory_sstore
