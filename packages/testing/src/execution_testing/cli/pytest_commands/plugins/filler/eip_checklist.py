@@ -8,7 +8,7 @@ docs/writing_tests/checklist_templates/eip_testing_checklist_template.md
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import ClassVar, Dict, List, Set, Tuple, Type
 
@@ -355,9 +355,18 @@ class EIP:
         self.mark_not_applicable()
         self.mark_external_coverage()
 
-        for checklist_item in self.items.values():
-            # Find the line with this item ID
-            lines[checklist_item.line_number - 1] = str(checklist_item)
+        for index, line in enumerate(lines):
+            if template_item := EIPItem.from_checklist_line(
+                line=line, line_number=index + 1
+            ):
+                # An ID can describe several outcomes on separate rows.
+                # Share its coverage while preserving each description.
+                lines[index] = str(
+                    replace(
+                        self.items[template_item.id],
+                        description=template_item.description,
+                    )
+                )
 
         emoji = self.completeness_emoji
         pct = f"{self.percentage:.2f}%"

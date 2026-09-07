@@ -4,6 +4,10 @@ import re
 import textwrap
 from typing import Any
 
+import pytest
+
+from ..eip_checklist import EIP, TEMPLATE_CONTENT
+
 
 def test_eip_checklist_collection(testdir: Any) -> None:
     """Test that checklist markers are collected correctly."""
@@ -121,3 +125,43 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         re.search(r"N/A.*DEBUG NOT APPLICABLE REASON", line)
         for line in content
     )
+
+
+@pytest.mark.parametrize(
+    "coverage_kind", ["tests", "external", "not_applicable"]
+)
+def test_repeated_checklist_rows(coverage_kind: str) -> None:
+    """Render coverage on every repeated row while counting its ID once."""
+    item_id = (
+        "transaction_type/test/intrinsic_validity/"
+        "data_floor_above_intrinsic_gas_cost"
+    )
+    eip = EIP(number=7981)
+    total = eip.total_items
+    item = eip.items[item_id]
+    evidence = "Evidence for both floor outcomes"
+    if coverage_kind == "tests":
+        item.tests.add(evidence)
+    elif coverage_kind == "external":
+        item.external_coverage_reason = evidence
+    else:
+        item.not_applicable_reason = evidence
+
+    prefix = f"| `{item_id}` |"
+    original_rows = [
+        line
+        for line in TEMPLATE_CONTENT.splitlines()
+        if line.startswith(prefix)
+    ]
+    rows = [
+        line
+        for line in eip.generate_filled_checklist_lines()
+        if line.startswith(prefix)
+    ]
+    assert len(rows) == len(original_rows) == 2
+    status = "N/A" if coverage_kind == "not_applicable" else "✅"
+    for original, rendered in zip(original_rows, rows, strict=True):
+        assert original.split("|")[2].strip() == rendered.split("|")[2].strip()
+        assert f"| {status} | {evidence} |" in rendered
+    assert eip.covered_items == (0 if coverage_kind == "not_applicable" else 1)
+    assert eip.total_items == total - (coverage_kind == "not_applicable")
