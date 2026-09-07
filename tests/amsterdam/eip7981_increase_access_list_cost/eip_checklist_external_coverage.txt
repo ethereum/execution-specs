@@ -1,3 +1,3 @@
-general/code_coverage/eels = Covered in EELS
-general/code_coverage/test_coverage = Run locally
-general/code_coverage/missed_lines = No missed lines; the EIP adds only the access list token accounting in calculate_intrinsic_cost, fully exercised by this suite
+general/code_coverage/eels = 547 EELS fill cases pass; all EIP-7981 surcharge accounting statements are exercised. See coverage.md for the command, scope, and measured revision.
+general/code_coverage/test_coverage = All test-module statements are covered by the 547-case coverage fill. See coverage.md for per-file results and the shared fixture exceptions.
+general/code_coverage/missed_lines = coverage.md documents every measured missed line, including unused fixture interfaces, the bypassed mixin return, and unrelated transaction validation paths.
