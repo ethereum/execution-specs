@@ -178,15 +178,16 @@ def test_access_list_floor_cost_with_calldata(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
-    tx_intrinsic_gas_cost_including_floor_data_cost: int,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Charge the access list data surcharge in addition to the calldata floor.
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
     tx.expected_receipt = TransactionReceipt(
-        cumulative_gas_used=tx_intrinsic_gas_cost_including_floor_data_cost
+        status=1, gas_used=tx_expected_gas_used
     )
-
     state_test(
         pre=pre,
         post={},
