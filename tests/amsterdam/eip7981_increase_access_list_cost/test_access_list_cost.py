@@ -261,6 +261,10 @@ def test_large_access_list_cost(
             ],
             id="duplicate_access_list_entries",
         ),
+        pytest.param(
+            [AccessList(address=Address(1), storage_keys=[Hash(0), Hash(0)])],
+            id="duplicate_storage_keys",
+        ),
     ],
 )
 @pytest.mark.parametrize(
