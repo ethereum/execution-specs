@@ -47,9 +47,11 @@ class IntrinsicGasCost:
 
     calldata_floor: ExecutionGas
     """
-    Minimum gas cost based on calldata size per [EIP-7623].
+    Minimum gas cost based on calldata size per [EIP-7623], including the
+    access list data surcharge per [EIP-7981].
 
     [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+    [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
     """
 
 
@@ -673,7 +675,7 @@ def calculate_intrinsic_cost(
     tx: Transaction, sender: Address
 ) -> IntrinsicGasCost:
     """
-    Calculates the gas that is charged before execution is started.
+    Calculate the gas charged before execution starts and the data floor.
 
     The intrinsic cost of the transaction is charged before execution has
     begun. Functions/operations in the EVM cost money to execute so this
@@ -693,7 +695,7 @@ def calculate_intrinsic_cost(
     3. Value cost (`TX_VALUE_COST` for a non-self-transfer call) when
        ``tx.value > 0``.
     4. Calldata cost (zero and non-zero bytes).
-    5. Access list entries (if applicable).
+    5. Access list entry charges and the data surcharge (if applicable).
     6. Authorizations (if applicable): only the state-independent base
        cost (`EXECUTION_PER_AUTH_BASE_COST`) per tuple. The
        state-dependent account-creation and delegation-write costs are
@@ -704,7 +706,9 @@ def calculate_intrinsic_cost(
 
     This function takes a transaction and its sender as parameters and
     returns the intrinsic execution gas cost and the minimum (floor)
-    gas cost based on the calldata size. The floor is anchored on the
+    gas cost based on the calldata size and access list data surcharge.
+    The surcharge is added to both costs, so it is charged regardless of
+    which side determines the gas used. The floor is anchored on the
     execution-gas portion of items 1 to 3 above rather than `TX_BASE`
     alone, so it never undercuts the transaction's own intrinsic base.
     """
@@ -740,8 +744,11 @@ def calculate_intrinsic_cost(
                 ulen(access.slots) * ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS
             )
 
-    # Data token floor cost for access list bytes.
-    access_list_cost += tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
+    # Charge the access list data surcharge on both sides of the gas-used
+    # maximum, independently of the existing per-entry access charges.
+    access_list_data_cost = (
+        tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
+    )
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
@@ -752,16 +759,15 @@ def calculate_intrinsic_cost(
     # EIP-7976 floor tokens: all calldata bytes count uniformly.
     floor_tokens_in_calldata = ulen(tx.data) * GasCosts.TX_DATA_TOKEN_STANDARD
 
-    # Total floor tokens.
-    total_floor_tokens = floor_tokens_in_calldata + tokens_in_access_list
-
     # Decomposed execution-gas intrinsic base (EIP-2780), which also
     # anchors the calldata floor.
     base_execution_gas = GasCosts.TX_BASE + recipient_execution_gas
 
     # Floor gas cost (EIP-7623: minimum gas for data-heavy transactions).
     data_floor_gas_cost = (
-        total_floor_tokens * GasCosts.TX_DATA_TOKEN_FLOOR + base_execution_gas
+        base_execution_gas
+        + floor_tokens_in_calldata * GasCosts.TX_DATA_TOKEN_FLOOR
+        + access_list_data_cost
     )
 
     return IntrinsicGasCost(
@@ -770,6 +776,7 @@ def calculate_intrinsic_cost(
             + init_code_gas
             + data_cost
             + access_list_cost
+            + access_list_data_cost
             + auth_cost
         ),
         calldata_floor=ExecutionGas(data_floor_gas_cost),
