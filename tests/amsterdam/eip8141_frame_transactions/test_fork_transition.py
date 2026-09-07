@@ -74,8 +74,8 @@ def test_expiry_verifier_installed_at_fork_transition(
     address nobody touched ends with a zero nonce and balance; an account
     that already existed keeps its nonce and its balance, whether that
     balance was in the genesis allocation or arrived by a pre-fork
-    transfer. Installing the account with a nonce of one, as a genesis
-    predeploy would have, changes the state root of the fork block.
+    transfer. The post-state pins all three fields, so an install that
+    writes anything other than the code fails here.
     """
     sender = pre.fund_eoa()
     probe = pre.deploy_contract(
