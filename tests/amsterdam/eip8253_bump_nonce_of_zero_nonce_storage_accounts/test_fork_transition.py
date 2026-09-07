@@ -1,9 +1,9 @@
 """
 Tests for [EIP-8253: Bump nonce of zero-nonce storage accounts](https://eips.ethereum.org/EIPS/eip-8253).
 
-The bump happens once, at the Amsterdam fork block, so every test is a
-fork-transition test. The targeted accounts are placed in the pre-state the
-way they look on Mainnet: empty code, zero nonce, non-empty storage.
+The bump happens once, at the Amsterdam fork block. These transition tests
+use the Mainnet address list with synthetic prestates, including listed
+accounts with empty storage and accounts absent from the prestate.
 """
 
 from typing import Tuple
@@ -100,9 +100,11 @@ def executed_slot_change(
     )
 
 
+@pytest.mark.parametrize("activation_delay", [0, 7])
 def test_nonce_bump_at_fork_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    activation_delay: int,
 ) -> None:
     """
     Every targeted account gets nonce one at the fork block and keeps its
@@ -130,14 +132,14 @@ def test_nonce_bump_at_fork_block(
             txs=[Transaction(sender=sender, to=first, value=transfer)],
         ),
         Block(
-            timestamp=FORK_TIMESTAMP,
+            timestamp=FORK_TIMESTAMP + activation_delay,
             txs=[Transaction(sender=sender, to=receiver, value=1)],
             expected_block_access_list=BlockAccessListExpectation(
                 account_expectations=dict.fromkeys(post, BUMP_EXPECTATION)
             ),
         ),
         Block(
-            timestamp=FORK_TIMESTAMP + 1,
+            timestamp=FORK_TIMESTAMP + activation_delay + 1,
             txs=[Transaction(sender=sender, to=receiver, value=1)],
             expected_block_access_list=BlockAccessListExpectation(
                 account_expectations=dict.fromkeys(post)
@@ -163,12 +165,11 @@ def test_create_collision_at_fork_block(
     target: TargetedAccount,
 ) -> None:
     """
-    Replay the Mainnet creation of a targeted account as the first
-    transaction of the fork block: a `CREATE` from the original creator at
-    the original nonce. It collides under EIP-684 because the nonce is now
-    one, so no code is deployed and the storage survives. The collision
-    reads no storage of the target, which separates it from an EIP-7610
-    storage check.
+    Target each listed address using its historical creator/nonce pair.
+
+    A synthetic factory issues `CREATE` in the first fork-block transaction.
+    The bumped nonce causes an EIP-684 collision and preserves the storage.
+    The collision reads no target storage, unlike an EIP-7610 storage check.
     """
     address = place_targeted_account(pre, target)
     creator, creator_code, creator_storage, executed_slot = deploy_creator(
@@ -521,17 +522,24 @@ def test_non_targeted_accounts_unaffected(
     )
 
 
-def test_targeted_accounts_absent_from_pre_state(
+@pytest.mark.parametrize(
+    "present", [False, True], ids=["absent", "empty-storage"]
+)
+def test_targeted_accounts_without_storage(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    present: bool,
 ) -> None:
     """
-    The bump is unconditional: a targeted account missing from the state is
-    created at the fork block with nonce one, zero balance, and no code.
+    Bump listed addresses even when their storage is empty or they are absent.
     """
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
     targeted = [Address(target.address) for target in Spec.TARGETED_ACCOUNTS]
+    balance = BALANCE_BASE if present else 0
+    if present:
+        for address in targeted:
+            pre.deploy_contract(b"", address=address, nonce=0, balance=balance)
 
     blockchain_test(
         pre=pre,
@@ -552,7 +560,9 @@ def test_targeted_accounts_absent_from_pre_state(
         ],
         post={
             **{
-                address: Account(nonce=1, balance=0, code=b"", storage={})
+                address: Account(
+                    nonce=1, balance=balance, code=b"", storage={}
+                )
                 for address in targeted
             },
             receiver: Account(balance=2),

@@ -60,7 +60,7 @@ from execution_testing.test_types import (
 from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
-from .helpers import verify_transactions, verify_zero_nonce_storage_accounts
+from .helpers import verify_transactions
 
 logger = get_logger(__name__)
 
@@ -362,7 +362,6 @@ class StateTest(BaseTest):
         )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
-        verify_zero_nonce_storage_accounts(pre_alloc, fork)
 
         transition_tool_output = t8n.evaluate(
             transition_tool_data=TransitionTool.TransitionToolData(

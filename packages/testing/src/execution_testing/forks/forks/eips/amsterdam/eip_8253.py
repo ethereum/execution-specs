@@ -62,7 +62,7 @@ class EIP8253(BaseFork):
         """
         Return the accounts whose nonce is bumped to one at the fork block.
 
-        From this fork on, no account with empty code, a zero nonce, and
-        non-empty storage can exist.
+        Fixtures use the Mainnet list with a synthetic prestate. The
+        update does not depend on whether a listed account has storage.
         """
         return ZERO_NONCE_STORAGE_ACCOUNTS
