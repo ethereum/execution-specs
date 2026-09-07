@@ -36,7 +36,7 @@ from execution_testing.base_types.composite_types import (
     ForkBlobSchedule,
 )
 from execution_testing.exceptions import ExceptionMapper
-from execution_testing.forks import Fork, TransitionFork
+from execution_testing.forks import Fork
 from execution_testing.forks.helpers import (
     get_development_forks,
     get_forks,
@@ -325,46 +325,40 @@ class TransitionTool(EthereumCLI):
         alloc: Alloc | LazyAlloc
         txs: List[Transaction]
         env: Environment
-        fork: Fork | TransitionFork
+        fork: Fork
         chain_id: int
         reward: int
         blob_schedule: BlobSchedule | None
         state_test: bool = False
-
-        @property
-        def active_fork(self) -> Fork:
-            """Resolve the block's fork without discarding its schedule."""
-            return self.fork.fork_at(
-                block_number=int(self.env.number),
-                timestamp=int(self.env.timestamp),
-            )
+        fork_activation: bool = False
+        """
+        Whether this block is the first block of `fork`, i.e. the parent
+        block belongs to an earlier fork. One-time fork-block state
+        transitions (EIP-8253) are applied only when set.
+        """
 
         @property
         def fork_name(self) -> str:
             """Return the fork name."""
-            if self.fork.is_transition_fork:
-                return self.fork.name()
-            return self.active_fork.transition_tool_name()
+            return self.fork.transition_tool_name()
 
         @property
         def fork_name_if_supports_blob_params(self) -> str:
             """Return the fork name."""
-            if self.fork.is_transition_fork:
-                return self.fork_name
-            fork = self.active_fork
+            fork = self.fork()
 
             # For tools that support blob_params, return base fork for BPO
             # forks.
             if fork.bpo_fork():
                 return fork.non_bpo_ancestor().transition_tool_name()
             else:
-                return self.fork_name
+                return self.fork.transition_tool_name()
 
         @property
         def blob_params(self) -> ForkBlobSchedule | None:
             """Return the blob parameters for the current fork."""
             if self.blob_schedule:
-                fork_name = self.active_fork.name()
+                fork_name = self.fork.name()
                 # Only return blob params if this fork has them
                 if fork_name in self.blob_schedule.root:
                     return self.blob_schedule[fork_name]
@@ -391,6 +385,7 @@ class TransitionTool(EthereumCLI):
                     fork=self.fork_name,
                     chain_id=self.chain_id,
                     reward=self.reward,
+                    fork_activation=self.fork_activation,
                 ),
                 input=self.to_input(),
             )

@@ -813,6 +813,12 @@ class TransitionToolContext(CamelModel):
     fork: str
     chain_id: int = Field(..., alias="chainid")
     reward: int
+    fork_activation: bool = False
+    """
+    Whether the block activates `fork`, i.e. its parent belongs to an
+    earlier fork. Lets the tool apply one-time fork-block state transitions
+    such as the EIP-8253 nonce bump.
+    """
 
 
 @dataclass(kw_only=True)

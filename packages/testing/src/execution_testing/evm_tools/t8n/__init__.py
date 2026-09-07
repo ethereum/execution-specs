@@ -139,6 +139,7 @@ class T8N(Load):
     body: Bytes
     state_test: bool
     state_reward: int
+    fork_activation: bool
     exception_mapper: Optional["ExceptionMapper"]
     _block_exception: Optional[str]
 
@@ -152,12 +153,14 @@ class T8N(Load):
         tracers: Optional[GroupTracer] = None,
         exception_mapper: Optional["ExceptionMapper"] = None,
     ) -> None:
-        # Resolve the execution module while retaining the testing fork
-        # configuration for boundary detection. Legacy CLI transitions
-        # also supply ``fork_block`` to override the spec's activation
-        # block number.
-        active_fork = t8n_data.active_fork
-        fork_module = resolve_fork(active_fork.transition_tool_name())
+        # ``resolve_fork`` only maps the testing fork name to a spec
+        # ``Hardfork`` module — CLI exception aliases like
+        # ``HomesteadToDaoAt5`` are unfolded by ``find_fork`` in
+        # :mod:`.cli` before the testing ``Fork`` is constructed. For
+        # those transition-fork tests the CLI also reports the block
+        # number at which the resolved fork activates via
+        # ``fork_block``; the in-process path leaves it ``None``.
+        fork_module = resolve_fork(t8n_data.fork_name)
         fork_criteria: Optional[ByBlockNumber] = None
         if fork_block is not None and fork_block != 0:
             fork_criteria = ByBlockNumber(fork_block)
@@ -179,8 +182,8 @@ class T8N(Load):
         base_fee_update_fraction: Optional[Uint] = None
         if (
             t8n_data.blob_params is not None
-            and active_fork.bpo_fork()
-            and active_fork != active_fork.non_bpo_ancestor()
+            and t8n_data.fork.bpo_fork()
+            and t8n_data.fork != t8n_data.fork.non_bpo_ancestor()
         ):
             target_blobs_per_block = U64(
                 int(t8n_data.blob_params.target_blobs_per_block)
@@ -210,7 +213,7 @@ class T8N(Load):
         self.chain_id = U64(t8n_data.chain_id)
         self.state_test = t8n_data.state_test
         self.state_reward = t8n_data.reward
-        self._fork_config = t8n_data.fork
+        self.fork_activation = t8n_data.fork_activation
         self.exception_mapper = exception_mapper
 
         from execution_testing.client_clis.cli_types import LazyAlloc
@@ -225,7 +228,7 @@ class T8N(Load):
         if isinstance(input_alloc, LazyAlloc):
             input_alloc = input_alloc.materialize()
         self.alloc = input_alloc.model_copy(deep=True)
-        self.alloc.migrate_state_commitment(active_fork.state_commitment())
+        self.alloc.migrate_state_commitment(t8n_data.fork.state_commitment())
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
         self.ommers = list(ommers)
@@ -371,19 +374,7 @@ class T8N(Load):
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
         # EIP-8253: the fork block bumps the nonce of the zero-nonce
         # storage accounts before any pre-execution system call.
-        if (
-            self.fork.has_zero_nonce_storage_accounts
-            and self.env.number > 0
-            and self.env.parent_timestamp is not None
-            and self._fork_config.fork_at(
-                block_number=int(self.env.number) - 1,
-                timestamp=int(self.env.parent_timestamp),
-            )
-            != self._fork_config.fork_at(
-                block_number=int(self.env.number),
-                timestamp=int(self.env.timestamp),
-            )
-        ):
+        if self.fork_activation and self.fork.has_zero_nonce_storage_accounts:
             self.fork.bump_zero_nonce_storage_accounts(block_env)
 
         if self.fork.has_compute_requests_hash:
