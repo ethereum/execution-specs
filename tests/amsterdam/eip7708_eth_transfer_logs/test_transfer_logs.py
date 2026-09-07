@@ -1153,15 +1153,22 @@ def test_contract_log_and_transfer_ordering(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-@pytest.mark.parametrize(
-    "reverting_code",
-    [
+def reverting_codes(fork: Fork) -> List[ParameterSet]:
+    """
+    Return codes that fail the transaction, one way per case.
+
+    The out-of-gas case is sized against the fork's memory pricing, so the
+    cases cannot be built before the fork is known.
+    """
+    return [
         pytest.param(Op.REVERT(0, 0), id="revert"),
         pytest.param(Op.INVALID, id="invalid_opcode"),
         pytest.param(Op.ADD, id="stack_underflow"),
-        pytest.param(Op.MSTORE(2**256 - 1, 0), id="out_of_gas"),
-    ],
-)
+        pytest.param(GasConsumer.out_of_gas(fork), id="out_of_gas"),
+    ]
+
+
+@pytest.mark.parametrize_by_fork("reverting_code", reverting_codes)
 def test_reverted_transaction_no_log(
     state_test: StateTestFiller,
     env: Environment,

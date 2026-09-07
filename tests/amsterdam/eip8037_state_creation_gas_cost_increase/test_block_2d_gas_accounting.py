@@ -893,9 +893,10 @@ def test_base_fee_per_gas_follows_dominant_dimension(
     Verify the child block's base fee follows the bottleneck dimension.
 
     Block 1 exceeds the gas target on one dimension only: state, via
-    SSTORE-set txs that spill, or execution, via STOP/MSTORE txs. Its header
-    gas_used = max(execution, state) is then set by that dimension alone,
-    which lifts empty block 2's base fee under the EIP-1559 update.
+    SSTORE-set txs that spill, or execution, via STOP txs or a single tx
+    that burns its whole gas limit. Its header gas_used = max(execution,
+    state) is then set by that dimension alone, which lifts empty block 2's
+    base fee under the EIP-1559 update.
     """
     genesis_base_fee = 10**9
     max_fee_per_gas = 10**10
@@ -932,7 +933,7 @@ def test_base_fee_per_gas_follows_dominant_dimension(
             num_txs = 1
             # Just consume all gas
             execution_contract = pre.deploy_contract(
-                code=Op.MSTORE(offset=2**256 - 1, value=1) + Op.STOP
+                code=GasConsumer.out_of_gas(fork) + Op.STOP
             )
             tx_gas_limit = target + 1
         else:
