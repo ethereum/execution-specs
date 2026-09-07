@@ -378,8 +378,9 @@ def test_sload_bloated_prefetch_miss(
     # SLOAD range is completely disjoint from the actual range.
     base_offset = max_sloads_per_tx if existing_slots else START_SLOT
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-        calldata=b"\xff" * 32,
+        calldata=Hash(base_offset),
         recipient_type=RecipientType.DELEGATION_7702,
+        return_cost_deducted_prior_execution=True,
     ) + fork.transaction_top_frame_gas_calculator()(
         recipient_type=RecipientType.DELEGATION_7702
     )

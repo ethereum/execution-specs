@@ -1,5 +1,6 @@
 """Benchmark different transaction types."""
 
+import bisect
 import math
 import random
 from dataclasses import dataclass
@@ -410,7 +411,6 @@ def test_block_full_data(
 def test_block_full_access_list_and_data(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
-    intrinsic_cost: int,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
@@ -418,35 +418,64 @@ def test_block_full_access_list_and_data(
     """
     Test a block whose gas goes entirely into transaction payload.
 
-    Every transaction carries an access list plus one calldata byte per
-    access-list byte, and runs no code, so its whole gas limit is
-    intrinsic gas.
+    Every transaction carries an access list plus calldata, and runs no
+    code, so its whole gas limit is intrinsic gas.
     """
-    access_address = Address("0x1234567890123456789012345678901234567890")
+    access_address = pre.fund_eoa()
     intrinsic_calculator = fork.transaction_intrinsic_cost_calculator()
     calldata_gas_calculator = fork.calldata_gas_calculator()
-    iteration_count = math.ceil(gas_benchmark_value / tx_gas_limit)
 
-    gas_available = gas_benchmark_value
+    def unit_gas(byte_count: int, units: int) -> int:
+        """Return the gas one more key plus its calldata bytes adds."""
+
+        def cost(count: int) -> int:
+            return intrinsic_calculator(
+                calldata=b"\xff" * byte_count * count,
+                access_list=[
+                    AccessList(
+                        address=access_address,
+                        storage_keys=[Hash(i) for i in range(count)],
+                    )
+                ],
+            )
+
+        return cost(units + 1) - cost(units)
+
+    byte_gas = calldata_gas_calculator(data=b"\xff")
+    byte_floor_gas = calldata_gas_calculator(data=b"\xff", floor=True)
+    key_gas = unit_gas(0, 1)
+
+    bytes_per_key = len(Hash(0))
+    if byte_floor_gas > byte_gas:
+        # Pairing each key with the byte count where the floor dimension
+        # overtakes the execution one carries the most calldata per gas.
+        # The key's floor share is measured over a whole transaction,
+        # below which the fixed base decides which dimension binds.
+        byte_step = byte_floor_gas - byte_gas
+        floor_bound_bytes = key_gas // byte_step + 1
+        key_floor_gas = (
+            unit_gas(floor_bound_bytes, tx_gas_limit // key_gas)
+            - floor_bound_bytes * byte_floor_gas
+        )
+        bytes_per_key = (key_gas - key_floor_gas) // byte_step
+
+    gas_per_unit = key_gas + bytes_per_key * byte_gas
+    total_units = gas_benchmark_value // gas_per_unit
     block_rlp_limit = fork.block_rlp_size_limit()
     if block_rlp_limit:
-        # A payload never costs less than its data floor, so the floor
-        # rate of the cheapest byte bounds the block's byte count.
-        gas_available = min(
-            gas_available,
-            int(block_rlp_limit * 0.99)
-            * calldata_gas_calculator(data=b"\x00", floor=True)
-            + iteration_count * intrinsic_cost,
+        # Each unit adds its calldata bytes plus its RLP-encoded storage
+        # key, which carries a one-byte length prefix.
+        bytes_per_unit = bytes_per_key + len(Hash(0)) + 1
+        total_units = min(
+            total_units, int(block_rlp_limit * 0.99) // bytes_per_unit
         )
-    budget = gas_available // iteration_count
 
-    # One unit is a storage key plus its own length in calldata bytes.
-    # A key alone already costs its data-floor tokens, which bounds how
-    # many units can fit.
-    bytes_per_key = len(Hash(0))
-    max_units = budget // calldata_gas_calculator(data=Hash(0), floor=True)
-    keys = [Hash(i) for i in range(max_units)]
-    calldata_pool = random.Random(42).randbytes(bytes_per_key * max_units)
+    keys = [Hash(i) for i in range(total_units)]
+    # A zero byte is charged the cheaper standard rate, which would make a
+    # payload's cost depend on which slice of the pool it takes.
+    pool = random.Random(42).randbytes(bytes_per_key * total_units)
+    calldata_pool = bytes(byte or 1 for byte in pool)
+    unit_counts = range(min(tx_gas_limit // gas_per_unit, total_units) + 1)
 
     def payload_cost(units: int) -> int:
         return intrinsic_calculator(
@@ -456,32 +485,42 @@ def test_block_full_access_list_and_data(
             ],
         )
 
-    # Largest payload whose intrinsic cost still fits the budget.
-    low, high = 0, max_units
-    while low < high:
-        mid = (low + high + 1) // 2
-        if payload_cost(mid) <= budget:
-            low = mid
-        else:
-            high = mid - 1
-
-    tx_gas = payload_cost(low)
-    txs = [
-        Transaction(
-            to=pre.fund_eoa(amount=0),
-            data=calldata_pool[: bytes_per_key * low],
-            gas_limit=tx_gas,
-            sender=pre.fund_eoa(),
-            access_list=[
-                AccessList(address=access_address, storage_keys=keys[:low])
-            ],
+    min_tx_gas = payload_cost(1)
+    gas_remaining = gas_benchmark_value
+    units_used = 0
+    txs = []
+    while gas_remaining >= min_tx_gas and units_used < total_units:
+        units = min(
+            bisect.bisect_right(
+                unit_counts, min(tx_gas_limit, gas_remaining), key=payload_cost
+            )
+            - 1,
+            total_units - units_used,
         )
-        for _ in range(iteration_count)
-    ]
+        unit_end = units_used + units
+        tx_gas = payload_cost(units)
+        txs.append(
+            Transaction(
+                to=pre.fund_eoa(amount=0),
+                data=calldata_pool[
+                    bytes_per_key * units_used : bytes_per_key * unit_end
+                ],
+                gas_limit=tx_gas,
+                sender=pre.fund_eoa(),
+                access_list=[
+                    AccessList(
+                        address=access_address,
+                        storage_keys=keys[units_used:unit_end],
+                    )
+                ],
+            )
+        )
+        gas_remaining -= tx_gas
+        units_used = unit_end
 
     benchmark_test(
         blocks=[Block(txs=txs)],
-        expected_benchmark_gas_used=tx_gas * iteration_count,
+        expected_benchmark_gas_used=gas_benchmark_value - gas_remaining,
     )
 
 
