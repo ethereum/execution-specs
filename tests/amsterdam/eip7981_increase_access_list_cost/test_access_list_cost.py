@@ -177,7 +177,8 @@ def test_access_list_floor_cost_with_calldata(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
-    tx_intrinsic_gas_cost_including_floor_data_cost: int,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test that the floor cost correctly accounts for both access list
@@ -189,10 +190,10 @@ def test_access_list_floor_cost_with_calldata(
     - floor_gas =
       TX_BASE_COST + total_floor_data_tokens * TOTAL_COST_FLOOR_PER_TOKEN
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
     tx.expected_receipt = TransactionReceipt(
-        cumulative_gas_used=tx_intrinsic_gas_cost_including_floor_data_cost
+        status=1, gas_used=tx_expected_gas_used
     )
-
     state_test(
         pre=pre,
         post={},
