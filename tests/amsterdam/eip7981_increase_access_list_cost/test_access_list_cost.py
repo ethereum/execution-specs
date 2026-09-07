@@ -226,6 +226,8 @@ def test_large_access_list_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test gas costs for large access lists.
@@ -235,6 +237,10 @@ def test_large_access_list_cost(
        at the fork's cold access costs since EIP-8038)
     2. Data footprint costs (16 per floor token)
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
