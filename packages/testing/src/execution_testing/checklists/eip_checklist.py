@@ -1194,7 +1194,15 @@ class EIPChecklist:
                 class DataFloorAboveIntrinsicGasCost(ChecklistItem):
                     """Data floor cost above intrinsic gas."""
 
-                    pass
+                    class GasLimitIntrinsic(ChecklistItem):
+                        """Invalid: gas limit equals the intrinsic cost."""
+
+                        pass
+
+                    class GasLimitFloor(ChecklistItem):
+                        """Valid: gas limit equals the data floor cost."""
+
+                        pass
 
             class Signature(ChecklistItem):
                 """Signature tests."""

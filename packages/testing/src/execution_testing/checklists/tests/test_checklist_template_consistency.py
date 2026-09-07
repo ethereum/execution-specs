@@ -100,6 +100,26 @@ def test_checklist_template_consistency() -> None:
         pytest.fail(error_message)
 
 
+def test_checklist_template_ids_are_unique() -> None:
+    """
+    Test that no checklist ID is repeated across template rows.
+
+    The generator keys items by ID, so a repeated ID leaves one of the rows
+    impossible to mark as covered or not applicable.
+    """
+    with open(TEMPLATE_PATH, "r", encoding="utf-8") as f:
+        markdown_content = f.read()
+
+    pattern = r"\|\s*`([^`]+)`\s*\|"
+    ids = [
+        match.group(1)
+        for match in re.finditer(pattern, markdown_content)
+        if "/" in match.group(1)
+    ]
+    duplicates = sorted({id_ for id_ in ids if ids.count(id_) > 1})
+    assert not duplicates, f"Duplicate checklist IDs in template: {duplicates}"
+
+
 def test_checklist_template_exists() -> None:
     """Test that the checklist template file exists."""
     assert TEMPLATE_PATH.exists(), (

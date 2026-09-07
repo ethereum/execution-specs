@@ -818,8 +818,8 @@ Note: Data floor gas cost affects the intrinsic validity of all transaction type
 
 | ID                                                                                 | Description                                                                                                           | Status | Tests |
 | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
-| `transaction_type/test/intrinsic_validity/data_floor_above_intrinsic_gas_cost` | Invalid if `data_floor_cost(len(tx.data)) > tx.intrinsic_gas_cost` and `tx.gas_limit == tx.intrinsic_gas_cost`.       |        |       |
-| `transaction_type/test/intrinsic_validity/data_floor_above_intrinsic_gas_cost` | Valid if `data_floor_cost(len(tx.data)) > tx.intrinsic_gas_cost` and `tx.gas_limit == data_floor_cost(len(tx.data))`. |        |       |
+| `transaction_type/test/intrinsic_validity/data_floor_above_intrinsic_gas_cost/gas_limit_intrinsic` | Invalid if `data_floor_cost(len(tx.data)) > tx.intrinsic_gas_cost` and `tx.gas_limit == tx.intrinsic_gas_cost`.       |        |       |
+| `transaction_type/test/intrinsic_validity/data_floor_above_intrinsic_gas_cost/gas_limit_floor`     | Valid if `data_floor_cost(len(tx.data)) > tx.intrinsic_gas_cost` and `tx.gas_limit == data_floor_cost(len(tx.data))`. |        |       |
 
 #### Signature
 

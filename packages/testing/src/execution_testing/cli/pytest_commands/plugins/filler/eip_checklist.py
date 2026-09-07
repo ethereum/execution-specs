@@ -138,6 +138,13 @@ TEMPLATE_ITEMS: Dict[str, EIPItem] = {}
 for i, line in enumerate(TEMPLATE_CONTENT.splitlines()):
     # Match lines that contain checklist items with IDs in backticks
     if item := EIPItem.from_checklist_line(line=line, line_number=i + 1):
+        # A repeated ID would collapse two rows into one entry and leave the
+        # other row impossible to mark as covered or not applicable.
+        assert item.id not in TEMPLATE_ITEMS, (
+            f"Duplicate checklist ID `{item.id}` in template at line "
+            f"{item.line_number} (first seen at line "
+            f"{TEMPLATE_ITEMS[item.id].line_number})"
+        )
         TEMPLATE_ITEMS[item.id] = item
 
 
