@@ -15,6 +15,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     compute_create_address,
 )
 
@@ -163,6 +164,8 @@ def test_valid_gas_limits_with_access_list(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test that transactions with sufficient gas are valid.
@@ -172,6 +175,10 @@ def test_valid_gas_limits_with_access_list(
     - Slightly more than intrinsic gas
     - Much more than intrinsic gas
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + tx_gas_delta)
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
