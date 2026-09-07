@@ -30,7 +30,7 @@ pytestmark = [
 ]
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Insufficient()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -86,7 +86,7 @@ def test_insufficient_gas_for_access_list(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.DataFloorAboveIntrinsicGasCost()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -133,6 +133,7 @@ def test_floor_cost_validation_with_access_list(
     )
 
 
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Exact()
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -311,8 +312,8 @@ def test_transactions_without_access_list(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.TransactionType.Test.ContractCreation()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Insufficient()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize(
     "valid",
