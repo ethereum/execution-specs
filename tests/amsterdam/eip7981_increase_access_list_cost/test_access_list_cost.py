@@ -175,14 +175,7 @@ def test_access_list_floor_cost_with_calldata(
     tx_intrinsic_gas_cost_including_floor_data_cost: int,
 ) -> None:
     """
-    Test that the floor cost correctly accounts for both access list
-    and calldata tokens.
-
-    According to EIP-7981:
-    - total_floor_data_tokens =
-      floor_tokens_in_calldata + floor_tokens_in_access_list
-    - floor_gas =
-      TX_BASE_COST + total_floor_data_tokens * TOTAL_COST_FLOOR_PER_TOKEN
+    Charge the access list data surcharge in addition to the calldata floor.
     """
     tx.expected_receipt = TransactionReceipt(
         cumulative_gas_used=tx_intrinsic_gas_cost_including_floor_data_cost

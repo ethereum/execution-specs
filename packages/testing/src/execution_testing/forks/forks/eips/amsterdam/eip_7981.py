@@ -23,15 +23,15 @@ class EIP7981(BaseFork):
     """EIP-7981 class."""
 
     @classmethod
-    def _access_list_floor_tokens(
+    def _access_list_data_cost(
         cls, access_list: List[AccessList] | None
     ) -> int:
         """
-        Return ``access_list_bytes * 4`` floor tokens for the access list.
+        Return the flat data surcharge for the access list.
 
-        Every byte of each address (20 bytes) and storage key (32 bytes)
-        contributes four floor tokens, so zero and non-zero bytes are
-        charged equally per EIP-7981.
+        Price each address and storage key byte equally, using the
+        EIP-7976 floor rate. Add this surcharge to both the intrinsic
+        cost and the calldata floor, without changing the entry charges.
         """
         if not access_list:
             return 0
@@ -40,17 +40,16 @@ class EIP7981(BaseFork):
             total_bytes += len(access.address)
             for slot in access.storage_keys:
                 total_bytes += len(slot)
-        return total_bytes * 4
+        return total_bytes * 4 * cls.gas_costs().TX_DATA_TOKEN_FLOOR
 
     @classmethod
     def transaction_data_floor_cost_calculator(
         cls,
     ) -> TransactionDataFloorCostCalculator:
         """
-        Add access list floor tokens to the inherited calldata floor cost.
+        Add the access list data surcharge to the inherited calldata floor.
         """
         super_fn = super(EIP7981, cls).transaction_data_floor_cost_calculator()
-        gas_costs = cls.gas_costs()
 
         def fn(
             *,
@@ -60,16 +59,12 @@ class EIP7981(BaseFork):
             sends_value: bool = False,
             recipient_type: RecipientType = RecipientType.CONTRACT,
         ) -> int:
-            return (
-                super_fn(
-                    data=data,
-                    contract_creation=contract_creation,
-                    sends_value=sends_value,
-                    recipient_type=recipient_type,
-                )
-                + cls._access_list_floor_tokens(access_list)
-                * gas_costs.TX_DATA_TOKEN_FLOOR
-            )
+            return super_fn(
+                data=data,
+                contract_creation=contract_creation,
+                sends_value=sends_value,
+                recipient_type=recipient_type,
+            ) + cls._access_list_data_cost(access_list)
 
         return fn
 
@@ -78,11 +73,10 @@ class EIP7981(BaseFork):
         cls,
     ) -> TransactionIntrinsicCostCalculator:
         """
-        Charge access list data at the floor token cost on top of the
-        inherited intrinsic cost and enforce the combined data floor.
+        Add the access list data surcharge to the inherited intrinsic
+        cost and enforce the surcharged calldata floor.
         """
         super_fn = super(EIP7981, cls).transaction_intrinsic_cost_calculator()
-        gas_costs = cls.gas_costs()
         data_floor_cost_calculator = (
             cls.transaction_data_floor_cost_calculator()
         )
@@ -106,10 +100,7 @@ class EIP7981(BaseFork):
                 authorization_list_or_count=authorization_list_or_count,
                 return_cost_deducted_prior_execution=True,
             )
-            intrinsic_cost += (
-                cls._access_list_floor_tokens(access_list)
-                * gas_costs.TX_DATA_TOKEN_FLOOR
-            )
+            intrinsic_cost += cls._access_list_data_cost(access_list)
 
             if return_cost_deducted_prior_execution:
                 return intrinsic_cost
