@@ -583,7 +583,7 @@ def failing_initcodes(fork: Fork) -> List[ParameterSet]:
     return [
         pytest.param(
             # OOG before return
-            GasConsumer(gas=None, fork=fork) + Op.RETURN(0, 0),
+            GasConsumer.out_of_gas(fork) + Op.RETURN(0, 0),
             id="create_out_of_gas_memory_expansion",
         ),
         pytest.param(
@@ -876,7 +876,7 @@ def failing_inner_operations(fork: Fork) -> List[ParameterSet]:
         pytest.param(Op.JUMP(0), 100, 500, 0, 500, id="call_out_of_gas"),
         pytest.param(
             # OOG on an unpayable memory expansion
-            GasConsumer(gas=None, fork=fork) + Op.STOP,
+            GasConsumer.out_of_gas(fork) + Op.STOP,
             1000,
             500,
             0,

@@ -84,6 +84,29 @@ def test_gas_consumer_previous_memory_size(previous_memory_size: int) -> None:
     assert bytes(consumer) != bytes(GasConsumer(gas=100_000, fork=Osaka))
 
 
+@pytest.mark.parametrize(
+    "gas,expands",
+    [
+        pytest.param(5, False, id="below_the_cheapest_expansion"),
+        pytest.param(12, True, id="the_cheapest_expansion"),
+        pytest.param(100_000, True, id="many_words"),
+    ],
+)
+def test_gas_consumer_memory_size(gas: int, expands: bool) -> None:
+    """
+    Verify the reported memory size prices what follows the consumer.
+
+    A second consumer handed the size as its `previous_memory_size` is
+    charged only for the words it adds, so the two targets add up.
+    """
+    consumer = GasConsumer(gas=gas, fork=Shanghai)
+    assert (consumer.memory_size > 0) == expands
+    follow_on = GasConsumer(
+        gas=100_000, fork=Shanghai, previous_memory_size=consumer.memory_size
+    )
+    assert (consumer + follow_on).gas_cost(Shanghai) == gas + 100_000
+
+
 def test_gas_consumer_composes() -> None:
     """Verify a consumer appended to other code still costs its target."""
     prefix = Op.SSTORE(0, 1)
@@ -96,13 +119,14 @@ def test_gas_consumer_composes() -> None:
 @pytest.mark.parametrize("fork", get_forks(), ids=lambda fork: fork.name())
 def test_gas_consumer_out_of_gas(fork: Fork) -> None:
     """
-    Verify the `None` sentinel produces bytecode that cannot be paid for.
+    Verify `out_of_gas` produces bytecode that cannot be paid for.
 
     The expansion is sized against the fork's own pricing, so the charge
     stays out of reach however the schedule moves.
     """
-    consumer = GasConsumer(gas=None, fork=fork)
+    consumer = GasConsumer.out_of_gas(fork)
     assert consumer.gas is None
+    assert consumer.memory_size > 0
     assert consumer.gas_cost(fork) > UNPAYABLE_GAS
 
 
@@ -135,7 +159,7 @@ def test_gas_consumer_out_of_gas_needs_an_unpayable_expansion() -> None:
             return fn
 
     with pytest.raises(ValueError, match="too cheaply"):
-        GasConsumer(gas=None, fork=CappedMemory)
+        GasConsumer.out_of_gas(CappedMemory)
 
 
 def test_gas_consumer_negative_gas() -> None:

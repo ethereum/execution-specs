@@ -87,7 +87,7 @@ def collision_params(fork: Fork) -> List[ParameterSet]:
     initcode_cases = [
         (CORRECT_INITCODE, "correct-initcode", False),
         (Op.REVERT(0, 0), "revert-initcode", True),
-        (GasConsumer(gas=None, fork=fork), "oog-initcode", True),
+        (GasConsumer.out_of_gas(fork), "oog-initcode", True),
     ]
     return [
         pytest.param(
