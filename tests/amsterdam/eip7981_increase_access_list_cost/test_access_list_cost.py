@@ -12,6 +12,7 @@ from execution_testing import (
     Fork,
     Hash,
     Op,
+    RecipientType,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
@@ -446,4 +447,54 @@ def test_access_list_data_cost_at_crossover(
         ),
     )
 
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
+@pytest.mark.parametrize("self_transfer", [False, True])
+@pytest.mark.parametrize("value", [0, 1])
+@pytest.mark.parametrize("floor_dominates", [False, True])
+def test_access_list_surcharge_with_recipient_costs(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    tx_type: int,
+    self_transfer: bool,
+    value: int,
+    floor_dominates: bool,
+) -> None:
+    """Preserve the surcharge with self-transfer and value-transfer bases."""
+    sender = pre.fund_eoa()
+    target = sender if self_transfer else pre.fund_eoa(amount=1)
+    access_list = [AccessList(address=target, storage_keys=[])]
+    recipient_type = RecipientType.SELF if self_transfer else RecipientType.EOA
+    data = b"\x00" * (400 if floor_dominates else 0)
+    intrinsic = fork.transaction_intrinsic_cost_calculator()(
+        calldata=data,
+        sends_value=value > 0,
+        recipient_type=recipient_type,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor = fork.transaction_data_floor_cost_calculator()(
+        data=data, sends_value=value > 0, recipient_type=recipient_type
+    )
+    costs = fork.gas_costs()
+    execution_cost = intrinsic + costs.TX_ACCESS_LIST_ADDRESS
+    surcharge = (
+        calculate_access_list_floor_tokens(access_list)
+        * costs.TX_DATA_TOKEN_FLOOR
+    )
+    assert (floor > execution_cost) == floor_dominates
+    expected_gas = max(execution_cost, floor) + surcharge
+    tx = Transaction(
+        ty=tx_type,
+        sender=sender,
+        to=target,
+        value=value,
+        data=data,
+        access_list=access_list,
+        gas_limit=expected_gas + 1000,
+        expected_receipt=TransactionReceipt(status=1, gas_used=expected_gas),
+    )
     state_test(pre=pre, post={}, tx=tx)
