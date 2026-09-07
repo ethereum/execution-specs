@@ -1,7 +1,7 @@
 # EIP-7981 coverage evidence
 
-Measured on the local checklist branch after the recipient-cost regression
-(`867aa5136f`). All 547 EIP-7981 fill cases pass, including activation
+Measured on the independent test branch (`319e8202d2`), based on
+`forks/amsterdam` without the specification refactor. All 547 EIP-7981 fill cases pass, including activation
 transitions. Each test implementation commit was independently filled and
 passed `just static` before being committed.
 
@@ -31,8 +31,8 @@ are statement coverage, not branch percentages or protocol-wide coverage.
 
 | File | Covered statements | Missing lines |
 | --- | --- | --- |
-| `eip_7981.py` | 33/34 | 108 |
-| `transactions.py` | 251/290 | 555, 570, 571, 572, 573, 574, 575, 576, 577, 578, 579, 580, 581, 583, 585, 623, 626, 630, 637, 639, 644, 650, 654, 663, 667, 812, 823, 842, 844, 855, 858, 881, 883, 888, 903, 909, 915, 921, 939 |
+| `eip_7981.py` | 35/36 | 117 |
+| `transactions.py` | 252/291 | 553, 568, 569, 570, 571, 572, 573, 574, 575, 576, 577, 578, 579, 581, 583, 621, 624, 628, 635, 637, 642, 648, 652, 661, 665, 805, 816, 835, 837, 848, 851, 874, 876, 881, 896, 902, 908, 914, 932 |
 | `__init__.py` | 0/0 | None |
 | `conftest.py` | 61/72 | 34, 37, 40, 41, 43, 58, 94, 95, 96, 103, 104 |
 | `helpers.py` | 9/9 | None |
@@ -47,7 +47,7 @@ are statement coverage, not branch percentages or protocol-wide coverage.
 ## Scope and missed lines
 
 All EIP-7981 access-list accounting statements and the construction of the
-intrinsic and floor costs in `calculate_intrinsic_cost` (lines 734-782)
+intrinsic and floor costs in `calculate_intrinsic_cost` (lines 672-776)
 are exercised. Both address/key token constants are also exercised.
 Absent and empty lists, repeated entries and keys, all supported transaction
 types, creation, recipient/value variants, and both gas-used branches are
@@ -59,7 +59,7 @@ validation and signature error paths outside the access-list surcharge.
 Their coverage belongs to the tests for the corresponding transaction
 rules, not duplicate EIP-7981 cases.
 
-The testing-fork mixin's line 108 is its standalone floor-enforcement
+The testing-fork mixin's line 117 is its standalone floor-enforcement
 return. Amsterdam's outer EIP-2780 calculator always requests the inner
 intrinsic cost without floor enforcement, then enforces the complete
 floor itself. This line is not reachable through the current Amsterdam
