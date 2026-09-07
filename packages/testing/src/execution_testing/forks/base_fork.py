@@ -1376,6 +1376,22 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def activation_code_installs(cls) -> Mapping:
+        """
+        Return the runtime code this fork installs when it activates, keyed
+        by address.
+
+        Unlike `pre_allocation_blockchain`, which describes accounts that
+        already exist at genesis, these installs happen at the first block
+        of the fork: only the code is written, and the nonce, balance and
+        storage the account had before the fork are kept. In a blockchain
+        test that starts at a fork already including them, the installs are
+        applied to the genesis allocation instead.
+        """
+        pass
+
     # Engine API information abstract methods
     @classmethod
     @abstractmethod
