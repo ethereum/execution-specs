@@ -228,6 +228,8 @@ def test_mixed_zero_nonzero_bytes_floor_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test floor cost calculation with mixed zero and non-zero bytes.
@@ -235,6 +237,10 @@ def test_mixed_zero_nonzero_bytes_floor_cost(
     This ensures floor gas uses floor token counting:
     - Each data byte contributes 4 floor tokens
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
