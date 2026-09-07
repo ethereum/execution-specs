@@ -105,6 +105,8 @@ def test_access_list_token_calculation(
     fork: Fork,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
     access_list: list,
     expected_floor_tokens: int,
 ) -> None:
@@ -133,6 +135,10 @@ def test_access_list_token_calculation(
     )
     assert actual_floor_cost == expected_floor_cost
 
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
