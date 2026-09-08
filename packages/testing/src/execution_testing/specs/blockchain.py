@@ -987,11 +987,15 @@ class BlockchainTest(BaseTest):
             block_number=env.number - 1, timestamp=env.parent_timestamp
         )
         if fork != parent_fork:
-            inherited = parent_fork.activation_code_installs()
+            parent_installs = parent_fork.activation_code_installs()
+            inherited = {
+                Address(address): code
+                for address, code in parent_installs.items()
+            }
             new_installs = {
                 address: code
                 for address, code in fork.activation_code_installs().items()
-                if inherited.get(address) != code
+                if inherited.get(Address(address)) != code
             }
             if new_installs:
                 if isinstance(previous_alloc, LazyAlloc):
