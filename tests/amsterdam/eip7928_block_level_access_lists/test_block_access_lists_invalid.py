@@ -68,10 +68,19 @@ from execution_testing.test_types.block_access_list.modifiers import (
     swap_bal_indices,
 )
 
+from ...prague.eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
+from ...prague.eip7251_consolidations.spec import Spec as Spec7251
+from ..eip8282_builder_execution_requests.spec import Spec as Spec8282
 from .spec import ref_spec_7928
+from .test_block_access_lists_eip2935 import (
+    HISTORY_STORAGE_ADDRESS,
+    block_hash_system_call_expectations,
+)
 from .test_block_access_lists_eip4788 import (
+    BEACON_ROOTS_ADDRESS,
     SYSTEM_ADDRESS,
     beacon_root_system_call_expectations,
+    get_beacon_root_slots,
 )
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -2222,6 +2231,271 @@ def test_bal_invalid_phantom_read_on_selfdestruct(
                         ),
                     }
                 ).modify(insert_storage_read(created, phantom_slot)),
+            )
+        ],
+    )
+
+
+# Request predeploys that the post-execution system calls always read
+# (excess, count, queue head, queue tail), even in a block without
+# requests. Those reads leave state root and gas untouched, so omitting
+# them from the BAL is only detectable by BAL completeness.
+REQUEST_PREDEPLOYS = [
+    pytest.param(
+        Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
+        [
+            Spec7002.EXCESS_WITHDRAWAL_REQUESTS_STORAGE_SLOT,
+            Spec7002.WITHDRAWAL_REQUEST_COUNT_STORAGE_SLOT,
+            Spec7002.WITHDRAWAL_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
+            Spec7002.WITHDRAWAL_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
+        ],
+        id="withdrawal_requests",
+    ),
+    pytest.param(
+        Address(Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS),
+        [
+            Spec7251.EXCESS_CONSOLIDATION_REQUESTS_STORAGE_SLOT,
+            Spec7251.CONSOLIDATION_REQUEST_COUNT_STORAGE_SLOT,
+            Spec7251.CONSOLIDATION_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
+            Spec7251.CONSOLIDATION_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
+        ],
+        id="consolidation_requests",
+    ),
+    pytest.param(
+        Address(Spec8282.BUILDER_DEPOSIT_CONTRACT_ADDRESS),
+        [
+            Spec8282.EXCESS_STORAGE_SLOT,
+            Spec8282.COUNT_STORAGE_SLOT,
+            Spec8282.QUEUE_HEAD_STORAGE_SLOT,
+            Spec8282.QUEUE_TAIL_STORAGE_SLOT,
+        ],
+        id="builder_deposits",
+    ),
+    pytest.param(
+        Address(Spec8282.BUILDER_EXIT_CONTRACT_ADDRESS),
+        [
+            Spec8282.EXCESS_STORAGE_SLOT,
+            Spec8282.COUNT_STORAGE_SLOT,
+            Spec8282.QUEUE_HEAD_STORAGE_SLOT,
+            Spec8282.QUEUE_TAIL_STORAGE_SLOT,
+        ],
+        id="builder_exits",
+    ),
+]
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize("predeploy,queue_slots", REQUEST_PREDEPLOYS)
+def test_bal_invalid_missing_request_predeploy_entry(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    predeploy: Address,
+    queue_slots: list[int],
+) -> None:
+    """
+    Reject a BAL that omits a request predeploy the post-execution system
+    call only read.
+
+    Nothing but the BAL records those reads, so the block stays
+    self-consistent on state root and gas.
+    """
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        predeploy: BalAccountExpectation(
+                            storage_reads=queue_slots,
+                            storage_changes=[],
+                        ),
+                    }
+                ).modify(remove_accounts(predeploy)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize("predeploy,queue_slots", REQUEST_PREDEPLOYS)
+def test_bal_invalid_missing_request_predeploy_reads(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    predeploy: Address,
+    queue_slots: list[int],
+) -> None:
+    """
+    Reject a BAL that keeps a request predeploy's entry but drops the
+    queue slots the post-execution system call read from it.
+    """
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        predeploy: BalAccountExpectation(
+                            storage_reads=queue_slots,
+                            storage_changes=[],
+                        ),
+                    }
+                ).modify(remove_storage_reads(predeploy)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+def test_bal_invalid_missing_pre_block_system_call_read(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a BAL that drops the storage read made by the pre-execution
+    beacon-root system call.
+
+    With a zero parent beacon root the root slot is rewritten with its
+    current value, which EIP-7928 records as a read next to the timestamp
+    slot write.
+    """
+    block_timestamp = 12
+    timestamp_slot, root_slot = get_beacon_root_slots(block_timestamp)
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                timestamp=block_timestamp,
+                parent_beacon_block_root=Hash(0),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=timestamp_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=block_timestamp,
+                                        )
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[root_slot],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ).modify(remove_storage_reads(BEACON_ROOTS_ADDRESS)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "system_contract",
+    [
+        pytest.param(HISTORY_STORAGE_ADDRESS, id="history_storage"),
+        pytest.param(BEACON_ROOTS_ADDRESS, id="beacon_roots"),
+    ],
+)
+def test_bal_invalid_missing_system_contract_entry(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    system_contract: Address,
+) -> None:
+    """
+    Reject a BAL that omits a system contract written by a pre-execution
+    system call, in a block with no transactions.
+    """
+    block_timestamp = 12
+    beacon_root = Hash(0xABCDEF)
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                timestamp=block_timestamp,
+                parent_beacon_block_root=beacon_root,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        # Block 1 stores its parent's (genesis) hash.
+                        **block_hash_system_call_expectations(0),
+                        **beacon_root_system_call_expectations(
+                            block_timestamp,
+                            beacon_root,
+                        ),
+                    }
+                ).modify(remove_accounts(system_contract)),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "recipient_exists",
+    [
+        pytest.param(True, id="existing_recipient"),
+        pytest.param(False, id="nonexistent_recipient"),
+    ],
+)
+def test_bal_invalid_missing_zero_amount_withdrawal_recipient(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    recipient_exists: bool,
+) -> None:
+    """
+    Reject a BAL that omits the recipient of a zero-amount withdrawal.
+
+    EIP-7928 records withdrawal recipients regardless of amount, and a
+    zero-amount withdrawal changes no state, so the entry is the only trace.
+    """
+    initial_balance = 1
+    charlie = (
+        pre.fund_eoa(amount=initial_balance)
+        if recipient_exists
+        else Address(0xCC)
+    )
+    blockchain_test(
+        pre=pre,
+        post={
+            charlie: Account(balance=initial_balance)
+            if recipient_exists
+            else Account.NONEXISTENT,
+        },
+        blocks=[
+            Block(
+                txs=[],
+                withdrawals=[
+                    Withdrawal(
+                        index=0,
+                        validator_index=0,
+                        address=charlie,
+                        amount=0,
+                    )
+                ],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        charlie: BalAccountExpectation.empty(),
+                    }
+                ).modify(remove_accounts(charlie)),
             )
         ],
     )
