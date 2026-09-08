@@ -2340,6 +2340,7 @@ def test_bal_invalid_missing_request_predeploy_accesses(
                             storage_reads=queue_slots,
                             storage_changes=[],
                         ),
+                        SYSTEM_ADDRESS: None,
                     }
                 ).modify(modifier(predeploy)),
             )
@@ -2359,7 +2360,8 @@ def test_bal_invalid_missing_pre_block_system_call_read(
 
     With a zero parent beacon root the root slot is rewritten with its
     current value, which EIP-7928 records as a read next to the timestamp
-    slot write.
+    slot write. The timestamp and the zero root are the framework defaults,
+    spelled out here because the scenario turns on both.
     """
     block_timestamp = 12
     timestamp_slot, root_slot = get_beacon_root_slots(block_timestamp)
