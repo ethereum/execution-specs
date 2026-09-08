@@ -2631,7 +2631,6 @@ def test_bal_create_contract_init_revert(
 def test_bal_call_revert_insufficient_funds(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
     call_opcode: Op,
     delegated: bool,
     target_is_warm: bool,
@@ -2646,7 +2645,7 @@ def test_bal_call_revert_insufficient_funds(
     failure happens after delegation resolution. Under EIP-8037 the
     call family reads the delegation target's code before the balance
     check fails, so both the target and the delegation target appear in
-    the BAL. Pre-8037 forks defer that read, so only the target appears.
+    the BAL.
 
     Access-list warming does NOT add to BAL on its own — only EVM
     access does — so the BAL is identical across warm/cold variants.
@@ -2713,17 +2712,7 @@ def test_bal_call_revert_insufficient_funds(
 
     if delegated:
         assert delegation_target is not None
-        # Under EIP-8037 the call family reads the delegation target's
-        # code before the balance check fails, so it appears in the
-        # BAL. Pre-8037 forks defer that read and it stays out.
-        # TODO: drop this fork split once #2473 (defer get_code into
-        # generic_call) is consolidated into amsterdam.
-        if fork.is_eip_enabled(8037):
-            account_expectations[delegation_target] = (
-                BalAccountExpectation.empty()
-            )
-        else:
-            account_expectations[delegation_target] = None
+        account_expectations[delegation_target] = BalAccountExpectation.empty()
 
     block = Block(
         txs=[tx],
