@@ -80,7 +80,6 @@ from .test_block_access_lists_eip4788 import (
     beacon_root_system_call_expectations,
     get_beacon_root_slots,
 )
-from .test_block_access_lists_system_call_reads import queued_request_types
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
@@ -2262,12 +2261,9 @@ def test_bal_invalid_phantom_read_on_selfdestruct(
         pytest.param(remove_storage_reads, id="missing_reads"),
     ],
 )
-@pytest.mark.parametrize_by_fork(
-    "request_class",
-    lambda fork: [
-        pytest.param(cls, id=cls.__name__)
-        for cls in queued_request_types(fork)
-    ],
+# The deposit contract keeps no queue, so it has no slots to read.
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
 )
 def test_bal_invalid_missing_request_predeploy_accesses(
     blockchain_test: BlockchainTestFiller,

@@ -14,6 +14,7 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 - Rule: use `state_test` for single-transaction tests; `fill` auto-derives a `blockchain_test` from each, so no coverage is lost.
 - Exception: use `blockchain_test` when the test needs more than one transaction (a `state_test` holds exactly one) or more than one block (e.g. transaction-ordering or fork-transition tests).
 - Anti-pattern: wrapping one transaction in a `Block` to reach `blockchain_test`. A `state_test` can assert the transaction's gas used and receipt logs (the tx's `expected_receipt=TransactionReceipt(cumulative_gas_used=...)`), reserve state gas (the tx's `state_gas_reservoir=`), and other block-header fields (`blockchain_test_header_verify=Header(...)`) without it.
+- If the framework cannot express what a test needs — a fork-derived parameter set, a protocol constant, a cost — add it to the framework (a `fork.*()` accessor, a mixin ClassVar, a covariant marker) instead of building it in the test. Importing a helper from a sibling `test_*.py` is the sign it belongs there.
 
 ## Fail Loudly
 
@@ -53,7 +54,7 @@ Wire a test's premises so that a change fails it instead of silently retargeting
 - `@pytest.mark.valid_until("ForkName")` — test only valid up to a fork
 - `@pytest.mark.with_all_tx_types` — parametrize across all tx types
 - `@pytest.mark.with_all_call_opcodes` — parametrize CALL/CALLCODE/DELEGATECALL/STATICCALL
-- `@pytest.mark.with_all_evm_code_types` — parametrize across EVM code types
+- `@pytest.mark.with_all_system_contract_request_types` — parametrize over the fork's request classes as `request_class`; `selector=` narrows any `with_all_*` marker
 - `@pytest.mark.slow` — excluded by default in fill
 - `@pytest.mark.exception_test` — marks tests expecting exceptions. When only some parametrized cases raise, put it on the `pytest.param(..., marks=...)`, not the function, or the passing cases fail.
 
@@ -80,7 +81,7 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 - Rule: omit `gas_limit`. It auto-fills so the transaction executes in full without running out of gas.
 - Exception: set `gas_limit` explicitly for gas-sensitive tests (intrinsic-gas boundaries, OOG, code-deposit limits, or gas metering).
 - Anti-pattern: the `gas_limit=fork.transaction_gas_limit_cap()` boilerplate is now redundant.
-- A transaction that runs out of gas consumes exactly its `gas_limit`, so calling an `Om.OOG` contract pins a transaction's gas used to a chosen value without any cost arithmetic. Useful when a block's `gas_used` must land on an exact number.
+- A transaction that runs out of gas consumes exactly its `gas_limit`, so calling an `Om.OOG` contract pins a transaction's gas used to a chosen value without any cost arithmetic.
 
 ## Exception Testing
 
