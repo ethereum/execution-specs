@@ -41,7 +41,7 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 BLOCK_GAS_LIMIT = 100_000_000
 
 
-def _queued_request_types(fork: Fork) -> list[Type[FeeSystemContractRequest]]:
+def queued_request_types(fork: Fork) -> list[Type[FeeSystemContractRequest]]:
     """Return the fork's queued request classes in request type order."""
     queued_request_types = [
         request_type
@@ -117,7 +117,7 @@ def test_bal_pending_system_call_reads_vs_leftover_gas(
     gas, so a gas-feasibility check on those reads (`BLOCK_ACCESS_LIST_ITEM`
     each) would wrongly reject these blocks; see ethereum/EIPs#12277.
     """
-    request_types = _queued_request_types(fork)
+    request_types = queued_request_types(fork)
     post_execution_contracts = {
         address
         for address, phase in fork.system_contract_call_phases().items()
@@ -218,7 +218,7 @@ def test_bal_pending_system_call_reads_vs_leftover_gas(
     "request_class",
     lambda fork: [
         pytest.param(cls, id=cls.__name__)
-        for cls in _queued_request_types(fork)
+        for cls in queued_request_types(fork)
     ],
 )
 def test_bal_invalid_phantom_read_on_request_predeploy(
