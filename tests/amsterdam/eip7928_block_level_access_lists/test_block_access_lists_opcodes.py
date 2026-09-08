@@ -2712,9 +2712,6 @@ def test_bal_call_revert_insufficient_funds(
 
     if delegated:
         assert delegation_target is not None
-        # EIP-8037 (always on for this Amsterdam+ file) reads the
-        # delegation target's code before the balance check fails, so
-        # it appears in the BAL.
         account_expectations[delegation_target] = BalAccountExpectation.empty()
 
     block = Block(
