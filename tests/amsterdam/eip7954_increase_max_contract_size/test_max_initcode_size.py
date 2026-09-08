@@ -10,6 +10,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    EIPChecklist,
     Fork,
     Initcode,
     Op,
@@ -34,11 +35,18 @@ INITCODE_SIZE_PARAMS = [
 ]
 
 TX_INITCODE_SIZE_PARAMS = [
-    pytest.param(lambda f: f.max_initcode_size(), id="at_max"),
+    pytest.param(
+        lambda f: f.max_initcode_size(),
+        id="at_max",
+        marks=EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx(),
+    ),
     pytest.param(
         lambda f: f.max_initcode_size() + 1,
         id="over_max",
-        marks=pytest.mark.exception_test,
+        marks=[
+            pytest.mark.exception_test,
+            EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork(),
+        ],
     ),
 ]
 
@@ -80,6 +88,11 @@ def test_max_initcode_size(
 
 @pytest.mark.parametrize("initcode_size", INITCODE_SIZE_PARAMS)
 @pytest.mark.with_all_create_opcodes()
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
+@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
+@EIPChecklist.Opcode.Test.OutOfBounds.Verify.Max()
+@EIPChecklist.Opcode.Test.OutOfBounds.Verify.MaxPlusOne()
+@EIPChecklist.Opcode.Test.ContractCreation.Address()
 def test_max_initcode_size_via_create(
     state_test: StateTestFiller,
     pre: Alloc,

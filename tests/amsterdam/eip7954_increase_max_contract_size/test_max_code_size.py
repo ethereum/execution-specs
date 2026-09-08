@@ -10,6 +10,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     CodeGasMeasure,
+    EIPChecklist,
     Fork,
     Initcode,
     Op,
@@ -66,6 +67,11 @@ def test_max_code_size(
 
 @pytest.mark.parametrize("deploy_code_size", DEPLOY_CODE_SIZE_PARAMS)
 @pytest.mark.with_all_create_opcodes()
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Opcode()
+@EIPChecklist.Opcode.Test.GasUsage.ExtraGas()
+@EIPChecklist.Opcode.Test.OutOfBounds.Verify.Max()
+@EIPChecklist.Opcode.Test.OutOfBounds.Verify.MaxPlusOne()
+@EIPChecklist.Opcode.Test.ContractCreation.Address()
 def test_max_code_size_via_create(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -178,6 +184,8 @@ def test_max_code_size_deposit_gas(
     state_test(pre=pre, tx=tx, post=post)
 
 
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior()
+@EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
 def test_max_code_size_with_max_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -285,6 +293,7 @@ def test_max_code_size_self_opcodes(
         pytest.param(Op.CREATE2, id="CREATE2"),
     ],
 )
+@EIPChecklist.Opcode.Test.OutOfBounds.Verify.MaxPlusOne()
 def test_warm_after_failed_create_over_max_code_size(
     state_test: StateTestFiller,
     pre: Alloc,

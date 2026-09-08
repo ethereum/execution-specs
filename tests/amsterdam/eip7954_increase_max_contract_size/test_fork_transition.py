@@ -14,6 +14,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    EIPChecklist,
     Initcode,
     Op,
     Transaction,
@@ -82,6 +83,8 @@ def test_max_code_size_fork_transition(
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
+@EIPChecklist.Opcode.Test.ForkTransition.At()
+@EIPChecklist.Opcode.Test.ContractCreation.Address()
 def test_max_code_size_via_create_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -163,6 +166,8 @@ def test_max_code_size_via_create_fork_transition(
 
 
 @pytest.mark.exception_test
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
 def test_max_initcode_size_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -217,6 +222,8 @@ def test_max_initcode_size_fork_transition(
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
+@EIPChecklist.Opcode.Test.ForkTransition.At()
+@EIPChecklist.Opcode.Test.ContractCreation.Address()
 def test_max_initcode_size_via_create_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -301,6 +308,8 @@ def test_max_initcode_size_via_create_fork_transition(
 
 
 @pytest.mark.exception_test
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
 def test_max_code_size_with_max_initcode_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -397,6 +406,58 @@ def test_parent_max_code_size_across_fork(
     post: dict[Any, Account | None] = {
         create_address_pre: Account(code=deploy_code),
         create_address_post: Account(code=deploy_code),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedBeforeFork()  # noqa: E501
+def test_parent_max_initcode_size_across_fork(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: TransitionFork,
+) -> None:
+    """Ensure initcode at the previous max size is valid on both sides."""
+    parent = fork.transitions_from()
+    assert parent is not None, "Parent fork must be defined for this test"
+
+    initcode = Initcode(
+        deploy_code=Op.STOP,
+        initcode_length=parent.max_initcode_size(),
+    )
+
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
+
+    create_address_pre = compute_create_address(address=alice, nonce=0)
+    create_address_post = compute_create_address(address=bob, nonce=0)
+
+    blocks = [
+        Block(
+            timestamp=14_999,
+            txs=[
+                Transaction(
+                    sender=alice,
+                    to=None,
+                    data=initcode,
+                )
+            ],
+        ),
+        Block(
+            timestamp=15_000,
+            txs=[
+                Transaction(
+                    sender=bob,
+                    to=None,
+                    data=initcode,
+                )
+            ],
+        ),
+    ]
+
+    post: dict[Any, Account | None] = {
+        create_address_pre: Account(code=Op.STOP),
+        create_address_post: Account(code=Op.STOP),
     }
 
     blockchain_test(pre=pre, blocks=blocks, post=post)

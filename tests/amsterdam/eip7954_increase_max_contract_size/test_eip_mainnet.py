@@ -9,6 +9,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    EIPChecklist,
     Fork,
     Initcode,
     Op,
@@ -55,6 +56,7 @@ def test_over_max_code_size_mainnet(
 
 @pytest.mark.inclusion_test
 @pytest.mark.exception_test
+@EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork()
 def test_over_max_initcode_size_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
