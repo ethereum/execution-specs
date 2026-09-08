@@ -727,23 +727,48 @@ def test_bal_invalid_missing_withdrawal_account(
 
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "withdrawal_amount,initial_balance",
+    [
+        pytest.param(10, 0, id="nonzero_amount"),
+        pytest.param(0, 1, id="zero_amount_existing_recipient"),
+        pytest.param(0, 0, id="zero_amount_new_recipient"),
+    ],
+)
 def test_bal_invalid_missing_withdrawal_account_empty_block(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    withdrawal_amount: int,
+    initial_balance: int,
 ) -> None:
     """
-    Test that clients reject blocks where BAL is missing an account
-    that was modified only by a withdrawal, in a block with no transactions.
+    Test that clients reject blocks where BAL is missing a withdrawal
+    recipient, in a block with no transactions.
 
-    Charlie receives 10 gwei withdrawal in an empty block.
-    BAL is corrupted by removing Charlie's entry entirely.
+    EIP-7928 records the recipient whether or not the amount is non-zero, so
+    for a zero-amount withdrawal the BAL entry is the recipient's only trace:
+    dropping it leaves both the state root and the gas used untouched.
     """
-    charlie = pre.fund_eoa(amount=0)
+    charlie = pre.fund_eoa(amount=initial_balance)
+
+    if withdrawal_amount > 0:
+        charlie_expectation = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=1,
+                    post_balance=withdrawal_amount * 10**9,
+                )
+            ],
+        )
+    else:
+        charlie_expectation = BalAccountExpectation.empty()
 
     blockchain_test(
         pre=pre,
         post={
-            charlie: None,
+            charlie: Account(balance=initial_balance)
+            if initial_balance > 0
+            else Account.NONEXISTENT,
         },
         blocks=[
             Block(
@@ -753,20 +778,13 @@ def test_bal_invalid_missing_withdrawal_account_empty_block(
                         index=0,
                         validator_index=0,
                         address=charlie,
-                        amount=10,
+                        amount=withdrawal_amount,
                     )
                 ],
                 exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
-                        charlie: BalAccountExpectation(
-                            balance_changes=[
-                                BalBalanceChange(
-                                    block_access_index=1,
-                                    post_balance=10 * 10**9,
-                                )
-                            ],
-                        ),
+                        charlie: charlie_expectation,
                     }
                 ).modify(remove_accounts(charlie)),
             )
@@ -2286,16 +2304,25 @@ REQUEST_PREDEPLOYS = [
 
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(remove_accounts, id="missing_entry"),
+        pytest.param(remove_storage_reads, id="missing_reads"),
+    ],
+)
 @pytest.mark.parametrize("predeploy,queue_slots", REQUEST_PREDEPLOYS)
-def test_bal_invalid_missing_request_predeploy_entry(
+def test_bal_invalid_missing_request_predeploy_accesses(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     predeploy: Address,
     queue_slots: list[int],
+    modifier: Callable,
 ) -> None:
     """
-    Reject a BAL that omits a request predeploy the post-execution system
-    call only read.
+    Reject a BAL that hides the queue slots the post-execution system call
+    read from a request predeploy, either by dropping the predeploy's entry
+    outright or by clearing only its storage reads.
 
     Nothing but the BAL records those reads, so the block stays
     self-consistent on state root and gas.
@@ -2314,40 +2341,7 @@ def test_bal_invalid_missing_request_predeploy_entry(
                             storage_changes=[],
                         ),
                     }
-                ).modify(remove_accounts(predeploy)),
-            )
-        ],
-    )
-
-
-@pytest.mark.valid_from("Amsterdam")
-@pytest.mark.exception_test
-@pytest.mark.parametrize("predeploy,queue_slots", REQUEST_PREDEPLOYS)
-def test_bal_invalid_missing_request_predeploy_reads(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    predeploy: Address,
-    queue_slots: list[int],
-) -> None:
-    """
-    Reject a BAL that keeps a request predeploy's entry but drops the
-    queue slots the post-execution system call read from it.
-    """
-    blockchain_test(
-        pre=pre,
-        post={},
-        blocks=[
-            Block(
-                txs=[],
-                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
-                expected_block_access_list=BlockAccessListExpectation(
-                    account_expectations={
-                        predeploy: BalAccountExpectation(
-                            storage_reads=queue_slots,
-                            storage_changes=[],
-                        ),
-                    }
-                ).modify(remove_storage_reads(predeploy)),
+                ).modify(modifier(predeploy)),
             )
         ],
     )
@@ -2441,61 +2435,6 @@ def test_bal_invalid_missing_system_contract_entry(
                         ),
                     }
                 ).modify(remove_accounts(system_contract)),
-            )
-        ],
-    )
-
-
-@pytest.mark.valid_from("Amsterdam")
-@pytest.mark.exception_test
-@pytest.mark.parametrize(
-    "recipient_exists",
-    [
-        pytest.param(True, id="existing_recipient"),
-        pytest.param(False, id="nonexistent_recipient"),
-    ],
-)
-def test_bal_invalid_missing_zero_amount_withdrawal_recipient(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    recipient_exists: bool,
-) -> None:
-    """
-    Reject a BAL that omits the recipient of a zero-amount withdrawal.
-
-    EIP-7928 records withdrawal recipients regardless of amount, and a
-    zero-amount withdrawal changes no state, so the entry is the only trace.
-    """
-    initial_balance = 1
-    charlie = (
-        pre.fund_eoa(amount=initial_balance)
-        if recipient_exists
-        else Address(0xCC)
-    )
-    blockchain_test(
-        pre=pre,
-        post={
-            charlie: Account(balance=initial_balance)
-            if recipient_exists
-            else Account.NONEXISTENT,
-        },
-        blocks=[
-            Block(
-                txs=[],
-                withdrawals=[
-                    Withdrawal(
-                        index=0,
-                        validator_index=0,
-                        address=charlie,
-                        amount=0,
-                    )
-                ],
-                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
-                expected_block_access_list=BlockAccessListExpectation(
-                    account_expectations={
-                        charlie: BalAccountExpectation.empty(),
-                    }
-                ).modify(remove_accounts(charlie)),
             )
         ],
     )
