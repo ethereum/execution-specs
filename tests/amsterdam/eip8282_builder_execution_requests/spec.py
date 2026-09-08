@@ -29,13 +29,6 @@ class Spec:
     `BuilderDepositRequest` and `BuilderExitRequest`.
     """
 
-    SYSTEM_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
-    SYSTEM_CALL_GAS_LIMIT = 30_000_000
-
     # Seeding the excess slot with `EXCESS_INHIBITOR` disables the queue; the
     # next system call resets it.
     EXCESS_INHIBITOR = 2**256 - 1
-
-    # Calldata input sizes accepted by each predeploy.
-    DEPOSIT_REQUEST_INPUT_BYTES = 184
-    EXIT_REQUEST_INPUT_BYTES = 48

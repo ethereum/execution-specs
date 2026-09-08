@@ -361,10 +361,9 @@ def generate_system_contract_deploy_test(
     return decorator
 
 
-def generate_system_contract_error_test(
-    *,
-    max_gas_limit: int,
-) -> Callable[[SystemContractDeployTestFunction], Callable]:
+def generate_system_contract_error_test() -> Callable[
+    [SystemContractDeployTestFunction], Callable
+]:
     """
     Generate a test that verifies the correct behavior when a system contract
     fails execution.
@@ -372,10 +371,6 @@ def generate_system_contract_error_test(
     Parametrizations required:
     - system_contract (Address): The address of the system contract to deploy.
     - valid_from (Fork): The fork from which the test is valid.
-
-    Arguments:
-      max_gas_limit (int): The maximum gas limit for the system transaction.
-
     """
 
     def decorator(func: SystemContractDeployTestFunction) -> Callable:
@@ -409,9 +404,7 @@ def generate_system_contract_error_test(
                     + gas_costs.COLD_STORAGE_ACCESS
                     + (gas_costs.VERY_LOW * 2)
                 )
-                effective_max_gas = max(
-                    max_gas_limit, fork.system_call_gas_limit()
-                )
+                effective_max_gas = fork.system_call_gas_limit()
                 modified_system_contract_code += sum(
                     Op.SSTORE(i, 1)
                     for i in range(effective_max_gas // gas_used_per_storage)

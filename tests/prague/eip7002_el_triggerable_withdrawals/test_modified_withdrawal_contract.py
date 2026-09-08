@@ -21,7 +21,6 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 
-from .spec import Spec as Spec_EIP7002
 from .spec import ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_7002.git_path
@@ -140,9 +139,7 @@ def test_extra_withdrawals(
     "system_contract",
     [WithdrawalRequest.system_contract_address],
 )
-@generate_system_contract_error_test(  # type: ignore[arg-type]
-    max_gas_limit=Spec_EIP7002.SYSTEM_CALL_GAS_LIMIT,
-)
+@generate_system_contract_error_test()  # type: ignore[arg-type]
 @pytest.mark.eels_base_coverage
 def test_system_contract_errors() -> None:
     """

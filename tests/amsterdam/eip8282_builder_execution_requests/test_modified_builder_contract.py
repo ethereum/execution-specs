@@ -22,7 +22,7 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 
-from .spec import Spec, ref_spec_8282
+from .spec import ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION: str = ref_spec_8282.version
@@ -212,9 +212,7 @@ def test_extra_builder_exits(
         ),
     ],
 )
-@generate_system_contract_error_test(  # type: ignore[arg-type]
-    max_gas_limit=Spec.SYSTEM_CALL_GAS_LIMIT,
-)
+@generate_system_contract_error_test()  # type: ignore[arg-type]
 @pytest.mark.eels_base_coverage
 def test_system_contract_errors() -> None:
     """

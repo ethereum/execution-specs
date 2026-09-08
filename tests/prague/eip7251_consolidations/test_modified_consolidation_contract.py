@@ -21,7 +21,6 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 
-from .spec import Spec as Spec_EIP7251
 from .spec import ref_spec_7251
 
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_7251.git_path
@@ -139,9 +138,7 @@ def test_extra_consolidations(
     "system_contract",
     [ConsolidationRequest.system_contract_address],
 )
-@generate_system_contract_error_test(  # type: ignore[arg-type]
-    max_gas_limit=Spec_EIP7251.SYSTEM_CALL_GAS_LIMIT,
-)
+@generate_system_contract_error_test()  # type: ignore[arg-type]
 def test_system_contract_errors() -> None:
     """
     Test consolidation system contract raising different errors when called by
