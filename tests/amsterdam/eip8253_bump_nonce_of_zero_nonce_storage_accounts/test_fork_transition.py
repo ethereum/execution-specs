@@ -6,7 +6,7 @@ fork-transition test. The targeted accounts are placed in the pre-state the
 way they look on Mainnet: empty code, zero nonce, non-empty storage.
 """
 
-from typing import Dict
+from typing import Tuple
 
 import pytest
 from execution_testing import (
@@ -21,14 +21,24 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Bytecode,
     Initcode,
     Op,
     Storage,
     Transaction,
+    TransitionFork,
     compute_create_address,
     keccak256,
 )
 
+from .helpers import (
+    BALANCE_BASE,
+    BUMP_EXPECTATION,
+    FORK_TIMESTAMP,
+    bumped_account,
+    place_targeted_account,
+    place_targeted_accounts,
+)
 from .spec import Spec, TargetedAccount, ref_spec_8253
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8253.git_path
@@ -39,47 +49,55 @@ pytestmark = [
     pytest.mark.pre_alloc_mutable,
 ]
 
-FORK_TIMESTAMP = 15_000
-
-# Distinct non-zero balances per targeted account, so a balance that is
-# zeroed or attributed to the wrong account is caught.
-BALANCE_BASE = 10**15
-
-BUMP_EXPECTATION = BalAccountExpectation(
-    nonce_changes=[BalNonceChange(block_access_index=0, post_nonce=1)],
-    balance_changes=[],
-    code_changes=[],
-    storage_changes=[],
-    storage_reads=[],
-)
-"""The only BAL entry a targeted account gets from the bump."""
+INITCODE = Initcode(deploy_code=Op.STOP)
+INITCODE_WORD = int.from_bytes(bytes(INITCODE).ljust(32, b"\0"), "big")
 
 
-def targeted_storage(target: TargetedAccount) -> Storage:
-    """Return a non-zero value in each Mainnet storage slot of `target`."""
-    storage = Storage()
-    for key in target.storage_keys:
-        storage[key] = 1
-    return storage
-
-
-def place_targeted_accounts(pre: Alloc) -> Dict[Address, Account]:
+def deploy_creator(
+    pre: Alloc, target: TargetedAccount, value: int = 0
+) -> Tuple[Address, Bytecode, Storage, int]:
     """
-    Add every targeted account to the pre-state as it looks on Mainnet and
-    return the accounts expected after the bump.
+    Deploy the Mainnet creator of `target` at its original creation nonce,
+    with code that repeats the creation: a `CREATE` of `INITCODE` sending
+    `value`, whose result is stored in the first slot; the second slot
+    records that the code ran to completion.
+
+    Return the creator address, its code, its expected storage after a
+    collision, and the slot that records completion.
     """
-    post: Dict[Address, Account] = {}
-    for index, target in enumerate(Spec.TARGETED_ACCOUNTS):
-        address = Address(target.address)
-        balance = BALANCE_BASE + index
-        storage = targeted_storage(target)
-        pre[address] = Account(
-            nonce=0, balance=balance, code=b"", storage=storage
-        )
-        post[address] = Account(
-            nonce=1, balance=balance, code=b"", storage=storage
-        )
-    return post
+    creator = Address(target.creator)
+    assert (
+        compute_create_address(address=creator, nonce=target.creation_nonce)
+        == target.address
+    ), "test correctness: creator and nonce do not derive the target"
+
+    creator_storage = Storage()
+    result_slot = creator_storage.store_next(0, "create_result")
+    executed_slot = creator_storage.store_next(1, "executed")
+    creator_code = (
+        Op.MSTORE(0, INITCODE_WORD)
+        + Op.SSTORE(result_slot, Op.CREATE(value, 0, len(INITCODE)))
+        + Op.SSTORE(executed_slot, 1)
+        + Op.STOP
+    )
+    pre.deploy_contract(
+        creator_code, address=creator, nonce=target.creation_nonce
+    )
+    return creator, creator_code, creator_storage, executed_slot
+
+
+def executed_slot_change(
+    executed_slot: int, block_access_index: int
+) -> BalStorageSlot:
+    """Return the BAL storage change of a creator that ran to completion."""
+    return BalStorageSlot(
+        slot=executed_slot,
+        slot_changes=[
+            BalStorageChange(
+                block_access_index=block_access_index, post_value=1
+            )
+        ],
+    )
 
 
 def test_nonce_bump_at_fork_block(
@@ -148,34 +166,14 @@ def test_create_collision_at_fork_block(
     Replay the Mainnet creation of a targeted account as the first
     transaction of the fork block: a `CREATE` from the original creator at
     the original nonce. It collides under EIP-684 because the nonce is now
-    one, so no code is deployed and the storage survives.
+    one, so no code is deployed and the storage survives. The collision
+    reads no storage of the target, which separates it from an EIP-7610
+    storage check.
     """
-    address = Address(target.address)
-    creator = Address(target.creator)
-    assert (
-        compute_create_address(address=creator, nonce=target.creation_nonce)
-        == address
-    ), "test correctness: creator and nonce do not derive the target"
-
-    storage = targeted_storage(target)
-    pre[address] = Account(
-        nonce=0, balance=BALANCE_BASE, code=b"", storage=storage
+    address = place_targeted_account(pre, target)
+    creator, creator_code, creator_storage, executed_slot = deploy_creator(
+        pre, target
     )
-
-    initcode = Initcode(deploy_code=Op.STOP)
-    creator_storage = Storage()
-    result_slot = creator_storage.store_next(0, "create_result")
-    executed_slot = creator_storage.store_next(1, "executed")
-    creator_code = (
-        Op.MSTORE(0, int.from_bytes(bytes(initcode).ljust(32, b"\0"), "big"))
-        + Op.SSTORE(result_slot, Op.CREATE(0, 0, len(initcode)))
-        + Op.SSTORE(executed_slot, 1)
-        + Op.STOP
-    )
-    pre.deploy_contract(
-        creator_code, address=creator, nonce=target.creation_nonce
-    )
-
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
 
@@ -198,14 +196,7 @@ def test_create_collision_at_fork_block(
                             )
                         ],
                         storage_changes=[
-                            BalStorageSlot(
-                                slot=executed_slot,
-                                slot_changes=[
-                                    BalStorageChange(
-                                        block_access_index=1, post_value=1
-                                    )
-                                ],
-                            )
+                            executed_slot_change(executed_slot, 1)
                         ],
                     ),
                 }
@@ -217,9 +208,7 @@ def test_create_collision_at_fork_block(
         pre=pre,
         blocks=blocks,
         post={
-            address: Account(
-                nonce=1, balance=BALANCE_BASE, code=b"", storage=storage
-            ),
+            address: bumped_account(target),
             creator: Account(
                 nonce=target.creation_nonce + 1,
                 code=creator_code,
@@ -227,6 +216,166 @@ def test_create_collision_at_fork_block(
             ),
             receiver: Account(balance=1),
         },
+    )
+
+
+def test_create_collision_after_fork_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Replay the Mainnet creation of a targeted account in the block after
+    the fork block. The `CREATE` still collides, and the target appears in
+    that block's BAL only as an accessed account: the bump is not replayed.
+    """
+    target = Spec.TARGETED_ACCOUNTS[0]
+    address = place_targeted_account(pre, target)
+    creator, creator_code, creator_storage, executed_slot = deploy_creator(
+        pre, target
+    )
+    sender = pre.fund_eoa()
+    receiver = pre.fund_eoa(amount=0)
+
+    blocks = [
+        Block(
+            timestamp=FORK_TIMESTAMP,
+            txs=[Transaction(sender=sender, to=receiver, value=1)],
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations={address: BUMP_EXPECTATION}
+            ),
+        ),
+        Block(
+            timestamp=FORK_TIMESTAMP + 1,
+            txs=[Transaction(sender=sender, to=creator)],
+            expected_block_access_list=BlockAccessListExpectation(
+                account_expectations={
+                    address: BalAccountExpectation.empty(),
+                    creator: BalAccountExpectation(
+                        nonce_changes=[
+                            BalNonceChange(
+                                block_access_index=1,
+                                post_nonce=target.creation_nonce + 1,
+                            )
+                        ],
+                        storage_changes=[
+                            executed_slot_change(executed_slot, 1)
+                        ],
+                    ),
+                }
+            ),
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post={
+            address: bumped_account(target),
+            creator: Account(
+                nonce=target.creation_nonce + 1,
+                code=creator_code,
+                storage=creator_storage,
+            ),
+            receiver: Account(balance=1),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    ["insufficient_balance", "static_context", "out_of_gas"],
+)
+def test_create_early_failure_at_fork_block(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: TransitionFork,
+    failure: str,
+) -> None:
+    """
+    A `CREATE` from the original creator that fails before the target
+    address is accessed leaves the target with only the bump in the fork
+    block BAL. The creator does not increment its nonce.
+    """
+    amsterdam = fork.transitions_to()
+    target = Spec.TARGETED_ACCOUNTS[0]
+    address = place_targeted_account(pre, target)
+    sender = pre.fund_eoa()
+
+    # The creator has no balance, so a `CREATE` sending value fails its
+    # preflight balance check.
+    value = 1 if failure == "insufficient_balance" else 0
+    creator, creator_code, creator_storage, executed_slot = deploy_creator(
+        pre, target, value=value
+    )
+    # Only the failed balance check lets the creator's code run to its end.
+    post = {
+        address: bumped_account(target),
+        creator: Account(
+            nonce=target.creation_nonce,
+            code=creator_code,
+            storage=creator_storage
+            if failure == "insufficient_balance"
+            else {},
+        ),
+    }
+    account_expectations = {
+        address: BUMP_EXPECTATION,
+        creator: BalAccountExpectation.empty(),
+    }
+
+    if failure == "insufficient_balance":
+        tx = Transaction(sender=sender, to=creator)
+        account_expectations[creator] = BalAccountExpectation(
+            nonce_changes=[],
+            storage_changes=[executed_slot_change(executed_slot, 1)],
+        )
+    elif failure == "static_context":
+        wrapper_storage = Storage()
+        wrapper_code = Op.SSTORE(
+            wrapper_storage.store_next(0, "staticcall_result"),
+            Op.STATICCALL(Op.GAS, creator, 0, 0, 0, 0),
+        ) + Op.SSTORE(wrapper_storage.store_next(1, "executed"), 1)
+        # Pre-set the result slot so the write of zero is a real change.
+        wrapper = pre.deploy_contract(wrapper_code, storage={0: 0xDEAD})
+        tx = Transaction(sender=sender, to=wrapper)
+        post[wrapper] = Account(storage=wrapper_storage)
+    elif failure == "out_of_gas":
+        # Enough gas for everything up to the `CREATE`, one short of the
+        # opcode's own charge, which comes before the target is accessed.
+        before_target_access = Op.MSTORE(
+            0, INITCODE_WORD, new_memory_size=32
+        ) + Op.CREATE(
+            0,
+            0,
+            len(INITCODE),
+            init_code_size=len(INITCODE),
+            old_memory_size=32,
+            new_memory_size=32,
+            account_new=False,
+        )
+        intrinsic_gas = amsterdam.transaction_intrinsic_cost_calculator()()
+        tx = Transaction(
+            sender=sender,
+            to=creator,
+            gas_limit=intrinsic_gas
+            + before_target_access.gas_cost(amsterdam)
+            - 1,
+        )
+    else:
+        raise ValueError(f"Unhandled failure: {failure}")
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                timestamp=FORK_TIMESTAMP,
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations=account_expectations
+                ),
+            )
+        ],
+        post=post,
     )
 
 
@@ -241,11 +390,7 @@ def test_call_to_bumped_account(
     zero with the balance change at index one.
     """
     target = Spec.TARGETED_ACCOUNTS[0]
-    address = Address(target.address)
-    storage = targeted_storage(target)
-    pre[address] = Account(
-        nonce=0, balance=BALANCE_BASE, code=b"", storage=storage
-    )
+    address = place_targeted_account(pre, target)
     value = 5
 
     def deploy_caller(balance_after_call: int) -> tuple[Address, Storage]:
@@ -308,12 +453,7 @@ def test_call_to_bumped_account(
         pre=pre,
         blocks=blocks,
         post={
-            address: Account(
-                nonce=1,
-                balance=BALANCE_BASE + 2 * value,
-                code=b"",
-                storage=storage,
-            ),
+            address: bumped_account(target, BALANCE_BASE + 2 * value),
             caller_before: Account(balance=0, storage=storage_before),
             caller_at_fork: Account(balance=0, storage=storage_at_fork),
         },
@@ -326,16 +466,21 @@ def test_non_targeted_accounts_unaffected(
 ) -> None:
     """
     Accounts that are not on the list keep their nonce at the fork block,
-    including one with the same shape as the targeted accounts.
+    including ones with the same shape as the targeted accounts, whether
+    they are left alone or read during the block. The bump follows the
+    fixed list, not the account shape.
     """
     place_targeted_accounts(pre)
 
     lookalike = pre.fund_eoa(amount=0)
     pre[lookalike] = Account(nonce=0, balance=1, code=b"", storage={0: 1})
+    lookalike_read = pre.fund_eoa(amount=0)
+    pre[lookalike_read] = Account(nonce=0, balance=1, code=b"", storage={0: 1})
     contract = pre.deploy_contract(Op.STOP, storage={0: 1})
     used_eoa = pre.fund_eoa(nonce=5)
     fresh_eoa = pre.fund_eoa(amount=1)
 
+    reader = pre.deploy_contract(Op.SSTORE(0, Op.BALANCE(lookalike_read)))
     sender = pre.fund_eoa()
     receiver = pre.fund_eoa(amount=0)
 
@@ -350,17 +495,27 @@ def test_non_targeted_accounts_unaffected(
             ),
             Block(
                 timestamp=FORK_TIMESTAMP,
-                txs=[Transaction(sender=sender, to=receiver, value=1)],
+                txs=[
+                    Transaction(sender=sender, to=receiver, value=1),
+                    Transaction(sender=sender, to=reader),
+                ],
                 expected_block_access_list=BlockAccessListExpectation(
-                    account_expectations=dict.fromkeys(untouched)
+                    account_expectations={
+                        **dict.fromkeys(untouched),
+                        lookalike_read: BalAccountExpectation.empty(),
+                    }
                 ),
             ),
         ],
         post={
             lookalike: Account(nonce=0, balance=1, code=b"", storage={0: 1}),
+            lookalike_read: Account(
+                nonce=0, balance=1, code=b"", storage={0: 1}
+            ),
             contract: Account(nonce=1, code=Op.STOP, storage={0: 1}),
             used_eoa: Account(nonce=5),
             fresh_eoa: Account(nonce=0, balance=1),
+            reader: Account(storage={0: 1}),
             receiver: Account(balance=2),
         },
     )
