@@ -90,24 +90,21 @@ worker.
 
 class FixtureFileCache:
     """
-    Least-recently-used cache of parsed fixture files, bounded by file size.
+    Cache parsed fixture files with least-recently-used eviction.
 
-    A fixture file holds several test cases, and the tests of one file are
-    spread through the collection order, so a worker needs the same file
-    repeatedly over a run; the cache saves re-reading and re-validating it
-    while it is resident.
+    Consume groups test cases by fixture file to improve cache reuse, except
+    in EngineX, which groups by pre-allocation. A cached file can serve
+    multiple tests without being read and validated again. Scheduling can
+    still split a file's tests across workers or cause later revisits.
 
-    The cache is bounded because it lives for the whole session of every
-    xdist worker: with an unbounded cache each worker gradually holds the
-    parsed form of most of the fixture set, which is gigabytes per worker
-    for a full release and exhausts the memory of the host running the hive
-    simulator. The bound counts the size of the JSON files on disk;
-    the most recently loaded file is always kept, even when it exceeds the
-    bound on its own.
+    Each xdist worker owns a cache for the whole session. Retaining every
+    loaded file can contribute to memory pressure during long runs. The
+    bound counts JSON bytes on disk, not process memory. The most recently
+    loaded file is always kept, even when it exceeds the bound on its own.
     """
 
     def __init__(self, max_bytes: int = FIXTURE_FILE_CACHE_MAX_BYTES) -> None:
-        """Initialize an empty cache that holds at most `max_bytes` of JSON."""
+        """Initialize an empty cache with a `max_bytes` JSON size budget."""
         self._max_bytes = max_bytes
         self._fixtures: OrderedDict[Path, Fixtures] = OrderedDict()
         self._sizes: Dict[Path, int] = {}
