@@ -41,6 +41,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stSpecialTest/eoaEmptyParisFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_before("EIP8253")
 @pytest.mark.parametrize(
     "d, g, v",
     [
