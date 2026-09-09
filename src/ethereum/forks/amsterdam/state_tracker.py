@@ -686,6 +686,17 @@ def increment_nonce(tx_state: TransactionState, address: Address) -> None:
     modify_state(tx_state, address, increase_nonce)
 
 
+def set_account_nonce(
+    tx_state: TransactionState, address: Address, nonce: Uint
+) -> None:
+    """Set the nonce of an account."""
+
+    def set_nonce(account: Account) -> None:
+        account.nonce = nonce
+
+    modify_state(tx_state, address, set_nonce)
+
+
 def set_code(
     tx_state: TransactionState, address: Address, code: Bytes
 ) -> None:

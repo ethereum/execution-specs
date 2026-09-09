@@ -212,6 +212,7 @@ class T8N(Load):
         self.chain_id = U64(t8n_data.chain_id)
         self.state_test = t8n_data.state_test
         self.state_reward = t8n_data.reward
+        self.is_fork_transition = t8n_data.is_fork_transition
         self.exception_mapper = exception_mapper
 
         from execution_testing.client_clis.cli_types import LazyAlloc
@@ -370,6 +371,12 @@ class T8N(Load):
         )
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
+        if self.is_fork_transition and self.fork.has_block_start_transition:
+            self.fork.apply_block_start_transition(
+                block_env.state,
+                block_env.block_access_list_builder,
+            )
+
         if self.fork.has_compute_requests_hash:
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,
