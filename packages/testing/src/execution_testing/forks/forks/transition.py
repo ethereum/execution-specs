@@ -8,6 +8,7 @@ from .forks import (
     BPO4,
     Amsterdam,
     Berlin,
+    Bogota,
     Cancun,
     London,
     Osaka,
@@ -88,5 +89,12 @@ class BPO2ToBPO3AtTime15k(TransitionBaseClass):
 @transition_fork(to_fork=BPO4, from_fork=BPO3, at_timestamp=15_000)
 class BPO3ToBPO4AtTime15k(TransitionBaseClass):
     """BPO3 to BPO4 transition at Timestamp 15k."""
+
+    pass
+
+
+@transition_fork(to_fork=Bogota, from_fork=Amsterdam, at_timestamp=15_000)
+class AmsterdamToBogotaAtTime15k(TransitionBaseClass):
+    """Amsterdam to Bogota transition at Timestamp 15k."""
 
     pass
