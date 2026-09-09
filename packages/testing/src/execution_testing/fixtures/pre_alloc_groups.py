@@ -581,7 +581,11 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
                 group_salt=group_salt,
                 group_hash=pre_alloc_hash,
                 # Plain `Alloc` copy, so later tests can be merged into it.
-                pre=Alloc(pre.root),
+                pre=Alloc(pre.root).with_installed_code(
+                    fork.fork_at(
+                        block_number=0, timestamp=0
+                    ).activation_code_installs()
+                ),
             )
             self.root[pre_alloc_hash] = group
 
