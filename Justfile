@@ -160,6 +160,22 @@ fill *args: (_tmp-logs "fill")
         "$@" \
         tests
 
+# Run blockchain_tests fixtures through EELS block validation with coverage
+[group('consensus tests')]
+validate-blocks fixtures_dir *args: (_tmp "validate-blocks")
+    COVERAGE_FILE="{{ output_dir }}/validate-blocks/.coverage" uv run python -m pytest \
+        -p tests.json_loader.conftest \
+        -c pyproject.toml \
+        --allow-post-state-hash \
+        -n {{ xdist_workers }} --dist=loadfile \
+        --cov-config=pyproject.toml \
+        --cov=ethereum \
+        --cov-report=term \
+        --cov-report "xml:{{ output_dir }}/validate-blocks/coverage.xml" \
+        --cov-branch \
+        --basetemp="{{ output_dir }}/validate-blocks/tmp" \
+        "$@"
+
 # Callers append the feature params, fork range and output; last flag wins.
 # Fill fixtures with the flags shared by all fixture releases
 [group('consensus tests')]
