@@ -98,3 +98,10 @@ class BPO3ToBPO4AtTime15k(TransitionBaseClass):
     """BPO3 to BPO4 transition at Timestamp 15k."""
 
     pass
+
+
+@transition_fork(to_fork=Bogota, from_fork=Amsterdam, at_timestamp=15_000)
+class AmsterdamToBogotaAtTime15k(TransitionBaseClass):
+    """Amsterdam to Bogota transition at Timestamp 15k."""
+
+    pass
