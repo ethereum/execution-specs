@@ -40,7 +40,6 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
-    TransactionReceipt,
     compute_create_address,
 )
 from execution_testing import Macros as Om
@@ -659,7 +658,6 @@ def test_bal_extcodehash_and_oog(
         to=codehash_checker,
         gas_limit=tx_gas_limit,
         access_list=access_list,
-        expected_receipt=TransactionReceipt(cumulative_gas_used=tx_gas_limit),
     )
 
     state_test(

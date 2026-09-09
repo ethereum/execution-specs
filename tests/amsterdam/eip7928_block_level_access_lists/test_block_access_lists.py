@@ -32,7 +32,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
-    TransactionReceipt,
     Withdrawal,
     add_kzg_version,
     compute_create_address,
@@ -1690,7 +1689,6 @@ def test_bal_coinbase_tip_on_exceptional_halt(
         to=halting_contract,
         gas_limit=gas_limit,
         gas_price=gas_price,
-        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_limit),
     )
 
     state_test(

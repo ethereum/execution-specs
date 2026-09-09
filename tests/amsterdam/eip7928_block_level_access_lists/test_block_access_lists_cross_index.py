@@ -34,7 +34,11 @@ from execution_testing import (
 )
 
 from .spec import ref_spec_7928
-from .test_block_access_lists_eip4788 import SYSTEM_ADDRESS
+from .test_block_access_lists_eip2935 import HISTORY_STORAGE_ADDRESS
+from .test_block_access_lists_eip4788 import (
+    BEACON_ROOTS_ADDRESS,
+    SYSTEM_ADDRESS,
+)
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
@@ -535,29 +539,35 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
     index 0. A slot toggled back to its starting value is a read, while a
     slot bumped twice and a nonce bumped by two CREATEs are single changes
     with the final values: writes are netted over the whole index, not per
-    call.
+    call. The slot holding the last caller pins the order of the two calls.
     """
-    pre_execution = _system_contracts_called(
+    # `apply_body` calls the beacon roots contract first and the history
+    # contract second; the fork's declared phases must agree on the set.
+    assert _system_contracts_called(
         fork, SystemCallPhase.BEFORE_TRANSACTIONS
-    )
-    assert len(pre_execution) == 2, "the toggle below needs two calls"
-    caller, target = pre_execution
+    ) == sorted([BEACON_ROOTS_ADDRESS, HISTORY_STORAGE_ADDRESS])
 
     toggle_slot = 1
     counter_slot = 2
+    last_caller_slot = 3
 
-    # The target toggles one slot, counts its calls and deploys an empty
-    # contract; the caller calls it, so the block runs it twice in either
-    # order of the two system calls.
-    pre[target] = Account(
+    # The history contract toggles one slot, counts its calls, notes who
+    # called and deploys an empty contract; the beacon roots contract
+    # calls it, so the block runs it twice: once from the beacon roots
+    # call and then from its own system call.
+    pre[HISTORY_STORAGE_ADDRESS] = Account(
         nonce=1,
         code=Op.SSTORE(toggle_slot, Op.ISZERO(Op.SLOAD(toggle_slot)))
         + Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1))
+        + Op.SSTORE(last_caller_slot, Op.CALLER)
         + Op.POP(Op.CREATE(0, 0, 0)),
     )
-    pre[caller] = Account(code=Op.POP(Op.CALL(address=target)))
+    pre[BEACON_ROOTS_ADDRESS] = Account(
+        code=Op.POP(Op.CALL(address=HISTORY_STORAGE_ADDRESS)),
+    )
     created = [
-        compute_create_address(address=target, nonce=nonce) for nonce in (1, 2)
+        compute_create_address(address=HISTORY_STORAGE_ADDRESS, nonce=nonce)
+        for nonce in (1, 2)
     ]
 
     blockchain_test(
@@ -567,7 +577,7 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
                 txs=[],
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
-                        target: BalAccountExpectation(
+                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation(
                             storage_changes=[
                                 BalStorageSlot(
                                     slot=counter_slot,
@@ -577,7 +587,16 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
                                             post_value=2,
                                         )
                                     ],
-                                )
+                                ),
+                                BalStorageSlot(
+                                    slot=last_caller_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=SYSTEM_ADDRESS,
+                                        )
+                                    ],
+                                ),
                             ],
                             storage_reads=[toggle_slot],
                             nonce_changes=[
@@ -597,17 +616,83 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
                             )
                             for address in created
                         },
-                        caller: BalAccountExpectation.empty(),
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation.empty(),
                         SYSTEM_ADDRESS: None,
                     }
                 ),
             )
         ],
         post={
-            target: Account(
-                nonce=3, storage={toggle_slot: 0, counter_slot: 2}
+            HISTORY_STORAGE_ADDRESS: Account(
+                nonce=3,
+                storage={
+                    toggle_slot: 0,
+                    counter_slot: 2,
+                    last_caller_slot: SYSTEM_ADDRESS,
+                },
             ),
             **{address: Account(nonce=1, code=b"") for address in created},
+        },
+    )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_system_call_change_kept_when_tx_restores_slot(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Netting stops at the index boundary: a slot the history system call
+    sets at index 0 and a transaction resets at index 1 keeps both changes,
+    although the block leaves it at its starting value.
+    """
+    slot = 1
+    # Called by the system the contract writes 1, called by anyone else 0.
+    pre[HISTORY_STORAGE_ADDRESS] = Account(
+        nonce=1,
+        code=Op.SSTORE(slot, Op.EQ(Op.CALLER, SYSTEM_ADDRESS)),
+    )
+    alice = pre.fund_eoa()
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[Transaction(sender=alice, to=HISTORY_STORAGE_ADDRESS)],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=1,
+                                        ),
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=0,
+                                        ),
+                                    ],
+                                )
+                            ],
+                            storage_reads=[],
+                        ),
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            HISTORY_STORAGE_ADDRESS: Account(storage={slot: 0}),
+            alice: Account(nonce=1),
         },
     )
 
