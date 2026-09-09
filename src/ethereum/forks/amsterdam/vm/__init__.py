@@ -64,6 +64,7 @@ class BlockEnvironment:
     parent_beacon_block_root: Hash32
     block_access_list_builder: BlockAccessListBuilder
     slot_number: U64
+    transaction_public_keys: Optional[Tuple[Bytes, ...]] = None
 
 
 @final

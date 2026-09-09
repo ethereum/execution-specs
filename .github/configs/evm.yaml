@@ -4,6 +4,12 @@ benchmark:
   ref: glamsterdam-devnet-7
   evm-bin: evm
   xdist: auto
+zkevm-benchmark:
+  impl: geth
+  repo: jsign/go-ethereum
+  ref: df17b59f9dfd731f0b7da0a85c30548f3db45b0b
+  evm-bin: evm
+  xdist: auto
 eels:
   impl: eels
   repo: null

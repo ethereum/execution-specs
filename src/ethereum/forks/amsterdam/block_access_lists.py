@@ -656,7 +656,11 @@ def update_builder_from_tx(
             post_account.code_hash if post_account else EMPTY_CODE_HASH
         )
         if pre_code_hash != post_code_hash:
-            post_code = get_code(tx_state, post_code_hash)
+            post_code = get_code(
+                tx_state,
+                post_code_hash,
+                address,
+            )
             add_code_change(builder, address, idx, post_code)
 
     # Compare storage writes against block cumulative state

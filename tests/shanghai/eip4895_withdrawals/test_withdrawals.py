@@ -301,7 +301,17 @@ def test_withdrawals_root(
     blockchain_test(pre=pre, post={}, blocks=blocks)
 
 
-@pytest.mark.parametrize("test_case", ["single_block", "multiple_blocks"])
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            "single_block",
+            marks=pytest.mark.skip_stateless_validation,
+            id="single_block",
+        ),
+        pytest.param("multiple_blocks", id="multiple_blocks"),
+    ],
+)
 class TestMultipleWithdrawalsSameAddress:
     """
     Test that multiple withdrawals can be sent to the same address.
@@ -377,6 +387,7 @@ class TestMultipleWithdrawalsSameAddress:
         blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
+@pytest.mark.skip_stateless_validation
 def test_many_withdrawals(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -709,6 +720,7 @@ def test_zero_amount(
     )
 
 
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 def test_large_amount(
     blockchain_test: BlockchainTestFiller,
@@ -750,6 +762,7 @@ def test_large_amount(
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize("amount", [0, 1])
 @pytest.mark.with_all_precompiles

@@ -20,6 +20,13 @@ from .block_types import (
     Withdrawal,
 )
 from .chain_config_types import ChainConfig, ChainConfigDefaults
+from .execution_witness import (
+    ExecutionWitness,
+    ExecutionWitnessCodesExpectation,
+    ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
+    ExecutionWitnessValidationError,
+)
 from .helpers import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
@@ -84,9 +91,14 @@ __all__ = (
     "ChainConfigDefaults",
     "ConsolidationRequest",
     "DepositRequest",
+    "EOA",
     "Environment",
     "EnvironmentDefaults",
-    "EOA",
+    "ExecutionWitness",
+    "ExecutionWitnessCodesExpectation",
+    "ExecutionWitnessHeadersExpectation",
+    "ExecutionWitnessStateExpectation",
+    "ExecutionWitnessValidationError",
     "FeeSystemContractRequest",
     "NetworkWrappedTransaction",
     "Removable",

@@ -132,7 +132,10 @@ Optional; present from Cancun on. Maps forks to their blob schedule configuratio
 
 ### `FixtureEngineNewPayload`
 
-Engine API payload structure identical to the one defined in [Blockchain Engine Tests](./blockchain_test_engine.md#fixtureenginenewpayload). Includes execution payload, versioned hashes, parent beacon block root, validation errors, version, and error codes.
+Engine API payload structure identical to the one defined in [Blockchain Engine
+Tests](./blockchain_test_engine.md#fixtureenginenewpayload). Includes
+execution payload, optional execution witness metadata, versioned hashes,
+parent beacon block root, validation errors, version, and error codes.
 
 ## Usage Notes
 

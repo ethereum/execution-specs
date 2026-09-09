@@ -8,9 +8,12 @@ module.
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from ethereum.crypto.hash import keccak256
+from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import InvalidBlock
 from ethereum.merkle_patricia_trie import root, trie_get
 from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes, Bytes8
+from ethereum_types.numeric import U64, U256, Uint
 
 if TYPE_CHECKING:
     from execution_testing.client_clis.cli_types import (
@@ -66,6 +69,170 @@ def get_receipts_from_output(t8n: "T8N", block_output: Any) -> List[Any]:
     return receipts
 
 
+def _ordered_block_headers(t8n: "T8N") -> List[Bytes]:
+    """
+    Return the preceding block headers in increasing block-number order.
+
+    Once header data is provided, require a contiguous sequence covering
+    the available 256-block history, matching the legacy T8N behavior.
+    """
+    if not t8n.fork.has_track_ancestor_access or not t8n.env.block_headers:
+        return []
+
+    headers_by_number = {
+        int(number): Bytes(bytes(header))
+        for number, header in t8n.env.block_headers.items()
+    }
+    block_number = int(t8n.env.number)
+    max_count = min(256, block_number)
+    headers: List[Bytes] = []
+    for number in range(block_number - max_count, block_number):
+        try:
+            headers.append(headers_by_number[number])
+        except KeyError:
+            raise ValueError(
+                f"missing block header for block {number}"
+            ) from None
+    return headers
+
+
+def _build_execution_witness(
+    t8n: "T8N",
+    block_env: Any,
+    state_root: Hash32,
+) -> Any:
+    """Build an execution witness against the still-unmodified pre-state."""
+    # ``Alloc`` is the live PreState used during execution. Materialize an
+    # independent MPT mirror here because the Amsterdam witness builder needs
+    # the flat pre-state tries. ``T8N.run`` applies the block diff only after
+    # ``build_result`` returns, so this is still the original pre-state.
+    pre_state = t8n.alloc._materialize_state()
+    return t8n.fork.build_execution_witness(
+        block_env.state,
+        expected_post_state_root=state_root,
+        pre_state_accounts_data=pre_state._main_trie,
+        pre_state_storages_data=pre_state._storage_tries,
+        blockchain_headers=_ordered_block_headers(t8n),
+    )
+
+
+def _convert_withdrawals(t8n: "T8N") -> tuple[Any, ...]:
+    """Convert testing withdrawals into the active fork's withdrawal type."""
+    return tuple(
+        t8n.fork.Withdrawal(
+            U64(int(withdrawal.index)),
+            U64(int(withdrawal.validator_index)),
+            t8n.fork.hex_to_address(withdrawal.address.hex()),
+            U256(int(withdrawal.amount)),
+        )
+        for withdrawal in (t8n.env.withdrawals or [])
+    )
+
+
+def _payload_transactions(t8n: "T8N", block_output: Any) -> tuple[Any, ...]:
+    """Return the transactions committed to the block's transaction trie."""
+    transactions: List[Any] = []
+    for tx_index in range(len(t8n.txs)):
+        key = rlp.encode(Uint(tx_index))
+        tx = trie_get(block_output.transactions_trie, key)
+        if tx is not None:
+            transactions.append(tx)
+    return tuple(transactions)
+
+
+def _build_stateless_artifacts(
+    t8n: "T8N",
+    block_env: Any,
+    block_output: Any,
+    block_exception: Optional[str],
+    result_arguments: Dict[str, Any],
+    execution_witness: Any,
+) -> Optional[tuple[bytes, bytes]]:
+    """Build and execute the stateless guest input for a blockchain test."""
+    block_hashes = block_env.block_hashes
+    assert block_hashes and block_hashes[-1] is not None
+
+    header = t8n.fork.Header(
+        parent_hash=Hash32(bytes(block_hashes[-1])),
+        ommers_hash=keccak256(rlp.encode([])),
+        coinbase=block_env.coinbase,
+        state_root=result_arguments["state_root"],
+        transactions_root=result_arguments["transactions_trie"],
+        receipt_root=result_arguments["receipts_root"],
+        bloom=result_arguments["logs_bloom"],
+        difficulty=Uint(0),
+        number=block_env.number,
+        gas_limit=block_env.block_gas_limit,
+        gas_used=Uint(result_arguments["gas_used"]),
+        timestamp=block_env.time,
+        extra_data=Bytes(
+            t8n.env.extra_data
+            if "extra_data" in t8n.env.model_fields_set
+            else b""
+        ),
+        prev_randao=block_env.prev_randao,
+        nonce=Bytes8(b"\x00" * 8),
+        base_fee_per_gas=block_env.base_fee_per_gas,
+        withdrawals_root=result_arguments["withdrawals_root"],
+        blob_gas_used=block_output.blob_gas_used,
+        excess_blob_gas=block_env.excess_blob_gas,
+        parent_beacon_block_root=block_env.parent_beacon_block_root,
+        requests_hash=result_arguments["requests_hash"],
+        block_access_list_hash=result_arguments["block_access_list_hash"],
+        slot_number=block_env.slot_number,
+    )
+    block = t8n.fork.Block(
+        header=header,
+        transactions=_payload_transactions(t8n, block_output),
+        ommers=(),
+        withdrawals=_convert_withdrawals(t8n),
+    )
+
+    try:
+        typed_requests = t8n.fork.decode_execution_requests(
+            tuple(block_output.requests)
+        )
+    except InvalidBlock:
+        # Mocked system contracts can emit non-canonical request bytes.
+        # They cannot be represented in the typed stateless input.
+        return None
+
+    stateless_input = t8n.fork.build_stateless_input(
+        block,
+        execution_witness=execution_witness,
+        execution_requests=typed_requests,
+        block_access_list=block_output.block_access_list,
+        chain_id=block_env.chain_id,
+    )
+    stateless_input_bytes = t8n.fork.serialize_stateless_input(stateless_input)
+    stateless_output_bytes = t8n.fork.run_stateless_guest(
+        stateless_input_bytes
+    )
+    stateless_output = t8n.fork.deserialize_stateless_output(
+        stateless_output_bytes
+    )
+
+    # The transition phase executes the block body before the finalized block
+    # exists, so block-level RLP validation is first observable here.
+    block_rlp_size_limit = t8n.fork.block_rlp_size_limit
+    block_rlp_limit_exceeded = (
+        block_rlp_size_limit is not None
+        and len(rlp.encode(block)) > block_rlp_size_limit
+    )
+    if (
+        t8n.rejected_transactions
+        or block_exception is not None
+        or block_rlp_limit_exceeded
+    ):
+        assert not stateless_output.successful_validation
+    else:
+        assert stateless_output.successful_validation, (
+            "Stateless validation failed"
+        )
+
+    return bytes(stateless_input_bytes), bytes(stateless_output_bytes)
+
+
 def build_result(
     t8n: "T8N",
     block_env: Any,
@@ -116,6 +283,31 @@ def build_result(
         arguments["block_access_list_hash"] = t8n.fork.hash_block_access_list(
             block_output.block_access_list
         )
+
+    if t8n.fork.has_execution_witness and not t8n.skip_stateless_validation:
+        execution_witness = _build_execution_witness(
+            t8n, block_env, state_root
+        )
+        arguments["execution_witness"] = {
+            "state": [bytes(node) for node in execution_witness.state],
+            "codes": [bytes(code) for code in execution_witness.codes],
+            "headers": [bytes(header) for header in execution_witness.headers],
+        }
+
+        if not t8n.state_test:
+            stateless_artifacts = _build_stateless_artifacts(
+                t8n,
+                block_env,
+                block_output,
+                block_exception,
+                arguments,
+                execution_witness,
+            )
+            if stateless_artifacts is not None:
+                (
+                    arguments["stateless_input_bytes"],
+                    arguments["stateless_output_bytes"],
+                ) = stateless_artifacts
 
     context: Optional[Dict[str, Any]] = None
     if t8n.exception_mapper is not None:

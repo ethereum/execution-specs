@@ -1,0 +1,134 @@
+name: Benchmark Fill Parity
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      geth_repo:
+        description: "Geth repository to build"
+        required: false
+        type: string
+        default: "jsign/go-ethereum"
+      geth_branch:
+        description: "Geth branch to build"
+        required: false
+        type: string
+        default: "glamsterdam-devnet-8-t8n-zkevm"
+      benchmark_file:
+        description: "Benchmark test file to fill"
+        required: false
+        type: string
+        default: "tests/benchmark/compute/instruction/test_memory.py"
+      fill_fork:
+        description: "Fork to fill"
+        required: false
+        type: string
+        default: "Amsterdam"
+      xdist_workers:
+        description: "Number of fill workers"
+        required: false
+        type: string
+        default: "auto"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+
+env:
+  GETH_REPO: ${{ inputs.geth_repo || 'jsign/go-ethereum' }}
+  GETH_BRANCH: ${{ inputs.geth_branch || 'glamsterdam-devnet-8-t8n-zkevm' }}
+  BENCHMARK_FILE: ${{ inputs.benchmark_file || 'tests/benchmark/compute/instruction/test_memory.py' }}
+  FILL_FORK: ${{ inputs.fill_fork || 'Amsterdam' }}
+  XDIST_WORKERS: ${{ inputs.xdist_workers || 'auto' }}
+
+jobs:
+  compare-fills:
+    name: Compare Python and Geth fills
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: true
+
+      - name: Setup uv
+        uses: ./.github/actions/setup-uv
+        with:
+          enable-cache: "false"
+
+      - name: Install dependencies
+        run: uv sync --no-progress
+
+      - name: Build Geth evm
+        uses: ./.github/actions/build-evm-client/geth
+        with:
+          repo: ${{ env.GETH_REPO }}
+          ref: ${{ env.GETH_BRANCH }}
+
+      - name: Validate benchmark file input
+        shell: bash
+        run: |
+          case "$BENCHMARK_FILE" in
+            ./*)
+              echo "benchmark_file must be relative to the repository root without a leading ./"
+              exit 1
+              ;;
+            tests/benchmark/*.py)
+              ;;
+            *)
+              echo "benchmark_file must be a Python file under tests/benchmark/"
+              exit 1
+              ;;
+          esac
+
+          if [ ! -f "$BENCHMARK_FILE" ]; then
+            echo "benchmark_file does not exist: $BENCHMARK_FILE"
+            exit 1
+          fi
+
+      - name: Prepare fill directories
+        run: mkdir -p fill_tmp/python fill_tmp/geth fill_logs/python fill_logs/geth
+
+      - name: Fill benchmark with Python spec
+        run: |
+          uv run fill \
+            --clean \
+            --gas-benchmark-values 1 \
+            --fork "$FILL_FORK" \
+            -m blockchain_test \
+            -n "$XDIST_WORKERS" \
+            --output=fixtures_python \
+            --no-html \
+            --basetemp=fill_tmp/python \
+            --log-to fill_logs/python \
+            "$BENCHMARK_FILE"
+
+      - name: Fill benchmark with Geth
+        run: |
+          uv run fill \
+            --clean \
+            --gas-benchmark-values 1 \
+            --fork "$FILL_FORK" \
+            --evm-bin=evm \
+            -m blockchain_test \
+            -n "$XDIST_WORKERS" \
+            --output=fixtures_geth \
+            --no-html \
+            --basetemp=fill_tmp/geth \
+            --log-to fill_logs/geth \
+            "$BENCHMARK_FILE"
+
+      - name: Compare fixture hashes
+        run: uv run hasher compare fixtures_python fixtures_geth
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: benchmark-fill-parity-debug
+          path: |
+            fixtures_python/
+            fixtures_geth/
+            fill_logs/
+          if-no-files-found: ignore

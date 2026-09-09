@@ -121,6 +121,7 @@ class HiveEnvironmentProcessor(ArgumentProcessor):
 
         simulator_commands = {
             "engine",
+            "engine_witness",
             "enginex",
             "sync",
             "rlp",

@@ -35,6 +35,7 @@ from execution_testing.base_types import (
 from execution_testing.client_clis import (
     BlockExceptionWithMessage,
     ClientBackend,
+    ExecutionSpecsTransitionTool,
     FillerBackend,
     LazyAlloc,
     Result,
@@ -68,6 +69,7 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
 )
 from execution_testing.fixtures.blockchain import (
+    ExecutionWitness,
     FixtureBlock,
     FixtureBlockBase,
     FixtureConfig,
@@ -98,8 +100,22 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessListExpectation,
 )
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
+from execution_testing.test_types.execution_witness import (
+    ExecutionWitnessCodesExpectation,
+    ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
+)
+from execution_testing.test_types.execution_witness.modifiers import (
+    PublicKeyModifier,
+)
 
 from .base import BaseTest, FillResult, OpMode, verify_result
+from .blockchain_stateless import (
+    apply_execution_witness_expectations,
+    finalize_stateless_artifacts,
+    stateless_artifacts_from_t8n,
+    stateless_options_for_block,
+)
 from .debugging import print_traces
 from .helpers import verify_block, verify_transactions
 
@@ -116,6 +132,7 @@ def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
         parent_gas_limit=parent.gas_limit,
         parent_ommers_hash=parent.ommers_hash,
         block_hashes={parent.number: parent.block_hash},
+        block_headers={parent.number: parent.rlp},
     )
 
 
@@ -135,7 +152,10 @@ def apply_new_parent(
     updated["parent_slot_number"] = new_parent.slot_number
     block_hashes = env.block_hashes.copy()
     block_hashes[new_parent.number] = new_parent.block_hash
+    block_headers = env.block_headers.copy()
+    block_headers[new_parent.number] = new_parent.rlp
     updated["block_hashes"] = block_hashes
+    updated["block_headers"] = block_headers
     return env.copy(**updated)
 
 
@@ -317,6 +337,48 @@ class Block(Header):
     If set, the block access list will be verified and potentially corrupted
     for invalid tests.
     """
+    expected_execution_witness_codes: (
+        ExecutionWitnessCodesExpectation | None
+    ) = None
+    """
+    If set, the execution witness codes will be verified and potentially
+    modified for invalid tests.
+    """
+    expected_execution_witness_state: (
+        ExecutionWitnessStateExpectation | None
+    ) = None
+    """
+    If set, the execution witness state will be verified and potentially
+    modified for invalid tests.
+    """
+    expected_execution_witness_headers: (
+        ExecutionWitnessHeadersExpectation | None
+    ) = None
+    """
+    If set, the execution witness headers will be verified and potentially
+    modified for invalid tests.
+    """
+    stateless_input_public_keys_modifier: PublicKeyModifier | None = Field(
+        default=None,
+        exclude=True,
+    )
+    """
+    If set, mutate the stateless input transaction public keys before rerunning
+    the guest for invalid tests.
+    """
+    stateless_input_bytes_modifier: Callable[[Bytes], Bytes] | None = Field(
+        default=None,
+        exclude=True,
+    )
+    """
+    If set, mutate the serialized stateless input bytes before rerunning the
+    guest for invalid tests.
+    """
+    expected_stateless_validation_success: bool | None = None
+    """
+    If set, assert the stateless guest result matches this expectation. This
+    must be set explicitly for tests that mutate stateless validation input.
+    """
     exception: BLOCK_EXCEPTION_TYPE = None
     # If set, the block is expected to be rejected by the client.
     skip_exception_verification: bool = False
@@ -416,6 +478,9 @@ class Block(Header):
         new_env_values["gas_limit"] = (
             self.gas_limit or env.parent_gas_limit or Environment().gas_limit
         )
+        new_env_values["extra_data"] = (
+            self.extra_data if self.extra_data is not None else Bytes(b"")
+        )
         if not isinstance(self.base_fee_per_gas, Removable):
             new_env_values["base_fee_per_gas"] = self.base_fee_per_gas
         new_env_values["withdrawals"] = self.withdrawals
@@ -485,6 +550,10 @@ class BuiltBlock(CamelModel):
     rlp_modifier: Header | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
+    execution_witness: ExecutionWitness | None = None
+    execution_witness_mutated: bool = False
+    stateless_input_bytes: Bytes | None = None
+    stateless_output_bytes: Bytes | None = None
     engine_new_payload_block_access_list: Bytes | None = None
     engine_new_payload_slot_number: HexNumber | None = None
 
@@ -536,6 +605,15 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list
             if self.block_access_list
             else None,
+            execution_witness=self.execution_witness
+            if self.execution_witness
+            else None,
+            stateless_input_bytes=self.stateless_input_bytes
+            if self.stateless_input_bytes is not None
+            else None,
+            stateless_output_bytes=self.stateless_output_bytes
+            if self.stateless_output_bytes is not None
+            else None,
             fork=self.fork,
         ).with_rlp(txs=self.txs)
 
@@ -549,6 +627,9 @@ class BuiltBlock(CamelModel):
                     in self.expected_exception
                     else fixture_block.without_rlp()
                 ),
+                execution_witness=self.execution_witness,
+                stateless_input_bytes=self.stateless_input_bytes,
+                stateless_output_bytes=self.stateless_output_bytes,
             )
 
         return fixture_block
@@ -608,6 +689,10 @@ class BuiltBlock(CamelModel):
             block_access_list=self.block_access_list.rlp
             if self.block_access_list
             else None,
+            execution_witness=self.execution_witness,
+            execution_witness_mutated=(
+                True if self.execution_witness_mutated else None
+            ),
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
@@ -761,6 +846,11 @@ class BlockchainTest(BaseTest):
     """
     Include transaction receipts in the fixture output.
     """
+    skip_stateless_validation: bool = False
+    """
+    Skip stateless witness generation, input serialization, and guest
+    validation for this test.
+    """
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -784,6 +874,10 @@ class BlockchainTest(BaseTest):
             "Only generate a blockchain test engine fixture"
         ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
+        "skip_stateless_validation": (
+            "Skip stateless witness generation, input serialization, and "
+            "guest validation."
+        ),
     }
 
     @classmethod
@@ -969,6 +1063,11 @@ class BlockchainTest(BaseTest):
                     "exception must be the last transaction in the block"
                 )
 
+        stateless_options = stateless_options_for_block(
+            block=block,
+            skip_stateless_validation=self.skip_stateless_validation,
+        )
+
         transition_tool_output = t8n.evaluate(
             transition_tool_data=TransitionTool.TransitionToolData(
                 alloc=previous_alloc,
@@ -978,6 +1077,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                skip_stateless_validation=stateless_options.skip_validation,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )
@@ -1012,9 +1112,7 @@ class BlockchainTest(BaseTest):
             ),
             blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
-            extra_data=(
-                block.extra_data if block.extra_data is not None else b""
-            ),
+            extra_data=env.extra_data,
             slot_number=slot_number_value,
             fork=fork,
         )
@@ -1145,6 +1243,64 @@ class BlockchainTest(BaseTest):
                     "arbitrary bytes."
                 )
 
+        t8n_witness = transition_tool_output.result.execution_witness
+        stateless_artifacts = apply_execution_witness_expectations(
+            block=block,
+            fork=fork,
+            previous_alloc=previous_alloc,
+            block_number=int(env.number),
+            timestamp=int(env.timestamp),
+            parent_hash=header.parent_hash,
+            execution_witness=t8n_witness,
+        )
+        missing_stateless_artifacts = (
+            not stateless_options.skip_validation
+            and t8n_witness is not None
+            and bal is not None
+            and (
+                transition_tool_output.result.stateless_input_bytes is None
+                or transition_tool_output.result.stateless_output_bytes is None
+            )
+        )
+        if missing_stateless_artifacts:
+            # Temporary trust path for external benchmark filling until Geth
+            # emits both stateless byte fields.
+            assert not isinstance(t8n, ExecutionSpecsTransitionTool), (
+                "EELS must provide stateless input and output bytes"
+            )
+            assert self.operation_mode == OpMode.BENCHMARKING, (
+                "Missing stateless artifacts are only supported for external "
+                "benchmark fills"
+            )
+            assert block.exception is None, (
+                "Missing stateless artifacts require a valid benchmark block"
+            )
+        stateless_artifacts = stateless_artifacts_from_t8n(
+            options=stateless_options,
+            artifacts=stateless_artifacts,
+            fork=fork,
+            block_number=int(env.number),
+            timestamp=int(env.timestamp),
+            header=header,
+            previous_env=previous_env,
+            txs=txs,
+            result=transition_tool_output.result,
+            withdrawals=env.withdrawals,
+            requests_list=requests_list,
+            execution_witness=t8n_witness,
+            block_access_list=bal,
+            chain_id=self.chain_id,
+        )
+        stateless_artifacts = finalize_stateless_artifacts(
+            options=stateless_options,
+            artifacts=stateless_artifacts,
+            block=block,
+            fork=fork,
+            block_number=int(env.number),
+            timestamp=int(env.timestamp),
+            chain_id=self.chain_id,
+        )
+
         built_block_kwargs: Dict[str, Any] = dict(
             header=header,
             alloc=transition_tool_output.alloc,
@@ -1160,6 +1316,12 @@ class BlockchainTest(BaseTest):
             rlp_modifier=block.rlp_modifier,
             fork=fork,
             block_access_list=bal,
+            execution_witness=stateless_artifacts.execution_witness,
+            execution_witness_mutated=(
+                stateless_artifacts.execution_witness_mutated
+            ),
+            stateless_input_bytes=stateless_artifacts.stateless_input_bytes,
+            stateless_output_bytes=stateless_artifacts.stateless_output_bytes,
             engine_new_payload_block_access_list=(
                 block.engine_new_payload_block_access_list
                 if block.engine_new_payload_block_access_list is not None
@@ -1193,6 +1355,7 @@ class BlockchainTest(BaseTest):
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list.has_modifier
                 )
+                and not stateless_artifacts.execution_witness_mutated
             ):
                 # Only verify block level exception if: - No transaction
                 # exception was raised, because these are not reported as block
@@ -1204,7 +1367,9 @@ class BlockchainTest(BaseTest):
                 # the engine payload after the transition tool has run. - No
                 # BAL modifier was specified, because a rewritten BAL, whether
                 # in contents or in encoding, is applied after the transition
-                # tool has run and is what produces the block exception.
+                # tool has run and is what produces the block exception. - No
+                # witness modifier was specified, because witness soundness is
+                # verified separately via the guest rerun.
                 built_block.verify_block_exception(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )
