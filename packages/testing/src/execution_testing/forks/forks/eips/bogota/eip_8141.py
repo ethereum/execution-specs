@@ -306,13 +306,15 @@ class EIP8141(BaseFork):
         } | super(EIP8141, cls).pre_allocation()  # type: ignore
 
     @classmethod
-    def pre_allocation_blockchain(cls) -> Mapping:
-        """Pre-allocate the expiry verifier contract."""
+    def activation_code_installs(cls) -> Mapping:
+        """
+        Install the expiry verifier's runtime code when the fork activates.
+
+        Blockchain tests get the code from this hook rather than from
+        `pre_allocation_blockchain`, so a fixture that crosses the fork
+        boundary exercises the install itself: the account appears at the
+        fork block with the code and nothing else changed.
+        """
         return {
-            EXPIRY_VERIFIER_ADDRESS: {
-                # EIP-8141 installs only the runtime code at
-                # activation; the nonce stays zero.
-                "nonce": 0,
-                "code": EXPIRY_VERIFIER_BYTECODE,
-            }
-        } | super(EIP8141, cls).pre_allocation_blockchain()  # type: ignore
+            EXPIRY_VERIFIER_ADDRESS: EXPIRY_VERIFIER_BYTECODE,
+        } | super(EIP8141, cls).activation_code_installs()  # type: ignore

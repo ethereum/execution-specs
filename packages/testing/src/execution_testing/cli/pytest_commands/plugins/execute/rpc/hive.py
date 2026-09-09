@@ -149,6 +149,9 @@ def build_genesis_header(
     )
     if base_pre is not None:
         pre_alloc = Alloc.merge(pre_alloc, base_pre)
+    pre_alloc = pre_alloc.with_installed_code(
+        genesis_fork.activation_code_installs()
+    )
     if empty_accounts := pre_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")
     pre_alloc.migrate_state_commitment(

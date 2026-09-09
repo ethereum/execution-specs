@@ -894,6 +894,14 @@ class BlockchainTest(BaseTest):
                 ),
                 pre_alloc,
             )
+            # Code a fork installs at activation is part of genesis only when
+            # that fork is already active there. A transition test gets it at
+            # the fork block instead, in `generate_block_data`.
+            pre_alloc = pre_alloc.with_installed_code(
+                self.fork.fork_at(
+                    block_number=0, timestamp=0
+                ).activation_code_installs()
+            )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
         if pre_alloc.state_commitment() is None:
@@ -967,6 +975,33 @@ class BlockchainTest(BaseTest):
                 raise Exception(
                     "test correctness: the transaction that produces an "
                     "exception must be the last transaction in the block"
+                )
+
+        # A fork activating at this block installs its code before the block
+        # executes. The parent's fork tells whether this is that block, and
+        # which installs are new rather than inherited from an earlier fork.
+        assert env.parent_timestamp is not None, (
+            "parent_timestamp is required to resolve the parent's fork"
+        )
+        parent_fork = self.fork.fork_at(
+            block_number=env.number - 1, timestamp=env.parent_timestamp
+        )
+        if fork != parent_fork:
+            parent_installs = parent_fork.activation_code_installs()
+            inherited = {
+                Address(address): code
+                for address, code in parent_installs.items()
+            }
+            new_installs = {
+                address: code
+                for address, code in fork.activation_code_installs().items()
+                if inherited.get(Address(address)) != code
+            }
+            if new_installs:
+                if isinstance(previous_alloc, LazyAlloc):
+                    previous_alloc = previous_alloc.materialize()
+                previous_alloc = previous_alloc.with_installed_code(
+                    new_installs
                 )
 
         transition_tool_output = t8n.evaluate(

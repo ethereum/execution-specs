@@ -1288,6 +1288,15 @@ class Frontier(BaseFork):
         return {}
 
     @classmethod
+    def activation_code_installs(cls) -> Mapping:
+        """
+        Return the runtime code installed when the fork activates.
+
+        Frontier installs no code at activation.
+        """
+        return {}
+
+    @classmethod
     def build_default_block_header(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> FixtureHeader:

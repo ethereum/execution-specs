@@ -29,6 +29,7 @@ from .forks.forks import (
     TangerineWhistle,
 )
 from .forks.transition import (
+    AmsterdamToBogotaAtTime15k,
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
     BPO2ToAmsterdamAtTime15k,
@@ -92,6 +93,7 @@ __all__ = [
     "TransitionForkOrNoneAdapter",
     "RefundTypes",
     "Amsterdam",
+    "AmsterdamToBogotaAtTime15k",
     "ArrowGlacier",
     "Berlin",
     "BerlinToLondonAt5",
