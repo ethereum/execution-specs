@@ -28,6 +28,18 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
 
+# The predeploy adds the requests already queued in the block, beyond the
+# target, onto the stored excess when it prices a request, so the fee first
+# rises after this many requests in a single block.
+DEPOSITS_BEFORE_FEE_INCREASE = (
+    BuilderDepositRequest.target_per_block
+    + BuilderDepositRequest.get_n_fee_increments(1)[0]
+)
+assert DEPOSITS_BEFORE_FEE_INCREASE < BuilderDepositRequest.max_per_block, (
+    "the fee must rise before the per-block cap, or the case below tests "
+    "carry-over instead"
+)
+
 
 def minimum_deposit(
     pubkey: int,
@@ -522,6 +534,29 @@ def minimum_deposit(
                 ],
             ],
             id="single_block_single_builder_deposit_delegatecall_staticcall_callcode_call_depth_high",
+        ),
+        pytest.param(
+            [
+                [
+                    SystemContractInteractionContract(
+                        requests=[
+                            minimum_deposit(i + 1)
+                            for i in range(DEPOSITS_BEFORE_FEE_INCREASE)
+                        ]
+                        + [
+                            # Priced at the fee the earlier requests paid,
+                            # which no longer covers the raised fee.
+                            minimum_deposit(
+                                DEPOSITS_BEFORE_FEE_INCREASE + 1
+                            ).copy(
+                                fee=BuilderDepositRequest.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                    ),
+                ],
+            ],
+            id="single_block_builder_deposit_below_raised_fee",
         ),
         pytest.param(
             fee_increment_blocks(BuilderDepositRequest, 50),

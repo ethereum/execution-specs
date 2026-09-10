@@ -26,6 +26,18 @@ REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
+# The predeploy adds the requests already queued in the block, beyond the
+# target, onto the stored excess when it prices a request, so the fee first
+# rises after this many requests in a single block.
+EXITS_BEFORE_FEE_INCREASE = (
+    BuilderExitRequest.target_per_block
+    + BuilderExitRequest.get_n_fee_increments(1)[0]
+)
+assert EXITS_BEFORE_FEE_INCREASE < BuilderExitRequest.max_per_block, (
+    "the fee must rise before the per-block cap, or the case below tests "
+    "carry-over instead"
+)
+
 
 @EIPChecklist.SystemContract.Test.CallContexts.Normal()
 @EIPChecklist.SystemContract.Test.CallContexts.TxEntry()
@@ -397,6 +409,28 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
                 ],
             ],
             id="single_block_single_builder_exit_delegatecall_staticcall_callcode_call_depth_high",
+        ),
+        pytest.param(
+            [
+                [
+                    SystemContractInteractionContract(
+                        requests=[
+                            BuilderExitRequest(pubkey=i + 1)
+                            for i in range(EXITS_BEFORE_FEE_INCREASE)
+                        ]
+                        + [
+                            # Priced at the fee the earlier requests paid,
+                            # which no longer covers the raised fee.
+                            BuilderExitRequest(
+                                pubkey=EXITS_BEFORE_FEE_INCREASE + 1,
+                                fee=BuilderExitRequest.get_fee(0),
+                                valid=False,
+                            )
+                        ],
+                    ),
+                ],
+            ],
+            id="single_block_builder_exit_below_raised_fee",
         ),
         pytest.param(
             fee_increment_blocks(BuilderExitRequest, 50),
