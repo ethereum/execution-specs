@@ -16,7 +16,9 @@ deterministic ``CREATE2`` factory predeploy.
 - [EIP-8024: Stack Access Instructions][EIP-8024]
 - [EIP-8037: State Creation Gas Cost Increase][EIP-8037]
 - [EIP-8038: State Access Gas Cost Increase][EIP-8038]
+- [EIP-8131: Unified Transaction Content Floor][EIP-8131]
 - [EIP-8246: Remove SELFDESTRUCT balance burn][EIP-8246]
+- [EIP-8279: Block Access List Byte Floor][EIP-8279]
 - [EIP-8282: Builder Execution Requests][EIP-8282]
 
 ### Releases
@@ -34,7 +36,9 @@ deterministic ``CREATE2`` factory predeploy.
 [EIP-8024]: https://eips.ethereum.org/EIPS/eip-8024
 [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
 [EIP-8038]: https://eips.ethereum.org/EIPS/eip-8038
+[EIP-8131]: https://eips.ethereum.org/EIPS/eip-8131
 [EIP-8246]: https://eips.ethereum.org/EIPS/eip-8246
+[EIP-8279]: https://eips.ethereum.org/EIPS/eip-8279
 [EIP-8282]: https://eips.ethereum.org/EIPS/eip-8282
 """
 

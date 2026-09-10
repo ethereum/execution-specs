@@ -57,6 +57,7 @@ from ..vm.gas import (
     charge_state_gas_from_meter,
     commit_state_gas,
     forfeit_remaining_gas,
+    meter_bal_data,
     restore_state_gas,
     restore_state_gas_to_entry,
     tx_state_gas_used,
@@ -382,6 +383,8 @@ def process_create(evm: Evm) -> Evm:
                 ulen(contract_code) * StateGasCosts.COST_PER_STATE_BYTE
             )
             charge_state_gas(evm, code_deposit_state_gas)
+            # The deployed code joins the block access list.
+            meter_bal_data(evm.tx_env, ulen(contract_code))
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
             # A create frame never applies authorizations, so its

@@ -136,7 +136,12 @@ class TransactionEnvironment:
     effective_gas_price: Uint
     execution_gas_grant: ExecutionGas
     state_gas_reservoir: StateGas
-    calldata_floor: Uint
+    static_floor: Uint
+    # Block access list bytes metered during execution; they extend the
+    # floor above `static_floor`.
+    bal_data_bytes: Uint
+    # Storage slots whose post value is counted in `bal_data_bytes`.
+    metered_storage_values: Set[Tuple[Address, Bytes32]]
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
     accounts_with_paid_writes: Set[Address]
