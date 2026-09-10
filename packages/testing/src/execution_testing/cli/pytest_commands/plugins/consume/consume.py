@@ -8,7 +8,7 @@ import tarfile
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, List, Optional, Sequence, Tuple, cast
 from urllib.parse import urlparse
 
 import platformdirs
@@ -30,6 +30,7 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.consume import (
     IndexFile,
     TestCaseBase,
+    TestCaseIndexFile,
     TestCases,
 )
 from execution_testing.forks import (
@@ -591,6 +592,31 @@ def fixtures_source(request: pytest.FixtureRequest) -> FixturesSource:  # noqa: 
     return request.config.fixtures_source  # type: ignore[attr-defined]
 
 
+def group_test_cases_by_fixture_file(
+    test_cases: Sequence[TestCaseBase],
+) -> Sequence[TestCaseBase]:
+    """
+    Return the test cases ordered so that the cases of one fixture file are
+    contiguous.
+
+    A fixture file can hold several test cases interleaved with other files
+    in the index. Grouping improves cache reuse when pytest-xdist assigns
+    contiguous chunks of the collection, but does not guarantee that all
+    tests from a file run on one worker.
+
+    Preserve the order within each file. For release paths, sorting groups
+    cases by format and fork directory in collection order; workers can
+    still execute different forks concurrently. Test cases read from stdin
+    have no file and are returned unchanged.
+    """
+    index_cases = [
+        tc for tc in test_cases if isinstance(tc, TestCaseIndexFile)
+    ]
+    if len(index_cases) != len(test_cases):
+        return test_cases
+    return sorted(index_cases, key=lambda tc: str(tc.json_path))
+
+
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """
     Generate test cases for every test fixture in all the JSON fixture files
@@ -604,6 +630,11 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     supported_fixture_formats: List[FixtureFormat] = getattr(
         metafunc.config, "supported_fixture_formats", []
     )
+    is_enginex = BlockchainEngineXFixture in supported_fixture_formats
+    if not is_enginex:
+        # EngineX orders its collection by pre-alloc group instead, see
+        # `pytest_collection_modifyitems` in the enginex plugin.
+        test_cases = group_test_cases_by_fixture_file(test_cases)
     param_list = []
     for test_case in test_cases:
         if test_case.format not in supported_fixture_formats:
@@ -629,7 +660,6 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         return
 
     clients = metafunc.config.hive_execution_clients  # type: ignore[attr-defined]
-    is_enginex = BlockchainEngineXFixture in supported_fixture_formats
     combined = []
     for param in param_list:
         tc = cast(TestCaseBase, param.values[0])
