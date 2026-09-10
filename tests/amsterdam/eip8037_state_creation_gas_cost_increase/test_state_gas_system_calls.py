@@ -24,6 +24,7 @@ from ...prague.eip7002_el_triggerable_withdrawals.spec import (
     Spec as WithdrawalSpec,
 )
 from ...prague.eip7251_consolidations.spec import Spec as ConsolidationSpec
+from ..eip8282_builder_execution_requests.spec import Spec as BuilderSpec
 from .spec import Spec, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
@@ -43,6 +44,8 @@ SYSTEM_CONTRACTS = [
         True,
         "consolidations",
     ),
+    (BuilderSpec.BUILDER_DEPOSIT_CONTRACT_ADDRESS, True, "builder_deposit"),
+    (BuilderSpec.BUILDER_EXIT_CONTRACT_ADDRESS, True, "builder_exit"),
 ]
 system_contract_cases = pytest.mark.parametrize(
     "system_contract",
