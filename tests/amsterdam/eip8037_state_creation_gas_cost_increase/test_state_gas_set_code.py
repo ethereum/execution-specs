@@ -1409,6 +1409,99 @@ def test_authorization_to_precompile_address(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.with_all_precompiles
+@pytest.mark.valid_from("EIP8037")
+def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    precompile: int,
+) -> None:
+    """
+    Set code to a precompile and call the authority in the same tx with
+    only enough gas for intrinsic + top-frame charges.
+
+    Amsterdam counterpart of Prague's
+    ``test_set_code_to_precompile_not_enough_gas_for_precompile_execution``.
+    Under EIP-2780 the intrinsic is execution-only; the authority (a
+    funded EOA, ``tx.to``) pays top-frame ``AUTH_BASE`` for the net-new
+    indicator. Value transfer already writes the recipient leaf, so no
+    ``ACCOUNT_WRITE`` accrues. The precompile target is warm, so the
+    post-auth delegation access is ``WARM_ACCESS``. Delegated frames set
+    ``disable_precompiles``, so the precompile body does not run and no
+    precompile execution gas is required.
+
+    Unlike Prague, there is no existing-authority auth refund: receipt
+    ``cumulative_gas_used`` is the plain sum of execution and state, and
+    header ``gas_used`` is ``max(block_execution, block_state)``.
+    """
+    precompile_address = Address(precompile)
+    # Existing authority with a non-zero balance (mirrors the Prague case).
+    auth_signer = pre.fund_eoa(amount=1)
+    value = 1
+
+    authorization_list = [
+        AuthorizationTuple(
+            address=precompile_address,
+            nonce=0,
+            signer=auth_signer,
+            creates_account=False,
+            writes_delegation=True,
+            # Value transfer writes the recipient before set_delegation's
+            # accounting of first_write for this leaf.
+            first_write=False,
+        ),
+    ]
+
+    # Intrinsic sees the pre-tx recipient (funded EOA); delegation only
+    # surfaces at the top-frame check after set_delegation.
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
+        sends_value=True,
+        recipient_type=RecipientType.EOA,
+        authorization_list_or_count=authorization_list,
+        return_cost_deducted_prior_execution=True,
+    )
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
+        sends_value=True,
+        recipient_type=RecipientType.DELEGATION_7702,
+        delegation_warm=True,
+        authorizations=authorization_list,
+    )
+    top_frame_state = fork.transaction_top_frame_state_gas(
+        sends_value=True,
+        recipient_type=RecipientType.DELEGATION_7702,
+        authorizations=authorization_list,
+    )
+    cumulative_gas_used, header_gas_used = _receipt_and_header(
+        intrinsic_execution, top_frame_execution, top_frame_state
+    )
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=auth_signer,
+        gas_limit=cumulative_gas_used,
+        value=value,
+        authorization_list=authorization_list,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=cumulative_gas_used,
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                # Implicitly checks no OOG: value transfer lands.
+                balance=1 + value,
+                code=Spec7702.delegation_designation(precompile_address),
+                nonce=1,
+            ),
+        },
+        blockchain_test_header_verify=Header(gas_used=header_gas_used),
+    )
+
+
 @pytest.mark.valid_from("EIP8037")
 def test_multi_tx_block_auth_and_sstore(
     blockchain_test: BlockchainTestFiller,
