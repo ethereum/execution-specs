@@ -93,9 +93,9 @@ def test_blockchain_via_sync(
         logger.info("Verifying genesis block on client under test...")
         genesis_block = eth_rpc.get_block_by_number(0)
         assert genesis_block is not None, "genesis_block is None"
-        if genesis_block["hash"] != str(fixture.genesis.block_hash):
+        if genesis_block.hash != fixture.genesis.block_hash:
             expected = fixture.genesis.block_hash
-            got = genesis_block["hash"]
+            got = genesis_block.hash
             logger.fail(
                 f"Genesis block hash mismatch. "
                 f"Expected: {expected}, Got: {got}"
@@ -447,7 +447,7 @@ def test_blockchain_via_sync(
         # Get the target block number for logging
         target_block = eth_rpc.get_block_by_hash(last_valid_block_hash)
         target_block_number = (
-            int(target_block["number"], 16) if target_block else "unknown"
+            int(target_block.number) if target_block else "unknown"
         )
         logger.info(
             f"Waiting for sync client to reach block #{target_block_number} "
@@ -505,25 +505,25 @@ def test_blockchain_via_sync(
             )
 
         if sync_block is not None and client_block is not None:
-            if sync_block["stateRoot"] != client_block["stateRoot"]:
+            if sync_block.state_root != client_block.state_root:
                 raise LoggedError(
                     f"State root mismatch after sync. "
-                    f"Sync client: {sync_block['stateRoot']}, "
-                    f"Client under test: {client_block['stateRoot']}"
+                    f"Sync client: {sync_block.state_root}, "
+                    f"Client under test: {client_block.state_root}"
                 )
 
             # Verify against expected post-state hash if provided
             if fixture.post_state_hash:
-                if sync_block["stateRoot"] != str(fixture.post_state_hash):
+                if sync_block.state_root != fixture.post_state_hash:
                     raise LoggedError(
                         f"Final state root mismatch. "
                         f"Expected: {fixture.post_state_hash}, "
-                        f"Got: {sync_block['stateRoot']}"
+                        f"Got: {sync_block.state_root}"
                     )
 
             logger.info(
                 f"Block state verified via eth_getBlockByHash: "
-                f"{sync_block['stateRoot']}"
+                f"{sync_block.state_root}"
             )
 
     logger.info("Sync test completed successfully!")
