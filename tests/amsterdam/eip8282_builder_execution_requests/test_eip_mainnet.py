@@ -23,27 +23,15 @@ pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
 
 MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
 
+# Every accepted deposit locks its stake in the predeploy for good: the
+# contract has no withdrawal path, and the consensus layer forfeits the
+# principal of a first deposit whose proof-of-possession does not verify.
+# One case therefore carries the only deposit, alongside an exit.
+
 
 @pytest.mark.parametrize(
     "system_contract_interactions_per_block",
     [
-        pytest.param(
-            [
-                [
-                    SystemContractInteractionTransaction(
-                        requests=[
-                            BuilderDepositRequest(
-                                pubkey=0x01,
-                                withdrawal_credentials=0x02,
-                                amount=MIN_DEPOSIT_GWEI,
-                                signature=0x03,
-                            )
-                        ],
-                    ),
-                ],
-            ],
-            id="single_builder_deposit_request",
-        ),
         pytest.param(
             [
                 [
