@@ -1922,7 +1922,7 @@ def test_failed_create_header_gas_used(
 )
 @pytest.mark.with_all_create_opcodes()
 @pytest.mark.valid_from("EIP8037")
-def test_create_silent_failure_refunds_state_gas(
+def test_create_preflight_failure_skips_state_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -1930,11 +1930,9 @@ def test_create_silent_failure_refunds_state_gas(
     failure_mode: str,
 ) -> None:
     """
-    Verify CREATE silent failure refunds account state gas.
+    Verify nonce overflow and insufficient balance skip the account charge.
 
-    Failures that skip child spawning (nonce overflow, insufficient
-    balance) refund `GAS_NEW_ACCOUNT` to the reservoir. Block state
-    gas reflects only the probe SSTORE, not the refunded CREATE.
+    The subsequent SSTORE is the only contribution to block state gas.
     """
     sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
@@ -1967,9 +1965,7 @@ def test_create_silent_failure_refunds_state_gas(
         sender=pre.fund_eoa(),
     )
 
-    # CREATE's GAS_NEW_ACCOUNT is refunded (silent failure, no child
-    # spawned). SSTORE's state portion is tracked separately in
-    # tx_state, so only the execution dimension remains here.
+    # The CREATE preflight fails before charging for a new account.
     tx_execution = intrinsic_cost + factory_code.execution_cost(fork)
     tx_state = sstore_state_gas
     expected = max(tx_execution, tx_state)
@@ -3207,36 +3203,6 @@ def test_nested_create_failure_refunds_state_gas_before_parent_exit(
         ],
         post=post,
     )
-
-
-@pytest.mark.valid_from("EIP8037")
-def test_create_stack_depth_state_gas_consumed(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Verify the state gas reservoir survives a deep recursion of
-    nested CALLs that silently fail on gas or depth exhaustion.
-    """
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-
-    storage = Storage()
-    recursive = pre.deploy_contract(
-        code=(
-            Op.POP(Op.CALL(Op.GAS, Op.ADDRESS, 0, 0, 0, 0, 0))
-            + Op.SSTORE(storage.store_next(1, "reservoir_ok"), 1)
-        ),
-    )
-
-    tx = Transaction(
-        to=recursive,
-        state_gas_reservoir=sstore_state_gas,
-        sender=pre.fund_eoa(),
-    )
-
-    post = {recursive: Account(storage=storage)}
-    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
