@@ -57,10 +57,10 @@ def deploy_creator(
     pre: Alloc, target: TargetedAccount, value: int = 0
 ) -> Tuple[Address, Bytecode, Storage, int]:
     """
-    Deploy the Mainnet creator of `target` at its original creation nonce,
-    with code that repeats the creation: a `CREATE` of `INITCODE` sending
-    `value`, whose result is stored in the first slot; the second slot
-    records that the code ran to completion.
+    Deploy a synthetic factory at the historical creator address and nonce.
+
+    Issue a `CREATE` of `INITCODE` sending `value` and store its result in
+    the first slot; record completion in the second slot.
 
     Return the creator address, its code, its expected storage after a
     collision, and the slot that records completion.
@@ -225,9 +225,10 @@ def test_create_collision_after_fork_block(
     pre: Alloc,
 ) -> None:
     """
-    Replay the Mainnet creation of a targeted account in the block after
-    the fork block. The `CREATE` still collides, and the target appears in
-    that block's BAL only as an accessed account: the bump is not replayed.
+    Attempt creation through the synthetic factory after the fork block.
+
+    The `CREATE` still collides, and the target appears in that block's BAL
+    only as an accessed account: the bump is not replayed.
     """
     target = Spec.TARGETED_ACCOUNTS[0]
     address = place_targeted_account(pre, target)

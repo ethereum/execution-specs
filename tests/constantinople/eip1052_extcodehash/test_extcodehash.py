@@ -194,8 +194,6 @@ def test_extcodehash_empty_send_value(
             0,
             0,
             id="balance-storage",
-            # EIP-8253 removes codeless zero-nonce storage accounts.
-            marks=pytest.mark.valid_before("EIP8253"),
         ),
         pytest.param(
             Account(code=Op.STOP),
@@ -349,13 +347,7 @@ def test_extcodehash_empty_contract_creation(
 @pytest.mark.parametrize(
     "balance, nonce",
     [
-        pytest.param(
-            1,
-            0,
-            id="balance",
-            # EIP-8253 removes codeless zero-nonce storage accounts.
-            marks=pytest.mark.valid_before("EIP8253"),
-        ),
+        pytest.param(1, 0, id="balance"),
         pytest.param(0, 1, id="nonce"),
         pytest.param(1, 1, id="balance_and_nonce"),
     ],
