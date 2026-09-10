@@ -1,5 +1,7 @@
 """Fork-transition tests for EIP-7928 (Block-level Access Lists)."""
 
+from typing import Type
+
 import pytest
 from execution_testing import (
     Account,
@@ -262,7 +264,10 @@ def test_fork_transition_bal_size_constraint(
 
 
 def _single_request_queue_expectation(
-    enqueue_index: int, system_call_index: int, post_balance: int
+    request_class: Type[FeeSystemContractRequest],
+    enqueue_index: int,
+    system_call_index: int,
+    post_balance: int,
 ) -> BalAccountExpectation:
     """
     Build the BAL expectation for a builder predeploy dequeuing a single
@@ -286,17 +291,17 @@ def _single_request_queue_expectation(
         ],
         storage_changes=[
             BalStorageSlot(
-                slot=FeeSystemContractRequest.count_slot,
+                slot=request_class.count_slot,
                 slot_changes=queue_slot_changes(),
             ),
             BalStorageSlot(
-                slot=FeeSystemContractRequest.queue_tail_slot,
+                slot=request_class.queue_tail_slot,
                 slot_changes=queue_slot_changes(),
             ),
         ],
         storage_reads=[
-            FeeSystemContractRequest.excess_slot,
-            FeeSystemContractRequest.queue_head_slot,
+            request_class.excess_slot,
+            request_class.queue_head_slot,
         ],
     )
 
@@ -367,12 +372,18 @@ def test_bal_fork_transition_builder_requests(
                     ),
                     BuilderDepositRequest.system_contract_address: (
                         _single_request_queue_expectation(
-                            1, system_call_index, deposit.value
+                            BuilderDepositRequest,
+                            1,
+                            system_call_index,
+                            deposit.value,
                         )
                     ),
                     BuilderExitRequest.system_contract_address: (
                         _single_request_queue_expectation(
-                            2, system_call_index, builder_exit.value
+                            BuilderExitRequest,
+                            2,
+                            system_call_index,
+                            builder_exit.value,
                         )
                     ),
                 }

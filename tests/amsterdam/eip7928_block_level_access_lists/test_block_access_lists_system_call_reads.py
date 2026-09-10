@@ -146,6 +146,8 @@ def test_bal_pending_system_call_reads_vs_leftover_gas(
             start_index=request_class.max_per_block,
             count=request_class.max_per_block,
         )
+        # Each enqueue pays its fee as call value, so one that fails leaves
+        # this balance short: the witness that block 1 queued everything.
         post[address] = Account(balance=sum(r.value for r in requests))
 
     pending_read_count = sum(len(reads) for reads in pending_reads.values())

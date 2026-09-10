@@ -14,17 +14,6 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 - Rule: use `state_test` for single-transaction tests; `fill` auto-derives a `blockchain_test` from each, so no coverage is lost.
 - Exception: use `blockchain_test` when the test needs more than one transaction (a `state_test` holds exactly one) or more than one block (e.g. transaction-ordering or fork-transition tests).
 - Anti-pattern: wrapping one transaction in a `Block` to reach `blockchain_test`. A `state_test` can assert the transaction's gas used and receipt logs (the tx's `expected_receipt=TransactionReceipt(cumulative_gas_used=...)`), reserve state gas (the tx's `state_gas_reservoir=`), and other block-header fields (`blockchain_test_header_verify=Header(...)`) without it.
-- If the framework cannot express what a test needs — a fork-derived parameter set, a protocol constant, a cost — add it to the framework (a `fork.*()` accessor, a mixin ClassVar, a covariant marker) instead of building it in the test. Importing a helper from a sibling `test_*.py` is the sign it belongs there.
-
-## Fail Loudly
-
-Wire a test's premises so that a change fails it instead of silently retargeting what it exercises.
-
-- **Assert what helpers assume.** A helper that derives a boundary from gas costs asserts its preconditions, so a repricing fails the test instead of moving the measurement.
-- **Derive parameters from what the test asserts.** If a boundary is `len(slots) * COST`, compute it from the same `slots` the expectation checks.
-- **Assert `post` alongside a BAL expectation.** The BAL checks access, `post` checks state; neither implies the other.
-- **Witness that the code path ran.** Where success and never-executed look identical, leave a trace the `post` can assert: an `SSTORE`d sentinel, a balance, or `Account.NONEXISTENT`.
-- **Pin block premises.** A block that must be exactly full asserts its `gas_used` with `header_verify=Header(...)`.
 
 ## Pre-State Setup
 
@@ -45,8 +34,6 @@ Wire a test's premises so that a change fails it instead of silently retargeting
 - `storage = Storage()` then `storage.store_next(expected_value)` — auto-increments slot
 - `Op.SSTORE(storage.store_next(sender), Op.ORIGIN)` — build bytecode + expected storage in one step
 - Post-state: `post = {contract: Account(storage=storage)}`
-- `Account(storage=...)` compares storage **exhaustively** — any slot you omit must be zero. Opt an omitted key out with `Storage.set_expect_any(key)`.
-- BAL expectation fields behave differently: a field left unset is not checked, `[]` asserts empty, and a non-empty list matches as an **ordered subsequence** (extra actual entries are skipped, yours must appear in order). `BalAccountExpectation()` with no field set raises — use `.empty()` for an account with no changes, and `{address: None}` to assert an address is absent.
 
 ## Markers
 
@@ -54,9 +41,9 @@ Wire a test's premises so that a change fails it instead of silently retargeting
 - `@pytest.mark.valid_until("ForkName")` — test only valid up to a fork
 - `@pytest.mark.with_all_tx_types` — parametrize across all tx types
 - `@pytest.mark.with_all_call_opcodes` — parametrize CALL/CALLCODE/DELEGATECALL/STATICCALL
-- `@pytest.mark.with_all_system_contract_request_types` — parametrize over the fork's request classes as `request_class`; `selector=` narrows any `with_all_*` marker
+- `@pytest.mark.with_all_evm_code_types` — parametrize across EVM code types
 - `@pytest.mark.slow` — excluded by default in fill
-- `@pytest.mark.exception_test` — marks tests expecting exceptions. When only some parametrized cases raise, put it on the `pytest.param(..., marks=...)`, not the function, or the passing cases fail.
+- `@pytest.mark.exception_test` — marks tests expecting exceptions
 
 ## Fork-Aware Logic
 
@@ -81,7 +68,6 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 - Rule: omit `gas_limit`. It auto-fills so the transaction executes in full without running out of gas.
 - Exception: set `gas_limit` explicitly for gas-sensitive tests (intrinsic-gas boundaries, OOG, code-deposit limits, or gas metering).
 - Anti-pattern: the `gas_limit=fork.transaction_gas_limit_cap()` boilerplate is now redundant.
-- A transaction that runs out of gas consumes exactly its `gas_limit`, so calling an `Om.OOG` contract pins a transaction's gas used to a chosen value without any cost arithmetic.
 
 ## Exception Testing
 
