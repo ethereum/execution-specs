@@ -164,11 +164,17 @@ def test_bls12_g2_msm(
 
     calldata = _g2msm_worstcase_calldata(k)
 
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
-        calldata=calldata
+    # The floor data cost can exceed the standard intrinsic cost on this much
+    # calldata -- EIP-7976 charges 64 gas per byte -- so the minimum a
+    # transaction carrying it can be given is the larger of the two. The
+    # per-transaction minimum (this benchmark is split across several
+    # transactions) is enforced in BenchmarkTest.split_transaction.
+    minimum_gas_cost = max(
+        fork.transaction_intrinsic_cost_calculator()(calldata=calldata),
+        fork.transaction_data_floor_cost_calculator()(data=calldata),
     )
 
-    if intrinsic_gas_cost > gas_benchmark_value:
+    if minimum_gas_cost > gas_benchmark_value:
         pytest.skip("k configuration exceeds the gas limit")
 
     attack_block = Op.POP(
