@@ -246,6 +246,9 @@ def test_builder_requests_exhaust_block_gas(
         blocks=[
             Block(
                 txs=txs,
+                # Each enqueue logs, and nothing here asserts a receipt; the
+                # receipts root in the header still commits to them.
+                include_receipts_in_output=False,
                 header_verify=Header(requests_hash=Requests(*dequeued)),
                 # The sweep resets the count and advances the head past the
                 # dequeued records; how many were queued is gas-dependent.
