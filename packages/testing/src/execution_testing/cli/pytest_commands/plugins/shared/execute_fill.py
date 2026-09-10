@@ -300,13 +300,16 @@ def test_case_description(request: pytest.FixtureRequest) -> str:
 
 
 def pytest_make_parametrize_id(
-    config: pytest.Config, val: str, argname: str
+    config: pytest.Config, val: object, argname: str
 ) -> str:
     """
     Pytest hook called when generating test ids. We use this to generate more
     readable test ids for the generated tests.
     """
     del config
+    if isinstance(val, type):
+        # `str()` on a class renders `<class '...'>`; use its bare name.
+        val = val.__name__
     return f"{argname}_{val}"
 
 

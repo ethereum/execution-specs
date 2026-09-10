@@ -20,9 +20,9 @@ from execution_testing import (
     Environment,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
+    WithdrawalRequest,
 )
 
-from .helpers import WithdrawalRequest
 from .spec import Spec, ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
@@ -97,14 +97,11 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 else 0,
                                 valid=True,
                             )
-                            for i in range(
-                                1, Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
-                            )
+                            for i in range(1, WithdrawalRequest.max_per_block)
                         ],
                         # Starve the first inner call of gas
                         gas_limits=[100]
-                        + [None]
-                        * (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1),
+                        + [None] * (WithdrawalRequest.max_per_block - 1),
                     ),
                 ],
             ],
@@ -122,20 +119,17 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 else 0,
                                 valid=True,
                             )
-                            for i in range(
-                                Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
-                            )
+                            for i in range(WithdrawalRequest.max_per_block)
                         ]
                         + [
                             WithdrawalRequest(
-                                validator_pubkey=Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
+                                validator_pubkey=WithdrawalRequest.max_per_block,
                                 amount=Spec.MAX_AMOUNT - 1,
                                 valid=False,
                             )
                         ],
                         # Starve the last inner call of gas
-                        gas_limits=[None]
-                        * Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK
+                        gas_limits=[None] * WithdrawalRequest.max_per_block
                         + [100],
                     ),
                 ],

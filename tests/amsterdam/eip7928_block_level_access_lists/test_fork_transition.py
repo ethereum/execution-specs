@@ -1,9 +1,10 @@
 """Fork-transition tests for EIP-7928 (Block-level Access Lists)."""
 
+from typing import Type
+
 import pytest
 from execution_testing import (
     Account,
-    Address,
     Alloc,
     BalAccountExpectation,
     BalBalanceChange,
@@ -14,10 +15,13 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    BuilderDepositRequest,
+    BuilderExitRequest,
     Bytes,
     EIPChecklist,
     EngineAPIError,
     Environment,
+    FeeSystemContractRequest,
     Hash,
     Header,
     Op,
@@ -28,11 +32,6 @@ from execution_testing import (
 )
 
 from ..eip7708_eth_transfer_logs.spec import transfer_log
-from ..eip8282_builder_execution_requests.helpers import (
-    BuilderDepositRequest,
-    BuilderExitRequest,
-)
-from ..eip8282_builder_execution_requests.spec import Spec as Spec8282
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -264,8 +263,11 @@ def test_fork_transition_bal_size_constraint(
     )
 
 
-def _single_request_bus_expectation(
-    enqueue_index: int, system_call_index: int, post_balance: int
+def _single_request_queue_expectation(
+    request_class: Type[FeeSystemContractRequest],
+    enqueue_index: int,
+    system_call_index: int,
+    post_balance: int,
 ) -> BalAccountExpectation:
     """
     Build the BAL expectation for a builder predeploy dequeuing a single
@@ -273,7 +275,7 @@ def _single_request_bus_expectation(
     while the excess and head slots stay read-only.
     """
 
-    def bus_slot_changes() -> list:
+    def queue_slot_changes() -> list:
         return [
             BalStorageChange(block_access_index=enqueue_index, post_value=1),
             BalStorageChange(
@@ -289,17 +291,17 @@ def _single_request_bus_expectation(
         ],
         storage_changes=[
             BalStorageSlot(
-                slot=Spec8282.COUNT_STORAGE_SLOT,
-                slot_changes=bus_slot_changes(),
+                slot=request_class.count_slot,
+                slot_changes=queue_slot_changes(),
             ),
             BalStorageSlot(
-                slot=Spec8282.QUEUE_TAIL_STORAGE_SLOT,
-                slot_changes=bus_slot_changes(),
+                slot=request_class.queue_tail_slot,
+                slot_changes=queue_slot_changes(),
             ),
         ],
         storage_reads=[
-            Spec8282.EXCESS_STORAGE_SLOT,
-            Spec8282.QUEUE_HEAD_STORAGE_SLOT,
+            request_class.excess_slot,
+            request_class.queue_head_slot,
         ],
     )
 
@@ -314,7 +316,7 @@ def test_bal_fork_transition_builder_requests(
     requests.
 
     The first Amsterdam block carries the chain's first builder deposit
-    and exit requests: the BAL must record both predeploys' request-bus
+    and exit requests: the BAL must record both predeploys' request queue
     slots, the enqueuing transaction indices, and the clean-sweep dequeue
     by the post-execution system calls.
     """
@@ -324,7 +326,7 @@ def test_bal_fork_transition_builder_requests(
     deposit = BuilderDepositRequest(
         pubkey=1,
         withdrawal_credentials=2,
-        amount=Spec8282.BUILDER_MIN_DEPOSIT // 10**9,
+        amount=BuilderDepositRequest.min_deposit_wei // 10**9,
         signature=3,
         fee=BuilderDepositRequest.get_fee(0),
     )
@@ -368,15 +370,21 @@ def test_bal_fork_transition_builder_requests(
                             BalNonceChange(block_access_index=2, post_nonce=1)
                         ],
                     ),
-                    Address(
-                        Spec8282.BUILDER_DEPOSIT_CONTRACT_ADDRESS
-                    ): _single_request_bus_expectation(
-                        1, system_call_index, deposit.value
+                    BuilderDepositRequest.system_contract_address: (
+                        _single_request_queue_expectation(
+                            BuilderDepositRequest,
+                            1,
+                            system_call_index,
+                            deposit.value,
+                        )
                     ),
-                    Address(
-                        Spec8282.BUILDER_EXIT_CONTRACT_ADDRESS
-                    ): _single_request_bus_expectation(
-                        2, system_call_index, builder_exit.value
+                    BuilderExitRequest.system_contract_address: (
+                        _single_request_queue_expectation(
+                            BuilderExitRequest,
+                            2,
+                            system_call_index,
+                            builder_exit.value,
+                        )
                     ),
                 }
             ),
@@ -387,10 +395,10 @@ def test_bal_fork_transition_builder_requests(
         pre=pre,
         blocks=blocks,
         post={
-            Address(Spec8282.BUILDER_DEPOSIT_CONTRACT_ADDRESS): Account(
+            BuilderDepositRequest.system_contract_address: Account(
                 balance=deposit.value
             ),
-            Address(Spec8282.BUILDER_EXIT_CONTRACT_ADDRESS): Account(
+            BuilderExitRequest.system_contract_address: Account(
                 balance=builder_exit.value
             ),
         },

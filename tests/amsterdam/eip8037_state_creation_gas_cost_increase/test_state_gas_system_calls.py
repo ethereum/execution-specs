@@ -8,23 +8,22 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     BlockException,
+    BuilderDepositRequest,
+    BuilderExitRequest,
     Bytecode,
+    ConsolidationRequest,
     EIPChecklist,
     Environment,
     Fork,
     Header,
     Op,
+    WithdrawalRequest,
 )
 
 from ...cancun.eip4788_beacon_root.spec import Spec as BeaconSpec
 from ...prague.eip2935_historical_block_hashes_from_state.spec import (
     Spec as HistorySpec,
 )
-from ...prague.eip7002_el_triggerable_withdrawals.spec import (
-    Spec as WithdrawalSpec,
-)
-from ...prague.eip7251_consolidations.spec import Spec as ConsolidationSpec
-from ..eip8282_builder_execution_requests.spec import Spec as BuilderSpec
 from .spec import Spec, ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
@@ -38,14 +37,10 @@ pytestmark = [
 SYSTEM_CONTRACTS = [
     (BeaconSpec.BEACON_ROOTS_ADDRESS, False, "beacon"),
     (HistorySpec.HISTORY_STORAGE_ADDRESS, False, "history"),
-    (WithdrawalSpec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS, True, "withdrawals"),
-    (
-        ConsolidationSpec.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
-        True,
-        "consolidations",
-    ),
-    (BuilderSpec.BUILDER_DEPOSIT_CONTRACT_ADDRESS, True, "builder_deposit"),
-    (BuilderSpec.BUILDER_EXIT_CONTRACT_ADDRESS, True, "builder_exit"),
+    (WithdrawalRequest.system_contract_address, True, "withdrawals"),
+    (ConsolidationRequest.system_contract_address, True, "consolidations"),
+    (BuilderDepositRequest.system_contract_address, True, "builder_deposit"),
+    (BuilderExitRequest.system_contract_address, True, "builder_exit"),
 ]
 system_contract_cases = pytest.mark.parametrize(
     "system_contract",

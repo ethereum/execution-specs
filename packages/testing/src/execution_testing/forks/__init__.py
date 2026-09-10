@@ -1,6 +1,16 @@
 """Ethereum test fork definitions."""
 
-from .base_fork import RefundTypes
+from .base_fork import RefundTypes, SystemCallPhase
+from .forks.eips.amsterdam.eip_8282 import (
+    BuilderDepositRequest,
+    BuilderExitRequest,
+)
+from .forks.eips.prague.eip_6110 import (
+    DepositRequest,
+    create_deposit_log_bytes,
+)
+from .forks.eips.prague.eip_7002 import WithdrawalRequest
+from .forks.eips.prague.eip_7251 import ConsolidationRequest
 from .forks.forks import (
     BPO1,
     BPO2,
@@ -75,8 +85,27 @@ from .helpers import (
     transition_fork_from_to,
     transition_fork_to,
 )
+from .requests import (
+    FeeSystemContractRequest,
+    RequestBase,
+    Requests,
+    SystemContractRequest,
+    requests_list_to_bytes,
+)
 
 __all__ = [
+    "BuilderDepositRequest",
+    "BuilderExitRequest",
+    "ConsolidationRequest",
+    "DepositRequest",
+    "FeeSystemContractRequest",
+    "RequestBase",
+    "Requests",
+    "SystemCallPhase",
+    "SystemContractRequest",
+    "WithdrawalRequest",
+    "create_deposit_log_bytes",
+    "requests_list_to_bytes",
     "ALL_FORKS_WITH_TRANSITIONS",
     "ALL_FORKS",
     "ALL_TRANSITION_FORKS",

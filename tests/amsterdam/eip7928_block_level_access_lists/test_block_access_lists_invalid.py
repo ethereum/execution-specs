@@ -4,7 +4,7 @@ Test cases for invalid Block Access Lists.
 These tests verify that clients properly reject blocks with corrupted BALs.
 """
 
-from typing import Callable
+from typing import Callable, Type
 
 import pytest
 from execution_testing import (
@@ -25,6 +25,7 @@ from execution_testing import (
     Bytes,
     EIPChecklist,
     Environment,
+    FeeSystemContractRequest,
     Fork,
     Hash,
     Header,
@@ -68,9 +69,6 @@ from execution_testing.test_types.block_access_list.modifiers import (
     swap_bal_indices,
 )
 
-from ...prague.eip7002_el_triggerable_withdrawals.spec import Spec as Spec7002
-from ...prague.eip7251_consolidations.spec import Spec as Spec7251
-from ..eip8282_builder_execution_requests.spec import Spec as Spec8282
 from .spec import ref_spec_7928
 from .test_block_access_lists_eip2935 import (
     HISTORY_STORAGE_ADDRESS,
@@ -2254,54 +2252,6 @@ def test_bal_invalid_phantom_read_on_selfdestruct(
     )
 
 
-# Request predeploys that the post-execution system calls always read
-# (excess, count, queue head, queue tail), even in a block without
-# requests. Those reads leave state root and gas untouched, so omitting
-# them from the BAL is only detectable by BAL completeness.
-REQUEST_PREDEPLOYS = [
-    pytest.param(
-        Address(Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS),
-        [
-            Spec7002.EXCESS_WITHDRAWAL_REQUESTS_STORAGE_SLOT,
-            Spec7002.WITHDRAWAL_REQUEST_COUNT_STORAGE_SLOT,
-            Spec7002.WITHDRAWAL_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
-            Spec7002.WITHDRAWAL_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
-        ],
-        id="withdrawal_requests",
-    ),
-    pytest.param(
-        Address(Spec7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS),
-        [
-            Spec7251.EXCESS_CONSOLIDATION_REQUESTS_STORAGE_SLOT,
-            Spec7251.CONSOLIDATION_REQUEST_COUNT_STORAGE_SLOT,
-            Spec7251.CONSOLIDATION_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
-            Spec7251.CONSOLIDATION_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
-        ],
-        id="consolidation_requests",
-    ),
-    pytest.param(
-        Address(Spec8282.BUILDER_DEPOSIT_CONTRACT_ADDRESS),
-        [
-            Spec8282.EXCESS_STORAGE_SLOT,
-            Spec8282.COUNT_STORAGE_SLOT,
-            Spec8282.QUEUE_HEAD_STORAGE_SLOT,
-            Spec8282.QUEUE_TAIL_STORAGE_SLOT,
-        ],
-        id="builder_deposits",
-    ),
-    pytest.param(
-        Address(Spec8282.BUILDER_EXIT_CONTRACT_ADDRESS),
-        [
-            Spec8282.EXCESS_STORAGE_SLOT,
-            Spec8282.COUNT_STORAGE_SLOT,
-            Spec8282.QUEUE_HEAD_STORAGE_SLOT,
-            Spec8282.QUEUE_TAIL_STORAGE_SLOT,
-        ],
-        id="builder_exits",
-    ),
-]
-
-
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
 @pytest.mark.parametrize(
@@ -2311,12 +2261,14 @@ REQUEST_PREDEPLOYS = [
         pytest.param(remove_storage_reads, id="missing_reads"),
     ],
 )
-@pytest.mark.parametrize("predeploy,queue_slots", REQUEST_PREDEPLOYS)
+# The deposit contract keeps no queue, so it has no slots to read.
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
+)
 def test_bal_invalid_missing_request_predeploy_accesses(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    predeploy: Address,
-    queue_slots: list[int],
+    request_class: Type[FeeSystemContractRequest],
     modifier: Callable,
 ) -> None:
     """
@@ -2327,6 +2279,13 @@ def test_bal_invalid_missing_request_predeploy_accesses(
     Nothing but the BAL records those reads, so the block stays
     self-consistent on state root and gas.
     """
+    predeploy = request_class.system_contract_address
+    queue_slots = [
+        request_class.excess_slot,
+        request_class.count_slot,
+        request_class.queue_head_slot,
+        request_class.queue_tail_slot,
+    ]
     blockchain_test(
         pre=pre,
         post={},

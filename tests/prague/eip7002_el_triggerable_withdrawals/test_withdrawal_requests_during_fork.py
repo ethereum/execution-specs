@@ -16,9 +16,9 @@ from execution_testing import (
     Environment,
     SystemContractInteractionTransaction,
     Transaction,
+    WithdrawalRequest,
 )
 
-from .helpers import WithdrawalRequest
 from .spec import Spec, ref_spec_7002
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
@@ -93,7 +93,7 @@ def test_withdrawal_requests_during_fork(
     """
     # We need to delete the deployed contract that comes by default in the pre
     # state.
-    pre[Spec.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS] = Account(
+    pre[WithdrawalRequest.system_contract_address] = Account(
         balance=0,
         code=bytes(),
         nonce=0,

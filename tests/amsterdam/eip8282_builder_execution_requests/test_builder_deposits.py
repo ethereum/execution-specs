@@ -10,19 +10,19 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    BuilderDepositRequest,
     SystemContractInteractionContract,
     SystemContractInteractionTransaction,
 )
 
-from .helpers import BuilderDepositRequest
-from .spec import Spec, ref_spec_8282
+from .spec import ref_spec_8282
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
+MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
 
 
 @pytest.mark.parametrize(
@@ -141,7 +141,7 @@ MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
                                 amount=MIN_DEPOSIT_GWEI,
                                 signature=0x03,
                             )
-                            for i in range(Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK)
+                            for i in range(BuilderDepositRequest.max_per_block)
                         ],
                     ),
                 ],
@@ -160,7 +160,7 @@ MIN_DEPOSIT_GWEI = Spec.BUILDER_MIN_DEPOSIT // 10**9
                                 signature=0x03,
                             )
                             for i in range(
-                                Spec.MAX_DEPOSIT_REQUESTS_PER_BLOCK + 1
+                                BuilderDepositRequest.max_per_block + 1
                             )
                         ],
                     ),

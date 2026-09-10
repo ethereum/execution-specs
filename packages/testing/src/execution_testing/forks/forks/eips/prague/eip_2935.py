@@ -11,7 +11,7 @@ from typing import List, Mapping
 
 from execution_testing.base_types import Address
 
-from ....base_fork import BaseFork
+from ....base_fork import BaseFork, SystemCallPhase
 from ....bytecode import load_contract_bytecode
 
 HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53A10CB7A02335B175320002935
@@ -38,6 +38,16 @@ class EIP2935(BaseFork):
                 label="HISTORY_STORAGE_ADDRESS",
             ),
         ] + super(EIP2935, cls).system_contracts()
+
+    @classmethod
+    def system_contract_call_phases(cls) -> Mapping[Address, SystemCallPhase]:
+        """Call the history storage contract before the transactions."""
+        return {
+            Address(
+                HISTORY_STORAGE_ADDRESS, label="HISTORY_STORAGE_ADDRESS"
+            ): SystemCallPhase.BEFORE_TRANSACTIONS,
+            **super(EIP2935, cls).system_contract_call_phases(),
+        }
 
     @classmethod
     def pre_allocation_blockchain(cls) -> Mapping:
