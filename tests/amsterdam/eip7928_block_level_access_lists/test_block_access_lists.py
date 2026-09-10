@@ -20,6 +20,8 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Bytecode,
+    CodeGasMeasure,
     Conditional,
     EIPChecklist,
     Environment,
@@ -1505,6 +1507,112 @@ def test_bal_outer_revert_with_inner_insufficient_funds(
                 inner: BalAccountExpectation(storage_reads=[slot_a, slot_b]),
                 extra_account: extra_bal,
             },
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "preceded_by_failed_call",
+    [
+        pytest.param(True, id="after_insufficient_funds_call"),
+        pytest.param(False, id="without_preceding_call"),
+    ],
+)
+@pytest.mark.with_all_call_opcodes(
+    selector=lambda call_opcode: call_opcode in (Op.CALL, Op.CALLCODE)
+)
+def test_bal_account_warmth_survives_insufficient_funds_call(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+    call_opcode: Op,
+    preceded_by_failed_call: bool,
+) -> None:
+    """
+    A call that fails the sender-balance check still warms its target.
+
+    The caller offers more value than it holds, so the target's frame
+    never runs, then measures its own next `BALANCE` of the target. That
+    charge is the warm one here and the cold one when the failed call is
+    left out, which is what tells the two apart. The target is in the
+    BAL either way with no changes at all, since no value moved.
+
+    Only `CALL` and `CALLCODE` carry a value argument, so only they can
+    fail this way; `CALLCODE` sends the value to the caller itself, a
+    separate path through the balance check.
+    """
+    target_balance = 1
+    target = pre.fund_eoa(amount=target_balance)
+
+    # Deliberately left out of the access list, so warmth can only come
+    # from the failed call.
+    measured_code = Op.BALANCE(target)
+    overhead_cost = measured_code.gas_cost(fork) - Op.BALANCE(
+        address_warm=False
+    ).gas_cost(fork)
+    measure = CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=overhead_cost,
+        extra_stack_items=1,
+    )
+
+    caller_balance = 1
+    failed_call = Op.POP(
+        call_opcode(
+            gas=0,
+            address=target,
+            value=caller_balance + 1,
+            address_warm=False,
+            value_transfer=True,
+            account_new=False,
+        )
+    )
+
+    caller_code: Bytecode
+    if preceded_by_failed_call:
+        caller_code = failed_call + measure
+    else:
+        caller_code = measure
+    caller = pre.deploy_contract(code=caller_code, balance=caller_balance)
+
+    measured_gas = Op.BALANCE(address_warm=preceded_by_failed_call).gas_cost(
+        fork
+    )
+
+    alice = pre.fund_eoa()
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=alice, to=caller),
+        post={
+            alice: Account(nonce=1),
+            # Keeping its balance shows the offered value never left.
+            caller: Account(balance=caller_balance, storage={0: measured_gas}),
+            target: Account(balance=target_balance),
+        },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                caller: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1,
+                                    post_value=measured_gas,
+                                )
+                            ],
+                        )
+                    ],
+                    balance_changes=[],
+                ),
+                target: BalAccountExpectation.empty(),
+            }
         ),
     )
 
