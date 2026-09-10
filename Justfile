@@ -164,7 +164,7 @@ fill *args: (_tmp-logs "fill")
 [group('consensus tests')]
 validate-blocks fixtures_dir *args: (_tmp "validate-blocks")
     COVERAGE_FILE="{{ output_dir }}/validate-blocks/.coverage" uv run python -m pytest \
-        -p tests.json_loader.conftest \
+        -p tests.json_loader.conftest --noconftest \
         -c pyproject.toml \
         --allow-post-state-hash \
         -n {{ xdist_workers }} --dist=loadfile \
