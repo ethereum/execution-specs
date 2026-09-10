@@ -476,69 +476,6 @@ def minimum_deposit(
             [
                 [
                     SystemContractInteractionContract(
-                        requests=[minimum_deposit(0x01, valid=False)],
-                        call_type=Op.DELEGATECALL,
-                    ),
-                    SystemContractInteractionContract(
-                        requests=[minimum_deposit(0x02, valid=False)],
-                        call_type=Op.STATICCALL,
-                    ),
-                    SystemContractInteractionContract(
-                        requests=[minimum_deposit(0x03, valid=False)],
-                        call_type=Op.CALLCODE,
-                    ),
-                ],
-            ],
-            id="single_block_single_builder_deposit_delegatecall_staticcall_callcode",
-        ),
-        pytest.param(
-            [
-                [
-                    SystemContractInteractionContract(
-                        requests=[minimum_deposit(0x01, valid=False)],
-                        call_type=Op.DELEGATECALL,
-                        call_depth=3,
-                    ),
-                    SystemContractInteractionContract(
-                        requests=[minimum_deposit(0x02, valid=False)],
-                        call_type=Op.STATICCALL,
-                        call_depth=3,
-                    ),
-                    SystemContractInteractionContract(
-                        requests=[minimum_deposit(0x03, valid=False)],
-                        call_type=Op.CALLCODE,
-                        call_depth=3,
-                    ),
-                ],
-            ],
-            id="single_block_single_builder_deposit_delegatecall_staticcall_callcode_call_depth_3",
-        ),
-        pytest.param(
-            [
-                [
-                    SystemContractInteractionContract(
-                        requests=[minimum_deposit(0x01, valid=False)],
-                        call_type=Op.DELEGATECALL,
-                        call_depth=128,
-                    ),
-                    SystemContractInteractionContract(
-                        requests=[minimum_deposit(0x02, valid=False)],
-                        call_type=Op.STATICCALL,
-                        call_depth=128,
-                    ),
-                    SystemContractInteractionContract(
-                        requests=[minimum_deposit(0x03, valid=False)],
-                        call_type=Op.CALLCODE,
-                        call_depth=128,
-                    ),
-                ],
-            ],
-            id="single_block_single_builder_deposit_delegatecall_staticcall_callcode_call_depth_high",
-        ),
-        pytest.param(
-            [
-                [
-                    SystemContractInteractionContract(
                         requests=[
                             minimum_deposit(i + 1)
                             for i in range(DEPOSITS_BEFORE_FEE_INCREASE)

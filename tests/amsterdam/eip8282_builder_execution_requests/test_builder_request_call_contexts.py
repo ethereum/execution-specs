@@ -2,10 +2,11 @@
 Call-context tests for
 [EIP-8282: Builder Execution Requests](https://eips.ethereum.org/EIPS/eip-8282).
 
-The builder predeploys reached in ways the request suites do not cover: with
-empty calldata (the fee getter), while the inhibitor is set, from an account
-whose code is delegated, from initcode, with more value than the request
-costs, and through call types other than CALL.
+Behavior of the builder predeploys that the per-type request matrices cannot
+express: the fee getter, the fee decaying once demand stops, requests made
+while the inhibitor is set, from an account whose code is delegated, from
+initcode, with more value than the request costs, and through call types
+other than CALL.
 """
 
 from typing import Dict, Tuple, Type
@@ -32,6 +33,7 @@ from execution_testing import (
     Op,
     Requests,
     Storage,
+    SystemContractInteractionContract,
     SystemContractInteractionTransaction,
     Transaction,
     compute_create_address,
@@ -199,6 +201,107 @@ def test_fee_getter(
         post={
             relay: Account(storage=storage, balance=1),
             predeploy: Account(balance=queued_value),
+        },
+    )
+
+
+def test_fee_decays_to_minimum(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    request_class: Type[FeeSystemContractRequest],
+) -> None:
+    """
+    Queue enough requests in one block to raise the fee, then leave the
+    following blocks empty.
+
+    Each system call that dequeues nothing lowers the stored excess by the
+    per-block target until it reaches zero, so a request paying the minimum
+    fee is accepted again.
+    """
+    predeploy = request_class.system_contract_address
+    target = request_class.target_per_block
+    raised_excess = request_class.get_n_fee_increments(1)[0]
+    assert request_class.get_fee(raised_excess) > request_class.get_fee(0)
+
+    queued = [
+        request_class.from_index(i).copy(fee=fee)
+        for i, fee in enumerate(
+            request_class.get_enqueue_fees(target + raised_excess)
+        )
+    ]
+    interaction = SystemContractInteractionContract(
+        requests=queued
+    ).update_pre(pre)
+    relay = interaction.request_source_address
+    assert relay is not None
+
+    def stored_excess(
+        value: int, system_call_index: int
+    ) -> BlockAccessListExpectation:
+        return BlockAccessListExpectation(
+            account_expectations={
+                predeploy: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=request_class.excess_slot,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=system_call_index,
+                                    post_value=value,
+                                )
+                            ],
+                        )
+                    ],
+                )
+            }
+        )
+
+    txs = interaction.transactions()
+    blocks = [
+        Block(
+            txs=txs,
+            header_verify=Header(
+                requests_hash=Requests(
+                    *(request.with_source_address(relay) for request in queued)
+                )
+            ),
+            expected_block_access_list=stored_excess(
+                raised_excess, len(txs) + 1
+            ),
+        )
+    ]
+    excess = raised_excess
+    while excess:
+        excess = max(0, excess - target)
+        blocks.append(
+            Block(
+                header_verify=Header(requests_hash=Requests()),
+                expected_block_access_list=stored_excess(excess, 1),
+            )
+        )
+
+    sender = pre.fund_eoa()
+    final = request_class.from_index(len(queued)).copy(
+        fee=request_class.get_fee(0)
+    )
+    blocks.append(
+        Block(
+            txs=SystemContractInteractionTransaction(
+                sender_account=sender, requests=[final]
+            ).transactions(),
+            header_verify=Header(
+                requests_hash=Requests(final.with_source_address(sender))
+            ),
+        )
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post={
+            predeploy: Account(
+                balance=sum(request.value for request in queued) + final.value
+            )
         },
     )
 
