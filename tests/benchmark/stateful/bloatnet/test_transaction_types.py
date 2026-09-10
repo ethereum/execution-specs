@@ -155,7 +155,7 @@ def test_ether_transfers_onchain_receivers(
             raise ValueError(f"Unknown case: {case_id}")
 
     sends_value = transfer_amount > 0
-    iteration_cost = (
+    regular_cost = (
         fork.transaction_intrinsic_cost_calculator()(
             sends_value=sends_value,
             recipient_type=recipient_type,
@@ -164,13 +164,14 @@ def test_ether_transfers_onchain_receivers(
             sends_value=sends_value,
             recipient_type=recipient_type,
         )
-        + fork.transaction_top_frame_state_gas(
-            sends_value=sends_value,
-            recipient_type=recipient_type,
-        )
         + receiver_execution_gas
     )
-    iteration_count = gas_benchmark_value // iteration_cost
+    state_cost = fork.transaction_top_frame_state_gas(
+        sends_value=sends_value,
+        recipient_type=recipient_type,
+    )
+    iteration_cost = regular_cost + state_cost
+    iteration_count = gas_benchmark_value // max(regular_cost, state_cost)
 
     txs = []
     for _ in range(iteration_count):

@@ -201,6 +201,7 @@ def test_account_access(
             opcode(
                 address=address_source.address_op(),
                 value=value_sent,
+                gas=Op.GAS,
                 # Gas accounting
                 address_warm=access_warm,
                 value_transfer=value_sent > 0,
