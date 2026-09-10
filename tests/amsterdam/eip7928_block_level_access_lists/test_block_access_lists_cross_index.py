@@ -643,16 +643,23 @@ def test_bal_system_call_change_kept_when_tx_restores_slot(
 ) -> None:
     """
     Netting stops at the index boundary: a slot the history system call
-    sets at index 0 and a transaction resets at index 1 keeps both changes,
-    although the block leaves it at its starting value.
+    sets at index 0 and a transaction restores at index 1 keeps both
+    changes, although the block leaves it at its starting value.
     """
-    slot = 1
-    # Called by the system the contract writes 1, called by anyone else 0.
+    caller_slot = 1
+    counter_slot = 2
+    alice = pre.fund_eoa()
+
+    # The contract records its caller and counts its calls. Alice's
+    # address is the caller slot's starting value, so the system call
+    # moves it and her transaction puts it back; the counter reaching two
+    # is what separates that round trip from neither call running.
     pre[HISTORY_STORAGE_ADDRESS] = Account(
         nonce=1,
-        code=Op.SSTORE(slot, Op.EQ(Op.CALLER, SYSTEM_ADDRESS)),
+        code=Op.SSTORE(caller_slot, Op.CALLER)
+        + Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1)),
+        storage={caller_slot: alice},
     )
-    alice = pre.fund_eoa()
 
     blockchain_test(
         pre=pre,
@@ -664,7 +671,20 @@ def test_bal_system_call_change_kept_when_tx_restores_slot(
                         HISTORY_STORAGE_ADDRESS: BalAccountExpectation(
                             storage_changes=[
                                 BalStorageSlot(
-                                    slot=slot,
+                                    slot=caller_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=SYSTEM_ADDRESS,
+                                        ),
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=alice,
+                                        ),
+                                    ],
+                                ),
+                                BalStorageSlot(
+                                    slot=counter_slot,
                                     slot_changes=[
                                         BalStorageChange(
                                             block_access_index=0,
@@ -672,10 +692,10 @@ def test_bal_system_call_change_kept_when_tx_restores_slot(
                                         ),
                                         BalStorageChange(
                                             block_access_index=1,
-                                            post_value=0,
+                                            post_value=2,
                                         ),
                                     ],
-                                )
+                                ),
                             ],
                             storage_reads=[],
                         ),
@@ -691,7 +711,9 @@ def test_bal_system_call_change_kept_when_tx_restores_slot(
             )
         ],
         post={
-            HISTORY_STORAGE_ADDRESS: Account(storage={slot: 0}),
+            HISTORY_STORAGE_ADDRESS: Account(
+                storage={caller_slot: alice, counter_slot: 2}
+            ),
             alice: Account(nonce=1),
         },
     )
