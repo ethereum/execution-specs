@@ -79,3 +79,4 @@ unshipped EIPs, even withdrawn and non-viable proposals.
 | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xEC   | EOFCREATE          | Create from EOF contained initcode                                           |
 | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xED   | TXCREATE           | Create from transaction contained initcode (removed from EIP-7620)           |
 | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xEE   | RETURNCONTRACT     | Contract to be created, references EOF data                                  |
+| [EIP-8163](https://eips.ethereum.org/EIPS/eip-8163)                    | 0xAE   | EXTENSION          | Extension prefix for non-Ethereum-L1 EVM chains                              |
