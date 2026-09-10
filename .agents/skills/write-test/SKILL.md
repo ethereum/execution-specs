@@ -120,6 +120,7 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 - Stack parametrize decorators for multiple dimensions
 - Handle every parametrized case with an explicit `if`/`elif` and `else: raise ValueError(...)`; an `else` that is a real case silently absorbs values added later.
 - Parametrize the dimensions that take different code paths in clients (warm/cold, empty/funded, same-tx/pre-deployed), not just the ones the spec names.
+- **Cover the family, not just the instance.** Before fixing the subject of a test, ask whether it is one member of a set the framework already parametrizes: call opcodes, create opcodes, precompiles, system contracts, request classes, tx types. If so, use that `with_all_*` marker and narrow it with `selector=lambda value: ...` when only part of the set can reach the behaviour (only `CALL` and `CALLCODE` carry a value, so only they can fail a sender-balance check). The nearest test proving the same rule for one member usually already carries the marker, so read a model test's decorators and not just its body. If the family is real but no marker covers it, propose a covariant marker (`covariant_decorator` in `plugins/forks/forks.py`) rather than hand-writing the list in the test; framework surface lands in its own change.
 
 ## Unit Tests (execution_testing package)
 
