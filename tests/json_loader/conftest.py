@@ -213,8 +213,11 @@ def pytest_sessionstart(session: Session) -> None:
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
     """Clean up the fork cache at session finish."""
     del exitstatus
-    session.stash[fork_cache_key].__exit__()
-    del session.stash[fork_cache_key]
+    # Unless this directory is named on the command line, the file is
+    # registered after session start has fired, so the stash can be empty.
+    if fork_cache_key in session.stash:
+        session.stash[fork_cache_key].__exit__()
+        del session.stash[fork_cache_key]
 
 
 def pytest_collect_file(
