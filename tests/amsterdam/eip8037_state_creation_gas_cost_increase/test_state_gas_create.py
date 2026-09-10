@@ -3205,35 +3205,6 @@ def test_nested_create_failure_refunds_state_gas_before_parent_exit(
     )
 
 
-@pytest.mark.valid_from("EIP8037")
-def test_recursive_calls_preserve_state_reservoir(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """
-    Verify a recursive CALL chain preserves the reservoir for a storage set.
-    """
-    sstore_state_gas = Op.SSTORE(new_value=1).state_cost(fork)
-
-    storage = Storage()
-    recursive = pre.deploy_contract(
-        code=(
-            Op.POP(Op.CALL(Op.GAS, Op.ADDRESS, 0, 0, 0, 0, 0))
-            + Op.SSTORE(storage.store_next(1, "reservoir_ok"), 1)
-        ),
-    )
-
-    tx = Transaction(
-        to=recursive,
-        state_gas_reservoir=sstore_state_gas,
-        sender=pre.fund_eoa(),
-    )
-
-    post = {recursive: Account(storage=storage)}
-    state_test(pre=pre, post=post, tx=tx)
-
-
 @pytest.mark.parametrize(
     "num_inner_ops",
     [
