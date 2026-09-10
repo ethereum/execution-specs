@@ -28,6 +28,7 @@ from ethereum_spec_tools.forks import (
     TemporaryHardfork,
 )
 from ethereum_spec_tools.loaders.fixture_loader import Load
+from ethereum_spec_tools.loaders.fork_loader import ForkLoad
 from ethereum_spec_tools.loaders.transaction_loader import (
     TransactionLoad,
     UnsupportedTxError,
@@ -49,6 +50,7 @@ if TYPE_CHECKING:
         TransitionTool,
     )
     from execution_testing.exceptions import ExceptionMapper
+    from execution_testing.forks import TransitionFork
     from execution_testing.test_types import (
         Environment as TestingEnvironment,
     )
@@ -117,6 +119,20 @@ class ForkCache(AbstractContextManager):
         return clone
 
 
+def transition_fork_criteria(
+    fork: "TransitionFork",
+) -> ByBlockNumber | ByTimestamp:
+    """
+    Return the spec criteria at which `fork` activates its target fork.
+
+    A transition fork is scheduled either by timestamp or by block
+    number; the timestamp wins when both are set.
+    """
+    if fork.at_timestamp:
+        return ByTimestamp(fork.at_timestamp)
+    return ByBlockNumber(fork.at_block)
+
+
 class T8N(Load):
     """
     Execute the transition function on already-parsed inputs.
@@ -152,17 +168,29 @@ class T8N(Load):
         tracers: Optional[GroupTracer] = None,
         exception_mapper: Optional["ExceptionMapper"] = None,
     ) -> None:
-        # ``resolve_fork`` only maps the testing fork name to a spec
-        # ``Hardfork`` module — CLI exception aliases like
-        # ``HomesteadToDaoAt5`` are unfolded by ``find_fork`` in
-        # :mod:`.cli` before the testing ``Fork`` is constructed. For
-        # those transition-fork tests the CLI also reports the block
-        # number at which the resolved fork activates via
-        # ``fork_block``; the in-process path leaves it ``None``.
-        fork_module = resolve_fork(t8n_data.fork_name)
-        fork_criteria: Optional[ByBlockNumber] = None
+        # ``t8n_data.fork`` may be a transition fork: resolve the spec
+        # module from the side of the boundary this block falls on. When
+        # that side is the fork being transitioned to and its module has
+        # fork-block logic, run it with the transition's activation
+        # criteria so the spec sees the schedule and ``is_fork_block``
+        # decides. Legacy CLI aliases such as ``HomesteadToDaoAt5`` are
+        # unfolded by ``find_fork`` in :mod:`.cli`, which reports the
+        # activation block number via ``fork_block`` instead.
+        from execution_testing.forks.transition_base_fork import (
+            TransitionBaseClass,
+        )
+
+        active_fork = t8n_data.active_fork
+        fork_module = resolve_fork(active_fork.transition_tool_name())
+        fork_criteria: ByBlockNumber | ByTimestamp | None = None
         if fork_block is not None and fork_block != 0:
             fork_criteria = ByBlockNumber(fork_block)
+        elif (
+            issubclass(t8n_data.fork, TransitionBaseClass)
+            and active_fork == t8n_data.fork.transitions_to()
+            and ForkLoad(fork_module).has_fork_block_logic
+        ):
+            fork_criteria = transition_fork_criteria(t8n_data.fork)
 
         # Translate ``t8n_data.blob_params`` (testing ``ForkBlobSchedule``)
         # into the override arguments ``ForkCache.get`` consumes.
@@ -181,8 +209,8 @@ class T8N(Load):
         base_fee_update_fraction: Optional[Uint] = None
         if (
             t8n_data.blob_params is not None
-            and t8n_data.fork.bpo_fork()
-            and t8n_data.fork != t8n_data.fork.non_bpo_ancestor()
+            and active_fork.bpo_fork()
+            and active_fork != active_fork.non_bpo_ancestor()
         ):
             target_blobs_per_block = U64(
                 int(t8n_data.blob_params.target_blobs_per_block)
@@ -226,7 +254,7 @@ class T8N(Load):
         if isinstance(input_alloc, LazyAlloc):
             input_alloc = input_alloc.materialize()
         self.alloc = input_alloc.model_copy(deep=True)
-        self.alloc.migrate_state_commitment(t8n_data.fork.state_commitment())
+        self.alloc.migrate_state_commitment(active_fork.state_commitment())
         self.env = t8n_data.env
         self.txs = list(t8n_data.txs)
         self.ommers = list(ommers)
@@ -367,6 +395,27 @@ class T8N(Load):
             self._block_output,
             self._block_exception,
             self.rejected_transactions,
+        )
+
+    @property
+    def is_fork_block(self) -> bool:
+        """
+        Check whether this block is the first block of its fork.
+
+        Mirror the spec's ``is_fork_block``: the block meets the fork's
+        ``FORK_CRITERIA`` while its parent does not. The criteria of an
+        unscheduled fork never match, so a chain that starts inside the
+        fork has no fork block.
+        """
+        if self.env.number == 0 or self.env.parent_timestamp is None:
+            return False
+        criteria = self.fork.fork_criteria
+        number = Uint(int(self.env.number))
+        return bool(
+            criteria.check(number, U256(int(self.env.timestamp)))
+            and not criteria.check(
+                number - Uint(1), U256(int(self.env.parent_timestamp))
+            )
         )
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:

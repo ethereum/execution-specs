@@ -80,6 +80,19 @@ class ForkLoad:
         return self._module("fork").process_unchecked_system_transaction
 
     @property
+    def fork_criteria(self) -> Any:
+        """FORK_CRITERIA of the given fork."""
+        return self.hardfork.criteria
+
+    @property
+    def has_fork_block_logic(self) -> bool:
+        """
+        Check if the fork applies a one-time state transition at its fork
+        block, i.e. its `fork` module defines `is_fork_block`.
+        """
+        return hasattr(self._module("fork"), "is_fork_block")
+
+    @property
     def process_withdrawals(self) -> Any:
         """process_withdrawals function of the given fork."""
         return self._module("fork").process_withdrawals
