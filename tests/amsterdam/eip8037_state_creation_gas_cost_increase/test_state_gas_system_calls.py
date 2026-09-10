@@ -53,6 +53,14 @@ system_contract_cases = pytest.mark.parametrize(
 )
 
 
+def system_call_execution_grant(fork: Fork) -> int:
+    """Return the execution gas granted to a system call."""
+    # The fork budget also carries the reservoir for the SSTORE allowance.
+    sstore_state_gas = Op.SSTORE(0, 1).state_cost(fork)
+    reservoir = Spec.SYSTEM_MAX_SSTORES_PER_CALL * sstore_state_gas
+    return fork.system_call_gas_limit() - reservoir
+
+
 @system_contract_cases
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_system_call_execution_grant(
@@ -66,7 +74,7 @@ def test_system_call_execution_grant(
     # GAS executes first, before the key is pushed for SSTORE.
     code = Op.SSTORE(0, Op.GAS)
     pre[address] = Account(code=code)
-    expected = WithdrawalSpec.SYSTEM_CALL_GAS_LIMIT - Op.GAS.gas_cost(fork)
+    expected = system_call_execution_grant(fork) - Op.GAS.gas_cost(fork)
     blockchain_test(
         pre=pre,
         genesis_environment=Environment(gas_limit=1_000_000),
@@ -117,7 +125,7 @@ def test_system_call_reservoir_boundary(
 @pytest.fixture
 def execution_boundary_code(fork: Fork) -> Bytecode:
     """Spend the full execution grant while leaving state gas available."""
-    budget = WithdrawalSpec.SYSTEM_CALL_GAS_LIMIT
+    budget = system_call_execution_grant(fork)
     marker = Op.SSTORE(0, 1)
 
     # Memory expansion spends most of the grant with a single instruction.
