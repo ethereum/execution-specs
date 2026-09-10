@@ -99,11 +99,7 @@ class OutOfGasBoundary(Enum):
 
 
 @pytest.mark.parametrize(
-    "slot_is_warm",
-    [
-        pytest.param(False, id="cold_slot"),
-        pytest.param(True, id="warm_slot"),
-    ],
+    "slot_is_warm", [False, True], ids=["cold_slot", "warm_slot"]
 )
 @pytest.mark.parametrize(
     "out_of_gas_at",
@@ -258,11 +254,7 @@ def test_bal_sstore_and_oog(
 
 
 @pytest.mark.parametrize(
-    "slot_is_warm",
-    [
-        pytest.param(False, id="cold_slot"),
-        pytest.param(True, id="warm_slot"),
-    ],
+    "slot_is_warm", [False, True], ids=["cold_slot", "warm_slot"]
 )
 @pytest.mark.parametrize(
     "fails_at_sload",
@@ -336,84 +328,72 @@ def test_bal_sload_and_oog(
 
 
 @pytest.mark.parametrize(
-    "target_is_warm",
-    [
-        pytest.param(False, id="cold_target"),
-        pytest.param(True, id="warm_target"),
-    ],
+    "query_opcode",
+    [Op.BALANCE, Op.EXTCODESIZE, Op.EXTCODEHASH],
+    ids=["balance", "extcodesize", "extcodehash"],
 )
 @pytest.mark.parametrize(
-    "fails_at_balance",
-    [True, False],
-    ids=["oog_at_balance", "successful_balance"],
+    "target_is_warm", [False, True], ids=["cold_target", "warm_target"]
 )
-def test_bal_balance_and_oog(
+@pytest.mark.parametrize(
+    "fails_at_query", [True, False], ids=["oog_at_query", "successful_query"]
+)
+def test_bal_account_query_and_oog(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     fork: Fork,
-    fails_at_balance: bool,
+    query_opcode: Op,
+    fails_at_query: bool,
     target_is_warm: bool,
 ) -> None:
     """
-    Ensure BAL handles BALANCE and OOG during BALANCE appropriately. A
-    warm target is declared in the access list, which by itself does not
-    put it in the BAL.
+    Ensure an account-querying opcode's target enters the BAL only once
+    its access cost is paid. A warm target is declared in the access
+    list, which by itself does not put it in the BAL.
     """
     alice = pre.fund_eoa()
-    bob = pre.fund_eoa()
+    target = pre.deploy_contract(code=Op.STOP)
 
-    # Create contract that attempts to check Bob's balance
-    balance_checker_code = (
-        Op.PUSH20(bob)  # Bob's address
-        + Op.BALANCE(address_warm=target_is_warm)
-        + Op.STOP
+    query_code = (
+        Op.PUSH20(target) + query_opcode(address_warm=target_is_warm) + Op.STOP
     )
-
-    balance_checker = pre.deploy_contract(code=balance_checker_code)
+    querier = pre.deploy_contract(code=query_code)
 
     access_list = (
-        [AccessList(address=bob, storage_keys=[])] if target_is_warm else None
+        [AccessList(address=target, storage_keys=[])]
+        if target_is_warm
+        else None
     )
     intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
         access_list=access_list
     )
-
-    tx_gas_limit = intrinsic_gas_cost + balance_checker_code.gas_cost(fork)
-
-    if fails_at_balance:
-        # subtract 1 gas to ensure OOG at BALANCE
+    tx_gas_limit = intrinsic_gas_cost + query_code.gas_cost(fork)
+    if fails_at_query:
         tx_gas_limit -= 1
 
     tx = Transaction(
         sender=alice,
-        to=balance_checker,
+        to=querier,
         gas_limit=tx_gas_limit,
         access_list=access_list,
     )
 
-    block = Block(
-        txs=[tx],
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            alice: Account(nonce=1),
+            querier: Account(),
+            target: Account(),
+        },
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
-                balance_checker: BalAccountExpectation.empty(),
-                # Bob should only appear in BAL if BALANCE succeeded
-                **(
-                    {bob: None}
-                    if fails_at_balance
-                    else {bob: BalAccountExpectation.empty()}
+                querier: BalAccountExpectation.empty(),
+                target: (
+                    None if fails_at_query else BalAccountExpectation.empty()
                 ),
             }
         ),
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[block],
-        post={
-            alice: Account(nonce=1),
-            bob: Account(),
-            balance_checker: Account(),
-        },
     )
 
 
@@ -519,165 +499,6 @@ def test_bal_selfdestruct_to_system_address_zero_balance(
             alice: Account(nonce=1),
             new_contract: Account.NONEXISTENT,
         },
-    )
-
-
-@pytest.mark.parametrize(
-    "target_is_warm",
-    [
-        pytest.param(False, id="cold_target"),
-        pytest.param(True, id="warm_target"),
-    ],
-)
-@pytest.mark.parametrize(
-    "fails_at_extcodesize",
-    [True, False],
-    ids=["oog_at_extcodesize", "successful_extcodesize"],
-)
-def test_bal_extcodesize_and_oog(
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-    fork: Fork,
-    fails_at_extcodesize: bool,
-    target_is_warm: bool,
-) -> None:
-    """
-    Ensure BAL handles EXTCODESIZE and OOG during EXTCODESIZE
-    appropriately. A warm target is declared in the access list, which by
-    itself does not put it in the BAL.
-    """
-    alice = pre.fund_eoa()
-
-    # Create target contract with some code
-    target_contract = pre.deploy_contract(code=Op.STOP)
-
-    # Create contract that checks target's code size
-    codesize_checker_code = (
-        Op.PUSH20(target_contract)  # Target contract address
-        + Op.EXTCODESIZE(address_warm=target_is_warm)
-        + Op.STOP
-    )
-
-    codesize_checker = pre.deploy_contract(code=codesize_checker_code)
-
-    access_list = (
-        [AccessList(address=target_contract, storage_keys=[])]
-        if target_is_warm
-        else None
-    )
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
-        access_list=access_list
-    )
-
-    tx_gas_limit = intrinsic_gas_cost + codesize_checker_code.gas_cost(fork)
-    if fails_at_extcodesize:
-        # subtract 1 gas to ensure OOG at EXTCODESIZE
-        tx_gas_limit -= 1
-
-    tx = Transaction(
-        sender=alice,
-        to=codesize_checker,
-        gas_limit=tx_gas_limit,
-        access_list=access_list,
-    )
-
-    block = Block(
-        txs=[tx],
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                codesize_checker: BalAccountExpectation.empty(),
-                # Target should only appear if EXTCODESIZE succeeded
-                **(
-                    {target_contract: None}
-                    if fails_at_extcodesize
-                    else {target_contract: BalAccountExpectation.empty()}
-                ),
-            }
-        ),
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[block],
-        post={
-            alice: Account(nonce=1),
-            codesize_checker: Account(),
-            target_contract: Account(),
-        },
-    )
-
-
-@pytest.mark.parametrize(
-    "target_is_warm",
-    [
-        pytest.param(False, id="cold_target"),
-        pytest.param(True, id="warm_target"),
-    ],
-)
-@pytest.mark.parametrize(
-    "fails_at_extcodehash",
-    [True, False],
-    ids=["oog_at_extcodehash", "successful_extcodehash"],
-)
-def test_bal_extcodehash_and_oog(
-    pre: Alloc,
-    state_test: StateTestFiller,
-    fork: Fork,
-    fails_at_extcodehash: bool,
-    target_is_warm: bool,
-) -> None:
-    """
-    Ensure the EXTCODEHASH target enters the BAL only once its access
-    cost is paid. A warm target is declared in the access list, which by
-    itself does not put it in the BAL.
-    """
-    alice = pre.fund_eoa()
-    target_contract = pre.deploy_contract(code=Op.STOP)
-
-    codehash_checker_code = (
-        Op.PUSH20(target_contract)
-        + Op.EXTCODEHASH(address_warm=target_is_warm)
-        + Op.STOP
-    )
-    codehash_checker = pre.deploy_contract(code=codehash_checker_code)
-
-    access_list = (
-        [AccessList(address=target_contract, storage_keys=[])]
-        if target_is_warm
-        else None
-    )
-    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
-        access_list=access_list
-    )
-    tx_gas_limit = intrinsic_gas_cost + codehash_checker_code.gas_cost(fork)
-    if fails_at_extcodehash:
-        tx_gas_limit -= 1
-
-    tx = Transaction(
-        sender=alice,
-        to=codehash_checker,
-        gas_limit=tx_gas_limit,
-        access_list=access_list,
-    )
-
-    state_test(
-        pre=pre,
-        tx=tx,
-        post={
-            alice: Account(nonce=1),
-            codehash_checker: Account(),
-            target_contract: Account(),
-        },
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                codehash_checker: BalAccountExpectation.empty(),
-                target_contract: (
-                    None
-                    if fails_at_extcodehash
-                    else BalAccountExpectation.empty()
-                ),
-            }
-        ),
     )
 
 

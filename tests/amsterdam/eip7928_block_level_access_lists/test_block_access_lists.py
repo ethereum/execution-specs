@@ -1519,6 +1519,9 @@ def test_bal_outer_revert_with_inner_insufficient_funds(
     ],
 )
 @pytest.mark.with_all_call_opcodes(
+    # Only these two carry a value argument, so only they can fail this
+    # way; `CALLCODE` sends the value to the caller itself, which is a
+    # separate path through the balance check.
     selector=lambda call_opcode: call_opcode in (Op.CALL, Op.CALLCODE)
 )
 def test_bal_account_warmth_survives_insufficient_funds_call(
@@ -1531,15 +1534,10 @@ def test_bal_account_warmth_survives_insufficient_funds_call(
     """
     A call that fails the sender-balance check still warms its target.
 
-    The caller offers more value than it holds, so the target's frame
-    never runs, then measures its own next `BALANCE` of the target. That
-    charge is the warm one here and the cold one when the failed call is
-    left out, which is what tells the two apart. The target is in the
-    BAL either way with no changes at all, since no value moved.
-
-    Only `CALL` and `CALLCODE` carry a value argument, so only they can
-    fail this way; `CALLCODE` sends the value to the caller itself, a
-    separate path through the balance check.
+    The measured `BALANCE` charge is the warm one after the failed call
+    and the cold one without it, which is what tells the two apart; the
+    target is in the BAL either way with no changes, since no value
+    moved.
     """
     target_balance = 1
     target = pre.fund_eoa(amount=target_balance)
@@ -1773,22 +1771,31 @@ def test_bal_coinbase_zero_tip(
     )
 
 
+@pytest.mark.parametrize(
+    "halt_code",
+    [
+        pytest.param(Om.OOG, id="out_of_gas"),
+        pytest.param(Op.INVALID, id="invalid_opcode"),
+    ],
+)
 def test_bal_coinbase_tip_on_exceptional_halt(
     pre: Alloc,
     state_test: StateTestFiller,
     fork: Fork,
+    halt_code: Bytecode,
 ) -> None:
     """
     Ensure BAL records the final sender and coinbase balances after an
     exceptional halt: the halt burns the whole gas limit and the tip on
-    it is still paid.
+    it is still paid. Both halt kinds take a different path through a
+    client and must settle the fee the same way.
     """
     coinbase = pre.fund_eoa(amount=0)
     base_fee_per_gas = 7
     tip = 3
     gas_price = base_fee_per_gas + tip
 
-    halting_contract = pre.deploy_contract(code=Om.OOG)
+    halting_contract = pre.deploy_contract(code=halt_code)
     gas_limit = fork.transaction_intrinsic_cost_calculator()() + 10_000
     alice = pre.fund_eoa(amount=gas_limit * gas_price)
 

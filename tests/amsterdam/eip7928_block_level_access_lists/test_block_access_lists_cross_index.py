@@ -545,7 +545,10 @@ def test_bal_pre_execution_calls_net_storage_at_index_zero(
     # contract second; the fork's declared phases must agree on the set.
     assert _system_contracts_called(
         fork, SystemCallPhase.BEFORE_TRANSACTIONS
-    ) == sorted([BEACON_ROOTS_ADDRESS, HISTORY_STORAGE_ADDRESS])
+    ) == sorted([BEACON_ROOTS_ADDRESS, HISTORY_STORAGE_ADDRESS]), (
+        "the fork grew a pre-execution system call this test does not "
+        "account for"
+    )
 
     toggle_slot = 1
     counter_slot = 2
@@ -734,11 +737,11 @@ def test_bal_withdrawals_and_dequeues_net_balance_at_last_index(
     forwarded_share: str,
 ) -> None:
     """
-    A withdrawal credits each post-execution predeploy and its system call,
-    given code that forwards the balance, spends it again, both at the
-    post-execution index. Forwarding everything leaves a predeploy where
-    the index found it, so it records no balance change; forwarding half
-    records the one netted change.
+    Withdrawals and the post-execution system calls share one block
+    access index, so their balance effects net. A withdrawal credits
+    each predeploy, whose own dequeue call then forwards that balance
+    on: forwarding all of it records no change, forwarding half records
+    the kept half.
     """
     predeploys = _system_contracts_called(
         fork, SystemCallPhase.AFTER_TRANSACTIONS

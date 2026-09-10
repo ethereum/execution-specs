@@ -6,7 +6,10 @@ state_tests/stEIP150singleCodeGasPrices/eip2929OOGFiller.yml
 
 @manually-enhanced: Do not overwrite. EIP-7928 block access list
 expectations added: a frame starved of its cold access cost leaves the
-target account or slot out of the list.
+target account out of the list. The transaction's gas limit is exactly
+`TX_MAX_GAS_LIMIT`, so its state gas reservoir is zero and no storage
+can be created here; the SSTORE case therefore pins the implicit read,
+not a write boundary.
 """
 
 import pytest
@@ -339,9 +342,11 @@ def test_eip2929_oog(
     expected_block_access_list = None
     if fork.is_eip_enabled(7928):
         # Each starved frame halts at its cold access charge, so the
-        # account or slot it reaches for never enters the block access
-        # list. SSTORE pays the slot's access cost before the write and
-        # leaves the slot behind as a read.
+        # account it reaches for never enters the block access list.
+        # SSTORE is the exception: it pays the slot's access cost before
+        # its implicit read, so the slot lands in `storage_reads`, and
+        # the write cannot be recorded either way because this
+        # transaction has no state gas to create storage with.
         expectations: dict[Address, BalAccountExpectation | None]
         if d == 0:  # SLOAD
             expectations = {contract_0: BalAccountExpectation.empty()}
