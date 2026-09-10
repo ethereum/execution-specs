@@ -1575,10 +1575,6 @@ def test_bal_withdrawal_to_7702_delegation(
     )
 
 
-# TODO[EIP-8037]: Balance calculation needs update for two-dimensional gas
-# (state gas reservoir credits from authorization refunds change the effective
-# gas cost).
-@pytest.mark.skip(reason="EIP-8037 state gas reservoir changes gas accounting")
 @pytest.mark.with_all_create_opcodes
 def test_bal_7702_delegated_create(
     fork: Fork,
@@ -1591,6 +1587,12 @@ def test_bal_7702_delegated_create(
 
     Alice sends a type-4 (7702) tx authorizing herself to delegate to
     Deployer code which executes CREATE.
+
+    Under EIP-2780 / EIP-8037 the authorization's state-dependent charges
+    are top-frame costs with no auth refund: Alice (sender = authority)
+    pays ``AUTH_BASE`` state gas only (no ``ACCOUNT_WRITE``, because her
+    leaf was already written at inclusion), and sender ``gas_used`` is
+    the sum of execution and state gas.
     """
     # Alice (EOA)
     alice_initial_balance = 10**18  # 1 ETH default
@@ -1627,39 +1629,47 @@ def test_bal_7702_delegated_create(
         opcode=create_opcode,
     )
 
+    authorization_list = [
+        AuthorizationTuple(
+            address=deployer,
+            nonce=1,
+            signer=alice,
+            # Existing EOA sender: leaf already written at inclusion
+            # (nonce bump), so no top-frame ACCOUNT_WRITE for this auth.
+            creates_account=False,
+            writes_delegation=True,
+            first_write=False,
+        )
+    ]
+
     tx = Transaction(
         sender=alice,
         to=deployer,
-        authorization_list=[
-            AuthorizationTuple(
-                address=deployer,
-                nonce=1,
-                signer=alice,
-            )
-        ],
+        authorization_list=authorization_list,
     )
 
-    # Calculate gas cost
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    gsc = fork.gas_costs()
-    max_refund_quotient = fork.max_refund_quotient()
+    # Sender-facing gas_used under EIP-8037: execution + state, no auth refund.
+    intrinsic_execution = fork.transaction_intrinsic_cost_calculator()(
+        return_cost_deducted_prior_execution=True,
+        authorization_list_or_count=authorization_list,
+    )
+    top_frame_execution = fork.transaction_top_frame_execution_gas(
+        authorizations=authorization_list,
+    )
+    top_frame_state = fork.transaction_top_frame_state_gas(
+        authorizations=authorization_list,
+    )
     gas_used = (
-        intrinsic_gas_calculator(
-            return_cost_deducted_prior_execution=True,
-            authorization_list_or_count=tx.authorization_list,
-        )
+        intrinsic_execution
+        + top_frame_execution
+        + top_frame_state
         + deployer_code.gas_cost(fork)
         + init_code.gas_cost(fork)
     )
 
-    refund_counter = gsc.REFUND_AUTH_PER_EXISTING_ACCOUNT
-
-    effective_refund = min(refund_counter, gas_used // max_refund_quotient)
-    gas_used_post_refund = gas_used - effective_refund
-
     assert tx.max_fee_per_gas is not None
     alice_expected_balance = alice_initial_balance - (
-        gas_used_post_refund * tx.max_fee_per_gas
+        gas_used * tx.max_fee_per_gas
     )
 
     block = Block(
