@@ -288,6 +288,7 @@ markers = [
     "bigmem: marks tests as big memory (deselect with '-m \"not bigmem\"')",
     "json_blockchain_tests: marks tests as json_blockchain_tests (deselect with '-m \"not json_blockchain_tests\"')",
     "json_state_tests: marks tests as json_state_tests (deselect with '-m \"not json_state_tests\"')",
+    "json_transaction_tests: marks tests as json_transaction_tests (deselect with '-m \"not json_transaction_tests\"')",
     "vm_test: marks tests as vm_test (deselect with '-m \"not vm_test\"')",
     "eels_base_coverage: Minimized subset selected to preserve high EELS line-coverage parity (select with '-m eels_base_coverage')",
     "fork: marks JSON fixture tests by fork",
