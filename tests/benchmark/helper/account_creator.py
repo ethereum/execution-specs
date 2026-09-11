@@ -25,6 +25,8 @@ from tests.benchmark.helper.account_verification import (
     register_target_range,
 )
 
+# Legacy EIP-170 limit. Kept as the default so existing corpora, and the
+# CREATE2 addresses derived from them, stay reproducible.
 DEFAULT_CODE_SIZE = Osaka.max_code_size()
 
 ADDRESS_MASK = (1 << 160) - 1
@@ -56,6 +58,9 @@ class AccountMode(Enum):
 
     # Empty account
     NON_EXISTING_ACCOUNT = auto()
+
+    # As EXISTING_CONTRACT_JUMPDEST, but sized by the fork's MAX_CODE_SIZE.
+    EXISTING_CONTRACT_JUMPDEST_FORK_MAX = auto()
 
 
 class ContractInitcode(Bytecode):
@@ -297,6 +302,7 @@ class AccountCreator:
             AccountMode.EXISTING_CONTRACT_SAME_MAX,
             AccountMode.EXISTING_CONTRACT_DIFF_MAX,
             AccountMode.EXISTING_CONTRACT_JUMPDEST,
+            AccountMode.EXISTING_CONTRACT_JUMPDEST_FORK_MAX,
         }
     )
 
@@ -327,7 +333,10 @@ class AccountCreator:
                 return StopJumpdestInitcode(
                     code_size=self.code_size, diff=True
                 )
-            case AccountMode.EXISTING_CONTRACT_JUMPDEST:
+            case (
+                AccountMode.EXISTING_CONTRACT_JUMPDEST
+                | AccountMode.EXISTING_CONTRACT_JUMPDEST_FORK_MAX
+            ):
                 return JochemnetPredeployContractInitcode(
                     code_size=self.code_size
                 )

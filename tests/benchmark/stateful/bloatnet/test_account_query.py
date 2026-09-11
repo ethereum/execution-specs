@@ -25,6 +25,7 @@ from execution_testing import (
 )
 
 from tests.benchmark.helper.account_creator import (
+    DEFAULT_CODE_SIZE,
     AccountCreator,
     AccountMode,
 )
@@ -165,7 +166,17 @@ def test_account_access(
     verified_accounts: dict,
 ) -> None:
     """Benchmark account access with caching strategies."""
-    account_creator = AccountCreator(account_mode)
+    # Only *_FORK_MAX is sized by the fork; other modes keep the legacy size.
+    if account_mode is AccountMode.EXISTING_CONTRACT_JUMPDEST_FORK_MAX:
+        code_size = fork.max_code_size()
+        if code_size == DEFAULT_CODE_SIZE:
+            pytest.skip(
+                "fork MAX_CODE_SIZE equals the legacy size; "
+                "EXISTING_CONTRACT_JUMPDEST already covers this"
+            )
+        account_creator = AccountCreator(account_mode, code_size=code_size)
+    else:
+        account_creator = AccountCreator(account_mode)
     address_source = account_creator.address_source(Op.CALLDATALOAD(0))
     increment_op = address_source.next_op()
 
