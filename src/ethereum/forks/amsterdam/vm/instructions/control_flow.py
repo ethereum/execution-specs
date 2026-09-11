@@ -17,8 +17,12 @@ from ...vm.gas import (
     GasCosts,
     charge_gas,
 )
-from .. import Evm
-from ..exceptions import InvalidJumpDestError
+from .. import RETURN_STACK_LIMIT, Evm
+from ..exceptions import (
+    InvalidJumpDestError,
+    ReturnStackOverflowError,
+    ReturnStackUnderflowError,
+)
 from ..stack import pop, push
 
 
@@ -172,3 +176,83 @@ def jumpdest(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
+
+
+def callsub(evm: Evm) -> None:
+    """
+    Transfer control to a subroutine (EIP-7979): push the position of the
+    next instruction onto the return stack and jump to the `CALLDEST` whose
+    position is on top of the data stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    destination = Uint(pop(evm.stack))
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_CALLSUB)
+
+    # OPERATION
+    if destination not in evm.valid_call_destinations:
+        raise InvalidJumpDestError
+    if Uint(len(evm.return_stack)) >= RETURN_STACK_LIMIT:
+        raise ReturnStackOverflowError
+    evm.return_stack.append(evm.pc + Uint(1))
+
+    # PROGRAM COUNTER
+    evm.pc = destination
+
+
+def calldest(evm: Evm) -> None:
+    """
+    Mark a subroutine entry (EIP-7979). Like `JUMPDEST`, this is a noop:
+    it is the only valid destination of a `CALLSUB`, and also a valid
+    destination of `JUMP` and `JUMPI`, which enter the subroutine without
+    pushing a return address.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_CALLDEST)
+
+    # OPERATION
+    pass
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)
+
+
+def returnsub(evm: Evm) -> None:
+    """
+    Return control to the most recent caller (EIP-7979): pop the return
+    stack into the program counter.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GasCosts.OPCODE_RETURNSUB)
+
+    # OPERATION
+    if len(evm.return_stack) == 0:
+        raise ReturnStackUnderflowError
+
+    # PROGRAM COUNTER
+    evm.pc = evm.return_stack.pop()
