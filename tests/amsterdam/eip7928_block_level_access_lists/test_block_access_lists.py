@@ -3418,8 +3418,8 @@ def test_bal_insufficient_balance_call_to_touched_precompile(
     touch_first: bool,
 ) -> None:
     """
-    Ensure BAL records a dead precompile reached only by a failed value
-    transfer, with or without a prior zero-value touch.
+    Ensure BAL records a dead precompile whose only value call fails its
+    balance check, with or without a prior zero-value touch.
 
     The value call fails its balance check after the target access is
     charged, so RIPEMD-160 must appear in the BAL with empty changes and
