@@ -11,7 +11,7 @@ Introduction
 Implementations of the EVM control flow instructions.
 """
 
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U256, Uint, ulen
 
 from ...vm.gas import (
     GasCosts,
@@ -199,7 +199,7 @@ def callsub(evm: Evm) -> None:
     # OPERATION
     if destination not in evm.valid_call_destinations:
         raise InvalidJumpDestError
-    if Uint(len(evm.return_stack)) >= RETURN_STACK_LIMIT:
+    if ulen(evm.return_stack) >= RETURN_STACK_LIMIT:
         raise ReturnStackOverflowError
     evm.return_stack.append(evm.pc + Uint(1))
 
