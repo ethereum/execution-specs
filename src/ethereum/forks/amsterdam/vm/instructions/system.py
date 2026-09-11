@@ -75,7 +75,7 @@ def generic_create(
     # These imports cause a circular import error
     # if they're not moved inside this method
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create
-    from ...vm.runtime import get_valid_jump_destinations
+    from ...vm.runtime import get_valid_destinations
 
     tx_state = evm.tx_env.state
 
@@ -129,6 +129,9 @@ def generic_create(
     increment_nonce(tx_state, sender_address)
 
     # DISPATCH
+    valid_jump_destinations, valid_call_destinations = get_valid_destinations(
+        init_code
+    )
 
     child_evm = Evm(
         # Context
@@ -147,7 +150,8 @@ def generic_create(
         # Code
         code_address=None,
         code=init_code,
-        valid_jump_destinations=get_valid_jump_destinations(init_code),
+        valid_jump_destinations=valid_jump_destinations,
+        valid_call_destinations=valid_call_destinations,
         # Machine State
         gas_meter=GasMeter(
             gas_left=create_message_gas,
@@ -156,6 +160,7 @@ def generic_create(
         ),
         pc=Uint(0),
         stack=[],
+        return_stack=[],
         memory=bytearray(),
         return_data=b"",
         # Accrued Effects
@@ -376,7 +381,7 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
     resolution of its outcome back into the calling frame.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_call
-    from ...vm.runtime import get_valid_jump_destinations
+    from ...vm.runtime import get_valid_destinations
 
     evm.return_data = b""
 
@@ -399,6 +404,10 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
         params.memory_input_size,
     )
 
+    valid_jump_destinations, valid_call_destinations = get_valid_destinations(
+        params.code
+    )
+
     child_evm = Evm(
         # Context
         block_env=evm.block_env,
@@ -416,7 +425,8 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
         # Code
         code_address=params.code_address,
         code=params.code,
-        valid_jump_destinations=get_valid_jump_destinations(params.code),
+        valid_jump_destinations=valid_jump_destinations,
+        valid_call_destinations=valid_call_destinations,
         # Machine State
         gas_meter=GasMeter(
             gas_left=params.gas,
@@ -425,6 +435,7 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
         ),
         pc=Uint(0),
         stack=[],
+        return_stack=[],
         memory=bytearray(),
         return_data=b"",
         # Accrued Effects
