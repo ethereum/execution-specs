@@ -765,9 +765,8 @@ def test_gas_diff_pointer_vs_direct_call(
     state_gas_reservoir, further altering gas visibility between
     frames.
 
-    TODO: Add Amsterdam-specific variant in tests/amsterdam/ that
-    verifies pointer vs direct call gas costs under EIP-8037's 2D
-    gas model with reservoir semantics.
+    Amsterdam / EIP-8037 coverage (reservoir-funded ``GAS`` measurements):
+    ``tests/amsterdam/eip8037_state_creation_gas_cost_increase/test_state_gas_pointer_call_gas.py::test_gas_diff_pointer_vs_direct_call``.
     """
     env = Environment()
 
@@ -965,8 +964,8 @@ def test_pointer_call_followed_by_direct_call(
     what the GAS opcode reports. See
     test_gas_diff_pointer_vs_direct_call for details.
 
-    TODO: Add Amsterdam-specific variant in tests/amsterdam/ that
-    verifies pointer warming behavior with 2D gas cost measurements.
+    Amsterdam / EIP-8037 coverage (reservoir-funded ``GAS`` measurements):
+    ``tests/amsterdam/eip8037_state_creation_gas_cost_increase/test_state_gas_pointer_call_gas.py::test_pointer_call_followed_by_direct_call``.
     """
     env = Environment()
 
