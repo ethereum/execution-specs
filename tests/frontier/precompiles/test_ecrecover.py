@@ -6,6 +6,36 @@ from execution_testing.forks.helpers import Fork
 from execution_testing.vm import Opcodes as Op
 
 
+@pytest.mark.ported_from(
+    [
+        "state_tests/stPreCompiledContracts2/CALLCODEEcrecover0Filler.json",
+        "state_tests/stPreCompiledContracts2/CALLCODEEcrecover1Filler.json",
+        "state_tests/stPreCompiledContracts2/CALLCODEEcrecover3Filler.json",
+        "state_tests/stPreCompiledContracts2/CALLCODEEcrecover80Filler.json",
+        "state_tests/stPreCompiledContracts2/CALLCODEEcrecoverH_prefixed0Filler.json",
+        "state_tests/stPreCompiledContracts2/CALLCODEEcrecoverR_prefixed0Filler.json",
+        "state_tests/stPreCompiledContracts2/CALLCODEEcrecoverS_prefixed0Filler.json",
+        "state_tests/stPreCompiledContracts2/CALLCODEEcrecoverV_prefixed0Filler.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecover0Filler.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecover1Filler.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecover3Filler.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecover80Filler.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecoverH_prefixed0Filler.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecoverInvalidSignatureFiller.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecoverR_prefixed0Filler.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecoverS_prefixed0Filler.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecoverUnrecoverableKeyFiller.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecoverV_prefixed0Filler.json",
+        "state_tests/stStaticCall/static_CallEcrecover0Filler.json",
+        "state_tests/stStaticCall/static_CallEcrecover1Filler.json",
+        "state_tests/stStaticCall/static_CallEcrecover3Filler.json",
+        "state_tests/stStaticCall/static_CallEcrecover80Filler.json",
+        "state_tests/stStaticCall/static_CallEcrecoverH_prefixed0Filler.json",
+        "state_tests/stStaticCall/static_CallEcrecoverR_prefixed0Filler.json",
+        "state_tests/stStaticCall/static_CallEcrecoverS_prefixed0Filler.json",
+        "state_tests/stStaticCall/static_CallEcrecoverV_prefixed0Filler.json",
+    ],
+)
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "msg_hash, v, r, s, output",
@@ -45,6 +75,112 @@ from execution_testing.vm import Opcodes as Op
                 "0000000000000000000000009a04aede774152f135315670f562c19c5726df2c"
             ),
             id="valid_signature_2",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "2f380a2dea7e778d81affc2443403b8fe4644db442ae4862ff5bb3732829cdb9"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001b"
+            ),
+            bytes.fromhex(
+                "6b65ccb0558806e9b097f27a396d08f964e37b8b7af6ceeb516ff86739fbea0a"
+            ),
+            bytes.fromhex(
+                "37cbc8d883e129a4b1ef9d5f1df53c4f21a3ef147cf2a50a4ede0eb06ce092d4"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000e4319f4b631c6d0fcfc84045dbcb676865fe5e13"
+            ),
+            id="valid_signature_3",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "00c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f"
+            ),
+            bytes.fromhex(
+                "eeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000a0b29af6a56d6cfef6415cb195ccbe540e006d0a"
+            ),
+            id="msg_hash_high_byte_zeroed",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f"
+            ),
+            bytes.fromhex(
+                "00b940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000b4950a7fad428434b11c357fa6d4b4bcd3096a5d"
+            ),
+            id="s_high_byte_zeroed",
+        ),
+        # Zeroing r's high byte lands on a value that is in range but is
+        # not the x-coordinate of any curve point, so recovery has no
+        # solution. The next two cases reach the same state differently.
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "00b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f"
+            ),
+            bytes.fromhex(
+                "eeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"
+            ),
+            b"",
+            id="r_high_byte_zeroed",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "00c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "00b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f"
+            ),
+            bytes.fromhex(
+                "00b940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"
+            ),
+            b"",
+            id="all_high_bytes_zeroed",
+        ),
+        # r and s are ASCII strings, and that r is off the curve too.
+        pytest.param(
+            bytes.fromhex(
+                "a8b53bdf3306a35a7103ab5504a0c9b492295564b6202b1942a84ef300107281"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001b"
+            ),
+            bytes.fromhex(
+                "3078356531653033663533636531386237373263636230303933666637316633"
+            ),
+            bytes.fromhex(
+                "6635336635633735623734646362333161383561613862383839326234653862"
+            ),
+            b"",
+            id="unrecoverable_key",
         ),
         # z == N (order)
         pytest.param(
@@ -112,6 +248,40 @@ from execution_testing.vm import Opcodes as Op
             ),
             b"",
             id="invalid_signature_3",
+        ),
+        # v is neither 27 nor 28, so there is no recovery id.
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            bytes.fromhex(
+                "73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f"
+            ),
+            bytes.fromhex(
+                "eeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"
+            ),
+            b"",
+            id="v_eq_1",
+        ),
+        # 128 zero bytes: v is 0, so this fails the same rule as v_eq_1.
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            b"",
+            id="zero_input",
         ),
         # r == N (order)
         pytest.param(
