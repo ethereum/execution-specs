@@ -79,7 +79,7 @@ from .exceptions import (
     StackDepthLimitError,
 )
 from .instructions import Ops, op_implementation
-from .runtime import get_valid_jump_destinations
+from .runtime import get_valid_destinations
 
 STACK_DEPTH_LIMIT = Uint(1024)
 MAX_CODE_SIZE = 0x10000
@@ -201,6 +201,9 @@ def create_evm(
         )
 
     ## Build the frame
+    valid_jump_destinations, valid_call_destinations = get_valid_destinations(
+        code
+    )
     return Evm(
         # Context
         block_env=block_env,
@@ -218,11 +221,13 @@ def create_evm(
         # Code
         code_address=code_address,
         code=code,
-        valid_jump_destinations=get_valid_jump_destinations(code),
+        valid_jump_destinations=valid_jump_destinations,
+        valid_call_destinations=valid_call_destinations,
         # Machine State
         gas_meter=gas_meter,
         pc=Uint(0),
         stack=[],
+        return_stack=[],
         memory=bytearray(),
         return_data=b"",
         # Accrued Effects

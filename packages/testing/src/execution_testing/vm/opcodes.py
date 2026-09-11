@@ -5274,6 +5274,98 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#A4](https://www.evm.codes/#A4)
     """
 
+    CALLSUB = Opcode(0xB0, popped_stack_items=1, kwargs=["pc"])
+    """
+    CALLSUB(pc)
+    ----
+
+    Description
+    ----
+    Transfer control to a subroutine (EIP-7979): push the position of the
+    next instruction onto the return stack and jump to `pc`, which must be a
+    CALLDEST instruction. Halts if `pc` is not a CALLDEST or the return stack
+    already holds 1024 items.
+
+    Inputs
+    ----
+    - pc: byte offset in the deployed code of the subroutine entry.
+          Must be a CALLDEST instruction
+
+    Outputs
+    ----
+    - None
+
+    Fork
+    ----
+    EIP-7979
+
+    Gas
+    ----
+    8
+
+    Source: [EIP-7979](https://eips.ethereum.org/EIPS/eip-7979)
+    """
+
+    CALLDEST = Opcode(0xB1)
+    """
+    CALLDEST()
+    ----
+
+    Description
+    ----
+    Mark a subroutine entry (EIP-7979). Like JUMPDEST it is otherwise a
+    no-op. It is the only valid CALLSUB destination, and also a valid JUMP
+    and JUMPI destination, so a jump may enter a subroutine without pushing
+    a return address.
+
+    Inputs
+    ----
+    - None
+
+    Outputs
+    ----
+    - None
+
+    Fork
+    ----
+    EIP-7979
+
+    Gas
+    ----
+    1
+
+    Source: [EIP-7979](https://eips.ethereum.org/EIPS/eip-7979)
+    """
+
+    RETURNSUB = Opcode(0xB2)
+    """
+    RETURNSUB()
+    ----
+
+    Description
+    ----
+    Return control to the most recent caller (EIP-7979): pop the return
+    stack into the program counter. Halts if the return stack is empty.
+
+    Inputs
+    ----
+    - None
+
+    Outputs
+    ----
+    - None
+
+    Fork
+    ----
+    EIP-7979
+
+    Gas
+    ----
+    5
+
+    Source: [EIP-7979](https://eips.ethereum.org/EIPS/eip-7979)
+    """
+
     DUPN = Opcode(
         0xE6,
         pushed_stack_items=1,

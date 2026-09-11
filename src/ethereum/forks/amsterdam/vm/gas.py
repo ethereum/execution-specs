@@ -205,6 +205,10 @@ class GasCosts:
     OPCODE_JUMP: Final[ExecutionGas] = MID
     OPCODE_JUMPI: Final[ExecutionGas] = HIGH
     OPCODE_JUMPDEST: Final[ExecutionGas] = ExecutionGas(Uint(1))
+    # EIP-7979: Call and return opcodes
+    OPCODE_CALLSUB: Final[ExecutionGas] = MID
+    OPCODE_CALLDEST: Final[ExecutionGas] = ExecutionGas(Uint(1))
+    OPCODE_RETURNSUB: Final[ExecutionGas] = LOW
     OPCODE_CALLDATALOAD: Final[ExecutionGas] = VERY_LOW
     OPCODE_BLOCKHASH: Final[ExecutionGas] = ExecutionGas(Uint(20))
     OPCODE_COINBASE: Final[ExecutionGas] = BASE

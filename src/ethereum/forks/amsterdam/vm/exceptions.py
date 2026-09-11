@@ -75,10 +75,32 @@ class InvalidJumpDestError(ExceptionalHalt):
     following criteria.
 
       * The jump destination is less than the length of the code.
-      * The jump destination should have the `JUMPDEST` opcode (0x5B).
+      * The jump destination should have the `JUMPDEST` opcode (0x5B), or
+        the `CALLDEST` opcode (0xB1, EIP-7979).
       * The jump destination shouldn't be part of the data corresponding to
         `PUSH-N` opcodes.
+
+    Also raised by `CALLSUB` (EIP-7979) when its destination is not a
+    `CALLDEST` meeting the same criteria.
     """
+
+
+class ReturnStackOverflowError(ExceptionalHalt):
+    """
+    Raised when `CALLSUB` would push a return address onto a return stack
+    that already holds `RETURN_STACK_LIMIT` (1024) items (EIP-7979).
+    """
+
+    pass
+
+
+class ReturnStackUnderflowError(ExceptionalHalt):
+    """
+    Raised when `RETURNSUB` is executed with an empty return stack
+    (EIP-7979).
+    """
+
+    pass
 
 
 class StackDepthLimitError(ExceptionalHalt):
