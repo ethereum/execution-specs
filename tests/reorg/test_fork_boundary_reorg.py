@@ -1,5 +1,6 @@
 """
-Reorgs across a fork boundary (Shanghai -> Cancun at timestamp 15000).
+Reorgs across a fork boundary (transition at timestamp 15000; filled for every
+transition from Shanghai -> Cancun onwards).
 
 Ports of hive ``WithdrawalsReorgSpec`` (``suites/withdrawals/tests.go``:
 "Withdrawals Fork on Block N - M Block Re-Org" via NewPayload), hive
@@ -8,9 +9,10 @@ Ports of hive ``WithdrawalsReorgSpec`` (``suites/withdrawals/tests.go``:
 ``MergeCoordinatorTest`` post-fork payload handling, nethermind
 ``forkchoiceUpdatedV2/V3`` version tests (wrong version -> -38005).
 
-Genesis is Shanghai; blocks after timestamp 15000 are Cancun and use
-``engine_newPayloadV3``; pre-fork blocks use V2. A reorg may move the head
-from a Cancun block to a Shanghai block and back.
+Genesis is the pre-fork; blocks at or after timestamp 15000 are post-fork and
+use the post-fork ``engine_newPayload``/``forkchoiceUpdated`` versions (V2 ->
+V3 -> V4, execution requests on post-fork payloads only). A reorg may move
+the head from a post-fork block to a pre-fork block and back.
 """
 
 from typing import List
@@ -38,13 +40,13 @@ def applied(head: str) -> List[Outcome]:
     return [Outcome(id="applied", status="VALID", latest_valid_hash=head)]
 
 
-@pytest.mark.valid_at_transition_to("Cancun")
+@pytest.mark.valid_at_transition_to("Cancun", subsequent_forks=True)
 def test_reorg_across_fork_boundary(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Canonical: a1..a3 Shanghai, a4 first Cancun block (ts 15000), a5 Cancun.
-    Side chain off a3: s4 Shanghai (ts 14988), s5 Cancun (ts 15000).
+    Canonical: a1..a3 pre-fork, a4 first post-fork block (ts 15000), a5 post-fork.
+    Side chain off a3: s4 pre-fork (ts 14988), s5 post-fork (ts 15000).
     Head moves a5 -> s4 (back before the fork) -> s5 -> a5. Every FCU is
     VALID and the canonical mapping follows.
     """
@@ -125,12 +127,12 @@ def test_reorg_across_fork_boundary(
     )
 
 
-@pytest.mark.valid_at_transition_to("Cancun")
+@pytest.mark.valid_at_transition_to("Cancun", subsequent_forks=True)
 def test_sibling_first_fork_blocks(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Two competing *first* Cancun blocks on the last Shanghai block (hive
+    Two competing *first* post-fork blocks on the last pre-fork block (hive
     ``WithdrawalsReorgSpec`` "Fork on Block 8 - 10 Block Re-Org" reduced):
     both VALID, head switches between them, then a child of the loser
     extends and takes the head.
