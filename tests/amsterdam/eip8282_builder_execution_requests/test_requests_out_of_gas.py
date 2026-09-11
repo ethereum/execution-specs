@@ -16,8 +16,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    BuilderDepositRequest,
-    BuilderExitRequest,
     Environment,
     FeeSystemContractRequest,
     Fork,
@@ -39,19 +37,15 @@ REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
 pytestmark = [
     pytest.mark.valid_from("Amsterdam"),
-    pytest.mark.parametrize(
-        "request_class",
-        [
-            pytest.param(BuilderDepositRequest, id="deposit"),
-            pytest.param(BuilderExitRequest, id="exit"),
-        ],
+    pytest.mark.with_all_system_contract_request_types(
+        selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
     ),
 ]
 
 
 @EIPChecklist.SystemContract.Test.GasUsage.Dynamic.Oog()
 @EIPChecklist.SystemContract.Test.GasUsage.Dynamic.Exact()
-def test_builder_request_gas_boundary(
+def test_request_gas_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -60,7 +54,8 @@ def test_builder_request_gas_boundary(
     """
     The relay measures the gas a request consumes at runtime, then forwards
     one gas less than required to the third request and exactly the required
-    gas to the fourth.
+    gas to the fourth. A predeploy with a small per-block cap dequeues the
+    accepted records over two blocks.
     """
     # The predeploy ends with a warm SSTORE, which EIP-2200 rejects unless
     # more than the call stipend remains, so the requirement exceeds the
@@ -88,6 +83,13 @@ def test_builder_request_gas_boundary(
     # succeed.
     value = requests[0].value
     enqueued = 3
+    accepted = [
+        request.with_source_address(relay)
+        for request in requests
+        if request.valid
+    ]
+    per_block = request_class.max_per_block
+    assert enqueued <= 2 * per_block, "the second block must drain the queue"
 
     blockchain_test(
         pre=pre,
@@ -95,13 +97,7 @@ def test_builder_request_gas_boundary(
             Block(
                 txs=interaction.transactions(),
                 header_verify=Header(
-                    requests_hash=Requests(
-                        *(
-                            request.with_source_address(relay)
-                            for request in requests
-                            if request.valid
-                        )
-                    )
+                    requests_hash=Requests(*accepted[:per_block])
                 ),
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
@@ -138,7 +134,11 @@ def test_builder_request_gas_boundary(
                     }
                 ),
             ),
-            Block(header_verify=Header(requests_hash=Requests())),
+            Block(
+                header_verify=Header(
+                    requests_hash=Requests(*accepted[per_block:])
+                )
+            ),
         ],
         post={
             relay: Account(balance=value),
@@ -151,7 +151,7 @@ def test_builder_request_gas_boundary(
 @pytest.mark.execute(
     pytest.mark.skip(reason="Needs more ETH than a live network provides")
 )
-def test_builder_requests_exhaust_block_gas(
+def test_requests_exhaust_block_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -229,8 +229,13 @@ def test_builder_requests_exhaust_block_gas(
         Transaction(sender=sender, to=relay, gas_limit=gas_limit)
         for gas_limit in gas_limits
     ]
+    # The counter lands in the first word of the calldata, and every fee
+    # request type's calldata starts with a pubkey field.
+    first_field = next(
+        name for name in request_class.model_fields if name.endswith("pubkey")
+    )
     dequeued = [
-        template.copy(pubkey=i << 128).with_source_address(relay)
+        template.copy(**{first_field: i << 128}).with_source_address(relay)
         for i in range(request_class.max_per_block)
     ]
     system_call_index = len(txs) + 1

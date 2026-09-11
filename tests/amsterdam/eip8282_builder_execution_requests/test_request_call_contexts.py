@@ -2,11 +2,13 @@
 Call-context tests for
 [EIP-8282: Builder Execution Requests](https://eips.ethereum.org/EIPS/eip-8282).
 
-Behavior of the builder predeploys that the per-type request matrices cannot
-express: the fee getter, the fee decaying once demand stops, requests made
-while the inhibitor is set, from an account whose code is delegated, from
-initcode, with more value than the request costs, and through call types
-other than CALL.
+Behavior shared by every fee-charging request predeploy that the per-type
+request matrices cannot express: the fee getter, the fee decaying once demand
+stops, requests made while the inhibitor is set, from an account whose code
+is delegated, from initcode, with more value than the request costs, and
+through call types other than CALL. The tests run against all such
+predeploys of the fork, so they cover the withdrawal and consolidation
+contracts as well as the builder ones.
 """
 
 from typing import Dict, Tuple, Type
@@ -24,8 +26,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    BuilderDepositRequest,
-    BuilderExitRequest,
     Bytecode,
     FeeSystemContractRequest,
     Fork,
@@ -49,12 +49,8 @@ REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
 pytestmark = [
     pytest.mark.valid_from("Amsterdam"),
-    pytest.mark.parametrize(
-        "request_class",
-        [
-            pytest.param(BuilderDepositRequest, id="deposit"),
-            pytest.param(BuilderExitRequest, id="exit"),
-        ],
+    pytest.mark.with_all_system_contract_request_types(
+        selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
     ),
 ]
 
@@ -82,10 +78,10 @@ def queued_count_changes(
 
 
 @pytest.mark.parametrize(
-    "fee_raised",
+    "beyond_target",
     [
-        pytest.param(False, id="fee_at_minimum"),
-        pytest.param(True, id="fee_raised_in_block"),
+        pytest.param(False, id="nothing_queued"),
+        pytest.param(True, id="queued_beyond_target"),
     ],
 )
 @EIPChecklist.SystemContract.Test.InputLengths.Zero()
@@ -93,31 +89,49 @@ def test_fee_getter(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     request_class: Type[FeeSystemContractRequest],
-    fee_raised: bool,
+    beyond_target: bool,
 ) -> None:
     """
     A relay queues requests and then calls the predeploy with empty calldata,
-    which returns the fee for the block's excess so far; calling it again
-    with value attached reverts.
+    which returns the current fee; calling it again with value attached
+    reverts. A predeploy that prices the fee per call already counts the
+    requests queued in the block, one that prices it per block returns the
+    minimum until the system call runs.
     """
     predeploy = request_class.system_contract_address
-    if fee_raised:
+    per_block = request_class.max_per_block
+    if beyond_target:
         excess = request_class.get_n_fee_increments(1)[0]
         queued = request_class.target_per_block + excess
-        predeploy_bal = BalAccountExpectation(
-            storage_reads=[request_class.queue_head_slot],
-            storage_changes=[
+        sweep_changes = [
+            BalStorageSlot(
+                slot=request_class.excess_slot,
+                slot_changes=[
+                    BalStorageChange(block_access_index=2, post_value=excess)
+                ],
+            ),
+            queued_count_changes(request_class, queued, 2),
+        ]
+        if queued > per_block:
+            # The sweep takes a block's worth and moves the head past them.
+            sweep_changes.append(
                 BalStorageSlot(
-                    slot=request_class.excess_slot,
+                    slot=request_class.queue_head_slot,
                     slot_changes=[
                         BalStorageChange(
-                            block_access_index=2, post_value=excess
+                            block_access_index=2, post_value=per_block
                         )
                     ],
-                ),
-                queued_count_changes(request_class, queued, 2),
-            ],
-        )
+                )
+            )
+            predeploy_bal = BalAccountExpectation(
+                storage_changes=sweep_changes
+            )
+        else:
+            predeploy_bal = BalAccountExpectation(
+                storage_reads=[request_class.queue_head_slot],
+                storage_changes=sweep_changes,
+            )
     else:
         excess = 0
         queued = 0
@@ -135,6 +149,10 @@ def test_fee_getter(
         for i, fee in enumerate(request_class.get_enqueue_fees(queued))
     ]
     queued_value = sum(request.value for request in requests)
+    if request_class.excess_fee_processing == "call":
+        quoted_fee = request_class.get_fee(excess)
+    elif request_class.excess_fee_processing == "block":
+        quoted_fee = request_class.get_fee(0)
 
     storage = Storage()
     fee_getter = (
@@ -145,10 +163,7 @@ def test_fee_getter(
         + Op.SSTORE(
             storage.store_next(32, "getter_return_size"), Op.RETURNDATASIZE
         )
-        + Op.SSTORE(
-            storage.store_next(request_class.get_fee(excess), "fee"),
-            Op.MLOAD(0),
-        )
+        + Op.SSTORE(storage.store_next(quoted_fee, "fee"), Op.MLOAD(0))
         + Op.SSTORE(
             storage.store_next(0, "getter_with_value_success"),
             Op.CALL(Op.GAS, predeploy, 1, 0, 0, 0, 0),
@@ -173,7 +188,10 @@ def test_fee_getter(
                 txs=[tx],
                 header_verify=Header(
                     requests_hash=Requests(
-                        *(r.with_source_address(relay) for r in requests)
+                        *(
+                            r.with_source_address(relay)
+                            for r in requests[:per_block]
+                        )
                     )
                 ),
                 expected_block_access_list=BlockAccessListExpectation(
@@ -211,12 +229,12 @@ def test_fee_decays_to_minimum(
     request_class: Type[FeeSystemContractRequest],
 ) -> None:
     """
-    Queue enough requests in one block to raise the fee, then leave the
-    following blocks empty.
+    Queue enough requests in one block to raise the fee, then send nothing
+    for the following blocks.
 
-    Each system call that dequeues nothing lowers the stored excess by the
-    per-block target until it reaches zero, so a request paying the minimum
-    fee is accepted again.
+    Each system call after that lowers the stored excess by the per-block
+    target, whatever it dequeues, until it reaches zero, so a request paying
+    the minimum fee is accepted again.
     """
     predeploy = request_class.system_contract_address
     target = request_class.target_per_block
@@ -257,28 +275,37 @@ def test_fee_decays_to_minimum(
         )
 
     txs = interaction.transactions()
+    per_block = request_class.max_per_block
+    remaining = [request.with_source_address(relay) for request in queued]
     blocks = [
         Block(
             txs=txs,
             header_verify=Header(
-                requests_hash=Requests(
-                    *(request.with_source_address(relay) for request in queued)
-                )
+                requests_hash=Requests(*remaining[:per_block])
             ),
             expected_block_access_list=stored_excess(
                 raised_excess, len(txs) + 1
             ),
         )
     ]
+    remaining = remaining[per_block:]
     excess = raised_excess
-    while excess:
-        excess = max(0, excess - target)
+    # Records beyond the per-block cap drain over the following blocks while
+    # the excess decays, so keep going until both are gone.
+    while excess or remaining:
+        decayed = max(0, excess - target)
         blocks.append(
             Block(
-                header_verify=Header(requests_hash=Requests()),
-                expected_block_access_list=stored_excess(excess, 1),
+                header_verify=Header(
+                    requests_hash=Requests(*remaining[:per_block])
+                ),
+                expected_block_access_list=(
+                    stored_excess(decayed, 1) if decayed != excess else None
+                ),
             )
         )
+        excess = decayed
+        remaining = remaining[per_block:]
 
     sender = pre.fund_eoa()
     final = request_class.from_index(len(queued)).copy(
