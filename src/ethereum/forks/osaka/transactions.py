@@ -22,12 +22,20 @@ from ethereum.exceptions import (
 from ethereum.state import Address
 
 from .exceptions import (
+    BlobCountExceededError,
+    EmptyAuthorizationListError,
     InitCodeTooLargeError,
+    InvalidBlobVersionedHashError,
+    NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
     TransactionGasLimitExceededError,
+    TransactionTypeContractCreationError,
     TransactionTypeError,
 )
 from .fork_types import Authorization, VersionedHash
+
+VERSIONED_HASH_VERSION_KZG = b"\x01"
+"""Version byte that every blob versioned hash must start with."""
 
 
 @final
@@ -47,6 +55,9 @@ class IntrinsicGasCost:
 
 
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
+
+BLOB_COUNT_LIMIT = 6
+"""Maximum number of blobs a single transaction may carry."""
 
 
 @final
@@ -544,8 +555,17 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
 
 
 def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
+    """Validate all state-independent properties of a transaction."""
+    intrinsic = validate_transaction_common(tx)
+    if isinstance(tx, BlobTransaction):
+        validate_blob_transaction(tx)
+    validate_transaction_type(tx)
+    return intrinsic
+
+
+def validate_transaction_common(tx: Transaction) -> IntrinsicGasCost:
     """
-    Verifies a transaction.
+    Validate properties common to all transactions.
 
     The gas in a transaction gets used to pay for the intrinsic cost of
     operations, therefore if there is insufficient gas then it would not
@@ -592,6 +612,31 @@ def validate_transaction(tx: Transaction) -> IntrinsicGasCost:
             )
 
     return intrinsic
+
+
+def validate_blob_transaction(tx: BlobTransaction) -> None:
+    """Validate properties specific to blob transactions."""
+    blob_count = len(tx.blob_versioned_hashes)
+    if blob_count == 0:
+        raise NoBlobDataError("no blob data in transaction")
+    if blob_count > BLOB_COUNT_LIMIT:
+        raise BlobCountExceededError(
+            f"Tx has {blob_count} blobs. Max allowed: {BLOB_COUNT_LIMIT}"
+        )
+    for blob_versioned_hash in tx.blob_versioned_hashes:
+        if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
+            raise InvalidBlobVersionedHashError("invalid blob versioned hash")
+
+
+def validate_transaction_type(tx: Transaction) -> None:
+    """Validate restrictions imposed by the transaction type."""
+    if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
+        if not isinstance(tx.to, Address):
+            raise TransactionTypeContractCreationError(tx)
+
+    if isinstance(tx, SetCodeTransaction):
+        if not any(tx.authorizations):
+            raise EmptyAuthorizationListError("empty authorization list")
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> IntrinsicGasCost:

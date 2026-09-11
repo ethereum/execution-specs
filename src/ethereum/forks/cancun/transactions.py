@@ -23,10 +23,16 @@ from ethereum.state import Address
 
 from .exceptions import (
     InitCodeTooLargeError,
+    InvalidBlobVersionedHashError,
+    NoBlobDataError,
     PriorityFeeGreaterThanMaxFeeError,
+    TransactionTypeContractCreationError,
     TransactionTypeError,
 )
 from .fork_types import VersionedHash
+
+VERSIONED_HASH_VERSION_KZG = b"\x01"
+"""Version byte that every blob versioned hash must start with."""
 
 
 @final
@@ -415,8 +421,16 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
 
 
 def validate_transaction(tx: Transaction) -> Uint:
+    """Validate all state-independent properties of a transaction."""
+    intrinsic_gas = validate_transaction_common(tx)
+    if isinstance(tx, BlobTransaction):
+        validate_blob_transaction(tx)
+    return intrinsic_gas
+
+
+def validate_transaction_common(tx: Transaction) -> Uint:
     """
-    Verifies a transaction.
+    Validate properties common to all transactions.
 
     The gas in a transaction gets used to pay for the intrinsic cost of
     operations, therefore if there is insufficient gas then it would not
@@ -460,6 +474,17 @@ def validate_transaction(tx: Transaction) -> Uint:
             )
 
     return intrinsic_gas
+
+
+def validate_blob_transaction(tx: BlobTransaction) -> None:
+    """Validate properties specific to blob transactions."""
+    if not isinstance(tx.to, Address):
+        raise TransactionTypeContractCreationError(tx)
+    if len(tx.blob_versioned_hashes) == 0:
+        raise NoBlobDataError("no blob data in transaction")
+    for blob_versioned_hash in tx.blob_versioned_hashes:
+        if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
+            raise InvalidBlobVersionedHashError("invalid blob versioned hash")
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:

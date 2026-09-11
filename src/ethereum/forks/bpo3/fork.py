@@ -35,14 +35,9 @@ from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
-    BlobCountExceededError,
     BlobGasLimitExceededError,
-    EmptyAuthorizationListError,
     InsufficientMaxFeePerBlobGasError,
     InsufficientMaxFeePerGasError,
-    InvalidBlobVersionedHashError,
-    NoBlobDataError,
-    TransactionTypeContractCreationError,
     WrongChainIdError,
 )
 from .fork_types import Authorization, VersionedHash
@@ -77,7 +72,9 @@ from .transactions import (
     get_transaction_hash,
     has_access_list,
     recover_sender,
-    validate_transaction,
+    validate_blob_transaction,
+    validate_transaction_common,
+    validate_transaction_type,
 )
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
@@ -103,7 +100,6 @@ SYSTEM_TRANSACTION_GAS = Uint(30000000)
 MAX_BLOB_GAS_PER_BLOCK: Final[U64] = (
     GasCosts.BLOB_SCHEDULE_MAX * GasCosts.PER_BLOB
 )
-VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
     "0x00000961Ef480Eb55e80D19ad83579A64c007002"
@@ -117,7 +113,6 @@ HISTORY_STORAGE_ADDRESS = hex_to_address(
 MAX_BLOCK_SIZE = 10_485_760
 SAFETY_MARGIN = 2_097_152
 MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
-BLOB_COUNT_LIMIT = 6
 
 
 @final
@@ -451,18 +446,6 @@ def check_transaction(
     BlobGasLimitExceededError :
         If the blob gas used by the transaction exceeds the block's blob gas
         limit.
-    InvalidBlobVersionedHashError :
-        If the transaction contains a blob versioned hash with an invalid
-        version.
-    NoBlobDataError :
-        If the transaction is a type 3 but has no blobs.
-    BlobCountExceededError :
-        If the transaction is a type 3 and has more blobs than the limit.
-    TransactionTypeContractCreationError:
-        If the transaction type is not allowed to create contracts.
-    EmptyAuthorizationListError :
-        If the transaction is a SetCodeTransaction and the authorization list
-        is empty.
 
     """
     gas_available = block_env.block_gas_limit - block_output.block_gas_used
@@ -504,19 +487,7 @@ def check_transaction(
         max_gas_fee = tx.gas * tx.gas_price
 
     if isinstance(tx, BlobTransaction):
-        blob_count = len(tx.blob_versioned_hashes)
-        if blob_count == 0:
-            raise NoBlobDataError("no blob data in transaction")
-        if blob_count > BLOB_COUNT_LIMIT:
-            raise BlobCountExceededError(
-                f"Tx has {blob_count} blobs. Max allowed: {BLOB_COUNT_LIMIT}"
-            )
-        for blob_versioned_hash in tx.blob_versioned_hashes:
-            if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
-                raise InvalidBlobVersionedHashError(
-                    "invalid blob versioned hash"
-                )
-
+        validate_blob_transaction(tx)
         blob_gas_price = calculate_blob_gas_price(block_env.excess_blob_gas)
         if Uint(tx.max_fee_per_blob_gas) < blob_gas_price:
             raise InsufficientMaxFeePerBlobGasError(
@@ -530,13 +501,7 @@ def check_transaction(
     else:
         blob_versioned_hashes = ()
 
-    if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
-        if not isinstance(tx.to, Address):
-            raise TransactionTypeContractCreationError(tx)
-
-    if isinstance(tx, SetCodeTransaction):
-        if not any(tx.authorizations):
-            raise EmptyAuthorizationListError("empty authorization list")
+    validate_transaction_type(tx)
 
     if sender_account.nonce > Uint(tx.nonce):
         raise NonceMismatchError("nonce too low")
@@ -865,7 +830,7 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic = validate_transaction(tx)
+    intrinsic = validate_transaction_common(tx)
 
     (
         sender,
