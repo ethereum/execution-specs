@@ -36,15 +36,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7702.version
 
 
 @pytest.mark.valid_from("Prague")
-# TODO[EIP-8037]: Amsterdam expected_loop_count needs
-# recalculating due to state gas.
-@pytest.mark.valid_before("EIP8037")
-# TODO[EIP-8037]: Fix Storage.KeyValueMismatchError for
-# contract_loop expected values.
-@pytest.mark.skip(
-    reason="EIP-8037: pointer loop storage values need "
-    "fixing for state gas model"
-)
 @pytest.mark.parametrize("sender_delegated", [True, False])
 @pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_contract_pointer_loop(
@@ -84,7 +75,10 @@ def test_pointer_contract_pointer_loop(
     )
 
     storage_loop: Storage = Storage()
-    expected_loop_count = 117 if fork.is_eip_enabled(8037) else 112
+    # Prague gas_limit is 1M → 112 loop iterations. Amsterdam bumps the
+    # gas_limit to 3M for EIP-8037 state-gas overhead; fill measures 113
+    # iterations under the 2D gas model (not the stale 117 guess).
+    expected_loop_count = 113 if fork.is_eip_enabled(8037) else 112
     contract_worked = storage_loop.store_next(
         expected_loop_count, "contract_loop_worked"
     )
