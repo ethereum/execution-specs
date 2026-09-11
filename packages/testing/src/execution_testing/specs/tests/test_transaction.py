@@ -4,12 +4,13 @@ import json
 from os.path import realpath
 from pathlib import Path
 
+import ethereum_rlp as eth_rlp
 import pytest
 
 from execution_testing import TestAddress
 from execution_testing.fixtures import TransactionFixture
-from execution_testing.forks import Amsterdam, Fork, Shanghai
-from execution_testing.test_types import Transaction
+from execution_testing.forks import Amsterdam, Fork, Osaka, Shanghai
+from execution_testing.test_types import EnvironmentDefaults, Transaction
 
 from ..transaction import TransactionTest
 from .helpers import remove_info_metadata
@@ -30,7 +31,7 @@ def test_transaction_test_filling(
     """Test the transaction test filling."""
     generated_fixture = (
         TransactionTest(
-            tx=tx.with_signature_and_sender(),
+            tx=tx,
             fork=fork,
         )
         .generate(
@@ -58,17 +59,17 @@ def test_transaction_test_filling(
     "tx,expected_intrinsic_gas",
     [
         pytest.param(
-            Transaction(gas_limit=100_000),
+            Transaction(),
             15_000,
             id="non_value_transfer",
         ),
         pytest.param(
-            Transaction(gas_limit=100_000, value=1),
+            Transaction(value=1),
             21_000,
             id="value_transfer",
         ),
         pytest.param(
-            Transaction(gas_limit=100_000, to=TestAddress),
+            Transaction(to=TestAddress),
             12_000,
             id="self_transfer",
         ),
@@ -81,7 +82,7 @@ def test_amsterdam_transaction_fixture_intrinsic_gas(
     """Calculate Amsterdam intrinsic gas from transaction context."""
     fixture = (
         TransactionTest(
-            tx=tx.with_signature_and_sender(),
+            tx=tx,
             fork=Amsterdam,
         )
         .generate(
@@ -93,3 +94,54 @@ def test_amsterdam_transaction_fixture_intrinsic_gas(
     assert isinstance(fixture, TransactionFixture)
     result = next(iter(fixture.result.values()))
     assert result.intrinsic_gas == expected_intrinsic_gas
+
+
+@pytest.mark.parametrize(
+    "tx,fork,expected_gas_limit",
+    [
+        pytest.param(
+            Transaction(),
+            Shanghai,
+            EnvironmentDefaults.gas_limit,
+            id="implicit-before-cap",
+        ),
+        pytest.param(
+            Transaction(gas_limit=50_000),
+            Shanghai,
+            50_000,
+            id="explicit",
+        ),
+        pytest.param(
+            Transaction(),
+            Osaka,
+            Osaka.transaction_gas_limit_cap(),
+            id="implicit-with-cap",
+        ),
+        pytest.param(
+            Transaction(),
+            Amsterdam,
+            EnvironmentDefaults.gas_limit,
+            id="implicit-with-state-gas-reservoir",
+        ),
+    ],
+)
+def test_transaction_fixture_gas_limit(
+    tx: Transaction,
+    fork: Fork,
+    expected_gas_limit: int,
+) -> None:
+    """Resolve omitted gas limits before signing transaction fixtures."""
+    fixture = (
+        TransactionTest(tx=tx, fork=fork)
+        .generate(
+            t8n=None,  # type: ignore
+            fixture_format=TransactionFixture,
+        )
+        .fixture
+    )
+    assert isinstance(fixture, TransactionFixture)
+    decoded_transaction = eth_rlp.decode(fixture.transaction)
+    assert not isinstance(decoded_transaction, bytes)
+    encoded_gas_limit = decoded_transaction[2]
+    assert isinstance(encoded_gas_limit, bytes)
+    assert int.from_bytes(encoded_gas_limit) == expected_gas_limit
