@@ -2523,6 +2523,68 @@ def test_bal_invalid_missing_pre_block_system_call_read(
 
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.exception_test
+def test_bal_invalid_noop_system_call_write_as_change(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Reject a BAL that records the beacon-root system call's no-op write
+    as a storage change rather than a read.
+
+    A zero parent beacon root rewrites the root slot with the value it
+    already holds. A client that lists the slots a call wrote, instead
+    of diffing them against the value the block access index started
+    with, would report the change this BAL carries.
+    """
+    block_timestamp = 12
+    timestamp_slot, root_slot = get_beacon_root_slots(block_timestamp)
+    # The spurious change is appended, so it has to sort last or the
+    # block would be rejected for ordering instead.
+    assert root_slot > timestamp_slot, (
+        "expected the root slot to sort after the timestamp slot"
+    )
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=[],
+                timestamp=block_timestamp,
+                parent_beacon_block_root=Hash(0),
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=timestamp_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=block_timestamp,
+                                        )
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[root_slot],
+                        ),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ).modify(
+                    remove_storage_reads(BEACON_ROOTS_ADDRESS),
+                    append_storage(
+                        BEACON_ROOTS_ADDRESS,
+                        root_slot,
+                        BalStorageChange(block_access_index=0, post_value=0),
+                    ),
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
 @pytest.mark.parametrize(
     "system_contract",
     [
