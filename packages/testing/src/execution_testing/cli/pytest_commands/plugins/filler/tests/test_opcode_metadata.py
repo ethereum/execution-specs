@@ -80,12 +80,15 @@ def test_opcode_metadata_excludes_probe(pytester: pytest.Pytester) -> None:
         assert len(fixture["blocks"]) == 1
         assert len(metadata["opcode_count_per_block"]) == 1
         assert metadata["opcode_count"]
-        assert metadata["opcode_count"] == metadata["opcode_count_per_block"][0]
+        assert (
+            metadata["opcode_count"] == metadata["opcode_count_per_block"][0]
+        )
 
     first_metadata, second_metadata = [
         fixture["_info"]["metadata"] for fixture in fixtures
     ]
     assert first_metadata["opcode_count"] == second_metadata["opcode_count"]
-    assert first_metadata["opcode_count_per_block"] == (
-        second_metadata["opcode_count_per_block"]
+    assert (
+        first_metadata["opcode_count_per_block"]
+        == second_metadata["opcode_count_per_block"]
     )
