@@ -3,6 +3,11 @@ Test_call_ecrecover0_no_gas.
 
 Ported from:
 state_tests/stPreCompiledContracts2/CallEcrecover0_NoGasFiller.json
+
+@manually-enhanced: Do not overwrite. EIP-7928 block access list
+expectations added: the value-bearing call fails on the stipend, so the
+precompile is in the list with no balance change at all, and the offered
+value stays with the caller.
 """
 
 import pytest
@@ -10,11 +15,18 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
+    BlockAccessListExpectation,
     Bytes,
     Environment,
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +41,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_ecrecover0_no_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test_call_ecrecover0_no_gas."""
     coinbase = Address(0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA)
@@ -42,6 +55,9 @@ def test_call_ecrecover0_no_gas(
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
+
+    target_balance = 0x1312D00
+    tx_value = 0x186A0
 
     # Source: lll
     # { (MSTORE 0 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c) (MSTORE 32 28) (MSTORE 64 0x73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f) (MSTORE 96 0xeeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549) [[ 2 ]] (CALL 0 1 1 0 128 128 32) [[ 0 ]] (MOD (MLOAD 128) (EXP 2 160)) [[ 1 ]] (EQ (ORIGIN) (SLOAD 0))  }  # noqa: E501
@@ -77,7 +93,7 @@ def test_call_ecrecover0_no_gas(
         + Op.SSTORE(key=0x1, value=Op.EQ(Op.ORIGIN, Op.SLOAD(key=0x0)))
         + Op.STOP,
         storage={0: 12, 1: 12, 2: 12},
-        balance=0x1312D00,
+        balance=target_balance,
         nonce=0,
     )
 
@@ -86,9 +102,48 @@ def test_call_ecrecover0_no_gas(
         to=target,
         data=Bytes(""),
         gas_limit=365224,
-        value=0x186A0,
+        value=tx_value,
     )
 
-    post = {target: Account(storage={})}
+    # Keeping the offered value shows the failed call rolled it back.
+    post = {target: Account(storage={}, balance=target_balance + tx_value)}
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                target: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=target_balance + tx_value,
+                        )
+                    ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=slot,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=0
+                                )
+                            ],
+                        )
+                        for slot in (0, 1, 2)
+                    ],
+                ),
+                Address(0x01): BalAccountExpectation.empty(),
+            }
+        )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        expected_block_access_list=expected_block_access_list,
+    )

@@ -24,12 +24,22 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     ConsolidationRequest,
+    Fork,
     Op,
+    SystemCallPhase,
     Transaction,
+    Withdrawal,
     WithdrawalRequest,
+    compute_create_address,
 )
+from execution_testing import Macros as Om
 
 from .spec import ref_spec_7928
+from .test_block_access_lists_eip2935 import HISTORY_STORAGE_ADDRESS
+from .test_block_access_lists_eip4788 import (
+    BEACON_ROOTS_ADDRESS,
+    SYSTEM_ADDRESS,
+)
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
@@ -507,4 +517,351 @@ def test_bal_withdrawal_predeploy_balance_observed_cross_tx(
         post={
             reader: Account(storage={0: fee}),
         },
+    )
+
+
+def _system_contracts_called(fork: Fork, phase: SystemCallPhase) -> list:
+    """Return the fork's system contracts the block calls in `phase`."""
+    return sorted(
+        address
+        for address, called in fork.system_contract_call_phases().items()
+        if called == phase
+    )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_pre_execution_calls_net_storage_at_index_zero(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Both pre-execution system calls write the same account at block access
+    index 0. A slot toggled back to its starting value is a read, while a
+    slot bumped twice and a nonce bumped by two CREATEs are single changes
+    with the final values: writes are netted over the whole index, not per
+    call. The slot holding the last caller pins the order of the two calls.
+    """
+    # `apply_body` calls the beacon roots contract first and the history
+    # contract second; the fork's declared phases must agree on the set.
+    assert _system_contracts_called(
+        fork, SystemCallPhase.BEFORE_TRANSACTIONS
+    ) == sorted([BEACON_ROOTS_ADDRESS, HISTORY_STORAGE_ADDRESS]), (
+        "the fork grew a pre-execution system call this test does not "
+        "account for"
+    )
+
+    toggle_slot = 1
+    counter_slot = 2
+    last_caller_slot = 3
+
+    # The history contract toggles one slot, counts its calls, notes who
+    # called and deploys an empty contract; the beacon roots contract
+    # calls it, so the block runs it twice: once from the beacon roots
+    # call and then from its own system call.
+    pre[HISTORY_STORAGE_ADDRESS] = Account(
+        nonce=1,
+        code=Op.SSTORE(toggle_slot, Op.ISZERO(Op.SLOAD(toggle_slot)))
+        + Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1))
+        + Op.SSTORE(last_caller_slot, Op.CALLER)
+        + Op.POP(Op.CREATE(0, 0, 0)),
+    )
+    pre[BEACON_ROOTS_ADDRESS] = Account(
+        code=Op.POP(Op.CALL(address=HISTORY_STORAGE_ADDRESS)),
+    )
+    created = [
+        compute_create_address(address=HISTORY_STORAGE_ADDRESS, nonce=nonce)
+        for nonce in (1, 2)
+    ]
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=counter_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=2,
+                                        )
+                                    ],
+                                ),
+                                BalStorageSlot(
+                                    slot=last_caller_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=SYSTEM_ADDRESS,
+                                        )
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[toggle_slot],
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=0, post_nonce=3
+                                )
+                            ],
+                        ),
+                        **{
+                            address: BalAccountExpectation(
+                                nonce_changes=[
+                                    BalNonceChange(
+                                        block_access_index=0, post_nonce=1
+                                    )
+                                ],
+                                code_changes=[],
+                            )
+                            for address in created
+                        },
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation.empty(),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ),
+            )
+        ],
+        post={
+            HISTORY_STORAGE_ADDRESS: Account(
+                nonce=3,
+                storage={
+                    toggle_slot: 0,
+                    counter_slot: 2,
+                    last_caller_slot: SYSTEM_ADDRESS,
+                },
+            ),
+            **{address: Account(nonce=1, code=b"") for address in created},
+        },
+    )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_system_call_change_kept_when_tx_restores_slot(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Netting stops at the index boundary: a slot the history system call
+    sets at index 0 and a transaction restores at index 1 keeps both
+    changes, although the block leaves it at its starting value.
+    """
+    caller_slot = 1
+    counter_slot = 2
+    alice = pre.fund_eoa()
+
+    # The contract records its caller and counts its calls. Alice's
+    # address is the caller slot's starting value, so the system call
+    # moves it and her transaction puts it back; the counter reaching two
+    # is what separates that round trip from neither call running.
+    pre[HISTORY_STORAGE_ADDRESS] = Account(
+        nonce=1,
+        code=Op.SSTORE(caller_slot, Op.CALLER)
+        + Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1)),
+        storage={caller_slot: alice},
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[Transaction(sender=alice, to=HISTORY_STORAGE_ADDRESS)],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        HISTORY_STORAGE_ADDRESS: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=caller_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=SYSTEM_ADDRESS,
+                                        ),
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=alice,
+                                        ),
+                                    ],
+                                ),
+                                BalStorageSlot(
+                                    slot=counter_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=1,
+                                        ),
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=2,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[],
+                        ),
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            HISTORY_STORAGE_ADDRESS: Account(
+                storage={caller_slot: alice, counter_slot: 2}
+            ),
+            alice: Account(nonce=1),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "forwarded_share",
+    [
+        pytest.param("all", id="forward_all"),
+        pytest.param("half", id="forward_half"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable()
+def test_bal_withdrawals_and_dequeues_net_balance_at_last_index(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    forwarded_share: str,
+) -> None:
+    """
+    Withdrawals and the post-execution system calls share one block
+    access index, so their balance effects net. A withdrawal credits
+    each predeploy, whose own dequeue call then forwards that balance
+    on: forwarding all of it records no change, forwarding half records
+    the kept half.
+    """
+    predeploys = _system_contracts_called(
+        fork, SystemCallPhase.AFTER_TRANSACTIONS
+    )
+    withdrawal_amount_wei = 10**9
+    sink = pre.fund_eoa(amount=1)
+
+    forwarded_value: Bytecode
+    if forwarded_share == "all":
+        forwarded_wei = withdrawal_amount_wei
+        forwarded_value = Op.SELFBALANCE
+    elif forwarded_share == "half":
+        forwarded_wei = withdrawal_amount_wei // 2
+        forwarded_value = Op.DIV(Op.SELFBALANCE, 2)
+    else:
+        raise ValueError(f"unhandled share: {forwarded_share}")
+    kept_wei = withdrawal_amount_wei - forwarded_wei
+
+    for predeploy in predeploys:
+        pre[predeploy] = Account(
+            code=Op.POP(Op.CALL(address=sink, value=forwarded_value)),
+        )
+
+    predeploy_expectation = BalAccountExpectation(
+        balance_changes=(
+            [BalBalanceChange(block_access_index=1, post_balance=kept_wei)]
+            if kept_wei
+            else []
+        ),
+        storage_changes=[],
+        storage_reads=[],
+    )
+    sink_balance = 1 + forwarded_wei * len(predeploys)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                withdrawals=[
+                    Withdrawal(
+                        index=i,
+                        validator_index=i,
+                        address=predeploy,
+                        amount=1,
+                    )
+                    for i, predeploy in enumerate(predeploys)
+                ],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        **dict.fromkeys(predeploys, predeploy_expectation),
+                        sink: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=sink_balance,
+                                )
+                            ],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            **{
+                predeploy: Account(balance=kept_wei)
+                for predeploy in predeploys
+            },
+            sink: Account(balance=sink_balance),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(Op.REVERT(0, 0), id="revert"),
+        pytest.param(Om.OOG, id="out_of_gas"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable()
+def test_bal_pre_execution_call_failure_keeps_read_drops_write(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    failure: Bytecode,
+) -> None:
+    """
+    A pre-execution system call that fails still merges into the BAL.
+
+    The call is unchecked, so the block stays valid and the state it
+    rolled back leaves the slot behind as a read. Unreachable on
+    mainnet, consensus-relevant on custom or test chains.
+    """
+    assert BEACON_ROOTS_ADDRESS in _system_contracts_called(
+        fork, SystemCallPhase.BEFORE_TRANSACTIONS
+    ), "the beacon roots contract is no longer called before transactions"
+
+    reverted_slot = 1
+    # The slot it reaches for is the only evidence the code ran, since
+    # the failure throws the write itself away.
+    pre[BEACON_ROOTS_ADDRESS] = Account(
+        code=Op.SSTORE(reverted_slot, 1) + failure,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation(
+                            storage_reads=[reverted_slot],
+                            storage_changes=[],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={BEACON_ROOTS_ADDRESS: Account(storage={})},
     )

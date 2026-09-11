@@ -868,6 +868,109 @@ def reorder_accounts(
     return transform
 
 
+def _reverse_account_field(
+    address: Address, field_name: str
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Reverse one list field of a single account."""
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        found = False
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == address:
+                found = True
+                new_account = account_change.model_copy(deep=True)
+                entries = getattr(new_account, field_name)
+                if len(entries) < 2:
+                    raise ValueError(
+                        f"{field_name} of account {address} needs at least "
+                        "two entries to be reversed"
+                    )
+                setattr(new_account, field_name, list(reversed(entries)))
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+
+        if not found:
+            raise ValueError(f"Address {address} not found in BAL")
+
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
+def reverse_storage_slots(
+    address: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Reverse the slot order of an account's storage_changes."""
+    return _reverse_account_field(address, "storage_changes")
+
+
+def reverse_storage_reads(
+    address: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Reverse the key order of an account's storage_reads."""
+    return _reverse_account_field(address, "storage_reads")
+
+
+def reverse_balance_changes(
+    address: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Reverse the index order of an account's balance_changes."""
+    return _reverse_account_field(address, "balance_changes")
+
+
+def reverse_nonce_changes(
+    address: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Reverse the index order of an account's nonce_changes."""
+    return _reverse_account_field(address, "nonce_changes")
+
+
+def reverse_code_changes(
+    address: Address,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Reverse the index order of an account's code_changes."""
+    return _reverse_account_field(address, "code_changes")
+
+
+def reverse_slot_changes(
+    address: Address, slot: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Reverse the index order of one storage slot's changes."""
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        found = False
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == address:
+                new_account = account_change.model_copy(deep=True)
+                for storage_slot in new_account.storage_changes:
+                    if storage_slot.slot == slot:
+                        found = True
+                        if len(storage_slot.slot_changes) < 2:
+                            raise ValueError(
+                                f"Storage slot {slot} of account {address} "
+                                "needs at least two changes to be reversed"
+                            )
+                        storage_slot.slot_changes = list(
+                            reversed(storage_slot.slot_changes)
+                        )
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+
+        if not found:
+            raise ValueError(
+                f"Storage slot {slot} not found in storage_changes "
+                f"of account {address}"
+            )
+
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
 def clear_all() -> Callable[[BlockAccessList], BlockAccessList]:
     """Return an empty BAL."""
 

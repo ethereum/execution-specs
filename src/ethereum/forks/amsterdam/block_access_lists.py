@@ -316,6 +316,23 @@ class BlockAccessListBuilder:
     Mapping from account address to its tracked changes during block execution.
     """
 
+    index_start_accounts: Dict[
+        Tuple[BlockAccessIndex, Address], Optional[Account]
+    ] = field(default_factory=dict)
+    """
+    Account as it was when a block access index began, captured the first
+    time that index writes it. Several system calls share one index, so
+    their writes are netted against this rather than against each other.
+    """
+
+    index_start_storage: Dict[
+        Tuple[BlockAccessIndex, Address, Bytes32], U256
+    ] = field(default_factory=dict)
+    """
+    Storage value as it was when a block access index began, captured the
+    first time that index writes the slot.
+    """
+
 
 def ensure_account(builder: BlockAccessListBuilder, address: Address) -> None:
     """
@@ -496,6 +513,96 @@ def add_code_change(
     builder.accounts[address].code_changes.append(change)
 
 
+def remove_storage_write(
+    builder: BlockAccessListBuilder,
+    address: Address,
+    slot: U256,
+    block_access_index: BlockAccessIndex,
+) -> None:
+    """
+    Drop the storage change recorded for a slot at a block access index.
+
+    Called when a later write at the same index restores the value the slot
+    held when the index began: nothing changed over the index as a whole,
+    so the slot is left to surface as a read.
+    """
+    if address not in builder.accounts:
+        return
+    storage_changes = builder.accounts[address].storage_changes
+    if slot not in storage_changes:
+        return
+    storage_changes[slot] = [
+        change
+        for change in storage_changes[slot]
+        if change.block_access_index != block_access_index
+    ]
+    if not storage_changes[slot]:
+        del storage_changes[slot]
+
+
+def remove_balance_change(
+    builder: BlockAccessListBuilder,
+    address: Address,
+    block_access_index: BlockAccessIndex,
+) -> None:
+    """
+    Drop the balance change recorded for an account at a block access index.
+
+    Called when a later write at the same index restores the balance the
+    account held when the index began.
+    """
+    if address not in builder.accounts:
+        return
+    account = builder.accounts[address]
+    account.balance_changes = [
+        change
+        for change in account.balance_changes
+        if change.block_access_index != block_access_index
+    ]
+
+
+def remove_nonce_change(
+    builder: BlockAccessListBuilder,
+    address: Address,
+    block_access_index: BlockAccessIndex,
+) -> None:
+    """
+    Drop the nonce change recorded for an account at a block access index.
+
+    Called when a later write at the same index leaves the nonce where the
+    index found it.
+    """
+    if address not in builder.accounts:
+        return
+    account = builder.accounts[address]
+    account.nonce_changes = [
+        change
+        for change in account.nonce_changes
+        if change.block_access_index != block_access_index
+    ]
+
+
+def remove_code_change(
+    builder: BlockAccessListBuilder,
+    address: Address,
+    block_access_index: BlockAccessIndex,
+) -> None:
+    """
+    Drop the code change recorded for an account at a block access index.
+
+    Called when a later write at the same index restores the code the
+    account held when the index began.
+    """
+    if address not in builder.accounts:
+        return
+    account = builder.accounts[address]
+    account.code_changes = [
+        change
+        for change in account.code_changes
+        if change.block_access_index != block_access_index
+    ]
+
+
 def add_touched_account(
     builder: BlockAccessListBuilder, address: Address
 ) -> None:
@@ -614,6 +721,44 @@ def _get_pre_tx_storage(
     return pre_state.get_storage(address, key)
 
 
+def _index_start_account(
+    builder: BlockAccessListBuilder,
+    block_state: BlockState,
+    address: Address,
+) -> Optional[Account]:
+    """
+    Return the account as it was when the current block access index began.
+
+    The cumulative block state holds that value until the first write at
+    this index is merged, so it is captured on first use and reused by
+    later writes at the same index.
+    """
+    key = (builder.block_access_index, address)
+    if key not in builder.index_start_accounts:
+        builder.index_start_accounts[key] = _get_pre_tx_account(
+            block_state.account_writes, block_state.pre_state, address
+        )
+    return builder.index_start_accounts[key]
+
+
+def _index_start_storage(
+    builder: BlockAccessListBuilder,
+    block_state: BlockState,
+    address: Address,
+    key: Bytes32,
+) -> U256:
+    """
+    Return a storage value as it was when the current block access index
+    began, captured on first use in the same way as accounts.
+    """
+    index_key = (builder.block_access_index, address, key)
+    if index_key not in builder.index_start_storage:
+        builder.index_start_storage[index_key] = _get_pre_tx_storage(
+            block_state.storage_writes, block_state.pre_state, address, key
+        )
+    return builder.index_start_storage[index_key]
+
+
 def update_builder_from_tx(
     builder: BlockAccessListBuilder,
     tx_state: TransactionState,
@@ -621,33 +766,34 @@ def update_builder_from_tx(
     """
     Update the BAL builder with changes from a single transaction.
 
-    Compare the transaction's writes against the block's cumulative
-    state (falling back to `pre_state`) to extract balance, nonce, code, and
-    storage changes.  Net-zero filtering is automatic: if the pre-tx value
-    equals the post-tx value, no change is recorded.
+    Compare the transaction's writes against the state at the start of the
+    current block access index to extract balance, nonce, code, and storage
+    changes. A write that leaves a value where the index found it records
+    no change, and drops one recorded earlier at the same index by another
+    transaction sharing it, such as a second system call.
 
     Must be called **before** the transaction's writes are merged into
     the block state.
     """
     block_state = tx_state.parent
-    pre_state = block_state.pre_state
     idx = builder.block_access_index
 
-    # Compare account writes against block cumulative state
     for address, post_account in tx_state.account_writes.items():
-        pre_account = _get_pre_tx_account(
-            block_state.account_writes, pre_state, address
-        )
+        pre_account = _index_start_account(builder, block_state, address)
 
         pre_balance = pre_account.balance if pre_account else U256(0)
         post_balance = post_account.balance if post_account else U256(0)
         if pre_balance != post_balance:
             add_balance_change(builder, address, idx, post_balance)
+        else:
+            remove_balance_change(builder, address, idx)
 
         pre_nonce = pre_account.nonce if pre_account else Uint(0)
         post_nonce = post_account.nonce if post_account else Uint(0)
         if pre_nonce != post_nonce:
             add_nonce_change(builder, address, idx, U64(post_nonce))
+        else:
+            remove_nonce_change(builder, address, idx)
 
         pre_code_hash = (
             pre_account.code_hash if pre_account else EMPTY_CODE_HASH
@@ -658,18 +804,21 @@ def update_builder_from_tx(
         if pre_code_hash != post_code_hash:
             post_code = get_code(tx_state, post_code_hash)
             add_code_change(builder, address, idx, post_code)
+        else:
+            remove_code_change(builder, address, idx)
 
-    # Compare storage writes against block cumulative state
     for address, slots in tx_state.storage_writes.items():
         for key, post_value in slots.items():
-            pre_value = _get_pre_tx_storage(
-                block_state.storage_writes, pre_state, address, key
+            pre_value = _index_start_storage(
+                builder, block_state, address, key
             )
+            # Convert slot from internal Bytes32 format to U256 for BAL.
+            # EIP-7928 uses U256 as it's more space-efficient in RLP.
+            u256_slot = U256.from_be_bytes(key)
             if pre_value != post_value:
-                # Convert slot from internal Bytes32 format to U256 for BAL.
-                # EIP-7928 uses U256 as it's more space-efficient in RLP.
-                u256_slot = U256.from_be_bytes(key)
                 add_storage_write(builder, address, u256_slot, idx, post_value)
+            else:
+                remove_storage_write(builder, address, u256_slot, idx)
 
 
 def build_block_access_list(

@@ -156,13 +156,36 @@ def test_bal_system_dequeue_consolidations_eip7251(
             )
         )
 
+    # The dequeue rewrites the excess slot; when the block's count leaves
+    # it unchanged the write is a no-op and the slot surfaces as a read.
+    excess_after_block = ConsolidationRequest.get_excess(0, num)
+    if excess_after_block > 0:
+        storage_changes.insert(
+            0,
+            BalStorageSlot(
+                slot=ConsolidationRequest.excess_slot,
+                slot_changes=[
+                    BalStorageChange(
+                        block_access_index=num + 1,
+                        post_value=excess_after_block,
+                    )
+                ],
+            ),
+        )
+        predeploy_expectation = BalAccountExpectation(
+            storage_changes=storage_changes
+        )
+    else:
+        predeploy_expectation = BalAccountExpectation(
+            storage_changes=storage_changes,
+            storage_reads=[ConsolidationRequest.excess_slot],
+        )
+
     block = Block(
         txs=txs,
         expected_block_access_list=BlockAccessListExpectation(
             account_expectations={
-                CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS: (
-                    BalAccountExpectation(storage_changes=storage_changes)
-                )
+                CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS: predeploy_expectation
             }
         ),
     )
