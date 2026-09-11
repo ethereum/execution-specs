@@ -245,6 +245,20 @@ class SystemContractInteractionMeasuredOutOfGasContract(
     pre-state allocation.
     """
 
+    exact_gas_indices: Sequence[int] = ()
+    """
+    Indices of the requests forwarded exactly the gas requirement. They must
+    be marked valid: the call succeeds with nothing to spare.
+    """
+    exact_gas_margin: int = 0
+    """
+    Gas the system contract needs on top of what it consumes, added to the
+    measured requirement. Covers checks the contract makes against its
+    remaining gas, such as the SSTORE sentry, that the measurement cannot
+    see. The requests marked invalid are forwarded one gas less than the
+    requirement plus this margin.
+    """
+
     @property
     def contract_code(self) -> Bytecode:
         """
@@ -266,9 +280,12 @@ class SystemContractInteractionMeasuredOutOfGasContract(
            minimal gas so the callee runs out, isolating everything except the
            callee's own consumption. Subtracting it from (2) yields the gas
            that must be forwarded for the callee to succeed.
-        5. A call for each invalid request forwarding `(total - overhead) - 1`
-           gas, one short of the requirement, so it runs out of gas and is not
-           enqueued.
+        5. A call for each invalid request forwarding `(total - overhead) +
+           exact_gas_margin - 1` gas, one short of the requirement, so it runs
+           out of gas and is not enqueued.
+        6. A call for each request in `exact_gas_indices` forwarding exactly
+           `(total - overhead) + exact_gas_margin` gas, so it succeeds with
+           nothing to spare.
 
         Because steps (2) and (4) use byte-identical op sequences (including a
         same-width gas `PUSH`), every base-opcode cost cancels in the
@@ -276,17 +293,33 @@ class SystemContractInteractionMeasuredOutOfGasContract(
         gas schedule.
 
         All requests must share the same calldata length and a non-zero call
-        value so the measured overhead applies uniformly to each call.
+        value so the measured overhead applies uniformly to each call, and the
+        requests issued in steps (5) and (6) must take the same execution path
+        in the system contract as the measured request in step (2).
         """
-        valid_indices = [i for i, r in enumerate(self.requests) if r.valid]
+        exact_indices = list(self.exact_gas_indices)
+        assert all(self.requests[i].valid for i in exact_indices), (
+            "exact-gas requests must be marked valid"
+        )
+        valid_indices = [
+            i
+            for i, r in enumerate(self.requests)
+            if r.valid and i not in exact_indices
+        ]
         invalid_indices = [
             i for i, r in enumerate(self.requests) if not r.valid
         ]
         assert len(valid_indices) >= 2, (
-            "measured_out_of_gas_relay_code needs at least two valid requests"
+            "measured_out_of_gas_relay_code needs at least two valid requests "
+            "outside exact_gas_indices"
         )
         assert invalid_indices, (
             "measured_out_of_gas_relay_code needs at least one invalid request"
+        )
+        # Exact-gas calls are issued last, so they must also be the last
+        # requests for the enqueue order to match the request order.
+        assert all(i > max(valid_indices) for i in exact_indices), (
+            "exact_gas_indices must come after every other valid request"
         )
         assert len({len(r.calldata) for r in self.requests}) == 1, (
             "all requests must share the same calldata length"
@@ -353,14 +386,16 @@ class SystemContractInteractionMeasuredOutOfGasContract(
             gas_argument=Op.PUSH4[0],
             measure_into=_MEASURE_OVERHEAD_SLOT,
         )
-        forwarded_gas = Op.SUB(
+        required_gas = Op.ADD(
             Op.SUB(
                 Op.MLOAD(_MEASURE_TOTAL_SLOT), Op.MLOAD(_MEASURE_OVERHEAD_SLOT)
             ),
-            1,
+            self.exact_gas_margin,
         )
         for i in invalid_indices:
-            code += issue(index=i, gas_argument=forwarded_gas)
+            code += issue(index=i, gas_argument=Op.SUB(required_gas, 1))
+        for i in exact_indices:
+            code += issue(index=i, gas_argument=required_gas)
         return code + self.extra_code
 
 

@@ -1,0 +1,5 @@
+general/code_coverage/eels = Run `uv run fill tests/amsterdam/eip8282_builder_execution_requests --fork Amsterdam --cov=ethereum.forks.amsterdam` and verify the builder request paths in `src/ethereum/forks/amsterdam/fork.py` (`process_general_purpose_requests`) and `requests.py` report full line coverage
+general/code_coverage/test_coverage = Run `uv run fill tests/amsterdam/eip8282_builder_execution_requests --fork Amsterdam --cov tests/amsterdam/eip8282_builder_execution_requests` to verify test code coverage
+general/code_coverage/missed_lines = Every EIP-8282 line in `fork.py` and `requests.py` is reached by the deposit and exit suites; no missed lines to document
+general/code_coverage/second_client = Cross-client coverage is tracked by the Glamsterdam devnet consume-engine runs, not per EIP
+system_contract/test/inputs/invalid/crypto = The execution layer treats the pubkey and signature as opaque bytes; the BLS proof-of-possession is verified by the consensus layer after dequeue (`process_builder_deposit_request` in consensus-specs), so cryptographic invalidity is covered by the consensus-layer spec tests

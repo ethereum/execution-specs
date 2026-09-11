@@ -21,6 +21,7 @@ from execution_testing import (
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
+from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8282
 
@@ -131,6 +132,7 @@ def run_modified_requests_test(
         ),
     ],
 )
+@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_extra_builder_deposits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -182,6 +184,7 @@ def test_extra_builder_deposits(
         ),
     ],
 )
+@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_extra_builder_exits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -212,6 +215,9 @@ def test_extra_builder_exits(
         ),
     ],
 )
+@EIPChecklist.SystemContract.Test.ContractSubstitution.RaisesException()
+@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitSuccess()
+@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitFailure()
 @generate_system_contract_error_test()  # type: ignore[arg-type]
 @pytest.mark.eels_base_coverage
 def test_system_contract_errors() -> None:
