@@ -74,12 +74,14 @@ from .exceptions import (
     ExceptionalHalt,
     InvalidContractPrefix,
     InvalidOpcode,
+    InvalidValidatedCode,
     OutOfGasError,
     Revert,
     StackDepthLimitError,
 )
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_destinations
+from .validation import code_entry_point, is_magic_code, validate_code
 
 STACK_DEPTH_LIMIT = Uint(1024)
 MAX_CODE_SIZE = 0x10000
@@ -225,7 +227,7 @@ def create_evm(
         valid_call_destinations=valid_call_destinations,
         # Machine State
         gas_meter=gas_meter,
-        pc=Uint(0),
+        pc=Uint(0) if tx_env.is_create else code_entry_point(code),
         stack=[],
         return_stack=[],
         memory=bytearray(),
@@ -372,10 +374,23 @@ def process_create(evm: Evm) -> Evm:
         contract_code = evm.output
         try:
             if len(contract_code) > 0:
-                if contract_code[0] == 0xEF:
+                if contract_code[0] == 0xEF and not is_magic_code(
+                    contract_code
+                ):
                     raise InvalidContractPrefix
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
+            if is_magic_code(contract_code):
+                # EIP-8337: validation is paid for before it runs, so an
+                # under-funded creation halts without validating.
+                charge_gas(
+                    evm,
+                    ExecutionGas(
+                        GasCosts.VALIDATION_BYTE * ulen(contract_code)
+                    ),
+                )
+                if not validate_code(contract_code):
+                    raise InvalidValidatedCode
             # Hash cost for computing keccak256 of deployed bytecode
             code_hash_gas = ExecutionGas(
                 GasCosts.OPCODE_KECCAK256_PER_WORD

@@ -205,6 +205,8 @@ class GasCosts:
     OPCODE_JUMP: Final[ExecutionGas] = MID
     OPCODE_JUMPI: Final[ExecutionGas] = HIGH
     OPCODE_JUMPDEST: Final[ExecutionGas] = ExecutionGas(Uint(1))
+    # EIP-8337: validation of MAGIC code at CREATE, per byte of code
+    VALIDATION_BYTE: Final[ExecutionGas] = ExecutionGas(Uint(64))
     # EIP-7979: Call and return opcodes
     OPCODE_CALLSUB: Final[ExecutionGas] = MID
     OPCODE_CALLDEST: Final[ExecutionGas] = ExecutionGas(Uint(1))

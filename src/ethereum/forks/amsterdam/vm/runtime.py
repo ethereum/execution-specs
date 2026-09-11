@@ -17,6 +17,7 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import Uint, ulen
 
 from .instructions import Ops
+from .validation import code_entry_point
 
 
 def get_valid_destinations(code: Bytes) -> Tuple[Set[Uint], Set[Uint]]:
@@ -38,6 +39,9 @@ def get_valid_destinations(code: Bytes) -> Tuple[Set[Uint], Set[Uint]]:
     destination, so that a `JUMP` may enter a subroutine without pushing a
     return address.
 
+    The scan begins at the code's entry point: immediately after the header
+    of `MAGIC` code (EIP-8337), whose bytes are never instructions.
+
     Note - Destinations are 0-indexed.
 
     Parameters
@@ -55,7 +59,7 @@ def get_valid_destinations(code: Bytes) -> Tuple[Set[Uint], Set[Uint]]:
     """
     valid_jump_destinations = set()
     valid_call_destinations = set()
-    pc = Uint(0)
+    pc = code_entry_point(code)
 
     while pc < ulen(code):
         try:

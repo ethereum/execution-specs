@@ -411,6 +411,8 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
         params.memory_input_size,
     )
 
+    from ...vm.validation import code_entry_point
+
     valid_jump_destinations, valid_call_destinations = get_valid_destinations(
         params.code
     )
@@ -440,7 +442,7 @@ def generic_call(evm: Evm, params: GenericCall) -> None:
             state_gas_left=params.state_gas_reservoir,
             state_gas_baseline=params.state_gas_reservoir,
         ),
-        pc=Uint(0),
+        pc=code_entry_point(params.code),
         stack=[],
         return_stack=[],
         memory=bytearray(),
