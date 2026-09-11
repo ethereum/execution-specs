@@ -198,6 +198,24 @@ from execution_testing.vm import Opcodes as Op
             b"",
             id="r_eq_N_and_s_eq_N",
         ),
+        # An in-range r that is not the x-coordinate of any curve point:
+        # 5 is the smallest, as 5**3 + 7 is a quadratic non-residue mod p.
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001b"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000005"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            b"",
+            id="r_not_on_curve",
+        ),
         # u1 == u2 && R == G
         pytest.param(
             bytes.fromhex(

@@ -321,3 +321,66 @@ def test_bad_v_r_s(
         post={to: Account(balance=0xDEADBEEE)},
         tx=tx,
     )
+
+
+# The smallest x-coordinate that is NOT on the secp256k1 curve: x**3 + 7 is a
+# quadratic non-residue mod p, so no point (x, y) exists and public-key
+# recovery has no solution for r == 5.
+UNRECOVERABLE_R = 5
+
+
+@pytest.mark.inclusion_test
+@pytest.mark.valid_from("Frontier")
+@pytest.mark.exception_test
+@pytest.mark.eels_base_coverage
+@pytest.mark.parametrize(
+    "tx_type",
+    [
+        pytest.param(0, id="legacy"),
+        pytest.param(2, id="eip1559", marks=pytest.mark.valid_from("London")),
+    ],
+)
+def test_unrecoverable_signature(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_type: int,
+) -> None:
+    """
+    A signature whose components are each individually in range but which
+    recovers no public key must be rejected.
+
+    `test_bad_v_r_s` covers the RANGE rules (`v` below 27/35, `r` or `s` at or
+    above secp256k1n, `s` above the EIP-2 halfway point). This is the distinct
+    failure that lies inside those ranges: `r` is read as the x-coordinate of
+    the ephemeral point R, and only about half of the values in [1, n) are
+    x-coordinates of a curve point at all. For the other half there is no R,
+    hence no public key and no sender -- with no range check violated anywhere.
+
+    A client that guards recovery by range-checking alone, or that treats the
+    two failures as different kinds of error, reaches this case through an
+    unintended path. Besu, for example, raises `IllegalStateException` here
+    while its validator catches only `IllegalArgumentException` (the range
+    failure), so the transaction is reported as an internal error carrying a
+    Java stack trace instead of an invalid signature.
+    """
+    to = pre.fund_eoa(0xDEADBEEE)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=to,
+        error=TransactionException.INVALID_SIGNATURE_VRS,
+        ty=tx_type,
+        value=1,
+        # Legacy encodes the (unprotected) recovery id in v; typed
+        # transactions carry the parity bit directly.
+        v=27 if tx_type == 0 else 0,
+        r=UNRECOVERABLE_R,
+        s=1,
+    )
+
+    state_test(
+        pre=pre,
+        # Transaction rejected: the recipient keeps exactly its funded balance.
+        post={to: Account(balance=0xDEADBEEE)},
+        tx=tx,
+    )
