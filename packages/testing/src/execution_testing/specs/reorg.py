@@ -20,6 +20,7 @@ from typing import (
     Generator,
     List,
     Sequence,
+    Tuple,
     Type,
 )
 
@@ -208,25 +209,43 @@ class ReorgTest(BlockchainTest):
                 self._validate_step_labels(branch, set(labels))
 
     def _resolve_payload_attributes(
-        self, steps: List[Step], timestamps: Dict[str, int]
+        self,
+        steps: List[Step],
+        timestamps: Dict[str, int],
+        build_timestamps: Dict[Tuple[str, str], int] | None = None,
     ) -> None:
         """
         Fill defaults of ``forkchoiceUpdated.payload_attributes``: a zero
         timestamp becomes ``parent + 12``; Shanghai+ gets empty withdrawals;
         Cancun+ gets a deterministic parent beacon block root. Bound labels
-        (client-built payloads) get ``parent + 12`` relative to the parent of
-        the build request, which is the previous step's head.
+        (client-built payloads) take the timestamp of their build request and
+        the ``getPayload`` version of the fork active at that timestamp.
         """
+        if build_timestamps is None:
+            build_timestamps = {}
         for step in steps:
             if isinstance(step, GetPayloadStep):
-                # Best effort: bound payloads inherit their parent's slot + 12.
-                if step.parent in timestamps:
-                    timestamps[step.bind] = timestamps[step.parent] + 12
+                # The built payload's timestamp is the one requested by the
+                # preceding build request; fall back to parent slot + 12.
+                built_ts = build_timestamps.get(
+                    (step.on, step.parent), timestamps.get(step.parent, 0) + 12
+                )
+                timestamps[step.bind] = built_ts
+                if step.version is None:
+                    # getPayload is versioned by the fork of the payload being
+                    # built (V3 Cancun, V4 Prague, V5 Osaka); it does not track
+                    # forkchoiceUpdated, which stays at V3 from Cancun on.
+                    step.version = self.fork.fork_at(
+                        block_number=0, timestamp=built_ts
+                    ).engine_get_payload_version()
             if isinstance(step, ForkchoiceUpdatedStep):
                 attrs = step.payload_attributes
                 if attrs is not None:
                     if int(attrs.timestamp) == 0:
                         attrs.timestamp = HexNumber(timestamps[step.head] + 12)
+                    build_timestamps[(step.on, step.head)] = int(
+                        attrs.timestamp
+                    )
                     fork = self.fork.fork_at(
                         block_number=0, timestamp=int(attrs.timestamp)
                     )
@@ -241,7 +260,9 @@ class ReorgTest(BlockchainTest):
                     ):
                         attrs.parent_beacon_block_root = Hash(0xBEAC0)
             for branch in getattr(step, "branches", {}).values():
-                self._resolve_payload_attributes(branch, timestamps)
+                self._resolve_payload_attributes(
+                    branch, timestamps, dict(build_timestamps)
+                )
 
     def make_reorg_fixture(self, t8n: FillerBackend) -> FillResult:
         """Execute every block against its labeled parent, emit fixture."""

@@ -430,9 +430,9 @@ def annotate_steps(
             if fcu_version is not None:
                 fcu_version.setdefault(step.bind, fcu_version[step.parent])
             if step.version is None:
-                if fcu_version is None:
-                    raise ValueError("getPayload step without version")
-                step.version = fcu_version[step.parent]
+                # Set by ReorgTest from the fork of the payload being built;
+                # forkchoiceUpdated's version is not a valid substitute.
+                raise ValueError("getPayload step without version")
         elif isinstance(step, WaitForHeadStep):
             for ancestor in model.dag.ancestors(step.latest):
                 m.known.setdefault(ancestor, True)
