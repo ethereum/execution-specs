@@ -33,6 +33,7 @@ def build_delegated_storage_setup(
     pre: Alloc,
     fork: Fork,
     tx_gas_limit: int,
+    block_gas_budget: int,
     needs_init: bool,
     num_target_slots: int,
     initializer_code: IteratingBytecode,
@@ -89,8 +90,9 @@ def build_delegated_storage_setup(
             )
         )
 
-        # Pack init transactions into blocks
-        blocks.extend(pack_transactions_into_blocks(init_txs, tx_gas_limit))
+        blocks.extend(
+            pack_transactions_into_blocks(init_txs, block_gas_budget)
+        )
 
     # Final block: Authorize to executor
     blocks.append(
@@ -128,25 +130,33 @@ def delegate_with_calldata(
     The delegated code determines what happens with the calldata.
     The authority nonce is incremented in-place.
     """
-    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
-        calldata=bytes(calldata),
-        authorization_list_or_count=1,
+    authorization = AuthorizationTuple(
+        chain_id=0,
+        address=address,
+        nonce=authority.nonce,
+        signer=authority,
     )
-    gas_limit = intrinsic_gas + 500_000
+    top_frame_kwargs: dict = {
+        "recipient_type": RecipientType.DELEGATION_7702,
+        "authorizations": [authorization],
+    }
+    buffer_gas = 500_000
+    gas_limit = (
+        fork.transaction_intrinsic_cost_calculator()(
+            calldata=bytes(calldata),
+            authorization_list_or_count=1,
+        )
+        + fork.transaction_top_frame_gas_calculator()(**top_frame_kwargs)
+        + fork.transaction_top_frame_state_gas(**top_frame_kwargs)
+        + buffer_gas
+    )
     tx = Transaction(
         gas_limit=gas_limit,
         to=authority,
         value=0,
         data=calldata,
         sender=pre.fund_eoa(),
-        authorization_list=[
-            AuthorizationTuple(
-                chain_id=0,
-                address=address,
-                nonce=authority.nonce,
-                signer=authority,
-            ),
-        ],
+        authorization_list=[authorization],
     )
     authority.nonce = Number(authority.nonce + 1)
     return tx
@@ -198,8 +208,12 @@ def run_bloated_eoa_benchmark(
             txs = tx_generator(sender)
         else:
             gas_available = gas_benchmark_value
-            intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
-            while gas_available >= intrinsic_gas:
+            minimum_tx_gas = fork.transaction_intrinsic_cost_calculator()(
+                recipient_type=RecipientType.DELEGATION_7702
+            ) + fork.transaction_top_frame_gas_calculator()(
+                recipient_type=RecipientType.DELEGATION_7702
+            )
+            while gas_available >= minimum_tx_gas:
                 tx_gas = min(gas_available, tx_gas_limit)
                 txs.append(
                     Transaction(

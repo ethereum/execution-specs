@@ -376,6 +376,7 @@ def test_sstore_variants(
             pre=pre,
             fork=fork,
             tx_gas_limit=tx_gas_limit,
+            block_gas_budget=gas_benchmark_value,
             needs_init=initial_value != 0,
             num_target_slots=num_target_slots,
             initializer_code=initializer_code,
@@ -493,7 +494,8 @@ def test_sstore_dirty_transitions(
 
     Variants:
 
-    - oscillation: X→0→X→0, alternates clean (2900) and dirty (100)
+    - oscillation: X→0→X→0, alternates a clean change (slot access plus
+      `STORAGE_WRITE`) with a dirty one (slot access only)
     - triple_write_restore: X→B→C→X, all SSTORE branches
     - mass_clear: X→0, maximum per-slot refund generation
     """
@@ -539,6 +541,7 @@ def test_sstore_dirty_transitions(
             pre=pre,
             fork=fork,
             tx_gas_limit=tx_gas_limit,
+            block_gas_budget=gas_benchmark_value,
             needs_init=initial_value != 0,
             num_target_slots=num_target_slots,
             initializer_code=initializer_code,
