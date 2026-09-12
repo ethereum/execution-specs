@@ -185,6 +185,7 @@ jobs:
             --client ${{ env.CLIENT }} \
             --client-file ../execution-specs/.github/configs/hive/${{ env.CLIENT_FILE }} \
             --sim.buildarg fixtures=${{ env.FIXTURES_URL }} \
+            --sim.buildarg github_token=${{ github.token }} \
             --sim.limit="${{ matrix.sim_limit }}" \
             --sim.loglevel=5 \
             --docker.buildoutput \
