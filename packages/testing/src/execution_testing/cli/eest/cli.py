@@ -7,7 +7,7 @@ import sys
 
 import click
 
-from .commands import clean, info
+from .commands import clean, images, info
 from .make.cli import make
 
 
@@ -55,3 +55,4 @@ https://click.palletsprojects.com/en/8.0.x/commands/#nested-handling-and-context
 eest.add_command(make)
 eest.add_command(clean)
 eest.add_command(info)
+eest.add_command(images)

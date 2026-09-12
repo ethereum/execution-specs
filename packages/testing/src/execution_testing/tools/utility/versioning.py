@@ -1,5 +1,6 @@
 """Utility module with helper functions for versioning."""
 
+import os
 import re
 from typing import Union
 
@@ -32,7 +33,10 @@ def get_current_commit_hash_or_tag(
             else current_commit.hexsha
         )
     except InvalidGitRepositoryError:
-        # Handle the case where the repository is not a valid Git repository
+        # Not a git repository: the docker images built from this repository
+        # carry the commit they were built from in EEST_GIT_SHA instead.
+        if image_sha := os.environ.get("EEST_GIT_SHA"):
+            return image_sha[:8] if shorten_hash else image_sha
         return "Not a git repository; only seen in framework tests."
 
 

@@ -2,6 +2,7 @@
 Test execution plugin for pytest, to run Ethereum tests on live networks.
 """
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Type
@@ -20,6 +21,9 @@ from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.test_types import (
     Environment,
     EnvironmentDefaults,
+)
+from execution_testing.tools.utility.versioning import (
+    get_current_commit_hash_or_tag,
 )
 
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
@@ -110,6 +114,19 @@ def pytest_configure(config: pytest.Config) -> None:
     # Configuration for the forks pytest plugin
     config.skip_transition_forks = True  # type: ignore[attr-defined]
     config.single_fork_mode = True  # type: ignore[attr-defined]
+
+
+def pytest_report_header(config: pytest.Config) -> list[str]:
+    """Add the execute version and the tests source to the report header."""
+    del config
+    lines = [f"execute ref: {get_current_commit_hash_or_tag()}"]
+    if release := os.environ.get("EEST_TESTS_RELEASE"):
+        # Tests baked into a docker image built from this repository: the
+        # tests are the release's, the framework is the image's commit.
+        lines.append(f"tests release: {release}")
+    if tests_ref := os.environ.get("EEST_TESTS_GIT_SHA"):
+        lines.append(f"tests ref: {tests_ref}")
+    return lines
 
 
 def pytest_metadata(metadata: dict[str, Any]) -> None:
