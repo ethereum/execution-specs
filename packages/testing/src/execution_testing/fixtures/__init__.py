@@ -30,6 +30,7 @@ from .pre_alloc_groups import (
     PreAllocGroups,
     pack_pre_alloc_groups,
 )
+from .reorg import BlockchainEngineReorgFixture
 from .state import StateFixture
 from .transaction import TransactionFixture
 
@@ -40,6 +41,7 @@ __all__ = [
     "BlockchainEngineStatefulFixture",
     "BlockchainEngineSyncFixture",
     "BlockchainEngineXFixture",
+    "BlockchainEngineReorgFixture",
     "BlockchainFixture",
     "BlockchainFixtureCommon",
     "FixtureCollector",
