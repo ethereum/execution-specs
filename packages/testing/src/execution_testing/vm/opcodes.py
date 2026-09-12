@@ -5274,6 +5274,35 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#A4](https://www.evm.codes/#A4)
     """
 
+    EXTENSION = Opcode(0xAE, terminating=True)
+    """
+    EXTENSION()
+    ----
+
+    Description
+    ----
+    Instruction reserved as an extension prefix for non-Ethereum-L1 EVM
+    chains; behaves exactly like INVALID on Ethereum L1
+
+    Inputs
+    ----
+    None
+
+    Outputs
+    ----
+    None
+
+    Fork
+    ----
+    Bogota
+
+    Gas
+    ----
+    All the remaining gas in this context is consumed
+
+    Source: [EIP-8163](https://eips.ethereum.org/EIPS/eip-8163)
+    """
+
     DUPN = Opcode(
         0xE6,
         pushed_stack_items=1,
