@@ -1634,19 +1634,39 @@ def test_set_code_address_and_authority_warm_state_call_types(
 
 
 @pytest.mark.parametrize(
-    "balance",
-    [0, 1],
+    "balance,self_sponsored",
+    [
+        pytest.param(0, False, id="zero_balance_authority"),
+        pytest.param(1, False, id="one_wei_balance_authority"),
+        pytest.param(None, True, id="self_sponsored_tx"),
+    ],
 )
 def test_ext_code_on_self_delegating_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
-    balance: int,
+    balance: int | None,
+    self_sponsored: bool,
 ) -> None:
     """
     Test different ext*code operations on a set-code address that delegates to
     itself.
     """
-    auth_signer = pre.fund_eoa(balance)
+    # Pin gas so BALANCE(auth_signer) is deterministic when the authority
+    # is also the sender (up-front max-fee hold).
+    gas_limit = 1_000_000
+    max_fee_per_gas = 7
+
+    if self_sponsored:
+        auth_balance = 10**18
+        auth_signer = pre.fund_eoa(auth_balance)
+        sender = auth_signer
+        expected_ext_balance = auth_balance - gas_limit * max_fee_per_gas
+    else:
+        assert balance is not None
+        auth_balance = balance
+        auth_signer = pre.fund_eoa(auth_balance)
+        sender = pre.fund_eoa()
+        expected_ext_balance = auth_balance
 
     slot = count(1)
     slot_ext_code_size_result = next(slot)
@@ -1674,47 +1694,82 @@ def test_ext_code_on_self_delegating_set_code(
     callee_storage[slot_ext_code_copy_result] = Hash(
         Spec.delegation_designation(auth_signer), right_padding=True
     )
-    callee_storage[slot_ext_balance_result] = balance
+    callee_storage[slot_ext_balance_result] = expected_ext_balance
 
+    tx_kwargs: dict[str, int] = {}
+    if self_sponsored:
+        tx_kwargs = {
+            "gas_limit": gas_limit,
+            "max_fee_per_gas": max_fee_per_gas,
+            "max_priority_fee_per_gas": 0,
+        }
     tx = Transaction(
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(
                 address=auth_signer,
-                nonce=0,
+                nonce=1 if self_sponsored else 0,
                 signer=auth_signer,
             ),
         ],
-        sender=pre.fund_eoa(),  # TODO: Test with sender as auth_signer
+        sender=sender,
+        **tx_kwargs,
     )
+
+    post_auth: dict = {
+        "nonce": 2 if self_sponsored else 1,
+        "code": Spec.delegation_designation(auth_signer),
+    }
+    if not self_sponsored:
+        # Self-sponsored post balance depends on exact gas_used refunds;
+        # the EXT* BALANCE slot already covers the mid-tx hold.
+        post_auth["balance"] = auth_balance
 
     state_test(
         env=Environment(),
         pre=pre,
         tx=tx,
         post={
-            auth_signer: Account(
-                nonce=1,
-                code=Spec.delegation_designation(auth_signer),
-                balance=balance,
-            ),
+            auth_signer: Account(**post_auth),
             callee_address: Account(storage=callee_storage),
         },
     )
 
 
+@pytest.mark.parametrize(
+    "self_sponsored",
+    [
+        pytest.param(False, id="not_self_sponsored"),
+        pytest.param(True, id="self_sponsored"),
+    ],
+)
 def test_ext_code_on_chain_delegating_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    self_sponsored: bool,
 ) -> None:
     """
     Test different ext*code operations on a set-code address that references
     another delegated address.
     """
-    auth_signer_1_balance = 1
-    auth_signer_2_balance = 0
+    # Pin gas so BALANCE(auth_signer_1) is deterministic when that authority
+    # is also the sender (up-front max-fee hold).
+    gas_limit = 1_000_000
+    max_fee_per_gas = 7
 
-    auth_signer_1 = pre.fund_eoa(auth_signer_1_balance)
+    auth_signer_2_balance = 0
+    if self_sponsored:
+        auth_signer_1_balance = 10**18
+        auth_signer_1 = pre.fund_eoa(auth_signer_1_balance)
+        sender = auth_signer_1
+        expected_ext_balance_1 = (
+            auth_signer_1_balance - gas_limit * max_fee_per_gas
+        )
+    else:
+        auth_signer_1_balance = 1
+        auth_signer_1 = pre.fund_eoa(auth_signer_1_balance)
+        sender = pre.fund_eoa()
+        expected_ext_balance_1 = auth_signer_1_balance
     auth_signer_2 = pre.fund_eoa(auth_signer_2_balance)
 
     slot = count(1)
@@ -1756,7 +1811,7 @@ def test_ext_code_on_chain_delegating_set_code(
     callee_storage[slot_ext_code_copy_result_1] = Hash(
         Spec.delegation_designation(auth_signer_2), right_padding=True
     )
-    callee_storage[slot_ext_balance_result_1] = auth_signer_1_balance
+    callee_storage[slot_ext_balance_result_1] = expected_ext_balance_1
 
     callee_storage[slot_ext_code_size_result_2] = len(
         Spec.delegation_designation(auth_signer_1)
@@ -1769,12 +1824,19 @@ def test_ext_code_on_chain_delegating_set_code(
     )
     callee_storage[slot_ext_balance_result_2] = auth_signer_2_balance
 
+    tx_kwargs: dict[str, int] = {}
+    if self_sponsored:
+        tx_kwargs = {
+            "gas_limit": gas_limit,
+            "max_fee_per_gas": max_fee_per_gas,
+            "max_priority_fee_per_gas": 0,
+        }
     tx = Transaction(
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(
                 address=auth_signer_2,
-                nonce=0,
+                nonce=1 if self_sponsored else 0,
                 signer=auth_signer_1,
             ),
             AuthorizationTuple(
@@ -1783,19 +1845,23 @@ def test_ext_code_on_chain_delegating_set_code(
                 signer=auth_signer_2,
             ),
         ],
-        sender=pre.fund_eoa(),  # TODO: Test with sender as auth_signer
+        sender=sender,
+        **tx_kwargs,
     )
+
+    post_auth_1: dict = {
+        "nonce": 2 if self_sponsored else 1,
+        "code": Spec.delegation_designation(auth_signer_2),
+    }
+    if not self_sponsored:
+        post_auth_1["balance"] = auth_signer_1_balance
 
     state_test(
         env=Environment(),
         pre=pre,
         tx=tx,
         post={
-            auth_signer_1: Account(
-                nonce=1,
-                code=Spec.delegation_designation(auth_signer_2),
-                balance=auth_signer_1_balance,
-            ),
+            auth_signer_1: Account(**post_auth_1),
             auth_signer_2: Account(
                 nonce=1,
                 code=Spec.delegation_designation(auth_signer_1),
