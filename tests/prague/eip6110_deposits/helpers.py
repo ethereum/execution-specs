@@ -1,8 +1,75 @@
 """Helpers for the EIP-6110 deposit tests."""
 
+from hashlib import sha256
 from typing import Dict, Tuple
 
-from execution_testing import Bytecode, Fork, Op, Opcode
+from execution_testing import (
+    EOA,
+    Address,
+    Bytecode,
+    DepositRequest,
+    Fork,
+    Op,
+    Opcode,
+    TestPrivateKey,
+)
+from py_ecc.bls import G2ProofOfPossession
+
+# Well-known BLS secret key used in eth2 tests (`SkToPk(1)`).
+_RECOVERABLE_BLS_SECRET_KEY = 1
+_ETH1_WITHDRAWAL_PREFIX = 0x01
+# `compute_domain(DOMAIN_DEPOSIT)` with genesis fork version and zero GVR.
+_DEPOSIT_DOMAIN = bytes.fromhex(
+    "03000000f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a9"
+)
+
+
+def _sha256(*parts: bytes) -> bytes:
+    """Return SHA-256 of the concatenated parts."""
+    return sha256(b"".join(parts)).digest()
+
+
+def recoverable_deposit_request(
+    *,
+    amount: int = 1_000_000_000,
+    index: int = 0,
+    withdrawal_address: Address | None = None,
+) -> DepositRequest:
+    """
+    Return a deposit signed so mainnet execution can recover the ETH.
+
+    Uses BLS secret key ``1`` and ``0x01`` eth1 withdrawal credentials pointing
+    at ``withdrawal_address`` (default: the well-known ``TestPrivateKey``
+    address). The beacon chain accepts the proof-of-possession, and Capella+
+    withdrawals can sweep to that execution address after exit.
+    """
+    if withdrawal_address is None:
+        withdrawal_address = EOA(key=TestPrivateKey)
+    pubkey = G2ProofOfPossession.SkToPk(_RECOVERABLE_BLS_SECRET_KEY)
+    withdrawal_credentials = (
+        bytes([_ETH1_WITHDRAWAL_PREFIX])
+        + b"\x00" * 11
+        + bytes(withdrawal_address)
+    )
+    pubkey_root = _sha256(pubkey, b"\x00" * 16)
+    amount_root = amount.to_bytes(8, "little") + b"\x00" * 24
+    deposit_message_root = _sha256(
+        _sha256(pubkey_root, withdrawal_credentials),
+        _sha256(amount_root, b"\x00" * 32),
+    )
+    signing_root = _sha256(deposit_message_root, _DEPOSIT_DOMAIN)
+    signature = G2ProofOfPossession.Sign(
+        _RECOVERABLE_BLS_SECRET_KEY, signing_root
+    )
+    assert G2ProofOfPossession.Verify(pubkey, signing_root, signature)
+    return DepositRequest(
+        pubkey=pubkey,
+        withdrawal_credentials=withdrawal_credentials,
+        amount=amount,
+        signature=signature,
+        index=index,
+    )
+
 
 # The deposit contract is a compiled predeploy, so the gas it charges cannot
 # be read off its source. The tables below are the opcodes it executes for one
