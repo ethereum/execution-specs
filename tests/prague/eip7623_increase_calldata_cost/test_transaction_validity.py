@@ -159,10 +159,6 @@ def test_transaction_validity_type_0(
     "ty",
     [pytest.param(1, id="type_1"), pytest.param(2, id="type_2")],
 )
-# TODO[EIP-8037]: Contract creation state gas
-# (G_TRANSACTION_CREATE) split affects intrinsic gas
-# calculation for Amsterdam.
-@pytest.mark.valid_before("EIP8037")
 def test_transaction_validity_type_1_type_2(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -171,6 +167,11 @@ def test_transaction_validity_type_1_type_2(
     """
     Test transaction validity for transactions with access lists and contract
     creation.
+
+    Under EIP-8037 / EIP-2780, ``NEW_ACCOUNT`` for a create transaction is
+    charged at the top frame (not in the pre-execution intrinsic), so the
+    EIP-7623 floor / intrinsic validity bounds from the shared fixtures
+    already apply on Amsterdam without a separate create-gas path.
     """
     state_test(
         pre=pre,
