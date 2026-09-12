@@ -304,6 +304,13 @@ class ForkLoad:
         """decode_transaction function of the fork."""
         return self._module("transactions").decode_transaction
 
+    def encode_transaction(self, tx: Any) -> Any:
+        """Return the transaction representation used in a block body."""
+        transactions = self._module("transactions")
+        if hasattr(transactions, "encode_transaction"):
+            return transactions.encode_transaction(tx)
+        return tx
+
     @property
     def state_provider(self) -> Any:
         """
