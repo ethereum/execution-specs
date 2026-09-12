@@ -27,6 +27,7 @@ from execution_testing import (
     AuthorizationTuple,
     Bytecode,
     Fork,
+    GasConsumer,
     Op,
     Opcode,
     StateTestFiller,
@@ -552,24 +553,17 @@ def test_repaid_credit_funds_execution(
             Op.DELEGATECALL(gas=Op.GAS, address=clearer, address_warm=False)
         )
     )
-    # TODO: The tail spends a set amount of execution gas; a JUMPDEST
-    # run is the most future-proof inline way until a fork util exists.
-    tail_ops = min(
-        sstore_state_gas // Op.JUMPDEST.gas_cost(fork),
-        fork.max_code_size() - len(head),
-    )
-    tail = Op.JUMPDEST * tail_ops
-    code = head + tail
-    contract = pre.deploy_contract(code=code)
-
     # A sliver covering the child's SSTORE stipend sentry through the
     # one-in-64 withholding. It survives the merge unspent.
     sliver = budget_above_sstore_stipend(fork, clearer_code) * 64 // 63 + 1
-    tail_cost = tail.gas_cost(fork)
-    # The tail must overrun the sliver yet fit inside the repaid
-    # credit, or the completion stops demonstrating the repayment buys
-    # execution.
-    assert sliver < tail_cost <= sstore_state_gas
+    # Burn exactly the repaid state-gas credit as execution gas. The
+    # tail must overrun the sliver yet fit inside that credit, or the
+    # completion stops demonstrating the repayment buys execution.
+    tail_cost = sstore_state_gas
+    assert sliver < tail_cost
+    tail = GasConsumer(gas=tail_cost, fork=fork)
+    code = head + tail
+    contract = pre.deploy_contract(code=code)
 
     gas_limit = (
         intrinsic_cost
