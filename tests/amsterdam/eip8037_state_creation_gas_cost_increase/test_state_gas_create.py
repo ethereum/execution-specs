@@ -999,6 +999,101 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     )
 
 
+@pytest.mark.parametrize("enough_regular_gas", [False, True])
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.valid_from("EIP8037")
+def test_code_deposit_regular_gas_with_covering_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    enough_regular_gas: bool,
+) -> None:
+    """
+    Test the code deposit's regular component is not payable from the
+    reservoir.
+
+    With the reservoir covering the deposit's state component outright,
+    the deposit hinges on `gas_left` alone covering the code hash gas.
+    """
+    deploy_size = 4096
+    init_code = Op.RETURN(0, deploy_size, new_memory_size=deploy_size)
+    code_deposit = Op.RETURN(code_deposit_size=deploy_size)
+    regular_deposit_gas = code_deposit.execution_cost(fork)
+
+    create_call = Op.CREATE(
+        value=0,
+        offset=32 - len(init_code),
+        size=len(init_code),
+        init_code_size=len(init_code),
+    )
+    factory_code = (
+        Op.MSTORE(0, Op.PUSH32(bytes(init_code)), new_memory_size=32)
+        + create_call
+    )
+    factory = pre.deploy_contract(code=factory_code)
+
+    # Aim the initcode frame's leftover half a window below or above the
+    # regular component. The affordable case is the control: the same setup
+    # with more gas has to reach the deposit for the rejection to mean
+    # anything.
+    deposit_gas_left = regular_deposit_gas // 2
+    if enough_regular_gas:
+        deposit_gas_left += regular_deposit_gas
+
+    # Invert the CREATE 63/64 withholding to land the grant on target.
+    initcode_grant = init_code.execution_cost(fork) + deposit_gas_left
+    gas_at_create = initcode_grant * 64 // 63
+    child_gas = gas_at_create + factory_code.execution_cost(fork)
+
+    caller_code = Op.CALL(gas=child_gas, address=factory)
+    caller = pre.deploy_contract(code=caller_code)
+
+    # Cover both state charges outright so the deposit never spills into
+    # gas_left.
+    reservoir = create_call.state_cost(fork) + code_deposit.state_cost(fork)
+
+    # A rejected deposit forfeits the whole grant and refunds the account
+    # charge, leaving the transaction no net state gas.
+    create_execution_gas = (
+        init_code.execution_cost(fork) + regular_deposit_gas
+        if enough_regular_gas
+        else initcode_grant
+    )
+    expected_execution = (
+        fork.transaction_intrinsic_cost_calculator()()
+        + fork.transaction_top_frame_execution_gas(contract_creation=False)
+        + caller_code.execution_cost(fork)
+        + factory_code.execution_cost(fork)
+        + create_execution_gas
+    )
+    expected_state = reservoir if enough_regular_gas else 0
+
+    tx = Transaction(
+        to=caller,
+        state_gas_reservoir=reservoir,
+        sender=pre.fund_eoa(),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_execution + expected_state,
+        ),
+    )
+
+    created = compute_create_address(address=factory, nonce=1)
+    post = {
+        factory: Account(nonce=2),
+        created: Account(code=bytes(deploy_size))
+        if enough_regular_gas
+        else Account.NONEXISTENT,
+    }
+    state_test(
+        pre=pre,
+        post=post,
+        tx=tx,
+        blockchain_test_header_verify=Header(
+            gas_used=max(expected_execution, expected_state)
+        ),
+    )
+
+
 @pytest.mark.parametrize(
     ("with_reservoir", "failure_op"),
     [
