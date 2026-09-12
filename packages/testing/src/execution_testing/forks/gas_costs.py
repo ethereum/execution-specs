@@ -45,7 +45,6 @@ class GasCosts:
     CALL_STIPEND: int
     NEW_ACCOUNT: int
     ACCOUNT_WRITE: int = 0
-    CREATE_ACCESS: int = 0
     TX_VALUE_COST: int = 0
 
     # Contract Creation
@@ -157,12 +156,5 @@ class GasCosts:
     OPCODE_KECCAK256_PER_WORD: int
 
     # Defined post-Frontier
-    OPCODE_SHL: int = 0
-    OPCODE_SHR: int = 0
-    OPCODE_SAR: int = 0
-    OPCODE_RETURNDATACOPY_BASE: int = 0
-    OPCODE_BLOBHASH: int = 0
-    OPCODE_MCOPY_BASE: int = 0
-    OPCODE_CLZ: int = 0
     OPCODE_TLOAD: int = 0
     OPCODE_TSTORE: int = 0
