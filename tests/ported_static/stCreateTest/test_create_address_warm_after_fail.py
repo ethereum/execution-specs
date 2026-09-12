@@ -27,6 +27,7 @@ from execution_testing import (
     Address,
     Alloc,
     CodeGasMeasure,
+    GasConsumer,
     Hash,
     StateTestFiller,
     Transaction,
@@ -218,20 +219,12 @@ def test_create_address_warm_after_fail(
             outcome = CONSTRUCTOR_OUT_OF_GAS
 
         elif initcode_outcome == "oog-post-constr":
-            # Run OOG at the JUMPDEST
+            # Run OOG after the constructor has returned. The sink is
+            # unpayable at any gas limit, so it does not have to be sized
+            # against the memory prices of a particular fork.
             gas = initcode_success_gas
             callee_code_suffix = (
-                Op.MSTORE(
-                    2**12,
-                    1,
-                    old_memory_size=32,
-                    new_memory_size=2**12,
-                )
-                + Op.STOP
-            )
-            assert callee_code_suffix.gas_cost(fork) > (
-                gas
-                - (pre_create_code.gas_cost(fork) + initcode.gas_cost(fork))
+                GasConsumer.out_of_gas(fork, previous_memory_size=32) + Op.STOP
             )
             # Callee runs out of gas, the created contract warming is reverted.
             outcome = CALLEE_OUT_OF_GAS
