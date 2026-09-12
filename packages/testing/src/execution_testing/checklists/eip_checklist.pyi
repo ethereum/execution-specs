@@ -440,7 +440,6 @@ class EIPChecklist:
 
             class IntrinsicValidity(_CallableChecklistItem):
                 ChainId: _CallableChecklistItem
-                DataFloorAboveIntrinsicGasCost: _CallableChecklistItem
                 NonceExact: _CallableChecklistItem
                 NonceMinusOne: _CallableChecklistItem
                 NoncePlusOne: _CallableChecklistItem
@@ -449,6 +448,10 @@ class EIPChecklist:
                 ValueNonZeroSufficientBalance: _CallableChecklistItem
                 ValueZeroInsufficientBalance: _CallableChecklistItem
                 ValueZeroSufficientBalance: _CallableChecklistItem
+
+                class DataFloorAboveIntrinsicGasCost(_CallableChecklistItem):
+                    GasLimitFloor: _CallableChecklistItem
+                    GasLimitIntrinsic: _CallableChecklistItem
 
                 class GasLimit(_CallableChecklistItem):
                     Exact: _CallableChecklistItem
