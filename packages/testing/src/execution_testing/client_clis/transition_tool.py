@@ -330,6 +330,12 @@ class TransitionTool(EthereumCLI):
         reward: int
         blob_schedule: BlobSchedule | None
         state_test: bool = False
+        fork_activation: bool = False
+        """
+        Whether this block is the first block of `fork`, i.e. the parent
+        block belongs to an earlier fork. One-time fork-block state
+        transitions (EIP-8253) are applied only when set.
+        """
 
         @property
         def fork_name(self) -> str:
@@ -379,6 +385,7 @@ class TransitionTool(EthereumCLI):
                     fork=self.fork_name,
                     chain_id=self.chain_id,
                     reward=self.reward,
+                    fork_activation=self.fork_activation,
                 ),
                 input=self.to_input(),
             )

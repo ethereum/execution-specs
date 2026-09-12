@@ -933,6 +933,17 @@ class BlockchainTest(BaseTest):
         )
         env = env.set_fork_requirements(fork)
         env.check_fork_fields(fork)
+        # The block activates `fork` when its parent belongs to an earlier
+        # fork; one-time fork-block state transitions apply only then.
+        fork_activation = (
+            int(env.number) > 0
+            and env.parent_timestamp is not None
+            and self.fork.fork_at(
+                block_number=int(env.number) - 1,
+                timestamp=int(env.parent_timestamp),
+            )
+            != fork
+        )
         txs = block.txs[:]
         if any("gas_limit" not in tx.model_fields_set for tx in block.txs):
             max_tx_gas_limit = Transaction.calculate_max_gas_limit(
@@ -977,6 +988,7 @@ class BlockchainTest(BaseTest):
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
+                fork_activation=fork_activation,
             ),
             slow_request=self.is_tx_gas_heavy_test,
         )

@@ -1098,6 +1098,11 @@ class Frontier(BaseFork):
         return None
 
     @classmethod
+    def zero_nonce_storage_accounts(cls) -> List[Address]:
+        """At Genesis, no zero-nonce storage account has its nonce bumped."""
+        return []
+
+    @classmethod
     def max_code_size(cls) -> int:
         """
         At genesis, there is no upper bound for code size (bounded by block gas

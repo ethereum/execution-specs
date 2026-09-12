@@ -31,7 +31,7 @@ from ethereum.merkle_patricia_trie import root, trie_set
 from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff
 from ethereum.state_mpt import State, apply_changes_to_state
 
-from . import vm
+from . import FORK_CRITERIA, vm
 from .block_access_lists import (
     BlockAccessListBuilder,
     build_block_access_list,
@@ -103,6 +103,7 @@ from .vm.gas import (
     settle_transaction_gas,
 )
 from .vm.interpreter import TransactionOutput, process_top_level
+from .zero_nonce_storage_accounts import bump_zero_nonce_storage_accounts
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
 ELASTICITY_MULTIPLIER = Uint(2)
@@ -327,6 +328,7 @@ def execute_block(
         block_env=block_env,
         transactions=block.transactions,
         withdrawals=block.withdrawals,
+        is_fork_block=is_fork_block(parent_header, block.header),
     )
     block_diff = extract_block_diff(block_state)
     block_state_root = pre_state.compute_state_root(block_diff)
@@ -363,6 +365,36 @@ def execute_block(
         raise InvalidBlock("Invalid block access list hash")
 
     return block_diff
+
+
+def is_fork_block(
+    parent_header: Header | PreviousHeader, header: Header
+) -> bool:
+    """
+    Check whether `header` is the first block of this fork.
+
+    The fork block is the first block that meets `FORK_CRITERIA` while its
+    parent does not. An unscheduled fork never activates, so no block is its
+    fork block.
+
+    Parameters
+    ----------
+    parent_header :
+        The header of the parent block.
+    header :
+        The header of the block being executed.
+
+    Returns
+    -------
+    is_fork_block : `bool`
+        True if `header` activates this fork.
+
+    """
+    return FORK_CRITERIA.check(
+        header.number, header.timestamp
+    ) and not FORK_CRITERIA.check(
+        parent_header.number, parent_header.timestamp
+    )
 
 
 def calculate_base_fee_per_gas(
@@ -789,6 +821,7 @@ def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[LegacyTransaction | Bytes, ...],
     withdrawals: Tuple[Withdrawal, ...],
+    is_fork_block: bool,
 ) -> vm.BlockOutput:
     """
     Executes a block.
@@ -808,6 +841,9 @@ def apply_body(
         Transactions included in the block.
     withdrawals :
         Withdrawals to be processed in the current block.
+    is_fork_block :
+        Whether this block is the first block of the fork, in which case the
+        one-time state transition of EIP-8253 is applied first.
 
     Returns
     -------
@@ -816,6 +852,9 @@ def apply_body(
 
     """
     block_output = vm.BlockOutput()
+
+    if is_fork_block:
+        bump_zero_nonce_storage_accounts(block_env)
 
     process_unchecked_system_transaction(
         block_env=block_env,
