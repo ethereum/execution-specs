@@ -8,6 +8,7 @@ import pytest
 from execution_testing import (
     AccessList,
     Account,
+    Address,
     Alloc,
     AuthorizationTuple,
     Block,
@@ -1395,21 +1396,32 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
     """
     Check operations when reenter the pointer again.
 
-    TODO: feel free to extend the code checks under given scenarios in
-          switch case.
+    Under the pointer reentry frame, context opcodes keep the EOA identity
+    (``ADDRESS`` / ``SELFBALANCE`` / ``CALLER``) while ``CODESIZE`` follows
+    the delegated body and ``EXTCODESIZE(ADDRESS)`` sees the designation.
+    Calling the delegation target directly after reentry restores normal
+    contract context (``EXTCODESIZE(ADDRESS) == CODESIZE``).
     """
     env = Environment()
     arg_contract = 0
     arg_action = 32
+    calldata_words = 2
+    calldata_size = 32 * calldata_words
+    # ef0100 || address — length does not depend on the target address.
+    designation_size = len(Spec.delegation_designation(Address(0)))
 
     storage_b = Storage()
     storage_b.store_next(1, "contract_calls")
     storage_b.store_next(1, "tstore_slot")
     slot_reentry_address = storage_b.store_next(1, "address")
+    # Absolute CODESIZE / EXTCODESIZE filled after the bytecode is built.
+    slot_contract_codesize = storage_b.store_next(0, "codesize")
+    slot_contract_extcodesize = storage_b.store_next(0, "extcodesize")
 
     storage_pointer_b = Storage()
     slot_calls = storage_pointer_b.store_next(2, "pointer_calls")
     slot_tstore = storage_pointer_b.store_next(2, "tstore_slot")
+    slot_pointer_codesize = storage_pointer_b.store_next(0, "codesize")
 
     sender = pre.fund_eoa()
     pointer_b = pre.fund_eoa(amount=1000)
@@ -1417,12 +1429,14 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
         code=Op.MSTORE(arg_contract, Op.CALLDATALOAD(arg_contract))
         + Op.MSTORE(arg_action, Op.CALLDATALOAD(arg_action))
         + Op.CALL(
-            gas=400_000, address=pointer_b, args_offset=0, args_size=32 * 2
+            gas=400_000,
+            address=pointer_b,
+            args_offset=0,
+            args_size=calldata_size,
         )
     )
-    contract_b = pre.deploy_contract(
-        balance=100,
-        code=Op.MSTORE(arg_contract, Op.CALLDATALOAD(arg_contract))
+    contract_code = (
+        Op.MSTORE(arg_contract, Op.CALLDATALOAD(arg_contract))
         + Op.MSTORE(arg_action, Op.CALLDATALOAD(arg_action))
         + Op.SSTORE(slot_calls, Op.ADD(Op.SLOAD(slot_calls), 1))
         + Op.TSTORE(slot_tstore, Op.ADD(Op.TLOAD(slot_tstore), 1))
@@ -1438,7 +1452,7 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                         gas=500_000,
                         address=proxy,
                         args_offset=0,
-                        args_size=32 * 2,
+                        args_size=calldata_size,
                     )
                     + Op.STOP(),
                 ),
@@ -1464,6 +1478,23 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                         storage_pointer_b.store_next(proxy, "caller"),
                         Op.CALLER(),
                     )
+                    + Op.SSTORE(
+                        storage_pointer_b.store_next(0, "callvalue"),
+                        Op.CALLVALUE(),
+                    )
+                    + Op.SSTORE(
+                        storage_pointer_b.store_next(
+                            calldata_size, "calldatasize"
+                        ),
+                        Op.CALLDATASIZE(),
+                    )
+                    + Op.SSTORE(slot_pointer_codesize, Op.CODESIZE())
+                    + Op.SSTORE(
+                        storage_pointer_b.store_next(
+                            designation_size, "extcodesize"
+                        ),
+                        Op.EXTCODESIZE(Op.ADDRESS()),
+                    )
                     # now call contract which is pointer dest directly
                     + Op.MSTORE(
                         arg_action, ReentryAction.MEASURE_VALUES_CONTRACT
@@ -1472,7 +1503,7 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                         gas=500_000,
                         address=Op.MLOAD(arg_contract),
                         args_offset=0,
-                        args_size=32 * 2,
+                        args_size=calldata_size,
                     ),
                 ),
                 Case(
@@ -1494,14 +1525,30 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                     )
                     + Op.SSTORE(
                         storage_b.store_next(pointer_b, "caller"), Op.CALLER()
+                    )
+                    + Op.SSTORE(
+                        storage_b.store_next(0, "callvalue"),
+                        Op.CALLVALUE(),
+                    )
+                    + Op.SSTORE(
+                        storage_b.store_next(calldata_size, "calldatasize"),
+                        Op.CALLDATASIZE(),
+                    )
+                    + Op.SSTORE(slot_contract_codesize, Op.CODESIZE())
+                    + Op.SSTORE(
+                        slot_contract_extcodesize, Op.EXTCODESIZE(Op.ADDRESS())
                     ),
                 ),
             ],
             default_action=None,
-        ),
+        )
     )
-
+    contract_b = pre.deploy_contract(balance=100, code=contract_code)
+    codesize = len(contract_code)
     storage_b[slot_reentry_address] = contract_b
+    storage_b[slot_contract_codesize] = codesize
+    storage_b[slot_contract_extcodesize] = codesize
+    storage_pointer_b[slot_pointer_codesize] = codesize
 
     tx = Transaction(
         to=pointer_b,
