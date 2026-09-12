@@ -74,6 +74,16 @@ class FixtureOutput(BaseModel):
         engine_x_dir = BlockchainEngineXFixture.output_base_dir_name()
         return self.directory / engine_x_dir / "pre_alloc"
 
+    @property
+    def hive_folder_path(self) -> Path:
+        """Return the path for hive genesis files folder."""
+        from execution_testing.fixtures.blockchain import (
+            BlockchainEngineXFixture,
+        )
+
+        engine_x_dir = BlockchainEngineXFixture.output_base_dir_name()
+        return self.directory / engine_x_dir / "hive"
+
     @staticmethod
     def strip_tarball_suffix(path: Path) -> Path:
         """Strip the '.tar.gz' suffix from the output path."""
@@ -108,6 +118,8 @@ class FixtureOutput(BaseModel):
             allowed_files = set(
                 self.pre_alloc_groups_folder_path.rglob("*.json")
             )
+            if self.hive_folder_path.exists():
+                allowed_files |= set(self.hive_folder_path.rglob("*.json"))
             return existing_files == allowed_files
         else:
             # Normal filling: Directory must be empty
