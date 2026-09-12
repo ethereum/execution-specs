@@ -1414,6 +1414,150 @@ def test_reverted_dispatch_state_gas_counts_toward_block_limit(
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.inclusion_test
+@pytest.mark.parametrize("failure_point", ["authorization", "dispatch_access"])
+@pytest.mark.parametrize(
+    "with_reservoir", [False, True], ids=["spill", "mixed"]
+)
+@pytest.mark.parametrize(
+    "delta",
+    [
+        pytest.param(0, id="exact_fit"),
+        pytest.param(1, id="exceeded", marks=pytest.mark.exception_test),
+    ],
+)
+def test_preparation_rollback_restores_block_state_budget(
+    fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    failure_point: str,
+    with_reservoir: bool,
+    delta: int,
+) -> None:
+    """
+    Exclude rolled-back authorization charges from the block state budget.
+
+    Fail before or after the authorization gas commit, then probe the next
+    transaction's inclusion at the restored state-budget boundary.
+    """
+    cap = fork.transaction_gas_limit_cap()
+    assert cap is not None, "EIP-7825 cap expected on this fork"
+    block_gas_limit = 100_000_000
+
+    target = pre.deploy_contract(code=Op.STOP)
+    recipient = pre.fund_eoa(delegation=target)
+    probe = build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
+    base_intrinsic = _intrinsic_execution(
+        fork, [], recipient_type=RecipientType.DELEGATION_7702
+    )
+    per_auth_intrinsic = (
+        _intrinsic_execution(
+            fork,
+            [probe.authorization],
+            recipient_type=RecipientType.DELEGATION_7702,
+        )
+        - base_intrinsic
+    )
+    per_auth_charges = _auth_top_frame_charges(fork, [probe.authorization])
+    per_auth_total = per_auth_intrinsic + per_auth_charges
+    # Preparation can exhaust a nonzero reservoir only with enough
+    # authorizations to consume the execution cap as well.
+    auth_count = (
+        (cap - base_intrinsic) // per_auth_total + 2 if with_reservoir else 2
+    )
+    auths = [probe] + [
+        build_authorization(pre, AuthorizationAction.CREATES_ACCOUNT)
+        for _ in range(auth_count - 1)
+    ]
+    authorization_list = [auth.authorization for auth in auths]
+    preparation_gas = base_intrinsic + auth_count * per_auth_total
+    if failure_point == "dispatch_access":
+        preparation_gas += fork.transaction_top_frame_execution_gas(
+            recipient_type=RecipientType.DELEGATION_7702,
+        )
+    # Starve the last AUTH_BASE charge, or the access after all
+    # authorizations have applied and their state gas has been committed.
+    failed_gas_limit = preparation_gas - 1
+    failed_execution = min(cap, failed_gas_limit)
+    auth_state = fork.transaction_top_frame_state_gas(
+        recipient_type=RecipientType.CONTRACT,
+        authorizations=authorization_list,
+    )
+    if with_reservoir:
+        assert 0 < failed_gas_limit - cap < auth_state
+    else:
+        assert failed_gas_limit < cap
+
+    # Keep the probe below the block's standalone gas limit in both
+    # cases, so only cumulative state accounting decides inclusion.
+    seed_code = Op.SSTORE(0, 1, original_value=0, new_value=1)
+    seed_recipient = pre.deploy_contract(code=seed_code)
+    seed_state = seed_code.state_cost(fork)
+    seed_execution = _intrinsic_execution(
+        fork, [], recipient_type=RecipientType.CONTRACT
+    ) + seed_code.execution_cost(fork)
+    seed_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=seed_recipient,
+        gas_limit=seed_execution + seed_state,
+    )
+    failed_sender = pre.fund_eoa()
+    failed_tx = Transaction(
+        sender=failed_sender,
+        to=recipient,
+        authorization_list=authorization_list,
+        gas_limit=failed_gas_limit,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=seed_execution + seed_state + failed_execution,
+        ),
+    )
+    last_gas_limit = block_gas_limit - seed_state + delta
+    assert last_gas_limit < block_gas_limit
+    assert min(cap, last_gas_limit) < (
+        block_gas_limit - seed_execution - failed_execution
+    ), "the execution budget must not decide the probe's inclusion"
+    last_error = TransactionException.GAS_ALLOWANCE_EXCEEDED if delta else None
+    last_tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=target,
+        gas_limit=last_gas_limit,
+        error=last_error,
+    )
+    last_execution = _intrinsic_execution(
+        fork, [], recipient_type=RecipientType.CONTRACT
+    )
+    post: dict[Address, Account | None] = (
+        {}
+        if delta
+        else {
+            seed_recipient: Account(storage={0: 1}),
+            failed_sender: Account(nonce=1),
+            **{auth.authority: Account.NONEXISTENT for auth in auths},
+        }
+    )
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=block_gas_limit),
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[seed_tx, failed_tx, last_tx],
+                gas_limit=block_gas_limit,
+                exception=last_error,
+                header_verify=None
+                if delta
+                else Header(
+                    gas_used=max(
+                        seed_execution + failed_execution + last_execution,
+                        seed_state,
+                    ),
+                ),
+            ),
+        ],
+        post=post,
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 def test_recipient_new_account_refilled_on_dispatch_halt_with_reservoir(
     fork: Fork,
     pre: Alloc,
