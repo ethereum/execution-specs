@@ -274,7 +274,7 @@ class ClientBackend:
         del slow_request  # not meaningful for the engine path
         env = transition_tool_data.env
         txs = transition_tool_data.txs
-        block_fork = transition_tool_data.fork
+        block_fork = transition_tool_data.active_fork
 
         payload_attributes = self._payload_attributes(env, block_fork)
         parent_block_hash = Hash(env.parent_hash or 0)

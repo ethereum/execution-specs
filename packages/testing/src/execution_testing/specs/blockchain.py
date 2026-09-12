@@ -973,7 +973,7 @@ class BlockchainTest(BaseTest):
                 alloc=previous_alloc,
                 txs=txs,
                 env=env,
-                fork=fork,
+                fork=self.fork,
                 chain_id=self.chain_id,
                 reward=fork.get_reward(),
                 blob_schedule=fork.blob_schedule(),
