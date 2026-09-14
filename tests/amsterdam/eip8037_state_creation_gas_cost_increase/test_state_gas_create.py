@@ -1049,8 +1049,13 @@ def test_code_deposit_regular_gas_with_covering_reservoir(
     caller = pre.deploy_contract(code=caller_code)
 
     # Cover both state charges outright so the deposit never spills into
-    # gas_left.
-    reservoir = create_call.state_cost(fork) + code_deposit.state_cost(fork)
+    # gas_left, and leave the regular component's worth of slack on top:
+    # a client paying the code hash gas from the reservoir deploys where
+    # the rule rejects.
+    state_charges = create_call.state_cost(fork) + code_deposit.state_cost(
+        fork
+    )
+    reservoir = state_charges + regular_deposit_gas
 
     # A rejected deposit forfeits the whole grant and refunds the account
     # charge, leaving the transaction no net state gas.
@@ -1066,7 +1071,7 @@ def test_code_deposit_regular_gas_with_covering_reservoir(
         + factory_code.execution_cost(fork)
         + create_execution_gas
     )
-    expected_state = reservoir if enough_regular_gas else 0
+    expected_state = state_charges if enough_regular_gas else 0
 
     tx = Transaction(
         to=caller,
