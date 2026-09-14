@@ -1039,21 +1039,17 @@ def test_gas_cost(
         gas_limit_cap = fork.transaction_gas_limit_cap()
         assert gas_limit_cap is None or tx_gas_limit <= gas_limit_cap
 
+        # The calldata floor never binds here: the per-authorization
+        # intrinsic charge alone exceeds the floor of the tiny calldata.
+        # If it did, the top frame would enter with the floor excess as
+        # extra gas_left and the GAS measure below would be wrong.
         intrinsic_with_floor = fork.transaction_intrinsic_cost_calculator()(
             calldata=data,
             access_list=access_list,
             authorization_list_or_count=annotated_auths,
             recipient_type=RecipientType.CONTRACT,
         )
-        if tx_gas_limit < intrinsic_with_floor:
-            # Floor only affects validation/settlement; keep the same
-            # post-intrinsic top-frame + code budget above the floor.
-            tx_gas_limit = (
-                intrinsic_with_floor
-                + top_frame_execution
-                + top_frame_state
-                + code_gas
-            )
+        assert tx_gas_limit >= intrinsic_with_floor
 
         # No existing-authority refund.
         gas_used = (
