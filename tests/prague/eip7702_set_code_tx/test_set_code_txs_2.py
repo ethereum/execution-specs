@@ -41,7 +41,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7702.version
 def test_pointer_contract_pointer_loop(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
     sender_delegated: bool,
     sender_is_auth_signer: bool,
 ) -> None:
@@ -50,7 +49,9 @@ def test_pointer_contract_pointer_loop(
 
     Call pointer that goes more level of depth to call a contract loop.
 
-    Loop is created only if pointers are set with auth tuples.
+    Loop is created only if pointers are set with auth tuples. The loop
+    stops after a fixed number of iterations rather than running out of
+    gas, so the expected storage does not depend on the gas schedule.
     """
     env = Environment()
 
@@ -75,16 +76,16 @@ def test_pointer_contract_pointer_loop(
     )
 
     storage_loop: Storage = Storage()
-    # Prague gas_limit is 1M → 112 loop iterations. Amsterdam bumps the
-    # gas_limit to 3M for EIP-8037 state-gas overhead; fill measures 113
-    # iterations under the 2D gas model (not the stale 117 guess).
-    expected_loop_count = 113 if fork.is_eip_enabled(8037) else 112
+    loop_iterations = 50
     contract_worked = storage_loop.store_next(
-        expected_loop_count, "contract_loop_worked"
+        loop_iterations, "contract_loop_worked"
     )
     contract_loop = pre.deploy_contract(
         code=Op.SSTORE(contract_worked, Op.ADD(1, Op.SLOAD(0)))
-        + Op.CALL(gas=1_000_000, address=pointer_a)
+        + Conditional(
+            condition=Op.LT(Op.SLOAD(0), loop_iterations),
+            if_true=Op.CALL(gas=1_000_000, address=pointer_a),
+        )
         + Op.STOP,
     )
     nonce = (
@@ -97,7 +98,6 @@ def test_pointer_contract_pointer_loop(
 
     tx = Transaction(
         to=pointer_a,
-        gas_limit=(3_000_000 if fork.is_eip_enabled(8037) else 1_000_000),
         data=b"",
         value=0,
         sender=sender,
