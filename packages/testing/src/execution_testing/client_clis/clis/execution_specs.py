@@ -264,6 +264,14 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         TransactionException.LOG_MISMATCH: "LogMismatchError",
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        # An in-range r that is not the x-coordinate of any secp256k1 point:
+        # recovery has no solution, so the transaction has no sender. Distinct
+        # from the "bad r"/"bad s"/"bad v" range failures in
+        # mapping_substring, and raised from ethereum.crypto.elliptic_curve
+        # rather than from the transaction validation itself.
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            r"InvalidSignatureError\('r is not the x-coordinate"
+        ),
         # Temporary solution for issue #1981.
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             r"InsufficientMaxFeePerGasError|InvalidBlock"

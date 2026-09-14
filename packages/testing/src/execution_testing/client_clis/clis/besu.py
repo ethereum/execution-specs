@@ -455,7 +455,9 @@ class BesuExceptionMapper(ExceptionMapper):
         TransactionException.INVALID_SIGNATURE_VRS: (
             r"Failed to decode transactions from block parameter|"
             r"transaction invalid Signature s value should be less "
-            r"than \d+, but got \d+"
+            r"than \d+, but got \d+|"
+            # In-range r that is not an x-coordinate on the curve.
+            r"Cannot recover public key from signature"
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"Blob transaction 0x[0-9a-f]+ exceeds "

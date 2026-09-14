@@ -405,6 +405,11 @@ class NethermindExceptionMapper(ExceptionMapper):
         ),
     }
     mapping_regex = {
+        # In-range r that is not an x-coordinate on the curve leaves the
+        # transaction without a recovered sender.
+        TransactionException.INVALID_SIGNATURE_VRS: (
+            r"failed with error sender not specified"
+        ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             r"insufficient sender balance|"
             r"insufficient MaxFeePerGas for sender balance"

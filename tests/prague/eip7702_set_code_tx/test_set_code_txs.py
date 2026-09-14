@@ -2453,6 +2453,11 @@ def test_set_code_using_valid_synthetic_signatures(
         pytest.param(2**8 - 1, 1, 1, id="v=2**8-1"),
         # R
         pytest.param(1, 0, 1, id="r=0"),
+        # In range but not the x-coordinate of any curve point: 5 is the
+        # smallest such value, as 5**3 + 7 is a quadratic non-residue mod p.
+        # Recovery has no solution, so the authorization is skipped.
+        pytest.param(0, 5, 1, id="r=5_not_on_curve"),
+        # SECP256K1N - 1 is in range and, by chance, also off the curve.
         pytest.param(0, SECP256K1N - 1, 1, id="r=SECP256K1N-1"),
         pytest.param(0, SECP256K1N, 1, id="r=SECP256K1N"),
         pytest.param(0, SECP256K1N + 1, 1, id="r=SECP256K1N+1"),
