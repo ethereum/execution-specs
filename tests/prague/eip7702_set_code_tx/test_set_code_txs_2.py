@@ -1429,7 +1429,7 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
         code=Op.MSTORE(arg_contract, Op.CALLDATALOAD(arg_contract))
         + Op.MSTORE(arg_action, Op.CALLDATALOAD(arg_action))
         + Op.CALL(
-            gas=400_000,
+            gas=Op.GAS,
             address=pointer_b,
             args_offset=0,
             args_size=calldata_size,
@@ -1449,7 +1449,7 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                     ),
                     action=Op.MSTORE(arg_action, ReentryAction.MEASURE_VALUES)
                     + Op.CALL(
-                        gas=500_000,
+                        gas=Op.GAS,
                         address=proxy,
                         args_offset=0,
                         args_size=calldata_size,
@@ -1500,7 +1500,7 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                         arg_action, ReentryAction.MEASURE_VALUES_CONTRACT
                     )
                     + Op.CALL(
-                        gas=500_000,
+                        gas=Op.GAS,
                         address=Op.MLOAD(arg_contract),
                         args_offset=0,
                         args_size=calldata_size,
