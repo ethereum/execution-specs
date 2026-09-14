@@ -12,6 +12,7 @@ tracking and NOOP filtering behavior.
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     BalAccountAbsentValues,
     BalAccountExpectation,
@@ -520,7 +521,9 @@ def test_bal_withdrawal_predeploy_balance_observed_cross_tx(
     )
 
 
-def _system_contracts_called(fork: Fork, phase: SystemCallPhase) -> list:
+def _system_contracts_called(
+    fork: Fork, phase: SystemCallPhase
+) -> list[Address]:
     """Return the fork's system contracts the block calls in `phase`."""
     return sorted(
         address

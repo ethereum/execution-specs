@@ -1583,15 +1583,7 @@ def test_bal_account_warmth_survives_insufficient_funds_call(
 
     # Deliberately left out of the access list, so warmth can only come
     # from the failed call.
-    measured_code = Op.BALANCE(target)
-    overhead_cost = measured_code.gas_cost(fork) - Op.BALANCE(
-        address_warm=False
-    ).gas_cost(fork)
-    measure = CodeGasMeasure(
-        code=measured_code,
-        overhead_cost=overhead_cost,
-        extra_stack_items=1,
-    )
+    measure = CodeGasMeasure(code=Op.BALANCE(target), extra_stack_items=1)
 
     caller_balance = 1
     failed_call = Op.POP(
@@ -1612,9 +1604,9 @@ def test_bal_account_warmth_survives_insufficient_funds_call(
         caller_code = measure
     caller = pre.deploy_contract(code=caller_code, balance=caller_balance)
 
-    measured_gas = Op.BALANCE(address_warm=preceded_by_failed_call).gas_cost(
-        fork
-    )
+    measured_gas = Op.BALANCE(
+        target, address_warm=preceded_by_failed_call
+    ).gas_cost(fork)
 
     alice = pre.fund_eoa()
 
@@ -1945,9 +1937,12 @@ def test_bal_system_address_coinbase_zero_tip(
     ],
 )
 @pytest.mark.parametrize(
-    "value_via",
-    ["transaction", "call", "callcode"],
-    ids=["from_transaction", "from_call", "from_callcode"],
+    "call_opcode",
+    [
+        pytest.param(None, id="from_transaction"),
+        pytest.param(Op.CALL, id="from_call"),
+        pytest.param(Op.CALLCODE, id="from_callcode"),
+    ],
 )
 @pytest.mark.with_all_precompiles
 def test_bal_precompile_funded(
@@ -1955,7 +1950,7 @@ def test_bal_precompile_funded(
     blockchain_test: BlockchainTestFiller,
     precompile: Address,
     value: int,
-    value_via: str,
+    call_opcode: Op | None,
 ) -> None:
     """
     Ensure BAL records precompile value transfer.
@@ -2023,17 +2018,12 @@ def test_bal_precompile_funded(
         input_size = precompile_min_input.get(addr_int, 0)
         tx_data = bytes([0x00] * input_size if input_size > 0 else [])
 
-    if value_via == "transaction":
-        call_opcode = None
+    if call_opcode is None or call_opcode == Op.CALL:
         value_received = value
-    elif value_via == "call":
-        call_opcode = Op.CALL
-        value_received = value
-    elif value_via == "callcode":
-        call_opcode = Op.CALLCODE
+    elif call_opcode == Op.CALLCODE:
         value_received = 0
     else:
-        raise ValueError(f"Unhandled value_via: {value_via}")
+        raise ValueError(f"Unhandled call opcode: {call_opcode}")
 
     account_expectations: dict[Address, BalAccountExpectation | None] = {
         alice: BalAccountExpectation(
