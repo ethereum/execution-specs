@@ -24,12 +24,17 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     ConsolidationRequest,
+    Fork,
     Op,
+    SystemCallPhase,
     Transaction,
+    Withdrawal,
     WithdrawalRequest,
+    compute_create_address,
 )
 
 from .spec import ref_spec_7928
+from .test_block_access_lists_eip4788 import SYSTEM_ADDRESS
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
@@ -506,5 +511,195 @@ def test_bal_withdrawal_predeploy_balance_observed_cross_tx(
         ],
         post={
             reader: Account(storage={0: fee}),
+        },
+    )
+
+
+def _system_contracts_called(fork: Fork, phase: SystemCallPhase) -> list:
+    """Return the fork's system contracts the block calls in `phase`."""
+    return sorted(
+        address
+        for address, called in fork.system_contract_call_phases().items()
+        if called == phase
+    )
+
+
+@pytest.mark.pre_alloc_mutable()
+def test_bal_pre_execution_calls_net_storage_at_index_zero(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Both pre-execution system calls write the same account at block access
+    index 0. A slot toggled back to its starting value is a read, while a
+    slot bumped twice and a nonce bumped by two CREATEs are single changes
+    with the final values: writes are netted over the whole index, not per
+    call.
+    """
+    pre_execution = _system_contracts_called(
+        fork, SystemCallPhase.BEFORE_TRANSACTIONS
+    )
+    assert len(pre_execution) == 2, "the toggle below needs two calls"
+    caller, target = pre_execution
+
+    toggle_slot = 1
+    counter_slot = 2
+
+    # The target toggles one slot, counts its calls and deploys an empty
+    # contract; the caller calls it, so the block runs it twice in either
+    # order of the two system calls.
+    pre[target] = Account(
+        nonce=1,
+        code=Op.SSTORE(toggle_slot, Op.ISZERO(Op.SLOAD(toggle_slot)))
+        + Op.SSTORE(counter_slot, Op.ADD(Op.SLOAD(counter_slot), 1))
+        + Op.POP(Op.CREATE(0, 0, 0)),
+    )
+    pre[caller] = Account(code=Op.POP(Op.CALL(address=target)))
+    created = [
+        compute_create_address(address=target, nonce=nonce) for nonce in (1, 2)
+    ]
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        target: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=counter_slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=0,
+                                            post_value=2,
+                                        )
+                                    ],
+                                )
+                            ],
+                            storage_reads=[toggle_slot],
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=0, post_nonce=3
+                                )
+                            ],
+                        ),
+                        **{
+                            address: BalAccountExpectation(
+                                nonce_changes=[
+                                    BalNonceChange(
+                                        block_access_index=0, post_nonce=1
+                                    )
+                                ],
+                                code_changes=[],
+                            )
+                            for address in created
+                        },
+                        caller: BalAccountExpectation.empty(),
+                        SYSTEM_ADDRESS: None,
+                    }
+                ),
+            )
+        ],
+        post={
+            target: Account(
+                nonce=3, storage={toggle_slot: 0, counter_slot: 2}
+            ),
+            **{address: Account(nonce=1, code=b"") for address in created},
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "forwarded_share",
+    [
+        pytest.param("all", id="forward_all"),
+        pytest.param("half", id="forward_half"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable()
+def test_bal_withdrawals_and_dequeues_net_balance_at_last_index(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    forwarded_share: str,
+) -> None:
+    """
+    A withdrawal credits each post-execution predeploy and its system call,
+    given code that forwards the balance, spends it again, both at the
+    post-execution index. Forwarding everything leaves a predeploy where
+    the index found it, so it records no balance change; forwarding half
+    records the one netted change.
+    """
+    predeploys = _system_contracts_called(
+        fork, SystemCallPhase.AFTER_TRANSACTIONS
+    )
+    withdrawal_amount_wei = 10**9
+    sink = pre.fund_eoa(amount=1)
+
+    forwarded_value: Bytecode
+    if forwarded_share == "all":
+        forwarded_wei = withdrawal_amount_wei
+        forwarded_value = Op.SELFBALANCE
+    elif forwarded_share == "half":
+        forwarded_wei = withdrawal_amount_wei // 2
+        forwarded_value = Op.DIV(Op.SELFBALANCE, 2)
+    else:
+        raise ValueError(f"unhandled share: {forwarded_share}")
+    kept_wei = withdrawal_amount_wei - forwarded_wei
+
+    for predeploy in predeploys:
+        pre[predeploy] = Account(
+            code=Op.POP(Op.CALL(address=sink, value=forwarded_value)),
+        )
+
+    predeploy_expectation = BalAccountExpectation(
+        balance_changes=(
+            [BalBalanceChange(block_access_index=1, post_balance=kept_wei)]
+            if kept_wei
+            else []
+        ),
+        storage_changes=[],
+        storage_reads=[],
+    )
+    sink_balance = 1 + forwarded_wei * len(predeploys)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                withdrawals=[
+                    Withdrawal(
+                        index=i,
+                        validator_index=i,
+                        address=predeploy,
+                        amount=1,
+                    )
+                    for i, predeploy in enumerate(predeploys)
+                ],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        **dict.fromkeys(predeploys, predeploy_expectation),
+                        sink: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=sink_balance,
+                                )
+                            ],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            **{
+                predeploy: Account(balance=kept_wei)
+                for predeploy in predeploys
+            },
+            sink: Account(balance=sink_balance),
         },
     )
