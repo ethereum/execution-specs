@@ -609,6 +609,7 @@ class Transaction(
         max_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool = False,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> HexNumber:
         """
         Calculate the gas limit given the current external factors.
@@ -620,9 +621,17 @@ class Transaction(
         `max_gas_limit` (any excess above the cap acts as an implicit
         reservoir), an explicit 0 pins the gas limit to exactly the
         cap, and a positive value pins it to the cap plus the requested
-        reservoir.
+        reservoir. The result never exceeds the fork's transaction total
+        gas limit cap (EIP-8037's bound on `tx.gas` as a whole) if there
+        is one; a reservoir request that would is a test correctness
+        error.
         """
         tx_gas_limit = max_gas_limit
+        if (
+            transaction_total_gas_limit_cap is not None
+            and tx_gas_limit > transaction_total_gas_limit_cap
+        ):
+            tx_gas_limit = transaction_total_gas_limit_cap
         if state_gas_reservoir_enabled:
             if "state_gas_reservoir" in self.model_fields_set:
                 assert transaction_gas_limit_cap is not None, (
@@ -636,6 +645,22 @@ class Transaction(
                     minimum_gas_with_reservoir = (
                         transaction_gas_limit_cap + self.state_gas_reservoir
                     )
+                    if (
+                        transaction_total_gas_limit_cap is not None
+                        and minimum_gas_with_reservoir
+                        > transaction_total_gas_limit_cap
+                    ):
+                        raise Exception(
+                            "test correctness: the requested state "
+                            "gas reservoir of "
+                            f"{self.state_gas_reservoir} puts the gas "
+                            f"limit at {minimum_gas_with_reservoir} "
+                            "(transaction gas limit cap of "
+                            f"{transaction_gas_limit_cap} plus "
+                            "reservoir), above the transaction total "
+                            "gas limit cap of "
+                            f"{transaction_total_gas_limit_cap}."
+                        )
                     if tx_gas_limit < minimum_gas_with_reservoir:
                         raise Exception(
                             "test correctness: the requested state "
@@ -678,6 +703,7 @@ class Transaction(
         max_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool = False,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> Self:
         """Return copy of the transaction with the set gas limit."""
         updated_values: Dict[str, Any] = {}
@@ -690,6 +716,9 @@ class Transaction(
                 max_gas_limit=max_gas_limit,
                 transaction_gas_limit_cap=transaction_gas_limit_cap,
                 state_gas_reservoir_enabled=state_gas_reservoir_enabled,
+                transaction_total_gas_limit_cap=(
+                    transaction_total_gas_limit_cap
+                ),
             )
 
         return self.model_copy(update=updated_values)
@@ -935,11 +964,16 @@ class Transaction(
         env_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> int:
         """
         Calculate the maximum gas limit that can be set in a transaction
         given a list of transactions with and without gas-limits set
         and a maximum available environment gas.
+
+        The share is clamped to the transaction gas limit cap on forks
+        without the state gas reservoir, and always to the transaction
+        total gas limit cap if there is one.
         """
         available_gas = env_gas_limit
         unset_gas_limit_tx_count = 0
@@ -965,6 +999,10 @@ class Transaction(
             transaction_gas_limit_cap = None
         if transaction_gas_limit_cap:
             max_tx_gas_limit = min(max_tx_gas_limit, transaction_gas_limit_cap)
+        if transaction_total_gas_limit_cap:
+            max_tx_gas_limit = min(
+                max_tx_gas_limit, transaction_total_gas_limit_cap
+            )
         return max_tx_gas_limit
 
     @cached_property
@@ -1014,6 +1052,7 @@ class Transaction(
         max_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool = False,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> None:
         """Set the transaction gas limit if unset."""
         self._check_state_gas_reservoir_supported(
@@ -1024,6 +1063,9 @@ class Transaction(
                 max_gas_limit=max_gas_limit,
                 transaction_gas_limit_cap=transaction_gas_limit_cap,
                 state_gas_reservoir_enabled=state_gas_reservoir_enabled,
+                transaction_total_gas_limit_cap=(
+                    transaction_total_gas_limit_cap
+                ),
             )
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:
@@ -1229,12 +1271,14 @@ class NetworkWrappedTransaction(CamelModel, RLPSerializable):
         max_gas_limit: int,
         transaction_gas_limit_cap: int | None,
         state_gas_reservoir_enabled: bool = False,
+        transaction_total_gas_limit_cap: int | None = None,
     ) -> None:
         """Set the transaction gas limit if unset."""
         self.tx.set_gas_limit(
             max_gas_limit=max_gas_limit,
             transaction_gas_limit_cap=transaction_gas_limit_cap,
             state_gas_reservoir_enabled=state_gas_reservoir_enabled,
+            transaction_total_gas_limit_cap=transaction_total_gas_limit_cap,
         )
 
     def signer_minimum_balance(self, *, fork: Fork) -> int:

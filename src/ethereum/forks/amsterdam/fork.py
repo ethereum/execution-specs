@@ -523,6 +523,8 @@ def check_transaction(
     InsufficientTransactionGasError :
         If the transaction does not provide enough gas to cover its
         intrinsic cost.
+    TransactionGasLimitExceededError :
+        If the transaction's gas limit exceeds `TX_MAX_TOTAL_GAS_LIMIT`.
     GasUsedExceedsLimitError :
         If the gas used by the transaction exceeds the block's gas limit.
     NonceMismatchError :

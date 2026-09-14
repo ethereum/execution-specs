@@ -162,6 +162,7 @@ class GasCosts:
         COLD_STORAGE_ACCESS - WARM_ACCESS
     )
     TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)
+    TX_MAX_TOTAL_GAS_LIMIT: Final[Uint] = Uint(4_294_967_295)
 
     # Authorization
     AUTH_TUPLE_BYTES: Final[Uint] = Uint(101)
