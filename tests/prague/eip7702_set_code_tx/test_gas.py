@@ -921,11 +921,14 @@ def _annotate_authorizations_for_top_frame(
             awp.authority_type == AddressType.EOA_WITH_SET_CODE
         )
         already_delegated = had_delegation_pre or authority in delegated_in_tx
+        sets_delegation = auth.address != Spec.RESET_DELEGATION_ADDRESS
 
         creates_account = (
             valid and awp.empty and authority not in written_authorities
         )
-        writes_delegation = valid and not already_delegated
+        # A clear never pays AUTH_BASE, and a set after a same-tx clear
+        # does not pay it again: the charge is once per authority.
+        writes_delegation = valid and sets_delegation and not already_delegated
 
         if not valid:
             first_write = False
@@ -939,10 +942,8 @@ def _annotate_authorizations_for_top_frame(
 
         if valid:
             written_authorities.add(authority)
-            if auth.address != Spec.RESET_DELEGATION_ADDRESS:
+            if sets_delegation:
                 delegated_in_tx.add(authority)
-            else:
-                delegated_in_tx.discard(authority)
 
         annotated.append(
             AuthorizationTuple(
