@@ -1,8 +1,9 @@
 """Test consistency between checklist template and EIPChecklist class."""
 
 import re
+from collections import Counter
 from pathlib import Path
-from typing import Any, Set
+from typing import Any, List, Set
 
 import pytest
 
@@ -17,19 +18,24 @@ TEMPLATE_PATH = (
 )
 
 
-def extract_markdown_ids(markdown_content: str) -> Set[str]:
-    """Extract all checklist IDs from markdown content."""
+def extract_markdown_id_list(markdown_content: str) -> List[str]:
+    """Extract checklist IDs in document order, keeping repeats."""
     # Pattern to match IDs in markdown tables (between backticks in ID column)
     pattern = r"\|\s*`([^`]+)`\s*\|"
 
-    ids = set()
+    ids = []
     for match in re.finditer(pattern, markdown_content):
         potential_id = match.group(1)
         # Filter out non-ID content - IDs should contain forward slashes
         if "/" in potential_id:
-            ids.add(potential_id)
+            ids.append(potential_id)
 
     return ids
+
+
+def extract_markdown_ids(markdown_content: str) -> Set[str]:
+    """Extract all checklist IDs from markdown content."""
+    return set(extract_markdown_id_list(markdown_content))
 
 
 def get_all_checklist_ids(obj: Any) -> Set[str]:
@@ -78,6 +84,15 @@ def test_checklist_template_consistency() -> None:
 
     # Create detailed error messages
     errors = []
+
+    id_counts = Counter(extract_markdown_id_list(markdown_content))
+    duplicates = sorted(id_ for id_, count in id_counts.items() if count > 1)
+    if duplicates:
+        errors.append(
+            f"IDs used by more than one row in the markdown template "
+            f"({len(duplicates)} items):\n"
+            + "\n".join(f"  - `{id_}`" for id_ in duplicates)
+        )
 
     if missing_in_checklist:
         errors.append(

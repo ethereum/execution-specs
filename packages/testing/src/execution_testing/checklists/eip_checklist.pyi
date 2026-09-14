@@ -440,7 +440,10 @@ class EIPChecklist:
 
             class IntrinsicValidity(_CallableChecklistItem):
                 ChainId: _CallableChecklistItem
-                DataFloorAboveIntrinsicGasCost: _CallableChecklistItem
+                class DataFloorAboveIntrinsicGasCost(_CallableChecklistItem):
+                    Invalid: _CallableChecklistItem
+                    Valid: _CallableChecklistItem
+
                 NonceExact: _CallableChecklistItem
                 NonceMinusOne: _CallableChecklistItem
                 NoncePlusOne: _CallableChecklistItem
