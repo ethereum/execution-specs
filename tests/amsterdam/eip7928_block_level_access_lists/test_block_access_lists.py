@@ -34,6 +34,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     Withdrawal,
     add_kzg_version,
     compute_create_address,
@@ -774,6 +775,44 @@ def test_bal_2930_account_listed_but_untouched(
         post={
             alice: Account(nonce=1),
         },
+    )
+
+
+@pytest.mark.with_all_precompiles
+def test_bal_2930_precompile_listed_but_untouched(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    precompile: int,
+) -> None:
+    """
+    Ensure a precompile named in the access list but never called stays
+    out of the BAL. A client that tracks precompiles apart from other
+    accounts would leak the declaration here and nowhere else.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
+
+    tx = Transaction(
+        ty=1,
+        sender=alice,
+        to=bob,
+        access_list=[AccessList(address=precompile, storage_keys=[])],
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={alice: Account(nonce=1)},
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                precompile: None,
+            }
+        ),
     )
 
 
@@ -1905,17 +1944,26 @@ def test_bal_system_address_coinbase_zero_tip(
         pytest.param(0, id="no_value"),
     ],
 )
+@pytest.mark.parametrize(
+    "value_via",
+    ["transaction", "call", "callcode"],
+    ids=["from_transaction", "from_call", "from_callcode"],
+)
 @pytest.mark.with_all_precompiles
 def test_bal_precompile_funded(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     precompile: Address,
     value: int,
+    value_via: str,
 ) -> None:
     """
     Ensure BAL records precompile value transfer.
 
-    Alice sends value to precompile (pure value transfer).
+    Alice sends value to precompile (pure value transfer), either as the
+    transaction's recipient or through a contract's call opcode, which
+    clients credit on a different path. `CALLCODE` sends the value to the
+    caller itself, so the precompile sees the call but not the value.
     If value > 0: BAL must include balance_changes.
     If value = 0: BAL must have empty balance_changes.
     """
@@ -1975,45 +2023,89 @@ def test_bal_precompile_funded(
         input_size = precompile_min_input.get(addr_int, 0)
         tx_data = bytes([0x00] * input_size if input_size > 0 else [])
 
-    tx = Transaction(
-        sender=alice,
-        to=precompile,
-        value=value,
-        data=tx_data,
-    )
+    if value_via == "transaction":
+        call_opcode = None
+        value_received = value
+    elif value_via == "call":
+        call_opcode = Op.CALL
+        value_received = value
+    elif value_via == "callcode":
+        call_opcode = Op.CALLCODE
+        value_received = 0
+    else:
+        raise ValueError(f"Unhandled value_via: {value_via}")
+
+    account_expectations: dict[Address, BalAccountExpectation | None] = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
+        ),
+        precompile: BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=1, post_balance=value_received
+                )
+            ]
+            if value_received > 0
+            else [],
+            storage_reads=[],
+            storage_changes=[],
+            code_changes=[],
+        ),
+    }
+    post: dict[Address, Account] = {alice: Account(nonce=1)}
+
+    if call_opcode is None:
+        tx = Transaction(
+            sender=alice,
+            to=precompile,
+            value=value,
+            data=tx_data,
+        )
+    else:
+        # The caller records the call's result, so a precompile that
+        # rejected its input cannot pass for one that took the value.
+        caller = pre.deploy_contract(
+            code=Om.MSTORE(tx_data)
+            + Op.SSTORE(
+                0,
+                call_opcode(
+                    gas=Op.GAS,
+                    address=precompile,
+                    value=value,
+                    args_offset=0,
+                    args_size=len(tx_data),
+                ),
+            )
+            + Op.STOP,
+            balance=value,
+        )
+        tx = Transaction(sender=alice, to=caller)
+        value_kept = value - value_received
+        account_expectations[caller] = BalAccountExpectation(
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0,
+                    slot_changes=[
+                        BalStorageChange(block_access_index=1, post_value=1)
+                    ],
+                )
+            ],
+            balance_changes=[
+                BalBalanceChange(block_access_index=1, post_balance=value_kept)
+            ]
+            if value_received > 0
+            else [],
+        )
+        post[caller] = Account(balance=value_kept, storage={0: 1})
 
     block = Block(
         txs=[tx],
         expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                alice: BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1)
-                    ],
-                ),
-                precompile: BalAccountExpectation(
-                    balance_changes=[
-                        BalBalanceChange(
-                            block_access_index=1, post_balance=value
-                        )
-                    ]
-                    if value > 0
-                    else [],
-                    storage_reads=[],
-                    storage_changes=[],
-                    code_changes=[],
-                ),
-            }
+            account_expectations=account_expectations
         ),
     )
 
-    blockchain_test(
-        pre=pre,
-        blocks=[block],
-        post={
-            alice: Account(nonce=1),
-        },
-    )
+    blockchain_test(pre=pre, blocks=[block], post=post)
 
 
 @pytest.mark.with_all_precompiles
@@ -4521,4 +4613,101 @@ def test_bal_intra_tx_sstores_same_slot_net_zero(
             alice: Account(nonce=1),
             contract: Account(storage={0x01: pre_value}),
         },
+    )
+
+
+def test_bal_blob_fee_leaves_sender_only(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+) -> None:
+    """
+    Ensure a type-3 transaction's blob fee comes out of the sender's BAL
+    balance and reaches no other account. The fee is burned, so it never
+    appears in `gas_used` and is never credited to the coinbase.
+    """
+    coinbase_initial_balance = 1
+    coinbase = pre.fund_eoa(amount=coinbase_initial_balance)
+    bob_initial_balance = 100
+    bob = pre.fund_eoa(amount=bob_initial_balance)
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=b"",
+        contract_creation=False,
+        access_list=[],
+        recipient_type=RecipientType.EOA,
+        sends_value=True,
+    )
+    top_frame_state_gas = fork.transaction_top_frame_state_gas(
+        sends_value=True, recipient_type=RecipientType.EOA
+    )
+    gas_used = intrinsic_gas + top_frame_state_gas
+
+    base_fee_per_gas = 7
+    excess_blob_gas = 0
+    blob_gas_price = fork.blob_gas_price_calculator()(
+        excess_blob_gas=excess_blob_gas
+    )
+    blob_fee = fork.blob_gas_per_blob() * blob_gas_price
+    tx_value = 1
+
+    alice_initial_balance = 10**18
+    alice = pre.fund_eoa(amount=alice_initial_balance)
+    tx = Transaction(
+        ty=3,
+        sender=alice,
+        to=bob,
+        value=tx_value,
+        max_fee_per_gas=base_fee_per_gas,
+        max_priority_fee_per_gas=0,
+        max_fee_per_blob_gas=blob_gas_price,
+        blob_versioned_hashes=add_kzg_version([Hash(0xBEEF)], 1),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
+    )
+    # With no tip, everything the sender loses beyond gas and value is
+    # the blob fee, and nothing credits it anywhere.
+    alice_final_balance = (
+        alice_initial_balance
+        - tx_value
+        - gas_used * base_fee_per_gas
+        - blob_fee
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        env=Environment(
+            fee_recipient=coinbase,
+            base_fee_per_gas=base_fee_per_gas,
+            excess_blob_gas=excess_blob_gas,
+        ),
+        post={
+            alice: Account(nonce=1, balance=alice_final_balance),
+            bob: Account(balance=bob_initial_balance + tx_value),
+            coinbase: Account(balance=coinbase_initial_balance),
+        },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=alice_final_balance,
+                        )
+                    ],
+                ),
+                bob: BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=bob_initial_balance + tx_value,
+                        )
+                    ],
+                ),
+                coinbase: BalAccountExpectation.empty(),
+            }
+        ),
     )

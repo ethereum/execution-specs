@@ -32,6 +32,7 @@ from execution_testing import (
     WithdrawalRequest,
     compute_create_address,
 )
+from execution_testing import Macros as Om
 
 from .spec import ref_spec_7928
 from .test_block_access_lists_eip2935 import HISTORY_STORAGE_ADDRESS
@@ -812,4 +813,55 @@ def test_bal_withdrawals_and_dequeues_net_balance_at_last_index(
             },
             sink: Account(balance=sink_balance),
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(Op.REVERT(0, 0), id="revert"),
+        pytest.param(Om.OOG, id="out_of_gas"),
+    ],
+)
+@pytest.mark.pre_alloc_mutable()
+def test_bal_pre_execution_call_failure_keeps_read_drops_write(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    failure: Bytecode,
+) -> None:
+    """
+    A pre-execution system call that fails still merges into the BAL.
+
+    The call is unchecked, so the block stays valid and the state it
+    rolled back leaves the slot behind as a read. Unreachable on
+    mainnet, consensus-relevant on custom or test chains.
+    """
+    assert BEACON_ROOTS_ADDRESS in _system_contracts_called(
+        fork, SystemCallPhase.BEFORE_TRANSACTIONS
+    ), "the beacon roots contract is no longer called before transactions"
+
+    reverted_slot = 1
+    # The slot it reaches for is the only evidence the code ran, since
+    # the failure throws the write itself away.
+    pre[BEACON_ROOTS_ADDRESS] = Account(
+        code=Op.SSTORE(reverted_slot, 1) + failure,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        BEACON_ROOTS_ADDRESS: BalAccountExpectation(
+                            storage_reads=[reverted_slot],
+                            storage_changes=[],
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={BEACON_ROOTS_ADDRESS: Account(storage={})},
     )
