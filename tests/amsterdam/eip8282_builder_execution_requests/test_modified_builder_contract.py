@@ -18,9 +18,13 @@ from execution_testing import (
     Op,
     Requests,
     SystemContractRequest,
+    Transaction,
+    TransactionReceipt,
     generate_system_contract_error_test,
 )
 from execution_testing import Macros as Om
+from execution_testing.base_types import Bloom
+from execution_testing.checklists import EIPChecklist
 
 from .spec import ref_spec_8282
 
@@ -131,6 +135,7 @@ def run_modified_requests_test(
         ),
     ],
 )
+@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_extra_builder_deposits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -182,6 +187,7 @@ def test_extra_builder_deposits(
         ),
     ],
 )
+@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
 def test_extra_builder_exits(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -212,6 +218,9 @@ def test_extra_builder_exits(
         ),
     ],
 )
+@EIPChecklist.SystemContract.Test.ContractSubstitution.RaisesException()
+@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitSuccess()
+@EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitFailure()
 @generate_system_contract_error_test()  # type: ignore[arg-type]
 @pytest.mark.eels_base_coverage
 def test_system_contract_errors() -> None:
@@ -223,3 +232,57 @@ def test_system_contract_errors() -> None:
     `generate_system_contract_error_test` decorator definition.
     """
     pass
+
+
+@pytest.mark.parametrize(
+    "queued_request",
+    [
+        pytest.param(
+            builder_deposit_list_with_custom_fee(1)[0],
+            id="builder_deposit_contract",
+        ),
+        pytest.param(
+            builder_exit_list_with_custom_fee(1)[0],
+            id="builder_exit_contract",
+        ),
+    ],
+)
+@EIPChecklist.SystemContract.Test.ContractSubstitution.Logs()
+def test_system_contract_logs(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    queued_request: SystemContractRequest,
+) -> None:
+    """
+    Replace a request predeploy with code that logs before returning a
+    record: the block stays valid, the record is dequeued, and the log
+    reaches neither a receipt nor the block's logs bloom.
+    """
+    record = bytes(queued_request)
+    pre[queued_request.system_contract_address] = Account(
+        code=Om.MSTORE(record, 0)
+        + Op.LOG0(0, len(record))
+        + Op.RETURN(0, len(record)),
+        nonce=1,
+    )
+    # A transaction that logs nothing, so the last receipt is where a leaked
+    # system-call log would show up.
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=pre.deploy_contract(Op.STOP),
+        expected_receipt=TransactionReceipt(logs=[]),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                header_verify=Header(
+                    requests_hash=Requests(queued_request),
+                    logs_bloom=Bloom(0),
+                ),
+            ),
+        ],
+        post={},
+    )
