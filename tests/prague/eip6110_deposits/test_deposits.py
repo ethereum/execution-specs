@@ -580,8 +580,10 @@ pytestmark = pytest.mark.valid_from("Prague")
             ],
             id="single_deposit_from_contract_call_depth_3",
         ),
-        # TODO: Provide a higher transaction gas limit for EIP-8037 state
-        # creation gas costs to extend this test past EIP8037.
+        # High depth under Amsterdam: EIP-7825 caps execution gas at 2^24, and
+        # EIP-8037/8038 raise intrinsic + cold-account costs, so a 271-frame
+        # 63/64 chain OOGs before the deposit lands (270 still passes). Use
+        # 256 so the case stays deep with margin past EIP-8037.
         pytest.param(
             [
                 SystemContractInteractionContract(
@@ -594,11 +596,10 @@ pytestmark = pytest.mark.valid_from("Prague")
                             index=0x0,
                         )
                     ],
-                    call_depth=271,
+                    call_depth=256,
                 ),
             ],
             id="single_deposit_from_contract_call_depth_high",
-            marks=pytest.mark.valid_before("EIP8037"),
         ),
         pytest.param(
             [
