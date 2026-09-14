@@ -734,7 +734,6 @@ class AccessListTo(Enum):
     [AccessListTo.POINTER_ADDRESS, AccessListTo.CONTRACT_ADDRESS],
 )
 @pytest.mark.valid_from("Prague")
-@pytest.mark.valid_before("EIP8037")
 def test_gas_diff_pointer_vs_direct_call(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -749,19 +748,11 @@ def test_gas_diff_pointer_vs_direct_call(
 
     Combine with AccessList and AuthTuple gas reductions scenarios.
 
-    Redundant from Amsterdam: EIP-8037 replaces the one-dimensional
-    SSTORE gas cost (G_STORAGE_SET) with a two-dimensional split:
-    regular gas (GAS_COLD_STORAGE_WRITE - GAS_COLD_SLOAD) and state gas
-    (STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte). In sub-calls
-    state_gas_left=0, so state gas falls to gas_left -- changing what
-    the GAS opcode reports. Auth refund
-    (STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte) goes to
-    state_gas_reservoir, further altering gas visibility between
-    frames.
-
-    TODO: Add Amsterdam-specific variant in tests/amsterdam/ that
-    verifies pointer vs direct call gas costs under EIP-8037's 2D
-    gas model with reservoir semantics.
+    Under EIP-8037 the implicit gas limit exceeds the transaction gas
+    cap and the excess is a state-gas reservoir. The inner SSTORE's
+    state part is paid from it, so `GAS` sees execution cost only. The
+    expectations use `execution_cost`, which equals `gas_cost` before
+    EIP-8037.
     """
     env = Environment()
 
@@ -779,7 +770,7 @@ def test_gas_diff_pointer_vs_direct_call(
     ]
     direct_storage_warm = direct_account_warm
     direct_call_gas: int = (
-        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        Op.SSTORE(key_warm=True).execution_cost(fork)  # key warm
         + Op.CALL(address_warm=direct_account_warm).gas_cost(fork)
         + Op.SLOAD(key_warm=direct_storage_warm).gas_cost(fork)
         + opcodes_price
@@ -815,7 +806,7 @@ def test_gas_diff_pointer_vs_direct_call(
         and access_list_to == AccessListTo.CONTRACT_ADDRESS
     )
     pointer_call_gas: int = (
-        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        Op.SSTORE(key_warm=True).execution_cost(fork)  # key warm
         # pointer address access
         + Op.CALL(address_warm=pointer_account_warm).gas_cost(fork)
         # storage access
@@ -940,7 +931,6 @@ def test_gas_diff_pointer_vs_direct_call(
 
 
 @pytest.mark.valid_from("Prague")
-@pytest.mark.valid_before("EIP8037")
 def test_pointer_call_followed_by_direct_call(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -954,13 +944,9 @@ def test_pointer_call_followed_by_direct_call(
     But the sload is still cold because storage marked hot from
     pointer's account in a pointer call.
 
-    Redundant from Amsterdam: EIP-8037 replaces one-dimensional
-    SSTORE gas costs with a 2D split (regular + state gas), changing
-    what the GAS opcode reports. See
-    test_gas_diff_pointer_vs_direct_call for details.
-
-    TODO: Add Amsterdam-specific variant in tests/amsterdam/ that
-    verifies pointer warming behavior with 2D gas cost measurements.
+    Under EIP-8037 the inner SSTORE's state part is paid from the
+    implicit reservoir, so `GAS` sees execution cost only; see
+    test_gas_diff_pointer_vs_direct_call.
     """
     env = Environment()
 
@@ -969,14 +955,14 @@ def test_pointer_call_followed_by_direct_call(
     call_worked = 1
     opcodes_price: int = 37
     pointer_call_gas = (
-        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        Op.SSTORE(key_warm=True).execution_cost(fork)  # key warm
         + Op.CALL(address_warm=True).gas_cost(fork)  # pointer is warm
         + Op.CALL(address_warm=False).gas_cost(fork)  # contract is cold
         + Op.SLOAD(key_warm=False).gas_cost(fork)  # storage is cold
         + opcodes_price
     )
     direct_call_gas = (
-        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        Op.SSTORE(key_warm=True).execution_cost(fork)  # key warm
         + Op.CALL(address_warm=True).gas_cost(fork)  # contract is now warm
         + Op.SLOAD(key_warm=False).gas_cost(fork)  # storage is cold
         + opcodes_price
