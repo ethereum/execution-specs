@@ -3178,8 +3178,12 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
     making the discount calculation (PER_EMPTY_ACCOUNT_COST -
     PER_AUTH_BASE_COST) and receipt gas expectation invalid.
 
-    TODO: Add EIP-8037-specific variant in tests/amsterdam/ that
-    verifies receipt gas and auth refund under EIP-8037's 2D model.
+    From EIP-8037 the equivalent coverage is
+    ``test_value_moving_with_tx_delegation.py`` under
+    ``tests/amsterdam/eip2780_reduce_intrinsic_tx_gas/`` (value to a
+    same-tx authority at exact gas) and the existing-authority receipt
+    tests in ``test_state_gas_set_code.py``. A precompile delegation
+    target adds no new path there because its body never runs.
     """
     auth_signer = pre.fund_eoa(amount=1)
     auth = AuthorizationTuple(
