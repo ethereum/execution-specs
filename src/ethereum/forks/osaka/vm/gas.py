@@ -67,6 +67,7 @@ class GasCosts:
 
     # Refunds
     REFUND_STORAGE_CLEAR: Final[int] = 4800
+    REFUND_AUTH_PER_EXISTING_ACCOUNT: Final[int] = 12500
 
     # Precompiles
     PRECOMPILE_ECRECOVER: Final[Uint] = Uint(3000)
@@ -106,6 +107,7 @@ class GasCosts:
     TX_DATA_TOKEN_FLOOR: Final[Uint] = Uint(10)
     TX_ACCESS_LIST_ADDRESS: Final[Uint] = Uint(2400)
     TX_ACCESS_LIST_STORAGE_KEY: Final[Uint] = Uint(1900)
+    TX_MAX_GAS_LIMIT: Final[Uint] = Uint(16_777_216)
 
     # Block
     LIMIT_ADJUSTMENT_FACTOR: Final[Uint] = Uint(1024)
