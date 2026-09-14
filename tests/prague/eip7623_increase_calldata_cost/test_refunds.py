@@ -69,29 +69,19 @@ def data_test_type() -> DataTestType:
 
 @pytest.fixture
 def authorization_list(
-    pre: Alloc, refund_type: RefundType, fork: Fork
+    pre: Alloc, refund_type: RefundType
 ) -> List[AuthorizationTuple] | None:
     """
     Modify fixture from conftest to automatically read the refund_type
     information.
 
-    On EIP-8037 / EIP-2780 an existing funded authority pays only the
-    top-frame ``AUTH_BASE`` (no ``NEW_ACCOUNT`` / ``ACCOUNT_WRITE``, and no
-    existing-authority refund), so the tuple is annotated accordingly.
+    From EIP-2780 an existing funded authority pays `ACCOUNT_WRITE` and the
+    `AUTH_BASE` state gas before the first frame, with no `NEW_ACCOUNT` and
+    no existing-authority refund. The tuple defaults already describe that.
     """
     if RefundType.AUTHORIZATION_EXISTING_AUTHORITY not in refund_type:
         return None
-    signer = pre.fund_eoa(1)
-    if fork.is_eip_enabled(8037):
-        return [
-            AuthorizationTuple(
-                signer=signer,
-                address=Address(1),
-                creates_account=False,
-                writes_delegation=True,
-            )
-        ]
-    return [AuthorizationTuple(signer=signer, address=Address(1))]
+    return [AuthorizationTuple(signer=pre.fund_eoa(1), address=Address(1))]
 
 
 @pytest.fixture
@@ -210,7 +200,8 @@ def intrinsic_gas_data_floor_minimum_delta(
     applied.
 
     On EIP-8037 the SSTORE schedule is higher and existing-authority auths add
-    top-frame ``AUTH_BASE`` state gas, so the delta must cover those too.
+    `ACCOUNT_WRITE` and `AUTH_BASE` before the first frame, so the delta must
+    cover those too.
     """
     if not fork.is_eip_enabled(8037):
         return 250
@@ -384,13 +375,13 @@ def test_gas_refunds_from_data_floor(
     floor.
 
     Pre-EIP-8037: existing-authority auth refunds flow through
-    ``refund_counter`` (EIP-3529 1/5 cap) together with storage-clear refunds.
+    `refund_counter` (EIP-3529 1/5 cap) together with storage-clear refunds.
 
-    EIP-8037 / EIP-2780: existing-authority auths pay top-frame ``AUTH_BASE``
-    with no auth refund; only storage-clear refunds remain in
-    ``refund_counter``. Receipt ``cumulative_gas_used`` is the sum of
-    intrinsic execution, top-frame execution/state, and EVM gas, minus the
-    capped storage refund, then floored by EIP-7623.
+    EIP-8037 / EIP-2780: existing-authority auths pay `ACCOUNT_WRITE` and
+    `AUTH_BASE` before the first frame with no auth refund; only storage-clear
+    refunds remain in `refund_counter`. Receipt `cumulative_gas_used` is the
+    sum of intrinsic execution, top-frame execution/state, and EVM gas, minus
+    the capped storage refund, then floored by EIP-7623.
     """
     gas_used = (
         tx_intrinsic_gas_cost_before_execution
