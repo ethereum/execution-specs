@@ -986,9 +986,9 @@ def test_gas_cost(
 
     EIP-8037 / EIP-2780: intrinsic is execution-only; state-dependent auth
     charges land at the top frame with no existing-authority refund. With
-    ``state_gas_reservoir=0`` and ``gas_limit`` under the EIP-7825 cap,
-    state charges spill into ``gas_left``, so ``GAS`` at code entry reports
-    the combined execution+state budget remaining after the top frame.
+    ``gas_limit`` under the EIP-7825 cap the reservoir is empty, so state
+    charges spill into ``gas_left`` and ``GAS`` at code entry reports the
+    execution gas left after both top-frame charges.
     """
     gas_opcode_cost = Op.GAS.gas_cost(fork)
     sstore_opcode_count = 10
@@ -1000,7 +1000,6 @@ def test_gas_cost(
     )
 
     header_gas_used: int | None = None
-    state_gas_reservoir = 0
 
     if fork.is_eip_enabled(8037):
         annotated_auths = _annotate_authorizations_for_top_frame(
@@ -1025,8 +1024,8 @@ def test_gas_cost(
             recipient_type=RecipientType.CONTRACT,
             authorizations=annotated_auths,
         )
-        # Combined execution+state bytecode cost. Empty reservoir + under-cap
-        # gas_limit means state spills into gas_left.
+        # Combined execution+state bytecode cost: with an empty reservoir
+        # the SSTORE state gas also spills into gas_left.
         code_gas = measurement_bytecode.gas_cost(fork)
         expected_gas_measure = code_gas - gas_opcode_cost
 
@@ -1128,7 +1127,6 @@ def test_gas_cost(
         authorization_list=authorization_list,
         access_list=access_list,
         sender=sender,
-        state_gas_reservoir=state_gas_reservoir,
         expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
 
