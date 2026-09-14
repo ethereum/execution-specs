@@ -8,7 +8,6 @@ import pytest
 from execution_testing import (
     AccessList,
     Account,
-    Address,
     Alloc,
     AuthorizationTuple,
     Block,
@@ -1396,32 +1395,35 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
     """
     Check operations when reenter the pointer again.
 
-    Under the pointer reentry frame, context opcodes keep the EOA identity
-    (``ADDRESS`` / ``SELFBALANCE`` / ``CALLER``) while ``CODESIZE`` follows
-    the delegated body and ``EXTCODESIZE(ADDRESS)`` sees the designation.
-    Calling the delegation target directly after reentry restores normal
-    contract context (``EXTCODESIZE(ADDRESS) == CODESIZE``).
+    Under the pointer reentry frame, ``ADDRESS`` / ``SELFBALANCE`` keep the
+    EOA identity and ``CALLER`` is the proxy, while ``CODESIZE`` follows the
+    delegated body and ``EXTCODESIZE`` / ``EXTCODEHASH`` of ``ADDRESS`` see
+    the delegation designation. Calling the delegation target directly after
+    reentry restores normal contract context, where ``EXTCODESIZE(ADDRESS)``
+    is the body length and ``EXTCODEHASH(ADDRESS)`` its hash.
     """
     env = Environment()
     arg_contract = 0
     arg_action = 32
     calldata_words = 2
     calldata_size = 32 * calldata_words
-    # ef0100 || address — length does not depend on the target address.
-    designation_size = len(Spec.delegation_designation(Address(0)))
 
     storage_b = Storage()
     storage_b.store_next(1, "contract_calls")
     storage_b.store_next(1, "tstore_slot")
     slot_reentry_address = storage_b.store_next(1, "address")
-    # Absolute CODESIZE / EXTCODESIZE filled after the bytecode is built.
+    # Absolute CODESIZE / EXTCODESIZE / EXTCODEHASH filled after the
+    # bytecode is built.
     slot_contract_codesize = storage_b.store_next(0, "codesize")
     slot_contract_extcodesize = storage_b.store_next(0, "extcodesize")
+    slot_contract_extcodehash = storage_b.store_next(0, "extcodehash")
 
     storage_pointer_b = Storage()
     slot_calls = storage_pointer_b.store_next(2, "pointer_calls")
     slot_tstore = storage_pointer_b.store_next(2, "tstore_slot")
     slot_pointer_codesize = storage_pointer_b.store_next(0, "codesize")
+    slot_pointer_extcodesize = storage_pointer_b.store_next(0, "extcodesize")
+    slot_pointer_extcodehash = storage_pointer_b.store_next(0, "extcodehash")
 
     sender = pre.fund_eoa()
     pointer_b = pre.fund_eoa(amount=1000)
@@ -1490,10 +1492,10 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                     )
                     + Op.SSTORE(slot_pointer_codesize, Op.CODESIZE())
                     + Op.SSTORE(
-                        storage_pointer_b.store_next(
-                            designation_size, "extcodesize"
-                        ),
-                        Op.EXTCODESIZE(Op.ADDRESS()),
+                        slot_pointer_extcodesize, Op.EXTCODESIZE(Op.ADDRESS())
+                    )
+                    + Op.SSTORE(
+                        slot_pointer_extcodehash, Op.EXTCODEHASH(Op.ADDRESS())
                     )
                     # now call contract which is pointer dest directly
                     + Op.MSTORE(
@@ -1537,6 +1539,9 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
                     + Op.SSTORE(slot_contract_codesize, Op.CODESIZE())
                     + Op.SSTORE(
                         slot_contract_extcodesize, Op.EXTCODESIZE(Op.ADDRESS())
+                    )
+                    + Op.SSTORE(
+                        slot_contract_extcodehash, Op.EXTCODEHASH(Op.ADDRESS())
                     ),
                 ),
             ],
@@ -1545,10 +1550,14 @@ def test_pointer_reentry(state_test: StateTestFiller, pre: Alloc) -> None:
     )
     contract_b = pre.deploy_contract(balance=100, code=contract_code)
     codesize = len(contract_code)
+    designation = Spec.delegation_designation(contract_b)
     storage_b[slot_reentry_address] = contract_b
     storage_b[slot_contract_codesize] = codesize
     storage_b[slot_contract_extcodesize] = codesize
+    storage_b[slot_contract_extcodehash] = contract_code.keccak256()
     storage_pointer_b[slot_pointer_codesize] = codesize
+    storage_pointer_b[slot_pointer_extcodesize] = len(designation)
+    storage_pointer_b[slot_pointer_extcodehash] = designation.keccak256()
 
     tx = Transaction(
         to=pointer_b,
