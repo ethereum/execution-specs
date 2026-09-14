@@ -614,12 +614,15 @@ def test_precompiles(
     r_offset = 64
     s_offset = 96
     ret_offset = 128
+    # A failed recovery returns no bytes, so the seeded word must survive.
+    ret_sentinel = b"\xff" * 32
 
     account = pre.deploy_contract(
         Op.MSTORE(hash_offset, msg_hash)
         + Op.MSTORE(v_offset, v)
         + Op.MSTORE(r_offset, r)
         + Op.MSTORE(s_offset, s)
+        + Op.MSTORE(ret_offset, ret_sentinel)
         + Op.CALL(
             gas=50_000,
             address="0x01",  # ecrecover precompile address
@@ -639,6 +642,6 @@ def test_precompiles(
         protected=fork.supports_protected_txs(),
     )
 
-    post = {account: Account(storage={0: output})}
+    post = {account: Account(storage={0: output or ret_sentinel})}
 
     state_test(pre=pre, post=post, tx=tx)
