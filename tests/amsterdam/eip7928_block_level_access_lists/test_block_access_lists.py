@@ -20,6 +20,8 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Bytecode,
+    CodeGasMeasure,
     Conditional,
     EIPChecklist,
     Environment,
@@ -32,7 +34,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
-    TransactionReceipt,
     Withdrawal,
     add_kzg_version,
     compute_create_address,
@@ -1510,6 +1511,110 @@ def test_bal_outer_revert_with_inner_insufficient_funds(
     )
 
 
+@pytest.mark.parametrize(
+    "preceded_by_failed_call",
+    [
+        pytest.param(True, id="after_insufficient_funds_call"),
+        pytest.param(False, id="without_preceding_call"),
+    ],
+)
+@pytest.mark.with_all_call_opcodes(
+    # Only these two carry a value argument, so only they can fail this
+    # way; `CALLCODE` sends the value to the caller itself, which is a
+    # separate path through the balance check.
+    selector=lambda call_opcode: call_opcode in (Op.CALL, Op.CALLCODE)
+)
+def test_bal_account_warmth_survives_insufficient_funds_call(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    fork: Fork,
+    call_opcode: Op,
+    preceded_by_failed_call: bool,
+) -> None:
+    """
+    A call that fails the sender-balance check still warms its target.
+
+    The measured `BALANCE` charge is the warm one after the failed call
+    and the cold one without it, which is what tells the two apart; the
+    target is in the BAL either way with no changes, since no value
+    moved.
+    """
+    target_balance = 1
+    target = pre.fund_eoa(amount=target_balance)
+
+    # Deliberately left out of the access list, so warmth can only come
+    # from the failed call.
+    measured_code = Op.BALANCE(target)
+    overhead_cost = measured_code.gas_cost(fork) - Op.BALANCE(
+        address_warm=False
+    ).gas_cost(fork)
+    measure = CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=overhead_cost,
+        extra_stack_items=1,
+    )
+
+    caller_balance = 1
+    failed_call = Op.POP(
+        call_opcode(
+            gas=0,
+            address=target,
+            value=caller_balance + 1,
+            address_warm=False,
+            value_transfer=True,
+            account_new=False,
+        )
+    )
+
+    caller_code: Bytecode
+    if preceded_by_failed_call:
+        caller_code = failed_call + measure
+    else:
+        caller_code = measure
+    caller = pre.deploy_contract(code=caller_code, balance=caller_balance)
+
+    measured_gas = Op.BALANCE(address_warm=preceded_by_failed_call).gas_cost(
+        fork
+    )
+
+    alice = pre.fund_eoa()
+
+    state_test(
+        pre=pre,
+        tx=Transaction(sender=alice, to=caller),
+        post={
+            alice: Account(nonce=1),
+            # Keeping its balance shows the offered value never left.
+            caller: Account(balance=caller_balance, storage={0: measured_gas}),
+            target: Account(balance=target_balance),
+        },
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                caller: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1,
+                                    post_value=measured_gas,
+                                )
+                            ],
+                        )
+                    ],
+                    balance_changes=[],
+                ),
+                target: BalAccountExpectation.empty(),
+            }
+        ),
+    )
+
+
 def test_bal_fully_unmutated_account(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -1666,22 +1771,31 @@ def test_bal_coinbase_zero_tip(
     )
 
 
+@pytest.mark.parametrize(
+    "halt_code",
+    [
+        pytest.param(Om.OOG, id="out_of_gas"),
+        pytest.param(Op.INVALID, id="invalid_opcode"),
+    ],
+)
 def test_bal_coinbase_tip_on_exceptional_halt(
     pre: Alloc,
     state_test: StateTestFiller,
     fork: Fork,
+    halt_code: Bytecode,
 ) -> None:
     """
     Ensure BAL records the final sender and coinbase balances after an
     exceptional halt: the halt burns the whole gas limit and the tip on
-    it is still paid.
+    it is still paid. Both halt kinds take a different path through a
+    client and must settle the fee the same way.
     """
     coinbase = pre.fund_eoa(amount=0)
     base_fee_per_gas = 7
     tip = 3
     gas_price = base_fee_per_gas + tip
 
-    halting_contract = pre.deploy_contract(code=Om.OOG)
+    halting_contract = pre.deploy_contract(code=halt_code)
     gas_limit = fork.transaction_intrinsic_cost_calculator()() + 10_000
     alice = pre.fund_eoa(amount=gas_limit * gas_price)
 
@@ -1690,7 +1804,6 @@ def test_bal_coinbase_tip_on_exceptional_halt(
         to=halting_contract,
         gas_limit=gas_limit,
         gas_price=gas_price,
-        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_limit),
     )
 
     state_test(
