@@ -337,6 +337,7 @@ UNRECOVERABLE_R = 5
     "tx_type",
     [
         pytest.param(0, id="legacy"),
+        pytest.param(1, id="eip2930", marks=pytest.mark.valid_from("Berlin")),
         pytest.param(2, id="eip1559", marks=pytest.mark.valid_from("London")),
     ],
 )
@@ -358,10 +359,7 @@ def test_unrecoverable_signature(
 
     A client that guards recovery by range-checking alone, or that treats the
     two failures as different kinds of error, reaches this case through an
-    unintended path. Besu, for example, raises `IllegalStateException` here
-    while its validator catches only `IllegalArgumentException` (the range
-    failure), so the transaction is reported as an internal error carrying a
-    Java stack trace instead of an invalid signature.
+    unintended path.
     """
     to = pre.fund_eoa(0xDEADBEEE)
 
