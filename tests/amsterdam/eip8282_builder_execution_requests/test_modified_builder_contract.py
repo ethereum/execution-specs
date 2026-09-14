@@ -2,7 +2,7 @@
 Tests [EIP-8282: Builder Execution Requests](https://eips.ethereum.org/EIPS/eip-8282).
 """
 
-from typing import List, Sequence
+from typing import List, Sequence, Type
 
 import pytest
 from execution_testing import (
@@ -15,6 +15,7 @@ from execution_testing import (
     BuilderExitRequest,
     Bytecode,
     Bytes,
+    FeeSystemContractRequest,
     Header,
     Op,
     Requests,
@@ -71,15 +72,13 @@ def run_modified_requests_test(
     *,
     predeploy_address: Address,
     requests_list: Sequence[SystemContractRequest],
-    extra_code: Bytecode | None = None,
 ) -> None:
     """
-    Replace a request predeploy with code that runs `extra_code` and then
-    returns the given request records verbatim, then verify the transition
-    tool dequeues exactly those records into the block, even when there are
-    more than the per-block cap.
+    Replace a request predeploy with code that returns the given request
+    records verbatim, then verify the transition tool dequeues exactly those
+    records into the block, even when there are more than the per-block cap.
     """
-    modified_code: Bytecode = Bytecode() if extra_code is None else extra_code
+    modified_code: Bytecode = Bytecode()
     memory_offset: int = 0
 
     for request in requests_list:
@@ -214,43 +213,6 @@ def test_extra_builder_exits(
 
 
 @pytest.mark.parametrize(
-    "predeploy_address,requests_list",
-    [
-        pytest.param(
-            BuilderDepositRequest.system_contract_address,
-            builder_deposit_list_with_custom_fee(1),
-            id="builder_deposit_contract",
-        ),
-        pytest.param(
-            BuilderExitRequest.system_contract_address,
-            builder_exit_list_with_custom_fee(1),
-            id="builder_exit_contract",
-        ),
-    ],
-)
-@EIPChecklist.SystemContract.Test.ContractSubstitution.Logs()
-def test_system_contract_emits_log(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    predeploy_address: Address,
-    requests_list: Sequence[SystemContractRequest],
-) -> None:
-    """
-    Replace a request predeploy with code that emits a log before returning
-    a record. The system call produces no receipt, so the log reaches
-    neither the receipts root nor the logs bloom, and the record is still
-    dequeued.
-    """
-    run_modified_requests_test(
-        blockchain_test,
-        pre,
-        predeploy_address=predeploy_address,
-        requests_list=requests_list,
-        extra_code=Op.LOG1(0, 0, 0x8282),
-    )
-
-
-@pytest.mark.parametrize(
     "system_contract",
     [
         pytest.param(
@@ -334,10 +296,8 @@ def test_system_contract_logs(
     )
 
 
-@pytest.mark.parametrize(
-    "request_class",
-    [BuilderDepositRequest, BuilderExitRequest],
-    ids=["deposit", "exit"],
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
 )
 @pytest.mark.parametrize(
     "length_delta",
@@ -348,7 +308,7 @@ def test_system_contract_logs(
 def test_partial_request_records(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    request_class: type[BuilderDepositRequest] | type[BuilderExitRequest],
+    request_class: Type[FeeSystemContractRequest],
     length_delta: int | None,
 ) -> None:
     """Commit raw system-call output without parsing or truncating records."""

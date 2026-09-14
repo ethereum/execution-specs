@@ -33,5 +33,6 @@ class Spec:
     # The system call stores it when called with calldata and clears it when
     # called without, so the queue is disabled until the next empty system
     # call. The exit predeploy's constructor seeds it; the deposit
-    # predeploy's does not.
+    # predeploy's leaves it out on purpose, so builders can queue before
+    # the fork (sys-asm#43 review thread).
     EXCESS_INHIBITOR = 2**256 - 1
