@@ -35,6 +35,12 @@ from execution_testing.test_types.block_access_list.modifiers import (
     override_rlp,
     remove_nonces,
     reorder_accounts,
+    reverse_balance_changes,
+    reverse_code_changes,
+    reverse_nonce_changes,
+    reverse_slot_changes,
+    reverse_storage_reads,
+    reverse_storage_slots,
     swap_bal_indices,
 )
 
@@ -464,3 +470,134 @@ def test_override_rlp_commits_encoder_output(
     assert overridden.rlp == encoder(sample_bal)
     assert overridden.rlp != sample_bal.rlp
     assert overridden.root == sample_bal.root
+
+
+@pytest.fixture()
+def two_entry_bal() -> BlockAccessList:
+    """Build a BAL whose every list on ALICE holds two entries in order."""
+    return BlockAccessList(
+        [
+            BalAccountChange(
+                address=ALICE,
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1),
+                    BalNonceChange(block_access_index=2, post_nonce=2),
+                ],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=100),
+                    BalBalanceChange(block_access_index=2, post_balance=90),
+                ],
+                code_changes=[
+                    BalCodeChange(block_access_index=1, new_code=b"\x60"),
+                    BalCodeChange(block_access_index=2, new_code=b"\x61"),
+                ],
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x42
+                            ),
+                            BalStorageChange(
+                                block_access_index=2, post_value=0x43
+                            ),
+                        ],
+                    ),
+                    BalStorageSlot(
+                        slot=2,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=0x44
+                            ),
+                        ],
+                    ),
+                ],
+                storage_reads=[3, 4],
+            ),
+        ]
+    )
+
+
+ACCOUNT_LISTS = (
+    "storage_changes",
+    "storage_reads",
+    "balance_changes",
+    "nonce_changes",
+    "code_changes",
+)
+
+
+def _alice(bal: BlockAccessList) -> BalAccountChange:
+    return [a for a in bal.root if a.address == ALICE][0]
+
+
+@pytest.mark.parametrize(
+    "modifier, field",
+    [
+        pytest.param(
+            reverse_storage_slots(ALICE), "storage_changes", id="storage_slots"
+        ),
+        pytest.param(
+            reverse_storage_reads(ALICE), "storage_reads", id="storage_reads"
+        ),
+        pytest.param(
+            reverse_balance_changes(ALICE),
+            "balance_changes",
+            id="balance_changes",
+        ),
+        pytest.param(
+            reverse_nonce_changes(ALICE), "nonce_changes", id="nonce_changes"
+        ),
+        pytest.param(
+            reverse_code_changes(ALICE), "code_changes", id="code_changes"
+        ),
+    ],
+)
+def test_reverse_account_field(
+    two_entry_bal: BlockAccessList,
+    modifier: Callable[[BlockAccessList], BlockAccessList],
+    field: str,
+) -> None:
+    """Reverse one list of the account and leave the others untouched."""
+    before = _alice(two_entry_bal)
+    after = _alice(modifier(two_entry_bal))
+    assert getattr(after, field) == list(reversed(getattr(before, field)))
+    for other in ACCOUNT_LISTS:
+        if other != field:
+            assert getattr(after, other) == getattr(before, other)
+
+
+def test_reverse_slot_changes(two_entry_bal: BlockAccessList) -> None:
+    """Reverse the change list of one slot only."""
+    result = reverse_slot_changes(ALICE, 1)(two_entry_bal)
+    slots = _alice(result).storage_changes
+    assert [c.block_access_index for c in slots[0].slot_changes] == [2, 1]
+    assert slots[1] == _alice(two_entry_bal).storage_changes[1]
+
+
+def test_reverse_single_entry_raises(sample_bal: BlockAccessList) -> None:
+    """Raise instead of silently leaving a one-entry list unchanged."""
+    with pytest.raises(ValueError, match="at least two"):
+        reverse_nonce_changes(ALICE)(sample_bal)
+
+
+def test_reverse_slot_changes_single_change_raises(
+    two_entry_bal: BlockAccessList,
+) -> None:
+    """Raise instead of silently leaving a one-change slot unchanged."""
+    with pytest.raises(ValueError, match="at least two"):
+        reverse_slot_changes(ALICE, 2)(two_entry_bal)
+
+
+def test_reverse_missing_address_raises(sample_bal: BlockAccessList) -> None:
+    """Raise when the address is absent."""
+    with pytest.raises(ValueError, match="not found"):
+        reverse_storage_reads(Address(0xB))(sample_bal)
+
+
+def test_reverse_slot_changes_missing_slot_raises(
+    two_entry_bal: BlockAccessList,
+) -> None:
+    """Raise when the slot is absent."""
+    with pytest.raises(ValueError, match="not found"):
+        reverse_slot_changes(ALICE, 99)(two_entry_bal)
