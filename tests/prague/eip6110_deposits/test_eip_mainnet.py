@@ -27,8 +27,6 @@ pytestmark = [pytest.mark.valid_at("Prague"), pytest.mark.mainnet]
         pytest.param(
             [
                 SystemContractInteractionTransaction(
-                    # TODO: Use a real public key to allow recovery of
-                    #  the funds.
                     requests=[
                         DepositRequest(
                             pubkey=0x01,
