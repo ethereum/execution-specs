@@ -1754,7 +1754,7 @@ def test_ext_code_on_chain_delegating_set_code(
     """
     # Pin gas so BALANCE(auth_signer_1) is deterministic when that authority
     # is also the sender (up-front max-fee hold).
-    gas_limit = 1_000_000
+    gas_limit = 2_000_000
     max_fee_per_gas = 7
 
     auth_signer_2_balance = 0
