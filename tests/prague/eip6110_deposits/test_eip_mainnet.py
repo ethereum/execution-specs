@@ -9,10 +9,10 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    DepositRequest,
     SystemContractInteractionTransaction,
 )
 
-from .helpers import recoverable_deposit_request
 from .spec import ref_spec_6110
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path
@@ -27,7 +27,15 @@ pytestmark = [pytest.mark.valid_at("Prague"), pytest.mark.mainnet]
         pytest.param(
             [
                 SystemContractInteractionTransaction(
-                    requests=[recoverable_deposit_request()],
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             id="single_deposit_from_eoa_minimum",
