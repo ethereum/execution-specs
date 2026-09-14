@@ -12,7 +12,7 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 - All test imports come from `execution_testing` — it is the public API
 - Core fixtures: `pre: Alloc` (pre-state builder), `state_test: StateTestFiller`, `blockchain_test: BlockchainTestFiller`, `fork: Fork`
 - Rule: use `state_test` for single-transaction tests; `fill` auto-derives a `blockchain_test` from each, so no coverage is lost.
-- Exception: use `blockchain_test` when the test needs more than one transaction (a `state_test` holds exactly one), more than one block (e.g. transaction-ordering or fork-transition tests), or calls a system contract: the state-test pre-alloc omits the predeploys a fork lists only in `pre_allocation_blockchain()`, so the `CALL` hits an empty account, "succeeds", and the test passes vacuously.
+- Exception: use `blockchain_test` when the test needs more than one transaction (a `state_test` holds exactly one), more than one block (e.g. transaction-ordering or fork-transition tests), or calls a system contract: a state test's pre-alloc lacks the predeploys a fork lists only in `pre_allocation_blockchain()`, so the `CALL` hits an empty account and the test passes vacuously.
 - Anti-pattern: wrapping one transaction in a `Block` to reach `blockchain_test`. A `state_test` can assert the transaction's gas used and receipt logs (the tx's `expected_receipt=TransactionReceipt(cumulative_gas_used=...)`), reserve state gas (the tx's `state_gas_reservoir=`), and other block-header fields (`blockchain_test_header_verify=Header(...)`) without it.
 - If the framework cannot express what a test needs — a fork-derived parameter set, a protocol constant, a cost — add it to the framework (a `fork.*()` accessor, a mixin ClassVar, a covariant marker) instead of building it in the test. Importing a helper from a sibling `test_*.py` is the sign it belongs there.
 
@@ -27,8 +27,10 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 - `Op.SSTORE(key, value)`, `Op.CALL(gas, addr, ...)`, etc. — concatenate with `+`
 - `Op.PUSH32(val) + Op.PUSH32(val) + Op.EXP` for stack setup
 - Macros: `Om.OOG` (consumes all gas), `Om.MSTORE(data, offset)` (arbitrary-length memory store)
+- `GasConsumer(gas=n, fork=fork)` burns exactly `n` gas and falls through; `GasConsumer.out_of_gas(fork)` always runs out. Both are priced against the fork, so use them instead of sizing a burn by hand (`JUMPDEST` padding, a large `MSTORE` offset).
 - Metadata on opcodes for gas calculation: `Op.BALANCE(address=0x1234, address_warm=True)`, `Op.SSTORE(key=1, value=0, key_warm=True, original_value=1, new_value=0)` — see `docs/writing_tests/opcode_metadata.md`
 - `bytecode.gas_cost(fork)` — calculates exact gas for a bytecode sequence using opcode metadata. Use this instead of manually computing gas
+- Compute in Python whatever is known at fill time (a fee, how many requests fit a budget, which entries a sweep returns) and put in bytecode only what the test must observe. A loop, counter or runtime measurement for a value the test could have derived is more code to read and more to get wrong. A test should read as the scenario it describes, not as a program the reader has to run in their head to find it.
 
 ## Storage Helpers
 
@@ -42,8 +44,7 @@ Conventions and patterns for writing consensus tests. Run this skill before writ
 Every Amsterdam+ fixture carries a BAL whether or not the test asserts one. An `expected_block_access_list=` is a fill-time check that the spec built the BAL you predicted, so write one when the access pattern is the point of the test or a known edge (a revert, a system call, a withdrawal, a self-destruct), not by default. When you do write one, pair it with a `post` witness: the BAL records access, not outcome, so a transaction that ran and failed still merges its touches and satisfies the expectation, and only `post` tells the two apart.
 
 - Field semantics: a field left unset is not checked, `[]` asserts empty, and a non-empty list matches as an **ordered subsequence** (extra actual entries are skipped; yours must appear in order). `BalAccountExpectation()` with no field set raises; use `.empty()` for an account with no changes and `{address: None}` to assert an address is absent.
-- Reads and created accounts survive a frame's revert; writes do not. A test that reverts after touching state still expects those touches, and a missing entry is not evidence the access never happened.
-- Withdrawals and pre/post-execution system calls add entries no transaction accounts for (index `0` before, `len(txs) + 1` after). An expectation built only from the transaction list comes up short.
+- To learn what a scenario puts in the BAL (a revert, a system call, a withdrawal), find the closest row in `tests/amsterdam/eip7928_block_level_access_lists/test_cases.md` and read that test. A scenario with no row is a coverage gap worth reporting.
 
 ## Markers
 
@@ -51,7 +52,7 @@ Every Amsterdam+ fixture carries a BAL whether or not the test asserts one. An `
 - `@pytest.mark.valid_until("ForkName")` — test only valid up to a fork
 - `@pytest.mark.with_all_tx_types` — parametrize across all tx types
 - `@pytest.mark.with_all_call_opcodes` — parametrize CALL/CALLCODE/DELEGATECALL/STATICCALL
-- `@pytest.mark.with_all_system_contracts`, `with_all_precompiles`, `with_all_system_contract_request_types` (yields the request *class* as `request_class`), … — parametrize over a fork-derived set; `selector=lambda value: ...` narrows any `with_all_*` marker
+- `@pytest.mark.with_all_system_contracts`, `with_all_precompiles`, `with_all_system_contract_request_types` (yields the request *class* as `request_class`), … — parametrize over a fork-derived set; `selector=lambda value: ...` narrows any `with_all_*` marker. Check `docs/writing_tests/test_markers.md` for the full list before writing out protocol values by hand.
 - `@pytest.mark.slow` — excluded by default in fill
 - `@pytest.mark.exception_test` — marks tests expecting exceptions.
 - A mark that only some cases earn goes on that case, `pytest.param(..., marks=...)`, not the function: `exception_test` on the function fails the passing cases, and a function-level `EIPChecklist` item stays green after the one case that proved it is deleted.
@@ -71,6 +72,7 @@ Pinning is a necessity, not a nice-to-have. With thousands of tests nobody re-re
 - **The pin has to bite at fill time.** EELS collapses distinctions clients keep apart — both intrinsic-gas rejections map to one error, for instance — so an expectation that only differs under `consume` does not protect the fixture. When the discriminating fact cannot appear in the fixture, assert the premise in the test body: a plain `assert` on which of two thresholds binds, or a helper asserting the preconditions its boundary rests on, fails the fill the moment the assumption stops holding.
 - **Derive parameters from what the test asserts.** If a boundary is `len(slots) * COST`, compute it from the same `slots` the expectation checks, so the two cannot drift apart.
 - **Pin block premises.** A block that must be exactly full asserts its `gas_used` with `header_verify=Header(...)`.
+- **A boundary is two cases.** A test about a limit (out-of-gas, a cap, a size, a count) is parametrized with the last value that passes and the first that fails, each with its full expectation: success with the resource shown spent on one side, the specific exception on the other. One side alone can pass for the wrong reason. Derive both values from fork constants so the pair moves when the limit does. For an opcode that is the exact charge succeeding and one gas less running out; for a block, one more transaction being rejected. The tell that a side is missing is a name claiming exhaustion while that quantity goes unasserted, such as `set_expect_any` on it.
 - **Make a mid-transaction value durable.** A `CALL` result, a `BALANCE`, `GAS` or `EXTCODESIZE` reading only exists while the code runs; `SSTORE` it into a witness slot and assert that slot in `post` (`Storage.store_next(expected)` builds the code and the expectation together).
 - **Say which rule the pinned number comes from.** One short comment naming the rule lets the next reader tell a repricing from a regression.
 - **Break it once.** After the test fills, mutate the setup so the behaviour under test cannot happen and confirm the fill fails for that reason; then restore it.
@@ -92,7 +94,7 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 - Rule: omit `gas_limit`. It auto-fills so the transaction executes in full without running out of gas.
 - Exception: set `gas_limit` explicitly for gas-sensitive tests (intrinsic-gas boundaries, OOG, code-deposit limits, or gas metering).
 - Anti-pattern: the `gas_limit=fork.transaction_gas_limit_cap()` boilerplate is now redundant.
-- A transaction that runs out of gas consumes exactly its `gas_limit`, so calling an `Om.OOG` contract pins a transaction's gas used to a chosen value without any cost arithmetic.
+- A transaction that runs out of gas consumes exactly its `gas_limit`, so calling a contract whose code is `GasConsumer.out_of_gas(fork)` pins its gas used to a chosen value without any cost arithmetic.
 
 ## Exception Testing
 
@@ -104,6 +106,7 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 
 - Place tests in `tests/<fork>/eip<number>/` where `<fork>` is the fork that introduced the functionality
 - Each EIP directory has `spec.py` with `ReferenceSpec(git_path=..., version=...)` and test files declaring `REFERENCE_SPEC_GIT_PATH` / `REFERENCE_SPEC_VERSION`. `version` is the EIP file's blob SHA (`gh api repos/ethereum/EIPs/contents/EIPS/eip-N.md --jq .sha`); `uv run check_eip_versions --until <Fork> <path>` flags stale pins.
+- **One module per subject, not per scenario.** Start a new test file only for a subject no existing module has: a different parametrization axis, fixture set, or fork validity. A new scenario for an existing subject goes into that subject's module however many tests it already holds, even where neighbouring suites split further. Two files with the same `pytestmark` are one module split in two.
 - Put a scenario where it earns the most coverage. Before adding a test to a new EIP's module, look in the module that owns the mechanism for one that already runs the case and only needs tightened expectations or an `is_eip_enabled` branch, and amend it; write a new test in the new module only when the branches would cost more readability than the extra fork coverage buys.
 - Use `conftest.py` for shared fixtures within an EIP directory
 
