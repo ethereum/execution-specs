@@ -168,10 +168,10 @@ def test_transaction_validity_type_1_type_2(
     Test transaction validity for transactions with access lists and contract
     creation.
 
-    Under EIP-8037 / EIP-2780, ``NEW_ACCOUNT`` for a create transaction is
-    charged at the top frame (not in the pre-execution intrinsic), so the
-    EIP-7623 floor / intrinsic validity bounds from the shared fixtures
-    already apply on Amsterdam without a separate create-gas path.
+    From EIP-2780 the new-account charge of a contract creation is a runtime
+    charge in the pre-execution phase, not part of intrinsic gas, so the
+    intrinsic and floor bounds from the shared fixtures apply unchanged. An
+    exact-gas creation is valid and halts before its first frame.
     """
     state_test(
         pre=pre,
