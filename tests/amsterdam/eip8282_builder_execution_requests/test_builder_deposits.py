@@ -29,7 +29,14 @@ from .spec import ref_spec_8282
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = [
+    pytest.mark.valid_from("Amsterdam"),
+    # The cases assume the predeploy at its genesis state: no balance and
+    # the fee at its minimum.
+    pytest.mark.execute(
+        pytest.mark.skip(reason="Assumes the predeploy's genesis state")
+    ),
+]
 
 MIN_DEPOSIT_GWEI = BuilderDepositRequest.min_deposit_wei // 10**9
 
@@ -89,6 +96,7 @@ def minimum_deposit(
                 ],
             ],
             id="single_block_single_builder_deposit_from_eoa",
+            marks=EIPChecklist.SystemContract.Test.Inputs.Boundary(),
         ),
         pytest.param(
             [
@@ -124,7 +132,6 @@ def minimum_deposit(
                 ],
             ],
             id="single_block_single_builder_deposit_above_minimum",
-            marks=EIPChecklist.SystemContract.Test.Inputs.Boundary(),
         ),
         pytest.param(
             [
@@ -460,6 +467,8 @@ def minimum_deposit(
             ],
             id="single_block_multiple_builder_deposits_from_contract_caller_oog",
         ),
+        # Depth is not a boundary: the transaction gas cap keeps the stack
+        # limit out of reach, so these only show a deep call still queues.
         pytest.param(
             [
                 [

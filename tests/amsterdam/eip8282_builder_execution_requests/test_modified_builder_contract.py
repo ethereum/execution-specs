@@ -242,30 +242,23 @@ def test_system_contract_errors() -> None:
     pass
 
 
-@pytest.mark.parametrize(
-    "queued_request",
-    [
-        pytest.param(
-            builder_deposit_list_with_custom_fee(1)[0],
-            id="builder_deposit_contract",
-        ),
-        pytest.param(
-            builder_exit_list_with_custom_fee(1)[0],
-            id="builder_exit_contract",
-        ),
-    ],
+@pytest.mark.with_all_system_contract_request_types(
+    selector=lambda cls: issubclass(cls, FeeSystemContractRequest)
 )
 @EIPChecklist.SystemContract.Test.ContractSubstitution.Logs()
 def test_system_contract_logs(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    queued_request: SystemContractRequest,
+    request_class: Type[FeeSystemContractRequest],
 ) -> None:
     """
     Replace a request predeploy with code that logs before returning a
     record: the block stays valid, the record is dequeued, and the log
     reaches neither a receipt nor the block's logs bloom.
     """
+    queued_request = request_class.from_index(0).copy(
+        fee=request_class.get_fee(0)
+    )
     record = bytes(queued_request)
     pre[queued_request.system_contract_address] = Account(
         code=Om.MSTORE(record, 0)
@@ -312,11 +305,10 @@ def test_partial_request_records(
     length_delta: int | None,
 ) -> None:
     """Commit raw system-call output without parsing or truncating records."""
-    size = (
-        1
-        if length_delta is None
-        else len(bytes(request_class.from_index(0))) + length_delta
-    )
+    if length_delta is None:
+        size = 1
+    else:
+        size = len(bytes(request_class.from_index(0))) + length_delta
     returned = bytes((i % 255) + 1 for i in range(size))
     pre[request_class.system_contract_address] = Account(
         code=Om.MSTORE(returned, 0) + Op.RETURN(0, size),

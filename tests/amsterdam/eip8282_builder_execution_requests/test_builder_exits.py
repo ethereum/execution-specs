@@ -29,7 +29,14 @@ from .spec import ref_spec_8282
 REFERENCE_SPEC_GIT_PATH = ref_spec_8282.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8282.version
 
-pytestmark = pytest.mark.valid_from("Amsterdam")
+pytestmark = [
+    pytest.mark.valid_from("Amsterdam"),
+    # The cases assume the predeploy at its genesis state: no balance and
+    # the fee at its minimum.
+    pytest.mark.execute(
+        pytest.mark.skip(reason="Assumes the predeploy's genesis state")
+    ),
+]
 
 # The predeploy adds the requests already queued in the block, beyond the
 # target, onto the stored excess when it prices a request, so the fee first
@@ -135,7 +142,7 @@ assert EXITS_BEFORE_FEE_INCREASE < BuilderExitRequest.max_per_block, (
                             BuilderExitRequest(
                                 pubkey=0x01,
                                 # No fee paid covers the call value.
-                                fee=0,
+                                fee=BuilderExitRequest.get_fee(0) - 1,
                                 valid=False,
                             )
                         ],
@@ -232,7 +239,9 @@ assert EXITS_BEFORE_FEE_INCREASE < BuilderExitRequest.max_per_block, (
                     SystemContractInteractionTransaction(
                         requests=[
                             BuilderExitRequest(
-                                pubkey=0x01, fee=0, valid=False
+                                pubkey=0x01,
+                                fee=BuilderExitRequest.get_fee(0) - 1,
+                                valid=False,
                             ),
                             BuilderExitRequest(pubkey=0x02),
                         ],
@@ -248,7 +257,9 @@ assert EXITS_BEFORE_FEE_INCREASE < BuilderExitRequest.max_per_block, (
                         requests=[
                             BuilderExitRequest(pubkey=0x01),
                             BuilderExitRequest(
-                                pubkey=0x02, fee=0, valid=False
+                                pubkey=0x02,
+                                fee=BuilderExitRequest.get_fee(0) - 1,
+                                valid=False,
                             ),
                         ],
                     ),
@@ -262,7 +273,9 @@ assert EXITS_BEFORE_FEE_INCREASE < BuilderExitRequest.max_per_block, (
                     SystemContractInteractionContract(
                         requests=[
                             BuilderExitRequest(
-                                pubkey=0x01, fee=0, valid=False
+                                pubkey=0x01,
+                                fee=BuilderExitRequest.get_fee(0) - 1,
+                                valid=False,
                             ),
                             BuilderExitRequest(pubkey=0x02),
                         ],
@@ -278,7 +291,9 @@ assert EXITS_BEFORE_FEE_INCREASE < BuilderExitRequest.max_per_block, (
                         requests=[
                             BuilderExitRequest(pubkey=0x01),
                             BuilderExitRequest(
-                                pubkey=0x02, fee=0, valid=False
+                                pubkey=0x02,
+                                fee=BuilderExitRequest.get_fee(0) - 1,
+                                valid=False,
                             ),
                         ],
                     ),
@@ -314,6 +329,8 @@ assert EXITS_BEFORE_FEE_INCREASE < BuilderExitRequest.max_per_block, (
             ],
             id="single_block_multiple_builder_exits_from_contract_caller_oog",
         ),
+        # Depth is not a boundary: the transaction gas cap keeps the stack
+        # limit out of reach, so these only show a deep call still queues.
         pytest.param(
             [
                 [

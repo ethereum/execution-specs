@@ -63,10 +63,10 @@ def test_builder_requests_during_fork(
 ) -> None:
     """
     Deploy both predeploys before the fork and send a deposit and an exit
-    before, on and after the fork block. Only the exit constructor seeds the
-    inhibitor, deliberately, so builders can queue early (sys-asm#43): the
-    pre-fork deposit waits in the queue until the fork block's system call
-    returns it, while exits revert until that call clears the inhibitor.
+    before, on and after the fork block. The pre-fork deposit waits in the
+    queue until the fork block's system call returns it; exits revert until
+    that call clears the inhibitor the exit constructor seeded (see
+    `Spec.EXCESS_INHIBITOR`).
     """
     deposit_predeploy = BuilderDepositRequest.system_contract_address
     exit_predeploy = BuilderExitRequest.system_contract_address

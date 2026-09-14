@@ -4,9 +4,8 @@ Request predeploy tests for
 
 The builder deposit and exit contracts reuse the queue design of the
 EIP-7002 withdrawal and EIP-7251 consolidation contracts, so every test
-here runs against all four predeploys. The per-type matrices cover plain
-requests; these cover the fee getter, the inhibitor, fee decay, callers
-other than a plain transaction, and gas limits.
+here runs against all four predeploys. Plain requests live in the deposit
+and exit modules.
 """
 
 from typing import Dict, List, Tuple, Type
@@ -30,7 +29,6 @@ from execution_testing import (
     Fork,
     GasConsumer,
     Header,
-    MemoryVariable,
     Op,
     Requests,
     Storage,
@@ -40,7 +38,6 @@ from execution_testing import (
     Transaction,
     TransactionException,
     TransactionReceipt,
-    While,
     compute_create_address,
     relay_contract_code,
 )
@@ -104,9 +101,7 @@ def test_fee_getter(
     """
     A relay queues requests and then calls the predeploy with empty calldata,
     which returns the current fee; calling it again with value attached
-    reverts. A predeploy that prices the fee per call already counts the
-    requests queued in the block, one that prices it per block returns the
-    minimum until the system call runs.
+    reverts.
     """
     predeploy = request_class.system_contract_address
     per_block = request_class.max_per_block
@@ -159,6 +154,8 @@ def test_fee_getter(
         for i, fee in enumerate(request_class.get_enqueue_fees(queued))
     ]
     queued_value = sum(request.value for request in requests)
+    # Per-call pricing already counts the requests queued this block;
+    # per-block pricing returns the minimum until the system call runs.
     if request_class.excess_fee_processing == "call":
         quoted_fee = request_class.get_fee(excess)
     elif request_class.excess_fee_processing == "block":
@@ -787,6 +784,7 @@ def test_request_via_delegatecall_staticcall_callcode(
 
 @EIPChecklist.SystemContract.Test.CallContexts.TxEntry()
 @EIPChecklist.SystemContract.Test.InputLengths.Zero()
+@EIPChecklist.SystemContract.Test.ValueTransfer.NoFee()
 def test_value_without_calldata_from_transaction(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -846,9 +844,9 @@ def test_request_gas_boundary(
     ).gas_cost(fork)
     sentry_margin = fork.call_value_stipend() - warm_sstore + 1
 
-    # Keep the boundary requests third and fourth: with the exit contract's
-    # target of two, a later request is priced on a higher in-block count and
-    # takes a different path than the measured one.
+    # Keep the boundary requests third and fourth: once the in-block count
+    # passes `target_per_block` (two for exits), a request is priced on a
+    # higher count and takes a different path than the measured one.
     requests: List[FeeSystemContractRequest] = [
         request_class.from_index(i).copy(fee=request_class.get_fee(0))
         for i in range(4)
@@ -954,7 +952,6 @@ def test_requests_exhaust_block_gas(
     intrinsic cost remains; the system call dequeues the per-block maximum
     and leaves the rest queued.
     """
-    template = request_class.from_index(0)
     predeploy = request_class.system_contract_address
     env = Environment()
     tx_gas_limit = fork.transaction_gas_limit_cap()
@@ -966,79 +963,45 @@ def test_requests_exhaust_block_gas(
     remainder_gas = env.gas_limit % tx_gas_limit
 
     # Every word of a record is a slot first set from zero, as are the
-    # queue's count and tail slots and the relay's enqueue counter on the
-    # block's first enqueue.
+    # queue's count and tail slots on the block's first enqueue.
     slot_state_gas = Op.SSTORE(
         original_value=0, current_value=0, new_value=1
     ).state_cost(fork)
     record_state_gas = request_class.slots_per_request * slot_state_gas
-    first_enqueue_state_gas = 3 * slot_state_gas
-    # The block admits a transaction only while its whole gas limit fits the
-    # state gas left by the transactions before it, so each full
-    # transaction's reservoir takes an equal share of what the block's gas
-    # leaves beyond one execution cap.
+    first_enqueue_state_gas = 2 * slot_state_gas
+    # Under EIP-8037 a block has an execution-gas budget and an equal
+    # state-gas budget, and a transaction is admitted only while its
+    # reservoir fits in the state gas still free. Split the gas beyond one
+    # execution cap evenly so every full transaction gets a reservoir the
+    # block will admit.
     reservoir_budget = (env.gas_limit - tx_gas_limit) // full_transactions
-    enqueues_per_transaction = (
+    per_transaction = (
         reservoir_budget - first_enqueue_state_gas
     ) // record_state_gas
-    assert enqueues_per_transaction > 0, "the reservoir must fit a record"
-    reservoir = (
-        enqueues_per_transaction * record_state_gas + first_enqueue_state_gas
-    )
-    total_enqueued = full_transactions * enqueues_per_transaction
+    assert per_transaction > 0, "the reservoir must fit a record"
+    reservoir = per_transaction * record_state_gas + first_enqueue_state_gas
+    total_enqueued = full_transactions * per_transaction
     assert total_enqueued > request_class.max_per_block, (
         "the block must queue more than the system call dequeues"
     )
 
-    fee = MemoryVariable(0x100)
-    result = MemoryVariable(0x120)
-    counter = MemoryVariable(0x140)
-    remaining = MemoryVariable(0x160)
-    # Each iteration reads the current fee, enqueues a request whose first
-    # calldata word is the running counter, and folds the call's result into
-    # the success witness.
-    enqueue = (
-        Op.MSTORE(0, counter)
-        + Op.POP(Op.CALL(Op.GAS, predeploy, 0, 0, 0, fee.offset, 32))
-        + result.set(
-            Op.AND(
-                result,
-                Op.CALL(
-                    Op.GAS,
-                    predeploy,
-                    Op.ADD(fee, template.value),
-                    0,
-                    len(template.calldata),
-                    0,
-                    0,
-                ),
-            )
-        )
-        + counter.add(1)
-        + remaining.sub(1)
-    )
+    # Every request pays the highest fee any of them will meet, so one relay
+    # serves every transaction; the predeploy keeps the overpayment.
+    fee = max(request_class.get_enqueue_fees(total_enqueued))
+    requests = [
+        request_class.from_index(i).copy(fee=fee)
+        for i in range(total_enqueued)
+    ]
+    paid = sum(request.value for request in requests)
     # A call into code that runs out of gas at once burns all but a 64th of
     # the caller's gas; three in a row leave next to nothing.
     burner = pre.deploy_contract(GasConsumer.out_of_gas(fork))
     burn = Op.POP(Op.CALL(Op.GAS, burner, 0, 0, 0, 0, 0)) * 3
-    relay_code = (
-        Om.MSTORE(template.calldata, 0)
-        + counter.set(Op.SLOAD(0))
-        + result.set(1)
-        + remaining.set(Op.CALLDATALOAD(0))
-        + While(body=enqueue, condition=Op.GT(remaining, 0))
-        # Witness the enqueue count, that every enqueue succeeded and that
-        # every transaction ran to completion, then burn the rest.
-        + Op.SSTORE(0, counter)
-        + Op.SSTORE(1, result)
-        + Op.SSTORE(2, Op.ADD(Op.SLOAD(2), 1))
-        + burn
-    )
-    # The witness slots are pre-seeded so their final writes are not slot
-    # creations.
-    relay_balance = 2**160
     relay = pre.deploy_contract(
-        relay_code, balance=relay_balance, storage={1: 2, 2: 1}
+        relay_contract_code(
+            requests[:per_transaction], call_type=Op.CALL, extra_code=burn
+        ),
+        balance=paid,
     )
 
     sender = pre.fund_eoa()
@@ -1047,9 +1010,12 @@ def test_requests_exhaust_block_gas(
             sender=sender,
             to=relay,
             gas_limit=tx_gas_limit + reservoir,
-            data=enqueues_per_transaction.to_bytes(32, "big"),
+            data=b"".join(
+                request.calldata
+                for request in requests[start : start + per_transaction]
+            ),
         )
-        for _ in range(full_transactions)
+        for start in range(0, total_enqueued, per_transaction)
     ]
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
     if remainder_gas >= intrinsic_gas:
@@ -1061,23 +1027,19 @@ def test_requests_exhaust_block_gas(
         txs.append(
             Transaction(sender=sender, to=exhaust, gas_limit=remainder_gas)
         )
-    # The counter lands in the first word of the calldata, and every fee
-    # request type's calldata starts with a pubkey field.
-    first_field = next(
-        name for name in request_class.model_fields if name.endswith("pubkey")
-    )
     dequeued = [
-        template.copy(**{first_field: i << 128}).with_source_address(relay)
-        for i in range(request_class.max_per_block)
+        request.with_source_address(relay)
+        for request in requests[: request_class.max_per_block]
     ]
-    paid = (
-        sum(request_class.get_enqueue_fees(total_enqueued))
-        + total_enqueued * template.value
-    )
     system_call_index = len(txs) + 1
-    error = None
+    header_verify: Header | None
+    expected_block_access_list: BlockAccessListExpectation | None
+    post: Dict[Address, Account]
+    error: TransactionException | None
     if extra_transaction:
-        # Even a minimum-cost transaction cannot fit after the burners.
+        # Even a minimum-cost transaction cannot fit after the burners, and
+        # the state budget still admits it, so only execution gas rejects it.
+        assert full_transactions * reservoir + intrinsic_gas <= env.gas_limit
         error = TransactionException.GAS_ALLOWANCE_EXCEEDED
         txs.append(
             Transaction(
@@ -1087,6 +1049,44 @@ def test_requests_exhaust_block_gas(
                 error=error,
             )
         )
+        header_verify = None
+        expected_block_access_list = None
+        post = {}
+    else:
+        error = None
+        header_verify = Header(requests_hash=Requests(*dequeued))
+        # The sweep resets the count and advances the head past the
+        # dequeued records.
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                predeploy: BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=request_class.count_slot,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=system_call_index,
+                                    post_value=0,
+                                )
+                            ],
+                        ),
+                        BalStorageSlot(
+                            slot=request_class.queue_head_slot,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=system_call_index,
+                                    post_value=request_class.max_per_block,
+                                )
+                            ],
+                        ),
+                    ],
+                ),
+            }
+        )
+        post = {
+            relay: Account(balance=0),
+            predeploy: Account(balance=paid),
+        }
 
     blockchain_test(
         genesis_environment=env,
@@ -1097,53 +1097,10 @@ def test_requests_exhaust_block_gas(
                 # Each enqueue logs, and nothing here asserts a receipt; the
                 # receipts root in the header still commits to them.
                 include_receipts_in_output=False,
-                header_verify=None
-                if error
-                else Header(requests_hash=Requests(*dequeued)),
+                header_verify=header_verify,
                 exception=error,
-                # The sweep resets the count and advances the head past the
-                # dequeued records.
-                expected_block_access_list=None
-                if error
-                else BlockAccessListExpectation(
-                    account_expectations={
-                        predeploy: BalAccountExpectation(
-                            storage_changes=[
-                                BalStorageSlot(
-                                    slot=request_class.count_slot,
-                                    slot_changes=[
-                                        BalStorageChange(
-                                            block_access_index=system_call_index,
-                                            post_value=0,
-                                        )
-                                    ],
-                                ),
-                                BalStorageSlot(
-                                    slot=request_class.queue_head_slot,
-                                    slot_changes=[
-                                        BalStorageChange(
-                                            block_access_index=system_call_index,
-                                            post_value=request_class.max_per_block,
-                                        )
-                                    ],
-                                ),
-                            ],
-                        ),
-                    }
-                ),
+                expected_block_access_list=expected_block_access_list,
             )
         ],
-        post={}
-        if error
-        else {
-            relay: Account(
-                balance=relay_balance - paid,
-                storage={
-                    0: total_enqueued,
-                    1: 1,
-                    2: 1 + full_transactions,
-                },
-            ),
-            predeploy: Account(balance=paid),
-        },
+        post=post,
     )
