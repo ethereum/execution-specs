@@ -1,10 +1,10 @@
 """Pre-allocation fixtures used for test filling."""
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
-from random import randint
 from typing import Any, Dict, Generator, Iterator, List, Literal, Tuple
 
 import pytest
@@ -39,6 +39,7 @@ from execution_testing.test_types import (
     Transaction,
     TransactionTestMetadata,
     compute_deterministic_create2_address,
+    keccak256,
 )
 from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.tools import Initcode
@@ -56,6 +57,45 @@ from .contracts import (
 logger = get_logger(__name__)
 
 
+def eoa_iterator_start(config: pytest.Config) -> int:
+    """
+    Return the private key that this process starts handing out EOAs from.
+
+    Derived rather than random, so that a run can be repeated: the default was
+    `randint(0, 2**256)`, which gave every run a different set of
+    `pre.fund_eoa()` addresses. A prestate built twice from one snapshot
+    therefore diverged at its first test EOA and at every block after it, which
+    is what makes a filled prestate shippable only as a datadir or a replay
+    bundle.
+
+    Two things that randomness did protect have to survive being pinned, so
+    both go into the derivation:
+
+    - xdist workers. Every worker process evaluates the option default for
+      itself, so a random one handed each its own range. Nothing else offsets
+      them, and `session_worker_key` takes the first key from this iterator.
+    - concurrent runs against one network. Two runs sharing a range would race
+      each other's nonces. The seed key is already documented as belonging to a
+      single command, so it separates them whenever one is set.
+
+    The result is 248 bits: never the invalid key zero, and far enough below
+    the secp256k1 order that counting upwards from it stays valid.
+    """
+    configured = config.getoption("eoa_iterator_start")
+    if configured is not None:
+        return int(configured)
+
+    material = (
+        b"eoa-start:" + os.getenv("PYTEST_XDIST_WORKER", "main").encode()
+    )
+    seed_key = config.getoption("rpc_seed_key", None) or os.environ.get(
+        "RPC_SEED_KEY"
+    )
+    if seed_key is not None:
+        material += b":" + str(seed_key).encode()
+    return int.from_bytes(keccak256(material), "big") >> 8
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
     pre_alloc_group = parser.getgroup(
@@ -66,9 +106,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--eoa-start",
         action="store",
         dest="eoa_iterator_start",
-        default=randint(0, 2**256),
+        default=None,
         type=int,
-        help="The start private key from which tests will deploy EOAs.",
+        help=(
+            "The start private key from which tests will deploy EOAs. "
+            "Defaults to a value derived from the seed key and the worker id, "
+            "so that a run can be repeated; pass it explicitly to reproduce a "
+            "run made with a different one."
+        ),
     )
     pre_alloc_group.addoption(
         "--skip-cleanup",
@@ -84,7 +129,7 @@ def pytest_report_header(config: pytest.Config) -> list[str]:
     """Pytest hook called to obtain the report header."""
     bold = "\033[1m"
     reset = "\033[39;49m"
-    eoa_start = config.getoption("eoa_iterator_start")
+    eoa_start = eoa_iterator_start(config)
     header = [
         (bold + f"Start seed for EOA: {hex(eoa_start)} " + reset),
     ]
@@ -132,7 +177,7 @@ def skip_cleanup(request: pytest.FixtureRequest) -> bool:
 @pytest.fixture(scope="session")
 def eoa_iterator(request: pytest.FixtureRequest) -> Iterator[EOA]:
     """Return an iterator that generates EOAs."""
-    eoa_start = request.config.getoption("eoa_iterator_start")
+    eoa_start = eoa_iterator_start(request.config)
     print(f"Starting EOA index: {hex(eoa_start)}")
     logger.info(
         f"Initializing EOA iterator with start index: {hex(eoa_start)}"
