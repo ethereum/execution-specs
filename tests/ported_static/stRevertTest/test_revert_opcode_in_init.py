@@ -6,7 +6,8 @@ state_tests/stRevertTest/RevertOpcodeInInitFiller.json
 
 @manually-enhanced: Do not overwrite. tx gas budget bumped
 for EIP-8037 NEW_ACCOUNT state-gas headroom on Amsterdam (post-state
-expectations are unchanged on all forks).
+expectations are unchanged on all forks). EIP-7928 block access list
+expectations added for the reverted creation.
 """
 
 import pytest
@@ -14,6 +15,9 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalNonceChange,
+    BlockAccessListExpectation,
     Environment,
     StateTestFiller,
     Transaction,
@@ -89,9 +93,38 @@ def test_revert_opcode_in_init(
         value=tx_value[v],
     )
 
+    created = compute_create_address(address=sender, nonce=0)
     post = {
-        compute_create_address(address=sender, nonce=0): Account.NONEXISTENT,
+        created: Account.NONEXISTENT,
         sender: Account(nonce=1),
     }
 
-    state_test(env=env, pre=pre, post=post, tx=tx)
+    expected_block_access_list = None
+    if fork.is_eip_enabled(7928):
+        # The creation address is accessed during transaction setup, so
+        # it stays in the block access list after the init code reverts;
+        # the reverted SSTORE survives only as a read of its slot.
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations={
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                created: BalAccountExpectation(
+                    storage_reads=[0],
+                    storage_changes=[],
+                    balance_changes=[],
+                    nonce_changes=[],
+                    code_changes=[],
+                ),
+            }
+        )
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+        expected_block_access_list=expected_block_access_list,
+    )
