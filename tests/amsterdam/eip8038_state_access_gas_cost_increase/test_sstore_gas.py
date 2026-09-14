@@ -40,17 +40,30 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 # the slot state at the measured write. A clean slot (current == original)
 # is ``_cold`` or access-list ``_warm``; a dirty slot (current != original)
 # is ``_dirty`` and has necessarily been warmed by the prior in-frame SSTORE.
+# No-op writes (new == current) have no row in the EIP's cases table; their
+# access-only cost falls out of the three-component formula and is pinned
+# here alongside the listed rows.
 SSTORE_ROWS = [
     pytest.param(False, 0, 0, 1, id="00x_cold"),
     pytest.param(True, 0, 0, 1, id="00x_warm"),
     pytest.param(True, 0, 1, 0, id="0x0_dirty"),
+    pytest.param(True, 0, 1, 2, id="0xy_dirty"),
+    pytest.param(False, 1, 1, 0, id="xx0_cold"),
     pytest.param(True, 1, 1, 0, id="xx0_warm"),
     pytest.param(False, 1, 1, 2, id="xxy_cold"),
     pytest.param(True, 1, 1, 2, id="xxy_warm"),
     pytest.param(True, 1, 2, 3, id="xyz_dirty"),
     pytest.param(True, 1, 2, 1, id="xyx_dirty"),
+    pytest.param(True, 1, 2, 0, id="xy0_dirty"),
+    pytest.param(True, 1, 0, 1, id="x0x_dirty"),
+    pytest.param(True, 1, 0, 2, id="x0y_dirty"),
+    pytest.param(True, 1, 0, 0, id="x00_dirty"),
     pytest.param(True, 1, 1, 1, id="xxx_warm"),
     pytest.param(False, 1, 1, 1, id="xxx_cold"),
+    pytest.param(False, 0, 0, 0, id="000_cold"),
+    pytest.param(True, 0, 0, 0, id="000_warm"),
+    pytest.param(True, 0, 1, 1, id="0xx_dirty"),
+    pytest.param(True, 1, 2, 2, id="xyy_dirty"),
 ]
 
 
