@@ -66,7 +66,10 @@ def test_builder_requests_during_fork(
     before, on and after the fork block: only the exit constructor seeds the
     inhibitor, so the pre-fork deposit sits in the queue until the fork
     block's system call returns it, while every exit reverts until that same
-    call clears the inhibitor.
+    call clears the inhibitor. The deposit contract leaves the inhibitor
+    out on purpose, so builders can queue before the fork (sys-asm#43
+    review thread,
+    https://github.com/ethereum/sys-asm/pull/43#discussion_r3468418015).
     """
     deposit_predeploy = BuilderDepositRequest.system_contract_address
     exit_predeploy = BuilderExitRequest.system_contract_address

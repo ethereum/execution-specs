@@ -14,6 +14,7 @@ from execution_testing import (
     BuilderDepositRequest,
     BuilderExitRequest,
     Bytecode,
+    Bytes,
     Header,
     Op,
     Requests,
@@ -70,13 +71,15 @@ def run_modified_requests_test(
     *,
     predeploy_address: Address,
     requests_list: Sequence[SystemContractRequest],
+    extra_code: Bytecode | None = None,
 ) -> None:
     """
-    Replace a request predeploy with code that returns the given request
-    records verbatim, then verify the transition tool dequeues exactly those
-    records into the block, even when there are more than the per-block cap.
+    Replace a request predeploy with code that runs `extra_code` and then
+    returns the given request records verbatim, then verify the transition
+    tool dequeues exactly those records into the block, even when there are
+    more than the per-block cap.
     """
-    modified_code: Bytecode = Bytecode()
+    modified_code: Bytecode = Bytecode() if extra_code is None else extra_code
     memory_offset: int = 0
 
     for request in requests_list:
@@ -94,7 +97,12 @@ def run_modified_requests_test(
         pre=pre,
         blocks=[
             Block(
-                header_verify=Header(requests_hash=Requests(*requests_list))
+                # No transaction runs and the system call has no receipt, so
+                # nothing the predeploy logs reaches the bloom.
+                header_verify=Header(
+                    requests_hash=Requests(*requests_list),
+                    logs_bloom=Bloom(0),
+                ),
             ),
         ],
         post={},
@@ -206,6 +214,43 @@ def test_extra_builder_exits(
 
 
 @pytest.mark.parametrize(
+    "predeploy_address,requests_list",
+    [
+        pytest.param(
+            BuilderDepositRequest.system_contract_address,
+            builder_deposit_list_with_custom_fee(1),
+            id="builder_deposit_contract",
+        ),
+        pytest.param(
+            BuilderExitRequest.system_contract_address,
+            builder_exit_list_with_custom_fee(1),
+            id="builder_exit_contract",
+        ),
+    ],
+)
+@EIPChecklist.SystemContract.Test.ContractSubstitution.Logs()
+def test_system_contract_emits_log(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    predeploy_address: Address,
+    requests_list: Sequence[SystemContractRequest],
+) -> None:
+    """
+    Replace a request predeploy with code that emits a log before returning
+    a record. The system call produces no receipt, so the log reaches
+    neither the receipts root nor the logs bloom, and the record is still
+    dequeued.
+    """
+    run_modified_requests_test(
+        blockchain_test,
+        pre,
+        predeploy_address=predeploy_address,
+        requests_list=requests_list,
+        extra_code=Op.LOG1(0, 0, 0x8282),
+    )
+
+
+@pytest.mark.parametrize(
     "system_contract",
     [
         pytest.param(
@@ -221,6 +266,7 @@ def test_extra_builder_exits(
 @EIPChecklist.SystemContract.Test.ContractSubstitution.RaisesException()
 @EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitSuccess()
 @EIPChecklist.SystemContract.Test.ContractSubstitution.GasLimitFailure()
+@EIPChecklist.SystemContract.Test.ExcessiveGas.SystemCall()
 @generate_system_contract_error_test()  # type: ignore[arg-type]
 @pytest.mark.eels_base_coverage
 def test_system_contract_errors() -> None:
@@ -284,5 +330,43 @@ def test_system_contract_logs(
                 ),
             ),
         ],
+        post={},
+    )
+
+
+@pytest.mark.parametrize(
+    "request_class",
+    [BuilderDepositRequest, BuilderExitRequest],
+    ids=["deposit", "exit"],
+)
+@pytest.mark.parametrize(
+    "length_delta",
+    [None, -1, 1],
+    ids=["one_byte", "record_minus_one", "record_plus_one"],
+)
+@EIPChecklist.SystemContract.Test.ContractSubstitution.ReturnLengths()
+def test_partial_request_records(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    request_class: type[BuilderDepositRequest] | type[BuilderExitRequest],
+    length_delta: int | None,
+) -> None:
+    """Commit raw system-call output without parsing or truncating records."""
+    size = (
+        1
+        if length_delta is None
+        else len(bytes(request_class.from_index(0))) + length_delta
+    )
+    returned = bytes((i % 255) + 1 for i in range(size))
+    pre[request_class.system_contract_address] = Account(
+        code=Om.MSTORE(returned, 0) + Op.RETURN(0, size),
+        nonce=1,
+    )
+    expected = Requests(
+        requests_lists=[Bytes(bytes([request_class.type]) + returned)]
+    )
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(header_verify=Header(requests_hash=expected))],
         post={},
     )

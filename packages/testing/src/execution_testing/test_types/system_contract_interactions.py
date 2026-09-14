@@ -389,12 +389,11 @@ class SystemContractInteractionMeasuredOutOfGasContract(
             gas_argument=Op.PUSH4[0],
             measure_into=_MEASURE_OVERHEAD_SLOT,
         )
-        required_gas = Op.ADD(
-            Op.SUB(
-                Op.MLOAD(_MEASURE_TOTAL_SLOT), Op.MLOAD(_MEASURE_OVERHEAD_SLOT)
-            ),
-            self.exact_gas_margin,
+        required_gas = Op.SUB(
+            Op.MLOAD(_MEASURE_TOTAL_SLOT), Op.MLOAD(_MEASURE_OVERHEAD_SLOT)
         )
+        if self.exact_gas_margin:
+            required_gas = Op.ADD(required_gas, self.exact_gas_margin)
         for i in invalid_indices:
             code += issue(index=i, gas_argument=Op.SUB(required_gas, 1))
         for i in exact_indices:

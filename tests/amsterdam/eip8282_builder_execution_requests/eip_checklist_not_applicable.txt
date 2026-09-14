@@ -14,5 +14,4 @@ system_contract/test/value_transfer/no_fee = Both predeploys require the EIP-700
 system_contract/test/out_of_bounds = Every input field is a fixed-width byte field (48-byte pubkey, 32-byte credentials, 8-byte amount, 96-byte signature), so no value can exceed its field; the amount minimum is covered under inputs/boundary and inputs/invalid/checks
 system_contract/test/input_lengths/dynamic = Each predeploy accepts exactly one static input length (184 bytes for deposits, 48 bytes for exits), covered under input_lengths/static
 system_contract/test/gas_usage/constant = The predeploys' gas consumption depends on the queue state and the in-block request count, covered under gas_usage/dynamic
-system_contract/test/excessive_gas/system_call = The system call dequeues at most `max_per_block` records (MAX_DEPOSIT_REQUESTS_PER_BLOCK or MAX_EXIT_REQUESTS_PER_BLOCK) whatever is queued, so its gas stays far below SYSTEM_CALL_GAS_LIMIT; the substitution tests cover a system call that consumes exactly the limit and one more
 system_contract/test/contract_variations/networks = A single bytecode, mined to the same address through the EIP-7997 factory, is used on every network

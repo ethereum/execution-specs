@@ -16,15 +16,16 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Bytecode,
     Environment,
     FeeSystemContractRequest,
     Fork,
     Header,
     Op,
     Requests,
-    Storage,
     SystemContractInteractionMeasuredOutOfGasContract,
     Transaction,
+    TransactionException,
     While,
 )
 from execution_testing import Macros as Om
@@ -155,85 +156,145 @@ def test_request_gas_boundary(
     )
 
 
+@pytest.mark.parametrize(
+    "extra_transaction",
+    [
+        pytest.param(False, id="full_block"),
+        pytest.param(
+            True, id="one_more_transaction", marks=pytest.mark.exception_test
+        ),
+    ],
+)
 @EIPChecklist.SystemContract.Test.ExcessiveGas.BlockGas()
 def test_requests_exhaust_block_gas(
+    extra_transaction: bool,
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     request_class: Type[FeeSystemContractRequest],
 ) -> None:
     """
-    Transactions carrying the maximum gas fill a block with request enqueues
-    until the block gas is spent; the system call dequeues the per-block
-    maximum and leaves the rest queued.
+    Transactions carrying the maximum execution gas fill a block with request
+    enqueues, then burn what they have left, so the block's execution gas is
+    spent down to less than a transaction's intrinsic cost; the system call
+    dequeues the per-block maximum and leaves the rest queued.
+
+    The block meters execution gas and state gas separately, and gas above
+    the transaction cap funds a state gas reservoir. Each relay transaction
+    queues a fixed number of records and carries a reservoir sized for the
+    slots they create, so no state charge spills into the execution gas the
+    block counts, and the reservoirs of all the transactions fit the block's
+    state gas.
     """
     template = request_class.from_index(0)
     predeploy = request_class.system_contract_address
-    fee_word, cost_word, result_word, counter_word = 0x100, 0x120, 0x140, 0x160
+    env = Environment()
+    tx_gas_limit = fork.transaction_gas_limit_cap()
+    assert tx_gas_limit is not None
+    assert fork.state_gas_reservoir_enabled(), (
+        "gas above the transaction cap must fund a state gas reservoir"
+    )
+    full_transactions = env.gas_limit // tx_gas_limit
+    remainder_gas = env.gas_limit % tx_gas_limit
 
-    # Each iteration reads the current fee, then enqueues a request whose
-    # pubkey's first word is the running counter kept in storage slot 0.
+    # Every word of a record is a slot first set from zero, as are the
+    # queue's count and tail slots and the relay's enqueue counter on the
+    # block's first enqueue.
+    slot_state_gas = Op.SSTORE(
+        original_value=0, current_value=0, new_value=1
+    ).state_cost(fork)
+    record_state_gas = request_class.slots_per_request * slot_state_gas
+    first_enqueue_state_gas = 3 * slot_state_gas
+    # The block admits a transaction only while its whole gas limit fits the
+    # state gas left by the transactions before it, so each full
+    # transaction's reservoir takes an equal share of what the block's gas
+    # leaves beyond one execution cap.
+    reservoir_budget = (env.gas_limit - tx_gas_limit) // full_transactions
+    enqueues_per_transaction = (
+        reservoir_budget - first_enqueue_state_gas
+    ) // record_state_gas
+    assert enqueues_per_transaction > 0, "the reservoir must fit a record"
+    reservoir = (
+        enqueues_per_transaction * record_state_gas + first_enqueue_state_gas
+    )
+    total_enqueued = full_transactions * enqueues_per_transaction
+    assert total_enqueued > request_class.max_per_block, (
+        "the block must queue more than the system call dequeues"
+    )
+
+    fee_word, result_word, counter_word, remaining_word = (
+        0x100,
+        0x120,
+        0x140,
+        0x160,
+    )
+    # Each iteration reads the current fee, enqueues a request whose first
+    # calldata word is the running counter, and folds the call's result into
+    # the success witness.
     enqueue = (
         Op.MSTORE(0, Op.MLOAD(counter_word))
         + Op.POP(Op.CALL(Op.GAS, predeploy, 0, 0, 0, fee_word, 32))
         + Op.MSTORE(
             result_word,
-            Op.CALL(
-                Op.GAS,
-                predeploy,
-                Op.ADD(Op.MLOAD(fee_word), template.value),
-                0,
-                len(template.calldata),
-                0,
-                0,
+            Op.AND(
+                Op.MLOAD(result_word),
+                Op.CALL(
+                    Op.GAS,
+                    predeploy,
+                    Op.ADD(Op.MLOAD(fee_word), template.value),
+                    0,
+                    len(template.calldata),
+                    0,
+                    0,
+                ),
             ),
         )
         + Op.MSTORE(counter_word, Op.ADD(Op.MLOAD(counter_word), 1))
+        + Op.MSTORE(remaining_word, Op.SUB(Op.MLOAD(remaining_word), 1))
     )
+    # A call into code that runs out of gas at once burns all but a 64th of
+    # the caller's gas; three in a row leave next to nothing.
+    burner = pre.deploy_contract(Om.OOG())
+    burn = Bytecode()
+    for _ in range(3):
+        burn += Op.POP(Op.CALL(Op.GAS, burner, 0, 0, 0, 0, 0))
     relay_code = (
         Om.MSTORE(template.calldata, 0)
         + Op.MSTORE(counter_word, Op.SLOAD(0))
-        # Run one cold iteration, measure a warm one, then loop while the last
-        # enqueue succeeded and two iterations of gas remain.
-        + enqueue
-        + Op.GAS
-        + enqueue
-        + Op.GAS
-        + Op.SWAP1
-        + Op.SUB
-        + Op.PUSH2(cost_word)
-        + Op.MSTORE
-        + While(
-            body=enqueue,
-            condition=Op.AND(
-                Op.MLOAD(result_word),
-                Op.GT(Op.GAS, Op.MUL(Op.MLOAD(cost_word), 2)),
-            ),
-        )
+        + Op.MSTORE(result_word, 1)
+        + Op.MSTORE(remaining_word, Op.CALLDATALOAD(0))
+        + While(body=enqueue, condition=Op.GT(Op.MLOAD(remaining_word), 0))
+        # Witness the enqueue count, that every enqueue succeeded and that
+        # every transaction ran to completion, then burn the rest.
         + Op.SSTORE(0, Op.MLOAD(counter_word))
-        # Witness that the loop ended on gas, not on a failed enqueue, and
-        # that every transaction ran to completion.
         + Op.SSTORE(1, Op.MLOAD(result_word))
         + Op.SSTORE(2, Op.ADD(Op.SLOAD(2), 1))
+        + burn
     )
-    # The fee grows exponentially with the block's enqueue count; the balance
-    # is oversized so that gas, not funds, ends the loop. The witness slots
-    # are pre-seeded so their final writes are not slot creations.
+    # The witness slots are pre-seeded so their final writes are not slot
+    # creations.
+    relay_balance = 2**160
     relay = pre.deploy_contract(
-        relay_code, balance=2**160, storage={1: 2, 2: 1}
+        relay_code, balance=relay_balance, storage={1: 2, 2: 1}
     )
+    exhaust = pre.deploy_contract(burn)
 
-    env = Environment()
-    tx_gas_limit = fork.transaction_gas_limit_cap()
-    assert tx_gas_limit is not None
-    gas_limits = [tx_gas_limit] * (env.gas_limit // tx_gas_limit)
-    if env.gas_limit % tx_gas_limit:
-        gas_limits.append(env.gas_limit % tx_gas_limit)
     sender = pre.fund_eoa()
     txs = [
-        Transaction(sender=sender, to=relay, gas_limit=gas_limit)
-        for gas_limit in gas_limits
+        Transaction(
+            sender=sender,
+            to=relay,
+            gas_limit=tx_gas_limit + reservoir,
+            data=enqueues_per_transaction.to_bytes(32, "big"),
+        )
+        for _ in range(full_transactions)
     ]
+    if remainder_gas:
+        # The remainder must fit the execution gas the block has left, so it
+        # carries no reservoir and only burns.
+        txs.append(
+            Transaction(sender=sender, to=exhaust, gas_limit=remainder_gas)
+        )
     # The counter lands in the first word of the calldata, and every fee
     # request type's calldata starts with a pubkey field.
     first_field = next(
@@ -243,12 +304,23 @@ def test_requests_exhaust_block_gas(
         template.copy(**{first_field: i << 128}).with_source_address(relay)
         for i in range(request_class.max_per_block)
     ]
+    paid = (
+        sum(request_class.get_enqueue_fees(total_enqueued))
+        + total_enqueued * template.value
+    )
     system_call_index = len(txs) + 1
-    # The enqueue count in slot 0 depends on the gas schedule.
-    relay_storage = Storage()
-    relay_storage.set_expect_any(0)
-    relay_storage[1] = 1
-    relay_storage[2] = 1 + len(txs)
+    error = None
+    if extra_transaction:
+        # Even a minimum-cost transaction cannot fit after the burners.
+        error = TransactionException.GAS_ALLOWANCE_EXCEEDED
+        txs.append(
+            Transaction(
+                sender=sender,
+                to=pre.fund_eoa(),
+                gas_limit=fork.transaction_intrinsic_cost_calculator()(),
+                error=error,
+            )
+        )
 
     blockchain_test(
         genesis_environment=env,
@@ -259,10 +331,15 @@ def test_requests_exhaust_block_gas(
                 # Each enqueue logs, and nothing here asserts a receipt; the
                 # receipts root in the header still commits to them.
                 include_receipts_in_output=False,
-                header_verify=Header(requests_hash=Requests(*dequeued)),
+                header_verify=None
+                if error
+                else Header(requests_hash=Requests(*dequeued)),
+                exception=error,
                 # The sweep resets the count and advances the head past the
-                # dequeued records; how many were queued is gas-dependent.
-                expected_block_access_list=BlockAccessListExpectation(
+                # dequeued records.
+                expected_block_access_list=None
+                if error
+                else BlockAccessListExpectation(
                     account_expectations={
                         predeploy: BalAccountExpectation(
                             storage_changes=[
@@ -290,5 +367,17 @@ def test_requests_exhaust_block_gas(
                 ),
             )
         ],
-        post={relay: Account(storage=relay_storage)},
+        post={}
+        if error
+        else {
+            relay: Account(
+                balance=relay_balance - paid,
+                storage={
+                    0: total_enqueued,
+                    1: 1,
+                    2: 1 + full_transactions,
+                },
+            ),
+            predeploy: Account(balance=paid),
+        },
     )
