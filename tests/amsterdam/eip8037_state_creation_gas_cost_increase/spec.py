@@ -23,7 +23,7 @@ class ReferenceSpec:
 
 
 ref_spec_8037 = ReferenceSpec(
-    "EIPS/eip-8037.md", "5a8c80897aeb0952322cd0dfff767c541002b8c3"
+    "EIPS/eip-8037.md", "d7087803ca236498c73f64665df0ddac7d621950"
 )
 
 

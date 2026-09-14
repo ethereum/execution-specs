@@ -462,6 +462,105 @@ def test_tx_gas_above_cap_at_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
+@pytest.mark.parametrize(
+    "gas_delta",
+    [
+        pytest.param(
+            0,
+            id="at_total_cap",
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork(),
+                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork(),
+            ],
+        ),
+        pytest.param(
+            1,
+            id="above_total_cap",
+            marks=[
+                pytest.mark.exception_test,
+                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork(),
+                EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork(),
+            ],
+        ),
+    ],
+)
+def test_tx_total_gas_limit_cap_at_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    gas_delta: int,
+    fork: Fork,
+) -> None:
+    """
+    Test the ``TX_MAX_TOTAL_GAS_LIMIT`` cap on tx.gas at the EIP-8037
+    transition.
+
+    Before EIP-8037, EIP-7825 caps tx.gas at TX_MAX_GAS_LIMIT, so a
+    transaction at the total cap is rejected. After EIP-8037 the total cap
+    takes over: tx.gas at the cap is accepted and one above it is rejected.
+    The block gas limit sits above both, so only the transaction rules
+    decide.
+    """
+    after_fork = fork.fork_at(timestamp=15_000)
+    total_cap = after_fork.transaction_total_gas_limit_cap()
+    assert total_cap is not None
+    gas_limit = total_cap + gas_delta
+
+    storage_after = Storage()
+    contract_before = pre.deploy_contract(code=Op.SSTORE(0, 1))
+    contract_after = pre.deploy_contract(
+        code=Op.SSTORE(storage_after.store_next(1), 1),
+    )
+
+    before_error = TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM
+    after_error = (
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM
+        if gas_delta > 0
+        else None
+    )
+
+    blocks = [
+        Block(
+            timestamp=14_999,
+            txs=[
+                Transaction(
+                    to=contract_before,
+                    gas_limit=gas_limit,
+                    sender=pre.fund_eoa(),
+                    error=before_error,
+                ),
+            ],
+            exception=before_error,
+        ),
+        Block(
+            timestamp=15_000,
+            txs=[
+                Transaction(
+                    to=contract_after,
+                    gas_limit=gas_limit,
+                    sender=pre.fund_eoa(),
+                    error=after_error,
+                ),
+            ],
+            exception=after_error,
+        ),
+    ]
+
+    post = {
+        contract_before: Account(storage={0: 0}),
+        contract_after: Account(
+            storage=storage_after if after_error is None else {0: 0},
+        ),
+    }
+
+    blockchain_test(
+        genesis_environment=Environment(gas_limit=2 * total_cap),
+        pre=pre,
+        blocks=blocks,
+        post=post,
+    )
+
+
 @EIPChecklist.GasCostChanges.Test.ForkTransition.After()
 def test_reservoir_available_after_transition(
     blockchain_test: BlockchainTestFiller,
