@@ -904,12 +904,7 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     proves the reservoir was not inflated by the failed spill.
     """
     deploy_size = 4096
-    init_code = Op.RETURN(
-        0,
-        deploy_size,
-        new_memory_size=deploy_size,
-        code_deposit_size=deploy_size,
-    )
+    init_code = Op.RETURN(0, deploy_size, new_memory_size=deploy_size)
     create_call = Op.CREATE(
         value=0,
         offset=32 - len(init_code),
