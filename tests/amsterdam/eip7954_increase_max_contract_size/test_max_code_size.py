@@ -30,8 +30,8 @@ REFERENCE_SPEC_VERSION = ref_spec_7954.version
 
 pytestmark = pytest.mark.valid_from("EIP7954")
 
-FACTORY_SENTINEL = 0xFF
-"""Pre-set factory storage value, left untouched by an aborted frame."""
+SENTINEL = 0xFF
+"""Pre-set storage value that only a store which actually ran can replace."""
 
 DEPLOY_CODE_SIZE_PARAMS = [
     pytest.param(lambda _: Osaka.max_code_size() + 1, id="over_previous_max"),
@@ -100,7 +100,7 @@ def test_max_code_size_via_create(
         + Op.STOP
     )
 
-    factory = pre.deploy_contract(factory_code, storage={0: FACTORY_SENTINEL})
+    factory = pre.deploy_contract(factory_code, storage={0: SENTINEL})
 
     create_address = compute_create_address(
         address=factory,
@@ -189,6 +189,10 @@ def test_max_code_size_deposit_gas(
         data=initcode,
         gas_limit=exact_gas - gas_shortfall,
     )
+
+    # The receipt pin below reads the cap, which only holds while the exact
+    # fit exceeds it and the deposit is funded from the reservoir.
+    assert exact_gas > fork.transaction_gas_limit_cap()
 
     post: dict[Any, Account | None] = {}
     if gas_shortfall:
@@ -432,7 +436,7 @@ def test_max_code_size_high_jumpdest(
     target = pre.deploy_contract(target_code)
     caller = pre.deploy_contract(
         Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP,
-        storage={0: FACTORY_SENTINEL},
+        storage={0: SENTINEL},
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
@@ -494,7 +498,7 @@ def test_max_code_size_jumpdest_in_immediate(
     target = pre.deploy_contract(target_code)
     caller = pre.deploy_contract(
         Op.SSTORE(0, Op.CALL(gas=Op.GAS, address=target)) + Op.STOP,
-        storage={0: FACTORY_SENTINEL},
+        storage={0: SENTINEL},
     )
 
     tx = Transaction(sender=pre.fund_eoa(), to=caller)
@@ -573,7 +577,7 @@ def test_max_code_size_with_max_initcode_via_create(
     )
     factory = pre.deploy_contract(
         Om.MSTORE(initcode_prefix, 0) + Op.SSTORE(0, create_call) + Op.STOP,
-        storage={0: FACTORY_SENTINEL},
+        storage={0: SENTINEL},
     )
 
     create_address = compute_create_address(

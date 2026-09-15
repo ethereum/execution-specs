@@ -32,8 +32,8 @@ REFERENCE_SPEC_VERSION = ref_spec_7954.version
 
 pytestmark = pytest.mark.valid_from("EIP7954")
 
-FACTORY_SENTINEL = 0xFF
-"""Pre-set factory storage value, left untouched by an aborted frame."""
+SENTINEL = 0xFF
+"""Pre-set storage value that only a store which actually ran can replace."""
 
 INITCODE_SIZE_PARAMS = [
     pytest.param(
@@ -124,7 +124,7 @@ def test_max_initcode_size_via_create(
         + Op.STOP
     )
 
-    factory = pre.deploy_contract(factory_code, storage={0: FACTORY_SENTINEL})
+    factory = pre.deploy_contract(factory_code, storage={0: SENTINEL})
 
     create_address = compute_create_address(
         address=factory,
@@ -145,7 +145,7 @@ def test_max_initcode_size_via_create(
     created = size <= fork.max_initcode_size()
     post: dict[Any, Account | None] = {
         factory: Account(
-            storage={0: create_address if created else FACTORY_SENTINEL}
+            storage={0: create_address if created else SENTINEL}
         ),
     }
     bal = None
@@ -254,7 +254,7 @@ def test_max_initcode_size_code_opcodes(
         Om.MSTORE(bytes(logic), 0)
         + Op.SSTORE(0, Op.CREATE(value=0, offset=0, size=max_initcode_size))
         + Op.STOP,
-        storage={0: FACTORY_SENTINEL},
+        storage={0: SENTINEL},
     )
     create_address = compute_create_address(address=factory, nonce=1)
 
@@ -307,7 +307,7 @@ def test_max_initcode_size_high_jumpdest(
         + Op.STOP
     )
 
-    factory = pre.deploy_contract(factory_code, storage={0: FACTORY_SENTINEL})
+    factory = pre.deploy_contract(factory_code, storage={0: SENTINEL})
     create_address = compute_create_address(address=factory, nonce=1)
 
     tx = Transaction(sender=pre.fund_eoa(), to=factory)

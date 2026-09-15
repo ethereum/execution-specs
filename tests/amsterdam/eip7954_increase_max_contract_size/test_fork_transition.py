@@ -34,8 +34,8 @@ pytestmark = pytest.mark.valid_at_transition_to("EIP7954")
 PRE_FORK_TIMESTAMP = 14_999
 POST_FORK_TIMESTAMP = 15_000
 
-FACTORY_SENTINEL = 0xFF
-"""Pre-set factory storage value, left untouched by an aborted frame."""
+SENTINEL = 0xFF
+"""Pre-set storage value that only a store which actually ran can replace."""
 
 
 @pytest.mark.parametrize(
@@ -142,7 +142,7 @@ def test_max_code_size_via_create_fork_transition(
         sender = pre.fund_eoa()
         # A factory per block keeps both creations at the same nonce.
         factory = pre.deploy_contract(
-            factory_code, storage={0: FACTORY_SENTINEL}
+            factory_code, storage={0: SENTINEL}
         )
         blocks.append(
             Block(
@@ -300,7 +300,7 @@ def test_max_initcode_size_via_create_fork_transition(
     for timestamp in (PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP):
         sender = pre.fund_eoa()
         factory = pre.deploy_contract(
-            factory_code, storage={0: FACTORY_SENTINEL}
+            factory_code, storage={0: SENTINEL}
         )
         blocks.append(
             Block(
@@ -319,7 +319,7 @@ def test_max_initcode_size_via_create_fork_transition(
         # frame runs, taking the factory frame down with it, so the sentinel
         # survives.
         post[factory] = Account(
-            storage={0: create_address if created else FACTORY_SENTINEL}
+            storage={0: create_address if created else SENTINEL}
         )
         post[create_address] = (
             Account(code=b"") if created else Account.NONEXISTENT
@@ -410,7 +410,7 @@ def test_max_code_size_with_max_initcode_via_create_fork_transition(
     for timestamp in (PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP):
         sender = pre.fund_eoa()
         factory = pre.deploy_contract(
-            factory_code, storage={0: FACTORY_SENTINEL}
+            factory_code, storage={0: SENTINEL}
         )
         blocks.append(
             Block(
@@ -431,7 +431,7 @@ def test_max_code_size_with_max_initcode_via_create_fork_transition(
             opcode=create_opcode,
         )
         post[factory] = Account(
-            storage={0: create_address if created else FACTORY_SENTINEL}
+            storage={0: create_address if created else SENTINEL}
         )
         post[create_address] = (
             Account(code=b"\x00" * max_code_size)
