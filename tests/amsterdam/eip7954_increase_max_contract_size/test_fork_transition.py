@@ -141,9 +141,7 @@ def test_max_code_size_via_create_fork_transition(
     for timestamp in (PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP):
         sender = pre.fund_eoa()
         # A factory per block keeps both creations at the same nonce.
-        factory = pre.deploy_contract(
-            factory_code, storage={0: SENTINEL}
-        )
+        factory = pre.deploy_contract(factory_code, storage={0: SENTINEL})
         blocks.append(
             Block(
                 timestamp=timestamp,
@@ -299,9 +297,7 @@ def test_max_initcode_size_via_create_fork_transition(
     post: dict[Any, Account | None] = {}
     for timestamp in (PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP):
         sender = pre.fund_eoa()
-        factory = pre.deploy_contract(
-            factory_code, storage={0: SENTINEL}
-        )
+        factory = pre.deploy_contract(factory_code, storage={0: SENTINEL})
         blocks.append(
             Block(
                 timestamp=timestamp,
@@ -409,9 +405,7 @@ def test_max_code_size_with_max_initcode_via_create_fork_transition(
     post: dict[Any, Account | None] = {}
     for timestamp in (PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP):
         sender = pre.fund_eoa()
-        factory = pre.deploy_contract(
-            factory_code, storage={0: SENTINEL}
-        )
+        factory = pre.deploy_contract(factory_code, storage={0: SENTINEL})
         blocks.append(
             Block(
                 timestamp=timestamp,

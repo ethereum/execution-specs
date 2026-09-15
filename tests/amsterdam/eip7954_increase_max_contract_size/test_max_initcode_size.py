@@ -144,9 +144,7 @@ def test_max_initcode_size_via_create(
     # runs, taking the factory frame down with it, so the sentinel survives.
     created = size <= fork.max_initcode_size()
     post: dict[Any, Account | None] = {
-        factory: Account(
-            storage={0: create_address if created else SENTINEL}
-        ),
+        factory: Account(storage={0: create_address if created else SENTINEL}),
     }
     bal = None
     if created:

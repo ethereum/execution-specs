@@ -192,14 +192,16 @@ def test_max_code_size_deposit_gas(
 
     # The receipt pin below reads the cap, which only holds while the exact
     # fit exceeds it and the deposit is funded from the reservoir.
-    assert exact_gas > fork.transaction_gas_limit_cap()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    assert exact_gas > gas_limit_cap
 
     post: dict[Any, Account | None] = {}
     if gas_shortfall:
         # The deposit halts the frame, burning the whole execution gas
         # allowance while the state gas reservoir is handed back.
         tx.expected_receipt = TransactionReceipt(
-            cumulative_gas_used=fork.transaction_gas_limit_cap()
+            cumulative_gas_used=gas_limit_cap
         )
         post[create_address] = Account.NONEXISTENT
     else:
