@@ -4254,7 +4254,7 @@ def test_bal_gas_limit_boundary(
 
     Orthogonal axes:
     - `with_tx`: alice → bob transfer adds 3 items (alice + bob +
-      coinbase warmed via EIP-3651).
+      coinbase, credited the fee).
     - `with_cl_withdrawal`: EIP-4895 withdrawal to a recipient adds 1
       item, processed between txs and the rest of the post-tx system
       work. Together they catch clients that validate the cap before
