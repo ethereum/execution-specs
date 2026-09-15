@@ -7,9 +7,11 @@ from ethereum_rlp import rlp
 
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp
 
+from . import FORKS
 from .helpers.load_blockchain_tests import (
     HEADER_NUMBER_INDEX,
     HEADER_TIMESTAMP_INDEX,
+    TRANSITION_FORKS,
     ForkTransition,
 )
 
@@ -38,6 +40,16 @@ def test_parse_block_number_transition() -> None:
 def test_parse_plain_fork_name(network: str) -> None:
     """Return `None` for a network that names a single fork."""
     assert ForkTransition.parse(network) is None
+
+
+@pytest.mark.parametrize("network", sorted(TRANSITION_FORKS))
+def test_every_transition_fork_names_known_forks(network: str) -> None:
+    """Map both ends of every transition fork to a fork of the spec."""
+    transition = ForkTransition.parse(network)
+
+    assert transition is not None
+    assert transition.from_fork in FORKS
+    assert transition.to_fork in FORKS
 
 
 def decoded_block(number: int, timestamp: int) -> Dict[str, Any]:

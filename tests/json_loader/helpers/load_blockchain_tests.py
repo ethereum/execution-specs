@@ -1,6 +1,5 @@
 """Helpers to load and run blockchain tests from JSON files."""
 
-import re
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +11,7 @@ from _pytest.config import Config
 from ethereum_rlp import rlp
 from ethereum_rlp.exceptions import RLPException
 from ethereum_types.numeric import U64, U256, Uint
+from execution_testing.forks import get_transition_forks
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, StateWithEmptyAccount
@@ -25,14 +25,13 @@ from ..stash_keys import desired_forks_key
 from .exceptional_test_patterns import exceptional_blockchain_test_patterns
 from .fixtures import Fixture, FixturesFile, FixtureTestItem
 
-TRANSITION_NETWORK = re.compile(
-    r"^(?P<from_fork>.+?)To(?P<to_fork>.+?)"
-    r"At(?P<by_time>Time)?(?P<value>\d+)(?P<kilo>k)?$"
-)
+TRANSITION_FORKS = {fork.name(): fork for fork in get_transition_forks()}
 """
-Network name of a fork-transition fixture, such as `BPO2ToAmsterdamAtTime15k`
-or `BerlinToLondonAt5`: the chain starts on the first fork and the second
-fork activates at the given timestamp (`AtTime`) or block number (`At`).
+Transition forks of the testing framework by name. The network of a
+fork-transition fixture, such as `BPO2ToAmsterdamAtTime15k` or
+`BerlinToLondonAt5`, is the name of the transition fork it was filled for:
+the chain starts on the first fork and the second fork activates at the
+transition fork's timestamp or block number.
 """
 
 HEADER_NUMBER_INDEX = 8
@@ -63,17 +62,22 @@ class ForkTransition:
     @classmethod
     def parse(cls, network: str) -> Optional["ForkTransition"]:
         """
-        Parse a transition fixture's network name, or return `None` for a
-        plain fork name.
+        Look up a transition fixture's network name among the transition
+        forks, or return `None` for a plain fork name.
         """
-        match = TRANSITION_NETWORK.match(network)
-        if match is None:
+        fork = TRANSITION_FORKS.get(network)
+        if fork is None:
             return None
-        value = int(match["value"]) * (1000 if match["kilo"] else 1)
         criteria: ForkCriteria = (
-            ByTimestamp(value) if match["by_time"] else ByBlockNumber(value)
+            ByBlockNumber(fork.at_block)
+            if fork.at_block
+            else ByTimestamp(fork.at_timestamp)
         )
-        return cls(match["from_fork"], match["to_fork"], criteria)
+        return cls(
+            fork.transitions_from().name(),
+            fork.transitions_to().name(),
+            criteria,
+        )
 
     def activates(self, json_block: Dict[str, Any]) -> bool:
         """
