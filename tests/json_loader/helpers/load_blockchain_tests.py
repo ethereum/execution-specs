@@ -34,10 +34,6 @@ the chain starts on the first fork and the second fork activates at the
 transition fork's timestamp or block number.
 """
 
-HEADER_NUMBER_INDEX = 8
-HEADER_TIMESTAMP_INDEX = 11
-"""Positions of the number and timestamp in an RLP-encoded block header."""
-
 
 class NoTestsFoundError(Exception):
     """
@@ -83,35 +79,23 @@ class ForkTransition:
         """
         Return whether `to_fork` is active for `json_block`.
 
-        A block that is expected to be invalid carries only its RLP, so the
-        number and timestamp are read from the encoded header when the
-        decoded header is absent. Their positions in the header are the
-        same in every fork. A block whose RLP does not decode is left to the
-        fork that is active before it.
+        A block that is expected to be invalid carries its RLP and, when
+        that RLP decodes, the decoded block under `rlp_decoded`. A block
+        without a header to read, because its RLP does not decode, is left
+        to the fork that is active before it, as is a header whose
+        timestamp does not fit in a `U256`.
         """
-        if "blockHeader" in json_block:
-            json_header = json_block["blockHeader"]
-            number = int(json_header["number"], 16)
-            timestamp = int(json_header["timestamp"], 16)
-        else:
-            try:
-                block = rlp.decode(hex_to_bytes(json_block["rlp"]))
-                if not isinstance(block, list):
-                    return False
-                header = block[0]
-                if not isinstance(header, list):
-                    return False
-                number_bytes = header[HEADER_NUMBER_INDEX]
-                timestamp_bytes = header[HEADER_TIMESTAMP_INDEX]
-                if not isinstance(number_bytes, bytes) or not isinstance(
-                    timestamp_bytes, bytes
-                ):
-                    return False
-            except (RLPException, IndexError):
-                return False
-            number = int.from_bytes(number_bytes, "big")
-            timestamp = int.from_bytes(timestamp_bytes, "big")
-        return self.criteria.check(Uint(number), U256(timestamp))
+        header = json_block.get("blockHeader")
+        if header is None:
+            header = json_block.get("rlp_decoded", {}).get("blockHeader")
+        if header is None:
+            return False
+        number = Uint(int(header["number"], 16))
+        timestamp = int(header["timestamp"], 16)
+        try:
+            return self.criteria.check(number, U256(timestamp))
+        except OverflowError:
+            return False
 
 
 def add_block_to_chain(
