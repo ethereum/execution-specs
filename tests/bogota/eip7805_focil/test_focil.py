@@ -155,11 +155,7 @@ def test_block_with_failing_included_il_tx_is_valid(
             # empty recipient, so execution runs out of gas.
             recipient = pre.nonexistent_account()
             intrinsic = fork.transaction_intrinsic_cost_calculator()()
-            top_frame_regular = fork.transaction_top_frame_gas_calculator()(
-                sends_value=True,
-                recipient_type=RecipientType.EMPTY_ACCOUNT,
-            )
-            top_frame_state = fork.transaction_top_frame_state_gas(
+            top_frame = fork.transaction_top_frame_gas_calculator()(
                 sends_value=True,
                 recipient_type=RecipientType.EMPTY_ACCOUNT,
             )
@@ -167,9 +163,7 @@ def test_block_with_failing_included_il_tx_is_valid(
                 sender=sender,
                 to=recipient,
                 value=1,
-                gas_limit=(
-                    intrinsic + top_frame_regular + top_frame_state - 1
-                ),
+                gas_limit=intrinsic + top_frame - 1,
             )
             # Out of gas rolls back the value transfer to the new account.
             post[recipient] = Account.NONEXISTENT
@@ -185,19 +179,14 @@ def test_block_with_failing_included_il_tx_is_valid(
             intrinsic = fork.transaction_intrinsic_cost_calculator()(
                 authorization_list_or_count=1
             )
-            top_frame_regular = fork.transaction_top_frame_gas_calculator()(
-                authorizations=[authorization],
-            )
-            top_frame_state = fork.transaction_top_frame_state_gas(
+            top_frame = fork.transaction_top_frame_gas_calculator()(
                 authorizations=[authorization],
             )
             failing_il_tx = Transaction(
                 sender=sender,
                 to=sender,
                 authorization_list=[authorization],
-                gas_limit=(
-                    intrinsic + top_frame_regular + top_frame_state - 1
-                ),
+                gas_limit=intrinsic + top_frame - 1,
             )
             # Out of gas rolls back the authorization, leaving the empty
             # authority undelegated.
