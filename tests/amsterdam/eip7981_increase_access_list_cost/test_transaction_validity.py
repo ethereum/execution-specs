@@ -76,7 +76,7 @@ def test_insufficient_gas_for_access_list(
     - Calldata costs
     - Access list storage costs
     - Access list data costs (new in EIP-7981)
-    - Floor cost including access list tokens
+    - Calldata floor plus the access list data surcharge
     """
     state_test(
         pre=pre,
@@ -116,14 +116,7 @@ def test_floor_cost_validation_with_access_list(
     tx: Transaction,
 ) -> None:
     """
-    Test that the floor cost validation includes access list tokens.
-
-    According to EIP-7981:
-    - Any transaction with a gas limit below the floor cost is invalid
-    - Floor cost = TX_BASE_COST + TOTAL_COST_FLOOR_PER_TOKEN *
-      total_floor_data_tokens
-    - total_floor_data_tokens =
-      floor_tokens_in_calldata + floor_tokens_in_access_list
+    Reject a gas limit below the calldata floor plus the access list surcharge.
     """
     state_test(
         pre=pre,

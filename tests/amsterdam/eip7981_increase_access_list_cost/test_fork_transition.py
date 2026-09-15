@@ -35,7 +35,7 @@ from execution_testing import (
     TransitionFork,
 )
 
-from .helpers import calculate_access_list_floor_tokens
+from .helpers import calculate_access_list_data_cost
 from .spec import ref_spec_7981
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7981.git_path
@@ -110,10 +110,7 @@ def test_access_list_intrinsic_across_amsterdam_transition(
     )
     # Post-fork: EIP-2780 decomposed base and recipient charge, EIP-8038
     # repriced entry charges, and the EIP-7981 byte surcharge.
-    surcharge = (
-        calculate_access_list_floor_tokens(access_list)
-        * post_costs.TX_DATA_TOKEN_FLOOR
-    )
+    surcharge = calculate_access_list_data_cost(access_list, post_fork)
     expected_post = (
         post_costs.TX_BASE
         + post_costs.COLD_ACCOUNT_ACCESS
@@ -289,7 +286,7 @@ def test_access_list_floor_across_amsterdam_transition(
     A calldata-heavy access-list transaction binds the floor on both
     sides of the transition: pre-fork the floor counts calldata bytes
     only (access list bytes contribute nothing), post-fork the EIP-7981
-    tokens raise it. Each block's gas limit is pinned to its fork's
+    data surcharge raises it. Each block's gas limit is pinned to its fork's
     floor, so the billed gas equals the floor exactly and an
     implementation that mistimes the floor change fails the receipt and
     balance pins.
@@ -316,15 +313,14 @@ def test_access_list_floor_across_amsterdam_transition(
     assert pre_fork.transaction_data_floor_cost_calculator()(
         data=data, access_list=access_list
     ) == pre_fork.transaction_data_floor_cost_calculator()(data=data)
-    # Post-fork: uniform calldata tokens plus the EIP-7981 access list
-    # tokens, anchored on the EIP-2780 decomposed base.
-    post_tokens = len(data) * int(
-        post_costs.TX_DATA_TOKEN_STANDARD
-    ) + calculate_access_list_floor_tokens(access_list)
+    # Post-fork: uniform calldata tokens and the access list surcharge,
+    # anchored on the EIP-2780 decomposed base.
+    post_tokens = len(data) * int(post_costs.TX_DATA_TOKEN_STANDARD)
     expected_post = int(
         post_costs.TX_BASE
         + post_costs.COLD_ACCOUNT_ACCESS
         + post_tokens * post_costs.TX_DATA_TOKEN_FLOOR
+        + calculate_access_list_data_cost(access_list, post_fork)
     )
 
     timestamps = [PRE_FORK_TIMESTAMP, POST_FORK_TIMESTAMP]
