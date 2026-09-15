@@ -33,7 +33,7 @@ just static
 
 - **Remaining ruff issues**: fix manually (auto-fix can't handle all rules)
 - **mypy errors**: fix type annotations, add missing types, correct signatures
-- **codespell errors**: fix typos, or add intentional words via `just whitelist <word>`
+- **codespell errors**: fix typos, or add intentional words to `whitelist.txt` (codespell's ignore list)
 - **ethereum-spec-lint errors**: fix import isolation violations (see `/implement-eip` for import rules)
 - **actionlint errors**: fix workflow YAML issues (see `/edit-workflow`)
 
