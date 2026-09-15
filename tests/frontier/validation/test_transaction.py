@@ -37,12 +37,19 @@ def test_tx_gas_limit(
     """
     Tests that if a tx gas limit is higher than the block gas limit,
     an exception is raised.
+
+    The block gas limit is kept well above what an empty block's access
+    list needs under the EIP-7928 item cap (`gas_limit // 2000` items,
+    against the system-contract reads every Amsterdam block carries), so
+    the transaction's gas allowance is the only thing wrong with the
+    block and clients do not disagree on which check to report.
     """
     sender = pre.fund_eoa()
     to = pre.fund_eoa()
 
+    block_gas_limit = 100_000
     tx = Transaction(
-        gas_limit=21001,
+        gas_limit=block_gas_limit + 1,
         to=to,
         gas_price=0x10,  # Must be >= base fee to isolate gas limit validation
         sender=sender,
@@ -50,8 +57,8 @@ def test_tx_gas_limit(
         error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 
-    modified_fields = {"gas_limit": ZeroPaddedHexNumber(21000)}
-    env.gas_limit = ZeroPaddedHexNumber(21000)
+    modified_fields = {"gas_limit": ZeroPaddedHexNumber(block_gas_limit)}
+    env.gas_limit = ZeroPaddedHexNumber(block_gas_limit)
 
     block = Block(
         txs=[tx],

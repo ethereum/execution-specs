@@ -595,7 +595,11 @@ class BuiltBlock(CamelModel):
             if self.block_access_list
             else None,
             inclusion_list_transactions=self.inclusion_list_txs,
-            inclusion_list_satisfied=self.inclusion_list_satisfied,
+            inclusion_list_satisfied=(
+                self.inclusion_list_satisfied
+                if self.expected_exception is None
+                else None
+            ),
             execution_payload_modifier=self.engine_payload_modifier(),
             validation_error=self.expected_exception,
             error_code=self.engine_api_error_code,
@@ -1396,6 +1400,8 @@ class BlockchainTest(BaseTest):
                     block.expected_inclusion_list_satisfied = False
                 if block.header_verify:
                     block.header_verify = None
+                if block.rlp_modifier:
+                    block.rlp_modifier = None
                 if block.expected_gas_used:
                     block.expected_gas_used = None
                 if block.expected_block_access_list:
