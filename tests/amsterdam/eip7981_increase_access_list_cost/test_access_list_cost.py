@@ -18,7 +18,7 @@ from execution_testing import (
     TransactionReceipt,
 )
 
-from .helpers import calculate_access_list_floor_tokens
+from .helpers import calculate_access_list_data_cost
 from .spec import ref_spec_7981
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7981.git_path
@@ -113,17 +113,18 @@ def test_access_list_token_calculation(
     Test that access list floor tokens are calculated correctly.
 
     Every access list byte contributes four floor tokens regardless of
-    whether it is zero or non-zero. Verify both the reference helper and
-    the fork's floor cost calculator agree with the expected token count.
+    whether it is zero or non-zero. Verify the reference helper's data
+    surcharge and the fork's floor cost against explicit token counts.
     """
+    gas_costs = fork.gas_costs()
+    expected_data_cost = expected_floor_tokens * gas_costs.TX_DATA_TOKEN_FLOOR
     assert (
-        calculate_access_list_floor_tokens(access_list)
-        == expected_floor_tokens
+        calculate_access_list_data_cost(access_list, fork)
+        == expected_data_cost
     )
 
-    gas_costs = fork.gas_costs()
     expected_floor_cost = (
-        expected_floor_tokens * gas_costs.TX_DATA_TOKEN_FLOOR
+        expected_data_cost
         + gas_costs.TX_BASE
         # EIP-2780 anchors the floor on the decomposed intrinsic base; the
         # tx targets a non-self account, adding the recipient-access charge.
@@ -301,10 +302,7 @@ def test_access_list_data_cost_with_execution(
     exactly the surcharge here, failing the receipt pin.
     """
     gas_costs = fork.gas_costs()
-    surcharge = (
-        calculate_access_list_floor_tokens(access_list)
-        * gas_costs.TX_DATA_TOKEN_FLOOR
-    )
+    surcharge = calculate_access_list_data_cost(access_list, fork)
     # Sized so the execution gas strictly exceeds the surcharge under
     # test.
     code = GasConsumer(gas=surcharge + 1, fork=fork) + Op.STOP
