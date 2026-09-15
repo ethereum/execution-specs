@@ -114,7 +114,7 @@ Never hand-reconstruct a gas amount by summing `fork.gas_costs()` constants (`NE
 ## Test Organization
 
 - Place tests in `tests/<fork>/eip<number>/` where `<fork>` is the fork that introduced the functionality
-- Each EIP directory has `spec.py` with `ReferenceSpec(git_path=..., version=...)` and test files declaring `REFERENCE_SPEC_GIT_PATH` / `REFERENCE_SPEC_VERSION`. `version` is the EIP file's blob SHA (`gh api repos/ethereum/EIPs/contents/EIPS/eip-N.md --jq .sha`); `uv run check_eip_versions --until <Fork> <path>` flags stale versions.
+- Each EIP directory has `spec.py` with `ReferenceSpec(git_path=..., version=...)` and test files declaring `REFERENCE_SPEC_GIT_PATH` / `REFERENCE_SPEC_VERSION`. `version` is the EIP file's blob SHA (`gh api repos/ethereum/EIPs/contents/EIPS/eip-N.md --jq .sha`); `uv run check_eip_versions <path>` flags stale versions.
 - **One module per subject, not per scenario.** Start a new test file only for a subject no existing module has: a different parametrization axis, fixture set, or fork validity. A new scenario for an existing subject goes into that subject's module however many tests it already holds, even where neighbouring suites split further.
 - Put a scenario where it earns the most coverage. Before adding a test to a new EIP's module, look in the module that owns the mechanism for one that already runs the case and only needs tightened expectations or an `is_eip_enabled` branch, and amend it; write a new test in the new module only when the branches would cost more readability than the extra fork coverage buys.
 - Use `conftest.py` for shared fixtures within an EIP directory
