@@ -66,7 +66,7 @@ The release is created as a draft; review and publish it from the GitHub release
    ```
 
 3. **Wait for the build to succeed.** On success the workflow drafts the GitHub release with the fixture tarball attached. If any job fails, no release is drafted: fix the cause and re-dispatch.
-4. **Review and publish the draft.** Open the draft on the [releases page](https://github.com/ethereum/execution-specs/releases), check the auto-generated notes (anchored at the prior release on the same feature via `--notes-start-tag`), and click *Publish release* when ready. Publishing creates the `tests-<feature>@vX.Y.Z` tag on the target commit; until then a mispicked version can be fixed by editing the draft, with no stray tag to delete.
+4. **Review and publish the draft.** Open the draft on the [releases page](https://github.com/ethereum/execution-specs/releases), check the auto-generated notes (anchored at the prior release on the same feature via `--notes-start-tag`), and click *Publish release* when ready. Publishing creates the `tests-<feature>@vX.Y.Z` tag on the target commit; until then a mispicked version can be fixed by editing the draft, with no stray tag to delete. Publishing also triggers the [hive simulator images](publishing_images.md) workflow, which builds the release's fixture, tests and simulator images and moves the channel tags the release owns.
 
 !!! tip "Release features opt into all fixture formats via `feature.yaml`"
     Tarball output (`.tar.gz`) does not by itself include the pre-allocation group formats (`BlockchainEngineXFixture`, `BlockchainEngineStatefulFixture`). A release feature requests them by adding `--generate-all-formats` to its `fill-params` in `.github/configs/feature.yaml`:
