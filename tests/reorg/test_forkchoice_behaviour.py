@@ -76,22 +76,17 @@ DISPUTED_ZERO_SAFE = (
     "not say whether a zero safeBlockHash with a non-zero finalized is "
     "legal; besu rejects it with -38002, nethermind/geth/reth accept it"
 )
-DISPUTED_PRE_786_NOOP = (
-    "paris.md before execution-apis#786: client MAY skip the update when head "
-    "is an ancestor of the canonical head"
-)
 
 
 def rewind_outcomes(head: str) -> List[Outcome]:
-    """FCU to a canonical ancestor: applied, skipped (pre-#786) or too deep."""
+    """
+    FCU to a canonical ancestor: applied, or refused as too deep.
+
+    Skipping the update is only permitted for an ancestor of the latest known
+    finalized block, which is not the case for these rewinds.
+    """
     return [
         Outcome(id="applied", status="VALID", latest_valid_hash=head),
-        Outcome(
-            id="noop",
-            status="VALID",
-            latest_valid_hash=head,
-            disputed=DISPUTED_PRE_786_NOOP,
-        ),
         Outcome(id="refused", error_code=TOO_DEEP_REORG),
     ]
 
@@ -297,7 +292,6 @@ def test_reorg_to_older_canonical_ancestor_and_forward(
                     "applied": [
                         AssertCanonicalStep(blocks={5: "a5", 6: None})
                     ],
-                    "noop": [AssertCanonicalStep(blocks={5: "a5", i: tip})],
                     "refused": [AssertCanonicalStep(blocks={5: "a5", i: tip})],
                 },
             ),

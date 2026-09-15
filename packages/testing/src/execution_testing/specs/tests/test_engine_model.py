@@ -132,31 +132,28 @@ def test_fcu_rewind_to_canonical_ancestor_above_finalized() -> None:  # noqa: D1
     model.known.update({"a1": True, "a2": True, "a3": True})
     model.head = "a3"
     model.finalized = "a1"
-    # a2 is above finalized: #786 requires a real rewind or -38006; the
-    # pre-#786 skip is legal today and recorded as disputed.
+    # a2 is above finalized: the update has to be applied, or refused with
+    # the client's own depth limit. Skipping it is not one of the options.
     outcomes = model.forkchoice_outcomes(
         ForkchoiceUpdatedStep(head="a2", finalized="a1")
     )
-    assert ids(outcomes) == ["applied", "noop", "refused"]
-    assert outcomes[1].disputed
+    assert ids(outcomes) == ["applied", "refused"]
 
 
-def test_fcu_inconsistent_state_leaves_head_unspecified() -> None:  # noqa: D103
+def test_fcu_error_leaves_forkchoice_state_untouched() -> None:  # noqa: D103
     model = ClientModel(dag=dag_linear_with_fork())
     model.known.update({"a1": True, "a2": True, "a3": True, "b2": True})
-    model.head = "a3"
-    step = ForkchoiceUpdatedStep(head="b2", safe="a3", finalized="zero")
+    model.head, model.safe, model.finalized = "a3", "a2", "a1"
+    step = ForkchoiceUpdatedStep(head="b2", safe="a3", finalized="a1")
     outcomes = model.forkchoice_outcomes(step)
     assert ids(outcomes) == ["inconsistent"]
     model.apply_forkchoice(step, outcomes[0])
-    assert model.head_assertion() is None
-    # A later side-chain FCU is still annotated (applied or too deep).
-    assert ids(
-        model.forkchoice_outcomes(ForkchoiceUpdatedStep(head="a3"))
-    ) == [
-        "applied",
-        "refused",
-    ]
+    assertion = model.head_assertion()
+    assert (assertion.latest, assertion.safe, assertion.finalized) == (
+        "a3",
+        "a2",
+        "a1",
+    )
 
 
 def test_fcu_ancestor_of_finalized_is_noop() -> None:  # noqa: D103
@@ -287,15 +284,16 @@ def test_annotate_continues_from_first_branch_state() -> None:
 
 
 def test_annotate_marks_head_moved_for_applied_vs_noop() -> None:  # noqa: D103
+    # head == finalized is the one position where both applying the update
+    # and skipping it are legal, so they must be told apart by the head.
     model = ClientModel(dag=dag_linear_with_fork())
     model.known.update({"a1": True, "a2": True, "a3": True})
-    model.head = "a3"
+    model.head, model.finalized = "a3", "a1"
     steps = annotate_steps(
-        [ForkchoiceUpdatedStep(head="a1", version=3)], model
+        [ForkchoiceUpdatedStep(head="a1", finalized="a1", version=3)], model
     )
     fcu = steps[0]
     assert isinstance(fcu, ForkchoiceUpdatedStep)
     by_id = {o.id: o for o in fcu.expect}
     assert by_id["applied"].head_moved is True
     assert by_id["noop"].head_moved is False
-    assert by_id["refused"].head_moved is None

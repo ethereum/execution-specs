@@ -18,7 +18,9 @@ Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
   or finalized not on head's chain → ``-38002``; head is a VALID ancestor of
   the latest known finalized block → VALID no-op; head extends current head →
   VALID; otherwise (rewind or side-chain reorg) → VALID (applied) or
-  ``-38006`` (refused, implementation-specific depth cap).
+  ``-38006`` (refused, implementation-specific depth cap). A call that ends in
+  an error leaves the forkchoice state untouched, since every update resulting
+  from the call has to be applied atomically.
 
 Authors may always provide ``expect`` explicitly; the model never widens an
 author-provided set.
@@ -49,15 +51,6 @@ DISPUTED_HEAD_EQUALS_FINALIZED = (
     "execution-apis#786: no-reorg shortcut applies to an *ancestor* of "
     "finalized; head == finalized is unspecified"
 )
-DISPUTED_PRE_786_NOOP = (
-    "paris.md before execution-apis#786 lets a client skip the update when "
-    "head is any ancestor of the canonical head; #786 restricts the shortcut "
-    "to ancestors of finalized"
-)
-UNKNOWN_LABEL = "?"
-"""
-Model head/safe/finalized after an errored forkchoice update (unspecified).
-"""
 
 
 @dataclass
@@ -218,7 +211,7 @@ class ClientModel:
             ]
         # Step 2: no-reorg shortcut for ancestors of the latest known
         # finalized.
-        if self.finalized not in (ZERO_LABEL, UNKNOWN_LABEL):
+        if self.finalized != ZERO_LABEL:
             if self.dag.is_ancestor(head, self.finalized):
                 return [
                     Outcome(id="noop", status="VALID", latest_valid_hash=head)
@@ -242,30 +235,14 @@ class ClientModel:
             return [
                 Outcome(id="inconsistent", error_code=INVALID_FORKCHOICE_STATE)
             ]
-        if self.head != UNKNOWN_LABEL:
-            # Extending the current head (or re-sending it): always applied.
-            if head == self.head or self.dag.is_ancestor(self.head, head):
-                return [
-                    Outcome(
-                        id="applied", status="VALID", latest_valid_hash=head
-                    )
-                ]
-            # Rewind to a canonical ancestor: applied, skipped (pre-#786
-            # shortcut, disputed) or refused as too deep.
-            if self.dag.is_ancestor(head, self.head):
-                return [
-                    Outcome(
-                        id="applied", status="VALID", latest_valid_hash=head
-                    ),
-                    Outcome(
-                        id="noop",
-                        status="VALID",
-                        latest_valid_hash=head,
-                        disputed=DISPUTED_PRE_786_NOOP,
-                    ),
-                    Outcome(id="refused", error_code=TOO_DEEP_REORG),
-                ]
-        # Side-chain reorg (or unknown current head): applied or too deep.
+        # Extending the current head (or re-sending it): always applied.
+        if head == self.head or self.dag.is_ancestor(self.head, head):
+            return [
+                Outcome(id="applied", status="VALID", latest_valid_hash=head)
+            ]
+        # Rewind to a canonical ancestor, or a side-chain reorg: the update is
+        # applied, or refused with the client's own depth limit. Skipping it is
+        # only legal for an ancestor of finalized, handled above.
         return [
             Outcome(id="applied", status="VALID", latest_valid_hash=head),
             Outcome(id="refused", error_code=TOO_DEEP_REORG),
@@ -277,29 +254,21 @@ class ClientModel:
         """
         Update model state assuming ``outcome`` happened.
 
-        An ``-38002`` (inconsistent forkchoice state) error leaves the head
-        unspecified: clients differ on whether the head was already moved
-        before the safe/finalized check failed (geth and reth move it).
+        Only an applied update changes the state: every update resulting from
+        a ``forkchoiceUpdated`` call has to be made atomically, so a call that
+        ends in an error leaves head, safe and finalized where they were.
         """
         if outcome.id == "applied":
             self.head = step.head
             self.safe = step.safe
             self.finalized = step.finalized
-        elif outcome.error_code == INVALID_FORKCHOICE_STATE:
-            self.head = self.safe = self.finalized = UNKNOWN_LABEL
 
-    def head_assertion(self) -> Optional[AssertHeadStep]:
-        """``assertHead`` for the current model state; None if unspecified."""
-        if self.head == UNKNOWN_LABEL:
-            return None
+    def head_assertion(self) -> AssertHeadStep:
+        """``assertHead`` for the current model state."""
         return AssertHeadStep(
             latest=self.head,
-            safe=None
-            if self.safe in (ZERO_LABEL, UNKNOWN_LABEL)
-            else self.safe,
-            finalized=None
-            if self.finalized in (ZERO_LABEL, UNKNOWN_LABEL)
-            else self.finalized,
+            safe=None if self.safe == ZERO_LABEL else self.safe,
+            finalized=None if self.finalized == ZERO_LABEL else self.finalized,
         )
 
     def assign(self, other: "ClientModel") -> None:
@@ -415,9 +384,8 @@ def annotate_steps(
                 )
                 if outcome.status != "SYNCING":
                     head_step = branch_models[step.on].head_assertion()
-                    if head_step is not None:
-                        head_step.on = step.on
-                        branch.append(head_step)
+                    head_step.on = step.on
+                    branch.append(head_step)
                 if first_models is None:
                     first_models = branch_models
             # Sibling steps continue from the state after the first
