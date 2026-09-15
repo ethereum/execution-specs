@@ -14,6 +14,7 @@ deterministic ``CREATE2`` factory predeploy.
 - [EIP-7981: Increase Access List Cost][EIP-7981]
 - [EIP-7997: Deterministic Factory Predeploy][EIP-7997]
 - [EIP-8024: Stack Access Instructions][EIP-8024]
+- [EIP-7979: Call and Return Opcodes for the EVM][EIP-7979]
 - [EIP-8037: State Creation Gas Cost Increase][EIP-8037]
 - [EIP-8038: State Access Gas Cost Increase][EIP-8038]
 - [EIP-8246: Remove SELFDESTRUCT balance burn][EIP-8246]
@@ -32,6 +33,7 @@ deterministic ``CREATE2`` factory predeploy.
 [EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
 [EIP-7997]: https://eips.ethereum.org/EIPS/eip-7997
 [EIP-8024]: https://eips.ethereum.org/EIPS/eip-8024
+[EIP-7979]: https://eips.ethereum.org/EIPS/eip-7979
 [EIP-8037]: https://eips.ethereum.org/EIPS/eip-8037
 [EIP-8038]: https://eips.ethereum.org/EIPS/eip-8038
 [EIP-8246]: https://eips.ethereum.org/EIPS/eip-8246
