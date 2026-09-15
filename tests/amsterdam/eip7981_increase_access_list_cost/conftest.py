@@ -287,11 +287,21 @@ def tx_gas_limit(
 @pytest.fixture
 def tx_error(
     tx_gas_delta: int,
+    tx_gas_limit: int,
+    tx_intrinsic_gas_cost_before_execution: int,
 ) -> TransactionException | None:
-    """Transaction error, only expected if the gas delta is negative."""
-    if tx_gas_delta < 0:
+    """
+    Transaction error, only expected if the gas delta is negative.
+
+    The intrinsic gas check runs first, so a gas limit below the intrinsic
+    cost is rejected for that reason. A gas limit at or above it but below
+    the calldata floor is rejected by the floor check.
+    """
+    if tx_gas_delta >= 0:
+        return None
+    if tx_gas_limit < tx_intrinsic_gas_cost_before_execution:
         return TransactionException.INTRINSIC_GAS_TOO_LOW
-    return None
+    return TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
 
 
 @pytest.fixture
