@@ -17,6 +17,10 @@ from execution_testing.base_types.reference_spec import (
     ReferenceSpec,
     ReferenceSpecTypes,
 )
+from execution_testing.forks import (
+    ALL_FORKS,
+    get_forks_with_no_descendants,
+)
 
 GITHUB_TOKEN_HELP = textwrap.dedent(
     "Either set the GITHUB_TOKEN environment variable or specify one via "
@@ -70,6 +74,16 @@ def pytest_configure(config: pytest.Config) -> None:
         )
 
     config.github_token = github_token  # type: ignore[attr-defined]
+
+    # The forks plugin stops at the last deployed fork by default, which
+    # would skip modules for forks under development.
+    if not (
+        config.getoption("single_fork") or config.getoption("forks_until")
+    ):
+        newest_forks = get_forks_with_no_descendants(set(ALL_FORKS))
+        config.option.forks_until = ",".join(
+            sorted(fork.name() for fork in newest_forks)
+        )
 
 
 def get_ref_spec_from_module(
