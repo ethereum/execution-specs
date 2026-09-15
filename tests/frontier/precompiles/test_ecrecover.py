@@ -1,9 +1,17 @@
 """Tests ecrecover precompiled contract."""
 
 import pytest
-from execution_testing import Account, Alloc, StateTestFiller, Transaction
+from execution_testing import (
+    Account,
+    Alloc,
+    StateTestFiller,
+    Transaction,
+    While,
+)
 from execution_testing.forks.helpers import Fork
 from execution_testing.vm import Opcodes as Op
+
+from .spec import EcrecoverInput, Spec
 
 
 @pytest.mark.ported_from(
@@ -661,5 +669,136 @@ def test_precompiles(
     )
 
     post = {account: Account(storage={0: output or ret_sentinel})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "state_tests/stQuadraticComplexityTest/Call50000_ecrecFiller.json",
+        "state_tests/stStaticCall/static_Call50000_ecrecFiller.json",
+    ],
+    coverage_missed_reason=(
+        "The fillers repeat the call until the transaction runs out of gas, "
+        "so their whole post-state is the empty one a reverted transaction "
+        "leaves behind. The port runs its iterations to completion and "
+        "checks the residue instead, keeping the oversized input window but "
+        "not the cost of the repetition itself."
+    ),
+)
+@pytest.mark.with_all_call_opcodes
+@pytest.mark.valid_from("Frontier")
+def test_repeated_underfunded_calls(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    call_opcode: Op,
+) -> None:
+    """
+    Verify that repeated underfunded calls to ecrecover all fail, leave the
+    return buffer untouched and move no value to the precompile.
+
+    The same signature recovers an address in `test_precompiles`, so the only
+    reason these calls fail is the gas: what the precompile receives, stipend
+    included, is exactly one short of its price. The value assertions bite for
+    the opcodes that carry value; for the others they merely restate that the
+    loop leaves nothing behind.
+    """
+    iterations = 10
+    gas_costs = fork.gas_costs()
+    sends_value = "value" in call_opcode.kwargs
+    # A value-bearing call adds the stipend to what the callee receives, so
+    # the operand that leaves the precompile one gas short depends on the
+    # opcode.
+    stipend = gas_costs.CALL_STIPEND if sends_value else 0
+    forwarded_gas = gas_costs.PRECOMPILE_ECRECOVER - stipend - 1
+
+    signature = EcrecoverInput(
+        msg_hash=(
+            0x18C547E4F7B0F325AD1E56F57E26C745B09A3E503D86E00E5255FF7F715D3D1C
+        ),
+        v=0x1C,
+        r=0x73B1693892219D736CABA55BDB67216E485557EA6B6AF75F37096C9AA6A5A75F,
+        s=0xEEB940B1D03B21E36B0E47E79769F095FE2AB855BD91E3A38756B7D75A9C4549,
+    )
+
+    # Memory. The input window is far wider than the 128 bytes the
+    # precompile reads, as in the fillers: a client that copies the whole
+    # window before charging for the call pays for it once per iteration.
+    args_offset = 0
+    args_size = 50_000
+    signature_size = len(bytes(signature))
+    ret_offset = args_size
+    ret_size = 32
+    counter_offset = ret_offset + ret_size
+
+    # Storage
+    successes_slot = 0
+    iterations_slot = 1
+    ret_slot = 2
+
+    # A failed call returns no bytes, so both seeded values must survive.
+    successes_base = 0xC0DE
+    ret_sentinel = b"\xff" * 32
+
+    call_value = 1
+    caller_balance = iterations * call_value
+
+    if sends_value:
+        call = call_opcode(
+            gas=forwarded_gas,
+            address=Spec.ECRECOVER,
+            value=call_value,
+            args_offset=args_offset,
+            args_size=args_size,
+            ret_offset=ret_offset,
+            ret_size=ret_size,
+        )
+    else:
+        call = call_opcode(
+            gas=forwarded_gas,
+            address=Spec.ECRECOVER,
+            args_offset=args_offset,
+            args_size=args_size,
+            ret_offset=ret_offset,
+            ret_size=ret_size,
+        )
+
+    body = Op.SSTORE(
+        successes_slot, Op.ADD(Op.SLOAD(successes_slot), call)
+    ) + Op.MSTORE(counter_offset, Op.ADD(Op.MLOAD(counter_offset), 1))
+
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(args_offset, 0, signature_size)
+        + Op.MSTORE(ret_offset, ret_sentinel)
+        + While(
+            body=body,
+            condition=Op.LT(Op.MLOAD(counter_offset), iterations),
+        )
+        + Op.SSTORE(iterations_slot, Op.MLOAD(counter_offset))
+        + Op.SSTORE(ret_slot, Op.MLOAD(ret_offset))
+        + Op.STOP,
+        storage={successes_slot: successes_base},
+        balance=caller_balance,
+    )
+
+    tx = Transaction(
+        to=caller,
+        data=signature,
+        sender=pre.fund_eoa(),
+        protected=fork.supports_protected_txs(),
+    )
+
+    post = {
+        caller: Account(
+            storage={
+                successes_slot: successes_base,
+                iterations_slot: iterations,
+                ret_slot: ret_sentinel,
+            },
+            balance=caller_balance,
+        ),
+        Spec.ECRECOVER: Account.NONEXISTENT,
+    }
 
     state_test(pre=pre, post=post, tx=tx)
