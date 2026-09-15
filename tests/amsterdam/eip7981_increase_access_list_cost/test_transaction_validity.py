@@ -15,6 +15,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransactionReceipt,
     compute_create_address,
 )
 
@@ -29,7 +30,7 @@ pytestmark = [
 ]
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Insufficient()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -85,7 +86,7 @@ def test_insufficient_gas_for_access_list(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.DataFloorAboveIntrinsicGasCost()
 @pytest.mark.exception_test
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -125,6 +126,7 @@ def test_floor_cost_validation_with_access_list(
     )
 
 
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Exact()
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type >= 1)
 @pytest.mark.parametrize(
@@ -156,6 +158,8 @@ def test_valid_gas_limits_with_access_list(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test that transactions with sufficient gas are valid.
@@ -165,6 +169,10 @@ def test_valid_gas_limits_with_access_list(
     - Slightly more than intrinsic gas
     - Much more than intrinsic gas
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + tx_gas_delta)
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
@@ -214,6 +222,8 @@ def test_mixed_zero_nonzero_bytes_floor_cost(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test floor cost calculation with mixed zero and non-zero bytes.
@@ -221,6 +231,10 @@ def test_mixed_zero_nonzero_bytes_floor_cost(
     This ensures floor gas uses floor token counting:
     - Each data byte contributes 4 floor tokens
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
@@ -272,12 +286,18 @@ def test_transactions_without_access_list(
     state_test: StateTestFiller,
     pre: Alloc,
     tx: Transaction,
+    tx_expected_gas_used: int,
+    tx_gas_delta: int,
 ) -> None:
     """
     Test that transactions without access lists still work correctly.
 
     EIP-7981 should only affect transactions with non-empty access lists.
     """
+    tx = tx.copy(gas_limit=tx_expected_gas_used + max(tx_gas_delta, 1000))
+    tx.expected_receipt = TransactionReceipt(
+        status=1, gas_used=tx_expected_gas_used
+    )
     state_test(
         pre=pre,
         post={},
@@ -285,8 +305,8 @@ def test_transactions_without_access_list(
     )
 
 
-@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
-@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@EIPChecklist.TransactionType.Test.ContractCreation()
+@EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Insufficient()
 @pytest.mark.with_all_tx_types(selector=lambda tx_type: tx_type in (1, 2))
 @pytest.mark.parametrize(
     "valid",
