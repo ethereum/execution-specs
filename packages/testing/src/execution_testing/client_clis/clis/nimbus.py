@@ -99,19 +99,12 @@ class NimbusExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "invalid tx: one of blobVersionedHash has invalid version"
         ),
-        # TODO: temp solution until mapper for nimbus is fixed
-        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            "zero gasUsed but transactions present"
-        ),
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
             "exceeds maximum allowance"
         ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: (
             "blob transaction missing blob hashes"
-        ),
-        TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            "zero gasUsed but transactions present"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
             "intrinsic gas too low"
@@ -139,4 +132,21 @@ class NimbusExceptionMapper(ExceptionMapper):
         BlockException.INVALID_RECEIPTS_ROOT: "receiptRoot mismatch",
         BlockException.INVALID_LOG_BLOOM: "bloom mismatch",
     }
-    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}
+    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        # Nimbus reports one error when the gas limit is below the intrinsic
+        # or the floor gas, and from Amsterdam one when either of those
+        # exceeds the transaction gas limit cap.
+        TransactionException.INTRINSIC_GAS_TOO_LOW: (
+            r"invalid tx: not enough gas to perform calculation\.|"
+            r"Intrinsic (?:execution|regular) or calldata floor exceeds "
+            r"TX_GAS_LIMIT="
+        ),
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            r"invalid tx: not enough gas to perform calculation\.|"
+            r"Intrinsic (?:execution|regular) or calldata floor exceeds "
+            r"TX_GAS_LIMIT="
+        ),
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            r"tx\.gasLimit \d+ exceeds maximum \d+"
+        ),
+    }
