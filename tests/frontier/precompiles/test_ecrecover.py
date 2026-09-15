@@ -16,6 +16,7 @@ from execution_testing.vm import Opcodes as Op
         "state_tests/stPreCompiledContracts2/CALLCODEEcrecoverR_prefixed0Filler.json",
         "state_tests/stPreCompiledContracts2/CALLCODEEcrecoverS_prefixed0Filler.json",
         "state_tests/stPreCompiledContracts2/CALLCODEEcrecoverV_prefixed0Filler.json",
+        "state_tests/stPreCompiledContracts2/CALLCODEEcrecoverV_prefixedf0Filler.json",
         "state_tests/stPreCompiledContracts2/CallEcrecover0Filler.json",
         "state_tests/stPreCompiledContracts2/CallEcrecover1Filler.json",
         "state_tests/stPreCompiledContracts2/CallEcrecover3Filler.json",
@@ -26,6 +27,8 @@ from execution_testing.vm import Opcodes as Op
         "state_tests/stPreCompiledContracts2/CallEcrecoverS_prefixed0Filler.json",
         "state_tests/stPreCompiledContracts2/CallEcrecoverUnrecoverableKeyFiller.json",
         "state_tests/stPreCompiledContracts2/CallEcrecoverV_prefixed0Filler.json",
+        "state_tests/stPreCompiledContracts2/CallEcrecover_OverflowFiller.yml",
+        "state_tests/stPreCompiledContracts2/ecrecoverWeirdVFiller.yml",
         "state_tests/stStaticCall/static_CallEcrecover0Filler.json",
         "state_tests/stStaticCall/static_CallEcrecover1Filler.json",
         "state_tests/stStaticCall/static_CallEcrecover3Filler.json",
@@ -36,6 +39,7 @@ from execution_testing.vm import Opcodes as Op
         "state_tests/stStaticCall/static_CallEcrecoverV_prefixed0Filler.json",
     ],
 )
+@pytest.mark.with_all_call_opcodes()
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "msg_hash, v, r, s, output",
@@ -610,6 +614,346 @@ from execution_testing.vm import Opcodes as Op
             ),
             id="R_eq_4G_high_s",
         ),
+        # One step either side of the curve order. N + 1 reduces to 1,
+        # a valid x-coordinate; N - 1 is on no curve point, leaving N - 2
+        # the largest recoverable r.
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142"
+            ),
+            bytes.fromhex(
+                "efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+            ),
+            b"",
+            id="r_eq_N_plus_one",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"
+            ),
+            bytes.fromhex(
+                "efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+            ),
+            b"",
+            id="r_eq_N_minus_one",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413f"
+            ),
+            bytes.fromhex(
+                "efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000002182da748249a933bf737586b80212df19b8f829"
+            ),
+            id="r_eq_N_minus_two",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142"
+            ),
+            b"",
+            id="s_eq_N_plus_one",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000001b85ac3c9b09de43659c5d04a2d9c75457d9abf4"
+            ),
+            id="s_eq_N_minus_one",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413f"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000d0277c8a3eccd462a313fc60161bac36b16e8699"
+            ),
+            id="s_eq_N_minus_two",
+        ),
+        # One key signing three messages, including the smallest hashes.
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001b"
+            ),
+            bytes.fromhex(
+                "ce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03"
+            ),
+            bytes.fromhex(
+                "79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000b957b0da344f6a17f0081d63be7345a860e5b7a2"
+            ),
+            id="msg_hash_zero",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d"
+            ),
+            bytes.fromhex(
+                "1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000b957b0da344f6a17f0081d63be7345a860e5b7a2"
+            ),
+            id="msg_hash_one",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "deaf0dead0600d0f00d00000000000000060a70000000000000f0ad0bad0beef"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001b"
+            ),
+            bytes.fromhex(
+                "8a41a35dfd03f28615dc64b7754457691c66bd73f630c7423280282fa431a5be"
+            ),
+            bytes.fromhex(
+                "2d40decf11713d564fa2df10dea5eb2adf45455ed309b4c8cc6853e2498323f5"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000b957b0da344f6a17f0081d63be7345a860e5b7a2"
+            ),
+            id="msg_hash_high_bytes_set",
+        ),
+        # v values a signature could plausibly carry, none of them 27 or 28.
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            bytes.fromhex(
+                "541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d"
+            ),
+            bytes.fromhex(
+                "1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5"
+            ),
+            b"",
+            id="v_eq_0",
+        ),
+        # A real chain-id-1 transaction signature, v included.
+        pytest.param(
+            bytes.fromhex(
+                "daf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000025"
+            ),
+            bytes.fromhex(
+                "28ef61340bd939bc2195fe537567866003e1a15d3c71ff63e1590620aa636276"
+            ),
+            bytes.fromhex(
+                "67cbe9d8997f761aecb703304b3800ccf555c9f3dc64214b297fb1966a3b6d83"
+            ),
+            b"",
+            id="v_eq_37_eip155_chain_id_1",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000023"
+            ),
+            bytes.fromhex(
+                "ce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03"
+            ),
+            bytes.fromhex(
+                "79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b"
+            ),
+            b"",
+            id="v_eq_35_eip155",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000026"
+            ),
+            bytes.fromhex(
+                "541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d"
+            ),
+            bytes.fromhex(
+                "1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5"
+            ),
+            b"",
+            id="v_eq_38_eip155",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            bytes.fromhex(
+                "00000000000000000000000000000000000000000000000000000000000000ec"
+            ),
+            bytes.fromhex(
+                "541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d"
+            ),
+            bytes.fromhex(
+                "1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5"
+            ),
+            b"",
+            id="v_eq_236_eip155",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            bytes.fromhex(
+                "00000000000000000000000000000000000000000000000000000000000000ff"
+            ),
+            bytes.fromhex(
+                "ce354e1b07ba96e325aa4851999f07aabcb4471e49f0a0daafed98caab963f03"
+            ),
+            bytes.fromhex(
+                "79d9f3993cdd509f1bfba63dbd23dbdff879fb95203a5049f348a95ce8249f3b"
+            ),
+            b"",
+            id="v_eq_0xff",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000100"
+            ),
+            bytes.fromhex(
+                "541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d"
+            ),
+            bytes.fromhex(
+                "1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5"
+            ),
+            b"",
+            id="v_eq_0x100",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000deadbeef0100"
+            ),
+            bytes.fromhex(
+                "541c4ce1565a646ddde26e1b483a88a6500ce15bd24622492f05cdd18b97161d"
+            ),
+            bytes.fromhex(
+                "1827e364c15cfa61dab02339904b1e542f3939c6e8d6367d352026e71ffd6af5"
+            ),
+            b"",
+            id="v_high_word_low_byte_zero",
+        ),
+        # Every field set to the same arbitrary value.
+        pytest.param(
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000007e57"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000007e57"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000007e57"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000007e57"
+            ),
+            b"",
+            id="all_fields_0x7e57",
+        ),
+        # The v of a valid signature, with garbage above its low byte.
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000f01c"
+            ),
+            bytes.fromhex(
+                "73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f"
+            ),
+            bytes.fromhex(
+                "eeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"
+            ),
+            b"",
+            id="v_prefixed_0xf0",
+        ),
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "00000000000000000000000000000000f000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f"
+            ),
+            bytes.fromhex(
+                "eeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"
+            ),
+            b"",
+            id="v_prefixed_high_word",
+        ),
     ],
 )
 @pytest.mark.eels_base_coverage
@@ -617,6 +961,7 @@ def test_precompiles(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    call_opcode: Op,
     msg_hash: bytes,
     v: bytes,
     r: bytes,
@@ -632,26 +977,43 @@ def test_precompiles(
     r_offset = 64
     s_offset = 96
     ret_offset = 128
-    # A failed recovery returns no bytes, so the seeded word must survive.
+    # The precompile returns one word, a rejected input none at all, so
+    # both seeded words of the wider window must survive.
+    ret_size = 2 * 32
     ret_sentinel = b"\xff" * 32
 
+    # Storage
+    success_slot = 0
+    first_word_slot = 1
+    second_word_slot = 2
+
+    # A rejected input is not a failed call: the precompile charges its
+    # full price and returns. Forwarding exactly that price makes an
+    # implementation that charges more fail the call.
     account = pre.deploy_contract(
         Op.MSTORE(hash_offset, msg_hash)
         + Op.MSTORE(v_offset, v)
         + Op.MSTORE(r_offset, r)
         + Op.MSTORE(s_offset, s)
         + Op.MSTORE(ret_offset, ret_sentinel)
-        + Op.CALL(
-            gas=50_000,
-            address="0x01",  # ecrecover precompile address
-            args_offset=hash_offset,
-            args_size=4 * 32,
-            ret_offset=ret_offset,
-            ret_size=32,
+        + Op.MSTORE(ret_offset + 32, ret_sentinel)
+        + Op.SSTORE(
+            success_slot,
+            call_opcode(
+                gas=fork.gas_costs().PRECOMPILE_ECRECOVER,
+                address="0x01",  # ecrecover precompile address
+                args_offset=hash_offset,
+                args_size=4 * 32,
+                ret_offset=ret_offset,
+                ret_size=ret_size,
+            ),
         )
-        + Op.SSTORE(0, Op.MLOAD(ret_offset))
+        + Op.SSTORE(first_word_slot, Op.MLOAD(ret_offset))
+        + Op.SSTORE(second_word_slot, Op.MLOAD(ret_offset + 32))
         + Op.STOP,
-        storage={0: 0xDEADBEEF},
+        storage=dict.fromkeys(
+            (success_slot, first_word_slot, second_word_slot), 0xDEADBEEF
+        ),
     )
 
     tx = Transaction(
@@ -660,6 +1022,14 @@ def test_precompiles(
         protected=fork.supports_protected_txs(),
     )
 
-    post = {account: Account(storage={0: output or ret_sentinel})}
+    post = {
+        account: Account(
+            storage={
+                success_slot: 1,
+                first_word_slot: output or ret_sentinel,
+                second_word_slot: ret_sentinel,
+            }
+        )
+    }
 
     state_test(pre=pre, post=post, tx=tx)
