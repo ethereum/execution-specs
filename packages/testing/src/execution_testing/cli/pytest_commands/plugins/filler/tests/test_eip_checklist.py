@@ -121,3 +121,67 @@ def test_eip_checklist_collection(testdir: Any) -> None:
         re.search(r"N/A.*DEBUG NOT APPLICABLE REASON", line)
         for line in content
     )
+
+
+def test_generator_built_test_is_credited_to_its_directory(
+    testdir: Any,
+) -> None:
+    """
+    A test built by a decorator that lives outside the EIP directory is
+    credited to the EIP of the module that collected it, not to the module
+    that defines the wrapper.
+    """
+    tests_dir = testdir.mkdir("tests")
+    # An empty conftest puts `tests/` on the import path for the builder.
+    tests_dir.join("conftest.py").write("")
+    tests_dir.join("generated.py").write(
+        textwrap.dedent(
+            """
+            def build(func):
+                def wrapper(state_test):
+                    pass
+
+                wrapper.__name__ = func.__name__
+                return wrapper
+            """
+        )
+    )
+    eip_dir = tests_dir.mkdir("prague").mkdir("eip7702_set_code_tx")
+    eip_dir.join("test_eip7702.py").write(
+        textwrap.dedent(
+            """
+            import pytest
+            from execution_testing import StateTestFiller
+            from execution_testing.checklists import EIPChecklist
+            from generated import build
+
+            REFERENCE_SPEC_GIT_PATH = "N/A"
+            REFERENCE_SPEC_VERSION = "N/A"
+
+            @pytest.mark.valid_at("Prague")
+            @EIPChecklist.TransactionType.Test.IntrinsicValidity.GasLimit.Exact()
+            @build
+            def test_generated(state_test: StateTestFiller) -> None:
+                pass
+            """
+        )
+    )
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = testdir.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "-p",
+        "execution_testing.cli.pytest_commands.plugins.filler.eip_checklist",
+        "--collect-only",
+        "--checklist-output",
+        str(testdir.tmpdir / "checklists"),
+        str(tests_dir),
+    )
+    result.assert_outcomes(passed=0, failed=0, skipped=0, errors=0)
+
+    checklist_file = testdir.tmpdir / "checklists" / "eip7702_checklist.md"
+    assert checklist_file.exists()
+    content = checklist_file.readlines()
+    assert any(re.search(r"✅.*test_generated", line) for line in content)

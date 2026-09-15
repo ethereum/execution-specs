@@ -1,0 +1,16 @@
+opcode = EIP-8282 does not introduce a new opcode
+precompile = EIP-8282 does not introduce a new precompile
+removed_precompile = EIP-8282 does not remove a precompile
+transaction_type = EIP-8282 does not introduce a new transaction type
+block_header_field = EIP-8282 does not introduce a new block header field (its requests are committed through the existing EIP-7685 requests_hash)
+block_body_field = EIP-8282 does not introduce a new block body field
+gas_cost_changes = EIP-8282 does not modify existing gas costs
+gas_refunds_changes = EIP-8282 does not modify gas refunds
+blob_count_changes = EIP-8282 does not modify blob count parameters
+new_transaction_validity_constraint = EIP-8282 does not introduce a transaction validity constraint
+modified_transaction_validity_constraint = EIP-8282 does not modify any existing transaction validity constraint
+block_level_constraint = The two block-invalidating rules EIP-8282 adds, no code at either predeploy once the fork is active and a failing system call, are covered under system_contract/test/deployment/missing and system_contract/test/contract_substitution/exception; the EIP adds no numeric block-level bound to test
+system_contract/test/out_of_bounds = Every input field is a fixed-width byte field (48-byte pubkey, 32-byte credentials, 8-byte amount, 96-byte signature), so no value can exceed its field; the amount minimum is covered under inputs/boundary and inputs/invalid/checks
+system_contract/test/input_lengths/dynamic = Each predeploy accepts exactly one static input length (184 bytes for deposits, 48 bytes for exits), covered under input_lengths/static
+system_contract/test/gas_usage/constant = The predeploys' gas consumption depends on the queue state and the in-block request count, covered under gas_usage/dynamic
+system_contract/test/contract_variations/networks = A single bytecode, mined to the same address through the EIP-7997 factory, is used on every network
