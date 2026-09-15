@@ -599,19 +599,28 @@ def _get_pre_tx_account(
 
 
 def _get_pre_tx_storage(
-    pre_tx_storage: Dict[Address, Dict[Bytes32, U256]],
-    pre_state: PreState,
+    tx_state: TransactionState,
     address: Address,
     key: Bytes32,
 ) -> U256:
     """
-    Look up a storage value in cumulative state, falling back to `pre_state`.
+    Look up the storage value that a write in `tx_state` is compared
+    against: the block's cumulative state, falling back to `pre_state`.
 
-    Returns `0` if not set.
+    Returns `0` if not set, or if the storage at `address` was wiped,
+    whether earlier in the block or by the transaction itself. A slot the
+    transaction wipes and then writes starts from zero, so restoring its
+    pre-block value is a change, just as it is for a later transaction.
     """
-    if address in pre_tx_storage and key in pre_tx_storage[address]:
-        return pre_tx_storage[address][key]
-    return pre_state.get_storage(address, key)
+    if address in tx_state.storage_clears:
+        return U256(0)
+    block_state = tx_state.parent
+    if address in block_state.storage_writes:
+        if key in block_state.storage_writes[address]:
+            return block_state.storage_writes[address][key]
+    if address in block_state.storage_clears:
+        return U256(0)
+    return block_state.pre_state.get_storage(address, key)
 
 
 def update_builder_from_tx(
@@ -662,9 +671,7 @@ def update_builder_from_tx(
     # Compare storage writes against block cumulative state
     for address, slots in tx_state.storage_writes.items():
         for key, post_value in slots.items():
-            pre_value = _get_pre_tx_storage(
-                block_state.storage_writes, pre_state, address, key
-            )
+            pre_value = _get_pre_tx_storage(tx_state, address, key)
             if pre_value != post_value:
                 # Convert slot from internal Bytes32 format to U256 for BAL.
                 # EIP-7928 uses U256 as it's more space-efficient in RLP.
