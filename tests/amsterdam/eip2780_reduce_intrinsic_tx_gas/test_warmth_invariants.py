@@ -29,6 +29,7 @@ from execution_testing import (
     AuthorizationTuple,
     BalAccountExpectation,
     BalBalanceChange,
+    BalNonceChange,
     BlockAccessListExpectation,
     ChainConfig,
     Environment,
@@ -459,11 +460,41 @@ def test_sender_is_coinbase(
         target: Account(balance=target_initial_balance + value),
     }
 
+    if value:
+        target_expectation = BalAccountExpectation(
+            balance_changes=[
+                BalBalanceChange(
+                    block_access_index=1,
+                    post_balance=target_initial_balance + value,
+                )
+            ],
+        )
+    else:
+        target_expectation = BalAccountExpectation.empty()
+
     state_test(
         pre=pre,
         tx=tx,
         post=post,
         env=Environment(fee_recipient=sender, base_fee_per_gas=base_fee),
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                # One account in two roles: the gas debit and the
+                # priority-fee credit net into a single entry.
+                sender: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=sender_final_balance,
+                        )
+                    ],
+                ),
+                target: target_expectation,
+            }
+        ),
     )
 
 

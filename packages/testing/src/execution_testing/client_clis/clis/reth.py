@@ -118,6 +118,7 @@ class RethExceptionMapper(ExceptionMapper):
         # BAL Exceptions
         BlockException.INVALID_BAL_HASH: (r"block access list hash mismatch"),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
+            r"failed to decode block access list|"
             r"block access list hash mismatch|"
             r"BAL rejection: FinalHashMismatch|"
             r"Bal error: Account .* not found in BAL|"
