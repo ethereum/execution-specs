@@ -346,6 +346,32 @@ def test_param_level_valid_from(state_test, value):
 """
 
 
+def generate_param_level_all_excluded_test() -> str:
+    """Generate a test whose every param names a later fork."""
+    return """
+import pytest
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(
+            True,
+            id="from_paris",
+            marks=pytest.mark.valid_from("Paris"),
+        ),
+        pytest.param(
+            False,
+            id="from_shanghai",
+            marks=pytest.mark.valid_from("Shanghai"),
+        ),
+    ],
+)
+@pytest.mark.state_test_only
+def test_all_params_excluded(state_test, value):
+    pass
+"""
+
+
 def generate_param_level_valid_until_test() -> str:
     """Generate a test function with param-level valid_until markers."""
     return """
@@ -539,3 +565,72 @@ def test_param_level_validity_markers(
         *pytest_args,
     )
     result.assert_outcomes(**outcomes)
+
+
+def test_param_level_deselections_are_reported(
+    pytester: pytest.Pytester,
+) -> None:
+    """Params dropped by their validity markers are counted and named."""
+    pytester.makepyfile(generate_param_level_marker_test())
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--from=Berlin",
+        "--until=Paris",
+    )
+
+    # from_tangerine covers Berlin, London and Paris; from_paris only Paris.
+    result.assert_outcomes(passed=4, deselected=2)
+    result.stdout.fnmatch_lines(
+        [
+            "*2 deselected by validity markers*",
+            "*test_param_level_valid_from: 2 deselected",
+        ]
+    )
+
+
+def test_param_level_deselection_of_every_case_is_named(
+    pytester: pytest.Pytester,
+) -> None:
+    """A test left with no case at all is marked, not silently absent."""
+    pytester.makepyfile(generate_param_level_all_excluded_test())
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--from=Berlin",
+        "--until=London",
+    )
+
+    # Berlin and London precede both markers, so all four cases go.
+    result.assert_outcomes(passed=0, deselected=4)
+    result.stdout.fnmatch_lines(
+        ["*test_all_params_excluded: 4 deselected (no cases left)"]
+    )
+
+
+def test_unparametrized_tests_are_counted(
+    pytester: pytest.Pytester,
+) -> None:
+    """A test generation never parametrizes is counted, and named at -vv."""
+    pytester.makepyfile(generate_test(valid_from='"Prague"'))
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = ["-c", "pytest-fill.ini", "--from=Berlin", "--until=London"]
+
+    result = pytester.runpytest(*args)
+    result.assert_outcomes(passed=0)
+    result.stdout.fnmatch_lines(["*1 not parametrized for any fork*"])
+    result.stdout.no_fnmatch_line("*validity range*")
+
+    # --clean because the first run already wrote the output directory.
+    verbose = pytester.runpytest(*args, "-vv", "--clean")
+    verbose.stdout.fnmatch_lines(
+        ["*test_case: no selected fork is in its validity range"]
+    )
