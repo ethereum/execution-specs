@@ -747,3 +747,78 @@ def test_reorg_to_fork_behind_finalized(
         )
     )
     reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+
+
+@pytest.mark.valid_from("Cancun")
+def test_forkchoice_state_unchanged_on_invalid_state(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    """
+    A forkchoice update that fails the safe/finalized consistency check must
+    leave the forkchoice state untouched.
+
+    Canonical a1..a3 (head a3) plus a validated sibling pair b1, b2. The call
+    names b2 as head while safe and finalized stay on the ``a`` chain, so it
+    must be answered with ``-38002``; every update resulting from the call is
+    then required to have been applied atomically, i.e. not at all.
+    """
+    blocks, steps = chain(pre, "a", 3)
+    side, _ = chain(pre, "b", 2, value=2)
+    blocks += side
+    steps += [NewPayloadStep(block="b1"), NewPayloadStep(block="b2")]
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="b2",
+            safe="a2",
+            finalized="a1",
+            expect=[
+                Outcome(id="inconsistent", error_code=INVALID_FORKCHOICE_STATE)
+            ],
+            branches={
+                "inconsistent": [
+                    AssertHeadStep(latest="a3"),
+                    AssertCanonicalStep(blocks={1: "a1", 2: "a2"}),
+                ]
+            },
+        )
+    )
+    reorg_test(pre=pre, blocks=blocks, steps=steps, meta={"class": "shallow"})
+
+
+@pytest.mark.valid_from("Cancun")
+def test_fcu_rewind_with_no_finalized(
+    reorg_test: ReorgTestFiller, pre: Alloc
+) -> None:
+    """
+    Rewind the head to a canonical ancestor while no finalized block is known.
+
+    The no-reorg shortcut is conditional on a known ``finalizedBlockHash`` and
+    on the head being an ancestor of it; with a zero finalized hash neither
+    holds, so the client must either apply the rewind or refuse it as too
+    deep. A VALID answer that leaves the head where it was is not legal here.
+    """
+    blocks, steps = chain(pre, "a", 8)
+    steps.append(
+        ForkchoiceUpdatedStep(
+            head="a5",
+            safe="a5",
+            expect=[
+                Outcome(
+                    id="applied",
+                    status="VALID",
+                    latest_valid_hash="a5",
+                    head_moved=True,
+                ),
+                Outcome(id="refused", error_code=TOO_DEEP_REORG),
+            ],
+            branches={
+                "applied": [AssertCanonicalStep(blocks={5: "a5", 6: None})],
+            },
+        )
+    )
+    reorg_test(
+        pre=pre,
+        blocks=blocks,
+        steps=steps,
+        meta={"class": "shallow", "reorgDepth": 3, "rewind": True},
+    )
