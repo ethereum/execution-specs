@@ -152,6 +152,10 @@ def test_floor_cost_validation_with_access_list(
     [pytest.param("eoa", id="")],
     indirect=True,
 )
+@pytest.mark.parametrize(
+    "tx_gas_surplus",
+    [pytest.param(0, id="")],
+)
 def test_valid_gas_limits_with_access_list(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -164,6 +168,10 @@ def test_valid_gas_limits_with_access_list(
     - Exact intrinsic gas
     - Slightly more than intrinsic gas
     - Much more than intrinsic gas
+
+    The exact case leaves no surplus. For type 4 it also funds the top-frame
+    authorization gas, which is charged after intrinsic validation but is
+    needed for the transaction to succeed.
     """
     state_test(
         pre=pre,
