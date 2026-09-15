@@ -139,6 +139,7 @@ class T8N(Load):
     body: Bytes
     state_test: bool
     state_reward: int
+    fork_activation: bool
     exception_mapper: Optional["ExceptionMapper"]
     _block_exception: Optional[str]
 
@@ -212,6 +213,7 @@ class T8N(Load):
         self.chain_id = U64(t8n_data.chain_id)
         self.state_test = t8n_data.state_test
         self.state_reward = t8n_data.reward
+        self.fork_activation = t8n_data.fork_activation
         self.exception_mapper = exception_mapper
 
         from execution_testing.client_clis.cli_types import LazyAlloc
@@ -370,6 +372,11 @@ class T8N(Load):
         )
 
     def _run_blockchain_test(self, block_env: Any, block_output: Any) -> None:
+        # EIP-8253: the fork block bumps the nonce of the zero-nonce
+        # storage accounts before any pre-execution system call.
+        if self.fork_activation and self.fork.has_zero_nonce_storage_accounts:
+            self.fork.bump_zero_nonce_storage_accounts(block_env)
+
         if self.fork.has_compute_requests_hash:
             self.fork.process_unchecked_system_transaction(
                 block_env=block_env,

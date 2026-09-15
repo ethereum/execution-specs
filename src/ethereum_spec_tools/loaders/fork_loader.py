@@ -80,6 +80,25 @@ class ForkLoad:
         return self._module("fork").process_unchecked_system_transaction
 
     @property
+    def bump_zero_nonce_storage_accounts(self) -> Any:
+        """bump_zero_nonce_storage_accounts function of the given fork."""
+        return self._module(
+            "zero_nonce_storage_accounts"
+        ).bump_zero_nonce_storage_accounts
+
+    @property
+    def has_zero_nonce_storage_accounts(self) -> bool:
+        """
+        Check if the fork bumps the nonce of the zero-nonce storage accounts
+        at its fork block (EIP-8253).
+        """
+        try:
+            self._module("zero_nonce_storage_accounts")
+        except ModuleNotFoundError:
+            return False
+        return True
+
+    @property
     def process_withdrawals(self) -> Any:
         """process_withdrawals function of the given fork."""
         return self._module("fork").process_withdrawals
