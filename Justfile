@@ -16,7 +16,7 @@ xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 # `-n auto` mode, does not warn on non-numeric values such as "auto".
 export PYTEST_XDIST_AUTO_NUM_WORKERS := ""
 evm_bin := env("EVM_BIN", "evm")
-latest_fork := "Amsterdam"
+latest_fork := "Bogota"
 
 # Use the faster sys.monitoring coverage core (default on 3.14, opt-in below).
 export COVERAGE_CORE := "sysmon"
@@ -186,7 +186,7 @@ fill-pypy *args: (_tmp-logs "fill-pypy")
         --show-capture=no \
         --disable-warnings \
         -m "eels_base_coverage and primary_format" \
-        -n auto --maxprocesses 7 \
+        -n auto --maxprocesses 4 \
         --dist=loadgroup \
         --basetemp="{{ output_dir }}/fill-pypy/tmp" \
         --log-to "{{ output_dir }}/fill-pypy/logs" \
