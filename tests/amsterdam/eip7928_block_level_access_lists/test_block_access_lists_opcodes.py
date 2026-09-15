@@ -15,7 +15,7 @@ preventing consensus issues.
 """
 
 from enum import Enum
-from typing import Callable, Dict
+from typing import Callable, Dict, Tuple
 
 import pytest
 from execution_testing import (
@@ -3287,6 +3287,418 @@ def test_bal_create2_deploy_then_collision(
             # slot 0 == 1 proves init ran exactly once (tx2 collided).
             target: Account(
                 nonce=1, code=bytes(Op.STOP), balance=0, storage={0x00: 1}
+            ),
+        },
+    )
+
+
+# Pre-existing storage of the storage-only account a creation lands on.
+# Slot 1 is the slot the init code probes; slot 2 is never touched, so
+# its post-state value alone tells a wipe from a keep.
+STORAGE_ONLY_PRE_STORAGE = {0x01: 0x01, 0x02: 0x02}
+STORAGE_ONLY_NEW_VALUE = 0x05
+STORAGE_ONLY_INIT_BEHAVIORS = [
+    "untouched",
+    "read_wiped_slot",
+    "rewrite_old_value",
+    "write_new_value",
+    "revert",
+    "selfdestruct",
+]
+
+
+def storage_only_target_case(
+    init_behavior: str, balance: int, beneficiary: Address
+) -> Tuple[Bytecode, BalAccountExpectation, Account | None]:
+    """
+    Return the init code, the BAL expectation and the post-state of a
+    storage-only account that a creation lands on, for one init
+    behavior.
+
+    The wipe itself leaves no trace: the BAL only lists what the init
+    code touches afterwards, compared against the wiped (zero) value, so
+    even restoring a slot's pre-block value is a change.
+    """
+    nonce_changes = [BalNonceChange(block_access_index=1, post_nonce=1)]
+    code_changes = [
+        BalCodeChange(block_access_index=1, new_code=bytes(Op.STOP))
+    ]
+    probe_slot = 0x01
+    old_value = STORAGE_ONLY_PRE_STORAGE[probe_slot]
+
+    init_code: Bytecode
+    post: Account | None
+    if init_behavior == "untouched":
+        init_code = Initcode(deploy_code=Op.STOP)
+        expectation = BalAccountExpectation(
+            nonce_changes=nonce_changes,
+            code_changes=code_changes,
+            balance_changes=[],
+            storage_changes=[],
+            storage_reads=[],
+        )
+        post = Account(
+            nonce=1,
+            code=bytes(Op.STOP),
+            balance=balance,
+            storage={0x01: 0, 0x02: 0},
+        )
+    elif init_behavior == "read_wiped_slot":
+        # Slot 0 records one more than the wiped slot reads: 1, not 2.
+        init_code = Initcode(
+            deploy_code=Op.STOP,
+            initcode_prefix=Op.SSTORE(0, Op.ADD(Op.SLOAD(probe_slot), 1)),
+        )
+        expectation = BalAccountExpectation(
+            nonce_changes=nonce_changes,
+            code_changes=code_changes,
+            balance_changes=[],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=0x00,
+                    slot_changes=[
+                        BalStorageChange(block_access_index=1, post_value=1)
+                    ],
+                )
+            ],
+            storage_reads=[probe_slot],
+        )
+        post = Account(
+            nonce=1,
+            code=bytes(Op.STOP),
+            balance=balance,
+            storage={0x00: 1, 0x01: 0, 0x02: 0},
+        )
+    elif init_behavior == "rewrite_old_value":
+        # The wipe leaves the slot at zero, so restoring the pre-block
+        # value is a change, as it is for a rewrite by a later transaction.
+        init_code = Initcode(
+            deploy_code=Op.STOP,
+            initcode_prefix=Op.SSTORE(probe_slot, old_value),
+        )
+        expectation = BalAccountExpectation(
+            nonce_changes=nonce_changes,
+            code_changes=code_changes,
+            balance_changes=[],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=probe_slot,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1, post_value=old_value
+                        )
+                    ],
+                )
+            ],
+            storage_reads=[],
+        )
+        post = Account(
+            nonce=1,
+            code=bytes(Op.STOP),
+            balance=balance,
+            storage={0x01: old_value, 0x02: 0},
+        )
+    elif init_behavior == "write_new_value":
+        init_code = Initcode(
+            deploy_code=Op.STOP,
+            initcode_prefix=Op.SSTORE(probe_slot, STORAGE_ONLY_NEW_VALUE),
+        )
+        expectation = BalAccountExpectation(
+            nonce_changes=nonce_changes,
+            code_changes=code_changes,
+            balance_changes=[],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=probe_slot,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1,
+                            post_value=STORAGE_ONLY_NEW_VALUE,
+                        )
+                    ],
+                )
+            ],
+            storage_reads=[],
+        )
+        post = Account(
+            nonce=1,
+            code=bytes(Op.STOP),
+            balance=balance,
+            storage={0x01: STORAGE_ONLY_NEW_VALUE, 0x02: 0},
+        )
+    elif init_behavior == "revert":
+        # The revert undoes the wipe but not the read of the wiped slot.
+        init_code = Op.POP(Op.SLOAD(probe_slot)) + Op.REVERT(0, 0)
+        expectation = BalAccountExpectation(
+            nonce_changes=[],
+            code_changes=[],
+            balance_changes=[],
+            storage_changes=[],
+            storage_reads=[probe_slot],
+        )
+        post = Account(
+            nonce=0,
+            code=b"",
+            balance=balance,
+            storage=STORAGE_ONLY_PRE_STORAGE,
+        )
+    elif init_behavior == "selfdestruct":
+        # Created in the same transaction, so EIP-6780 deletes the
+        # account outright; only the swept balance is visible.
+        init_code = Op.SELFDESTRUCT(beneficiary)
+        if balance:
+            expectation = BalAccountExpectation(
+                nonce_changes=[],
+                code_changes=[],
+                balance_changes=[
+                    BalBalanceChange(block_access_index=1, post_balance=0)
+                ],
+                storage_changes=[],
+                storage_reads=[],
+            )
+        else:
+            expectation = BalAccountExpectation.empty()
+        post = Account.NONEXISTENT
+    else:
+        raise ValueError(f"unknown init behavior: {init_behavior}")
+
+    return init_code, expectation, post
+
+
+@pytest.mark.parametrize("balance", [0, 1])
+@pytest.mark.parametrize("init_behavior", STORAGE_ONLY_INIT_BEHAVIORS)
+@pytest.mark.pre_alloc_mutable()
+def test_bal_create_tx_storage_only_target(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    init_behavior: str,
+    balance: int,
+) -> None:
+    """
+    BAL for a contract-creating transaction that lands on an account
+    with zero nonce, no code and non-empty storage: EIP-684 lets the
+    creation through, the pre-existing storage is wiped before the init
+    code runs, and the wiped slots never appear in the BAL.
+    """
+    alice = pre.fund_eoa()
+    init_code, target_expectation, target_post = storage_only_target_case(
+        init_behavior, balance, alice
+    )
+
+    tx = Transaction(sender=alice, to=None, data=init_code)
+    target = tx.created_contract
+    pre[target] = Account(balance=balance, storage=STORAGE_ONLY_PRE_STORAGE)
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                target: target_expectation,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={alice: Account(nonce=1), target: target_post},
+    )
+
+
+@pytest.mark.with_all_create_opcodes
+@pytest.mark.parametrize("balance", [0, 1])
+@pytest.mark.parametrize("init_behavior", STORAGE_ONLY_INIT_BEHAVIORS)
+@pytest.mark.pre_alloc_mutable()
+def test_bal_create_opcode_storage_only_target(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    create_opcode: Op,
+    init_behavior: str,
+    balance: int,
+) -> None:
+    """
+    Opcode companion of `test_bal_create_tx_storage_only_target`: a
+    factory's CREATE/CREATE2 lands on a storage-only account.
+    """
+    alice = pre.fund_eoa()
+    init_code, target_expectation, target_post = storage_only_target_case(
+        init_behavior, balance, alice
+    )
+    init_code_bytes = bytes(init_code)
+    assert len(init_code_bytes) <= 32
+
+    factory_code = (
+        Op.MSTORE(0, Op.PUSH32(init_code_bytes))
+        + Op.SSTORE(
+            0x00,
+            create_opcode(
+                value=0,
+                offset=32 - len(init_code_bytes),
+                size=len(init_code_bytes),
+            ),
+        )
+        + Op.STOP
+    )
+    factory = pre.deploy_contract(
+        code=factory_code,
+        storage={0x00: 0xDEAD},
+    )
+
+    target = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=init_code_bytes,
+        opcode=create_opcode,
+    )
+    pre[target] = Account(balance=balance, storage=STORAGE_ONLY_PRE_STORAGE)
+
+    tx = Transaction(sender=alice, to=factory)
+
+    # The factory records the created address, or 0 when init reverts.
+    create_result = 0 if init_behavior == "revert" else target
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                factory: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=2)
+                    ],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x00,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1,
+                                    post_value=create_result,
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                target: target_expectation,
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            factory: Account(nonce=2, storage={0x00: create_result}),
+            target: target_post,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "call_behavior", ["read_wiped_slot", "rewrite_old_value"]
+)
+@pytest.mark.pre_alloc_mutable()
+def test_bal_cross_tx_create_storage_only_target_then_call(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    call_behavior: str,
+) -> None:
+    """
+    Tx1 creates over a storage-only account and tx2 calls the deployed
+    code, which reads or rewrites a wiped slot: the BAL for tx2 is
+    computed against the wiped (zero) value, not the pre-block one.
+    """
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
+    probe_slot = 0x01
+    old_value = STORAGE_ONLY_PRE_STORAGE[probe_slot]
+
+    if call_behavior == "read_wiped_slot":
+        deploy_code = Op.SSTORE(0, Op.ADD(Op.SLOAD(probe_slot), 1)) + Op.STOP
+        target_storage_changes = [
+            BalStorageSlot(
+                slot=0x00,
+                slot_changes=[
+                    BalStorageChange(block_access_index=2, post_value=1)
+                ],
+            )
+        ]
+        target_storage_reads = [probe_slot]
+        target_storage = {0x00: 1, 0x01: 0, 0x02: 0}
+    elif call_behavior == "rewrite_old_value":
+        # Tx1 wiped the slot, so restoring the pre-block value is a
+        # change at tx2 rather than a net-zero write.
+        deploy_code = Op.SSTORE(probe_slot, old_value) + Op.STOP
+        target_storage_changes = [
+            BalStorageSlot(
+                slot=probe_slot,
+                slot_changes=[
+                    BalStorageChange(
+                        block_access_index=2, post_value=old_value
+                    )
+                ],
+            )
+        ]
+        target_storage_reads = []
+        target_storage = {0x01: old_value, 0x02: 0}
+    else:
+        raise ValueError(f"unknown call behavior: {call_behavior}")
+
+    init_code = Initcode(deploy_code=deploy_code)
+    tx_create = Transaction(sender=alice, to=None, data=init_code)
+    target = tx_create.created_contract
+    pre[target] = Account(storage=STORAGE_ONLY_PRE_STORAGE)
+    tx_call = Transaction(sender=bob, to=target)
+
+    block = Block(
+        txs=[tx_create, tx_call],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                bob: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=2, post_nonce=1)
+                    ],
+                ),
+                target: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1, new_code=bytes(deploy_code)
+                        )
+                    ],
+                    balance_changes=[],
+                    storage_changes=target_storage_changes,
+                    storage_reads=target_storage_reads,
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(nonce=1),
+            bob: Account(nonce=1),
+            target: Account(
+                nonce=1, code=bytes(deploy_code), storage=target_storage
             ),
         },
     )
