@@ -134,6 +134,10 @@ def pytest_configure(config: pytest.Config) -> None:
             "pytest-consume.ini",
             [
                 "consuming",
+                # Per-simulator option groups; each exists only when its
+                # subcommand loaded the matching plugin, so unmatched
+                # substrings are harmless for the other subcommands.
+                "wirex",
             ],
         )
     elif config.getoption("show_execute_help"):
@@ -215,6 +219,8 @@ def show_specific_help(
                 }
                 if isinstance(action, argparse._StoreTrueAction):
                     kwargs["action"] = "store_true"
+                elif isinstance(action, argparse._StoreFalseAction):
+                    kwargs["action"] = "store_false"
                 else:
                     kwargs["type"] = action.type
                 if action.nargs:
