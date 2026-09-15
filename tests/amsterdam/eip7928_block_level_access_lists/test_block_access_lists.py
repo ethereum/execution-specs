@@ -782,7 +782,7 @@ def test_bal_2930_account_listed_but_untouched(
 def test_bal_2930_precompile_listed_but_untouched(
     pre: Alloc,
     state_test: StateTestFiller,
-    precompile: int,
+    precompile: Address,
 ) -> None:
     """
     Ensure a precompile named in the access list but never called stays
@@ -1068,7 +1068,7 @@ def test_bal_zero_value_transfer(
                     ],
                 ),
                 # Include the address; omit from balance_changes.
-                bob: BalAccountExpectation(balance_changes=[]),
+                bob: BalAccountExpectation.empty(),
             }
         ),
     )
@@ -2103,7 +2103,7 @@ def test_bal_precompile_funded(
 def test_bal_precompile_call_opcode(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    precompile: int,
+    precompile: Address,
     call_opcode: Op,
 ) -> None:
     """
@@ -2182,10 +2182,10 @@ def test_bal_nonexistent_value_transfer(
                         BalBalanceChange(
                             block_access_index=1, post_balance=value
                         )
-                    ]
-                    if value > 0
-                    else [],
-                ),
+                    ],
+                )
+                if value > 0
+                else BalAccountExpectation.empty(),
             }
         ),
     )
@@ -2360,10 +2360,10 @@ def test_bal_nonexistent_account_access_value_transfer(
                             block_access_index=1,
                             post_balance=bob_final_balance,
                         )
-                    ]
-                    if bob_has_balance_change
-                    else [],
-                ),
+                    ],
+                )
+                if bob_has_balance_change
+                else BalAccountExpectation.empty(),
             }
         ),
     )
@@ -4278,7 +4278,8 @@ def test_bal_gas_limit_boundary(
         # charge that would otherwise inflate the tx's gas needs past
         # the BAL-sized ``block_gas_limit``.
         bob = pre.fund_eoa(amount=1)
-        # alice (sender) + bob (recipient) + coinbase (EIP-3651 warm).
+        # alice (sender) + bob (recipient) + coinbase, touched by the
+        # zero priority-fee credit.
         extra_items += 3
         txs.append(
             Transaction(
@@ -4400,7 +4401,8 @@ def test_bal_gas_limit_boundary_storage_keys(
         for _ in range(2)
     ]
 
-    # alice + counter + coinbase (EIP-3651 warm), then one item per key.
+    # alice + counter + coinbase (touched by the zero priority-fee
+    # credit), then one item per key.
     storage_keys = [written_slot, read_slot]
     total_items = fork.empty_block_bal_item_count() + 3 + len(storage_keys)
     gas_limit = (
