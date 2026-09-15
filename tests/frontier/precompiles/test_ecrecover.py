@@ -39,6 +39,7 @@ from execution_testing.vm import Opcodes as Op
         "state_tests/stStaticCall/static_CallEcrecoverV_prefixed0Filler.json",
     ],
 )
+@pytest.mark.with_all_call_opcodes()
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "msg_hash, v, r, s, output",
@@ -960,6 +961,7 @@ def test_precompiles(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    call_opcode: Op,
     msg_hash: bytes,
     v: bytes,
     r: bytes,
@@ -997,7 +999,7 @@ def test_precompiles(
         + Op.MSTORE(ret_offset + 32, ret_sentinel)
         + Op.SSTORE(
             success_slot,
-            Op.CALL(
+            call_opcode(
                 gas=fork.gas_costs().PRECOMPILE_ECRECOVER,
                 address="0x01",  # ecrecover precompile address
                 args_offset=hash_offset,
