@@ -45,8 +45,8 @@ def test_reorg_across_fork_boundary(
     reorg_test: ReorgTestFiller, pre: Alloc
 ) -> None:
     """
-    Canonical: a1..a3 pre-fork, a4 first post-fork block (ts 15000), a5 post-fork.
-    Side chain off a3: s4 pre-fork (ts 14988), s5 post-fork (ts 15000).
+    Canonical: a1..a3 pre-fork, a4 the first post-fork block (ts 15000),
+    a5 post-fork. Side chain off a3: s4 pre-fork (ts 14988), s5 post-fork.
     Head moves a5 -> s4 (back before the fork) -> s5 -> a5. Every FCU is
     VALID and the canonical mapping follows.
     """

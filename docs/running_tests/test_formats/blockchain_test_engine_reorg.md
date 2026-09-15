@@ -10,7 +10,7 @@ Unlike [`BlockchainEngineFixture`](./blockchain_test_engine.md) (a linear payloa
 
 Every block in the DAG names its parent by label instead of relying on list order, so sibling blocks and blocks built on top of an invalid block are first-class. Every hash-valued step field is a label (`"genesis"` is reserved for the genesis block, `"zero"` for the zero hash; labels introduced by `getPayload.bind` are resolved at run time); the consumer resolves labels to hashes itself, so fixtures are byte-identical across clients.
 
-Each step's `expect` field is a list of legal outcomes (the [Engine API reference model](../../library/execution_testing_specs.md#execution_testing.specs.engine_model) fills it in at fill time for any step an author left unannotated, deriving the outcomes the [execution-apis](https://github.com/ethereum/execution-apis) specification allows a conformant client to return); the consumer selects the first outcome matching the observed response and runs that outcome's `branches` steps.
+Each step's `expect` field is a list of legal outcomes (the [Engine API reference model](../../library/execution_testing_specs.md) fills it in at fill time for any step an author left unannotated, deriving the outcomes the [execution-apis](https://github.com/ethereum/execution-apis) specification allows a conformant client to return); the consumer selects the first outcome matching the observed response and runs that outcome's `branches` steps.
 
 A single JSON fixture file is composed of a JSON object where each key-value pair is a different [`HiveFixture`](#hivefixture) test object, with the key string representing the test name.
 
@@ -56,7 +56,7 @@ Genesis block header.
 
 Starting account allocation for the test. State root calculated from this allocation must match the one in the genesis block.
 
-#### - `blocks`: [`Mapping`](./common_types.md#mapping)`[`[`String`](./common_types.md#string)`, `[`FixtureReorgBlock`](#fixturereorgblock)`]`
+#### - `blocks`: [`Mapping`](./common_types.md#mapping)`[``String``, `[`FixtureReorgBlock`](#fixturereorgblock)`]`
 
 The block DAG, keyed by label.
 
@@ -64,21 +64,21 @@ The block DAG, keyed by label.
 
 Ordered, branching script of Engine API / JSON-RPC steps.
 
-#### - `clients`: [`Mapping`](./common_types.md#mapping)`[`[`String`](./common_types.md#string)`, `[`FixtureClient`](#fixtureclient)`]`
+#### - `clients`: [`Mapping`](./common_types.md#mapping)`[``String``, `[`FixtureClient`](#fixtureclient)`]`
 
 Additional clients besides `main`, keyed by the name used in a step's `on` field. Empty when the test only exercises a single client.
 
-#### - `requires`: [`Optional`](./common_types.md#optional)`[`[`Mapping`](./common_types.md#mapping)`[`[`String`](./common_types.md#string)`, `[`String`](./common_types.md#string)`]]`
+#### - `requires`: [`Optional`](./common_types.md#optional)`[`[`Mapping`](./common_types.md#mapping)`[``String``, ``String``]]`
 
 Client environment (`HIVE_*`) variables the consumer applies at client start, e.g. a client-specific reorg-depth cap. `None` means client defaults.
 
-#### - `meta`: [`Mapping`](./common_types.md#mapping)`[`[`String`](./common_types.md#string)`, `[`Any`](./common_types.md#any)`]`
+#### - `meta`: [`Mapping`](./common_types.md#mapping)`[``String``, ``Any``]`
 
 Free-form metadata about the test (e.g. `class`, `reorgDepth`) for offline analysis; not consumed by the runner.
 
 ### `FixtureReorgBlock`
 
-#### - `parent`: [`String`](./common_types.md#string)
+#### - `parent`: `String`
 
 Label of the parent block (`"genesis"` for a block extending the genesis block).
 
@@ -88,7 +88,7 @@ The block's `engine_newPayloadVX` directive.
 
 ### `FixtureClient`
 
-#### - `description`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]`
+#### - `description`: [`Optional`](./common_types.md#optional)`[``String``]`
 
 Human-readable description of the client's role in the test.
 
@@ -96,97 +96,97 @@ Human-readable description of the client's role in the test.
 
 A step is one of the variants below, distinguished by its `type` field. Every variant shares:
 
-#### - `type`: [`String`](./common_types.md#string)
+#### - `type`: `String`
 
 One of `newPayload`, `forkchoiceUpdated`, `getPayload`, `assertHead`, `waitForHead`, `assertCanonical`, `assertState`, `assertReceipt`, `assertLogs`, `sendRawTransaction`, `assertTxStatus`.
 
-#### - `on`: [`String`](./common_types.md#string)
+#### - `on`: `String`
 
 Name of the client the step is executed on; `"main"` unless the step targets one of `clients`.
 
-#### - `description`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]`
+#### - `description`: [`Optional`](./common_types.md#optional)`[``String``]`
 
 Human-readable description of the step, for logging.
 
 #### `newPayload`
 
-- `block`: [`String`](./common_types.md#string) — label of the block (or a `getPayload`-bound label) to send via `engine_newPayloadVX`.
+- `block`: `String` — label of the block (or a `getPayload`-bound label) to send via `engine_newPayloadVX`.
 - `expect`: [`List`](./common_types.md#list)`[`[`Outcome`](#outcome)`]` — legal outcomes.
-- `branches`: [`Mapping`](./common_types.md#mapping)`[`[`String`](./common_types.md#string)`, `[`List`](./common_types.md#list)`[`[`Step`](#step)`]]` — follow-up steps per matched outcome id.
+- `branches`: [`Mapping`](./common_types.md#mapping)`[``String``, `[`List`](./common_types.md#list)`[`[`Step`](#step)`]]` — follow-up steps per matched outcome id.
 
 #### `forkchoiceUpdated`
 
-- `head` / `safe` / `finalized`: [`String`](./common_types.md#string) — labels; `safe`/`finalized` default to `"zero"`.
+- `head` / `safe` / `finalized`: `String` — labels; `safe`/`finalized` default to `"zero"`.
 - `version`: [`Number`](./common_types.md#number) — `engine_forkchoiceUpdatedVX` version; derived from the head block's fork when unset.
 - `payloadAttributes`: [`Optional`](./common_types.md#optional)`[`[`FixturePayloadAttributes`](#fixturepayloadattributes)`]` — if set, a payload build is requested.
 - `expect` / `branches`: as above.
 
 #### `getPayload`
 
-- `bind`: [`String`](./common_types.md#string) — new label for the built payload.
+- `bind`: `String` — new label for the built payload.
 - `version`: [`Number`](./common_types.md#number) — `engine_getPayloadVX` version.
 - `delay`: [`Number`](./common_types.md#number) — seconds to wait after the build request before retrieving; default `1.0`.
-- `parent`: [`String`](./common_types.md#string) — expected parent of the built payload.
+- `parent`: `String` — expected parent of the built payload.
 - `transactionsInclude` / `transactionsExclude`: [`List`](./common_types.md#list)`[`[`TxRef`](#txref)`]` — transactions that must (or must not) be in the built payload.
 
 #### `assertHead`
 
-- `latest` / `safe` / `finalized`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]` — expected labels, checked via `eth_getBlockByNumber`.
+- `latest` / `safe` / `finalized`: [`Optional`](./common_types.md#optional)`[``String``]` — expected labels, checked via `eth_getBlockByNumber`.
 
 #### `waitForHead`
 
-- `latest`: [`String`](./common_types.md#string) — label to poll `eth_getBlockByNumber("latest")` for.
+- `latest`: `String` — label to poll `eth_getBlockByNumber("latest")` for.
 - `timeout`: [`Number`](./common_types.md#number) — seconds; default `60`.
 
 #### `assertCanonical`
 
-- `blocks`: [`Mapping`](./common_types.md#mapping)`[`[`HexNumber`](./common_types.md#hexnumber)`, `[`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]]` — expected label (or `None` for "no block") at each height.
+- `blocks`: [`Mapping`](./common_types.md#mapping)`[`[`HexNumber`](./common_types.md#hexnumber)`, `[`Optional`](./common_types.md#optional)`[``String``]]` — expected label (or `None` for "no block") at each height.
 
 #### `assertState`
 
-- `at`: [`String`](./common_types.md#string) — block label, or `"latest"`.
+- `at`: `String` — block label, or `"latest"`.
 - `accounts`: [`Mapping`](./common_types.md#mapping)`[`[`Address`](./common_types.md#address)`, `[`AccountExpectation`](#accountexpectation)`]`.
 
 #### `assertReceipt`
 
 - `tx`: [`TxRef`](#txref).
-- `block`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]` — expected receipt block label, or `None` for no receipt.
+- `block`: [`Optional`](./common_types.md#optional)`[``String``]` — expected receipt block label, or `None` for no receipt.
 - `status`: [`Optional`](./common_types.md#optional)`[`[`HexNumber`](./common_types.md#hexnumber)`]`.
 
 #### `assertLogs`
 
 - `address`: [`Optional`](./common_types.md#optional)`[`[`Address`](./common_types.md#address)`]`.
-- `fromBlock` / `toBlock`: [`HexNumber`](./common_types.md#hexnumber)` | `[`String`](./common_types.md#string) — defaults `"earliest"` / `"latest"`.
-- `blocks`: [`List`](./common_types.md#list)`[`[`String`](./common_types.md#string)`]` — labels whose logs must appear, one entry per expected log.
+- `fromBlock` / `toBlock`: [`HexNumber`](./common_types.md#hexnumber)` | ``String` — defaults `"earliest"` / `"latest"`.
+- `blocks`: [`List`](./common_types.md#list)`[``String``]` — labels whose logs must appear, one entry per expected log.
 
 #### `sendRawTransaction`
 
 - `tx`: [`TxRef`](#txref).
-- `expect`: [`List`](./common_types.md#list)`[`[`String`](./common_types.md#string)`]` — subset of `["accepted", "rejected"]`; default `["accepted"]`.
+- `expect`: [`List`](./common_types.md#list)`[``String``]` — subset of `["accepted", "rejected"]`; default `["accepted"]`.
 
 #### `assertTxStatus`
 
 - `tx`: [`TxRef`](#txref).
-- `expect`: [`List`](./common_types.md#list)`[`[`String`](./common_types.md#string)`]` — subset of `["included", "pending", "dropped"]`.
-- `includedIn`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]` — required block label when `included` matches.
+- `expect`: [`List`](./common_types.md#list)`[``String``]` — subset of `["included", "pending", "dropped"]`.
+- `includedIn`: [`Optional`](./common_types.md#optional)`[``String``]` — required block label when `included` matches.
 
 ### `Outcome`
 
 One legal outcome of an Engine API step. Every set field is a constraint; unset fields are not checked.
 
-#### - `id`: [`String`](./common_types.md#string)
+#### - `id`: `String`
 
 Identifier; selects the `branches` entry to run when matched.
 
-#### - `disputed`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]`
+#### - `disputed`: [`Optional`](./common_types.md#optional)`[``String``]`
 
 If set, the specification is ambiguous about this outcome; the value is a reference (e.g. an issue URL). A disputed outcome still passes.
 
-#### - `status`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]`
+#### - `status`: [`Optional`](./common_types.md#optional)`[``String``]`
 
 Expected `payloadStatus.status` (`VALID`, `INVALID`, `SYNCING`, `ACCEPTED`).
 
-#### - `latestValidHash`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]`
+#### - `latestValidHash`: [`Optional`](./common_types.md#optional)`[``String``]`
 
 Expected `latestValidHash` as a block label, `"null"`, or `"any"`.
 
@@ -194,19 +194,19 @@ Expected `latestValidHash` as a block label, `"null"`, or `"any"`.
 
 Expected JSON-RPC error code (e.g. `-38002`, `-38006`).
 
-#### - `anyError`: [`Optional`](./common_types.md#optional)`[`[`Bool`](./common_types.md#bool)`]`
+#### - `anyError`: [`Optional`](./common_types.md#optional)`[``Bool``]`
 
 If `true`, any JSON-RPC error matches (for uncoded errors).
 
-#### - `headMoved`: [`Optional`](./common_types.md#optional)`[`[`Bool`](./common_types.md#bool)`]`
+#### - `headMoved`: [`Optional`](./common_types.md#optional)`[``Bool``]`
 
 `forkchoiceUpdated` only: whether `latest` equals the requested head right after the call. Distinguishes an applied update from a no-op when both answer `VALID` with the same `latestValidHash`.
 
-#### - `validationError`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]`
+#### - `validationError`: [`Optional`](./common_types.md#optional)`[``String``]`
 
 `"required"` or `"none"`: whether `validationError` must be present or absent.
 
-#### - `payloadId`: [`Optional`](./common_types.md#optional)`[`[`String`](./common_types.md#string)`]`
+#### - `payloadId`: [`Optional`](./common_types.md#optional)`[``String``]`
 
 `"nonNull"` or `"null"`, for a `forkchoiceUpdated` with payload attributes.
 
@@ -224,7 +224,7 @@ Payload attributes sent with `forkchoiceUpdated` to start a build; fields match 
 
 Reference to a transaction of a fixture block.
 
-#### - `block`: [`String`](./common_types.md#string)
+#### - `block`: `String`
 
 #### - `index`: [`Number`](./common_types.md#number)
 
