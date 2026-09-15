@@ -309,8 +309,17 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         Make the fork of `load` activate at `criteria` for the duration of
         `stack`, so that the fork detects its own fork block as a client
         with a matching chain configuration would.
+
+        `FORK_CRITERIA` is defined in the fork's package, where the fork
+        tooling reads it. A fork whose `fork` module needs it imports it by
+        name, which binds a copy in that module at import time, so that
+        copy is patched as well.
         """
-        fork_module = load.fork.hardfork.module("fork")
+        hardfork = load.fork.hardfork
+        stack.enter_context(
+            patch.object(hardfork.mod, "FORK_CRITERIA", criteria)
+        )
+        fork_module = hardfork.module("fork")
         if hasattr(fork_module, "FORK_CRITERIA"):
             stack.enter_context(
                 patch.object(fork_module, "FORK_CRITERIA", criteria)
