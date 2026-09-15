@@ -139,4 +139,12 @@ class NimbusExceptionMapper(ExceptionMapper):
         BlockException.INVALID_RECEIPTS_ROOT: "receiptRoot mismatch",
         BlockException.INVALID_LOG_BLOOM: "bloom mismatch",
     }
-    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}
+    mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        # Nimbus uses the same transaction error for intrinsic and floor gas.
+        TransactionException.INTRINSIC_GAS_TOO_LOW: (
+            r"invalid tx: not enough gas to perform calculation\."
+        ),
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            r"invalid tx: not enough gas to perform calculation\."
+        ),
+    }
