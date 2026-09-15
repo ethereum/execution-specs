@@ -6,5 +6,5 @@ from pydantic import BaseModel
 class CheckEipVersionsConfig(BaseModel):
     """A class for accessing configurations for `check_eip_version`."""
 
-    UNTIL_FORK: str = "Prague"
+    UNTIL_FORK: str = "Amsterdam"
     """The target fork to check eip versions until."""
