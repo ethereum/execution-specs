@@ -241,8 +241,12 @@ def pytest_collection_modifyitems(
         config.github_token if hasattr(config, "github_token") else None
     )
 
+    # Tests nested in a class have the class, not the module, as their
+    # parent, so walk up the collection tree to reach the module.
     modules: Set[Module] = {
-        item.parent for item in items if isinstance(item.parent, Module)
+        module
+        for item in items
+        if (module := item.getparent(Module)) is not None
     }
     new_test_eip_spec_version_items = [
         EIPSpecTestItem.from_parent(
