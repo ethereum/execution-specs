@@ -423,8 +423,13 @@ class BesuExceptionMapper(ExceptionMapper):
             r"maximum size of \d+"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            r"transaction invalid transaction up-front cost 0x[0-9a-f]+ "
-            r"exceeds transaction sender account balance 0x[0-9a-f]+"
+            # Besu PR 11272 renamed `up-front cost` to `up-front gas cost`
+            # and split the value transfer off into its own check.
+            r"transaction invalid transaction up-front (?:gas )?cost "
+            r"0x[0-9a-f]+ exceeds transaction sender account balance "
+            r"0x[0-9a-f]+"
+            r"|transaction invalid transfer value 0x[0-9a-f]+ exceeds "
+            r"transaction sender account balance 0x[0-9a-f]+"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
             r"transaction invalid intrinsic gas cost \d+"
