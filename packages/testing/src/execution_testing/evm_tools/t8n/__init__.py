@@ -407,10 +407,21 @@ class T8N(Load):
             # before constructing the data).
             self.pay_block_rewards(U256(self.state_reward), block_env)
 
-        # Report a verdict only for a block that brought an inclusion list
-        # and reached the check, never a default. The Amsterdam spec also
-        # tracks the field, and its blocks carry no list; `BlockchainTest`
-        # fails the fill when a fork that carries lists gets no verdict.
+        # Report a verdict only when the check runs, never a default;
+        # `BlockchainTest` fails the fill when a fork with lists gets none.
+        # TODO: Amsterdam blocks arrive without a list only because EIP-7805
+        # lives in the Amsterdam spec. Once a dedicated `bogota` fork module
+        # exists in the spec, replace the condition below with #3373's guard,
+        # keeping the body as is:
+        #
+        # if self.fork.has_inclusion_list_satisfied:
+        #     if self.inclusion_list_txs is None:
+        #         raise Exception(
+        #             f"the `{self.fork.hardfork.short_name}` fork spec "
+        #             "tracks `inclusion_list_satisfied`, so inclusion list "
+        #             "transactions are required; a block without an "
+        #             "inclusion list must pass an empty one"
+        #         )
         if (
             self.fork.has_inclusion_list_satisfied
             and self.inclusion_list_txs is not None

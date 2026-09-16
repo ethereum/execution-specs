@@ -117,7 +117,8 @@ jobs:
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Validate blockchain fixtures with EELS (${{ matrix.label }})
-        # Bogota has no spec fork of its own for EELS to load.
+        # TODO: Delete this `if:` once a dedicated `bogota` fork module exists
+        # in the spec; until then EELS has no fork to load Bogota with.
         if: matrix.label != 'bogota'
         run: just validate-blocks .just/fill/fixtures/blockchain_tests
         env:
