@@ -35,6 +35,7 @@ from execution_testing import (
     Header,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
     TransactionReceipt,
 )
@@ -425,6 +426,310 @@ def test_call_exact_gas_oog(
 
     post = {caller: Account(storage={0: 1 if sufficient_gas else 0})}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.parametrize(
+    "sufficient_gas", [True, False], ids=["sufficient", "insufficient"]
+)
+def test_call_value_exact_gas_oog(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    sufficient_gas: bool,
+) -> None:
+    """
+    Drive a *value-bearing* cold CALL at exactly its gas and one short.
+
+    The existing boundary test forwards no value, so it never exercises
+    the ``CALL_VALUE`` component of the charge. The inner frame must hold
+    the whole charge — access plus ``CALL_VALUE`` — before the child is
+    spawned, even though the stipend inside ``CALL_VALUE`` is handed to
+    the child and returned unused by a ``STOP`` callee.
+    """
+    # Alive target, so no account creation lands on the state axis.
+    target = pre.deploy_contract(Op.STOP, balance=1)
+
+    inner_call = Op.CALL.with_metadata(
+        address_warm=False, value_transfer=True
+    )(
+        gas=0,
+        address=target,
+        value=1,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=0,
+    )
+    inner_code = inner_call + Op.STOP
+    inner = pre.deploy_contract(inner_code, balance=1)
+
+    inner_gas_exact = inner_code.gas_cost(fork)
+    if not sufficient_gas:
+        inner_gas_exact -= 1
+
+    storage = Storage()
+    caller_code = Op.SSTORE(
+        storage.store_next(1 if sufficient_gas else 0, "inner_result"),
+        Op.CALL(gas=inner_gas_exact, address=inner),
+    )
+    caller = pre.deploy_contract(caller_code)
+
+    tx = Transaction(to=caller, sender=pre.fund_eoa())
+
+    post = {
+        caller: Account(storage=storage),
+        # The value moves only when the inner frame could pay in full.
+        target: Account(balance=2 if sufficient_gas else 1),
+    }
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize(
+    "target_alive", [True, False], ids=["alive_target", "empty_target"]
+)
+def test_call_value_insufficient_balance_preflight(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    target_alive: bool,
+) -> None:
+    """
+    A value CALL the caller cannot fund keeps the charge and returns the
+    grant.
+
+    The preflight aborts without spawning a child, so the access and
+    ``ACCOUNT_WRITE`` charges stand while the child's grant — including
+    the value stipend — comes back untouched. The measured consumption is
+    therefore the charge minus the stipend, exactly as for a callee that
+    returns it unused. With an empty target the account-creation charge is
+    levied and then refilled, so the state axis nets to zero either way.
+    """
+    if target_alive:
+        target = pre.deploy_contract(Op.STOP, balance=1)
+    else:
+        # Empty target: the preflight charges the creation and refills it.
+        target = pre.fund_eoa(amount=0)
+
+    measured_code = Op.CALL.with_metadata(
+        address_warm=False, value_transfer=True
+    )(
+        gas=0,
+        address=target,
+        value=1,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=0,
+    )
+    cost_metadata = Op.CALL(address_warm=False, value_transfer=True)
+    own_cold = Op.CALL(address_warm=False, value_transfer=True)
+
+    # Balance 0: the transfer can never be funded, so the preflight at
+    # `system.py`'s `insufficient_balance` arm is taken.
+    measure_address = _measure_call(
+        pre, fork, measured_code, own_cold, balance=0
+    )
+
+    measured_gas = cost_metadata.gas_cost(fork) - fork.call_value_stipend()
+
+    tx = Transaction(
+        to=measure_address,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=0,
+    )
+
+    post = {
+        measure_address: Account(storage={0: measured_gas}, balance=0),
+        # No value moved. The empty target is never materialised, which
+        # is the creation charge being refilled rather than kept.
+        target: Account(balance=1) if target_alive else Account.NONEXISTENT,
+    }
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+def test_repeated_value_call_to_same_recipient(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A second value CALL to the same recipient pays ``ACCOUNT_WRITE``
+    again.
+
+    Nothing tracks account writes per recipient within a transaction, so
+    only the *access* half goes warm on the repeat: the second call is
+    charged ``WARM_ACCESS + CALL_VALUE``, not ``WARM_ACCESS`` alone.
+    """
+    recipient = pre.deploy_contract(Op.STOP, balance=1)
+
+    value_call = Op.CALL.with_metadata(
+        address_warm=False, value_transfer=True
+    )(
+        gas=0,
+        address=recipient,
+        value=1,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=0,
+    )
+    # Second call: the recipient is warm from the first, but the write
+    # component is charged afresh.
+    measured_code = Op.CALL.with_metadata(
+        address_warm=True, value_transfer=True
+    )(
+        gas=0,
+        address=recipient,
+        value=1,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=0,
+    )
+    cost_metadata = Op.CALL(address_warm=True, value_transfer=True)
+
+    overhead_cost = measured_code.gas_cost(fork) - cost_metadata.gas_cost(fork)
+    caller_code = Op.POP(value_call) + CodeGasMeasure(
+        code=measured_code,
+        overhead_cost=overhead_cost,
+        extra_stack_items=1,
+    )
+    caller = pre.deploy_contract(code=caller_code, balance=2)
+
+    # The STOP recipient returns the stipend both times.
+    measured_gas = cost_metadata.gas_cost(fork) - fork.call_value_stipend()
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=0,
+    )
+
+    post = {
+        caller: Account(storage={0: measured_gas}, balance=0),
+        # Both transfers landed.
+        recipient: Account(balance=3),
+    }
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+def test_call_value_to_precompile_creates_leaf(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A value CALL to a precompile creates the leaf and is charged
+    ``GAS_NEW_ACCOUNT``.
+
+    A precompile is in the accessed set from the start, so the access is
+    free — but it holds no state entry and is dead under EIP-161, so a
+    positive value takes the account-creation branch. The block header's
+    ``max(execution, state)`` is dominated by the creation charge, which
+    pins it without needing the precompile's own execution gas (the
+    framework exposes no accessor for that). The execution-side
+    ``ACCOUNT_WRITE`` is pinned by
+    ``test_call_value_alive_target_gas`` and, for the same dead-leaf
+    mechanism, by ``test_selfdestruct_value_to_precompile_beneficiary``.
+    """
+    identity_precompile = Address(4)
+
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+
+    call = Op.CALL.with_metadata(
+        address_warm=True, value_transfer=True, account_new=True
+    )(
+        gas=0,
+        address=identity_precompile,
+        value=1,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=0,
+    )
+    caller_code = Op.POP(call) + Op.STOP
+    caller = pre.deploy_contract(code=caller_code, balance=1)
+
+    new_account_state_gas = call.state_cost(fork)
+
+    tx_execution = intrinsic + caller_code.execution_cost(fork)
+    tx_state = caller_code.state_cost(fork)
+    expected_gas_used = max(tx_execution, tx_state)
+    # The state axis must dominate, or the header would not witness the
+    # creation charge at all.
+    assert expected_gas_used == new_account_state_gas
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=new_account_state_gas,
+    )
+
+    state_test(
+        pre=pre,
+        # A real account now exists at the precompile address.
+        post={identity_precompile: Account(balance=1)},
+        tx=tx,
+        blockchain_test_header_verify=Header(gas_used=expected_gas_used),
+    )
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+def test_call_value_to_self(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    A value CALL to self is warm and alive, yet still pays
+    ``CALL_VALUE``.
+
+    Sending to ``ADDRESS`` moves nothing and creates nothing, but the
+    write component is charged all the same. Unlike the ``STOP``-callee
+    cases, the stipend here is *consumed* rather than returned: the child
+    re-enters the caller's own code, cannot afford the same charge out of
+    the stipend alone, and halts out of gas — so the receipt pins the
+    whole charge including the stipend.
+    """
+    call = Op.CALL.with_metadata(address_warm=True, value_transfer=True)(
+        gas=0,
+        address=Op.ADDRESS,
+        value=1,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=0,
+    )
+    caller_code = Op.POP(call) + Op.STOP
+    caller = pre.deploy_contract(code=caller_code, balance=1)
+
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
+    # Self is alive, so no creation charge on either axis.
+    assert call.state_cost(fork) == 0
+    expected_gas_used = intrinsic + caller_code.gas_cost(fork)
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=0,
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=expected_gas_used
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        # The self-send is a no-op: the balance stays where it was.
+        post={caller: Account(balance=1)},
+        tx=tx,
+    )
 
 
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
