@@ -1125,6 +1125,18 @@ class BlockchainTest(BaseTest):
         actual_inclusion_list_satisfied = (
             transition_tool_output.result.inclusion_list_satisfied
         )
+        # Fail loudly rather than write a fixture with no verdict: a block
+        # the tool accepted on a fork with inclusion lists must have one.
+        if (
+            fork.engine_new_payload_inclusion_list_transactions()
+            and transition_tool_output.result.block_exception is None
+            and actual_inclusion_list_satisfied is None
+        ):
+            raise Exception(
+                f"{fork} blocks carry an inclusion list, but the transition "
+                "tool reported no `inclusion_list_satisfied`, so the list "
+                "never reached its check"
+            )
         if block.expected_inclusion_list_satisfied is not None:
             assert actual_inclusion_list_satisfied is not None, (
                 "expected `inclusion_list_satisfied` from the transition tool "

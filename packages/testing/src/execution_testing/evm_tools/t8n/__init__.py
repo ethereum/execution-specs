@@ -238,6 +238,7 @@ class T8N(Load):
             if t8n_data.inclusion_list_txs is not None
             else None
         )
+        self.inclusion_list_satisfied: bool | None = None
 
     def _tracer(self, type_: Type[T]) -> T:
         group = self.tracers
@@ -406,15 +407,15 @@ class T8N(Load):
             # before constructing the data).
             self.pay_block_rewards(U256(self.state_reward), block_env)
 
-        if self.fork.has_inclusion_list_satisfied:
-            if self.inclusion_list_txs is None:
-                raise Exception(
-                    f"the `{self.fork.hardfork.short_name}` fork spec tracks "
-                    "`inclusion_list_satisfied`, so inclusion list "
-                    "transactions are required; a block without an inclusion "
-                    "list must pass an empty one"
-                )
-            block_output.inclusion_list_satisfied = (
+        # Report a verdict only for a block that brought an inclusion list
+        # and reached the check, never a default. The Amsterdam spec also
+        # tracks the field, and its blocks carry no list; `BlockchainTest`
+        # fails the fill when a fork that carries lists gets no verdict.
+        if (
+            self.fork.has_inclusion_list_satisfied
+            and self.inclusion_list_txs is not None
+        ):
+            self.inclusion_list_satisfied = (
                 self.fork.check_inclusion_list_transactions(
                     block_env,
                     block_output,

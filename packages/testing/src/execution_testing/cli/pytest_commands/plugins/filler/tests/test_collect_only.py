@@ -53,6 +53,7 @@ def test_collect_only_output(pytester: pytest.Pytester) -> None:
         in line
         for line in result.outlines
     ), f"Expected test output: {result.outlines}"
-    # fill generates 3 test variants: state_test,
+    # fill generates 4 test variants: state_test,
     # blockchain_test_from_state_test, blockchain_test_engine_from_state_test
-    assert any("3 tests collected" in line for line in result.outlines)
+    # and blockchain_test_engine_inclusion_list_from_state_test
+    assert any("4 tests collected" in line for line in result.outlines)

@@ -99,6 +99,9 @@ jobs:
           - label: osaka
             from_fork: Osaka
             until_fork: Osaka
+          - label: amsterdam
+            from_fork: Amsterdam
+            until_fork: Amsterdam
           - label: bogota
             from_fork: Bogota
             until_fork: Bogota
@@ -114,6 +117,8 @@ jobs:
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Validate blockchain fixtures with EELS (${{ matrix.label }})
+        # Bogota has no spec fork of its own for EELS to load.
+        if: matrix.label != 'bogota'
         run: just validate-blocks .just/fill/fixtures/blockchain_tests
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
