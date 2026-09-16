@@ -9,6 +9,8 @@ from .forks import (
     Amsterdam,
     Berlin,
     Bogota,
+    BPODecrease,
+    BPOIncrease,
     Cancun,
     London,
     Osaka,
@@ -96,5 +98,21 @@ class BPO2ToBPO3AtTime15k(TransitionBaseClass):
 @transition_fork(to_fork=BPO4, from_fork=BPO3, at_timestamp=15_000)
 class BPO3ToBPO4AtTime15k(TransitionBaseClass):
     """BPO3 to BPO4 transition at Timestamp 15k."""
+
+    pass
+
+
+@transition_fork(to_fork=BPOIncrease, from_fork=Amsterdam, at_timestamp=15_000)
+class AmsterdamToBPOIncreaseAtTime15k(TransitionBaseClass):
+    """Increase the Amsterdam blob schedule at timestamp 15k."""
+
+    pass
+
+
+@transition_fork(
+    to_fork=BPODecrease, from_fork=BPOIncrease, at_timestamp=15_000
+)
+class BPOIncreaseToBPODecreaseAtTime15k(TransitionBaseClass):
+    """Decrease the increased blob schedule at timestamp 15k."""
 
     pass
