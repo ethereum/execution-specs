@@ -230,15 +230,21 @@ def test_existing_authority_refund(
     pre: Alloc,
 ) -> None:
     """
-    Re-authorizing an already-delegated authority applies the
-    existing-authority refund and re-points the delegation; the tx
-    succeeds with the new designation installed.
+    Re-authorizing an already-delegated authority re-points the
+    delegation; the tx succeeds with the new designation installed and
+    the authority's nonce bumped.
     """
     old_target = pre.deploy_contract(code=Op.STOP)
     new_target = pre.deploy_contract(code=Op.STOP)
 
-    # Authority already carries a delegation, so the new authorization
-    # triggers REFUND_AUTH_PER_EXISTING_ACCOUNT.
+    # The authority already carries a delegation, so its leaf exists and
+    # no account-creation component applies. Amsterdam prices this case
+    # by omission: the osaka refund for an existing authority
+    # (`REFUND_AUTH_PER_EXISTING_ACCOUNT`) is gone, replaced by charging
+    # the state-dependent authorization components only when they apply.
+    # The exact charges are pinned in
+    # `test_set_code_auth_write_exemptions.py`; this test only checks the
+    # delegation is re-pointed on a mainnet-marked path.
     auth_signer = pre.fund_eoa(delegation=old_target)
 
     authorization_list = [

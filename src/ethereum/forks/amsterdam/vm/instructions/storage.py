@@ -97,10 +97,14 @@ def sstore(evm: Evm) -> None:
     else:
         gas_cost += GasCosts.WARM_ACCESS
 
-    # Gas must cover the access cost before the state access below
-    # records the slot read in the Block Access List. Post-repricing the
-    # access cost can exceed the stipend, so the EIP-2200 stipend sentry
-    # (`gas_left > CALL_STIPEND`) is no longer sufficient on its own.
+    # Enforce the EIP-2200 sentry: more than `CALL_STIPEND` must remain,
+    # whatever the write itself costs. Checked here, before the state
+    # access below records the slot read in the Block Access List, so a
+    # frame that cannot afford the write leaves no entry behind.
+    #
+    # Under this fork's schedule the stipend is the binding floor for
+    # both warmths, so the `max` always takes its second branch; it
+    # guards the case of an access cost repriced above the stipend.
     check_gas(
         evm, max(gas_cost, ExecutionGas(GasCosts.CALL_STIPEND + Uint(1)))
     )
@@ -118,14 +122,19 @@ def sstore(evm: Evm) -> None:
 
     state_gas = StateGas(Uint(0))
 
-    # Write cost: charged on the first change to the slot this transaction.
+    # Write cost: charged whenever the slot moves away from the value it
+    # held at the start of the transaction. Net metering makes this
+    # recur rather than fire once: `x -> y -> x -> z` pays it twice,
+    # because returning to `x` refunds the first charge below.
     if original_value == current_value and current_value != new_value:
         gas_cost += GasCosts.STORAGE_WRITE
 
     # Refund Counter Calculation
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
-            # Storage is cleared for the first time in the transaction
+            # Clearing a slot that was non-zero at the start of the
+            # transaction. Granted on each such clear, so
+            # `x -> 0 -> y -> 0` earns it twice.
             evm.gas_meter.refund_counter += GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value != 0 and current_value == 0:
@@ -133,8 +142,8 @@ def sstore(evm: Evm) -> None:
             evm.gas_meter.refund_counter -= GasCosts.REFUND_STORAGE_CLEAR
 
         if original_value == new_value:
-            # Slot restored to its original value: refund the STORAGE_WRITE
-            # charged on the first-time change earlier this transaction.
+            # Slot restored to its original value: refund the
+            # STORAGE_WRITE charged when it was moved away.
             evm.gas_meter.refund_counter += int(GasCosts.STORAGE_WRITE)
 
     # STATE GAS
