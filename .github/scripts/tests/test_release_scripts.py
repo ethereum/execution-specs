@@ -53,6 +53,7 @@ class TestGenerateBuildMatrix:
         matrix = json.loads(out["build_matrix"])
         assert len(matrix) > 1
         assert out["feature_name"] == "tests"
+        assert matrix[-1]["until_fork"] == "BPO2"
         assert out["combine_labels"] != ""
         labels = [e["label"] for e in matrix]
         assert all(lbl != "" for lbl in labels)
@@ -81,6 +82,8 @@ class TestGenerateBuildMatrix:
         out = parse_matrix_output(result.stdout)
         matrix = json.loads(out["build_matrix"])
         assert out["feature_name"] == "bal-devnet"
+        assert matrix[-1]["from_fork"] == "Amsterdam"
+        assert matrix[-1]["until_fork"] == "Amsterdam"
         # Entries keep the friendly name, not the shared "devnet" key.
         assert all(e["feature"] == "bal-devnet" for e in matrix)
 
