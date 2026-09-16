@@ -584,11 +584,13 @@ class BesuFixtureConsumer(
                 f"Error:\n{result.stderr}"
             )
 
-        # Parse NDJSON output, normalize "test" -> "name"
+        # Parse NDJSON output, normalize "test" -> "name". Besu >= 26.8
+        # appends a human-readable "State test summary: ..." line; skip
+        # anything that is not a JSON object.
         results: List[Dict[str, Any]] = []
         for line in result.stdout.strip().splitlines():
             line = line.strip()
-            if not line:
+            if not line or not line.startswith("{"):
                 continue
             try:
                 entry = json.loads(line)
