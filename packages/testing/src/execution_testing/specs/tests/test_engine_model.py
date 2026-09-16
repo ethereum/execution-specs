@@ -297,3 +297,24 @@ def test_annotate_marks_head_moved_for_applied_vs_noop() -> None:  # noqa: D103
     by_id = {o.id: o for o in fcu.expect}
     assert by_id["applied"].head_moved is True
     assert by_id["noop"].head_moved is False
+
+
+def test_np_hash_invalid_precedes_parent_lookup() -> None:
+    """
+    A payload that does not hash to its blockHash is rejected regardless of
+    whether its parent is known.
+    """
+    dag = dag_linear_with_fork()
+    dag.hash_invalid.add("b3")
+    model = ClientModel(dag=dag)
+    # b2, b3's parent, was never delivered.
+    assert "b2" not in model.known
+    outcomes = model.new_payload_outcomes("b3")
+    assert ids(outcomes) == ["invalid", "invalid_block_hash"]
+    assert outcomes[0].latest_valid_hash == "null"
+    # Same answer once the parent is known and valid.
+    model.known.update({"a1": True, "b2": True})
+    assert ids(model.new_payload_outcomes("b3")) == [
+        "invalid",
+        "invalid_block_hash",
+    ]

@@ -10,8 +10,11 @@ observable head is verified after every forkchoice update.
 
 Rules follow `execution-apis` ``paris.md`` as amended by PR #786:
 
-- ``newPayload``: unknown parent → SYNCING; execution-invalid → INVALID with
-  ``latestValidHash`` = last valid ancestor; child of a known-invalid block →
+- ``newPayload``: payload that does not hash to its own ``blockHash`` →
+  INVALID with a null ``latestValidHash`` (or ``INVALID_BLOCK_HASH``), checked
+  before the parent is looked up; unknown parent → SYNCING; execution-invalid
+  → INVALID with ``latestValidHash`` = last valid ancestor; child of a
+  known-invalid block →
   INVALID (lvh = last valid ancestor) or SYNCING; extends head → VALID;
   known parent on a side chain → VALID or ACCEPTED.
 - ``forkchoiceUpdated``: unknown head → SYNCING; invalid head → INVALID; safe
@@ -27,7 +30,7 @@ author-provided set.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from execution_testing.fixtures.reorg import (
     GENESIS_LABEL,
@@ -61,6 +64,14 @@ class ModelDag:
     """label -> parent label (``genesis`` has no entry)."""
     valid: Dict[str, bool]
     """label -> whether the block passes execution validation."""
+    hash_invalid: Set[str] = field(default_factory=set)
+    """
+    Labels whose engine payload does not hash to its own ``blockHash``.
+
+    Such a payload is rejected by the block-hash check, which the client has
+    to run in all cases, before and independently of any parent lookup or
+    execution.
+    """
 
     def number(self, label: str) -> int:
         """Block height of a label."""
@@ -116,6 +127,20 @@ class ClientModel:
     def new_payload_outcomes(self, block: str) -> List[Outcome]:
         """Legal outcomes of ``newPayload(block)``."""
         parent = self.dag.parent[block]
+        if block in self.dag.hash_invalid:
+            # The block-hash check runs in all cases, so the answer does not
+            # depend on the parent being known. Pre-Shanghai clients report
+            # INVALID_BLOCK_HASH; from Shanghai on, INVALID with a null
+            # latestValidHash, since no ancestor of an unhashable payload can
+            # be determined.
+            return [
+                Outcome(
+                    id="invalid",
+                    status="INVALID",
+                    latest_valid_hash=LATEST_VALID_HASH_NULL,
+                ),
+                Outcome(id="invalid_block_hash", status="INVALID_BLOCK_HASH"),
+            ]
         if parent not in self.known:
             return [Outcome(id="syncing", status="SYNCING")]
         if not self.known[parent]:

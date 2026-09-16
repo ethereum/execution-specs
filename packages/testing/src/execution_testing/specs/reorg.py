@@ -20,6 +20,7 @@ from typing import (
     Generator,
     List,
     Sequence,
+    Set,
     Tuple,
     Type,
 )
@@ -279,6 +280,7 @@ class ReorgTest(BlockchainTest):
         fixture_blocks: Dict[str, FixtureReorgBlock] = {}
         dag_parent: Dict[str, str] = {}
         dag_valid: Dict[str, bool] = {}
+        dag_hash_invalid: Set[str] = set()
         fcu_version: Dict[str, int] = {}
 
         genesis_fcu = (
@@ -318,6 +320,8 @@ class ReorgTest(BlockchainTest):
             dag_valid[block.label] = (
                 block.exception is None and not block.payload_corrupted
             )
+            if block.payload_corrupted:
+                dag_hash_invalid.add(block.label)
             fcu_version[block.label] = int(payload.forkchoice_updated_version)
             # Children of an invalid block are built on the (correct)
             # post-state of its execution and on its (modified) header.
@@ -334,7 +338,13 @@ class ReorgTest(BlockchainTest):
         }
         steps = [s.model_copy(deep=True) for s in self.steps]
         self._resolve_payload_attributes(steps, timestamps)
-        model = ClientModel(dag=ModelDag(parent=dag_parent, valid=dag_valid))
+        model = ClientModel(
+            dag=ModelDag(
+                parent=dag_parent,
+                valid=dag_valid,
+                hash_invalid=dag_hash_invalid,
+            )
+        )
         steps = annotate_steps(steps, model, fcu_version)
 
         fixture = BlockchainEngineReorgFixture(

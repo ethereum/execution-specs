@@ -63,6 +63,11 @@ from ..helpers.timing import TimingData
 logger = get_logger(__name__)
 
 
+TX_STATUS_TIMEOUT = 5.0
+"""Seconds to wait for a transaction to reach an expected pool/chain status."""
+TX_STATUS_POLL_INTERVAL = 0.25
+
+
 @dataclass
 class Observed:
     """Normalized observation of an Engine API response."""
@@ -599,16 +604,29 @@ class StepRunner:
         self.matched.append(f"{name}:{result}")
 
     def assert_tx_status(self, name: str, step: AssertTxStatusStep) -> None:
-        """Check ``eth_getTransactionByHash`` pool/chain status."""
+        """
+        Check ``eth_getTransactionByHash`` pool/chain status.
+
+        Re-injecting the transactions of an orphaned block into the pool is
+        asynchronous in several clients, so the status is polled until it is
+        one of the expected values or the deadline passes. A status that is
+        already correct costs a single call.
+        """
         rpc = self.rpc(step.on)
         ref = f"{step.tx.block}:{step.tx.index}"
-        tx = rpc.eth.get_transaction_by_hash(self.tx_hash(step.tx))
-        if tx is None:
-            status = "dropped"
-        elif tx.block_hash is None:
-            status = "pending"
-        else:
-            status = "included"
+        tx_hash = self.tx_hash(step.tx)
+        deadline = time.monotonic() + TX_STATUS_TIMEOUT
+        while True:
+            tx = rpc.eth.get_transaction_by_hash(tx_hash)
+            if tx is None:
+                status = "dropped"
+            elif tx.block_hash is None:
+                status = "pending"
+            else:
+                status = "included"
+            if status in step.expect or time.monotonic() >= deadline:
+                break
+            time.sleep(TX_STATUS_POLL_INTERVAL)
         if status not in step.expect:
             raise LoggedError(
                 f"{name}: tx {ref} is {status}, expected {step.expect}"
