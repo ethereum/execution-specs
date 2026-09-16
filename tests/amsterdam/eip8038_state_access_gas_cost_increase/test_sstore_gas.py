@@ -22,6 +22,7 @@ from execution_testing import (
     Fork,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 from execution_testing.checklists import EIPChecklist
@@ -153,6 +154,77 @@ def test_sstore_execution_gas(
     if new != 0:
         expected_storage[data_slot] = new
     post = {contract: Account(storage=expected_storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.OutOfGas()
+@pytest.mark.parametrize("key_warm", [False, True], ids=["cold", "warm"])
+@pytest.mark.parametrize(
+    "sufficient_gas", [True, False], ids=["sufficient", "insufficient"]
+)
+def test_sstore_stipend_sentry_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    key_warm: bool,
+    sufficient_gas: bool,
+) -> None:
+    """
+    The EIP-2200 stipend sentry, not the slot's access cost, sets the
+    minimum gas an ``SSTORE`` needs.
+
+    The measured write is a *no-op* (``new == current``), so it is
+    charged the access cost alone and nothing else — 100 warm, 2,100
+    cold, both under ``CALL_STIPEND``. The sentry nevertheless demands
+    more than the stipend before any state is touched, so the boundary
+    sits at ``CALL_STIPEND + 1`` in both warmths rather than at the
+    cost actually charged. Pinning both warmths shows the floor does not
+    move with the access cost.
+    """
+    slot = 0x42
+
+    # No-op write: original == current == new, so only the access cost is
+    # charged and no state gas or refund arises.
+    sstore_noop = Op.SSTORE.with_metadata(
+        key_warm=key_warm, original_value=1, current_value=1, new_value=1
+    )
+    child_code = sstore_noop(slot, 1)
+    child = pre.deploy_contract(code=child_code, storage={slot: 1})
+
+    # Everything the child spends before reaching the SSTORE itself.
+    operand_pushes = child_code.execution_cost(
+        fork
+    ) - sstore_noop.execution_cost(fork)
+
+    # The sentry requires strictly more than the stipend to remain, so
+    # the child needs its pushes plus CALL_STIPEND + 1 — regardless of
+    # the access cost it will actually be charged.
+    forwarded = operand_pushes + fork.call_value_stipend()
+    if sufficient_gas:
+        forwarded += 1
+
+    storage = Storage()
+    caller_code = Op.SSTORE(
+        storage.store_next(1 if sufficient_gas else 0, "sstore_result"),
+        Op.CALL(gas=forwarded, address=child),
+    )
+    caller = pre.deploy_contract(code=caller_code)
+
+    tx = Transaction(
+        to=caller,
+        sender=pre.fund_eoa(),
+        access_list=[AccessList(address=child, storage_keys=[slot])]
+        if key_warm
+        else None,
+        state_gas_reservoir=0,
+    )
+
+    # The no-op leaves the slot at its original value either way, so the
+    # CALL's success flag is what separates the two arms.
+    post = {
+        caller: Account(storage=storage),
+        child: Account(storage={slot: 1}),
+    }
     state_test(pre=pre, post=post, tx=tx)
 
 
