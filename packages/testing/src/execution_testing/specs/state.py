@@ -231,8 +231,14 @@ class StateTest(BaseTest):
         Discard a fixture format from filling if the appropriate marker is
         used.
         """
-        if "state_test_only" in [m.name for m in markers]:
+        marker_names = [m.name for m in markers]
+        if "state_test_only" in marker_names:
             return fixture_format != StateFixture
+        if (
+            fixture_format.is_variant("inclusion_list")
+            and "inclusion_test" not in marker_names
+        ):
+            return True
         return False
 
     def _generate_blockchain_genesis_environment(self) -> Environment:

@@ -862,6 +862,11 @@ class BlockchainTest(BaseTest):
             and "blockchain_test_engine_only" in marker_names
         ):
             return True
+        if (
+            fixture_format.is_variant("inclusion_list")
+            and "inclusion_test" not in marker_names
+        ):
+            return True
         return False
 
     def model_post_init(self, __context: Any, /) -> None:
