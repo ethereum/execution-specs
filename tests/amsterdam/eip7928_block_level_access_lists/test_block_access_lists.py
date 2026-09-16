@@ -4608,6 +4608,274 @@ def test_bal_intra_tx_sstores_same_slot_net_zero(
     )
 
 
+@pytest.mark.parametrize(
+    "noop_slot, changed_slot",
+    [
+        pytest.param(1, 2, id="noop_slot_below"),
+        pytest.param(2, 1, id="noop_slot_above"),
+    ],
+)
+@pytest.mark.parametrize(
+    "write_route",
+    [
+        pytest.param("sibling_delegatecalls", id="sibling_delegatecalls"),
+        pytest.param(
+            "delegatecall_then_caller", id="delegatecall_then_caller"
+        ),
+    ],
+)
+def test_bal_noop_write_next_to_change(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    write_route: str,
+    noop_slot: int,
+    changed_slot: int,
+) -> None:
+    """
+    A slot created and cleared again within one transaction is a no-op
+    write and stays a read, even when the same account then takes a
+    real change to another slot.
+    """
+    alice = pre.fund_eoa()
+    changed_value = 0xAA
+
+    if write_route == "sibling_delegatecalls":
+        setter = pre.deploy_contract(code=Op.SSTORE(noop_slot, 1))
+        clearer = pre.deploy_contract(code=Op.SSTORE(noop_slot, 0))
+        noop_writes = Op.DELEGATECALL(address=setter) + Op.DELEGATECALL(
+            address=clearer
+        )
+        delegates = [setter, clearer]
+    elif write_route == "delegatecall_then_caller":
+        setter = pre.deploy_contract(code=Op.SSTORE(noop_slot, 1))
+        noop_writes = Op.DELEGATECALL(address=setter) + Op.SSTORE(noop_slot, 0)
+        delegates = [setter]
+    else:
+        raise ValueError(f"unknown write route: {write_route}")
+
+    contract = pre.deploy_contract(
+        code=noop_writes + Op.SSTORE(changed_slot, changed_value)
+    )
+    tx = Transaction(sender=alice, to=contract)
+
+    account_expectations = {
+        alice: BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)]
+        ),
+        contract: BalAccountExpectation(
+            storage_reads=[noop_slot],
+            storage_changes=[
+                BalStorageSlot(
+                    slot=changed_slot,
+                    slot_changes=[
+                        BalStorageChange(
+                            block_access_index=1, post_value=changed_value
+                        )
+                    ],
+                )
+            ],
+        ),
+    }
+    for delegate in delegates:
+        account_expectations[delegate] = BalAccountExpectation.empty()
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations
+        ),
+        post={
+            alice: Account(nonce=1),
+            contract: Account(
+                storage={noop_slot: 0, changed_slot: changed_value}
+            ),
+        },
+    )
+
+
+def test_bal_noop_write_then_change_in_next_tx(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    A slot whose writes are a no-op in one transaction and a change in
+    the next is listed as a change only. Reads are per block, so the
+    first transaction's read must not survive next to the change.
+    """
+    alice = pre.fund_eoa()
+    slot = 1
+    final_value = 0xBB
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(slot, Op.CALLDATALOAD(0))
+        + Op.SSTORE(slot, Op.CALLDATALOAD(32))
+    )
+    round_trip = Transaction(
+        sender=alice, to=contract, data=Hash(0xAA) + Hash(0)
+    )
+    change = Transaction(
+        sender=alice, to=contract, data=Hash(0xAA) + Hash(final_value)
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[round_trip, change],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                ),
+                                BalNonceChange(
+                                    block_access_index=2, post_nonce=2
+                                ),
+                            ]
+                        ),
+                        contract: BalAccountExpectation(
+                            storage_reads=[],
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=slot,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=2,
+                                            post_value=final_value,
+                                        )
+                                    ],
+                                )
+                            ],
+                            absent_values=BalAccountAbsentValues(
+                                storage_changes=[
+                                    BalStorageSlot(
+                                        slot=slot,
+                                        slot_changes=[
+                                            BalStorageChange(
+                                                block_access_index=1,
+                                                post_value=0,
+                                            )
+                                        ],
+                                    )
+                                ]
+                            ),
+                        ),
+                    }
+                ),
+            )
+        ],
+        post={
+            alice: Account(nonce=2),
+            contract: Account(storage={slot: final_value}),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "noop_slot_read_first",
+    [
+        pytest.param(False, id="noop_slot_not_read"),
+        pytest.param(True, id="noop_slot_read_first"),
+    ],
+)
+def test_bal_noop_write_sorted_among_reads(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    noop_slot_read_first: bool,
+) -> None:
+    """
+    A slot demoted to a read by a no-op write takes its numeric place
+    among the slots read with SLOAD, and appears once even when it
+    was also read.
+    """
+    alice = pre.fund_eoa()
+    read_slots = [1, 3]
+    noop_slot = 2
+    code = Op.SLOAD(read_slots[0]) + Op.SLOAD(read_slots[1])
+    if noop_slot_read_first:
+        code += Op.SLOAD(noop_slot)
+    code += Op.SSTORE(noop_slot, 1) + Op.SSTORE(noop_slot, 0)
+    contract = pre.deploy_contract(code=code)
+    tx = Transaction(sender=alice, to=contract)
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ]
+                ),
+                contract: BalAccountExpectation(
+                    storage_reads=sorted([*read_slots, noop_slot]),
+                    storage_changes=[],
+                ),
+            }
+        ),
+        post={
+            alice: Account(nonce=1),
+            contract: Account(storage={noop_slot: 0}),
+        },
+    )
+
+
+def test_bal_created_account_noop_write(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Init code that sets and clears a slot leaves the new account with
+    that slot in `storage_reads` next to its nonce and code changes,
+    although the account did not exist before the transaction.
+    """
+    alice = pre.fund_eoa()
+    slot = 1
+    deploy_code = Op.STOP
+    created = compute_create_address(address=alice, nonce=0)
+    tx = Transaction(
+        sender=alice,
+        to=None,
+        data=Initcode(
+            deploy_code=deploy_code,
+            initcode_prefix=Op.SSTORE(slot, 1) + Op.SSTORE(slot, 0),
+        ),
+    )
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ]
+                ),
+                created: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1, new_code=bytes(deploy_code)
+                        )
+                    ],
+                    balance_changes=[],
+                    storage_reads=[slot],
+                    storage_changes=[],
+                ),
+            }
+        ),
+        post={
+            alice: Account(nonce=1),
+            created: Account(nonce=1, code=deploy_code, storage={slot: 0}),
+        },
+    )
+
+
 def test_bal_blob_fee_leaves_sender_only(
     pre: Alloc,
     state_test: StateTestFiller,
