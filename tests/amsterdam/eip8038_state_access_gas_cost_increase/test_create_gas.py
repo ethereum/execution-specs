@@ -371,6 +371,7 @@ class TestCreateTxGasBoundary:
         )
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.with_all_create_opcodes()
 @pytest.mark.parametrize(
     "abort_mode",
@@ -452,6 +453,7 @@ def test_aborted_create_does_not_warm_address(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.pre_alloc_mutable
 def test_create2_to_occupied_address(
     state_test: StateTestFiller,
