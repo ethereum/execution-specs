@@ -1008,3 +1008,113 @@ def test_call_value_stipend_is_usable(
     # 1 when the stipend funded the callee's work, 0 when it ran out.
     post = {caller: Account(storage={0: 1 if value else 0})}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
+@pytest.mark.parametrize(
+    "first_call_fails", [True, False], ids=["child_fails", "child_succeeds"]
+)
+def test_failed_call_refills_creation_state_gas(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    fork: Fork,
+    first_call_fails: bool,
+) -> None:
+    """
+    A value ``CALL`` whose child frame errors refills the
+    account-creation state gas it charged.
+
+    ``CALL`` charges the account-creation state gas itself, before the
+    child runs, whenever it moves value to an account that is not alive.
+    It then resolves that charge by the state's fate: a child that errors
+    rolls the transfer back, leaving no account created, and the charge
+    is credited straight back to the calling frame. This is the
+    ``CALL``-family twin of
+    ``test_create_gas.py::test_failed_initcode_refills_creation_state_gas``.
+
+    Reaching the failing arm needs a target that is *not alive* yet can
+    still fail. An ordinary empty account cannot: having no code, its
+    child frame halts immediately. A precompile can, being
+    EIP-161-empty until the transfer lands while still running code that
+    can run out of gas. ``ECRECOVER`` is the one whose cost exceeds the
+    value-transfer stipend, so forwarding nothing starves it; every
+    cheaper precompile would run to completion on the stipend alone.
+
+    The factory is given a reservoir sized for exactly *one* creation and
+    makes two value calls, the second wrapped in ``CodeGasMeasure``
+    against a fresh account. When the first call's child fails, its
+    charge is credited back and the second call draws the reservoir, so
+    the measured *execution* cost is the opcode's own. When the first
+    call succeeds, the reservoir is gone and the second call spills the
+    account-creation gas into ``gas_left``, so the measured cost is the
+    opcode's full two-dimensional ``gas_cost``. The two arms differ by
+    exactly the charge under test.
+    """
+    ecrecover = Address(1)
+
+    # Forward nothing and the stipend alone must leave ECRECOVER short;
+    # forward its cost and the call completes. Both derived, so a
+    # repricing of either moves with the fork.
+    ecrecover_cost = fork.gas_costs().PRECOMPILE_ECRECOVER
+    assert fork.call_value_stipend() < ecrecover_cost, (
+        "ECRECOVER is no longer starved by the stipend alone; pick a "
+        "precompile whose cost still exceeds it"
+    )
+    forwarded = 0 if first_call_fails else ecrecover_cost
+
+    # The measured second call: cold target, value-bearing, creating the
+    # account. Its state component is the charge under test.
+    measured_bare = Op.CALL(
+        address_warm=False, value_transfer=True, account_new=True
+    )
+    fresh_target = pre.fund_eoa(amount=0)
+    measured_call = Op.CALL(gas=0, address=fresh_target, value=1)
+
+    # The fresh recipient is codeless, so it executes nothing and hands
+    # the forwarded value-call stipend straight back; the measured
+    # consumption is the charged cost less that stipend, as in
+    # `test_call_value_alive_target_gas`.
+    expected_measured = (
+        measured_bare.execution_cost(fork)
+        if first_call_fails
+        else measured_bare.gas_cost(fork)
+    ) - fork.call_value_stipend()
+
+    # The measured window's only overhead is the seven operand pushes;
+    # a metadata-free `Op.CALL` carries no value-transfer or
+    # account-creation component to subtract.
+    arg_pushes = 7 * Op.PUSH1(0).execution_cost(fork)
+
+    storage = Storage()
+    factory_code = Op.POP(
+        Op.CALL(gas=forwarded, address=ecrecover, value=1)
+    ) + CodeGasMeasure(
+        code=measured_call,
+        overhead_cost=arg_pushes,
+        extra_stack_items=1,
+        sstore_key=storage.store_next(
+            expected_measured, "second_call_execution_gas"
+        ),
+    )
+    factory = pre.deploy_contract(code=factory_code, balance=2)
+
+    tx = Transaction(
+        to=factory,
+        sender=pre.fund_eoa(),
+        state_gas_reservoir=measured_bare.state_cost(fork),
+    )
+
+    # A starved precompile rolls its transfer back, so the precompile
+    # address stays empty and is pruned; a funded one keeps the wei. The
+    # second call lands either way -- in the spilling arm because
+    # execution gas covers the charge -- which is what makes the measured
+    # value, not the post-state, the discriminator.
+    post = {
+        factory: Account(storage=storage),
+        fresh_target: Account(balance=1),
+        ecrecover: Account.NONEXISTENT
+        if first_call_fails
+        else Account(balance=1),
+    }
+    state_test(env=env, pre=pre, post=post, tx=tx)
