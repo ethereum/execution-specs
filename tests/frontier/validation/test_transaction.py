@@ -33,6 +33,7 @@ def test_tx_gas_limit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     env: Environment,
+    fork: BaseFork,
 ) -> None:
     """
     Tests that if a tx gas limit is higher than the block gas limit,
@@ -41,8 +42,18 @@ def test_tx_gas_limit(
     sender = pre.fund_eoa()
     to = pre.fund_eoa()
 
+    # The gas allowance must be the block's only defect, so the block gas
+    # limit has to cover both the intrinsic gas of the transaction and, from
+    # EIP-7928, the block access list of an empty block, which
+    # `minimum_block_gas_limit` accounts for. Below that, clients reject the
+    # block on the gas limit or the access list instead.
+    block_gas_limit = max(
+        fork.minimum_block_gas_limit(),
+        fork.transaction_intrinsic_cost_calculator()(),
+    )
+
     tx = Transaction(
-        gas_limit=21001,
+        gas_limit=block_gas_limit + 1,
         to=to,
         gas_price=0x10,  # Must be >= base fee to isolate gas limit validation
         sender=sender,
@@ -50,12 +61,11 @@ def test_tx_gas_limit(
         error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 
-    modified_fields = {"gas_limit": ZeroPaddedHexNumber(21000)}
-    env.gas_limit = ZeroPaddedHexNumber(21000)
+    env.gas_limit = ZeroPaddedHexNumber(block_gas_limit)
 
     block = Block(
         txs=[tx],
-        rlp_modifier=Header(**modified_fields),
+        rlp_modifier=Header(gas_limit=ZeroPaddedHexNumber(block_gas_limit)),
         exception=TransactionException.GAS_ALLOWANCE_EXCEEDED,
     )
 
