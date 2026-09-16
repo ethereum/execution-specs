@@ -14,6 +14,13 @@ Client depth knobs (as run in hive wrappers): geth ``--engine.maxreorgdepth``
 ``Reorganization.MaxDepth`` (64), besu ``--bonsai-historical-block-limit``
 (512 trie logs), reth: none. ``HIVE_ENGINE_MAX_REORG_DEPTH`` is honoured by
 the geth and erigon wrappers.
+
+These are capability measurements as much as conformance tests: how deep a
+side chain a client can still execute is not fixed by the specification, and
+a client that answers ``-38006`` is behaving correctly. A depth that no
+client can serve is therefore reported per client rather than treated as a
+single expected answer, and the per-step ``Outcomes`` list in the consumer
+log is what the capability table for EIP-8252 is derived from.
 """
 
 from typing import List
@@ -166,6 +173,19 @@ def test_side_chain_reorg_depth_tuned(
     Tuned: the client is started with ``HIVE_ENGINE_MAX_REORG_DEPTH`` above
     the reorg depth, so the reorg must be applied. Clients without such a
     knob run their defaults here (reth: unlimited; nethermind: 64; besu 512).
+
+    The depth-256 case is a capability probe rather than a conformance
+    assertion, and go-ethereum does not currently serve it: raising the
+    Engine API depth cap does not help, because ``newPayload`` for a side
+    block whose parent state has fallen out of the in-memory trie layers
+    (128 of them, `state.scheme=path`) is answered ``ACCEPTED`` without the
+    block being executed, so the next block in that side chain has an
+    unknown parent and is answered ``SYNCING``. Archive mode makes no
+    difference, since the layer window and not history retention is the
+    limit. Depth 128 passes. Rather than dropping the case and losing the
+    signal, the result is reported: the effective ceiling for a side chain
+    delivered by ``newPayload`` alone is a client property that EIP-8252
+    needs to know.
     """
     blocks, steps = two_branches(pre, depth)
     steps += matrix_steps(depth, applied_only=True)
@@ -174,5 +194,16 @@ def test_side_chain_reorg_depth_tuned(
         blocks=blocks,
         steps=steps,
         requires={"HIVE_ENGINE_MAX_REORG_DEPTH": str(depth + 8)},
-        meta={"class": "deep", "reorgDepth": depth, "variant": "tuned"},
+        meta={
+            "class": "deep",
+            "reorgDepth": depth,
+            "variant": "tuned",
+            # Beyond the in-memory trie window no client is required to serve
+            # the reorg; the result is a capability measurement.
+            **(
+                {"capabilityProbe": "beyond the in-memory trie window"}
+                if depth > 128
+                else {}
+            ),
+        },
     )
